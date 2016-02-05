@@ -1,7 +1,6 @@
 /**
  * Pre Compiled Header
  */
-#pragma once
 
 // wxWidgets
 #include <wx/wx.h>

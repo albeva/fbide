@@ -3,6 +3,8 @@
  */
 #pragma once
 
+namespace fbide {
+
 /**
  * Disallow copying this class
  */
@@ -16,3 +18,5 @@ private:
     NonCopyable(const NonCopyable &) = delete;
     NonCopyable & operator = (const NonCopyable &) = delete;
 };
+    
+}

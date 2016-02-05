@@ -4,6 +4,8 @@
 #include "app_pch.h"
 #include "Manager.h"
 
+using namespace fbide;
+
 /**
  * App is the basic entry point into FBIde
  */
@@ -16,8 +18,7 @@ public:
      */
 	bool OnInit() override
 	{
-		auto frame = new wxFrame(nullptr, wxID_ANY, "fbide");
-		frame->Show();
+        GetMgr().Load();
 		return true;
 	}
     
