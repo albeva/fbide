@@ -1,13 +1,30 @@
 /**
- * Manager is SDK access point
+ * FBIde project
  */
-
 #pragma once
 
-class Manager
+#include "app_pch.cpp"
+
+
+/**
+ * Manager is gateway to the SDK.
+ *
+ * It provides connecting point for various
+ * other services (managers)
+ */
+class Manager : private NonCopyable
 {
 public:
-	Manager();
-	~Manager();
-};
+    
+    // Get manager instance
+    static Manager & Get();
+    
+    // clean up
+    static void Release();
+    
+private:
+    
+    Manager();
+    ~Manager();
 
+};

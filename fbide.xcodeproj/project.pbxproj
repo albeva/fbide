@@ -1,0 +1,354 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		360084271C65504C00FDCFAB /* base.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 360084251C65504C00FDCFAB /* base.xcconfig */; };
+		360084281C65504C00FDCFAB /* wx.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 360084261C65504C00FDCFAB /* wx.xcconfig */; };
+		362D82231C6543E800DF7DA1 /* App.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 362D821F1C6543E800DF7DA1 /* App.cpp */; };
+		362D82241C6543E800DF7DA1 /* Manager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 362D82201C6543E800DF7DA1 /* Manager.cpp */; };
+		362D82271C65449E00DF7DA1 /* fbide-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 362D82261C65449E00DF7DA1 /* fbide-Info.plist */; };
+		36C487D217E0FCD400906651 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36C487D117E0FCD400906651 /* Cocoa.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		360084251C65504C00FDCFAB /* base.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = SOURCE_ROOT; };
+		360084261C65504C00FDCFAB /* wx.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = wx.xcconfig; sourceTree = SOURCE_ROOT; };
+		362D821E1C6543E800DF7DA1 /* app_pch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = app_pch.h; path = app/app_pch.h; sourceTree = SOURCE_ROOT; };
+		362D821F1C6543E800DF7DA1 /* App.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = App.cpp; path = app/App.cpp; sourceTree = SOURCE_ROOT; };
+		362D82201C6543E800DF7DA1 /* Manager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Manager.cpp; path = app/Manager.cpp; sourceTree = SOURCE_ROOT; };
+		362D82211C6543E800DF7DA1 /* Manager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Manager.h; path = app/Manager.h; sourceTree = SOURCE_ROOT; };
+		362D82221C6543E800DF7DA1 /* Utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Utils.h; path = app/Utils.h; sourceTree = SOURCE_ROOT; };
+		362D82261C65449E00DF7DA1 /* fbide-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "fbide-Info.plist"; sourceTree = SOURCE_ROOT; };
+		36C487CE17E0FCD400906651 /* fbide.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = fbide.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		36C487D117E0FCD400906651 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		36C487D417E0FCD400906651 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		36C487D517E0FCD400906651 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
+		36C487D617E0FCD400906651 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		36C487CB17E0FCD400906651 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				36C487D217E0FCD400906651 /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		361E0DF21C654E8B005CFF07 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = UI;
+			sourceTree = "<group>";
+		};
+		361E0DF31C654E91005CFF07 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Config;
+			sourceTree = "<group>";
+		};
+		362D82251C6543EF00DF7DA1 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				361E0DF31C654E91005CFF07 /* Config */,
+				361E0DF21C654E8B005CFF07 /* UI */,
+				362D821E1C6543E800DF7DA1 /* app_pch.h */,
+				362D821F1C6543E800DF7DA1 /* App.cpp */,
+				362D82211C6543E800DF7DA1 /* Manager.h */,
+				362D82201C6543E800DF7DA1 /* Manager.cpp */,
+				362D82221C6543E800DF7DA1 /* Utils.h */,
+			);
+			name = App;
+			path = fbide;
+			sourceTree = "<group>";
+		};
+		36C487C517E0FCD400906651 = {
+			isa = PBXGroup;
+			children = (
+				362D82251C6543EF00DF7DA1 /* App */,
+				36C487D817E0FCD400906651 /* Supporting Files */,
+				36C487D017E0FCD400906651 /* Frameworks */,
+				36C487CF17E0FCD400906651 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		36C487CF17E0FCD400906651 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				36C487CE17E0FCD400906651 /* fbide.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		36C487D017E0FCD400906651 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				36C487D117E0FCD400906651 /* Cocoa.framework */,
+				36C487D317E0FCD400906651 /* Other Frameworks */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		36C487D317E0FCD400906651 /* Other Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				36C487D417E0FCD400906651 /* AppKit.framework */,
+				36C487D517E0FCD400906651 /* CoreData.framework */,
+				36C487D617E0FCD400906651 /* Foundation.framework */,
+			);
+			name = "Other Frameworks";
+			sourceTree = "<group>";
+		};
+		36C487D817E0FCD400906651 /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				360084251C65504C00FDCFAB /* base.xcconfig */,
+				360084261C65504C00FDCFAB /* wx.xcconfig */,
+				362D82261C65449E00DF7DA1 /* fbide-Info.plist */,
+			);
+			name = "Supporting Files";
+			path = fbide;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		36C487CD17E0FCD400906651 /* fbide */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 36C487FF17E0FCD400906651 /* Build configuration list for PBXNativeTarget "fbide" */;
+			buildPhases = (
+				36C4880717E0FE4A00906651 /* ShellScript */,
+				36C487CA17E0FCD400906651 /* Sources */,
+				36C487CB17E0FCD400906651 /* Frameworks */,
+				36C487CC17E0FCD400906651 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = fbide;
+			productName = fbide;
+			productReference = 36C487CE17E0FCD400906651 /* fbide.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		36C487C617E0FCD400906651 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				CLASSPREFIX = FB;
+				LastUpgradeCheck = 0510;
+				ORGANIZATIONNAME = "Albert Varaksin";
+			};
+			buildConfigurationList = 36C487C917E0FCD400906651 /* Build configuration list for PBXProject "fbide" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 36C487C517E0FCD400906651;
+			productRefGroup = 36C487CF17E0FCD400906651 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				36C487CD17E0FCD400906651 /* fbide */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		36C487CC17E0FCD400906651 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				362D82271C65449E00DF7DA1 /* fbide-Info.plist in Resources */,
+				360084271C65504C00FDCFAB /* base.xcconfig in Resources */,
+				360084281C65504C00FDCFAB /* wx.xcconfig in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		36C4880717E0FE4A00906651 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# c flags\nWX_CFLAGS=`/usr/local/bin/wx-config --debug=yes --cxxflags`\n# ld flags\nWX_LDFLAGS=`/usr/local/bin/wx-config --debug=yes --libs base core stc`\n\n# Generate the xcode config file\nWX_XCCONFIG=\"wx.xcconfig\"\necho \"// Configure wxWidgets. Auto Generated\" > $WX_XCCONFIG\necho \"WX_CFLAGS = $WX_CFLAGS\" >> $WX_XCCONFIG\necho \"WX_LDFLAGS = $WX_LDFLAGS\" >> $WX_XCCONFIG";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		36C487CA17E0FCD400906651 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				362D82231C6543E800DF7DA1 /* App.cpp in Sources */,
+				362D82241C6543E800DF7DA1 /* Manager.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		36C487FD17E0FCD400906651 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		36C487FE17E0FCD400906651 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		36C4880017E0FCD400906651 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 360084251C65504C00FDCFAB /* base.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = app/app_pch.h;
+				INFOPLIST_FILE = "./fbide-Info.plist";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(OTHER_CFLAGS)",
+					"$(WX_CFLAGS)",
+					"$(FBIDE_CXXFLAGS)",
+				);
+				OTHER_LDFLAGS = (
+					"$(WX_LDFLAGS)",
+					"$(FBIDE_LDFLAGS)",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Debug;
+		};
+		36C4880117E0FCD400906651 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 360084251C65504C00FDCFAB /* base.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_OPTIMIZATION_LEVEL = fast;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = app/app_pch.h;
+				INFOPLIST_FILE = "./fbide-Info.plist";
+				LLVM_LTO = YES;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(OTHER_CFLAGS)",
+					"$(WX_CFLAGS)",
+					"$(FBIDE_CXXFLAGS)",
+				);
+				OTHER_LDFLAGS = (
+					"$(WX_LDFLAGS)",
+					"$(FBIDE_LDFLAGS)",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		36C487C917E0FCD400906651 /* Build configuration list for PBXProject "fbide" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				36C487FD17E0FCD400906651 /* Debug */,
+				36C487FE17E0FCD400906651 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		36C487FF17E0FCD400906651 /* Build configuration list for PBXNativeTarget "fbide" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				36C4880017E0FCD400906651 /* Debug */,
+				36C4880117E0FCD400906651 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 36C487C617E0FCD400906651 /* Project object */;
+}

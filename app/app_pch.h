@@ -1,3 +1,8 @@
+/**
+ * Pre Compiled Header
+ */
+#pragma once
+
 // wxWidgets
 #include <wx/wx.h>
 #include <wx/stc/stc.h>
@@ -5,3 +10,6 @@
 
 // std
 #include <string>
+
+// fbide
+#include "Utils.h"
