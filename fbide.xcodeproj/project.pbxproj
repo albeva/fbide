@@ -12,23 +12,26 @@
 		36458AEC1C655C87005DC0FD /* MainWindow.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36458AEA1C655C87005DC0FD /* MainWindow.cpp */; };
 		36458AEF1C655CAB005DC0FD /* UiManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36458AED1C655CAB005DC0FD /* UiManager.cpp */; };
 		36458AF31C655ED0005DC0FD /* managers.md in Sources */ = {isa = PBXBuildFile; fileRef = 36458AF21C655ED0005DC0FD /* managers.md */; };
+		36C10E371C656B95008FE622 /* base.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 36C10E341C656B95008FE622 /* base.xcconfig */; };
+		36C10E381C656B95008FE622 /* fbide-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 36C10E351C656B95008FE622 /* fbide-Info.plist */; };
+		36C10E391C656B95008FE622 /* wx.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 36C10E361C656B95008FE622 /* wx.xcconfig */; };
 		36C487D217E0FCD400906651 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36C487D117E0FCD400906651 /* Cocoa.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		360084251C65504C00FDCFAB /* base.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = SOURCE_ROOT; };
-		360084261C65504C00FDCFAB /* wx.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = wx.xcconfig; sourceTree = SOURCE_ROOT; };
 		362D821E1C6543E800DF7DA1 /* app_pch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = app_pch.h; path = app/app_pch.h; sourceTree = SOURCE_ROOT; };
 		362D821F1C6543E800DF7DA1 /* App.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = App.cpp; path = app/App.cpp; sourceTree = SOURCE_ROOT; };
 		362D82201C6543E800DF7DA1 /* Manager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Manager.cpp; path = app/Manager.cpp; sourceTree = SOURCE_ROOT; };
 		362D82211C6543E800DF7DA1 /* Manager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Manager.h; path = app/Manager.h; sourceTree = SOURCE_ROOT; };
 		362D82221C6543E800DF7DA1 /* Utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Utils.h; path = app/Utils.h; sourceTree = SOURCE_ROOT; };
-		362D82261C65449E00DF7DA1 /* fbide-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "fbide-Info.plist"; sourceTree = SOURCE_ROOT; };
 		36458AEA1C655C87005DC0FD /* MainWindow.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = MainWindow.cpp; path = app/MainWindow.cpp; sourceTree = SOURCE_ROOT; };
 		36458AEB1C655C87005DC0FD /* MainWindow.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = MainWindow.hpp; path = app/MainWindow.hpp; sourceTree = SOURCE_ROOT; };
 		36458AED1C655CAB005DC0FD /* UiManager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = UiManager.cpp; path = app/UiManager.cpp; sourceTree = SOURCE_ROOT; };
 		36458AEE1C655CAB005DC0FD /* UiManager.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = UiManager.hpp; path = app/UiManager.hpp; sourceTree = SOURCE_ROOT; };
 		36458AF21C655ED0005DC0FD /* managers.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; name = managers.md; path = docs/managers.md; sourceTree = SOURCE_ROOT; };
+		36C10E341C656B95008FE622 /* base.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = base.xcconfig; path = xcode/base.xcconfig; sourceTree = SOURCE_ROOT; };
+		36C10E351C656B95008FE622 /* fbide-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "fbide-Info.plist"; path = "xcode/fbide-Info.plist"; sourceTree = SOURCE_ROOT; };
+		36C10E361C656B95008FE622 /* wx.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = wx.xcconfig; path = xcode/wx.xcconfig; sourceTree = SOURCE_ROOT; };
 		36C487CE17E0FCD400906651 /* fbide.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = fbide.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		36C487D117E0FCD400906651 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		36C487D417E0FCD400906651 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
@@ -130,9 +133,9 @@
 		36C487D817E0FCD400906651 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
-				360084251C65504C00FDCFAB /* base.xcconfig */,
-				360084261C65504C00FDCFAB /* wx.xcconfig */,
-				362D82261C65449E00DF7DA1 /* fbide-Info.plist */,
+				36C10E341C656B95008FE622 /* base.xcconfig */,
+				36C10E351C656B95008FE622 /* fbide-Info.plist */,
+				36C10E361C656B95008FE622 /* wx.xcconfig */,
 			);
 			name = "Supporting Files";
 			path = fbide;
@@ -192,6 +195,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				36C10E371C656B95008FE622 /* base.xcconfig in Resources */,
+				36C10E381C656B95008FE622 /* fbide-Info.plist in Resources */,
+				36C10E391C656B95008FE622 /* wx.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -300,13 +306,13 @@
 		};
 		36C4880017E0FCD400906651 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 360084251C65504C00FDCFAB /* base.xcconfig */;
+			baseConfigurationReference = 36C10E341C656B95008FE622 /* base.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = app/app_pch.h;
-				INFOPLIST_FILE = "./fbide-Info.plist";
+				INFOPLIST_FILE = "./xcode/fbide-Info.plist";
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"$(WX_CFLAGS)",
@@ -324,14 +330,14 @@
 		};
 		36C4880117E0FCD400906651 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 360084251C65504C00FDCFAB /* base.xcconfig */;
+			baseConfigurationReference = 36C10E341C656B95008FE622 /* base.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_OPTIMIZATION_LEVEL = fast;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = app/app_pch.h;
-				INFOPLIST_FILE = "./fbide-Info.plist";
+				INFOPLIST_FILE = "./xcode/fbide-Info.plist";
 				LLVM_LTO = YES;
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
