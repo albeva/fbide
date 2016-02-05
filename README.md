@@ -1,0 +1,2 @@
+# fbide
+IDE for FreeBASIC
