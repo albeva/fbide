@@ -35,9 +35,6 @@
     <ClCompile Include="src\UiManager.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="src\app.vcxproj.user" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="src\app_pch.h" />
     <ClInclude Include="src\MainWindow.hpp" />
     <ClInclude Include="src\Manager.h" />
