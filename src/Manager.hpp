@@ -8,6 +8,7 @@ namespace fbide {
     class ManagerBase;
     class Manager;
     class UiManager;
+    class ConfigManager;
     
     /**
      * Get manager instance.
@@ -22,6 +23,13 @@ namespace fbide {
      * This is shorthand for Manager::GetInstance().GetUiManager()
      */
     UiManager & GetUiMgr();
+    
+    /**
+     * Get configuration manager
+     *
+     * This is shorthand for Manager::GetInstance().GetConfigManager()
+     */
+    ConfigManager & GetCfgMgr();
     
 
     /**
@@ -41,13 +49,16 @@ namespace fbide {
         // clean up
         static void Release();
         
-        // Load everything
-        void Load();
-        
         // Get UI manager
-        UiManager & GetUiManager() const;
+        UiManager & GetUiManager();
+        
+        // Get config manager
+        ConfigManager & GetConfigManager();
         
     private:
+        
+        UiManager     * m_ui;
+        ConfigManager * m_cfg;
         
         Manager();
         ~Manager();
@@ -55,24 +66,8 @@ namespace fbide {
     
     
     // macro to declare a manager class in the header
-    #define DECLARE_MANAGER(_class) \
+    #define DECLARE_MANAGER() \
         private : \
-            friend class Manager; \
-            static _class & GetInstance (); \
-            static void Release ();
-        
-        // Macro to implement Manager class logic in the source
-    #define IMPLEMENT_MANAGER(_class) \
-        namespace { _class * _p_manager_##_class = nullptr; } \
-        _class & _class::GetInstance() { \
-            if ( _p_manager_##_class == nullptr ) {\
-                _p_manager_##_class = new _class(); \
-            } \
-            return *_p_manager_##_class; \
-        } \
-        void _class::Release () { \
-            if (_p_manager_##_class == nullptr ) return; \
-            delete _p_manager_##_class; \
-            _p_manager_##_class = nullptr; \
-        }
+            friend class ::fbide::Manager;
+    
 }

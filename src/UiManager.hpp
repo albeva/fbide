@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "Manager.h"
+#include "Manager.hpp"
 
 namespace fbide {
     
@@ -18,7 +18,7 @@ namespace fbide {
      * Manage fbide UI.
      * app frame, menus, toolbars and panels
      */
-    class UiManager : NonCopyable
+    class UiManager : NonCopyable, wxEvtHandler
     {
     public:
         
@@ -28,13 +28,17 @@ namespace fbide {
         /**
          * Get main window
          */
-        inline MainWindow * GetWindow() const { return m_window; }
+        inline MainWindow * GetWindow() { return m_window; }
+        
         
     private:
         
+        void OnClose(wxCloseEvent & event);
+        
         MainWindow * m_window;
         
-        DECLARE_MANAGER(UiManager)
+        wxDECLARE_EVENT_TABLE();
+        DECLARE_MANAGER();
     };
     
 }

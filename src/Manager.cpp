@@ -1,9 +1,11 @@
 /**
  * FBIde project
  */
-#include "app_pch.h"
-#include "Manager.h"
+#include "app_pch.hpp"
+
+#include "Manager.hpp"
 #include "UiManager.hpp"
+#include "ConfigManager.hpp"
 
 using namespace fbide;
 
@@ -14,10 +16,16 @@ Manager & fbide::GetMgr()
     return Manager::GetInstance();
 }
 
-
+// shorthand to retreave ui manager
 UiManager & fbide::GetUiMgr()
 {
     return GetMgr().GetUiManager();
+}
+
+// shorthand to retreave ui manager
+ConfigManager & fbide::GetCfgMgr()
+{
+    return GetMgr().GetConfigManager();
 }
 
 //------------------------------------------------------------------------------
@@ -30,7 +38,7 @@ namespace {
 
 
 // Setup the manager
-Manager::Manager()
+Manager::Manager() : m_cfg(nullptr), m_ui(nullptr)
 {
 }
 
@@ -38,16 +46,11 @@ Manager::Manager()
 // clean up
 Manager::~Manager()
 {
-    UiManager::Release();
+    if (m_cfg) {
+        delete m_cfg;
+        m_cfg = nullptr;
+    }
 }
-
-
-// Load the managers
-void Manager::Load()
-{
-    UiManager::GetInstance();
-}
-
 
 
 /**
@@ -77,10 +80,22 @@ void Manager::Release()
 //------------------------------------------------------------------------------
 // Retreave amanagers
 //------------------------------------------------------------------------------
-UiManager & Manager::GetUiManager() const
+
+// UI
+UiManager & Manager::GetUiManager()
 {
-    return UiManager::GetInstance();
+    if (m_ui == nullptr) {
+        m_ui = new UiManager();
+    }
+    return *m_ui;
 }
 
 
-
+// config
+ConfigManager & Manager::GetConfigManager()
+{
+    if (m_cfg == nullptr) {
+        m_cfg = new ConfigManager();
+    }
+    return *m_cfg;
+}

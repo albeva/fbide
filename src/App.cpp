@@ -1,8 +1,11 @@
 /**
  * FBIde project
  */
-#include "app_pch.h"
-#include "Manager.h"
+#include "app_pch.hpp"
+#include "Manager.hpp"
+#include "UiManager.hpp"
+#include "MainWindow.hpp"
+#include "ConfigManager.hpp"
 
 using namespace fbide;
 
@@ -18,8 +21,23 @@ public:
      */
 	bool OnInit() override
 	{
-        GetMgr().Load();
-		return true;
+        try {
+            // path to the configuration
+            auto & sp = this->GetTraits()->GetStandardPaths();
+            auto path = sp.GetResourcesDir() + "/fbide.yaml";
+            
+            // bootstrap things
+            GetMgr();
+            GetCfgMgr().Load(path);
+            GetUiMgr().GetWindow()->Show();
+            
+            // done
+            return true;
+        } catch (std::exception & e) {
+            std::cout << "Failed to start fbide. Error: " << e.what() << std::endl;
+            Manager::Release();
+            return false;
+        }
 	}
     
     
