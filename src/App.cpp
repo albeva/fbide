@@ -22,9 +22,13 @@ public:
 	bool OnInit() override
 	{
         try {
-            // path to the configuration
+            // path to the configuration.
             auto & sp = this->GetTraits()->GetStandardPaths();
-            auto path = sp.GetResourcesDir() + "/fbide.yaml";
+			#ifdef __WXMSW__
+				auto path = ::wxPathOnly(sp.GetExecutablePath()) + "\\ide\\fbide.yaml";
+			#else
+				auto path = sp.GetResourceDir() + "/fbide.yaml";
+			#endif
             
             // bootstrap things
             GetMgr();
@@ -34,7 +38,7 @@ public:
             // done
             return true;
         } catch (std::exception & e) {
-            std::cout << "Failed to start fbide. Error: " << e.what() << std::endl;
+			wxMessageBox(std::string("Failed to start fbide. Error: ") + e.what(), "Failed to start IDE");
             Manager::Release();
             return false;
         }
