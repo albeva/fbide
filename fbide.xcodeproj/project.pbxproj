@@ -19,15 +19,15 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		362D821E1C6543E800DF7DA1 /* app_pch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = app_pch.h; path = app/app_pch.h; sourceTree = SOURCE_ROOT; };
-		362D821F1C6543E800DF7DA1 /* App.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = App.cpp; path = app/App.cpp; sourceTree = SOURCE_ROOT; };
-		362D82201C6543E800DF7DA1 /* Manager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Manager.cpp; path = app/Manager.cpp; sourceTree = SOURCE_ROOT; };
-		362D82211C6543E800DF7DA1 /* Manager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Manager.h; path = app/Manager.h; sourceTree = SOURCE_ROOT; };
-		362D82221C6543E800DF7DA1 /* Utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Utils.h; path = app/Utils.h; sourceTree = SOURCE_ROOT; };
-		36458AEA1C655C87005DC0FD /* MainWindow.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = MainWindow.cpp; path = app/MainWindow.cpp; sourceTree = SOURCE_ROOT; };
-		36458AEB1C655C87005DC0FD /* MainWindow.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = MainWindow.hpp; path = app/MainWindow.hpp; sourceTree = SOURCE_ROOT; };
-		36458AED1C655CAB005DC0FD /* UiManager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = UiManager.cpp; path = app/UiManager.cpp; sourceTree = SOURCE_ROOT; };
-		36458AEE1C655CAB005DC0FD /* UiManager.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = UiManager.hpp; path = app/UiManager.hpp; sourceTree = SOURCE_ROOT; };
+		362D821E1C6543E800DF7DA1 /* app_pch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = app_pch.h; path = src/app_pch.h; sourceTree = SOURCE_ROOT; };
+		362D821F1C6543E800DF7DA1 /* App.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = App.cpp; path = src/App.cpp; sourceTree = SOURCE_ROOT; };
+		362D82201C6543E800DF7DA1 /* Manager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Manager.cpp; path = src/Manager.cpp; sourceTree = SOURCE_ROOT; };
+		362D82211C6543E800DF7DA1 /* Manager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Manager.h; path = src/Manager.h; sourceTree = SOURCE_ROOT; };
+		362D82221C6543E800DF7DA1 /* Utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Utils.h; path = src/Utils.h; sourceTree = SOURCE_ROOT; };
+		36458AEA1C655C87005DC0FD /* MainWindow.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = MainWindow.cpp; path = src/MainWindow.cpp; sourceTree = SOURCE_ROOT; };
+		36458AEB1C655C87005DC0FD /* MainWindow.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = MainWindow.hpp; path = src/MainWindow.hpp; sourceTree = SOURCE_ROOT; };
+		36458AED1C655CAB005DC0FD /* UiManager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = UiManager.cpp; path = src/UiManager.cpp; sourceTree = SOURCE_ROOT; };
+		36458AEE1C655CAB005DC0FD /* UiManager.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = UiManager.hpp; path = src/UiManager.hpp; sourceTree = SOURCE_ROOT; };
 		36458AF21C655ED0005DC0FD /* managers.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; name = managers.md; path = docs/managers.md; sourceTree = SOURCE_ROOT; };
 		36C10E341C656B95008FE622 /* base.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = base.xcconfig; path = xcode/base.xcconfig; sourceTree = SOURCE_ROOT; };
 		36C10E351C656B95008FE622 /* fbide-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "fbide-Info.plist"; path = "xcode/fbide-Info.plist"; sourceTree = SOURCE_ROOT; };
@@ -311,7 +311,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = app/app_pch.h;
+				GCC_PREFIX_HEADER = src/app_pch.h;
 				INFOPLIST_FILE = "./xcode/fbide-Info.plist";
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
@@ -336,7 +336,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_OPTIMIZATION_LEVEL = fast;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREFIX_HEADER = app/app_pch.h;
+				GCC_PREFIX_HEADER = src/app_pch.h;
 				INFOPLIST_FILE = "./xcode/fbide-Info.plist";
 				LLVM_LTO = YES;
 				OTHER_CPLUSPLUSFLAGS = (

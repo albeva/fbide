@@ -19,8 +19,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="app\App.cpp" />
-    <ClCompile Include="app\app_pch.cpp">
+    <ClCompile Include="src\App.cpp" />
+    <ClCompile Include="src\app_pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">app_pch.h</PrecompiledHeaderFile>
@@ -30,19 +30,19 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="app\MainWindow.cpp" />
-    <ClCompile Include="app\Manager.cpp" />
-    <ClCompile Include="app\UiManager.cpp" />
+    <ClCompile Include="src\MainWindow.cpp" />
+    <ClCompile Include="src\Manager.cpp" />
+    <ClCompile Include="src\UiManager.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="app\app.vcxproj.user" />
+    <None Include="src\app.vcxproj.user" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="app\app_pch.h" />
-    <ClInclude Include="app\MainWindow.hpp" />
-    <ClInclude Include="app\Manager.h" />
-    <ClInclude Include="app\UiManager.hpp" />
-    <ClInclude Include="app\Utils.h" />
+    <ClInclude Include="src\app_pch.h" />
+    <ClInclude Include="src\MainWindow.hpp" />
+    <ClInclude Include="src\Manager.h" />
+    <ClInclude Include="src\UiManager.hpp" />
+    <ClInclude Include="src\Utils.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{07582F17-80F8-4817-9F82-B97E6F49A514}</ProjectGuid>
