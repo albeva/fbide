@@ -12,8 +12,8 @@
 		36458AEC1C655C87005DC0FD /* MainWindow.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36458AEA1C655C87005DC0FD /* MainWindow.cpp */; };
 		36458AEF1C655CAB005DC0FD /* UiManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36458AED1C655CAB005DC0FD /* UiManager.cpp */; };
 		36458AF31C655ED0005DC0FD /* managers.md in Sources */ = {isa = PBXBuildFile; fileRef = 36458AF21C655ED0005DC0FD /* managers.md */; };
+		3670D2411C6666DE00673322 /* ide in Resources */ = {isa = PBXBuildFile; fileRef = 3670D2401C6666DE00673322 /* ide */; };
 		36C10E3C1C662E54008FE622 /* ConfigManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36C10E3A1C662E54008FE622 /* ConfigManager.cpp */; };
-		36C10E3F1C665763008FE622 /* fbide.yaml in Resources */ = {isa = PBXBuildFile; fileRef = 36C10E3E1C665763008FE622 /* fbide.yaml */; };
 		36C487D217E0FCD400906651 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36C487D117E0FCD400906651 /* Cocoa.framework */; };
 /* End PBXBuildFile section */
 
@@ -28,12 +28,12 @@
 		36458AED1C655CAB005DC0FD /* UiManager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = UiManager.cpp; path = src/UiManager.cpp; sourceTree = SOURCE_ROOT; };
 		36458AEE1C655CAB005DC0FD /* UiManager.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = UiManager.hpp; path = src/UiManager.hpp; sourceTree = SOURCE_ROOT; };
 		36458AF21C655ED0005DC0FD /* managers.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; name = managers.md; path = docs/managers.md; sourceTree = SOURCE_ROOT; };
+		3670D2401C6666DE00673322 /* ide */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ide; sourceTree = SOURCE_ROOT; };
 		36C10E341C656B95008FE622 /* base.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = base.xcconfig; path = xcode/base.xcconfig; sourceTree = SOURCE_ROOT; };
 		36C10E351C656B95008FE622 /* fbide-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "fbide-Info.plist"; path = "xcode/fbide-Info.plist"; sourceTree = SOURCE_ROOT; };
 		36C10E361C656B95008FE622 /* wx.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = wx.xcconfig; path = xcode/wx.xcconfig; sourceTree = SOURCE_ROOT; };
 		36C10E3A1C662E54008FE622 /* ConfigManager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = ConfigManager.cpp; path = src/ConfigManager.cpp; sourceTree = SOURCE_ROOT; };
 		36C10E3B1C662E54008FE622 /* ConfigManager.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = ConfigManager.hpp; path = src/ConfigManager.hpp; sourceTree = SOURCE_ROOT; };
-		36C10E3E1C665763008FE622 /* fbide.yaml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = fbide.yaml; path = ide/fbide.yaml; sourceTree = "<group>"; };
 		36C487CE17E0FCD400906651 /* fbide.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = fbide.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		36C487D117E0FCD400906651 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		36C487D417E0FCD400906651 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
@@ -76,6 +76,7 @@
 		362D82251C6543EF00DF7DA1 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				3670D2401C6666DE00673322 /* ide */,
 				36458AF01C655DFE005DC0FD /* Docs */,
 				361E0DF31C654E91005CFF07 /* Config */,
 				361E0DF21C654E8B005CFF07 /* UI */,
@@ -97,18 +98,9 @@
 			name = Docs;
 			sourceTree = "<group>";
 		};
-		36C10E3D1C665741008FE622 /* ide */ = {
-			isa = PBXGroup;
-			children = (
-				36C10E3E1C665763008FE622 /* fbide.yaml */,
-			);
-			name = ide;
-			sourceTree = "<group>";
-		};
 		36C487C517E0FCD400906651 = {
 			isa = PBXGroup;
 			children = (
-				36C10E3D1C665741008FE622 /* ide */,
 				362D82251C6543EF00DF7DA1 /* App */,
 				36C487D817E0FCD400906651 /* Supporting Files */,
 				36C487D017E0FCD400906651 /* Frameworks */,
@@ -208,7 +200,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				36C10E3F1C665763008FE622 /* fbide.yaml in Resources */,
+				3670D2411C6666DE00673322 /* ide in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

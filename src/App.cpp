@@ -23,26 +23,37 @@ public:
 	{
         try {
             // path to the configuration.
-            auto & sp = this->GetTraits()->GetStandardPaths();
-			#ifdef __WXMSW__
-				auto path = ::wxPathOnly(sp.GetExecutablePath()) + "\\ide\\fbide.yaml";
-			#else
-				auto path = sp.GetResourceDir() + "/fbide.yaml";
-			#endif
+			auto path = GetIdePath() + "/ide/fbide.yaml";
             
-            // bootstrap things
-            GetMgr();
+            // Load up fbide. Order in which managers are called matters!
             GetCfgMgr().Load(path);
+            GetUiMgr().Load();
+            
+            // if we get here. All seems well. So show the window
             GetUiMgr().GetWindow()->Show();
             
             // done
             return true;
         } catch (std::exception & e) {
-			wxMessageBox(std::string("Failed to start fbide. Error: ") + e.what(), "Failed to start IDE");
+            ::wxMessageBox(std::string("Failed to start fbide. Error: ") + e.what(), "Failed to start IDE");
             Manager::Release();
             return false;
         }
 	}
+    
+    
+    /**
+     * find the path where fbide settings are stored
+     */
+    wxString GetIdePath()
+    {
+        auto & sp = this->GetTraits()->GetStandardPaths();
+        #ifdef __WXMSW__
+            return ::wxPathOnly(sp.GetExecutablePath());
+        #else
+            return sp.GetResourcesDir();
+        #endif
+    }
     
     
     /**

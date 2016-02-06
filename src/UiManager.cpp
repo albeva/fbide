@@ -41,6 +41,13 @@ UiManager::~UiManager()
 }
 
 
+// Load the UI
+void UiManager::Load()
+{
+    
+}
+
+
 // window is about to close
 void UiManager::OnClose(wxCloseEvent & event)
 {

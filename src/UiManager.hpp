@@ -26,6 +26,11 @@ namespace fbide {
         virtual ~UiManager();
         
         /**
+         * Load the UI manager
+         */
+        void Load();
+        
+        /**
          * Get main window
          */
         inline MainWindow * GetWindow() { return m_window; }
