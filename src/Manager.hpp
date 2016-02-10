@@ -57,8 +57,8 @@ namespace fbide {
         
     private:
         
-        UiManager     * m_ui;
-        ConfigManager * m_cfg;
+        std::unique_ptr<UiManager> m_ui;
+        std::unique_ptr<ConfigManager> m_cfg;
         
         Manager();
         ~Manager();

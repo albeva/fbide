@@ -38,7 +38,9 @@ namespace {
 
 
 // Setup the manager
-Manager::Manager() : m_cfg(nullptr), m_ui(nullptr)
+Manager::Manager() :
+    m_cfg(std::make_unique<ConfigManager>()),
+    m_ui (std::make_unique<UiManager>())
 {
 }
 
@@ -46,10 +48,6 @@ Manager::Manager() : m_cfg(nullptr), m_ui(nullptr)
 // clean up
 Manager::~Manager()
 {
-    if (m_cfg) {
-        delete m_cfg;
-        m_cfg = nullptr;
-    }
 }
 
 
@@ -84,9 +82,6 @@ void Manager::Release()
 // UI
 UiManager & Manager::GetUiManager()
 {
-    if (m_ui == nullptr) {
-        m_ui = new UiManager();
-    }
     return *m_ui;
 }
 
@@ -94,8 +89,5 @@ UiManager & Manager::GetUiManager()
 // config
 ConfigManager & Manager::GetConfigManager()
 {
-    if (m_cfg == nullptr) {
-        m_cfg = new ConfigManager();
-    }
     return *m_cfg;
 }

@@ -44,7 +44,6 @@ UiManager::~UiManager()
 // Load the UI
 void UiManager::Load()
 {
-    
 }
 
 

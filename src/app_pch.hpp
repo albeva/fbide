@@ -10,11 +10,11 @@
 #include <wx/aui/aui.h>
 #include <wx/any.h>
 
-
 // std
 #include <string>
 #include <stdexcept>
 #include <unordered_map>
+#include <memory>
 
 // fbide
 #include "Utils.hpp"

@@ -28,10 +28,9 @@ namespace fbide {
      */
     class ConfigManager : NonCopyable
     {
+    public:
         ConfigManager();
         ~ConfigManager();
-        
-    public:
         
         /**
          * Load file at specified path
