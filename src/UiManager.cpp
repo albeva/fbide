@@ -30,14 +30,10 @@ UiManager::UiManager()
 // shut down the UI
 UiManager::~UiManager()
 {
-    if (m_window == nullptr) return;
-    
-    // destroy
-    if (!m_window->IsBeingDeleted()) {
-        delete m_window; // will this caouse recursive call?
-    }
-    
-    m_window = nullptr;
+    // in theory should do `delete m_window;` ?
+    // not sure though. sometimes gives an error
+    // I think window is automatically deleted so ...
+    // no need to do that manyally.
 }
 
 
