@@ -9,6 +9,6 @@ responsibilities.
 Manger Loading order
 --------------------
 
-    1. Manager - the base class loads  first of all
+    1. Manager       - the base class loads  first of all
     2. ConfigManager - loads application configuration from config files
-    3. UiManager - creates and builds the basic user interface
+    3. UiManager     - creates and builds the basic user interface

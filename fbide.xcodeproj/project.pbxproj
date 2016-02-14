@@ -139,8 +139,8 @@
 			isa = PBXGroup;
 			children = (
 				36C10E341C656B95008FE622 /* base.xcconfig */,
-				36C10E351C656B95008FE622 /* fbide-Info.plist */,
 				36C10E361C656B95008FE622 /* wx.xcconfig */,
+				36C10E351C656B95008FE622 /* fbide-Info.plist */,
 			);
 			name = "Supporting Files";
 			path = fbide;

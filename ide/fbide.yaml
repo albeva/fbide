@@ -1,1 +1,28 @@
-FullScreen: true
+App: 
+  ShowSplash: true
+  Language:   "en"
+  Nullable:   null
+
+Editor: 
+  AutoIndent:      true
+  SyntaxHighlight: true
+  WhiteSpaces:     true
+  TabSize:         4
+  Theme:           obsidian
+
+Compiler: 
+  Path:    /usr/local/bin/fbc
+  Command: $(FBC) "$file"
+  Run:     $app $params
+
+Plugins: 
+  Path: ./plugins
+  Load: 
+    - name: "Foo"
+      version: 1.2
+      params: 
+        Priority: "high"
+        AutoUpdate: true
+    - bar
+    - goo
+    - shoo

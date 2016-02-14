@@ -8,13 +8,18 @@
 #include <wx/apptrait.h>
 #include <wx/stc/stc.h>
 #include <wx/aui/aui.h>
-#include <wx/any.h>
+#include <wx/tokenzr.h>
 
 // std
 #include <string>
 #include <stdexcept>
 #include <unordered_map>
 #include <memory>
+#include <algorithm>
+#include <utility>
+
+
+// boost
 
 // fbide
 #include "Utils.hpp"

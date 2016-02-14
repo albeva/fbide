@@ -1,11 +1,15 @@
 /**
  * FBIde project
  */
-#include "app_pch.hpp"
+#ifdef _MSC_VER
+    #include "app_pch.hpp"
+#endif
+
 #include "Manager.hpp"
 #include "UiManager.hpp"
 #include "MainWindow.hpp"
 #include "ConfigManager.hpp"
+
 
 using namespace fbide;
 
@@ -22,9 +26,10 @@ public:
 	bool OnInit() override
 	{
         try {
+            
             // path to the configuration.
 			auto path = GetIdePath() + "/ide/fbide.yaml";
-            
+                        
             // Load up fbide. Order in which managers are called matters!
             GetCfgMgr().Load(path);
             GetUiMgr().Load();

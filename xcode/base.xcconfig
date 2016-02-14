@@ -6,5 +6,6 @@
 //  Copyright (c) 2013 Albert Varaksin. All rights reserved.
 //
 #include "wx.xcconfig"
-FBIDE_CXXFLAGS =
-FBIDE_LDFLAGS  =
+
+FBIDE_CXXFLAGS = -I"/usr/local/include"
+FBIDE_LDFLAGS  = -lyaml-cpp -lboost_filesystem -lboost_system
