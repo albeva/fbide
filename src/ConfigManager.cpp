@@ -5,16 +5,13 @@
 //  Created by Albert on 06/02/2016.
 //  Copyright © 2016 Albert Varaksin. All rights reserved.
 //
-#ifdef _MSC_VER
-    #include "app_pch.hpp"
-#endif
+#include "app_pch.hpp"
 
 #include "ConfigManager.hpp"
 #include <boost/any.hpp>
 
 
 using namespace fbide;
-
 
 
 // Load the configuration

@@ -1,10 +1,7 @@
 /**
  * FBIde project
  */
-#ifdef _MSC_VER
-    #include "app_pch.hpp"
-#endif
-
+#include "app_pch.hpp"
 #include "Manager.hpp"
 #include "UiManager.hpp"
 #include "ConfigManager.hpp"
