@@ -15,6 +15,7 @@
 		3670D2411C6666DE00673322 /* ide in Resources */ = {isa = PBXBuildFile; fileRef = 3670D2401C6666DE00673322 /* ide */; };
 		36C10E3C1C662E54008FE622 /* ConfigManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36C10E3A1C662E54008FE622 /* ConfigManager.cpp */; };
 		36C487D217E0FCD400906651 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36C487D117E0FCD400906651 /* Cocoa.framework */; };
+		36D5BE841C70F23800FD4667 /* Value.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36D5BE821C70F23800FD4667 /* Value.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +40,8 @@
 		36C487D417E0FCD400906651 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		36C487D517E0FCD400906651 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
 		36C487D617E0FCD400906651 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		36D5BE821C70F23800FD4667 /* Value.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Value.cpp; path = src/Value.cpp; sourceTree = SOURCE_ROOT; };
+		36D5BE831C70F23800FD4667 /* Value.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = Value.hpp; path = src/Value.hpp; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -69,6 +72,8 @@
 			children = (
 				36C10E3B1C662E54008FE622 /* ConfigManager.hpp */,
 				36C10E3A1C662E54008FE622 /* ConfigManager.cpp */,
+				36D5BE831C70F23800FD4667 /* Value.hpp */,
+				36D5BE821C70F23800FD4667 /* Value.cpp */,
 			);
 			name = Config;
 			sourceTree = "<group>";
@@ -230,6 +235,7 @@
 				36458AEC1C655C87005DC0FD /* MainWindow.cpp in Sources */,
 				362D82231C6543E800DF7DA1 /* App.cpp in Sources */,
 				362D82241C6543E800DF7DA1 /* Manager.cpp in Sources */,
+				36D5BE841C70F23800FD4667 /* Value.cpp in Sources */,
 				36458AEF1C655CAB005DC0FD /* UiManager.cpp in Sources */,
 				36458AF31C655ED0005DC0FD /* managers.md in Sources */,
 				36C10E3C1C662E54008FE622 /* ConfigManager.cpp in Sources */,
