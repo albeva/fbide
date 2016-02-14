@@ -34,6 +34,7 @@
     <ClCompile Include="src\MainWindow.cpp" />
     <ClCompile Include="src\Manager.cpp" />
     <ClCompile Include="src\UiManager.cpp" />
+    <ClCompile Include="src\Value.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
@@ -43,6 +44,7 @@
     <ClInclude Include="src\Manager.hpp" />
     <ClInclude Include="src\UiManager.hpp" />
     <ClInclude Include="src\Utils.hpp" />
+    <ClInclude Include="src\Value.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ide\fbide.yaml" />
