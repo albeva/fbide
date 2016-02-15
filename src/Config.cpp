@@ -94,7 +94,7 @@ namespace YAML {
  */
 Config Config::LoadYaml(const wxString & path)
 {
-    return YAML::LoadFile(path).as<Config>();
+    return YAML::LoadFile(path.ToStdString()).as<Config>();
 }
 
 
@@ -156,7 +156,7 @@ Config & Config::operator[](const wxString & path)
         loop:
         
         // if part is a number then consider this to be an array!
-        size_t idx;
+        unsigned long idx;
         if (key.ToULong(&idx)) {
             auto & arr = node->AsArray();
             // good index exists!
@@ -171,7 +171,7 @@ Config & Config::operator[](const wxString & path)
                 if (tok.HasMoreTokens()) {
                     auto next = tok.GetNextToken();
                     // is a number? create an array
-                    size_t idx;
+                    unsigned long idx;
                     if (next.ToULong(&idx)) {
                         arr.emplace_back(Array());
                         node = &arr.back();
@@ -214,7 +214,7 @@ Config & Config::operator[](const wxString & path)
             if (tok.HasMoreTokens()) {
                 auto next = tok.GetNextToken();
                 // is a number? create an array
-                size_t idx;
+                unsigned long idx;
                 if (next.ToULong(&idx)) {
                     node = &map.emplace(std::make_pair(key, Array())).first->second;
                 }
