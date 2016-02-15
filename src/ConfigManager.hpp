@@ -8,6 +8,7 @@
 #pragma once
 
 #include "Manager.hpp"
+#include "Config.hpp"
 
 namespace fbide {
     
@@ -18,6 +19,7 @@ namespace fbide {
     struct InvalidKey : public std::invalid_argument {
         using std::invalid_argument::invalid_argument;
     };
+    
     
     /**
      * Config mnager is responsible for saving/loading
@@ -33,12 +35,20 @@ namespace fbide {
         ~ConfigManager();
         
         /**
+         * Get main configuration root object
+         */
+        inline Config & Get() { return m_root; }
+        inline const Config & Get() const { return m_root; }
+        
+        /**
          * Load file at specified path
          */
         void Load(const wxString & path);
         
         
     private:
+        
+        Config m_root;
         
         DECLARE_MANAGER()
     };

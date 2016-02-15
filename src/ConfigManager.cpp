@@ -8,14 +8,13 @@
 #include "app_pch.hpp"
 
 #include "ConfigManager.hpp"
-#include "Value.hpp"
 
 
 using namespace fbide;
 
 
 // Load the configuration
-ConfigManager::ConfigManager()
+ConfigManager::ConfigManager() : m_root(0)
 {
 }
 
@@ -33,31 +32,13 @@ void ConfigManager::Load(const wxString & path)
     if (!::wxFileExists(path)) {
         throw std::invalid_argument("fbide config file '" + path + "' not found");
     }
-    
 
-    Value v{true};
-    
-    if (v.IsBool()) {
-        if (v != false) {
-            std::cout << "v == true\n";
-        }
-        std::cout << "v is bool\n" << v.As<bool>();
-    }
-        
-    
-    
-    if (v.IsNull()) {
-        std::cout << "empty\n";
-    }
-    
-    if (v.IsString()) {
-        if (v == "std::string") {
-            std::cout << "YAY\n";
-        }
-        std::cout << v.AsString();
-    }
-    
-    
+    m_root = Config::LoadYaml(path);
+
+    std::cout << "App.Language = " << m_root["App.Language"].AsString() << std::endl;
+
+    std::cout << "Plugins.Load.0.params.Priority = "
+              << m_root["Plugins.Load.0.params.Priority"].AsString() << std::endl;
 }
 
 

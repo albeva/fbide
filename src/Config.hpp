@@ -1,5 +1,5 @@
 //
-//  Value.hpp
+//  Config.hpp
 //  fbide
 //
 //  Created by Albert on 14/02/2016.
@@ -10,8 +10,8 @@
 namespace fbide {
     
     /**
-     * Value is variant type that uses boost::any for storage
-     * It supports recursive values via Map and Array
+     * Config is variant type that uses boost::any for storage
+     * It supports recursive Configs via Map and Array
      *
      * Supported types are:
      * - wxString
@@ -23,106 +23,123 @@ namespace fbide {
      *
      * All types except Map and Array support comparison operators == and !=
      */
-    struct Value
+    struct Config
     {
+        /**
+         * Config node type for use with node.Type() method
+         */
+        enum class Type {
+            Null,
+            String,
+            Bool,
+            Int,
+            Double,
+            Map,
+            Array
+        };
+        
         
         /**
-         * Map is key Value pairs of Value objects
+         * Map is key Config pairs of Config objects
          */
         typedef std::unordered_map<wxString,
-                                   Value,
+                                   Config,
                                    wxStringHash,
                                    wxStringEqual> Map;
         
+        
         /**
-         * Array is a list of Value objects
+         * Array is a list of Config objects
          */
-        typedef std::vector<Value> Array;
+        typedef std::vector<Config> Array;
         
         
         /**
-         * Default Value will be null
+         * Load yaml file and return Config object
+         */
+        Config static LoadYaml(const wxString & path);
+        
+        
+        /**
+         * Path is a period('.') separated string where each part
+         * is considered as a key to a Map. Thus 'foo.bar' will get node 'bar'
+         * in a Map pointed by 'foo'. If any part of the path does not yet
+         * exist it is silently created. If leaf (last bit of the path) doesn't
+         * exist it is created as an empty node (IsNull() will return true)
          *
-         * value.IsNull() will return true
+         * If any key points to a wrong type this will throw an exception
+         *
+         * If any part of the path is a number (unsigned long) then it is
+         * considered to be an index into an array. Array will be created only
+         * if index is next in sequence. Otherwise there will be an exception
+         *
+         * @throws boost::bad_any_cast
          */
-        Value() {}
+        Config & operator[](const wxString & path);
         
         
         /**
-         * Copy value
+         * Considers this node an array and will return element at given
+         * index. If node is not an array this will throw an exception.
+         *
+         * This is convinience method. To get full control over the array should
+         * use AsArray() method to get the underlying std::vector<Config> out.
+         *
+         * @throws boost::bad_any_cast
+         * @throws std::out_of_range
          */
-        explicit Value(const Value & other) : m_val(other) {}
+        Config & operator[](size_t index);
+        
+        
+        //----------------------------------------------------------------------
+        // ctors, copy, assign ...
+        //----------------------------------------------------------------------
         
         
         /**
-         * Move value
+         * Default Config will be null
+         *
+         * Config.IsNull() will return true
          */
-        explicit Value(Value && other) noexcept : m_val(std::move(other)) {}
+        Config() = default;
+        
+        
+        /**
+         * Copy Config
+         */
+        Config(const Config & other) = default;
+        
+        
+        /**
+         * Move Config
+         */
+        Config(Config && other) noexcept = default;
         
         
         /**
          * Copy assign
          */
-        Value & operator = (const Value & rhs)
-        {
-            m_val = rhs;
-            return *this;
-        }
+        Config & operator = (const Config & rhs) = default;
         
         
         /**
          * Move assign
          */
-        Value & operator = (Value && rhs)
-        {
-            m_val = std::move(rhs);
-            return *this;
-        }
+        Config & operator = (Config && rhs) noexcept = default;
         
         
         /**
-         * Check if values are equal. Map and Array can't be checked
+         * Check if Configs are equal. Map and Array can't be checked
          * and will return false!
          */
-        bool operator == (const Value & rhs) const noexcept
-        {
-            // addresses?
-            if (this == &rhs) return true;
-            
-            // check if one or both are null
-            if (IsNull())     return rhs.IsNull();
-            if (rhs.IsNull()) return false;
-            
-            // different types
-            if (m_val.type() != rhs.m_val.type()) return false;
-            
-            // string
-            if (IsString()) {
-                return boost::any_cast<wxString&>(m_val) == boost::any_cast<wxString&>(rhs.m_val);
-            }
-            // bool
-            if (IsBool()) {
-                return boost::any_cast<bool>(m_val) == boost::any_cast<bool>(rhs.m_val);
-            }
-            // int
-            if (IsInt()) {
-                return boost::any_cast<int>(m_val) == boost::any_cast<int>(rhs.m_val);
-            }
-            // double
-            if (IsDouble()) {
-                return boost::any_cast<double>(m_val) == boost::any_cast<double>(rhs.m_val);
-            }
-            // Map
-            // Array
-            return false;
-        }
+        bool operator == (const Config & rhs) const noexcept;
         
         
         /**
-         * Check if value is not equal to rhs. Map and Array are not checked
+         * Check if Config is not equal to rhs. Map and Array are not checked
          * and simply return false!
          */
-        bool operator != (const Value & rhs) const noexcept
+        bool operator != (const Config & rhs) const noexcept
         {
             return !(*this == rhs);
         }
@@ -132,27 +149,29 @@ namespace fbide {
         // String
         //----------------------------------------------------------------------
         
-        /**
-         * Create value from wxString
-         */
-        explicit Value(const wxString & val) : m_val(val) {}
-        
         
         /**
-         * Create value by moving wxString
+         * Create Config from wxString
          */
-        explicit Value(wxString && val) noexcept : m_val(std::move(val)) {}
-        
-        /**
-         * Value from const char *
-         */
-        explicit Value(const char * val) : m_val(wxString(val)) {}
+        explicit Config(const wxString & val) : m_val(val) {}
         
         
         /**
-         * Assign wxString to value
+         * Create Config by moving wxString
          */
-        inline Value& operator = (const wxString & rhs)
+        explicit Config(wxString && val) noexcept : m_val(std::move(val)) {}
+        
+        
+        /**
+         * Config from const char *
+         */
+        explicit Config(const char * val) : m_val(wxString(val)) {}
+        
+        
+        /**
+         * Assign wxString to Config
+         */
+        inline Config & operator = (const wxString & rhs)
         {
             m_val = rhs;
             return *this;
@@ -160,9 +179,9 @@ namespace fbide {
         
         
         /**
-         * Move wxString to value
+         * Move wxString to Config
          */
-        inline Value & operator = (wxString && rhs) noexcept
+        inline Config & operator = (wxString && rhs) noexcept
         {
             m_val = std::move(rhs);
             return *this;
@@ -171,7 +190,7 @@ namespace fbide {
         /**
          * Assign const char *
          */
-        Value & operator = (const char * rhs)
+        Config & operator = (const char * rhs)
         {
             m_val = wxString(rhs);
             return *this;
@@ -179,7 +198,7 @@ namespace fbide {
         
         
         /**
-         * Does value hold wxString?
+         * Does Config hold wxString?
          */
         inline bool IsString() const noexcept
         {
@@ -188,7 +207,7 @@ namespace fbide {
         
         
         /**
-         * Get wxString from value.
+         * Get wxString from Config.
          * @throws boost::bad_any_cast
          */
         inline wxString & AsString()
@@ -198,7 +217,7 @@ namespace fbide {
         
         
         /**
-         * Cast value to wxString&
+         * Cast Config to wxString&
          * @throws boost::bad_any_cast
          */
         inline explicit operator wxString &()
@@ -208,7 +227,7 @@ namespace fbide {
         
         
         /**
-         * Cast value to wxString
+         * Cast Config to wxString
          * @throws boost::bad_any_cast
          */
         inline explicit operator wxString()
@@ -218,12 +237,16 @@ namespace fbide {
         
         
         /**
-         * Compare value against wxString
+         * Compare Config against wxString
          * @throws boost::bad_any_cast
          */
         bool operator == (const wxString & rhs) const
         {
-            return boost::any_cast<wxString&>(m_val) == rhs;
+            auto & l = boost::any_cast<wxString&>(
+                const_cast<Config*>(this)->m_val
+            );
+            return l == rhs;
+            return false;
         }
         
         
@@ -238,16 +261,19 @@ namespace fbide {
         
         
         /**
-         * Check value equals to char *
+         * Check Config equals to char *
          * @throws boost::bad_any_cast
          */
         bool operator == (const char * rhs) const
         {
-            return boost::any_cast<wxString&>(m_val) == rhs;
+            auto & l = boost::any_cast<wxString&>(
+                const_cast<Config*>(this)->m_val
+            );
+            return l == rhs;
         }
         
         /**
-         * Check if value does not equal to char *
+         * Check if Config does not equal to char *
          * @throws boost::bad_any_cast
          */
         bool operator != (const char * rhs) const
@@ -257,95 +283,20 @@ namespace fbide {
         
         
         //----------------------------------------------------------------------
-        // Int
-        //----------------------------------------------------------------------
-        
-        /**
-         * Create value from int
-         */
-        explicit Value(const int & val) : m_val(val) {}
-        
-        
-        /**
-         * Assign int to value
-         */
-        inline Value& operator = (const int & rhs)
-        {
-            m_val = rhs; return *this;
-        }
-        
-        
-        /**
-         * Does value hold int?
-         */
-        inline bool IsInt() const noexcept
-        {
-            return Is<int>();
-        }
-        
-        
-        /**
-         * Get int from value
-         * @throws boost::bad_any_cast
-         */
-        inline int & AsInt()
-        {
-            return As<int>();
-        }
-        
-        
-        /**
-         * Cast value to int&
-         * @throws boost::bad_any_cast
-         */
-        inline explicit operator int &()
-        {
-            return As<int>();
-        }
-        
-        
-        /**
-         * Cast value to int
-         * @throws boost::bad_any_cast
-         */
-        inline explicit operator int()
-        {
-            return boost::any_cast<int>(m_val);
-        }
-        
-        /**
-         * Compare value to int
-         * @throws boost::bad_any_cast
-         */
-        bool operator == (int rhs) const
-        {
-            return boost::any_cast<int>(m_val) == rhs;
-        }
-        
-        /**
-         * Compare value to not equal int
-         * @throws boost::bad_any_cast
-         */
-        bool operator != (int rhs) const
-        {
-            return !(*this == rhs);
-        }
-        
-        
-        //----------------------------------------------------------------------
         // Bool
         //----------------------------------------------------------------------
         
+        
         /**
-         * Create value from bool
+         * Create Config from bool
          */
-        explicit Value(const bool & val) : m_val(val) {}
+        explicit Config(bool val) : m_val(val) {}
         
         
         /**
-         * Assign bool to value
+         * Assign bool to Config
          */
-        inline Value& operator = (const bool & rhs)
+        inline Config& operator = (const bool & rhs)
         {
             m_val = rhs;
             return *this;
@@ -353,7 +304,7 @@ namespace fbide {
         
         
         /**
-         * Does value hold bool?
+         * Does Config hold bool?
          */
         inline bool IsBool() const noexcept
         {
@@ -362,7 +313,7 @@ namespace fbide {
         
         
         /**
-         * Get bool from value
+         * Get bool from Config
          * @throws boost::bad_any_cast
          */
         inline bool & AsBool()
@@ -372,7 +323,7 @@ namespace fbide {
         
         
         /**
-         * Cast value to bool&
+         * Cast Config to bool&
          * @throws boost::bad_any_cast
          */
         inline explicit operator bool &()
@@ -382,7 +333,7 @@ namespace fbide {
         
         
         /**
-         * Cast value to bool
+         * Cast Config to bool
          * @throws boost::bad_any_cast
          */
         inline explicit operator bool()
@@ -392,7 +343,7 @@ namespace fbide {
         
         
         /**
-         * Compare value is ewual to bool
+         * Compare Config is ewual to bool
          * @throws boost::bad_any_cast
          */
         bool operator == (bool rhs) const
@@ -402,7 +353,7 @@ namespace fbide {
         
         
         /**
-         * Compare value is not equal to bool
+         * Compare Config is not equal to bool
          * @throws boost::bad_any_cast
          */
         bool operator != (bool rhs) const
@@ -412,19 +363,100 @@ namespace fbide {
         
         
         //----------------------------------------------------------------------
+        // Int
+        //----------------------------------------------------------------------
+        
+        
+        /**
+         * Create Config from int
+         */
+        explicit Config(int val) : m_val(val) {}
+        
+        
+        /**
+         * Assign int to Config
+         */
+        inline Config& operator = (int rhs)
+        {
+            m_val = rhs; return *this;
+        }
+        
+        
+        /**
+         * Does Config hold int?
+         */
+        inline bool IsInt() const noexcept
+        {
+            return Is<int>();
+        }
+        
+        
+        /**
+         * Get int from Config
+         * @throws boost::bad_any_cast
+         */
+        inline int & AsInt()
+        {
+            return As<int>();
+        }
+        
+        
+        /**
+         * Cast Config to int&
+         * @throws boost::bad_any_cast
+         */
+        inline explicit operator int &()
+        {
+            return As<int>();
+        }
+        
+        
+        /**
+         * Cast Config to int
+         * @throws boost::bad_any_cast
+         */
+        inline explicit operator int()
+        {
+            return boost::any_cast<int>(m_val);
+        }
+        
+        
+        /**
+         * Compare Config to int
+         * @throws boost::bad_any_cast
+         */
+        bool operator == (int rhs) const
+        {
+            return boost::any_cast<int>(m_val) == rhs;
+        }
+        
+        
+        /**
+         * Compare Config to not equal int
+         * @throws boost::bad_any_cast
+         */
+        bool operator != (int rhs) const
+        {
+            return !(*this == rhs);
+        }
+        
+        
+        
+        //----------------------------------------------------------------------
         // Double
         //----------------------------------------------------------------------
         
+        
         /**
-         * Create value from bool
+         * Create Config from bool
          */
-        explicit Value(const double & val) : m_val(val) {}
+        explicit Config(double val) : m_val(val) {}
         
         
         /**
-         * Assign bool to value
+         * Assign bool to Config
          */
-        inline Value& operator = (const double & rhs)
+        inline Config& operator = (double rhs)
         {
             m_val = rhs;
             return *this;
@@ -432,7 +464,7 @@ namespace fbide {
         
         
         /**
-         * Does value hold double?
+         * Does Config hold double?
          */
         inline bool IsDouble() const noexcept
         {
@@ -441,7 +473,7 @@ namespace fbide {
         
         
         /**
-         * Get double from value
+         * Get double from Config
          * @throws boost::bad_any_cast
          */
         inline double & AsDouble()
@@ -451,7 +483,7 @@ namespace fbide {
         
         
         /**
-         * Cast value to double&
+         * Cast Config to double&
          * @throws boost::bad_any_cast
          */
         inline explicit operator double &()
@@ -461,7 +493,7 @@ namespace fbide {
         
         
         /**
-         * Cast value to double
+         * Cast Config to double
          * @throws boost::bad_any_cast
          */
         inline explicit operator double()
@@ -471,7 +503,7 @@ namespace fbide {
         
         
         /**
-         * Compare value is equal to double
+         * Compare Config is equal to double
          * @throws boost::bad_any_cast
          */
         bool operator == (double rhs) const
@@ -481,7 +513,7 @@ namespace fbide {
         
         
         /**
-         * Compare value is not equal to double
+         * Compare Config is not equal to double
          * @throws boost::bad_any_cast
          */
         bool operator != (double rhs) const
@@ -494,31 +526,32 @@ namespace fbide {
         // Map
         //----------------------------------------------------------------------
         
-        /**
-         * Create value from Map
-         */
-        explicit Value(const Map & val) : m_val(val) {}
-        
         
         /**
-         * Create value by moving Map
+         * Create Config from Map
          */
-        explicit Value(Map && val) noexcept : m_val(std::move(val)) {}
+        Config(const Map & val) : m_val(val) {}
         
         
         /**
-         * Assign Map to value
+         * Create Config by moving Map
          */
-        inline Value& operator = (const Map & rhs)
+        Config(Map && val) noexcept : m_val(std::move(val)) {}
+        
+        
+        /**
+         * Assign Map to Config
+         */
+        inline Config& operator = (const Map & rhs)
         {
             m_val = rhs; return *this;
         }
         
         
         /**
-         * Move Map to value
+         * Move Map to Config
          */
-        inline Value & operator = (Map && rhs) noexcept
+        inline Config & operator = (Map && rhs) noexcept
         {
             m_val = std::move(rhs);
             return *this;
@@ -526,7 +559,7 @@ namespace fbide {
         
         
         /**
-         * Does value hold Map?
+         * Does Config hold Map?
          */
         inline bool IsMap() const noexcept
         {
@@ -535,7 +568,7 @@ namespace fbide {
         
         
         /**
-         * Get Map from value
+         * Get Map from Config
          * @throws boost::bad_any_cast
          */
         inline Map & AsMap()
@@ -545,7 +578,7 @@ namespace fbide {
         
         
         /**
-         * Cast value to Map&
+         * Cast Config to Map&
          * @throws boost::bad_any_cast
          */
         inline explicit operator Map &()
@@ -555,7 +588,7 @@ namespace fbide {
         
         
         /**
-         * Cast value to Map
+         * Cast Config to Map
          * @throws boost::bad_any_cast
          */
         inline explicit operator Map()
@@ -568,22 +601,23 @@ namespace fbide {
         // Array
         //----------------------------------------------------------------------
         
-        /**
-         * Create value from Array
-         */
-        explicit Value(const Array & val) : m_val(val) {}
-        
         
         /**
-         * Create value by moving Array
+         * Create Config from Array
          */
-        explicit Value(Array && val) noexcept : m_val(std::move(val)) {}
+        Config(const Array & val) : m_val(val) {}
         
         
         /**
-         * Assign Array to value
+         * Create Config by moving Array
          */
-        inline Value& operator = (const Array & rhs)
+        Config(Array && val) noexcept : m_val(std::move(val)) {}
+        
+        
+        /**
+         * Assign Array to Config
+         */
+        inline Config& operator = (const Array & rhs)
         {
             m_val = rhs;
             return *this;
@@ -591,9 +625,9 @@ namespace fbide {
         
         
         /**
-         * Move Array to value
+         * Move Array to Config
          */
-        inline Value & operator = (Array && rhs) noexcept
+        inline Config & operator = (Array && rhs) noexcept
         {
             m_val = std::move(rhs);
             return *this;
@@ -601,7 +635,7 @@ namespace fbide {
         
         
         /**
-         * Does value hold Array?
+         * Does Config hold Array?
          */
         inline bool IsArray() const noexcept
         {
@@ -610,7 +644,7 @@ namespace fbide {
         
         
         /**
-         * Get Array from value
+         * Get Array from Config
          * @throws boost::bad_any_cast
          */
         inline Array & AsArray()
@@ -620,7 +654,7 @@ namespace fbide {
         
         
         /**
-         * Cast value to Array&
+         * Cast Config to Array&
          * @throws boost::bad_any_cast
          */
         inline explicit operator Array &()
@@ -630,7 +664,7 @@ namespace fbide {
         
         
         /**
-         * Cast value to Array
+         * Cast Config to Array
          * @throws boost::bad_any_cast
          */
         inline explicit operator Array()
@@ -639,8 +673,25 @@ namespace fbide {
         }
         
         
+        //----------------------------------------------------------------------
+        // Utilities
+        //----------------------------------------------------------------------
+        
+        
         /**
-         * Check if this value is nyll
+         * Get node type as enum value
+         */
+        Type GetType() const noexcept;
+        
+        
+        /**
+         * print Config tree to console out
+         */
+        void Dump(size_t indent = 0) const;
+        
+        
+        /**
+         * Check if this Config is nyll
          */
         inline bool IsNull() const noexcept
         {
@@ -649,7 +700,7 @@ namespace fbide {
         
         
         /**
-         * Clear the value to null
+         * Clear the Config to null
          */
         inline void Clear() noexcept
         {
@@ -658,18 +709,18 @@ namespace fbide {
         
         
         /**
-         * Is this a scalar value?
+         * Is this a scalar Config?
          */
         inline bool IsScalar() const noexcept
         {
-            return !IsNull() &&
-            m_val.type() != typeid(Map) &&
-            m_val.type() == typeid(Array);
+            return !IsNull()
+                && m_val.type() != typeid(Map)
+                && m_val.type() != typeid(Array);
         }
         
         
         /**
-         * Check if currently held value is of given type
+         * Check if currently held Config is of given type
          *
          * if (valie.Is<wxString>()) { ... }
          */
@@ -681,7 +732,7 @@ namespace fbide {
         
         
         /**
-         * Cast Value to the given type. This will return a reference
+         * Cast Config to the given type. This will return a reference
          * of the given type!
          *
          * @throws boost::bad_any_cast
@@ -694,8 +745,7 @@ namespace fbide {
         
     private:
         
-        // value holder
-        mutable boost::any m_val;
+        // Config holder
+        boost::any m_val;
     };
-    
 }
