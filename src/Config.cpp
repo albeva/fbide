@@ -146,6 +146,76 @@ bool Config::operator == (const Config & rhs) const noexcept
  */
 Config & Config::operator[](const wxString & path)
 {
+    // Map and Array creation and conversion
+    // - if node doesn't exist it is created
+    // - if node is Null it is converted
+    // - if node type mismtahces then throw an exception
+    //
+    // Last part of the file is a leaf.
+    // - if cast expression exists it is enfored to be of given type
+    // - if no cast expression speccified then return null
+    //
+    // key value path:
+    // "foo.bar"
+    // - current scope must be a map. If scope is null then it is turned
+    //   into a map! Otherwise throw an exception
+    // - foo *must* be a map. If it does not exist
+    //   create one. If foo is not a map it will throw an exception
+    // - bar is considered a key. if it does not exist a null
+    //   is created and added to the map
+    // - returns: bar
+    //
+    // Array access
+    // "arr[0].bar"
+    // - arr must be an array. If it does not exist it is created.
+    //   if arr exists but is not an array it will throw an exception.
+    //   if index is not in the range then it will be added to the array
+    //   if index == size(). Thhrow an exception otherwise
+    // - returns: bar
+    //
+    // Append without index
+    // arr[].bar
+    // - if no index is specified then new object is appended
+    //   to the array
+    // - returns: bar
+    //
+    // Access array directly
+    // [0].bar
+    // - corrent scope must be an array. If this scope is Null
+    //   then it is converted into an array!
+    // - same rule apply about index as above
+    // - returns: bar
+    //
+    // Access map node
+    // "bar = {}"
+    // - if bar is null then it is converted into a map.
+    //   if bar doesn't exist it is added and returned
+    //   if there is type mismtahc it will throw an exception
+    // returns: bar
+    //
+    // Access array node
+    // "arr = []"
+    // - if arr is null it is converted into array
+    //   if arr doesn't exist it is created
+    //   if there is type mismtahc it will throw an exception
+    // - returns: arr
+    //
+    // Create and return new nested array
+    // "arr[] = []"
+    // - combine rules from above
+    // - returns: nested array
+    //
+    // "foo[]" and "foo.[]" are equivelent
+    //
+    // path = part { "." part } [ "=" as ]
+    // part = <id> [ idx ]
+    //      | idx
+    // idx  = "[" [<int>] "]"
+    // as   = map
+    //      | arr
+    // map  = "{}"
+    // arr  = "[]"
+    
     auto node = this;
     
     wxStringTokenizer tok{path, "."};
