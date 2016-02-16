@@ -29,6 +29,10 @@ public:
                         
             // Load up fbide. Order in which managers are called matters!
             GetCfgMgr().Load(path);
+            
+            this->Exit();
+            
+            
             GetUiMgr().Load();
             
             // if we get here. All seems well. So show the window
