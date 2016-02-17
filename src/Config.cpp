@@ -226,6 +226,10 @@ struct PathParser {
      */
     struct Tok {
         typedef std::unique_ptr<Tok> Ptr;
+        
+        Tok(Typ type, const wxString & key, size_t idx) : type(type), key(key), idx(idx) {};
+        Tok(Typ type, wxString && key, size_t idx) : type(type), key(std::move(key)), idx(idx) {};
+        
         Typ type;
         wxString key;
         size_t   idx;
@@ -253,9 +257,11 @@ struct PathParser {
             auto ch  = m_path[m_pos];
             
             if (std::isalpha(ch)) {
-                do { m_pos++; } while (m_pos < m_path.length() && std::isalpha(m_path[m_pos]));
-                auto lex = m_path.SubString(start, m_pos - start);
-                std::cout << "lex = " << lex << '\n';
+                do {
+                    m_pos++;
+                } while (m_pos < m_path.length() && std::isalpha(m_path[m_pos]));
+                auto lex = m_path.SubString(start, m_pos - 1);
+                return std::make_unique<Tok>(Typ::Id, lex, lex.length());
             }
             
             if (ch == '.') {
