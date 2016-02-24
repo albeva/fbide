@@ -39,8 +39,8 @@ void ConfigManager::Load(const wxString & path)
 
 //    std::cout << "Plugins.Load.0.params.Priority = "
 //              << m_root["Plugins.Load.0.params.Priority"].AsString() << std::endl;
-    m_root["App.Language"];
     
+    m_root["Foo.bars={}"].Dump();
 }
 
 

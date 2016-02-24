@@ -217,21 +217,18 @@ struct PathParser {
         Id,
         Index,
         Map,
-        Arr
+        Arr,
+        End
     };
     
     
     /**
      * Represent a token
      */
-    struct Tok {
-        typedef std::unique_ptr<Tok> Ptr;
-        
-        Tok(Typ type, const wxString & key, size_t idx) : type(type), key(key), idx(idx) {};
-        Tok(Typ type, wxString && key, size_t idx) : type(type), key(std::move(key)), idx(idx) {};
-        
-        Typ type;
-        wxString key;
+    struct Tok
+    {
+        Typ      type;
+        wxString str;
         size_t   idx;
     };
     
@@ -246,33 +243,77 @@ struct PathParser {
     /**
      * Get next token
      */
-    Tok::Ptr Next() noexcept
+    Tok Next() noexcept
     {
-        if (next) {
-            return Tok::Ptr{next.release()};
-        }
+        const auto len = m_path.length();
         
-        while (m_pos < m_path.length()) {
+        while (m_pos < len) {
             auto start = m_pos;
-            auto ch  = m_path[m_pos];
+            char ch    = m_path[m_pos];
             
+            // id
             if (std::isalpha(ch)) {
                 do {
                     m_pos++;
-                } while (m_pos < m_path.length() && std::isalpha(m_path[m_pos]));
+                } while (m_pos < len && std::isalpha(m_path[m_pos]));
                 auto lex = m_path.SubString(start, m_pos - 1);
-                return std::make_unique<Tok>(Typ::Id, lex, lex.length());
+                return Tok{Typ::Id, lex};
             }
             
+            // index
+            if (ch == '[') {
+                start++;
+                
+                // while is number
+                do {
+                    m_pos++;
+                } while (m_pos < len && std::isdigit(m_path[m_pos]));
+                
+                // extract the number
+                auto lex = m_path.SubString(start, m_pos - 1);
+                
+                // extract index
+                size_t index;
+                if (!lex.ToULong(&index)) {
+                    index = SIZE_T_MAX;
+                }
+                
+                // closing
+                if (m_path[m_pos] != ']') {
+                    return Tok{Typ::Invalid, "Excpected closing ']'"};
+                }
+                m_pos++;
+                
+                // done
+                return Tok{Typ::Index, lex, index};
+            }
+            
+            // dot. skip
             if (ch == '.') {
                 m_pos++;
                 continue;
             }
             
+            // '=' ?
+            if (ch == '=') {
+                m_pos++;
+                if (m_pos == len - 2) {
+                    if (m_path[m_pos] == '[' && m_path[m_pos+1] == ']') {
+                        m_pos += 2;
+                        return Tok{Typ::Arr};
+                    }
+                    if (m_path[m_pos] == '{' && m_path[m_pos+1] == '}') {
+                        m_pos += 2;
+                        return Tok{Typ::Map};
+                    }
+                }
+                return Tok{Typ::Invalid, "Path must end with ={} or =[]"};
+            }
+            
             break;
         }
         
-        return nullptr;
+        return Tok{Typ::End};
     }
     
     
@@ -285,20 +326,8 @@ struct PathParser {
     }
     
     
-    /**
-     * Peek at the next token
-     */
-    const Tok * peek()
-    {
-        if (!next) {
-            next = Next();
-        }
-        return next.get();
-    }
-    
 private:
     size_t           m_pos{0};
-    Tok::Ptr         next{nullptr};
     const wxString & m_path;
 };
 
@@ -312,95 +341,74 @@ private:
  */
 Config & Config::operator[](const wxString & path)
 {
-    PathParser parser{path};
-    parser.Next();
-    parser.Next();
-    
-
-    
     auto node = this;
     
-    wxStringTokenizer tok{path, "."};
-    while (tok.HasMoreTokens()) {
-        auto key = tok.GetNextToken();
+    PathParser parser{path};
+    for(;;) {
+        auto && t = parser.Next();
         
-        // jump here
-        loop:
-        
-        // if part is a number then consider this to be an array!
-        unsigned long idx;
-        if (key.ToULong(&idx)) {
-            auto & arr = node->AsArray();
-            // good index exists!
-            if (idx < arr.size()) {
-                node = &arr[idx];
-                continue;
-            }
-            // is next element?
-            if (idx == arr.size()) {
-                // if there are more tokens then create a map or an array
-                // dependign on the next token.
-                if (tok.HasMoreTokens()) {
-                    auto next = tok.GetNextToken();
-                    // is a number? create an array
-                    unsigned long idx;
-                    if (next.ToULong(&idx)) {
-                        arr.emplace_back(Array());
-                        node = &arr.back();
-                    }
-                    // otherwise create a map
-                    else {
-                        arr.emplace_back(Map());
-                        node = &arr.back();
-                    }
-                    // jump the looop
-                    key = next;
-                    goto loop;
-                }
-                // else create empty node null node
-                else {
-                    arr.emplace_back();
-                    node = &arr.back();
-                    break;
-                }
-            }
-            // throw an exception
-            else {
-                throw std::out_of_range("Invalid index into an array");
-            }
+        // finish?
+        if (t.type == PathParser::Typ::End) {
+            break;
         }
-        // Map
-        else {
-            auto & map = node->AsMap();
-            
-            // if key is in the map then this
-            // key points to the next node
-            auto iter = map.find(key);
-            if (iter != map.end()) {
-                node = &iter->second;
-                continue;
+        
+        switch (t.type) {
+            case PathParser::Typ::Invalid:
+            {
+                throw std::domain_error(t.str);
+                break;
             }
-            
-            // if there are more tokens then create a map or an array
-            // dependign on the next token.
-            if (tok.HasMoreTokens()) {
-                auto next = tok.GetNextToken();
-                // is a number? create an array
-                unsigned long idx;
-                if (next.ToULong(&idx)) {
-                    node = &map.emplace(std::make_pair(key, Array())).first->second;
+            case PathParser::Typ::Id:
+            {
+                if (node->IsNull()) {
+                    *node = Map();
                 }
-                // otherwise create a map
-                else {
-                    node = &map.emplace(std::make_pair(key, Map())).first->second;
+                auto & map = node->AsMap();
+                auto it = map.find(t.str);
+                if (it != map.end()) {
+                    node = &it->second;
+                } else {
+                    auto r = map.emplace(std::make_pair(t.str, Config()));
+                    node = &r.first->second;
                 }
-                // jump the looop
-                key = next;
-                goto loop;
+                break;
             }
-            // else create empty node null node
-            else {
-                node = &map.emplace(std::make_pair(key, Config())).first->second;
+            case PathParser::Typ::Index:
+            {
+                const auto idx = t.idx;
+                if (node->IsNull()) {
+                    *node = Array();
+                }
+                auto & arr = node->AsArray();
+                if (idx < arr.size()) {
+                    node = &arr[idx];
+                } else if (idx == arr.size() || idx == SIZE_T_MAX) {
+                    arr.emplace_back(Config());
+                    node = &arr.back();
+                } else {
+                    throw std::out_of_range("Invalid index in config path");
+                }
+                break;
+            }
+            case PathParser::Typ::Map:
+            {
+                if (node->IsNull()) {
+                    *node = Map();
+                }
+                node->AsMap(); // force check. Will throw an exception
+                break;
+            }
+            case PathParser::Typ::Arr:
+            {
+                if (node->IsNull()) {
+                    *node = Array();
+                }
+                node->AsArray();
+                std::cout << std::boolalpha << node->IsArray() << '\n';
+                break;
+            }
+            case PathParser::Typ::End:
+            {
                 break;
             }
         }
