@@ -133,41 +133,7 @@ namespace fbide {
          * and will return false!
          */
         bool operator == (const Config & rhs) const noexcept;
-        
-        
-        /**
-         * Check if Config is not equal to rhs. Map and Array are not checked
-         * and simply return false!
-         */
-        bool operator != (const Config & rhs) const noexcept
-        {
-            return !(*this == rhs);
-        }
-        
-        
-        /**
-         * Default to given value if config is null
-         */
-        inline Config & Default(const Config & val) noexcept
-        {
-            if (IsNull()) {
-                m_val = val.m_val;
-            }
-            return *this;
-        }
-        
-        
-        /**
-         * Default to given value if config is null
-         */
-        inline Config & Default(Config && val) noexcept
-        {
-            if (IsNull()) {
-                m_val = std::move(val.m_val);
-            }
-            return *this;
-        }
-        
+
         
         //----------------------------------------------------------------------
         // String
@@ -214,12 +180,12 @@ namespace fbide {
         /**
          * Assign const char *
          */
-        Config & operator = (const char * rhs)
+        inline Config & operator = (const char * rhs)
         {
             m_val = wxString(rhs);
             return *this;
         }
-        
+
         
         /**
          * Does Config hold wxString?
@@ -231,43 +197,7 @@ namespace fbide {
         
         
         /**
-         * Default to given value if config is null
-         */
-        inline Config & Default(const wxString & str) noexcept
-        {
-            if (IsNull()) {
-                m_val = str;
-            }
-            return *this;
-        }
-        
-        
-        /**
-         * Default to given value if config is null
-         */
-        inline Config & Default(wxString && str) noexcept
-        {
-            if (IsNull()) {
-                m_val = std::move(str);
-            }
-            return *this;
-        }
-        
-        
-        /**
-         * Default to given value if config is null
-         */
-        inline Config & Default(const char * str) noexcept
-        {
-            if (IsNull()) {
-                m_val = wxString(str);
-            }
-            return *this;
-        }
-        
-        
-        /**
-         * Get wxString from Config.
+         * Get wxString from Config. Null is converted to string!
          * @throws boost::bad_any_cast
          */
         inline wxString & AsString()
@@ -277,68 +207,12 @@ namespace fbide {
         
         
         /**
-         * Cast Config to wxString&
+         * Cast Config to wxString&. Null is converted to string!
          * @throws boost::bad_any_cast
          */
-        inline explicit operator wxString &()
+        inline operator wxString &()
         {
             return As<wxString>();
-        }
-        
-        
-        /**
-         * Cast Config to wxString
-         * @throws boost::bad_any_cast
-         */
-        inline explicit operator wxString()
-        {
-            return boost::any_cast<wxString>(m_val);
-        }
-        
-        
-        /**
-         * Compare Config against wxString
-         * @throws boost::bad_any_cast
-         */
-        bool operator == (const wxString & rhs) const
-        {
-            auto & l = boost::any_cast<wxString&>(
-                const_cast<Config*>(this)->m_val
-            );
-            return l == rhs;
-            return false;
-        }
-        
-        
-        /**
-         * Compare non equality
-         * @throws boost::bad_any_cast
-         */
-        bool operator != (const wxString & rhs) const
-        {
-            return !(*this == rhs);
-        }
-        
-        
-        /**
-         * Check Config equals to char *
-         * @throws boost::bad_any_cast
-         */
-        bool operator == (const char * rhs) const
-        {
-            auto & l = boost::any_cast<wxString&>(
-                const_cast<Config*>(this)->m_val
-            );
-            return l == rhs;
-        }
-        
-        /**
-         * Check if Config does not equal to char *
-         * @throws boost::bad_any_cast
-         */
-        bool operator != (const char * rhs) const
-        {
-            return !(*this == rhs);
         }
         
         
@@ -373,19 +247,7 @@ namespace fbide {
         
         
         /**
-         * Default to given value if config is null
-         */
-        inline Config & Default(bool val) noexcept
-        {
-            if (IsNull()) {
-                m_val = val;
-            }
-            return *this;
-        }
-        
-        
-        /**
-         * Get bool from Config
+         * Get bool from Config. Null is converted to bool!
          * @throws boost::bad_any_cast
          */
         inline bool & AsBool()
@@ -395,42 +257,12 @@ namespace fbide {
         
         
         /**
-         * Cast Config to bool&
+         * Cast Config to bool&. Null is converted to bool!
          * @throws boost::bad_any_cast
          */
-        inline explicit operator bool &()
+        inline operator bool &()
         {
             return As<bool>();
-        }
-        
-        
-        /**
-         * Cast Config to bool
-         * @throws boost::bad_any_cast
-         */
-        inline explicit operator bool()
-        {
-            return boost::any_cast<bool>(m_val);
-        }
-        
-        
-        /**
-         * Compare Config is ewual to bool
-         * @throws boost::bad_any_cast
-         */
-        bool operator == (bool rhs) const
-        {
-            return boost::any_cast<bool>(m_val) == rhs;
-        }
-        
-        
-        /**
-         * Compare Config is not equal to bool
-         * @throws boost::bad_any_cast
-         */
-        bool operator != (bool rhs) const
-        {
-            return !(*this == rhs);
         }
         
         
@@ -464,19 +296,7 @@ namespace fbide {
         
         
         /**
-         * Default to given value if config is null
-         */
-        inline Config & Default(int val) noexcept
-        {
-            if (IsNull()) {
-                m_val = val;
-            }
-            return *this;
-        }
-        
-        
-        /**
-         * Get int from Config
+         * Get int from Config. Null is converted to int!
          * @throws boost::bad_any_cast
          */
         inline int & AsInt()
@@ -486,44 +306,13 @@ namespace fbide {
         
         
         /**
-         * Cast Config to int&
+         * Cast Config to int&. Null is converted to int!
          * @throws boost::bad_any_cast
          */
-        inline explicit operator int &()
+        inline operator int &()
         {
             return As<int>();
         }
-        
-        
-        /**
-         * Cast Config to int
-         * @throws boost::bad_any_cast
-         */
-        inline explicit operator int()
-        {
-            return boost::any_cast<int>(m_val);
-        }
-        
-        
-        /**
-         * Compare Config to int
-         * @throws boost::bad_any_cast
-         */
-        bool operator == (int rhs) const
-        {
-            return boost::any_cast<int>(m_val) == rhs;
-        }
-        
-        
-        /**
-         * Compare Config to not equal int
-         * @throws boost::bad_any_cast
-         */
-        bool operator != (int rhs) const
-        {
-            return !(*this == rhs);
-        }
-        
         
         
         //----------------------------------------------------------------------
@@ -557,19 +346,7 @@ namespace fbide {
         
         
         /**
-         * Default to given value if config is null
-         */
-        inline Config & Default(double val) noexcept
-        {
-            if (IsNull()) {
-                m_val = val;
-            }
-            return *this;
-        }
-        
-        
-        /**
-         * Get double from Config
+         * Get double from Config. Null is converted to double!
          * @throws boost::bad_any_cast
          */
         inline double & AsDouble()
@@ -579,42 +356,12 @@ namespace fbide {
         
         
         /**
-         * Cast Config to double&
+         * Cast Config to double&. Null is converted to double!
          * @throws boost::bad_any_cast
          */
-        inline explicit operator double &()
+        inline operator double &()
         {
             return As<double>();
-        }
-        
-        
-        /**
-         * Cast Config to double
-         * @throws boost::bad_any_cast
-         */
-        inline explicit operator double()
-        {
-            return boost::any_cast<double>(m_val);
-        }
-        
-        
-        /**
-         * Compare Config is equal to double
-         * @throws boost::bad_any_cast
-         */
-        bool operator == (double rhs) const
-        {
-            return boost::any_cast<double>(m_val) == rhs;
-        }
-        
-        
-        /**
-         * Compare Config is not equal to double
-         * @throws boost::bad_any_cast
-         */
-        bool operator != (double rhs) const
-        {
-            return !(*this == rhs);
         }
         
         
@@ -664,31 +411,7 @@ namespace fbide {
         
         
         /**
-         * Default to given value if config is null
-         */
-        inline Config & Default(const Map & val) noexcept
-        {
-            if (IsNull()) {
-                m_val = val;
-            }
-            return *this;
-        }
-        
-        
-        /**
-         * Default to given value if config is null
-         */
-        inline Config & Default(Map && val) noexcept
-        {
-            if (IsNull()) {
-                m_val = std::move(val);
-            }
-            return *this;
-        }
-        
-        
-        /**
-         * Get Map from Config
+         * Get Map from Config. Null is converted to map!
          * @throws boost::bad_any_cast
          */
         inline Map & AsMap()
@@ -698,22 +421,12 @@ namespace fbide {
         
         
         /**
-         * Cast Config to Map&
+         * Cast Config to Map&. Null is converted to map!
          * @throws boost::bad_any_cast
          */
-        inline explicit operator Map &()
+        inline operator Map &()
         {
             return As<Map>();
-        }
-        
-        
-        /**
-         * Cast Config to Map
-         * @throws boost::bad_any_cast
-         */
-        inline explicit operator Map()
-        {
-            return boost::any_cast<Map>(m_val);
         }
         
         
@@ -761,34 +474,10 @@ namespace fbide {
         {
             return Is<Array>();
         }
-        
-        
-        /**
-         * Default to given value if config is null
-         */
-        inline Config & Default(const Array & val) noexcept
-        {
-            if (IsNull()) {
-                m_val = val;
-            }
-            return *this;
-        }
-        
+
         
         /**
-         * Default to given value if config is null
-         */
-        inline Config & Default(Array && val) noexcept
-        {
-            if (IsNull()) {
-                m_val = std::move(val);
-            }
-            return *this;
-        }
-        
-        
-        /**
-         * Get Array from Config
+         * Get Array from Config. Null is converted to array!
          * @throws boost::bad_any_cast
          */
         inline Array & AsArray()
@@ -798,22 +487,12 @@ namespace fbide {
         
         
         /**
-         * Cast Config to Array&
+         * Cast Config to Array&. Null is converted to array!
          * @throws boost::bad_any_cast
          */
-        inline explicit operator Array &()
+        inline operator Array &()
         {
             return As<Array>();
-        }
-        
-        
-        /**
-         * Cast Config to Array
-         * @throws boost::bad_any_cast
-         */
-        inline explicit operator Array()
-        {
-            return boost::any_cast<Array>(m_val);
         }
         
         
@@ -823,15 +502,26 @@ namespace fbide {
         
         
         /**
+         * print Config tree to console out
+         */
+        void Dump(size_t indent = 0) const;
+        
+        
+        /**
          * Get node type as enum value
          */
         Type GetType() const noexcept;
         
         
         /**
-         * print Config tree to console out
+         * Is this a scalar Config?
          */
-        void Dump(size_t indent = 0) const;
+        inline bool IsScalar() const noexcept
+        {
+            return !IsNull()
+                && m_val.type() != typeid(Map)
+                && m_val.type() != typeid(Array);
+        }
         
         
         /**
@@ -853,14 +543,32 @@ namespace fbide {
         
         
         /**
-         * Is this a scalar Config?
+         * Compare rhs of type T against held value.
+         * Will return false if types don't match.
+         *
+         * When comparing against const char * we need to coerce the type
+         * to wxString - hence the conditional_t stuff.
          */
-        inline bool IsScalar() const noexcept
+        template<typename T, typename U = std::conditional_t<std::is_same<std::decay_t<T>, char *>::value, wxString, T>>
+        inline bool operator == (const T& rhs) const noexcept
         {
-            return !IsNull()
-                && m_val.type() != typeid(Map)
-                && m_val.type() != typeid(Array);
+            if (!Is<U>()) return false;
+            auto & lhs = boost::any_cast<const U&>(m_val);
+            return lhs == rhs;
         }
+        
+        
+        /**
+         * Inequality check
+         */
+        template<typename T>
+        inline bool operator != (const T& rhs) const noexcept
+        {
+            return !(*this == rhs);
+        }
+        
+        
+    private:
         
         
         /**
@@ -876,18 +584,20 @@ namespace fbide {
         
         
         /**
-         * Cast Config to the given type. This will return a reference
-         * of the given type!
+         * Return Config as given type. Null is propagated
+         * to the type while other type mismatches will throw
+         * an error.
          *
          * @throws boost::bad_any_cast
          */
         template<typename T>
         inline T& As()
         {
+            if (IsNull()) {
+                m_val = T();
+            }
             return boost::any_cast<T&>(m_val);
         }
-        
-    private:
         
         // Config holder
         boost::any m_val;

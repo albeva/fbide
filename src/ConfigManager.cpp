@@ -24,7 +24,6 @@ ConfigManager::~ConfigManager()
 }
 
 
-
 // Load configuration
 void ConfigManager::Load(const wxString & path)
 {
@@ -33,11 +32,37 @@ void ConfigManager::Load(const wxString & path)
     }
 
     m_root = Config::LoadYaml(path);
-    m_root.Dump();
+    
+    
+    auto c = Config();
+    auto b = Config();
+//    c = 12.5;
+//    c = true;
+//    c = "hello";
+    c = 123;
+    b = c;
+
+    if (c == 12.5) {
+        std::cout << "c = 12.5\n";
+    }
+    if (c == 123) {
+        std::cout << "c = 123\n";
+    }
+    if (c == true) {
+        std::cout << "c = true\n";
+    }
+    if (c == "hello") {
+        std::cout << "c = \"hello\"\n";
+    }
+    
+    if (c == Config()) {
+        std::cout << "c is null\n";
+    }
+    
+    if (c == b) {
+        std::cout << "c == b\n";
+    }
+    if (c != b) {
+        std::cout << "c != b\n";
+    }
 }
-
-
-
-
-
-

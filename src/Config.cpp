@@ -249,8 +249,8 @@ bool Config::operator == (const Config & rhs) const noexcept
     if (m_val.type() != rhs.m_val.type()) return false;
     
     if (IsString()) {
-        auto & l = boost::any_cast<wxString&>(const_cast<Config*>(this)->m_val);
-        auto & r = boost::any_cast<wxString&>(const_cast<Config&>(rhs).m_val);
+        auto & l = boost::any_cast<const wxString&>(m_val);
+        auto & r = boost::any_cast<const wxString&>(rhs.m_val);
         return l == r;
     }
     
@@ -297,9 +297,6 @@ Config & Config::operator[](const wxString & path)
             }
             case PathParser::Type::Key:
             {
-                if (node->IsNull()) {
-                    *node = Map();
-                }
                 auto & map = node->AsMap();
                 auto it = map.find(t.str);
                 if (it != map.end()) {
@@ -313,9 +310,6 @@ Config & Config::operator[](const wxString & path)
             case PathParser::Type::Index:
             {
                 const auto idx = t.idx;
-                if (node->IsNull()) {
-                    *node = Array();
-                }
                 auto & arr = node->AsArray();
                 if (idx < arr.size()) {
                     node = &arr[idx];
@@ -329,17 +323,11 @@ Config & Config::operator[](const wxString & path)
             }
             case PathParser::Type::Map:
             {
-                if (node->IsNull()) {
-                    *node = Map();
-                }
                 node->AsMap(); // force check. Will throw an exception
                 break;
             }
             case PathParser::Type::Array:
             {
-                if (node->IsNull()) {
-                    *node = Array();
-                }
                 node->AsArray();
                 break;
             }
