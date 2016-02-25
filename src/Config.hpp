@@ -11,15 +11,19 @@ namespace fbide {
     
     /**
      * Config is variant type that uses boost::any for storage
-     * It supports recursive Configs via Map and Array
+     * It supports nested structure With Array or Map
+     *
+     * This also supports quering config using a path.
+     * e.g. c["foo.bar[3].key"]
      *
      * Supported types are:
-     * - wxString
+     * - wxString (including const char *)
      * - bool
      * - int
      * - double
      * - Map
      * - Array
+     * - null
      *
      * All types except Map and Array support comparison operators == and !=
      */
@@ -83,7 +87,7 @@ namespace fbide {
          * index. If node is not an array this will throw an exception.
          *
          * This is convinience method. To get full control over the array should
-         * use AsArray() method to get the underlying std::vector<Config> out.
+         * use AsArray() method to get the underlying std::vector<Config>& out.
          *
          * @throws boost::bad_any_cast
          * @throws std::out_of_range
