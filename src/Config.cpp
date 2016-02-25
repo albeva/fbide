@@ -93,7 +93,7 @@ namespace YAML {
  * Simple config path parser. Keys are separated by "."
  * and array indexes enclosed within square brackets.
  * Path can end with "cast" to force last node to be either
- * null or a map.
+ * array or a map.
  *
  * EBNF:
  * Path  := [ part { "." part } ] [ "=" cast ]
