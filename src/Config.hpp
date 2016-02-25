@@ -145,6 +145,30 @@ namespace fbide {
         }
         
         
+        /**
+         * Default to given value if config is null
+         */
+        inline Config & Default(const Config & val) noexcept
+        {
+            if (IsNull()) {
+                m_val = val.m_val;
+            }
+            return *this;
+        }
+        
+        
+        /**
+         * Default to given value if config is null
+         */
+        inline Config & Default(Config && val) noexcept
+        {
+            if (IsNull()) {
+                m_val = std::move(val.m_val);
+            }
+            return *this;
+        }
+        
+        
         //----------------------------------------------------------------------
         // String
         //----------------------------------------------------------------------
@@ -203,6 +227,42 @@ namespace fbide {
         inline bool IsString() const noexcept
         {
             return Is<wxString>();
+        }
+        
+        
+        /**
+         * Default to given value if config is null
+         */
+        inline Config & Default(const wxString & str) noexcept
+        {
+            if (IsNull()) {
+                m_val = str;
+            }
+            return *this;
+        }
+        
+        
+        /**
+         * Default to given value if config is null
+         */
+        inline Config & Default(wxString && str) noexcept
+        {
+            if (IsNull()) {
+                m_val = std::move(str);
+            }
+            return *this;
+        }
+        
+        
+        /**
+         * Default to given value if config is null
+         */
+        inline Config & Default(const char * str) noexcept
+        {
+            if (IsNull()) {
+                m_val = wxString(str);
+            }
+            return *this;
         }
         
         
@@ -313,6 +373,18 @@ namespace fbide {
         
         
         /**
+         * Default to given value if config is null
+         */
+        inline Config & Default(bool val) noexcept
+        {
+            if (IsNull()) {
+                m_val = val;
+            }
+            return *this;
+        }
+        
+        
+        /**
          * Get bool from Config
          * @throws boost::bad_any_cast
          */
@@ -388,6 +460,18 @@ namespace fbide {
         inline bool IsInt() const noexcept
         {
             return Is<int>();
+        }
+        
+        
+        /**
+         * Default to given value if config is null
+         */
+        inline Config & Default(int val) noexcept
+        {
+            if (IsNull()) {
+                m_val = val;
+            }
+            return *this;
         }
         
         
@@ -469,6 +553,18 @@ namespace fbide {
         inline bool IsDouble() const noexcept
         {
             return Is<double>();
+        }
+        
+        
+        /**
+         * Default to given value if config is null
+         */
+        inline Config & Default(double val) noexcept
+        {
+            if (IsNull()) {
+                m_val = val;
+            }
+            return *this;
         }
         
         
@@ -568,6 +664,30 @@ namespace fbide {
         
         
         /**
+         * Default to given value if config is null
+         */
+        inline Config & Default(const Map & val) noexcept
+        {
+            if (IsNull()) {
+                m_val = val;
+            }
+            return *this;
+        }
+        
+        
+        /**
+         * Default to given value if config is null
+         */
+        inline Config & Default(Map && val) noexcept
+        {
+            if (IsNull()) {
+                m_val = std::move(val);
+            }
+            return *this;
+        }
+        
+        
+        /**
          * Get Map from Config
          * @throws boost::bad_any_cast
          */
@@ -640,6 +760,30 @@ namespace fbide {
         inline bool IsArray() const noexcept
         {
             return Is<Array>();
+        }
+        
+        
+        /**
+         * Default to given value if config is null
+         */
+        inline Config & Default(const Array & val) noexcept
+        {
+            if (IsNull()) {
+                m_val = val;
+            }
+            return *this;
+        }
+        
+        
+        /**
+         * Default to given value if config is null
+         */
+        inline Config & Default(Array && val) noexcept
+        {
+            if (IsNull()) {
+                m_val = std::move(val);
+            }
+            return *this;
         }
         
         

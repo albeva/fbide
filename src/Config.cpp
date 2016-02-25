@@ -40,7 +40,7 @@ namespace YAML {
             if (node.IsSequence()) {
                 Config::Array arr;
                 arr.reserve(node.size());
-                for (auto & child : node) {
+                for (const auto & child : node) {
                     arr.emplace_back(child.as<Config>());
                 }
                 rhs = arr;
@@ -63,12 +63,12 @@ namespace YAML {
             // scalar
             if (node.IsScalar()) {
                 try {
-                    rhs = node.as<bool>();;
+                    rhs = node.as<bool>();
                     return true;
                 } catch (...) {}
                 
                 try {
-                    rhs = node.as<int>();;
+                    rhs = node.as<int>();
                     return true;
                 } catch (...) {}
                 
@@ -78,7 +78,7 @@ namespace YAML {
                 } catch (...) {}
                 
                 try {
-                    rhs = node.as<std::string>();;
+                    rhs = node.as<std::string>();
                     return true;
                 } catch (...) {}
             }
@@ -87,6 +87,138 @@ namespace YAML {
         }
     };
 }
+
+
+/**
+ * Simple config path parser. Keys are separated by "."
+ * and array indexes enclosed within square brackets.
+ * Path can end with "cast" to force last node to be either
+ * null or a map.
+ *
+ * EBNF:
+ * Path  := [ part { "." part } ] [ "=" cast ]
+ * part  := key | index
+ * key   := <id>
+ * index := "[" [ <num> ] "]"
+ * cast  := map | arr
+ * map   := "{}"
+ * arr   := "[]"
+ */
+struct PathParser {
+    
+    /**
+     * Possible token types
+     */
+    enum class Type {
+        Invalid,
+        Key,
+        Index,
+        Map,
+        Array,
+        End
+    };
+    
+    
+    /**
+     * Represent a token
+     */
+    struct Token
+    {
+        Type     type;
+        wxString str;
+        size_t   idx;
+    };
+    
+    
+    /**
+     * Create path parser
+     */
+    PathParser(const wxString & path) : m_path(path) {}
+    
+    
+    /**
+     * Get next token
+     */
+    Token Next() noexcept
+    {
+        const auto len = m_path.length();
+        
+        while (m_pos < len) {
+            auto start = m_pos;
+            char ch    = m_path[m_pos];
+            
+            // id
+            if (std::isalpha(ch)) {
+                do {
+                    m_pos++;
+                } while (m_pos < len && std::isalpha(m_path[m_pos]));
+                auto lex = m_path.SubString(start, m_pos - 1);
+                return Token{Type::Key, lex};
+            }
+            
+            // index
+            if (ch == '[') {
+                start++;
+                
+                // while is number
+                do {
+                    m_pos++;
+                } while (m_pos < len && std::isdigit(m_path[m_pos]));
+                
+                // extract the number
+                auto lex = m_path.SubString(start, m_pos - 1);
+                
+                // extract index
+                size_t index;
+                if (!lex.ToULong(&index)) {
+                    index = SIZE_T_MAX;
+                }
+                
+                // closing
+                if (m_path[m_pos] != ']') {
+                    return Token{Type::Invalid, "Excpected closing ']'"};
+                }
+                m_pos++;
+                
+                // done
+                return Token{Type::Index, lex, index};
+            }
+            
+            // dot. skip
+            if (ch == '.') {
+                m_pos++;
+                continue;
+            }
+            
+            // '=' ?
+            if (ch == '=') {
+                m_pos++;
+                if (m_pos == len - 2) {
+                    if (m_path[m_pos] == '[' && m_path[m_pos + 1] == ']') {
+                        m_pos += 2;
+                        return Token{Type::Array};
+                    }
+                    if (m_path[m_pos] == '{' && m_path[m_pos + 1] == '}') {
+                        m_pos += 2;
+                        return Token{Type::Map};
+                    }
+                }
+                return Token{Type::Invalid, "Path must end with ={} or =[]"};
+            }
+            
+            // something wrong
+            return Token{Type::Invalid, "Invalid config path"};
+        }
+        
+        // the end
+        return Token{Type::End};
+    }
+    
+private:
+    size_t           m_pos{0};
+    const wxString & m_path;
+};
+
 
 
 /**
@@ -138,201 +270,6 @@ bool Config::operator == (const Config & rhs) const noexcept
 }
 
 
-// Map and Array creation and conversion
-// - if node doesn't exist it is created
-// - if node is Null it is converted
-// - if node type mismtahces then throw an exception
-//
-// Last part of the file is a leaf.
-// - if cast expression exists it is enfored to be of given type
-// - if no cast expression speccified then return null
-//
-// key value path:
-// "foo.bar"
-// - current scope must be a map. If scope is null then it is turned
-//   into a map! Otherwise throw an exception
-// - foo *must* be a map. If it does not exist
-//   create one. If foo is not a map it will throw an exception
-// - bar is considered a key. if it does not exist a null
-//   is created and added to the map
-// - returns: bar
-//
-// Array access
-// "arr[0].bar"
-// - arr must be an array. If it does not exist it is created.
-//   if arr exists but is not an array it will throw an exception.
-//   if index is not in the range then it will be added to the array
-//   if index == size(). Thhrow an exception otherwise
-// - returns: bar
-//
-// Append without index
-// arr[].bar
-// - if no index is specified then new object is appended
-//   to the array
-// - returns: bar
-//
-// Access array directly
-// [0].bar
-// - corrent scope must be an array. If this scope is Null
-//   then it is converted into an array!
-// - same rule apply about index as above
-// - returns: bar
-//
-// Access map node
-// "bar = {}"
-// - if bar is null then it is converted into a map.
-//   if bar doesn't exist it is added and returned
-//   if there is type mismtahc it will throw an exception
-// returns: bar
-//
-// Access array node
-// "arr = []"
-// - if arr is null it is converted into array
-//   if arr doesn't exist it is created
-//   if there is type mismtahc it will throw an exception
-// - returns: arr
-//
-// Create and return new nested array
-// "arr[] = []"
-// - combine rules from above
-// - returns: nested array
-//
-// "foo[]" and "foo.[]" are equivelent
-//
-// path = part { "." part } [ "=" as ]
-// part = <id> [ idx ]
-//      | idx
-// idx  = "[" [<int>] "]"
-// as   = map
-//      | arr
-// map  = "{}"
-// arr  = "[]"
-struct PathParser {
-    
-    /**
-     * Possible token types
-     */
-    enum class Typ {
-        Invalid,
-        Id,
-        Index,
-        Map,
-        Arr,
-        End
-    };
-    
-    
-    /**
-     * Represent a token
-     */
-    struct Tok
-    {
-        Typ      type;
-        wxString str;
-        size_t   idx;
-    };
-    
-    
-    /**
-     * Create new parser instance. This will own the string
-     * by reference!
-     */
-    PathParser(const wxString & path) : m_path(path) {}
-    
-    
-    /**
-     * Get next token
-     */
-    Tok Next() noexcept
-    {
-        const auto len = m_path.length();
-        
-        while (m_pos < len) {
-            auto start = m_pos;
-            char ch    = m_path[m_pos];
-            
-            // id
-            if (std::isalpha(ch)) {
-                do {
-                    m_pos++;
-                } while (m_pos < len && std::isalpha(m_path[m_pos]));
-                auto lex = m_path.SubString(start, m_pos - 1);
-                return Tok{Typ::Id, lex};
-            }
-            
-            // index
-            if (ch == '[') {
-                start++;
-                
-                // while is number
-                do {
-                    m_pos++;
-                } while (m_pos < len && std::isdigit(m_path[m_pos]));
-                
-                // extract the number
-                auto lex = m_path.SubString(start, m_pos - 1);
-                
-                // extract index
-                size_t index;
-                if (!lex.ToULong(&index)) {
-                    index = SIZE_T_MAX;
-                }
-                
-                // closing
-                if (m_path[m_pos] != ']') {
-                    return Tok{Typ::Invalid, "Excpected closing ']'"};
-                }
-                m_pos++;
-                
-                // done
-                return Tok{Typ::Index, lex, index};
-            }
-            
-            // dot. skip
-            if (ch == '.') {
-                m_pos++;
-                continue;
-            }
-            
-            // '=' ?
-            if (ch == '=') {
-                m_pos++;
-                if (m_pos == len - 2) {
-                    if (m_path[m_pos] == '[' && m_path[m_pos+1] == ']') {
-                        m_pos += 2;
-                        return Tok{Typ::Arr};
-                    }
-                    if (m_path[m_pos] == '{' && m_path[m_pos+1] == '}') {
-                        m_pos += 2;
-                        return Tok{Typ::Map};
-                    }
-                }
-                return Tok{Typ::Invalid, "Path must end with ={} or =[]"};
-            }
-            
-            break;
-        }
-        
-        return Tok{Typ::End};
-    }
-    
-    
-    /**
-     * Check if there is more
-     */
-    bool HasMore() const noexcept
-    {
-        return m_pos < m_path.length();
-    }
-    
-    
-private:
-    size_t           m_pos{0};
-    const wxString & m_path;
-};
-
-
-
 /**
  * Access nested config via path. Each path separated by '.'
  * is considered a key in the map. If key doesn't exist it is
@@ -348,17 +285,17 @@ Config & Config::operator[](const wxString & path)
         auto && t = parser.Next();
         
         // finish?
-        if (t.type == PathParser::Typ::End) {
+        if (t.type == PathParser::Type::End) {
             break;
         }
         
         switch (t.type) {
-            case PathParser::Typ::Invalid:
+            case PathParser::Type::Invalid:
             {
                 throw std::domain_error(t.str);
                 break;
             }
-            case PathParser::Typ::Id:
+            case PathParser::Type::Key:
             {
                 if (node->IsNull()) {
                     *node = Map();
@@ -373,7 +310,7 @@ Config & Config::operator[](const wxString & path)
                 }
                 break;
             }
-            case PathParser::Typ::Index:
+            case PathParser::Type::Index:
             {
                 const auto idx = t.idx;
                 if (node->IsNull()) {
@@ -390,7 +327,7 @@ Config & Config::operator[](const wxString & path)
                 }
                 break;
             }
-            case PathParser::Typ::Map:
+            case PathParser::Type::Map:
             {
                 if (node->IsNull()) {
                     *node = Map();
@@ -398,16 +335,15 @@ Config & Config::operator[](const wxString & path)
                 node->AsMap(); // force check. Will throw an exception
                 break;
             }
-            case PathParser::Typ::Arr:
+            case PathParser::Type::Array:
             {
                 if (node->IsNull()) {
                     *node = Array();
                 }
                 node->AsArray();
-                std::cout << std::boolalpha << node->IsArray() << '\n';
                 break;
             }
-            case PathParser::Typ::End:
+            case PathParser::Type::End:
             {
                 break;
             }
@@ -463,7 +399,7 @@ void Config::Dump(size_t indent) const
             std::cout << self->AsString();
             break;
         case Type::Bool:
-            std::cout << (self->AsBool() ? "true" : "false");
+            std::cout << std::boolalpha << self->AsBool();
             break;
         case Type::Int:
             std::cout << self->AsInt();

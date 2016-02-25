@@ -6,7 +6,6 @@
 //  Copyright © 2016 Albert Varaksin. All rights reserved.
 //
 #include "app_pch.hpp"
-
 #include "ConfigManager.hpp"
 
 
@@ -34,13 +33,7 @@ void ConfigManager::Load(const wxString & path)
     }
 
     m_root = Config::LoadYaml(path);
-
-//    std::cout << "App.Language = " << m_root["App.Language"].AsString() << std::endl;
-
-//    std::cout << "Plugins.Load.0.params.Priority = "
-//              << m_root["Plugins.Load.0.params.Priority"].AsString() << std::endl;
-    
-    m_root["Foo.bars={}"].Dump();
+    m_root.Dump();
 }
 
 
