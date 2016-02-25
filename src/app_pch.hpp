@@ -17,6 +17,7 @@
 #include <memory>
 #include <algorithm>
 #include <utility>
+#include <cctype>
 
 // boost
 #include <boost/any.hpp>

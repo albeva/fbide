@@ -11,7 +11,6 @@
 
 using namespace fbide;
 
-
 namespace YAML {
     template<>
     struct convert<Config> {
@@ -88,138 +87,144 @@ namespace YAML {
     };
 }
 
+namespace {
 
-/**
- * Simple config path parser. Keys are separated by "."
- * and array indexes enclosed within square brackets.
- * Path can end with "cast" to force last node to be either
- * array or a map.
- *
- * EBNF:
- * Path  := [ part { "." part } ] [ "=" cast ]
- * part  := key | index
- * key   := <id>
- * index := "[" [ <num> ] "]"
- * cast  := map | arr
- * map   := "{}"
- * arr   := "[]"
- */
-struct PathParser {
-    
-    /**
-     * Possible token types
-     */
-    enum class Type {
-        Invalid,
-        Key,
-        Index,
-        Map,
-        Array,
-        End
-    };
-    
-    
-    /**
-     * Represent a token
-     */
-    struct Token
-    {
-        Type     type;
-        wxString str;
-        size_t   idx;
-    };
-    
-    
-    /**
-     * Create path parser
-     */
-    PathParser(const wxString & path) : m_path(path) {}
-    
-    
-    /**
-     * Get next token
-     */
-    Token Next() noexcept
-    {
-        const auto len = m_path.length();
-        
-        while (m_pos < len) {
-            auto start = m_pos;
-            char ch    = m_path[m_pos];
-            
-            // id
-            if (std::isalpha(ch)) {
-                do {
-                    m_pos++;
-                } while (m_pos < len && std::isalpha(m_path[m_pos]));
-                auto lex = m_path.SubString(start, m_pos - 1);
-                return Token{Type::Key, lex};
-            }
-            
-            // index
-            if (ch == '[') {
-                start++;
-                
-                // while is number
-                do {
-                    m_pos++;
-                } while (m_pos < len && std::isdigit(m_path[m_pos]));
-                
-                // extract the number
-                auto lex = m_path.SubString(start, m_pos - 1);
-                
-                // extract index
-                size_t index;
-                if (!lex.ToULong(&index)) {
-                    index = SIZE_T_MAX;
-                }
-                
-                // closing
-                if (m_path[m_pos] != ']') {
-                    return Token{Type::Invalid, "Excpected closing ']'"};
-                }
-                m_pos++;
-                
-                // done
-                return Token{Type::Index, lex, index};
-            }
-            
-            // dot. skip
-            if (ch == '.') {
-                m_pos++;
-                continue;
-            }
-            
-            // '=' ?
-            if (ch == '=') {
-                m_pos++;
-                if (m_pos == len - 2) {
-                    if (m_path[m_pos] == '[' && m_path[m_pos + 1] == ']') {
-                        m_pos += 2;
-                        return Token{Type::Array};
-                    }
-                    if (m_path[m_pos] == '{' && m_path[m_pos + 1] == '}') {
-                        m_pos += 2;
-                        return Token{Type::Map};
-                    }
-                }
-                return Token{Type::Invalid, "Path must end with ={} or =[]"};
-            }
-            
-            // something wrong
-            return Token{Type::Invalid, "Invalid config path"};
-        }
-        
-        // the end
-        return Token{Type::End};
-    }
-    
-private:
-    size_t           m_pos{0};
-    const wxString & m_path;
-};
+	// "proper way" of getting max unsigned long that should be compatible
+	// with different platforms
+	const auto MaxULong = std::numeric_limits<unsigned long>::max();
 
 
+	/**
+	 * Simple config path parser. Keys are separated by "."
+	 * and array indexes enclosed within square brackets.
+	 * Path can end with "cast" to force last node to be either
+	 * array or a map.
+	 *
+	 * EBNF:
+	 * Path  := [ part { "." part } ] [ "=" cast ]
+	 * part  := key | index
+	 * key   := <id>
+	 * index := "[" [ <num> ] "]"
+	 * cast  := map | arr
+	 * map   := "{}"
+	 * arr   := "[]"
+	 */
+	struct PathParser {
+
+		/**
+		 * Possible token types
+		 */
+		enum class Type {
+			Invalid,
+			Key,
+			Index,
+			Map,
+			Array,
+			End
+		};
+
+
+		/**
+		 * Represent a token
+		 */
+		struct Token
+		{
+			Type     type;
+			wxString str;
+			size_t   idx;
+		};
+
+
+		/**
+		 * Create path parser
+		 */
+		PathParser(const wxString & path) : m_path(path) {}
+
+
+		/**
+		 * Get next token
+		 */
+		Token Next() noexcept
+		{
+			const auto len = m_path.length();
+
+			while (m_pos < len) {
+				auto start = m_pos;
+				char ch = m_path[m_pos];
+
+				// id
+				if (std::isalpha(ch)) {
+					do {
+						m_pos++;
+					} while (m_pos < len && std::isalpha(m_path[m_pos]));
+					auto lex = m_path.SubString(start, m_pos - 1);
+					return Token{ Type::Key, lex };
+				}
+
+				// index
+				if (ch == '[') {
+					start++;
+
+					// while is number
+					do {
+						m_pos++;
+					} while (m_pos < len && std::isdigit(m_path[m_pos]));
+
+					// extract the number
+					auto lex = m_path.SubString(start, m_pos - 1);
+
+					// extract index
+					unsigned long index;
+					if (!lex.ToULong(&index)) {
+						index = MaxULong;
+					}
+
+					// closing
+					if (m_path[m_pos] != ']') {
+						return Token{ Type::Invalid, "Excpected closing ']'" };
+					}
+					m_pos++;
+
+					// done
+					return Token{ Type::Index, lex, index };
+				}
+
+				// dot. skip
+				if (ch == '.') {
+					m_pos++;
+					continue;
+				}
+
+				// '=' ?
+				if (ch == '=') {
+					m_pos++;
+					if (m_pos == len - 2) {
+						if (m_path[m_pos] == '[' && m_path[m_pos + 1] == ']') {
+							m_pos += 2;
+							return Token{ Type::Array };
+						}
+						if (m_path[m_pos] == '{' && m_path[m_pos + 1] == '}') {
+							m_pos += 2;
+							return Token{ Type::Map };
+						}
+					}
+					return Token{ Type::Invalid, "Path must end with ={} or =[]" };
+				}
+
+				// something wrong
+				return Token{ Type::Invalid, "Invalid config path" };
+			}
+
+			// the end
+			return Token{ Type::End };
+		}
+
+	private:
+		size_t           m_pos{ 0 };
+		const wxString & m_path;
+	};
+
+}
 
 /**
  * Load YAML file
@@ -313,7 +318,7 @@ Config & Config::operator[](const wxString & path)
                 auto & arr = node->AsArray();
                 if (idx < arr.size()) {
                     node = &arr[idx];
-                } else if (idx == arr.size() || idx == SIZE_T_MAX) {
+                } else if (idx == arr.size() || idx == MaxULong) {
                     arr.emplace_back(Config());
                     node = &arr.back();
                 } else {
