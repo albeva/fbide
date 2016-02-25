@@ -525,7 +525,7 @@ namespace fbide {
         
         
         /**
-         * Check if this Config is nyll
+         * Check if this Config is null
          */
         inline bool IsNull() const noexcept
         {
@@ -586,7 +586,7 @@ namespace fbide {
         /**
          * Return Config as given type. Null is propagated
          * to the type while other type mismatches will throw
-         * an error.
+         * an exception.
          *
          * @throws boost::bad_any_cast
          */
