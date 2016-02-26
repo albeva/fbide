@@ -38,9 +38,9 @@ void ConfigManager::Load(const wxString & path)
     auto b = Config();
 //    c = 12.5;
 //    c = true;
-//    c = "hello";
-    c = 123;
-    b = c;
+    c = "hello";
+//    c = 123;
+//    b = c;
 
     if (c == 12.5) {
         std::cout << "c = 12.5\n";
@@ -51,7 +51,7 @@ void ConfigManager::Load(const wxString & path)
     if (c == true) {
         std::cout << "c = true\n";
     }
-    if (c == "hello") {
+    if (c == wxString("hello")) {
         std::cout << "c = \"hello\"\n";
     }
     

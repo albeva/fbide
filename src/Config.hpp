@@ -9,6 +9,7 @@
 
 namespace fbide {
     
+    
     /**
      * Config is variant type that uses boost::any for storage
      * It supports nested structure With Array or Map
@@ -547,13 +548,25 @@ namespace fbide {
         
         
         /**
+         * Check if currently held Config is of given type
+         *
+         * if (value.Is<wxString>()) { ... }
+         */
+        template<typename T>
+        inline bool Is() const noexcept
+        {
+            return !IsNull() && m_val.type() == typeid(T);
+        }
+        
+        
+        /**
          * Compare rhs of type T against held value.
          * Will return false if types don't match.
          *
          * When comparing against const char * we need to coerce the type
          * to wxString - hence the conditional_t stuff.
          */
-        template<typename T, typename U = std::conditional_t<std::is_same<std::decay_t<T>, char *>::value, wxString, T>>
+        template<typename T, typename U = std::conditional_t<is_one_of<T, char*, std::string>(), wxString, T>>
         inline bool operator == (const T& rhs) const noexcept
         {
             if (!Is<U>()) return false;
@@ -573,19 +586,7 @@ namespace fbide {
         
         
     private:
-        
-        
-        /**
-         * Check if currently held Config is of given type
-         *
-         * if (valie.Is<wxString>()) { ... }
-         */
-        template<typename T>
-        inline bool Is() const noexcept
-        {
-            return !IsNull() && m_val.type() == typeid(T);
-        }
-        
+
         
         /**
          * Return Config as given type. Null is propagated
