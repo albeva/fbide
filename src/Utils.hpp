@@ -5,6 +5,19 @@
 
 namespace fbide {
     
+    // c++14 string literal "hello"s
+    using namespace std::literals::string_literals;
+    
+    
+    /**
+     * wxString shorthand. "Hello"_wx
+     */
+    inline wxString operator "" _wx (const char * s, size_t len)
+    {
+        return {s, len};
+    }
+
+    
     /**
      * is_one_of checks if type T is one of the given types
      */
