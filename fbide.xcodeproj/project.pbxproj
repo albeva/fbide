@@ -222,7 +222,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# c flags\nWX_CFLAGS=`/usr/local/bin/wx-config --debug=yes --cxxflags`\n# ld flags\nWX_LDFLAGS=`/usr/local/bin/wx-config --debug=yes --libs base core stc`\n\n# Generate the xcode config file\nWX_XCCONFIG=\"xcode/wx.xcconfig\"\necho \"// Configure wxWidgets. Auto Generated\" > $WX_XCCONFIG\necho \"WX_CFLAGS = $WX_CFLAGS\" >> $WX_XCCONFIG\necho \"WX_LDFLAGS = $WX_LDFLAGS\" >> $WX_XCCONFIG";
+			shellScript = "# c flags\nWX_CFLAGS=`/usr/local/bin/wx-config --debug=yes --cxxflags`\n# ld flags\nWX_LDFLAGS=`/usr/local/bin/wx-config --debug=yes --libs base core stc aui`\n\n# Generate the xcode config file\nWX_XCCONFIG=\"xcode/wx.xcconfig\"\necho \"// Configure wxWidgets. Auto Generated\" > $WX_XCCONFIG\necho \"WX_CFLAGS = $WX_CFLAGS\" >> $WX_XCCONFIG\necho \"WX_LDFLAGS = $WX_LDFLAGS\" >> $WX_XCCONFIG";
 		};
 /* End PBXShellScriptBuildPhase section */
 

@@ -566,9 +566,10 @@ namespace fbide {
          * When comparing against const char * we need to coerce the type
          * to wxString - hence the conditional_t stuff.
          */
-        template<typename T, typename U = std::conditional_t<is_one_of<T, char*, std::string>(), wxString, T>>
+        template<typename T>
         inline bool operator == (const T& rhs) const noexcept
         {
+            using U = std::conditional_t<is_one_of<T, char*, std::string>(), wxString, T>;
             if (!Is<U>()) return false;
             auto & lhs = boost::any_cast<const U&>(m_val);
             return lhs == rhs;

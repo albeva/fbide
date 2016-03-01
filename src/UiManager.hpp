@@ -35,12 +35,19 @@ namespace fbide {
          */
         inline MainWindow * GetWindow() { return m_window; }
         
+        /**
+         * Main tab area
+         */
+        inline wxAuiNotebook * GetDocArea() { return m_docArea; }
+        
         
     private:
         
         void OnClose(wxCloseEvent & event);
         
-        MainWindow * m_window;
+        MainWindow    * m_window;
+        wxAuiManager    m_aui;
+        wxAuiNotebook * m_docArea;
         
         wxDECLARE_EVENT_TABLE();
         DECLARE_MANAGER();
