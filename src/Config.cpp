@@ -37,25 +37,23 @@ namespace YAML {
             
             // array
             if (node.IsSequence()) {
-                Config::Array arr;
+                auto & arr = rhs.AsArray();
                 arr.reserve(node.size());
                 for (const auto & child : node) {
                     arr.emplace_back(child.as<Config>());
                 }
-                rhs = arr;
                 return true;
             }
             
             // map
             if (node.IsMap()) {
-                Config::Map map;
+                auto & map = rhs.AsMap();
                 map.reserve(node.size());
                 for (const auto & child : node) {
                     auto & key = child.first.Scalar();
                     auto & val = child.second;
                     map.emplace(std::make_pair(key, val.as<Config>()));
                 }
-                rhs = map;
                 return true;
             }
             
