@@ -1,0 +1,31 @@
+/* XPM */
+const char *tutor[] = {
+/* columns rows colors chars-per-pixel */
+"16 16 9 1",
+"  c black",
+". c #686868",
+"X c #5F00AC",
+"o c #7704DE",
+"O c #D068F4",
+"+ c #FFE000",
+"@ c gray75",
+"# c #F490FB",
+"$ c #FFACFF",
+/* pixels */
+"@.            @@",
+"@ $#########O @@",
+"@ #OOOOOOOOOo @@",
+"@ #OO+++++OOo @@",
+"@ #O++OOO+OOo @@",
+"@ #O+OOO++OOo @@",
+"@ #OOOO++OOOo @@",
+"@ #OOO++OOOOo @@",
+"@ #OOO+OOOOOo @@",
+"@ #OOOOOOOOOo @@",
+"@ #OOO+OOOOOo @@",
+"@ #OO+++OOOOo @@",
+"@ #OOO+OOOOOo @@",
+"@ #OOOOOOOOOo @@",
+"@ OoooooooooX @@",
+"@             @@"
+};

@@ -24,3 +24,5 @@
 
 // fbide
 #include "Utils.hpp"
+#include "Manager.hpp"
+#include "Config.hpp"

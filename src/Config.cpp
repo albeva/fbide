@@ -346,17 +346,6 @@ Config & Config::operator[](const wxString & path)
 
 
 /**
- * Access item in the array. Node type *must* be Array and if not
- * will throw an exception
- * @throws boost::bad_any_cast
- */
-Config & Config::operator[](size_t index)
-{
-    return AsArray()[index];
-}
-
-
-/**
  * Get node type
  */
 Config::Type Config::GetType() const noexcept

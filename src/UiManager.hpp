@@ -13,6 +13,8 @@
 namespace fbide {
     
     class MainWindow;
+    class IArtProvider;
+    class MenuHandler;
     
     /**
      * Manage fbide UI.
@@ -40,14 +42,28 @@ namespace fbide {
          */
         inline wxAuiNotebook * GetDocArea() { return m_docArea; }
         
+        /**
+         * Set art provider
+         */
+        void SetArtProvider(IArtProvider * artProvider);
+        
+        /**
+         * Get the art provider
+         */
+        inline IArtProvider & GetArtProvider() const { return *m_artProvider; }
+        
         
     private:
         
         void OnClose(wxCloseEvent & event);
         
         MainWindow    * m_window;
+        wxMenuBar     * m_menu;
         wxAuiManager    m_aui;
         wxAuiNotebook * m_docArea;
+        
+        std::unique_ptr<IArtProvider> m_artProvider{nullptr};
+        std::unique_ptr<MenuHandler> m_menuHandler{nullptr};
         
         wxDECLARE_EVENT_TABLE();
         DECLARE_MANAGER();

@@ -1,0 +1,33 @@
+/* XPM */
+const char *tile[] = {
+/* columns rows colors chars-per-pixel */
+"16 16 11 1",
+"  c black",
+". c #686868",
+"X c #3675D0",
+"o c #6595DB",
+"O c #B1B1B1",
+"+ c #87ADE3",
+"@ c #9DBCE8",
+"# c #D1D0CF",
+"$ c #D0D0D0",
+"% c #DFDFDF",
+"& c #F1F1F0",
+/* pixels */
+".               ",
+" @+++oooooooooX ",
+" .              ",
+" &%%%%%%%%%%%$O ",
+" &%%%%%%%$$$$$O ",
+" &%%%$$$$$$$$$O ",
+" &$$$$$$$$$$$$O ",
+" #OOOOOOOOOOOOO ",
+".               ",
+" @+++oooooooooX ",
+" .              ",
+" &%%%%%%%%%%%$O ",
+" &%%%%%$$$$$$$O ",
+" &$$$$$$$$$$$$O ",
+" #OOOOOOOOOOOOO ",
+"                "
+};

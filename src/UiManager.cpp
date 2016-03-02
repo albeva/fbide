@@ -7,7 +7,11 @@
 //
 #include "app_pch.hpp"
 #include "UiManager.hpp"
+#include "MenuHandler.hpp"
 #include "MainWindow.hpp"
+#include "StandardArtProvider.hpp"
+#include "ConfigManager.hpp"
+#include "Config.hpp"
 
 using namespace fbide;
 
@@ -27,6 +31,16 @@ UiManager::UiManager()
     m_window = new MainWindow(nullptr, wxID_ANY, "fbide");
     m_window->PushEventHandler(this);
     wxTheApp->SetTopWindow(m_window);
+
+    // Load default the art provider
+    m_artProvider = std::make_unique<StandardArtProvider>();
+    
+    // the menu
+    m_menu = new wxMenuBar();
+    m_window->SetMenuBar(m_menu);
+    
+    // menu handler
+    m_menuHandler = std::make_unique<MenuHandler>(m_menu);
     
     // aui
     m_aui.SetFlags(wxAUI_MGR_LIVE_RESIZE | wxAUI_MGR_DEFAULT);
@@ -61,6 +75,19 @@ void UiManager::Load()
 {
     m_docArea->AddPage(new wxStyledTextCtrl(m_docArea), "One");
     m_docArea->AddPage(new wxStyledTextCtrl(m_docArea), "Two");
+    
+    // setup art provider
+    auto & conf = GetCfgMgr().Get();
+    m_menuHandler->Load(conf["Ui.Menus"]);
+}
+
+
+/**
+ * Set art provider
+ */
+void UiManager::SetArtProvider(IArtProvider * artProvider)
+{
+    m_artProvider = std::unique_ptr<IArtProvider>{artProvider};
 }
 
 

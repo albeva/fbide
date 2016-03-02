@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		362D82231C6543E800DF7DA1 /* App.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 362D821F1C6543E800DF7DA1 /* App.cpp */; };
 		362D82241C6543E800DF7DA1 /* Manager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 362D82201C6543E800DF7DA1 /* Manager.cpp */; };
+		36401E651C874B290022C8BA /* StandardArtProvider.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36401E631C874B290022C8BA /* StandardArtProvider.cpp */; };
+		36401E6D1C875D6C0022C8BA /* MenuHandler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36401E6B1C875D6C0022C8BA /* MenuHandler.cpp */; };
 		36458AEC1C655C87005DC0FD /* MainWindow.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36458AEA1C655C87005DC0FD /* MainWindow.cpp */; };
 		36458AEF1C655CAB005DC0FD /* UiManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36458AED1C655CAB005DC0FD /* UiManager.cpp */; };
 		3670D2411C6666DE00673322 /* ide in Resources */ = {isa = PBXBuildFile; fileRef = 3670D2401C6666DE00673322 /* ide */; };
@@ -23,6 +25,12 @@
 		362D82201C6543E800DF7DA1 /* Manager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Manager.cpp; path = src/Manager.cpp; sourceTree = SOURCE_ROOT; };
 		362D82211C6543E800DF7DA1 /* Manager.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = Manager.hpp; path = src/Manager.hpp; sourceTree = SOURCE_ROOT; };
 		362D82221C6543E800DF7DA1 /* Utils.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = Utils.hpp; path = src/Utils.hpp; sourceTree = SOURCE_ROOT; };
+		36401E631C874B290022C8BA /* StandardArtProvider.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = StandardArtProvider.cpp; path = src/StandardArtProvider.cpp; sourceTree = SOURCE_ROOT; };
+		36401E641C874B290022C8BA /* StandardArtProvider.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = StandardArtProvider.hpp; path = src/StandardArtProvider.hpp; sourceTree = SOURCE_ROOT; };
+		36401E671C874B5F0022C8BA /* IArtProvider.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = IArtProvider.hpp; path = src/IArtProvider.hpp; sourceTree = SOURCE_ROOT; };
+		36401E681C874FB80022C8BA /* xpm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = xpm; path = src/xpm; sourceTree = SOURCE_ROOT; };
+		36401E6B1C875D6C0022C8BA /* MenuHandler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = MenuHandler.cpp; path = src/MenuHandler.cpp; sourceTree = SOURCE_ROOT; };
+		36401E6C1C875D6C0022C8BA /* MenuHandler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = MenuHandler.hpp; path = src/MenuHandler.hpp; sourceTree = SOURCE_ROOT; };
 		36458AEA1C655C87005DC0FD /* MainWindow.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = MainWindow.cpp; path = src/MainWindow.cpp; sourceTree = SOURCE_ROOT; };
 		36458AEB1C655C87005DC0FD /* MainWindow.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = MainWindow.hpp; path = src/MainWindow.hpp; sourceTree = SOURCE_ROOT; };
 		36458AED1C655CAB005DC0FD /* UiManager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = UiManager.cpp; path = src/UiManager.cpp; sourceTree = SOURCE_ROOT; };
@@ -62,6 +70,9 @@
 				36458AED1C655CAB005DC0FD /* UiManager.cpp */,
 				36458AEB1C655C87005DC0FD /* MainWindow.hpp */,
 				36458AEA1C655C87005DC0FD /* MainWindow.cpp */,
+				36401E6C1C875D6C0022C8BA /* MenuHandler.hpp */,
+				36401E6B1C875D6C0022C8BA /* MenuHandler.cpp */,
+				36401E661C874B300022C8BA /* Art */,
 			);
 			name = UI;
 			sourceTree = "<group>";
@@ -84,6 +95,7 @@
 				36458AF01C655DFE005DC0FD /* Docs */,
 				361E0DF31C654E91005CFF07 /* Config */,
 				361E0DF21C654E8B005CFF07 /* UI */,
+				36401E611C8735170022C8BA /* Document */,
 				362D821F1C6543E800DF7DA1 /* App.cpp */,
 				362D82211C6543E800DF7DA1 /* Manager.hpp */,
 				362D82201C6543E800DF7DA1 /* Manager.cpp */,
@@ -92,6 +104,24 @@
 			);
 			name = App;
 			path = fbide;
+			sourceTree = "<group>";
+		};
+		36401E611C8735170022C8BA /* Document */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Document;
+			sourceTree = "<group>";
+		};
+		36401E661C874B300022C8BA /* Art */ = {
+			isa = PBXGroup;
+			children = (
+				36401E681C874FB80022C8BA /* xpm */,
+				36401E671C874B5F0022C8BA /* IArtProvider.hpp */,
+				36401E641C874B290022C8BA /* StandardArtProvider.hpp */,
+				36401E631C874B290022C8BA /* StandardArtProvider.cpp */,
+			);
+			name = Art;
 			sourceTree = "<group>";
 		};
 		36458AF01C655DFE005DC0FD /* Docs */ = {
@@ -231,8 +261,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				36401E651C874B290022C8BA /* StandardArtProvider.cpp in Sources */,
 				36458AEC1C655C87005DC0FD /* MainWindow.cpp in Sources */,
 				362D82231C6543E800DF7DA1 /* App.cpp in Sources */,
+				36401E6D1C875D6C0022C8BA /* MenuHandler.cpp in Sources */,
 				362D82241C6543E800DF7DA1 /* Manager.cpp in Sources */,
 				36D5BE841C70F23800FD4667 /* Config.cpp in Sources */,
 				36458AEF1C655CAB005DC0FD /* UiManager.cpp in Sources */,

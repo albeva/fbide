@@ -81,19 +81,10 @@ namespace fbide {
          * @throws boost::bad_any_cast
          */
         Config & operator[](const wxString & path);
-        
-        
-        /**
-         * Considers this node an array and will return element at given
-         * index. If node is not an array this will throw an exception.
-         *
-         * This is convinience method. To get full control over the array should
-         * use AsArray() method to get the underlying std::vector<Config>& out.
-         *
-         * @throws boost::bad_any_cast
-         * @throws std::out_of_range
-         */
-        Config & operator[](size_t index);
+        inline Config & operator[](const char * path)
+        {
+            return (*this)[wxString(path)];
+        }
         
         
         //----------------------------------------------------------------------
@@ -566,10 +557,9 @@ namespace fbide {
          * When comparing against const char * we need to coerce the type
          * to wxString - hence the conditional_t stuff.
          */
-        template<typename T>
+        template<typename T, typename U = std::conditional_t<is_one_of<T, char*, std::string>(), wxString, T>>
         inline bool operator == (const T& rhs) const noexcept
         {
-            using U = std::conditional_t<is_one_of<T, char*, std::string>(), wxString, T>;
             if (!Is<U>()) return false;
             auto & lhs = boost::any_cast<const U&>(m_val);
             return lhs == rhs;

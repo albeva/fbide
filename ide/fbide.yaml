@@ -1,28 +1,25 @@
 App: 
   ShowSplash: true
-  Language:   "en"
-  Nullable:   null
 
-Editor: 
-  AutoIndent:      true
-  SyntaxHighlight: true
-  WhiteSpaces:     true
-  TabSize:         4
-  Theme:           obsidian
-
-Compiler: 
-  Path:    /usr/local/bin/fbc
-  Command: $(FBC) "$file"
-  Run:     $app $params
-
-Plugins: 
-  Path: ./plugins
-  Load: 
-    - name: "Foo"
-      version: 1.2
-      params: 
-        Priority: "high"
-        AutoUpdate: true
-    - bar
-    - goo
-    - shoo
+Ui:
+  Menus:
+    - id: file
+      items: [new, open, save, -, quit]
+    - id: edit
+      items: [undo, redo, -, cut, copy, paste]
+    - id: view
+      items: [toolbars, fullscreen]
+    - id: search
+      items: [find, replace, goto]
+    - id: help
+      items: [about]
+  Toolbars:
+    - id: common
+      show: true
+      items: [new, open, save, log]
+    - id: edit
+      show: true
+      items: [undo, redo, -, cut, copy, paste]
+    - id: search
+      show: false
+      items: [find, replace, goto]

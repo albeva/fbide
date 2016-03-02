@@ -1,0 +1,29 @@
+/* XPM */
+const char *minall[] = {
+/* columns rows colors chars-per-pixel */
+"16 16 7 1",
+"  c black",
+". c #686868",
+"X c #3675D0",
+"o c #6595DB",
+"O c gray75",
+"+ c #87ADE3",
+"@ c #9DBCE8",
+/* pixels */
+"OOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOO",
+".            OOO",
+" @+++ooooooX OOO",
+"             OOO",
+"OOOOOOOOOOOOOOOO",
+"O.            OO",
+"O @+++ooooooX OO",
+"O             OO",
+"OOOOOOOOOOOOOOOO",
+"OO.            O",
+"OO @+++ooooooX O",
+"OO             O",
+"OOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOO"
+};

@@ -1,0 +1,31 @@
+/* XPM */
+const char *rebuild[] = {
+/* columns rows colors chars-per-pixel */
+"16 16 9 1",
+"  c black",
+". c #686868",
+"X c gray59",
+"o c gray72",
+"O c gray75",
+"+ c gray81",
+"@ c #DFDFDF",
+"# c #F3F3F3",
+"$ c gray100",
+/* pixels */
+".      OO.      ",
+" $###@ OO $###@ ",
+" #@@@o OO #@@@o ",
+" #@++o OO #@++o ",
+" #@++o OO #@++o ",
+" +oooX OO +oooX ",
+"       OO       ",
+"OOOOOOOOOOOOOOOO",
+"OOOOOOOOOOOOOOOO",
+".      OO.      ",
+" $###@ OO $###@ ",
+" #@@@o OO #@@@o ",
+" #@++o OO #@++o ",
+" #@++o OO #@++o ",
+" +oooX OO +oooX ",
+"       OO       "
+};

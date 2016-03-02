@@ -1,0 +1,29 @@
+/* XPM */
+const char * close[] = {
+/* columns rows colors chars-per-pixel */
+"16 16 7 1",
+"  c black",
+". c #A50000",
+"X c #D30000",
+"o c red",
+"O c #FF6F6F",
+"+ c #FF7D7D",
+"@ c gray75",
+/* pixels */
+"@@@@@@@@@@@@@@@@",
+"@@@@ @@@@@@ @@@@",
+"@@@ + @@@@ + @@@",
+"@@ +OO @@ +Oo @@",
+"@ +OooO  +OoX. @",
+"@@ OoooooOoX. @@",
+"@@@ OoooooX. @@@",
+"@@@@ oooooo @@@@",
+"@@@@ oooooo @@@@",
+"@@@ +OoooooX @@@",
+"@@ +OoXoooooX @@",
+"@ +OoX.  XooX. @",
+"@@ oX. @@ XX. @@",
+"@@@ . @@@@ . @@@",
+"@@@@ @@@@@@ @@@@",
+"@@@@@@@@@@@@@@@@"
+};

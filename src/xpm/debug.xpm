@@ -1,0 +1,32 @@
+/* XPM */
+const char *debug[] = {
+/* columns rows colors chars-per-pixel */
+"16 16 10 1",
+"  c black",
+". c #686868",
+"X c #B77DFE",
+"o c gray75",
+"O c #C799FF",
+"+ c #D7B4FF",
+"@ c #DEC3FF",
+"# c #E5CCFF",
+"$ c #E9DAFB",
+"% c #F4F4F4",
+/* pixels */
+"oooooooooooooo o",
+"ooooooooooooo @ ",
+"oooooooooooo $X ",
+"ooooooooooo $+X ",
+"oooooooooo $+OX ",
+"ooooooooo $+OX o",
+"o oooooo $+OX oo",
+" % oooo $+OX ooo",
+" ## oo $+OX oooo",
+" #+#  $+OX ooooo",
+".++O##+OX oooooo",
+"o OOOOXX ooooooo",
+"oo OOXX oooooooo",
+"ooo XX ooooooooo",
+"oooo  oooooooooo",
+"oooooooooooooooo"
+};
