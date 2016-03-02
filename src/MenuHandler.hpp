@@ -9,8 +9,6 @@
 
 namespace fbide {
     
-    class Config;
-    
     /**
      * Handle menus
      */

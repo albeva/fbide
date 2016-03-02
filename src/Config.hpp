@@ -47,10 +47,7 @@ namespace fbide {
         /**
          * Map is key Config pairs of Config objects
          */
-        typedef std::unordered_map<wxString,
-                                   Config,
-                                   wxStringHash,
-                                   wxStringEqual> Map;
+        typedef std::unordered_map<wxString, Config> Map;
         
         
         /**
