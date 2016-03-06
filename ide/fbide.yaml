@@ -10,7 +10,7 @@ Ui:
     - id: edit
       items: [undo, redo, -, cut, copy, paste]
     - id: view
-      items: [toolbars, fullscreen]
+      items: [toolbars, fullscreen, toolbars.toggle]
     - id: search
       items: [find, replace, goto]
     - id: help

@@ -148,6 +148,7 @@ void CmdManager::Check(int id, bool state)
     if (entry == nullptr) {
         return;
     }
+    
     if (entry->type != Type::Check || entry->checked == state) {
         return;
     }

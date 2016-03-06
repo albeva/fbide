@@ -10,7 +10,7 @@
 
 using namespace fbide;
 
-namespace  {
+namespace {
     
     namespace XPM {
         #include "xpm/about.xpm"
@@ -132,7 +132,7 @@ namespace  {
         {"saveall",     XPM::saveall},
         {"saveas",      XPM::saveas},
         {"screen",      XPM::screen},
-        {"find",        XPM::search},
+        {"search",      XPM::search},
         {"srcagain",    XPM::srcagain},
         {"replace",     XPM::srchrep},
         {"temphlp",     XPM::temphlp},
@@ -145,20 +145,22 @@ namespace  {
         {"goto",        XPM::xpm_goto},
     };
     
+    // map aliases to icons.
+    std::unordered_map<wxString, const wxBitmap &> _alias{
+        {"find", _icons["search"]}
+    };
+    
     // Initialize the map
-    auto init = [](decltype(_icons) & icons) {
+    auto init = []() {
         auto c = wxColour(191, 191, 191);
-        for(auto & p : icons) {
+        for(auto & p : _icons) {
             p.second.SetMask(new wxMask(p.second, c));
         }
         return true;
-    }(_icons);
+    }();
     
     // default icon size
     const wxSize _size{16, 16};
-    
-    // the default empty icon
-    const auto & empty = _icons["empty"];
 }
 
 
@@ -167,15 +169,24 @@ namespace  {
  */
 const wxBitmap & StandardArtProvider::GetIcon(const wxString & name)
 {
-    auto iter = _icons.find(name);
-    return iter == _icons.end() ? empty : iter->second;
+    auto icon = _icons.find(name);
+    if (icon != _icons.end()) {
+        return icon->second;
+    }
+    
+    auto alias = _alias.find(name);
+    if (alias != _alias.end()) {
+        return alias->second;
+    }
+    
+    return wxNullBitmap;
 }
 
 
 /**
  * Get bitmap size
  */
-const wxSize & StandardArtProvider::GetSize()
+const wxSize & StandardArtProvider::GetIconSize()
 {
     return _size;
 }

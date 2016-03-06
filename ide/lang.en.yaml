@@ -17,6 +17,13 @@ toolbar:
   edit:   Edit
   toggle: Show toolbars
 
+toolbars:
+  name: Toolbars
+  help: Toggle toolbars
+  toggle:
+    name: Show toolbars
+    help: Toggle toolbars on/off
+
 # new
 new:
   name: New

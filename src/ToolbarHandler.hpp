@@ -42,18 +42,36 @@ namespace fbide {
         void AddItem(wxAuiToolBar * tbar, const wxString & name);
         
         /**
+         * Show (or hide) all toolbars
+         */
+        void ShowToolbars(bool show);
+        
+        /**
          * Handle events
          */
         void OnEvent(wxCommandEvent & event);
+        
+        /**
+         * Handle toolbar pane close event
+         */
+        void OnPaneClose(wxAuiManagerEvent & event);
+        
+        /**
+         * Listen for menu command (toggle toolbar(s))
+         */
+        void OnCommandEvent(wxCommandEvent & event);
         
         
     private:
         
         wxAuiManager * m_aui;
-        wxMenu       * m_menu;          // toolbars menu
-        wxWindow     * m_window;        // owning window
-        bool           m_visible{true}; // toolbars visible
+        wxMenu       * m_menu;       // toolbars menu
+        wxWindow     * m_window;     // owning window
+        bool           m_visible;    // toolbars visible
+        int            m_visibleCnt; // visible toolbar count
         std::unordered_map<wxString, wxAuiToolBar*> m_tbars;
+        std::unordered_map<int, bool> m_visibleTbars;
+        std::unordered_map<int, int>  m_idBridge;
     };
     
 }

@@ -43,8 +43,6 @@ namespace fbide {
 			Entry(int id = wxID_ANY, Type type = Type::Normal, bool checked = false, bool enabled = true, wxObject * obj = nullptr)
 				: id(id), type(type), checked(checked), enabled(enabled), object(obj)
 			{}
-			Entry(const Entry &) = default;
-			Entry(Entry &&) noexcept = default;
         };
         
         

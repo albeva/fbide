@@ -33,7 +33,7 @@ void MenuHandler::Load(Config & structure, wxMenu * parent)
         
         auto * menu = GetMenu(id);
         if (menu == nullptr) {
-            auto entry  = cmd.FindEntry("menu." + id);
+            auto entry = cmd.FindEntry(id);
             
             // check if menu is in cmd manager
             if (entry != nullptr &&
@@ -56,6 +56,11 @@ void MenuHandler::Load(Config & structure, wxMenu * parent)
         for (auto & item : node["items"].AsArray()) {
             if (item == "-") {
                 menu->AppendSeparator();
+            } else if (item.IsArray()) {
+                Load(item, menu);
+            } else if (item.IsMap()) {
+                auto arr = Config{Config::Array{item}};
+                Load(arr, menu);
             } else {
                 AddItem(menu, item);
             }
@@ -101,24 +106,31 @@ void MenuHandler::AddItem(wxMenu * parent, const wxString & id)
     auto & art   = ui.GetArtProvider();
     auto & cmd   = GetCmdMgr();
     auto & entry = cmd.GetEntry(id);
+    auto & name  = GetLang(id + ".name", id);
+    auto & help  = GetLang(id + ".help", id);
     
-    bool check = entry.type == CmdManager::Type::Check;
-    
-    auto item = new wxMenuItem{
-        parent,
-        entry.id,
-        GetLang(id + ".name", id),
-        GetLang(id + ".help"),
-        check ? wxITEM_CHECK : wxITEM_NORMAL
-    };
-    
-    if (check) {
-        item->Check(entry.checked);
-    } else {
+    if (entry.type == CmdManager::Type::Menu) {
+        auto item = parent->AppendSubMenu(dynamic_cast<wxMenu*>(entry.object), name);
         item->SetBitmap(art.GetIcon(id));
+    } else {
+        bool check = entry.type == CmdManager::Type::Check;
+        
+        auto item = new wxMenuItem{
+            parent,
+            entry.id,
+            name,
+            help,
+            check ? wxITEM_CHECK : wxITEM_NORMAL
+        };
+        
+        if (check) {
+            item->Check(entry.checked);
+        } else {
+            item->SetBitmap(art.GetIcon(id));
+        }
+        
+        parent->Append(item);
     }
-    
-    parent->Append(item);
 }
 
 
@@ -128,12 +140,9 @@ void MenuHandler::OnEvent(wxCommandEvent & event)
     auto item = m_mbar->FindItem(event.GetId());
     if (item == nullptr) return;
     
-    if (event.GetEventType() == CMD_CHECK)
-    {
+    if (event.GetEventType() == CMD_CHECK) {
         item->Check(event.IsChecked());
-    }
-    else if (event.GetEventType() == CMD_ENABLE)
-    {
+    } else if (event.GetEventType() == CMD_ENABLE) {
         item->Enable(event.GetInt());
     }
 }
