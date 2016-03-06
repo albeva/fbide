@@ -5,6 +5,8 @@
 #include "Manager.hpp"
 #include "UiManager.hpp"
 #include "ConfigManager.hpp"
+#include "CmdManager.hpp"
+
 
 using namespace fbide;
 
@@ -27,6 +29,30 @@ ConfigManager & fbide::GetCfgMgr()
     return GetMgr().GetConfigManager();
 }
 
+// shorthand to get config
+Config & fbide::GetConfg()
+{
+    return GetCfgMgr().Get();
+}
+
+// Shortcut the get the langauge
+Config & fbide::GetLang()
+{
+    return GetCfgMgr().Lang();
+}
+
+// shorthand to get translated string
+const wxString & fbide::GetLang(const wxString & path, const wxString def)
+{
+    return GetLang().Get(path, def);
+}
+
+// get command manager
+CmdManager & fbide::GetCmdMgr()
+{
+    return GetMgr().GetCmdManager();
+}
+
 //------------------------------------------------------------------------------
 // Manager basics
 //------------------------------------------------------------------------------
@@ -37,16 +63,27 @@ namespace {
 
 
 // Setup the manager
-Manager::Manager() :
-    m_cfg(std::make_unique<ConfigManager>()),
-    m_ui (std::make_unique<UiManager>())
+Manager::Manager()
 {
 }
 
 
-// clean up
+// clean up. Managers must shut down
+// in defined order
 Manager::~Manager()
 {
+    if (m_ui)  m_ui.reset();
+    if (m_cmd) m_cmd.reset();
+    if (m_cfg) m_cfg.reset();
+}
+
+
+// Load stuff
+void Manager::Load()
+{
+    m_cfg = std::make_unique<ConfigManager>();
+    m_cmd = std::make_unique<CmdManager>();
+    m_ui  = std::make_unique<UiManager>();
 }
 
 
@@ -89,4 +126,11 @@ UiManager & Manager::GetUiManager()
 ConfigManager & Manager::GetConfigManager()
 {
     return *m_cfg;
+}
+
+
+// cmd
+CmdManager & Manager::GetCmdManager()
+{
+    return *m_cmd;
 }

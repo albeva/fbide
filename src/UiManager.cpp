@@ -7,18 +7,18 @@
 //
 #include "app_pch.hpp"
 #include "UiManager.hpp"
-#include "MenuHandler.hpp"
 #include "MainWindow.hpp"
-#include "StandardArtProvider.hpp"
 #include "ConfigManager.hpp"
-#include "Config.hpp"
+
+#include "MenuHandler.hpp"
+#include "ToolbarHandler.hpp"
+#include "StandardArtProvider.hpp"
 
 using namespace fbide;
 
 
 // event dispatching
 BEGIN_EVENT_TABLE(UiManager, wxEvtHandler)
-    EVT_CLOSE(UiManager::OnClose)
 wxEND_EVENT_TABLE()
 
 
@@ -28,9 +28,9 @@ wxEND_EVENT_TABLE()
 UiManager::UiManager()
 {
     // the frame
-    m_window = new MainWindow(nullptr, wxID_ANY, "fbide");
+    m_window = std::make_unique<MainWindow>(nullptr, wxID_ANY, "fbide");
     m_window->PushEventHandler(this);
-    wxTheApp->SetTopWindow(m_window);
+    wxTheApp->SetTopWindow(m_window.get());
 
     // Load default the art provider
     m_artProvider = std::make_unique<StandardArtProvider>();
@@ -44,11 +44,14 @@ UiManager::UiManager()
     
     // aui
     m_aui.SetFlags(wxAUI_MGR_LIVE_RESIZE | wxAUI_MGR_DEFAULT);
-    m_aui.SetManagedWindow(m_window);
+    m_aui.SetManagedWindow(m_window.get());
     m_aui.Update();
     
+    // toolbar handler
+    m_tbarHandler = std::make_unique<ToolbarHandler>(&m_aui);
+    
     // main doc area
-    m_docArea = new wxAuiNotebook(m_window,
+    m_docArea = new wxAuiNotebook(m_window.get(),
                                   wxID_ANY,
                                   wxDefaultPosition,
                                   wxDefaultSize,
@@ -57,28 +60,32 @@ UiManager::UiManager()
                   .Name("fbideDocArea")
                   .CenterPane()
                   .PaneBorder(false));
+    
+
 }
 
 
-// shut down the UI
+// shut down the UI. Clean things
+// up in proper order
 UiManager::~UiManager()
 {
-    // in theory should do `delete m_window;` ?
-    // not sure though. sometimes gives an error
-    // I think window is automatically deleted so ...
-    // no need to do that manyally.
+    m_aui.UnInit();
+    m_window->RemoveEventHandler(this);
 }
 
 
 // Load the UI
 void UiManager::Load()
 {
+    auto & conf = GetCfgMgr().Get();
+    
+    m_tbarHandler->Load(conf["Ui.Toolbars"]);
+    m_menuHandler->Load(conf["Ui.Menus"]);
+    
+    m_aui.Update();
+    
     m_docArea->AddPage(new wxStyledTextCtrl(m_docArea), "One");
     m_docArea->AddPage(new wxStyledTextCtrl(m_docArea), "Two");
-    
-    // setup art provider
-    auto & conf = GetCfgMgr().Get();
-    m_menuHandler->Load(conf["Ui.Menus"]);
 }
 
 
@@ -88,13 +95,4 @@ void UiManager::Load()
 void UiManager::SetArtProvider(IArtProvider * artProvider)
 {
     m_artProvider = std::unique_ptr<IArtProvider>{artProvider};
-}
-
-
-// window is about to close
-void UiManager::OnClose(wxCloseEvent & event)
-{
-    m_aui.UnInit();
-    m_window->RemoveEventHandler(this);
-    m_window->Destroy();
 }

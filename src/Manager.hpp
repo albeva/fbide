@@ -9,20 +9,41 @@ namespace fbide {
     class Manager;
     class UiManager;
     class ConfigManager;
+    class CmdManager;
+    class Config;
     
     /**
      * Get manager instance.
-     *
-     * This is shorthand for Manager::GetInstance()
      */
     Manager & GetMgr();
     
     /**
      * Get UI manager
-     *
-     * This is shorthand for Manager::GetInstance().GetUiManager()
      */
     UiManager & GetUiMgr();
+    
+    /**
+     * Get main configuration
+     */
+    Config & GetConfg();
+    
+    /**
+     * Get Language
+     */
+    Config & GetLang();
+    
+    /**
+     * Get CmdManager
+     */
+    CmdManager & GetCmdMgr();
+    
+    /**
+     * Get translatedstring
+     *
+     * This is convinience method. Equivelant to:
+     * Manager::GetConfigManager.GetLang().Get(path, def);
+     */
+    const wxString & GetLang(const wxString & path, const wxString def = ""_wx);
     
     /**
      * Get configuration manager
@@ -46,6 +67,9 @@ namespace fbide {
         // Get manager instance
         static Manager & GetInstance();
         
+        // Load
+        void Load();
+        
         // clean up
         static void Release();
         
@@ -55,10 +79,14 @@ namespace fbide {
         // Get config manager
         ConfigManager & GetConfigManager();
         
+        // Get cmd manager
+        CmdManager& GetCmdManager();
+        
     private:
         
         std::unique_ptr<UiManager> m_ui;
         std::unique_ptr<ConfigManager> m_cfg;
+        std::unique_ptr<CmdManager> m_cmd;
         
         Manager();
         ~Manager();

@@ -1,5 +1,7 @@
 App: 
-  ShowSplash: true
+  ShowSplash:   true
+  Language:     en
+  ShowToolbars: true
 
 Ui:
   Menus:
@@ -15,11 +17,8 @@ Ui:
       items: [about]
   Toolbars:
     - id: common
-      show: true
-      items: [new, open, save, log]
+      items: [new, open, save]
     - id: edit
-      show: true
       items: [undo, redo, -, cut, copy, paste]
     - id: search
-      show: false
       items: [find, replace, goto]

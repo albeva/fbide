@@ -28,8 +28,9 @@ namespace fbide {
      *
      * All types except Map and Array support comparison operators == and !=
      */
-    struct Config
+    class Config
     {
+    public:
         /**
          * Config node type for use with node.Type() method
          */
@@ -206,6 +207,26 @@ namespace fbide {
         inline operator wxString &()
         {
             return As<wxString>();
+        }
+        
+        
+        /**
+         * Get requested string value and return default if none exists.
+         * will *not* modify Config structure as ["path"] does
+         */
+        inline const wxString Get(const wxString & path, const char * def) const noexcept
+        {
+            return Get(path, wxString(def));
+        }
+        
+        
+        /**
+         * Get requested string value and return default if none exists.
+         * will *not* modify Config structure as ["path"] does
+         */
+        inline const wxString Get(const wxString & path, const std::string & def) const noexcept
+        {
+            return Get(path, wxString(def));
         }
         
         
@@ -573,7 +594,28 @@ namespace fbide {
         }
         
         
+        /**
+         * Get requested string value and return default if none exists.
+         * will *not* modify Config structure as ["path"] does
+         */
+        template<typename T>
+        inline const T & Get(const wxString & path, const T & def) const noexcept
+        {
+            auto node = Get(path);
+            if (node == nullptr || !node->Is<T>()) {
+                return def;
+            }
+            return boost::any_cast<const T&>(node->m_val);
+        }
+        
+        
     private:
+        
+        /**
+         * Fetch pointer to config node at given path. Does
+         * not modify structure. Will return nullptr if no path found
+         */
+        const Config * Get(const wxString & path) const noexcept;
 
         
         /**

@@ -6,8 +6,6 @@
 //  Copyright © 2016 Albert Varaksin. All rights reserved.
 //
 #pragma once
-
-#include "Manager.hpp"
 #include "Config.hpp"
 
 namespace fbide {
@@ -38,7 +36,11 @@ namespace fbide {
          * Get main configuration root object
          */
         inline Config & Get() { return m_root; }
-        inline const Config & Get() const { return m_root; }
+        
+        /**
+         * Get language
+         */
+        inline Config & Lang() { return m_lang; }
         
         /**
          * Load file at specified path
@@ -49,8 +51,8 @@ namespace fbide {
     private:
         
         Config m_root;
+        Config m_lang;
         
-        DECLARE_MANAGER()
     };
     
 }

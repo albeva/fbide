@@ -6,9 +6,10 @@
 #include "UiManager.hpp"
 #include "MainWindow.hpp"
 #include "ConfigManager.hpp"
-
+#include "CmdManager.hpp"
 
 using namespace fbide;
+
 
 /**
  * App is the basic entry point into FBIde
@@ -23,17 +24,18 @@ public:
 	bool OnInit() override
 	{
         try {
-            
-            // path to the configuration.
-			auto path = GetIdePath() + "/ide/fbide.yaml";
+            // Load the managers
+            GetMgr().Load();
                         
             // Load up fbide. Order in which managers are called matters!
+            auto path = GetIdePath() + "/ide/fbide.yaml";
             GetCfgMgr().Load(path);
             
             // Load UI
             GetUiMgr().Load();
             
             // if we get here. All seems well. So show the window
+            GetUiMgr().Bind(wxEVT_CLOSE_WINDOW, &App::OnClose, this);
             GetUiMgr().GetWindow()->Show();
             
             // done
@@ -51,7 +53,7 @@ public:
      */
     wxString GetIdePath()
     {
-        auto & sp = this->GetTraits()->GetStandardPaths();
+        auto & sp = GetTraits()->GetStandardPaths();
         #ifdef __WXMSW__
             return ::wxPathOnly(sp.GetExecutablePath());
         #else
@@ -61,15 +63,42 @@ public:
     
     
     /**
-     * Application is exiting
+     * Handle application shutdown.
      */
-    int OnExit() override
+    void CloseApp()
     {
         Manager::Release();
-        return wxApp::OnExit();
     }
     
+    
+    /**
+     * Attempting to quit application (via menu)
+     */
+    void OnExit(wxCommandEvent & event)
+    {
+        CloseApp();
+    }
+    
+    
+    /**
+     * Attempting to quit application (close window, etc.)
+     */
+    void OnClose(wxCloseEvent & close)
+    {
+        CloseApp();
+    }
+    
+    DECLARE_EVENT_TABLE()
 };
+
+// App wide events
+
+wxBEGIN_EVENT_TABLE(App, wxApp)
+    EVT_MENU(wxID_EXIT, App::OnExit)
+    EVT_CLOSE(App::OnClose)
+wxEND_EVENT_TABLE()
+
+// wxWidgets machinery
 
 DECLARE_APP(App);
 IMPLEMENT_APP(App);

@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		360C009F1C8B53C700E702C7 /* CmdManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 360C009D1C8B53C700E702C7 /* CmdManager.cpp */; };
+		360C00A21C8BAF4600E702C7 /* ToolbarHandler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 360C00A01C8BAF4600E702C7 /* ToolbarHandler.cpp */; };
 		362D82231C6543E800DF7DA1 /* App.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 362D821F1C6543E800DF7DA1 /* App.cpp */; };
 		362D82241C6543E800DF7DA1 /* Manager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 362D82201C6543E800DF7DA1 /* Manager.cpp */; };
 		36401E651C874B290022C8BA /* StandardArtProvider.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36401E631C874B290022C8BA /* StandardArtProvider.cpp */; };
@@ -20,6 +22,10 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		360C009D1C8B53C700E702C7 /* CmdManager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = CmdManager.cpp; path = src/CmdManager.cpp; sourceTree = SOURCE_ROOT; };
+		360C009E1C8B53C700E702C7 /* CmdManager.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = CmdManager.hpp; path = src/CmdManager.hpp; sourceTree = SOURCE_ROOT; };
+		360C00A01C8BAF4600E702C7 /* ToolbarHandler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = ToolbarHandler.cpp; path = src/ToolbarHandler.cpp; sourceTree = SOURCE_ROOT; };
+		360C00A11C8BAF4600E702C7 /* ToolbarHandler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = ToolbarHandler.hpp; path = src/ToolbarHandler.hpp; sourceTree = SOURCE_ROOT; };
 		362D821E1C6543E800DF7DA1 /* app_pch.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = app_pch.hpp; path = src/app_pch.hpp; sourceTree = SOURCE_ROOT; };
 		362D821F1C6543E800DF7DA1 /* App.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = App.cpp; path = src/App.cpp; sourceTree = SOURCE_ROOT; };
 		362D82201C6543E800DF7DA1 /* Manager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Manager.cpp; path = src/Manager.cpp; sourceTree = SOURCE_ROOT; };
@@ -63,16 +69,27 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		360C009C1C8B53AC00E702C7 /* Cmd */ = {
+			isa = PBXGroup;
+			children = (
+				360C009E1C8B53C700E702C7 /* CmdManager.hpp */,
+				360C009D1C8B53C700E702C7 /* CmdManager.cpp */,
+			);
+			name = Cmd;
+			sourceTree = "<group>";
+		};
 		361E0DF21C654E8B005CFF07 /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				36401E661C874B300022C8BA /* Art */,
 				36458AEE1C655CAB005DC0FD /* UiManager.hpp */,
 				36458AED1C655CAB005DC0FD /* UiManager.cpp */,
 				36458AEB1C655C87005DC0FD /* MainWindow.hpp */,
 				36458AEA1C655C87005DC0FD /* MainWindow.cpp */,
 				36401E6C1C875D6C0022C8BA /* MenuHandler.hpp */,
 				36401E6B1C875D6C0022C8BA /* MenuHandler.cpp */,
-				36401E661C874B300022C8BA /* Art */,
+				360C00A11C8BAF4600E702C7 /* ToolbarHandler.hpp */,
+				360C00A01C8BAF4600E702C7 /* ToolbarHandler.cpp */,
 			);
 			name = UI;
 			sourceTree = "<group>";
@@ -95,6 +112,7 @@
 				36458AF01C655DFE005DC0FD /* Docs */,
 				361E0DF31C654E91005CFF07 /* Config */,
 				361E0DF21C654E8B005CFF07 /* UI */,
+				360C009C1C8B53AC00E702C7 /* Cmd */,
 				36401E611C8735170022C8BA /* Document */,
 				362D821F1C6543E800DF7DA1 /* App.cpp */,
 				362D82211C6543E800DF7DA1 /* Manager.hpp */,
@@ -267,7 +285,9 @@
 				36401E6D1C875D6C0022C8BA /* MenuHandler.cpp in Sources */,
 				362D82241C6543E800DF7DA1 /* Manager.cpp in Sources */,
 				36D5BE841C70F23800FD4667 /* Config.cpp in Sources */,
+				360C009F1C8B53C700E702C7 /* CmdManager.cpp in Sources */,
 				36458AEF1C655CAB005DC0FD /* UiManager.cpp in Sources */,
+				360C00A21C8BAF4600E702C7 /* ToolbarHandler.cpp in Sources */,
 				36C10E3C1C662E54008FE622 /* ConfigManager.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

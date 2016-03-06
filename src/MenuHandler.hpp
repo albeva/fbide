@@ -17,7 +17,6 @@ namespace fbide {
     public:
 
         MenuHandler(wxMenuBar * menu);
-        virtual ~MenuHandler();
         
         // Load Configuration
         void Load (Config & node, wxMenu * parent = nullptr);
@@ -35,8 +34,8 @@ namespace fbide {
         void OnEvent(wxCommandEvent & event);
         
     private:
-            std::unordered_map<wxString, wxMenu*> m_map;
-            wxMenuBar * m_mbar;
+        std::unordered_map<wxString, wxMenu*> m_map;
+        wxMenuBar * m_mbar;
     };
     
 }

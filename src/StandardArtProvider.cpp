@@ -132,7 +132,7 @@ namespace  {
         {"saveall",     XPM::saveall},
         {"saveas",      XPM::saveas},
         {"screen",      XPM::screen},
-        {"search",      XPM::search},
+        {"find",        XPM::search},
         {"srcagain",    XPM::srcagain},
         {"replace",     XPM::srchrep},
         {"temphlp",     XPM::temphlp},
@@ -175,7 +175,7 @@ const wxBitmap & StandardArtProvider::GetIcon(const wxString & name)
 /**
  * Get bitmap size
  */
-const wxSize & StandardArtProvider::GetSize(const wxString & name)
+const wxSize & StandardArtProvider::GetSize()
 {
     return _size;
 }

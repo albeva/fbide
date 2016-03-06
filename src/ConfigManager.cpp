@@ -13,7 +13,7 @@ using namespace fbide;
 
 
 // Load the configuration
-ConfigManager::ConfigManager() : m_root(0)
+ConfigManager::ConfigManager() : m_root(0), m_lang(0)
 {
 }
 
@@ -31,4 +31,18 @@ void ConfigManager::Load(const wxString & path)
         throw std::invalid_argument("fbide config file '" + path + "' not found");
     }
     m_root = Config::LoadYaml(path);
+    
+    // set IDE path
+    auto idePath = wxPathOnly(path);
+    m_root["IdePath"] = idePath;
+    
+    // Load language
+    auto lang = m_root["App.Language"].AsString();
+    if (!lang.IsEmpty()) {
+        auto file = idePath + "/lang." + lang + ".yaml";
+        if (!::wxFileExists(file)) {
+            throw std::invalid_argument("Language file not found."s + file.ToStdString());
+        }
+        m_lang = Config::LoadYaml(file);
+    }
 }

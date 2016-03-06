@@ -26,7 +26,7 @@ namespace fbide {
         /**
          * Get bitmap size
          */
-        virtual const wxSize & GetSize(const wxString & name) override;
+        virtual const wxSize & GetSize() override;
     };
     
 }

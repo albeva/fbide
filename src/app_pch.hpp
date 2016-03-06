@@ -8,7 +8,6 @@
 #include <wx/apptrait.h>
 #include <wx/stc/stc.h>
 #include <wx/aui/aui.h>
-#include <wx/tokenzr.h>
 
 // std
 #include <string>

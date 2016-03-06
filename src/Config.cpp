@@ -346,6 +346,64 @@ Config & Config::operator[](const wxString & path)
 
 
 /**
+ * Attempt to find node at given path.
+ * If node is not found or there is path mismatch this will
+ * return a nullptr. Does not throw nor modify Config
+ */
+const Config * Config::Get(const wxString & path) const noexcept
+{
+    auto node = this;
+    
+    PathParser parser{path};
+    for(;;) {
+        auto && t = parser.Next();
+        
+        // finish?
+        if (t.type == PathParser::Type::End) {
+            break;
+        }
+        
+        switch (t.type) {
+            case PathParser::Type::Key:
+            {
+                if (!node->IsMap()) {
+                    return nullptr;
+                }
+                auto & map = boost::any_cast<const Map&>(node->m_val);
+                auto it = map.find(t.str);
+                if (it != map.end()) {
+                    node = &it->second;
+                } else {
+                    return nullptr;
+                }
+                break;
+            }
+            case PathParser::Type::Index:
+            {
+                if (!node->IsArray()) {
+                    return nullptr;
+                }
+                const auto idx = t.idx;
+                auto & arr = boost::any_cast<const Array&>(node->m_val);
+                if (idx < arr.size()) {
+                    node = &arr[idx];
+                } else if (idx == arr.size() || idx == MaxULong) {
+                    return nullptr;
+                }
+                break;
+            }
+            default:
+            {
+                return nullptr;
+            }
+        }
+    }
+    
+    return node;
+}
+
+
+/**
  * Get node type
  */
 Config::Type Config::GetType() const noexcept

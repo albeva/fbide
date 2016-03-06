@@ -8,19 +8,18 @@
 
 #pragma once
 
-#include "Manager.hpp"
-
 namespace fbide {
     
     class MainWindow;
     class IArtProvider;
     class MenuHandler;
+    class ToolbarHandler;
     
     /**
      * Manage fbide UI.
      * app frame, menus, toolbars and panels
      */
-    class UiManager : NonCopyable, wxEvtHandler
+    class UiManager : NonCopyable, public wxEvtHandler
     {
     public:
         
@@ -35,7 +34,7 @@ namespace fbide {
         /**
          * Get main window
          */
-        inline MainWindow * GetWindow() { return m_window; }
+        inline MainWindow * GetWindow() { return m_window.get(); }
         
         /**
          * Main tab area
@@ -52,21 +51,20 @@ namespace fbide {
          */
         inline IArtProvider & GetArtProvider() const { return *m_artProvider; }
         
-        
     private:
         
-        void OnClose(wxCloseEvent & event);
-        
-        MainWindow    * m_window;
+        // life of these is tied to main window. So they are just pointers
         wxMenuBar     * m_menu;
         wxAuiManager    m_aui;
         wxAuiNotebook * m_docArea;
         
-        std::unique_ptr<IArtProvider> m_artProvider{nullptr};
-        std::unique_ptr<MenuHandler> m_menuHandler{nullptr};
+        // managed resources
+        std::unique_ptr<MainWindow>     m_window;
+        std::unique_ptr<IArtProvider>   m_artProvider;
+        std::unique_ptr<MenuHandler>    m_menuHandler;
+        std::unique_ptr<ToolbarHandler> m_tbarHandler;
         
         wxDECLARE_EVENT_TABLE();
-        DECLARE_MANAGER();
     };
     
 }
