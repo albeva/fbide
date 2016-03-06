@@ -147,7 +147,8 @@ namespace {
     
     // map aliases to icons.
     std::unordered_map<wxString, const wxBitmap &> _alias{
-        {"find", _icons["search"]}
+        {"find",        _icons["search"]},
+        {"fullscreen",  _icons["screen"]}
     };
     
     // Initialize the map

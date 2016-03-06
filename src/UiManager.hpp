@@ -51,6 +51,11 @@ namespace fbide {
          */
         inline IArtProvider & GetArtProvider() const { return *m_artProvider; }
         
+        /**
+         * Handle command events
+         */
+        void HandleMenuEvents(wxCommandEvent & event);
+        
     private:
         
         // life of these is tied to main window. So they are just pointers

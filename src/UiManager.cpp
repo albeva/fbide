@@ -13,12 +13,18 @@
 #include "MenuHandler.hpp"
 #include "ToolbarHandler.hpp"
 #include "StandardArtProvider.hpp"
+#include "CmdManager.hpp"
 
 using namespace fbide;
+
+namespace {
+    const int ID_FullScreen = ::wxNewId();
+}
 
 
 // event dispatching
 BEGIN_EVENT_TABLE(UiManager, wxEvtHandler)
+    EVT_MENU(wxID_ANY, UiManager::HandleMenuEvents)
 wxEND_EVENT_TABLE()
 
 
@@ -61,7 +67,8 @@ UiManager::UiManager()
                   .CenterPane()
                   .PaneBorder(false));
     
-
+    // toggle fullscreen
+    GetCmdMgr().Register("fullscreen", {ID_FullScreen, CmdManager::Type::Check, false});
 }
 
 
@@ -95,4 +102,21 @@ void UiManager::Load()
 void UiManager::SetArtProvider(IArtProvider * artProvider)
 {
     m_artProvider = std::unique_ptr<IArtProvider>{artProvider};
+}
+
+
+/**
+ * Handle command events
+ */
+void UiManager::HandleMenuEvents(wxCommandEvent & event)
+{
+    // allow others to catch
+    event.Skip();
+    
+    // let CmdMagr check the status (if this is a registered check)
+    GetCmdMgr().Check(event.GetId(), event.IsChecked());
+    
+    if (event.GetId() == ID_FullScreen) {
+        m_window->ShowFullScreen(event.IsChecked());
+    }
 }

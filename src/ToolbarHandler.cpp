@@ -17,7 +17,6 @@ using namespace fbide;
 namespace {
     const int ID_ToggleToolbars = ::wxNewId();
     const int ToolBarStyle = (wxAUI_TB_GRIPPER |
-                              wxAUI_TB_HORZ_LAYOUT |
                               wxAUI_TB_OVERFLOW);
 }
 
@@ -164,7 +163,11 @@ void ToolbarHandler::AddToolBar(const wxString & name, wxAuiToolBar * toolbar, b
     m_aui->AddPane(toolbar, wxAuiPaneInfo()
                    .Name(name)
                    .Caption(label)
-                   .ToolbarPane().Top().Dockable(true).Floatable(false).Show(isVisible));
+                   .ToolbarPane()
+                   .Top()
+                   .Dockable(true)
+                   .Floatable(false)
+                   .Show(isVisible));
     
     if (isVisible) m_visibleCnt += 1;
     m_visibleTbars[toolbar->GetId()] = show;

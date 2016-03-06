@@ -17,7 +17,7 @@ Ui:
       items: [about]
   Toolbars:
     - id: common
-      items: [new, open, save]
+      items: [new, open, save, -, fullscreen]
     - id: edit
       items: [undo, redo, -, cut, copy, paste]
     - id: search
