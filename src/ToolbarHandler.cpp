@@ -164,7 +164,7 @@ void ToolbarHandler::AddToolBar(const wxString & name, wxAuiToolBar * toolbar, b
     m_aui->AddPane(toolbar, wxAuiPaneInfo()
                    .Name(name)
                    .Caption(label)
-                   .ToolbarPane().Top().Dockable(true).Show(isVisible));
+                   .ToolbarPane().Top().Dockable(true).Floatable(false).Show(isVisible));
     
     if (isVisible) m_visibleCnt += 1;
     m_visibleTbars[toolbar->GetId()] = show;
