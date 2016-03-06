@@ -30,17 +30,20 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="src\CmdManager.cpp" />
     <ClCompile Include="src\Config.cpp" />
     <ClCompile Include="src\ConfigManager.cpp" />
     <ClCompile Include="src\MainWindow.cpp" />
     <ClCompile Include="src\Manager.cpp" />
     <ClCompile Include="src\MenuHandler.cpp" />
     <ClCompile Include="src\StandardArtProvider.cpp" />
+    <ClCompile Include="src\ToolbarHandler.cpp" />
     <ClCompile Include="src\UiManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
     <ClInclude Include="src\app_pch.hpp" />
+    <ClInclude Include="src\CmdManager.hpp" />
     <ClInclude Include="src\Config.hpp" />
     <ClInclude Include="src\ConfigManager.hpp" />
     <ClInclude Include="src\IArtProvider.hpp" />
@@ -48,6 +51,7 @@
     <ClInclude Include="src\Manager.hpp" />
     <ClInclude Include="src\MenuHandler.hpp" />
     <ClInclude Include="src\StandardArtProvider.hpp" />
+    <ClInclude Include="src\ToolbarHandler.hpp" />
     <ClInclude Include="src\UiManager.hpp" />
     <ClInclude Include="src\Utils.hpp" />
   </ItemGroup>

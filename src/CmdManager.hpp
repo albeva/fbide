@@ -34,16 +34,21 @@ namespace fbide {
         
         // Command entry
         struct Entry {
-            int        id{wxID_ANY};
-            Type       type{Type::Normal};
-            bool       checked{false};
-            bool       enabled{true};
-            wxObject * object{nullptr};
+            int        id;
+            Type       type;
+            bool       checked;
+            bool       enabled;
+            wxObject * object;
+
+			Entry(int id = wxID_ANY, Type type = Type::Normal, bool checked = false, bool enabled = true, wxObject * obj = nullptr)
+				: id(id), type(type), checked(checked), enabled(enabled), object(obj)
+			{}
+			Entry(const Entry &) = default;
+			Entry(Entry &&) noexcept = default;
         };
         
         
         CmdManager();
-        
         
         /**
          * Get ID from command name. If command does
@@ -51,12 +56,10 @@ namespace fbide {
          */
         int GetId(const wxString & name);
         
-        
         /**
          * check if id exists for the given name
          */
         bool IdExists(const wxString & name) const;
-        
         
         /**
          * Find entry. Will return a nullptr if it doesn't
@@ -64,13 +67,11 @@ namespace fbide {
          */
         const Entry * FindEntry(int id) const;
         
-        
         /**
          * Find entry. Will return a nullptr if it doesn't
          * exist
          */
         const Entry * FindEntry(const wxString & name) const;
-        
         
         /**
          * Get the entry. If doesn't exist a default
@@ -78,19 +79,16 @@ namespace fbide {
          */
         Entry & GetEntry (const wxString & name);
         
-        
         /**
          * Register new entry. Will return the ID of the created
          * entry
          */
         int Register(const wxString & name, const Entry & entry);
         
-        
         /**
          * Toggle the checkboxes. For Type::Check
          */
         void Check(int id, bool state);
-        
         
         /**
          * Enable / Disable command state
