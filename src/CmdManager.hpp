@@ -95,6 +95,9 @@ namespace fbide {
         
     private:
         
+        /**
+         * Find entry with given ID. If not found return null
+         */
         Entry * GetEntry(int id);
         
         typedef std::unordered_map<wxString,int> IdNameMap;

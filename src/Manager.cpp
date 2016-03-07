@@ -6,6 +6,7 @@
 #include "UiManager.hpp"
 #include "ConfigManager.hpp"
 #include "CmdManager.hpp"
+#include "TypeManager.hpp"
 
 
 using namespace fbide;
@@ -27,6 +28,12 @@ UiManager & fbide::GetUiMgr()
 ConfigManager & fbide::GetCfgMgr()
 {
     return GetMgr().GetConfigManager();
+}
+
+// shorthand to retreave type manager
+TypeManager & fbide::GetTypeMgr()
+{
+    return GetMgr().GetTypeManager();
 }
 
 // shorthand to get config
@@ -58,7 +65,7 @@ CmdManager & fbide::GetCmdMgr()
 //------------------------------------------------------------------------------
 
 namespace {
-    static Manager * p_instance = nullptr;
+    Manager * p_instance = nullptr;
 }
 
 
@@ -72,18 +79,20 @@ Manager::Manager()
 // in defined order
 Manager::~Manager()
 {
-    if (m_ui)  m_ui.reset();
-    if (m_cmd) m_cmd.reset();
-    if (m_cfg) m_cfg.reset();
+    if (m_ui)   m_ui.reset();
+    if (m_type) m_type.reset();
+    if (m_cmd)  m_cmd.reset();
+    if (m_cfg)  m_cfg.reset();
 }
 
 
 // Load stuff
 void Manager::Load()
 {
-    m_cfg = std::make_unique<ConfigManager>();
-    m_cmd = std::make_unique<CmdManager>();
-    m_ui  = std::make_unique<UiManager>();
+    m_cfg  = std::make_unique<ConfigManager>();
+    m_cmd  = std::make_unique<CmdManager>();
+    m_type = std::make_unique<TypeManager>();
+    m_ui   = std::make_unique<UiManager>();
 }
 
 
@@ -133,4 +142,11 @@ ConfigManager & Manager::GetConfigManager()
 CmdManager & Manager::GetCmdManager()
 {
     return *m_cmd;
+}
+
+
+// type
+TypeManager & Manager::GetTypeManager()
+{
+    return *m_type;
 }

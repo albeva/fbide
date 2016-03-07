@@ -7,6 +7,8 @@
 #include "MainWindow.hpp"
 #include "ConfigManager.hpp"
 #include "CmdManager.hpp"
+#include "Document.hpp"
+#include "TypeManager.hpp"
 
 using namespace fbide;
 

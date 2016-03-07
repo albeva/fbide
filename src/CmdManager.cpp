@@ -182,12 +182,13 @@ void CmdManager::Enable (int id, bool state)
 }
 
 
-// get entry. raise error if not found
+/**
+ * Find entry with given ID. If not found return null
+ */
 CmdManager::Entry * CmdManager::GetEntry(int id)
 {
     auto entry = m_entryMap.find(id);
     if (entry == m_entryMap.end()) {
-        wxLogError("No entry for given id '%d'", id);
         return nullptr;
     }
     return &entry->second;

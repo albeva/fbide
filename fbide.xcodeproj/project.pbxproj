@@ -16,6 +16,8 @@
 		36458AEC1C655C87005DC0FD /* MainWindow.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36458AEA1C655C87005DC0FD /* MainWindow.cpp */; };
 		36458AEF1C655CAB005DC0FD /* UiManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36458AED1C655CAB005DC0FD /* UiManager.cpp */; };
 		3670D2411C6666DE00673322 /* ide in Resources */ = {isa = PBXBuildFile; fileRef = 3670D2401C6666DE00673322 /* ide */; };
+		367B0BFD1C8CC071003BF78A /* TypeManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 367B0BFB1C8CC071003BF78A /* TypeManager.cpp */; };
+		367B0C001C8D0AFF003BF78A /* Document.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 367B0BFE1C8D0AFF003BF78A /* Document.cpp */; };
 		36C10E3C1C662E54008FE622 /* ConfigManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36C10E3A1C662E54008FE622 /* ConfigManager.cpp */; };
 		36C487D217E0FCD400906651 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 36C487D117E0FCD400906651 /* Cocoa.framework */; };
 		36D5BE841C70F23800FD4667 /* Config.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 36D5BE821C70F23800FD4667 /* Config.cpp */; };
@@ -43,6 +45,10 @@
 		36458AEE1C655CAB005DC0FD /* UiManager.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = UiManager.hpp; path = src/UiManager.hpp; sourceTree = SOURCE_ROOT; };
 		36458AF21C655ED0005DC0FD /* managers.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; name = managers.md; path = docs/managers.md; sourceTree = SOURCE_ROOT; };
 		3670D2401C6666DE00673322 /* ide */ = {isa = PBXFileReference; lastKnownFileType = folder; path = ide; sourceTree = SOURCE_ROOT; };
+		367B0BFB1C8CC071003BF78A /* TypeManager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = TypeManager.cpp; path = src/TypeManager.cpp; sourceTree = SOURCE_ROOT; };
+		367B0BFC1C8CC071003BF78A /* TypeManager.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = TypeManager.hpp; path = src/TypeManager.hpp; sourceTree = SOURCE_ROOT; };
+		367B0BFE1C8D0AFF003BF78A /* Document.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Document.cpp; path = src/Document.cpp; sourceTree = SOURCE_ROOT; };
+		367B0BFF1C8D0AFF003BF78A /* Document.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = Document.hpp; path = src/Document.hpp; sourceTree = SOURCE_ROOT; };
 		36C10E341C656B95008FE622 /* base.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = base.xcconfig; path = xcode/base.xcconfig; sourceTree = SOURCE_ROOT; };
 		36C10E351C656B95008FE622 /* fbide-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "fbide-Info.plist"; path = "xcode/fbide-Info.plist"; sourceTree = SOURCE_ROOT; };
 		36C10E361C656B95008FE622 /* wx.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = wx.xcconfig; path = xcode/wx.xcconfig; sourceTree = SOURCE_ROOT; };
@@ -111,8 +117,9 @@
 				3670D2401C6666DE00673322 /* ide */,
 				36458AF01C655DFE005DC0FD /* Docs */,
 				361E0DF31C654E91005CFF07 /* Config */,
-				361E0DF21C654E8B005CFF07 /* UI */,
 				360C009C1C8B53AC00E702C7 /* Cmd */,
+				367B0BFA1C8CC04A003BF78A /* Type */,
+				361E0DF21C654E8B005CFF07 /* UI */,
 				36401E611C8735170022C8BA /* Document */,
 				362D821F1C6543E800DF7DA1 /* App.cpp */,
 				362D82211C6543E800DF7DA1 /* Manager.hpp */,
@@ -127,6 +134,8 @@
 		36401E611C8735170022C8BA /* Document */ = {
 			isa = PBXGroup;
 			children = (
+				367B0BFF1C8D0AFF003BF78A /* Document.hpp */,
+				367B0BFE1C8D0AFF003BF78A /* Document.cpp */,
 			);
 			name = Document;
 			sourceTree = "<group>";
@@ -148,6 +157,15 @@
 				36458AF21C655ED0005DC0FD /* managers.md */,
 			);
 			name = Docs;
+			sourceTree = "<group>";
+		};
+		367B0BFA1C8CC04A003BF78A /* Type */ = {
+			isa = PBXGroup;
+			children = (
+				367B0BFC1C8CC071003BF78A /* TypeManager.hpp */,
+				367B0BFB1C8CC071003BF78A /* TypeManager.cpp */,
+			);
+			name = Type;
 			sourceTree = "<group>";
 		};
 		36C487C517E0FCD400906651 = {
@@ -287,6 +305,8 @@
 				36D5BE841C70F23800FD4667 /* Config.cpp in Sources */,
 				360C009F1C8B53C700E702C7 /* CmdManager.cpp in Sources */,
 				36458AEF1C655CAB005DC0FD /* UiManager.cpp in Sources */,
+				367B0C001C8D0AFF003BF78A /* Document.cpp in Sources */,
+				367B0BFD1C8CC071003BF78A /* TypeManager.cpp in Sources */,
 				360C00A21C8BAF4600E702C7 /* ToolbarHandler.cpp in Sources */,
 				36C10E3C1C662E54008FE622 /* ConfigManager.cpp in Sources */,
 			);

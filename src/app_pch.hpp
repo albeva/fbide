@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <utility>
 #include <cctype>
+#include <type_traits>
 
 // boost
 #include <boost/any.hpp>

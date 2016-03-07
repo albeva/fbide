@@ -10,6 +10,7 @@ namespace fbide {
     class UiManager;
     class ConfigManager;
     class CmdManager;
+    class TypeManager;
     class Config;
     
     /**
@@ -23,6 +24,21 @@ namespace fbide {
     UiManager & GetUiMgr();
     
     /**
+     * Get configuration manager
+     */
+    ConfigManager & GetCfgMgr();
+    
+    /**
+     * Get CmdManager
+     */
+    CmdManager & GetCmdMgr();
+    
+    /**
+     * Get Type manager
+     */
+    TypeManager & GetTypeMgr();
+    
+    /**
      * Get main configuration
      */
     Config & GetConfg();
@@ -33,24 +49,11 @@ namespace fbide {
     Config & GetLang();
     
     /**
-     * Get CmdManager
-     */
-    CmdManager & GetCmdMgr();
-    
-    /**
      * Get translatedstring
      *
-     * This is convinience method. Equivelant to:
-     * Manager::GetConfigManager.GetLang().Get(path, def);
+     * GetCfgMgr().GetLang().Get(path, def);
      */
     const wxString & GetLang(const wxString & path, const wxString def = ""_wx);
-    
-    /**
-     * Get configuration manager
-     *
-     * This is shorthand for Manager::GetInstance().GetConfigManager()
-     */
-    ConfigManager & GetCfgMgr();
     
 
     /**
@@ -82,20 +85,18 @@ namespace fbide {
         // Get cmd manager
         CmdManager& GetCmdManager();
         
+        // Get type manager
+        TypeManager& GetTypeManager();
+        
     private:
         
-        std::unique_ptr<UiManager> m_ui;
-        std::unique_ptr<ConfigManager> m_cfg;
-        std::unique_ptr<CmdManager> m_cmd;
+        std::unique_ptr<UiManager>      m_ui;
+        std::unique_ptr<ConfigManager>  m_cfg;
+        std::unique_ptr<CmdManager>     m_cmd;
+        std::unique_ptr<TypeManager>    m_type;
         
         Manager();
         ~Manager();
     };
-    
-    
-    // macro to declare a manager class in the header
-    #define DECLARE_MANAGER() \
-        private : \
-            friend class ::fbide::Manager;
     
 }
