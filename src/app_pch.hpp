@@ -8,12 +8,15 @@
 #include <wx/apptrait.h>
 #include <wx/stc/stc.h>
 #include <wx/aui/aui.h>
+#include <wx/tokenzr.h>
+#include <wx/wupdlock.h>
 
 // std
 #include <string>
 #include <stdexcept>
 #include <unordered_map>
 #include <memory>
+#include <functional>
 #include <algorithm>
 #include <utility>
 #include <cctype>

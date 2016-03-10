@@ -14,6 +14,8 @@
 #include "ToolbarHandler.hpp"
 #include "StandardArtProvider.hpp"
 #include "CmdManager.hpp"
+#include "TypeManager.hpp"
+#include "Document.hpp"
 
 using namespace fbide;
 
@@ -21,10 +23,12 @@ namespace {
     const int ID_FullScreen = ::wxNewId();
 }
 
-
 // event dispatching
-BEGIN_EVENT_TABLE(UiManager, wxEvtHandler)
-    EVT_MENU(wxID_ANY, UiManager::HandleMenuEvents)
+wxBEGIN_EVENT_TABLE(UiManager, wxEvtHandler)
+    EVT_MENU(wxID_ANY,  UiManager::HandleMenuEvents)
+    EVT_MENU(wxID_NEW,  UiManager::OnNew)
+    EVT_MENU(wxID_OPEN, UiManager::OnOpen)
+    EVT_MENU(wxID_SAVE, UiManager::OnSave)
 wxEND_EVENT_TABLE()
 
 
@@ -85,14 +89,9 @@ UiManager::~UiManager()
 void UiManager::Load()
 {
     auto & conf = GetCfgMgr().Get();
-    
     m_tbarHandler->Load(conf["Ui.Toolbars"]);
     m_menuHandler->Load(conf["Ui.Menus"]);
-    
     m_aui.Update();
-    
-    m_docArea->AddPage(new wxStyledTextCtrl(m_docArea), "One");
-    m_docArea->AddPage(new wxStyledTextCtrl(m_docArea), "Two");
 }
 
 
@@ -119,4 +118,34 @@ void UiManager::HandleMenuEvents(wxCommandEvent & event)
     if (event.GetId() == ID_FullScreen) {
         m_window->ShowFullScreen(event.IsChecked());
     }
+}
+
+
+/**
+ * Open new blank default document
+ */
+void UiManager::OnNew(wxCommandEvent & event)
+{
+    wxWindowUpdateLocker lock{m_window.get()};
+    auto & type = GetTypeMgr();
+    auto doc = type.CreateFromType("default");
+    doc->Create();
+}
+
+
+/**
+ * Show open file dialog
+ */
+void UiManager::OnOpen(wxCommandEvent & event)
+{
+    
+}
+
+
+/**
+ * Save currently active document
+ */
+void UiManager::OnSave(wxCommandEvent & event)
+{
+    
 }

@@ -49,9 +49,21 @@ Config & fbide::GetLang()
 }
 
 // shorthand to get translated string
-const wxString & fbide::GetLang(const wxString & path, const wxString def)
+const wxString & fbide::GetLang(const wxString & path, const wxString & def)
 {
     return GetLang().Get(path, def);
+}
+
+// Get translated string and replace placeholders
+wxString fbide::GetLang(const wxString & path,
+                 const std::unordered_map<wxString, wxString> & map,
+                 const wxString & def)
+{
+    auto str = GetLang(path, def);
+    for (const auto & iter : map) {
+        str.Replace("{" + iter.first + "}", iter.second, true);
+    }
+    return str;
 }
 
 // get command manager

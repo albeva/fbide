@@ -13,12 +13,17 @@ using namespace fbide;
 /**
  * Register document creator
  */
-void TypeManager::Register(const wxString & name, CreatorFn creator)
+void TypeManager::Register(const wxString & name, CreatorFn creator, std::vector<wxString> exts)
 {
     if (IsRegistered(name)) {
         throw std::invalid_argument("type '"s + name + "' is already registered");
     }
-    m_types.emplace(std::make_pair(name, Type{creator}));
+    m_types.emplace(std::make_pair(name, Type{creator, exts}));
+    
+    // bind "default" by default to 1st registered type
+    if (m_aliases.find("default") == m_aliases.end()) {
+        m_aliases["default"] = name;
+    }
 }
 
 
@@ -39,6 +44,43 @@ void TypeManager::BindAlias(const wxString & alias, const wxString & name, bool 
 }
 
 
+/**
+ * Bind extensions to the name
+ */
+void TypeManager::BindExtensions(const wxString & name, const wxString & exts)
+{
+    auto type = GetType(name);
+    if (type == nullptr) {
+        throw std::invalid_argument("Type '"s + name + "' not found");
+    }
+    
+    wxStringTokenizer tokenizer(exts, ";,: ");
+    while (tokenizer.HasMoreTokens()) {
+        auto ext = tokenizer.GetNextToken();
+        auto iter = std::find(type->exts.begin(), type->exts.end(), ext);
+        if (iter == type->exts.end()) {
+            type->exts.push_back(ext);
+        }
+    }
+}
+
+
+/**
+ * Create Document from type
+ */
+Document * TypeManager::CreateFromType(const wxString & name)
+{
+    auto type = GetType(name);
+    if (type == nullptr) {
+        throw std::invalid_argument("Type '"s + name + "' not found");
+    }
+    return type->creator();
+}
+
+
+/**
+ * find type for the given name. Return nullptr if none found
+ */
 TypeManager::Type * TypeManager::GetType(const wxString & name) noexcept
 {
     auto type = m_types.find(name);

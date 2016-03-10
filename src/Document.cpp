@@ -11,3 +11,33 @@
 using namespace fbide;
 
 
+namespace {
+    
+    int uniqueId{0};
+    
+}
+
+
+Document::Document() : m_id(++uniqueId)
+{
+    SetTitle("");
+}
+
+
+Document::~Document()
+{
+}
+
+
+void Document::SetFilename(const wxString &filename)
+{
+    m_filename = filename;
+}
+
+
+void Document::SetTitle(const wxString &title)
+{
+    if (title.empty()) {
+        m_title = GetLang("document.unnamed", {{"id", ""_wx << m_id}});
+    }
+}

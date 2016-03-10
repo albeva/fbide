@@ -13,15 +13,6 @@ namespace fbide {
     
     
     /**
-     * Create new Document instance
-     */
-    template<typename T> Document * DocumentCreator()
-    {
-        return new T();
-    }
-    
-    
-    /**
      * Manage file loaders and assist in creating
      * load/save dialogs
      */
@@ -32,24 +23,24 @@ namespace fbide {
         /**
          * Signature for function that can create a Document
          */
-        typedef Document * (*CreatorFn)( );
+        typedef Document*(*CreatorFn)();
         
         /**
          * Register a subclass of Document with the TypeManager
          */
         template<typename T>
-        inline void Register(const wxString & name)
+        inline void Register(const wxString & name, std::vector<wxString> exts)
         {
             static_assert(std::is_base_of<Document, T>::value &&
-                          std::is_same<Document, T>::value == false,
+                          !std::is_same<Document, T>::value,
                           "Registered type must be subclass of Document");
-            Register(name, DocumentCreator<T>);
+            Register(name, []() -> Document* { return new T; }, exts);
         }
         
         /**
          * Register a document creator function
          */
-        void Register(const wxString & name, CreatorFn creator);
+        void Register(const wxString & name, CreatorFn creator, std::vector<wxString> exts);
         
         /**
          * Check if type is registered
@@ -71,12 +62,17 @@ namespace fbide {
          */
         void BindAlias(const wxString & alias, const wxString & name, bool overwrite = false);
         
+        /**
+         * Create document from type
+         */
+        Document * CreateFromType(const wxString & name);
+        
     private:
         
-        struct Type {
+        struct Type
+        {
             CreatorFn              creator;
             std::vector<wxString>  exts;
-            Type(CreatorFn creator) : creator(creator) {}
         };
         
         

@@ -9,6 +9,8 @@
 #include "CmdManager.hpp"
 #include "Document.hpp"
 #include "TypeManager.hpp"
+#include "Editor.hpp"
+#include "EditorDocument.hpp"
 
 using namespace fbide;
 
@@ -34,11 +36,16 @@ public:
             GetCfgMgr().Load(path);
             
             // Load UI
-            GetUiMgr().Load();
+            auto & ui = GetUiMgr();
+            ui.Load();
             
             // if we get here. All seems well. So show the window
-            GetUiMgr().Bind(wxEVT_CLOSE_WINDOW, &App::OnClose, this);
-            GetUiMgr().GetWindow()->Show();
+            ui.Bind(wxEVT_CLOSE_WINDOW, &App::OnClose, this);
+            ui.GetWindow()->Show();
+            
+            // plain text document
+            auto & type = GetTypeMgr();
+            type.Register<EditorDocument>("text/plain", {"txt", "", "md"});
             
             // done
             return true;

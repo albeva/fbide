@@ -19,22 +19,69 @@ namespace fbide {
     {
     public:
         
+        Document();
+        virtual ~Document();
+        
         /**
-         * Create new Document.
+         * Get unique document id
          */
-        Document() {}
+        int GetId() const
+        {
+            return m_id;
+        }
         
-//        /**
-//         * Create new blank instance
-//         */
-//        virtual void Create() = 0;
-//        
-//        /**
-//         * Load specified file. Will Create the instance
-//         */
-//        virtual void LoadFile(const wxString & filename) = 0;
+        /**
+         * Instantiate the document
+         */
+        virtual void Create() = 0;
         
-    private:
+        /**
+         * Load specified file. Will Create the instance
+         */
+        virtual void Load(const wxString & filename) = 0;
+        
+        /**
+         * Save the document
+         */
+        virtual void Save(const wxString & filename) = 0;
+        
+        /**
+         * Set document filename
+         */
+        virtual void SetFilename(const wxString & filename);
+        
+        /**
+         * Get filename
+         */
+        virtual const wxString & GetFilename() const
+        {
+            return m_filename;
+        }
+        
+        /**
+         * Set document title
+         */
+        virtual void SetTitle(const wxString & title);
+        
+        
+        /**
+         * Get title
+         */
+        virtual const wxString & GetTitle() const
+        {
+            return m_title;
+        }
+        
+    protected:
+        
+        // document id
+        int m_id;
+        
+        // backing file
+        wxString m_filename;
+        
+        // document title
+        wxString m_title;
         
         // parent document
         Document * m_parent{nullptr};
