@@ -89,8 +89,8 @@ UiManager::~UiManager()
 void UiManager::Load()
 {
     auto & conf = GetCfgMgr().Get();
+	m_menuHandler->Load(conf["Ui.Menus"]);
     m_tbarHandler->Load(conf["Ui.Toolbars"]);
-    m_menuHandler->Load(conf["Ui.Menus"]);
     m_aui.Update();
 }
 

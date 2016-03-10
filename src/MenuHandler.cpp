@@ -123,13 +123,14 @@ void MenuHandler::AddItem(wxMenu * parent, const wxString & id)
             check ? wxITEM_CHECK : wxITEM_NORMAL
         };
         
-        if (check) {
-            item->Check(entry.checked);
-        } else {
-            item->SetBitmap(art.GetIcon(id));
-        }
-        
         parent->Append(item);
+
+		if (check) {
+			item->Check(entry.checked);
+		} else {
+			item->SetBitmap(art.GetIcon(id));
+		}
+
     }
 }
 
