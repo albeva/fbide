@@ -20,15 +20,18 @@
 using namespace fbide;
 
 namespace {
-    const int ID_FullScreen = ::wxNewId();
+    const int ID_AppWindow   = ::wxNewId();
+    const int ID_FullScreen  = ::wxNewId();
+    const int ID_DocNotebook = ::wxNewId();
 }
 
 // event dispatching
 wxBEGIN_EVENT_TABLE(UiManager, wxEvtHandler)
-    EVT_MENU(wxID_ANY,  UiManager::HandleMenuEvents)
-    EVT_MENU(wxID_NEW,  UiManager::OnNew)
-    EVT_MENU(wxID_OPEN, UiManager::OnOpen)
-    EVT_MENU(wxID_SAVE, UiManager::OnSave)
+    EVT_MENU                    (wxID_ANY,          UiManager::HandleMenuEvents)
+    EVT_MENU                    (wxID_NEW,          UiManager::OnNew)
+    EVT_MENU                    (wxID_OPEN,         UiManager::OnOpen)
+    EVT_MENU                    (wxID_SAVE,         UiManager::OnSave)
+    EVT_AUINOTEBOOK_PAGE_CLOSE  (ID_DocNotebook,    UiManager::OnPaneClose)
 wxEND_EVENT_TABLE()
 
 
@@ -38,7 +41,7 @@ wxEND_EVENT_TABLE()
 UiManager::UiManager()
 {
     // the frame
-    m_window = std::make_unique<MainWindow>(nullptr, wxID_ANY, "fbide");
+    m_window = std::make_unique<MainWindow>(nullptr, ID_AppWindow, "fbide");
     m_window->PushEventHandler(this);
     wxTheApp->SetTopWindow(m_window.get());
 
@@ -62,10 +65,10 @@ UiManager::UiManager()
     
     // main doc area
     m_docArea = new wxAuiNotebook(m_window.get(),
-                                  wxID_ANY,
+                                  ID_DocNotebook,
                                   wxDefaultPosition,
                                   wxDefaultSize,
-                                  wxAUI_NB_DEFAULT_STYLE | wxAUI_NB_WINDOWLIST_BUTTON);
+                                  wxAUI_NB_DEFAULT_STYLE | wxAUI_NB_WINDOWLIST_BUTTON | wxAUI_NB_CLOSE_ON_ALL_TABS);
     m_aui.AddPane(m_docArea, wxAuiPaneInfo()
                   .Name("fbideDocArea")
                   .CenterPane()
@@ -82,6 +85,18 @@ UiManager::~UiManager()
 {
     m_aui.UnInit();
     m_window->RemoveEventHandler(this);
+}
+
+
+/**
+ * Shotdown the manager
+ */
+void UiManager::Unload()
+{
+    // close any pending documents
+    while (m_docArea->GetPageCount()) {
+        CloseTab(0);
+    }
 }
 
 
@@ -130,6 +145,30 @@ void UiManager::OnNew(wxCommandEvent & event)
     auto & type = GetTypeMgr();
     auto doc = type.CreateFromType("default");
     doc->Create();
+}
+
+
+/**
+ * Close AUI pane
+ */
+void UiManager::OnPaneClose(wxAuiNotebookEvent & event)
+{
+    event.Veto();
+    auto index = event.GetSelection();
+    CloseTab(index);
+}
+
+
+void UiManager::CloseTab(size_t index)
+{
+    auto wnd = m_docArea->GetPage(index);
+    auto iter = m_closers.find(wnd);
+    if (iter != m_closers.end()) {
+        iter->second();
+        m_closers.erase(iter);
+    } else {
+        m_docArea->DeletePage(index);
+    }
 }
 
 

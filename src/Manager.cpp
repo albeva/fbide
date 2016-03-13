@@ -91,7 +91,10 @@ Manager::Manager()
 // in defined order
 Manager::~Manager()
 {
-    if (m_ui)   m_ui.reset();
+    if (m_ui) {
+        m_ui->Unload();
+        m_ui.reset();
+    }
     if (m_type) m_type.reset();
     if (m_cmd)  m_cmd.reset();
     if (m_cfg)  m_cfg.reset();

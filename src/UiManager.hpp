@@ -23,6 +23,11 @@ namespace fbide {
     {
     public:
         
+        /**
+         * Cleaner function
+         */
+        typedef std::function<void()> CloseFn;
+        
         UiManager();
         virtual ~UiManager();
         
@@ -30,6 +35,11 @@ namespace fbide {
          * Load the UI manager
          */
         void Load();
+        
+        /**
+         * Shotdown the manager
+         */
+        void Unload();
         
         /**
          * Get main window
@@ -40,6 +50,21 @@ namespace fbide {
          * Main tab area
          */
         inline wxAuiNotebook * GetDocArea() { return m_docArea; }
+        
+        /**
+         * Bind cleaner function for given wxWindow object
+         * Rather than default delete this cleaner function will
+         * be invoked instead. Once callback is executed this
+         * entry will be removed!
+         */
+        void BindCloser(wxWindow * wnd, const CloseFn & cb)
+        {
+            m_closers.emplace(std::make_pair(wnd, cb));
+        }
+        void BindCloser(wxWindow * wnd, CloseFn && cb)
+        {
+            m_closers.emplace(std::make_pair(wnd, std::move(cb)));
+        }
         
         /**
          * Set art provider
@@ -57,6 +82,9 @@ namespace fbide {
         void OnNew(wxCommandEvent & event);
         void OnOpen(wxCommandEvent & event);
         void OnSave(wxCommandEvent & event);
+        void OnPaneClose(wxAuiNotebookEvent & event);
+        
+        void CloseTab(size_t index);
         
         // life of these is tied to main window. So they are just pointers
         wxMenuBar     * m_menu;
@@ -68,6 +96,7 @@ namespace fbide {
         std::unique_ptr<IArtProvider>   m_artProvider;
         std::unique_ptr<MenuHandler>    m_menuHandler;
         std::unique_ptr<ToolbarHandler> m_tbarHandler;
+        std::unordered_map<wxWindow *, CloseFn> m_closers;
         
         wxDECLARE_EVENT_TABLE();
     };

@@ -23,6 +23,13 @@ void EditorDocument::Create()
     
     m_editor.Create(da);
     da->AddPage(&m_editor, GetTitle(), true);
+    ui.BindCloser(&m_editor, [this, da]() {
+        auto idx = da->GetPageIndex(&m_editor);
+        if (idx != wxNOT_FOUND) {
+            da->RemovePage(idx);
+        }
+        delete this;
+    });
 }
 
 
