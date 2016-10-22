@@ -58,12 +58,6 @@ namespace fbide {
         
         
         /**
-         * Load yaml file and return Config object
-         */
-        Config static LoadYaml(const wxString & path);
-        
-        
-        /**
          * Path is a period('.') separated string where each part
          * is considered as a key to a Map. Thus 'foo.bar' will get node 'bar'
          * in a Map pointed by 'foo'. If any part of the path does not yet
@@ -120,6 +114,12 @@ namespace fbide {
          * Move assign
          */
         Config & operator = (Config && rhs) noexcept = default;
+        
+        
+        /**
+         * Load yaml file nd return Config object
+         */
+        void LoadYaml(const wxString & path);
         
         
         /**

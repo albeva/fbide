@@ -37,9 +37,15 @@ TypeManager & fbide::GetTypeMgr()
 }
 
 // shorthand to get config
-Config & fbide::GetConfg()
+Config & fbide::GetConfig()
 {
     return GetCfgMgr().Get();
+}
+
+// shorthand to get config
+Config & fbide::GetConfig(const wxString & path)
+{
+    return GetConfig()[path];
 }
 
 // Shortcut the get the langauge

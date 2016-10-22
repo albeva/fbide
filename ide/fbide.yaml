@@ -2,7 +2,7 @@ App:
   Language:     en
   ShowSplash:   true
   ShowToolbars: true
-  MenuIcons:    true
+  MenuIcons:    false
 
 Layout:
   Menus:

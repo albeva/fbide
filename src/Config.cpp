@@ -129,7 +129,6 @@ namespace {
 		{
 			Type     type;
 			wxString str;
-			size_t   idx;
 		};
 
 
@@ -184,7 +183,7 @@ namespace {
 					m_pos++;
 
 					// done
-					return Token{ Type::Index, lex, index };
+					return Token{ Type::Index, lex };
 				}
 
 				// dot. skip
@@ -224,12 +223,13 @@ namespace {
 
 }
 
+
 /**
  * Load YAML file
  */
-Config Config::LoadYaml(const wxString & path)
+void Config::LoadYaml(const wxString & path)
 {
-    return YAML::LoadFile(path.ToStdString()).as<Config>();
+    m_val = YAML::LoadFile(path.ToStdString()).as<Config>().m_val;
 }
 
 
@@ -312,11 +312,15 @@ Config & Config::operator[](const wxString & path)
             }
             case PathParser::Type::Index:
             {
-                const auto idx = t.idx;
+                unsigned long index;
+                if (!t.str.ToULong(&index)) {
+                    index = MaxULong;
+                }
+                
                 auto & arr = node->AsArray();
-                if (idx < arr.size()) {
-                    node = &arr[idx];
-                } else if (idx == arr.size() || idx == MaxULong) {
+                if (index < arr.size()) {
+                    node = &arr[index];
+                } else if (index == arr.size() || index == MaxULong) {
                     arr.emplace_back(Config());
                     node = &arr.back();
                 } else {
@@ -356,7 +360,7 @@ const Config * Config::Get(const wxString & path) const noexcept
     
     PathParser parser{path};
     for(;;) {
-        auto && t = parser.Next();
+        auto t = parser.Next();
         
         // finish?
         if (t.type == PathParser::Type::End) {
@@ -383,11 +387,16 @@ const Config * Config::Get(const wxString & path) const noexcept
                 if (!node->IsArray()) {
                     return nullptr;
                 }
-                const auto idx = t.idx;
+                
+                unsigned long index;
+                if (!t.str.ToULong(&index)) {
+                    index = MaxULong;
+                }
+                
                 auto & arr = boost::any_cast<const Array&>(node->m_val);
-                if (idx < arr.size()) {
-                    node = &arr[idx];
-                } else if (idx == arr.size() || idx == MaxULong) {
+                if (index < arr.size()) {
+                    node = &arr[index];
+                } else {
                     return nullptr;
                 }
                 break;

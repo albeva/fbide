@@ -106,7 +106,7 @@ void MenuHandler::AddItem(wxMenu * parent, const wxString & id)
     auto & art   = ui.GetArtProvider();
     auto & cmd   = GetCmdMgr();
     auto & entry = cmd.GetEntry(id);
-    auto & cfg   = GetConfg();
+    auto & cfg   = GetConfig();
     auto & name  = GetLang(id + ".name", id);
     auto & help  = GetLang(id + ".help", id);
     

@@ -41,7 +41,12 @@ namespace fbide {
     /**
      * Get main configuration
      */
-    Config & GetConfg();
+    Config & GetConfig();
+    
+    /**
+     * Get key path from main config
+     */
+    Config & GetConfig(const wxString & path);
     
     /**
      * Get Language
