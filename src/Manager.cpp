@@ -56,7 +56,7 @@ const wxString & fbide::GetLang(const wxString & path, const wxString & def)
 
 // Get translated string and replace placeholders
 wxString fbide::GetLang(const wxString & path,
-                 const std::unordered_map<wxString, wxString> & map,
+                 const StringMap<wxString> & map,
                  const wxString & def)
 {
     auto str = GetLang(path, def);

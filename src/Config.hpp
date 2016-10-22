@@ -48,7 +48,7 @@ namespace fbide {
         /**
          * Map is key Config pairs of Config objects
          */
-        typedef std::unordered_map<wxString, Config> Map;
+        typedef StringMap<Config> Map;
         
         
         /**
@@ -170,6 +170,7 @@ namespace fbide {
             m_val = std::move(rhs);
             return *this;
         }
+        
         
         /**
          * Assign const char *

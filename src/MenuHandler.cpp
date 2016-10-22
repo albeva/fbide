@@ -29,7 +29,7 @@ void MenuHandler::Load(Config & structure, wxMenu * parent)
     auto & cmd = GetCmdMgr();
     
     for (auto & node : structure.AsArray()) {
-        auto & id   = node["id"].AsString();
+        auto & id = node["id"].AsString();
         
         auto * menu = GetMenu(id);
         if (menu == nullptr) {
@@ -106,12 +106,15 @@ void MenuHandler::AddItem(wxMenu * parent, const wxString & id)
     auto & art   = ui.GetArtProvider();
     auto & cmd   = GetCmdMgr();
     auto & entry = cmd.GetEntry(id);
+    auto & cfg   = GetConfg();
     auto & name  = GetLang(id + ".name", id);
     auto & help  = GetLang(id + ".help", id);
     
     if (entry.type == CmdManager::Type::Menu) {
         auto item = parent->AppendSubMenu(dynamic_cast<wxMenu*>(entry.object), name);
-        item->SetBitmap(art.GetIcon(id));
+        if (cfg.Get("App.MenuIcons", true)) {
+            item->SetBitmap(art.GetIcon(id));
+        }
     } else {
         bool check = entry.type == CmdManager::Type::Check;
         
@@ -127,7 +130,7 @@ void MenuHandler::AddItem(wxMenu * parent, const wxString & id)
 
 		if (check) {
 			item->Check(entry.checked);
-		} else {
+		} else if (cfg.Get("App.MenuIcons", true)) {
 			item->SetBitmap(art.GetIcon(id));
 		}
 

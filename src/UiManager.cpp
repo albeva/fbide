@@ -103,9 +103,9 @@ void UiManager::Unload()
 // Load the UI
 void UiManager::Load()
 {
-    auto & conf = GetCfgMgr().Get();
-	m_menuHandler->Load(conf["Ui.Menus"]);
-    m_tbarHandler->Load(conf["Ui.Toolbars"]);
+    auto & layoutCfg = GetConfg()["Layout"];
+	m_menuHandler->Load(layoutCfg["Menus"]);
+    m_tbarHandler->Load(layoutCfg["Toolbars"]);
     m_aui.Update();
 }
 

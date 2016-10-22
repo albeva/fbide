@@ -427,7 +427,7 @@ void Config::Dump(size_t indent) const
     
     auto self = const_cast<Config*>(this);
     auto sp = std::string(indent * INDENT, ' ');
-    auto cs = std::string((indent> 0 ? indent - 1 : 0) * INDENT, ' ');
+    auto cs = std::string((indent > 0 ? indent - 1 : 0) * INDENT, ' ');
     
     switch (GetType()) {
         case Type::Null:

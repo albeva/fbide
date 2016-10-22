@@ -79,7 +79,7 @@ namespace {
     };
     
     // map containing the icons
-    std::unordered_map<wxString, wxBitmap> _icons{
+   StringMap<wxBitmap> _icons{
         {"about",       XPM::about},
         {"add",         XPM::add},
         {"addbook",     XPM::addbook},
@@ -146,14 +146,14 @@ namespace {
     };
     
     // map aliases to icons.
-    std::unordered_map<wxString, const wxBitmap &> _alias{
+   StringMap<const wxBitmap &> _alias{
         {"find",        _icons["search"]},
         {"fullscreen",  _icons["screen"]}
     };
     
     // Initialize the map
     auto init = []() {
-        auto c = wxColour(191, 191, 191);
+        wxColour c{191, 191, 191};
         for(auto & p : _icons) {
             p.second.SetMask(new wxMask(p.second, c));
         }

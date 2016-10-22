@@ -8,6 +8,12 @@ namespace fbide {
     // c++14 string literal "hello"s
     using namespace std::literals::string_literals;
     
+    /**
+     * Hash map of string to T
+     */
+    template<typename T>
+    using StringMap = std::unordered_map<wxString, T>;
+    
     
     /**
      * wxString shorthand. "Hello"_wx

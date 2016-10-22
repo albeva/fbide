@@ -58,7 +58,7 @@ namespace fbide {
         void BindExtensions(const wxString & name, const wxString & exts);
         
         /**
-         * Bind alias to a type. Main usage is for binfing "default"
+         * Bind alias to a type. E.g. useful to bind "default"
          */
         void BindAlias(const wxString & alias, const wxString & name, bool overwrite = false);
         
@@ -82,8 +82,8 @@ namespace fbide {
          */
         Type * GetType(const wxString &) noexcept;
         
-        std::unordered_map<wxString, Type>     m_types;
-        std::unordered_map<wxString, wxString> m_aliases;
+        StringMap<Type>     m_types;
+        StringMap<wxString> m_aliases;
     };
     
 }

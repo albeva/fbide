@@ -34,7 +34,7 @@ namespace fbide {
         void OnEvent(wxCommandEvent & event);
         
     private:
-        std::unordered_map<wxString, wxMenu*> m_map;
+        StringMap<wxMenu*> m_map;
         wxMenuBar * m_mbar;
     };
     

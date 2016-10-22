@@ -69,7 +69,7 @@ namespace fbide {
         wxWindow     * m_window;     // owning window
         bool           m_visible;    // toolbars visible
         int            m_visibleCnt; // visible toolbar count
-        std::unordered_map<wxString, wxAuiToolBar*> m_tbars;
+       StringMap<wxAuiToolBar*> m_tbars;
         std::unordered_map<int, bool> m_visibleTbars;
         std::unordered_map<int, int>  m_idBridge;
     };

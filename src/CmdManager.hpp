@@ -100,8 +100,8 @@ namespace fbide {
          */
         Entry * GetEntry(int id);
         
-        typedef std::unordered_map<wxString,int> IdNameMap;
-        typedef std::unordered_map<int, Entry>   EntryMap;
+        typedef StringMap<int>                 IdNameMap;
+        typedef std::unordered_map<int, Entry> EntryMap;
         
         IdNameMap m_idMap;      // id <-> name map
         EntryMap  m_entryMap;   // id <-> entry map

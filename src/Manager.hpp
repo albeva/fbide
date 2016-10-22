@@ -53,13 +53,13 @@ namespace fbide {
      *
      * GetCfgMgr().GetLang().Get(path, def);
      */
-    const wxString & GetLang(const wxString & path, const wxString & def = ""_wx);
+    const wxString & GetLang(const wxString & path, const wxString & def = "");
     
     /**
      * Get translated string and replace placeholders
      */
     wxString GetLang(const wxString & path,
-                     const std::unordered_map<wxString, wxString> & map,
+                     const StringMap<wxString> & map,
                      const wxString  &def = "");
 
     /**
