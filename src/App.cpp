@@ -9,8 +9,9 @@
 #include "CmdManager.hpp"
 #include "Document.hpp"
 #include "TypeManager.hpp"
-#include "Editor.hpp"
+#include "StyledEditor.hpp"
 #include "EditorDocument.hpp"
+#include "FBLexer.hpp"
 
 using namespace fbide;
 
@@ -46,6 +47,11 @@ public:
             // plain text document
             auto & type = GetTypeMgr();
             type.Register<EditorDocument>("text/plain", {"txt", "", "md"});
+            
+            auto v = wxStyledTextCtrl::GetLibraryVersionInfo();
+            std::cout <<v.GetDescription() << '\n';
+            
+            RegisterLexer();
             
             // done
             return true;

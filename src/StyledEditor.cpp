@@ -6,8 +6,12 @@
 //  Copyright © 2016 Albert Varaksin. All rights reserved.
 //
 #include "app_pch.hpp"
-#include "Editor.hpp"
+#include "StyledEditor.hpp"
+
+#include "wxstc/include/wx/stc/stc.h"
+
+
 using namespace fbide;
 
-wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
+wxBEGIN_EVENT_TABLE(StyledEditor, wxStyledTextCtrl)
 wxEND_EVENT_TABLE()

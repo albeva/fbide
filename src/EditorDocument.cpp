@@ -8,7 +8,7 @@
 #include "app_pch.hpp"
 #include "EditorDocument.hpp"
 #include "UiManager.hpp"
-#include "Editor.hpp"
+#include "StyledEditor.hpp"
 
 using namespace fbide;
 
@@ -30,6 +30,8 @@ void EditorDocument::Create()
         }
         delete this;
     });
+    
+    m_editor.SetLexer(200);
 }
 
 

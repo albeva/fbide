@@ -6,7 +6,6 @@
 #include <wx/wx.h>
 #include <wx/stdpaths.h>
 #include <wx/apptrait.h>
-#include <wx/stc/stc.h>
 #include <wx/aui/aui.h>
 #include <wx/tokenzr.h>
 #include <wx/wupdlock.h>
@@ -29,3 +28,5 @@
 #include "Utils.hpp"
 #include "Manager.hpp"
 #include "Config.hpp"
+
+#include "wxstc/include/wx/stc/stc.h"

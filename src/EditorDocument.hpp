@@ -8,7 +8,7 @@
 #pragma once
 
 #include "Document.hpp"
-#include "Editor.hpp"
+#include "StyledEditor.hpp"
 
 namespace fbide {
     
@@ -39,12 +39,12 @@ namespace fbide {
         /**
          * Get underlying editor instance
          */
-        Editor & GetEditor() { return m_editor; }
+        StyledEditor & GetEditor() { return m_editor; }
         
     private:
         
         // bound editor
-        Editor m_editor;
+        StyledEditor m_editor;
     };
     
 }

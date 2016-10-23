@@ -82,9 +82,6 @@ namespace fbide {
         
         // document title
         wxString m_title;
-        
-        // parent document
-        Document * m_parent{nullptr};
     };
     
 }

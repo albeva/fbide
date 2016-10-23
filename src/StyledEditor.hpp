@@ -12,7 +12,7 @@ namespace fbide {
     /**
      * fbide specific subclass of wxStyledTextCtrl
      */
-    class Editor : NonCopyable, public wxStyledTextCtrl
+    class StyledEditor : public wxStyledTextCtrl
     {
     public:
         using wxStyledTextCtrl::wxStyledTextCtrl;
