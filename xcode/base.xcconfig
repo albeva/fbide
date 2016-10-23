@@ -7,5 +7,5 @@
 //
 #include "wx.xcconfig"
 
-FBIDE_CXXFLAGS = -DSCI_LEXER -I"/usr/local/include" -I"src/wxstc/include" -I"src/wxstc/scintilla/include" -I"src/wxstc/scintilla/lexlib" -I"src/wxstc/scintilla/src"
+FBIDE_CXXFLAGS = -DSCI_LEXER -I"/usr/local/include" -I"src/wxstc/include" -I"../scintilla/include" -I"../scintilla/lexlib" -I"../scintilla/src"
 FBIDE_LDFLAGS  = -lyaml-cpp -lboost_filesystem -lboost_system

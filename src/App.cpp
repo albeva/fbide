@@ -51,7 +51,8 @@ public:
             auto v = wxStyledTextCtrl::GetLibraryVersionInfo();
             std::cout <<v.GetDescription() << '\n';
             
-            RegisterLexer();
+            //setup with scintilla
+            LexerFreeBasic::SetupLexer();
             
             // done
             return true;
