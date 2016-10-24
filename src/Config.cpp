@@ -99,13 +99,10 @@ namespace {
 	 * array or a map.
 	 *
 	 * EBNF:
-	 * Path  := [ part { "." part } ] [ "=" cast ]
+	 * path  := part { "." part }
 	 * part  := key | index
 	 * key   := <id>
-	 * index := "[" [ <num> ] "]"
-	 * cast  := map | arr
-	 * map   := "{}"
-	 * arr   := "[]"
+	 * index := "[" <num> "]" | <num>
 	 */
 	struct PathParser {
 
@@ -116,8 +113,6 @@ namespace {
 			Invalid,
 			Key,
 			Index,
-			Map,
-			Array,
 			End
 		};
 
@@ -153,10 +148,19 @@ namespace {
 				if (std::isalpha(ch)) {
 					do {
 						m_pos++;
-					} while (m_pos < len && std::isalpha(m_path[m_pos]));
+					} while (m_pos < len && std::isalnum(m_path[m_pos]));
 					auto lex = m_path.SubString(start, m_pos - 1);
 					return Token{ Type::Key, lex };
 				}
+                
+                // digit
+                if (std::isdigit(ch)) {
+                    do {
+                        m_pos++;
+                    } while (m_pos < len && std::isdigit(m_path[m_pos]));
+                    auto lex = m_path.SubString(start, m_pos - 1);
+                    return Token{ Type::Index, lex };
+                }
 
 				// index
 				if (ch == '[') {
@@ -169,12 +173,6 @@ namespace {
 
 					// extract the number
 					auto lex = m_path.SubString(start, m_pos - 1);
-
-					// extract index
-					unsigned long index;
-					if (!lex.ToULong(&index)) {
-						index = MaxULong;
-					}
 
 					// closing
 					if (m_path[m_pos] != ']') {
@@ -190,22 +188,6 @@ namespace {
 				if (ch == '.') {
 					m_pos++;
 					continue;
-				}
-
-				// '=' ?
-				if (ch == '=') {
-					m_pos++;
-					if (m_pos == len - 2) {
-						if (m_path[m_pos] == '[' && m_path[m_pos + 1] == ']') {
-							m_pos += 2;
-							return Token{ Type::Array };
-						}
-						if (m_path[m_pos] == '{' && m_path[m_pos + 1] == '}') {
-							m_pos += 2;
-							return Token{ Type::Map };
-						}
-					}
-					return Token{ Type::Invalid, "Path must end with ={} or =[]" };
 				}
 
 				// something wrong
@@ -326,16 +308,6 @@ Config & Config::operator[](const wxString & path)
                 } else {
                     throw std::out_of_range("Invalid index in config path");
                 }
-                break;
-            }
-            case PathParser::Type::Map:
-            {
-                node->AsMap(); // force check. Will throw an exception
-                break;
-            }
-            case PathParser::Type::Array:
-            {
-                node->AsArray();
                 break;
             }
             case PathParser::Type::End:
