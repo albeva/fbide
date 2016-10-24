@@ -7,7 +7,7 @@
 //
 #include "app_pch.hpp"
 #include "Config.hpp"
-#include <yaml-cpp/yaml.h>
+#include "yaml-cpp/yaml.h"
 
 using namespace fbide;
 
