@@ -1,0 +1,641 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="fbide" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Option virtualFolders="App\Cmd\;App\;App\UI\xpm\;App\UI\;App\Supporting Files\;App\Document\;App\Editor\;App\Type\;App\Config\;wxstc\;wxstc\include\;yaml-cpp\;scintilla\;" />
+		<Build>
+			<Target title="Debug">
+				<Option platforms="Windows;" />
+				<Option output="bin/Debug/fbide" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="0" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option platforms="Windows;" />
+				<Option output="bin/Release/fbide" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="0" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+			<Add option="-std=c++14" />
+			<Add option="-m64" />
+		</Compiler>
+		<Linker>
+			<Add option="-m64" />
+		</Linker>
+		<Unit filename="scintilla/include/ILexer.h" />
+		<Unit filename="scintilla/include/Platform.h" />
+		<Unit filename="scintilla/include/SciLexer.h" />
+		<Unit filename="scintilla/include/Sci_Position.h" />
+		<Unit filename="scintilla/include/Scintilla.h" />
+		<Unit filename="scintilla/include/ScintillaWidget.h" />
+		<Unit filename="scintilla/lexers/LexA68k.cxx" />
+		<Unit filename="scintilla/lexers/LexAPDL.cxx" />
+		<Unit filename="scintilla/lexers/LexASY.cxx" />
+		<Unit filename="scintilla/lexers/LexAU3.cxx" />
+		<Unit filename="scintilla/lexers/LexAVE.cxx" />
+		<Unit filename="scintilla/lexers/LexAVS.cxx" />
+		<Unit filename="scintilla/lexers/LexAbaqus.cxx" />
+		<Unit filename="scintilla/lexers/LexAda.cxx" />
+		<Unit filename="scintilla/lexers/LexAsm.cxx" />
+		<Unit filename="scintilla/lexers/LexAsn1.cxx" />
+		<Unit filename="scintilla/lexers/LexBaan.cxx" />
+		<Unit filename="scintilla/lexers/LexBash.cxx" />
+		<Unit filename="scintilla/lexers/LexBasic.cxx" />
+		<Unit filename="scintilla/lexers/LexBatch.cxx" />
+		<Unit filename="scintilla/lexers/LexBibTeX.cxx" />
+		<Unit filename="scintilla/lexers/LexBullant.cxx" />
+		<Unit filename="scintilla/lexers/LexCLW.cxx" />
+		<Unit filename="scintilla/lexers/LexCOBOL.cxx" />
+		<Unit filename="scintilla/lexers/LexCPP.cxx" />
+		<Unit filename="scintilla/lexers/LexCSS.cxx" />
+		<Unit filename="scintilla/lexers/LexCaml.cxx" />
+		<Unit filename="scintilla/lexers/LexCmake.cxx" />
+		<Unit filename="scintilla/lexers/LexCoffeeScript.cxx" />
+		<Unit filename="scintilla/lexers/LexConf.cxx" />
+		<Unit filename="scintilla/lexers/LexCrontab.cxx" />
+		<Unit filename="scintilla/lexers/LexCsound.cxx" />
+		<Unit filename="scintilla/lexers/LexD.cxx" />
+		<Unit filename="scintilla/lexers/LexDMAP.cxx" />
+		<Unit filename="scintilla/lexers/LexDMIS.cxx" />
+		<Unit filename="scintilla/lexers/LexDiff.cxx" />
+		<Unit filename="scintilla/lexers/LexECL.cxx" />
+		<Unit filename="scintilla/lexers/LexEScript.cxx" />
+		<Unit filename="scintilla/lexers/LexEiffel.cxx" />
+		<Unit filename="scintilla/lexers/LexErlang.cxx" />
+		<Unit filename="scintilla/lexers/LexErrorList.cxx" />
+		<Unit filename="scintilla/lexers/LexFlagship.cxx" />
+		<Unit filename="scintilla/lexers/LexForth.cxx" />
+		<Unit filename="scintilla/lexers/LexFortran.cxx" />
+		<Unit filename="scintilla/lexers/LexGAP.cxx" />
+		<Unit filename="scintilla/lexers/LexGui4Cli.cxx" />
+		<Unit filename="scintilla/lexers/LexHTML.cxx" />
+		<Unit filename="scintilla/lexers/LexHaskell.cxx" />
+		<Unit filename="scintilla/lexers/LexHex.cxx" />
+		<Unit filename="scintilla/lexers/LexInno.cxx" />
+		<Unit filename="scintilla/lexers/LexJSON.cxx" />
+		<Unit filename="scintilla/lexers/LexKVIrc.cxx" />
+		<Unit filename="scintilla/lexers/LexKix.cxx" />
+		<Unit filename="scintilla/lexers/LexLaTeX.cxx" />
+		<Unit filename="scintilla/lexers/LexLisp.cxx" />
+		<Unit filename="scintilla/lexers/LexLout.cxx" />
+		<Unit filename="scintilla/lexers/LexLua.cxx" />
+		<Unit filename="scintilla/lexers/LexMMIXAL.cxx" />
+		<Unit filename="scintilla/lexers/LexMPT.cxx" />
+		<Unit filename="scintilla/lexers/LexMSSQL.cxx" />
+		<Unit filename="scintilla/lexers/LexMagik.cxx" />
+		<Unit filename="scintilla/lexers/LexMake.cxx" />
+		<Unit filename="scintilla/lexers/LexMarkdown.cxx" />
+		<Unit filename="scintilla/lexers/LexMatlab.cxx" />
+		<Unit filename="scintilla/lexers/LexMetapost.cxx" />
+		<Unit filename="scintilla/lexers/LexModula.cxx" />
+		<Unit filename="scintilla/lexers/LexMySQL.cxx" />
+		<Unit filename="scintilla/lexers/LexNimrod.cxx" />
+		<Unit filename="scintilla/lexers/LexNsis.cxx" />
+		<Unit filename="scintilla/lexers/LexNull.cxx" />
+		<Unit filename="scintilla/lexers/LexOScript.cxx" />
+		<Unit filename="scintilla/lexers/LexOpal.cxx" />
+		<Unit filename="scintilla/lexers/LexPB.cxx" />
+		<Unit filename="scintilla/lexers/LexPLM.cxx" />
+		<Unit filename="scintilla/lexers/LexPO.cxx" />
+		<Unit filename="scintilla/lexers/LexPOV.cxx" />
+		<Unit filename="scintilla/lexers/LexPS.cxx" />
+		<Unit filename="scintilla/lexers/LexPascal.cxx" />
+		<Unit filename="scintilla/lexers/LexPerl.cxx" />
+		<Unit filename="scintilla/lexers/LexPowerPro.cxx" />
+		<Unit filename="scintilla/lexers/LexPowerShell.cxx" />
+		<Unit filename="scintilla/lexers/LexProgress.cxx" />
+		<Unit filename="scintilla/lexers/LexProps.cxx" />
+		<Unit filename="scintilla/lexers/LexPython.cxx" />
+		<Unit filename="scintilla/lexers/LexR.cxx" />
+		<Unit filename="scintilla/lexers/LexRebol.cxx" />
+		<Unit filename="scintilla/lexers/LexRegistry.cxx" />
+		<Unit filename="scintilla/lexers/LexRuby.cxx" />
+		<Unit filename="scintilla/lexers/LexRust.cxx" />
+		<Unit filename="scintilla/lexers/LexSML.cxx" />
+		<Unit filename="scintilla/lexers/LexSQL.cxx" />
+		<Unit filename="scintilla/lexers/LexSTTXT.cxx" />
+		<Unit filename="scintilla/lexers/LexScriptol.cxx" />
+		<Unit filename="scintilla/lexers/LexSmalltalk.cxx" />
+		<Unit filename="scintilla/lexers/LexSorcus.cxx" />
+		<Unit filename="scintilla/lexers/LexSpecman.cxx" />
+		<Unit filename="scintilla/lexers/LexSpice.cxx" />
+		<Unit filename="scintilla/lexers/LexTACL.cxx" />
+		<Unit filename="scintilla/lexers/LexTADS3.cxx" />
+		<Unit filename="scintilla/lexers/LexTAL.cxx" />
+		<Unit filename="scintilla/lexers/LexTCL.cxx" />
+		<Unit filename="scintilla/lexers/LexTCMD.cxx" />
+		<Unit filename="scintilla/lexers/LexTeX.cxx" />
+		<Unit filename="scintilla/lexers/LexTxt2tags.cxx" />
+		<Unit filename="scintilla/lexers/LexVB.cxx" />
+		<Unit filename="scintilla/lexers/LexVHDL.cxx" />
+		<Unit filename="scintilla/lexers/LexVerilog.cxx" />
+		<Unit filename="scintilla/lexers/LexVisualProlog.cxx" />
+		<Unit filename="scintilla/lexers/LexYAML.cxx" />
+		<Unit filename="scintilla/lexlib/Accessor.cxx" />
+		<Unit filename="scintilla/lexlib/Accessor.h" />
+		<Unit filename="scintilla/lexlib/CharacterCategory.cxx" />
+		<Unit filename="scintilla/lexlib/CharacterCategory.h" />
+		<Unit filename="scintilla/lexlib/CharacterSet.cxx" />
+		<Unit filename="scintilla/lexlib/CharacterSet.h" />
+		<Unit filename="scintilla/lexlib/LexAccessor.h" />
+		<Unit filename="scintilla/lexlib/LexerBase.cxx" />
+		<Unit filename="scintilla/lexlib/LexerBase.h" />
+		<Unit filename="scintilla/lexlib/LexerModule.cxx" />
+		<Unit filename="scintilla/lexlib/LexerModule.h" />
+		<Unit filename="scintilla/lexlib/LexerNoExceptions.cxx" />
+		<Unit filename="scintilla/lexlib/LexerNoExceptions.h" />
+		<Unit filename="scintilla/lexlib/LexerSimple.cxx" />
+		<Unit filename="scintilla/lexlib/LexerSimple.h" />
+		<Unit filename="scintilla/lexlib/OptionSet.h" />
+		<Unit filename="scintilla/lexlib/PropSetSimple.cxx" />
+		<Unit filename="scintilla/lexlib/PropSetSimple.h" />
+		<Unit filename="scintilla/lexlib/SparseState.h" />
+		<Unit filename="scintilla/lexlib/StringCopy.h" />
+		<Unit filename="scintilla/lexlib/StyleContext.cxx" />
+		<Unit filename="scintilla/lexlib/StyleContext.h" />
+		<Unit filename="scintilla/lexlib/SubStyles.h" />
+		<Unit filename="scintilla/lexlib/WordList.cxx" />
+		<Unit filename="scintilla/lexlib/WordList.h" />
+		<Unit filename="scintilla/src/AutoComplete.cxx" />
+		<Unit filename="scintilla/src/AutoComplete.h" />
+		<Unit filename="scintilla/src/CallTip.cxx" />
+		<Unit filename="scintilla/src/CallTip.h" />
+		<Unit filename="scintilla/src/CaseConvert.cxx" />
+		<Unit filename="scintilla/src/CaseConvert.h" />
+		<Unit filename="scintilla/src/CaseFolder.cxx" />
+		<Unit filename="scintilla/src/CaseFolder.h" />
+		<Unit filename="scintilla/src/Catalogue.cxx" />
+		<Unit filename="scintilla/src/Catalogue.h" />
+		<Unit filename="scintilla/src/CellBuffer.cxx" />
+		<Unit filename="scintilla/src/CellBuffer.h" />
+		<Unit filename="scintilla/src/CharClassify.cxx" />
+		<Unit filename="scintilla/src/CharClassify.h" />
+		<Unit filename="scintilla/src/ContractionState.cxx" />
+		<Unit filename="scintilla/src/ContractionState.h" />
+		<Unit filename="scintilla/src/Decoration.cxx" />
+		<Unit filename="scintilla/src/Decoration.h" />
+		<Unit filename="scintilla/src/Document.cxx" />
+		<Unit filename="scintilla/src/Document.h" />
+		<Unit filename="scintilla/src/EditModel.cxx" />
+		<Unit filename="scintilla/src/EditModel.h" />
+		<Unit filename="scintilla/src/EditView.cxx" />
+		<Unit filename="scintilla/src/EditView.h" />
+		<Unit filename="scintilla/src/Editor.cxx" />
+		<Unit filename="scintilla/src/Editor.h" />
+		<Unit filename="scintilla/src/ExternalLexer.cxx" />
+		<Unit filename="scintilla/src/ExternalLexer.h" />
+		<Unit filename="scintilla/src/FontQuality.h" />
+		<Unit filename="scintilla/src/Indicator.cxx" />
+		<Unit filename="scintilla/src/Indicator.h" />
+		<Unit filename="scintilla/src/KeyMap.cxx" />
+		<Unit filename="scintilla/src/KeyMap.h" />
+		<Unit filename="scintilla/src/LineMarker.cxx" />
+		<Unit filename="scintilla/src/LineMarker.h" />
+		<Unit filename="scintilla/src/MarginView.cxx" />
+		<Unit filename="scintilla/src/MarginView.h" />
+		<Unit filename="scintilla/src/Partitioning.h" />
+		<Unit filename="scintilla/src/PerLine.cxx" />
+		<Unit filename="scintilla/src/PerLine.h" />
+		<Unit filename="scintilla/src/Position.h" />
+		<Unit filename="scintilla/src/PositionCache.cxx" />
+		<Unit filename="scintilla/src/PositionCache.h" />
+		<Unit filename="scintilla/src/RESearch.cxx" />
+		<Unit filename="scintilla/src/RESearch.h" />
+		<Unit filename="scintilla/src/RunStyles.cxx" />
+		<Unit filename="scintilla/src/RunStyles.h" />
+		<Unit filename="scintilla/src/ScintillaBase.cxx" />
+		<Unit filename="scintilla/src/ScintillaBase.h" />
+		<Unit filename="scintilla/src/Selection.cxx" />
+		<Unit filename="scintilla/src/Selection.h" />
+		<Unit filename="scintilla/src/SplitVector.h" />
+		<Unit filename="scintilla/src/Style.cxx" />
+		<Unit filename="scintilla/src/Style.h" />
+		<Unit filename="scintilla/src/UniConversion.cxx" />
+		<Unit filename="scintilla/src/UniConversion.h" />
+		<Unit filename="scintilla/src/UnicodeFromUTF8.h" />
+		<Unit filename="scintilla/src/ViewStyle.cxx" />
+		<Unit filename="scintilla/src/ViewStyle.h" />
+		<Unit filename="scintilla/src/XPM.cxx" />
+		<Unit filename="scintilla/src/XPM.h" />
+		<Unit filename="src/App.cpp">
+			<Option virtualFolder="App/Supporting Files/" />
+		</Unit>
+		<Unit filename="src/CmdManager.cpp">
+			<Option virtualFolder="App/Cmd/" />
+		</Unit>
+		<Unit filename="src/CmdManager.hpp">
+			<Option virtualFolder="App/Cmd/" />
+		</Unit>
+		<Unit filename="src/Config.cpp">
+			<Option virtualFolder="App/Config/" />
+		</Unit>
+		<Unit filename="src/Config.hpp">
+			<Option virtualFolder="App/Config/" />
+		</Unit>
+		<Unit filename="src/ConfigManager.cpp">
+			<Option virtualFolder="App/Config/" />
+		</Unit>
+		<Unit filename="src/ConfigManager.hpp">
+			<Option virtualFolder="App/Config/" />
+		</Unit>
+		<Unit filename="src/Document.cpp">
+			<Option virtualFolder="App/Document/" />
+		</Unit>
+		<Unit filename="src/Document.hpp">
+			<Option virtualFolder="App/Document/" />
+		</Unit>
+		<Unit filename="src/EditorDocument.cpp">
+			<Option virtualFolder="App/Document/" />
+		</Unit>
+		<Unit filename="src/EditorDocument.hpp">
+			<Option virtualFolder="App/Document/" />
+		</Unit>
+		<Unit filename="src/FBLexer.cpp">
+			<Option virtualFolder="App/Editor/" />
+		</Unit>
+		<Unit filename="src/FBLexer.hpp">
+			<Option virtualFolder="App/Editor/" />
+		</Unit>
+		<Unit filename="src/IArtProvider.hpp">
+			<Option virtualFolder="App/UI/" />
+		</Unit>
+		<Unit filename="src/MainWindow.cpp">
+			<Option virtualFolder="App/UI/" />
+		</Unit>
+		<Unit filename="src/MainWindow.hpp">
+			<Option virtualFolder="App/UI/" />
+		</Unit>
+		<Unit filename="src/Manager.cpp">
+			<Option virtualFolder="App/Supporting Files/" />
+		</Unit>
+		<Unit filename="src/Manager.hpp">
+			<Option virtualFolder="App/Supporting Files/" />
+		</Unit>
+		<Unit filename="src/MenuHandler.cpp">
+			<Option virtualFolder="App/UI/" />
+		</Unit>
+		<Unit filename="src/MenuHandler.hpp">
+			<Option virtualFolder="App/UI/" />
+		</Unit>
+		<Unit filename="src/StandardArtProvider.cpp">
+			<Option virtualFolder="App/UI/" />
+		</Unit>
+		<Unit filename="src/StandardArtProvider.hpp">
+			<Option virtualFolder="App/UI/" />
+		</Unit>
+		<Unit filename="src/StyledEditor.cpp">
+			<Option virtualFolder="App/Editor/" />
+		</Unit>
+		<Unit filename="src/StyledEditor.hpp">
+			<Option virtualFolder="App/Editor/" />
+		</Unit>
+		<Unit filename="src/ToolbarHandler.cpp">
+			<Option virtualFolder="App/UI/" />
+		</Unit>
+		<Unit filename="src/ToolbarHandler.hpp">
+			<Option virtualFolder="App/UI/" />
+		</Unit>
+		<Unit filename="src/TypeManager.cpp">
+			<Option virtualFolder="App/Type/" />
+		</Unit>
+		<Unit filename="src/TypeManager.hpp">
+			<Option virtualFolder="App/Type/" />
+		</Unit>
+		<Unit filename="src/UiManager.cpp">
+			<Option virtualFolder="App/UI/" />
+		</Unit>
+		<Unit filename="src/UiManager.hpp">
+			<Option virtualFolder="App/UI/" />
+		</Unit>
+		<Unit filename="src/Utils.hpp">
+			<Option virtualFolder="App/Supporting Files/" />
+		</Unit>
+		<Unit filename="src/app_pch.cpp">
+			<Option virtualFolder="App/Supporting Files/" />
+		</Unit>
+		<Unit filename="src/app_pch.hpp">
+			<Option virtualFolder="App/Supporting Files/" />
+		</Unit>
+		<Unit filename="src/wxstc/PlatWX.cpp">
+			<Option virtualFolder="wxstc/" />
+		</Unit>
+		<Unit filename="src/wxstc/PlatWX.h">
+			<Option virtualFolder="wxstc/" />
+		</Unit>
+		<Unit filename="src/wxstc/ScintillaWX.cpp">
+			<Option virtualFolder="wxstc/" />
+		</Unit>
+		<Unit filename="src/wxstc/ScintillaWX.h">
+			<Option virtualFolder="wxstc/" />
+		</Unit>
+		<Unit filename="src/wxstc/include/wx/stc/private.h">
+			<Option virtualFolder="wxstc/include/" />
+		</Unit>
+		<Unit filename="src/wxstc/include/wx/stc/stc.h">
+			<Option virtualFolder="wxstc/include/" />
+		</Unit>
+		<Unit filename="src/wxstc/stc.cpp">
+			<Option virtualFolder="wxstc/" />
+		</Unit>
+		<Unit filename="src/xpm/about.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/add.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/addbook.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/addsrc.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/arricon.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/bughlp.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/close.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/closefl.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/clrhist.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/clsall.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/colours.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/compile.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/compopt.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/compres.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/comprun.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/copy.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/cut.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/debug.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/dos.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/empty.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/envopt.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/explor.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/export.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/gobook.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/help.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/homepg.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/icon.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/insert.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/makefl.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/minall.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/newproj.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/newsrc.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/newtemp.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/next.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/openproj.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/opnproj.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/package.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/packman.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/paste.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/prev.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/print.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/projopt.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/rebuild.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/redo.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/remsrc.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/reopen.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/resrc.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/run.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/save.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/saveall.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/saveas.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/screen.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/search.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/srcagain.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/srchrep.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/temphlp.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/tile.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/toolbar.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/tools.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/tutor.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/undo.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/update.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="src/xpm/xpm_goto.xpm">
+			<Option virtualFolder="App/UI/xpm/" />
+		</Unit>
+		<Unit filename="yaml-cpp/include/yaml-cpp/anchor.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/binary.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/contrib/anchordict.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/contrib/graphbuilder.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/dll.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/emitfromevents.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/emitter.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/emitterdef.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/emittermanip.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/emitterstyle.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/eventhandler.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/exceptions.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/mark.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/convert.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/detail/bool_type.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/detail/impl.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/detail/iterator.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/detail/iterator_fwd.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/detail/memory.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/detail/node.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/detail/node_data.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/detail/node_iterator.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/detail/node_ref.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/emit.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/impl.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/iterator.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/node.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/parse.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/ptr.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/node/type.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/noncopyable.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/null.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/ostream_wrapper.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/parser.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/stlemitter.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/traits.h" />
+		<Unit filename="yaml-cpp/include/yaml-cpp/yaml.h" />
+		<Unit filename="yaml-cpp/src/binary.cpp" />
+		<Unit filename="yaml-cpp/src/collectionstack.h" />
+		<Unit filename="yaml-cpp/src/contrib/graphbuilder.cpp" />
+		<Unit filename="yaml-cpp/src/contrib/graphbuilderadapter.cpp" />
+		<Unit filename="yaml-cpp/src/contrib/graphbuilderadapter.h" />
+		<Unit filename="yaml-cpp/src/convert.cpp" />
+		<Unit filename="yaml-cpp/src/directives.cpp" />
+		<Unit filename="yaml-cpp/src/directives.h" />
+		<Unit filename="yaml-cpp/src/emit.cpp" />
+		<Unit filename="yaml-cpp/src/emitfromevents.cpp" />
+		<Unit filename="yaml-cpp/src/emitter.cpp" />
+		<Unit filename="yaml-cpp/src/emitterstate.cpp" />
+		<Unit filename="yaml-cpp/src/emitterstate.h" />
+		<Unit filename="yaml-cpp/src/emitterutils.cpp" />
+		<Unit filename="yaml-cpp/src/emitterutils.h" />
+		<Unit filename="yaml-cpp/src/exp.cpp" />
+		<Unit filename="yaml-cpp/src/exp.h" />
+		<Unit filename="yaml-cpp/src/indentation.h" />
+		<Unit filename="yaml-cpp/src/memory.cpp" />
+		<Unit filename="yaml-cpp/src/node.cpp" />
+		<Unit filename="yaml-cpp/src/node_data.cpp" />
+		<Unit filename="yaml-cpp/src/nodebuilder.cpp" />
+		<Unit filename="yaml-cpp/src/nodebuilder.h" />
+		<Unit filename="yaml-cpp/src/nodeevents.cpp" />
+		<Unit filename="yaml-cpp/src/nodeevents.h" />
+		<Unit filename="yaml-cpp/src/null.cpp" />
+		<Unit filename="yaml-cpp/src/ostream_wrapper.cpp" />
+		<Unit filename="yaml-cpp/src/parse.cpp" />
+		<Unit filename="yaml-cpp/src/parser.cpp" />
+		<Unit filename="yaml-cpp/src/ptr_vector.h" />
+		<Unit filename="yaml-cpp/src/regex_yaml.cpp" />
+		<Unit filename="yaml-cpp/src/regex_yaml.h" />
+		<Unit filename="yaml-cpp/src/regeximpl.h" />
+		<Unit filename="yaml-cpp/src/scanner.cpp" />
+		<Unit filename="yaml-cpp/src/scanner.h" />
+		<Unit filename="yaml-cpp/src/scanscalar.cpp" />
+		<Unit filename="yaml-cpp/src/scanscalar.h" />
+		<Unit filename="yaml-cpp/src/scantag.cpp" />
+		<Unit filename="yaml-cpp/src/scantag.h" />
+		<Unit filename="yaml-cpp/src/scantoken.cpp" />
+		<Unit filename="yaml-cpp/src/setting.h" />
+		<Unit filename="yaml-cpp/src/simplekey.cpp" />
+		<Unit filename="yaml-cpp/src/singledocparser.cpp" />
+		<Unit filename="yaml-cpp/src/singledocparser.h" />
+		<Unit filename="yaml-cpp/src/stream.cpp" />
+		<Unit filename="yaml-cpp/src/stream.h" />
+		<Unit filename="yaml-cpp/src/streamcharsource.h" />
+		<Unit filename="yaml-cpp/src/stringsource.h" />
+		<Unit filename="yaml-cpp/src/tag.cpp" />
+		<Unit filename="yaml-cpp/src/tag.h" />
+		<Unit filename="yaml-cpp/src/token.h" />
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
