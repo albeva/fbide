@@ -1,7 +1,7 @@
 /**
  * FBIde project
  */
-#include "app_pch.hpp"
+
 #include "Manager.hpp"
 #include "UiManager.hpp"
 #include "MainWindow.hpp"
