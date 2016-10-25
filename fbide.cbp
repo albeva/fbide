@@ -49,9 +49,10 @@
 			<Add option="-Wall" />
 			<Add option="-std=c++14" />
 			<Add option="-m64" />
-			<Add option='-include &quot;assert.h&quot;' />
+			<Add option="-Winvalid-pch" />
+			<Add option='-include &quot;src/app_pch.hpp&quot;' />
+			<Add option="-Wno-deprecated-declarations" />
 			<Add option="-pipe" />
-			<Add option="-mthreads" />
 			<Add option="-D__WXMSW__" />
 			<Add option="-D_UNICODE" />
 			<Add option="-DWXUSINGDLL" />
@@ -368,13 +369,8 @@
 		<Unit filename="src/Utils.hpp">
 			<Option virtualFolder="App/Supporting Files/" />
 		</Unit>
-		<Unit filename="src/app_pch.cpp">
-			<Option compile="0" />
-			<Option link="0" />
-			<Option virtualFolder="App/Supporting Files/" />
-			<Option target="&lt;{~None~}&gt;" />
-		</Unit>
 		<Unit filename="src/app_pch.hpp">
+			<Option compile="1" />
 			<Option weight="0" />
 			<Option virtualFolder="App/Supporting Files/" />
 		</Unit>
