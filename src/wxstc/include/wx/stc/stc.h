@@ -2783,7 +2783,10 @@ class  WXDLLIMPEXP_FWD_STC wxStyledTextEvent;
 #endif
 
 //----------------------------------------------------------------------
-
+#ifdef WXDLLIMPEXP_STC
+#   undef WXDLLIMPEXP_STC
+#endif
+#define WXDLLIMPEXP_STC
 class WXDLLIMPEXP_STC wxStyledTextCtrl : public wxControl,
 #if wxUSE_TEXTCTRL
                                          public wxTextCtrlIface
