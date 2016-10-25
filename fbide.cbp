@@ -3,7 +3,6 @@
 	<FileVersion major="1" minor="6" />
 	<Project>
 		<Option title="fbide" />
-		<Option pch_mode="2" />
 		<Option compiler="gcc" />
 		<Option virtualFolders="App\Cmd\;App\;App\UI\xpm\;App\UI\;App\Supporting Files\;App\Document\;App\Editor\;App\Type\;App\Config\;wxstc\;wxstc\include\;yaml-cpp\;scintilla\;" />
 		<Build>
@@ -15,7 +14,16 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-g" />
+					<Add option="-D__WXDEBUG__" />
+					<Add option="-DDEBUG" />
+					<Add directory="$(#wx.lib)/gcc_dll/mswud" />
 				</Compiler>
+				<Linker>
+					<Add library="wxmsw31ud_core" />
+					<Add library="wxbase31ud" />
+					<Add library="wxmsw31ud_aui" />
+					<Add library="wxmsw31ud_adv" />
+				</Linker>
 			</Target>
 			<Target title="Release">
 				<Option platforms="Windows;" />
@@ -25,9 +33,15 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-O2" />
+					<Add option="-DNDEBUG" />
+					<Add directory="$(#wx.lib)/gcc_dll/mswu" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
+					<Add library="wxmsw31u_core" />
+					<Add library="wxbase31u" />
+					<Add library="wxmsw31u_aui" />
+					<Add library="wxmsw31u_adv" />
 				</Linker>
 			</Target>
 		</Build>
@@ -35,10 +49,37 @@
 			<Add option="-Wall" />
 			<Add option="-std=c++14" />
 			<Add option="-m64" />
+			<Add option='-include &quot;assert.h&quot;' />
+			<Add option="-pipe" />
+			<Add option="-mthreads" />
+			<Add option="-D__WXMSW__" />
+			<Add option="-D_UNICODE" />
+			<Add option="-DWXUSINGDLL" />
+			<Add option="-DSCI_LEXER" />
+			<Add option="-DWXDLLIMPEXPSTC" />
+			<Add directory="$(PROJECT_DIR)yaml-cpp/include" />
+			<Add directory="$(PROJECT_DIR)src/wxstc/include" />
+			<Add directory="$(PROJECT_DIR)scintilla/include" />
+			<Add directory="$(PROJECT_DIR)scintilla/lexlib" />
+			<Add directory="$(PROJECT_DIR)scintilla/src" />
+			<Add directory="$(#wx.include)" />
+			<Add directory="$(#boost)" />
 		</Compiler>
 		<Linker>
 			<Add option="-m64" />
+			<Add option="-mthreads" />
+			<Add directory="$(#wx.lib)/gcc_dll" />
 		</Linker>
+		<ExtraCommands>
+			<Add after="cmd /c XCOPY $(PROJECT_DIR)ide /E /H /K /Y $(TARGET_OUTPUT_DIR)ide\" />
+			<Mode after="always" />
+		</ExtraCommands>
+		<Unit filename="ide/fbide.yaml">
+			<Option target="&lt;{~None~}&gt;" />
+		</Unit>
+		<Unit filename="ide/lang.en.yaml">
+			<Option target="&lt;{~None~}&gt;" />
+		</Unit>
 		<Unit filename="scintilla/include/ILexer.h" />
 		<Unit filename="scintilla/include/Platform.h" />
 		<Unit filename="scintilla/include/SciLexer.h" />
@@ -328,9 +369,13 @@
 			<Option virtualFolder="App/Supporting Files/" />
 		</Unit>
 		<Unit filename="src/app_pch.cpp">
+			<Option compile="0" />
+			<Option link="0" />
 			<Option virtualFolder="App/Supporting Files/" />
+			<Option target="&lt;{~None~}&gt;" />
 		</Unit>
 		<Unit filename="src/app_pch.hpp">
+			<Option weight="0" />
 			<Option virtualFolder="App/Supporting Files/" />
 		</Unit>
 		<Unit filename="src/wxstc/PlatWX.cpp">

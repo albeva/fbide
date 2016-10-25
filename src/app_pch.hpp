@@ -1,6 +1,8 @@
 /**
  * Pre Compiled Header
  */
+#ifndef FBIDE_APP_PCH_HPP
+#define FBIDE_APP_PCH_HPP
 
 // wxWidgets
 #include <wx/wx.h>
@@ -19,6 +21,7 @@
 #include <algorithm>
 #include <utility>
 #include <cctype>
+#include <assert.h>
 #include <type_traits>
 
 // boost
@@ -30,3 +33,5 @@
 #include "Config.hpp"
 
 #include "wxstc/include/wx/stc/stc.h"
+
+#endif // FBIDE_APP_PCH_HPP
