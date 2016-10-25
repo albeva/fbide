@@ -2772,6 +2772,15 @@ class WXDLLIMPEXP_FWD_CORE wxScrollBar;
 //}}}
 //----------------------------------------------------------------------
 
+#undef WXDLLIMPEXP_STC
+#define WXDLLIMPEXP_STC
+
+#undef WXDLLIMPEXP_DATA_STC
+#define WXDLLIMPEXP_DATA_STC(_t) _t
+
+#undef WXDLLIMPEXP_FWD_STC
+#define WXDLLIMPEXP_FWD_STC
+
 class  ScintillaWX;                      // forward declare
 class  WordList;
 struct SCNotification;
@@ -2783,10 +2792,7 @@ class  WXDLLIMPEXP_FWD_STC wxStyledTextEvent;
 #endif
 
 //----------------------------------------------------------------------
-#ifdef WXDLLIMPEXP_STC
-#   undef WXDLLIMPEXP_STC
-#endif
-#define WXDLLIMPEXP_STC
+
 class WXDLLIMPEXP_STC wxStyledTextCtrl : public wxControl,
 #if wxUSE_TEXTCTRL
                                          public wxTextCtrlIface
