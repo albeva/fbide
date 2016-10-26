@@ -12,3 +12,13 @@ using namespace fbide;
 
 wxBEGIN_EVENT_TABLE(StyledEditor, wxStyledTextCtrl)
 wxEND_EVENT_TABLE()
+
+
+StyledEditor::StyledEditor() : wxStyledTextCtrl()
+{
+}
+
+
+StyledEditor::~StyledEditor()
+{
+}

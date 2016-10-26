@@ -12,6 +12,10 @@
 
 using namespace fbide;
 
+namespace {
+    bool _needToloadLexerLibrary = true;
+}
+
 
 /**
  * Instantiate the document
@@ -31,7 +35,14 @@ void EditorDocument::Create()
         delete this;
     });
     
-    m_editor.SetLexer(200);
+    
+    if (_needToloadLexerLibrary) {
+        _needToloadLexerLibrary = false;
+        auto path = GetConfig("BasePath").AsString() + "/libfblexer.dylib";
+        m_editor.LoadLexerLibrary(path);
+    }
+    m_editor.SetLexerLanguage("fbide-freebasic");
+    m_editor.PrivateLexerCall(1, nullptr);
 }
 
 

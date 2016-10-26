@@ -54,6 +54,23 @@
 		503C2FCE1DBE246A0041F843 /* tag.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 503C2FAF1DBE246A0041F843 /* tag.cpp */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		509BD8D51DC14E760090B3C5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 509BD8D11DC14E750090B3C5 /* fblexer.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 509BD8CA1DC14E750090B3C5;
+			remoteInfo = fblexer;
+		};
+		509BD94B1DC14F920090B3C5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 509BD8D11DC14E750090B3C5 /* fblexer.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 509BD8C91DC14E750090B3C5;
+			remoteInfo = fblexer;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		360C009D1C8B53C700E702C7 /* CmdManager.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = CmdManager.cpp; path = src/CmdManager.cpp; sourceTree = SOURCE_ROOT; };
 		360C009E1C8B53C700E702C7 /* CmdManager.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = CmdManager.hpp; path = src/CmdManager.hpp; sourceTree = SOURCE_ROOT; };
@@ -184,6 +201,7 @@
 		503C2FAF1DBE246A0041F843 /* tag.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = tag.cpp; sourceTree = "<group>"; };
 		503C2FB01DBE246A0041F843 /* tag.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tag.h; sourceTree = "<group>"; };
 		503C2FB11DBE246A0041F843 /* token.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = token.h; sourceTree = "<group>"; };
+		509BD8D11DC14E750090B3C5 /* fblexer.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = fblexer.xcodeproj; path = fblexer/fblexer.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -311,6 +329,7 @@
 				36C487D817E0FCD400906651 /* Supporting Files */,
 				36C487D017E0FCD400906651 /* Frameworks */,
 				36C487CF17E0FCD400906651 /* Products */,
+				509BD8D11DC14E750090B3C5 /* fblexer.xcodeproj */,
 			);
 			sourceTree = "<group>";
 		};
@@ -505,6 +524,14 @@
 			path = contrib;
 			sourceTree = "<group>";
 		};
+		509BD8D21DC14E750090B3C5 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				509BD8D61DC14E760090B3C5 /* libfblexer.dylib */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -520,6 +547,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				509BD94C1DC14F920090B3C5 /* PBXTargetDependency */,
 			);
 			name = fbide;
 			productName = fbide;
@@ -547,12 +575,28 @@
 			mainGroup = 36C487C517E0FCD400906651;
 			productRefGroup = 36C487CF17E0FCD400906651 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 509BD8D21DC14E750090B3C5 /* Products */;
+					ProjectRef = 509BD8D11DC14E750090B3C5 /* fblexer.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				36C487CD17E0FCD400906651 /* fbide */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		509BD8D61DC14E760090B3C5 /* libfblexer.dylib */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.dylib";
+			path = libfblexer.dylib;
+			remoteRef = 509BD8D51DC14E760090B3C5 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
 
 /* Begin PBXResourcesBuildPhase section */
 		36C487CC17E0FCD400906651 /* Resources */ = {
@@ -633,6 +677,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		509BD94C1DC14F920090B3C5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = fblexer;
+			targetProxy = 509BD94B1DC14F920090B3C5 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		36C487FD17E0FCD400906651 /* Debug */ = {

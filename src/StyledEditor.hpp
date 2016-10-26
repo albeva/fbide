@@ -15,7 +15,8 @@ namespace fbide {
     class StyledEditor : public wxStyledTextCtrl
     {
     public:
-        using wxStyledTextCtrl::wxStyledTextCtrl;
+        StyledEditor();
+        virtual ~StyledEditor();
         wxDECLARE_EVENT_TABLE();
     };
     

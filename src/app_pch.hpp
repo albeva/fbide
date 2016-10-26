@@ -33,4 +33,6 @@
 #include "Manager.hpp"
 #include "Config.hpp"
 
+#define LOG_V(v) std::cout << #v " = " << (v) << std::endl;
+
 #endif // FBIDE_APP_PCH_HPP

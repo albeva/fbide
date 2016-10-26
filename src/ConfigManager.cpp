@@ -36,6 +36,16 @@ void ConfigManager::Load(const wxString & path)
     auto idePath = wxPathOnly(path);
     m_root["IdePath"] = idePath;
     
+    // base path
+    #ifdef __DARWIN__
+        auto basePath = idePath;
+        auto pos = basePath.find_last_of(".app");
+        basePath.Remove(pos + 1, basePath.length() - pos);
+        m_root["BasePath"] = basePath;
+    #else
+        m_root["BasePath"] = idePath;
+    #endif
+    
     // Load language
     auto lang = m_root["App.Language"].AsString();
     if (!lang.IsEmpty()) {
