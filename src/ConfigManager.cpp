@@ -37,19 +37,20 @@ void ConfigManager::Load(const wxString & path)
     m_root["IdePath"] = idePath;
     
     // base path
-    #ifdef __DARWIN__
-        auto basePath = idePath;
+	auto basePath = idePath;
+    #if __DARWIN__
         auto pos = basePath.find_last_of(".app");
         basePath.Remove(pos + 1, basePath.length() - pos);
-        m_root["BasePath"] = basePath;
-    #else
-        m_root["BasePath"] = idePath;
+    #else __WXMSW__
+		basePath.RemoveLast(4);
     #endif
-    
+	m_root["BasePath"] = basePath;
+	wxMessageBox(idePath, PS);
+
     // Load language
     auto lang = m_root["App.Language"].AsString();
     if (!lang.IsEmpty()) {
-        auto file = idePath + "/lang." + lang + ".yaml";
+        auto file = idePath + PS + "lang." + lang + ".yaml";
         if (!::wxFileExists(file)) {
             throw std::invalid_argument("Language file not found."s + file.ToStdString());
         }

@@ -32,7 +32,7 @@ public:
             GetMgr().Load();
                         
             // Load up fbide. Order in which managers are called matters!
-            auto path = GetIdePath() + "/ide/fbide.yaml";
+            auto path = GetIdePath() + PS + "ide" + PS + "fbide.yaml";
             GetCfgMgr().Load(path);
             
             // Load UI

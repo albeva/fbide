@@ -24,7 +24,7 @@ void EditorDocument::Create()
 {
     auto & ui = GetUiMgr();
     auto da = ui.GetDocArea();
-    
+
     m_editor.Create(da);
     da->AddPage(&m_editor, GetTitle(), true);
     ui.BindCloser(&m_editor, [this, da]() {
@@ -34,15 +34,19 @@ void EditorDocument::Create()
         }
         delete this;
     });
-    
-    
+
+
     if (_needToloadLexerLibrary) {
         _needToloadLexerLibrary = false;
-        auto path = GetConfig("BasePath").AsString() + "/libfblexer.dylib";
-        m_editor.LoadLexerLibrary(path);
+        #if __DARWIN__
+            auto path = GetConfig("BasePath").AsString() + "/libfblexer.dylib";
+            m_editor.LoadLexerLibrary(path);
+        #elif __WXMSW__
+            auto path = GetConfig("IdePath").AsString() + "\\fblexer.dll";
+            m_editor.LoadLexerLibrary(path);
+        #endif // __WXMSW__
     }
     m_editor.SetLexerLanguage("fbide-freebasic");
-    m_editor.PrivateLexerCall(1, nullptr);
 }
 
 

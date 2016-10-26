@@ -6760,7 +6760,7 @@
 
 1477227701 c:\dev\fbide\src\typemanager.hpp
 
-1477227701 c:\dev\fbide\src\stylededitor.hpp
+1477524170 c:\dev\fbide\src\stylededitor.hpp
 
 1477513597 c:\dev\fbide\src\editordocument.hpp
 	"Document.hpp"
@@ -6975,13 +6975,13 @@
 	<iosfwd>
 	"yaml-cpp/dll.h"
 
-1477431242 source:c:\dev\fbide\src\configmanager.cpp
+1477524170 source:c:\dev\fbide\src\configmanager.cpp
 	"ConfigManager.hpp"
 
 1477513597 source:c:\dev\fbide\src\document.cpp
 	"Document.hpp"
 
-1477431242 source:c:\dev\fbide\src\editordocument.cpp
+1477525683 source:c:\dev\fbide\src\editordocument.cpp
 	"EditorDocument.hpp"
 	"UiManager.hpp"
 	"StyledEditor.hpp"
@@ -7006,7 +7006,7 @@
 
 1477227701 c:\dev\fbide\src\iartprovider.hpp
 
-1477513602 source:c:\dev\fbide\src\app_pch.hpp
+1477524170 source:c:\dev\fbide\src\app_pch.hpp
 	<wx/wx.h>
 	<wx/stdpaths.h>
 	<wx/apptrait.h>
@@ -7238,7 +7238,7 @@
 
 1477227701 c:\dev\fbide\src\xpm\xpm_goto.xpm
 
-1477513602 source:c:\dev\fbide\src\stylededitor.cpp
+1477524170 source:c:\dev\fbide\src\stylededitor.cpp
 	"StyledEditor.hpp"
 
 1477431242 source:c:\dev\fbide\src\toolbarhandler.cpp

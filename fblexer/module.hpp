@@ -14,10 +14,16 @@
 #include "ILexer.h"
 #include "LexerModule.h"
 
+#ifdef _WIN32
+	#define EXP_DLL __declspec(dllexport)
+#else
+	#define EXP_DLL
+#endif
+
 extern "C" {
-    int GetLexerCount();
-    void GetLexerName(unsigned int Index, char* name, int buflength);
-    Scintilla::LexerFactoryFunction GetLexerFactory(unsigned int Index);
+	EXP_DLL int GetLexerCount();
+	EXP_DLL void GetLexerName(unsigned int Index, char* name, int buflength);
+	EXP_DLL Scintilla::LexerFactoryFunction GetLexerFactory(unsigned int Index);
 }
 
 #endif /* module_hpp */

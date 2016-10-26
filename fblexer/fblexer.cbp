@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="fblexer" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Debug">
+				<Option platforms="Windows;" />
+				<Option output="$(WORKSPACE_DIR)/bin/Debug/ide/fblexer" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Debug/" />
+				<Option type="3" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+			<Target title="Release">
+				<Option platforms="Windows;" />
+				<Option output="$(WORKSPACE_DIR)/bin/Release/ide/fblexer" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/Release/" />
+				<Option type="3" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+			<Add option="-std=c++14" />
+			<Add option="-m64" />
+			<Add option="-fexceptions" />
+			<Add option="-DSCI_NAMESPACE" />
+			<Add directory="$(PROJECT_DIR)scintilla/include" />
+			<Add directory="$(PROJECT_DIR)scintilla/lexlib" />
+		</Compiler>
+		<Linker>
+			<Add option="-m64" />
+		</Linker>
+		<Unit filename="lexer.cpp" />
+		<Unit filename="lexer.hpp" />
+		<Unit filename="module.cpp" />
+		<Unit filename="module.hpp" />
+		<Unit filename="scintilla/include/ILexer.h" />
+		<Unit filename="scintilla/include/Platform.h" />
+		<Unit filename="scintilla/include/SciLexer.h" />
+		<Unit filename="scintilla/include/Sci_Position.h" />
+		<Unit filename="scintilla/include/Scintilla.h" />
+		<Unit filename="scintilla/include/ScintillaWidget.h" />
+		<Unit filename="scintilla/lexlib/Accessor.h" />
+		<Unit filename="scintilla/lexlib/CharacterCategory.h" />
+		<Unit filename="scintilla/lexlib/CharacterSet.h" />
+		<Unit filename="scintilla/lexlib/LexAccessor.h" />
+		<Unit filename="scintilla/lexlib/LexerBase.h" />
+		<Unit filename="scintilla/lexlib/LexerModule.h" />
+		<Unit filename="scintilla/lexlib/LexerNoExceptions.h" />
+		<Unit filename="scintilla/lexlib/LexerSimple.h" />
+		<Unit filename="scintilla/lexlib/OptionSet.h" />
+		<Unit filename="scintilla/lexlib/PropSetSimple.h" />
+		<Unit filename="scintilla/lexlib/SparseState.h" />
+		<Unit filename="scintilla/lexlib/StringCopy.h" />
+		<Unit filename="scintilla/lexlib/StyleContext.h" />
+		<Unit filename="scintilla/lexlib/SubStyles.h" />
+		<Unit filename="scintilla/lexlib/WordList.h" />
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+			<lib_finder disable_auto="1" />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
