@@ -16,6 +16,16 @@ namespace fbide {
     
     
     /**
+     * Nice way to concatinate path components together. Will add a platform specific
+     * directory separator
+     */
+    inline wxString operator / (const wxString & lhs, const wxString & rhs)
+    {
+        return wxString(lhs).append(wxFILE_SEP_PATH).append(rhs);
+    }
+    
+    
+    /**
      * wxString shorthand. "Hello"_wx
      */
     inline wxString operator "" _wx (const char * s, size_t len)

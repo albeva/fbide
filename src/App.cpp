@@ -14,7 +14,6 @@
 
 using namespace fbide;
 
-
 /**
  * App is the basic entry point into FBIde
  */
@@ -32,7 +31,7 @@ public:
             GetMgr().Load();
                         
             // Load up fbide. Order in which managers are called matters!
-            auto path = GetIdePath() + PS + "ide" + PS + "fbide.yaml";
+            auto path = GetIdePath() / "ide" / "fbide.yaml";
             GetCfgMgr().Load(path);
             
             // Load UI

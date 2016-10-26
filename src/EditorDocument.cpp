@@ -39,10 +39,10 @@ void EditorDocument::Create()
     if (_needToloadLexerLibrary) {
         _needToloadLexerLibrary = false;
         #if __DARWIN__
-            auto path = GetConfig("BasePath").AsString() + "/libfblexer.dylib";
+            auto path = GetConfig("BasePath").AsString() / "libfblexer.dylib";
             m_editor.LoadLexerLibrary(path);
         #elif __WXMSW__
-            auto path = GetConfig("IdePath").AsString() + "\\fblexer.dll";
+            auto path = GetConfig("IdePath").AsString() / "fblexer.dll";
             m_editor.LoadLexerLibrary(path);
         #endif // __WXMSW__
     }
