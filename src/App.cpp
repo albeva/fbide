@@ -11,7 +11,6 @@
 #include "TypeManager.hpp"
 #include "StyledEditor.hpp"
 #include "EditorDocument.hpp"
-#include "FBLexer.hpp"
 
 using namespace fbide;
 
@@ -50,9 +49,6 @@ public:
             
             auto v = wxStyledTextCtrl::GetLibraryVersionInfo();
             std::cout <<v.GetDescription() << '\n';
-            
-            //setup with scintilla
-            LexerFreeBasic::SetupLexer();
             
             // done
             return true;

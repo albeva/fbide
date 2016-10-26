@@ -1,6 +1,3 @@
-[submodule "scintilla"]
-	path = scintilla
-	url = git@github.com:mirror/scintilla.git
 [submodule "yaml-cpp"]
 	path = yaml-cpp
 	url = git@github.com:jbeder/yaml-cpp.git

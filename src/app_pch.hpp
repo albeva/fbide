@@ -11,6 +11,7 @@
 #include <wx/aui/aui.h>
 #include <wx/tokenzr.h>
 #include <wx/wupdlock.h>
+#include <wx/stc/stc.h>
 
 // std
 #include <string>
@@ -31,7 +32,5 @@
 #include "Utils.hpp"
 #include "Manager.hpp"
 #include "Config.hpp"
-
-#include "wxstc/include/wx/stc/stc.h"
 
 #endif // FBIDE_APP_PCH_HPP

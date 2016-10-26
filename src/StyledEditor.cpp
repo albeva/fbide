@@ -8,9 +8,6 @@
 
 #include "StyledEditor.hpp"
 
-#include "wxstc/include/wx/stc/stc.h"
-
-
 using namespace fbide;
 
 wxBEGIN_EVENT_TABLE(StyledEditor, wxStyledTextCtrl)
