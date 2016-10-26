@@ -2559,7 +2559,7 @@
 	"Platform.h"
 	"XPM.h"
 
-1477431242 source:c:\dev\fbide\src\app.cpp
+1477513602 source:c:\dev\fbide\src\app.cpp
 	"Manager.hpp"
 	"UiManager.hpp"
 	"MainWindow.hpp"
@@ -2569,7 +2569,6 @@
 	"TypeManager.hpp"
 	"StyledEditor.hpp"
 	"EditorDocument.hpp"
-	"FBLexer.hpp"
 
 1477430699 c:\dev\fbide\src\app_pch.hpp
 	<wx/wx.h>
@@ -6763,7 +6762,7 @@
 
 1477227701 c:\dev\fbide\src\stylededitor.hpp
 
-1477227701 c:\dev\fbide\src\editordocument.hpp
+1477513597 c:\dev\fbide\src\editordocument.hpp
 	"Document.hpp"
 	"StyledEditor.hpp"
 
@@ -6979,7 +6978,7 @@
 1477431242 source:c:\dev\fbide\src\configmanager.cpp
 	"ConfigManager.hpp"
 
-1477431242 source:c:\dev\fbide\src\document.cpp
+1477513597 source:c:\dev\fbide\src\document.cpp
 	"Document.hpp"
 
 1477431242 source:c:\dev\fbide\src\editordocument.cpp
@@ -7007,13 +7006,14 @@
 
 1477227701 c:\dev\fbide\src\iartprovider.hpp
 
-1477430699 source:c:\dev\fbide\src\app_pch.hpp
+1477513602 source:c:\dev\fbide\src\app_pch.hpp
 	<wx/wx.h>
 	<wx/stdpaths.h>
 	<wx/apptrait.h>
 	<wx/aui/aui.h>
 	<wx/tokenzr.h>
 	<wx/wupdlock.h>
+	<wx/stc/stc.h>
 	<string>
 	<stdexcept>
 	<unordered_map>
@@ -7028,7 +7028,6 @@
 	"Utils.hpp"
 	"Manager.hpp"
 	"Config.hpp"
-	"wxstc/include/wx/stc/stc.h"
 
 1477312800 source:c:\dev\fbide\src\fblexer.cpp
 	"FBLexer.hpp"
@@ -7239,9 +7238,8 @@
 
 1477227701 c:\dev\fbide\src\xpm\xpm_goto.xpm
 
-1477431242 source:c:\dev\fbide\src\stylededitor.cpp
+1477513602 source:c:\dev\fbide\src\stylededitor.cpp
 	"StyledEditor.hpp"
-	"wxstc/include/wx/stc/stc.h"
 
 1477431242 source:c:\dev\fbide\src\toolbarhandler.cpp
 	"ToolbarHandler.hpp"
@@ -7902,4 +7900,13 @@
 1477228088 c:\dev\wxwidgets\lib\gcc_dll\mswu\wx\setup.h
 
 1477228088 c:\dev\wxwidgets\lib\gcc_dll\mswud\wx\setup.h
+
+1477228089 c:\dev\wxwidgets\include\wx\stc\stc.h
+	"wx/defs.h"
+	"wx/control.h"
+	"wx/dnd.h"
+	"wx/stopwatch.h"
+	"wx/versioninfo.h"
+	"wx/textentry.h"
+	"wx/textctrl.h"
 
