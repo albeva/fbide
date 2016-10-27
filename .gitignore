@@ -297,3 +297,4 @@ _Pvt_Extensions
 .fake/
 *.db
 fbide.layout
+*.layout

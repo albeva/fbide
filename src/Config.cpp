@@ -14,7 +14,7 @@ using namespace fbide;
 namespace YAML {
     template<>
     struct convert<Config> {
-        
+
         /**
          * Convert Config to yaml
          */
@@ -23,8 +23,8 @@ namespace YAML {
             Node node;
             return node;
         }
-        
-        
+
+
         /**
          * convert yaml to Config
          */
@@ -34,7 +34,7 @@ namespace YAML {
             if (node.IsNull()) {
                 return true;
             }
-            
+
             // array
             if (node.IsSequence()) {
                 auto & arr = rhs.AsArray();
@@ -44,7 +44,7 @@ namespace YAML {
                 }
                 return true;
             }
-            
+
             // map
             if (node.IsMap()) {
                 auto & map = rhs.AsMap();
@@ -56,30 +56,30 @@ namespace YAML {
                 }
                 return true;
             }
-            
+
             // scalar
             if (node.IsScalar()) {
                 try {
                     rhs = node.as<bool>();
                     return true;
                 } catch (...) {}
-                
+
                 try {
                     rhs = node.as<int>();
                     return true;
                 } catch (...) {}
-                
+
                 try {
                     rhs = node.as<double>();
                     return true;
                 } catch (...) {}
-                
+
                 try {
                     rhs = node.as<std::string>();
                     return true;
                 } catch (...) {}
             }
-            
+
             return false;
         }
     };
@@ -95,8 +95,6 @@ namespace {
 	/**
 	 * Simple config path parser. Keys are separated by "."
 	 * and array indexes enclosed within square brackets.
-	 * Path can end with "cast" to force last node to be either
-	 * array or a map.
 	 *
 	 * EBNF:
 	 * path  := part { "." part }
@@ -152,7 +150,7 @@ namespace {
 					auto lex = m_path.SubString(start, m_pos - 1);
 					return Token{ Type::Key, lex };
 				}
-                
+
                 // digit
                 if (std::isdigit(ch)) {
                     do {
@@ -225,35 +223,35 @@ void Config::LoadYaml(const wxString & path)
 bool Config::operator == (const Config & rhs) const noexcept
 {
     if (this == &rhs) return true;
-    
+
     if (IsNull()) {
         return rhs.IsNull();
     }
-    
+
     if (rhs.IsNull()) {
         return false;
     }
-    
+
     if (m_val.type() != rhs.m_val.type()) return false;
-    
+
     if (IsString()) {
         auto & l = boost::any_cast<const wxString&>(m_val);
         auto & r = boost::any_cast<const wxString&>(rhs.m_val);
         return l == r;
     }
-    
+
     if (IsBool()) {
         return boost::any_cast<bool>(m_val) == boost::any_cast<bool>(rhs.m_val);
     }
-    
+
     if (IsInt()) {
         return boost::any_cast<int>(m_val) == boost::any_cast<int>(rhs.m_val);
     }
-    
+
     if (IsDouble()) {
         return boost::any_cast<double>(m_val) == boost::any_cast<double>(rhs.m_val);
     }
-    
+
     return false;
 }
 
@@ -267,16 +265,16 @@ bool Config::operator == (const Config & rhs) const noexcept
 Config & Config::operator[](const wxString & path)
 {
     auto node = this;
-    
+
     PathParser parser{path};
     for(;;) {
         auto && t = parser.Next();
-        
+
         // finish?
         if (t.type == PathParser::Type::End) {
             break;
         }
-        
+
         switch (t.type) {
             case PathParser::Type::Invalid:
             {
@@ -301,7 +299,7 @@ Config & Config::operator[](const wxString & path)
                 if (!t.str.ToULong(&index)) {
                     index = MaxULong;
                 }
-                
+
                 auto & arr = node->AsArray();
                 if (index < arr.size()) {
                     node = &arr[index];
@@ -319,7 +317,7 @@ Config & Config::operator[](const wxString & path)
             }
         }
     }
-    
+
     return *node;
 }
 
@@ -332,16 +330,16 @@ Config & Config::operator[](const wxString & path)
 const Config * Config::Get(const wxString & path) const noexcept
 {
     auto node = this;
-    
+
     PathParser parser{path};
     for(;;) {
         auto t = parser.Next();
-        
+
         // finish?
         if (t.type == PathParser::Type::End) {
             break;
         }
-        
+
         switch (t.type) {
             case PathParser::Type::Key:
             {
@@ -362,12 +360,12 @@ const Config * Config::Get(const wxString & path) const noexcept
                 if (!node->IsArray()) {
                     return nullptr;
                 }
-                
+
                 unsigned long index;
                 if (!t.str.ToULong(&index)) {
                     index = MaxULong;
                 }
-                
+
                 auto & arr = boost::any_cast<const Array&>(node->m_val);
                 if (index < arr.size()) {
                     node = &arr[index];
@@ -382,7 +380,7 @@ const Config * Config::Get(const wxString & path) const noexcept
             }
         }
     }
-    
+
     return node;
 }
 
@@ -408,11 +406,11 @@ Config::Type Config::GetType() const noexcept
 void Config::Dump(size_t indent) const
 {
     const size_t INDENT = 4;
-    
+
     auto self = const_cast<Config*>(this);
     auto sp = std::string(indent * INDENT, ' ');
     auto cs = std::string((indent > 0 ? indent - 1 : 0) * INDENT, ' ');
-    
+
     switch (GetType()) {
         case Type::Null:
             std::cout << "Null";

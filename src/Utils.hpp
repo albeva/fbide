@@ -7,22 +7,32 @@ namespace fbide {
     
     // c++14 string literal "hello"s
     using namespace std::literals::string_literals;
+
     
     /**
      * Hash map of string to T
      */
-    template<typename T>
+    template<class T>
     using StringMap = std::unordered_map<wxString, T>;
     
     
     /**
-     * Nice way to concatinate path components together. Will add a platform specific
-     * directory separator
+     * Concatinate path component together separated by platform specific path
+	 * component separator
      */
     inline wxString operator / (const wxString & lhs, const wxString & rhs)
     {
         return wxString(lhs).append(wxFILE_SEP_PATH).append(rhs);
     }
+
+
+	/**
+	 * Append path component separated by platform specific path component separator
+	 */
+	inline wxString & operator /= (wxString & lhs, const wxString & rhs)
+	{
+		return lhs.append(wxFILE_SEP_PATH).append(rhs);
+	}
     
     
     /**
