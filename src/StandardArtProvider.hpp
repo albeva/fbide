@@ -14,7 +14,7 @@ namespace fbide {
     /**
      * fbide standard art provider
      */
-    class StandardArtProvider : public IArtProvider
+    class StandardArtProvider final : public IArtProvider
     {
     public:
         

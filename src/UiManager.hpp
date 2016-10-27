@@ -19,7 +19,7 @@ namespace fbide {
      * Manage fbide UI.
      * app frame, menus, toolbars and panels
      */
-    class UiManager : NonCopyable, public wxEvtHandler
+    class UiManager final : NonCopyable, public wxEvtHandler
     {
     public:
         

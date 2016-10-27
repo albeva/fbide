@@ -26,7 +26,7 @@ namespace fbide {
      * It also supports API to add config settings by
      * various other components and potentially plugins
      */
-    class ConfigManager : NonCopyable
+    class ConfigManager final : NonCopyable
     {
     public:
         ConfigManager();

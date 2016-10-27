@@ -74,7 +74,7 @@ namespace fbide {
      *
      * This class is a singleton
      */
-    class Manager : private NonCopyable
+    class Manager final : private NonCopyable
     {
     public:
         

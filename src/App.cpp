@@ -17,7 +17,7 @@ using namespace fbide;
 /**
  * App is the basic entry point into FBIde
  */
-class App : public wxApp
+class App final : public wxApp
 {
 public:
 
@@ -38,17 +38,23 @@ public:
             auto & ui = GetUiMgr();
             ui.Load();
             
+            // Load scintilla lexer for fb
+            LoadScintillaFBLexer();
+            
             // if we get here. All seems well. So show the window
             ui.Bind(wxEVT_CLOSE_WINDOW, &App::OnClose, this);
             ui.GetWindow()->Show();
             
-            // plain text document
+            // plain text
             auto & type = GetTypeMgr();
-            type.Register<EditorDocument>("text/plain", {"txt", "", "md"});
+            type.Register<EditorDocument>(EditorDocument::Plain);
             
-            auto v = wxStyledTextCtrl::GetLibraryVersionInfo();
-            std::cout <<v.GetDescription() << '\n';
+            // freebasic
+            type.Register<EditorDocument>(EditorDocument::Freebasic);
             
+            // default editor type
+            type.BindAlias("default", EditorDocument::Freebasic, true);
+                        
             // done
             return true;
         } catch (std::exception & e) {
@@ -57,6 +63,29 @@ public:
             return false;
         }
 	}
+    
+    
+    /**
+     * Load dynamic scintilla lexer for fb
+     */
+    void LoadScintillaFBLexer()
+    {
+        // we need to create instance of wxStyledTextCtrl in order to
+        // tell scintilla to load the dynamic library.
+        
+        auto wnd = GetUiMgr().GetWindow();
+        wxWindowUpdateLocker lock(wnd);
+        auto stc = new wxStyledTextCtrl(wnd);
+        
+        #if __DARWIN__
+            auto path = GetConfig("BasePath").AsString() / "libfblexer.dylib";
+        #elif __WXMSW__
+            auto path = GetConfig("IdePath").AsString() / "fblexer.dll";
+        #endif
+        
+        stc->LoadLexerLibrary(path);
+        delete stc;
+    }
     
     
     /**

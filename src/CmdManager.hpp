@@ -21,7 +21,7 @@ namespace fbide {
      * editor. It acts as a unifying place between UI description
      * menu and toolbars
      */
-    class CmdManager : NonCopyable, public wxEvtHandler
+    class CmdManager final : NonCopyable, public wxEvtHandler
     {
     public:
         

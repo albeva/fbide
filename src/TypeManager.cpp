@@ -13,17 +13,31 @@ using namespace fbide;
 /**
  * Register document creator
  */
-void TypeManager::Register(const wxString & name, CreatorFn creator, std::vector<wxString> exts)
+void TypeManager::Register(const wxString & name, CreatorFn creator)
 {
     if (IsRegistered(name)) {
         throw std::invalid_argument("type '"s + name + "' is already registered");
     }
-    m_types.emplace(std::make_pair(name, Type{creator, exts}));
     
-    // bind "default" by default to 1st registered type
-    if (m_aliases.find("default") == m_aliases.end()) {
-        m_aliases["default"] = name;
+    const Config * config = nullptr;
+    std::vector<wxString> exts;
+    
+    if (name.SubString(0, 4) == "text/") {
+        auto path = "Editor." + name.Right(name.length() - 5);
+        config = GetConfig().Get(path);
+        if (config) {
+            auto es = config->Get("exts");
+            if (es && es->IsArray()) {
+                for (auto & ext : const_cast<Config*>(es)->AsArray()) {
+                    if (ext.IsString()) {
+                        exts.push_back(ext.AsString());
+                    }
+                }
+            }
+        }
     }
+    
+    m_types.emplace(std::make_pair(name, Type{name, exts, config ? *config : Config::Empty, creator}));
 }
 
 
@@ -74,7 +88,7 @@ Document * TypeManager::CreateFromType(const wxString & name)
     if (type == nullptr) {
         throw std::invalid_argument("Type '"s + name + "' not found");
     }
-    return type->creator();
+    return type->creator(*type);
 }
 
 

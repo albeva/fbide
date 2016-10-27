@@ -9,11 +9,17 @@
 #include "EditorDocument.hpp"
 #include "UiManager.hpp"
 #include "StyledEditor.hpp"
+#include "MainWindow.hpp"
 
 using namespace fbide;
 
-namespace {
-    bool _needToloadLexerLibrary = true;
+
+const wxString EditorDocument::Plain = "text/plain";
+const wxString EditorDocument::Freebasic = "text/freebasic";
+
+
+EditorDocument::~EditorDocument()
+{
 }
 
 
@@ -24,6 +30,8 @@ void EditorDocument::Create()
 {
     auto & ui = GetUiMgr();
     auto da = ui.GetDocArea();
+    
+    wxWindowUpdateLocker lock(ui.GetWindow());
 
     m_editor.Create(da);
     da->AddPage(&m_editor, GetTitle(), true);
@@ -34,19 +42,10 @@ void EditorDocument::Create()
         }
         delete this;
     });
-
-
-    if (_needToloadLexerLibrary) {
-        _needToloadLexerLibrary = false;
-        #if __DARWIN__
-            auto path = GetConfig("BasePath").AsString() / "libfblexer.dylib";
-            m_editor.LoadLexerLibrary(path);
-        #elif __WXMSW__
-            auto path = GetConfig("IdePath").AsString() / "fblexer.dll";
-            m_editor.LoadLexerLibrary(path);
-        #endif // __WXMSW__
-    }
-    m_editor.SetLexerLanguage("fbide-freebasic");
+    
+    // editor configuration
+    auto & config = GetType().config;
+    m_editor.SetLexerLanguage(config.Get("lexer", "null"));
 }
 
 

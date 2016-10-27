@@ -12,7 +12,7 @@ namespace fbide {
     /**
      * Handle menus
      */
-    class MenuHandler : NonCopyable
+    class MenuHandler final : NonCopyable
     {
     public:
 

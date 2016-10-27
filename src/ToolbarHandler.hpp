@@ -12,7 +12,7 @@ namespace fbide {
     /**
      * Handle toolbars
      */
-    class ToolbarHandler : NonCopyable
+    class ToolbarHandler final : NonCopyable
     {
     public:
         

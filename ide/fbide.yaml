@@ -1,9 +1,20 @@
+# App configuration
 App:
   Language:     en
   ShowSplash:   true
   ShowToolbars: true
   MenuIcons:    false
 
+# Editor configuration
+Editor:
+  plain:
+    exts:  [txt, md]
+    lexer: "null"
+  freebasic:
+    exts:  [bas, bi]
+    lexer: "fbide-freebasic"
+
+# Menus and toolbars
 Layout:
   Menus:
     - id: file

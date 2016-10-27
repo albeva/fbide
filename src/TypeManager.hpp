@@ -7,6 +7,7 @@
 //
 #pragma once
 
+
 namespace fbide {
     
     class Document;
@@ -16,31 +17,44 @@ namespace fbide {
      * Manage file loaders and assist in creating
      * load/save dialogs
      */
-    class TypeManager : NonCopyable
+    class TypeManager final : NonCopyable
     {
     public:
+        
+        struct Type;
         
         /**
          * Signature for function that can create a Document
          */
-        typedef Document*(*CreatorFn)();
+        typedef Document*(*CreatorFn)(const Type & type);
+        
+        /**
+         * Registered type information
+         */
+        struct Type
+        {
+            wxString               name;    // mime style name
+            std::vector<wxString>  exts;    // file extensions
+            const Config &         config;  // optional Config object
+            CreatorFn              creator; // creator function
+        };
         
         /**
          * Register a subclass of Document with the TypeManager
          */
         template<typename T>
-        inline void Register(const wxString & name, std::vector<wxString> exts)
+        inline void Register(const wxString & name)
         {
             static_assert(std::is_base_of<Document, T>::value &&
                           !std::is_same<Document, T>::value,
                           "Registered type must be subclass of Document");
-            Register(name, []() -> Document* { return new T; }, exts);
+            Register(name, [](const Type & type) -> Document* { return new T(type); });
         }
         
         /**
          * Register a document creator function
          */
-        void Register(const wxString & name, CreatorFn creator, std::vector<wxString> exts);
+        void Register(const wxString & name, CreatorFn creator);
         
         /**
          * Check if type is registered
@@ -68,12 +82,6 @@ namespace fbide {
         Document * CreateFromType(const wxString & name);
         
     private:
-        
-        struct Type
-        {
-            CreatorFn              creator;
-            std::vector<wxString>  exts;
-        };
         
         
         /**

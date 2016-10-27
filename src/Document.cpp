@@ -13,12 +13,12 @@ using namespace fbide;
 
 namespace {
     
-    int uniqueId{0};
+    int uniqueId = 0;
     
 }
 
 
-Document::Document() : m_id(++uniqueId)
+Document::Document(const TypeManager::Type & type) : m_id(++uniqueId), m_type(type)
 {
     SetTitle("");
 }

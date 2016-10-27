@@ -206,6 +206,9 @@ namespace {
 }
 
 
+const Config Config::Empty{};
+
+
 /**
  * Load YAML file
  */

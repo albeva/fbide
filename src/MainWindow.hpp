@@ -10,7 +10,7 @@
 
 namespace fbide {
     
-    class MainWindow : public wxFrame
+    class MainWindow final : public wxFrame
     {
         using wxFrame::wxFrame;
     };

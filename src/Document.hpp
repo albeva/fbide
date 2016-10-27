@@ -6,6 +6,8 @@
 //  Copyright © 2016 Albert Varaksin. All rights reserved.
 //
 #pragma once
+#include "TypeManager.hpp"
+
 
 namespace fbide {
     
@@ -15,11 +17,12 @@ namespace fbide {
      * projects (which contain other documents), workspaces (which contain
      * projects). Documents are usually created by TypeManager
      */
-    class Document : NonCopyable
+    class Document: NonCopyable
     {
     public:
         
-        Document();
+        Document(const TypeManager::Type & type);
+        
         virtual ~Document();
         
         /**
@@ -28,6 +31,14 @@ namespace fbide {
         int GetId() const
         {
             return m_id;
+        }
+        
+        /**
+         * Get document type
+         */
+        const TypeManager::Type & GetType() const
+        {
+            return m_type;
         }
         
         /**
@@ -82,6 +93,9 @@ namespace fbide {
         
         // document title
         wxString m_title;
+        
+        // document type. Hold by const &
+        const TypeManager::Type & m_type;
     };
     
 }

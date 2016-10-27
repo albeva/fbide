@@ -28,9 +28,16 @@ namespace fbide {
      *
      * All types except Map and Array support comparison operators == and !=
      */
-    class Config
+    class Config final
     {
     public:
+        
+        /**
+         * empty null config object
+         */
+        static const Config Empty;
+        
+        
         /**
          * Config node type for use with node.Type() method
          */
@@ -609,14 +616,13 @@ namespace fbide {
             return boost::any_cast<const T&>(node->m_val);
         }
         
-        
-    private:
-        
         /**
          * Fetch pointer to config node at given path. Does
          * not modify structure. Will return nullptr if no path found
          */
         const Config * Get(const wxString & path) const noexcept;
+        
+    private:
 
         
         /**

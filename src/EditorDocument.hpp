@@ -21,6 +21,13 @@ namespace fbide {
     {
     public:
         
+        // freebasic type
+        static const wxString Freebasic;
+        static const wxString Plain;
+        
+        using Document::Document;
+        virtual ~EditorDocument();
+        
         /**
          * Instantiate the document
          */
