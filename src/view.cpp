@@ -1,7 +1,7 @@
 /*
  * This file is part of FBIde, an open-source (cross-platform) IDE for
  * FreeBasic compiler.
- * Copyright (C) 2005  Albert Varaksin
+ * Copyright (C) 2020  Albert Varaksin
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
+ * Contact e-mail: Albert Varaksin <albeva@me.com>
  * Program URL   : http://fbide.sourceforge.net
  */
 #include "inc/main.h"
@@ -27,7 +27,7 @@
 #include "inc/FormatDialog.h"
 #include "inc/wxmynotebook.h"
 
-void MyFrame::OnSettings(wxCommandEvent &WXUNUSED(event)) {
+void FBIdeMainFrame::OnSettings(wxCommandEvent &WXUNUSED(event)) {
     ConfigDialog dlg(this, -1, Lang[98]);
     if (dlg.ShowModal() == wxID_OK) {
         if (stc) {
@@ -47,7 +47,7 @@ void MyFrame::OnSettings(wxCommandEvent &WXUNUSED(event)) {
 }
 
 
-void MyFrame::OnFormat(wxCommandEvent &WXUNUSED(event)) {
+void FBIdeMainFrame::OnFormat(wxCommandEvent &WXUNUSED(event)) {
     if (stc == 0)
         return;
     if (formatDialog) {
@@ -67,7 +67,7 @@ void MyFrame::OnFormat(wxCommandEvent &WXUNUSED(event)) {
 }
 
 
-void MyFrame::OnResult(wxCommandEvent &WXUNUSED(event)) {
+void FBIdeMainFrame::OnResult(wxCommandEvent &WXUNUSED(event)) {
 
     Freeze();
     if (HSplitter->IsSplit()) {
@@ -83,7 +83,7 @@ void MyFrame::OnResult(wxCommandEvent &WXUNUSED(event)) {
 }
 
 
-void MyFrame::OnSubs(wxCommandEvent &WXUNUSED(event)) {
+void FBIdeMainFrame::OnSubs(wxCommandEvent &WXUNUSED(event)) {
     if (stc == 0)
         return;
     if (SFDialog)

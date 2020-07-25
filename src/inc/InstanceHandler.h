@@ -23,48 +23,19 @@
 #pragma once
 #include "pch.h"
 
-class BufferList {
+class InstanceConnection;
+class InstanceClient;
+class InstanceServer;
+
+class InstanceHandler final {
 public:
-    BufferList();
+    InstanceHandler();
+    ~InstanceHandler();
 
-    ~BufferList();
-
-    Buffer *AddBuffer(const wxString &highlighter = "Text");
-
-    Buffer *AddFileBuffer(const wxString &fileName,
-                          const wxString &highlighter);
-
-    void SetBufferModified(int index, bool status);
-
-    void SetBufferUnModified(int index);
-
-    bool GetBufferModified(int index);
-
-    int GetModifiedCount();
-
-    int GetBufferCount();
-
-    Buffer *GetBuffer(int index);
-
-    Buffer *operator[](int index);
-
-    void SetBuffer(int index, Buffer *buff);
-
-    Buffer *GetLastBuffer();
-
-    void RemoveBuffer(int index);
-
-    int FileLoaded(wxString FileName);
-
-    void DecrModCount() {
-        modifiedCount--;
-    }
-
-    void IncrModCount() {
-        modifiedCount++;
-    }
+    [[nodiscard]] bool IsAnotherRunning();
+    void SendFile(const wxString& file);
 
 private:
-    BufferArray buffers;
-    int modifiedCount;
+    wxSingleInstanceChecker m_instanceChecker;
+    std::unique_ptr<InstanceServer> m_server;
 };

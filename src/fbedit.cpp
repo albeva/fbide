@@ -1,7 +1,7 @@
 /*
  * This file is part of FBIde, an open-source (cross-platform) IDE for
  * FreeBasic compiler.
- * Copyright (C) 2005  Albert Varaksin
+ * Copyright (C) 2020  Albert Varaksin
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
+ * Contact e-mail: Albert Varaksin <albeva@me.com>
  * Program URL   : http://fbide.sourceforge.net
  */
 #include "inc/fbedit.h"
@@ -35,7 +35,7 @@ BEGIN_EVENT_TABLE (FB_Edit, wxStyledTextCtrl)
         EVT_KEY_DOWN(FB_Edit::OnKeyDown)
 END_EVENT_TABLE()
 
-FB_Edit::FB_Edit(MyFrame *ParentFrame, wxWindow *parentNotebook, wxWindowID id,
+FB_Edit::FB_Edit(FBIdeMainFrame *ParentFrame, wxWindow *parentNotebook, wxWindowID id,
                  wxString FileToLoad,
                  const wxPoint &pos,
                  const wxSize &size,
@@ -78,10 +78,7 @@ void FB_Edit::LoadSTCSettings() {
         wxStyledTextEvent event;
         m_CharAtCur = 0;
         OnUpdateUI(event);
-
     }
-
-    return;
 }
 
 
@@ -102,54 +99,55 @@ void FB_Edit::LoadSTCTheme(int FileType) {
     if (Prefs->SyntaxHighlight && FileType != 2) {
         if (FileType == 0) {
             SetLexer(wxSTC_LEX_VB);
-            //Initalise Highlighing colors, font styles and set lexer.
-            int Nr = 0;
-            int StyleNR[] = {wxSTC_B_DEFAULT, wxSTC_B_COMMENT,
-                             wxSTC_B_NUMBER, wxSTC_B_KEYWORD,
-                             wxSTC_B_STRING, wxSTC_B_PREPROCESSOR,
-                             wxSTC_B_OPERATOR, wxSTC_B_IDENTIFIER,
-                             wxSTC_B_DATE, wxSTC_B_STRINGEOL,
-                             wxSTC_B_KEYWORD2, wxSTC_B_KEYWORD3,
-                             wxSTC_B_KEYWORD4, wxSTC_B_CONSTANT,
-                             wxSTC_B_ASM};
+            constexpr std::array styles{
+                wxSTC_B_DEFAULT, wxSTC_B_COMMENT,
+                wxSTC_B_NUMBER, wxSTC_B_KEYWORD,
+                wxSTC_B_STRING, wxSTC_B_PREPROCESSOR,
+                wxSTC_B_OPERATOR, wxSTC_B_IDENTIFIER,
+                wxSTC_B_DATE, wxSTC_B_STRINGEOL,
+                wxSTC_B_KEYWORD2, wxSTC_B_KEYWORD3,
+                wxSTC_B_KEYWORD4, wxSTC_B_CONSTANT,
+                wxSTC_B_ASM
+            };
 
-            for (int i = 1; i < 15; i++) {
-                Nr = StyleNR[i];
+            for (int i = 1; i < styles.size(); i++) {
+                auto no = styles[i];
                 wxString fontname = "";
 
                 //Foreground
-                StyleSetForeground(Nr, GetClr(Style->Info[i].foreground));
-                StyleSetBackground(Nr, GetClr(Style->Info[i].background));
+                StyleSetForeground(no, GetClr(Style->Info[i].foreground));
+                StyleSetBackground(no, GetClr(Style->Info[i].background));
 
-                wxFont font(
-                    Style->Info[i].fontsize,
-                    wxMODERN,
-                    wxNORMAL,
-                    wxNORMAL,
+                auto font = wxFont(
+                    Style->DefaultFontSize,
+                    wxFONTFAMILY_MODERN,
+                    wxFONTSTYLE_NORMAL,
+                    wxFONTWEIGHT_NORMAL,
                     false,
                     Style->Info[i].fontname);
-
-                StyleSetFont(Nr, font);
+                StyleSetFont(no, font);
 
                 //Font attributes
-                StyleSetBold(Nr, (Style->Info[i].fontstyle & mySTC_STYLE_BOLD) > 0);
-                StyleSetItalic(Nr, (Style->Info[i].fontstyle & mySTC_STYLE_ITALIC) > 0);
-                StyleSetUnderline(Nr, (Style->Info[i].fontstyle & mySTC_STYLE_UNDERL) > 0);
-                StyleSetVisible(Nr, (Style->Info[i].fontstyle & mySTC_STYLE_HIDDEN) == 0);
-                StyleSetCase(Nr, Style->Info[i].lettercase);
+                StyleSetBold(no, (Style->Info[i].fontstyle & mySTC_STYLE_BOLD) > 0);
+                StyleSetItalic(no, (Style->Info[i].fontstyle & mySTC_STYLE_ITALIC) > 0);
+                StyleSetUnderline(no, (Style->Info[i].fontstyle & mySTC_STYLE_UNDERL) > 0);
+                StyleSetVisible(no, (Style->Info[i].fontstyle & mySTC_STYLE_HIDDEN) == 0);
+                StyleSetCase(no, Style->Info[i].lettercase);
             }
-            for (int Nr = 0; Nr < 4; Nr++)
-                SetKeyWords(Nr, Parent->Keyword[Nr + 1]);
+
+            for (int no = 0; no < 4; no++)
+                SetKeyWords(no, Parent->Keyword[no + 1]);
 
         } else if (FileType == 1) {
             SetLexer(wxSTC_LEX_HTML);
 
-            wxFont font(
-                10,
-                wxMODERN,
-                wxNORMAL,
-                wxNORMAL,
-                false);
+            auto font = wxFont(
+                Style->DefaultFontSize,
+                wxFONTFAMILY_MODERN,
+                wxFONTSTYLE_NORMAL,
+                wxFONTWEIGHT_NORMAL,
+                false,
+                Style->DefaultFont);
 
             for (int i = 0; i < 10; i++) {
                 StyleSetFont(i, font);
@@ -188,12 +186,14 @@ void FB_Edit::LoadSTCTheme(int FileType) {
         SetSelBackground(true, GetClr(Style->SelectBgColour));
         SetSelForeground(true, GetClr(Style->SelectFgColour));
 
-        wxFont font(Style->DefaultFontSize,
-                    wxMODERN,
-                    wxNORMAL,
-                    wxNORMAL,
-                    false,
-                    Style->DefaultFont);
+        auto font = wxFont(
+            Style->DefaultFontSize,
+            wxFONTFAMILY_MODERN,
+            wxFONTSTYLE_NORMAL,
+            wxFONTWEIGHT_NORMAL,
+            false,
+            Style->DefaultFont);
+
         StyleSetFont(wxSTC_STYLE_DEFAULT, font);
         StyleSetFont(wxSTC_STYLE_LINENUMBER, font);
     } else {
@@ -232,7 +232,6 @@ void FB_Edit::LoadSTCTheme(int FileType) {
 
     //
 
-
     //Markers
     SetMarginType(2, wxSTC_MARGIN_SYMBOL);
     SetMarginMask(2, wxSTC_MASK_FOLDERS);
@@ -258,8 +257,6 @@ void FB_Edit::LoadSTCTheme(int FileType) {
         SetMarginWidth(2, 0);
         SetMarginSensitive(2, 0);
     }
-
-    return;
 }
 
 //Stc events
@@ -309,7 +306,7 @@ void FB_Edit::OnUpdateUI(wxStyledTextEvent &event) {
     }
 
     wxString pos;
-    pos.Printf("  %d : %d", LineFromPosition(m_CursorPos) + 1,
+    pos.Printf("%d : %d", LineFromPosition(m_CursorPos) + 1,
                GetColumn(m_CursorPos) + 1);
     Parent->SetStatusText(pos, 1);
 }
@@ -634,19 +631,6 @@ int FB_Edit::GetID(const wxString& kw) const {
     return 0;
 }
 
-
-//wxString FB_Edit::GetSecondKw(wxString cmdline) {
-//    int sp = cmdline.Find(' ');
-//    wxString Temp = cmdline.Mid(sp);
-//    Temp.Trim(true).Trim(false);
-//    return GetKeyword(Temp);
-//}
-//
-//wxString FB_Edit::GetLastKw(wxString cmdline) {
-//    return cmdline.Right(cmdline.Len() - cmdline.Find(' ', true) - 1);
-//}
-
-
 void FB_Edit::OnMarginClick(wxStyledTextEvent &event) {
     if (event.GetMargin() == 2) {
         int lineClick = LineFromPosition(event.GetPosition());
@@ -656,7 +640,6 @@ void FB_Edit::OnMarginClick(wxStyledTextEvent &event) {
         }
     }
 }
-
 
 void FB_Edit::OnKeyDown(wxKeyEvent &event) {
     event.Skip();
@@ -759,6 +742,5 @@ void FB_Edit::OnHotSpot(wxStyledTextEvent &event) {
             }
             return;
         }
-
     }
 }

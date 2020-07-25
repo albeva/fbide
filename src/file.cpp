@@ -1,7 +1,7 @@
 /*
  * This file is part of FBIde, an open-source (cross-platform) IDE for
  * FreeBasic compiler.
- * Copyright (C) 2005  Albert Varaksin
+ * Copyright (C) 2020  Albert Varaksin
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
+ * Contact e-mail: Albert Varaksin <albeva@me.com>
  * Program URL   : http://fbide.sourceforge.net
  */
 #include "inc/main.h"
@@ -26,13 +26,12 @@
 #include "inc/FormatDialog.h"
 #include "inc/wxmynotebook.h"
 
-void MyFrame::OnNew(wxCommandEvent & WXUNUSED(event)) {
+void FBIdeMainFrame::OnNew(wxCommandEvent & WXUNUSED(event)) {
     NewSTCPage("", true);
     SetTitle("FBIde - " + bufferList[FBNotebook->GetSelection()]->GetFileName());
-    return;
 }
 
-void MyFrame::OnOpen(wxCommandEvent & WXUNUSED(event)) {
+void FBIdeMainFrame::OnOpen(wxCommandEvent & WXUNUSED(event)) {
     wxFileDialog dlg(
         this,
         Lang[186],//Load File
@@ -56,10 +55,9 @@ void MyFrame::OnOpen(wxCommandEvent & WXUNUSED(event)) {
             NewSTCPage(File[i], true);
         }
     }
-    return;
 }
 
-void MyFrame::OnFileHistory(wxCommandEvent &event) {
+void FBIdeMainFrame::OnFileHistory(wxCommandEvent &event) {
     wxString file = m_FileHistory->GetHistoryFile(event.GetId() - wxID_FILE1);
     if (::wxFileExists(file)) {
         int result = bufferList.FileLoaded(file);
@@ -70,18 +68,16 @@ void MyFrame::OnFileHistory(wxCommandEvent &event) {
     }
 }
 
-void MyFrame::OnSave(wxCommandEvent & WXUNUSED(event)) {
+void FBIdeMainFrame::OnSave(wxCommandEvent & WXUNUSED(event)) {
     if (stc == 0)
         return;
     int index = FBNotebook->GetSelection();
     if (SaveFile(bufferList[index]))
         SetModified(index, false);
-
-    return;
 }
 
 
-void MyFrame::OnSaveAs(wxCommandEvent & WXUNUSED(event)) {
+void FBIdeMainFrame::OnSaveAs(wxCommandEvent & WXUNUSED(event)) {
     if (stc == 0)
         return;
 
@@ -92,18 +88,15 @@ void MyFrame::OnSaveAs(wxCommandEvent & WXUNUSED(event)) {
         if (OldName != buff->GetFileName())
             SetModified(index, false);
     }
-    return;
 }
 
-void MyFrame::OnSaveAll(wxCommandEvent & WXUNUSED(event)) {
+void FBIdeMainFrame::OnSaveAll(wxCommandEvent & WXUNUSED(event)) {
     if (stc == 0)
         return;
 
-    //unsigned int index = 0;
     int selectpage = FBNotebook->GetSelection();
     Buffer *buff;
 
-    //while (bufferList.GetModifiedCount()) {
     for (int index = 0; index < FBNotebook->GetPageCount(); index++) {
         buff = bufferList[index];
         if (buff->GetModified()) {
@@ -112,19 +105,16 @@ void MyFrame::OnSaveAll(wxCommandEvent & WXUNUSED(event)) {
                 SetModified(index, false);
             }
         }
-        //index++;
     }
 
     FBNotebook->SetSelection(selectpage);
-
-    return;
 }
 
-void MyFrame::OnCloseAll_(wxCommandEvent & WXUNUSED(event)) {
+void FBIdeMainFrame::OnCloseAll_(wxCommandEvent & WXUNUSED(event)) {
     OnCloseAll();
 }
 
-void MyFrame::OnCloseAll() {
+void FBIdeMainFrame::OnCloseAll() {
     if (stc == 0)
         return;
 
@@ -151,15 +141,14 @@ void MyFrame::OnCloseAll() {
             CloseFile(0);
     }
     SetTitle("FBIde");
-    return;
 }
 
 
-void MyFrame::OnCloseFile_(wxCommandEvent & WXUNUSED(event)) {
+void FBIdeMainFrame::OnCloseFile_(wxCommandEvent & WXUNUSED(event)) {
     OnCloseFile();
 }
 
-void MyFrame::OnCloseFile() {
+void FBIdeMainFrame::OnCloseFile() {
     if (stc == 0)
         return;
     int index = FBNotebook->GetSelection();
@@ -188,7 +177,7 @@ void MyFrame::OnCloseFile() {
 }
 
 
-void MyFrame::CloseFile(int index) {
+void FBIdeMainFrame::CloseFile(int index) {
     if (SFDialog && FBNotebook->GetPageCount() == 1) {
         SFDialog->Close(true);
     }
@@ -218,26 +207,23 @@ void MyFrame::CloseFile(int index) {
     } else {
         SetSTCPage(FBNotebook->GetSelection());
     }
-
-    return;
 }
 
 
-void MyFrame::OnQuit(wxCommandEvent &event) {
+void FBIdeMainFrame::OnQuit(wxCommandEvent &event) {
     Close(true);
 }
 
 
-void MyFrame::OnNewWindow(wxCommandEvent &WXUNUSED(event)) {
+void FBIdeMainFrame::OnNewWindow(wxCommandEvent &WXUNUSED(event)) {
     wxExecute(FB_App->argv[0]);
-    return;
 }
 
 
 //----------------------------------------------------------------------------
 
 
-bool MyFrame::SaveFile(Buffer *buff, bool SaveAS) {
+bool FBIdeMainFrame::SaveFile(Buffer *buff, bool SaveAS) {
     wxString FileName = (SaveAS) ? "" : buff->GetFileName();
 
     int ft = buff->GetFileType();
@@ -269,7 +255,7 @@ bool MyFrame::SaveFile(Buffer *buff, bool SaveAS) {
 }
 
 
-void MyFrame::OnSessionLoad(wxCommandEvent &event) {
+void FBIdeMainFrame::OnSessionLoad(wxCommandEvent &event) {
     wxFileDialog dlg(this,
                      Lang[186], //Load file
                      "",
@@ -283,7 +269,7 @@ void MyFrame::OnSessionLoad(wxCommandEvent &event) {
     SessionLoad(File);
 }
 
-void MyFrame::SessionLoad(wxString File) {
+void FBIdeMainFrame::SessionLoad(wxString File) {
     wxTextFile TextFile(File);
     TextFile.Open();
     if (TextFile.GetLineCount() == 0)
@@ -337,8 +323,7 @@ void MyFrame::SessionLoad(wxString File) {
     SetTitle("FBIde - " + bufferList[FBNotebook->GetSelection()]->GetFileName());
 }
 
-
-void MyFrame::OnSessionSave(wxCommandEvent &event) {
+void FBIdeMainFrame::OnSessionSave(wxCommandEvent &event) {
     if (stc == 0)
         return;
 

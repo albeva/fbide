@@ -1,7 +1,7 @@
 /*
 * This file is part of FBIde, an open-source (cross-platform) IDE for
 * FreeBasic compiler.
-* Copyright (C) 2005  Albert Varaksin
+* Copyright (C) 2020  Albert Varaksin
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 * along with this program; if not, write to the Free Software
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 *
-* Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
+* Contact e-mail: Albert Varaksin <albeva@me.com>
 * Program URL   : http://fbide.sourceforge.net
 */
 #pragma once
@@ -30,6 +30,8 @@ class SFBrowser;
 class FormatDialog;
 class wxMyNotebook;
 class wxTabbedCtrlEvent;
+class InstanceHandler;
+class FBIdeMainFrame;
 
 #define KWGROUPS        4
 #define mySTC_STYLE_BOLD  1
@@ -143,215 +145,136 @@ struct StyleInfo {
         for (int i = 1; i < 15; i++)
             Info[i] = si.Info[i];
     }
-
 };
-
 
 wxColour GetClr(uint color);
 
-class MyApp : public wxApp {
+
+class FBIdeApp final: public wxApp {
 public:
-    virtual bool OnInit();
+    bool OnInit() final;
+
+    [[nodiscard]] FBIdeMainFrame* GetMainFrame() const { return m_frame; }
+
+private:
+    std::unique_ptr<InstanceHandler> m_instanceHandler;
+    FBIdeMainFrame* m_frame = nullptr;
 };
 
-wxDECLARE_APP(MyApp);
-void LogFBIdeMessage(const wxString& message);
+wxDECLARE_APP(FBIdeApp);
 
-
-class MyFrame : public wxFrame {
+class FBIdeMainFrame : public wxFrame {
 public:
-    MyFrame(MyApp *App, const wxString &title);
+    FBIdeMainFrame(FBIdeApp *App, const wxString &title);
 
     void OnClose(wxCloseEvent &event);
 
     void LoadSettings();
-
     void SaveSettings();
 
     StyleInfo LoadThemeFile(wxString ThemeFile);
-
     void SaveThemeFile(StyleInfo Style, wxString ThemeFile);
 
     void LoadkwFile(wxString SyntaxFile);
-
     void SavekwFile(wxString SyntaxFile);
 
     void LoadUI();
-
     void LoadMenu();
-
     void LoadToolBar();
-
     void LoadStatusBar();
 
     void OpenLangFile(wxString FileName);
 
     void SaveDocumentStatus(int docID);
-
     void SetSTCPage(int index);
-
     void SetModified(int index, bool status);
-
     void AddListItem(int Linenr, int ErrorNr, wxString FileName, wxString Message);
-
     void OnGoToError(wxListEvent &event);
-
     void OnConsoMouseleLeft(wxListEvent &event);
-
     void GoToError(int Linenr, wxString FileName);
-
     void EnableMenus(bool state);
-
-    void OnMouseEvent(wxMouseEvent &event);
 
 
     //FileMenu-event and related stuff
     void OnNew(wxCommandEvent &event);
-
     void OnOpen(wxCommandEvent &event);
-
     void OnSave(wxCommandEvent &event);
-
     void OnSaveAs(wxCommandEvent &event);
-
     void OnSaveAll(wxCommandEvent &event);
-
     void OnSessionLoad(wxCommandEvent &event);
-
     void OnSessionSave(wxCommandEvent &event);
-
     void OnCloseFile_(wxCommandEvent &event);
-
     void OnCloseFile();
-
     void OnCloseAll_(wxCommandEvent &event);
-
     void OnCloseAll();
-
     void OnQuit(wxCommandEvent &event);
-
     void OnNewWindow(wxCommandEvent &event);
-
     bool SaveFile(Buffer *buff, bool SaveAS = false);
-
     void CloseFile(int index);
 
     int Proceed(void);
-
     void SessionLoad(wxString File);
-
     void OnFileHistory(wxCommandEvent &event);
 
-
-    //Editmenu-events and related stuff
+    // Edit menu
     void OnMenuUndo(wxCommandEvent &event);
-
     void OnMenuRedo(wxCommandEvent &event);
-
     void OnMenuCut(wxCommandEvent &event);
-
     void OnMenuCopy(wxCommandEvent &event);
-
     void OnMenuPaste(wxCommandEvent &event);
-
     void OnSelectAll(wxCommandEvent &event);
-
     void OnSelectLine(wxCommandEvent &event);
-
     void OnIndentInc(wxCommandEvent &event);
-
     void OnIndentDecr(wxCommandEvent &event);
-
     void OnComment(wxCommandEvent &event);
-
     void OnUncomment(wxCommandEvent &event);
 
-    //Searchmenu and related stuff
+    // Search menu and related stuff
     void OnFind(wxCommandEvent &event);
-
     void OnReplace(wxCommandEvent &event);
-
     void OnFindAgain(wxCommandEvent &event);
-
     void OnGotoLine(wxCommandEvent &event);
-
     void FindButton(wxFindDialogEvent &event);
-
     void FindClose(wxFindDialogEvent &event);
-
     void MenuFindNext(wxFindDialogEvent &event);
-
     void ReplaceSel(wxFindDialogEvent &event);
-
     void MenuReplaceAll(wxFindDialogEvent &event);
-
     bool HasSelection();
-
     bool HasText();
-
     bool FindCurrentWord(int direc);
-
     void ReplaceCurrentWord(const wxString &text);
-
     void Replace(const wxString &findStr, const wxString &replaceStr, int flags);
-
     void ReplaceAll(const wxString &findStr, const wxString &replaceStr, int flags);
-
     void ReplaceText(int from, int to, const wxString &value);
-
     bool FindOccurence(const wxString &findStr, int direc, int flags = 0);
-
     bool FindNext();
-
     bool FindPrevious();
-
     void FindNextWord(wxCommandEvent &event);
-
     void FindPreviousWord(wxCommandEvent &event);
-
     wxString GetTextUnderCursor();
-
     wxString GetTextUnderCursor(int &startPos, int &endPos);
 
 
-    //View menu stuff
+    // View menu stuff
     void OnSettings(wxCommandEvent &event);
-
     void OnFormat(wxCommandEvent &event);
-
     void OnResult(wxCommandEvent &event);
-
     void OnSubs(wxCommandEvent &event);
-
     void OnCompilerLog(wxCommandEvent &event);
-
     void CompilerLog();
 
-    //Run menu stuff
+    // Run menu stuff
     void OnCompile(wxCommandEvent &event);
-
     void OnCompileAndRun(wxCommandEvent &event);
-
     void OnRun(wxCommandEvent &event);
-
     void OnQuickRun(wxCommandEvent &event);
-
     void OnCmdPromt(wxCommandEvent &event);
-
     void OnParameters(wxCommandEvent &event);
-
     void OnShowExitCode(wxCommandEvent &event);
-
     int Compile(int index);
-
     void Run(wxFileName file);
-
     wxString GetCompileData(int index);
-
     void OnActivePath(wxCommandEvent &event);
-
-    void OnGetFocus(wxFocusEvent &event);
-
 
     wxFindReplaceData *FindData;
     wxFindReplaceData *ReplaceData;
@@ -365,23 +288,16 @@ public:
     wxArrayString kwList;
     int FindFlags;
 
-
     void OnAbout(wxCommandEvent &event);
-
     void OnHelp(wxCommandEvent &event);
-
     void OnQuickKeys(wxCommandEvent &event);
-
     void OnReadMe(wxCommandEvent &event);
-
     void OnFpp(wxCommandEvent &event);
-
     void NewSTCPage(wxString InitFile, bool select = false, int FileType = 0);
-
     void ChangeNBPage(wxTabbedCtrlEvent &event);
 
     //Pointers
-    MyApp *FB_App;
+    FBIdeApp *FB_App;
     FB_Edit *stc;
     wxToolBar *FB_Toolbar;
     wxMyNotebook *FBNotebook;
@@ -424,12 +340,9 @@ public:
     wxCHMHelpController help;
 #endif
 
-
     wxFileHistory *m_FileHistory;
     wxBoxSizer *m_TabStcSizer;
-
     wxArrayString strCompilerOutput;
-
 
 private:
 DECLARE_EVENT_TABLE()

@@ -1,7 +1,7 @@
 /*
  * This file is part of FBIde, an open-source (cross-platform) IDE for
  * FreeBasic compiler.
- * Copyright (C) 2005  Albert Varaksin
+ * Copyright (C) 2020  Albert Varaksin
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
+ * Contact e-mail: Albert Varaksin <albeva@me.com>
  * Program URL   : http://fbide.sourceforge.net
  */
 
@@ -27,7 +27,7 @@
 #include <wx/fileconf.h>
 #include <wx/wfstream.h>
 
-void MyFrame::LoadSettings() {
+void FBIdeMainFrame::LoadSettings() {
 
     wxFileName w(FB_App->argv[0]);
     w.Normalize();
@@ -139,7 +139,7 @@ void MyFrame::LoadSettings() {
 }
 
 
-void MyFrame::SaveSettings() {
+void FBIdeMainFrame::SaveSettings() {
 
 #ifdef __WXMSW__
     wxString iniFile(EditorPath + "IDE/prefs_win32.ini");
@@ -213,7 +213,7 @@ void MyFrame::SaveSettings() {
 }
 
 
-StyleInfo MyFrame::LoadThemeFile(wxString ThemeFile) {
+StyleInfo FBIdeMainFrame::LoadThemeFile(wxString ThemeFile) {
 
     StyleInfo Style;
 
@@ -271,7 +271,7 @@ StyleInfo MyFrame::LoadThemeFile(wxString ThemeFile) {
 }
 
 
-void MyFrame::SaveThemeFile(StyleInfo Style, wxString ThemeFile) {
+void FBIdeMainFrame::SaveThemeFile(StyleInfo Style, wxString ThemeFile) {
 
     wxFileInputStream ThemeIS(EditorPath + "IDE/" + ThemeFile + ".fbt");
     wxFileOutputStream ThemeISOS(EditorPath + "IDE/" + ThemeFile + ".fbt");
@@ -329,7 +329,7 @@ void MyFrame::SaveThemeFile(StyleInfo Style, wxString ThemeFile) {
 }
 
 
-void MyFrame::LoadkwFile(wxString SyntaxFile) {
+void FBIdeMainFrame::LoadkwFile(wxString SyntaxFile) {
 
     wxFileInputStream SyntaxIS(EditorPath + "IDE/" + SyntaxFile);
     wxFileConfig Syntax(SyntaxIS);
@@ -363,7 +363,7 @@ void MyFrame::LoadkwFile(wxString SyntaxFile) {
 }
 
 
-void MyFrame::SavekwFile(wxString SyntaxFile) {
+void FBIdeMainFrame::SavekwFile(wxString SyntaxFile) {
 
     wxFileInputStream SyntaxIS(EditorPath + "IDE/" + SyntaxFile);
     wxFileOutputStream SyntaxOS(EditorPath + "IDE/" + SyntaxFile);

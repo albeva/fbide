@@ -1,7 +1,7 @@
 /*
  * This file is part of FBIde, an open-source (cross-platform) IDE for
  * FreeBasic compiler.
- * Copyright (C) 2005  Albert Varaksin
+ * Copyright (C) 2020  Albert Varaksin
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
+ * Contact e-mail: Albert Varaksin <albeva@me.com>
  * Program URL   : http://fbide.sourceforge.net
  */
 
@@ -46,8 +46,7 @@
 
 //------------------------------------------------------------------------------
 //Load menu's
-void MyFrame::LoadUI() {
-
+void FBIdeMainFrame::LoadUI() {
     LoadToolBar();
     LoadMenu();
     LoadStatusBar();
@@ -98,13 +97,9 @@ void MyFrame::LoadUI() {
     SendSizeEvent();
     stc = 0;
     EnableMenus(false);
-    return;
-
 }
 
-
-void MyFrame::LoadMenu() {
-
+void FBIdeMainFrame::LoadMenu() {
     MenuBar = new wxMenuBar();
 
     //File
@@ -133,8 +128,6 @@ void MyFrame::LoadMenu() {
     FB_File->Append(Menu_NewEditor, Lang[23] + "\tShift+Ctrl+N", Lang[24]);
     FB_File->Append(Menu_Quit, Lang[25] + "\tCtrl+Q", Lang[26]);
 
-
-
     // Edit menu
     _FB_Edit = new wxMenu;
     _FB_Edit->Append(Menu_Undo, Lang[27] + "\tCtrl+Z", Lang[28]);
@@ -157,15 +150,12 @@ void MyFrame::LoadMenu() {
     _FB_Edit->Append(Menu_Comment, Lang[45] + "\tCtrl+M", Lang[46]);
     _FB_Edit->Append(Menu_UnComment, Lang[47] + "\tCtrl+Shift+M", Lang[48]);
 
-
     // Search menu
     FB_Search = new wxMenu;
     FB_Search->Append(Menu_Find, Lang[49] + "\tCtrl+F", Lang[50]);
     FB_Search->Append(Menu_FindNext, Lang[51] + "\tF3", Lang[52]);
     FB_Search->Append(Menu_Replace, Lang[53] + "\tCtrl+R", Lang[54]);
     FB_Search->Append(Menu_GotoLine, Lang[55] + "\tCtrl+G", Lang[56]);
-
-
 
     // View menu
     FB_View = new wxMenu;
@@ -174,8 +164,6 @@ void MyFrame::LoadMenu() {
     FB_View->AppendCheckItem(Menu_Result, Lang[59] + "\tF4", Lang[60]);
     FB_View->Append(Menu_Subs, Lang[61] + "\tF2", Lang[62]);
     FB_View->Append(Menu_CompilerLog, Lang[236], Lang[237]);
-    //FB_Tools->Append (Menu_Converter, _(Language.ToolsConverter), _(Language.ToolsConverterDesc));
-
 
     //Run menu
     FB_Run = new wxMenu;
@@ -191,17 +179,14 @@ void MyFrame::LoadMenu() {
     FB_Run->AppendCheckItem(Menu_ActivePath, Lang[234], Lang[235]);
     FB_Run->Check(Menu_ActivePath, Prefs.ActivePath);
 
-
     //Help
     HelpMenu = new wxMenu;
     HelpMenu->Append(Menu_Help, Lang[10] + "\tF1");
     if (!Prefs.UseHelp) HelpMenu->Enable(Menu_Help, false);
     HelpMenu->Append(Menu_QuickKeys, "QuickKeys.txt");
     HelpMenu->Append(Menu_ReadMe, "ReadMe.txt");
-    //HelpMenu->Append(Menu_Fpp, _T("Fpp.txt") );
     HelpMenu->AppendSeparator();
     HelpMenu->Append(Menu_About, Lang[79], Lang[80]);
-
 
     //Implement menus
     MenuBar->Append(FB_File, Lang[4]);
@@ -211,15 +196,12 @@ void MyFrame::LoadMenu() {
     MenuBar->Append(FB_Run, Lang[9]);
     MenuBar->Append(HelpMenu, Lang[10]);
     SetMenuBar(MenuBar);
-
-    return;
 }
 
 
 //------------------------------------------------------------------------------
 // Load toolbar
-void MyFrame::LoadToolBar() {
-
+void FBIdeMainFrame::LoadToolBar() {
     // FB_Toolbar = GetToolBar();
     FB_Toolbar = CreateToolBar(wxNO_BORDER | wxTB_HORIZONTAL | wxTB_DOCKABLE | wxTB_FLAT);
 
@@ -241,7 +223,6 @@ void MyFrame::LoadToolBar() {
     toolBarBitmaps[13] = wxBITMAP(close);
     toolBarBitmaps[14] = wxBITMAP(output);
 
-
     FB_Toolbar->AddTool(Menu_New, Lang[83], toolBarBitmaps[0]);
     FB_Toolbar->AddTool(Menu_Open, Lang[84], toolBarBitmaps[1]);
     FB_Toolbar->AddTool(Menu_Save, Lang[85], toolBarBitmaps[2]);
@@ -262,59 +243,46 @@ void MyFrame::LoadToolBar() {
     FB_Toolbar->AddTool(Menu_Result, Lang[97], toolBarBitmaps[14]);
 
     FB_Toolbar->Realize();
-
-    return;
 }
 
-void MyFrame::EnableMenus(bool state) {
-
-    int arrMenus[] = {
+void FBIdeMainFrame::EnableMenus(bool state) {
+    constexpr std::array menus{
         Menu_Undo, Menu_Redo, Menu_Cut, Menu_Copy, Menu_Paste,
         Menu_SelectAll, Menu_Find, Menu_Replace, Menu_Save, Menu_SaveAll,
         Menu_SaveAS, Menu_Close, Menu_SessionSave, Menu_CloseAll, Menu_SelectLine,
         Menu_IndentIncrease, Menu_IndentDecrease, Menu_Comment, Menu_UnComment, Menu_FindNext,
         Menu_GotoLine, Menu_Format, Menu_Subs};
+    for (auto menu: menus) {
+        MenuBar->Enable(menu, state);
+    }
 
-    for (int idx = 0; idx < 23; idx++) {
-        MenuBar->Enable(arrMenus[idx], state);
+    constexpr std::array tools{
+        Menu_Save, Menu_SaveAll, Menu_Close, Menu_Cut, Menu_Copy, Menu_Paste, Menu_Undo, Menu_Redo
+    };
+    for (auto tool: tools) {
+        FB_Toolbar->EnableTool(tool, state);
     }
 
     if (!ProcessIsRunning) {
-        MenuBar->Enable(Menu_Compile, state);
-        MenuBar->Enable(Menu_Run, state);
-        MenuBar->Enable(Menu_CompileAndRun, state);
-        MenuBar->Enable(Menu_QuickRun, state);
+        constexpr std::array commands{
+            Menu_Compile, Menu_Run, Menu_CompileAndRun, Menu_QuickRun
+        };
+        for (auto cmd: commands) {
+            MenuBar->Enable(cmd, state);
+            FB_Toolbar->EnableTool(cmd, state);
+        }
     }
-
-    FB_Toolbar->EnableTool(Menu_Save, state);
-    FB_Toolbar->EnableTool(Menu_SaveAll, state);
-    FB_Toolbar->EnableTool(Menu_Close, state);
-    FB_Toolbar->EnableTool(Menu_Cut, state);
-    FB_Toolbar->EnableTool(Menu_Copy, state);
-    FB_Toolbar->EnableTool(Menu_Paste, state);
-    FB_Toolbar->EnableTool(Menu_Undo, state);
-    FB_Toolbar->EnableTool(Menu_Redo, state);
-    if (!ProcessIsRunning) {
-        FB_Toolbar->EnableTool(Menu_Compile, state);
-        FB_Toolbar->EnableTool(Menu_Run, state);
-        FB_Toolbar->EnableTool(Menu_CompileAndRun, state);
-        FB_Toolbar->EnableTool(Menu_QuickRun, state);
-    }
-
-    return;
 }
 
 //------------------------------------------------------------------------------
 // Load Statusbar
-void MyFrame::LoadStatusBar() {
+void FBIdeMainFrame::LoadStatusBar() {
     CreateStatusBar(2);
     SetStatusText(Lang[1]);
-    return;
 }
 
 
-void MyFrame::NewSTCPage(wxString InitFile, bool select, int FileType) {
-
+void FBIdeMainFrame::NewSTCPage(wxString InitFile, bool select, int FileType) {
     void *doc;
     if (InitFile == "") InitFile = FBUNNAMED;
     Buffer *buff;
@@ -385,12 +353,10 @@ void MyFrame::NewSTCPage(wxString InitFile, bool select, int FileType) {
     if (select) {
         SetTitle("FBIde - " + InitFile);
     }
-
-    return;
 }
 
 
-void MyFrame::ChangeNBPage(wxTabbedCtrlEvent &event) {
+void FBIdeMainFrame::ChangeNBPage(wxTabbedCtrlEvent &event) {
     if (OldTabSelected == -1) {
         OldTabSelected = 0;
         return;
@@ -401,18 +367,17 @@ void MyFrame::ChangeNBPage(wxTabbedCtrlEvent &event) {
     if (FBNotebook->GetPageCount() > 1) SaveDocumentStatus(event.GetOldSelection());
     SetSTCPage(index);
     SetTitle("FBIde - " + bufferList[index]->GetFileName());
-    return;
 }
 
 
-void MyFrame::SaveDocumentStatus(int docID) {
+void FBIdeMainFrame::SaveDocumentStatus(int docID) {
     Buffer *buff = bufferList.GetBuffer(docID);
     buff->SetPositions(stc->GetSelectionStart(), stc->GetSelectionEnd());
     buff->SetLine(stc->GetFirstVisibleLine());
     buff->SetCaretPos(stc->GetCurrentPos());
 }
 
-void MyFrame::SetSTCPage(int index) {
+void FBIdeMainFrame::SetSTCPage(int index) {
     if (stc == 0) return;
 
     //stc->Freeze();
@@ -442,7 +407,7 @@ void MyFrame::SetSTCPage(int index) {
     if (SFDialog) SFDialog->Rebuild();
 }
 
-void MyFrame::SetModified(int index, bool status) {
+void FBIdeMainFrame::SetModified(int index, bool status) {
 
     if (index == -1) index = FBNotebook->GetSelection();
 
@@ -455,6 +420,4 @@ void MyFrame::SetModified(int index, bool status) {
     bufferList.SetBufferModified(index, status);
     NewName << wxFileNameFromPath(buff->GetFileName());
     FBNotebook->SetPageText(index, NewName);
-
 }
-

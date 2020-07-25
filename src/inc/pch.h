@@ -38,6 +38,8 @@
 #include <wx/textfile.h>
 #include <wx/process.h>
 #include <wx/docview.h>
+#include <wx/fileconf.h>
+#include <wx/wfstream.h>
 
 #ifdef __WXMSW__
     #include <wx/msw/helpchm.h>
@@ -46,6 +48,8 @@
 // STL
 #include <vector>
 #include <array>
+#include <memory>
+#include <algorithm>
 
 // App
 #include "globals.h"

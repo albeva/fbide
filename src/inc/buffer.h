@@ -1,7 +1,7 @@
 /*
 * This file is part of FBIde, an open-source (cross-platform) IDE for
 * FreeBasic compiler.
-* Copyright (C) 2005  Albert Varaksin
+* Copyright (C) 2020  Albert Varaksin
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 * along with this program; if not, write to the Free Software
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 *
-* Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
+* Contact e-mail: Albert Varaksin <albeva@me.com>
 * Program URL   : http://fbide.sourceforge.net
 */
 #pragma once

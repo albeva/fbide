@@ -1,7 +1,7 @@
 /*
  * This file is part of FBIde, an open-source (cross-platform) IDE for
  * FreeBasic compiler.
- * Copyright (C) 2005  Albert Varaksin
+ * Copyright (C) 2020  Albert Varaksin
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
+ * Contact e-mail: Albert Varaksin <albeva@me.com>
  * Program URL   : http://fbide.sourceforge.net
  */
 
@@ -40,7 +40,7 @@ AboutDialog::AboutDialog() {}
 
 AboutDialog::AboutDialog(wxWindow *parent, wxWindowID id, const wxString &caption, const wxPoint &pos, const wxSize &size,
                          long style) {
-    Parent = (MyFrame *) parent;
+    Parent = (FBIdeMainFrame *) parent;
     Create(parent, id, caption, pos, size, style);
 }
 
@@ -82,12 +82,6 @@ void AboutDialog::CreateControls() {
                                                      0);
     itemStaticText5->SetFont(courierNew);
     itemStaticBoxSizer4->Add(itemStaticText5, 0, wxALIGN_LEFT | wxLEFT | wxRIGHT, 5);
-
-    //    temp = "";
-    //    temp << "Build:      " << VER_BUILD;
-    //    wxStaticText* itemStaticText6 = new wxStaticText( itemDialog1, wxID_STATIC, temp, wxDefaultPosition, wxDefaultSize, 0 );
-    //    itemStaticText6->SetFont(wxFont(10, wxSWISS, wxNORMAL, 0, FALSE, _T("Courier New")));
-    //    itemStaticBoxSizer4->Add(itemStaticText6, 0, wxALIGN_LEFT|wxLEFT|wxRIGHT|wxADJUST_MINSIZE, 5);
 
     temp = "";
     temp << "Build date: " << _(__DATE__);

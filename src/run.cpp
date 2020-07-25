@@ -1,7 +1,7 @@
 /*
  * This file is part of FBIde, an open-source (cross-platform) IDE for
  * FreeBasic compiler.
- * Copyright (C) 2005  Albert Varaksin
+ * Copyright (C) 2020  Albert Varaksin
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
+ * Contact e-mail: Albert Varaksin <albeva@me.com>
  * Program URL   : http://fbide.sourceforge.net
  */
 
@@ -27,7 +27,7 @@
 
 class MyProcess : public wxProcess {
 public:
-    MyProcess(MyFrame *parent, const wxString &cmd)
+    MyProcess(FBIdeMainFrame *parent, const wxString &cmd)
         : wxProcess(parent), m_cmd(cmd) {
         m_parent = parent;
     }
@@ -38,12 +38,12 @@ public:
     virtual void OnTerminate(int pid, int status);
 
 protected:
-    MyFrame *m_parent;
+    FBIdeMainFrame *m_parent;
     wxString m_cmd;
 };
 
 
-void MyFrame::AddListItem(int Linenr, int ErrorNr, wxString FileName, wxString Message) {
+void FBIdeMainFrame::AddListItem(int Linenr, int ErrorNr, wxString FileName, wxString Message) {
 
     // FBConsole is a pointer to wxListCtrl control
 
@@ -63,7 +63,7 @@ void MyFrame::AddListItem(int Linenr, int ErrorNr, wxString FileName, wxString M
 }
 
 
-void MyFrame::OnGoToError(wxListEvent &event) {
+void FBIdeMainFrame::OnGoToError(wxListEvent &event) {
     if (stc == 0)
         return;
     //int idx = event.GetData();
@@ -88,7 +88,7 @@ void MyFrame::OnGoToError(wxListEvent &event) {
 }
 
 
-void MyFrame::GoToError(int Linenr, wxString FileName) {
+void FBIdeMainFrame::GoToError(int Linenr, wxString FileName) {
     if (wxFileNameFromPath(FileName).Lower() != "fbidetemp.bas") {
         int result = bufferList.FileLoaded(FileName);
         if (result != -1) {
@@ -110,17 +110,17 @@ void MyFrame::GoToError(int Linenr, wxString FileName) {
 }
 
 
-void MyFrame::OnCompilerLog(wxCommandEvent &event) {
+void FBIdeMainFrame::OnCompilerLog(wxCommandEvent &event) {
     CompilerLog();
 }
 
 
-void MyFrame::MyFrame::OnConsoMouseleLeft(wxListEvent &event) {
+void FBIdeMainFrame::FBIdeMainFrame::OnConsoMouseleLeft(wxListEvent &event) {
     CompilerLog();
 }
 
 
-void MyFrame::CompilerLog() {
+void FBIdeMainFrame::CompilerLog() {
     //wxMessageBox( strCompilerOutput );
     wxString strTitle("Fbc output");
     wxDialog *dlg = new wxDialog(this, -1, strTitle,
@@ -171,7 +171,7 @@ void MyFrame::CompilerLog() {
 
 //------------------------------------------------------------------------------
 
-void MyFrame::OnCompile(wxCommandEvent & WXUNUSED(event)) {
+void FBIdeMainFrame::OnCompile(wxCommandEvent & WXUNUSED(event)) {
     if (stc == 0)
         return;
     if (ProcessIsRunning)
@@ -187,7 +187,7 @@ void MyFrame::OnCompile(wxCommandEvent & WXUNUSED(event)) {
     return;
 }
 
-void MyFrame::OnCompileAndRun(wxCommandEvent & WXUNUSED(event)) {
+void FBIdeMainFrame::OnCompileAndRun(wxCommandEvent & WXUNUSED(event)) {
     if (stc == 0)
         return;
     if (ProcessIsRunning)
@@ -206,7 +206,7 @@ void MyFrame::OnCompileAndRun(wxCommandEvent & WXUNUSED(event)) {
     return;
 }
 
-void MyFrame::OnRun(wxCommandEvent & WXUNUSED(event)) {
+void FBIdeMainFrame::OnRun(wxCommandEvent & WXUNUSED(event)) {
     if (stc == 0)
         return;
 
@@ -217,7 +217,7 @@ void MyFrame::OnRun(wxCommandEvent & WXUNUSED(event)) {
 }
 
 
-void MyFrame::OnCmdPromt(wxCommandEvent & WXUNUSED(event)) {
+void FBIdeMainFrame::OnCmdPromt(wxCommandEvent & WXUNUSED(event)) {
 
 #ifdef __WXMSW__
     int major = 0, minor = 0;
@@ -235,7 +235,7 @@ void MyFrame::OnCmdPromt(wxCommandEvent & WXUNUSED(event)) {
     return;
 }
 
-void MyFrame::OnParameters(wxCommandEvent & WXUNUSED(event)) {
+void FBIdeMainFrame::OnParameters(wxCommandEvent & WXUNUSED(event)) {
     wxTextEntryDialog dialog(this, Lang[177], //"Parameters to pass to your program"
                              Lang[158],
                              ParameterList,
@@ -247,16 +247,16 @@ void MyFrame::OnParameters(wxCommandEvent & WXUNUSED(event)) {
     return;
 }
 
-void MyFrame::OnShowExitCode(wxCommandEvent & WXUNUSED(event)) {
+void FBIdeMainFrame::OnShowExitCode(wxCommandEvent & WXUNUSED(event)) {
     Prefs.ShowExitCode = !Prefs.ShowExitCode;
     return;
 }
 
-void MyFrame::OnActivePath(wxCommandEvent & WXUNUSED(event)) {
+void FBIdeMainFrame::OnActivePath(wxCommandEvent & WXUNUSED(event)) {
     Prefs.ActivePath = !Prefs.ActivePath;
 }
 
-int MyFrame::Proceed(void) {
+int FBIdeMainFrame::Proceed(void) {
     int index = FBNotebook->GetSelection();
     Buffer *buff = bufferList[index];
 
@@ -277,13 +277,13 @@ int MyFrame::Proceed(void) {
 // -----------------------------------------------------------------------------
 
 /**
- * MyFrame::Compile
- * This function compiles given src file. It calls MyFrame::GetCompileData to
+ * FBIdeMainFrame::Compile
+ * This function compiles given src file. It calls FBIdeMainFrame::GetCompileData to
  * receave data.
  * @param index AboutDialog file from buffer list
  * @return int 0 on success, 1 on failure
  */
-int MyFrame::Compile(int index) {
+int FBIdeMainFrame::Compile(int index) {
 
     //Safety checks
     if (!stc)
@@ -479,12 +479,12 @@ int MyFrame::Compile(int index) {
 
 
 /**
- * MyFrame::Run
+ * FBIdeMainFrame::Run
  * This function executes compiled file and adds optional parameters.
  * @param wxFileName file - file to be executed
  * @return none
  */
-void MyFrame::Run(wxFileName file) {
+void FBIdeMainFrame::Run(wxFileName file) {
     //Safety checks
     if (!stc)
         return;
@@ -550,12 +550,12 @@ void MyFrame::Run(wxFileName file) {
 
 
 /**
- * MyFrame::OnQuickRun
+ * FBIdeMainFrame::OnQuickRun
  * This function compiles active tab as a temporary file and executes it,
  * when execution is terminated then temporary file is deleted.
  * @return none
  */
-void MyFrame::OnQuickRun(wxCommandEvent & WXUNUSED(event)) {
+void FBIdeMainFrame::OnQuickRun(wxCommandEvent & WXUNUSED(event)) {
 
     //Safety checks
     if (!stc)
@@ -609,12 +609,12 @@ void MyFrame::OnQuickRun(wxCommandEvent & WXUNUSED(event)) {
 
 
 /**
- * MyFrame::GetCompileData
+ * FBIdeMainFrame::GetCompileData
  * Generates compildation data that is used in compilation process
  * @param index AboutDialog file from buffer list
  * @return compiler cmd-line
  */
-wxString MyFrame::GetCompileData(int index) {
+wxString FBIdeMainFrame::GetCompileData(int index) {
 
     // Retreave file original name and validate it
     wxFileName objFilePath(bufferList[index]->GetFileName());

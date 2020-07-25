@@ -52,7 +52,7 @@ add_executable(fbide WIN32
     src/view.cpp
     src/inc/wxmynotebook.h
     src/wxmynotebook.cpp
-    )
+    src/inc/InstanceHandler.h src/InstanceHandler.cpp)
 
 # PCH header
 target_precompile_headers(fbide INTERFACE src/inc/pch.h)
