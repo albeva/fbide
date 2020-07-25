@@ -1,0 +1,38 @@
+/* THIS FILE WILL BE OVERWRITTEN BY DEV-C++ */
+/* DO NOT EDIT! */
+
+#include <windows.h> // include for version info constants
+
+#include "toolbar.rc"
+
+A ICON MOVEABLE PURE LOADONCALL DISCARDABLE "FBIde0.4.ico"
+
+//
+// TO CHANGE VERSION INFORMATION, EDIT PROJECT OPTIONS...
+//
+1 VERSIONINFO
+FILEVERSION 0, 5, 0, 0
+PRODUCTVERSION 0, 5, 0, 0
+
+FILETYPE VFT_APP
+{
+	BLOCK "StringFileInfo"
+	{
+		BLOCK "040904E4"
+		{
+			VALUE "CompanyName", ""
+			VALUE "FileVersion", "0.5.0"
+			VALUE "FileDescription", "IDE for FreeBasic compiler"
+			VALUE "InternalName", "fbide"
+			VALUE "LegalCopyright", "Released under GPL"
+			VALUE "LegalTrademarks", ""
+			VALUE "OriginalFilename", "fbide.exe"
+			VALUE "ProductName", "FBIde"
+			VALUE "ProductVersion", "0.5.0"
+		}
+	}
+	BLOCK "VarFileInfo"
+	{
+		VALUE "Translation", 0x0409, 1252
+	}
+}

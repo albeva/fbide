@@ -1,0 +1,44 @@
+/*
+* This file is part of FBIde, an open-source (cross-platform) IDE for 
+* FreeBasic compiler.
+* Copyright (C) 2005  Albert Varaksin
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program; if not, write to the Free Software
+* Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+*
+* Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
+* Program URL   : http://fbide.sourceforge.net
+*/
+
+//mondrian ICON "mondrian.ico"
+
+new      BITMAP "bitmaps/new1.bmp"
+open     BITMAP "bitmaps/open1.bmp"
+save     BITMAP "bitmaps/save1.bmp"
+copy     BITMAP "bitmaps/copy1.bmp"
+cut      BITMAP "bitmaps/cut1.bmp"
+paste    BITMAP "bitmaps/paste1.bmp"
+undo     BITMAP "bitmaps/undo1.bmp"
+redo     BITMAP "bitmaps/redo1.bmp"
+compile  BITMAP "bitmaps/compile1.bmp"
+compnrun BITMAP "bitmaps/compnrun1.bmp"
+run      BITMAP "bitmaps/run1.bmp"
+qrun     BITMAP "bitmaps/quickrun.bmp"
+close    BITMAP "bitmaps/close1.bmp"
+saveall  BITMAP "bitmaps/saveall1.bmp"
+output   BITMAP "bitmaps/output1.bmp"
+fbide    BITMAP "bitmaps/fbide.bmp"
+
+wxBITMAP_STD_COLOURS BITMAP "bitmaps/colours.bmp"
+
