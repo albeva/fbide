@@ -27,6 +27,7 @@ obj/
 *.pch
 DerivedData/
 build/
+dist/
 
 # intellij/clion
 .idea

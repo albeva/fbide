@@ -4,7 +4,14 @@ set(CMAKE_CXX_STANDARD 17)
 
 # wxWidgets
 SET(WX_ROOT_DIR "D:/Developer/libs/wxWidgets/wxWidgets-3.1.4")
-set(wxWidgets_LIB_DIR "D:/Developer/libs/wxWidgets/dist/lib/vc_x64_dll")
+
+if(TARGET_64)
+    set(wxWidgets_LIB_DIR "D:/Developer/libs/wxWidgets/dist/lib/vc_x64_dll")
+    message(STATUS "Choose 64bit wxWidgets")
+else()
+    set(wxWidgets_LIB_DIR "D:/Developer/libs/wxWidgets/dist/lib/vc_dll")
+    message(STATUS "Choose x86 wxWidgets")
+endif()
 set(wxWidgets_ROOT_DIR ${WX_ROOT_DIR})
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
