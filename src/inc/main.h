@@ -20,37 +20,17 @@
 * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
 * Program URL   : http://fbide.sourceforge.net
 */
+#pragma once
+#include "pch.h"
+#include "buffer.h"
+#include "bufferlist.h"
 
-#ifndef MAIN_H
-#define MAIN_H
+class FB_Edit;
+class SFBrowser;
+class FormatDialog;
+class wxMyNotebook;
+class wxTabbedCtrlEvent;
 
-//#include <wx/wxprec.h>
-#include <wx/wx.h>
-#include <wx/file.h>
-#include <wx/filename.h>
-#include <wx/fdrepdlg.h>
-#include <wx/notebook.h>
-#include "wxmynotebook.h"
-#include <wx/settings.h>
-#include <wx/dialog.h>
-#include <wx/colordlg.h>
-#include <wx/filesys.h>
-#include <wx/datetime.h>
-#include <wx/splitter.h>
-#include <wx/listctrl.h>
-#include <wx/help.h>
-#include <wx/cshelp.h>
-#include <wx/filename.h>
-
-#ifdef __WXMSW__
-#include <wx/msw/helpchm.h>
-#endif
-
-#include <wx/docview.h>
-
-#include "inc/FBIde0.4_private.h"
-
-#define FBUNNAMED "Unnamed"
 #define KWGROUPS        4
 #define mySTC_STYLE_BOLD  1
 #define mySTC_STYLE_ITALIC  2
@@ -177,16 +157,6 @@ public:
 wxDECLARE_APP(MyApp);
 void LogFBIdeMessage(const wxString& message);
 
-class FB_Edit;
-
-class SFBrowser;
-
-class FormatDialog;
-//class BufferList;
-//class Buffer;
-
-#include "buffer.h"
-#include "bufferlist.h"
 
 class MyFrame : public wxFrame {
 public:
@@ -529,5 +499,3 @@ enum {
     Menu_ReadMe,
     Menu_Fpp,
 };
-
-#endif

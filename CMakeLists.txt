@@ -3,8 +3,9 @@ project(fbide)
 set(CMAKE_CXX_STANDARD 17)
 
 # wxWidgets
+SET(WX_ROOT_DIR "D:/Developer/libs/wxWidgets/wxWidgets-3.1.4")
 set(wxWidgets_LIB_DIR "D:/Developer/libs/wxWidgets/dist/lib/vc_x64_dll")
-set(wxWidgets_ROOT_DIR "D:/Developer/libs/wxWidgets/wxWidgets-3.1.4")
+set(wxWidgets_ROOT_DIR ${WX_ROOT_DIR})
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(wxWidgets_CONFIGURATION mswud)
@@ -15,8 +16,9 @@ find_package(wxWidgets 3.1 COMPONENTS core base stc REQUIRED)
 
 include(${wxWidgets_USE_FILE})
 add_executable(fbide WIN32
+    src/inc/pch.h
     src/rc/FBIde0.4_private.rc
-    src/inc/FBIde0.4_private.h
+    src/inc/globals.h
     src/inc/main.h
     src/main.cpp
     src/inc/AboutDialog.h
@@ -44,6 +46,9 @@ add_executable(fbide WIN32
     src/inc/wxmynotebook.h
     src/wxmynotebook.cpp
     )
+
+# PCH header
+target_precompile_headers(fbide INTERFACE src/inc/pch.h)
 
 set_target_properties(fbide PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)

@@ -20,13 +20,9 @@
  * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
  * Program URL   : http://fbide.sourceforge.net
  */
+#pragma once
+#include "pch.h"
 
-#ifndef WXMYNOTEBOOK_H_
-#define WXMYNOTEBOOK_H_
-
-#include "wx/notebook.h"
-#include "wx/menu.h"
-#include <vector>
 
 class MyFrame;
 
@@ -238,6 +234,3 @@ public:
                  const wxString &name = wxNotebookNameStr);
 
 };
-
-
-#endif

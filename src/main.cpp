@@ -21,18 +21,9 @@
  * Program URL   : http://fbide.sourceforge.net
  */
 
-
 #include "inc/main.h"
 #include "inc/fbedit.h"
-#include <wx/image.h>
-#include <wx/splash.h>
-#include <wx/filename.h>
-#include <wx/snglinst.h>
-
-
-#include "wx/ipc.h"
-#include "wx/clipbrd.h"
-
+#include "inc/wxmynotebook.h"
 
 MyFrame *_myframe_;
 
@@ -330,7 +321,6 @@ MyFrame::MyFrame(MyApp *App, const wxString &title)
             help.Initialize(Prefs.HelpFile);
     }
 #endif
-
 
     Show();
 }

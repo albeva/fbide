@@ -1,5 +1,6 @@
-#ifndef FBIDE0_4_PRIVATE_H
-#define FBIDE0_4_PRIVATE_H
+#pragma once
+
+#define FBUNNAMED "Unnamed"
 
 /* VERSION DEFINITIONS */
 #define VER_STRING          "0.5.0.0"
@@ -16,5 +17,3 @@
 #define ORIGINAL_FILENAME   "fbide.exe"
 #define PRODUCT_NAME        "FBIde"
 #define PRODUCT_VERSION     "0.5.0"
-
-#endif /*FBIDE0_4_PRIVATE_H*/

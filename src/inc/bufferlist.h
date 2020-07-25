@@ -20,12 +20,8 @@
 * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
 * Program URL   : http://fbide.sourceforge.net
 */
-
-
-#ifndef BufferList_H
-#define BufferList_H
-
-#include <wx/dynarray.h>
+#pragma once
+#include "pch.h"
 
 class BufferList {
 public:
@@ -72,5 +68,3 @@ private:
     BufferArray buffers;
     int modifiedCount;
 };
-
-#endif

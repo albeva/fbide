@@ -22,7 +22,6 @@
  */
 
 #ifndef __WXMSW__
-
 #include "rc/bitmaps/open.xpm"
 #include "rc/bitmaps/save.xpm"
 #include "rc/bitmaps/cut.xpm"
@@ -38,14 +37,12 @@
 #include "rc/bitmaps/close.xpm"
 #include "rc/bitmaps/output.xpm"
 #include "rc/bitmaps/new.xpm"
-
 #endif
 
-#include <wx/filename.h>
 #include "inc/main.h"
 #include "inc/fbedit.h"
 #include "inc/browser.h"
-
+#include "inc/wxmynotebook.h"
 
 //------------------------------------------------------------------------------
 //Load menu's

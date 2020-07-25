@@ -20,14 +20,8 @@
 * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
 * Program URL   : http://fbide.sourceforge.net
 */
-
-
-#ifndef Browser_H
-#define Browser_H
-
-#include <vector>
-
-using namespace std;
+#pragma once
+#include "pch.h"
 
 class SFBrowser : public wxDialog {
 public:
@@ -73,8 +67,8 @@ public:
 
     wxArrayString Original;
     wxArrayString OriginalArg;
-    vector<int> OrigLineNr;
-    vector<bool> OrigType;
+    std::vector<int> OrigLineNr;
+    std::vector<bool> OrigType;
 
     wxString SearchString;
     bool ChangePos;
@@ -87,10 +81,3 @@ public:
 protected:
 DECLARE_EVENT_TABLE()
 };
-
-// Pointer control
-
-
-
-#endif
-

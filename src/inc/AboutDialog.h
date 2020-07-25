@@ -20,9 +20,10 @@
  * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
  * Program URL   : http://fbide.sourceforge.net
  */
+#pragma once
+#include "pch.h"
 
-#ifndef _FB_ABOUT_H_
-#define _FB_ABOUT_H_
+class MyFrame;
 
 ////@begin control identifiers
 #define ID_DIALOG 10000
@@ -74,7 +75,3 @@ public:
 
     MyFrame *Parent;
 };
-
-#endif
-// _FB_ABOUT_H_
-

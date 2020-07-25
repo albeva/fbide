@@ -20,12 +20,11 @@
 * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
 * Program URL   : http://fbide.sourceforge.net
 */
+#pragma once
+#include "pch.h"
 
-#ifndef _STCEDIT_H_
-#define _STCEDIT_H_
-
-#include <wx/stc/stc.h>
-#include <array>
+class MyFrame;
+class Buffer;
 
 namespace kw {
     enum {
@@ -113,10 +112,7 @@ public:
      * @return
      */
     std::array<int, 3> GetKeywords(const wxString& string) const;
-//
-//    wxString GetSecondKw(wxString cmdline);
-//
-//    wxString GetLastKw(wxString cmdline);
+
 
     inline void SetBuffer(Buffer *buff) {
         this->buff = buff;
@@ -136,5 +132,3 @@ private:
 
 DECLARE_EVENT_TABLE()
 };
-
-#endif // _EDIT_H_

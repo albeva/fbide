@@ -21,10 +21,10 @@
  * Program URL   : http://fbide.sourceforge.net
  */
 
-
 #include "inc/main.h"
 #include "inc/fbedit.h"
 #include "inc/FormatDialog.h"
+#include "inc/wxmynotebook.h"
 
 FormatDialog::FormatDialog(wxWindow *parent, wxWindowID id, const wxString &title, const wxPoint &pos, const wxSize &size,
                            long style, const wxString &name) {

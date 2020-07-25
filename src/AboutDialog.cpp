@@ -22,14 +22,12 @@
  */
 
 #ifndef __WXMSW__
-
 #include "rc/bitmaps/fbide.xpm"
-
 #endif
 
-#include "inc/main.h"
 #include "inc/AboutDialog.h"
 #include "wx/statline.h"
+#include "inc/main.h"
 
 //IMPLEMENT_DYNAMIC_CLASS( AboutDialog, wxDialog )
 

@@ -20,13 +20,12 @@
  * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
  * Program URL   : http://fbide.sourceforge.net
  */
-
 #include "inc/main.h"
-//#include "inc/configdiag.h"
 #include "inc/configdiag.h"
 #include "inc/fbedit.h"
 #include "inc/browser.h"
 #include "inc/FormatDialog.h"
+#include "inc/wxmynotebook.h"
 
 void MyFrame::OnSettings(wxCommandEvent &WXUNUSED(event)) {
     ConfigDialog dlg(this, -1, Lang[98]);

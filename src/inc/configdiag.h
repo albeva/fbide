@@ -20,40 +20,9 @@
 * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
 * Program URL   : http://fbide.sourceforge.net
 */
-
-#ifndef _ConfigDialog_H_
-#define _ConfigDialog_H_
-
-#if defined(__GNUG__) && !defined(NO_GCC_PRAGMA)
-#pragma interface "ConfigDialog.h"
-#endif
-
-/*!
- * Includes
- */
-
-////@begin includes
-#include "wx/notebook.h"
-#include "wx/statline.h"
-#include "wx/spinctrl.h"
-////@end includes
-
+#pragma once
+#include "pch.h"
 #include "main.h"
-#include <wx/fontenum.h>
-
-/*!
- * Forward declarations
- */
-
-////@begin forward declarations
-class wxNotebook;
-
-class wxSpinCtrl;
-////@end forward declarations
-
-/*!
- * Control identifiers
- */
 
 ////@begin control identifiers
 #define ID_DIALOG 10000
@@ -278,5 +247,3 @@ public:
     void StoreTypeSelection(int intSel);
 
 };
-
-#endif

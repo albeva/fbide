@@ -23,7 +23,7 @@
 
 #include "inc/main.h"
 #include "inc/fbedit.h"
-#include <wx/process.h>
+#include "inc/wxmynotebook.h"
 
 class MyProcess : public wxProcess {
 public:

@@ -20,12 +20,8 @@
 * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
 * Program URL   : http://fbide.sourceforge.net
 */
-
-
-#ifndef Buffer_H
-#define Buffer_H
-
-#include <vector>
+#pragma once
+#include "pch.h"
 
 class Buffer {
 public:
@@ -130,5 +126,3 @@ private:
 };
 
 WX_DEFINE_ARRAY(Buffer*, BufferArray);
-
-#endif // Buffer_H

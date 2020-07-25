@@ -20,13 +20,10 @@
  * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
  * Program URL   : http://fbide.sourceforge.net
  */
-
-#include <wx/file.h>
-#include <wx/colour.h>
-
-#include "inc/main.h"
 #include "inc/fbedit.h"
+#include "inc/main.h"
 #include "inc/browser.h"
+#include "inc/wxmynotebook.h"
 
 BEGIN_EVENT_TABLE (FB_Edit, wxStyledTextCtrl)
         EVT_STC_MARGINCLICK (-1, FB_Edit::OnMarginClick)

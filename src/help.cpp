@@ -24,6 +24,7 @@
 #include "inc/main.h"
 #include "inc/AboutDialog.h"
 #include "inc/fbedit.h"
+#include "inc/wxmynotebook.h"
 
 //------------------------------------------------------------------------------
 // Show AboutDialog dialog

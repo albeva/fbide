@@ -20,19 +20,8 @@
 * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
 * Program URL   : http://fbide.sourceforge.net
 */
-
-#ifndef __VwX_MyDlg_H__
-#define __VwX_MyDlg_H__
-
-#include <wx/settings.h>
-#include <wx/dialog.h>
-
-#include <wx/sizer.h>
-#include <wx/stattext.h>
-#include <wx/statline.h>
-#include <wx/button.h>
-#include <wx/statbox.h>
-#include <wx/choice.h>
+#pragma once
+#include "pch.h"
 
 class FormatDialog : public wxDialog {
     friend class formatEvt;
@@ -82,5 +71,3 @@ protected:
 DECLARE_EVENT_TABLE()
 #define VwX_INIT_OBJECTS_format
 };
-
-#endif

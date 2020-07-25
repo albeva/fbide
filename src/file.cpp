@@ -20,12 +20,11 @@
  * Contact e-mail: Albert Varaksin <vongodric@hotmail.com>
  * Program URL   : http://fbide.sourceforge.net
  */
-
-#include <wx/textfile.h>
 #include "inc/main.h"
 #include "inc/fbedit.h"
 #include "inc/browser.h"
 #include "inc/FormatDialog.h"
+#include "inc/wxmynotebook.h"
 
 void MyFrame::OnNew(wxCommandEvent & WXUNUSED(event)) {
     NewSTCPage("", true);
