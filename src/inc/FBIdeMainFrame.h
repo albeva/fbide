@@ -18,7 +18,7 @@
 * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 *
 * Contact e-mail: Albert Varaksin <albeva@me.com>
-* Program URL   : http://fbide.sourceforge.net
+* Program URL: https://github.com/albeva/fbide
 */
 #pragma once
 #include "pch.h"
@@ -30,11 +30,10 @@ class SFBrowser;
 class FormatDialog;
 class wxMyNotebook;
 class wxTabbedCtrlEvent;
-class InstanceHandler;
-class FBIdeMainFrame;
+class FBIdeApp;
 
-#define KWGROUPS        4
-#define mySTC_STYLE_BOLD  1
+#define KWGROUPS            4
+#define mySTC_STYLE_BOLD    1
 #define mySTC_STYLE_ITALIC  2
 #define mySTC_STYLE_UNDERL  4
 #define mySTC_STYLE_HIDDEN  8
@@ -63,35 +62,32 @@ struct CommonInfo {
     bool ActivePath;
 };
 
-
-typedef unsigned int uint;
-
 struct StyleInfo {
-    uint DefaultBgColour;
-    uint DefaultFgColour;
+    unsigned DefaultBgColour;
+    unsigned DefaultFgColour;
     wxString DefaultFont;
     int DefaultFontSize;
     int DefaultFontStyle;
 
-    uint LineNumberBgColour;
-    uint LineNumberFgColour;
-    uint SelectBgColour;
-    uint SelectFgColour;
-    uint CaretColour;
+    unsigned LineNumberBgColour;
+    unsigned LineNumberFgColour;
+    unsigned SelectBgColour;
+    unsigned SelectFgColour;
+    unsigned CaretColour;
 
-    uint BraceFgColour;
-    uint BraceBgColour;
+    unsigned BraceFgColour;
+    unsigned BraceBgColour;
     int BraceFontStyle;
 
-    uint BadBraceFgColour;
-    uint BadBraceBgColour;
+    unsigned BadBraceFgColour;
+    unsigned BadBraceBgColour;
     int BadBraceFontStyle;
 
-    uint MarginBgColour;
-    uint MarginFgColour;
+    unsigned MarginBgColour;
+    unsigned MarginFgColour;
     int MarginSize;
 
-    uint CaretLine;
+    unsigned CaretLine;
 
     struct Info {
         uint foreground;
@@ -100,68 +96,11 @@ struct StyleInfo {
         int fontsize;
         int fontstyle;
         int lettercase;
-
-        Info() {};
-
-        Info(const Info &i) {
-            foreground = i.foreground;
-            background = i.background;
-            fontname = i.fontname;
-            fontsize = i.fontsize;
-            lettercase = i.lettercase;
-
-        }
-    }
-        Info[16];
-
-    StyleInfo() {};
-
-    StyleInfo(const StyleInfo &si) {
-        DefaultBgColour = si.DefaultBgColour;
-        DefaultFgColour = si.DefaultFgColour;
-        DefaultFont = si.DefaultFont;
-        DefaultFontSize = si.DefaultFontSize;
-        DefaultFontStyle = si.DefaultFontStyle;
-
-        LineNumberBgColour = si.LineNumberBgColour;
-        LineNumberFgColour = si.LineNumberFgColour;
-        SelectBgColour = si.SelectBgColour;
-        SelectFgColour = si.SelectFgColour;
-        CaretColour = si.CaretColour;
-
-        BraceFgColour = si.BraceFgColour;
-        BraceBgColour = si.BraceBgColour;
-        BraceFontStyle = si.BraceFontStyle;
-
-        BadBraceFgColour = si.BadBraceFgColour;
-        BadBraceBgColour = si.BadBraceBgColour;
-        BadBraceFontStyle = si.BadBraceFontStyle;
-
-        MarginBgColour = si.MarginBgColour;
-        MarginFgColour = si.MarginFgColour;
-        MarginSize = si.MarginSize;
-        CaretLine = si.CaretLine;
-
-        for (int i = 1; i < 15; i++)
-            Info[i] = si.Info[i];
-    }
+    } Info[16];
 };
 
 wxColour GetClr(uint color);
 
-
-class FBIdeApp final: public wxApp {
-public:
-    bool OnInit() final;
-
-    [[nodiscard]] FBIdeMainFrame* GetMainFrame() const { return m_frame; }
-
-private:
-    std::unique_ptr<InstanceHandler> m_instanceHandler;
-    FBIdeMainFrame* m_frame = nullptr;
-};
-
-wxDECLARE_APP(FBIdeApp);
 
 class FBIdeMainFrame : public wxFrame {
 public:
@@ -194,8 +133,7 @@ public:
     void GoToError(int Linenr, wxString FileName);
     void EnableMenus(bool state);
 
-
-    //FileMenu-event and related stuff
+    // File menu
     void OnNew(wxCommandEvent &event);
     void OnOpen(wxCommandEvent &event);
     void OnSave(wxCommandEvent &event);
@@ -229,7 +167,7 @@ public:
     void OnComment(wxCommandEvent &event);
     void OnUncomment(wxCommandEvent &event);
 
-    // Search menu and related stuff
+    // Search menu
     void OnFind(wxCommandEvent &event);
     void OnReplace(wxCommandEvent &event);
     void OnFindAgain(wxCommandEvent &event);
@@ -254,8 +192,7 @@ public:
     wxString GetTextUnderCursor();
     wxString GetTextUnderCursor(int &startPos, int &endPos);
 
-
-    // View menu stuff
+    // View menu
     void OnSettings(wxCommandEvent &event);
     void OnFormat(wxCommandEvent &event);
     void OnResult(wxCommandEvent &event);
@@ -263,7 +200,7 @@ public:
     void OnCompilerLog(wxCommandEvent &event);
     void CompilerLog();
 
-    // Run menu stuff
+    // Run menu
     void OnCompile(wxCommandEvent &event);
     void OnCompileAndRun(wxCommandEvent &event);
     void OnRun(wxCommandEvent &event);
@@ -275,6 +212,17 @@ public:
     void Run(wxFileName file);
     wxString GetCompileData(int index);
     void OnActivePath(wxCommandEvent &event);
+
+    // Help menu
+    void OnAbout(wxCommandEvent &event);
+    void OnHelp(wxCommandEvent &event);
+    void OnQuickKeys(wxCommandEvent &event);
+    void OnReadMe(wxCommandEvent &event);
+    void OnFpp(wxCommandEvent &event);
+
+
+    void NewSTCPage(wxString InitFile, bool select = false, int FileType = 0);
+    void ChangeNBPage(wxTabbedCtrlEvent &event);
 
     wxFindReplaceData *FindData;
     wxFindReplaceData *ReplaceData;
@@ -288,15 +236,6 @@ public:
     wxArrayString kwList;
     int FindFlags;
 
-    void OnAbout(wxCommandEvent &event);
-    void OnHelp(wxCommandEvent &event);
-    void OnQuickKeys(wxCommandEvent &event);
-    void OnReadMe(wxCommandEvent &event);
-    void OnFpp(wxCommandEvent &event);
-    void NewSTCPage(wxString InitFile, bool select = false, int FileType = 0);
-    void ChangeNBPage(wxTabbedCtrlEvent &event);
-
-    //Pointers
     FBIdeApp *FB_App;
     FB_Edit *stc;
     wxToolBar *FB_Toolbar;

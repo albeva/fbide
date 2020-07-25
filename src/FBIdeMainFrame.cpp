@@ -18,15 +18,14 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Contact e-mail: Albert Varaksin <albeva@me.com>
- * Program URL   : http://fbide.sourceforge.net
+ * Program URL: https://github.com/albeva/fbide
  */
 
-#include "inc/main.h"
+#include "inc/FBIdeMainFrame.h"
 #include "inc/fbedit.h"
 #include "inc/wxmynotebook.h"
-#include "inc/InstanceHandler.h"
+#include "inc/FBIdeApp.h"
 
-//------------------------------------------------------------------------------
 BEGIN_EVENT_TABLE(FBIdeMainFrame, wxFrame)
     EVT_CLOSE (FBIdeMainFrame::OnClose)
     EVT_MENU(Menu_Quit, FBIdeMainFrame::OnQuit)
@@ -93,27 +92,7 @@ BEGIN_EVENT_TABLE(FBIdeMainFrame, wxFrame)
     EVT_LIST_COL_RIGHT_CLICK(-1, FBIdeMainFrame::OnConsoMouseleLeft)
 END_EVENT_TABLE()
 
-wxIMPLEMENT_APP(FBIdeApp);
 
-//------------------------------------------------------------------------------
-
-bool FBIdeApp::OnInit() {
-    SetVendorName("FBIde");
-    SetAppName("FBIde");
-    m_instanceHandler = std::make_unique<InstanceHandler>();
-
-    if (argc > 1 && m_instanceHandler->IsAnotherRunning()) {
-        wxString filename = argv[1];
-        m_instanceHandler->SendFile(filename);
-        return false;
-    }
-
-    m_frame = new FBIdeMainFrame(this, GetAppName());
-    return true;
-}
-
-
-//------------------------------------------------------------------------------
 FBIdeMainFrame::FBIdeMainFrame(FBIdeApp *App, const wxString &title)
     : wxFrame(0, wxID_ANY, title) {
 

@@ -1,5 +1,5 @@
 /*
-* This file is part of FBIde, an open-source (cross-platform) IDE for 
+* This file is part of FBIde, an open-source (cross-platform) IDE for
 * FreeBasic compiler.
 * Copyright (C) 2020  Albert Varaksin
 *
@@ -20,25 +20,21 @@
 * Contact e-mail: Albert Varaksin <albeva@me.com>
 * Program URL: https://github.com/albeva/fbide
 */
+#pragma once
+#include "pch.h"
 
-//mondrian ICON "mondrian.ico"
+class FBIdeMainFrame;
+class InstanceHandler;
 
-new      BITMAP "bitmaps/new1.bmp"
-open     BITMAP "bitmaps/open1.bmp"
-save     BITMAP "bitmaps/save1.bmp"
-copy     BITMAP "bitmaps/copy1.bmp"
-cut      BITMAP "bitmaps/cut1.bmp"
-paste    BITMAP "bitmaps/paste1.bmp"
-undo     BITMAP "bitmaps/undo1.bmp"
-redo     BITMAP "bitmaps/redo1.bmp"
-compile  BITMAP "bitmaps/compile1.bmp"
-compnrun BITMAP "bitmaps/compnrun1.bmp"
-run      BITMAP "bitmaps/run1.bmp"
-qrun     BITMAP "bitmaps/quickrun.bmp"
-close    BITMAP "bitmaps/close1.bmp"
-saveall  BITMAP "bitmaps/saveall1.bmp"
-output   BITMAP "bitmaps/output1.bmp"
-fbide    BITMAP "bitmaps/fbide.bmp"
+class FBIdeApp final: public wxApp {
+public:
+    bool OnInit() final;
 
-wxBITMAP_STD_COLOURS BITMAP "bitmaps/colours.bmp"
+    [[nodiscard]] FBIdeMainFrame* GetMainFrame() const { return m_frame; }
 
+private:
+    std::unique_ptr<InstanceHandler> m_instanceHandler;
+    FBIdeMainFrame* m_frame = nullptr;
+};
+
+wxDECLARE_APP(FBIdeApp);

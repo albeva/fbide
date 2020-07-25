@@ -26,8 +26,8 @@ add_executable(fbide WIN32
     src/inc/pch.h
     src/rc/FBIde0.4_private.rc
     src/inc/globals.h
-    src/inc/main.h
-    src/main.cpp
+    src/inc/FBIdeMainFrame.h
+    src/FBIdeMainFrame.cpp
     src/inc/AboutDialog.h
     src/AboutDialog.cpp
     src/inc/browser.h
@@ -52,7 +52,7 @@ add_executable(fbide WIN32
     src/view.cpp
     src/inc/wxmynotebook.h
     src/wxmynotebook.cpp
-    src/inc/InstanceHandler.h src/InstanceHandler.cpp)
+    src/inc/InstanceHandler.h src/InstanceHandler.cpp src/inc/FBIdeApp.h src/FBIdeApp.cpp)
 
 # PCH header
 target_precompile_headers(fbide INTERFACE src/inc/pch.h)

@@ -18,10 +18,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Contact e-mail: Albert Varaksin <albeva@me.com>
- * Program URL   : http://fbide.sourceforge.net
+ * Program URL: https://github.com/albeva/fbide
  */
 #include "inc/fbedit.h"
-#include "inc/main.h"
+#include "inc/FBIdeMainFrame.h"
 #include "inc/browser.h"
 #include "inc/wxmynotebook.h"
 

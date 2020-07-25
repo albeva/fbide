@@ -1,5 +1,5 @@
 /*
-* This file is part of FBIde, an open-source (cross-platform) IDE for 
+* This file is part of FBIde, an open-source (cross-platform) IDE for
 * FreeBasic compiler.
 * Copyright (C) 2020  Albert Varaksin
 *
@@ -20,25 +20,23 @@
 * Contact e-mail: Albert Varaksin <albeva@me.com>
 * Program URL: https://github.com/albeva/fbide
 */
+#include "inc/FBIdeApp.h"
+#include "inc/FBIdeMainFrame.h"
+#include "inc/InstanceHandler.h"
 
-//mondrian ICON "mondrian.ico"
+bool FBIdeApp::OnInit() {
+    SetVendorName("FBIde");
+    SetAppName("FBIde");
+    m_instanceHandler = std::make_unique<InstanceHandler>();
 
-new      BITMAP "bitmaps/new1.bmp"
-open     BITMAP "bitmaps/open1.bmp"
-save     BITMAP "bitmaps/save1.bmp"
-copy     BITMAP "bitmaps/copy1.bmp"
-cut      BITMAP "bitmaps/cut1.bmp"
-paste    BITMAP "bitmaps/paste1.bmp"
-undo     BITMAP "bitmaps/undo1.bmp"
-redo     BITMAP "bitmaps/redo1.bmp"
-compile  BITMAP "bitmaps/compile1.bmp"
-compnrun BITMAP "bitmaps/compnrun1.bmp"
-run      BITMAP "bitmaps/run1.bmp"
-qrun     BITMAP "bitmaps/quickrun.bmp"
-close    BITMAP "bitmaps/close1.bmp"
-saveall  BITMAP "bitmaps/saveall1.bmp"
-output   BITMAP "bitmaps/output1.bmp"
-fbide    BITMAP "bitmaps/fbide.bmp"
+    if (argc > 1 && m_instanceHandler->IsAnotherRunning()) {
+        wxString filename = argv[1];
+        m_instanceHandler->SendFile(filename);
+        return false;
+    }
 
-wxBITMAP_STD_COLOURS BITMAP "bitmaps/colours.bmp"
+    m_frame = new FBIdeMainFrame(this, GetAppName());
+    return true;
+}
 
+wxIMPLEMENT_APP(FBIdeApp);

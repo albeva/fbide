@@ -18,17 +18,15 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Contact e-mail: Albert Varaksin <albeva@me.com>
- * Program URL   : http://fbide.sourceforge.net
+ * Program URL: https://github.com/albeva/fbide
  */
 
 //#include <wx/wxprec.h>
 
-#include "inc/main.h"
-#include <wx/fileconf.h>
-#include <wx/wfstream.h>
+#include "inc/FBIdeMainFrame.h"
+#include "inc/FBIdeApp.h"
 
 void FBIdeMainFrame::LoadSettings() {
-
     wxFileName w(FB_App->argv[0]);
     w.Normalize();
     EditorPath = w.GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME);
