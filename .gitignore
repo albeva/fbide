@@ -29,9 +29,6 @@ DerivedData/
 build/
 dist/
 
-# intellij/clion
-.idea
-
 # cmake
 CMakeLists.txt.user
 CMakeCache.txt

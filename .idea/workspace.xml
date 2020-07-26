@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="BranchesTreeState">
+    <expand>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="LOCAL_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="GROUP_NODE:origin" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+    </expand>
+    <select />
+  </component>
+  <component name="CMakeRunConfigurationManager" shouldGenerate="true" shouldDeleteObsolete="true">
+    <generated>
+      <config projectName="fbide" targetName="fbide" />
+    </generated>
+  </component>
+  <component name="CMakeSettings" AUTO_RELOAD="true">
+    <configurations>
+      <configuration PROFILE_NAME="Debug - x64" CONFIG_NAME="Debug" TOOLCHAIN_NAME="Visual Studio x64" GENERATION_OPTIONS="-DCMAKE_BUILD_TYPE=Debug -DTARGET_64=1" GENERATION_DIR="build/debug/x64" />
+      <configuration PROFILE_NAME="Release - x64" CONFIG_NAME="Release" TOOLCHAIN_NAME="Visual Studio x64" GENERATION_OPTIONS="-DCMAKE_BUILD_TYPE=Release -DTARGET_64=1" GENERATION_DIR="build/release/x64" />
+      <configuration PROFILE_NAME="Debug - x86" CONFIG_NAME="Debug" TOOLCHAIN_NAME="Visual Studio x86" GENERATION_OPTIONS="-DCMAKE_BUILD_TYPE=Debug" GENERATION_DIR="build/debug/x86" />
+      <configuration PROFILE_NAME="Release - x86" CONFIG_NAME="Release" TOOLCHAIN_NAME="Visual Studio x86" GENERATION_OPTIONS="-DCMAKE_BUILD_TYPE=Release" GENERATION_DIR="build/release/x86" />
+    </configurations>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="f2c90b38-fe47-482d-b4da-f327a998ea5b" name="Default Changelist" comment="" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:Debug - x86" />
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectId" id="1f9KlIa24o10bMH3aWCXCKe5fAW" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="TERMINAL_CUSTOM_COMMANDS_GOT_IT" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="cf.first.check.clang-format" value="false" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="restartRequiresConfirmation" value="false" />
+    <property name="settings.editor.selected.configurable" value="CMakeSettings" />
+  </component>
+  <component name="RunManager">
+    <configuration name="fbide" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="fbide" TARGET_NAME="fbide" CONFIG_NAME="Debug - x64" RUN_TARGET_PROJECT_NAME="fbide" RUN_TARGET_NAME="fbide">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="f2c90b38-fe47-482d-b4da-f327a998ea5b" name="Default Changelist" comment="" />
+      <created>1595625017922</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1595625017922</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="oldMeFiltersMigrated" value="true" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="872" y="341" key="#Plugins" timestamp="1595688254190">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state x="872" y="341" key="#Plugins/0.0.2560.1400@0.0.2560.1400" timestamp="1595688254190" />
+    <state x="734" y="355" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1595699069301">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state x="734" y="355" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.2560.1400@0.0.2560.1400" timestamp="1595699069301" />
+    <state x="1039" y="502" key="#com.intellij.fileTypes.FileTypeChooser" timestamp="1595689712079">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state x="1039" y="502" key="#com.intellij.fileTypes.FileTypeChooser/0.0.2560.1400@0.0.2560.1400" timestamp="1595689712079" />
+    <state x="810" y="405" width="690" height="750" key="#com.intellij.ide.macro.MacrosDialog" timestamp="1595634258751">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state x="810" y="405" width="690" height="750" key="#com.intellij.ide.macro.MacrosDialog/0.0.2560.1400@0.0.2560.1400" timestamp="1595634258751" />
+    <state x="654" y="450" width="758" height="684" key="EnvironmentVariablesDialog" timestamp="1595630152318">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state x="654" y="450" width="758" height="684" key="EnvironmentVariablesDialog/0.0.2560.1400@0.0.2560.1400" timestamp="1595630152318" />
+    <state width="2517" height="245" key="GridCell.Tab.0.bottom" timestamp="1595722925625">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state width="2517" height="245" key="GridCell.Tab.0.bottom/0.0.2560.1400@0.0.2560.1400" timestamp="1595722925625" />
+    <state width="2517" height="245" key="GridCell.Tab.0.center" timestamp="1595722925625">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state width="2517" height="245" key="GridCell.Tab.0.center/0.0.2560.1400@0.0.2560.1400" timestamp="1595722925625" />
+    <state width="2517" height="245" key="GridCell.Tab.0.left" timestamp="1595722925625">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state width="2517" height="245" key="GridCell.Tab.0.left/0.0.2560.1400@0.0.2560.1400" timestamp="1595722925625" />
+    <state width="2517" height="245" key="GridCell.Tab.0.right" timestamp="1595722925625">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state width="2517" height="245" key="GridCell.Tab.0.right/0.0.2560.1400@0.0.2560.1400" timestamp="1595722925625" />
+    <state width="2517" height="492" key="GridCell.Tab.1.bottom" timestamp="1595691904720">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state width="2517" height="492" key="GridCell.Tab.1.bottom/0.0.2560.1400@0.0.2560.1400" timestamp="1595691904720" />
+    <state width="2517" height="492" key="GridCell.Tab.1.center" timestamp="1595691904720">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state width="2517" height="492" key="GridCell.Tab.1.center/0.0.2560.1400@0.0.2560.1400" timestamp="1595691904720" />
+    <state width="2517" height="492" key="GridCell.Tab.1.left" timestamp="1595691904720">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state width="2517" height="492" key="GridCell.Tab.1.left/0.0.2560.1400@0.0.2560.1400" timestamp="1595691904720" />
+    <state width="2517" height="492" key="GridCell.Tab.1.right" timestamp="1595691904720">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state width="2517" height="492" key="GridCell.Tab.1.right/0.0.2560.1400@0.0.2560.1400" timestamp="1595691904720" />
+    <state x="168" y="332" width="1037" height="710" key="SettingsEditor" timestamp="1595700951878">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state x="168" y="332" width="1037" height="710" key="SettingsEditor/0.0.2560.1400@0.0.2560.1400" timestamp="1595700951878" />
+    <state x="839" y="297" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser" timestamp="1595702728464">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state x="839" y="297" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser/0.0.2560.1400@0.0.2560.1400" timestamp="1595702728464" />
+    <state x="714" y="299" width="901" height="817" key="find.popup" timestamp="1595711520172">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state x="714" y="299" width="901" height="817" key="find.popup/0.0.2560.1400@0.0.2560.1400" timestamp="1595711520172" />
+    <state x="943" y="315" width="672" height="678" key="search.everywhere.popup" timestamp="1595706441763">
+      <screen x="0" y="0" width="2560" height="1400" />
+    </state>
+    <state x="943" y="315" width="672" height="678" key="search.everywhere.popup/0.0.2560.1400@0.0.2560.1400" timestamp="1595706441763" />
+  </component>
+</project>
