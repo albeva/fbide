@@ -3,7 +3,6 @@
 
 # Paths
 build/
-bin/
 
 # IDEs
 .vs/

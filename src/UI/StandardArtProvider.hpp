@@ -6,24 +6,24 @@
 //  Copyright © 2016 Albert Varaksin. All rights reserved.
 //
 #pragma once
-#include "IArtProvider.hpp"
 #include "app_pch.hpp"
+#include "IArtProvider.hpp"
 
 namespace fbide {
 
 /**
-     * fbide standard art provider
-     */
-class StandardArtProvider final : public IArtProvider {
+ * fbide standard art provider
+ */
+class StandardArtProvider final: public IArtProvider {
 public:
     /**
-         * Get bitmap
-         */
+     * Get bitmap
+     */
     virtual const wxBitmap& GetIcon(const wxString& name) override;
 
     /**
-         * Get bitmap size
-         */
+     * Get bitmap size
+     */
     virtual const wxSize& GetIconSize() override;
 };
 

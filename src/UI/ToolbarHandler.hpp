@@ -13,53 +13,53 @@ namespace fbide {
 class Config;
 
 /**
-     * Handle toolbars
-     */
+ * Handle toolbars
+ */
 class ToolbarHandler final : NonCopyable {
 public:
     /**
-         * Create toolbar handler
-         */
+     * Create toolbar handler
+     */
     ToolbarHandler(wxAuiManager* aui);
 
     /**
-         * Load toolbars from configuration
-         */
+     * Load toolbars from configuration
+     */
     void Load(Config& config);
 
     /**
-         * Get toolbar for given id. nullptr if not found
-         */
+     * Get toolbar for given id. nullptr if not found
+     */
     wxAuiToolBar* GetToolBar(const wxString& id);
 
     /**
-         * Add toolbar
-         */
+     * Add toolbar
+     */
     void AddToolBar(const wxString& name, wxAuiToolBar* toolbar, bool show = true);
 
     /**
-         * Add toolbar item
-         */
+     * Add toolbar item
+     */
     void AddItem(wxAuiToolBar* tbar, const wxString& name);
 
     /**
-         * Show (or hide) all toolbars
-         */
+     * Show (or hide) all toolbars
+     */
     void ShowToolbars(bool show);
 
     /**
-         * Handle events
-         */
+     * Handle events
+     */
     void OnEvent(wxCommandEvent& event);
 
     /**
-         * Handle toolbar pane close event
-         */
+     * Handle toolbar pane close event
+     */
     void OnPaneClose(wxAuiManagerEvent& event);
 
     /**
-         * Listen for menu command (toggle toolbar(s))
-         */
+     * Listen for menu command (toggle toolbar(s))
+     */
     void OnCommandEvent(wxCommandEvent& event);
 
 

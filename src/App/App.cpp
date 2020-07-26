@@ -71,9 +71,9 @@ public:
         auto stc = new wxStyledTextCtrl(wnd);
 
         #if defined(__DARWIN__)
-            auto path = GetConfig("BasePath").AsString() / "libfblexer.dylib";
+            auto path = GetConfig(Key::BasePath).AsString() / "libfblexer.dylib";
         #elif defined(__WXMSW__)
-            auto path = GetConfig("IdePath").AsString() / "fblexer.dll";
+            auto path = GetConfig(Key::IdePath).AsString() / "fblexer.dll";
         #endif
 
         stc->LoadLexerLibrary(path);

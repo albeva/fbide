@@ -48,8 +48,14 @@ Config& fbide::GetLang() {
 }
 
 // shorthand to get translated string
+// BAD: default value captured and returned by reference!
 const wxString& fbide::GetLang(const wxString& path, const wxString& def) {
-    return GetLang().Get(path, def);
+    if (auto node = GetLang().Get(path)) {
+        if (node->IsString()) {
+            return node->AsString();
+        }
+    }
+    return def;
 }
 
 // Get translated string and replace placeholders

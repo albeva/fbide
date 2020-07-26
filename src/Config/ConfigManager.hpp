@@ -6,19 +6,19 @@
 //  Copyright © 2016 Albert Varaksin. All rights reserved.
 //
 #pragma once
-#include "Config.hpp"
 #include "app_pch.hpp"
+#include "Config.hpp"
 
 namespace fbide {
 
 /**
- * Exception thrown when accessing invalid configuration
- * key
+ * Global config keys
  */
-struct InvalidKey : public std::invalid_argument {
-    using std::invalid_argument::invalid_argument;
-};
-
+namespace Key {
+    constexpr auto IdePath      = "IdePath";
+    constexpr auto BasePath     = "BasePath";
+    constexpr auto AppLanguage  = "App.Language";
+}
 
 /**
  * Config mnager is responsible for saving/loading
@@ -27,10 +27,8 @@ struct InvalidKey : public std::invalid_argument {
  * It also supports API to add config settings by
  * various other components and potentially plugins
  */
-class ConfigManager final : NonCopyable {
+class ConfigManager final: NonCopyable {
 public:
-    ConfigManager();
-    ~ConfigManager();
 
     /**
      * Get main configuration root object

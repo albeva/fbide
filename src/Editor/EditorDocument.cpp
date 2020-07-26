@@ -45,7 +45,8 @@ void EditorDocument::Create() {
     });
 
     // editor configuration
-    m_editor.SetLexerLanguage(GetType().name);
+    auto & config = GetType().config;
+    m_editor.SetLexerLanguage(config.Get("type", "null"));
 }
 
 /**

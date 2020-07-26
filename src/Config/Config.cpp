@@ -321,7 +321,7 @@ const Config* Config::Get(const wxString& path) const noexcept {
 /**
  * Output the tree to std out
  */
-void Config::Dump(size_t indent) const {
+void Config::Dump(size_t indent) const noexcept {
     const size_t INDENT = 4;
 
     auto sp = std::string(indent * INDENT, ' ');

@@ -11,18 +11,18 @@
 namespace fbide {
 
 /**
-     * Art provider for the UI manager
-     */
-class IArtProvider : NonCopyable {
+ * Art provider for the UI manager
+ */
+class IArtProvider: NonCopyable {
 public:
     /**
-         * Get bitmap
-         */
+     * Get bitmap
+     */
     virtual const wxBitmap& GetIcon(const wxString& name) = 0;
 
     /**
-         * Get bitmap size
-         */
+     * Get bitmap size
+     */
     virtual const wxSize& GetIconSize() = 0;
 };
 

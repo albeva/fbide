@@ -15,6 +15,12 @@
 
 using namespace fbide;
 
+static const wxString ID        = "id";
+static const wxString SHOW      = "show";
+static const wxString ITEMS     = "items";
+static const wxString DASH      = "-";
+static const wxString MENU_ICON = "App.MenuIcons";
+
 
 // listen for events
 MenuHandler::MenuHandler(wxMenuBar* menu) : m_mbar(menu) {
@@ -28,7 +34,7 @@ void MenuHandler::Load(Config& structure, wxMenu* parent) {
     auto& cmd = GetCmdMgr();
 
     for (auto& node : structure.AsArray()) {
-        auto& id = node["id"].AsString();
+        auto& id = node[ID].AsString();
 
         auto* menu = GetMenu(id);
         if (menu == nullptr) {
@@ -38,10 +44,10 @@ void MenuHandler::Load(Config& structure, wxMenu* parent) {
             if (entry != nullptr && entry->type == CmdManager::Type::Menu && (menu = dynamic_cast<wxMenu*>(entry->object)))
                 ;
             else
-                menu = new wxMenu;
+                menu = new wxMenu();
 
             // show this item?
-            bool show = node["show"] != false && menu->GetParent() == nullptr && menu->GetMenuBar() == nullptr;
+            bool show = node[SHOW] != false && menu->GetParent() == nullptr && menu->GetMenuBar() == nullptr;
 
             // add it
             Add(id, menu, parent == nullptr && show);
@@ -50,7 +56,7 @@ void MenuHandler::Load(Config& structure, wxMenu* parent) {
             }
         }
 
-        for (auto& item : node["items"].AsArray()) {
+        for (auto& item : node[ITEMS].AsArray()) {
             if (item == "-") {
                 menu->AppendSeparator();
             } else if (item.IsArray()) {
@@ -103,7 +109,7 @@ void MenuHandler::AddItem(wxMenu* parent, const wxString& id) {
 
     if (entry.type == CmdManager::Type::Menu) {
         auto item = parent->AppendSubMenu(dynamic_cast<wxMenu*>(entry.object), name);
-        if (cfg.Get("App.MenuIcons", true)) {
+        if (cfg.Get(MENU_ICON, true)) {
             item->SetBitmap(art.GetIcon(id));
         }
     } else {
@@ -121,7 +127,7 @@ void MenuHandler::AddItem(wxMenu* parent, const wxString& id) {
 
         if (check) {
             item->Check(entry.checked);
-        } else if (cfg.Get("App.MenuIcons", true)) {
+        } else if (cfg.Get(MENU_ICON, true)) {
             item->SetBitmap(art.GetIcon(id));
         }
     }

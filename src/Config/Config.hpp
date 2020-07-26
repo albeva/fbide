@@ -59,10 +59,16 @@ private:
     using Value = std::variant<std::monostate, wxString, bool, int, double, Map, Array>;
 
     /**
-     * re-usable Shortcut to std::enable_if for supported types
+     * Shortcut to std::enable_if for supported types
      */
     template<typename T>
-    using EnableIf = typename std::enable_if_t<is_one_of<T, wxString, bool, int, double, Map, Array>(), int>;
+    using EnableIf = std::enable_if_t<is_one_of<T, wxString, bool, int, double, Map, Array>(), int>;
+
+    /**
+     * If T is std::string, std::wstring, char* or whar_t* then reduce to wxString, otherwise decay T to base type.
+     */
+    template<typename T>
+    using ReduceType = std::conditional_t<is_one_of<T, char*, wchar_t*, std::string, std::wstring>(), wxString, std::decay_t<T>>;
 
 public:
 
@@ -80,36 +86,28 @@ public:
     /**
      * Create Config from value
      *
-     * @tparam T where T is wxString, bool, int, double, Map or Array
+     * @tparam T where T is supported string, bool, int, double, Map or an Array
      * @param val
      */
-    template<typename T, typename = EnableIf<T>>
-    explicit Config(const T& val): m_val(val) {}
+    template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
+    explicit Config(const T& val): m_val(std::in_place_type<B>, val) {}
 
-    template<typename T, typename = EnableIf<T>>
-    explicit Config(T&& val) noexcept: m_val(std::move(val)) {}
+    template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
+    explicit Config(T&& val) noexcept: m_val(std::in_place_type<B>, std::move(val)) {}
 
     /**
      * Assign value to config
      *
-     * @tparam T where T is wxString, const*, std::string, bool, int, double, Map or an Array
+     * @tparam T where T is supported string, bool, int, double, Map or an Array
      * @param val
      */
-    template<
-        typename T,
-        typename U = std::conditional_t<is_one_of<T, char*, std::string>(), wxString, T>,
-        typename B = std::decay_t<U>,
-        EnableIf<B> = 0>
+    template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
     inline Config& operator=(const T& rhs) {
         m_val.emplace<B>(rhs);
         return *this;
     }
 
-    template<
-        typename T,
-        typename U = std::conditional_t<is_one_of<T, char*, std::string>(), wxString, T>,
-        typename B = std::decay_t<U>,
-        EnableIf<B> = 0>
+    template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
     inline Config& operator=(T&& rhs) noexcept {
         m_val.emplace<B>(std::move(rhs));
         return *this;
@@ -134,10 +132,6 @@ public:
     //----------------------------------------------------------------------
     // String
     //----------------------------------------------------------------------
-
-    explicit Config(const std::string& val): m_val(std::in_place_type<wxString>, val) {}
-    explicit Config(std::string&& val): m_val(std::in_place_type<wxString>, std::move(val)) {}
-    explicit Config(const char* val): m_val(std::in_place_type<wxString>, val) {}
 
     /**
      * Does Config hold wxString?
@@ -304,7 +298,7 @@ public:
     /**
      * print Config tree to console out
      */
-    void Dump(size_t indent = 0) const;
+    void Dump(size_t indent = 0) const noexcept;
 
     /**
      * Get node type as enum value
@@ -317,9 +311,10 @@ public:
      * Is this a scalar Config?
      */
     [[nodiscard]] inline bool IsScalar() const noexcept {
-        return !IsEmpty()
-               && GetType() != Type::Map
-               && GetType() != Type::Array;
+        auto type = GetType();
+        return type != Type::Null
+            && type != Type::Map
+            && type != Type::Array;
     }
 
     /**
@@ -337,27 +332,11 @@ public:
     }
 
     /**
-     * Check if currently held Config is of given type
+     * Compare config to a value
      *
-     * if (value.Is<wxString>()) { ... }
+     * @tparam T where T is supported string, bool, int, double, Map or an Array
      */
-    template<typename T, EnableIf<T> = 0>
-    [[nodiscard]] inline bool Is() const noexcept {
-        return std::holds_alternative<T>(m_val);
-    }
-
-    /**
-     * Compare rhs of type T against held value.
-     * Will return false if types don't match.
-     *
-     * When comparing against const char * we need to coerce the type
-     * to wxString - hence the conditional_t stuff.
-     */
-    template<
-        typename T,
-        typename U = std::conditional_t<is_one_of<T, char*, std::string>(), wxString, T>,
-        typename B = std::decay_t<U>,
-        EnableIf<B> = 0>
+    template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
     [[nodiscard]] inline bool operator==(const T& rhs) const noexcept {
         if (!Is<B>())
             return false;
@@ -373,19 +352,40 @@ public:
     }
 
     /**
-     * Get requested string value and return default if none exists.
-     * will *not* modify Config structure as ["path"] does
+     * Get value at given path if it exists, or return given default value.
+     *
+     * This returns by value!
      */
-    template<typename T, EnableIf<T> = 0>
-    [[nodiscard]] inline const T& Get(const wxString& path, const T& def) const noexcept {
+    template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
+    [[nodiscard]] inline B Get(const wxString& path, const T& def) const noexcept {
         auto node = Get(path);
-        if (node == nullptr || !node->Is<T>()) {
+        if (node == nullptr || !node->Is<B>()) {
             return def;
         }
-        return node->As<T>();
+        return node->As<B>();
+    }
+
+    template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
+    [[nodiscard]] inline B Get(const wxString& path, T&& def) const noexcept {
+        auto node = Get(path);
+        if (node == nullptr || !node->Is<B>()) {
+            return std::move(def);
+        }
+        return node->As<B>();
     }
 
 private:
+
+    /**
+     * Check if currently held Config is of given type
+     *
+     * if (value.Is<wxString>()) { ... }
+     */
+    template<typename T, EnableIf<T> = 0>
+    [[nodiscard]] inline bool Is() const noexcept {
+        return std::holds_alternative<T>(m_val);
+    }
+
     /**
      * Return Config as given type. Null is propagated
      * to the type while other type mismatches will throw
