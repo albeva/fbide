@@ -26,100 +26,64 @@ toolbars:
     name: Show toolbars
     help: Toggle toolbars on/off
 
-# new
-new:
-  name: New
-  help: New document
-
-# open
-open:
-  name: Open
-  help: Open existing document
-
-# save
-save:
-  name: Save
-  help: Save document
-
-# quit
-quit:
-  name: Quit
-  help: Quit FBIde
-
-# undo
-undo:
-  name: Undo
-  help: Undo last change
-
-# redo
-redo:
-  name: Redo
-  help: Revert last change
-
-# cut
-cut:
-  name: Cut
-  help: Cut selection
-
-#copy
-copy:
-  name: Copy
-  help: Copy selection
-
-# paste
-paste:
-  name: Paste
-  help: Paste from clipboard
-
-# find
-find:
-  name: Find
-  help: Find in text
-
-# replace
-replace:
-  name: Replace
-  help: Replace text
-
-# goto
-goto:
-  name: Goto
-  help: Goto line
-
-# about
-about:
-  name: About
-  help: About FBIde
-
-# full screen
-fullscreen:
-  name: Full Screen
-  help: Toggle full screen mode
-
-#log window
-log:
-  name: Log
-  help: Show log window
-
-# Compile target
-compile:
-  name: Compile
-  help: Compile current target
-
-# Compile & Run
-comprun:
-  name: Compile & Run
-  help: Compile current target and Run it
-
-# Rebuild current target
-rebuild:
-  name: Rebuild
-  help: Rebuild current target
-
-# Run current target
-run:
-  name: Run
-  help: Run current target
+Cmd:
+  new:
+    name: New
+    help: New document
+  open:
+    name: Open
+    help: Open existing document
+  save:
+    name: Save
+    help: Save document
+  quit:
+    name: Quit
+    help: Quit FBIde
+  undo:
+    name: Undo
+    help: Undo last change
+  redo:
+    name: Redo
+    help: Revert last change
+  cut:
+    name: Cut
+    help: Cut selection
+  copy:
+    name: Copy
+    help: Copy selection
+  paste:
+    name: Paste
+    help: Paste from clipboard
+  find:
+    name: Find
+    help: Find in text
+  replace:
+    name: Replace
+    help: Replace text
+  goto:
+    name: Goto
+    help: Goto line
+  about:
+    name: About
+    help: About FBIde
+  fullscreen:
+    name: Full Screen
+    help: Toggle full screen mode
+  log:
+    name: Log
+    help: Show log window
+  compile:
+    name: Compile
+    help: Compile current target
+  comprun:
+    name: Compile & Run
+    help: Compile current target and Run it
+  rebuild:
+    name: Rebuild
+    help: Rebuild current target
+  run:
+    name: Run
+    help: Run current target
 
 # Document related...
 document:

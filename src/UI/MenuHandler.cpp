@@ -104,8 +104,8 @@ void MenuHandler::AddItem(wxMenu* parent, const wxString& id) {
     auto& cmd = GetCmdMgr();
     auto& entry = cmd.GetEntry(id);
     auto& cfg = GetConfig();
-    auto& name = GetLang(id + ".name", id);
-    auto& help = GetLang(id + ".help", id);
+    auto& name = GetLang("Cmd." + id + ".name", id);
+    auto& help = GetLang("Cmd." + id + ".help", id);
 
     if (entry.type == CmdManager::Type::Menu) {
         auto item = parent->AppendSubMenu(dynamic_cast<wxMenu*>(entry.object), name);

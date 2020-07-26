@@ -102,8 +102,8 @@ void ToolbarHandler::AddItem(wxAuiToolBar* tbar, const wxString& name) {
     auto& art = GetUiMgr().GetArtProvider();
 
     auto& entry = cmd.GetEntry(name);
-    auto label = GetLang(name + ".name");
-    auto help = GetLang(name + ".help");
+    auto label = GetLang("Cmd." + name + ".name");
+    auto help = GetLang("Cmd." + name + ".help");
 
     // type
     bool check = entry.type == CmdManager::Type::Check;
