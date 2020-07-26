@@ -21,6 +21,9 @@ playground.xcworkspace
 *~
 *.d
 *.out
+*.exe
+*.ilk
+*.pdb
 
 # cmake
 CMakeLists.txt.user

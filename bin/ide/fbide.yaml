@@ -1,0 +1,38 @@
+# App configuration
+App:
+  Language:     en
+  ShowSplash:   true
+  ShowToolbars: true
+  MenuIcons:    false
+
+# Editor configuration
+Editor:
+  plain:
+    exts:  [txt, md]
+    type:  "null"
+  freebasic:
+    exts:  [bas, bi]
+    type:  "text/freebasic"
+
+# Menus and toolbars
+Layout:
+  Menus:
+    - id: file
+      items: [new, open, save, -, quit]
+    - id: edit
+      items: [undo, redo, -, cut, copy, paste]
+    - id: view
+      items: [toolbars, toolbars.toggle, fullscreen]
+    - id: search
+      items: [find, replace, goto]
+    - id: help
+      items: [about]
+  Toolbars:
+    - id: common
+      items: [new, open, save, -, fullscreen]
+    - id: edit
+      items: [undo, redo, -, cut, copy, paste]
+    - id: search
+      items: [find, replace, goto]
+    - id: build
+      items: [compile, comprun, rebuild, run]
