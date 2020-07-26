@@ -3,7 +3,7 @@
 //  fblexer
 //
 //  Created by Albert on 26/10/2016.
-//  Copyright © 2016 albeva. All rights reserved.
+//  Copyright © 2016 Albert Varaksin. All rights reserved.
 //
 
 #include "module.hpp"
@@ -11,22 +11,16 @@
 #include <assert.h>
 #include <string.h>
 
-
-int GetLexerCount()
-{
+int GetLexerCount() {
     return 1;
 }
 
-
-void GetLexerName(unsigned int Index, char* name, int buflength)
-{
+void GetLexerName(unsigned int Index, char* name, int buflength) {
     assert(Index == 0 && "Invalid lexer index");
-    strcpy(name, "fbide-freebasic");
+    strcpy_s(name, buflength, "text/freebasic");
 }
 
-
-Scintilla::LexerFactoryFunction GetLexerFactory(unsigned int Index)
-{
+Scintilla::LexerFactoryFunction GetLexerFactory(unsigned int Index) {
     assert(Index == 0 && "Invalid lexer index");
     return Lexer::Factory;
 }

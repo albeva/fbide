@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
-<CodeBlocks_workspace_file>
-	<Workspace title="fbide">
-		<Project filename="fbide.cbp">
-			<Depends filename="fblexer/fblexer.cbp" />
-		</Project>
-		<Project filename="fblexer/fblexer.cbp" />
-	</Workspace>
-</CodeBlocks_workspace_file>

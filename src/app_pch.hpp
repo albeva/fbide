@@ -1,38 +1,31 @@
 /**
  * Pre Compiled Header
  */
-#ifndef FBIDE_APP_PCH_HPP
-#define FBIDE_APP_PCH_HPP
+#pragma once
 
 // wxWidgets
-#include <wx/wx.h>
-#include <wx/stdpaths.h>
 #include <wx/apptrait.h>
 #include <wx/aui/aui.h>
+#include <wx/stc/stc.h>
+#include <wx/stdpaths.h>
 #include <wx/tokenzr.h>
 #include <wx/wupdlock.h>
-#include <wx/stc/stc.h>
+#include <wx/wx.h>
 
 // std
-#include <string>
-#include <stdexcept>
-#include <unordered_map>
-#include <memory>
-#include <functional>
 #include <algorithm>
-#include <utility>
-#include <cctype>
+#include <any>
+#include <variant>
 #include <assert.h>
+#include <cctype>
+#include <functional>
+#include <memory>
+#include <stdexcept>
+#include <string>
 #include <type_traits>
-
-// boost
-#include <boost/any.hpp>
+#include <unordered_map>
+#include <utility>
 
 // fbide
 #include "Utils.hpp"
-#include "Manager.hpp"
-#include "Config.hpp"
-
 #define LOG_V(v) std::cout << #v " = " << (v) << std::endl;
-
-#endif // FBIDE_APP_PCH_HPP

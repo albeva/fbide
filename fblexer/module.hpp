@@ -3,7 +3,7 @@
 //  fblexer
 //
 //  Created by Albert on 26/10/2016.
-//  Copyright © 2016 albeva. All rights reserved.
+//  Copyright © 2016 Albert Varaksin. All rights reserved.
 //
 
 #ifndef module_hpp
