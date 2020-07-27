@@ -51,6 +51,8 @@ public:
      */
     using Array = std::vector<Config>;
 
+    static Config Empty;
+
 private:
 
     /**
@@ -298,7 +300,7 @@ public:
     /**
      * print Config tree to console out
      */
-    void Dump(size_t indent = 0) const noexcept;
+    [[nodiscard]] wxString ToString(size_t indent = 0) const noexcept;
 
     /**
      * Get node type as enum value

@@ -37,7 +37,7 @@ void TypeManager::Register(const wxString& name, CreatorFn creator) {
         }
     }
 
-    m_types.emplace(std::make_pair(name, Type{ name, exts, config ? *config : Config(), creator }));
+    m_types.emplace(std::make_pair(name, Type{ name, exts, config ? *config : Config::Empty, creator }));
 }
 
 

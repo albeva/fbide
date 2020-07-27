@@ -193,6 +193,8 @@ private:
 
 } // namespace
 
+Config Config::Empty{};
+
 /**
  * Load YAML file
  */
@@ -321,27 +323,29 @@ const Config* Config::Get(const wxString& path) const noexcept {
 /**
  * Output the tree to std out
  */
-void Config::Dump(size_t indent) const noexcept {
+wxString Config::ToString(size_t indent) const noexcept {
     const size_t INDENT = 4;
 
-    auto sp = std::string(indent * INDENT, ' ');
-    auto cs = std::string((indent > 0 ? indent - 1 : 0) * INDENT, ' ');
+    auto sp = wxString(indent * INDENT, ' ');
+    auto cs = wxString((indent > 0 ? indent - 1 : 0) * INDENT, ' ');
+
+    wxString output;
 
     switch (GetType()) {
     case Type::Null:
-        std::cout << "Null";
+        output << "Null";
         break;
     case Type::String:
-        std::cout << AsString();
+        output << '"' << AsString() << '"';
         break;
     case Type::Bool:
-        std::cout << std::boolalpha << AsBool();
+        output << (AsBool() ? "true" : "false");
         break;
     case Type::Int:
-        std::cout << AsInt();
+        output << AsInt();
         break;
     case Type::Double:
-        std::cout << AsDouble();
+        output << AsDouble();
         break;
     case Type::Map: {
         auto& map = AsMap();
@@ -353,35 +357,36 @@ void Config::Dump(size_t indent) const noexcept {
             }
         }
         if (indent > 0) {
-            std::cout << '{' << std::endl;
+            output << '{' << '\n';
         }
         for (auto& n : map) {
             auto& key = n.first;
             auto& val = n.second;
-            std::cout << sp << key;
+            output << sp << key;
             if (val.IsScalar() || val.IsEmpty()) {
-                std::cout << std::string(max - key.length(), ' ') << " = ";
+                output << wxString(max - key.length(), ' ') << " = ";
             } else {
-                std::cout << ' ';
+                output << ' ';
             }
-            val.Dump(indent + 1);
-            std::cout << std::endl;
+            output << val.ToString(indent + 1);
+            output << '\n';
         }
         if (indent > 0) {
-            std::cout << cs << '}';
+            output << cs << '}';
         }
         break;
     }
     case Type::Array: {
         auto& arr = AsArray();
-        std::cout << '[' << std::endl;
+        output << '[' << '\n';
         for (auto& val : arr) {
-            std::cout << sp;
-            val.Dump(indent + 1);
-            std::cout << std::endl;
+            output << sp;
+            output << val.ToString(indent + 1);
+            output << '\n';
         }
-        std::cout << cs << ']';
+        output << cs << ']';
         break;
     }
     }
+    return output;
 }

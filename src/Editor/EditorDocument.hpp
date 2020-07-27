@@ -14,6 +14,7 @@
 namespace fbide {
 
 class Editor;
+class ILexerSdk;
 
 /**
      * Editor base class backed by a document
@@ -24,7 +25,7 @@ public:
     static const wxString Freebasic;
     static const wxString Plain;
 
-    using Document::Document;
+    EditorDocument(const TypeManager::Type& type);
     virtual ~EditorDocument();
 
     /**
@@ -50,6 +51,7 @@ public:
 private:
     // bound editor
     StyledEditor m_editor;
+    std::unique_ptr<ILexerSdk> m_lexerIface;
 };
 
 } // namespace fbide

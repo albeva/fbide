@@ -6,7 +6,7 @@ add_library(fblexer SHARED
     lexer.cpp
     module.hpp
     module.cpp
-)
+    sdk/LexerSdk.hpp)
 
 #
 # Scintilla bundled with wxWidgets
@@ -22,11 +22,3 @@ target_compile_options(fblexer PRIVATE -DSCI_NAMESPACE)
 #
 set_target_properties(fblexer PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin/ide)
-
-# wxWidgets
-include(${wxWidgets_USE_FILE})
-
-# link dependencies
-target_link_libraries(fblexer
-    PRIVATE
-    ${wxWidgets_LIBRARIES})

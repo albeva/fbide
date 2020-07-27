@@ -11,24 +11,31 @@
 #include "ILexer.h"
 #include "LexAccessor.h"
 
+namespace fbide {
+class ILexerSdk;
+}
+
 class Lexer final: Scintilla::ILexer {
 public:
     Lexer() ;
     virtual ~Lexer() final;
-    virtual int Version() const final;
-    virtual void Release() final;
+    virtual int SCI_METHOD Version() const final;
+    virtual void SCI_METHOD Release() final;
     
-    virtual const char * PropertyNames();
-    virtual int PropertyType(const char *name);
-    virtual const char * DescribeProperty(const char *name);
-    virtual Sci_Position PropertySet(const char *key, const char *val);
+    virtual const char * SCI_METHOD PropertyNames();
+    virtual int SCI_METHOD PropertyType(const char *name);
+    virtual const char * SCI_METHOD DescribeProperty(const char *name);
+    virtual Sci_Position SCI_METHOD PropertySet(const char *key, const char *val);
     
-    virtual const char * DescribeWordListSets() final;
-    virtual Sci_Position WordListSet(int n, const char *wl) final;
+    virtual const char * SCI_METHOD DescribeWordListSets() final;
+    virtual Sci_Position SCI_METHOD WordListSet(int n, const char *wl) final;
     
-    virtual void Lex(Sci_PositionU startPos, Sci_Position lengthDoc, int initStyle, Scintilla::IDocument *pAccess) final;
-    virtual void Fold(Sci_PositionU startPos, Sci_Position lengthDoc, int initStyle, Scintilla::IDocument *pAccess) final;
+    virtual void SCI_METHOD Lex(Sci_PositionU startPos, Sci_Position lengthDoc, int initStyle, Scintilla::IDocument *pAccess) final;
+    virtual void SCI_METHOD Fold(Sci_PositionU startPos, Sci_Position lengthDoc, int initStyle, Scintilla::IDocument *pAccess) final;
 
-    virtual void * PrivateCall(int operation, void *pointer) final;
+    virtual void * SCI_METHOD PrivateCall(int operation, void *pointer) final;
     static ILexer * Factory();
+
+private:
+    fbide::ILexerSdk* m_iface = nullptr;
 };

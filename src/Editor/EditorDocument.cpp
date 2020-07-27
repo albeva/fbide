@@ -12,18 +12,17 @@
 #include "UI/UiManager.hpp"
 #include "Config/Config.hpp"
 #include "App/Manager.hpp"
+#include "Sdk/LexerInterface.h"
 
 using namespace fbide;
 
 const wxString EditorDocument::Plain = "text/plain";
 const wxString EditorDocument::Freebasic = "text/freebasic";
 
-EditorDocument::~EditorDocument() {
-}
+EditorDocument::EditorDocument(const TypeManager::Type& type)
+: Document(type) {}
 
-void test() {
-    wxMessageBox("YES");
-}
+EditorDocument::~EditorDocument() = default;
 
 /**
  * Instantiate the document
@@ -46,7 +45,13 @@ void EditorDocument::Create() {
 
     // editor configuration
     auto & config = GetType().config;
-    m_editor.SetLexerLanguage(config.Get("type", "null"));
+    auto type = config.Get("type", "null");
+    m_editor.SetLexerLanguage(type);
+
+    if (type == Freebasic) {
+        m_lexerIface = std::make_unique<LexerInterface>();
+        m_editor.PrivateLexerCall(SET_LEXER_IFACE, static_cast<void*>(m_lexerIface.get()));
+    }
 }
 
 /**

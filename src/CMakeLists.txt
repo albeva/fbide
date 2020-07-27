@@ -32,7 +32,8 @@ add_executable(fbide WIN32
     Editor/StyledEditor.cpp
     Editor/TypeManager.hpp
     Editor/TypeManager.cpp
-    )
+    Sdk/LexerInterface.cpp
+    Sdk/LexerInterface.h)
 
 # Dependencies
 add_dependencies(fbide fblexer yaml-cpp)
@@ -46,7 +47,11 @@ set_target_properties(fbide PROPERTIES
 
 # set src root for includes
 target_include_directories(fbide PRIVATE
-    ${fbide_SOURCE_DIR}/src)
+    ${fbide_SOURCE_DIR}/src
+    ${fbide_SOURCE_DIR}/fblexer/sdk
+    )
+
+target_compile_definitions(fbide PRIVATE -DEXPORT_LEXER_IFACE)
 
 # wxWidgets
 include(${wxWidgets_USE_FILE})
