@@ -17,10 +17,12 @@ class Editor;
 class ILexerSdk;
 
 /**
-     * Editor base class backed by a document
-     */
-class EditorDocument : public Document {
+ * Editor base class backed by a document
+ */
+class EditorDocument final: public Document {
+    NON_COPYABLE(EditorDocument)
 public:
+
     // freebasic type
     static const wxString Freebasic;
     static const wxString Plain;
@@ -29,23 +31,23 @@ public:
     virtual ~EditorDocument();
 
     /**
-         * Instantiate the document
-         */
-    virtual void Create() override;
+     * Instantiate the document
+     */
+    void Create() final;
 
     /**
-         * Load specified file. Will Create the instance
-         */
-    virtual void Load(const wxString& filename) override;
+     * Load specified file. Will Create the instance
+     */
+    void Load(const wxString& filename) final;
 
     /**
-         * Save the document
-         */
-    virtual void Save(const wxString& filename) override;
+     * Save the document
+     */
+    void Save(const wxString& filename) final;
 
     /**
-         * Get underlying editor instance
-         */
+     * Get underlying editor instance
+     */
     StyledEditor& GetEditor() { return m_editor; }
 
 private:

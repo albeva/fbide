@@ -17,12 +17,14 @@ class Config;
  * Manage file loaders and assist in creating
  * load/save dialogs
  */
-class TypeManager final : NonCopyable {
+class TypeManager final {
+    NON_COPYABLE(TypeManager)
+
     /**
      * Check that Document is acceptable type
      */
     template<typename T>
-    using CheckDocument = std::enable_if_t<std::is_base_of_v<Document, T> && !std::is_same_v<Document, T>, int>;
+    using CheckDocument = std::enable_if_t<is_extended_from<Document, T>(), int>;
 
 public:
     struct Type;
@@ -41,6 +43,9 @@ public:
         const Config& config;       // optional Config object
         CreatorFn creator;          // creator function
     };
+
+    TypeManager() = default;
+    ~TypeManager() = default;
 
     /**
      * Register a subclass of Document with the TypeManager

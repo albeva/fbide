@@ -74,7 +74,8 @@ wxString GetLang(const wxString& path, const StringMap<wxString>& map, const wxS
  *
  * This class is a singleton
  */
-class Manager final: private NonCopyable {
+class Manager final {
+    NON_COPYABLE(Manager)
 public:
     // Get manager instance
     static Manager& GetInstance();

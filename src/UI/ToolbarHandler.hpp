@@ -15,7 +15,8 @@ class Config;
 /**
  * Handle toolbars
  */
-class ToolbarHandler final : NonCopyable {
+class ToolbarHandler final {
+    NON_COPYABLE(ToolbarHandler)
 public:
     /**
      * Create toolbar handler
@@ -60,7 +61,7 @@ public:
     /**
      * Listen for menu command (toggle toolbar(s))
      */
-    void OnCommandEvent(wxCommandEvent& event);
+    void OnMenuSelected(wxCommandEvent& event);
 
 
 private:

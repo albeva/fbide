@@ -53,18 +53,21 @@ constexpr bool is_one_of() {
     return std::is_same<std::decay_t<T>, U>::value || is_one_of<T, R...>();
 }
 
+/**
+ * Check if Extended is sub class of Base
+ */
+template<typename Base, typename Extended>
+constexpr bool is_extended_from() {
+    return std::is_base_of_v<Base, Extended> && !std::is_same_v<Base, Extended>;
+}
 
 /**
  * Disallow copying this class
  */
-class NonCopyable {
-protected:
-    NonCopyable(){};
-    ~NonCopyable(){};
-
-private:
-    NonCopyable(const NonCopyable&) = delete;
-    NonCopyable& operator=(const NonCopyable&) = delete;
-};
+#define NON_COPYABLE(Class)                  \
+    Class(const Class&) = delete;            \
+    Class& operator=(const Class&) = delete; \
+    Class(Class&&) = delete;                 \
+    Class& operator=(Class&&) = delete;
 
 } // namespace fbide

@@ -102,14 +102,14 @@ int CmdManager::Register(const wxString& name, const Entry& entry) {
     // check name registered?
     auto nameIter = m_idMap.find(name);
     if (nameIter != m_idMap.end()) {
-        // TODO log error / exception
+        wxLogError("Command '" + name + "' is already registered with CmdMgr");
         return nameIter->second;
     }
 
     // check id registered
     auto idIter = m_entryMap.find(id);
     if (idIter != m_entryMap.end()) {
-        // TODO log error / exception
+        wxLogError("Cmd ID for '" + name + "' is duplicated");
         return id;
     }
 
@@ -136,12 +136,7 @@ void CmdManager::Check(int id, bool state) {
     if (entry->type != Type::Check || entry->checked == state) {
         return;
     }
-
     entry->checked = state;
-
-    wxCommandEvent event(CMD_CHECK, entry->id);
-    event.SetInt(state);
-    ProcessEvent(event);
 }
 
 /**
@@ -157,19 +152,29 @@ void CmdManager::Enable(int id, bool state) {
     }
 
     entry->enabled = state;
-
-    wxCommandEvent event(CMD_ENABLE, entry->id);
-    event.SetInt(state);
-    ProcessEvent(event);
 }
 
 /**
  * Find entry with given ID. If not found return null
  */
-CmdManager::Entry* CmdManager::GetEntry(int id) {
+CmdManager::Entry* CmdManager::GetEntry(int id) noexcept {
     auto entry = m_entryMap.find(id);
     if (entry == m_entryMap.end()) {
         return nullptr;
     }
     return &entry->second;
+}
+
+bool CmdManager::IsEnabled(int id) const noexcept {
+    if (auto entry = FindEntry(id)) {
+        return entry->enabled;
+    }
+    return false;
+}
+
+bool CmdManager::IsChecked(int id) const noexcept {
+    if (auto entry = FindEntry(id)) {
+        return entry->checked;
+    }
+    return false;
 }

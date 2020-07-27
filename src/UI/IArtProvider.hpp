@@ -13,7 +13,7 @@ namespace fbide {
 /**
  * Art provider for the UI manager
  */
-class IArtProvider: NonCopyable {
+class IArtProvider {
 public:
     /**
      * Get bitmap

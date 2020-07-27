@@ -122,6 +122,10 @@ struct PathParser {
      */
     PathParser(const wxString& path) : m_path(path) {}
 
+    static inline bool IsIdChar(char ch) {
+        return std::isalnum(ch) || ch == '_';
+    }
+
     /**
      * Get next token
      */
@@ -133,10 +137,10 @@ struct PathParser {
             char ch = m_path[m_pos];
 
             // id
-            if (std::isalpha(ch)) {
+            if (std::isalpha(ch) || ch == '_') {
                 do {
                     m_pos++;
-                } while (m_pos < len && std::isalnum(m_path[m_pos]));
+                } while (m_pos < len && IsIdChar(m_path[m_pos]));
                 auto lex = m_path.SubString(start, m_pos - 1);
                 return Token{ Type::Key, lex };
             }

@@ -31,13 +31,9 @@ ToolbarHandler::ToolbarHandler(wxAuiManager* aui)
 
     auto& cmd = GetCmdMgr();
 
-    // bind events
-    cmd.Bind(CMD_CHECK, &ToolbarHandler::OnEvent, this, wxID_ANY);
-    cmd.Bind(CMD_ENABLE, &ToolbarHandler::OnEvent, this, wxID_ANY);
-
     //
     m_aui->Bind(wxEVT_AUI_PANE_CLOSE, &ToolbarHandler::OnPaneClose, this, wxID_ANY);
-    m_window->Bind(wxEVT_COMMAND_MENU_SELECTED, &ToolbarHandler::OnCommandEvent, this, wxID_ANY);
+    m_window->Bind(wxEVT_COMMAND_MENU_SELECTED, &ToolbarHandler::OnMenuSelected, this, wxID_ANY);
 
     // toolbars menu
     m_menu = new wxMenu();
@@ -197,42 +193,11 @@ void ToolbarHandler::ShowToolbars(bool show) {
     m_aui->Update();
 
     // check
-    GetCmdMgr().Check(ID_ToggleToolbars, m_visibleCnt != 0);
+    // GetCmdMgr().Check(ID_ToggleToolbars, m_visibleCnt != 0);
 }
-
-
-/**
- * Handle events
- */
-void ToolbarHandler::OnEvent(wxCommandEvent& event) {
-    wxLogMessage("void ToolbarHandler::OnEvent(wxCommandEvent& event)");
-    // allow others to catch the event
-    event.Skip();
-
-    // update the toolbars
-    wxAuiPaneInfoArray& panes = m_aui->GetAllPanes();
-    for (size_t iter = 0; iter < panes.Count(); iter++) {
-        wxAuiPaneInfo& pane = panes[iter];
-
-        if (!pane.IsToolbar())
-            continue;
-        auto tbar = dynamic_cast<wxAuiToolBar*>(pane.window);
-        if (tbar == nullptr)
-            continue;
-
-        if (event.GetEventType() == CMD_CHECK) {
-            tbar->ToggleTool(event.GetId(), event.IsChecked());
-        } else if (event.GetEventType() == CMD_ENABLE) {
-            tbar->EnableTool(event.GetId(), event.IsChecked());
-        }
-    }
-
-    m_aui->Update();
-}
-
 
 // toolbars menu item clicked
-void ToolbarHandler::OnCommandEvent(wxCommandEvent& event) {
+void ToolbarHandler::OnMenuSelected(wxCommandEvent& event) {
     // allow other event handlers to catch this event
     event.Skip();
 
@@ -277,14 +242,14 @@ void ToolbarHandler::OnCommandEvent(wxCommandEvent& event) {
     if (m_visibleCnt) {
         m_visible = true;
     }
-    GetCmdMgr().Check(ID_ToggleToolbars, m_visibleCnt != 0);
-    GetCmdMgr().Enable(ID_ToggleToolbars, m_visibleCnt != 0);
+//    GetCmdMgr().Check(ID_ToggleToolbars, m_visibleCnt != 0);
+//    GetCmdMgr().Enable(ID_ToggleToolbars, m_visibleCnt != 0);
 }
 
 
 // Close toolbar?
 void ToolbarHandler::OnPaneClose(wxAuiManagerEvent& event) {
-    // allow other event handlers to catch this event by defalt
+    // allow other event handlers to catch this event by default
     event.Skip();
 
     // not a toolbar pane ?
@@ -312,6 +277,6 @@ void ToolbarHandler::OnPaneClose(wxAuiManagerEvent& event) {
     m_visibleTbars[tbId] = false;
 
     // disable
-    GetCmdMgr().Check(ID_ToggleToolbars, m_visibleCnt != 0);
-    GetCmdMgr().Enable(ID_ToggleToolbars, m_visibleCnt != 0);
+//    GetCmdMgr().Check(ID_ToggleToolbars, m_visibleCnt != 0);
+//    GetCmdMgr().Enable(ID_ToggleToolbars, m_visibleCnt != 0);
 }

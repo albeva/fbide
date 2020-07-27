@@ -20,7 +20,8 @@ class PanelHandler;
  * Manage fbide UI.
  * app frame, menus, toolbars and panels
  */
-class UiManager final: NonCopyable, public wxEvtHandler {
+class UiManager final: public wxEvtHandler {
+    NON_COPYABLE(UiManager)
 public:
 
     /**

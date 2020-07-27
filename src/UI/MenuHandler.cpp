@@ -25,8 +25,6 @@ static const wxString MENU_ICON = "App.MenuIcons";
 // listen for events
 MenuHandler::MenuHandler(wxMenuBar* menu) : m_mbar(menu) {
     auto& cmd = GetCmdMgr();
-    cmd.Bind(CMD_CHECK, &MenuHandler::OnEvent, this, wxID_ANY);
-    cmd.Bind(CMD_ENABLE, &MenuHandler::OnEvent, this, wxID_ANY);
 }
 
 // Load Configuration
@@ -130,18 +128,5 @@ void MenuHandler::AddItem(wxMenu* parent, const wxString& id) {
         } else if (cfg.Get(MENU_ICON, true)) {
             item->SetBitmap(art.GetIcon(id));
         }
-    }
-}
-
-// Flag check items
-void MenuHandler::OnEvent(wxCommandEvent& event) {
-    auto item = m_mbar->FindItem(event.GetId());
-    if (item == nullptr)
-        return;
-
-    if (event.GetEventType() == CMD_CHECK) {
-        item->Check(event.IsChecked());
-    } else if (event.GetEventType() == CMD_ENABLE) {
-        item->Enable(event.GetInt());
     }
 }

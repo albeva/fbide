@@ -22,8 +22,8 @@ wxDECLARE_EVENT(CMD_ENABLE, wxCommandEvent);
  * editor. It acts as a unifying place between UI description
  * menu and toolbars
  */
-class CmdManager final: NonCopyable
-, public wxEvtHandler {
+class CmdManager final {
+    NON_COPYABLE(CmdManager)
 public:
     // Entry type
     enum class Type {
@@ -88,11 +88,14 @@ public:
      */
     void Enable(int id, bool state);
 
+    [[nodiscard]] bool IsEnabled(int id) const noexcept;
+    [[nodiscard]] bool IsChecked(int id) const noexcept;
+
 private:
     /**
      * Find entry with given ID. If not found return null
      */
-    Entry* GetEntry(int id);
+    Entry* GetEntry(int id) noexcept;
 
     StringMap<int> m_idMap;                    // id <-> name map
     std::unordered_map<int, Entry> m_entryMap; // id <-> entry map

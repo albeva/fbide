@@ -27,8 +27,12 @@ namespace Key {
  * It also supports API to add config settings by
  * various other components and potentially plugins
  */
-class ConfigManager final: NonCopyable {
+class ConfigManager final {
+    NON_COPYABLE(ConfigManager)
 public:
+
+    ConfigManager() = default;
+    ~ConfigManager() = default;
 
     /**
      * Get main configuration root object

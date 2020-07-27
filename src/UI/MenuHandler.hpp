@@ -15,7 +15,8 @@ class Config;
 /**
  * Handle menus
  */
-class MenuHandler final : NonCopyable {
+class MenuHandler final {
+    NON_COPYABLE(MenuHandler)
 public:
     MenuHandler(wxMenuBar* menu);
 

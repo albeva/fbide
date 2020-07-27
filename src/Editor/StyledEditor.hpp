@@ -11,9 +11,10 @@
 namespace fbide {
 
 /**
-     * fbide specific subclass of wxStyledTextCtrl
-     */
+ * fbide specific subclass of wxStyledTextCtrl
+ */
 class StyledEditor : public wxStyledTextCtrl {
+    NON_COPYABLE(StyledEditor)
 public:
     StyledEditor();
     virtual ~StyledEditor();

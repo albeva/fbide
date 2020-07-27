@@ -15,16 +15,20 @@ namespace fbide {
  * fbide standard art provider
  */
 class StandardArtProvider final: public IArtProvider {
+    NON_COPYABLE(StandardArtProvider)
 public:
+    StandardArtProvider() = default;
+    ~StandardArtProvider() = default;
+
     /**
      * Get bitmap
      */
-    virtual const wxBitmap& GetIcon(const wxString& name) override;
+    const wxBitmap& GetIcon(const wxString& name) final;
 
     /**
      * Get bitmap size
      */
-    virtual const wxSize& GetIconSize() override;
+    const wxSize& GetIconSize() final;
 };
 
 } // namespace fbide

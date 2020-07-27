@@ -22,7 +22,7 @@ Layout:
     - id: edit
       items: [undo, redo, -, cut, copy, paste]
     - id: view
-      items: [toolbars, toolbars.toggle, fullscreen]
+      items: [toolbars, toolbars.toggle, toggle_log, fullscreen]
     - id: search
       items: [find, replace, goto]
     - id: help
