@@ -33,7 +33,7 @@ add_executable(fbide WIN32
     Editor/TypeManager.hpp
     Editor/TypeManager.cpp
     Sdk/LexerInterface.cpp
-    Sdk/LexerInterface.h)
+    Sdk/LexerInterface.h Log/LogManager.cpp Log/LogManager.hpp UI/PanelHandler.cpp UI/PanelHandler.hpp)
 
 # Dependencies
 add_dependencies(fbide fblexer yaml-cpp)

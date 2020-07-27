@@ -18,14 +18,6 @@ toolbar:
   toggle: Show toolbars
   build:  Build
 
-# toggle toolbars
-toolbars:
-  name: Toolbars
-  help: Toggle toolbars
-  toggle:
-    name: Show toolbars
-    help: Toggle toolbars on/off
-
 Cmd:
   new:
     name: New
@@ -69,6 +61,15 @@ Cmd:
   fullscreen:
     name: Full Screen
     help: Toggle full screen mode
+  toggle_log:
+    name: Show Log
+    help: Toggle app logs
+  toolbars:
+    name: Toolbars
+    help: Toggle toolbars
+    toggle:
+      name: Show toolbars
+      help: Toggle toolbars on/off
   log:
     name: Log
     help: Show log window

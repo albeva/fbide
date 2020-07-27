@@ -18,6 +18,7 @@
 #include "ToolbarHandler.hpp"
 #include "Config/Config.hpp"
 #include "App/Manager.hpp"
+#include "PanelHandler.hpp"
 
 using namespace fbide;
 
@@ -25,6 +26,7 @@ namespace {
 const int ID_AppWindow = ::wxNewId();
 const int ID_FullScreen = ::wxNewId();
 const int ID_DocNotebook = ::wxNewId();
+const int ID_PanelNotebook = ::wxNewId();
 } // namespace
 
 // event dispatching
@@ -44,6 +46,7 @@ UiManager::UiManager() {
     m_window = std::make_unique<MainWindow>(nullptr, ID_AppWindow, "fbide");
     m_window->PushEventHandler(this);
     wxTheApp->SetTopWindow(m_window.get());
+    m_aui.SetManagedWindow(m_window.get());
 
     // Load default the art provider
     m_artProvider = std::make_unique<StandardArtProvider>();
@@ -69,7 +72,10 @@ UiManager::UiManager() {
         wxDefaultPosition,
         wxDefaultSize,
         wxAUI_NB_DEFAULT_STYLE | wxAUI_NB_WINDOWLIST_BUTTON | wxAUI_NB_CLOSE_ON_ALL_TABS);
-    m_aui.AddPane(m_docArea, wxAuiPaneInfo().Name("fbideDocArea").CenterPane().PaneBorder(false));
+    m_aui.AddPane(m_docArea, wxAuiPaneInfo().Name("DocArea").CenterPane().PaneBorder(false));
+
+    // panels
+    m_panelHandler = std::make_unique<PanelHandler>(&m_aui);
 
     // toggle full screen
     GetCmdMgr().Register("fullscreen", { ID_FullScreen, CmdManager::Type::Check, false });

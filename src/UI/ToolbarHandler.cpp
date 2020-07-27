@@ -40,7 +40,7 @@ ToolbarHandler::ToolbarHandler(wxAuiManager* aui)
     m_window->Bind(wxEVT_COMMAND_MENU_SELECTED, &ToolbarHandler::OnCommandEvent, this, wxID_ANY);
 
     // toolbars menu
-    m_menu = new wxMenu;
+    m_menu = new wxMenu();
     cmd.Register("toolbars", { ::wxNewId(), CmdManager::Type::Menu, true, true, m_menu });
 
     // toggle toolbars
@@ -205,6 +205,7 @@ void ToolbarHandler::ShowToolbars(bool show) {
  * Handle events
  */
 void ToolbarHandler::OnEvent(wxCommandEvent& event) {
+    wxLogMessage("void ToolbarHandler::OnEvent(wxCommandEvent& event)");
     // allow others to catch the event
     event.Skip();
 

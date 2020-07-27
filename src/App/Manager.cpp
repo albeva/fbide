@@ -6,6 +6,7 @@
 #include "Editor/TypeManager.hpp"
 #include "UI/CmdManager.hpp"
 #include "UI/UiManager.hpp"
+#include "Log/LogManager.hpp"
 using namespace fbide;
 
 //------------------------------------------------------------------------------
@@ -84,16 +85,22 @@ Manager::Manager() = default;
 // clean up. Managers must shut down
 // in defined order
 Manager::~Manager() {
+    if (m_log) {
+        m_log.reset();
+    }
     if (m_ui) {
         m_ui->Unload();
         m_ui.reset();
     }
-    if (m_cmd)
+    if (m_cmd) {
         m_cmd.reset();
-    if (m_type)
+    }
+    if (m_type) {
         m_type.reset();
-    if (m_cfg)
+    }
+    if (m_cfg) {
         m_cfg.reset();
+    }
 }
 
 
@@ -103,6 +110,7 @@ void Manager::Load() {
     m_cmd = std::make_unique<CmdManager>();
     m_type = std::make_unique<TypeManager>();
     m_ui = std::make_unique<UiManager>();
+    m_log = std::make_unique<LogManager>();
 }
 
 /**

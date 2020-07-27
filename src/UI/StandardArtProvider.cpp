@@ -75,6 +75,7 @@ namespace XPM {
 #include "xpm/undo.xpm"
 #include "xpm/update.xpm"
 #include "xpm/xpm_goto.xpm"
+#include "xpm/toggle_log.xpm"
 }; // namespace XPM
 
 // map containing the icons
@@ -142,6 +143,7 @@ StringMap<wxBitmap> _icons{
     { "undo", XPM::undo },
     { "update", XPM::update },
     { "goto", XPM::xpm_goto },
+    { "toggle_log", XPM::toggle_log }
 };
 
 // map aliases to icons.
@@ -180,7 +182,6 @@ const wxBitmap& StandardArtProvider::GetIcon(const wxString& name) {
 
     return wxNullBitmap;
 }
-
 
 /**
  * Get bitmap size

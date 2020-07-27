@@ -14,6 +14,7 @@ class MainWindow;
 class IArtProvider;
 class MenuHandler;
 class ToolbarHandler;
+class PanelHandler;
 
 /**
  * Manage fbide UI.
@@ -35,6 +36,7 @@ public:
 
     inline MainWindow* GetWindow() { return m_window.get(); }
     inline wxAuiNotebook* GetDocArea() { return m_docArea; }
+    inline PanelHandler* GetPanelHandler() { return m_panelHandler.get(); }
 
     /**
      * Bind cleaner function for given wxWindow object
@@ -72,6 +74,7 @@ private:
     std::unique_ptr<IArtProvider> m_artProvider;
     std::unique_ptr<MenuHandler> m_menuHandler;
     std::unique_ptr<ToolbarHandler> m_tbarHandler;
+    std::unique_ptr<PanelHandler> m_panelHandler;
     std::unordered_map<wxWindow*, CloseFn> m_closers;
 
     wxDECLARE_EVENT_TABLE();

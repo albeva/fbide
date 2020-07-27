@@ -12,6 +12,7 @@ class UiManager;
 class ConfigManager;
 class CmdManager;
 class TypeManager;
+class LogManager;
 class Config;
 
 /**
@@ -105,6 +106,7 @@ private:
     std::unique_ptr<ConfigManager> m_cfg;
     std::unique_ptr<CmdManager> m_cmd;
     std::unique_ptr<TypeManager> m_type;
+    std::unique_ptr<LogManager> m_log;
 };
 
 } // namespace fbide
