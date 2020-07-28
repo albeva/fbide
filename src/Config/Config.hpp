@@ -70,7 +70,7 @@ private:
      * If T is std::string, std::wstring, char* or whar_t* then reduce to wxString, otherwise decay T to base type.
      */
     template<typename T>
-    using ReduceType = std::conditional_t<is_one_of<T, char*, wchar_t*, std::string, std::wstring>(), wxString, std::decay_t<T>>;
+    using ReduceType = std::conditional_t<std::is_constructible_v<wxString, T>, wxString, std::decay_t<T>>;
 
 public:
 
@@ -95,7 +95,7 @@ public:
     explicit Config(const T& val): m_val(std::in_place_type<B>, val) {}
 
     template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
-    explicit Config(T&& val) noexcept: m_val(std::in_place_type<B>, std::move(val)) {}
+    explicit Config(T&& val) noexcept: m_val(std::in_place_type<B>, std::forward<T>(val)) {}
 
     /**
      * Assign value to config
@@ -111,7 +111,7 @@ public:
 
     template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
     inline Config& operator=(T&& rhs) noexcept {
-        m_val.emplace<B>(std::move(rhs));
+        m_val.emplace<B>(std::forward<T>(rhs));
         return *this;
     }
 
@@ -371,7 +371,7 @@ public:
     [[nodiscard]] inline B Get(const wxString& path, T&& def) const noexcept {
         auto node = Get(path);
         if (node == nullptr || !node->Is<B>()) {
-            return std::move(def);
+            return std::forward<T>(def);
         }
         return node->As<B>();
     }

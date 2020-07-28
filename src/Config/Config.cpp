@@ -102,25 +102,22 @@ struct PathParser {
     /**
      * Possible token types
      */
-    enum class Type {
+    enum class Type: uint8_t {
         Invalid,
         Key,
         Index,
         End
     };
 
-    /**
-     * Represent a token
-     */
     struct Token {
-        Type type;
-        wxString str;
+        Type type:2;
+        uint8_t len:6;
     };
 
     /**
      * Create path parser
      */
-    PathParser(const wxString& path) : m_path(path) {}
+    PathParser(const wxString& path) noexcept: m_path(path) {}
 
     static inline bool IsIdChar(char ch) {
         return std::isalnum(ch) || ch == '_';
@@ -141,8 +138,7 @@ struct PathParser {
                 do {
                     m_pos++;
                 } while (m_pos < len && IsIdChar(m_path[m_pos]));
-                auto lex = m_path.SubString(start, m_pos - 1);
-                return Token{ Type::Key, lex };
+                return {Type::Key, static_cast<uint8_t>(m_pos - start)};
             }
 
             // digit
@@ -150,8 +146,7 @@ struct PathParser {
                 do {
                     m_pos++;
                 } while (m_pos < len && std::isdigit(m_path[m_pos]));
-                auto lex = m_path.SubString(start, m_pos - 1);
-                return Token{ Type::Index, lex };
+                return {Type::Index, static_cast<uint8_t>(m_pos - start - 1)};
             }
 
             // index
@@ -163,17 +158,14 @@ struct PathParser {
                     m_pos++;
                 } while (m_pos < len && std::isdigit(m_path[m_pos]));
 
-                // extract the number
-                auto lex = m_path.SubString(start, m_pos - 1);
-
                 // closing
                 if (m_path[m_pos] != ']') {
-                    return Token{ Type::Invalid, "Excpected closing ']'" };
+                    return {Type::Invalid, 0};
                 }
                 m_pos++;
 
                 // done
-                return Token{ Type::Index, lex };
+                return {Type::Index, static_cast<uint8_t>(m_pos - start - 2)};
             }
 
             // dot. skip
@@ -183,11 +175,11 @@ struct PathParser {
             }
 
             // something wrong
-            return Token{ Type::Invalid, "Invalid config path" };
+            return {Type::Invalid, 0};
         }
 
         // the end
-        return Token{ Type::End };
+        return {Type::End, 0};
     }
 
 private:
@@ -216,33 +208,42 @@ Config& Config::operator[](const wxString& path) {
     auto node = this;
 
     PathParser parser{ path };
+    int offset = 0;
     for (;;) {
-        auto&& t = parser.Next();
+        const auto tkn = parser.Next();
+        const auto typ = tkn.type;
+        const auto len = tkn.len;
 
         // finish?
-        if (t.type == PathParser::Type::End) {
+        if (typ == PathParser::Type::End) {
             break;
         }
 
-        switch (t.type) {
+        switch (typ) {
         case PathParser::Type::Invalid: {
-            throw std::domain_error(t.str);
+            throw std::domain_error("Invalid path");
             break;
         }
         case PathParser::Type::Key: {
             auto& map = node->AsMap();
-            auto it = map.find(t.str);
+            auto str = path.Mid(offset, len);
+            offset += len + 1;
+
+            auto it = map.find(str);
             if (it != map.end()) {
                 node = &it->second;
             } else {
-                auto r = map.emplace(std::make_pair(t.str, Config()));
+                auto r = map.emplace(std::make_pair(str, Config()));
                 node = &r.first->second;
             }
             break;
         }
         case PathParser::Type::Index: {
             unsigned long index;
-            if (!t.str.ToULong(&index)) {
+            auto str = path.Mid(offset + 1, len);
+            offset += len + 2;
+
+            if (!str.ToULong(&index)) {
                 index = MaxULong;
             }
 
@@ -275,21 +276,27 @@ const Config* Config::Get(const wxString& path) const noexcept {
     auto node = this;
 
     PathParser parser{ path };
+    int offset = 0;
     for (;;) {
-        auto t = parser.Next();
+        const auto tkn = parser.Next();
+        const auto typ = tkn.type;
+        const auto len = tkn.len;
 
         // finish?
-        if (t.type == PathParser::Type::End) {
+        if (typ == PathParser::Type::End) {
             break;
         }
 
-        switch (t.type) {
+        switch (typ) {
         case PathParser::Type::Key: {
             if (!node->IsMap()) {
                 return nullptr;
             }
             auto& map = node->AsMap();
-            auto it = map.find(t.str);
+            auto str = path.Mid(offset, len);
+            offset += len + 1;
+
+            auto it = map.find(str);
             if (it != map.end()) {
                 node = &it->second;
             } else {
@@ -302,8 +309,11 @@ const Config* Config::Get(const wxString& path) const noexcept {
                 return nullptr;
             }
 
+            auto str = path.Mid(offset + 1, len);
+            offset += len + 2;
+
             unsigned long index;
-            if (!t.str.ToULong(&index)) {
+            if (!str.ToULong(&index)) {
                 index = MaxULong;
             }
 
