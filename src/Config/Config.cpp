@@ -90,106 +90,31 @@ const auto MaxULong = std::numeric_limits<unsigned long>::max();
 
 /**
  * Simple config path parser. Keys are separated by "."
- * and array indexes enclosed within square brackets.
- *
- * EBNF:
- * path  := part { "." part }
- * part  := key | index
- * key   := <id>
- * index := "[" <num> "]" | <num>
  */
 struct PathParser {
-    /**
-     * Possible token types
-     */
-    enum class Type: uint8_t {
-        Invalid,
-        Key,
-        Index,
-        End
-    };
-
-    struct Token {
-        Type type:2;
-        uint8_t len:6;
-    };
-
     /**
      * Create path parser
      */
     PathParser(const wxString& path) noexcept: m_path(path) {}
 
-    static inline bool IsIdChar(char ch) {
-        return std::isalnum(ch) || ch == '_';
-    }
-
     /**
      * Get next token
      */
-    Token Next() noexcept {
+    int Next() noexcept {
         const auto len = m_path.length();
 
-        while (m_pos < len) {
-            auto start = m_pos;
-            char ch = m_path[m_pos];
-
-            // id
-            if (std::isalpha(ch) || ch == '_') {
-                do {
-                    m_pos++;
-                } while (m_pos < len && IsIdChar(m_path[m_pos]));
-                return {Type::Key, static_cast<uint8_t>(m_pos - start)};
-            }
-
-            // digit
-            if (std::isdigit(ch)) {
-                do {
-                    m_pos++;
-                } while (m_pos < len && std::isdigit(m_path[m_pos]));
-                return {Type::Index, static_cast<uint8_t>(m_pos - start - 1)};
-            }
-
-            // index
-            if (ch == '[') {
-                start++;
-
-                // while is number
-                do {
-                    m_pos++;
-                } while (m_pos < len && std::isdigit(m_path[m_pos]));
-
-                // closing
-                if (m_path[m_pos] != ']') {
-                    return {Type::Invalid, 0};
-                }
-                m_pos++;
-
-                // done
-                return {Type::Index, static_cast<uint8_t>(m_pos - start - 2)};
-            }
-
-            // dot. skip
-            if (ch == '.') {
-                m_pos++;
-                continue;
-            }
-
-            // something wrong
-            return {Type::Invalid, 0};
-        }
-
-        // the end
-        return {Type::End, 0};
+        auto start = m_pos;
+        while (m_pos < len && m_path[m_pos] != '.') m_pos++;
+        return m_pos - start;
     }
 
-private:
     size_t m_pos{ 0 };
     const wxString& m_path;
 };
 
 } // namespace
 
-Config Config::Empty{};
+const Config Config::Empty{};
 
 /**
  * Load YAML file
@@ -208,59 +133,23 @@ Config& Config::operator[](const wxString& path) {
     auto node = this;
 
     PathParser parser{ path };
-    int offset = 0;
     for (;;) {
-        const auto tkn = parser.Next();
-        const auto typ = tkn.type;
-        const auto len = tkn.len;
+        const auto len = parser.Next();
 
-        // finish?
-        if (typ == PathParser::Type::End) {
+        if (len == 0) {
             break;
         }
 
-        switch (typ) {
-        case PathParser::Type::Invalid: {
-            throw std::domain_error("Invalid path");
-            break;
-        }
-        case PathParser::Type::Key: {
-            auto& map = node->AsMap();
-            auto str = path.Mid(offset, len);
-            offset += len + 1;
+        auto& map = node->AsMap();
+        auto str = path.Mid(parser.m_pos - len, len);
+        parser.m_pos += 1;
 
-            auto it = map.find(str);
-            if (it != map.end()) {
-                node = &it->second;
-            } else {
-                auto r = map.emplace(std::make_pair(str, Config()));
-                node = &r.first->second;
-            }
-            break;
-        }
-        case PathParser::Type::Index: {
-            unsigned long index;
-            auto str = path.Mid(offset + 1, len);
-            offset += len + 2;
-
-            if (!str.ToULong(&index)) {
-                index = MaxULong;
-            }
-
-            auto& arr = node->AsArray();
-            if (index < arr.size()) {
-                node = &arr[index];
-            } else if (index == arr.size() || index == MaxULong) {
-                arr.emplace_back(Config());
-                node = &arr.back();
-            } else {
-                throw std::out_of_range("Invalid index in config path");
-            }
-            break;
-        }
-        case PathParser::Type::End: {
-            break;
-        }
+        auto it = map.find(str);
+        if (it != map.end()) {
+            node = &it->second;
+        } else {
+            auto r = map.emplace(str, Config());
+            node = &r.first->second;
         }
     }
 
@@ -276,58 +165,25 @@ const Config* Config::Get(const wxString& path) const noexcept {
     auto node = this;
 
     PathParser parser{ path };
-    int offset = 0;
     for (;;) {
-        const auto tkn = parser.Next();
-        const auto typ = tkn.type;
-        const auto len = tkn.len;
-
-        // finish?
-        if (typ == PathParser::Type::End) {
+        const auto len = parser.Next();
+        if (len == 0) {
             break;
         }
 
-        switch (typ) {
-        case PathParser::Type::Key: {
-            if (!node->IsMap()) {
-                return nullptr;
-            }
-            auto& map = node->AsMap();
-            auto str = path.Mid(offset, len);
-            offset += len + 1;
-
-            auto it = map.find(str);
-            if (it != map.end()) {
-                node = &it->second;
-            } else {
-                return nullptr;
-            }
-            break;
-        }
-        case PathParser::Type::Index: {
-            if (!node->IsArray()) {
-                return nullptr;
-            }
-
-            auto str = path.Mid(offset + 1, len);
-            offset += len + 2;
-
-            unsigned long index;
-            if (!str.ToULong(&index)) {
-                index = MaxULong;
-            }
-
-            auto& arr = node->AsArray();
-            if (index < arr.size()) {
-                node = &arr[index];
-            } else {
-                return nullptr;
-            }
-            break;
-        }
-        default: {
+        if (!node->IsMap()) {
             return nullptr;
         }
+
+        auto& map = node->AsMap();
+        auto str = path.Mid(parser.m_pos - len, len);
+        parser.m_pos += 1;
+
+        auto it = map.find(str);
+        if (it != map.end()) {
+            node = &it->second;
+        } else {
+            return nullptr;
         }
     }
 

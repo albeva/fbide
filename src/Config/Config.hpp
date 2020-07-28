@@ -29,6 +29,11 @@ namespace fbide {
 class Config final {
 public:
     /**
+     * Referencable empty value
+     */
+    static const Config Empty;
+
+    /**
      * Config node type for use with node.GetType() method
      */
     enum class Type: int {
@@ -51,26 +56,24 @@ public:
      */
     using Array = std::vector<Config>;
 
-    static Config Empty;
-
 private:
 
     /**
-     * Types must be in the same order as Type enum
+     * Types must be in the same order as in Type enum
      */
     using Value = std::variant<std::monostate, wxString, bool, int, double, Map, Array>;
+
+    /**
+     * If wxString is constructible from T then wxString, otherwise, decay T to its base type.
+     */
+    template<typename T>
+    using ReduceType = std::conditional_t<std::is_constructible_v<wxString, T>, wxString, std::decay_t<T>>;
 
     /**
      * Shortcut to std::enable_if for supported types
      */
     template<typename T>
-    using EnableIf = std::enable_if_t<is_one_of<T, wxString, bool, int, double, Map, Array>(), int>;
-
-    /**
-     * If T is std::string, std::wstring, char* or whar_t* then reduce to wxString, otherwise decay T to base type.
-     */
-    template<typename T>
-    using ReduceType = std::conditional_t<std::is_constructible_v<wxString, T>, wxString, std::decay_t<T>>;
+    using CheckType = std::enable_if_t<std::is_constructible_v<Value, T>, int>;
 
 public:
 
@@ -91,10 +94,10 @@ public:
      * @tparam T where T is supported string, bool, int, double, Map or an Array
      * @param val
      */
-    template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
+    template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
     explicit Config(const T& val): m_val(std::in_place_type<B>, val) {}
 
-    template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
+    template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
     explicit Config(T&& val) noexcept: m_val(std::in_place_type<B>, std::forward<T>(val)) {}
 
     /**
@@ -103,13 +106,13 @@ public:
      * @tparam T where T is supported string, bool, int, double, Map or an Array
      * @param val
      */
-    template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
+    template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
     inline Config& operator=(const T& rhs) {
         m_val.emplace<B>(rhs);
         return *this;
     }
 
-    template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
+    template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
     inline Config& operator=(T&& rhs) noexcept {
         m_val.emplace<B>(std::forward<T>(rhs));
         return *this;
@@ -121,9 +124,9 @@ public:
     void LoadYaml(const wxString& path);
 
     /**
-     * Check if Configs are equal
+     * Comparisons
      */
-    [[nodiscard]] bool operator==(const Config& rhs) const noexcept {
+    [[nodiscard]] bool operator == (const Config& rhs) const noexcept {
         return m_val == rhs.m_val;
     }
 
@@ -281,12 +284,6 @@ public:
      * exist it is silently created. If leaf (last bit of the path) doesn't
      * exist it is created as an empty node (IsEmpty() will return true)
      *
-     * If any key points to a wrong type this will throw an exception
-     *
-     * If any part of the path is a number (unsigned long) then it is
-     * considered to be an index into an array. Array will be created only
-     * if index is next in sequence. Otherwise there will be an exception
-     *
      * @throws std::bad_variant_access
      */
     [[nodiscard]] Config& operator[](const wxString& path);
@@ -338,7 +335,7 @@ public:
      *
      * @tparam T where T is supported string, bool, int, double, Map or an Array
      */
-    template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
+    template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
     [[nodiscard]] inline bool operator==(const T& rhs) const noexcept {
         if (!Is<B>())
             return false;
@@ -348,7 +345,7 @@ public:
     /**
      * Inequality check
      */
-    template<typename T, EnableIf<T> = 0>
+    template<typename T, CheckType<T> = 0>
     [[nodiscard]] inline bool operator!=(const T& rhs) const noexcept {
         return !(*this == rhs);
     }
@@ -358,7 +355,7 @@ public:
      *
      * This returns by value!
      */
-    template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
+    template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
     [[nodiscard]] inline B Get(const wxString& path, const T& def) const noexcept {
         auto node = Get(path);
         if (node == nullptr || !node->Is<B>()) {
@@ -367,7 +364,7 @@ public:
         return node->As<B>();
     }
 
-    template<typename T, typename B = ReduceType<T>, EnableIf<B> = 0>
+    template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
     [[nodiscard]] inline B Get(const wxString& path, T&& def) const noexcept {
         auto node = Get(path);
         if (node == nullptr || !node->Is<B>()) {
@@ -383,7 +380,7 @@ private:
      *
      * if (value.Is<wxString>()) { ... }
      */
-    template<typename T, EnableIf<T> = 0>
+    template<typename T, CheckType<T> = 0>
     [[nodiscard]] inline bool Is() const noexcept {
         return std::holds_alternative<T>(m_val);
     }
@@ -395,15 +392,15 @@ private:
      *
      * @throws std::bad_variant_access
      */
-    template<typename T, EnableIf<T> = 0>
+    template<typename T, CheckType<T> = 0>
     [[nodiscard]] inline T& As() {
         if (IsEmpty()) {
-            m_val = T();
+            m_val.emplace<T>();
         }
         return std::get<T>(m_val);
     }
 
-    template<typename T, EnableIf<T> = 0>
+    template<typename T, CheckType<T> = 0>
     [[nodiscard]] inline const T& As() const {
         return std::get<T>(m_val);
     }
