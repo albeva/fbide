@@ -84,7 +84,7 @@ CmdManager::Entry& CmdManager::GetEntry(const wxString& name) {
     int id;
     auto iter = m_idMap.find(name);
     if (iter == m_idMap.end()) {
-        id = Register(name, {});
+        id = Register(name, Entry{::wxNewId()});
     } else {
         id = iter->second;
     }
@@ -133,9 +133,10 @@ void CmdManager::Check(int id, bool state) {
         return;
     }
 
-    if (entry->type != Type::Check || entry->checked == state) {
+    if (entry->type != Type::Check) {
         return;
     }
+
     entry->checked = state;
 }
 
@@ -147,6 +148,7 @@ void CmdManager::Enable(int id, bool state) {
     if (entry == nullptr) {
         return;
     }
+
     if (entry->enabled == state) {
         return;
     }

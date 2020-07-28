@@ -36,6 +36,7 @@ wxBEGIN_EVENT_TABLE(UiManager, wxEvtHandler)
     EVT_MENU(wxID_OPEN, UiManager::OnOpen)
     EVT_MENU(wxID_SAVE, UiManager::OnSave)
     EVT_AUINOTEBOOK_PAGE_CLOSE(ID_DocNotebook, UiManager::OnPaneClose)
+    EVT_UPDATE_UI(wxID_ANY, UiManager::OnUpdateUI)
 wxEND_EVENT_TABLE()
 
 // Instantiate classes, but specific
@@ -105,21 +106,15 @@ void UiManager::Load() {
     m_aui.Update();
 }
 
-/**
- * Set art provider
- */
 void UiManager::SetArtProvider(IArtProvider* artProvider) {
     m_artProvider = std::unique_ptr<IArtProvider>{ artProvider };
 }
 
-/**
- * Handle command events
- */
 void UiManager::HandleMenuEvents(wxCommandEvent& event) {
     // allow others to catch
     event.Skip();
 
-    // let CmdMagr check the status (if this is a registered check)
+    // let CmdMgr check the status (if this is a registered check)
     GetCmdMgr().Check(event.GetId(), event.IsChecked());
 
     if (event.GetId() == ID_FullScreen) {
@@ -127,23 +122,25 @@ void UiManager::HandleMenuEvents(wxCommandEvent& event) {
     }
 }
 
-/**
- * Open new blank default document
- */
-void UiManager::OnNew(wxCommandEvent& event) {
-    wxWindowUpdateLocker lock{ m_window.get() };
-    auto& type = GetTypeMgr();
-    auto doc = type.CreateFromType("default");
-    doc->Create();
+void UiManager::OnUpdateUI(wxUpdateUIEvent &event) {
+    auto id = event.GetId();
+    auto* entry = GetCmdMgr().FindEntry(id);
+
+    if (entry == nullptr) {
+        return;
+    }
+
+    if (entry->type == CmdManager::Type::Check) {
+        event.Check(entry->checked);
+    }
+    event.Enable(entry->enabled);
 }
 
-/**
- * Close AUI pane
- */
+// TODO: Move tab handling out of UIManager
+
 void UiManager::OnPaneClose(wxAuiNotebookEvent& event) {
     event.Veto();
-    auto index = event.GetSelection();
-    CloseTab(index);
+    CloseTab(event.GetSelection());
 }
 
 void UiManager::CloseTab(size_t index) {
@@ -157,14 +154,18 @@ void UiManager::CloseTab(size_t index) {
     }
 }
 
-/**
- * Show open file dialog
- */
+// TODO: Move file handling out of UIManager
+
+void UiManager::OnNew(wxCommandEvent& event) {
+    wxWindowUpdateLocker lock{ m_window.get() };
+    auto& type = GetTypeMgr();
+    auto doc = type.CreateFromType("default");
+    doc->Create();
+}
+
 void UiManager::OnOpen(wxCommandEvent& event) {
 }
 
-/**
- * Save currently active document
- */
 void UiManager::OnSave(wxCommandEvent& event) {
 }
+

@@ -28,51 +28,24 @@ public:
      */
     void Load(Config& config);
 
-    /**
-     * Get toolbar for given id. nullptr if not found
-     */
+private:
+
     wxAuiToolBar* GetToolBar(const wxString& id);
-
-    /**
-     * Add toolbar
-     */
     void AddToolBar(const wxString& name, wxAuiToolBar* toolbar, bool show = true);
-
-    /**
-     * Add toolbar item
-     */
     void AddItem(wxAuiToolBar* tbar, const wxString& name);
 
-    /**
-     * Show (or hide) all toolbars
-     */
-    void ShowToolbars(bool show);
-
-    /**
-     * Handle events
-     */
-    void OnEvent(wxCommandEvent& event);
-
-    /**
-     * Handle toolbar pane close event
-     */
-    void OnPaneClose(wxAuiManagerEvent& event);
-
-    /**
-     * Listen for menu command (toggle toolbar(s))
-     */
     void OnMenuSelected(wxCommandEvent& event);
+    void ShowToolbars(bool show);
+    void ToggleToolbar(int id, bool show);
 
-
-private:
     wxAuiManager* m_aui;
     wxMenu* m_menu;     // toolbars menu
-    wxWindow* m_window; // owning window
     bool m_visible;     // toolbars visible
     int m_visibleCnt;   // visible toolbar count
     StringMap<wxAuiToolBar*> m_tbars;
     std::unordered_map<int, bool> m_visibleTbars;
-    std::unordered_map<int, int> m_idBridge;
+    std::unordered_map<int, int> m_tbarMenuId;
+
 };
 
 } // namespace fbide

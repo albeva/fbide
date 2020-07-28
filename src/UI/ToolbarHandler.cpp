@@ -6,6 +6,7 @@
 //  Copyright © 2016 Albert Varaksin. All rights reserved.
 //
 
+#include <Editor/TypeManager.hpp>
 #include "ToolbarHandler.hpp"
 #include "CmdManager.hpp"
 #include "IArtProvider.hpp"
@@ -27,12 +28,10 @@ const int ToolBarStyle = (wxAUI_TB_GRIPPER | wxAUI_TB_OVERFLOW);
  */
 ToolbarHandler::ToolbarHandler(wxAuiManager* aui)
 : m_aui(aui), m_visible(true), m_visibleCnt(0) {
-    m_window = aui->GetManagedWindow();
+    auto m_window = m_aui->GetManagedWindow();
 
     auto& cmd = GetCmdMgr();
 
-    //
-    m_aui->Bind(wxEVT_AUI_PANE_CLOSE, &ToolbarHandler::OnPaneClose, this, wxID_ANY);
     m_window->Bind(wxEVT_COMMAND_MENU_SELECTED, &ToolbarHandler::OnMenuSelected, this, wxID_ANY);
 
     // toolbars menu
@@ -50,6 +49,7 @@ ToolbarHandler::ToolbarHandler(wxAuiManager* aui)
 void ToolbarHandler::Load(Config& structure) {
     auto& ui = GetUiMgr();
     auto& art = ui.GetArtProvider();
+    auto m_window = m_aui->GetManagedWindow();
 
     for (auto& node : structure.AsArray()) {
         auto& id = node["id"].AsString();
@@ -159,42 +159,13 @@ void ToolbarHandler::AddToolBar(const wxString& name, wxAuiToolBar* toolbar, boo
     item->Check(isVisible);
 
     // id bridge. Is this OK? each ID should be unique ... so it should be okay
-    m_idBridge[toolbar->GetId()] = menuId;
-    m_idBridge[menuId] = toolbar->GetId();
+    m_tbarMenuId[toolbar->GetId()] = menuId;
+    m_tbarMenuId[menuId] = toolbar->GetId();
 }
 
-
-/**
- * Show (or hide) all toolbars
- */
-void ToolbarHandler::ShowToolbars(bool show) {
-    if (m_visible == show)
-        return;
-    m_visible = show;
-
-    for (auto iter : m_tbars) {
-        auto tbar = iter.second;
-        if (m_visibleTbars[tbar->GetId()]) {
-            m_aui->GetPane(tbar).Show(show);
-            m_visibleCnt += show ? 1 : -1;
-
-            auto idIter = m_idBridge.find(tbar->GetId());
-            if (idIter == m_idBridge.end())
-                continue;
-
-            if (m_menu) {
-                auto item = m_menu->FindItem(idIter->second);
-                if (item) {
-                    item->Check(show);
-                }
-            }
-        }
-    }
-    m_aui->Update();
-
-    // check
-    // GetCmdMgr().Check(ID_ToggleToolbars, m_visibleCnt != 0);
-}
+//-----------------------
+// Handle menu commands
+//-----------------------
 
 // toolbars menu item clicked
 void ToolbarHandler::OnMenuSelected(wxCommandEvent& event) {
@@ -210,15 +181,46 @@ void ToolbarHandler::OnMenuSelected(wxCommandEvent& event) {
         return;
     }
 
-    // find the id. Skip otherwise
-    auto iter = m_idBridge.find(id);
-    if (iter == m_idBridge.end())
+    // Toggle toolbar?
+    auto iter = m_tbarMenuId.find(id);
+    if (iter != m_tbarMenuId.end()) {
+        bool show = event.IsChecked();
+        int tbId = iter->second;
+        ToggleToolbar(tbId, show);
         return;
+    }
+}
 
-    bool show = event.IsChecked();
-    int tbId = iter->second;
+void ToolbarHandler::ShowToolbars(bool show) {
+    if (m_visible == show)
+        return;
+    m_visible = show;
 
-    // show only given toolbar (since all others were hidden)
+    for (auto iter : m_tbars) {
+        auto tbar = iter.second;
+        if (m_visibleTbars[tbar->GetId()]) {
+            m_aui->GetPane(tbar).Show(show);
+            m_visibleCnt += show ? 1 : -1;
+
+            auto idIter = m_tbarMenuId.find(tbar->GetId());
+            if (idIter == m_tbarMenuId.end())
+                continue;
+
+            if (m_menu) {
+                auto item = m_menu->FindItem(idIter->second);
+                if (item) {
+                    item->Check(show);
+                }
+            }
+        }
+    }
+    m_aui->Update();
+
+    // check
+    GetCmdMgr().Check(ID_ToggleToolbars, m_visibleCnt != 0);
+}
+
+void ToolbarHandler::ToggleToolbar(int id, bool show) {
     if (!m_visible && show) {
         for (auto& b : m_visibleTbars) {
             b.second = false;
@@ -229,54 +231,20 @@ void ToolbarHandler::OnMenuSelected(wxCommandEvent& event) {
     // toggle toolbar visibility
     for (auto tbar : m_tbars) {
         auto& pane = m_aui->GetPane(tbar.second);
-        if (pane.window->GetId() == tbId) {
-            pane.Show(show);
-            m_visibleCnt += show ? 1 : -1;
-            m_visibleTbars[tbId] = show;
-            m_aui->Update();
-            break;
+        if (pane.window->GetId() != id) {
+            continue;
         }
+        pane.Show(show);
+        m_visibleCnt += show ? 1 : -1;
+        m_visibleTbars[id] = show;
+        m_aui->Update();
     }
 
     // Set toggle button state
     if (m_visibleCnt) {
         m_visible = true;
     }
-//    GetCmdMgr().Check(ID_ToggleToolbars, m_visibleCnt != 0);
-//    GetCmdMgr().Enable(ID_ToggleToolbars, m_visibleCnt != 0);
-}
 
-
-// Close toolbar?
-void ToolbarHandler::OnPaneClose(wxAuiManagerEvent& event) {
-    // allow other event handlers to catch this event by default
-    event.Skip();
-
-    // not a toolbar pane ?
-    if (!event.GetPane()->IsToolbar())
-        return;
-
-    // find id mapping
-    int tbId = event.GetPane()->window->GetId();
-    auto iter = m_idBridge.find(tbId);
-    if (iter == m_idBridge.end())
-        return;
-
-    // don't skip event
-    event.Skip(false);
-
-    // update the menu
-    if (m_menu) {
-        wxMenuItem* item = m_menu->FindItem(iter->second);
-        if (item) {
-            item->Check(false);
-        }
-    }
-
-    m_visibleCnt--;
-    m_visibleTbars[tbId] = false;
-
-    // disable
-//    GetCmdMgr().Check(ID_ToggleToolbars, m_visibleCnt != 0);
-//    GetCmdMgr().Enable(ID_ToggleToolbars, m_visibleCnt != 0);
+    GetCmdMgr().Check(ID_ToggleToolbars, m_visibleCnt != 0);
+    GetCmdMgr().Enable(ID_ToggleToolbars, m_visibleCnt != 0);
 }

@@ -62,6 +62,7 @@ private:
     void OnOpen(wxCommandEvent& event);
     void OnSave(wxCommandEvent& event);
     void OnPaneClose(wxAuiNotebookEvent& event);
+    void OnUpdateUI(wxUpdateUIEvent & event);
 
     void CloseTab(size_t index);
 
