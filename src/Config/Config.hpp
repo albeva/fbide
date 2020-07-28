@@ -118,20 +118,34 @@ public:
         return *this;
     }
 
-    /**
-     * Load yaml file into this config object
-     */
-    void LoadYaml(const wxString& path);
+    //----------------------------------------------------------------------
+    // Load / Store
+    //----------------------------------------------------------------------
 
-    /**
-     * Comparisons
-     */
+    static Config LoadYaml(const wxString& path);
+
+    //----------------------------------------------------------------------
+    // Comparisons
+    //----------------------------------------------------------------------
+
     [[nodiscard]] bool operator == (const Config& rhs) const noexcept {
         return m_val == rhs.m_val;
     }
 
     [[nodiscard]] inline bool operator != (const Config& rhs) const noexcept {
         return m_val != rhs.m_val;
+    }
+
+    template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
+    [[nodiscard]] inline bool operator==(const T& rhs) const noexcept {
+        if (!Is<B>())
+            return false;
+        return As<B>() == rhs;
+    }
+
+    template<typename T, CheckType<T> = 0>
+    [[nodiscard]] inline bool operator!=(const T& rhs) const noexcept {
+        return !(*this == rhs);
     }
 
     //----------------------------------------------------------------------
@@ -328,26 +342,6 @@ public:
      */
     inline void Clear() noexcept {
         m_val = std::monostate();
-    }
-
-    /**
-     * Compare config to a value
-     *
-     * @tparam T where T is supported string, bool, int, double, Map or an Array
-     */
-    template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
-    [[nodiscard]] inline bool operator==(const T& rhs) const noexcept {
-        if (!Is<B>())
-            return false;
-        return As<B>() == rhs;
-    }
-
-    /**
-     * Inequality check
-     */
-    template<typename T, CheckType<T> = 0>
-    [[nodiscard]] inline bool operator!=(const T& rhs) const noexcept {
-        return !(*this == rhs);
     }
 
     /**

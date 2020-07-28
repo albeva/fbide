@@ -14,7 +14,7 @@ void ConfigManager::Load(const wxString& path) {
     if (!::wxFileExists(path)) {
         throw std::invalid_argument("fbide config file '" + path + "' not found");
     }
-    m_root.LoadYaml(path);
+    m_root = Config::LoadYaml(path);
 
     // set IDE path
     auto idePath = wxPathOnly(path);
@@ -37,6 +37,6 @@ void ConfigManager::Load(const wxString& path) {
         if (!::wxFileExists(file)) {
             throw std::invalid_argument("Language file not found."s + file.ToStdString());
         }
-        m_lang.LoadYaml(file);
+        m_lang = Config::LoadYaml(file);
     }
 }

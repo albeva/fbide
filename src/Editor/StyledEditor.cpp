@@ -11,12 +11,8 @@
 using namespace fbide;
 
 wxBEGIN_EVENT_TABLE(StyledEditor, wxStyledTextCtrl)
-    wxEND_EVENT_TABLE()
+wxEND_EVENT_TABLE()
 
+StyledEditor::StyledEditor() = default;
 
-        StyledEditor::StyledEditor() : wxStyledTextCtrl() {
-}
-
-
-StyledEditor::~StyledEditor() {
-}
+StyledEditor::~StyledEditor() = default;

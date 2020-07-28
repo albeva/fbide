@@ -83,11 +83,6 @@ struct convert<Config> {
 
 namespace {
 
-// "proper way" of getting max unsigned long that should be compatible
-// with different platforms
-const auto MaxULong = std::numeric_limits<unsigned long>::max();
-
-
 /**
  * Simple config path parser. Keys are separated by "."
  */
@@ -102,7 +97,6 @@ struct PathParser {
      */
     int Next() noexcept {
         const auto len = m_path.length();
-
         auto start = m_pos;
         while (m_pos < len && m_path[m_pos] != '.') m_pos++;
         return m_pos - start;
@@ -119,8 +113,8 @@ const Config Config::Empty{};
 /**
  * Load YAML file
  */
-void Config::LoadYaml(const wxString& path) {
-    m_val = YAML::LoadFile(path.ToStdString()).as<Config>().m_val;
+Config Config::LoadYaml(const wxString& path) {
+    return YAML::LoadFile(path.ToStdString()).as<Config>();
 }
 
 /**
