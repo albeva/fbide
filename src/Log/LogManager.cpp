@@ -25,10 +25,9 @@ LogManager::LogManager() {
     m_textCtrl->Hide();
 
     m_textCtrl->Bind(wxEVT_TEXT, [this, panelHandler, entry](auto){
-        if (m_textCtrl->IsShown()) {
-            return;
+        if (!m_textCtrl->IsShown()) {
+            panelHandler->ShowPanel(*entry);
         }
-        panelHandler->ShowPanel(*entry);
     });
 
     m_log = std::make_unique<wxLogTextCtrl>(m_textCtrl);
