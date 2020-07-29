@@ -156,3 +156,7 @@ CmdManager& Manager::GetCmdManager() {
 TypeManager& Manager::GetTypeManager() {
     return *m_type;
 }
+
+LogManager &Manager::GetLogManager() {
+    return *m_log;
+}

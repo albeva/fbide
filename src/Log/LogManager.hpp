@@ -13,9 +13,11 @@ public:
     LogManager();
     ~LogManager();
 
-    bool Show() final;
-    bool Hide() final;
+    wxWindow* ShowPanel() final;
+    bool HidePanel() final;
+
 private:
+    wxLogBuffer m_buffer;
     wxTextCtrl* m_textCtrl;
     std::unique_ptr<wxLogTextCtrl> m_log;
 };

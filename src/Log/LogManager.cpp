@@ -13,32 +13,42 @@ static const int ID_ToggleLog = ::wxNewId();
 LogManager::LogManager() {
     auto& uiMgr = GetUiMgr();
     auto* panelHandler = uiMgr.GetPanelHandler();
-//    auto* panelArea = panelHandler->GetPanelArea();
-//
-//    auto style = wxTE_MULTILINE | wxTE_READONLY;
-//    m_textCtrl = new wxTextCtrl(panelArea, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, style);
-//    panelArea->AddPage(m_textCtrl, "Log", true);
-//
-//    m_log = std::make_unique<wxLogTextCtrl>(m_textCtrl);
-//    wxLog::SetActiveTarget(m_log.get());
+    auto* entry = panelHandler->Register("toggle_log", ID_ToggleLog, [this]() { return this; });
+    if (entry == nullptr) {
+        wxLogError("Failed to register panel with PanelHandler");
+        return;
+    }
 
+    auto* panelArea = panelHandler->GetPanelArea();
+    auto style = wxTE_MULTILINE | wxTE_READONLY;
+    m_textCtrl = new wxTextCtrl(panelArea, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, style);
+    m_textCtrl->Hide();
 
-    panelHandler->Register("toggle_log", ID_ToggleLog, [this]() { return this; });
-    /*
-     * panelHandler->Register("log", [this]() { return this; });
-     */
+    m_textCtrl->Bind(wxEVT_TEXT, [this, panelHandler, entry](auto){
+        if (m_textCtrl->IsShown()) {
+            return;
+        }
+        panelHandler->ShowPanel(*entry);
+    });
 
+    m_log = std::make_unique<wxLogTextCtrl>(m_textCtrl);
+    wxLog::SetActiveTarget(m_log.get());
 }
 
 LogManager::~LogManager() {
-//    wxLog::SetActiveTarget(nullptr);
-//    m_log.reset();
+    wxLog::SetActiveTarget(nullptr);
 }
 
-bool LogManager::Show() {
-    return false;
+wxWindow* LogManager::ShowPanel() {
+    if (m_textCtrl != nullptr) {
+        m_textCtrl->Show();
+    }
+    return m_textCtrl;
 }
 
-bool LogManager::Hide() {
-    return false;
+bool LogManager::HidePanel() {
+    if (m_textCtrl != nullptr) {
+        m_textCtrl->Hide();
+    }
+    return true;
 }

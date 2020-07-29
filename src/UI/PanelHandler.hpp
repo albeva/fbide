@@ -14,22 +14,21 @@ class Config;
 class Panel {
 public:
     virtual ~Panel();
-    virtual bool Show() = 0;
-    virtual bool Hide() = 0;
+    /**
+     * If returns a window then show that as a panel. If it is managed panel then
+     * PanelHandler will take ownership of it.
+     * @return window or nullptr
+     */
+    virtual wxWindow* ShowPanel() = 0;
+
+    /**
+     * If returns true then remove the panel. If it is managed panel then
+     * delete the window.
+     * @return true to remove the panel
+     */
+    virtual bool HidePanel() = 0;
 };
 
-/**
- * Manage panel area.
- * Register panel providers. Similar to Toolbar and menu system
- *
- * Each registered panel
- * - has name that can be looked up from lang
- * - icon that can be fetched from ArtProvider
- * - options:
- *   * closable
- * - panel UI can still be loaded, but may be detached / reattached
- * - panels can be toggled from toolbar / menu
- */
 class PanelHandler final: public wxEvtHandler {
     NON_COPYABLE(PanelHandler)
 public:
@@ -43,12 +42,12 @@ public:
     * Registered type information
     */
     struct Entry {
-        wxString name;          // key for config, art and translations
-        int id;                 // command id
-        const Config& config;   // optional Config object
-        PanelCreatorFn creator; // creator function
-        bool managed;           // create/destroy automatically
-        Panel* panel;           // the managed panel
+        wxString name;              // key for config, art and translations
+        int id;                     // command id
+        PanelCreatorFn creator;     // creator function
+        bool managed;               // create/destroy automatically
+        Panel* panel = nullptr;     // the managed panel
+        wxWindow* window = nullptr; // the panel window
     };
 
     /**
@@ -67,7 +66,7 @@ public:
      * @param id wx command ID
      * @param creator
      */
-    void Register(const wxString& name, int id, PanelCreatorFn creator);
+    Entry* Register(const wxString& name, int id, PanelCreatorFn creator);
 
     /**
      * Is given panel registered?
@@ -90,14 +89,20 @@ public:
 
     inline wxAuiNotebook* GetPanelArea() { return m_panelArea; }
 
+    bool ShowPanel(Entry &entry);
+    bool ClosePanel(Entry &entry);
+
+    [[nodiscard]] Entry* FindEntry(int id) noexcept;
+    [[nodiscard]] Entry* FindEntry(wxWindow* wnd) noexcept;
+
 private:
-    void OnPaneClose(wxAuiNotebookEvent& event);
-    void OnCmdCheck(wxCommandEvent& event);
+    void OnPaneWillClose(wxAuiNotebookEvent& event);
+    void OnPaneClosed(wxAuiNotebookEvent &event);
+    void HandleMenuEvents(wxCommandEvent& event);
 
     wxAuiNotebook* m_panelArea = nullptr;
     wxAuiManager* m_aui = nullptr;
     StringMap<Entry> m_entries;
-    std::unordered_map<int, Entry&> m_idLookup;
     int m_visibleCount = 0;
 
     wxDECLARE_EVENT_TABLE();

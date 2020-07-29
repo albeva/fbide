@@ -98,6 +98,9 @@ public:
     // Get type manager
     TypeManager& GetTypeManager();
 
+    // Get log
+    LogManager& GetLogManager();
+
 private:
     Manager();
     ~Manager();

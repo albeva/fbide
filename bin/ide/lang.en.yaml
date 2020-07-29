@@ -18,6 +18,11 @@ toolbar:
   toggle: Show toolbars
   build:  Build
 
+# Panels
+panel:
+  toggle_log:
+    title: Log
+
 Cmd:
   new:
     name: New
