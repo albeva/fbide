@@ -13,7 +13,6 @@ Panel::~Panel() = default;
 
 BEGIN_EVENT_TABLE(PanelHandler, wxEvtHandler)
     EVT_AUINOTEBOOK_PAGE_CLOSE(ID_PanelsNotebook,  PanelHandler::OnPaneWillClose)
-    EVT_AUINOTEBOOK_PAGE_CLOSED(ID_PanelsNotebook, PanelHandler::OnPaneClosed)
     EVT_MENU(wxID_ANY, PanelHandler::HandleMenuEvents)
 END_EVENT_TABLE()
 
@@ -66,10 +65,6 @@ void PanelHandler::OnPaneWillClose(wxAuiNotebookEvent &event) {
     if (auto entry = FindEntry(window)) {
         ClosePanel(*entry);
     }
-}
-
-void PanelHandler::OnPaneClosed(wxAuiNotebookEvent& event) {
-
 }
 
 void PanelHandler::HandleMenuEvents(wxCommandEvent &event) {

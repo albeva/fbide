@@ -97,7 +97,6 @@ public:
 
 private:
     void OnPaneWillClose(wxAuiNotebookEvent& event);
-    void OnPaneClosed(wxAuiNotebookEvent &event);
     void HandleMenuEvents(wxCommandEvent& event);
 
     wxAuiNotebook* m_panelArea = nullptr;
