@@ -2,7 +2,7 @@
 const char *redo[] = {
 "16 16 45 1",
 " 	c None",
-".	c #BFBFBF",
+".	c None",
 "+	c #4E9A06",
 "@	c #AEF36C",
 "#	c #8F9B0C",

@@ -100,7 +100,7 @@ const char *srchrep[] = {
 "o. c #FEFEFD",
 "O. c #FEFEFE",
 "+. c gray100",
-"@. c gray75",
+"@. c None",
 /* pixels */
 "@.@.@.+ 3 3 3 + @.@.@.@.@.@.@.@.",
 "@.@.@ 3 N V M 3 @ @.@.@.@.@.@.@.",

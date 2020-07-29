@@ -6,7 +6,7 @@ const char *minall[] = {
 ". c #686868",
 "X c #3675D0",
 "o c #6595DB",
-"O c gray75",
+"O c None",
 "+ c #87ADE3",
 "@ c #9DBCE8",
 /* pixels */

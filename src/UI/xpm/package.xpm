@@ -11,7 +11,7 @@ const char *package[] = {
 "@ c #D1A74C",
 "# c #E6B54C",
 "$ c #FFC64C",
-"% c gray75",
+"% c None",
 "& c #FFDB8D",
 "* c #FFF1D1",
 /* pixels */

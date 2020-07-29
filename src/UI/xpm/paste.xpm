@@ -80,7 +80,7 @@ const char *paste[] = {
 "E c #FEFEFD",
 "W c #FEFEFE",
 "Q c gray100",
-"! c gray75",
+"! c None",
 /* pixels */
 "!!!!=---==--!!!!",
 "!@@@X-ssss-O+@X!",

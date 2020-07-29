@@ -8,7 +8,7 @@ const char *explor[] = {
 "o c #DB9600",
 "O c #FFAE00",
 "+ c #FFCC5D",
-"@ c gray75",
+"@ c None",
 "# c #FFEBBD",
 /* pixels */
 "@   @@@@@@@@@@@@",

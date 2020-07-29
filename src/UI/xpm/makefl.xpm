@@ -11,7 +11,7 @@ const char *makefl[] = {
 "@ c #FFA200",
 "# c gray59",
 "$ c gray72",
-"% c gray75",
+"% c None",
 "& c #8B9EC0",
 "* c #A5B5D1",
 "= c #B6C4DC",

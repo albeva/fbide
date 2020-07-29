@@ -12,7 +12,7 @@ const char *remsrc[] = {
 "# c gray59",
 "$ c #B2B2B2",
 "% c gray72",
-"& c gray75",
+"& c None",
 "* c #8FFF8F",
 "= c gray81",
 "- c #D0D0D0",

@@ -72,7 +72,7 @@ const char *openproj[] = {
 "K c #C6D8EB",
 "L c #F5F5F4",
 "P c gray100",
-"I c gray75",
+"I c None",
 /* pixels */
 ".&&&&&$$@IIIIIII",
 "&HHHHHHD#.IIIIII",

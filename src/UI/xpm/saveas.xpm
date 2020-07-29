@@ -14,7 +14,7 @@ const char *saveas[] = {
 "% c #7C7A79",
 "& c #8D8D8D",
 "* c #989898",
-"= c gray75",
+"= c None",
 "- c #A3B4DF",
 "; c #A3B7EA",
 ": c #A3B7FF",

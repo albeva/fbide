@@ -10,7 +10,7 @@ const char *tools[] = {
 "+ c #D0D07C",
 "@ c #838383",
 "# c gray63",
-"$ c gray75",
+"$ c None",
 "% c #C6C6C6",
 "& c gray100",
 /* pixels */

@@ -6,7 +6,7 @@ const char *rebuild[] = {
 ". c #686868",
 "X c gray59",
 "o c gray72",
-"O c gray75",
+"O c None",
 "+ c gray81",
 "@ c #DFDFDF",
 "# c #F3F3F3",

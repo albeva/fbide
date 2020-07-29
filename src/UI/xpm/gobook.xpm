@@ -17,7 +17,7 @@ const char *gobook[] = {
 "= c gray59",
 "- c gray72",
 "; c #BBBBBB",
-": c gray75",
+": c None",
 "> c #FFDFA5",
 ", c #FFE8BD",
 "< c #C8C8C8",

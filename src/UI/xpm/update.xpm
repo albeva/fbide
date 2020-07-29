@@ -8,7 +8,7 @@ const char *update[] = {
 "o c #C8B000",
 "O c #D3BA00",
 "+ c #FFE000",
-"@ c gray75",
+"@ c None",
 "# c gray100",
 /* pixels */
 "@@@@@@@@@@@@@@@@",

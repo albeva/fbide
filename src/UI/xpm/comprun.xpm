@@ -57,7 +57,7 @@ const char *comprun[] = {
 "n c #FFFF6D",
 "m c #FFFF6E",
 "M c #FFFF73",
-"N c gray75",
+"N c None",
 "B c #82BEFB",
 "V c #82BEFC",
 "C c #AFEA90",

@@ -15,27 +15,11 @@
 #include "Log/LogManager.hpp"
 using namespace fbide;
 
-static bool uiIsLoaded = false;
-
-//class AppTraits: public wxGUIAppTraits {
-//public:
-//    wxLog* CreateLogTarget() final {
-//        if (!uiIsLoaded) {
-//            return wxGUIAppTraits::CreateLogTarget();
-//        }
-//        return GetMgr().GetLogManager().GetLog();
-//    }
-//};
-
 /**
  * App is the basic entry point into FBIde
  */
 class App final : public wxApp {
 public:
-
-//    wxAppTraits* CreateTraits() final {
-//        return new AppTraits();
-//    }
 
     bool OnInit() final
     try {
@@ -49,8 +33,6 @@ public:
         // Load UI
         auto& ui = GetUiMgr();
         ui.Load();
-
-        uiIsLoaded = true;
 
         // Load scintilla lexer for fb
         LoadScintillaFBLexer();
@@ -109,7 +91,6 @@ public:
     }
 
     void CloseApp() {
-        uiIsLoaded = false;
         Manager::Release();
     }
 

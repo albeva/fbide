@@ -31,7 +31,7 @@ const char *clrhist[] = {
 "8 c #8AC873",
 "9 c #8FCA79",
 "0 c #94D77C",
-"q c gray75",
+"q c None",
 /* pixels */
 "qqqqqqX Xqqqqqqq",
 "qqqqqq q qqqqqqq",

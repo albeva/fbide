@@ -95,7 +95,7 @@ const char *cut[] = {
 "}  c #F5F6F5",
 "|  c #F7F7F6",
 " . c gray97",
-".. c gray75",
+".. c None",
 /* pixels */
 "......C C J ........C S ........",
 "......S } B K ......F _ F ......",

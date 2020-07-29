@@ -8,7 +8,7 @@ const char *print[] = {
 "o c #686868",
 "O c gray59",
 "+ c gray72",
-"@ c gray75",
+"@ c None",
 "# c #D0D0D0",
 "$ c #DFDFDF",
 "% c #F3F3F3",

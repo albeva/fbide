@@ -5,7 +5,7 @@ const char *debug[] = {
 "  c black",
 ". c #686868",
 "X c #B77DFE",
-"o c gray75",
+"o c None",
 "O c #C799FF",
 "+ c #D7B4FF",
 "@ c #DEC3FF",

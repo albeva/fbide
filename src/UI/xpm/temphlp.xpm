@@ -9,7 +9,7 @@ const char *temphlp[] = {
 "O c #7704DE",
 "+ c #AB3EE0",
 "@ c #D068F4",
-"# c gray75",
+"# c None",
 "$ c #F490FB",
 "% c #F69CFC",
 "& c #FFACFF",

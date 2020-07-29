@@ -8,7 +8,7 @@ const char *tutor[] = {
 "o c #7704DE",
 "O c #D068F4",
 "+ c #FFE000",
-"@ c gray75",
+"@ c None",
 "# c #F490FB",
 "$ c #FFACFF",
 /* pixels */

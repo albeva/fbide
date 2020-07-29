@@ -8,7 +8,7 @@ const char * close[] = {
 "o c red",
 "O c #FF6F6F",
 "+ c #FF7D7D",
-"@ c gray75",
+"@ c None",
 /* pixels */
 "@@@@@@@@@@@@@@@@",
 "@@@@ @@@@@@ @@@@",

@@ -76,10 +76,11 @@ namespace XPM {
 #include "xpm/update.xpm"
 #include "xpm/xpm_goto.xpm"
 #include "xpm/toggle_log.xpm"
+#include "xpm/view-fullscreen-4.xpm"
 }; // namespace XPM
 
 // map containing the icons
-StringMap<wxBitmap> _icons{
+const StringMap<wxBitmap> _icons{
     { "about", XPM::about },
     { "add", XPM::add },
     { "addbook", XPM::addbook },
@@ -132,7 +133,7 @@ StringMap<wxBitmap> _icons{
     { "saveall", XPM::saveall },
     { "saveas", XPM::saveas },
     { "screen", XPM::screen },
-    { "search", XPM::search },
+    { "find", XPM::search },                        // renamed
     { "srcagain", XPM::srcagain },
     { "replace", XPM::srchrep },
     { "temphlp", XPM::temphlp },
@@ -143,49 +144,23 @@ StringMap<wxBitmap> _icons{
     { "undo", XPM::undo },
     { "update", XPM::update },
     { "goto", XPM::xpm_goto },
-    { "toggle_log", XPM::toggle_log }
+    { "toggle_log", XPM::toggle_log },
+    { "fullscreen", XPM::view_fullscreen__ }        // renamed
 };
-
-// map aliases to icons.
-StringMap<const wxBitmap&> _alias{
-    { "find", _icons["search"] },
-    { "fullscreen", _icons["screen"] }
-};
-
-// Initialize the map
-auto init = []() {
-    wxColour c{ 191, 191, 191 };
-    for (auto& p : _icons) {
-        p.second.SetMask(new wxMask(p.second, c));
-    }
-    return true;
-}();
 
 // default icon size
 const wxSize _size{ 16, 16 };
 } // namespace
 
-
-/**
- * Get bitmap
- */
 const wxBitmap& StandardArtProvider::GetIcon(const wxString& name) {
     auto icon = _icons.find(name);
     if (icon != _icons.end()) {
         return icon->second;
     }
 
-    auto alias = _alias.find(name);
-    if (alias != _alias.end()) {
-        return alias->second;
-    }
-
     return wxNullBitmap;
 }
 
-/**
- * Get bitmap size
- */
 const wxSize& StandardArtProvider::GetIconSize() {
     return _size;
 }

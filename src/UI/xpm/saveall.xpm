@@ -112,7 +112,7 @@ const char *saveall[] = {
 ":. c #FFF59F",
 ">. c #E5E5E2",
 ",. c gray100",
-"<. c gray75",
+"<. c None",
 /* pixels */
 "<.@ @ @ @ @ @ + @ @ @ @ @ @ o <.",
 "<.o C Z B B B B B B B B Z 7 @ <.",

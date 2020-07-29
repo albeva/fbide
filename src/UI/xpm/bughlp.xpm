@@ -7,7 +7,7 @@ const char *bughlp[] = {
 "X c #DA00FE",
 "o c #EB32FF",
 "O c #F668FF",
-"+ c gray75",
+"+ c None",
 "@ c #F886FF",
 "# c #FC98FF",
 "$ c #FFB3FF",

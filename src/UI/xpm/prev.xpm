@@ -8,7 +8,7 @@ const char *prev[] = {
 "o c #3FB000",
 "O c #00DD00",
 "+ c #46C500",
-"@ c gray75",
+"@ c None",
 "# c #8FFF8F",
 /* pixels */
 "@@@@@@@@@ @@@@@@",

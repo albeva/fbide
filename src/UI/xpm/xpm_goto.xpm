@@ -115,7 +115,7 @@ const char *xpm_goto[] = {
 "<. c #FDFDFD",
 "1. c #FEFEFE",
 "2. c gray100",
-"3. c gray75",
+"3. c None",
 /* pixels */
 "5 2 % % % % * : X 3.3.3.3.3.3.3.",
 ", 9 l V ) / m 8 . 5 3.3.3.3.3.3.",

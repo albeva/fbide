@@ -19,7 +19,7 @@ const char *newproj[] = {
 "; c #FFCE7D",
 ": c #ACA59A",
 "> c #BCB0A5",
-", c gray75",
+", c None",
 "< c #CDAE87",
 "1 c #D5B287",
 "2 c #D6B387",

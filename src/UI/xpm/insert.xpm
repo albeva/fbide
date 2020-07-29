@@ -9,7 +9,7 @@ const char *insert[] = {
 "O c #6595DB",
 "+ c gray59",
 "@ c gray72",
-"# c gray75",
+"# c None",
 "$ c #87ADE3",
 "% c #9DBCE8",
 "& c #BAD0EF",

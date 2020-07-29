@@ -107,7 +107,7 @@ static char *toggle_log[] = {
 "#. c #FBFBFB",
 "$. c #FCFCFC",
 "%. c #FFFFFF",
-"&. c gray75",
+"&. c None",
 /* pixels */
 "&.&.&.&.&.&.&.&.&.&.&.&.&.&.&.&.",
 "&.&.&.&.&.&.&.&.&.&.&.&.&.&.&.&.",

@@ -9,7 +9,7 @@ const char *newtemp[] = {
 "O c #5082BF",
 "+ c #739FC3",
 "@ c #7EB4E1",
-"# c gray75",
+"# c None",
 "$ c #A8C8E3",
 "% c #B4CEE4",
 "& c #C6D6E4",

@@ -67,7 +67,7 @@ const char *newsrc[] = {
 "D c #F1F1F1",
 "F c gray95",
 "G c gray100",
-"H c gray75",
+"H c None",
 /* pixels */
 "saaaaaaaa.oO=%#H",
 "aGGGGGGGGf081;*#",

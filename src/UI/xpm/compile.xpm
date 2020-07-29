@@ -60,7 +60,7 @@ const char *compile[] = {
 "N c #FFFF6E",
 "B c #FFFF73",
 "V c #FFFF74",
-"C c gray75",
+"C c None",
 "Z c #82BEFB",
 "A c #82BEFC",
 "S c #AFEA90",

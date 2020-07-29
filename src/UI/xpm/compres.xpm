@@ -16,7 +16,7 @@ const char *compres[] = {
 "* c #FFB270",
 "= c #C7C733",
 "- c #FFFF42",
-"; c gray75",
+"; c None",
 ": c #98CBFE",
 "> c #D6FFB5",
 ", c #FFD0A7",

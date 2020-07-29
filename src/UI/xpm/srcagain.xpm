@@ -13,7 +13,7 @@ const char *srcagain[] = {
 "$ c #FFC96B",
 "% c gray56",
 "& c gray72",
-"* c gray75",
+"* c None",
 "= c #80C7DE",
 "- c #81C7DE",
 "; c #8CCCE0",

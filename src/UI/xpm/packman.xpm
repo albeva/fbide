@@ -13,7 +13,7 @@ const char *packman[] = {
 "$ c #FFC64C",
 "% c gray59",
 "& c gray72",
-"* c gray75",
+"* c None",
 "= c #FFDB8D",
 "- c gray81",
 "; c #DFDFDF",

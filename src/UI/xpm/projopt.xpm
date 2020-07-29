@@ -10,7 +10,7 @@ const char *projopt[] = {
 "+ c #FF9E00",
 "@ c #FFBB4C",
 "# c #FFCE7D",
-"$ c gray75",
+"$ c None",
 "% c #FFD796",
 "& c #FFEBC8",
 "* c gray100",

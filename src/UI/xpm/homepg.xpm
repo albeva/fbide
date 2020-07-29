@@ -11,7 +11,7 @@ const char *homepg[] = {
 "@ c #FFBB60",
 "# c #FFD300",
 "$ c #FFE45D",
-"% c gray75",
+"% c None",
 "& c #99C5FF",
 "* c #B5D5FF",
 /* pixels */

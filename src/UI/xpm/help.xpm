@@ -7,7 +7,7 @@ const char *help[] = {
 "X c #FFD048",
 "o c #FFD459",
 "O c #FFDC75",
-"+ c gray75",
+"+ c None",
 "@ c #FFF5D6",
 /* pixels */
 "+++++      +++++",

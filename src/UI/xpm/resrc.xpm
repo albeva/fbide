@@ -21,7 +21,7 @@ const char *resrc[] = {
 "> c #E77339",
 ", c #D15353",
 "< c #FF6666",
-"1 c gray75",
+"1 c None",
 "2 c #A4A4FF",
 "3 c #BEFFBE",
 "4 c #FF8383",

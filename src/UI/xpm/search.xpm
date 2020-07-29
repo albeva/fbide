@@ -81,7 +81,7 @@ const char *search[] = {
 "W c #FAFAF9",
 "Q c #FEFEFD",
 "! c gray100",
-"~ c gray75",
+"~ c None",
 /* pixels */
 ":%%%%%%%%%%-~~~~",
 "*!!!!!!!!!!%~~~~",

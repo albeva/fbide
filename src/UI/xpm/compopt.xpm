@@ -6,7 +6,7 @@ const char *compopt[] = {
 ". c #686868",
 "X c #FFA200",
 "o c #B1B1B1",
-"O c gray75",
+"O c None",
 "+ c #CECECE",
 "@ c gray81",
 "# c #D1D0CF",

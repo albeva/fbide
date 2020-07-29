@@ -14,7 +14,7 @@ const char *addbook[] = {
 "% c #9F8B67",
 "& c #D69A2E",
 "* c #FFB737",
-"= c gray75",
+"= c None",
 "- c #8FFF8F",
 "; c #FFDFA5",
 ": c #FFE8BD",

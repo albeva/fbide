@@ -2,7 +2,7 @@
 const char *undo[] = {
 "16 16 51 1",
 " 	c None",
-".	c #BFBFBF",
+".	c None",
 "+	c #C4A000",
 "@	c #BF9D00",
 "#	c #FBF3AD",
