@@ -22,14 +22,14 @@ Layout:
     - id: edit
       items: [undo, redo, -, cut, copy, paste]
     - id: view
-      items: [toolbars, toolbars.toggle, toggle_log, fullscreen]
+      items: [toolbars, toolbars.toggle, fullscreen]
     - id: search
       items: [find, replace, goto]
     - id: help
       items: [about]
   Toolbars:
     - id: common
-      items: [new, open, save, -, fullscreen, toggle_log]
+      items: [new, open, save, -, fullscreen]
     - id: edit
       items: [undo, redo, -, cut, copy, paste]
     - id: search
