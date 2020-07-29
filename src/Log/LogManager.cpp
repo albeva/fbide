@@ -48,6 +48,7 @@ wxWindow* LogManager::ShowPanel() {
 
 bool LogManager::HidePanel() {
     if (m_textCtrl != nullptr) {
+        m_textCtrl->Clear();
         m_textCtrl->Hide();
     }
     return true;
