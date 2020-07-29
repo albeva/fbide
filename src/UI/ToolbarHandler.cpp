@@ -43,7 +43,6 @@ ToolbarHandler::ToolbarHandler(wxAuiManager* aui)
     cmd.Register("toolbars.toggle", { ID_ToggleToolbars, CmdManager::Type::Check, m_visible });
 }
 
-
 /**
  * Load toolbars from configuration
  */
@@ -87,7 +86,6 @@ void ToolbarHandler::Load(Config& structure) {
     }
 }
 
-
 /**
  * Add toolbar item
  */
@@ -117,7 +115,6 @@ void ToolbarHandler::AddItem(wxAuiToolBar* tbar, const wxString& name) {
     }
 }
 
-
 /**
  * Find toolbar
  */
@@ -125,7 +122,6 @@ wxAuiToolBar* ToolbarHandler::GetToolBar(const wxString& id) {
     auto iter = m_tbars.find(id);
     return iter == m_tbars.end() ? nullptr : iter->second;
 }
-
 
 /**
  * Add toolbar
@@ -258,9 +254,10 @@ void ToolbarHandler::ToggleToolbar(int id, bool show) {
     GetCmdMgr().Enable(ID_ToggleToolbars, m_visibleCnt != 0);
 }
 
-//-----------------------
-// Handle resize event
-//-----------------------
+/**
+ * Show or hide overflow buttons on toolbars when toolbar size is changed
+ * due to window reize
+ */
 void ToolbarHandler::OnWindowResize(wxSizeEvent& event) {
     event.Skip();
     auto window = m_aui->GetManagedWindow();
@@ -276,4 +273,3 @@ void ToolbarHandler::OnWindowResize(wxSizeEvent& event) {
         }
     }
 }
-
