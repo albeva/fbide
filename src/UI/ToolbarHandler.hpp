@@ -38,6 +38,8 @@ private:
     void ShowToolbars(bool show);
     void ToggleToolbar(int id, bool show);
 
+    void OnWindowResize(wxSizeEvent& event);
+
     wxAuiManager* m_aui;
     wxMenu* m_menu;     // toolbars menu
     bool m_visible;     // toolbars visible
@@ -45,7 +47,6 @@ private:
     StringMap<wxAuiToolBar*> m_tbars;
     std::unordered_map<int, bool> m_visibleTbars;
     std::unordered_map<int, int> m_tbarMenuId;
-
 };
 
 } // namespace fbide

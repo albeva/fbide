@@ -19,7 +19,7 @@ using namespace fbide;
 // toggle toolbars
 namespace {
 const int ID_ToggleToolbars = ::wxNewId();
-const int ToolBarStyle = (wxAUI_TB_GRIPPER | wxAUI_TB_OVERFLOW);
+const int ToolBarStyle = wxAUI_TB_GRIPPER;
 } // namespace
 
 
@@ -28,11 +28,12 @@ const int ToolBarStyle = (wxAUI_TB_GRIPPER | wxAUI_TB_OVERFLOW);
  */
 ToolbarHandler::ToolbarHandler(wxAuiManager* aui)
 : m_aui(aui), m_visible(true), m_visibleCnt(0) {
-    auto m_window = m_aui->GetManagedWindow();
+    auto window = m_aui->GetManagedWindow();
 
     auto& cmd = GetCmdMgr();
 
-    m_window->Bind(wxEVT_COMMAND_MENU_SELECTED, &ToolbarHandler::OnMenuSelected, this, wxID_ANY);
+    window->Bind(wxEVT_COMMAND_MENU_SELECTED, &ToolbarHandler::OnMenuSelected, this, wxID_ANY);
+    window->Bind(wxEVT_SIZE, &ToolbarHandler::OnWindowResize, this, window->GetId());
 
     // toolbars menu
     m_menu = new wxMenu();
@@ -143,7 +144,15 @@ void ToolbarHandler::AddToolBar(const wxString& name, wxAuiToolBar* toolbar, boo
     wxString label = GetLang("toolbar." + name);
 
     // Add to aui
-    m_aui->AddPane(toolbar, wxAuiPaneInfo().Name(name).Caption(label).ToolbarPane().Top().Dockable(true).Floatable(false).Show(isVisible));
+    auto paneInfo = wxAuiPaneInfo()
+        .Name(name)
+        .Caption(label)
+        .ToolbarPane()
+        .Top()
+        .Dockable(true)
+        .Floatable(false)
+        .Show(isVisible);
+    m_aui->AddPane(toolbar, paneInfo);
 
     if (isVisible)
         m_visibleCnt += 1;
@@ -248,3 +257,23 @@ void ToolbarHandler::ToggleToolbar(int id, bool show) {
     GetCmdMgr().Check(ID_ToggleToolbars, m_visibleCnt != 0);
     GetCmdMgr().Enable(ID_ToggleToolbars, m_visibleCnt != 0);
 }
+
+//-----------------------
+// Handle resize event
+//-----------------------
+void ToolbarHandler::OnWindowResize(wxSizeEvent& event) {
+    event.Skip();
+    auto window = m_aui->GetManagedWindow();
+    auto width = window->GetClientSize().GetWidth() - 2;
+    for(auto pair: m_tbars) {
+        auto tbar = pair.second;
+        auto right = tbar->GetRect().GetRight();
+        auto overflow = tbar->GetRect().GetRight() >= width;
+
+        if (overflow != tbar->GetOverflowVisible()) {
+            tbar->SetOverflowVisible(overflow);
+            tbar->Realize();
+        }
+    }
+}
+
