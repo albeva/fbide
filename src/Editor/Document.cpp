@@ -17,16 +17,16 @@ int uniqueId = 0;
 }
 
 Document::Document(const TypeManager::Type& type) : m_id(++uniqueId), m_type(type) {
-    SetTitle("");
+    Document::SetDocumentTitle("");
 }
 
 Document::~Document() = default;
 
-void Document::SetFilename(const wxString& filename) {
+void Document::SetDocumentFileName(const wxString& filename) {
     m_filename = filename;
 }
 
-void Document::SetTitle(const wxString& title) {
+void Document::SetDocumentTitle(const wxString& title) {
     if (title.empty()) {
         m_title = GetLang("document.unnamed", { { "id", ""_wx << m_id } });
     }

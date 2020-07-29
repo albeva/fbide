@@ -28,10 +28,8 @@ add_executable(fbide WIN32
     Config/ConfigManager.cpp
     Editor/Document.hpp
     Editor/Document.cpp
-    Editor/EditorDocument.hpp
-    Editor/EditorDocument.cpp
-    Editor/StyledEditor.hpp
-    Editor/StyledEditor.cpp
+    Editor/TextDocument.hpp
+    Editor/TextDocument.cpp
     Editor/TypeManager.hpp
     Editor/TypeManager.cpp
     Log/LogManager.cpp

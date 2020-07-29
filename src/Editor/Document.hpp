@@ -26,58 +26,47 @@ public:
     /**
      * Get unique document id
      */
-    int GetId() const {
+    int GetDocumentId() const noexcept {
         return m_id;
     }
 
     /**
      * Get document type
      */
-    const TypeManager::Type& GetType() const {
+    const TypeManager::Type& GetDocumentType() const noexcept {
         return m_type;
     }
 
     /**
      * Instantiate the document
      */
-    virtual void Create() = 0;
+    virtual void CreateDocument() = 0;
 
     /**
-     * Load specified file. Will Create the instance
+     * Load / Store
      */
-    virtual void Load(const wxString& filename) = 0;
+    virtual void LoadDocument(const wxString& filename) = 0;
+    virtual void SaveDocument(const wxString& filename) = 0;
 
     /**
-     * Save the document
+     * File name backing the document.
      */
-    virtual void Save(const wxString& filename) = 0;
+    virtual void SetDocumentFileName(const wxString& filename);
 
-    /**
-     * Set document filename
-     */
-    virtual void SetFilename(const wxString& filename);
-
-    /**
-     * Get filename
-     */
-    virtual const wxString& GetFilename() const {
+    [[nodiscard]] const wxString& GetDocumentFileName() const noexcept {
         return m_filename;
     }
 
     /**
-     * Set document title
+     * Title that is visible in the document tab, window title, etc.
      */
-    virtual void SetTitle(const wxString& title);
+    virtual void SetDocumentTitle(const wxString& title);
 
-
-    /**
-     * Get title
-     */
-    virtual const wxString& GetTitle() const {
+    [[nodiscard]] const wxString& GetDocumentTitle() const noexcept {
         return m_title;
     }
 
-protected:
+private:
     // document id
     int m_id;
 

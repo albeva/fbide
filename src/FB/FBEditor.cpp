@@ -6,16 +6,23 @@ using namespace fbide;
 
 const wxString FBEditor::TypeId = "text/freebasic";
 
-FBEditor::FBEditor(const TypeManager::Type &type) : EditorDocument(type) {}
+wxBEGIN_EVENT_TABLE(FBEditor, wxStyledTextCtrl)
+    EVT_STC_CHARADDED(wxID_ANY, FBEditor::OnCharAdded)
+wxEND_EVENT_TABLE()
 
+FBEditor::FBEditor(const TypeManager::Type &type) : TextDocument(type) {}
 FBEditor::~FBEditor() = default;
 
-void FBEditor::Create() {
-    EditorDocument::Create();
+void FBEditor::CreateDocument() {
+    TextDocument::CreateDocument();
     ILexerSdk* ilexer = this;
-    GetEditor().PrivateLexerCall(SET_LEXER_IFACE, static_cast<void*>(ilexer));
+    PrivateLexerCall(SET_LEXER_IFACE, static_cast<void*>(ilexer));
 }
 
 void FBEditor::Log(const std::string &message) {
     wxLogMessage(wxString(message));
+}
+
+void FBEditor::OnCharAdded(wxStyledTextEvent &event) {
+    event.Skip();
 }

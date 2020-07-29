@@ -3,12 +3,12 @@
 //
 #pragma once
 #include "app_pch.hpp"
-#include "Editor/EditorDocument.hpp"
+#include "Editor/TextDocument.hpp"
 #include "LexerSdk.hpp"
 
 namespace fbide {
 
-class FBEditor final: public EditorDocument, public ILexerSdk {
+class FBEditor final: public TextDocument, public ILexerSdk {
     NON_COPYABLE(FBEditor)
 public:
     // Editor mime type
@@ -16,10 +16,15 @@ public:
 
     FBEditor(const TypeManager::Type& type);
     virtual ~FBEditor();
-    void Create() final;
+    void CreateDocument() final;
 
     // fblexer communication
     void Log(const std::string& message) final;
+
+private:
+    void OnCharAdded(wxStyledTextEvent &event);
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide

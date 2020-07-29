@@ -160,7 +160,7 @@ void UiManager::OnNew(wxCommandEvent& event) {
     wxWindowUpdateLocker lock{ m_window.get() };
     auto& type = GetTypeMgr();
     auto doc = type.CreateFromType("default");
-    doc->Create();
+    doc->CreateDocument();
 }
 
 void UiManager::OnOpen(wxCommandEvent& event) {

@@ -5,8 +5,7 @@
 #include "Config/Config.hpp"
 #include "Config/ConfigManager.hpp"
 #include "Editor/Document.hpp"
-#include "Editor/EditorDocument.hpp"
-#include "Editor/StyledEditor.hpp"
+#include "Editor/TextDocument.hpp"
 #include "Editor/TypeManager.hpp"
 #include "Manager.hpp"
 #include "UI/CmdManager.hpp"
@@ -44,7 +43,7 @@ public:
 
         // plain text
         auto& type = GetTypeMgr();
-        type.Register<EditorDocument>();
+        type.Register<TextDocument>();
 
         // freebasic
         type.Register<FBEditor>();
