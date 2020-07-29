@@ -17,7 +17,6 @@ public:
     bool HidePanel() final;
 
 private:
-    wxLogBuffer m_buffer;
     wxTextCtrl* m_textCtrl;
     std::unique_ptr<wxLogTextCtrl> m_log;
 };
