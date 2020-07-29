@@ -13,6 +13,7 @@
 #include "UI/MainWindow.hpp"
 #include "UI/UiManager.hpp"
 #include "Log/LogManager.hpp"
+#include "FB/FBEditor.hpp"
 using namespace fbide;
 
 /**
@@ -43,13 +44,13 @@ public:
 
         // plain text
         auto& type = GetTypeMgr();
-        type.Register<EditorDocument>(EditorDocument::Plain);
+        type.Register<EditorDocument>();
 
         // freebasic
-        type.Register<EditorDocument>(EditorDocument::Freebasic);
+        type.Register<FBEditor>();
 
         // default editor type
-        type.BindAlias("default", EditorDocument::Freebasic, true);
+        type.BindAlias("default", FBEditor::TypeId, true);
 
         // done
         return true;

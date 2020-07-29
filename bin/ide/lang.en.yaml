@@ -21,7 +21,7 @@ toolbar:
 # Panels
 panel:
   toggle_log:
-    title: Log
+    title: Debug Log
 
 Cmd:
   new:

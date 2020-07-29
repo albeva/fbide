@@ -51,7 +51,7 @@ public:
      * Register a subclass of Document with the TypeManager
      */
     template<typename T, CheckDocument<T> = 0>
-    inline void Register(const wxString& name) {
+    inline void Register(const wxString& name = T::TypeId) {
         Register(name, [](const Type& type) -> Document* { return new T(type); });
     }
 

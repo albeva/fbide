@@ -14,18 +14,15 @@
 namespace fbide {
 
 class Editor;
-class ILexerSdk;
 
 /**
- * Editor base class backed by a document
+ * Editor base class backed by a text document
  */
-class EditorDocument final: public Document {
+class EditorDocument: public Document {
     NON_COPYABLE(EditorDocument)
 public:
 
-    // freebasic type
-    static const wxString Freebasic;
-    static const wxString Plain;
+    static const wxString TypeId;
 
     EditorDocument(const TypeManager::Type& type);
     virtual ~EditorDocument();
@@ -33,7 +30,7 @@ public:
     /**
      * Instantiate the document
      */
-    void Create() final;
+    virtual void Create();
 
     /**
      * Load specified file. Will Create the instance
@@ -48,12 +45,11 @@ public:
     /**
      * Get underlying editor instance
      */
-    StyledEditor& GetEditor() { return m_editor; }
+    inline StyledEditor& GetEditor() { return m_editor; }
 
 private:
     // bound editor
     StyledEditor m_editor;
-    std::unique_ptr<ILexerSdk> m_lexerIface;
 };
 
 } // namespace fbide

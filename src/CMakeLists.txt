@@ -20,6 +20,8 @@ add_executable(fbide WIN32
     UI/ToolbarHandler.cpp
     UI/UiManager.hpp
     UI/UiManager.cpp
+    UI/PanelHandler.cpp
+    UI/PanelHandler.hpp
     Config/Config.hpp
     Config/Config.cpp
     Config/ConfigManager.hpp
@@ -32,8 +34,11 @@ add_executable(fbide WIN32
     Editor/StyledEditor.cpp
     Editor/TypeManager.hpp
     Editor/TypeManager.cpp
-    Sdk/LexerInterface.cpp
-    Sdk/LexerInterface.h Log/LogManager.cpp Log/LogManager.hpp UI/PanelHandler.cpp UI/PanelHandler.hpp)
+    Log/LogManager.cpp
+    Log/LogManager.hpp
+    FB/FBEditor.cpp
+    FB/FBEditor.hpp
+    )
 
 # Dependencies
 add_dependencies(fbide fblexer yaml-cpp)
