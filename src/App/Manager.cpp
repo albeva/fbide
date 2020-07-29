@@ -3,7 +3,8 @@
  */
 #include "Manager.hpp"
 #include "Config/ConfigManager.hpp"
-#include "Editor/TypeManager.hpp"
+#include "Document/TypeManager.hpp"
+#include "Document/DocumentManager.hpp"
 #include "UI/CmdManager.hpp"
 #include "UI/UiManager.hpp"
 #include "Log/LogManager.hpp"
@@ -31,6 +32,11 @@ ConfigManager& fbide::GetCfgMgr() {
 // shorthand to Type manager
 TypeManager& fbide::GetTypeMgr() {
     return GetMgr().GetTypeManager();
+}
+
+// shorthand to Document manager
+DocumentManager& fbide::GetDocMgr() {
+    return GetMgr().GetDocManager();
 }
 
 // shorthand to get config
@@ -85,22 +91,13 @@ Manager::Manager() = default;
 // clean up. Managers must shut down
 // in defined order
 Manager::~Manager() {
-    if (m_log) {
-        m_log.reset();
-    }
-    if (m_ui) {
-        m_ui->Unload();
-        m_ui.reset();
-    }
-    if (m_cmd) {
-        m_cmd.reset();
-    }
-    if (m_type) {
-        m_type.reset();
-    }
-    if (m_cfg) {
-        m_cfg.reset();
-    }
+    m_doc.reset();
+    m_log.reset();
+    if (m_ui) m_ui->Unload();
+    m_ui.reset();
+    m_cmd.reset();
+    m_type.reset();
+    m_cfg.reset();
 }
 
 
@@ -111,6 +108,7 @@ void Manager::Load() {
     m_type = std::make_unique<TypeManager>();
     m_ui = std::make_unique<UiManager>();
     m_log = std::make_unique<LogManager>();
+    m_doc = std::make_unique<DocumentManager>();
 }
 
 /**
@@ -159,4 +157,8 @@ TypeManager& Manager::GetTypeManager() {
 
 LogManager &Manager::GetLogManager() {
     return *m_log;
+}
+
+DocumentManager &Manager::GetDocManager() {
+    return *m_doc;
 }

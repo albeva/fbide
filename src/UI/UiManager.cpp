@@ -11,8 +11,8 @@
 #include "MainWindow.hpp"
 
 #include "CmdManager.hpp"
-#include "Editor/Document.hpp"
-#include "Editor/TypeManager.hpp"
+#include "Document/Document.hpp"
+#include "Document/TypeManager.hpp"
 #include "MenuHandler.hpp"
 #include "StandardArtProvider.hpp"
 #include "ToolbarHandler.hpp"
@@ -32,9 +32,6 @@ const int ID_PanelNotebook = ::wxNewId();
 // event dispatching
 wxBEGIN_EVENT_TABLE(UiManager, wxEvtHandler)
     EVT_MENU(wxID_ANY, UiManager::HandleMenuEvents)
-    EVT_MENU(wxID_NEW, UiManager::OnNew)
-    EVT_MENU(wxID_OPEN, UiManager::OnOpen)
-    EVT_MENU(wxID_SAVE, UiManager::OnSave)
     EVT_AUINOTEBOOK_PAGE_CLOSE(ID_DocNotebook, UiManager::OnPaneClose)
     EVT_UPDATE_UI(wxID_ANY, UiManager::OnUpdateUI)
 wxEND_EVENT_TABLE()
@@ -145,27 +142,5 @@ void UiManager::OnPaneClose(wxAuiNotebookEvent& event) {
 
 void UiManager::CloseTab(size_t index) {
     auto wnd = m_docArea->GetPage(index);
-    auto iter = m_closers.find(wnd);
-    if (iter != m_closers.end()) {
-        iter->second();
-        m_closers.erase(iter);
-    } else {
-        m_docArea->DeletePage(index);
-    }
+    m_docArea->DeletePage(index);
 }
-
-// TODO: Move file handling out of UIManager
-
-void UiManager::OnNew(wxCommandEvent& event) {
-    wxWindowUpdateLocker lock{ m_window.get() };
-    auto& type = GetTypeMgr();
-    auto doc = type.CreateFromType("default");
-    doc->CreateDocument();
-}
-
-void UiManager::OnOpen(wxCommandEvent& event) {
-}
-
-void UiManager::OnSave(wxCommandEvent& event) {
-}
-

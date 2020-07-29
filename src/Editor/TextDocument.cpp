@@ -31,13 +31,6 @@ void TextDocument::CreateDocument() {
 
     wxStyledTextCtrl::Create(da);
     da->AddPage(this, GetDocumentTitle(), true);
-    ui.BindCloser(this, [this, da]() {
-        auto idx = da->GetPageIndex(this);
-        if (idx != wxNOT_FOUND) {
-            da->RemovePage(idx);
-        }
-        delete this;
-    });
 
     // editor configuration
     auto & config = GetDocumentType().config;

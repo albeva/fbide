@@ -24,11 +24,6 @@ class UiManager final: public wxEvtHandler {
     NON_COPYABLE(UiManager)
 public:
 
-    /**
-     * Cleaner function
-     */
-    typedef std::function<void()> CloseFn;
-
     UiManager();
     virtual ~UiManager();
 
@@ -39,28 +34,11 @@ public:
     inline wxAuiNotebook* GetDocArea() { return m_docArea; }
     inline PanelHandler* GetPanelHandler() { return m_panelHandler.get(); }
 
-    /**
-     * Bind cleaner function for given wxWindow object
-     * Rather than default delete this cleaner function will
-     * be invoked instead. Once callback is executed this
-     * entry will be removed!
-     */
-    void BindCloser(wxWindow* wnd, const CloseFn& cb) {
-        m_closers.emplace(std::make_pair(wnd, cb));
-    }
-
-    void BindCloser(wxWindow* wnd, CloseFn&& cb) {
-        m_closers.emplace(std::make_pair(wnd, std::move(cb)));
-    }
-
     void SetArtProvider(IArtProvider* artProvider);
     inline IArtProvider& GetArtProvider() const { return *m_artProvider; }
 
 private:
     void HandleMenuEvents(wxCommandEvent& event);
-    void OnNew(wxCommandEvent& event);
-    void OnOpen(wxCommandEvent& event);
-    void OnSave(wxCommandEvent& event);
     void OnPaneClose(wxAuiNotebookEvent& event);
     void OnUpdateUI(wxUpdateUIEvent & event);
 
@@ -77,7 +55,6 @@ private:
     std::unique_ptr<MenuHandler> m_menuHandler;
     std::unique_ptr<ToolbarHandler> m_tbarHandler;
     std::unique_ptr<PanelHandler> m_panelHandler;
-    std::unordered_map<wxWindow*, CloseFn> m_closers;
 
     wxDECLARE_EVENT_TABLE();
 };

@@ -7,7 +7,7 @@
 //
 #pragma once
 #include "app_pch.hpp"
-#include "Document.hpp"
+#include "Document/Document.hpp"
 
 namespace fbide {
 

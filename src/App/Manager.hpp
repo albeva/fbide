@@ -14,6 +14,7 @@ class CmdManager;
 class TypeManager;
 class LogManager;
 class Config;
+class DocumentManager;
 
 /**
  * Get manager instance.
@@ -39,6 +40,11 @@ CmdManager& GetCmdMgr();
  * Get Type manager
  */
 TypeManager& GetTypeMgr();
+
+/**
+ * Get DocumentManager
+ */
+DocumentManager& GetDocMgr();
 
 /**
  * Get main configuration
@@ -98,6 +104,9 @@ public:
     // Get type manager
     TypeManager& GetTypeManager();
 
+    // Get document manager
+    DocumentManager& GetDocManager();
+
     // Get log
     LogManager& GetLogManager();
 
@@ -111,6 +120,7 @@ private:
     std::unique_ptr<CmdManager> m_cmd;
     std::unique_ptr<TypeManager> m_type;
     std::unique_ptr<LogManager> m_log;
+    std::unique_ptr<DocumentManager> m_doc;
 };
 
 } // namespace fbide

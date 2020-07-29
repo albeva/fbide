@@ -4,9 +4,9 @@
 
 #include "Config/Config.hpp"
 #include "Config/ConfigManager.hpp"
-#include "Editor/Document.hpp"
+#include "Document/Document.hpp"
 #include "Editor/TextDocument.hpp"
-#include "Editor/TypeManager.hpp"
+#include "Document/TypeManager.hpp"
 #include "Manager.hpp"
 #include "UI/CmdManager.hpp"
 #include "UI/MainWindow.hpp"

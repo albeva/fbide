@@ -6,7 +6,7 @@
 //  Copyright © 2016 Albert Varaksin. All rights reserved.
 //
 
-#include <Editor/TypeManager.hpp>
+#include "Document/TypeManager.hpp"
 #include "ToolbarHandler.hpp"
 #include "CmdManager.hpp"
 #include "IArtProvider.hpp"
