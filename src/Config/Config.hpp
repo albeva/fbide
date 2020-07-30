@@ -56,15 +56,23 @@ public:
      */
     using Array = std::vector<Config>;
 
-private:
-
     /**
      * Types must be in the same order as in Type enum
      */
     using Value = std::variant<wxString, bool, int, double, Map, Array>;
 
-    // Config holder
-    std::unique_ptr<Value> m_val;
+private:
+
+    // use memory pool to allocate config  Value
+    static void* allocate();
+    static void deallocate(void*);
+
+    // optimize the ptr size
+    using default_free = std::integral_constant<decltype(Config::deallocate)*, Config::deallocate>;
+    using Container = std::unique_ptr<Value, default_free>;
+    Container m_val;
+
+    #define NEW_VALUE(...) new(Config::allocate()) Value(__VA_ARGS__)
 
     /**
      * If wxString is constructible from T then wxString, otherwise, decay T to its base type.
@@ -84,12 +92,13 @@ public:
     // ctors, copy, assign ...
     //----------------------------------------------------------------------
 
-    Config() noexcept = default;
-    Config(const Config& other) : m_val(std::make_unique<Value>(*other.m_val)) {}
+    Config() noexcept: m_val(nullptr) {}
+
+    Config(const Config& other) : m_val{NEW_VALUE(*other.m_val)} {}
     Config(Config&& other) noexcept = default;
 
     Config& operator=(const Config& rhs) {
-        m_val = std::make_unique<Value>(*rhs.m_val);
+        m_val.reset(NEW_VALUE(*rhs.m_val));
         return *this;
     }
     Config& operator=(Config&& rhs) noexcept = default;
@@ -101,10 +110,10 @@ public:
      * @param val
      */
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
-    explicit Config(const T& val): m_val(std::make_unique<Value>(std::in_place_type<B>, val)) {}
+    explicit Config(const T& val): m_val{NEW_VALUE(std::in_place_type<B>, val)} {}
 
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
-    explicit Config(T&& val) noexcept: m_val(std::make_unique<Value>(std::in_place_type<B>, std::forward<T>(val))) {}
+    explicit Config(T&& val) noexcept: m_val{NEW_VALUE(std::in_place_type<B>, std::forward<T>(val))} {}
 
     /**
      * Assign value to config
@@ -114,13 +123,13 @@ public:
      */
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
     inline Config& operator=(const T& rhs) {
-        m_val = std::make_unique<Value>(rhs);
+        m_val.reset(NEW_VALUE(rhs));
         return *this;
     }
 
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
     inline Config& operator=(T&& rhs) noexcept {
-        m_val = std::make_unique<Value>(std::forward<T>(rhs));
+        m_val.reset(NEW_VALUE(std::forward<T>(rhs)));
         return *this;
     }
 
@@ -408,5 +417,7 @@ private:
     [[nodiscard]] inline const T& As() const {
         return std::get<T>(*m_val);
     }
+
+    #undef NEW_VALUE
 };
 } // namespace fbide

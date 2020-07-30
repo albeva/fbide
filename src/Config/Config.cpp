@@ -8,6 +8,7 @@
 
 #include "Config.hpp"
 #include <yaml-cpp/yaml.h>
+#include <memory_resource>
 
 using namespace fbide;
 
@@ -109,6 +110,19 @@ struct PathParser {
 } // namespace
 
 const Config Config::Empty{};
+
+namespace {
+std::pmr::unsynchronized_pool_resource p_configPool(
+    std::pmr::pool_options{0, sizeof(Config::Value)});
+}
+
+void* Config::allocate() {
+    return p_configPool.allocate(sizeof(Value));
+}
+
+void Config::deallocate(void* value) {
+    p_configPool.deallocate(value, sizeof(Value));
+}
 
 /**
  * Load YAML file
