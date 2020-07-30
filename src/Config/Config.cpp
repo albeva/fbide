@@ -8,7 +8,11 @@
 
 #include "Config.hpp"
 #include <yaml-cpp/yaml.h>
-#include <memory_resource>
+#if __has_include(<memory_resource>)
+    #include <memory_resource>
+#else
+#define NO_MEMORY_RESOURCE
+#endif
 
 using namespace fbide;
 
@@ -111,11 +115,20 @@ struct PathParser {
 
 const Config Config::Empty{};
 
+#ifdef NO_MEMORY_RESOURCE
+void* Config::allocate() {
+    return malloc(sizeof(Value));
+}
+
+void Config::deallocate(void* value) {
+    free(value);
+}
+#else
 namespace {
 std::pmr::unsynchronized_pool_resource p_configPool(
     std::pmr::pool_options{0, sizeof(Config::Value)});
 }
-
+}
 void* Config::allocate() {
     return p_configPool.allocate(sizeof(Value));
 }
@@ -123,6 +136,7 @@ void* Config::allocate() {
 void Config::deallocate(void* value) {
     p_configPool.deallocate(value, sizeof(Value));
 }
+#endif
 
 /**
  * Load YAML file
