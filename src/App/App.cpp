@@ -57,11 +57,7 @@ int App::OnExit() {
 
 wxString App::GetIdePath() {
     auto& sp = GetTraits()->GetStandardPaths();
-    #ifdef __WXMSW__
-        return ::wxPathOnly(sp.GetExecutablePath());
-    #else
-        return sp.GetResourcesDir();
-    #endif
+    return ::wxPathOnly(sp.GetExecutablePath());
 }
 
 void App::ExitFBIde() {

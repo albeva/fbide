@@ -45,6 +45,8 @@ void FBEditor::LoadFBLexer() {
     auto path = GetConfig(Key::IdePath).AsString() / "libfblexer.dylib";
     #elif defined(__WXMSW__)
     auto path = GetConfig(Key::IdePath).AsString() / "fblexer.dll";
+    #else
+    auto path = GetConfig(Key::IdePath).AsString() / "libfblexer.so";
     #endif
 
     LoadLexerLibrary(path);

@@ -37,13 +37,13 @@ public:
      * Config node type for use with node.GetType() method
      */
     enum class Type: int {
-        Null,
         String,
         Bool,
         Int,
         Double,
         Map,
-        Array
+        Array,
+        Null
     };
 
     /**
@@ -61,7 +61,10 @@ private:
     /**
      * Types must be in the same order as in Type enum
      */
-    using Value = std::variant<std::monostate, wxString, bool, int, double, Map, Array>;
+    using Value = std::variant<wxString, bool, int, double, Map, Array>;
+
+    // Config holder
+    std::unique_ptr<Value> m_val;
 
     /**
      * If wxString is constructible from T then wxString, otherwise, decay T to its base type.
@@ -82,10 +85,13 @@ public:
     //----------------------------------------------------------------------
 
     Config() noexcept = default;
-    Config(const Config& other) = default;
+    Config(const Config& other) : m_val(std::make_unique<Value>(*other.m_val)) {}
     Config(Config&& other) noexcept = default;
 
-    Config& operator=(const Config& rhs) = default;
+    Config& operator=(const Config& rhs) {
+        m_val = std::make_unique<Value>(*rhs.m_val);
+        return *this;
+    }
     Config& operator=(Config&& rhs) noexcept = default;
 
     /**
@@ -95,10 +101,10 @@ public:
      * @param val
      */
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
-    explicit Config(const T& val): m_val(std::in_place_type<B>, val) {}
+    explicit Config(const T& val): m_val(std::make_unique<Value>(std::in_place_type<B>, val)) {}
 
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
-    explicit Config(T&& val) noexcept: m_val(std::in_place_type<B>, std::forward<T>(val)) {}
+    explicit Config(T&& val) noexcept: m_val(std::make_unique<Value>(std::in_place_type<B>, std::forward<T>(val))) {}
 
     /**
      * Assign value to config
@@ -108,13 +114,13 @@ public:
      */
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
     inline Config& operator=(const T& rhs) {
-        m_val.emplace<B>(rhs);
+        m_val = std::make_unique<Value>(rhs);
         return *this;
     }
 
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
     inline Config& operator=(T&& rhs) noexcept {
-        m_val.emplace<B>(std::forward<T>(rhs));
+        m_val = std::make_unique<Value>(std::forward<T>(rhs));
         return *this;
     }
 
@@ -129,11 +135,13 @@ public:
     //----------------------------------------------------------------------
 
     [[nodiscard]] bool operator == (const Config& rhs) const noexcept {
-        return m_val == rhs.m_val;
+        if (!m_val) return false;
+        return *m_val == *rhs.m_val;
     }
 
     [[nodiscard]] inline bool operator != (const Config& rhs) const noexcept {
-        return m_val != rhs.m_val;
+        if (!m_val) return false;
+        return *m_val != *rhs.m_val;
     }
 
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
@@ -317,7 +325,8 @@ public:
      * Get node type as enum value
      */
     [[nodiscard]] inline Type GetType() const noexcept {
-        return static_cast<Type>(m_val.index());
+        if (!m_val) return Type::Null;
+        return static_cast<Type>(m_val->index());
     }
 
     /**
@@ -341,7 +350,7 @@ public:
      * Clear the Config to null
      */
     inline void Clear() noexcept {
-        m_val = std::monostate();
+        m_val.reset();
     }
 
     /**
@@ -376,7 +385,8 @@ private:
      */
     template<typename T, CheckType<T> = 0>
     [[nodiscard]] inline bool Is() const noexcept {
-        return std::holds_alternative<T>(m_val);
+        if (!m_val) return false;
+        return std::holds_alternative<T>(*m_val);
     }
 
     /**
@@ -389,17 +399,14 @@ private:
     template<typename T, CheckType<T> = 0>
     [[nodiscard]] inline T& As() {
         if (IsEmpty()) {
-            m_val.emplace<T>();
+            *this = T();
         }
-        return std::get<T>(m_val);
+        return std::get<T>(*m_val);
     }
 
     template<typename T, CheckType<T> = 0>
     [[nodiscard]] inline const T& As() const {
-        return std::get<T>(m_val);
+        return std::get<T>(*m_val);
     }
-
-    // Config holder
-    Value m_val;
 };
 } // namespace fbide

@@ -13,8 +13,10 @@ add_library(fblexer SHARED
 #
 if (MSVC)
     set(WX_SOURCE_DIR D:/Developer/libs/wxWidgets/wxWidgets-3.1.4)
-else()
+elseif(APPLE)
     set(WX_SOURCE_DIR /Users/albert/Developer/libs/wx/wxWidgets-3.1.4)
+else()
+    set(WX_SOURCE_DIR /home/albert/Developer/libs/wx/wxWidgets-3.1.4)
 endif()
 
 target_include_directories(fblexer PRIVATE
