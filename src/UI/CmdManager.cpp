@@ -9,10 +9,6 @@
 #include "CmdManager.hpp"
 using namespace fbide;
 
-// events
-wxDEFINE_EVENT(fbide::CMD_CHECK, wxCommandEvent);
-wxDEFINE_EVENT(fbide::CMD_ENABLE, wxCommandEvent);
-
 /**
  * Setup Command manager with defaults
  */

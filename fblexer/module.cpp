@@ -17,7 +17,11 @@ int GetLexerCount() {
 
 void GetLexerName(unsigned int Index, char* name, int buflength) {
     assert(Index == 0 && "Invalid lexer index");
-    strcpy_s(name, buflength, "text/freebasic");
+    #if defined(__WXMSW__)
+        strcpy_s(name, buflength, "text/freebasic");
+    #else
+        strcpy(name, "text/freebasic");
+    #endif
 }
 
 Scintilla::LexerFactoryFunction GetLexerFactory(unsigned int Index) {

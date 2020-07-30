@@ -2,7 +2,7 @@
 /* License: http://en.wikipedia.org/wiki/Public_domain	*/
 /* Source:  Tango Icon Library		*/
 /* Source URL:  http://tango.freedesktop.org/Tango_Icon_Library		*/
-static char *view_fullscreen__[] = {
+static const char *view_fullscreen__[] = {
 /* columns rows colors chars-per-pixel */
 "16 16 150 2",
 "   c #1B4685",

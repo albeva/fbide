@@ -15,6 +15,8 @@ namespace fbide {
  */
 class IArtProvider {
 public:
+    virtual ~IArtProvider();
+
     /**
      * Get bitmap
      */

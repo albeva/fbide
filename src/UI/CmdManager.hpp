@@ -10,12 +10,6 @@
 
 namespace fbide {
 
-// Command checked status change
-wxDECLARE_EVENT(CMD_CHECK, wxCommandEvent);
-
-// command enabled status change
-wxDECLARE_EVENT(CMD_ENABLE, wxCommandEvent);
-
 /**
  * Command manager manages "commands" that can be executed
  * in the editor. For example command to "undo" change in the text

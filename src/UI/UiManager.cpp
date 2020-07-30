@@ -19,6 +19,7 @@
 #include "Config/Config.hpp"
 #include "App/Manager.hpp"
 #include "PanelHandler.hpp"
+#include "App/App.hpp"
 
 using namespace fbide;
 
@@ -34,6 +35,7 @@ wxBEGIN_EVENT_TABLE(UiManager, wxEvtHandler)
     EVT_MENU(wxID_ANY, UiManager::HandleMenuEvents)
     EVT_AUINOTEBOOK_PAGE_CLOSE(ID_DocNotebook, UiManager::OnPaneClose)
     EVT_UPDATE_UI(wxID_ANY, UiManager::OnUpdateUI)
+    EVT_CLOSE(UiManager::OnWindowClose)
 wxEND_EVENT_TABLE()
 
 // Instantiate classes, but specific
@@ -108,14 +110,18 @@ void UiManager::SetArtProvider(IArtProvider* artProvider) {
 }
 
 void UiManager::HandleMenuEvents(wxCommandEvent& event) {
-    // allow others to catch
-    event.Skip();
+    auto id = event.GetId();
+
 
     // let CmdMgr check the status (if this is a registered check)
     GetCmdMgr().Check(event.GetId(), event.IsChecked());
 
-    if (event.GetId() == ID_FullScreen) {
+    if (id == ID_FullScreen) {
         m_window->ShowFullScreen(event.IsChecked());
+    } else if (id == wxID_EXIT) {
+        wxGetApp().ExitFBIde();
+    } else {
+        event.Skip();
     }
 }
 
@@ -131,6 +137,13 @@ void UiManager::OnUpdateUI(wxUpdateUIEvent &event) {
         event.Check(entry->checked);
     }
     event.Enable(entry->enabled);
+}
+
+//// Handle window closing
+
+void UiManager::OnWindowClose(wxCloseEvent& close) {
+    close.Veto();
+    wxGetApp().ExitFBIde();
 }
 
 // TODO: Move tab handling out of UIManager

@@ -2,7 +2,7 @@
 /* License: http://creativecommons.org/licenses/LGPL/2.1/	*/
 /* Source:  Crystal Project		*/
 /* Source URL:  http://everaldo.com/crystal/		*/
-static char *toggle_log[] = {
+static const char *toggle_log[] = {
 /* columns rows colors chars-per-pixel */
 "16 16 103 2",
 "   c #262626",

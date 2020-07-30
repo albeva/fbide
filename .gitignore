@@ -25,6 +25,8 @@ playground.xcworkspace
 *.ilk
 *.pdb
 *.manifest
+*.dylib
+bin/fbide
 
 # cmake
 CMakeLists.txt.user
@@ -39,3 +41,4 @@ compile_commands.json
 CTestTestfile.cmake
 CMakeSettings.json
 _deps
+cmake-build-*/

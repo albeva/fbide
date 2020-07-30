@@ -5,25 +5,27 @@ set(CMAKE_CXX_STANDARD 17)
 #-----------------------------------------------------------------------------------------------------------------------
 # wxWidgets
 #-----------------------------------------------------------------------------------------------------------------------
-SET(WX_ROOT_DIR ${WXWIN})
+if (MSVC)
+    SET(WX_ROOT_DIR ${WXWIN})
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(wxWidgets_CONFIGURATION mswud)
+        set(LIB_SUFFIX dll)
+        set(WXLIBS core base aui stc)
+    else()
+        set(wxWidgets_CONFIGURATION mswu)
+        set(LIB_SUFFIX lib)
+        set(WXLIBS core base aui stc scintilla)
+    endif()
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(wxWidgets_CONFIGURATION mswud)
-    set(LIB_SUFFIX dll)
+    if(CMAKE_CL_64)
+        set(wxWidgets_LIB_DIR ${WX_ROOT_DIR}/lib/vc_x64_${LIB_SUFFIX})
+    else()
+        set(wxWidgets_LIB_DIR  ${WX_ROOT_DIR}/lib/vc_${LIB_SUFFIX})
+    endif()
+    set(wxWidgets_ROOT_DIR ${WX_ROOT_DIR})
+else()
     set(WXLIBS core base aui stc)
-else()
-    set(wxWidgets_CONFIGURATION mswu)
-    set(LIB_SUFFIX lib)
-    set(WXLIBS core base aui stc scintilla)
 endif()
-
-if(CMAKE_CL_64)
-    set(wxWidgets_LIB_DIR ${WX_ROOT_DIR}/lib/vc_x64_${LIB_SUFFIX})
-else()
-    set(wxWidgets_LIB_DIR  ${WX_ROOT_DIR}/lib/vc_${LIB_SUFFIX})
-endif()
-set(wxWidgets_ROOT_DIR ${WX_ROOT_DIR})
-
 find_package(wxWidgets 3.1 COMPONENTS ${WXLIBS} REQUIRED)
 
 #-----------------------------------------------------------------------------------------------------------------------

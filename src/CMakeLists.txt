@@ -38,7 +38,7 @@ add_executable(fbide WIN32
     Log/LogManager.hpp
     FB/FBEditor.cpp
     FB/FBEditor.hpp
-    )
+    UI/IArtProvider.cpp App/App.hpp)
 
 # Dependencies
 add_dependencies(fbide fblexer yaml-cpp)

@@ -24,6 +24,9 @@ public:
 private:
     void OnCharAdded(wxStyledTextEvent &event);
 
+    static bool s_FBLExerLoaded;
+    static void LoadFBLexer();
+
     wxDECLARE_EVENT_TABLE();
 };
 
