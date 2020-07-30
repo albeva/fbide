@@ -27,7 +27,10 @@ target_compile_options(fblexer PRIVATE -DSCI_NAMESPACE)
 #
 # emit dll to bin/ide folder
 #
-set_target_properties(fblexer PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin/ide)
-
-# RUNTIME_OUTPUT_DIRECTORY
+if (MSVC)
+    set_target_properties(fblexer PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin/ide)
+else()
+    set_target_properties(fblexer PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin/ide)
+endif()

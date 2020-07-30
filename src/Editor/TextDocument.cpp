@@ -26,7 +26,6 @@ TextDocument::~TextDocument() = default;
 void TextDocument::CreateDocument() {
     auto& ui = GetUiMgr();
     auto da = ui.GetDocArea();
-
     wxStyledTextCtrl::Create(da);
     da->AddPage(this, GetDocumentTitle(), true);
 }
