@@ -17,6 +17,7 @@ public:
     FBEditor(const TypeManager::Type& type);
     virtual ~FBEditor();
     void CreateDocument() final;
+    void LoadDefaultLexer() final;
 
     // fblexer communication
     void Log(const std::string& message) final;
@@ -25,7 +26,7 @@ private:
     void OnCharAdded(wxStyledTextEvent &event);
 
     static bool s_FBLExerLoaded;
-    static void LoadFBLexer();
+    void LoadFBLexer();
 
     wxDECLARE_EVENT_TABLE();
 };

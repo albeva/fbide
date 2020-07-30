@@ -31,8 +31,10 @@ void TextDocument::CreateDocument() {
 
     wxStyledTextCtrl::Create(da);
     da->AddPage(this, GetDocumentTitle(), true);
+    LoadDefaultLexer();
+}
 
-    // editor configuration
+void TextDocument::LoadDefaultLexer() {
     auto & config = GetDocumentType().config;
     auto type = config.Get("type", "null");
     SetLexerLanguage(type);
