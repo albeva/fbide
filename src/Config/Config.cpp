@@ -128,7 +128,7 @@ namespace {
 std::pmr::unsynchronized_pool_resource p_configPool(
     std::pmr::pool_options{0, sizeof(Config::Value)});
 }
-}
+
 void* Config::allocate() {
     return p_configPool.allocate(sizeof(Value));
 }
