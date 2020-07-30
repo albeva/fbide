@@ -45,6 +45,7 @@ UiManager::UiManager() {
     // the frame
     m_window = std::make_unique<MainWindow>(nullptr, ID_AppWindow, "fbide");
     m_window->PushEventHandler(this);
+    m_window->EnableFullScreenView(true);
     wxTheApp->SetTopWindow(m_window.get());
     m_aui.SetManagedWindow(m_window.get());
 

@@ -9,10 +9,8 @@ App:
 Editor:
   plain:
     exts:  [txt, md]
-    type:  "null"
   freebasic:
     exts:  [bas, bi]
-    type:  "text/freebasic"
 
 # Menus and toolbars
 Layout:

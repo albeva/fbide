@@ -19,13 +19,10 @@ FBEditor::~FBEditor() = default;
 
 void FBEditor::CreateDocument() {
     TextDocument::CreateDocument();
+    LoadFBLexer();
+    SetLexerLanguage(TypeId);
     ILexerSdk *ilexer = this;
     PrivateLexerCall(SET_LEXER_IFACE, static_cast<void *>(ilexer));
-}
-
-void FBEditor::LoadDefaultLexer() {
-    LoadFBLexer();
-    TextDocument::LoadDefaultLexer();
 }
 
 void FBEditor::Log(const std::string &message) {

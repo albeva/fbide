@@ -17,7 +17,6 @@ public:
     FBEditor(const TypeManager::Type& type);
     virtual ~FBEditor();
     void CreateDocument() final;
-    void LoadDefaultLexer() final;
 
     // fblexer communication
     void Log(const std::string& message) final;

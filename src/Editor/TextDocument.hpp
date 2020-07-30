@@ -24,11 +24,6 @@ public:
     virtual ~TextDocument();
 
     /**
-     * Load lexer based on file type and configuration
-     */
-    virtual void LoadDefaultLexer();
-
-    /**
      * Instantiate the document
      */
     void CreateDocument() override;
