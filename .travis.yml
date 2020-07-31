@@ -1,10 +1,10 @@
 os: windows
 language: cpp
 install:
-  - EXPORT CXX=
-  - EXPORT CXX_FOR_BUILD=
-  - EXPORT CC=
-  - EXPORT CC_FOR_BUILD=
+  - export CXX=
+  - export CXX_FOR_BUILD=
+  - export CC=
+  - export CC_FOR_BUILD=
   - choco install visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
   - choco install ninja
   - wget --progress=dot:mega https://github.com/wxWidgets/wxWidgets/releases/download/v3.1.4/wxWidgets-3.1.4.7z
