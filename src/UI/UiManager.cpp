@@ -150,7 +150,8 @@ void UiManager::OnWindowClose(wxCloseEvent& close) {
 
 void UiManager::OnPaneClose(wxAuiNotebookEvent& event) {
     event.Veto();
-    CloseTab(event.GetSelection());
+    auto index = event.GetSelection();
+    CloseTab(static_cast<size_t>(index));
 }
 
 void UiManager::CloseTab(size_t index) {

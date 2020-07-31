@@ -68,7 +68,7 @@ void Lexer::Lex(Sci_PositionU startPos, Sci_Position lengthDoc, int initStyle, I
     LexAccessor styler(pAccess);
     styler.StartAt(startPos);
 
-    StyleContext sc(startPos, lengthDoc, initStyle, styler);
+    StyleContext sc(startPos, static_cast<Sci_PositionU>(lengthDoc), initStyle, styler);
     for (; sc.More(); sc.Forward()) {
     }
 
@@ -88,7 +88,7 @@ void Lexer::Fold(Sci_PositionU /* startPos */, Sci_Position /* lengthDoc */, int
 
 void * Lexer::PrivateCall(int operation, void *pointer) {
     if (operation == SET_LEXER_IFACE && pointer != nullptr) {
-        m_iface = (ILexerSdk*)pointer; // NOLINT
+        m_iface = reinterpret_cast<ILexerSdk*>(pointer); // NOLINT
         m_iface->Log("fblexer loaded");
     }
     return nullptr;

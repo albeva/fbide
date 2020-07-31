@@ -19,7 +19,7 @@ else()
     set(WX_SOURCE_DIR /home/albert/Developer/libs/wx/wxWidgets-3.1.4)
 endif()
 
-target_include_directories(fblexer PRIVATE
+target_include_directories(fblexer SYSTEM PRIVATE
     ${WX_SOURCE_DIR}/src/stc/scintilla/include
     ${WX_SOURCE_DIR}/src/stc/scintilla/lexlib)
 

@@ -37,7 +37,7 @@ namespace XPM {
 
 #include "xpm/toggle_log.xpm"
 #include "xpm/view-fullscreen-4.xpm"
-}; // namespace XPM
+} // namespace XPM
 
 // map containing the icons
 const StringMap<wxBitmap> _icons{ // NOLINT

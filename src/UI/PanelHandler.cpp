@@ -57,8 +57,8 @@ PanelHandler::~PanelHandler() {
 void PanelHandler::OnPaneWillClose(wxAuiNotebookEvent &event) {
     event.Veto();
 
-    int index = event.GetSelection();
-    auto *window = m_panelArea->GetPage(index);
+    auto index = event.GetSelection();
+    auto *window = m_panelArea->GetPage(static_cast<size_t>(index));
 
     if (auto* entry = FindEntry(window)) {
         ClosePanel(*entry);
@@ -129,7 +129,7 @@ bool PanelHandler::ClosePanel(Entry &entry) {
     GetCmdMgr().Check(entry.id, false);
 
     auto index = m_panelArea->GetPageIndex(entry.window);
-    m_panelArea->RemovePage(index);
+    m_panelArea->RemovePage(static_cast<size_t>(index));
     if (entry.managed) {
         delete entry.window;
     }
@@ -160,7 +160,7 @@ PanelHandler::Entry* PanelHandler::Register(const wxString &name, int id, PanelH
         cmdMgr.Register(name, CmdManager::Entry{id, CmdManager::Type::Check, false, true, nullptr});
     }
 
-    return &m_entries.emplace(name, Entry{name, id, std::move(creator)}).first->second;
+    return &m_entries.emplace(name, Entry{name, id, std::move(creator), false}).first->second;
 }
 
 PanelHandler::Entry* PanelHandler::FindEntry(int id) noexcept {

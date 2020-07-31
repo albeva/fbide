@@ -7,7 +7,16 @@
 //
 
 #include "Config.hpp"
-#include <yaml-cpp/yaml.h>
+
+#ifdef __GNUC__
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wconversion"
+    #include <yaml-cpp/yaml.h>
+    #pragma GCC diagnostic pop
+#else
+    #include <yaml-cpp/yaml.h>
+#endif
+
 #if __has_include(<memory_resource>)
     #include <memory_resource>
 #else
@@ -92,18 +101,15 @@ namespace {
  * Simple config path parser. Keys are separated by "."
  */
 struct PathParser {
-    /**
-     * Create path parser
-     */
-    PathParser(const wxString& path) noexcept: m_path(path) {}
 
-    /**
-     * Get next token
-     */
-    int Next() noexcept {
+    explicit PathParser(const wxString& path) noexcept: m_path(path) {}
+
+    size_t Next() noexcept {
         const auto len = m_path.length();
         auto start = m_pos;
-        while (m_pos < len && m_path[m_pos] != '.') m_pos++;
+        while (m_pos < len && m_path[m_pos] != '.') {
+            m_pos++;
+        }
         return m_pos - start;
     }
 
@@ -126,7 +132,7 @@ void Config::deallocate(void* value) {
 }
 #else
 struct Config::details {
-    inline static std::pmr::unsynchronized_pool_resource p_configPool{
+    inline static std::pmr::unsynchronized_pool_resource p_configPool{ // NOLINT
         std::pmr::pool_options{0, sizeof(Config::Value)}
     };
 };
@@ -145,7 +151,7 @@ void Config::deallocate(void* value) {
  */
 Config Config::LoadYaml(const wxString& path) {
     if (!wxFileExists(path)) {
-        wxLogError("File '" + path + "' not found");
+        wxLogError("File '" + path + "' not found"); // NOLINT
         return {};
     }
     auto file = YAML::LoadFile(path.ToStdString());
@@ -162,7 +168,7 @@ Config Config::LoadYaml(const wxString& path) {
  * @throws std::bad_any_cast
  */
 Config& Config::operator[](const wxString& path) {
-    auto node = this;
+    auto *node = this;
 
     PathParser parser{ path };
     for (;;) {
@@ -194,7 +200,7 @@ Config& Config::operator[](const wxString& path) {
  * return a nullptr. Does not throw nor modify Config
  */
 const Config* Config::Get(const wxString& path) const noexcept {
-    auto node = this;
+    const auto *node = this;
 
     PathParser parser{ path };
     for (;;) {
@@ -207,7 +213,7 @@ const Config* Config::Get(const wxString& path) const noexcept {
             return nullptr;
         }
 
-        auto& map = node->AsMap();
+        const auto& map = node->AsMap();
         auto str = path.Mid(parser.m_pos - len, len);
         parser.m_pos += 1;
 
