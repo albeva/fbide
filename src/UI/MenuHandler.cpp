@@ -15,11 +15,11 @@
 
 using namespace fbide;
 
-static const wxString ID        = "id";
-static const wxString SHOW      = "show";
-static const wxString ITEMS     = "items";
-static const wxString DASH      = "-";
-static const wxString MENU_ICON = "App.MenuIcons";
+static const wxString ID        = "id";             // NOLINT
+static const wxString SHOW      = "show";           // NOLINT
+static const wxString ITEMS     = "items";          // NOLINT
+static const wxString DASH      = "-";              // NOLINT
+static const wxString MENU_ICON = "App.MenuIcons";  // NOLINT
 
 
 // listen for events
@@ -31,25 +31,28 @@ MenuHandler::MenuHandler(wxMenuBar* menu) : m_mbar(menu) {
 void MenuHandler::Load(Config& structure, wxMenu* parent) {
     auto& cmd = GetCmdMgr();
 
-    for (auto& node : structure.AsArray()) {
+    for (auto& node : structure.AsArray()) { // NOLINT
         auto& id = node[ID].AsString();
 
         auto* menu = GetMenu(id);
         if (menu == nullptr) {
-            auto entry = cmd.FindEntry(id);
+            const auto *entry = cmd.FindEntry(id);
 
             // check if menu is in cmd manager
-            if (entry != nullptr && entry->type == CmdManager::Type::Menu && (menu = dynamic_cast<wxMenu*>(entry->object)))
-                ;
-            else
-                menu = new wxMenu();
+            if (entry != nullptr && entry->type == CmdManager::Type::Menu) {
+                menu = dynamic_cast<wxMenu*>(entry->object);
+            }
+
+            if (menu == nullptr) {
+                menu = new wxMenu ();
+            }
 
             // show this item?
             bool show = node[SHOW] != false && menu->GetParent() == nullptr && menu->GetMenuBar() == nullptr;
 
             // add it
             Add(id, menu, parent == nullptr && show);
-            if (parent && show) {
+            if ((parent != nullptr) && show) {
                 parent->AppendSubMenu(menu, GetLang("menu." + id, id));
             }
         }
@@ -77,11 +80,11 @@ wxMenu* MenuHandler::MenuHandler::GetMenu(const wxString& id) {
 
 // Add new menu
 void MenuHandler::Add(const wxString& id, wxMenu* menu, bool show) {
-    assert(id != "");
+    assert(!id.empty());
     assert(menu != nullptr);
 
     if (GetMenu(id) != nullptr) {
-        wxLogWarning("Menu with id '%s' already registered", id);
+        wxLogWarning("Menu with id '%s' already registered", id); // NOLINT
         return;
     }
 
@@ -95,25 +98,25 @@ void MenuHandler::Add(const wxString& id, wxMenu* menu, bool show) {
 // Add a new item to the menu
 void MenuHandler::AddItem(wxMenu* parent, const wxString& id) {
     assert(parent != nullptr);
-    assert(id != "");
+    assert(!id.empty());
 
     auto& ui = GetUiMgr();
     auto& art = ui.GetArtProvider();
     auto& cmd = GetCmdMgr();
     auto& entry = cmd.GetEntry(id);
     auto& cfg = GetConfig();
-    auto& name = GetLang("Cmd." + id + ".name", id);
-    auto& help = GetLang("Cmd." + id + ".help", id);
+    const auto& name = GetLang("Cmd." + id + ".name", id);
+    const auto& help = GetLang("Cmd." + id + ".help", id);
 
     if (entry.type == CmdManager::Type::Menu) {
-        auto item = parent->AppendSubMenu(dynamic_cast<wxMenu*>(entry.object), name);
+        auto *item = parent->AppendSubMenu(dynamic_cast<wxMenu*>(entry.object), name);
         if (cfg.Get(MENU_ICON, true)) {
             item->SetBitmap(art.GetIcon(id));
         }
     } else {
         bool check = entry.type == CmdManager::Type::Check;
 
-        auto item = new wxMenuItem{
+        auto *item = new wxMenuItem{
             parent,
             entry.id,
             name,

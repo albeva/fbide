@@ -11,14 +11,14 @@ class DocumentManager final: public wxEvtHandler {
 public:
 
     DocumentManager();
-    ~DocumentManager();
+    ~DocumentManager() final;
 
 private:
     void OnNew(wxCommandEvent& event);
     void OnOpen(wxCommandEvent& event);
     void OnSave(wxCommandEvent& event);
 
-    wxDECLARE_EVENT_TABLE();
+    wxDECLARE_EVENT_TABLE(); // NOLINT
 };
 
 } // namespace fbide

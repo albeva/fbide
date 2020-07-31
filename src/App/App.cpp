@@ -9,7 +9,6 @@
 #include "Document/TypeManager.hpp"
 #include "Manager.hpp"
 #include "UI/CmdManager.hpp"
-#include "UI/MainWindow.hpp"
 #include "UI/UiManager.hpp"
 #include "Log/LogManager.hpp"
 #include "FB/FBEditor.hpp"

@@ -40,7 +40,7 @@ namespace XPM {
 }; // namespace XPM
 
 // map containing the icons
-const StringMap<wxBitmap> _icons{
+const StringMap<wxBitmap> _icons{ // NOLINT
     { "quit",       XPM::close },
     { "about",      XPM::about },
 
@@ -69,7 +69,7 @@ const StringMap<wxBitmap> _icons{
 };
 
 // default icon size
-const wxSize _size{ 16, 16 };
+const wxSize _size{ 16, 16 }; // NOLINT
 } // namespace
 
 const wxBitmap& StandardArtProvider::GetIcon(const wxString& name) {

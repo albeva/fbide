@@ -8,7 +8,6 @@
 
 #include "UiManager.hpp"
 #include "Config/ConfigManager.hpp"
-#include "MainWindow.hpp"
 
 #include "CmdManager.hpp"
 #include "Document/Document.hpp"
@@ -24,14 +23,14 @@
 using namespace fbide;
 
 namespace {
-const int ID_AppWindow = ::wxNewId();
-const int ID_FullScreen = ::wxNewId();
-const int ID_DocNotebook = ::wxNewId();
-const int ID_PanelNotebook = ::wxNewId();
+const int ID_AppWindow = ::wxNewId();       // NOLINT
+const int ID_FullScreen = ::wxNewId();      // NOLINT
+const int ID_DocNotebook = ::wxNewId();     // NOLINT
+const int ID_PanelNotebook = ::wxNewId();   // NOLINT
 } // namespace
 
 // event dispatching
-wxBEGIN_EVENT_TABLE(UiManager, wxEvtHandler)
+wxBEGIN_EVENT_TABLE(UiManager, wxEvtHandler)    // NOLINT
     EVT_MENU(wxID_ANY, UiManager::HandleMenuEvents)
     EVT_AUINOTEBOOK_PAGE_CLOSE(ID_DocNotebook, UiManager::OnPaneClose)
     EVT_UPDATE_UI(wxID_ANY, UiManager::OnUpdateUI)
@@ -43,10 +42,10 @@ wxEND_EVENT_TABLE()
 // is deferred to Load method
 UiManager::UiManager() {
     // the frame
-    m_window = std::make_unique<MainWindow>(nullptr, ID_AppWindow, "fbide", wxDefaultPosition, wxSize(640, 480));
+    m_window = std::make_unique<wxFrame>(nullptr, ID_AppWindow, "fbide", wxDefaultPosition, wxSize(640, 480)); // NOLINT
     m_window->PushEventHandler(this);
     m_window->EnableFullScreenView(true);
-    wxTheApp->SetTopWindow(m_window.get());
+    wxGetApp().SetTopWindow(m_window.get());
     m_aui.SetManagedWindow(m_window.get());
 
     // Load default the art provider
@@ -60,7 +59,7 @@ UiManager::UiManager() {
     m_menuHandler = std::make_unique<MenuHandler>(m_menu);
 
     // aui
-    m_aui.SetFlags(wxAUI_MGR_LIVE_RESIZE | wxAUI_MGR_DEFAULT);
+    m_aui.SetFlags(wxAUI_MGR_LIVE_RESIZE | wxAUI_MGR_DEFAULT); // NOLINT
     m_aui.SetManagedWindow(m_window.get());
     m_aui.Update();
 
@@ -72,7 +71,7 @@ UiManager::UiManager() {
         ID_DocNotebook,
         wxDefaultPosition,
         wxDefaultSize,
-        wxAUI_NB_DEFAULT_STYLE | wxAUI_NB_WINDOWLIST_BUTTON | wxAUI_NB_CLOSE_ON_ALL_TABS);
+        wxAUI_NB_DEFAULT_STYLE | wxAUI_NB_WINDOWLIST_BUTTON | wxAUI_NB_CLOSE_ON_ALL_TABS); // NOLINT
     m_aui.AddPane(m_docArea, wxAuiPaneInfo().Name("DocArea").CenterPane().PaneBorder(false));
 
     // panels
@@ -93,7 +92,7 @@ UiManager::~UiManager() {
  * Shotdown the manager
  */
 void UiManager::Unload() {
-    while (m_docArea->GetPageCount()) {
+    while (m_docArea->GetPageCount() != 0) {
         CloseTab(0);
     }
 }
@@ -128,7 +127,7 @@ void UiManager::HandleMenuEvents(wxCommandEvent& event) {
 
 void UiManager::OnUpdateUI(wxUpdateUIEvent &event) {
     auto id = event.GetId();
-    auto* entry = GetCmdMgr().FindEntry(id);
+    const auto* entry = GetCmdMgr().FindEntry(id);
 
     if (entry == nullptr) {
         return;
@@ -155,6 +154,5 @@ void UiManager::OnPaneClose(wxAuiNotebookEvent& event) {
 }
 
 void UiManager::CloseTab(size_t index) {
-    auto wnd = m_docArea->GetPage(index);
     m_docArea->DeletePage(index);
 }

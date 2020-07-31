@@ -43,11 +43,11 @@ void ConfigManager::Load(const wxString& path) {
 
 Config& ConfigManager::GetTheme() noexcept {
     if (m_theme.IsNull()) {
-        if (auto theme = m_root.Get("Editor.Theme")) {
+        if (const auto *theme = m_root.Get("Editor.Theme")) {
             const auto& idePath = m_root[Key::IdePath].AsString();
             auto file = idePath / "themes" / theme->AsString() + ".yaml";
             m_theme = Config::LoadYaml(file);
-            wxLogMessage("Editor theme loaded from: " + file);
+            wxLogMessage("Editor theme loaded from: " + file); // NOLINT
         }
     }
     return m_theme;

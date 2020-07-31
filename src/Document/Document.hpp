@@ -19,21 +19,22 @@ namespace fbide {
  * projects). Documents are usually created by TypeManager
  */
 class Document {
+    NON_COPYABLE(Document)
 public:
-    Document(const TypeManager::Type& type);
+    explicit Document(const TypeManager::Type& type);
     virtual ~Document();
 
     /**
      * Get unique document id
      */
-    int GetDocumentId() const noexcept {
+    [[nodiscard]] int GetDocumentId() const noexcept {
         return m_id;
     }
 
     /**
      * Get document type
      */
-    const TypeManager::Type& GetDocumentType() const noexcept {
+    [[nodiscard]] const TypeManager::Type& GetDocumentType() const noexcept {
         return m_type;
     }
 

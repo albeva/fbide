@@ -21,7 +21,8 @@ public:
     /**
      * Create toolbar handler
      */
-    ToolbarHandler(wxAuiManager* aui);
+    explicit ToolbarHandler(wxAuiManager* aui);
+    ~ToolbarHandler() = default;
 
     /**
      * Load toolbars from configuration

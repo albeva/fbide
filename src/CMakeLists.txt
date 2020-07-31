@@ -10,8 +10,6 @@ add_executable(fbide WIN32
     UI/CmdManager.hpp
     UI/CmdManager.cpp
     UI/IArtProvider.hpp
-    UI/MainWindow.hpp
-    UI/MainWindow.cpp
     UI/MenuHandler.hpp
     UI/MenuHandler.cpp
     UI/StandardArtProvider.hpp

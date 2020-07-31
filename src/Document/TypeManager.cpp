@@ -23,12 +23,13 @@ void TypeManager::Register(const wxString& name, CreatorFn creator) {
     std::vector<wxString> exts;
 
     if (name.SubString(0, 4) == "text/") {
-        auto path = "Editor.Types." + name.Right(name.length() - 5);
+        const int prefiexLen = 5;
+        auto path = "Editor.Types." + name.Right(name.length() - prefiexLen);
         config = GetConfig().Get(path);
-        if (config) {
-            auto es = config->Get("exts");
-            if (es && es->IsArray()) {
-                for (auto& ext : const_cast<Config*>(es)->AsArray()) {
+        if (config != nullptr) {
+            const auto *es = config->Get("exts");
+            if (es != nullptr && es->IsArray()) {
+                for (const auto& ext : es->AsArray()) {
                     if (ext.IsString()) {
                         exts.push_back(ext.AsString());
                     }
@@ -37,9 +38,8 @@ void TypeManager::Register(const wxString& name, CreatorFn creator) {
         }
     }
 
-    m_types.emplace(std::make_pair(name, Type{ name, exts, config ? *config : Config::Empty, creator }));
+    m_types.emplace(std::make_pair(name, Type{ name, exts, config == nullptr ? Config::Empty : *config, creator }));
 }
-
 
 /**
  * Bind the alias
@@ -56,12 +56,11 @@ void TypeManager::BindAlias(const wxString& alias, const wxString& name, bool ov
     m_aliases[alias] = name;
 }
 
-
 /**
  * Bind extensions to the name
  */
 void TypeManager::BindExtensions(const wxString& name, const wxString& exts) {
-    auto type = GetType(name);
+    auto *type = GetType(name);
     if (type == nullptr) {
         throw std::invalid_argument("Type '"s + name + "' not found");
     }
@@ -76,18 +75,16 @@ void TypeManager::BindExtensions(const wxString& name, const wxString& exts) {
     }
 }
 
-
 /**
  * Create Document from type
  */
 Document* TypeManager::CreateFromType(const wxString& name) {
-    auto type = GetType(name);
+    auto *type = GetType(name);
     if (type == nullptr) {
         throw std::invalid_argument("Type '"s + name + "' not found");
     }
     return type->creator(*type);
 }
-
 
 /**
  * find type for the given name. Return nullptr if none found

@@ -7,6 +7,8 @@
       <option name="INDENT_DIRECTIVE_AS_CODE" value="true" />
       <option name="SPACE_BEFORE_SUPERCLASS_COLON" value="false" />
       <option name="SPACE_BEFORE_INIT_LIST_COLON" value="false" />
+      <option name="SPACE_BEFORE_POINTER_IN_DECLARATION" value="false" />
+      <option name="SPACE_AFTER_POINTER_IN_DECLARATION" value="true" />
       <option name="SPACE_BEFORE_REFERENCE_IN_DECLARATION" value="false" />
       <option name="SPACE_AFTER_REFERENCE_IN_DECLARATION" value="true" />
       <option name="SPACE_AFTER_REFERENCE_IN_RVALUE" value="true" />

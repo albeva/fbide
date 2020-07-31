@@ -20,8 +20,8 @@ public:
 
     static const wxString TypeId;
 
-    TextDocument(const TypeManager::Type& type);
-    virtual ~TextDocument();
+    explicit TextDocument(const TypeManager::Type& type);
+    ~TextDocument() override;
 
     /**
      * Instantiate the document

@@ -1,5 +1,5 @@
 ---
-Checks:          '*,-llvm-*,-fuchsia-*,-google-*,-zircon-*,-abseil-*,-modernize-use-trailing-return-type,-llvmlibc-callee-namespace,-misc-non-private-member-variables-in-classes'
+Checks:          '*,-llvm-*,-fuchsia-*,-google-*,-zircon-*,-abseil-*,-modernize-use-trailing-return-type,-llvmlibc-callee-namespace,-misc-non-private-member-variables-in-classes,-cppcoreguidelines-owning-memory,-readability-convert-member-functions-to-static'
 WarningsAsErrors: '*'
 HeaderFilterRegex: ''
 FormatStyle:     none

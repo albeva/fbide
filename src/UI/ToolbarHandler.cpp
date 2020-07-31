@@ -18,7 +18,7 @@ using namespace fbide;
 
 // toggle toolbars
 namespace {
-const int ID_ToggleToolbars = ::wxNewId();
+const int ID_ToggleToolbars = ::wxNewId(); // NOLINT
 const int ToolBarStyle = wxAUI_TB_GRIPPER;
 } // namespace
 
@@ -28,7 +28,7 @@ const int ToolBarStyle = wxAUI_TB_GRIPPER;
  */
 ToolbarHandler::ToolbarHandler(wxAuiManager* aui)
 : m_aui(aui), m_visible(true), m_visibleCnt(0) {
-    auto window = m_aui->GetManagedWindow();
+    auto *window = m_aui->GetManagedWindow();
 
     auto& cmd = GetCmdMgr();
 
@@ -49,17 +49,17 @@ ToolbarHandler::ToolbarHandler(wxAuiManager* aui)
 void ToolbarHandler::Load(Config& structure) {
     auto& ui = GetUiMgr();
     auto& art = ui.GetArtProvider();
-    auto m_window = m_aui->GetManagedWindow();
+    auto *window = m_aui->GetManagedWindow();
 
     for (auto& node : structure.AsArray()) {
         auto& id = node["id"].AsString();
         bool show = node["show"] != false;
         bool add = false;
 
-        auto tbar = GetToolBar(id);
+        auto *tbar = GetToolBar(id);
         if (tbar == nullptr) {
             tbar = new wxAuiToolBar{
-                m_window,
+                window,
                 wxID_ANY,
                 wxDefaultPosition,
                 wxDefaultSize,
@@ -91,7 +91,7 @@ void ToolbarHandler::Load(Config& structure) {
  */
 void ToolbarHandler::AddItem(wxAuiToolBar* tbar, const wxString& name) {
     assert(tbar != nullptr);
-    assert(name != "");
+    assert(!name.empty());
 
     auto& cmd = GetCmdMgr();
     auto& art = GetUiMgr().GetArtProvider();
@@ -103,7 +103,7 @@ void ToolbarHandler::AddItem(wxAuiToolBar* tbar, const wxString& name) {
     // type
     bool check = entry.type == CmdManager::Type::Check;
 
-    auto tool = tbar->AddTool(entry.id,
+    auto *tool = tbar->AddTool(entry.id,
         label,
         art.GetIcon(name),
         help,
@@ -127,8 +127,8 @@ wxAuiToolBar* ToolbarHandler::GetToolBar(const wxString& id) {
  * Add toolbar
  */
 void ToolbarHandler::AddToolBar(const wxString& name, wxAuiToolBar* toolbar, bool show) {
-    if (GetToolBar(name)) {
-        wxLogWarning("Toolbar with id '%s' already exists", name);
+    if (GetToolBar(name) != nullptr) {
+        wxLogWarning("Toolbar with id '%s' already exists", name); // NOLINT
         return;
     }
     m_tbars[name] = toolbar;
@@ -150,13 +150,15 @@ void ToolbarHandler::AddToolBar(const wxString& name, wxAuiToolBar* toolbar, boo
         .Show(isVisible);
     m_aui->AddPane(toolbar, paneInfo);
 
-    if (isVisible)
+    if (isVisible) {
         m_visibleCnt += 1;
+    }
     m_visibleTbars[toolbar->GetId()] = show;
 
     // no menu... don't bother
-    if (m_menu == nullptr)
+    if (m_menu == nullptr) {
         return;
+    }
 
     // Add menu item
     int menuId = ::wxNewId();
@@ -197,23 +199,25 @@ void ToolbarHandler::OnMenuSelected(wxCommandEvent& event) {
 }
 
 void ToolbarHandler::ShowToolbars(bool show) {
-    if (m_visible == show)
+    if (m_visible == show) {
         return;
+    }
     m_visible = show;
 
-    for (auto iter : m_tbars) {
-        auto tbar = iter.second;
+    for (const auto& iter : m_tbars) {
+        auto *tbar = iter.second;
         if (m_visibleTbars[tbar->GetId()]) {
             m_aui->GetPane(tbar).Show(show);
             m_visibleCnt += show ? 1 : -1;
 
             auto idIter = m_tbarMenuId.find(tbar->GetId());
-            if (idIter == m_tbarMenuId.end())
+            if (idIter == m_tbarMenuId.end()) {
                 continue;
+            }
 
-            if (m_menu) {
-                auto item = m_menu->FindItem(idIter->second);
-                if (item) {
+            if (m_menu != nullptr) {
+                auto *item = m_menu->FindItem(idIter->second);
+                if (item != nullptr) {
                     item->Check(show);
                 }
             }
@@ -234,7 +238,7 @@ void ToolbarHandler::ToggleToolbar(int id, bool show) {
     }
 
     // toggle toolbar visibility
-    for (auto tbar : m_tbars) {
+    for (const auto& tbar : m_tbars) {
         auto& pane = m_aui->GetPane(tbar.second);
         if (pane.window->GetId() != id) {
             continue;
@@ -246,12 +250,9 @@ void ToolbarHandler::ToggleToolbar(int id, bool show) {
     }
 
     // Set toggle button state
-    if (m_visibleCnt) {
-        m_visible = true;
-    }
-
-    GetCmdMgr().Check(ID_ToggleToolbars, m_visibleCnt != 0);
-    GetCmdMgr().Enable(ID_ToggleToolbars, m_visibleCnt != 0);
+    m_visible = m_visibleCnt != 0;
+    GetCmdMgr().Check(ID_ToggleToolbars, m_visible);
+    GetCmdMgr().Enable(ID_ToggleToolbars, m_visible);
 }
 
 /**
@@ -260,12 +261,12 @@ void ToolbarHandler::ToggleToolbar(int id, bool show) {
  */
 void ToolbarHandler::OnWindowResize(wxSizeEvent& event) {
     event.Skip();
-    auto window = m_aui->GetManagedWindow();
+    auto *window = m_aui->GetManagedWindow();
     auto width = window->GetClientSize().GetWidth() - 2;
-    for(auto pair: m_tbars) {
-        auto tbar = pair.second;
+    for(const auto& pair: m_tbars) {
+        auto *tbar = pair.second;
         auto right = tbar->GetRect().GetRight();
-        auto overflow = tbar->GetRect().GetRight() >= width;
+        auto overflow = right >= width;
 
         if (overflow != tbar->GetOverflowVisible()) {
             tbar->SetOverflowVisible(overflow);

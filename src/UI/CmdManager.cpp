@@ -77,7 +77,7 @@ const CmdManager::Entry* CmdManager::FindEntry(const wxString& name) const {
  * one will be created
  */
 CmdManager::Entry& CmdManager::GetEntry(const wxString& name) {
-    int id;
+    int id = 0;
     auto iter = m_idMap.find(name);
     if (iter == m_idMap.end()) {
         id = Register(name, Entry{::wxNewId()});
@@ -98,14 +98,14 @@ int CmdManager::Register(const wxString& name, const Entry& entry) {
     // check name registered?
     auto nameIter = m_idMap.find(name);
     if (nameIter != m_idMap.end()) {
-        wxLogError("Command '" + name + "' is already registered with CmdMgr");
+        wxLogError("Command '" + name + "' is already registered with CmdMgr"); // NOLINT
         return nameIter->second;
     }
 
     // check id registered
     auto idIter = m_entryMap.find(id);
     if (idIter != m_entryMap.end()) {
-        wxLogError("Cmd ID for '" + name + "' is duplicated");
+        wxLogError("Cmd ID for '" + name + "' is duplicated"); // NOLINT
         return id;
     }
 
@@ -124,7 +124,7 @@ int CmdManager::Register(const wxString& name, const Entry& entry) {
  * Toggle the checkboxes. For Type::Check
  */
 void CmdManager::Check(int id, bool state) {
-    auto entry = GetEntry(id);
+    auto *entry = GetEntry(id);
     if (entry == nullptr) {
         return;
     }
@@ -140,7 +140,7 @@ void CmdManager::Check(int id, bool state) {
  * Enable / Disable command state
  */
 void CmdManager::Enable(int id, bool state) {
-    auto entry = GetEntry(id);
+    auto *entry = GetEntry(id);
     if (entry == nullptr) {
         return;
     }
@@ -164,14 +164,14 @@ CmdManager::Entry* CmdManager::GetEntry(int id) noexcept {
 }
 
 bool CmdManager::IsEnabled(int id) const noexcept {
-    if (auto entry = FindEntry(id)) {
+    if (const auto *entry = FindEntry(id)) {
         return entry->enabled;
     }
     return false;
 }
 
 bool CmdManager::IsChecked(int id) const noexcept {
-    if (auto entry = FindEntry(id)) {
+    if (const auto *entry = FindEntry(id)) {
         return entry->checked;
     }
     return false;

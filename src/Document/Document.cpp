@@ -12,9 +12,7 @@
 
 using namespace fbide;
 
-namespace {
-int uniqueId = 0;
-}
+static int uniqueId = 0; // NOLINT
 
 Document::Document(const TypeManager::Type& type) : m_id(++uniqueId), m_type(type) {
     Document::SetDocumentTitle("");

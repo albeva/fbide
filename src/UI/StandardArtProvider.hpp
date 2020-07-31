@@ -18,7 +18,7 @@ class StandardArtProvider final: public IArtProvider {
     NON_COPYABLE(StandardArtProvider)
 public:
     StandardArtProvider() = default;
-    ~StandardArtProvider() = default;
+    ~StandardArtProvider() final = default;
 
     /**
      * Get bitmap

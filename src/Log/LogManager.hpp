@@ -11,7 +11,7 @@ class LogManager final: public Panel {
     NON_COPYABLE(LogManager)
 public:
     LogManager();
-    ~LogManager();
+    ~LogManager() final;
 
     wxWindow* ShowPanel() final;
     bool HidePanel() final;

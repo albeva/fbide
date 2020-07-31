@@ -14,7 +14,9 @@ namespace fbide {
  * Art provider for the UI manager
  */
 class IArtProvider {
+    NON_COPYABLE(IArtProvider)
 public:
+    IArtProvider() = default;
     virtual ~IArtProvider();
 
     /**

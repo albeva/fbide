@@ -52,7 +52,7 @@ public:
      */
     template<typename T, CheckDocument<T> = 0>
     inline void Register(const wxString& name = T::TypeId) {
-        Register(name, [](const Type& type) -> Document* { return new T(type); });
+        Register(name, [](const Type& type) -> Document* { return new T(type); }); // NOLINT
     }
 
     /**
@@ -63,7 +63,7 @@ public:
     /**
      * Check if type is registered
      */
-    inline bool IsRegistered(const wxString& name) const noexcept {
+    [[nodiscard]] inline bool IsRegistered(const wxString& name) const noexcept {
         return m_types.find(name) != m_types.end()
                || m_aliases.find(name) != m_aliases.end();
     }
@@ -82,14 +82,14 @@ public:
     /**
      * Create document from type
      */
-    Document* CreateFromType(const wxString& name);
+    [[nodiscard]] Document* CreateFromType(const wxString& name);
 
 private:
     /**
      * Gets the Type struct from name. This will
      * resolve aliases. Will return nullptr if none found
      */
-    Type* GetType(const wxString&) noexcept;
+    [[nodiscard]] Type* GetType(const wxString&) noexcept;
 
     StringMap<Type> m_types;
     StringMap<wxString> m_aliases;

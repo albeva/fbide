@@ -10,7 +10,6 @@
 
 namespace fbide {
 
-class MainWindow;
 class IArtProvider;
 class MenuHandler;
 class ToolbarHandler;
@@ -25,17 +24,17 @@ class UiManager final: public wxEvtHandler {
 public:
 
     UiManager();
-    virtual ~UiManager();
+    ~UiManager() final;
 
     void Load();
     void Unload();
 
-    inline MainWindow* GetWindow() { return m_window.get(); }
-    inline wxAuiNotebook* GetDocArea() { return m_docArea; }
-    inline PanelHandler* GetPanelHandler() { return m_panelHandler.get(); }
+    [[nodiscard]] inline wxFrame* GetWindow() { return m_window.get(); }
+    [[nodiscard]] inline wxAuiNotebook* GetDocArea() { return m_docArea; }
+    [[nodiscard]] inline PanelHandler* GetPanelHandler() { return m_panelHandler.get(); }
 
     void SetArtProvider(IArtProvider* artProvider);
-    inline IArtProvider& GetArtProvider() const { return *m_artProvider; }
+    [[nodiscard]] inline IArtProvider& GetArtProvider() const { return *m_artProvider; }
 
 private:
     void HandleMenuEvents(wxCommandEvent& event);
@@ -51,13 +50,13 @@ private:
     wxAuiNotebook* m_docArea;
 
     // managed resources
-    std::unique_ptr<MainWindow> m_window;
+    std::unique_ptr<wxFrame> m_window;
     std::unique_ptr<IArtProvider> m_artProvider;
     std::unique_ptr<MenuHandler> m_menuHandler;
     std::unique_ptr<ToolbarHandler> m_tbarHandler;
     std::unique_ptr<PanelHandler> m_panelHandler;
 
-    wxDECLARE_EVENT_TABLE();
+    wxDECLARE_EVENT_TABLE(); // NOLINT
 };
 
 } // namespace fbide

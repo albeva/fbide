@@ -4,13 +4,13 @@
 #include "FBEditor.hpp"
 #include "App/Manager.hpp"
 #include "UI/UiManager.hpp"
-#include "UI/MainWindow.hpp"
 #include "Config/ConfigManager.hpp"
 using namespace fbide;
 
-const wxString FBEditor::TypeId = "text/freebasic";
+const wxString FBEditor::TypeId = "text/freebasic"; // NOLINT
+constexpr int DefaultFontSize = 12;
 
-wxBEGIN_EVENT_TABLE(FBEditor, wxStyledTextCtrl)
+wxBEGIN_EVENT_TABLE(FBEditor, wxStyledTextCtrl) // NOLINT
     EVT_STC_CHARADDED(wxID_ANY, FBEditor::OnCharAdded)
 wxEND_EVENT_TABLE()
 
@@ -40,7 +40,7 @@ void FBEditor::LoadConfiguration(const Config& config) {
  */
 void FBEditor::LoadTheme(const Config& theme) {
     wxFont font(
-        theme.Get("FontSize", 12),
+        theme.Get("FontSize", DefaultFontSize),
         wxFONTFAMILY_MODERN,
         wxFONTSTYLE_NORMAL,
         wxFONTWEIGHT_NORMAL,
@@ -52,7 +52,7 @@ void FBEditor::LoadTheme(const Config& theme) {
 }
 
 void FBEditor::Log(const std::string &message) {
-    wxLogMessage(wxString(message));
+    wxLogMessage(wxString(message)); // NOLINT
 }
 
 void FBEditor::OnCharAdded(wxStyledTextEvent &event) {
@@ -60,10 +60,10 @@ void FBEditor::OnCharAdded(wxStyledTextEvent &event) {
 }
 
 // Load fblexer
-bool FBEditor::s_FBLExerLoaded = false;
+bool FBEditor::s_fbLexerLoaded = false; // NOLINT
 
 void FBEditor::LoadFBLexer() {
-    if (s_FBLExerLoaded) {
+    if (s_fbLexerLoaded) {
         return;
     }
 
@@ -76,5 +76,5 @@ void FBEditor::LoadFBLexer() {
     #endif
 
     LoadLexerLibrary(path);
-    s_FBLExerLoaded = true;
+    s_fbLexerLoaded = true;
 }

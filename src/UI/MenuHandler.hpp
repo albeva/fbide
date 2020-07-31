@@ -18,7 +18,8 @@ class Config;
 class MenuHandler final {
     NON_COPYABLE(MenuHandler)
 public:
-    MenuHandler(wxMenuBar* menu);
+    explicit MenuHandler(wxMenuBar* menu);
+    ~MenuHandler() = default;
 
     // Load Configuration
     void Load(Config& node, wxMenu* parent = nullptr);
@@ -31,9 +32,6 @@ public:
 
     // Add a new item to the menu
     void AddItem(wxMenu* parent, const wxString& id);
-
-    // Flag check items
-    void OnEvent(wxCommandEvent& event);
 
 private:
     StringMap<wxMenu*> m_map;

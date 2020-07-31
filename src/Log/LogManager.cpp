@@ -8,24 +8,25 @@
 #include "UI/PanelHandler.hpp"
 using namespace fbide;
 
-static const int ID_ToggleLog = ::wxNewId();
+static const int ID_ToggleLog = ::wxNewId(); // NOLINT
+constexpr int DefaultLogFontSize = 12;
 
 LogManager::LogManager() {
     auto& uiMgr = GetUiMgr();
     auto* panelHandler = uiMgr.GetPanelHandler();
     auto* entry = panelHandler->Register("toggle_log", ID_ToggleLog, [this]() { return this; });
     if (entry == nullptr) {
-        wxLogError("Failed to register panel with PanelHandler");
+        wxLogError("Failed to register panel with PanelHandler"); // NOLINT
         return;
     }
 
     auto* panelArea = panelHandler->GetPanelArea();
-    auto style = wxTE_MULTILINE | wxTE_READONLY;
-    m_textCtrl = new wxTextCtrl(panelArea, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, style);
+    auto style = wxTE_MULTILINE | wxTE_READONLY; // NOLINT
+    m_textCtrl = new wxTextCtrl(panelArea, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, style); // NOLINT
     m_textCtrl->Hide();
 
     wxFont font{
-        12,
+        DefaultLogFontSize,
         wxFONTFAMILY_MODERN,
         wxFONTSTYLE_NORMAL,
         wxFONTWEIGHT_NORMAL,
@@ -34,11 +35,12 @@ LogManager::LogManager() {
     font.SetSymbolicSize(wxFONTSIZE_MEDIUM);
     m_textCtrl->SetFont(font);
 
-    m_textCtrl->Bind(wxEVT_TEXT, [this, panelHandler, entry](auto){
+    auto handler = [this, panelHandler, entry](auto /* event */){
         if (!m_textCtrl->IsShown()) {
             panelHandler->ShowPanel(*entry);
         }
-    });
+    };
+    m_textCtrl->Bind(wxEVT_TEXT, handler);
 
     m_log = std::make_unique<wxLogTextCtrl>(m_textCtrl);
     wxLog::SetActiveTarget(m_log.get());

@@ -16,7 +16,7 @@
 #include <algorithm>
 #include <any>
 #include <variant>
-#include <assert.h>
+#include <cassert>
 #include <cctype>
 #include <functional>
 #include <memory>

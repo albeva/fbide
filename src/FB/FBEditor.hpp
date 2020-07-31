@@ -14,8 +14,8 @@ public:
     // Editor mime type
     static const wxString TypeId;
 
-    FBEditor(const TypeManager::Type& type);
-    virtual ~FBEditor();
+    explicit FBEditor(const TypeManager::Type& type);
+    ~FBEditor() final;
     void CreateDocument() final;
 
     // fblexer communication
@@ -24,13 +24,12 @@ public:
 private:
     void OnCharAdded(wxStyledTextEvent &event);
 
-    static bool s_FBLExerLoaded;
+    static bool s_fbLexerLoaded; // NOLINT
     void LoadFBLexer();
     void LoadConfiguration(const Config& config);
-
-    wxDECLARE_EVENT_TABLE();
-
     void LoadTheme(const Config &theme);
+
+    wxDECLARE_EVENT_TABLE(); // NOLINT
 };
 
 } // namespace fbide

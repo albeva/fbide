@@ -36,6 +36,7 @@ public:
     };
 
     CmdManager();
+    ~CmdManager() = default;
 
     /**
      * Get ID from command name. If command does
@@ -46,25 +47,25 @@ public:
     /**
      * check if id exists for the given name
      */
-    bool IdExists(const wxString& name) const;
+    [[nodiscard]] bool IdExists(const wxString& name) const;
 
     /**
      * Find entry. Will return a nullptr if it doesn't
      * exist
      */
-    const Entry* FindEntry(int id) const;
+    [[nodiscard]] const Entry* FindEntry(int id) const;
 
     /**
      * Find entry. Will return a nullptr if it doesn't
      * exist
      */
-    const Entry* FindEntry(const wxString& name) const;
+    [[nodiscard]] const Entry* FindEntry(const wxString& name) const;
 
     /**
      * Get the entry. If doesn't exist a default
      * one will be created
      */
-    Entry& GetEntry(const wxString& name);
+    [[nodiscard]] Entry& GetEntry(const wxString& name);
 
     /**
      * Register new entry. Will return the ID of the created
@@ -89,7 +90,7 @@ private:
     /**
      * Find entry with given ID. If not found return null
      */
-    Entry* GetEntry(int id) noexcept;
+    [[nodiscard]] Entry* GetEntry(int id) noexcept;
 
     StringMap<int> m_idMap;                    // id <-> name map
     std::unordered_map<int, Entry> m_entryMap; // id <-> entry map

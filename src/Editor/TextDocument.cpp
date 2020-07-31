@@ -7,13 +7,12 @@
 //
 
 #include "TextDocument.hpp"
-#include "UI/MainWindow.hpp"
 #include "UI/UiManager.hpp"
 #include "Config/Config.hpp"
 #include "App/Manager.hpp"
 using namespace fbide;
 
-const wxString TextDocument::TypeId = "text/plain";
+const wxString TextDocument::TypeId = "text/plain"; // NOLINT
 
 TextDocument::TextDocument(const TypeManager::Type& type)
 : Document(type) {}

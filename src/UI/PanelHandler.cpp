@@ -7,11 +7,11 @@
 #include "Config/ConfigManager.hpp"
 using namespace fbide;
 
-static auto ID_PanelsNotebook = ::wxNewId();
+static auto ID_PanelsNotebook = ::wxNewId(); // NOLINT
 
 Panel::~Panel() = default;
 
-BEGIN_EVENT_TABLE(PanelHandler, wxEvtHandler)
+BEGIN_EVENT_TABLE(PanelHandler, wxEvtHandler) // NOLINT
     EVT_AUINOTEBOOK_PAGE_CLOSE(ID_PanelsNotebook,  PanelHandler::OnPaneWillClose)
     EVT_MENU(wxID_ANY, PanelHandler::HandleMenuEvents)
 END_EVENT_TABLE()
@@ -60,16 +60,16 @@ void PanelHandler::OnPaneWillClose(wxAuiNotebookEvent &event) {
     event.Veto();
 
     int index = event.GetSelection();
-    auto window = m_panelArea->GetPage(index);
+    auto *window = m_panelArea->GetPage(index);
 
-    if (auto entry = FindEntry(window)) {
+    if (auto* entry = FindEntry(window)) {
         ClosePanel(*entry);
     }
 }
 
 void PanelHandler::HandleMenuEvents(wxCommandEvent &event) {
     auto id = event.GetId();
-    auto entry = FindEntry(id);
+    auto* entry = FindEntry(id);
     if (entry == nullptr) {
         event.Skip();
         return;
@@ -153,7 +153,7 @@ bool PanelHandler::ClosePanel(Entry &entry) {
 
 PanelHandler::Entry* PanelHandler::Register(const wxString &name, int id, PanelHandler::PanelCreatorFn creator) {
     if (IsRegistered(name)) {
-        wxLogWarning("Panel '" + name + "' is already registered with PanelHandler");
+        wxLogWarning("Panel '" + name + "' is already registered with PanelHandler"); // NOLINT
         return nullptr;
     }
 
@@ -162,7 +162,7 @@ PanelHandler::Entry* PanelHandler::Register(const wxString &name, int id, PanelH
         cmdMgr.Register(name, CmdManager::Entry{id, CmdManager::Type::Check, false, true, nullptr});
     }
 
-    return &m_entries.emplace(name, Entry{name, id, creator}).first->second;
+    return &m_entries.emplace(name, Entry{name, id, std::move(creator)}).first->second;
 }
 
 PanelHandler::Entry* PanelHandler::FindEntry(int id) noexcept {

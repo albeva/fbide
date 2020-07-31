@@ -12,7 +12,9 @@ class Config;
  * Handle panel show / hide
  */
 class Panel {
+    NON_COPYABLE(Panel)
 public:
+    Panel() = default;
     virtual ~Panel();
     /**
      * If returns a window then show that as a panel. If it is managed panel then
@@ -56,8 +58,8 @@ public:
     template<typename T>
     using CheckPanel = std::enable_if_t<is_extended_from<Panel, T>(), int>;
 
-    PanelHandler(wxAuiManager* aui);
-    ~PanelHandler();
+    explicit PanelHandler(wxAuiManager* aui);
+    ~PanelHandler() final;
 
     /**
      * Register panel provider
@@ -104,7 +106,7 @@ private:
     StringMap<Entry> m_entries;
     int m_visibleCount = 0;
 
-    wxDECLARE_EVENT_TABLE();
+    wxDECLARE_EVENT_TABLE(); // NOLINT
 };
 
 }
