@@ -70,10 +70,7 @@ void Lexer::Lex(Sci_PositionU startPos, Sci_Position lengthDoc, int initStyle, I
     styler.StartAt(startPos);
 
     StyleContext sc(startPos, lengthDoc, initStyle, styler);
-    for (; ; sc.Forward()) {
-        if (!sc.More()) {
-            break;
-        }
+    for (; sc.More(); sc.Forward()) {
     }
 
     sc.Complete();

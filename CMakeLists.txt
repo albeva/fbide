@@ -34,12 +34,18 @@ find_package(wxWidgets 3.1 COMPONENTS ${WXLIBS} REQUIRED)
 set(YAML_CPP_BUILD_TESTS OFF CACHE BOOL "disable yaml tests")
 set(YAML_CPP_BUILD_TOOLS OFF CACHE BOOL "disable yaml tools")
 set(YAML_CPP_BUILD_CONTRIB OFF CACHE BOOL "disable yaml contrib")
+if (MSVC)
+    if(LIB_SUFFIX STREQUAL "dll")
+        set(YAML_MSVC_SHARED_RT OFF CACHE BOOL "Disable shared rt lib")
+    endif()
+endif()
 add_subdirectory(third-party/yaml-cpp)
 
-# lex lib
-add_subdirectory(fblexer)
+#-----------------------------------------------------------------------------------------------------------------------
+# fbide
+#-----------------------------------------------------------------------------------------------------------------------
 
-# Main App
+add_subdirectory(fblexer)
 add_subdirectory(src)
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -61,6 +67,6 @@ if (MSVC)
         endif()
     endif()
     set_property(
-        TARGET yaml-cpp fblexer fbide
+        TARGET fblexer fbide
         PROPERTY MSVC_RUNTIME_LIBRARY ${RUNTIME_LIB})
 endif()

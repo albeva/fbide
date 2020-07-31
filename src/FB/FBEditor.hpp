@@ -26,8 +26,11 @@ private:
 
     static bool s_FBLExerLoaded;
     void LoadFBLexer();
+    void LoadConfiguration(const Config& config);
 
     wxDECLARE_EVENT_TABLE();
+
+    void LoadTheme(const Config &theme);
 };
 
 } // namespace fbide

@@ -56,20 +56,23 @@ public:
      */
     using Array = std::vector<Config>;
 
+private:
+
     /**
      * Types must be in the same order as in Type enum
      */
     using Value = std::variant<wxString, bool, int, double, Map, Array>;
 
-private:
-
-    // use memory pool to allocate config  Value
+    // use memory pool to allocate config Value
+    struct details;
     static void* allocate();
     static void deallocate(void*);
 
-    // optimize the ptr size
-    using default_free = std::integral_constant<decltype(Config::deallocate)*, Config::deallocate>;
-    using Container = std::unique_ptr<Value, default_free>;
+    // optimize the unique_ptr size
+    using deleter = std::integral_constant<decltype(Config::deallocate)*, Config::deallocate>;
+    using Container = std::unique_ptr<Value, deleter>;
+
+    // Config value container
     Container m_val;
 
     #define NEW_VALUE(...) new(Config::allocate()) Value(__VA_ARGS__)
@@ -92,7 +95,7 @@ public:
     // ctors, copy, assign ...
     //----------------------------------------------------------------------
 
-    Config() noexcept: m_val(nullptr) {}
+    Config() noexcept = default;
 
     Config(const Config& other) : m_val{NEW_VALUE(*other.m_val)} {}
     Config(Config&& other) noexcept = default;
@@ -113,7 +116,7 @@ public:
     explicit Config(const T& val): m_val{NEW_VALUE(std::in_place_type<B>, val)} {}
 
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
-    explicit Config(T&& val) noexcept: m_val{NEW_VALUE(std::in_place_type<B>, std::forward<T>(val))} {}
+    explicit Config(T&& val): m_val{NEW_VALUE(std::in_place_type<B>, std::forward<T>(val))} {}
 
     /**
      * Assign value to config
@@ -123,13 +126,13 @@ public:
      */
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
     inline Config& operator=(const T& rhs) {
-        m_val.reset(NEW_VALUE(rhs));
+        m_val.reset(NEW_VALUE(std::in_place_type<B>, rhs));
         return *this;
     }
 
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
-    inline Config& operator=(T&& rhs) noexcept {
-        m_val.reset(NEW_VALUE(std::forward<T>(rhs)));
+    inline Config& operator=(T&& rhs) {
+        m_val.reset(NEW_VALUE(std::in_place_type<B>, std::forward<T>(rhs)));
         return *this;
     }
 
@@ -144,13 +147,14 @@ public:
     //----------------------------------------------------------------------
 
     [[nodiscard]] bool operator == (const Config& rhs) const noexcept {
-        if (!m_val) return false;
+        if (!m_val) {
+            return rhs.m_val == nullptr;
+        }
         return *m_val == *rhs.m_val;
     }
 
     [[nodiscard]] inline bool operator != (const Config& rhs) const noexcept {
-        if (!m_val) return false;
-        return *m_val != *rhs.m_val;
+        return !(*this == rhs);
     }
 
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
@@ -326,7 +330,7 @@ public:
     [[nodiscard]] const Config* Get(const wxString& path) const noexcept;
 
     /**
-     * print Config tree to console out
+     * Get Config tree
      */
     [[nodiscard]] wxString ToString(size_t indent = 0) const noexcept;
 
@@ -349,9 +353,29 @@ public:
     }
 
     /**
-     * Check if this Config is null
+     * Check if config contains empty value: Null, empty array, string or a map
+     * Ints, doubles and bools do not count as empty value
      */
     [[nodiscard]] inline bool IsEmpty() const noexcept {
+        auto type = GetType();
+        switch (type) {
+        case Type::Null:
+            return true;
+        case Type::Array:
+            return AsArray().empty();
+        case Type::Map:
+            return AsMap().empty();
+        case Type::String:
+            return AsString().empty();
+        default:
+            return false;
+        }
+    }
+
+    /**
+     * Return true if config has no value.
+     */
+    [[nodiscard]] inline bool IsNull() const noexcept {
         return GetType() == Type::Null;
     }
 

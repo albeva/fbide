@@ -7,10 +7,12 @@ App:
 
 # Editor configuration
 Editor:
-  plain:
-    exts:  [txt, md]
-  freebasic:
-    exts:  [bas, bi]
+  Theme: default
+  Types:
+    plain:
+      exts:  [txt, md]
+    freebasic:
+      exts:  [bas, bi]
 
 # Menus and toolbars
 Layout:

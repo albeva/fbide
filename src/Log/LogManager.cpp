@@ -24,6 +24,16 @@ LogManager::LogManager() {
     m_textCtrl = new wxTextCtrl(panelArea, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, style);
     m_textCtrl->Hide();
 
+    wxFont font{
+        12,
+        wxFONTFAMILY_MODERN,
+        wxFONTSTYLE_NORMAL,
+        wxFONTWEIGHT_NORMAL,
+        false
+    };
+    font.SetSymbolicSize(wxFONTSIZE_MEDIUM);
+    m_textCtrl->SetFont(font);
+
     m_textCtrl->Bind(wxEVT_TEXT, [this, panelHandler, entry](auto){
         if (!m_textCtrl->IsShown()) {
             panelHandler->ShowPanel(*entry);

@@ -43,7 +43,7 @@ wxEND_EVENT_TABLE()
 // is deferred to Load method
 UiManager::UiManager() {
     // the frame
-    m_window = std::make_unique<MainWindow>(nullptr, ID_AppWindow, "fbide");
+    m_window = std::make_unique<MainWindow>(nullptr, ID_AppWindow, "fbide", wxDefaultPosition, wxSize(640, 480));
     m_window->PushEventHandler(this);
     m_window->EnableFullScreenView(true);
     wxTheApp->SetTopWindow(m_window.get());

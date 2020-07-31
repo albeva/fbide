@@ -71,3 +71,5 @@ constexpr bool is_extended_from() {
     Class& operator=(Class&&) = delete;
 
 } // namespace fbide
+
+#define LOG_VAR(VAR) wxLogMessage(wxString(#VAR) << " = " << VAR)

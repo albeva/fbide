@@ -23,6 +23,32 @@ void FBEditor::CreateDocument() {
     SetLexerLanguage(TypeId);
     ILexerSdk *ilexer = this;
     PrivateLexerCall(SET_LEXER_IFACE, static_cast<void *>(ilexer));
+
+    LoadConfiguration(GetConfig("Editor"));
+    LoadTheme(GetCfgMgr().GetTheme());
+}
+
+/**
+ * Load editor configuration
+ */
+void FBEditor::LoadConfiguration(const Config& config) {
+    // load generic configuration
+}
+
+/**
+ * Load editor theme
+ */
+void FBEditor::LoadTheme(const Config& theme) {
+    wxFont font(
+        theme.Get("FontSize", 12),
+        wxFONTFAMILY_MODERN,
+        wxFONTSTYLE_NORMAL,
+        wxFONTWEIGHT_NORMAL,
+        false,
+        theme.Get("FontName", "Courier New"));
+
+    StyleSetFont(wxSTC_STYLE_DEFAULT, font);
+    StyleSetFont(wxSTC_STYLE_LINENUMBER, font);
 }
 
 void FBEditor::Log(const std::string &message) {

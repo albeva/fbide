@@ -116,6 +116,7 @@ struct PathParser {
 const Config Config::Empty{};
 
 #ifdef NO_MEMORY_RESOURCE
+struct Config::details {};
 void* Config::allocate() {
     return malloc(sizeof(Value));
 }
@@ -124,17 +125,18 @@ void Config::deallocate(void* value) {
     free(value);
 }
 #else
-namespace {
-std::pmr::unsynchronized_pool_resource p_configPool(
-    std::pmr::pool_options{0, sizeof(Config::Value)});
-}
+struct Config::details {
+    inline static std::pmr::unsynchronized_pool_resource p_configPool{
+        std::pmr::pool_options{0, sizeof(Config::Value)}
+    };
+};
 
 void* Config::allocate() {
-    return p_configPool.allocate(sizeof(Value));
+    return Config::details::p_configPool.allocate(sizeof(Value));
 }
 
 void Config::deallocate(void* value) {
-    p_configPool.deallocate(value, sizeof(Value));
+    Config::details::p_configPool.deallocate(value, sizeof(Value));
 }
 #endif
 
@@ -142,7 +144,15 @@ void Config::deallocate(void* value) {
  * Load YAML file
  */
 Config Config::LoadYaml(const wxString& path) {
-    return YAML::LoadFile(path.ToStdString()).as<Config>();
+    if (!wxFileExists(path)) {
+        wxLogError("File '" + path + "' not found");
+        return {};
+    }
+    auto file = YAML::LoadFile(path.ToStdString());
+    if (file.IsNull()) {
+        return {};
+    }
+    return file.as<Config>();
 }
 
 /**
@@ -218,8 +228,8 @@ const Config* Config::Get(const wxString& path) const noexcept {
 wxString Config::ToString(size_t indent) const noexcept {
     const size_t INDENT = 4;
 
-    auto sp = wxString(indent * INDENT, ' ');
-    auto cs = wxString((indent > 0 ? indent - 1 : 0) * INDENT, ' ');
+    const wxString sp(indent * INDENT, ' ');
+    const wxString cs((indent > 0 ? indent - 1 : 0) * INDENT, ' ');
 
     wxString output;
 
@@ -240,10 +250,15 @@ wxString Config::ToString(size_t indent) const noexcept {
         output << AsDouble();
         break;
     case Type::Map: {
-        auto& map = AsMap();
+        const auto& map = AsMap();
+        if (map.empty()) {
+            output << "{}";
+            break;
+        }
+
         // longest key length
         size_t max = 0;
-        for (auto& n : map) {
+        for (const auto& n : map) {
             if (n.first.length() > max) {
                 max = n.first.length();
             }
@@ -251,11 +266,11 @@ wxString Config::ToString(size_t indent) const noexcept {
         if (indent > 0) {
             output << '{' << '\n';
         }
-        for (auto& n : map) {
-            auto& key = n.first;
-            auto& val = n.second;
+        for (const auto& n : map) {
+            const auto& key = n.first;
+            const auto& val = n.second;
             output << sp << key;
-            if (val.IsScalar() || val.IsEmpty()) {
+            if (val.IsScalar() || val.IsNull()) {
                 output << wxString(max - key.length(), ' ') << " = ";
             } else {
                 output << ' ';
@@ -269,9 +284,14 @@ wxString Config::ToString(size_t indent) const noexcept {
         break;
     }
     case Type::Array: {
-        auto& arr = AsArray();
+        const auto& arr = AsArray();
+        if (arr.empty()) {
+            output << "[]";
+            break;
+        }
+
         output << '[' << '\n';
-        for (auto& val : arr) {
+        for (const auto& val : arr) {
             output << sp;
             output << val.ToString(indent + 1);
             output << '\n';

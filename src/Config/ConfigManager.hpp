@@ -37,12 +37,17 @@ public:
     /**
      * Get main configuration root object
      */
-    inline Config& Get() { return m_root; }
+    inline Config& Get() noexcept { return m_root; }
 
     /**
      * Get language
      */
-    inline Config& Lang() { return m_lang; }
+    inline Config& Lang() noexcept { return m_lang; }
+
+    /**
+     * Get Theme
+     */
+    Config& GetTheme() noexcept;
 
     /**
      * Load file at specified path
@@ -52,6 +57,7 @@ public:
 private:
     Config m_root;
     Config m_lang;
+    Config m_theme;
 };
 
 } // namespace fbide

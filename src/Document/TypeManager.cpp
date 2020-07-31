@@ -23,7 +23,7 @@ void TypeManager::Register(const wxString& name, CreatorFn creator) {
     std::vector<wxString> exts;
 
     if (name.SubString(0, 4) == "text/") {
-        auto path = "Editor." + name.Right(name.length() - 5);
+        auto path = "Editor.Types." + name.Right(name.length() - 5);
         config = GetConfig().Get(path);
         if (config) {
             auto es = config->Get("exts");
