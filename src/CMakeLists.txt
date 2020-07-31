@@ -2,14 +2,16 @@
 # fbide executable
 #
 add_executable(fbide WIN32
-    app_pch.hpp
+    pch.h
     Utils.hpp
+    App/App.hpp
     App/App.cpp
     App/Manager.hpp
     App/Manager.cpp
     UI/CmdManager.hpp
     UI/CmdManager.cpp
     UI/IArtProvider.hpp
+    UI/IArtProvider.cpp
     UI/MenuHandler.hpp
     UI/MenuHandler.cpp
     UI/StandardArtProvider.hpp
@@ -36,13 +38,13 @@ add_executable(fbide WIN32
     Log/LogManager.hpp
     FB/FBEditor.cpp
     FB/FBEditor.hpp
-    UI/IArtProvider.cpp App/App.hpp)
+     )
 
 # Dependencies
 add_dependencies(fbide fblexer yaml-cpp)
 
 # PCH file
-target_precompile_headers(fbide INTERFACE app_pch.hpp)
+target_precompile_headers(fbide PRIVATE pch.h)
 
 # emit exe to bin/
 set_target_properties(fbide PROPERTIES

@@ -6,7 +6,7 @@
 //  Copyright © 2016 Albert Varaksin. All rights reserved.
 //
 #pragma once
-#include "app_pch.hpp"
+#include "pch.h"
 #include "Config.hpp"
 
 namespace fbide {
