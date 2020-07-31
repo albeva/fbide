@@ -4,7 +4,8 @@ env:
   - MSBUILD_PATH="C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\MSBuild\Current\Bin"
 before_install:
   - choco install visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
-  - wget https://github.com/wxWidgets/wxWidgets/releases/download/v3.1.4/wxWidgets-3.1.4.7z
+  - "export VS160COMNTOOLS=\"/c/Program Files (x86)/Microsoft Visual Studio/2019/BuildTools/Common7/Tools\""
+  - wget --progress=dot:mega https://github.com/wxWidgets/wxWidgets/releases/download/v3.1.4/wxWidgets-3.1.4.7z
   - 7z x wxWidgets-3.1.4.7z -owx-src
   - ls -al
   - .travis/build_wx.bat
