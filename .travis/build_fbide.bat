@@ -1,4 +1,4 @@
-call dev_cmd.bat
+call %~dp0dev_cmd.bat
 
 mkdir fbide_build
 
