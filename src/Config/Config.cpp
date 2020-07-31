@@ -11,6 +11,7 @@
 #ifdef __GNUC__
     #pragma GCC diagnostic push
     #pragma GCC diagnostic ignored "-Wconversion"
+    #pragma GCC diagnostic ignored "-Wshadow"
     #include <yaml-cpp/yaml.h>
     #pragma GCC diagnostic pop
 #else
