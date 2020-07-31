@@ -9,7 +9,7 @@
 #ifndef module_hpp
 #define module_hpp
 
-#include <stddef.h>
+#include <cstddef>
 #include "Sci_Position.h"
 #include "ILexer.h"
 #include "LexerModule.h"

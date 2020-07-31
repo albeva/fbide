@@ -64,4 +64,4 @@ void App::ExitFBIde() {
     Manager::Release();
 }
 
-IMPLEMENT_APP(fbide::App)
+IMPLEMENT_APP(fbide::App) // NOLINT

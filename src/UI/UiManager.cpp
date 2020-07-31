@@ -120,7 +120,7 @@ void UiManager::HandleMenuEvents(wxCommandEvent& event) {
     if (id == ID_FullScreen) {
         m_window->ShowFullScreen(event.IsChecked());
     } else if (id == wxID_EXIT) {
-        wxGetApp().ExitFBIde();
+        App::ExitFBIde();
     } else {
         event.Skip();
     }
@@ -144,7 +144,7 @@ void UiManager::OnUpdateUI(wxUpdateUIEvent &event) {
 
 void UiManager::OnWindowClose(wxCloseEvent& close) {
     close.Veto();
-    wxGetApp().ExitFBIde();
+    App::ExitFBIde();
 }
 
 // TODO: Move tab handling out of UIManager

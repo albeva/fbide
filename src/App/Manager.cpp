@@ -57,7 +57,7 @@ Config& fbide::GetLang() {
 // shorthand to get translated string
 // BAD: default value captured and returned by reference!
 const wxString& fbide::GetLang(const wxString& path, const wxString& def) {
-    if (auto node = GetLang().Get(path)) {
+    if (const auto *node = GetLang().Get(path)) {
         if (node->IsString()) {
             return node->AsString();
         }
@@ -83,7 +83,7 @@ CmdManager& fbide::GetCmdMgr() {
 // Manager basics
 //------------------------------------------------------------------------------
 
-Manager* Manager::m_instance = nullptr;
+Manager* Manager::m_instance = nullptr; // NOLINT
 
 // Setup the manager
 Manager::Manager() = default;
@@ -93,7 +93,9 @@ Manager::Manager() = default;
 Manager::~Manager() {
     m_doc.reset();
     m_log.reset();
-    if (m_ui) m_ui->Unload();
+    if (m_ui) {
+        m_ui->Unload();
+    }
     m_ui.reset();
     m_cmd.reset();
     m_type.reset();
@@ -116,7 +118,7 @@ void Manager::Load() {
  */
 Manager& Manager::GetInstance() {
     if (m_instance == nullptr) {
-        m_instance = new Manager();
+        m_instance = new Manager(); // NOLINT
     }
     return *m_instance;
 }
@@ -126,7 +128,7 @@ Manager& Manager::GetInstance() {
  */
 void Manager::Release() {
     if (m_instance != nullptr) {
-        delete m_instance;
+        delete m_instance; // NOLINT
         m_instance = nullptr;
     }
 }

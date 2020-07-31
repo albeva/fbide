@@ -75,7 +75,7 @@ private:
     // Config value container
     Container m_val;
 
-    #define NEW_VALUE(...) new(Config::allocate()) Value(__VA_ARGS__)
+    #define NEW_VALUE(...) new(Config::allocate()) Value(__VA_ARGS__) /* NOLINT */
 
     /**
      * If wxString is constructible from T then wxString, otherwise, decay T to its base type.
@@ -96,12 +96,15 @@ public:
     //----------------------------------------------------------------------
 
     Config() noexcept = default;
+    ~Config() noexcept = default;
 
     Config(const Config& other) : m_val{NEW_VALUE(*other.m_val)} {}
     Config(Config&& other) noexcept = default;
 
     Config& operator=(const Config& rhs) {
-        m_val.reset(NEW_VALUE(*rhs.m_val));
+        if (this != &rhs) {
+            m_val.reset (NEW_VALUE(* rhs.m_val));
+        }
         return *this;
     }
     Config& operator=(Config&& rhs) noexcept = default;
@@ -159,8 +162,9 @@ public:
 
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
     [[nodiscard]] inline bool operator==(const T& rhs) const noexcept {
-        if (!Is<B>())
+        if (!Is<B>()) {
             return false;
+        }
         return As<B>() == rhs;
     }
 
@@ -212,7 +216,7 @@ public:
         return As<bool>();
     }
 
-    [[nodiscard]] inline const bool AsBool() const {
+    [[nodiscard]] inline bool AsBool() const {
         return As<bool>();
     }
 
@@ -338,7 +342,9 @@ public:
      * Get node type as enum value
      */
     [[nodiscard]] inline Type GetType() const noexcept {
-        if (!m_val) return Type::Null;
+        if (!m_val) {
+            return Type::Null;
+        }
         return static_cast<Type>(m_val->index());
     }
 
@@ -393,7 +399,7 @@ public:
      */
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
     [[nodiscard]] inline B Get(const wxString& path, const T& def) const noexcept {
-        auto node = Get(path);
+        const auto *node = Get(path);
         if (node == nullptr || !node->Is<B>()) {
             return def;
         }
@@ -402,7 +408,7 @@ public:
 
     template<typename T, typename B = ReduceType<T>, CheckType<B> = 0>
     [[nodiscard]] inline B Get(const wxString& path, T&& def) const noexcept {
-        auto node = Get(path);
+        const auto *node = Get(path);
         if (node == nullptr || !node->Is<B>()) {
             return std::forward<T>(def);
         }
@@ -418,7 +424,9 @@ private:
      */
     template<typename T, CheckType<T> = 0>
     [[nodiscard]] inline bool Is() const noexcept {
-        if (!m_val) return false;
+        if (!m_val) {
+            return false;
+        }
         return std::holds_alternative<T>(*m_val);
     }
 

@@ -8,8 +8,8 @@
 
 #include "module.hpp"
 #include "lexer.hpp"
-#include <assert.h>
-#include <string.h>
+#include <cassert>
+#include <cstring>
 
 int GetLexerCount() {
     return 1;
@@ -17,7 +17,7 @@ int GetLexerCount() {
 
 void GetLexerName(unsigned int Index, char* name, int buflength) {
     assert(Index == 0 && "Invalid lexer index");
-    #if defined(__WXMSW__)
+    #if defined(_MSC_VER)
         strcpy_s(name, buflength, "text/freebasic");
     #else
         strcpy(name, "text/freebasic");

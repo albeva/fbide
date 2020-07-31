@@ -3,7 +3,13 @@
     <option name="SOFT_MARGINS" value="120" />
     <Objective-C>
       <option name="INDENT_NAMESPACE_MEMBERS" value="0" />
+      <option name="INDENT_PREPROCESSOR_DIRECTIVE" value="4" />
       <option name="INDENT_DIRECTIVE_AS_CODE" value="true" />
+      <option name="SPACE_BEFORE_SUPERCLASS_COLON" value="false" />
+      <option name="SPACE_BEFORE_INIT_LIST_COLON" value="false" />
+      <option name="SPACE_BEFORE_REFERENCE_IN_DECLARATION" value="false" />
+      <option name="SPACE_AFTER_REFERENCE_IN_DECLARATION" value="true" />
+      <option name="SPACE_AFTER_REFERENCE_IN_RVALUE" value="true" />
     </Objective-C>
     <codeStyleSettings language="CMake">
       <indentOptions>
@@ -11,6 +17,7 @@
       </indentOptions>
     </codeStyleSettings>
     <codeStyleSettings language="ObjectiveC">
+      <option name="SPACE_BEFORE_METHOD_CALL_PARENTHESES" value="true" />
       <indentOptions>
         <option name="CONTINUATION_INDENT_SIZE" value="4" />
       </indentOptions>

@@ -114,7 +114,7 @@ private:
     Manager();
     ~Manager();
 
-    static Manager* m_instance;
+    static Manager* m_instance; // NOLINT
     std::unique_ptr<UiManager> m_ui;
     std::unique_ptr<ConfigManager> m_cfg;
     std::unique_ptr<CmdManager> m_cmd;

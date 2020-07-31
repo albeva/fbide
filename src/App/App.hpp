@@ -16,10 +16,9 @@ public:
     bool OnInit() final;
     int OnExit() final;
 
-    void ExitFBIde();
+    static void ExitFBIde();
 
 private:
-    void LoadScintillaFBLexer();
     wxString GetIdePath();
 };
 

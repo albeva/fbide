@@ -16,8 +16,7 @@ using namespace fbide;
 // Life Cycle
 //------------------------------------------------------------------------------
 
-Lexer::Lexer() {
-}
+Lexer::Lexer() = default;
 
 Lexer::~Lexer() = default;
 
@@ -37,15 +36,15 @@ const char * Lexer::PropertyNames() {
     return nullptr;
 }
 
-int Lexer::PropertyType(const char *name) {
+int Lexer::PropertyType(const char * /*name*/) {
     return -1;
 }
 
-const char * Lexer::DescribeProperty(const char *name) {
+const char * Lexer::DescribeProperty(const char * /*name*/) {
     return nullptr;
 }
 
-Sci_Position Lexer::PropertySet(const char *key, const char *val) {
+Sci_Position Lexer::PropertySet(const char * /*key*/, const char * /*val*/) {
     return -1;
 }
 
@@ -57,7 +56,7 @@ const char * Lexer::DescribeWordListSets() {
     return nullptr;
 }
 
-Sci_Position Lexer::WordListSet(int n, const char *wl) {
+Sci_Position Lexer::WordListSet(int  /*n*/, const char * /*wl*/) {
     return -1;
 }
 
@@ -89,12 +88,12 @@ void Lexer::Fold(Sci_PositionU startPos, Sci_Position lengthDoc, int initStyle, 
 
 void * Lexer::PrivateCall(int operation, void *pointer) {
     if (operation == SET_LEXER_IFACE && pointer != nullptr) {
-        m_iface = (ILexerSdk*)pointer;
+        m_iface = (ILexerSdk*)pointer; // NOLINT
         m_iface->Log("fblexer loaded");
     }
     return nullptr;
 }
 
 ILexer * Lexer::Factory() {
-    return new Lexer();
+    return new Lexer(); // NOLINT
 }
