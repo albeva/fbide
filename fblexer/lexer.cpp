@@ -79,7 +79,7 @@ void Lexer::Lex(Sci_PositionU startPos, Sci_Position lengthDoc, int initStyle, I
 // Fold
 //------------------------------------------------------------------------------
 
-void Lexer::Fold(Sci_PositionU startPos, Sci_Position lengthDoc, int initStyle, IDocument *pAccess) {
+void Lexer::Fold(Sci_PositionU /* startPos */, Sci_Position /* lengthDoc */, int /* initStyle */, IDocument* /*pAccess*/) {
 }
 
 //------------------------------------------------------------------------------

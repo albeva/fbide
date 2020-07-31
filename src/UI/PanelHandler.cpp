@@ -48,8 +48,6 @@ PanelHandler::PanelHandler(wxAuiManager *aui) : m_aui(aui) {
 
     m_aui->AddPane(m_panelArea, info);
     m_aui->GetManagedWindow()->PushEventHandler(this);
-
-    auto& cmdMgr = GetCmdMgr();
 }
 
 PanelHandler::~PanelHandler() {

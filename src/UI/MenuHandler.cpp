@@ -24,7 +24,6 @@ static const wxString MENU_ICON = "App.MenuIcons";  // NOLINT
 
 // listen for events
 MenuHandler::MenuHandler(wxMenuBar* menu) : m_mbar(menu) {
-    auto& cmd = GetCmdMgr();
 }
 
 // Load Configuration

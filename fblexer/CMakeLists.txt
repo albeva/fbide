@@ -22,7 +22,10 @@ endif()
 target_include_directories(fblexer PRIVATE
     ${WX_SOURCE_DIR}/src/stc/scintilla/include
     ${WX_SOURCE_DIR}/src/stc/scintilla/lexlib)
+
 target_compile_options(fblexer PRIVATE -DSCI_NAMESPACE)
+
+target_link_libraries(fblexer PRIVATE project_options project_warnings)
 
 #
 # emit dll to bin/ide folder

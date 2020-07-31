@@ -37,8 +37,7 @@ add_executable(fbide WIN32
     Log/LogManager.cpp
     Log/LogManager.hpp
     FB/FBEditor.cpp
-    FB/FBEditor.hpp
-     )
+    FB/FBEditor.hpp)
 
 # Dependencies
 add_dependencies(fbide fblexer yaml-cpp)
@@ -53,8 +52,7 @@ set_target_properties(fbide PROPERTIES
 # set src root for includes
 target_include_directories(fbide PRIVATE
     ${fbide_SOURCE_DIR}/src
-    ${fbide_SOURCE_DIR}/fblexer/sdk
-    )
+    ${fbide_SOURCE_DIR}/fblexer/sdk)
 
 target_compile_definitions(fbide PRIVATE -DEXPORT_LEXER_IFACE)
 
@@ -65,4 +63,5 @@ include(${wxWidgets_USE_FILE})
 target_link_libraries(fbide
     PRIVATE
     ${wxWidgets_LIBRARIES}
-    yaml-cpp)
+    yaml-cpp
+    project_options project_warnings)

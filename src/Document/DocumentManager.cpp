@@ -28,15 +28,13 @@ DocumentManager::~DocumentManager() {
 
 
 void DocumentManager::OnNew(wxCommandEvent&  /*event*/) {
-    auto& uiMgr = GetUiMgr();
     auto& type = GetTypeMgr();
-
     auto *doc = type.CreateFromType("default");
     doc->CreateDocument();
 }
 
-void DocumentManager::OnOpen(wxCommandEvent& event) {
+void DocumentManager::OnOpen(wxCommandEvent& /* event */) {
 }
 
-void DocumentManager::OnSave(wxCommandEvent& event) {
+void DocumentManager::OnSave(wxCommandEvent& /* event */) {
 }

@@ -22,7 +22,7 @@ struct convert<Config> {
     /**
      * Convert Config to yaml
      */
-    static Node encode(const Config& rhs) {
+    static Node encode(const Config& /* rhs */) {
         Node node;
         return node;
     }

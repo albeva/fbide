@@ -25,6 +25,10 @@ TextDocument::~TextDocument() = default;
 void TextDocument::CreateDocument() {
     auto& ui = GetUiMgr();
     auto* da = ui.GetDocArea();
+    #ifdef __WXMSW__
+        auto* wnd = ui.GetWindow();
+        wxWindowUpdateLocker locker(wnd);
+    #endif
     wxStyledTextCtrl::Create(da);
     da->AddPage(this, GetDocumentTitle(), true);
 }
