@@ -2,7 +2,7 @@ mkdir fbide_build
 
 cmake -G "NMake Makefiles" \
       -DCMAKE_BUILD_TYPE=Release \
-      -DFBIDE_USE_SHARED_LIBS=OFF \
+      -DYAML_DIST_PATH="$(pwd)/yaml-dist/share/cmake"
       -DWXWIN="$(pwd)/wx-dist" \
       -S . -B fbide_build
 

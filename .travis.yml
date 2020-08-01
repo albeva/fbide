@@ -13,6 +13,7 @@ install:
 - source .travis/import_vs_env.sh "call .travis/dev_cmd.bat"
 - VsDevCmd.bat -test
 - 7z x .travis/dist/wx-dist.7z
+- 7z x .travis/dist/yaml-dist.7z
 
 script:
 - ".travis/build_fbide.sh"
