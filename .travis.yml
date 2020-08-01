@@ -7,9 +7,10 @@ install:
   - export CC_FOR_BUILD=
   - choco install visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
   - choco install ninja
+  - source .travis/import_vs_env.sh "call .travis/dev_cmd.bat"
   - wget --progress=dot:mega https://github.com/wxWidgets/wxWidgets/releases/download/v3.1.4/wxWidgets-3.1.4.7z
   - 7z x wxWidgets-3.1.4.7z -owx-src
-  - .travis/build_wx.bat
+  - .travis/build_wx.sh
 
 script:
-  - .travis/build_fbide.bat
+  - .travis/build_fbide.sh
