@@ -1,8 +1,7 @@
 mkdir wx-build
 mkdir wx-dist
 
-cmake -G "Ninja" \
-      --parallel \
+cmake -G "NMake Makefiles" \
       -DwxBUILD_USE_STATIC_RUNTIME=ON \
       -DwxBUILD_SHARED=OFF \
       -DwxBUILD_SAMPLES=OFF \
