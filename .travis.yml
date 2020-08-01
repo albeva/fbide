@@ -8,8 +8,7 @@ install:
   - export CC_FOR_BUILD=
   - source .travis/import_vs_env.sh "call .travis/dev_cmd.bat"
   - VsDevCmd.bat -test
-  - wget --progress=dot:mega https://github.com/albeva/fbide/raw/master/.travis/dist/wx-dist.7z
-  - 7z x wx-dist.7z
+  - 7z x .travis/dist/wx-dist.7z
 
 script:
   - .travis/build_fbide.sh

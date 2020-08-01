@@ -80,10 +80,14 @@ find_package(wxWidgets 3.1 COMPONENTS ${WXLIBS} REQUIRED)
 #-----------------------------------------------------------------------------------------------------------------------
 # YAML
 #-----------------------------------------------------------------------------------------------------------------------
-set(YAML_CPP_BUILD_TESTS OFF CACHE BOOL "disable yaml tests" FORCE)
-set(YAML_CPP_BUILD_TOOLS OFF CACHE BOOL "disable yaml tools" FORCE)
-set(YAML_CPP_BUILD_CONTRIB OFF CACHE BOOL "disable yaml contrib" FORCE)
-set(YAML_MSVC_SHARED_RT ${FBIDE_USE_SHARED_LIBS})
+set(YAML_CPP_BUILD_TESTS OFF)
+set(YAML_CPP_BUILD_TOOLS OFF)
+set(YAML_CPP_BUILD_CONTRIB OFF)
+if(FBIDE_USE_SHARED_LIBS)
+    set(YAML_MSVC_SHARED_RT ON)
+else()
+    set(YAML_MSVC_SHARED_RT OFF)
+endif()
 add_subdirectory(third-party/yaml-cpp)
 
 #-----------------------------------------------------------------------------------------------------------------------
