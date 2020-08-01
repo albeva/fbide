@@ -1,5 +1,10 @@
 os: windows
 language: cpp
+
+branches:
+  only:
+    - master
+
 install:
   - choco install visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
   - export CXX=
@@ -12,3 +17,7 @@ install:
 
 script:
   - .travis/build_fbide.sh
+
+after_success:
+  - 7z a fbide.7z ./bin/*
+
