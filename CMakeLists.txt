@@ -55,8 +55,11 @@ if (MSVC)
     else()
         set(wxWidgets_CONFIGURATION mswu)
     endif()
+    set(WXLIBS core base aui stc scintilla)
+else()
+    set(WXLIBS core base aui stc)
 endif()
-find_package(wxWidgets 3.1 COMPONENTS core base aui stc scintilla REQUIRED)
+find_package(wxWidgets 3.1 COMPONENTS ${WXLIBS} REQUIRED)
 
 #-----------------------------------------------------------------------------------------------------------------------
 # YAML
