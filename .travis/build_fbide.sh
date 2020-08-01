@@ -7,4 +7,4 @@ cmake -G "NMake Makefiles" \
       -S . -B fbide_build
 
 cd fbide_build
-ninja
+nmake

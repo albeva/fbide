@@ -13,4 +13,4 @@ cmake -G "NMake Makefiles" \
       -S wx-src -B wx-build
 
 cd wx-build
-ninja install
+nmake install
