@@ -22,10 +22,10 @@
 #include "App/Manager.hpp"
 #include "UI/UiManager.hpp"
 #include "Config/ConfigManager.hpp"
+#include "Defaults.hpp"
 using namespace fbide;
 
 const wxString FBEditor::TypeId = "text/freebasic"; // NOLINT
-constexpr int DefaultFontSize = 12;
 
 wxBEGIN_EVENT_TABLE(FBEditor, wxStyledTextCtrl) // NOLINT
     EVT_STC_CHARADDED(wxID_ANY, FBEditor::OnCharAdded)
@@ -45,11 +45,22 @@ void FBEditor::CreateDocument() {
     LoadTheme(GetCfgMgr().GetTheme());
 }
 
+
 /**
  * Load editor configuration
  */
 void FBEditor::LoadConfiguration(const Config& config) {
-    // load generic configuration
+    #define SET_CONFIG(name, ...) Set##name(config.Get(Defaults::Key::name, Defaults::name));
+    DEFAULT_EDITOR_CONFIG(SET_CONFIG)
+    #undef SET_CONFIG
+
+    if (config.Get(Defaults::Key::ShowLineNumbers, Defaults::ShowLineNumbers)) {
+        int LineNrMargin = TextWidth(wxSTC_STYLE_LINENUMBER, "00001");
+        SetMarginWidth(0, LineNrMargin);
+    } else {
+        SetMarginWidth(0, 0);
+    }
+    SetMarginWidth(1, 0);
 }
 
 /**
@@ -57,12 +68,12 @@ void FBEditor::LoadConfiguration(const Config& config) {
  */
 void FBEditor::LoadTheme(const Config& theme) {
     wxFont font(
-        theme.Get("FontSize", DefaultFontSize),
+        theme.Get(Defaults::Key::FontSize, Defaults::FontSize),
         wxFONTFAMILY_MODERN,
         wxFONTSTYLE_NORMAL,
         wxFONTWEIGHT_NORMAL,
         false,
-        theme.Get("FontName", "Courier New"));
+        theme.Get(Defaults::Key::FontName, wxEmptyString));
 
     StyleSetFont(wxSTC_STYLE_DEFAULT, font);
     StyleSetFont(wxSTC_STYLE_LINENUMBER, font);
@@ -85,13 +96,13 @@ void FBEditor::LoadFBLexer() {
     }
 
     #if defined(__DARWIN__)
-    auto path = GetConfig(Key::IdePath).AsString() / "libfblexer.dylib";
+    const auto *dll = "libfblexer.dylib";
     #elif defined(__WXMSW__)
-    auto path = GetConfig(Key::IdePath).AsString() / "fblexer.dll";
+    const auto* dll = "fblexer.dll";
     #else
-    auto path = GetConfig(Key::IdePath).AsString() / "libfblexer.so";
+    const auto *dll = "libfblexer.so";
     #endif
 
-    LoadLexerLibrary(path);
+    LoadLexerLibrary(GetConfig(Key::BasePath).AsString() / "ide" / dll);
     s_fbLexerLoaded = true;
 }
