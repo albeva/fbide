@@ -95,7 +95,7 @@ declare -A old_path_windows
 old_path_windows=()
 for path in "${old_path_windows_array[@]}"; do
 	old_path_windows["$path"]="1"
-done	
+done
 
 # Convert new path to associative array, where each entry has key = path, value = "1"
 # Duplicate entries will be merged
@@ -110,7 +110,7 @@ declare -A new_path_windows
 new_path_windows=()
 for path in "${new_path_windows_array[@]}"; do
 	new_path_windows["$path"]="1"
-done	
+done
 
 # Locate path entries that are added from old path to new path
 
