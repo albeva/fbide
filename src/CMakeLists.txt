@@ -40,7 +40,7 @@ add_executable(fbide WIN32
     FB/FBEditor.hpp)
 
 # Dependencies
-add_dependencies(fbide fblexer yaml-cpp)
+add_dependencies(fbide fblexer)
 
 # PCH file
 target_precompile_headers(fbide PRIVATE pch.h)
@@ -52,7 +52,8 @@ set_target_properties(fbide PROPERTIES
 # set src root for includes
 target_include_directories(fbide PRIVATE
     ${fbide_SOURCE_DIR}/src
-    ${fbide_SOURCE_DIR}/fblexer/sdk)
+    ${fbide_SOURCE_DIR}/fblexer/sdk
+    )
 
 target_compile_definitions(fbide PRIVATE -DEXPORT_LEXER_IFACE)
 
