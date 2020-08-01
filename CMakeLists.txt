@@ -43,7 +43,7 @@ endif()
 #-----------------------------------------------------------------------------------------------------------------------
 if (MSVC)
     SET(WX_ROOT_DIR ${WXWIN})
-
+    SET(wxWidgets_ROOT_DIR ${WXWIN})
     if(CMAKE_CL_64)
         set(wxWidgets_LIB_DIR ${WX_ROOT_DIR}/lib/vc_x64_lib)
     else()
