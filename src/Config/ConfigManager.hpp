@@ -68,6 +68,11 @@ public:
     void Load(const wxString& basePath, const wxString& configFile);
 
 private:
+    wxString ResolvePath(const wxString& path) const noexcept;
+
+    wxString m_idePath;
+    wxString m_basePath;
+
     Config m_root;
     Config m_lang;
     Config m_theme;

@@ -30,16 +30,17 @@ void ConfigManager::Load(const wxString& basePath, const wxString& configFile) {
     m_root = Config::LoadYaml(configFile);
 
     // set IDE path
-    auto idePath = wxPathOnly(configFile);
-    m_root[Key::IdePath] = idePath;
+    m_idePath = wxPathOnly(configFile);
+    m_root[Key::IdePath] = m_idePath;
 
     // base path
+    m_basePath = basePath;
     m_root[Key::BasePath] = basePath;
 
     // Load language
     auto lang = m_root[Key::AppLanguage].AsString();
     if (!lang.IsEmpty()) {
-        auto file = idePath / "lang." + lang + ".yaml";
+        auto file = ResolvePath("lang." + lang + ".yaml");
         if (!::wxFileExists(file)) {
             throw std::invalid_argument("Language file not found."s + file.ToStdString());
         }
@@ -50,11 +51,30 @@ void ConfigManager::Load(const wxString& basePath, const wxString& configFile) {
 Config& ConfigManager::GetTheme() noexcept {
     if (m_theme.IsNull()) {
         if (const auto *theme = m_root.Get("Editor.Theme")) {
-            const auto& idePath = m_root[Key::IdePath].AsString();
-            auto file = idePath / "themes" / theme->AsString() + ".yaml";
+            auto file = ResolvePath("themes" / theme->AsString() + ".yaml");
             m_theme = Config::LoadYaml(file);
             wxLogMessage("Editor theme loaded from: " + file); // NOLINT
         }
     }
     return m_theme;
+}
+
+wxString ConfigManager::ResolvePath(const wxString& path) const noexcept {
+    if (wxIsAbsolutePath(path)) {
+        return path;
+    }
+
+    wxFileName fileName = path;
+    fileName.MakeAbsolute(m_idePath);
+    if (fileName.Exists()) {
+        return fileName.GetFullPath();
+    }
+
+    fileName = path;
+    fileName.MakeAbsolute(m_basePath / "ide");
+    if (fileName.Exists()) {
+        return fileName.GetFullPath();
+    }
+
+    return path;
 }

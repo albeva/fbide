@@ -36,9 +36,8 @@ public:
     static void ExitFBIde();
 
 private:
-    wxString GetExecutablePath();
-
-    wxString ResolvePath(const wxString& path);
+    [[nodiscard]] wxString GetExecutablePath() noexcept;
+    [[nodiscard]] wxString ResolvePath(const wxString& path) noexcept;
 };
 
 }

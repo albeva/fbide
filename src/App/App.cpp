@@ -90,7 +90,7 @@ int App::OnExit() {
     return EXIT_SUCCESS;
 }
 
-wxString App::ResolvePath(const wxString& path) {
+wxString App::ResolvePath(const wxString& path) noexcept {
     if (wxIsAbsolutePath(path)) {
         return path;
     }
@@ -113,8 +113,8 @@ wxString App::ResolvePath(const wxString& path) {
     return path;
 }
 
-wxString App::GetExecutablePath() {
-    auto& sp = GetTraits()->GetStandardPaths();
+wxString App::GetExecutablePath() noexcept {
+    const auto& sp = GetTraits()->GetStandardPaths();
     return ::wxPathOnly(sp.GetExecutablePath());
 }
 
