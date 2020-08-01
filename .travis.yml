@@ -1,23 +1,26 @@
 os: windows
 language: cpp
-
 branches:
   only:
-    - master
-
+  - master
 install:
-  - choco install visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
-  - export CXX=
-  - export CXX_FOR_BUILD=
-  - export CC=
-  - export CC_FOR_BUILD=
-  - source .travis/import_vs_env.sh "call .travis/dev_cmd.bat"
-  - VsDevCmd.bat -test
-  - 7z x .travis/dist/wx-dist.7z
-
+- choco install visualstudio2019buildtools --package-parameters "--add Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+- export CXX=
+- export CXX_FOR_BUILD=
+- export CC=
+- export CC_FOR_BUILD=
+- source .travis/import_vs_env.sh "call .travis/dev_cmd.bat"
+- VsDevCmd.bat -test
+- 7z x .travis/dist/wx-dist.7z
 script:
-  - .travis/build_fbide.sh
-
+- ".travis/build_fbide.sh"
 after_success:
-  - 7z a fbide.7z ./bin/*
-
+- 7z a fbide.7z ./bin/*
+deploy:
+  provider: releases
+  api_key:
+    secure: I2ibGKaUIZpgd1L+PDufqGuTrvfeYXRW4O0sgPoMe9FevI5icP+l8J2vKHZNDkmx7eRBRl8D7PJaEDk20txHtwlGWareqnIxecw6jjEU2GqopGVtPhtPCG+PYBOCZHTgsuQr8vOJd4Pn/V3j1kkmSRTLGkRgLk/Fr4fYxpgUhep/0ckuTU3js6W0DUnbJLzcb01bD/94A8uGG2GBX2b1WmgxFh+QqS9c2p/f4BYlPZgl+YaOgWIIfQzwLsF+61gaFdxp/VB0ij4tOZKIlNZdM81V360YyX1P2//cjGpgssmuJm2xCR99ixJRBvQCtLRpf5aI0MQKljG2Xbj6VhUEcpMcsQbpAkVAmF3ORmx8J6EH32NCRTcqTpj7Fd8d8qGq4P1KamIt7C7aCfUTNU2rzyTTKwMc6R34YT/VBbMiNAzbzvmWG0gw7HJICx5w1YfwXLrtCIF5sC+L1FvEBq4r3VN6WV2A5GD8F5CcRcCPXNedOdP09do9n854H0sefkXKj6zieDDP9bEApiIRHuo2BrhuLwo57jbpMGrxpRR8kSaRyqEUKtQYBWxEnW7j5Xsztml7A1SlbGup6NNXN33v0cdukgTRjbZhWBB8OQhyWZi9+FsrTyk4PqmQZWqm51cWiLM6FPVS5Kk/gnG7KSe3+1NK81fnNkeMNQvMKRsAbUI=
+  file: fbide.7z
+  on:
+    repo: albeva/fbide
+  skip_cleanup: 'true'
