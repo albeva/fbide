@@ -34,20 +34,34 @@ using namespace fbide;
 
 bool App::OnInit()
 try {
+    const auto basePath = GetExecutablePath();
+    auto args = argv.GetArguments();
+
+    wxString configFile;
+    for (size_t index = 0; index < args.GetCount(); index++) {
+        const auto& arg = args[index];
+        if (arg == "--config") {
+            index += 1;
+            if (index >= args.GetCount()) {
+                wxLogError("--config requires path"); // NOLINT
+                return false;
+            }
+            configFile = ResolvePath(args[index]);
+        }
+    }
+
+    // fbide main config.
+    if (configFile.empty()) {
+        configFile = basePath / "ide" / "fbide.yaml";
+    }
+    if (!wxFileExists(configFile)) {
+        wxLogError("Config file " + configFile + " not found"); // NOLINT
+        return false;
+    }
+
     // Load the managers
     GetMgr().Load();
-
-    // Load up fbide. Order in which managers are called matters!
-    auto path = GetIdePath() / "ide" / "fbide.yaml";
-    GetCfgMgr().Load(path);
-
-    // Load UI
-    auto& ui = GetUiMgr();
-    ui.Load();
-
-    // if we get here. All seems well. So show the window
-    // ui.Bind(wxEVT_CLOSE_WINDOW, &App::OnClose, this);
-    ui.GetWindow()->Show();
+    GetCfgMgr().Load(basePath, configFile);
 
     // plain text
     auto& type = GetTypeMgr();
@@ -58,6 +72,11 @@ try {
 
     // default editor type
     type.BindAlias("default", FBEditor::TypeId, true);
+
+    // if we get here. All seems well. So show the window
+    auto& ui = GetUiMgr();
+    ui.Load();
+    ui.GetWindow()->Show();
 
     // done
     return true;
@@ -71,7 +90,30 @@ int App::OnExit() {
     return EXIT_SUCCESS;
 }
 
-wxString App::GetIdePath() {
+wxString App::ResolvePath(const wxString& path) {
+    if (wxIsAbsolutePath(path)) {
+        return path;
+    }
+
+    // cwd
+    wxFileName fn(path);
+    fn.MakeAbsolute(wxGetCwd());
+    if (fn.Exists()) {
+        return fn.GetFullPath();
+    }
+
+    // ./ide/
+    fn = path;
+    fn.MakeAbsolute(GetExecutablePath () / "ide");
+    if (fn.Exists()) {
+        return fn.GetFullPath();
+    }
+
+    // maybe look in PATH variables
+    return path;
+}
+
+wxString App::GetExecutablePath() {
     auto& sp = GetTraits()->GetStandardPaths();
     return ::wxPathOnly(sp.GetExecutablePath());
 }

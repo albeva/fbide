@@ -65,7 +65,7 @@ public:
     /**
      * Load file at specified path
      */
-    void Load(const wxString& path);
+    void Load(const wxString& basePath, const wxString& configFile);
 
 private:
     Config m_root;

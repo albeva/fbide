@@ -23,24 +23,17 @@
 using namespace fbide;
 
 // Load configuration
-void ConfigManager::Load(const wxString& path) {
-    if (!::wxFileExists(path)) {
-        throw std::invalid_argument("fbide config file '" + path + "' not found");
+void ConfigManager::Load(const wxString& basePath, const wxString& configFile) {
+    if (!::wxFileExists(configFile)) {
+        throw std::invalid_argument("fbide config file '" + configFile + "' not found");
     }
-    m_root = Config::LoadYaml(path);
+    m_root = Config::LoadYaml(configFile);
 
     // set IDE path
-    auto idePath = wxPathOnly(path);
+    auto idePath = wxPathOnly(configFile);
     m_root[Key::IdePath] = idePath;
 
     // base path
-    auto basePath = idePath;
-    #if defined(__DARWIN__)
-        auto pos = basePath.find_last_of(".app");
-        basePath.Remove(pos + 1, basePath.length() - pos);
-    #elif defined(__WXMSW__)
-        basePath.RemoveLast(4);
-    #endif
     m_root[Key::BasePath] = basePath;
 
     // Load language
