@@ -3,6 +3,7 @@ mkdir wx-dist
 
 cmake -G "NMake Makefiles" \
       -DwxBUILD_USE_STATIC_RUNTIME=ON \
+      -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded \
       -DwxBUILD_SHARED=OFF \
       -DwxBUILD_SAMPLES=OFF \
       -DwxBUILD_DEMOS=OFF \
