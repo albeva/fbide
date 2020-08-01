@@ -23,30 +23,24 @@
 using namespace fbide;
 
 // Load configuration
-void ConfigManager::Load(const wxString& path) {
-    if (!::wxFileExists(path)) {
-        throw std::invalid_argument("fbide config file '" + path + "' not found");
+void ConfigManager::Load(const wxString& basePath, const wxString& configFile) {
+    if (!::wxFileExists(configFile)) {
+        throw std::invalid_argument("fbide config file '" + configFile + "' not found");
     }
-    m_root = Config::LoadYaml(path);
+    m_root = Config::LoadYaml(configFile);
 
     // set IDE path
-    auto idePath = wxPathOnly(path);
-    m_root[Key::IdePath] = idePath;
+    m_idePath = wxPathOnly(configFile);
+    m_root[Key::IdePath] = m_idePath;
 
     // base path
-    auto basePath = idePath;
-    #if defined(__DARWIN__)
-        auto pos = basePath.find_last_of(".app");
-        basePath.Remove(pos + 1, basePath.length() - pos);
-    #elif defined(__WXMSW__)
-        basePath.RemoveLast(4);
-    #endif
+    m_basePath = basePath;
     m_root[Key::BasePath] = basePath;
 
     // Load language
     auto lang = m_root[Key::AppLanguage].AsString();
     if (!lang.IsEmpty()) {
-        auto file = idePath / "lang." + lang + ".yaml";
+        auto file = ResolvePath("lang." + lang + ".yaml");
         if (!::wxFileExists(file)) {
             throw std::invalid_argument("Language file not found."s + file.ToStdString());
         }
@@ -57,11 +51,30 @@ void ConfigManager::Load(const wxString& path) {
 Config& ConfigManager::GetTheme() noexcept {
     if (m_theme.IsNull()) {
         if (const auto *theme = m_root.Get("Editor.Theme")) {
-            const auto& idePath = m_root[Key::IdePath].AsString();
-            auto file = idePath / "themes" / theme->AsString() + ".yaml";
+            auto file = ResolvePath("themes" / theme->AsString() + ".yaml");
             m_theme = Config::LoadYaml(file);
             wxLogMessage("Editor theme loaded from: " + file); // NOLINT
         }
     }
     return m_theme;
+}
+
+wxString ConfigManager::ResolvePath(const wxString& path) const noexcept {
+    if (wxIsAbsolutePath(path)) {
+        return path;
+    }
+
+    wxFileName fileName = path;
+    fileName.MakeAbsolute(m_idePath);
+    if (fileName.Exists()) {
+        return fileName.GetFullPath();
+    }
+
+    fileName = path;
+    fileName.MakeAbsolute(m_basePath / "ide");
+    if (fileName.Exists()) {
+        return fileName.GetFullPath();
+    }
+
+    return path;
 }
