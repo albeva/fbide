@@ -22,6 +22,7 @@
 #include "pch.h"
 #include "Editor/TextDocument.hpp"
 #include "LexerSdk.hpp"
+#include "SourceLexer.hpp"
 
 namespace fbide {
 
@@ -43,12 +44,15 @@ public:
 private:
 
     void OnCharAdded(wxStyledTextEvent &event);
+    void OnModified(wxStyledTextEvent& event);
 
     static bool s_fbLexerLoaded; // NOLINT
     void LoadFBLexer();
     void LoadConfiguration(const Config& config);
     void LoadTheme();
     void LoadStyle(int nr, const StyleEntry&);
+
+    FB::Parser::SourceLexer m_sourceLexer;
 
     wxDECLARE_EVENT_TABLE(); // NOLINT
 };

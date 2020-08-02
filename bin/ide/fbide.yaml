@@ -23,7 +23,7 @@ Editor:
   CodePage: 65001
   IMEInteraction: 0
   CaretLineVisible: true
-  UseHorizontalScrollBar: true
+  UseHorizontalScrollBar: false
   WrapMode: false
   Types:
     plain:
