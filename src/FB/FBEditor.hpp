@@ -39,12 +39,15 @@ public:
     void Log(const std::string& message) final;
 
 private:
+    struct StyleEntry;
+
     void OnCharAdded(wxStyledTextEvent &event);
 
     static bool s_fbLexerLoaded; // NOLINT
     void LoadFBLexer();
     void LoadConfiguration(const Config& config);
     void LoadTheme(const Config &theme);
+    void LoadStyle(int nr, const StyleEntry&);
 
     wxDECLARE_EVENT_TABLE(); // NOLINT
 };

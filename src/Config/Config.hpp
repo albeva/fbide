@@ -347,6 +347,14 @@ public:
     [[nodiscard]] const Config* Get(const wxString& path) const noexcept;
 
     /**
+     * Get config object by reference or `Config::Empty` if none found
+     */
+    [[nodiscard]] const Config& GetOrEmpty(const wxString& path) const noexcept {
+        const auto* res = Get(path);
+        return res == nullptr ? Config::Empty : *res;
+    }
+
+    /**
      * Get Config tree
      */
     [[nodiscard]] wxString ToString(size_t indent = 0) const noexcept;

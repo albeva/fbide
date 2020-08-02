@@ -25,6 +25,31 @@
 #include "Defaults.hpp"
 using namespace fbide;
 
+struct FBEditor::StyleEntry {
+    wxFont font;
+    #define STYLE_ENTRY(name, value) decltype(value) name;
+    DEFAULT_EDITOR_STYLE(STYLE_ENTRY)
+    #undef STYLE_ENTRY
+
+    explicit StyleEntry(const Config& style, const StyleEntry* parent = nullptr) {
+        if (parent != nullptr) {
+            font = parent->font;
+        } else {
+            font = wxFont(
+                style.Get(Defaults::Key::FontSize, Defaults::FontSize),
+                wxFONTFAMILY_MODERN,
+                wxFONTSTYLE_NORMAL,
+                wxFONTWEIGHT_NORMAL,
+                false,
+                style.Get(Defaults::Key::FontName, wxEmptyString));
+        }
+
+        #define INIT_FIELD(NAME, DEF) NAME = style.Get(#NAME, parent != nullptr ? parent->NAME : DEF);
+        DEFAULT_EDITOR_STYLE(INIT_FIELD)
+        #undef INIT_FIELD
+    }
+};
+
 const wxString FBEditor::TypeId = "text/freebasic"; // NOLINT
 
 wxBEGIN_EVENT_TABLE(FBEditor, wxStyledTextCtrl) // NOLINT
@@ -67,20 +92,20 @@ void FBEditor::LoadConfiguration(const Config& config) {
  * Load editor theme
  */
 void FBEditor::LoadTheme(const Config& theme) {
-    wxFont font(
-        theme.Get(Defaults::Key::FontSize, Defaults::FontSize),
-        wxFONTFAMILY_MODERN,
-        wxFONTSTYLE_NORMAL,
-        wxFONTWEIGHT_NORMAL,
-        false,
-        theme.Get(Defaults::Key::FontName, wxEmptyString));
+    const auto defStyle = StyleEntry(theme.GetOrEmpty("Default"), nullptr);
+    LoadStyle(wxSTC_STYLE_DEFAULT, defStyle);
+    StyleSetFont(wxSTC_STYLE_LINENUMBER, defStyle.font);
 
-    StyleSetFont(wxSTC_STYLE_DEFAULT, font);
-    StyleSetFont(wxSTC_STYLE_LINENUMBER, font);
+    #define SET_FB_STYLE(NAME) LoadStyle(static_cast<int>(FBStyle::NAME), StyleEntry(theme.GetOrEmpty(#NAME), &defStyle));
+    FB_STYLE(SET_FB_STYLE)
+    #undef SET_FB_STYLE
 }
 
-void FBEditor::Log(const std::string &message) {
-    LOG_VERBOSE(wxString(message));
+void FBEditor::LoadStyle(int nr, const StyleEntry& def) {
+    StyleSetFont(nr, def.font);
+    #define SET_STYLE(NAME, ...) StyleSet##NAME(nr, def.NAME);
+    DEFAULT_EDITOR_STYLE(SET_STYLE)
+    #undef SET_STYLE
 }
 
 void FBEditor::OnCharAdded(wxStyledTextEvent &event) {
@@ -88,6 +113,11 @@ void FBEditor::OnCharAdded(wxStyledTextEvent &event) {
 }
 
 // Load fblexer
+
+void FBEditor::Log(const std::string &message) {
+    LOG_VERBOSE(wxString(message));
+}
+
 bool FBEditor::s_fbLexerLoaded = false; // NOLINT
 
 void FBEditor::LoadFBLexer() {
