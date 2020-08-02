@@ -13,6 +13,10 @@ Comment:
   Foreground: grey
   Italic:     true
 
+MultilineComment:
+  Foreground: grey
+  Italic:     true
+
 String:
   Foreground: green
 

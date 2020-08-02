@@ -18,6 +18,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Foobar. If not, see <https://www.gnu.org/licenses/>.
  */
+#include <string>
 #include "lexer.hpp"
 #include "StyleContext.h"
 #include "sdk/LexerSdk.hpp"
@@ -69,8 +70,13 @@ const char * Lexer::DescribeWordListSets() {
     return nullptr;
 }
 
-Sci_Position Lexer::WordListSet(int  /*n*/, const char * /*wl*/) {
-    return -1;
+Sci_Position Lexer::WordListSet(int n, const char * wl) {
+    if (n >= KEYWORD_GROUPS_COUNT) {
+        LogError("Invalid worldlist group index " + std::to_string(n));
+        return -1;
+    }
+    m_wordLists.at(n).Set(wl);
+    return 0;
 }
 
 //------------------------------------------------------------------------------
@@ -80,12 +86,99 @@ Sci_Position Lexer::WordListSet(int  /*n*/, const char * /*wl*/) {
 void Lexer::Lex(Sci_PositionU startPos, Sci_Position lengthDoc, int initStyle, IDocument *pAccess) {
     LexAccessor styler(pAccess);
     styler.StartAt(startPos);
+    CleanMLCommentsFrom(startPos);
 
     StyleContext sc(startPos, static_cast<Sci_PositionU>(lengthDoc), initStyle, styler);
-    for (; sc.More(); sc.Forward()) {
+    for (;; sc.Forward()) {
+        auto state = (FBStyle) sc.state;
+        switch (state) {
+            case FBStyle::Default:
+                if (sc.Match('\'')) {
+                    sc.SetState((int) FBStyle::Comment);
+                }
+                if (sc.Match('/', '\'')) {
+                    sc.SetState((int) FBStyle::MultilineComment);
+                    ToggleMLComment(sc.currentPos, true);
+                    sc.Forward();
+                }
+                break;
+            case FBStyle::Comment:
+                if (sc.atLineEnd) {
+                    sc.SetState((int) FBStyle::Default);
+                }
+                break;
+            case FBStyle::MultilineComment:
+                if (sc.Match('\'', '/')) {
+                    ToggleMLComment(sc.currentPos, false);
+                    auto isInComment = IsInMLComment(sc.currentPos);
+                    sc.Forward();
+                    if (!isInComment) {
+                        sc.ForwardSetState((int)FBStyle::Default);
+                    } else {
+                        pAccess->ChangeLexerState(sc.currentPos, pAccess->Length());
+                    }
+                } else if (sc.Match('/', '\'')) {
+                    ToggleMLComment(sc.currentPos, true);
+                    sc.Forward();
+                }
+                break;
+//            case FBStyle::String:
+//                break;
+//            case FBStyle::Number:
+//                break;
+//            case FBStyle::Preprocessor:
+//                break;
+//            case FBStyle::Operator:
+//                break;
+//            case FBStyle::Identifier:
+//                break;
+            default:
+                break;
+        }
+
+        if (!sc.More()) {
+            break;
+        }
     }
 
     sc.Complete();
+}
+
+void Lexer::ToggleMLComment(Sci_PositionU pos, bool toggle) {
+    auto iter = m_multilineStack.crbegin();
+    for (; iter != m_multilineStack.crend(); ++iter) {
+        if (iter->first < pos) {
+            break;
+        }
+    }
+    m_multilineStack.emplace(iter.base(), std::pair{pos, toggle});
+}
+
+void Lexer::CleanMLCommentsFrom(Sci_PositionU pos) {
+    if (pos > 0) {
+        for (auto iter = m_multilineStack.crbegin(); iter != m_multilineStack.crend(); ++iter) {
+            if (iter->first < pos) {
+                m_multilineStack.erase(iter.base(), m_multilineStack.end());
+                return;
+            }
+        }
+    }
+    m_multilineStack.clear();
+}
+
+bool Lexer::IsInMLComment(Sci_Position pos) const {
+    int level = 0;
+    for (const auto& e: m_multilineStack) {
+        if (e.first > pos) {
+            return level > 0;
+        }
+        if (e.second) {
+            level++;
+        } else {
+            level--;
+        }
+    }
+    return level != 0;
 }
 
 //------------------------------------------------------------------------------
@@ -99,6 +192,12 @@ void Lexer::Fold(Sci_PositionU /* startPos */, Sci_Position /* lengthDoc */, int
 // Misc
 //------------------------------------------------------------------------------
 
+void Lexer::LogError(const std::string& error) {
+    if (m_iface != nullptr) {
+        m_iface->Log("ERROR: " + error);
+    }
+}
+
 void * Lexer::PrivateCall(int operation, void *pointer) {
     if (operation == SET_LEXER_IFACE && pointer != nullptr) {
         m_iface = reinterpret_cast<ILexerSdk*>(pointer); // NOLINT
@@ -110,3 +209,4 @@ void * Lexer::PrivateCall(int operation, void *pointer) {
 ILexer * Lexer::Factory() {
     return new Lexer(); // NOLINT
 }
+

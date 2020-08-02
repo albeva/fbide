@@ -31,6 +31,7 @@
 #include "App/Manager.hpp"
 #include "PanelHandler.hpp"
 #include "App/App.hpp"
+#include <wx/clipbrd.h>
 
 using namespace fbide;
 
@@ -104,6 +105,7 @@ UiManager::~UiManager() {
  * Shotdown the manager
  */
 void UiManager::Unload() {
+    wxTheClipboard->Flush();
     while (m_docArea->GetPageCount() != 0) {
         CloseTab(0);
     }

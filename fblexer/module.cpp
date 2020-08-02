@@ -22,6 +22,7 @@
 #include "lexer.hpp"
 #include <cassert>
 #include <cstring>
+using namespace fbide;
 
 int GetLexerCount() {
     return 1;
