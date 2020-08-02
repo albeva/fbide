@@ -111,12 +111,12 @@ public:
     Config() noexcept = default;
     ~Config() noexcept = default;
 
-    Config(const Config& other) : m_val{NEW_VALUE(*other.m_val)} {}
+    Config(const Config& other) : m_val{other.m_val == nullptr ? nullptr: NEW_VALUE(*other.m_val)} {}
     Config(Config&& other) noexcept = default;
 
     Config& operator=(const Config& rhs) {
         if (this != &rhs) {
-            m_val.reset (NEW_VALUE(* rhs.m_val));
+            m_val.reset (rhs.m_val == nullptr ? nullptr: NEW_VALUE(* rhs.m_val));
         }
         return *this;
     }

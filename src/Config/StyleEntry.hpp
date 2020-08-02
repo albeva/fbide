@@ -19,42 +19,20 @@
  * along with Foobar. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
-#include <iostream>
+#include "pch.h"
+#include "FB/Defaults.hpp"
 
 namespace fbide {
 
-#define FB_STYLE(_) \
-    _( Default      ) \
-    _( Comment      ) \
-    _( String       ) \
-    _( Number       ) \
-    _( Keyword1     ) \
-    _( Keyword2     ) \
-    _( Keyword3     ) \
-    _( Keyword4     ) \
-    _( Preprocessor ) \
-    _( Operator     ) \
-    _( Identifier   )
+class Config;
 
-enum class FBStyle {
-    #define FB_STYLE_ENUM(Nr) Nr,
-    FB_STYLE(FB_STYLE_ENUM)
-    #undef FB_STYLE_ENUM
+struct StyleEntry {
+    wxFont font;
+    #define STYLE_ENTRY(name, value) decltype(value) name;
+    DEFAULT_EDITOR_STYLE(STYLE_ENTRY)
+    #undef STYLE_ENTRY
+
+    explicit StyleEntry(const Config& style, const StyleEntry* parent = nullptr);
 };
 
-constexpr int KEYWORD_GROUPS_COUNT = 4;
-constexpr int SET_LEXER_IFACE = 1337;
-
-class ILexerSdk {
-public:
-    ILexerSdk(const ILexerSdk&) = delete;
-    ILexerSdk(ILexerSdk&&) = delete;
-    ILexerSdk& operator=(const ILexerSdk&) = delete;
-    ILexerSdk& operator=(ILexerSdk&&) = delete;
-
-    ILexerSdk() = default;
-    virtual ~ILexerSdk() = default;
-    virtual void Log(const std::string& message) = 0;
-};
-
-}
+} // namespace fbide

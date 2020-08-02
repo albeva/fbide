@@ -21,6 +21,8 @@
 #pragma once
 #include "pch.h"
 #include "Config.hpp"
+#include "LexerSdk.hpp"
+#include "StyleEntry.hpp"
 
 namespace fbide {
 
@@ -29,6 +31,7 @@ namespace fbide {
  */
 namespace Key {
     constexpr auto AppLanguage = "App.Language";
+    constexpr auto Keywords = "Editor.Keywords";
 }
 
 /**
@@ -42,8 +45,8 @@ class ConfigManager final {
     NON_COPYABLE(ConfigManager)
 public:
 
-    ConfigManager() = default;
-    ~ConfigManager() = default;
+    ConfigManager();
+    ~ConfigManager();
 
     /**
      * Get main configuration root object
@@ -81,6 +84,20 @@ public:
     [[nodiscard]] const wxString& GetResourcePath() const noexcept { return m_resourcePath; }
 
     /**
+     * Get FBIde keywords from config
+     */
+    [[nodiscard]] const auto& GetKeywords() const noexcept {
+        return m_keywords;
+    }
+
+    /**
+     * Get editor styles
+     */
+    [[nodiscard]] const auto& GetStyles() const noexcept {
+        return m_styles;
+    }
+
+    /**
      * Resolve given relative path to either config path or resource path
      *
      * @param path relative path containing filename to find
@@ -88,7 +105,17 @@ public:
      */
     [[nodiscard]] wxString ResolveResourcePath(const wxString& path) const noexcept;
 
+    /**
+     * Get key from config and if exists, attempt to load file pointed to by the key
+     * @return empty config if either key does not exist or file was not found
+     */
+    [[nodiscard]] Config LoadConfigFromKey(const wxString& path, const wxString& def = wxEmptyString) const noexcept;
+
 private:
+
+    void LoadKeywords();
+    void LoadLanguage();
+    void LoadStyle();
 
     wxString m_configPath;
     wxString m_basePath;
@@ -97,6 +124,8 @@ private:
     Config m_root;
     Config m_lang;
     Config m_theme;
+    std::array<wxString, KEYWORD_GROUPS_COUNT> m_keywords;
+    std::vector<StyleEntry> m_styles;
 };
 
 } // namespace fbide

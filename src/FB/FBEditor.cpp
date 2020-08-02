@@ -25,31 +25,6 @@
 #include "Defaults.hpp"
 using namespace fbide;
 
-struct FBEditor::StyleEntry {
-    wxFont font;
-    #define STYLE_ENTRY(name, value) decltype(value) name;
-    DEFAULT_EDITOR_STYLE(STYLE_ENTRY)
-    #undef STYLE_ENTRY
-
-    explicit StyleEntry(const Config& style, const StyleEntry* parent = nullptr) {
-        if (parent != nullptr) {
-            font = parent->font;
-        } else {
-            font = wxFont(
-                style.Get(Defaults::Key::FontSize, Defaults::FontSize),
-                wxFONTFAMILY_MODERN,
-                wxFONTSTYLE_NORMAL,
-                wxFONTWEIGHT_NORMAL,
-                false,
-                style.Get(Defaults::Key::FontName, wxEmptyString));
-        }
-
-        #define INIT_FIELD(NAME, DEF) NAME = style.Get(#NAME, parent != nullptr ? parent->NAME : DEF);
-        DEFAULT_EDITOR_STYLE(INIT_FIELD)
-        #undef INIT_FIELD
-    }
-};
-
 const wxString FBEditor::TypeId = "text/freebasic"; // NOLINT
 
 wxBEGIN_EVENT_TABLE(FBEditor, wxStyledTextCtrl) // NOLINT
@@ -61,13 +36,17 @@ FBEditor::~FBEditor() = default;
 
 void FBEditor::CreateDocument() {
     TextDocument::CreateDocument();
+
+    auto& cfgMgr = GetCfgMgr();
+    auto& config = cfgMgr.Get();
+
     LoadFBLexer();
     SetLexerLanguage(TypeId);
     ILexerSdk *ilexer = this;
     PrivateLexerCall(SET_LEXER_IFACE, static_cast<void *>(ilexer));
 
-    LoadConfiguration(GetConfig("Editor"));
-    LoadTheme(GetCfgMgr().GetTheme());
+    LoadConfiguration(config["Editor"]);
+    LoadTheme();
 }
 
 
@@ -86,19 +65,26 @@ void FBEditor::LoadConfiguration(const Config& config) {
         SetMarginWidth(0, 0);
     }
     SetMarginWidth(1, 0);
+
+    const auto& keywords = GetCfgMgr().GetKeywords();
+    int nr = (int)FBStyle::Keyword1;
+    for(const auto& kw: keywords) {
+        SetKeyWords(nr++, kw);
+    }
 }
 
 /**
  * Load editor theme
  */
-void FBEditor::LoadTheme(const Config& theme) {
-    const auto defStyle = StyleEntry(theme.GetOrEmpty("Default"), nullptr);
-    LoadStyle(wxSTC_STYLE_DEFAULT, defStyle);
-    StyleSetFont(wxSTC_STYLE_LINENUMBER, defStyle.font);
+void FBEditor::LoadTheme() {
+    const auto& styles = GetCfgMgr().GetStyles();
 
-    #define SET_FB_STYLE(NAME) LoadStyle(static_cast<int>(FBStyle::NAME), StyleEntry(theme.GetOrEmpty(#NAME), &defStyle));
-    FB_STYLE(SET_FB_STYLE)
-    #undef SET_FB_STYLE
+    LoadStyle(wxSTC_STYLE_DEFAULT, styles[0]);
+    StyleSetFont(wxSTC_STYLE_LINENUMBER, styles[0].font);
+
+    for (size_t i = 0; i < styles.size(); i++) {
+        LoadStyle(i, styles[i]);
+    }
 }
 
 void FBEditor::LoadStyle(int nr, const StyleEntry& def) {
@@ -107,6 +93,8 @@ void FBEditor::LoadStyle(int nr, const StyleEntry& def) {
     DEFAULT_EDITOR_STYLE(SET_STYLE)
     #undef SET_STYLE
 }
+
+// Handle editor events
 
 void FBEditor::OnCharAdded(wxStyledTextEvent &event) {
     event.Skip();

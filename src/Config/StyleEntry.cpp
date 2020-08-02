@@ -18,33 +18,24 @@
  * You should have received a copy of the GNU General Public License
  * along with Foobar. If not, see <https://www.gnu.org/licenses/>.
  */
-#pragma once
+#include "StyleEntry.hpp"
+#include "Config.hpp"
+using namespace fbide;
 
-// wxWidgets
-#include <wx/wx.h>
-#include <wx/apptrait.h>
-#include <wx/aui/aui.h>
-#include <wx/stc/stc.h>
-#include <wx/stdpaths.h>
-#include <wx/tokenzr.h>
-#include <wx/wupdlock.h>
-#include <wx/filename.h>
+StyleEntry::StyleEntry(const Config& style, const StyleEntry* parent) {
+    if (parent != nullptr) {
+        font = parent->font;
+    } else {
+        font = wxFont(
+            style.Get(Defaults::Key::FontSize, Defaults::FontSize),
+            wxFONTFAMILY_MODERN,
+            wxFONTSTYLE_NORMAL,
+            wxFONTWEIGHT_NORMAL,
+            false,
+            style.Get(Defaults::Key::FontName, wxEmptyString));
+    }
 
-// std
-#include <array>
-#include <algorithm>
-#include <any>
-#include <variant>
-#include <cassert>
-#include <cctype>
-#include <functional>
-#include <memory>
-#include <stdexcept>
-#include <string>
-#include <type_traits>
-#include <unordered_map>
-#include <utility>
-
-// fbide
-#include "Utils.hpp"
-#define LOG_V(v) std::cout << #v " = " << (v) << std::endl;
+    #define INIT_FIELD(NAME, DEF) NAME = style.Get(#NAME, parent != nullptr ? parent->NAME : DEF);
+    DEFAULT_EDITOR_STYLE(INIT_FIELD)
+    #undef INIT_FIELD
+}

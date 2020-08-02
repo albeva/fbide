@@ -1,2 +1,43 @@
-Font:     Consolas
-FontSize: 12
+Font:       Consolas
+FontSize:   12
+Foreground: black
+Background: white
+Bold:       false
+Italic:     false
+Underline:  false
+Visible:    true
+Case:       0
+EOLFilled:  false
+
+Comment:
+  Foreground: grey
+  Italic:     true
+
+String:
+  Foreground: green
+
+Number:
+  Foreground: blue
+
+Keyword1:
+  Bold:       true
+
+Keyword2:
+  Foreground: purple
+  Bold:       true
+
+Keyword3:
+  Foreground: brown
+  Bold:       true
+
+Keyword4:
+  Foreground: magenta
+  Bold:       true
+
+Preprocessor:
+  Background: '#eeeeee'
+
+Operator:
+  Bold:       true
+
+Identifier:

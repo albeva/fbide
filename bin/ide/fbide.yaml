@@ -1,13 +1,30 @@
 # App configuration
 App:
-  Language:     en
+  Language:     lang.en.yaml
   ShowSplash:   true
   ShowToolbars: true
   MenuIcons:    false
 
 # Editor configuration
 Editor:
-  Theme: default
+  Theme: themes/default.yaml
+  Keywords: keywords.yaml
+  TabWidth: 4
+  UseTabs: true
+  TabIndents: true
+  BackSpaceUnIndents: true
+  Indent: 4
+  EdgeColumn: 80
+  EdgeMode: 1 # 0 ... 3
+  EOLMode: 1 # 0 .. 2
+  ViewEOL: false
+  IndentationGuides: false
+  ViewWhiteSpace: 2 # 0 ... 3
+  CodePage: 65001
+  IMEInteraction: 0
+  CaretLineVisible: true
+  UseHorizontalScrollBar: true
+  WrapMode: false
   Types:
     plain:
       exts:  [txt, md]
