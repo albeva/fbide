@@ -19,8 +19,13 @@
  * along with Foobar. If not, see <https://www.gnu.org/licenses/>.
  */
 #include "ConfigManager.hpp"
+#include "StyleEntry.hpp"
 
 using namespace fbide;
+
+ConfigManager::ConfigManager() {}
+ConfigManager::~ConfigManager() = default;
+
 
 // Load configuration
 void ConfigManager::Load(const wxString& basePath, const wxString& configFile) {
@@ -29,49 +34,99 @@ void ConfigManager::Load(const wxString& basePath, const wxString& configFile) {
     }
     m_root = Config::LoadYaml(configFile);
 
-    // set IDE path
-    m_idePath = wxPathOnly(configFile);
-    m_root[Key::IdePath] = m_idePath;
-
-    // base path
+    // Important paths
+    m_configPath = wxPathOnly(configFile);
     m_basePath = basePath;
-    m_root[Key::BasePath] = basePath;
+    m_resourcePath = basePath / "ide";
 
-    // Load language
-    auto lang = m_root[Key::AppLanguage].AsString();
-    if (!lang.IsEmpty()) {
-        auto file = ResolvePath("lang." + lang + ".yaml");
-        if (!::wxFileExists(file)) {
-            throw std::invalid_argument("Language file not found."s + file.ToStdString());
+    // Load IDE resources
+    LoadLanguage();
+    LoadKeywords();
+    LoadStyle();
+
+    LOG_VERBOSE("Loaded config from " + configFile);
+}
+
+void ConfigManager::LoadKeywords() {
+    wxString keywordsFile = ResolveResourcePath(m_root.Get(Key::Keywords, "keywords.yaml"));
+    if (!::wxFileExists(keywordsFile)) {
+        throw std::invalid_argument("Keywords file not found. "s + keywordsFile.ToStdString());
+    }
+    const auto kwConfig = Config::LoadYaml(keywordsFile);
+    if (kwConfig.IsArray()) {
+        const auto& arr = kwConfig.AsArray();
+        for (size_t i = 0; i < arr.size() && i < m_keywords.size(); i++) {
+            const auto& kw = arr.at(i);
+            if (kw.IsString()) {
+                m_keywords.at(i) = kw.AsString();
+            }
         }
-        m_lang = Config::LoadYaml(file);
+    } else {
+        throw std::invalid_argument("Invalid keywords file. "s + keywordsFile.ToStdString());
+    }
+    LOG_VERBOSE("Loaded keywords from " + keywordsFile);
+}
+
+void ConfigManager::LoadLanguage() {
+    wxString langFile = ResolveResourcePath(m_root.Get(Key::AppLanguage, "lang.en.yaml"));
+    if (!::wxFileExists(langFile)) {
+        throw std::invalid_argument("Language file not found. "s + langFile.ToStdString());
+    }
+    m_lang = Config::LoadYaml(langFile);
+    LOG_VERBOSE("Loaded language from " + langFile);
+}
+
+void ConfigManager::LoadStyle() {
+    const auto& theme = GetTheme();
+    constexpr std::array keys = {
+        #define DEF_KEY(NAME) #NAME,
+        FB_STYLE(DEF_KEY)
+        #undef DEF_KEY
+    };
+    m_styles.reserve(keys.size());
+
+    const auto& def = m_styles.emplace_back(theme, nullptr);
+    for (size_t i = 1; i < keys.size(); i++) {
+        m_styles.emplace_back(theme.GetOrEmpty(keys.at(i)), &def);
     }
 }
 
 Config& ConfigManager::GetTheme() noexcept {
     if (m_theme.IsNull()) {
         if (const auto *theme = m_root.Get("Editor.Theme")) {
-            auto file = ResolvePath("themes" / theme->AsString() + ".yaml");
+            auto file = ResolveResourcePath(theme->AsString());
             m_theme = Config::LoadYaml(file);
-            wxLogMessage("Editor theme loaded from: " + file); // NOLINT
+            LOG_VERBOSE("Loaded theme from " + file);
         }
     }
     return m_theme;
 }
 
-wxString ConfigManager::ResolvePath(const wxString& path) const noexcept {
+Config ConfigManager::LoadConfigFromKey(const wxString& path, const wxString& def) const noexcept {
+    const auto& name = m_root.Get(path, def);
+    if (name.empty()) {
+        return Config::Empty;
+    }
+    const auto file = ResolveResourcePath(name);
+    if (!wxFileExists(path)) {
+        return Config::Empty;
+    }
+    return Config::LoadYaml(file);
+}
+
+wxString ConfigManager::ResolveResourcePath(const wxString& path) const noexcept {
     if (wxIsAbsolutePath(path)) {
         return path;
     }
 
     wxFileName fileName = path;
-    fileName.MakeAbsolute(m_idePath);
+    fileName.MakeAbsolute(m_configPath);
     if (fileName.Exists()) {
         return fileName.GetFullPath();
     }
 
     fileName = path;
-    fileName.MakeAbsolute(m_basePath / "ide");
+    fileName.MakeAbsolute(m_resourcePath);
     if (fileName.Exists()) {
         return fileName.GetFullPath();
     }

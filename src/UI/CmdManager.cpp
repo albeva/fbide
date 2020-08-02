@@ -110,14 +110,14 @@ int CmdManager::Register(const wxString& name, const Entry& entry) {
     // check name registered?
     auto nameIter = m_idMap.find(name);
     if (nameIter != m_idMap.end()) {
-        wxLogError("Command '" + name + "' is already registered with CmdMgr"); // NOLINT
+        LOG_ERROR("Command '" + name + "' is already registered with CmdMgr");
         return nameIter->second;
     }
 
     // check id registered
     auto idIter = m_entryMap.find(id);
     if (idIter != m_entryMap.end()) {
-        wxLogError("Cmd ID for '" + name + "' is duplicated"); // NOLINT
+        LOG_ERROR("Cmd ID for '" + name + "' is duplicated");
         return id;
     }
 

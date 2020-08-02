@@ -16,6 +16,8 @@ target_compile_options(fblexer PRIVATE -DSCI_NAMESPACE)
 
 target_link_libraries(fblexer PRIVATE project_options project_warnings)
 
+set_target_properties(fblexer PROPERTIES OUTPUT_NAME "fblexer$<$<CONFIG:Debug>:d>")
+
 #
 # emit dll to bin/ide folder
 #

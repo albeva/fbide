@@ -38,7 +38,7 @@ add_executable(fbide WIN32
     Log/LogManager.hpp
     FB/FBEditor.cpp
     FB/FBEditor.hpp
-    FB/Defaults.hpp)
+    FB/Defaults.hpp Config/StyleEntry.cpp Config/StyleEntry.hpp)
 
 # Dependencies
 add_dependencies(fbide fblexer)

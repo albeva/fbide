@@ -36,13 +36,17 @@ FBEditor::~FBEditor() = default;
 
 void FBEditor::CreateDocument() {
     TextDocument::CreateDocument();
+
+    auto& cfgMgr = GetCfgMgr();
+    auto& config = cfgMgr.Get();
+
     LoadFBLexer();
     SetLexerLanguage(TypeId);
     ILexerSdk *ilexer = this;
     PrivateLexerCall(SET_LEXER_IFACE, static_cast<void *>(ilexer));
 
-    LoadConfiguration(GetConfig("Editor"));
-    LoadTheme(GetCfgMgr().GetTheme());
+    LoadConfiguration(config["Editor"]);
+    LoadTheme();
 }
 
 
@@ -61,33 +65,47 @@ void FBEditor::LoadConfiguration(const Config& config) {
         SetMarginWidth(0, 0);
     }
     SetMarginWidth(1, 0);
+
+    const auto& keywords = GetCfgMgr().GetKeywords();
+    int nr = (int)FBStyle::Keyword1;
+    for(const auto& kw: keywords) {
+        SetKeyWords(nr++, kw);
+    }
 }
 
 /**
  * Load editor theme
  */
-void FBEditor::LoadTheme(const Config& theme) {
-    wxFont font(
-        theme.Get(Defaults::Key::FontSize, Defaults::FontSize),
-        wxFONTFAMILY_MODERN,
-        wxFONTSTYLE_NORMAL,
-        wxFONTWEIGHT_NORMAL,
-        false,
-        theme.Get(Defaults::Key::FontName, wxEmptyString));
+void FBEditor::LoadTheme() {
+    const auto& styles = GetCfgMgr().GetStyles();
 
-    StyleSetFont(wxSTC_STYLE_DEFAULT, font);
-    StyleSetFont(wxSTC_STYLE_LINENUMBER, font);
+    LoadStyle(wxSTC_STYLE_DEFAULT, styles[0]);
+    StyleSetFont(wxSTC_STYLE_LINENUMBER, styles[0].font);
+
+    for (size_t i = 0; i < styles.size(); i++) {
+        LoadStyle(i, styles[i]);
+    }
 }
 
-void FBEditor::Log(const std::string &message) {
-    wxLogMessage(wxString(message)); // NOLINT
+void FBEditor::LoadStyle(int nr, const StyleEntry& def) {
+    StyleSetFont(nr, def.font);
+    #define SET_STYLE(NAME, ...) StyleSet##NAME(nr, def.NAME);
+    DEFAULT_EDITOR_STYLE(SET_STYLE)
+    #undef SET_STYLE
 }
+
+// Handle editor events
 
 void FBEditor::OnCharAdded(wxStyledTextEvent &event) {
     event.Skip();
 }
 
 // Load fblexer
+
+void FBEditor::Log(const std::string &message) {
+    LOG_VERBOSE(wxString(message));
+}
+
 bool FBEditor::s_fbLexerLoaded = false; // NOLINT
 
 void FBEditor::LoadFBLexer() {
@@ -95,14 +113,27 @@ void FBEditor::LoadFBLexer() {
         return;
     }
 
-    #if defined(__DARWIN__)
-    const auto *dll = "libfblexer.dylib";
-    #elif defined(__WXMSW__)
-    const auto* dll = "fblexer.dll";
+    #ifdef NDEBUG
+        #define SUFFIX ""
     #else
-    const auto *dll = "libfblexer.so";
+        #define SUFFIX "d"
     #endif
 
-    LoadLexerLibrary(GetConfig(Key::BasePath).AsString() / "ide" / dll);
+    #if defined(__DARWIN__)
+    const auto *dll = "libfblexer" SUFFIX ".dylib";
+    #elif defined(__WXMSW__)
+    const auto* dll = "fblexer" SUFFIX ".dll";
+    #else
+    const auto *dll = "libfblexer" SUFFIX ".so";
+    #endif
+
+    auto path = GetCfgMgr().ResolveResourcePath(dll);
+    if (!wxFileExists(path)) {
+        wxLogFatalError("Resource " + path + " not found"); // NOLINT
+    }
+    LoadLexerLibrary(path);
     s_fbLexerLoaded = true;
+
+    LOG_VERBOSE("Loaded fblexer from " + path);
+    LOG_VERBOSE(GetLibraryVersionInfo().ToString());
 }

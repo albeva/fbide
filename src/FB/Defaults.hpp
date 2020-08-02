@@ -4,6 +4,16 @@
 #pragma once
 #include "pch.h"
 
+#define DEFAULT_EDITOR_STYLE(_) \
+    _( Foreground, wxString("black") ) \
+    _( Background, wxString("white") ) \
+    _( Bold,       false             ) \
+    _( Italic,     false             ) \
+    _( Underline,  false             ) \
+    _( Visible,    true              ) \
+    _( Case,       wxSTC_CASE_MIXED  ) \
+    _( EOLFilled,  false             )
+
 #define DEFAULT_EDITOR_CONFIG(_) \
     _( TabWidth,               4                  ) \
     _( UseTabs,                false              ) \

@@ -21,6 +21,8 @@
 #pragma once
 #include "pch.h"
 #include "Config.hpp"
+#include "LexerSdk.hpp"
+#include "StyleEntry.hpp"
 
 namespace fbide {
 
@@ -28,9 +30,8 @@ namespace fbide {
  * Global config keys
  */
 namespace Key {
-    constexpr auto IdePath      = "IdePath";
-    constexpr auto BasePath     = "BasePath";
-    constexpr auto AppLanguage  = "App.Language";
+    constexpr auto AppLanguage = "App.Language";
+    constexpr auto Keywords = "Editor.Keywords";
 }
 
 /**
@@ -44,18 +45,18 @@ class ConfigManager final {
     NON_COPYABLE(ConfigManager)
 public:
 
-    ConfigManager() = default;
-    ~ConfigManager() = default;
+    ConfigManager();
+    ~ConfigManager();
 
     /**
      * Get main configuration root object
      */
-    inline Config& Get() noexcept { return m_root; }
+    [[nodiscard]] inline Config& Get() noexcept { return m_root; }
 
     /**
      * Get language
      */
-    inline Config& Lang() noexcept { return m_lang; }
+    [[nodiscard]] inline Config& Lang() noexcept { return m_lang; }
 
     /**
      * Get Theme
@@ -67,15 +68,64 @@ public:
      */
     void Load(const wxString& basePath, const wxString& configFile);
 
-private:
-    wxString ResolvePath(const wxString& path) const noexcept;
+    /**
+     * Get path where config file was loaded from
+     */
+    [[nodiscard]] const wxString& GetConfigPath() const noexcept { return m_configPath; }
 
-    wxString m_idePath;
+    /**
+     * App base path (executable path)
+     */
+    [[nodiscard]] const wxString& GetBasePath() const noexcept { return m_basePath; }
+
+    /**
+     * App path that contains resources. Usually: ide/
+     */
+    [[nodiscard]] const wxString& GetResourcePath() const noexcept { return m_resourcePath; }
+
+    /**
+     * Get FBIde keywords from config
+     */
+    [[nodiscard]] const auto& GetKeywords() const noexcept {
+        return m_keywords;
+    }
+
+    /**
+     * Get editor styles
+     */
+    [[nodiscard]] const auto& GetStyles() const noexcept {
+        return m_styles;
+    }
+
+    /**
+     * Resolve given relative path to either config path or resource path
+     *
+     * @param path relative path containing filename to find
+     * @return path or a fully resolved absolute path
+     */
+    [[nodiscard]] wxString ResolveResourcePath(const wxString& path) const noexcept;
+
+    /**
+     * Get key from config and if exists, attempt to load file pointed to by the key
+     * @return empty config if either key does not exist or file was not found
+     */
+    [[nodiscard]] Config LoadConfigFromKey(const wxString& path, const wxString& def = wxEmptyString) const noexcept;
+
+private:
+
+    void LoadKeywords();
+    void LoadLanguage();
+    void LoadStyle();
+
+    wxString m_configPath;
     wxString m_basePath;
+    wxString m_resourcePath;
 
     Config m_root;
     Config m_lang;
     Config m_theme;
+    std::array<wxString, KEYWORD_GROUPS_COUNT> m_keywords;
+    std::vector<StyleEntry> m_styles;
 };
 
 } // namespace fbide

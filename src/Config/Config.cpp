@@ -164,7 +164,7 @@ void Config::deallocate(void* value) {
  */
 Config Config::LoadYaml(const wxString& path) {
     if (!wxFileExists(path)) {
-        wxLogError("File '" + path + "' not found"); // NOLINT
+        LOG_ERROR("File '" + path + "' not found");
         return {};
     }
     auto file = YAML::LoadFile(path.ToStdString());
