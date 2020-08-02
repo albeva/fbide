@@ -29,49 +29,50 @@ void ConfigManager::Load(const wxString& basePath, const wxString& configFile) {
     }
     m_root = Config::LoadYaml(configFile);
 
-    // set IDE path
-    m_idePath = wxPathOnly(configFile);
-    m_root[Key::IdePath] = m_idePath;
-
-    // base path
+    // Important paths
+    m_configPath = wxPathOnly(configFile);
     m_basePath = basePath;
-    m_root[Key::BasePath] = basePath;
+    m_resourcePath = basePath / "ide";
 
     // Load language
     auto lang = m_root[Key::AppLanguage].AsString();
+    wxString langFile;
     if (!lang.IsEmpty()) {
-        auto file = ResolvePath("lang." + lang + ".yaml");
-        if (!::wxFileExists(file)) {
-            throw std::invalid_argument("Language file not found."s + file.ToStdString());
+        langFile = ResolveResourcePath("lang." + lang + ".yaml");
+        if (!::wxFileExists(langFile)) {
+            throw std::invalid_argument("Language file not found."s + langFile.ToStdString());
         }
-        m_lang = Config::LoadYaml(file);
+        m_lang = Config::LoadYaml(langFile);
     }
+
+    LOG_VERBOSE("Loaded config from " + configFile);
+    LOG_VERBOSE("Loaded language from " + langFile);
 }
 
 Config& ConfigManager::GetTheme() noexcept {
     if (m_theme.IsNull()) {
         if (const auto *theme = m_root.Get("Editor.Theme")) {
-            auto file = ResolvePath("themes" / theme->AsString() + ".yaml");
+            auto file = ResolveResourcePath("themes" / theme->AsString() + ".yaml");
             m_theme = Config::LoadYaml(file);
-            wxLogMessage("Editor theme loaded from: " + file); // NOLINT
+            LOG_VERBOSE("Loaded theme from " + file);
         }
     }
     return m_theme;
 }
 
-wxString ConfigManager::ResolvePath(const wxString& path) const noexcept {
+wxString ConfigManager::ResolveResourcePath(const wxString& path) const noexcept {
     if (wxIsAbsolutePath(path)) {
         return path;
     }
 
     wxFileName fileName = path;
-    fileName.MakeAbsolute(m_idePath);
+    fileName.MakeAbsolute(m_configPath);
     if (fileName.Exists()) {
         return fileName.GetFullPath();
     }
 
     fileName = path;
-    fileName.MakeAbsolute(m_basePath / "ide");
+    fileName.MakeAbsolute(m_resourcePath);
     if (fileName.Exists()) {
         return fileName.GetFullPath();
     }

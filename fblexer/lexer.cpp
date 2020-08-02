@@ -102,7 +102,7 @@ void Lexer::Fold(Sci_PositionU /* startPos */, Sci_Position /* lengthDoc */, int
 void * Lexer::PrivateCall(int operation, void *pointer) {
     if (operation == SET_LEXER_IFACE && pointer != nullptr) {
         m_iface = reinterpret_cast<ILexerSdk*>(pointer); // NOLINT
-        m_iface->Log("fblexer loaded");
+        m_iface->Log("Initialize fblexer iface");
     }
     return nullptr;
 }

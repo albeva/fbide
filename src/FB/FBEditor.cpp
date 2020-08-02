@@ -80,7 +80,7 @@ void FBEditor::LoadTheme(const Config& theme) {
 }
 
 void FBEditor::Log(const std::string &message) {
-    wxLogMessage(wxString(message)); // NOLINT
+    LOG_VERBOSE(wxString(message));
 }
 
 void FBEditor::OnCharAdded(wxStyledTextEvent &event) {
@@ -95,14 +95,27 @@ void FBEditor::LoadFBLexer() {
         return;
     }
 
-    #if defined(__DARWIN__)
-    const auto *dll = "libfblexer.dylib";
-    #elif defined(__WXMSW__)
-    const auto* dll = "fblexer.dll";
+    #ifdef NDEBUG
+        #define SUFFIX ""
     #else
-    const auto *dll = "libfblexer.so";
+        #define SUFFIX "d"
     #endif
 
-    LoadLexerLibrary(GetConfig(Key::BasePath).AsString() / "ide" / dll);
+    #if defined(__DARWIN__)
+    const auto *dll = "libfblexer" SUFFIX ".dylib";
+    #elif defined(__WXMSW__)
+    const auto* dll = "fblexer" SUFFIX ".dll";
+    #else
+    const auto *dll = "libfblexer" SUFFIX ".so";
+    #endif
+
+    auto path = GetCfgMgr().ResolveResourcePath(dll);
+    if (!wxFileExists(path)) {
+        wxLogFatalError("Resource " + path + " not found"); // NOLINT
+    }
+    LoadLexerLibrary(path);
     s_fbLexerLoaded = true;
+
+    LOG_VERBOSE("Loaded fblexer from " + path);
+    LOG_VERBOSE(GetLibraryVersionInfo().ToString());
 }

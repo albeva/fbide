@@ -33,7 +33,7 @@ LogManager::LogManager() {
     auto* panelHandler = uiMgr.GetPanelHandler();
     auto* entry = panelHandler->Register("toggle_log", ID_ToggleLog, [this]() { return this; });
     if (entry == nullptr) {
-        wxLogError("Failed to register panel with PanelHandler"); // NOLINT
+        LOG_ERROR("Failed to register panel with PanelHandler");
         return;
     }
 

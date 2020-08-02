@@ -28,9 +28,7 @@ namespace fbide {
  * Global config keys
  */
 namespace Key {
-    constexpr auto IdePath      = "IdePath";
-    constexpr auto BasePath     = "BasePath";
-    constexpr auto AppLanguage  = "App.Language";
+    constexpr auto AppLanguage = "App.Language";
 }
 
 /**
@@ -50,12 +48,12 @@ public:
     /**
      * Get main configuration root object
      */
-    inline Config& Get() noexcept { return m_root; }
+    [[nodiscard]] inline Config& Get() noexcept { return m_root; }
 
     /**
      * Get language
      */
-    inline Config& Lang() noexcept { return m_lang; }
+    [[nodiscard]] inline Config& Lang() noexcept { return m_lang; }
 
     /**
      * Get Theme
@@ -67,11 +65,34 @@ public:
      */
     void Load(const wxString& basePath, const wxString& configFile);
 
-private:
-    wxString ResolvePath(const wxString& path) const noexcept;
+    /**
+     * Get path where config file was loaded from
+     */
+    [[nodiscard]] const wxString& GetConfigPath() const noexcept { return m_configPath; }
 
-    wxString m_idePath;
+    /**
+     * App base path (executable path)
+     */
+    [[nodiscard]] const wxString& GetBasePath() const noexcept { return m_basePath; }
+
+    /**
+     * App path that contains resources. Usually: ide/
+     */
+    [[nodiscard]] const wxString& GetResourcePath() const noexcept { return m_resourcePath; }
+
+    /**
+     * Resolve given relative path to either config path or resource path
+     *
+     * @param path relative path containing filename to find
+     * @return path or a fully resolved absolute path
+     */
+    [[nodiscard]] wxString ResolveResourcePath(const wxString& path) const noexcept;
+
+private:
+
+    wxString m_configPath;
     wxString m_basePath;
+    wxString m_resourcePath;
 
     Config m_root;
     Config m_lang;

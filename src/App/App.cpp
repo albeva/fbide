@@ -34,6 +34,10 @@ using namespace fbide;
 
 bool App::OnInit()
 try {
+    #ifndef NDEBUG
+    wxLog::SetVerbose(true);
+    #endif
+
     const auto basePath = GetExecutablePath();
     auto args = argv.GetArguments();
 
@@ -43,20 +47,19 @@ try {
         if (arg == "--config") {
             index += 1;
             if (index >= args.GetCount()) {
-                wxLogError("--config requires path"); // NOLINT
+                LOG_ERROR("--config requires path");
                 return false;
             }
             configFile = ResolvePath(args[index]);
+        } else if (arg == "--verbose") {
+            wxLog::SetVerbose(true);
         }
+
     }
 
     // fbide main config.
     if (configFile.empty()) {
         configFile = basePath / "ide" / "fbide.yaml";
-    }
-    if (!wxFileExists(configFile)) {
-        wxLogError("Config file " + configFile + " not found"); // NOLINT
-        return false;
     }
 
     // Load the managers

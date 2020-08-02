@@ -89,4 +89,7 @@ constexpr bool is_extended_from() {
 
 } // namespace fbide
 
-#define LOG_VAR(VAR) wxLogMessage(wxString(#VAR) << " = " << VAR)
+#define LOG_VAR(VAR) wxLogVerbose(wxString(#VAR) << " = " << VAR) /* NOLINT */;
+#define LOG_VERBOSE(...) wxLogVerbose(__VA_ARGS__) /* NOLINT */ ;
+#define LOG_MESSAGE(...) wxLogMessage(__VA_ARGS__) /* NOLINT */ ;
+#define LOG_ERROR(...)   wxLogError(__VA_ARGS__) /* NOLINT */ ;
