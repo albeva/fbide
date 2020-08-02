@@ -21,8 +21,11 @@
 #pragma once
 
 #include <cassert>
+#include <array>
 #include "ILexer.h"
 #include "LexAccessor.h"
+#include "sdk/LexerSdk.hpp"
+#include "WordList.h"
 
 namespace fbide {
 class ILexerSdk;
@@ -35,7 +38,7 @@ public:
     Lexer& operator=(const Lexer&) = delete;
     Lexer& operator=(Lexer&&) = delete;
 
-    Lexer() ;
+    Lexer();
     virtual ~Lexer() final;
     [[nodiscard]] int SCI_METHOD Version() const final;
     void SCI_METHOD Release() final;
@@ -56,4 +59,5 @@ public:
 
 private:
     fbide::ILexerSdk* m_iface = nullptr;
+    std::array<Scintilla::WordList, fbide::KEYWORD_GROUPS_COUNT> m_wordLists;
 };
