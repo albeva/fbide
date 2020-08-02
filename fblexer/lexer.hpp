@@ -22,6 +22,7 @@
 
 #include <cassert>
 #include <array>
+#include <vector>
 #include "ILexer.h"
 #include "LexAccessor.h"
 #include "sdk/LexerSdk.hpp"
@@ -29,35 +30,59 @@
 
 namespace fbide {
 class ILexerSdk;
-}
 
 class Lexer final: Scintilla::ILexer {
 public:
     Lexer(const Lexer&) = delete;
+
     Lexer(Lexer&&) = delete;
+
     Lexer& operator=(const Lexer&) = delete;
+
     Lexer& operator=(Lexer&&) = delete;
 
     Lexer();
-    virtual ~Lexer() final;
-    [[nodiscard]] int SCI_METHOD Version() const final;
-    void SCI_METHOD Release() final;
-    
-    const char * SCI_METHOD PropertyNames() final;
-    int SCI_METHOD PropertyType(const char *name) final;
-    const char * SCI_METHOD DescribeProperty(const char *name) final;
-    Sci_Position SCI_METHOD PropertySet(const char *key, const char *val) final;
-    
-    const char * SCI_METHOD DescribeWordListSets() final;
-    Sci_Position SCI_METHOD WordListSet(int n, const char *wl) final;
-    
-    void SCI_METHOD Lex(Sci_PositionU startPos, Sci_Position lengthDoc, int initStyle, Scintilla::IDocument *pAccess) final;
-    void SCI_METHOD Fold(Sci_PositionU startPos, Sci_Position lengthDoc, int initStyle, Scintilla::IDocument *pAccess) final;
 
-    void * SCI_METHOD PrivateCall(int operation, void *pointer) final;
-    static ILexer * Factory();
+    virtual ~Lexer() final;
+
+    [[nodiscard]] int SCI_METHOD Version() const final;
+
+    void SCI_METHOD Release() final;
+
+    const char* SCI_METHOD PropertyNames() final;
+
+    int SCI_METHOD PropertyType(const char* name) final;
+
+    const char* SCI_METHOD DescribeProperty(const char* name) final;
+
+    Sci_Position SCI_METHOD PropertySet(const char* key, const char* val) final;
+
+    const char* SCI_METHOD DescribeWordListSets() final;
+
+    Sci_Position SCI_METHOD WordListSet(int n, const char* wl) final;
+
+    void
+    SCI_METHOD Lex(Sci_PositionU startPos, Sci_Position lengthDoc, int initStyle, Scintilla::IDocument* pAccess) final;
+
+    void
+    SCI_METHOD Fold(Sci_PositionU startPos, Sci_Position lengthDoc, int initStyle, Scintilla::IDocument* pAccess) final;
+
+    void* SCI_METHOD PrivateCall(int operation, void* pointer) final;
+
+    static ILexer* Factory();
 
 private:
+
+    void LogError(const std::string& error);
+
+    void ToggleMLComment(Sci_PositionU pos, bool level);
+    [[nodiscard]] bool IsInMLComment(Sci_Position) const;
+    void CleanMLCommentsFrom(Sci_PositionU pos);
+
+
     fbide::ILexerSdk* m_iface = nullptr;
-    std::array<Scintilla::WordList, fbide::KEYWORD_GROUPS_COUNT> m_wordLists;
+    std::array<Scintilla::WordList, KEYWORD_GROUPS_COUNT> m_wordLists;
+    std::vector<std::pair<Sci_PositionU, bool>> m_multilineStack;
 };
+
+} // namespace fbide

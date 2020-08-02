@@ -67,9 +67,8 @@ void FBEditor::LoadConfiguration(const Config& config) {
     SetMarginWidth(1, 0);
 
     const auto& keywords = GetCfgMgr().GetKeywords();
-    int nr = (int)FBStyle::Keyword1;
-    for(const auto& kw: keywords) {
-        SetKeyWords(nr++, kw);
+    for (size_t i = 0; i < keywords.size(); i++) {
+        SetKeyWords(i, keywords.at(i));
     }
 }
 
