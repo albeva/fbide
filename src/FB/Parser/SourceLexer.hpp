@@ -79,7 +79,7 @@ public:
     // void Insert(int pos, char) noexcept;        // single char
     // void Insert(int pos, const char*) noexcept; // insert range
     // void Remove(int pos, len) noexcept;         // remove
-    
+
     std::vector<Token> m_tokens{};
     std::unordered_map<uint32_t, Identifier> m_identifiers;
 };

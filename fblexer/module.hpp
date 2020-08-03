@@ -28,14 +28,16 @@
 
 #ifdef _WIN32
 	#define EXP_DLL __declspec(dllexport)
+    #define EXT_LEXER_DECL
 #else
 	#define EXP_DLL
+    #define EXT_LEXER_DECL
 #endif
 
 extern "C" {
-	EXP_DLL int GetLexerCount();
-	EXP_DLL void GetLexerName(unsigned int Index, char* name, int buflength);
-	EXP_DLL Scintilla::LexerFactoryFunction GetLexerFactory(unsigned int Index);
+	EXP_DLL int EXT_LEXER_DECL GetLexerCount();
+	EXP_DLL void EXT_LEXER_DECL GetLexerName(unsigned int Index, char* name, int buflength);
+	EXP_DLL Scintilla::LexerFactoryFunction EXT_LEXER_DECL GetLexerFactory(unsigned int Index);
 }
 
 #endif /* module_hpp */

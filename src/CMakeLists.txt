@@ -45,7 +45,7 @@ add_executable(fbide WIN32
     UI/UiManager.hpp FB/Parser/SymbolTable.cpp FB/Parser/SymbolTable.hpp FB/Parser/Token.cpp FB/Parser/Token.hpp)
 
 # Dependencies
-add_dependencies(fbide fblexer)
+add_dependencies(fbide wxstc fblexer)
 
 # PCH file
 target_precompile_headers(fbide PRIVATE pch.h)
@@ -56,6 +56,7 @@ set_target_properties(fbide PROPERTIES
 
 # set src root for includes
 target_include_directories(fbide PRIVATE
+    ${PROJECT_SOURCE_DIR}/wxSTC/include
     ${fbide_SOURCE_DIR}/src
     ${fbide_SOURCE_DIR}/fblexer/sdk
     )
@@ -69,5 +70,5 @@ include(${wxWidgets_USE_FILE})
 target_link_libraries(fbide
     PRIVATE
     ${wxWidgets_LIBRARIES}
-    yaml-cpp
+    yaml-cpp wxstc
     project_options project_warnings)

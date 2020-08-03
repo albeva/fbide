@@ -44,6 +44,7 @@ void FBEditor::CreateDocument() {
 
     LoadFBLexer();
     SetLexerLanguage(TypeId);
+    LOG_VAR(GetLexerLanguage());
     ILexerSdk *ilexer = this;
     PrivateLexerCall(SET_LEXER_IFACE, static_cast<void *>(ilexer));
 
