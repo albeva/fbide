@@ -16,7 +16,13 @@ FILE(GLOB wxSRC
     src/ScintillaWX.cpp
     src/stc.cpp)
 
-add_library(wxstc STATIC ${scintillaSRC} ${wxSRC})
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    FILE(GLOB wxMACSRC
+        src/PlatWXcocoa.*)
+    set(MACOS_COCOA "-framework Cocoa")
+endif()
+
+add_library(wxstc STATIC ${scintillaSRC} ${wxSRC} ${wxMACSRC})
 
 target_compile_options(wxstc PRIVATE -DSCI_NAMESPACE -D__WX__ -DSCI_EMPTYCATALOGUE)
 
@@ -28,7 +34,7 @@ target_include_directories(wxstc PRIVATE
     src/)
 
 include(${wxWidgets_USE_FILE})
+message(STATUS ${wxWidgets_USE_FILE})
 
-target_link_libraries(wxstc
-    INTERFACE ${wxWidgets_LIBRARIES}
-    )
+target_link_libraries(wxstc INTERFACE ${wxWidgets_LIBRARIES})
+target_link_libraries(wxstc PRIVATE project_options ${MACOS_COCOA})

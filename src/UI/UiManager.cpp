@@ -105,7 +105,9 @@ UiManager::~UiManager() {
  * Shotdown the manager
  */
 void UiManager::Unload() {
-    wxTheClipboard->Flush();
+    if (wxTheClipboard->IsOpened()) {
+        wxTheClipboard->Flush();
+    }
     while (m_docArea->GetPageCount() != 0) {
         CloseTab(0);
     }

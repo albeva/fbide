@@ -64,10 +64,10 @@ void FBEditor::LoadConfiguration(const Config& config) {
     }
     SetMarginWidth(1, 0);
 
-    const auto& keywords = GetCfgMgr().GetKeywords();
-    for (size_t i = 0; i < keywords.size(); i++) {
-        SetKeyWords(i, keywords.at(i));
-    }
+//    const auto& keywords = GetCfgMgr().GetKeywords();
+//    for (size_t i = 0; i < keywords.size(); i++) {
+//        SetKeyWords(i, keywords.at(i));
+//    }
 }
 
 /**
@@ -80,7 +80,7 @@ void FBEditor::LoadTheme() {
     StyleSetFont(wxSTC_STYLE_LINENUMBER, styles[0].font);
 
     for (size_t i = 0; i < styles.size(); i++) {
-        LoadStyle(i, styles[i]);
+        LoadStyle(static_cast<int>(i), styles[i]);
     }
 }
 
