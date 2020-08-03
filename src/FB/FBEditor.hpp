@@ -22,11 +22,13 @@
 #include "pch.h"
 #include "Editor/TextDocument.hpp"
 #include "LexerSdk.hpp"
-#include "SourceLexer.hpp"
 
 namespace fbide {
 
 struct StyleEntry;
+namespace FB::Parser {
+class SourceLexer;
+}
 
 class FBEditor final: public TextDocument, public ILexerSdk {
     NON_COPYABLE(FBEditor)
@@ -52,7 +54,7 @@ private:
     void LoadTheme();
     void LoadStyle(int nr, const StyleEntry&);
 
-    FB::Parser::SourceLexer m_sourceLexer;
+    std::unique_ptr<FB::Parser::SourceLexer> m_sourceLexer;
 
     wxDECLARE_EVENT_TABLE(); // NOLINT
 };

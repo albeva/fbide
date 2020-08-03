@@ -23,7 +23,7 @@
 #include "UI/UiManager.hpp"
 #include "Config/ConfigManager.hpp"
 #include "Defaults.hpp"
-#include "SourceLexer.hpp"
+#include "Parser/SourceLexer.hpp"
 using namespace fbide;
 
 const wxString FBEditor::TypeId = "text/freebasic"; // NOLINT
@@ -49,12 +49,8 @@ void FBEditor::CreateDocument() {
 
     LoadConfiguration(config["Editor"]);
     LoadTheme();
-
-    LOG_VAR(sizeof(FB::Parser::Token));
-
-    // SetModEventMask() types of modifications fired
+    m_sourceLexer = std::make_unique<FB::Parser::SourceLexer>();
 }
-
 
 /**
  * Load editor configuration

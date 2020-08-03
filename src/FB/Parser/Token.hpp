@@ -19,21 +19,26 @@
  * along with Foobar. If not, see <https://www.gnu.org/licenses/>.
  */
 #pragma once
-#include "pch.h"
 
 namespace fbide::FB::Parser {
 
 enum class Kind: uint8_t {
     Invalid,
+    EndOfLine,
+    EndOfFile,
+    LineContinuation, // _
     SingleComment,
-    MultiComment,
-    Include,
-    Define,
-    Macro,
-    Identifier, // including unimportant keywords
-    Keyword,
-    Number,
-    String,
+    MultiLineCommentStart,
+    MultiLineCommentEnd,
+    Identifier,
+    NumberStart,
+    NumberEnd,
+    StringStart,
+    StringEnd,
+    ppInclude,
+    ppMacro,
+    ppMacroEnd,
+    ppDefine,
     kwConst,
     kwDim,
     kwVar,
@@ -49,32 +54,28 @@ enum class Kind: uint8_t {
     opBraceClose, // )
 };
 
-enum class Scope {
-    Normal,
-    Define,
-    Macro,
-    Assembly
-};
-
+/**
+ * Token is super compact structure that indicates token start positions
+ * and does not encode length of given tokens
+ */
 struct Token {
-    Kind     token;     // 8 bits token id
-    uint8_t  flags;     // 8 bits of flags
-    uint16_t scope:4;   // Scope
-    uint16_t misc:12;   // misc
-    uint32_t start:22;  // MAX 4MB
-    uint32_t len:10;    // MAX 1kb
+    /**
+     * Type of token. Max 256, should be enough
+     */
+    uint32_t kind:8;
+
+    /**
+     * Token start position. MAX supported is 4MB boundry
+     * Beyond that fbide won't bother parsing
+     */
+    uint32_t pos:22;
+
+    /**
+     * Usale as flags for tokens
+     */
+    uint32_t flags:2;
 };
 
-static_assert(sizeof(Token) == 8); // NOLINT
+static_assert(sizeof(Token) == 4); // NOLINT
 
-class SourceLexer {
-    NON_COPYABLE(SourceLexer)
-public:
-    SourceLexer();
-    ~SourceLexer();
-
-
-    std::vector<Token> m_tokens{};
-};
-
-}
+} // namespace fbide::FB::Parser

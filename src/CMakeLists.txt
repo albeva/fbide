@@ -25,8 +25,8 @@ add_executable(fbide WIN32
     FB/Defaults.hpp
     FB/FBEditor.cpp
     FB/FBEditor.hpp
-    FB/SourceLexer.cpp
-    FB/SourceLexer.hpp
+    FB/Parser/SourceLexer.cpp
+    FB/Parser/SourceLexer.hpp
     Log/LogManager.cpp
     Log/LogManager.hpp
     UI/CmdManager.cpp
@@ -42,7 +42,7 @@ add_executable(fbide WIN32
     UI/ToolbarHandler.cpp
     UI/ToolbarHandler.hpp
     UI/UiManager.cpp
-    UI/UiManager.hpp)
+    UI/UiManager.hpp FB/Parser/SymbolTable.cpp FB/Parser/SymbolTable.hpp FB/Parser/Token.cpp FB/Parser/Token.hpp)
 
 # Dependencies
 add_dependencies(fbide fblexer)
