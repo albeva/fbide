@@ -50,7 +50,7 @@ void FBEditor::CreateDocument() {
     LoadConfiguration(config["Editor"]);
     LoadTheme();
 
-    LOG_VAR(m_sourceLexer.m_tokens.capacity());
+    LOG_VAR(sizeof(FB::Parser::Token));
 
     // SetModEventMask() types of modifications fired
 }

@@ -60,9 +60,12 @@ struct Token {
     Kind     token;     // 8 bits token id
     uint8_t  flags;     // 8 bits of flags
     uint16_t scope:4;   // Scope
-    uint32_t start:20;  // MAX 1MB
-    uint32_t len:12;    // MAX 4kb
+    uint16_t misc:12;   // misc
+    uint32_t start:22;  // MAX 4MB
+    uint32_t len:10;    // MAX 1kb
 };
+
+static_assert(sizeof(Token) == 8); // NOLINT
 
 class SourceLexer {
     NON_COPYABLE(SourceLexer)
