@@ -21,7 +21,6 @@
 #pragma once
 #include "pch.h"
 #include "Config.hpp"
-#include "LexerSdk.hpp"
 #include "StyleEntry.hpp"
 
 namespace fbide {
@@ -124,7 +123,7 @@ private:
     Config m_root;
     Config m_lang;
     Config m_theme;
-    std::array<wxString, KEYWORD_GROUPS_COUNT> m_keywords;
+    std::array<wxString, 4> m_keywords;
     std::vector<StyleEntry> m_styles;
 };
 

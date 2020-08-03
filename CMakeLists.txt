@@ -70,5 +70,4 @@ find_package(yaml-cpp CONFIG REQUIRED PATHS ${YAML_DIST_PATH})
 # fbide
 #-----------------------------------------------------------------------------------------------------------------------
 add_subdirectory(wxSTC)
-add_subdirectory(fblexer)
 add_subdirectory(src)
