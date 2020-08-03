@@ -24,11 +24,13 @@
 #include <wx/wx.h>
 #include <wx/apptrait.h>
 #include <wx/aui/aui.h>
-#include <wx/stc/stc.h>
 #include <wx/stdpaths.h>
 #include <wx/tokenzr.h>
 #include <wx/wupdlock.h>
 #include <wx/filename.h>
+
+// wxSTC
+#include "stc.h"
 
 // std
 #include <array>

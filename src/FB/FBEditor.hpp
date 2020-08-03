@@ -26,6 +26,9 @@
 namespace fbide {
 
 struct StyleEntry;
+namespace FB::Parser {
+class SourceLexer;
+}
 
 class FBEditor final: public TextDocument, public ILexerSdk {
     NON_COPYABLE(FBEditor)
@@ -43,12 +46,15 @@ public:
 private:
 
     void OnCharAdded(wxStyledTextEvent &event);
+    void OnModified(wxStyledTextEvent& event);
 
     static bool s_fbLexerLoaded; // NOLINT
     void LoadFBLexer();
     void LoadConfiguration(const Config& config);
     void LoadTheme();
     void LoadStyle(int nr, const StyleEntry&);
+
+    std::unique_ptr<FB::Parser::SourceLexer> m_sourceLexer;
 
     wxDECLARE_EVENT_TABLE(); // NOLINT
 };

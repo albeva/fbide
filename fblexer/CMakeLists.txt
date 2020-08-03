@@ -1,7 +1,9 @@
 #
 # scintilla lexlib
 #
-add_subdirectory(scintilla)
+# add_subdirectory(scintilla)
+
+FILE(GLOB lexlib ${PROJECT_SOURCE_DIR}/wxSTC/src/scintilla/lexlib/*)
 
 #
 # Lexer source
@@ -11,11 +13,15 @@ add_library(fblexer SHARED
     lexer.cpp
     module.hpp
     module.cpp
-    sdk/LexerSdk.hpp)
+    sdk/LexerSdk.hpp
+    ${lexlib})
 
-target_include_directories(fblexer SYSTEM PRIVATE scintilla/include scintilla/lexlib)
-target_compile_options(fblexer PRIVATE -DSCI_NAMESPACE -DSCI_LEXER)
-target_link_libraries(fblexer PRIVATE lexlib project_options project_warnings)
+target_include_directories(fblexer SYSTEM PRIVATE
+    ${PROJECT_SOURCE_DIR}/wxSTC/src/scintilla/include
+    ${PROJECT_SOURCE_DIR}/wxSTC/src/scintilla/lexlib)
+target_compile_options(fblexer PRIVATE -DSCI_NAMESPACE)
+target_link_libraries(fblexer PRIVATE project_options project_warnings)
+
 set_target_properties(fblexer PROPERTIES OUTPUT_NAME "fblexer$<$<CONFIG:Debug>:d>")
 
 #

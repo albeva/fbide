@@ -4,44 +4,48 @@
 add_executable(fbide WIN32
     pch.h
     Utils.hpp
-    App/App.hpp
     App/App.cpp
-    App/Manager.hpp
+    App/App.hpp
     App/Manager.cpp
-    UI/CmdManager.hpp
-    UI/CmdManager.cpp
-    UI/IArtProvider.hpp
-    UI/IArtProvider.cpp
-    UI/MenuHandler.hpp
-    UI/MenuHandler.cpp
-    UI/StandardArtProvider.hpp
-    UI/StandardArtProvider.cpp
-    UI/ToolbarHandler.hpp
-    UI/ToolbarHandler.cpp
-    UI/UiManager.hpp
-    UI/UiManager.cpp
-    UI/PanelHandler.cpp
-    UI/PanelHandler.hpp
-    Config/Config.hpp
+    App/Manager.hpp
     Config/Config.cpp
-    Config/ConfigManager.hpp
+    Config/Config.hpp
     Config/ConfigManager.cpp
-    Document/Document.hpp
+    Config/ConfigManager.hpp
+    Config/StyleEntry.cpp
+    Config/StyleEntry.hpp
     Document/Document.cpp
-    Document/TypeManager.hpp
-    Document/TypeManager.cpp
+    Document/Document.hpp
     Document/DocumentManager.cpp
     Document/DocumentManager.hpp
-    Editor/TextDocument.hpp
+    Document/TypeManager.cpp
+    Document/TypeManager.hpp
     Editor/TextDocument.cpp
-    Log/LogManager.cpp
-    Log/LogManager.hpp
+    Editor/TextDocument.hpp
+    FB/Defaults.hpp
     FB/FBEditor.cpp
     FB/FBEditor.hpp
-    FB/Defaults.hpp Config/StyleEntry.cpp Config/StyleEntry.hpp)
+    FB/Parser/SourceLexer.cpp
+    FB/Parser/SourceLexer.hpp
+    Log/LogManager.cpp
+    Log/LogManager.hpp
+    UI/CmdManager.cpp
+    UI/CmdManager.hpp
+    UI/IArtProvider.cpp
+    UI/IArtProvider.hpp
+    UI/MenuHandler.cpp
+    UI/MenuHandler.hpp
+    UI/PanelHandler.cpp
+    UI/PanelHandler.hpp
+    UI/StandardArtProvider.cpp
+    UI/StandardArtProvider.hpp
+    UI/ToolbarHandler.cpp
+    UI/ToolbarHandler.hpp
+    UI/UiManager.cpp
+    UI/UiManager.hpp FB/Parser/SymbolTable.cpp FB/Parser/SymbolTable.hpp FB/Parser/Token.cpp FB/Parser/Token.hpp)
 
 # Dependencies
-add_dependencies(fbide fblexer)
+add_dependencies(fbide wxstc fblexer)
 
 # PCH file
 target_precompile_headers(fbide PRIVATE pch.h)
@@ -52,6 +56,7 @@ set_target_properties(fbide PROPERTIES
 
 # set src root for includes
 target_include_directories(fbide PRIVATE
+    ${PROJECT_SOURCE_DIR}/wxSTC/include
     ${fbide_SOURCE_DIR}/src
     ${fbide_SOURCE_DIR}/fblexer/sdk
     )
@@ -65,5 +70,5 @@ include(${wxWidgets_USE_FILE})
 target_link_libraries(fbide
     PRIVATE
     ${wxWidgets_LIBRARIES}
-    yaml-cpp
+    yaml-cpp wxstc
     project_options project_warnings)

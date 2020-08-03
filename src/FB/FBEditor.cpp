@@ -23,12 +23,14 @@
 #include "UI/UiManager.hpp"
 #include "Config/ConfigManager.hpp"
 #include "Defaults.hpp"
+#include "Parser/SourceLexer.hpp"
 using namespace fbide;
 
 const wxString FBEditor::TypeId = "text/freebasic"; // NOLINT
 
 wxBEGIN_EVENT_TABLE(FBEditor, wxStyledTextCtrl) // NOLINT
     EVT_STC_CHARADDED(wxID_ANY, FBEditor::OnCharAdded)
+    EVT_STC_MODIFIED(wxID_ANY,  FBEditor::OnModified)
 wxEND_EVENT_TABLE()
 
 FBEditor::FBEditor(const TypeManager::Type &type) : TextDocument(type) {}
@@ -42,13 +44,14 @@ void FBEditor::CreateDocument() {
 
     LoadFBLexer();
     SetLexerLanguage(TypeId);
+    LOG_VAR(GetLexerLanguage());
     ILexerSdk *ilexer = this;
     PrivateLexerCall(SET_LEXER_IFACE, static_cast<void *>(ilexer));
 
     LoadConfiguration(config["Editor"]);
     LoadTheme();
+    m_sourceLexer = std::make_unique<FB::Parser::SourceLexer>();
 }
-
 
 /**
  * Load editor configuration
@@ -96,6 +99,15 @@ void FBEditor::LoadStyle(int nr, const StyleEntry& def) {
 // Handle editor events
 
 void FBEditor::OnCharAdded(wxStyledTextEvent &event) {
+    event.Skip();
+}
+
+void FBEditor::OnModified(wxStyledTextEvent &event) {
+    if ((event.GetModificationType() & wxSTC_MOD_INSERTTEXT) != 0) { // NOLINT
+        LOG_MESSAGE("Insert. pos = %d, len = %d", event.GetPosition(), event.GetLength());
+    } else if ((event.GetModificationType() & wxSTC_MOD_DELETETEXT) != 0) { // NOLINT
+        LOG_MESSAGE("Delete. pos = %d, len = %d", event.GetPosition(), event.GetLength());
+    }
     event.Skip();
 }
 

@@ -55,9 +55,9 @@ if (MSVC)
     else()
         set(wxWidgets_CONFIGURATION mswu)
     endif()
-    set(WXLIBS core base aui stc scintilla)
+    set(WXLIBS core base aui scintilla)
 else()
-    set(WXLIBS core base aui stc)
+    set(WXLIBS core base aui)
 endif()
 find_package(wxWidgets 3.1 COMPONENTS ${WXLIBS} REQUIRED)
 
@@ -69,5 +69,6 @@ find_package(yaml-cpp CONFIG REQUIRED PATHS ${YAML_DIST_PATH})
 #-----------------------------------------------------------------------------------------------------------------------
 # fbide
 #-----------------------------------------------------------------------------------------------------------------------
+add_subdirectory(wxSTC)
 add_subdirectory(fblexer)
 add_subdirectory(src)

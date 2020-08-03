@@ -24,11 +24,11 @@
 #include <cstring>
 using namespace fbide;
 
-int GetLexerCount() {
+int EXT_LEXER_DECL GetLexerCount() {
     return 1;
 }
 
-void GetLexerName(unsigned int Index, char* name, int buflength) {
+void EXT_LEXER_DECL GetLexerName(unsigned int Index, char* name, int buflength) {
     assert(Index == 0 && "Invalid lexer index");
     #if defined(_MSC_VER)
         strcpy_s(name, buflength, "text/freebasic");
@@ -37,7 +37,7 @@ void GetLexerName(unsigned int Index, char* name, int buflength) {
     #endif
 }
 
-Scintilla::LexerFactoryFunction GetLexerFactory(unsigned int Index) {
+Scintilla::LexerFactoryFunction EXT_LEXER_DECL GetLexerFactory(unsigned int Index) {
     assert(Index == 0 && "Invalid lexer index");
     return Lexer::Factory;
 }
