@@ -21,7 +21,6 @@
 #pragma once
 #include "pch.h"
 #include "Editor/TextDocument.hpp"
-#include "LexerSdk.hpp"
 
 namespace fbide {
 
@@ -30,7 +29,7 @@ namespace FB::Parser {
 class SourceLexer;
 }
 
-class FBEditor final: public TextDocument, public ILexerSdk {
+class FBEditor final: public TextDocument {
     NON_COPYABLE(FBEditor)
 public:
     // Editor mime type
@@ -40,16 +39,11 @@ public:
     ~FBEditor() final;
     void CreateDocument() final;
 
-    // fblexer communication
-    void Log(const std::string& message) final;
-
 private:
 
     void OnCharAdded(wxStyledTextEvent &event);
     void OnModified(wxStyledTextEvent& event);
 
-    static bool s_fbLexerLoaded; // NOLINT
-    void LoadFBLexer();
     void LoadConfiguration(const Config& config);
     void LoadTheme();
     void LoadStyle(int nr, const StyleEntry&);

@@ -42,10 +42,14 @@ add_executable(fbide WIN32
     UI/ToolbarHandler.cpp
     UI/ToolbarHandler.hpp
     UI/UiManager.cpp
-    UI/UiManager.hpp FB/Parser/SymbolTable.cpp FB/Parser/SymbolTable.hpp FB/Parser/Token.cpp FB/Parser/Token.hpp)
+    UI/UiManager.hpp
+    FB/Parser/SymbolTable.cpp
+    FB/Parser/SymbolTable.hpp
+    FB/Parser/Token.cpp
+    FB/Parser/Token.hpp)
 
 # Dependencies
-add_dependencies(fbide wxstc fblexer)
+add_dependencies(fbide wxstc)
 
 # PCH file
 target_precompile_headers(fbide PRIVATE pch.h)
@@ -58,7 +62,6 @@ set_target_properties(fbide PROPERTIES
 target_include_directories(fbide PRIVATE
     ${PROJECT_SOURCE_DIR}/wxSTC/include
     ${fbide_SOURCE_DIR}/src
-    ${fbide_SOURCE_DIR}/fblexer/sdk
     )
 
 target_compile_definitions(fbide PRIVATE -DEXPORT_LEXER_IFACE)

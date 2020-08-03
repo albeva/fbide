@@ -32,6 +32,26 @@
     _( UseHorizontalScrollBar, false              ) \
     _( WrapMode,               false              )
 
+#define FB_STYLE(_) \
+    _( Default          ) \
+    _( Comment          ) \
+    _( MultilineComment ) \
+    _( String           ) \
+    _( Number           ) \
+    _( Keyword1         ) \
+    _( Keyword2         ) \
+    _( Keyword3         ) \
+    _( Keyword4         ) \
+    _( Preprocessor     ) \
+    _( Operator         ) \
+    _( Identifier       )
+
+enum class FBStyle {
+    #define FB_STYLE_ENUM(Nr) Nr,
+    FB_STYLE(FB_STYLE_ENUM)
+    #undef FB_STYLE_ENUM
+};
+
 namespace fbide::Defaults {
     constexpr auto FontSize = 12;
     constexpr auto ShowLineNumbers = true;

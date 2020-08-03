@@ -7,7 +7,6 @@ FILE(GLOB scintillaSRC
     src/scintilla/lexlib/*.h
     src/scintilla/src/*.cxx
     src/scintilla/src/*.h
-    src/scintilla/lexers/*.cxx
     )
 
 FILE(GLOB wxSRC
@@ -19,7 +18,7 @@ FILE(GLOB wxSRC
 
 add_library(wxstc STATIC ${scintillaSRC} ${wxSRC})
 
-target_compile_options(wxstc PRIVATE -DSCI_NAMESPACE -DSCI_LEXER -D__WX__)
+target_compile_options(wxstc PRIVATE -DSCI_NAMESPACE -D__WX__ -DSCI_EMPTYCATALOGUE)
 
 target_include_directories(wxstc PRIVATE
     include
@@ -31,5 +30,5 @@ target_include_directories(wxstc PRIVATE
 include(${wxWidgets_USE_FILE})
 
 target_link_libraries(wxstc
-    ${wxWidgets_LIBRARIES}
+    INTERFACE ${wxWidgets_LIBRARIES}
     )

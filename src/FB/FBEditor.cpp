@@ -42,15 +42,10 @@ void FBEditor::CreateDocument() {
     auto& cfgMgr = GetCfgMgr();
     auto& config = cfgMgr.Get();
 
-    LoadFBLexer();
-    SetLexerLanguage(TypeId);
-    LOG_VAR(GetLexerLanguage());
-    ILexerSdk *ilexer = this;
-    PrivateLexerCall(SET_LEXER_IFACE, static_cast<void *>(ilexer));
-
     LoadConfiguration(config["Editor"]);
     LoadTheme();
     m_sourceLexer = std::make_unique<FB::Parser::SourceLexer>();
+    LOG_VERBOSE(GetLibraryVersionInfo().ToString());
 }
 
 /**
@@ -109,42 +104,4 @@ void FBEditor::OnModified(wxStyledTextEvent &event) {
         LOG_MESSAGE("Delete. pos = %d, len = %d", event.GetPosition(), event.GetLength());
     }
     event.Skip();
-}
-
-// Load fblexer
-
-void FBEditor::Log(const std::string &message) {
-    LOG_VERBOSE(wxString(message));
-}
-
-bool FBEditor::s_fbLexerLoaded = false; // NOLINT
-
-void FBEditor::LoadFBLexer() {
-    if (s_fbLexerLoaded) {
-        return;
-    }
-
-    #ifdef NDEBUG
-        #define SUFFIX ""
-    #else
-        #define SUFFIX "d"
-    #endif
-
-    #if defined(__DARWIN__)
-    const auto *dll = "libfblexer" SUFFIX ".dylib";
-    #elif defined(__WXMSW__)
-    const auto* dll = "fblexer" SUFFIX ".dll";
-    #else
-    const auto *dll = "libfblexer" SUFFIX ".so";
-    #endif
-
-    auto path = GetCfgMgr().ResolveResourcePath(dll);
-    if (!wxFileExists(path)) {
-        wxLogFatalError("Resource " + path + " not found"); // NOLINT
-    }
-    LoadLexerLibrary(path);
-    s_fbLexerLoaded = true;
-
-    LOG_VERBOSE("Loaded fblexer from " + path);
-    LOG_VERBOSE(GetLibraryVersionInfo().ToString());
 }
