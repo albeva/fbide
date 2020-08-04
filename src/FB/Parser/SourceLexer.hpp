@@ -25,63 +25,32 @@
 
 namespace fbide::FB::Parser {
 
-class Identifier;
-class SymbolTable;
-class Type;
-
-class Symbol {
-    /**
-     * Symbol name
-     */
-    std::string id;
-
-    /**
-     * Table symbol belongs to
-     */
-    SymbolTable* table;
-
-    /**
-     * Type of the symbol
-     */
-    Type* type;
-
-    /**
-     * Location where symbol is first declared
-     */
-    Identifier* declaration;
-
-    /**
-     * Location where symbol is first defined
-     */
-    Identifier* definition;
-
-    /**
-     * Symbol occurances
-     */
-     std::vector<Identifier*> occurances;
-};
-
-class Identifier {
-    struct Location {
-        uint32_t pos:22;
-        uint32_t file:10;
-    };
-    Location location;
-    Symbol* symbol;
-};
-
 class SourceLexer {
     NON_COPYABLE(SourceLexer)
 public:
     SourceLexer();
     ~SourceLexer();
 
-    // void Insert(int pos, char) noexcept;        // single char
-    // void Insert(int pos, const char*) noexcept; // insert range
-    // void Remove(int pos, len) noexcept;         // remove
+    /**
+     * Insert a single character at given position
+     */
+    void Insert(int pos, char ch) noexcept;
+
+    /**
+     * Insert string at given position
+     */
+    void Insert(int pos, const std::string_view& text) noexcept;
+
+    /**
+     * Remove given length from pos
+     */
+    void Remove(int pos, int len) noexcept;
+
+private:
+    void Shift(int pos, int len) noexcept;
+    void Unshift(int pos, int len) noexcept;
 
     std::vector<Token> m_tokens{};
-    std::unordered_map<uint32_t, Identifier> m_identifiers;
 };
 
 } // namespace fbide::FB::Parser

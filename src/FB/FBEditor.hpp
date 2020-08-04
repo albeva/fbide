@@ -40,9 +40,8 @@ public:
     void CreateDocument() final;
 
 private:
-
-    void OnCharAdded(wxStyledTextEvent &event);
     void OnModified(wxStyledTextEvent& event);
+    void OnStyleNeeded(wxStyledTextEvent& event);
 
     void LoadConfiguration(const Config& config);
     void LoadTheme();

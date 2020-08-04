@@ -29,8 +29,8 @@ using namespace fbide;
 const wxString FBEditor::TypeId = "text/freebasic"; // NOLINT
 
 wxBEGIN_EVENT_TABLE(FBEditor, wxStyledTextCtrl) // NOLINT
-    EVT_STC_CHARADDED(wxID_ANY, FBEditor::OnCharAdded)
-    EVT_STC_MODIFIED(wxID_ANY,  FBEditor::OnModified)
+    EVT_STC_MODIFIED(wxID_ANY,    FBEditor::OnModified)
+    EVT_STC_STYLENEEDED(wxID_ANY, FBEditor::OnStyleNeeded)
 wxEND_EVENT_TABLE()
 
 FBEditor::FBEditor(const TypeManager::Type &type) : TextDocument(type) {}
@@ -42,6 +42,7 @@ void FBEditor::CreateDocument() {
     auto& cfgMgr = GetCfgMgr();
     auto& config = cfgMgr.Get();
 
+    SetLexer(wxSTC_LEX_CONTAINER);
     LoadConfiguration(config["Editor"]);
     LoadTheme();
     m_sourceLexer = std::make_unique<FB::Parser::SourceLexer>();
@@ -63,11 +64,6 @@ void FBEditor::LoadConfiguration(const Config& config) {
         SetMarginWidth(0, 0);
     }
     SetMarginWidth(1, 0);
-
-    const auto& keywords = GetCfgMgr().GetKeywords();
-    for (size_t i = 0; i < keywords.size(); i++) {
-        SetKeyWords(i, keywords.at(i));
-    }
 }
 
 /**
@@ -93,15 +89,29 @@ void FBEditor::LoadStyle(int nr, const StyleEntry& def) {
 
 // Handle editor events
 
-void FBEditor::OnCharAdded(wxStyledTextEvent &event) {
+void FBEditor::OnModified(wxStyledTextEvent& event) {
+    if ((event.GetModificationType() & wxSTC_MOD_DELETETEXT) != 0) { // NOLINT
+        m_sourceLexer->Remove(event.GetPosition(), event.GetLength());
+    } else if ((event.GetModificationType() & wxSTC_MOD_INSERTTEXT) != 0) { // NOLINT
+        auto len = event.GetLength();
+        if (len == 1) {
+            auto ch = GetCharAt(event.GetPosition());
+            m_sourceLexer->Insert(event.GetPosition(), static_cast<char>(ch));
+        } else {
+            const auto *range = GetRangePointer(event.GetPosition(), len);
+            m_sourceLexer->Insert(event.GetPosition(), std::string_view{range, (size_t)len});
+        }
+    }
     event.Skip();
 }
 
-void FBEditor::OnModified(wxStyledTextEvent &event) {
-    if ((event.GetModificationType() & wxSTC_MOD_INSERTTEXT) != 0) { // NOLINT
-        LOG_MESSAGE("Insert. pos = %d, len = %d", event.GetPosition(), event.GetLength());
-    } else if ((event.GetModificationType() & wxSTC_MOD_DELETETEXT) != 0) { // NOLINT
-        LOG_MESSAGE("Delete. pos = %d, len = %d", event.GetPosition(), event.GetLength());
-    }
-    event.Skip();
+void FBEditor::OnStyleNeeded(wxStyledTextEvent& event) {
+    // Start
+    auto startPos  = GetEndStyled();
+    auto startLine = LineFromPosition(startPos);
+    startPos       = PositionFromLine(startLine);
+    int endPos     = event.GetPosition();
+
+    StartStyling(startPos);
+    SetStyling(endPos - startPos, (int)FBStyle::Default);
 }

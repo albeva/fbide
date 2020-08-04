@@ -22,6 +22,42 @@
 
 namespace fbide::FB::Parser {
 
+struct Token;
+class SymbolTable;
+class Type;
+
+class Symbol {
+    /**
+     * Symbol name
+     */
+    std::string id;
+
+    /**
+     * Table symbol belongs to
+     */
+    SymbolTable* table;
+
+    /**
+     * Type of the symbol
+     */
+    Type* type;
+
+    /**
+     * Location where symbol is first declared
+     */
+    Token* declaration;
+
+    /**
+     * Location where symbol is first defined
+     */
+    Token* definition;
+
+    /**
+     * Symbol occurances
+     */
+    std::vector<Token*> occurances;
+};
+
 class SymbolTable {
 
 };

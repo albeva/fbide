@@ -74,8 +74,20 @@ struct Token {
      * Usale as flags for tokens
      */
     uint32_t flags:2;
+
+    /**
+     * ID of the Symbol
+     * MAX 4194303 symbols
+     */
+    uint32_t symbolId:22;
+
+    /**
+     * ID of the file
+     * MAX 1023 files
+     */
+    uint32_t fileId:10;
 };
 
-static_assert(sizeof(Token) == 4); // NOLINT
+static_assert(sizeof(Token) == 8); // NOLINT
 
 } // namespace fbide::FB::Parser
