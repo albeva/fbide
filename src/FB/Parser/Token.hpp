@@ -60,11 +60,6 @@ enum class Kind: uint8_t {
  */
 struct Token {
     /**
-     * Type of token. Max 256, should be enough
-     */
-    uint32_t kind:8;
-
-    /**
      * Token start position. MAX supported is 4MB boundry
      * Beyond that fbide won't bother parsing
      */
@@ -74,6 +69,11 @@ struct Token {
      * Usale as flags for tokens
      */
     uint32_t flags:2;
+
+    /**
+     * Type of token. Max 256, should be enough
+     */
+    uint32_t kind:8;
 
     /**
      * ID of the Symbol
