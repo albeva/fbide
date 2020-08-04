@@ -66,7 +66,7 @@ struct Token {
     uint32_t pos:22;
 
     /**
-     * Usale as flags for tokens
+     * Usable as flags for tokens
      */
     uint32_t flags:2;
 

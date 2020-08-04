@@ -46,11 +46,15 @@ void SourceLexer::Remove(int pos, int len) noexcept {
  * shift all positions by given amount from position onward
  */
 void SourceLexer::Shift(int pos, int len) noexcept {
-    for (auto& tkn: m_tokens) {
-        if (tkn.pos < pos) {
-            continue;
+    auto iter = m_tokens.begin();
+    for (; iter != m_tokens.end(); iter++) {
+        if (iter->pos >= pos) {
+            break;
         }
-        tkn.pos += len;
+    }
+
+    for (; iter != m_tokens.end(); iter++) {
+        iter->pos += len;
     }
 }
 
