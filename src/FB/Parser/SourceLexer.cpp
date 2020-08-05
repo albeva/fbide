@@ -22,19 +22,23 @@
 using namespace fbide::FB::Parser;
 
 constexpr size_t DEFAULT_RESERVE = 25 * 500;
+constexpr Token NullToken{0, 0, 0, 0, 0};
 
 SourceLexer::SourceLexer() {
     m_tokens.reserve(DEFAULT_RESERVE);
 }
 
-void SourceLexer::Insert(int pos, char ch) noexcept {
-    Shift(pos, 1);
-    LOG_MESSAGE("Insert at: %d, char: %c", pos, ch);
+void SourceLexer::Insert(int pos, int ch) noexcept {
+    if (auto tkn = GetToken(pos)) {
+        LOG_MESSAGE("Got token")
+    }
+
+    LOG_MESSAGE("Insert at: %d, char: %d", pos, ch);
 }
 
 void SourceLexer::Insert(int pos, const std::string_view& text) noexcept {
     Shift(pos, static_cast<int>(text.length()));
-    LOG_MESSAGE("Insert at: %d, char: %s", pos, text.data());
+    LOG_MESSAGE("Insert at: %d, let: %d, text: %s", pos, text.size(), text.data());
 }
 
 void SourceLexer::Remove(int pos, int len) noexcept {
@@ -85,6 +89,30 @@ void SourceLexer::Unshift(int pos, int len) noexcept {
     for (; iter != m_tokens.end(); iter++) {
         iter->pos -= len;
     }
+}
+
+Token SourceLexer::SourceLexer::GetToken(int pos) const noexcept {
+    for (const auto& tkn: m_tokens) {
+        if (tkn.pos < pos) {
+//            if (tkn.range && tkn.pos + tkn.Length() > pos) {
+//                return tkn;
+//            }
+            continue;
+        }
+        if (tkn.pos == pos) {
+            return tkn;
+        }
+        break;
+    }
+    return NullToken;
+}
+
+Token SourceLexer::GetPrevToken(int /*pos*/) const noexcept {
+    return NullToken;
+}
+
+Token SourceLexer::GetNextToken(int /*pos*/) const noexcept {
+    return NullToken;
 }
 
 SourceLexer::~SourceLexer() = default;

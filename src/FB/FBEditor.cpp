@@ -96,7 +96,7 @@ void FBEditor::OnModified(wxStyledTextEvent& event) {
         auto len = event.GetLength();
         if (len == 1) {
             auto ch = GetCharAt(event.GetPosition());
-            m_sourceLexer->Insert(event.GetPosition(), static_cast<char>(ch));
+            m_sourceLexer->Insert(event.GetPosition(), ch);
         } else {
             const auto *range = GetRangePointer(event.GetPosition(), len);
             m_sourceLexer->Insert(event.GetPosition(), std::string_view{range, (size_t)len});

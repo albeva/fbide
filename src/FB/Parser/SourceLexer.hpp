@@ -34,7 +34,7 @@ public:
     /**
      * Insert a single character at given position
      */
-    void Insert(int pos, char ch) noexcept;
+    void Insert(int pos, int ch) noexcept;
 
     /**
      * Insert string at given position
@@ -50,6 +50,27 @@ private:
     void Shift(int pos, int len) noexcept;
     void Unshift(int pos, int len) noexcept;
 
+    /**
+     * Get token at given position.
+     * Either token that starts at given position
+     * ^Token
+     * Or a token that has a range
+     * String, number, comment, multi char operators
+     * Tok^en
+     */
+    [[nodiscard]] Token GetToken(int pos) const noexcept;
+
+    /**
+     * Get previous token posision
+     */
+    [[nodiscard]] Token GetPrevToken(int pos) const noexcept;
+
+    /**
+     * Get next token
+     */
+    [[nodiscard]] Token GetNextToken(int pos) const noexcept;
+
+    std::string m_buffer;
     std::vector<Token> m_tokens{};
 };
 
