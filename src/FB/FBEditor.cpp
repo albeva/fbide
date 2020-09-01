@@ -80,9 +80,9 @@ void FBEditor::LoadTheme() {
     }
 }
 
-void FBEditor::LoadStyle(int nr, const StyleEntry& def) {
-    StyleSetFont(nr, def.font);
-    #define SET_STYLE(NAME, ...) StyleSet##NAME(nr, def.NAME);
+void FBEditor::LoadStyle(int nr, const StyleEntry& style) {
+    StyleSetFont(nr, style.font);
+    #define SET_STYLE(NAME, ...) StyleSet##NAME(nr, style.NAME);
     DEFAULT_EDITOR_STYLE(SET_STYLE)
     #undef SET_STYLE
 }

@@ -73,7 +73,7 @@ struct Token {
     uint32_t range: 1;
 
     /**
-     * Indicate error. Errors shsould have squiggly underline beneith them
+     * Indicate error. Errors shsould have squiggly underline beneath them
      */
     uint32_t error: 1;
 

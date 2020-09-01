@@ -73,8 +73,8 @@ struct convert<Config> {
             auto& map = rhs.AsMap();
             map.reserve(node.size());
             for (const auto& child : node) {
-                auto& key = child.first.Scalar();
-                auto& val = child.second;
+                const auto& key = child.first.Scalar();
+                const auto& val = child.second;
                 map.emplace(std::make_pair(key, val.as<Config>()));
             }
             return true;

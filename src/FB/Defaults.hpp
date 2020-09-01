@@ -46,7 +46,7 @@
     _( Operator         ) \
     _( Identifier       )
 
-enum class FBStyle {
+enum class FBStyle: int {
     #define FB_STYLE_ENUM(Nr) Nr,
     FB_STYLE(FB_STYLE_ENUM)
     #undef FB_STYLE_ENUM

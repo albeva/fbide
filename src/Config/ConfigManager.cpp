@@ -23,7 +23,7 @@
 
 using namespace fbide;
 
-ConfigManager::ConfigManager() {}
+ConfigManager::ConfigManager() = default;
 ConfigManager::~ConfigManager() = default;
 
 

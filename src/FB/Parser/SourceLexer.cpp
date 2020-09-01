@@ -28,6 +28,8 @@ SourceLexer::SourceLexer() {
     m_tokens.reserve(DEFAULT_RESERVE);
 }
 
+SourceLexer::~SourceLexer() = default;
+
 void SourceLexer::Insert(int pos, int ch) noexcept {
     if (auto tkn = GetToken(pos)) {
         LOG_MESSAGE("Got token")
@@ -114,5 +116,3 @@ Token SourceLexer::GetPrevToken(int /*pos*/) const noexcept {
 Token SourceLexer::GetNextToken(int /*pos*/) const noexcept {
     return NullToken;
 }
-
-SourceLexer::~SourceLexer() = default;

@@ -60,7 +60,7 @@ public:
     /**
      * Get Theme
      */
-    Config& GetTheme() noexcept;
+    [[nodiscard]] Config& GetTheme() noexcept;
 
     /**
      * Load file at specified path
