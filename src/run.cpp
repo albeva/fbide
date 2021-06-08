@@ -463,9 +463,8 @@ int FBIdeMainFrame::Compile(int index) {
 
     arrOutput.Empty();
 #ifdef __WXMSW__
-
     wxFileName objFbcPath(CompilerPath);
-    wxExecute("\"" + objFbcPath.GetFullPath() + "\" -version", arrOutput);
+    wxExecute("\"" + objFbcPath.GetFullPath() + "\" --version", arrOutput);
 #else
 
     wxExecute( CompilerPath + " -version", arrOutput );
@@ -511,12 +510,12 @@ void FBIdeMainFrame::Run(wxFileName file) {
 
 
     // Replace metatags
-    strCommand.Replace("<param>", ParameterList);
-    strCommand.Replace("<file>", file.GetFullPath());
-    strCommand.Replace("<file_path>", file.GetPath());
-    strCommand.Replace("<file_name>", file.GetName());
-    strCommand.Replace("<file_ext>", file.GetExt());
-    strCommand.Replace("<terminal>", strTerminal);
+    strCommand.Replace("<$param>", ParameterList);
+    strCommand.Replace("<$file>", file.GetFullPath());
+    strCommand.Replace("<$file_path>", file.GetPath());
+    strCommand.Replace("<$file_name>", file.GetName());
+    strCommand.Replace("<$file_ext>", file.GetExt());
+    strCommand.Replace("<$terminal>", strTerminal);
 
     // Create new process
     MyProcess *objProcess = new MyProcess(this, strCommand);
@@ -624,11 +623,9 @@ wxString FBIdeMainFrame::GetCompileData(int index) {
         return "";
     wxString strReturn(CMDPrototype.Lower().Trim(true).Trim(false));
 
-
-    // Linux doesn't like quotes nor does it need exact path to fbc 
+    // Linux doesn't like quotes nor does it need exact path to fbc
     // ( moved quotes into settings file )
 #ifdef __WXMSW__
-
     wxFileName ObjCompilerPath(CompilerPath);
     ObjCompilerPath.Normalize();
 
@@ -637,13 +634,13 @@ wxString FBIdeMainFrame::GetCompileData(int index) {
         return "";
     }
 
-    strReturn.Replace("<fbc>", ObjCompilerPath.GetFullPath());
-    strReturn.Replace("<filename>", objFilePath.GetFullPath());
+    strReturn.Replace("<$fbc>", ObjCompilerPath.GetFullPath());
+    strReturn.Replace("<$file>", objFilePath.GetFullPath());
 #else
-
-    strReturn.Replace( "<fbc>", CompilerPath );
-    strReturn.Replace( "<filename>", objFilePath.GetFullPath() );
+    strReturn.Replace( "<$fbc>", CompilerPath );
+    strReturn.Replace( "<$file>", objFilePath.GetFullPath() );
 #endif
+
     return strReturn;
 }
 
