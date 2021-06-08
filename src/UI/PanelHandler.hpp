@@ -106,7 +106,7 @@ public:
     //        Register(name, id, []() -> Panel* { return new T(); })
     //    }
 
-    inline wxAuiNotebook* GetPanelArea() { return m_panelArea; }
+    [[nodiscard]] inline wxAuiNotebook* GetPanelArea() { return m_panelArea; }
 
     bool ShowPanel(Entry &entry);
     bool ClosePanel(Entry &entry);

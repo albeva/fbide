@@ -54,7 +54,6 @@ try {
         } else if (arg == "--verbose") {
             wxLog::SetVerbose(true);
         }
-
     }
 
     // fbide main config.
