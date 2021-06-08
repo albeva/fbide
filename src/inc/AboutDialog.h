@@ -54,18 +54,19 @@ class AboutDialog : public wxDialog {
 DECLARE_EVENT_TABLE()
 
 public:
-    AboutDialog();
+    AboutDialog() = default;
 
-    AboutDialog(wxWindow *parent, wxWindowID id = SYMBOL_FB_ABOUT_IDNAME, const wxString &caption = SYMBOL_FB_ABOUT_TITLE,
+    explicit AboutDialog(wxWindow *parent, wxWindowID id = SYMBOL_FB_ABOUT_IDNAME, const wxString &caption = SYMBOL_FB_ABOUT_TITLE,
                 const wxPoint &pos = SYMBOL_FB_ABOUT_POSITION, const wxSize &size = SYMBOL_FB_ABOUT_SIZE,
                 long style = SYMBOL_FB_ABOUT_STYLE);
 
-    bool
-    Create(wxWindow *parent, wxWindowID id = SYMBOL_FB_ABOUT_IDNAME, const wxString &caption = SYMBOL_FB_ABOUT_TITLE,
+    bool Create(wxWindow *parent, wxWindowID id = SYMBOL_FB_ABOUT_IDNAME, const wxString &caption = SYMBOL_FB_ABOUT_TITLE,
            const wxPoint &pos = SYMBOL_FB_ABOUT_POSITION, const wxSize &size = SYMBOL_FB_ABOUT_SIZE,
            long style = SYMBOL_FB_ABOUT_STYLE);
 
     void CreateControls();
+
+
 
     void OnCloseWindow(wxCloseEvent &event);
 
@@ -73,5 +74,6 @@ public:
 
     wxBitmap GetBitmapResource(const wxString &name);
 
-    FBIdeMainFrame *Parent;
+  private:
+    FBIdeMainFrame *Parent{};
 };

@@ -36,8 +36,6 @@ BEGIN_EVENT_TABLE(AboutDialog, wxDialog)
         EVT_BUTTON(wxID_OK, AboutDialog::OnOkClick)
 END_EVENT_TABLE()
 
-AboutDialog::AboutDialog() {}
-
 AboutDialog::AboutDialog(wxWindow *parent, wxWindowID id, const wxString &caption, const wxPoint &pos, const wxSize &size,
                          long style) {
     Parent = (FBIdeMainFrame *) parent;
@@ -62,46 +60,46 @@ void AboutDialog::CreateControls() {
     AboutDialog *itemDialog1 = this;
     wxString temp;
 
-    wxBoxSizer *itemBoxSizer2 = new wxBoxSizer(wxVERTICAL);
+    auto *itemBoxSizer2 = new wxBoxSizer(wxVERTICAL);
     itemDialog1->SetSizer(itemBoxSizer2);
 
     auto courierNew = wxFont(10, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL, false, "Courier New");
 
     wxBitmap itemStaticBitmap3Bitmap(wxBITMAP(fbide));
-    wxStaticBitmap *itemStaticBitmap3 = new wxStaticBitmap(itemDialog1, wxID_STATIC, itemStaticBitmap3Bitmap,
+    auto *itemStaticBitmap3 = new wxStaticBitmap(itemDialog1, wxID_STATIC, itemStaticBitmap3Bitmap,
                                                            wxDefaultPosition, wxSize(300, 75), 0);
     itemBoxSizer2->Add(itemStaticBitmap3, 0, wxALIGN_CENTER_HORIZONTAL, 5);
 
-    wxStaticBox *itemStaticBoxSizer4Static = new wxStaticBox(itemDialog1, wxID_ANY, "FBIde information");
-    wxStaticBoxSizer *itemStaticBoxSizer4 = new wxStaticBoxSizer(itemStaticBoxSizer4Static, wxVERTICAL);
+    auto *itemStaticBoxSizer4Static = new wxStaticBox(itemDialog1, wxID_ANY, "FBIde information");
+    auto *itemStaticBoxSizer4 = new wxStaticBoxSizer(itemStaticBoxSizer4Static, wxVERTICAL);
     itemBoxSizer2->Add(itemStaticBoxSizer4, 0, wxGROW | wxLEFT | wxRIGHT | wxBOTTOM, 5);
 
     temp = "";
     temp << "Version:    " << VER_MAJOR << "." << VER_MINOR << "." << VER_RELEASE;
-    wxStaticText *itemStaticText5 = new wxStaticText(itemDialog1, wxID_STATIC, temp, wxDefaultPosition, wxDefaultSize,
+    auto *itemStaticText5 = new wxStaticText(itemDialog1, wxID_STATIC, temp, wxDefaultPosition, wxDefaultSize,
                                                      0);
     itemStaticText5->SetFont(courierNew);
     itemStaticBoxSizer4->Add(itemStaticText5, 0, wxALIGN_LEFT | wxLEFT | wxRIGHT, 5);
 
     temp = "";
     temp << "Build date: " << _(__DATE__);
-    wxStaticText *itemStaticText7 = new wxStaticText(itemDialog1, wxID_STATIC, temp, wxDefaultPosition, wxDefaultSize,
+    auto *itemStaticText7 = new wxStaticText(itemDialog1, wxID_STATIC, temp, wxDefaultPosition, wxDefaultSize,
                                                      0);
     itemStaticText7->SetFont(courierNew);
     itemStaticBoxSizer4->Add(itemStaticText7, 0, wxALIGN_LEFT | wxLEFT | wxRIGHT, 5);
 
     temp = "";
     temp << "wxWidgets:  " << wxMAJOR_VERSION << "." << wxMINOR_VERSION << "." << wxRELEASE_NUMBER;
-    wxStaticText *itemStaticText8 = new wxStaticText(itemDialog1, wxID_STATIC, temp, wxDefaultPosition, wxDefaultSize,
+    auto *itemStaticText8 = new wxStaticText(itemDialog1, wxID_STATIC, temp, wxDefaultPosition, wxDefaultSize,
                                                      0);
     itemStaticText8->SetFont(courierNew);
     itemStaticBoxSizer4->Add(itemStaticText8, 0, wxALIGN_LEFT | wxLEFT | wxRIGHT, 5);
 
-    wxStaticLine *itemStaticLine9 = new wxStaticLine(itemDialog1, wxID_STATIC, wxDefaultPosition, wxDefaultSize,
+    auto *itemStaticLine9 = new wxStaticLine(itemDialog1, wxID_STATIC, wxDefaultPosition, wxDefaultSize,
                                                      wxLI_HORIZONTAL);
     itemStaticBoxSizer4->Add(itemStaticLine9, 0, wxGROW | wxTOP | wxBOTTOM, 5);
 
-    wxTextCtrl *txm7 = new wxTextCtrl(itemDialog1, ID_TEXTCTRL,
+    auto *txm7 = new wxTextCtrl(itemDialog1, ID_TEXTCTRL,
                                       _(""),
                                       wxDefaultPosition, wxSize(-1, 200),
                                       wxVSCROLL | wxHSCROLL | wxTE_READONLY | wxTE_RICH2 | wxTE_DONTWRAP |
@@ -178,7 +176,7 @@ void AboutDialog::CreateControls() {
     txm7->SetInsertionPoint(txm7->XYToPosition(0, 0));
     Centre();
 
-    wxButton *itemButton11 = new wxButton(itemDialog1, wxID_OK, "&OK", wxDefaultPosition, wxDefaultSize, 0);
+    auto *itemButton11 = new wxButton(itemDialog1, wxID_OK, "&OK", wxDefaultPosition, wxDefaultSize, 0);
     itemBoxSizer2->Add(itemButton11, 0, wxALIGN_RIGHT | wxLEFT | wxRIGHT | wxBOTTOM, 5);
 }
 
