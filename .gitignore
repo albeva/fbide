@@ -8,8 +8,10 @@ xcuserdata/
 timeline.xctimeline
 playground.xcworkspace
 
-# Visual Studio
-.vs/
+# IDEs
+.vs
+.vscode
+.idea
 
 # LLVM intermediate files
 *.ll

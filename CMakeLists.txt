@@ -16,11 +16,7 @@ add_library(project_warnings INTERFACE)
 include(cmake/StaticAnalyzers.cmake)
 
 if (MSVC)
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDebugDLL)
-    else()
-        set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
-    endif()
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 endif()
 
 #-----------------------------------------------------------------------------------------------------------------------

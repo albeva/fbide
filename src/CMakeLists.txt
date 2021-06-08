@@ -2,37 +2,37 @@
 add_executable(fbide WIN32
     inc/pch.h
     rc/FBIde0.4_private.rc
-    inc/globals.h
-    inc/FBIdeMainFrame.h
-    FBIdeMainFrame.cpp
-    inc/AboutDialog.h
     AboutDialog.cpp
-    inc/browser.h
+    FBIdeApp.cpp
+    FBIdeMainFrame.cpp
+    FormatDialog.cpp
+    InstanceHandler.cpp
     browser.cpp
-    inc/buffer.h
     buffer.cpp
-    inc/bufferlist.h
     bufferlist.cpp
     config.cpp
-    inc/configdiag.h
     configdiag.cpp
     edit.cpp
     fbedit.cpp
     file.cpp
-    inc/FormatDialog.h
-    FormatDialog.cpp
     help.cpp
+    inc/AboutDialog.h
+    inc/FBIdeApp.h
+    inc/FBIdeMainFrame.h
+    inc/FormatDialog.h
+    inc/InstanceHandler.h
+    inc/browser.h
+    inc/buffer.h
+    inc/bufferlist.h
+    inc/configdiag.h
+    inc/wxmynotebook.h
     lang.cpp
     loadui.cpp
     run.cpp
     search.cpp
     view.cpp
-    inc/wxmynotebook.h
     wxmynotebook.cpp
-    inc/InstanceHandler.h
-    InstanceHandler.cpp
-    inc/FBIdeApp.h
-    FBIdeApp.cpp)
+    inc/globals.h)
 
 # PCH file
 target_precompile_headers(fbide PRIVATE inc/pch.h)
