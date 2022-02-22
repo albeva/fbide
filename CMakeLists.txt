@@ -32,9 +32,9 @@ include(cmake/StaticAnalyzers.cmake)
 
 if (MSVC)
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDebug)
+        set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDebugDLL)
     else()
-        set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded)
+        set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
     endif()
 endif()
 
@@ -64,8 +64,20 @@ find_package(wxWidgets 3.1 COMPONENTS ${WXLIBS} REQUIRED)
 #-----------------------------------------------------------------------------------------------------------------------
 # YAML
 #-----------------------------------------------------------------------------------------------------------------------
-set(YAML_DIST_PATH "" CACHE STRING "cpp-yaml path")
-find_package(yaml-cpp CONFIG REQUIRED PATHS ${YAML_DIST_PATH})
+#set(YAML_DIST_PATH "" CACHE STRING "cpp-yaml path")
+#find_package(yaml-cpp CONFIG REQUIRED PATHS ${YAML_DIST_PATH})
+include(FetchContent)
+FetchContent_Declare(
+    yaml-cpp
+    GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+    GIT_TAG        yaml-cpp-0.7.0
+)
+FetchContent_GetProperties(yaml-cpp)
+if(NOT yaml-cpp_POPULATED)
+    message(STATUS "Fetching yaml-cpp...")
+    FetchContent_Populate(yaml-cpp)
+    add_subdirectory(${yaml-cpp_SOURCE_DIR} ${yaml-cpp_BINARY_DIR})
+endif()
 
 #-----------------------------------------------------------------------------------------------------------------------
 # fbide
