@@ -4,6 +4,7 @@ target_sources(fbide_lib
     PRIVATE
     lib/app/App.cpp
     lib/app/Context.cpp
+    lib/editor/Editor.cpp
     lib/config/Config.cpp
     lib/config/Keywords.cpp
     lib/config/Lang.cpp
@@ -13,6 +14,7 @@ target_sources(fbide_lib
     PUBLIC FILE_SET HEADERS FILES
     lib/app/App.hpp
     lib/app/Context.hpp
+    lib/editor/Editor.hpp
     lib/config/Config.hpp
     lib/config/Keywords.hpp
     lib/config/Lang.hpp

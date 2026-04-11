@@ -45,7 +45,7 @@ void UIManager::createMainFrame() {
     const auto& config = m_ctx.getConfig();
 
     m_frame = make_unowned<wxFrame>(nullptr, wxID_ANY, "FBIde");
-    m_frame->SetEventHandler(this);
+    m_frame->PushEventHandler(this);
 
     // Position and size from config
     if (config.getWindowW() == -1 || config.getWindowH() == -1) {
@@ -56,16 +56,17 @@ void UIManager::createMainFrame() {
     }
 
     // Initialize AUI manager
-    m_aui.SetManagedWindow(m_frame.get());
+    m_aui.SetFlags(wxAUI_MGR_LIVE_RESIZE | wxAUI_MGR_DEFAULT);
+    m_aui.SetManagedWindow(m_frame);
 
     createMenuBar();
     createToolBar();
     createStatusBar();
     createLayout();
 
-    m_aui.Update();
     enableEditorMenus(false);
 
+    m_aui.Update();
     m_frame->Show();
 }
 
@@ -196,17 +197,25 @@ void UIManager::createLayout() {
     const auto& lang = m_ctx.getLang();
 
     // Document notebook (center)
-    m_notebook = make_unowned<wxAuiNotebook>(m_frame.get(), wxID_ANY, wxDefaultPosition, wxDefaultSize,
-        wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_CLOSE_ON_ALL_TABS);
+    m_notebook = make_unowned<wxAuiNotebook>(
+        m_frame, wxID_ANY,
+        wxDefaultPosition, wxDefaultSize,
+        wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_CLOSE_ON_ALL_TABS
+    );
 
-    m_aui.AddPane(m_notebook.get(), wxAuiPaneInfo()
-        .Name("notebook")
-        .CenterPane()
-        .PaneBorder(false));
+    m_aui.AddPane(
+        m_notebook.get(),
+        wxAuiPaneInfo()
+            .Name("notebook")
+            .CenterPane()
+            .PaneBorder(false)
+    );
 
     // Console / output pane (bottom, hidden by default)
-    m_console = make_unowned<wxListCtrl>(m_frame.get(), wxID_ANY, wxDefaultPosition, wxDefaultSize,
-        wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_HRULES | wxLC_VRULES);
+    m_console = make_unowned<wxListCtrl>(
+        m_frame.get(), wxID_ANY, wxDefaultPosition, wxDefaultSize,
+        wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_HRULES | wxLC_VRULES
+    );
     m_console->SetFont(wxFont(10, wxFONTFAMILY_MODERN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
 
     wxListItem col;
@@ -228,12 +237,15 @@ void UIManager::createLayout() {
     m_console->InsertColumn(3, col);
     m_console->SetColumnWidth(3, 600);
 
-    m_aui.AddPane(m_console.get(), wxAuiPaneInfo()
-        .Name("console")
-        .Caption("Output")
-        .Bottom()
-        .BestSize(-1, 150)
-        .Hide());
+    m_aui.AddPane(
+        m_console.get(),
+        wxAuiPaneInfo()
+            .Name("console")
+            .Caption("Output")
+            .Bottom()
+            .BestSize(-1, 150)
+            .Hide()
+    );
 }
 
 void UIManager::enableEditorMenus(const bool state) const {
