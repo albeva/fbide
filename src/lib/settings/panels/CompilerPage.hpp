@@ -18,13 +18,10 @@ public:
     void apply() override;
 
 private:
-    void onCompilerBrowse(wxCommandEvent& event);
-    void onHelpBrowse(wxCommandEvent& event);
-
-    Unowned<wxTextCtrl> m_textCompilerPath;
-    Unowned<wxTextCtrl> m_textCompileCommand;
-    Unowned<wxTextCtrl> m_textRunCommand;
-    Unowned<wxTextCtrl> m_textHelpFile;
+    wxString m_compilerPath;
+    wxString m_compileCommand;
+    wxString m_runCommand;
+    wxString m_helpFile;
 };
 
 } // namespace fbide

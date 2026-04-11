@@ -92,3 +92,24 @@ void Panel::makeChoice(wxSizer* sizer, wxString& value, const LangId langId, con
         value = evt.GetString();
     });
 }
+
+void Panel::makeTextField(wxSizer* sizer, wxString& value, const LangId langId, std::function<void()> browseFn) {
+    const auto box = make_unowned<wxStaticBoxSizer>(wxVERTICAL, this, m_ctx.getLang()[langId]);
+    const auto row = make_unowned<wxBoxSizer>(wxHORIZONTAL);
+
+    const auto text = make_unowned<wxTextCtrl>(this, wxID_ANY, value);
+    row->Add(text, 1, wxEXPAND);
+
+    if (browseFn) {
+        const auto btn = make_unowned<wxButton>(this, wxID_ANY, "...", wxDefaultPosition, wxSize(30, -1));
+        row->Add(btn, 0, wxLEFT, 5);
+        btn->Bind(wxEVT_BUTTON, [fn = std::move(browseFn)](wxCommandEvent&) { fn(); });
+    }
+
+    box->Add(row, 0, wxEXPAND | wxALL, 5);
+    sizer->Add(box, 0, wxEXPAND | wxALL, 5);
+
+    text->Bind(wxEVT_TEXT, [&](const wxCommandEvent& evt) {
+        value = evt.GetString();
+    });
+}

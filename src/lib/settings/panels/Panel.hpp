@@ -26,6 +26,7 @@ protected:
     void makeCheckBox(wxSizer* sizer, bool& value, LangId langId);
     void makeSpinCtrl(wxSizer* sizer, int& value, LangId langId, int minVal, int maxVal, int width = 50);
     void makeChoice(wxSizer* sizer, wxString& value, LangId langId, const wxArrayString& choices);
+    void makeTextField(wxSizer* sizer, wxString& value, LangId langId, std::function<void()> browseFn = {});
 
 private:
     Unowned<wxBoxSizer> m_vbox;
