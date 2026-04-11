@@ -7,6 +7,7 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 // ReSharper disable CppMemberFunctionMayBeStatic
 #include "CommandManager.hpp"
+#include "../settings/SettingsDialog.hpp"
 #include "Context.hpp"
 #include "lib/editor/Document.hpp"
 #include "lib/editor/DocumentManager.hpp"
@@ -218,7 +219,9 @@ void CommandManager::onGotoLine(wxCommandEvent&) {
 // -- View --
 
 void CommandManager::onSettings(wxCommandEvent&) {
-    // TODO: implement settings dialog
+    SettingsDialog dlg(m_ctx.getUIManager().getMainFrame(), m_ctx);
+    dlg.create();
+    dlg.ShowModal();
 }
 
 void CommandManager::onFormat(wxCommandEvent&) {

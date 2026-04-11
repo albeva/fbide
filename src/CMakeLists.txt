@@ -5,29 +5,31 @@ target_sources(fbide_lib
     lib/app/App.cpp
     lib/app/CommandManager.cpp
     lib/app/Context.cpp
-    lib/editor/Document.cpp
-    lib/editor/DocumentManager.cpp
-    lib/editor/DocumentType.cpp
-    lib/editor/Editor.cpp
     lib/config/Config.cpp
     lib/config/Keywords.cpp
     lib/config/Lang.cpp
     lib/config/Theme.cpp
+    lib/editor/Document.cpp
+    lib/editor/DocumentManager.cpp
+    lib/editor/DocumentType.cpp
+    lib/editor/Editor.cpp
+    lib/settings/SettingsDialog.cpp
     lib/ui/UIManager.cpp
 
     PUBLIC FILE_SET HEADERS FILES
     lib/app/App.hpp
     lib/app/CommandManager.hpp
     lib/app/Context.hpp
-    lib/editor/Document.hpp
-    lib/editor/DocumentManager.hpp
-    lib/editor/DocumentType.hpp
-    lib/editor/Editor.hpp
     lib/config/Config.hpp
     lib/config/Keywords.hpp
     lib/config/Lang.hpp
     lib/config/LangId.hpp
     lib/config/Theme.hpp
+    lib/editor/Document.hpp
+    lib/editor/DocumentManager.hpp
+    lib/editor/DocumentType.hpp
+    lib/editor/Editor.hpp
+    lib/settings/SettingsDialog.hpp
     lib/ui/MenuId.hpp
     lib/ui/UIManager.hpp
     lib/utils/Macros.hpp

@@ -26,10 +26,16 @@
 #include <wx/apptrait.h>
 #include <wx/artprov.h>
 #include <wx/aui/aui.h>
+#include <wx/colordlg.h>
+#include <wx/dir.h>
 #include <wx/fileconf.h>
 #include <wx/filename.h>
+#include <wx/fontenum.h>
 #include <wx/listctrl.h>
+#include <wx/notebook.h>
+#include <wx/spinctrl.h>
 #include <wx/splitter.h>
+#include <wx/statline.h>
 #include <wx/stc/stc.h>
 #include <wx/stdpaths.h>
 #include <wx/tokenzr.h>
