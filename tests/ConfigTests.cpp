@@ -14,23 +14,23 @@ static const wxString testIniPath = FBIDE_TEST_DATA_DIR "prefs.ini";
 
 TEST(ConfigTests, Defaults) {
     const Config cfg(wxGetCwd());
-    EXPECT_FALSE(cfg.autoIndent());
-    EXPECT_EQ(cfg.tabSize(), 4);
-    EXPECT_EQ(cfg.language(), "english");
-    EXPECT_EQ(cfg.syntaxFile(), "fbfull.lng");
-    EXPECT_EQ(cfg.themeFile(), "classic.fbt");
+    EXPECT_FALSE(cfg.getAutoIndent());
+    EXPECT_EQ(cfg.getTabSize(), 4);
+    EXPECT_EQ(cfg.getLanguage(), "english");
+    EXPECT_EQ(cfg.getSyntaxFile(), "fbfull.lng");
+    EXPECT_EQ(cfg.getThemeFile(), "classic.fbt");
 }
 
 TEST(ConfigTests, LoadLegacyIni) {
     Config cfg(wxGetCwd());
     cfg.load(testIniPath);
 
-    EXPECT_TRUE(cfg.autoIndent());
-    EXPECT_TRUE(cfg.syntaxHighlight());
-    EXPECT_EQ(cfg.tabSize(), 4);
-    EXPECT_EQ(cfg.language(), "english");
-    EXPECT_EQ(cfg.compilerPath(), "fbc.exe");
-    EXPECT_EQ(cfg.windowW(), 902);
+    EXPECT_TRUE(cfg.getAutoIndent());
+    EXPECT_TRUE(cfg.getSyntaxHighlight());
+    EXPECT_EQ(cfg.getTabSize(), 4);
+    EXPECT_EQ(cfg.getLanguage(), "english");
+    EXPECT_EQ(cfg.getCompilerPath(), "fbc.exe");
+    EXPECT_EQ(cfg.getWindowW(), 902);
 }
 
 TEST(ConfigTests, SaveAndReload) {
@@ -44,11 +44,11 @@ TEST(ConfigTests, SaveAndReload) {
     Config cfg2(wxGetCwd());
     cfg2.load(tmpFile);
 
-    EXPECT_EQ(cfg.autoIndent(), cfg2.autoIndent());
-    EXPECT_EQ(cfg.tabSize(), cfg2.tabSize());
-    EXPECT_EQ(cfg.language(), cfg2.language());
-    EXPECT_EQ(cfg.compilerPath(), cfg2.compilerPath());
-    EXPECT_EQ(cfg.windowW(), cfg2.windowW());
+    EXPECT_EQ(cfg.getAutoIndent(), cfg2.getAutoIndent());
+    EXPECT_EQ(cfg.getTabSize(), cfg2.getTabSize());
+    EXPECT_EQ(cfg.getLanguage(), cfg2.getLanguage());
+    EXPECT_EQ(cfg.getCompilerPath(), cfg2.getCompilerPath());
+    EXPECT_EQ(cfg.getWindowW(), cfg2.getWindowW());
 
     wxRemoveFile(tmpFile);
 }

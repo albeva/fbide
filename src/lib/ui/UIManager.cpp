@@ -37,6 +37,10 @@ void appendCheck(wxMenu* menu, const Lang& lang, MenuId mid, LangId label, const
 UIManager::UIManager(Context& ctx)
 : m_ctx(ctx) {}
 
+UIManager::~UIManager() {
+    m_aui.UnInit();
+}
+
 void UIManager::createMainFrame() {
     const auto& config = m_ctx.getConfig();
 
@@ -51,11 +55,15 @@ void UIManager::createMainFrame() {
         m_frame->SetSize(config.getWindowW(), config.getWindowH());
     }
 
+    // Initialize AUI manager
+    m_aui.SetManagedWindow(m_frame.get());
+
     createMenuBar();
     createToolBar();
     createStatusBar();
     createLayout();
 
+    m_aui.Update();
     enableEditorMenus(false);
 
     m_frame->Show();
@@ -187,18 +195,18 @@ void UIManager::createStatusBar() const {
 void UIManager::createLayout() {
     const auto& lang = m_ctx.getLang();
 
-    m_splitter = make_unowned<wxSplitterWindow>(
-        m_frame.get(), wxID_ANY, wxDefaultPosition, wxDefaultSize,
-        wxSP_3DSASH | wxNO_BORDER
-    );
-    m_splitter->SetSashGravity(1.0);
-    m_splitter->SetMinimumPaneSize(100);
+    // Document notebook (center)
+    m_notebook = make_unowned<wxAuiNotebook>(m_frame.get(), wxID_ANY, wxDefaultPosition, wxDefaultSize,
+        wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_CLOSE_ON_ALL_TABS);
 
-    // Console (error list)
-    m_console = make_unowned<wxListCtrl>(
-        m_splitter.get(), wxID_ANY, wxDefaultPosition, wxDefaultSize,
-        wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_HRULES | wxLC_VRULES
-    );
+    m_aui.AddPane(m_notebook.get(), wxAuiPaneInfo()
+        .Name("notebook")
+        .CenterPane()
+        .PaneBorder(false));
+
+    // Console / output pane (bottom, hidden by default)
+    m_console = make_unowned<wxListCtrl>(m_frame.get(), wxID_ANY, wxDefaultPosition, wxDefaultSize,
+        wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_HRULES | wxLC_VRULES);
     m_console->SetFont(wxFont(10, wxFONTFAMILY_MODERN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
 
     wxListItem col;
@@ -220,16 +228,12 @@ void UIManager::createLayout() {
     m_console->InsertColumn(3, col);
     m_console->SetColumnWidth(3, 600);
 
-    m_console->Hide();
-
-    // Code panel
-    m_codePanel = make_unowned<wxPanel>(
-        m_splitter.get(), wxID_ANY, wxDefaultPosition, wxDefaultSize, wxCLIP_CHILDREN
-    );
-    m_codePanel->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_APPWORKSPACE));
-
-    // Initialize splitter with code panel only (console hidden)
-    m_splitter->Initialize(m_codePanel.get());
+    m_aui.AddPane(m_console.get(), wxAuiPaneInfo()
+        .Name("console")
+        .Caption("Output")
+        .Bottom()
+        .BestSize(-1, 150)
+        .Hide());
 }
 
 void UIManager::enableEditorMenus(const bool state) const {
