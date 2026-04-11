@@ -69,7 +69,7 @@ void GeneralPage::layout() {
 }
 
 void GeneralPage::apply() {
-    auto& config = getContext().getConfig();
+    auto& config = getConfig();
     config.setAutoIndent(m_autoIndent);
     config.setIndentGuide(m_indentGuide);
     config.setWhiteSpace(m_showWhiteSpaces);

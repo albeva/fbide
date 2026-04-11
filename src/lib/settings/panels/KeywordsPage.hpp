@@ -7,6 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "Panel.hpp"
+#include "lib/config/Keywords.hpp"
 
 namespace fbide {
 
@@ -18,12 +19,12 @@ public:
     void apply() override;
 
 private:
-    void onGroupChanged(wxCommandEvent& event);
+    void onGroupChanged(const wxCommandEvent& event);
 
-    Unowned<wxChoice> m_chKeywordGroup;
+    Unowned<wxChoice> m_groupChoice;
     Unowned<wxTextCtrl> m_textKeywords;
-    int m_groupOld = 0;
-    std::array<wxString, 4> m_groups;
+    std::size_t m_selectedGroup = 0;
+    std::array<wxString, Keywords::GROUP_COUNT> m_groups {};
 };
 
 } // namespace fbide

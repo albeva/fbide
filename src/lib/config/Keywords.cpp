@@ -20,7 +20,7 @@ void Keywords::load(const wxString& filePath) {
     wxFileConfig ini(stream);
     ini.SetPath("/keywords");
 
-    for (int idx = 0; idx < groupCount; idx++) {
+    for (int idx = 0; idx < GROUP_COUNT; idx++) {
         wxString key;
         key.Printf("kw%d", idx + 1);
         m_groups[static_cast<size_t>(idx)] = ini.Read(key, "");
@@ -33,7 +33,7 @@ void Keywords::save() const {
     wxFileConfig ini;
     ini.SetPath("/keywords");
 
-    for (int idx = 0; idx < groupCount; idx++) {
+    for (int idx = 0; idx < GROUP_COUNT; idx++) {
         wxString key;
         key.Printf("kw%d", idx + 1);
         ini.Write(key, m_groups[static_cast<size_t>(idx)]);

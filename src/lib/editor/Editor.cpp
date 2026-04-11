@@ -155,7 +155,7 @@ void Editor::applyFreebasicTheme() {
 
     // Apply keywords
     const auto& keywords = m_ctx.getKeywords();
-    for (int grp = 0; grp < Keywords::groupCount; grp++) {
+    for (int grp = 0; grp < Keywords::GROUP_COUNT; grp++) {
         SetKeyWords(grp, keywords.getGroup(grp));
     }
 

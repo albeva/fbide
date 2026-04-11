@@ -13,7 +13,7 @@ namespace fbide {
 /// 4 groups (matching Scintilla keyword sets) plus a sorted combined list.
 class Keywords final {
 public:
-    static constexpr int groupCount = 4;
+    static constexpr int GROUP_COUNT = 4;
 
     /// Load keywords from a legacy .lng file.
     void load(const wxString& filePath);
@@ -22,10 +22,10 @@ public:
     void save() const;
 
     /// Get keyword group by index (0-3).
-    [[nodiscard]] auto getGroup(int index) const -> const wxString& { return m_groups[static_cast<size_t>(index)]; }
+    [[nodiscard]] auto getGroup(const int index) const -> const wxString& { return m_groups[static_cast<size_t>(index)]; }
 
     /// Set keyword group by index (0-3).
-    void setGroup(int index, const wxString& keywords) { m_groups[static_cast<size_t>(index)] = keywords; }
+    void setGroup(const int index, const wxString& keywords) { m_groups[static_cast<size_t>(index)] = keywords; }
 
     /// Get sorted combined word list (for autocomplete).
     [[nodiscard]] auto getSortedList() const -> const wxArrayString& { return m_sortedList; }
@@ -34,7 +34,7 @@ private:
     void buildSortedList();
 
     wxString m_langePath;
-    std::array<wxString, groupCount> m_groups {};
+    std::array<wxString, GROUP_COUNT> m_groups {};
     wxArrayString m_sortedList;
 };
 
