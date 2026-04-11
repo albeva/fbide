@@ -1,0 +1,34 @@
+# Global
+.DS_Store
+
+# IDEs
+.vs/
+.vscode/
+.idea/
+.zed/
+.cache/
+.clion/
+
+# AIs
+.claude/
+.agents/
+skills-lock.json
+CLAUDE.md
+AGENTS.md
+
+# build
+build/
+docs/
+bin/
+
+# cmake
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+CMakeSettings.json
