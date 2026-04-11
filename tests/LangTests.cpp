@@ -9,8 +9,7 @@
 
 using namespace fbide;
 
-// Path to legacy language files from the original FBIde project
-static const wxString testDataPath = "/Users/albert/Developer/fbide/bin/IDE/lang/";
+static const wxString testDataPath = FBIDE_TEST_DATA_DIR "lang/";
 
 TEST(LangTests, LoadEnglish) {
     Lang lang;

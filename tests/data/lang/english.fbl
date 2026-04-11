@@ -1,0 +1,296 @@
+[FBIde]
+234=Active paths
+235=Set paths active when running/compiling
+236=Show log
+237=Shows compilation log
+238=Run Command
+239=Compiler and path settings
+240=Run command
+241=Help file ( .chm )
+242=FreeBASIC 
+243=Windows helpfiles (*.chm)
+244=Compiler path is not set or is corrupt!
+
+;Generic stuff
+1=Welcome to FBIde!
+2=&OK
+3=&Cancel
+165=Line
+166=File
+167=Error nr
+168=Messages
+
+;Menus
+4=&File
+5=&Edit
+6=&Search
+7=&View
+8=&Tools
+9=&Run
+10=&Help
+
+11=&New ..
+12=Open new empty document
+13=&Open ..
+14=Open new document
+15=&Save
+16=Save current file
+17=Save &as ..
+18=Save current file under new name
+19=Save all
+20=Save all opened files
+21=Close
+22=Close current file
+23=New &window
+24=Open new editor window
+25=&Quit
+26=Quit FBIde
+169=Load session
+170=Loads previously saved session
+171=Save session
+172=Saves current session
+173=Close all
+174=Close all opened files
+
+27=&Undo
+28=Undo last action
+29=&Redo
+30=Redo last action
+31=Cu&t
+32=Cut selected text and copy to clipboard
+33=&Copy
+34=Copy selected text to clipboard
+35=&Paste
+36=Paste from clipboard
+37=&Select all
+38=Select whole document
+39=Select &line
+40=Select current line
+41=&Indent increase
+42=Indent selected text to right
+43=Indent reduce
+44=Unindent selected text to left
+45=Comment block
+46=Comments out selected text
+47=Uncomment block
+48=Uncomment selected text
+
+49=Find
+50=Find in the document
+51=Find next
+52=Repeat last search
+53=Replace
+54=Replace text in the document
+55=Goto line...
+56=Goto to the line in document
+
+57=Settings
+58=Set editor settings
+59=View result window
+60=Shows table with console outputs
+61=Subs... 
+62=Open sub, function browser
+175=Format
+176=Change the format of the code
+
+63=Compile
+64=Compile current file
+65=Compile && run
+66=Compile and run current file
+67=Run
+68=Run previously compiled file
+69=Quick run
+70=Run program without saving (uses temp file)
+71=CMD prompt
+72=Open command prompt
+73=&Parameters...
+74=Set parameters to pass to your program
+75=&Compiler parameters...
+76=Set compiler parameter list prototype
+77=&Show exit code
+78=Show\'s program exit code.
+
+79=&About...
+80=Show about dialog
+
+81=Close all
+82=Close all opened files
+
+;Toolbar
+83=New file (Ctrl+N)
+84=Open file (Ctrl+O)
+85=Save file (Ctrl+S)
+86=Save all files
+87=Close current file (Ctrl+F4)
+
+88=Cut (Ctrl+X)
+89=Copy (Ctrl+C)
+90=Paste (Ctrl+V)
+
+91=Undo (Ctrl+Z)
+92=Redo (Ctrl+Shift+Z)
+
+93=Compile (Ctrl+F9)
+94=Run (Ctrl+Shift+F9)
+95=Compile and run (F9)
+96=Quick run (F5)
+97=Open/Close output window
+
+;FBIde Settings dialog box
+98=FBIde settings
+99=General
+100=Themes
+101=Keywords
+102=Compiler
+
+;General tab
+103=Show line numbers
+104=Editor settings
+105=Highlight matching braces
+106=Use syntax highlighting
+107=Show right margin
+108=Show line endings
+109=Show whitespace
+110=Show indentation guides
+111=Fold margin
+112=Auto indent
+116=Right margin width
+117=Tab Size
+201=Language
+202=NB! Changing language needs restart of the FBIde!
+203=Select your language:
+232=Show splash screen
+
+;Compile tab
+113=Compiler settings
+114=Compiler path
+115=Compiler command
+
+
+;Themes tab
+118=Comments
+119=Numbers
+120=Keywords 1
+121=String closed
+122=Preprocessor
+123=Operator
+124=Identifier
+125=Date (doesn't work)
+126=String open
+127=Keywords 2
+128=Keywords 3
+129=Keywords 4
+130=Caret
+131=Line numbers
+132=Text select
+133=Brace match
+134=Brace mismatch
+135=Editor
+
+136=Bold
+137=Italic
+138=Underlined
+139=Save theme
+140=Theme
+141=Create new theme
+
+142=Colors
+143=Type
+144=Foreground
+145=Background
+146=Font style
+147=Font
+148=Font size
+149=Keywords
+150=Select keyword group
+151=Group 1
+152=Group 2
+153=Group 3
+154=Group 4
+
+155=Open file
+156=FreeBASIC (fbc.exe)|fbc.exe|All programs (*.exe)|*.exe
+
+157=Enter theme name:
+158=Parameters...
+
+159=Theme \"
+160=\" already exists!\nOverwrite it?
+161=Message
+
+
+;Conversion stuff
+162=Type of conversion:
+163=Go!
+164=Preview!
+
+;Run stuff
+177=Parameters to pass to your program
+178=Nothing to compile!
+179=Error
+180=You need first to compile the program before you can run! Compile?
+181=Compile?
+182=An error occured when trying to run \"
+183=File is modified and before continuing it needs to be saved!
+184=Save file?
+
+185=Exit code
+
+;File stuff
+186=Load file
+187=FBFiles (*.bas)|*.bas|FBHeader files(*.bi)|*.bi|HTML files (*.html)|*.html|All file(*)|*.*|
+188=File \"
+189=\" has been modified. Save?
+190=The file '%s' has been modified.\nWould you like to save the changes?
+192=File Modified
+193=FBFiles (*.bas)|*.bas|FBHeader files(*.bi)|*.bi|HTML files (*.html)|*.html|
+194=Any file(*)|*.*|
+195=Save file
+196=Use new file?
+197=Question
+198=FBIde session (*.fbs)|*.fbs|Any file(*)|*.*|
+199=Save session
+200=HTML files (*.html)|*.html|
+
+;About dialog stuff
+204=an open-source IDE for the FreeBASIC compiler
+205=(www.freebasic.net)
+206=made using c++ with wxWidgets and the scintilla text control
+207=credits:
+208=programmers
+209=head programmer, project administrator and founder of the project
+210=project supervisor, network code (client and server side)
+211=auto completion code
+212=code exporting and formatting routines
+213=internationalization (i18n) modules
+214=misc
+215=webmaster and documentation
+216=splash screen logo
+217=testers
+218=...and everyone we forgot!
+
+;==================================
+;Additional: (groups)
+;searching stuff
+219=Find Text
+220=Replace Text
+221=Go To Line Number:
+222=Go To Line
+226=Search:
+;Type, as in "What type is the thing", to explain this
+227=Type
+228=Arguments
+
+;View
+223=Convert the format
+224=Sub/Function browser
+
+;About
+225=Language files by:
+
+;Untitled filename :)
+229=Untitled
+
+;Saving
+230=Save changes?
+231=Save before exit?

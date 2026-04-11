@@ -12,7 +12,13 @@ FetchContent_MakeAvailable(googletest)
 # Tests
 add_executable(tests
     BasicTests.cpp
+    ConfigTests.cpp
     LangTests.cpp
+)
+
+# Test data path
+target_compile_definitions(tests PRIVATE
+    FBIDE_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/"
 )
 
 # Link
