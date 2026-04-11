@@ -11,9 +11,10 @@
 #include "lib/config/Theme.hpp"
 using namespace fbide;
 
-Editor::Editor(wxWindow* parent, Context& ctx)
+Editor::Editor(wxWindow* parent, Context& ctx, DocumentType type)
 : wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
-, m_ctx(ctx) {
+, m_ctx(ctx)
+, m_docType(type) {
     applySettings();
 }
 
@@ -73,6 +74,11 @@ void Editor::applyEditorSettings() {
     }
 }
 
+void Editor::setDocType(const DocumentType type) {
+    m_docType = type;
+    applySettings();
+}
+
 void Editor::applyTheme() {
     const auto& theme = m_ctx.getTheme();
     const auto& config = m_ctx.getConfig();
@@ -120,8 +126,8 @@ void Editor::applyTheme() {
     StyleSetBackground(wxSTC_STYLE_BRACEBAD, badBrace.background);
     StyleSetBold(wxSTC_STYLE_BRACEBAD, (static_cast<int>(badBrace.fontStyle) & static_cast<int>(Theme::FontStyle::Bold)) != 0);
 
-    // Syntax highlighting
-    if (config.getSyntaxHighlight()) {
+    // Syntax highlighting (only for FreeBASIC files)
+    if (config.getSyntaxHighlight() && m_docType == DocumentType::FreeBASIC) {
         SetLexer(wxSTC_LEX_FREEBASIC);
 
         // Apply keywords

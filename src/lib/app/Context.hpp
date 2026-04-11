@@ -9,6 +9,7 @@
 
 namespace fbide {
 class Config;
+class DocumentManager;
 class Keywords;
 class Lang;
 class Theme;
@@ -48,12 +49,17 @@ public:
     [[nodiscard]] auto getUIManager() -> UIManager& { return *m_uiManager; }
     [[nodiscard]] auto getUIManager() const -> const UIManager& { return *m_uiManager; }
 
+    /// Get document manager.
+    [[nodiscard]] auto getDocumentManager() -> DocumentManager& { return *m_documentManager; }
+    [[nodiscard]] auto getDocumentManager() const -> const DocumentManager& { return *m_documentManager; }
+
 private:
     std::unique_ptr<Config> m_config;
     std::unique_ptr<Keywords> m_keywords;
     std::unique_ptr<Lang> m_lang;
     std::unique_ptr<Theme> m_theme;
     std::unique_ptr<UIManager> m_uiManager;
+    std::unique_ptr<DocumentManager> m_documentManager;
 };
 
 } // namespace fbide

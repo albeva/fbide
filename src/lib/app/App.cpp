@@ -10,7 +10,7 @@
 #include "lib/config/Keywords.hpp"
 #include "lib/config/Lang.hpp"
 #include "lib/config/Theme.hpp"
-#include "lib/editor/Editor.hpp"
+#include "lib/editor/DocumentManager.hpp"
 #include "lib/ui/UIManager.hpp"
 using namespace fbide;
 
@@ -48,14 +48,11 @@ auto App::OnInit() -> bool {
     m_context->getTheme().load(config.getIdePath() + config.getThemeFile());
 
     // Create UI
-    auto& ui = m_context->getUIManager();
-    ui.createMainFrame();
+    m_context->getUIManager().createMainFrame();
 
-    // TODO: temporary — create a test editor tab
-    auto* editor = new Editor(ui.getNotebook(), *m_context);
-    editor->SetText("' Hello from FBIde!\nPrint \"Hello, World!\"\n");
-    ui.getNotebook()->AddPage(editor, "Untitled", true);
-    ui.enableEditorMenus(true);
+    // Create initial document
+    m_context->getDocumentManager().createNew();
+    m_context->getUIManager().enableEditorMenus(true);
 
     return true;
 }
