@@ -1,0 +1,34 @@
+---
+Checks: '-*,
+    bugprone-*,
+    cert-*,
+    cppcoreguidelines-*,
+    hicpp-*,
+    misc-*,
+    modernize-*,
+    performance-*,
+    portability-*,
+    readability-*,
+    -*-function-cognitive-complexity,
+    -*-special-member-functions,
+    -*-no-recursion,
+    -*-easily-swappable-parameters,
+    -*-magic-numbers,
+    -*-unchecked-container-access,
+    -*-avoid-pragma-once,
+    -*-include-cleaner,
+    '
+WarningsAsErrors: '*'
+CheckOptions:
+  - key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+    value: 'true'
+  - key: readability-identifier-length.MinimumVariableNameLength
+    value: '2'
+  - key: readability-identifier-length.MinimumParameterNameLength
+    value: '2'
+  - key: cppcoreguidelines-special-member-functions.AllowImplicitlyDeletedCopyOrMove
+    value: 'true'
+  - key: cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
+    value: 'true'
+  - key: modernize-use-trailing-return-type.TransformLambdas
+    value: 'none'

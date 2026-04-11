@@ -1,0 +1,31 @@
+---
+BasedOnStyle: WebKit
+Language: Cpp
+Standard: c++20
+AlignAfterOpenBracket: false
+AlignOperands: AlignAfterOperator
+BreakBeforeBraces: Attach
+AllowShortBlocksOnASingleLine: Empty
+ConstructorInitializerIndentWidth: 0
+FixNamespaceComments: true
+AlignTrailingComments: true
+AlignConsecutiveBitFields: true
+SortIncludes: CaseSensitive
+SpaceInEmptyBraces: Never
+BreakBeforeCloseBracketBracedList: true
+BreakBeforeCloseBracketFunction: true
+BreakBeforeCloseBracketIf: true
+BreakBeforeCloseBracketLoop: true
+BreakBeforeCloseBracketSwitch: true
+BreakBeforeTemplateCloser: true
+BreakBeforeTernaryOperators: true
+SpaceAfterTemplateKeyword: false
+IncludeCategories:
+  - Priority: 1
+    Regex: ^"pch\.hpp"
+  - Priority: 3
+    Regex: ^<gtest/
+  - Priority: 2
+    Regex: ^<
+  - Priority: 4
+    Regex: .*

@@ -1,0 +1,23 @@
+cmake_minimum_required(VERSION 4.2.2)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL CACHE STRING "" FORCE)
+
+# The Project
+project(
+    fbide
+    VERSION 0.5.0
+    DESCRIPTION "An open-source IDE for the FreeBASIC compiler"
+    HOMEPAGE_URL "https://github.com/albeva/fbide"
+    LANGUAGES CXX
+)
+
+# CMake modules
+include(FetchContent)
+include(cmake/warnings.cmake)
+include(cmake/options.cmake)
+include(cmake/wxwidgets.cmake)
+
+# Sources
+add_subdirectory(src)
+add_subdirectory(tests)
