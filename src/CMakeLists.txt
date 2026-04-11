@@ -1,5 +1,6 @@
 # fbide library
 add_library(fbide_lib)
+
 target_sources(fbide_lib
     PRIVATE
     lib/app/App.cpp
@@ -14,6 +15,11 @@ target_sources(fbide_lib
     lib/editor/DocumentType.cpp
     lib/editor/Editor.cpp
     lib/settings/SettingsDialog.cpp
+    lib/settings/panels/CompilerPage.cpp
+    lib/settings/panels/GeneralPage.cpp
+    lib/settings/panels/KeywordsPage.cpp
+    lib/settings/panels/Panel.cpp
+    lib/settings/panels/ThemePage.cpp
     lib/ui/UIManager.cpp
 
     PUBLIC FILE_SET HEADERS FILES
@@ -30,6 +36,11 @@ target_sources(fbide_lib
     lib/editor/DocumentType.hpp
     lib/editor/Editor.hpp
     lib/settings/SettingsDialog.hpp
+    lib/settings/panels/CompilerPage.hpp
+    lib/settings/panels/GeneralPage.hpp
+    lib/settings/panels/KeywordsPage.hpp
+    lib/settings/panels/Panel.hpp
+    lib/settings/panels/ThemePage.hpp
     lib/ui/MenuId.hpp
     lib/ui/UIManager.hpp
     lib/utils/Macros.hpp

@@ -136,6 +136,20 @@ void Config::reset() {
     m_configPath = configPath;
 }
 
+auto Config::getAllLanguages() const -> std::vector<wxString> {
+    std::vector<wxString> languages;
+    const wxString langDir = getIdePath() + "lang/";
+    if (const wxDir dir(langDir); dir.IsOpened()) {
+        wxString filename;
+        if (dir.GetFirst(&filename, "*.fbl", wxDIR_FILES)) {
+            do {
+                languages.emplace_back(wxFileName(filename).GetName());
+            } while (dir.GetNext(&filename));
+        }
+    }
+    return languages;
+}
+
 void Config::setIdePath(const wxString& path) {
     wxFileName dir = wxFileName::DirName(path);
     dir.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS);

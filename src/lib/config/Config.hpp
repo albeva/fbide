@@ -25,6 +25,9 @@ public:
     /// Reset all settings to defaults.
     void reset();
 
+    /// Get array with all the langauges found
+    [[nodiscard]] auto getAllLanguages() const -> std::vector<wxString>;
+
     /// Get resolved binary directory path.
     [[nodiscard]] auto getFbidePath() const -> const wxString& { return m_fbideDir; }
 
@@ -121,22 +124,22 @@ public:
     // -- [editor] window state --
 
     [[nodiscard]] auto getFloatBars() const -> bool { return m_floatBars; }
-    void setFloatBars(bool val) { m_floatBars = val; }
+    void setFloatBars(const bool val) { m_floatBars = val; }
 
     [[nodiscard]] auto getSplashScreen() const -> bool { return m_splashScreen; }
-    void setSplashScreen(bool val) { m_splashScreen = val; }
+    void setSplashScreen(const bool val) { m_splashScreen = val; }
 
     [[nodiscard]] auto getWindowX() const -> int { return m_windowX; }
-    void setWindowX(int val) { m_windowX = val; }
+    void setWindowX(const int val) { m_windowX = val; }
 
     [[nodiscard]] auto getWindowY() const -> int { return m_windowY; }
-    void setWindowY(int val) { m_windowY = val; }
+    void setWindowY(const int val) { m_windowY = val; }
 
     [[nodiscard]] auto getWindowW() const -> int { return m_windowW; }
-    void setWindowW(int val) { m_windowW = val; }
+    void setWindowW(const int val) { m_windowW = val; }
 
     [[nodiscard]] auto getWindowH() const -> int { return m_windowH; }
-    void setWindowH(int val) { m_windowH = val; }
+    void setWindowH(const int val) { m_windowH = val; }
 
 private:
     wxString m_fbideDir;
