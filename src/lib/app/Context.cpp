@@ -6,18 +6,17 @@
 //
 #include "lib/app/Context.hpp"
 #include "lib/config/Config.hpp"
+#include "lib/config/Keywords.hpp"
 #include "lib/config/Lang.hpp"
 #include "lib/config/Theme.hpp"
 #include "lib/ui/UIManager.hpp"
-
-namespace fbide {
+using namespace fbide;
 
 Context::Context(const wxString& binaryPath)
 : m_config(std::make_unique<Config>(binaryPath))
+, m_keywords(std::make_unique<Keywords>())
 , m_lang(std::make_unique<Lang>())
 , m_theme(std::make_unique<Theme>())
 , m_uiManager(std::make_unique<UIManager>(*this)) {}
 
 Context::~Context() = default;
-
-} // namespace fbide

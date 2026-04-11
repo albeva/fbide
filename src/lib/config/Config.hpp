@@ -48,95 +48,95 @@ public:
 
     // -- [general] editor preferences --
 
-    [[nodiscard]] auto autoIndent() const -> bool { return m_autoIndent; }
-    void set_autoIndent(bool val) { m_autoIndent = val; }
+    [[nodiscard]] auto getAutoIndent() const -> bool { return m_autoIndent; }
+    void setAutoIndent(const bool val) { m_autoIndent = val; }
 
-    [[nodiscard]] auto syntaxHighlight() const -> bool { return m_syntaxHighlight; }
-    void set_syntaxHighlight(bool val) { m_syntaxHighlight = val; }
+    [[nodiscard]] auto getSyntaxHighlight() const -> bool { return m_syntaxHighlight; }
+    void setSyntaxHighlight(const bool val) { m_syntaxHighlight = val; }
 
-    [[nodiscard]] auto longLine() const -> bool { return m_longLine; }
-    void set_longLine(bool val) { m_longLine = val; }
+    [[nodiscard]] auto getLongLine() const -> bool { return m_longLine; }
+    void setLongLine(const bool val) { m_longLine = val; }
 
-    [[nodiscard]] auto whiteSpace() const -> bool { return m_whiteSpace; }
-    void set_whiteSpace(bool val) { m_whiteSpace = val; }
+    [[nodiscard]] auto getWhiteSpace() const -> bool { return m_whiteSpace; }
+    void setWhiteSpace(const bool val) { m_whiteSpace = val; }
 
-    [[nodiscard]] auto lineNumbers() const -> bool { return m_lineNumbers; }
-    void set_lineNumbers(bool val) { m_lineNumbers = val; }
+    [[nodiscard]] auto getLineNumbers() const -> bool { return m_lineNumbers; }
+    void setLineNumbers(const bool val) { m_lineNumbers = val; }
 
-    [[nodiscard]] auto indentGuide() const -> bool { return m_indentGuide; }
-    void set_indentGuide(bool val) { m_indentGuide = val; }
+    [[nodiscard]] auto getIndentGuide() const -> bool { return m_indentGuide; }
+    void setIndentGuide(const bool val) { m_indentGuide = val; }
 
-    [[nodiscard]] auto braceHighlight() const -> bool { return m_braceHighlight; }
-    void set_braceHighlight(bool val) { m_braceHighlight = val; }
+    [[nodiscard]] auto getBraceHighlight() const -> bool { return m_braceHighlight; }
+    void setBraceHighlight(const bool val) { m_braceHighlight = val; }
 
-    [[nodiscard]] auto showExitCode() const -> bool { return m_showExitCode; }
-    void set_showExitCode(bool val) { m_showExitCode = val; }
+    [[nodiscard]] auto getShowExitCode() const -> bool { return m_showExitCode; }
+    void setShowExitCode(const bool val) { m_showExitCode = val; }
 
-    [[nodiscard]] auto folderMargin() const -> bool { return m_folderMargin; }
-    void set_folderMargin(bool val) { m_folderMargin = val; }
+    [[nodiscard]] auto getFolderMargin() const -> bool { return m_folderMargin; }
+    void setFolderMargin(const bool val) { m_folderMargin = val; }
 
-    [[nodiscard]] auto displayEOL() const -> bool { return m_displayEOL; }
-    void set_displayEOL(bool val) { m_displayEOL = val; }
+    [[nodiscard]] auto getDisplayEOL() const -> bool { return m_displayEOL; }
+    void setDisplayEOL(const bool val) { m_displayEOL = val; }
 
-    [[nodiscard]] auto currentLine() const -> bool { return m_currentLine; }
-    void set_currentLine(bool val) { m_currentLine = val; }
+    [[nodiscard]] auto getCurrentLine() const -> bool { return m_currentLine; }
+    void setCurrentLine(const bool val) { m_currentLine = val; }
 
-    [[nodiscard]] auto activePath() const -> bool { return m_activePath; }
-    void set_activePath(bool val) { m_activePath = val; }
+    [[nodiscard]] auto getActivePath() const -> bool { return m_activePath; }
+    void setActivePath(const bool val) { m_activePath = val; }
 
-    [[nodiscard]] auto tabSize() const -> int { return m_tabSize; }
-    void set_tabSize(int val) { m_tabSize = val; }
+    [[nodiscard]] auto getTabSize() const -> int { return m_tabSize; }
+    void setTabSize(const int val) { m_tabSize = val; }
 
-    [[nodiscard]] auto edgeColumn() const -> int { return m_edgeColumn; }
-    void set_edgeColumn(int val) { m_edgeColumn = val; }
+    [[nodiscard]] auto getEdgeColumn() const -> int { return m_edgeColumn; }
+    void setEdgeColumn(const int val) { m_edgeColumn = val; }
 
-    [[nodiscard]] auto language() const -> const wxString& { return m_language; }
-    void set_language(const wxString& val) { m_language = val; }
+    [[nodiscard]] auto getLanguage() const -> const wxString& { return m_language; }
+    void setLanguage(const wxString& val) { m_language = val; }
 
     // -- [paths] --
 
-    [[nodiscard]] auto compilerPath() const -> const wxString& { return m_compilerPath; }
-    void set_compilerPath(const wxString& val) { m_compilerPath = val; }
+    [[nodiscard]] auto getCompilerPath() const -> const wxString& { return m_compilerPath; }
+    void setCompilerPath(const wxString& val) { m_compilerPath = val; }
 
-    [[nodiscard]] auto syntaxFile() const -> const wxString& { return m_syntaxFile; }
-    void set_syntaxFile(const wxString& val) { m_syntaxFile = val; }
+    [[nodiscard]] auto getSyntaxFile() const -> const wxString& { return m_syntaxFile; }
+    void setSyntaxFile(const wxString& val) { m_syntaxFile = val; }
 
-    [[nodiscard]] auto themeFile() const -> wxString { return m_themeFile + ".fbt"; }
-    void set_themeFile(const wxString& val) { m_themeFile = val; }
+    [[nodiscard]] auto getThemeFile() const -> wxString { return m_themeFile + ".fbt"; }
+    void setThemeFile(const wxString& val) { m_themeFile = val; }
 
-    [[nodiscard]] auto helpFile() const -> const wxString& { return m_helpFile; }
-    void set_helpFile(const wxString& val) { m_helpFile = val; }
+    [[nodiscard]] auto getHelpFile() const -> const wxString& { return m_helpFile; }
+    void setHelpFile(const wxString& val) { m_helpFile = val; }
 
-    [[nodiscard]] auto terminal() const -> const wxString& { return m_terminal; }
-    void set_terminal(const wxString& val) { m_terminal = val; }
+    [[nodiscard]] auto getTerminal() const -> const wxString& { return m_terminal; }
+    void setTerminal(const wxString& val) { m_terminal = val; }
 
     // -- [compiler] --
 
-    [[nodiscard]] auto compileCommand() const -> const wxString& { return m_compileCommand; }
-    void set_compileCommand(const wxString& val) { m_compileCommand = val; }
+    [[nodiscard]] auto getCompileCommand() const -> const wxString& { return m_compileCommand; }
+    void setCompileCommand(const wxString& val) { m_compileCommand = val; }
 
-    [[nodiscard]] auto runCommand() const -> const wxString& { return m_runCommand; }
-    void set_runCommand(const wxString& val) { m_runCommand = val; }
+    [[nodiscard]] auto getRunCommand() const -> const wxString& { return m_runCommand; }
+    void setRunCommand(const wxString& val) { m_runCommand = val; }
 
     // -- [editor] window state --
 
-    [[nodiscard]] auto floatBars() const -> bool { return m_floatBars; }
-    void set_floatBars(bool val) { m_floatBars = val; }
+    [[nodiscard]] auto getFloatBars() const -> bool { return m_floatBars; }
+    void setFloatBars(bool val) { m_floatBars = val; }
 
-    [[nodiscard]] auto splashScreen() const -> bool { return m_splashScreen; }
-    void set_splashScreen(bool val) { m_splashScreen = val; }
+    [[nodiscard]] auto getSplashScreen() const -> bool { return m_splashScreen; }
+    void setSplashScreen(bool val) { m_splashScreen = val; }
 
-    [[nodiscard]] auto windowX() const -> int { return m_windowX; }
-    void set_windowX(int val) { m_windowX = val; }
+    [[nodiscard]] auto getWindowX() const -> int { return m_windowX; }
+    void setWindowX(int val) { m_windowX = val; }
 
-    [[nodiscard]] auto windowY() const -> int { return m_windowY; }
-    void set_windowY(int val) { m_windowY = val; }
+    [[nodiscard]] auto getWindowY() const -> int { return m_windowY; }
+    void setWindowY(int val) { m_windowY = val; }
 
-    [[nodiscard]] auto windowW() const -> int { return m_windowW; }
-    void set_windowW(int val) { m_windowW = val; }
+    [[nodiscard]] auto getWindowW() const -> int { return m_windowW; }
+    void setWindowW(int val) { m_windowW = val; }
 
-    [[nodiscard]] auto windowH() const -> int { return m_windowH; }
-    void set_windowH(int val) { m_windowH = val; }
+    [[nodiscard]] auto getWindowH() const -> int { return m_windowH; }
+    void setWindowH(int val) { m_windowH = val; }
 
 private:
     wxString m_fbideDir;

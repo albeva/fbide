@@ -5,37 +5,33 @@
 // https://github.com/albeva/fbide
 //
 #include "UIManager.hpp"
-#include <wx/artprov.h>
-#include <wx/listctrl.h>
-#include <wx/splitter.h>
 #include "MenuId.hpp"
 #include "lib/app/Context.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/Lang.hpp"
-
-namespace fbide {
+using namespace fbide;
 
 namespace {
-    /// Cast MenuId to int for wx APIs.
-    constexpr auto id(MenuId mid) -> int { return static_cast<int>(mid); }
+/// Cast MenuId to int for wx APIs.
+constexpr auto id(MenuId mid) -> int { return static_cast<int>(mid); }
 
-    /// Append a menu item with translated label, optional shortcut, and help text.
-    void append(wxMenu* menu, const Lang& lang, MenuId mid, LangId label, const wxString& shortcut = "", LangId help = {}) {
-        auto text = lang[label];
-        if (!shortcut.empty()) {
-            text += "\t" + shortcut;
-        }
-        menu->Append(id(mid), text, lang[help]);
+/// Append a menu item with translated label, optional shortcut, and help text.
+void append(wxMenu* menu, const Lang& lang, MenuId mid, LangId label, const wxString& shortcut = "", LangId help = {}) {
+    auto text = lang[label];
+    if (!shortcut.empty()) {
+        text += "\t" + shortcut;
     }
+    menu->Append(id(mid), text, lang[help]);
+}
 
-    /// Append a check menu item.
-    void appendCheck(wxMenu* menu, const Lang& lang, MenuId mid, LangId label, const wxString& shortcut = "", LangId help = {}) {
-        auto text = lang[label];
-        if (!shortcut.empty()) {
-            text += "\t" + shortcut;
-        }
-        menu->AppendCheckItem(id(mid), text, lang[help]);
+/// Append a check menu item.
+void appendCheck(wxMenu* menu, const Lang& lang, MenuId mid, LangId label, const wxString& shortcut = "", LangId help = {}) {
+    auto text = lang[label];
+    if (!shortcut.empty()) {
+        text += "\t" + shortcut;
     }
+    menu->AppendCheckItem(id(mid), text, lang[help]);
+}
 } // namespace
 
 UIManager::UIManager(Context& ctx)
@@ -48,11 +44,11 @@ void UIManager::createMainFrame() {
     m_frame->SetEventHandler(this);
 
     // Position and size from config
-    if (config.windowW() == -1 || config.windowH() == -1) {
+    if (config.getWindowW() == -1 || config.getWindowH() == -1) {
         m_frame->Maximize();
     } else {
-        m_frame->Move(config.windowX(), config.windowY());
-        m_frame->SetSize(config.windowW(), config.windowH());
+        m_frame->Move(config.getWindowX(), config.getWindowY());
+        m_frame->SetSize(config.getWindowW(), config.getWindowH());
     }
 
     createMenuBar();
@@ -129,9 +125,9 @@ void UIManager::createMenuBar() {
     append(m_runMenu, lang, MenuId::CmdPrompt, LangId::RunCmdPrompt, "F8", LangId::RunCmdPromptHelp);
     append(m_runMenu, lang, MenuId::Parameters, LangId::RunParameters, "", LangId::RunParametersHelp);
     appendCheck(m_runMenu, lang, MenuId::ShowExitCode, LangId::RunShowExitCode, "", LangId::RunShowExitCodeHelp);
-    m_runMenu->Check(id(MenuId::ShowExitCode), m_ctx.getConfig().showExitCode());
+    m_runMenu->Check(id(MenuId::ShowExitCode), m_ctx.getConfig().getShowExitCode());
     appendCheck(m_runMenu, lang, MenuId::ActivePath, LangId::RunActivePath, "", LangId::RunActivePathHelp);
-    m_runMenu->Check(id(MenuId::ActivePath), m_ctx.getConfig().activePath());
+    m_runMenu->Check(id(MenuId::ActivePath), m_ctx.getConfig().getActivePath());
 
     // Help menu
     m_helpMenu = make_unowned<wxMenu>();
@@ -293,5 +289,3 @@ void UIManager::enableEditorMenus(const bool state) const {
         m_toolbar->EnableTool(id(mid), state);
     }
 }
-
-} // namespace fbide

@@ -5,6 +5,7 @@ target_sources(fbide_lib
     lib/app/App.cpp
     lib/app/Context.cpp
     lib/config/Config.cpp
+    lib/config/Keywords.cpp
     lib/config/Lang.cpp
     lib/config/Theme.cpp
     lib/ui/UIManager.cpp
@@ -13,6 +14,7 @@ target_sources(fbide_lib
     lib/app/App.hpp
     lib/app/Context.hpp
     lib/config/Config.hpp
+    lib/config/Keywords.hpp
     lib/config/Lang.hpp
     lib/config/LangId.hpp
     lib/config/Theme.hpp

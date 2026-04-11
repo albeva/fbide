@@ -5,10 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "Lang.hpp"
-#include <wx/fileconf.h>
-#include <wx/wfstream.h>
-
-namespace fbide {
+using namespace fbide;
 
 void Lang::load(const wxString& filePath) {
     clear();
@@ -44,5 +41,3 @@ auto Lang::get(LangId id) const -> const wxString& {
     }
     return empty;
 }
-
-} // namespace fbide

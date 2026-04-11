@@ -5,10 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "Config.hpp"
-#include <wx/fileconf.h>
-#include <wx/wfstream.h>
-
-namespace fbide {
+using namespace fbide;
 
 Config::Config(const wxString& binaryPath) {
     wxFileName path(binaryPath);
@@ -178,5 +175,3 @@ auto Config::getDefaultConfigFileName() -> wxString {
     return "prefs_linux.ini";
 #endif
 }
-
-} // namespace fbide

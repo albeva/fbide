@@ -5,8 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "Theme.hpp"
-#include <wx/fileconf.h>
-#include <wx/wfstream.h>
 using namespace fbide;
 
 namespace {

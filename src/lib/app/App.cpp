@@ -7,11 +7,11 @@
 #include "App.hpp"
 #include "Context.hpp"
 #include "lib/config/Config.hpp"
+#include "lib/config/Keywords.hpp"
 #include "lib/config/Lang.hpp"
 #include "lib/config/Theme.hpp"
 #include "lib/ui/UIManager.hpp"
-
-namespace fbide {
+using namespace fbide;
 
 auto App::OnInit() -> bool {
     // Create context
@@ -40,10 +40,11 @@ auto App::OnInit() -> bool {
 
     // Load language
     auto& lang = m_context->getLang();
-    lang.load(config.getIdePath() + "lang/" + config.language() + ".fbl");
+    lang.load(config.getIdePath() + "lang/" + config.getLanguage() + ".fbl");
 
-    // Load theme
-    m_context->getTheme().load(config.getIdePath() + config.themeFile());
+    // Load keywords and theme
+    m_context->getKeywords().load(config.getIdePath() + config.getSyntaxFile());
+    m_context->getTheme().load(config.getIdePath() + config.getThemeFile());
 
     // Create UI
     m_context->getUIManager().createMainFrame();
@@ -54,5 +55,3 @@ auto App::getFbidePath() -> wxString {
     const auto& sp = GetTraits()->GetStandardPaths();
     return wxPathOnly(sp.GetExecutablePath());
 }
-
-} // namespace fbide

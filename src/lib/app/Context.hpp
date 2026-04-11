@@ -9,6 +9,7 @@
 
 namespace fbide {
 class Config;
+class Keywords;
 class Lang;
 class Theme;
 class UIManager;
@@ -35,6 +36,10 @@ public:
     [[nodiscard]] auto getLang() -> Lang& { return *m_lang; }
     [[nodiscard]] auto getLang() const -> const Lang& { return *m_lang; }
 
+    /// Get syntax keywords.
+    [[nodiscard]] auto getKeywords() -> Keywords& { return *m_keywords; }
+    [[nodiscard]] auto getKeywords() const -> const Keywords& { return *m_keywords; }
+
     /// Get editor theme.
     [[nodiscard]] auto getTheme() -> Theme& { return *m_theme; }
     [[nodiscard]] auto getTheme() const -> const Theme& { return *m_theme; }
@@ -45,6 +50,7 @@ public:
 
 private:
     std::unique_ptr<Config> m_config;
+    std::unique_ptr<Keywords> m_keywords;
     std::unique_ptr<Lang> m_lang;
     std::unique_ptr<Theme> m_theme;
     std::unique_ptr<UIManager> m_uiManager;
