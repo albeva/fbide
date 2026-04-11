@@ -20,6 +20,8 @@ BreakBeforeCloseBracketSwitch: true
 BreakBeforeTemplateCloser: true
 BreakBeforeTernaryOperators: true
 SpaceAfterTemplateKeyword: false
+MacroBlockBegin: "^wxBEGIN_EVENT_TABLE"
+MacroBlockEnd: "^wxEND_EVENT_TABLE"
 IncludeCategories:
   - Priority: 1
     Regex: ^"pch\.hpp"

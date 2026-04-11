@@ -76,9 +76,9 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     EVT_MENU(id(MenuId::ReadMe),    CommandManager::onReadMe)
     EVT_MENU(id(MenuId::About),     CommandManager::onAbout)
 wxEND_EVENT_TABLE()
-    // clang-format on
+// clang-format on
 
-    CommandManager::CommandManager(Context& ctx)
+CommandManager::CommandManager(Context& ctx)
 : m_ctx(ctx) {}
 
 // -- File --
@@ -88,19 +88,23 @@ void CommandManager::onNew(wxCommandEvent&) {
 }
 
 void CommandManager::onOpen(wxCommandEvent&) {
-    // TODO: implement file open dialog
+    m_ctx.getDocumentManager().openWithDialog();
 }
 
 void CommandManager::onSave(wxCommandEvent&) {
-    // TODO: implement save
+    if (auto* doc = m_ctx.getDocumentManager().getActive()) {
+        m_ctx.getDocumentManager().save(*doc);
+    }
 }
 
 void CommandManager::onSaveAs(wxCommandEvent&) {
-    // TODO: implement save as
+    if (auto* doc = m_ctx.getDocumentManager().getActive()) {
+        m_ctx.getDocumentManager().saveAs(*doc);
+    }
 }
 
 void CommandManager::onSaveAll(wxCommandEvent&) {
-    // TODO: implement save all
+    m_ctx.getDocumentManager().saveAll();
 }
 
 void CommandManager::onClose(wxCommandEvent&) {

@@ -59,23 +59,10 @@ UIManager::~UIManager() {
 }
 
 void UIManager::onClose(wxCloseEvent& event) {
-    auto& docManager = m_ctx.getDocumentManager();
-
-    // Check for unsaved documents
-    if (docManager.getModifiedCount() > 0) {
-        const auto& lang = m_ctx.getLang();
-        const auto result = wxMessageBox(
-            lang[LangId::SaveChanges],
-            lang[LangId::SaveBeforeExit],
-            wxYES_NO | wxCANCEL | wxICON_EXCLAMATION,
-            m_frame.get()
-        );
-
-        if (result == wxCANCEL) {
-            event.Veto();
-            return;
-        }
-        // TODO: if YES, save all modified documents
+    // Let DocumentManager handle unsaved documents
+    if (!m_ctx.getDocumentManager().prepareToQuit()) {
+        event.Veto();
+        return;
     }
 
     // Save window state to config
@@ -97,10 +84,7 @@ void UIManager::onClose(wxCloseEvent& event) {
     }
     config.save();
 
-    // Close all documents without prompting (already handled above)
-    docManager.closeAll();
-
-    // Pop event handlers before frame destruction
+    // Clean up event handlers before frame destruction
     m_frame->RemoveEventHandler(this);
     m_frame->RemoveEventHandler(&m_ctx.getCommandManager());
     m_frame->Unbind(wxEVT_CLOSE_WINDOW, &UIManager::onClose, this);
@@ -137,6 +121,22 @@ void UIManager::createMainFrame() {
 
     m_aui.Update();
     m_frame->Show();
+}
+
+void UIManager::onPageClose(wxAuiNotebookEvent& event) {
+    // Always veto — DocumentManager handles the actual page deletion
+    event.Veto();
+
+    const auto pageIdx = event.GetSelection();
+    if (pageIdx == wxNOT_FOUND) {
+        return;
+    }
+
+    const auto* page = m_notebook->GetPage(static_cast<size_t>(pageIdx));
+    auto& docManager = m_ctx.getDocumentManager();
+    if (auto* doc = docManager.findByEditor(page)) {
+        docManager.close(*doc);
+    }
 }
 
 void UIManager::createMenuBar() {
@@ -271,6 +271,7 @@ void UIManager::createLayout() {
         wxDefaultPosition, wxDefaultSize,
         wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_CLOSE_ON_ALL_TABS
     );
+    m_notebook->Bind(wxEVT_AUINOTEBOOK_PAGE_CLOSE, &UIManager::onPageClose, this);
 
     m_aui.AddPane(
         m_notebook.get(),

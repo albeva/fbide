@@ -50,6 +50,90 @@ auto DocumentManager::open(const wxString& filePath) -> Document* {
     return &doc;
 }
 
+void DocumentManager::openWithDialog() {
+    const auto& lang = m_ctx.getLang();
+    wxFileDialog dlg(
+        m_ctx.getUIManager().getMainFrame(),
+        lang[LangId::FileLoadTitle],
+        "",
+        ".bas",
+        lang[LangId::FileLoadFilter],
+        wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE
+    );
+
+    if (dlg.ShowModal() != wxID_OK) {
+        return;
+    }
+
+    wxArrayString paths;
+    dlg.GetPaths(paths);
+    for (const auto& path : paths) {
+        open(path);
+    }
+}
+
+auto DocumentManager::save(Document& doc) const -> bool {
+    if (doc.isUntitled()) {
+        return saveAs(doc);
+    }
+
+    if (!doc.getEditor()->SaveFile(doc.getFilePath())) {
+        return false;
+    }
+
+    doc.setModified(false);
+    doc.updateModTime();
+    updateTabTitle(doc);
+    return true;
+}
+
+auto DocumentManager::saveAs(Document& doc) const -> bool {
+    const auto& lang = m_ctx.getLang();
+
+    wxString filter;
+    if (doc.getType() == DocumentType::HTML) {
+        filter = lang[LangId::FileHtmlFilter];
+    } else {
+        filter = lang[LangId::FileSaveFilter];
+    }
+    filter += lang[LangId::FileSaveFilterAny];
+
+    wxFileDialog dlg(
+        m_ctx.getUIManager().getMainFrame(),
+        lang[LangId::FileSaveTitle],
+        "",
+        doc.isUntitled() ? ".bas" : wxFileName(doc.getFilePath()).GetFullName(),
+        filter,
+        wxFD_SAVE | wxFD_OVERWRITE_PROMPT
+    );
+
+    if (dlg.ShowModal() != wxID_OK) {
+        return false;
+    }
+
+    auto newPath = dlg.GetPath();
+    if (!doc.getEditor()->SaveFile(newPath)) {
+        return false;
+    }
+
+    doc.setFilePath(newPath);
+    doc.setModified(false);
+    doc.updateModTime();
+    updateTabTitle(doc);
+    return true;
+}
+
+auto DocumentManager::saveAll() const -> bool {
+    for (auto& doc : m_documents) {
+        if (doc->isModified()) {
+            if (!save(*doc)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 auto DocumentManager::close(Document& doc) -> bool {
     if (doc.isModified()) {
         const auto& lang = m_ctx.getLang();
@@ -63,14 +147,24 @@ auto DocumentManager::close(Document& doc) -> bool {
         if (result == wxCANCEL) {
             return false;
         }
-        // TODO: if YES, save the file
+        if (result == wxYES) {
+            if (!save(doc)) {
+                return false;
+            }
+        }
     }
 
-    if (auto idx = findPageIndex(doc); idx != wxNOT_FOUND) {
+    if (const auto idx = findPageIndex(doc); idx != wxNOT_FOUND) {
         getNotebook()->DeletePage(static_cast<size_t>(idx));
     }
 
     std::erase_if(m_documents, [&doc](const auto& ptr) { return ptr.get() == &doc; });
+
+    // Update UI state when no documents remain
+    if (m_documents.empty()) {
+        m_ctx.getUIManager().enableEditorMenus(false);
+    }
+
     return true;
 }
 
@@ -80,6 +174,43 @@ auto DocumentManager::closeAll() -> bool {
             return false;
         }
     }
+    return true;
+}
+
+auto DocumentManager::prepareToQuit() -> bool {
+    if (getModifiedCount() == 0) {
+        return true;
+    }
+
+    const auto& lang = m_ctx.getLang();
+    const auto result = wxMessageBox(
+        lang[LangId::SaveChanges],
+        lang[LangId::SaveBeforeExit],
+        wxYES_NO | wxCANCEL | wxICON_EXCLAMATION,
+        m_ctx.getUIManager().getMainFrame()
+    );
+
+    if (result == wxCANCEL) {
+        return false;
+    }
+
+    if (result == wxYES) {
+        if (!saveAll()) {
+            return false;
+        }
+    }
+
+    // Discard all — close without prompting (already saved or user said NO)
+    while (!m_documents.empty()) {
+        auto& doc = *m_documents.back();
+        doc.setModified(false);
+        if (const auto idx = findPageIndex(doc); idx != wxNOT_FOUND) {
+            getNotebook()->DeletePage(static_cast<size_t>(idx));
+        }
+        m_documents.pop_back();
+    }
+
+    m_ctx.getUIManager().enableEditorMenus(false);
     return true;
 }
 
@@ -137,4 +268,17 @@ auto DocumentManager::findPageIndex(const Document& doc) const -> int {
 
 auto DocumentManager::getNotebook() const -> wxAuiNotebook* {
     return m_ctx.getUIManager().getNotebook();
+}
+
+void DocumentManager::updateActiveTabTitle() const {
+    if (auto* doc = getActive()) {
+        updateTabTitle(*doc);
+    }
+}
+
+void DocumentManager::updateTabTitle(const Document& doc) const {
+    auto idx = findPageIndex(doc);
+    if (idx != wxNOT_FOUND) {
+        getNotebook()->SetPageText(static_cast<size_t>(idx), doc.getTitle());
+    }
 }

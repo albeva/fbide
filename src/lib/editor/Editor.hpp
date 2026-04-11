@@ -30,6 +30,7 @@ public:
     void selectLine();
 
 private:
+    void onModified(wxStyledTextEvent& event);
     void applyEditorSettings();
     void applyTheme();
     void applyFreebasicTheme();

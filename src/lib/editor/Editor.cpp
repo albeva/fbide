@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "Editor.hpp"
+#include "DocumentManager.hpp"
 #include "lib/app/Context.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/Keywords.hpp"
@@ -16,6 +17,7 @@ Editor::Editor(wxWindow* parent, Context& ctx, DocumentType type)
 , m_ctx(ctx)
 , m_docType(type) {
     applySettings();
+    Bind(wxEVT_STC_MODIFIED, &Editor::onModified, this);
 }
 
 void Editor::applySettings() {
@@ -201,4 +203,13 @@ void Editor::applyHtmlTheme() {
 
 void Editor::applyTextTheme() {
     SetLexer(wxSTC_LEX_NULL);
+}
+
+void Editor::onModified(wxStyledTextEvent& event) {
+    event.Skip();
+    auto mod = event.GetModificationType();
+    if ((mod & (wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT | wxSTC_PERFORMED_UNDO | wxSTC_PERFORMED_REDO)) == 0) {
+        return;
+    }
+    m_ctx.getDocumentManager().updateActiveTabTitle();
 }
