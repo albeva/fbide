@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #pragma once
+#include <cstddef>
 #include <utility>
 #include "Macros.hpp"
 
@@ -16,15 +17,45 @@ namespace fbide {
 template<typename T>
 class Unowned final {
 public:
+    /// Default construct to nullptr.
+    constexpr Unowned() = default;
+
+    /// Construct from nullptr.
+    constexpr Unowned(std::nullptr_t) {} // NOLINT(google-explicit-constructor)
+
     /// Construct from raw pointer.
     constexpr explicit Unowned(T* ptr)
     : m_ptr(ptr) {}
 
-    /// Reassign to a different raw pointer.
-    constexpr FBIDE_INLINE auto operator=(T* ptr) -> Unowned& {
+    /// Copy construct.
+    constexpr Unowned(const Unowned&) = default;
+
+    /// Move construct.
+    constexpr Unowned(Unowned&& other) noexcept
+    : m_ptr(std::exchange(other.m_ptr, nullptr)) {}
+
+    /// Copy assign.
+    constexpr auto operator=(const Unowned&) -> Unowned& = default;
+
+    /// Move assign.
+    constexpr auto operator=(Unowned&& other) noexcept -> Unowned& {
+        m_ptr = std::exchange(other.m_ptr, nullptr);
+        return *this;
+    }
+
+    /// Assign from raw pointer.
+    constexpr auto operator=(T* ptr) -> Unowned& {
         m_ptr = ptr;
         return *this;
     }
+
+    /// Assign from nullptr.
+    constexpr auto operator=(std::nullptr_t) -> Unowned& {
+        m_ptr = nullptr;
+        return *this;
+    }
+
+    ~Unowned() = default;
 
     /// Access member of pointed-to object.
     constexpr FBIDE_INLINE auto operator->() const -> T* { return m_ptr; }
@@ -38,11 +69,14 @@ public:
     /// Get raw pointer.
     [[nodiscard]] constexpr FBIDE_INLINE auto get() const -> T* { return m_ptr; }
 
-    /// Test if pointer is non-null.
-    constexpr FBIDE_INLINE operator bool() const { return m_ptr != nullptr; } // NOLINT(google-explicit-constructor)
+    /// Three-way comparison with another Unowned.
+    constexpr auto operator<=>(const Unowned&) const = default;
+
+    /// Compare with nullptr.
+    constexpr FBIDE_INLINE auto operator==(std::nullptr_t) const -> bool { return m_ptr == nullptr; }
 
 private:
-    T* m_ptr;
+    T* m_ptr = nullptr;
 };
 
 /// Create an Unowned<T> by constructing T with the given arguments.

@@ -1,6 +1,5 @@
 # fbide library
 add_library(fbide_lib)
-
 target_sources(fbide_lib
     PRIVATE
     lib/app/App.cpp
