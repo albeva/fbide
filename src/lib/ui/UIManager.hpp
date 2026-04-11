@@ -30,6 +30,8 @@ public:
     void enableEditorMenus(bool state) const;
 
 private:
+    void onClose(wxCloseEvent& event);
+
     void createMenuBar();
     void createToolBar();
     void createStatusBar() const;

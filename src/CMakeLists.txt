@@ -3,6 +3,7 @@ add_library(fbide_lib)
 target_sources(fbide_lib
     PRIVATE
     lib/app/App.cpp
+    lib/app/CommandManager.cpp
     lib/app/Context.cpp
     lib/editor/Document.cpp
     lib/editor/DocumentManager.cpp
@@ -16,6 +17,7 @@ target_sources(fbide_lib
 
     PUBLIC FILE_SET HEADERS FILES
     lib/app/App.hpp
+    lib/app/CommandManager.hpp
     lib/app/Context.hpp
     lib/editor/Document.hpp
     lib/editor/DocumentManager.hpp

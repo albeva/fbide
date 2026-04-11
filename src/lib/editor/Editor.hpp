@@ -26,9 +26,15 @@ public:
     /// Change document type
     void setDocType(DocumentType type);
 
+    /// Select current line
+    void selectLine();
+
 private:
-    void applyTheme();
     void applyEditorSettings();
+    void applyTheme();
+    void applyFreebasicTheme();
+    void applyHtmlTheme();
+    void applyTextTheme();
 
     Context& m_ctx;
     DocumentType m_docType;

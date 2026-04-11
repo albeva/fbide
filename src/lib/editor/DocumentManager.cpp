@@ -53,11 +53,12 @@ auto DocumentManager::open(const wxString& filePath) -> Document* {
 auto DocumentManager::close(Document& doc) -> bool {
     if (doc.isModified()) {
         const auto& lang = m_ctx.getLang();
-        auto result = wxMessageBox(
+        const auto result = wxMessageBox(
             wxString::Format(lang[LangId::FileModifiedFormat], doc.getTitle()),
             lang[LangId::FileModifiedTitle],
             wxYES_NO | wxCANCEL | wxICON_EXCLAMATION,
-            m_ctx.getUIManager().getMainFrame());
+            m_ctx.getUIManager().getMainFrame()
+        );
 
         if (result == wxCANCEL) {
             return false;
@@ -65,8 +66,7 @@ auto DocumentManager::close(Document& doc) -> bool {
         // TODO: if YES, save the file
     }
 
-    auto idx = findPageIndex(doc);
-    if (idx != wxNOT_FOUND) {
+    if (auto idx = findPageIndex(doc); idx != wxNOT_FOUND) {
         getNotebook()->DeletePage(static_cast<size_t>(idx));
     }
 
@@ -83,17 +83,17 @@ auto DocumentManager::closeAll() -> bool {
     return true;
 }
 
-auto DocumentManager::getActive() -> Document* {
-    auto* notebook = getNotebook();
-    auto sel = notebook->GetSelection();
+auto DocumentManager::getActive() const -> Document* {
+    const auto* notebook = getNotebook();
+    const auto sel = notebook->GetSelection();
     if (sel == wxNOT_FOUND) {
         return nullptr;
     }
-    auto* page = notebook->GetPage(static_cast<size_t>(sel));
+    const auto* page = notebook->GetPage(static_cast<size_t>(sel));
     return findByEditor(page);
 }
 
-auto DocumentManager::findByPath(const wxString& path) -> Document* {
+auto DocumentManager::findByPath(const wxString& path) const -> Document* {
     auto normalized = wxFileName(path);
     normalized.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS);
     auto fullPath = normalized.GetFullPath();
@@ -116,7 +116,7 @@ auto DocumentManager::getModifiedCount() const -> size_t {
     }));
 }
 
-auto DocumentManager::findByEditor(const wxWindow* editor) -> Document* {
+auto DocumentManager::findByEditor(const wxWindow* editor) const -> Document* {
     for (auto& doc : m_documents) {
         if (doc->getEditor() == editor) {
             return doc.get();
@@ -135,6 +135,6 @@ auto DocumentManager::findPageIndex(const Document& doc) const -> int {
     return wxNOT_FOUND;
 }
 
-auto DocumentManager::getNotebook() -> wxAuiNotebook* {
+auto DocumentManager::getNotebook() const -> wxAuiNotebook* {
     return m_ctx.getUIManager().getNotebook();
 }

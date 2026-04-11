@@ -79,9 +79,13 @@ void Editor::setDocType(const DocumentType type) {
     applySettings();
 }
 
+void Editor::selectLine() {
+    const auto line = GetCurrentLine();
+    SetSelection(PositionFromLine(line), PositionFromLine(line + 1));
+}
+
 void Editor::applyTheme() {
     const auto& theme = m_ctx.getTheme();
-    const auto& config = m_ctx.getConfig();
     const auto& editor = theme.getDefault();
 
     // Default style
@@ -126,51 +130,75 @@ void Editor::applyTheme() {
     StyleSetBackground(wxSTC_STYLE_BRACEBAD, badBrace.background);
     StyleSetBold(wxSTC_STYLE_BRACEBAD, (static_cast<int>(badBrace.fontStyle) & static_cast<int>(Theme::FontStyle::Bold)) != 0);
 
-    // Syntax highlighting (only for FreeBASIC files)
-    if (config.getSyntaxHighlight() && m_docType == DocumentType::FreeBASIC) {
-        SetLexer(wxSTC_LEX_FREEBASIC);
-
-        // Apply keywords
-        const auto& keywords = m_ctx.getKeywords();
-        for (int grp = 0; grp < Keywords::groupCount; grp++) {
-            SetKeyWords(grp, keywords.getGroup(grp));
-        }
-
-        // VB style mappings
-        constexpr std::array styles {
-            wxSTC_B_DEFAULT, wxSTC_B_COMMENT,
-            wxSTC_B_NUMBER, wxSTC_B_KEYWORD,
-            wxSTC_B_STRING, wxSTC_B_PREPROCESSOR,
-            wxSTC_B_OPERATOR, wxSTC_B_IDENTIFIER,
-            wxSTC_B_DATE, wxSTC_B_STRINGEOL,
-            wxSTC_B_KEYWORD2, wxSTC_B_KEYWORD3,
-            wxSTC_B_KEYWORD4, wxSTC_B_CONSTANT,
-            wxSTC_B_ASM
-        };
-
-        for (size_t idx = 1; idx < styles.size(); idx++) {
-            const auto& style = theme.getStyle(static_cast<Theme::ItemKind>(idx));
-            const auto stcId = styles[idx];
-
-            StyleSetForeground(stcId, style.foreground);
-            StyleSetBackground(stcId, style.background);
-
-            auto font = wxFont(
-                style.fontSize > 0 ? style.fontSize : editor.fontSize,
-                wxFONTFAMILY_MODERN,
-                wxFONTSTYLE_NORMAL,
-                wxFONTWEIGHT_NORMAL,
-                false,
-                style.fontName.empty() ? editor.fontName : style.fontName
-            );
-            StyleSetFont(stcId, font);
-
-            const auto fs = static_cast<int>(style.fontStyle);
-            StyleSetBold(stcId, (fs & static_cast<int>(Theme::FontStyle::Bold)) != 0);
-            StyleSetItalic(stcId, (fs & static_cast<int>(Theme::FontStyle::Italic)) != 0);
-            StyleSetUnderline(stcId, (fs & static_cast<int>(Theme::FontStyle::Underline)) != 0);
-            StyleSetVisible(stcId, (fs & static_cast<int>(Theme::FontStyle::Hidden)) == 0);
-            StyleSetCase(stcId, style.letterCase);
+    if (m_ctx.getConfig().getSyntaxHighlight()) {
+        switch (m_docType) {
+        case DocumentType::FreeBASIC:
+            applyFreebasicTheme();
+            break;
+        case DocumentType::HTML:
+            applyHtmlTheme();
+            break;
+        case DocumentType::Text:
+            applyTextTheme();
+            break;
         }
     }
+}
+
+void Editor::applyFreebasicTheme() {
+    const auto& theme = m_ctx.getTheme();
+    const auto& editor = theme.getDefault();
+
+    SetLexer(wxSTC_LEX_FREEBASIC);
+
+    // Apply keywords
+    const auto& keywords = m_ctx.getKeywords();
+    for (int grp = 0; grp < Keywords::groupCount; grp++) {
+        SetKeyWords(grp, keywords.getGroup(grp));
+    }
+
+    // VB style mappings
+    constexpr std::array styles {
+        wxSTC_B_DEFAULT, wxSTC_B_COMMENT,
+        wxSTC_B_NUMBER, wxSTC_B_KEYWORD,
+        wxSTC_B_STRING, wxSTC_B_PREPROCESSOR,
+        wxSTC_B_OPERATOR, wxSTC_B_IDENTIFIER,
+        wxSTC_B_DATE, wxSTC_B_STRINGEOL,
+        wxSTC_B_KEYWORD2, wxSTC_B_KEYWORD3,
+        wxSTC_B_KEYWORD4, wxSTC_B_CONSTANT,
+        wxSTC_B_ASM
+    };
+
+    for (size_t idx = 1; idx < styles.size(); idx++) {
+        const auto& style = theme.getStyle(static_cast<Theme::ItemKind>(idx));
+        const auto stcId = styles[idx];
+
+        StyleSetForeground(stcId, style.foreground);
+        StyleSetBackground(stcId, style.background);
+
+        auto font = wxFont(
+            style.fontSize > 0 ? style.fontSize : editor.fontSize,
+            wxFONTFAMILY_MODERN,
+            wxFONTSTYLE_NORMAL,
+            wxFONTWEIGHT_NORMAL,
+            false,
+            style.fontName.empty() ? editor.fontName : style.fontName
+        );
+        StyleSetFont(stcId, font);
+
+        const auto fs = static_cast<int>(style.fontStyle);
+        StyleSetBold(stcId, (fs & static_cast<int>(Theme::FontStyle::Bold)) != 0);
+        StyleSetItalic(stcId, (fs & static_cast<int>(Theme::FontStyle::Italic)) != 0);
+        StyleSetUnderline(stcId, (fs & static_cast<int>(Theme::FontStyle::Underline)) != 0);
+        StyleSetVisible(stcId, (fs & static_cast<int>(Theme::FontStyle::Hidden)) == 0);
+        StyleSetCase(stcId, style.letterCase);
+    }
+}
+
+void Editor::applyHtmlTheme() {
+    SetLexer(wxSTC_LEX_HTML);
+}
+
+void Editor::applyTextTheme() {
+    SetLexer(wxSTC_LEX_NULL);
 }

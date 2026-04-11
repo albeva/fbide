@@ -4,11 +4,14 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
+// ReSharper disable CppMemberFunctionMayBeConst
 #include "UIManager.hpp"
 #include "MenuId.hpp"
+#include "lib/app/CommandManager.hpp"
 #include "lib/app/Context.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/Lang.hpp"
+#include "lib/editor/DocumentManager.hpp"
 using namespace fbide;
 
 namespace {
@@ -16,7 +19,14 @@ namespace {
 constexpr auto id(MenuId mid) -> int { return static_cast<int>(mid); }
 
 /// Append a menu item with translated label, optional shortcut, and help text.
-void append(wxMenu* menu, const Lang& lang, MenuId mid, LangId label, const wxString& shortcut = "", LangId help = {}) {
+void append(
+    wxMenu* menu,
+    const Lang& lang,
+    const MenuId mid,
+    const LangId label,
+    const wxString& shortcut = "",
+    const LangId help = {}
+) {
     auto text = lang[label];
     if (!shortcut.empty()) {
         text += "\t" + shortcut;
@@ -25,7 +35,14 @@ void append(wxMenu* menu, const Lang& lang, MenuId mid, LangId label, const wxSt
 }
 
 /// Append a check menu item.
-void appendCheck(wxMenu* menu, const Lang& lang, MenuId mid, LangId label, const wxString& shortcut = "", LangId help = {}) {
+void appendCheck(
+    wxMenu* menu,
+    const Lang& lang,
+    const MenuId mid,
+    const LangId label,
+    const wxString& shortcut = "",
+    const LangId help = {}
+) {
     auto text = lang[label];
     if (!shortcut.empty()) {
         text += "\t" + shortcut;
@@ -41,11 +58,63 @@ UIManager::~UIManager() {
     m_aui.UnInit();
 }
 
+void UIManager::onClose(wxCloseEvent& event) {
+    auto& docManager = m_ctx.getDocumentManager();
+
+    // Check for unsaved documents
+    if (docManager.getModifiedCount() > 0) {
+        const auto& lang = m_ctx.getLang();
+        const auto result = wxMessageBox(
+            lang[LangId::SaveChanges],
+            lang[LangId::SaveBeforeExit],
+            wxYES_NO | wxCANCEL | wxICON_EXCLAMATION,
+            m_frame.get()
+        );
+
+        if (result == wxCANCEL) {
+            event.Veto();
+            return;
+        }
+        // TODO: if YES, save all modified documents
+    }
+
+    // Save window state to config
+    auto& config = m_ctx.getConfig();
+    if (m_frame->IsMaximized() || m_frame->IsIconized()) {
+        config.setWindowW(-1);
+        config.setWindowH(-1);
+    } else {
+        int posX = 0;
+        int posY = 0;
+        int sizeW = 0;
+        int sizeH = 0;
+        m_frame->GetPosition(&posX, &posY);
+        m_frame->GetSize(&sizeW, &sizeH);
+        config.setWindowX(posX);
+        config.setWindowY(posY);
+        config.setWindowW(sizeW);
+        config.setWindowH(sizeH);
+    }
+    config.save();
+
+    // Close all documents without prompting (already handled above)
+    docManager.closeAll();
+
+    // Pop event handlers before frame destruction
+    m_frame->RemoveEventHandler(this);
+    m_frame->RemoveEventHandler(&m_ctx.getCommandManager());
+    m_frame->Unbind(wxEVT_CLOSE_WINDOW, &UIManager::onClose, this);
+
+    event.Skip();
+}
+
 void UIManager::createMainFrame() {
     const auto& config = m_ctx.getConfig();
 
     m_frame = make_unowned<wxFrame>(nullptr, wxID_ANY, "FBIde");
+    m_frame->Bind(wxEVT_CLOSE_WINDOW, &UIManager::onClose, this);
     m_frame->PushEventHandler(this);
+    m_frame->PushEventHandler(&m_ctx.getCommandManager());
 
     // Position and size from config
     if (config.getWindowW() == -1 || config.getWindowH() == -1) {

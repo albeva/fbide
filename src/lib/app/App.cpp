@@ -47,7 +47,7 @@ auto App::OnInit() -> bool {
     m_context->getKeywords().load(config.getIdePath() + config.getSyntaxFile());
     m_context->getTheme().load(config.getIdePath() + config.getThemeFile());
 
-    // Create UI
+    // Create UI and push command handler
     m_context->getUIManager().createMainFrame();
 
     // Create initial document

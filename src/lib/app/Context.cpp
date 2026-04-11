@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "lib/app/Context.hpp"
+#include "lib/app/CommandManager.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/Keywords.hpp"
 #include "lib/config/Lang.hpp"
@@ -19,6 +20,7 @@ Context::Context(const wxString& binaryPath)
 , m_lang(std::make_unique<Lang>())
 , m_theme(std::make_unique<Theme>())
 , m_uiManager(std::make_unique<UIManager>(*this))
-, m_documentManager(std::make_unique<DocumentManager>(*this)) {}
+, m_documentManager(std::make_unique<DocumentManager>(*this))
+, m_commandManager(std::make_unique<CommandManager>(*this)) {}
 
 Context::~Context() = default;

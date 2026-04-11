@@ -30,26 +30,26 @@ public:
     auto closeAll() -> bool;
 
     /// Get currently active document (selected tab), or nullptr if none.
-    [[nodiscard]] auto getActive() -> Document*;
+    [[nodiscard]] auto getActive() const -> Document*;
 
     /// Get document count.
     [[nodiscard]] auto getCount() const -> size_t { return m_documents.size(); }
 
     /// Find document by file path. Returns nullptr if not found.
-    [[nodiscard]] auto findByPath(const wxString& path) -> Document*;
+    [[nodiscard]] auto findByPath(const wxString& path) const -> Document*;
 
     /// Get number of modified documents.
     [[nodiscard]] auto getModifiedCount() const -> size_t;
 
 private:
     /// Find document by its editor widget.
-    [[nodiscard]] auto findByEditor(const wxWindow* editor) -> Document*;
+    [[nodiscard]] auto findByEditor(const wxWindow* editor) const -> Document*;
 
     /// Find notebook page index for a document.
     [[nodiscard]] auto findPageIndex(const Document& doc) const -> int;
 
     /// Get the notebook from UIManager.
-    [[nodiscard]] auto getNotebook() -> wxAuiNotebook*;
+    [[nodiscard]] auto getNotebook() const -> wxAuiNotebook*;
 
     Context& m_ctx;
     std::vector<std::unique_ptr<Document>> m_documents;
