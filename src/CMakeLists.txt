@@ -3,9 +3,12 @@ add_library(fbide_lib)
 target_sources(fbide_lib
     PRIVATE
     lib/app/App.cpp
+    lib/config/Lang.cpp
 
     PUBLIC FILE_SET HEADERS FILES
     lib/app/App.hpp
+    lib/config/Lang.hpp
+    lib/config/LangId.hpp
     lib/utils/Macros.hpp
     lib/utils/Unowned.hpp
 )
