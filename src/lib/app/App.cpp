@@ -8,6 +8,7 @@
 #include "Context.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/Lang.hpp"
+#include "lib/config/Theme.hpp"
 #include "lib/ui/UIManager.hpp"
 
 namespace fbide {
@@ -39,7 +40,10 @@ auto App::OnInit() -> bool {
 
     // Load language
     auto& lang = m_context->getLang();
-    lang.load(config.getIdePath() + "lang/" + config.language + ".fbl");
+    lang.load(config.getIdePath() + "lang/" + config.language() + ".fbl");
+
+    // Load theme
+    m_context->getTheme().load(config.getIdePath() + config.themeFile());
 
     // Create UI
     m_context->getUIManager().createMainFrame();

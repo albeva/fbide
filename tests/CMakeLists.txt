@@ -14,6 +14,7 @@ add_executable(tests
     BasicTests.cpp
     ConfigTests.cpp
     LangTests.cpp
+    ThemeTests.cpp
 )
 
 # Test data path

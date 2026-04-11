@@ -6,6 +6,7 @@ target_sources(fbide_lib
     lib/app/Context.cpp
     lib/config/Config.cpp
     lib/config/Lang.cpp
+    lib/config/Theme.cpp
     lib/ui/UIManager.cpp
 
     PUBLIC FILE_SET HEADERS FILES
@@ -14,6 +15,7 @@ target_sources(fbide_lib
     lib/config/Config.hpp
     lib/config/Lang.hpp
     lib/config/LangId.hpp
+    lib/config/Theme.hpp
     lib/ui/MenuId.hpp
     lib/ui/UIManager.hpp
     lib/utils/Macros.hpp

@@ -48,11 +48,11 @@ void UIManager::createMainFrame() {
     m_frame->SetEventHandler(this);
 
     // Position and size from config
-    if (config.windowW == -1 || config.windowH == -1) {
+    if (config.windowW() == -1 || config.windowH() == -1) {
         m_frame->Maximize();
     } else {
-        m_frame->Move(config.windowX, config.windowY);
-        m_frame->SetSize(config.windowW, config.windowH);
+        m_frame->Move(config.windowX(), config.windowY());
+        m_frame->SetSize(config.windowW(), config.windowH());
     }
 
     createMenuBar();
@@ -129,9 +129,9 @@ void UIManager::createMenuBar() {
     append(m_runMenu, lang, MenuId::CmdPrompt, LangId::RunCmdPrompt, "F8", LangId::RunCmdPromptHelp);
     append(m_runMenu, lang, MenuId::Parameters, LangId::RunParameters, "", LangId::RunParametersHelp);
     appendCheck(m_runMenu, lang, MenuId::ShowExitCode, LangId::RunShowExitCode, "", LangId::RunShowExitCodeHelp);
-    m_runMenu->Check(id(MenuId::ShowExitCode), m_ctx.getConfig().showExitCode);
+    m_runMenu->Check(id(MenuId::ShowExitCode), m_ctx.getConfig().showExitCode());
     appendCheck(m_runMenu, lang, MenuId::ActivePath, LangId::RunActivePath, "", LangId::RunActivePathHelp);
-    m_runMenu->Check(id(MenuId::ActivePath), m_ctx.getConfig().activePath);
+    m_runMenu->Check(id(MenuId::ActivePath), m_ctx.getConfig().activePath());
 
     // Help menu
     m_helpMenu = make_unowned<wxMenu>();

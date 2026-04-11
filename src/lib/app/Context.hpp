@@ -10,6 +10,7 @@
 namespace fbide {
 class Config;
 class Lang;
+class Theme;
 class UIManager;
 
 /// Central access point for editor service objects.
@@ -34,6 +35,10 @@ public:
     [[nodiscard]] auto getLang() -> Lang& { return *m_lang; }
     [[nodiscard]] auto getLang() const -> const Lang& { return *m_lang; }
 
+    /// Get editor theme.
+    [[nodiscard]] auto getTheme() -> Theme& { return *m_theme; }
+    [[nodiscard]] auto getTheme() const -> const Theme& { return *m_theme; }
+
     /// Get UI manager.
     [[nodiscard]] auto getUIManager() -> UIManager& { return *m_uiManager; }
     [[nodiscard]] auto getUIManager() const -> const UIManager& { return *m_uiManager; }
@@ -41,6 +46,7 @@ public:
 private:
     std::unique_ptr<Config> m_config;
     std::unique_ptr<Lang> m_lang;
+    std::unique_ptr<Theme> m_theme;
     std::unique_ptr<UIManager> m_uiManager;
 };
 

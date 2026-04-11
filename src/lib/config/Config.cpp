@@ -21,7 +21,6 @@ Config::Config(const wxString& binaryPath) {
 void Config::load(const wxString& filePath) {
     m_configPath = filePath;
     if (!wxFileExists(m_configPath)) {
-        // TODO: log an error?
         exit(EXIT_FAILURE);
     }
     reset();
@@ -35,49 +34,49 @@ void Config::load(const wxString& filePath) {
 
     // [general]
     ini.SetPath("/general");
-    autoIndent = ini.ReadBool("autoindent", autoIndent);
-    syntaxHighlight = ini.ReadBool("syntaxhighlight", syntaxHighlight);
-    longLine = ini.ReadBool("borderline", longLine);
-    whiteSpace = ini.ReadBool("whitespaces", whiteSpace);
-    lineNumbers = ini.ReadBool("linenumbers", lineNumbers);
-    indentGuide = ini.ReadBool("indentguide", indentGuide);
-    braceHighlight = ini.ReadBool("bracehighlight", braceHighlight);
-    showExitCode = ini.ReadBool("showexitcode", showExitCode);
-    folderMargin = ini.ReadBool("foldermargin", folderMargin);
-    displayEOL = ini.ReadBool("Displayeol", displayEOL);
-    currentLine = ini.ReadBool("lightcursorline", currentLine);
-    activePath = ini.ReadBool("ActivePath", activePath);
-    tabSize = static_cast<int>(ini.ReadLong("tabsize", tabSize));
-    edgeColumn = static_cast<int>(ini.ReadLong("edgecolumn", edgeColumn));
-    language = ini.Read("language", language);
+    m_autoIndent = ini.ReadBool("autoindent", m_autoIndent);
+    m_syntaxHighlight = ini.ReadBool("syntaxhighlight", m_syntaxHighlight);
+    m_longLine = ini.ReadBool("borderline", m_longLine);
+    m_whiteSpace = ini.ReadBool("whitespaces", m_whiteSpace);
+    m_lineNumbers = ini.ReadBool("linenumbers", m_lineNumbers);
+    m_indentGuide = ini.ReadBool("indentguide", m_indentGuide);
+    m_braceHighlight = ini.ReadBool("bracehighlight", m_braceHighlight);
+    m_showExitCode = ini.ReadBool("showexitcode", m_showExitCode);
+    m_folderMargin = ini.ReadBool("foldermargin", m_folderMargin);
+    m_displayEOL = ini.ReadBool("Displayeol", m_displayEOL);
+    m_currentLine = ini.ReadBool("lightcursorline", m_currentLine);
+    m_activePath = ini.ReadBool("ActivePath", m_activePath);
+    m_tabSize = static_cast<int>(ini.ReadLong("tabsize", m_tabSize));
+    m_edgeColumn = static_cast<int>(ini.ReadLong("edgecolumn", m_edgeColumn));
+    m_language = ini.Read("language", m_language);
 
     // [paths]
     ini.SetPath("/paths");
-    compilerPath = ini.Read("fbc", compilerPath);
-    syntaxFile = ini.Read("syntax", syntaxFile);
-    if (syntaxFile.empty()) {
-        syntaxFile = "fbfull.lng";
+    m_compilerPath = ini.Read("fbc", m_compilerPath);
+    m_syntaxFile = ini.Read("syntax", m_syntaxFile);
+    if (m_syntaxFile.empty()) {
+        m_syntaxFile = "fbfull.lng";
     }
-    themeFile = ini.Read("theme", themeFile);
-    if (themeFile.empty()) {
-        themeFile = "classic";
+    m_themeFile = ini.Read("theme", m_themeFile);
+    if (m_themeFile.empty()) {
+        m_themeFile = "classic";
     }
-    helpFile = ini.Read("helpfile", helpFile);
-    terminal = ini.Read("terminal", terminal);
+    m_helpFile = ini.Read("helpfile", m_helpFile);
+    m_terminal = ini.Read("terminal", m_terminal);
 
     // [compiler]
     ini.SetPath("/compiler");
-    compileCommand = ini.Read("command", compileCommand);
-    runCommand = ini.Read("runprototype", runCommand);
+    m_compileCommand = ini.Read("command", m_compileCommand);
+    m_runCommand = ini.Read("runprototype", m_runCommand);
 
     // [editor]
     ini.SetPath("/editor");
-    floatBars = ini.ReadBool("floatbars", floatBars);
-    splashScreen = ini.ReadBool("splashscreen", splashScreen);
-    windowX = static_cast<int>(ini.ReadLong("winx", windowX));
-    windowY = static_cast<int>(ini.ReadLong("winy", windowY));
-    windowW = static_cast<int>(ini.ReadLong("winw", windowW));
-    windowH = static_cast<int>(ini.ReadLong("winh", windowH));
+    m_floatBars = ini.ReadBool("floatbars", m_floatBars);
+    m_splashScreen = ini.ReadBool("splashscreen", m_splashScreen);
+    m_windowX = static_cast<int>(ini.ReadLong("winx", m_windowX));
+    m_windowY = static_cast<int>(ini.ReadLong("winy", m_windowY));
+    m_windowW = static_cast<int>(ini.ReadLong("winw", m_windowW));
+    m_windowH = static_cast<int>(ini.ReadLong("winh", m_windowH));
 }
 
 void Config::save() const {
@@ -87,54 +86,52 @@ void Config::save() const {
 
     // [general]
     ini.SetPath("/general");
-    ini.Write("autoindent", autoIndent);
-    ini.Write("syntaxhighlight", syntaxHighlight);
-    ini.Write("borderline", longLine);
-    ini.Write("whitespaces", whiteSpace);
-    ini.Write("linenumbers", lineNumbers);
-    ini.Write("indentguide", indentGuide);
-    ini.Write("bracehighlight", braceHighlight);
-    ini.Write("showexitcode", showExitCode);
-    ini.Write("foldermargin", folderMargin);
-    ini.Write("Displayeol", displayEOL);
-    ini.Write("lightcursorline", currentLine);
-    ini.Write("ActivePath", activePath);
-    ini.Write("tabsize", static_cast<long>(tabSize));
-    ini.Write("edgecolumn", static_cast<long>(edgeColumn));
-    ini.Write("language", language);
+    ini.Write("autoindent", m_autoIndent);
+    ini.Write("syntaxhighlight", m_syntaxHighlight);
+    ini.Write("borderline", m_longLine);
+    ini.Write("whitespaces", m_whiteSpace);
+    ini.Write("linenumbers", m_lineNumbers);
+    ini.Write("indentguide", m_indentGuide);
+    ini.Write("bracehighlight", m_braceHighlight);
+    ini.Write("showexitcode", m_showExitCode);
+    ini.Write("foldermargin", m_folderMargin);
+    ini.Write("Displayeol", m_displayEOL);
+    ini.Write("lightcursorline", m_currentLine);
+    ini.Write("ActivePath", m_activePath);
+    ini.Write("tabsize", static_cast<long>(m_tabSize));
+    ini.Write("edgecolumn", static_cast<long>(m_edgeColumn));
+    ini.Write("language", m_language);
 
     // [paths]
     ini.SetPath("/paths");
-    ini.Write("fbc", compilerPath);
-    ini.Write("syntax", syntaxFile);
-    ini.Write("theme", themeFile);
-    ini.Write("helpfile", helpFile);
-    ini.Write("terminal", terminal);
+    ini.Write("fbc", m_compilerPath);
+    ini.Write("syntax", m_syntaxFile);
+    ini.Write("theme", m_themeFile);
+    ini.Write("helpfile", m_helpFile);
+    ini.Write("terminal", m_terminal);
 
     // [compiler]
     ini.SetPath("/compiler");
-    ini.Write("command", compileCommand);
-    ini.Write("runprototype", runCommand);
+    ini.Write("command", m_compileCommand);
+    ini.Write("runprototype", m_runCommand);
 
     // [editor]
     ini.SetPath("/editor");
-    ini.Write("floatbars", floatBars);
-    ini.Write("splashscreen", splashScreen);
-    ini.Write("winx", static_cast<long>(windowX));
-    ini.Write("winy", static_cast<long>(windowY));
-    ini.Write("winw", static_cast<long>(windowW));
-    ini.Write("winh", static_cast<long>(windowH));
+    ini.Write("floatbars", m_floatBars);
+    ini.Write("splashscreen", m_splashScreen);
+    ini.Write("winx", static_cast<long>(m_windowX));
+    ini.Write("winy", static_cast<long>(m_windowY));
+    ini.Write("winw", static_cast<long>(m_windowW));
+    ini.Write("winh", static_cast<long>(m_windowH));
 
     ini.Save(outStream);
 }
 
 void Config::reset() {
-    // Reset to defaults by assigning a fresh default-initialized instance,
-    // preserving resolved paths.
-    auto fbideDir = m_fbideDir;
-    auto ideDir = m_ideDir;
-    auto cwd = m_cwd;
-    auto configPath = m_configPath;
+    const auto fbideDir = m_fbideDir;
+    const auto ideDir = m_ideDir;
+    const auto cwd = m_cwd;
+    const auto configPath = m_configPath;
     *this = Config("");
     m_fbideDir = fbideDir;
     m_ideDir = ideDir;
@@ -159,22 +156,18 @@ auto Config::resolvePath(const wxString& path) const -> wxString {
         return path;
     }
 
-    // cwd
     wxFileName fn(path);
-    fn.MakeAbsolute(getCwd());
-    if (fn.Exists()) {
-        return fn.GetFullPath();
-    }
-
-    // ./ide/
-    fn = path;
     fn.MakeAbsolute(getIdePath());
     if (fn.Exists()) {
         return fn.GetFullPath();
     }
 
-    // maybe look in PATHs?
-    // TODO: log an error?
+    fn = path;
+    fn.MakeAbsolute(getCwd());
+    if (fn.Exists()) {
+        return fn.GetFullPath();
+    }
+
     return path;
 }
 
