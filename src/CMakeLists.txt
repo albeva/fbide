@@ -5,12 +5,14 @@ target_sources(fbide_lib
     lib/app/App.cpp
     lib/config/Config.cpp
     lib/config/Lang.cpp
+    lib/app/Context.cpp
 
     PUBLIC FILE_SET HEADERS FILES
     lib/app/App.hpp
     lib/config/Config.hpp
     lib/config/Lang.hpp
     lib/config/LangId.hpp
+    lib/app/Context.hpp
     lib/utils/Macros.hpp
     lib/utils/Unowned.hpp
 )

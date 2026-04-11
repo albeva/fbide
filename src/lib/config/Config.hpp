@@ -24,16 +24,16 @@ public:
     void load(const wxString& filePath);
 
     /// Save current settings to an INI file.
-    void save(const wxString& filePath) const;
+    void save() const;
 
     /// Reset all settings to defaults.
     void reset();
 
     /// Get resolved binary directory path (with trailing separator).
-    [[nodiscard]] auto getBinaryPath() const -> const wxString& { return m_binaryPath; }
+    [[nodiscard]] auto getFbidePath() const -> const wxString& { return m_fbideDir; }
 
     /// Get IDE config folder path (with trailing separator).
-    [[nodiscard]] auto getIdePath() const -> const wxString& { return m_idePath; }
+    [[nodiscard]] auto getIdePath() const -> const wxString& { return m_ideDir; }
 
     /// Override IDE config folder path.
     void setIdePath(const wxString& path);
@@ -43,6 +43,12 @@ public:
 
     /// Set current working directory.
     void setCwd(const wxString& path);
+
+    /// Resolve path to a fully qualified path
+    [[nodiscard]] auto resolvePath(const wxString& path) const -> wxString;
+
+    /// get platform specific default config file name
+    [[nodiscard]] static auto getDefaultConfigFileName() -> wxString;
 
     // -- [general] editor preferences --
     bool autoIndent = false;
@@ -81,9 +87,10 @@ public:
     int windowH = 200;
 
 private:
-    wxString m_binaryPath;
-    wxString m_idePath;
-    wxString m_cwd;
+    wxString m_fbideDir;   ///< directory where fbide binary is located
+    wxString m_ideDir;     ///< directory of the IDE folder that contains config files
+    wxString m_cwd;        ///< current working directory
+    wxString m_configPath; ///< path to loaded configuration file
 };
 
 } // namespace fbide

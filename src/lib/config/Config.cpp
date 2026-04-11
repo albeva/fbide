@@ -13,12 +13,17 @@ namespace fbide {
 Config::Config(const wxString& binaryPath) {
     wxFileName path(binaryPath);
     path.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS);
-    m_binaryPath = path.GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME);
-    m_idePath = m_binaryPath + "IDE" + wxFileName::GetPathSeparator();
+    m_fbideDir = path.GetAbsolutePath();
+    m_ideDir = m_fbideDir + wxFileName::GetPathSeparator() + "IDE" + wxFileName::GetPathSeparator();
     m_cwd = wxGetCwd() + wxFileName::GetPathSeparator();
 }
 
 void Config::load(const wxString& filePath) {
+    m_configPath = filePath;
+    if (!wxFileExists(m_configPath)) {
+        // TODO: log an error?
+        exit(EXIT_FAILURE);
+    }
     reset();
 
     wxFFileInputStream stream(filePath);
@@ -75,10 +80,10 @@ void Config::load(const wxString& filePath) {
     windowH = static_cast<int>(ini.ReadLong("winh", windowH));
 }
 
-void Config::save(const wxString& filePath) const {
-    wxFileInputStream existingStream(filePath);
+void Config::save() const {
+    wxFileInputStream existingStream(m_configPath);
     wxFileConfig ini(existingStream);
-    wxFileOutputStream outStream(filePath);
+    wxFileOutputStream outStream(m_configPath);
 
     // [general]
     ini.SetPath("/general");
@@ -126,25 +131,59 @@ void Config::save(const wxString& filePath) const {
 void Config::reset() {
     // Reset to defaults by assigning a fresh default-initialized instance,
     // preserving resolved paths.
-    auto binaryPath = m_binaryPath;
-    auto idePath = m_idePath;
+    auto fbideDir = m_fbideDir;
+    auto ideDir = m_ideDir;
     auto cwd = m_cwd;
+    auto configPath = m_configPath;
     *this = Config("");
-    m_binaryPath = binaryPath;
-    m_idePath = idePath;
+    m_fbideDir = fbideDir;
+    m_ideDir = ideDir;
     m_cwd = cwd;
+    m_configPath = configPath;
 }
 
 void Config::setIdePath(const wxString& path) {
     wxFileName dir = wxFileName::DirName(path);
     dir.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS);
-    m_idePath = dir.GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME);
+    m_ideDir = dir.GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME);
 }
 
 void Config::setCwd(const wxString& path) {
     wxFileName dir = wxFileName::DirName(path);
     dir.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS);
     m_cwd = dir.GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME);
+}
+
+auto Config::resolvePath(const wxString& path) const -> wxString {
+    if (wxIsAbsolutePath(path)) {
+        return path;
+    }
+
+    // cwd
+    wxFileName fn(path);
+    fn.MakeAbsolute(getCwd());
+    if (fn.Exists()) {
+        return fn.GetFullPath();
+    }
+
+    // ./ide/
+    fn = path;
+    fn.MakeAbsolute(getIdePath());
+    if (fn.Exists()) {
+        return fn.GetFullPath();
+    }
+
+    // maybe look in PATHs?
+    // TODO: log an error?
+    return path;
+}
+
+auto Config::getDefaultConfigFileName() -> wxString {
+#ifdef __WXMSW__
+    return "prefs_win32.ini";
+#else
+    return "prefs_linux.ini";
+#endif
 }
 
 } // namespace fbide

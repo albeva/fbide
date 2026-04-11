@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "Context.hpp"
 
 namespace fbide {
 
@@ -14,6 +15,16 @@ class App final : public wxApp {
 public:
     /// Initialize the application, create main window.
     auto OnInit() -> bool override;
+
+    /// Get the application context.
+    [[nodiscard]] auto getContext() -> Context& { return *m_context; }
+    [[nodiscard]] auto getContext() const -> const Context& { return *m_context; }
+
+private:
+    /// Get the directory of teh fbide binary
+    [[nodiscard]] auto getFbidePath() -> wxString;
+
+    std::unique_ptr<Context> m_context;
 };
 
 } // namespace fbide

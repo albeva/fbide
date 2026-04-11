@@ -20,9 +20,16 @@
 #include <vector>
 
 // wxWidgets
+#include <wx/wx.h>
+
+// wxWidgets components
+#include <wx/apptrait.h>
+#include <wx/aui/aui.h>
 #include <wx/filename.h>
 #include <wx/stc/stc.h>
-#include <wx/wx.h>
+#include <wx/stdpaths.h>
+#include <wx/tokenzr.h>
+#include <wx/wupdlock.h>
 
 // fbide
 #include "lib/utils/Macros.hpp"
