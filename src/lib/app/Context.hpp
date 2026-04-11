@@ -10,6 +10,7 @@
 namespace fbide {
 class Config;
 class Lang;
+class UIManager;
 
 /// Central access point for editor service objects.
 /// Owns Config, Lang, and other shared state.
@@ -33,9 +34,14 @@ public:
     [[nodiscard]] auto getLang() -> Lang& { return *m_lang; }
     [[nodiscard]] auto getLang() const -> const Lang& { return *m_lang; }
 
+    /// Get UI manager.
+    [[nodiscard]] auto getUIManager() -> UIManager& { return *m_uiManager; }
+    [[nodiscard]] auto getUIManager() const -> const UIManager& { return *m_uiManager; }
+
 private:
     std::unique_ptr<Config> m_config;
     std::unique_ptr<Lang> m_lang;
+    std::unique_ptr<UIManager> m_uiManager;
 };
 
 } // namespace fbide

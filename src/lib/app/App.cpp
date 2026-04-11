@@ -7,6 +7,8 @@
 #include "App.hpp"
 #include "Context.hpp"
 #include "lib/config/Config.hpp"
+#include "lib/config/Lang.hpp"
+#include "lib/ui/UIManager.hpp"
 
 namespace fbide {
 
@@ -35,9 +37,12 @@ auto App::OnInit() -> bool {
     }
     config.load(configFile);
 
-    // create frame
-    const auto frame = make_unowned<wxFrame>(nullptr, wxID_ANY, "FBIde");
-    frame->Show();
+    // Load language
+    auto& lang = m_context->getLang();
+    lang.load(config.getIdePath() + "lang/" + config.language + ".fbl");
+
+    // Create UI
+    m_context->getUIManager().createMainFrame();
     return true;
 }
 

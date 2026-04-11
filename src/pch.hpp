@@ -26,6 +26,8 @@
 #include <wx/apptrait.h>
 #include <wx/aui/aui.h>
 #include <wx/filename.h>
+#include <wx/listctrl.h>
+#include <wx/splitter.h>
 #include <wx/stc/stc.h>
 #include <wx/stdpaths.h>
 #include <wx/tokenzr.h>

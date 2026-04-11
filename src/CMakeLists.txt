@@ -3,16 +3,19 @@ add_library(fbide_lib)
 target_sources(fbide_lib
     PRIVATE
     lib/app/App.cpp
+    lib/app/Context.cpp
     lib/config/Config.cpp
     lib/config/Lang.cpp
-    lib/app/Context.cpp
+    lib/ui/UIManager.cpp
 
     PUBLIC FILE_SET HEADERS FILES
     lib/app/App.hpp
+    lib/app/Context.hpp
     lib/config/Config.hpp
     lib/config/Lang.hpp
     lib/config/LangId.hpp
-    lib/app/Context.hpp
+    lib/ui/MenuId.hpp
+    lib/ui/UIManager.hpp
     lib/utils/Macros.hpp
     lib/utils/Unowned.hpp
 )
