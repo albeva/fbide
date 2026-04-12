@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 4.2.2)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL CACHE STRING "" FORCE)
 
 # The Project
 project(
@@ -11,6 +10,10 @@ project(
     HOMEPAGE_URL "https://github.com/albeva/fbide"
     LANGUAGES CXX
 )
+
+if (MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+endif()
 
 # CMake modules
 include(FetchContent)

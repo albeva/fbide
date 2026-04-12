@@ -22,7 +22,7 @@ void Keywords::load(const wxString& filePath) {
 
     for (std::size_t idx = 0; idx < GROUP_COUNT; idx++) {
         wxString key;
-        key.Printf("kw%d", idx + 1);
+        key.Printf("kw%zu", idx + 1);
         m_groups.at(idx) = ini.Read(key, "");
     }
 
@@ -35,7 +35,7 @@ void Keywords::save() const {
 
     for (std::size_t idx = 0; idx < GROUP_COUNT; idx++) {
         wxString key;
-        key.Printf("kw%d", idx + 1);
+        key.Printf("kw%zu", idx + 1);
         ini.Write(key, m_groups.at(idx));
     }
 

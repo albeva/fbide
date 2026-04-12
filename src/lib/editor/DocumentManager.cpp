@@ -102,7 +102,7 @@ auto DocumentManager::saveAs(Document& doc) const -> bool {
         m_ctx.getUIManager().getMainFrame(),
         lang[LangId::FileSaveTitle],
         "",
-        doc.isUntitled() ? ".bas" : wxFileName(doc.getFilePath()).GetFullName(),
+        doc.isUntitled() ? ".bas"s : wxFileName(doc.getFilePath()).GetFullName(),
         filter,
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
     );
