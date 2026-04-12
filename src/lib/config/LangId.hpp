@@ -288,6 +288,12 @@ enum class LangId : int {
     SaveChanges = 230,
     SaveBeforeExit = 231,
 
+    // Compiler status messages
+    StatusCompiling = 247,
+    StatusCompileComplete = 248,
+    StatusCompileFailed = 249,
+    CompilerLogTitle = 250,
+
     // Unused / missing — free IDs available for reuse
     Missing0 = 0,
     Missing75 = 75, // was: compiler params (unused in original)

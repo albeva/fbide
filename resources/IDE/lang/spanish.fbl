@@ -72,7 +72,7 @@
 42=Tabula texto seleccionado a la derecha
 43=Reducir Indentacion
 44=Desidentar texto seleccionado a la izquierda
-45=A¤adir comentario
+45=Aï¿½adir comentario
 46=Comenta texto seleccionado
 47=Quitar comentario
 48=Elimina el comentario de texto seleccionado
@@ -160,7 +160,7 @@
 111=Plegar margen
 112=Autoindentacion
 116=Ancho de margen derecho
-117=Tama¤o de tabulacion
+117=Tamaï¿½o de tabulacion
 201=Lenguaje
 202=NB! El cambio de lenguaje requiere reiniciar FBIde!
 203=Selecciona tu lenguaje:
@@ -184,7 +184,7 @@
 127=Palabras Clave 2
 128=Palabras Clave 3
 129=Palabras Clave 4
-130=Signo de intercalaci¢n
+130=Signo de intercalaciï¿½n
 131=Numeros de linea
 132=Seleccionar texto
 133=Empatar corchetes
@@ -204,7 +204,7 @@
 145=Fondo
 146=Estilo de Fuente
 147=Fuente\r\n
-148=Tama¤o de Fuente\r\n
+148=Tamaï¿½o de Fuente\r\n
 149=Palabras Claves\r\n
 150=Seleccionar grupo de Palabras Claves
 151=Grupo 1
@@ -274,3 +274,9 @@
 
 245=Constante
 246=Asm
+
+;Compiler status
+247=Compilando...
+248=CompilaciÃ³n completada.
+249=Â¡CompilaciÃ³n fallida!
+250=Salida de Fbc

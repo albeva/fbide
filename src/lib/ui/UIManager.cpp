@@ -283,8 +283,6 @@ void UIManager::createStatusBar() const {
 }
 
 void UIManager::createLayout() {
-    const auto& lang = m_ctx.getLang();
-
     // Document notebook (center)
     m_notebook = make_unowned<wxAuiNotebook>(
         m_frame, wxID_ANY,
@@ -306,33 +304,11 @@ void UIManager::createLayout() {
     );
 
     // Console / output pane (bottom, hidden by default)
-    m_console = make_unowned<wxListCtrl>(
-        m_frame.get(), wxID_ANY, wxDefaultPosition, wxDefaultSize,
-        wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_HRULES | wxLC_VRULES
-    );
-    m_console->SetFont(wxFont(10, wxFONTFAMILY_MODERN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
-
-    wxListItem col;
-    col.SetAlign(wxLIST_FORMAT_LEFT);
-
-    col.SetText(lang[LangId::ConsoleLine]);
-    m_console->InsertColumn(0, col);
-    m_console->SetColumnWidth(0, 60);
-
-    col.SetText(lang[LangId::ConsoleFile]);
-    m_console->InsertColumn(1, col);
-    m_console->SetColumnWidth(1, 150);
-
-    col.SetText(lang[LangId::ConsoleErrorNr]);
-    m_console->InsertColumn(2, col);
-    m_console->SetColumnWidth(2, 100);
-
-    col.SetText(lang[LangId::ConsoleMessage]);
-    m_console->InsertColumn(3, col);
-    m_console->SetColumnWidth(3, 600);
+    m_console = make_unowned<OutputConsole>(m_frame.get(), m_ctx);
+    m_console->create();
 
     m_aui.AddPane(
-        m_console.get(),
+        m_console,
         wxAuiPaneInfo()
             .Name("console")
             .Caption("Output")
@@ -400,13 +376,47 @@ void UIManager::enableEditorMenus(const bool state) const {
     }
 }
 
+void UIManager::enableRunMenus(const bool state) const {
+    auto* menuBar = m_frame->GetMenuBar();
+    constexpr std::array items {
+        MenuId::Compile,
+        MenuId::Run,
+        MenuId::CompileAndRun,
+        MenuId::QuickRun,
+    };
+    for (const auto mid : items) {
+        menuBar->Enable(id(mid), state);
+        m_toolbar->EnableTool(id(mid), state);
+    }
+}
+
 void UIManager::toggleConsole() {
     auto& pane = m_aui.GetPane("console");
     pane.Show(!pane.IsShown());
     m_aui.Update();
-
-    // Update the check menu item
     m_viewMenu->Check(id(MenuId::Result), pane.IsShown());
+}
+
+void UIManager::showConsole() {
+    auto& pane = m_aui.GetPane("console");
+    if (!pane.IsShown()) {
+        pane.Show();
+        m_aui.Update();
+        m_viewMenu->Check(id(MenuId::Result), true);
+    }
+}
+
+void UIManager::hideConsole() {
+    auto& pane = m_aui.GetPane("console");
+    if (pane.IsShown()) {
+        pane.Hide();
+        m_aui.Update();
+        m_viewMenu->Check(id(MenuId::Result), false);
+    }
+}
+
+auto UIManager::isConsoleVisible() -> bool {
+    return m_aui.GetPane("console").IsShown();
 }
 
 void UIManager::updateEditorSettigs() {

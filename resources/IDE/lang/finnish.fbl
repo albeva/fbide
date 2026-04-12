@@ -15,7 +15,7 @@
 244=Compiler path is not set or is corrupt!
 
 ;Generic stuff
-1=Tervetuloa käyttämään ohjelmaa FBIde!
+1=Tervetuloa kï¿½yttï¿½mï¿½ï¿½n ohjelmaa FBIde!
 2=OK
 3=Peruuta
 
@@ -28,19 +28,19 @@
 4=&Tiedosto
 5=&Muokkaa
 6=&Etsi
-7=&Näytä
-8=&Työkalut
+7=&Nï¿½ytï¿½
+8=&Tyï¿½kalut
 9=&Suorita
 10=&Ohje
 
 11=&Uusi ..
-12=&Uusi tyhjä dokumentti
+12=&Uusi tyhjï¿½ dokumentti
 13=&Avaa ..
 14=Avaa uusi dokumentti
 15=&Tallenna
 16=Tallenna nykyinen tiedosto
-17=Tallenna &nimellä
-18=Tallenna nykyinen tiedosto uudella nimellä
+17=Tallenna &nimellï¿½
+18=Tallenna nykyinen tiedosto uudella nimellï¿½
 19=Tallenna kaikki
 20=Tallenna kaikki avoimet tiedostot
 21=Sulje
@@ -61,19 +61,19 @@
 29=&Tee uudelleen
 30=Tee uudelleen viime toiminto
 31=Leikka&a
-32=Leikkaa valinta ja kopioi leikepöydälle
+32=Leikkaa valinta ja kopioi leikepï¿½ydï¿½lle
 33=&Kopioi
-34=Kopioi valinta leikepöydälle
-35=&Liitä
-36=Liitä leikepöydältä
+34=Kopioi valinta leikepï¿½ydï¿½lle
+35=&Liitï¿½
+36=Liitï¿½ leikepï¿½ydï¿½ltï¿½
 37=&Valitse kaikki
 38=Valitse kaikki
 39=Valitse &rivi
 40=Valitse nykyinen rivi
-41=&Lisää sisennystä
-42=Sisennä valinta oikealle
-43=Vähennä sisennystä
-44=Pienennä valinnan sisennystä vasemmalle
+41=&Lisï¿½ï¿½ sisennystï¿½
+42=Sisennï¿½ valinta oikealle
+43=Vï¿½hennï¿½ sisennystï¿½
+44=Pienennï¿½ valinnan sisennystï¿½ vasemmalle
 45=Luo kommentointi alue
 46=Poista kommentit valinnasta
 47=Poista kommentointi alue
@@ -90,28 +90,28 @@
 
 57=Asetukset
 58=Ohjelman asetukset
-59=Näytä konsolissa
-60=Näyttää tiedoston konsolissa
+59=Nï¿½ytï¿½ konsolissa
+60=Nï¿½yttï¿½ï¿½ tiedoston konsolissa
 61=Aliohjelmat...
 62=Avaa aliohjelma, funktio selain
 175=Formaatti
 176=Vaihda koodin formaattia
 
-63=Käännä
-64=Käännä nykyinen tiedosto
-65=Käännä  && suorita
-66=Käännä ja suorita nykyinen tiedosto
+63=Kï¿½ï¿½nnï¿½
+64=Kï¿½ï¿½nnï¿½ nykyinen tiedosto
+65=Kï¿½ï¿½nnï¿½  && suorita
+66=Kï¿½ï¿½nnï¿½ ja suorita nykyinen tiedosto
 67=Suorita
-68=Suorita viimeksi käännetty tiedosto
-69=Pika käynnistys
-70=Suorita tallentamatta (käyttää tmp tiedostoja)
+68=Suorita viimeksi kï¿½ï¿½nnetty tiedosto
+69=Pika kï¿½ynnistys
+70=Suorita tallentamatta (kï¿½yttï¿½ï¿½ tmp tiedostoja)
 71=MS-DOS-kehote
 72=Avaa MS-DOS-kehote
 73=&Parametrit...
 74=Aseta suoritettavat parametrit
-75=&Kääntäjän asetukset
-76=Aseta kääntäjän parametrit
-77=&Jätä auki lopetettaessa
+75=&Kï¿½ï¿½ntï¿½jï¿½n asetukset
+76=Aseta kï¿½ï¿½ntï¿½jï¿½n parametrit
+77=&Jï¿½tï¿½ auki lopetettaessa
 78=Ei sulje konsolia lopetettaessa
 
 79=&Tietoa ohjelmasta...
@@ -130,15 +130,15 @@
 
 88=Leikkaa (Ctrl+X)
 89=Kopioi (Ctrl+C)
-90=Liitä (Ctrl+V)
+90=Liitï¿½ (Ctrl+V)
 
 91=Kumoa (Ctrl+Z)
 92=Tee uudelleen (Ctrl+Shift+Z)
 
-93=Käännä (Ctrl+F9)
+93=Kï¿½ï¿½nnï¿½ (Ctrl+F9)
 94=Suorita (Ctrl+Shift+F9)
-95=Käännä ja suorita (F9)
-96=Pika käynnistys (F5)
+95=Kï¿½ï¿½nnï¿½ ja suorita (F9)
+96=Pika kï¿½ynnistys (F5)
 97=Avaa/Sulje konsoli ikkuna
 
 
@@ -147,29 +147,29 @@
 99=Yleiset
 100=Teemat
 101=Avainsanat
-102=Kääntäjä
+102=Kï¿½ï¿½ntï¿½jï¿½
 
 
 ;General tab
-103=Näytä rivinumerot
+103=Nï¿½ytï¿½ rivinumerot
 104=Editorin asetukset
 105=Korosta kiinni olevat sulkeet
-106=Käytä syntaksi värejä
-107=Näytä oikea reunus
-108=Näytä rivienpäätteet
-109=Näytä välit
-110=Näytä tunnisteet
+106=Kï¿½ytï¿½ syntaksi vï¿½rejï¿½
+107=Nï¿½ytï¿½ oikea reunus
+108=Nï¿½ytï¿½ rivienpï¿½ï¿½tteet
+109=Nï¿½ytï¿½ vï¿½lit
+110=Nï¿½ytï¿½ tunnisteet
 111=Fold margin
 112=Autom. sisennys
 116=Oikea reunus
 117=Sarkain
 201=Kieli
-202=Kieli vaihtuu kun käynnistät FBIde:n uudelleen!
+202=Kieli vaihtuu kun kï¿½ynnistï¿½t FBIde:n uudelleen!
 203=Valitse kieli
 
 ;Compile tab
-113=Kääntäjän asetukset
-114=Kääntäjän hakemisto
+113=Kï¿½ï¿½ntï¿½jï¿½n asetukset
+114=Kï¿½ï¿½ntï¿½jï¿½n hakemisto
 115=Komento
 
 
@@ -181,7 +181,7 @@
 122=Preprocessor
 123=Operaattorit
 124=Identifier
-125=Päiväys (Ei käytössä)
+125=Pï¿½ivï¿½ys (Ei kï¿½ytï¿½ssï¿½)
 126=Avoin "
 127=Avainsanat 2
 128=Avainsanat 3
@@ -200,7 +200,7 @@
 140=Teema
 141=Luo uusi teema
 
-142=Värit
+142=Vï¿½rit
 143=Tyyppi
 144=Etuala
 145=Tausta
@@ -208,11 +208,11 @@
 147=Font\r\n
 148=Fontin koko\r\n
 149=Avainsanat\r\n
-150=Avainsana ryhmä
-151=Ryhmä 1
-152=Ryhmä 2
-153=Ryhmä 3
-154=Ryhmä 4
+150=Avainsana ryhmï¿½
+151=Ryhmï¿½ 1
+152=Ryhmï¿½ 2
+153=Ryhmï¿½ 3
+154=Ryhmï¿½ 4
 
 155=Avaa tiedosto
 156=FreeBASIC (fbc.exe)|fbc.exe|Kaikki ohjelmat (*.exe)|*.exe
@@ -226,16 +226,16 @@
 
 
 ;Conversion stuff
-162=Käännöksen tyyppi:
+162=Kï¿½ï¿½nnï¿½ksen tyyppi:
 163=Suorita!
 164=Esikatselu!
 
 ;Run stuff
 177=Suoritettavat parametrit
-178=Ei mitään käännettävää!
+178=Ei mitï¿½ï¿½n kï¿½ï¿½nnettï¿½vï¿½ï¿½!
 179=Error
-180=Ohjelma pitää ensin kääntää ennen kuin sen voi suorittaa. Käännetäänkö?
-181=Käännetäänkö?
+180=Ohjelma pitï¿½ï¿½ ensin kï¿½ï¿½ntï¿½ï¿½ ennen kuin sen voi suorittaa. Kï¿½ï¿½nnetï¿½ï¿½nkï¿½?
+181=Kï¿½ï¿½nnetï¿½ï¿½nkï¿½?
 182=Virhe suoritettaessa \"
 183=Tiedostoa on muutettu ja se tarvitsee tallentaa!
 184=Tallenna tiedosto?
@@ -252,7 +252,7 @@
 193=FBFiles (*.bas)|*.bas|FBHeader files(*.bi)|*.bi|HTML files (*.html)|*.html|
 194=Kaikki tiedostot(*)|*.*|
 195=Tallenna tiedosto?
-196=Käytä uutta tiedostoa?
+196=Kï¿½ytï¿½ uutta tiedostoa?
 197=Kysymys?
 198=FBIde sessio (*.fbs)|*.fbs|Any file(*)|*.*|
 199=Tallenna sessio
@@ -278,7 +278,7 @@
 ;==================================
 ;Additional: (groups)
 ;searching stuff
-219=Hae tekstiä
+219=Hae tekstiï¿½
 220=Korvaa teksti
 221=Mene riville nro:
 222=Mene riville
@@ -292,10 +292,10 @@
 224=Aliohjelma/funktio selain
 
 ;About
-225=Käännökset;
+225=Kï¿½ï¿½nnï¿½kset;
 
 ;Untitled filename :)
-229=Nimeämätön
+229=Nimeï¿½mï¿½tï¿½n
 
 ;Saving
 230=Tallenna muutokset?
@@ -303,3 +303,9 @@
 
 245=Constant
 246=Asm
+
+;Compiler status
+247=KÃ¤Ã¤nnetÃ¤Ã¤n...
+248=KÃ¤Ã¤ntÃ¤minen valmis.
+249=KÃ¤Ã¤ntÃ¤minen epÃ¤onnistui!
+250=Fbc-tuloste

@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "OutputConsole.hpp"
 
 namespace fbide {
 class Context;
@@ -35,6 +36,21 @@ public:
     /// Toggle the console/output pane visibility.
     void toggleConsole();
 
+    /// Show the console pane if not already visible.
+    void showConsole();
+
+    /// Hide the console pane if visible.
+    void hideConsole();
+
+    /// Is the console pane visible?
+    [[nodiscard]] auto isConsoleVisible() -> bool;
+
+    /// Get the output console.
+    [[nodiscard]] auto getOutputConsole() -> OutputConsole& { return *m_console; }
+
+    /// Enable/disable compile/run toolbar and menu items.
+    void enableRunMenus(bool state) const;
+
 private:
     void onClose(wxCloseEvent& event);
     void onPageClose(wxAuiNotebookEvent& event);
@@ -47,10 +63,10 @@ private:
 
     Context& m_ctx;
     wxAuiManager m_aui;
+    Unowned<OutputConsole> m_console;
     Unowned<wxFrame> m_frame;
     Unowned<wxToolBar> m_toolbar;
     Unowned<wxAuiNotebook> m_notebook;
-    Unowned<wxListCtrl> m_console;
     Unowned<wxMenu> m_fileMenu;
     Unowned<wxMenu> m_editMenu;
     Unowned<wxMenu> m_searchMenu;

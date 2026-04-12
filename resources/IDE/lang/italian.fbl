@@ -216,7 +216,7 @@
 158=Parametri...
 
 159=Tema \"
-160=\" esiste già!\nSovrascriverlo?
+160=\" esiste giï¿½!\nSovrascriverlo?
 161=Messaggio
 
 ;Conversione
@@ -230,8 +230,8 @@
 179=Errore
 180=Occorre compilare il programma prima di eseguirlo! Compilare?
 181=Compilare?
-182=Si è verificato un errore durante l'esecuzione \"
-183=Il file è stato modificato e prima di proseguire è necessario salvarlo!
+182=Si ï¿½ verificato un errore durante l'esecuzione \"
+183=Il file ï¿½ stato modificato e prima di proseguire ï¿½ necessario salvarlo!
 184=Salvare il file?
 185=Codice di output
 
@@ -239,8 +239,8 @@
 186=Carica file
 187=File FB (*.bas)|*.bas|File FBHeader (*.bi)|*.bi|File HTML (*.html)|*.html|Tutti i file (*)|*.*|
 188=Il file \"
-189=\" è stato modificato. Salvare?
-190=Il file '%s' è stato modificato.\nSi desidera salvare le modifiche?
+189=\" ï¿½ stato modificato. Salvare?
+190=Il file '%s' ï¿½ stato modificato.\nSi desidera salvare le modifiche?
 192=File modificato
 193=File FB (*.bas)|*.bas|File FBHeader (*.bi)|*.bi|File HTML (*.html)|*.html|
 194=Tutti i tipi di file (*)|*.*|
@@ -295,3 +295,9 @@
 231=Salvare prima di uscire?
 245=Costante
 246=Asm
+
+;Compiler status
+247=Compilazione in corso...
+248=Compilazione completata.
+249=Compilazione fallita!
+250=Output Fbc

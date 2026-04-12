@@ -44,6 +44,7 @@
 #include <wx/tokenzr.h>
 #include <wx/wfstream.h>
 #include <wx/wupdlock.h>
+#include <wx/process.h>
 
 // fbide
 #include "lib/utils/Macros.hpp"

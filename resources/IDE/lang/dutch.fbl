@@ -300,3 +300,9 @@
 231=Opslaan voor afsluiten?
 245=Constant
 246=Asm
+
+;Compiler status
+247=Compileren...
+248=Compilatie voltooid.
+249=Compilatie mislukt!
+250=Fbc-uitvoer

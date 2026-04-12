@@ -116,6 +116,12 @@
 81=Close all
 82=Close all opened files
 
+;Compiler status
+247=Compiling...
+248=Compilation Complete.
+249=Compilation Failed!
+250=Fbc output
+
 ;Toolbar
 83=New file (Ctrl+N)
 84=Open file (Ctrl+O)

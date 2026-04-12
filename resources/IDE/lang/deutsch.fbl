@@ -1,7 +1,7 @@
 [FBIde] 
 
 234=Aktive Pfade 
-235=Setze Pfade aktiv beim Ausführen/Übersetzen 
+235=Setze Pfade aktiv beim Ausfï¿½hren/ï¿½bersetzen 
 236=Zeige Log 
 237=Zeige Compilier-Log 
 238=Run-Befehl 
@@ -32,46 +32,46 @@
 10=&Hilfe 
 
 11=&Neu.. 
-12=Neue leere Datei öffnen 
-13=&Öffnen.. 
-14=Eine neue Datei öffnen 
+12=Neue leere Datei ï¿½ffnen 
+13=&ï¿½ffnen.. 
+14=Eine neue Datei ï¿½ffnen 
 15=&Speichern 
 16=Aktuelle Datei speichern 
 17=Speichern &als.. 
 18=Aktuelle Datei unter neuem Namen speichern 
 19=Alle speichern 
-20=Alle geöffneten Dateien speichern 
-21=Schließen 
-22=Aktuelle Datei schließen 
+20=Alle geï¿½ffneten Dateien speichern 
+21=Schlieï¿½en 
+22=Aktuelle Datei schlieï¿½en 
 23=Neues &Fenster 
-24=Neues Editor-Fenster öffnen 
+24=Neues Editor-Fenster ï¿½ffnen 
 25=&Beenden 
 26=Die FreeBasic-IDE beenden 
 169=Sitzung laden 
-170=Lädt die zuvor gespeicherte Sitzung 
+170=Lï¿½dt die zuvor gespeicherte Sitzung 
 171=Sitzung speichern 
 172=Speichert die aktuelle Sitzung 
-173=Alle schließen 
-174=Alle geöffneten Dateien schließen 
+173=Alle schlieï¿½en 
+174=Alle geï¿½ffneten Dateien schlieï¿½en 
 
-27=&Rückgängig 
-28=Die letzte Aktion rückgängig machen 
+27=&Rï¿½ckgï¿½ngig 
+28=Die letzte Aktion rï¿½ckgï¿½ngig machen 
 29=&Wiederherstellen 
 30=Die letzte Aktion wiederherstellen 
 31=&Ausschneiden 
 32=Schneidet den markierten Text aus und kopiert ihn in die Zwischenablage 
 33=&Kopieren 
-34=Kopiert den ausgewählten Text in die Zwischenablage 
-35=&Einfügen 
-36=Fügt den Inhalt der Zwischenablage an der aktuellen Cursor-Position ein 
+34=Kopiert den ausgewï¿½hlten Text in die Zwischenablage 
+35=&Einfï¿½gen 
+36=Fï¿½gt den Inhalt der Zwischenablage an der aktuellen Cursor-Position ein 
 37=Alles &markieren 
 38=Markiert das ganze Dokument 
 39=&Zeile markieren 
 40=Markiert alles, was sich in der aktuellen Zeile befindet 
-41=Einschub &hinzufügen 
-42=Fügt an die aktuelle Position einen Tabulator ein 
+41=Einschub &hinzufï¿½gen 
+42=Fï¿½gt an die aktuelle Position einen Tabulator ein 
 43=Einschub &entfernen 
-44=Löscht den Tabulator an der aktuellen Position. 
+44=Lï¿½scht den Tabulator an der aktuellen Position. 
 45=Kommentar-Block 
 46=Kommentiert die markierte(n) Zeile(n) mit dem \'-Zeichen aus 
 47=Kommentar entfernen 
@@ -87,83 +87,83 @@
 56=Navigiert eine Zeile im Programm an 
 
 57=Einstellungen 
-58=Ändert die Einstellungen für den Editor 
+58=ï¿½ndert die Einstellungen fï¿½r den Editor 
 59=Zeige Ausgabefenster 
 60=Zeigt die Tabelle mit den Konsolen-Ausgaben an 
 61=Subs.. 
-62=Öffnet den SUB- und FUNCTION-Browser 
+62=ï¿½ffnet den SUB- und FUNCTION-Browser 
 175=Format 
-176=Ändert die Formatierung des Quellcodes 
+176=ï¿½ndert die Formatierung des Quellcodes 
 
 63=Compilieren 
 64=Compiliert die aktuelle Datei 
-65=Compilieren && Ausführen 
-66=Compiliert die aktuelle Datei und führt sie anschließend aus 
-67=Ausführen 
-68=Führt die compilierte Datei aus. 
+65=Compilieren && Ausfï¿½hren 
+66=Compiliert die aktuelle Datei und fï¿½hrt sie anschlieï¿½end aus 
+67=Ausfï¿½hren 
+68=Fï¿½hrt die compilierte Datei aus. 
 69=Quick Run 
-70=Führt das Programm aus, ohne es vorher für das Compilieren zu speichern, indem eine TEMP-Datei benutzt wird 
+70=Fï¿½hrt das Programm aus, ohne es vorher fï¿½r das Compilieren zu speichern, indem eine TEMP-Datei benutzt wird 
 71=Eingabeaufforderung 
-72=Öffnet den DOS-Prompt 
+72=ï¿½ffnet den DOS-Prompt 
 73=&Parameter simulieren... 
-74=Hier kann (für Testzwecke) die Parameterzeile, die der EXE übergeben wird, festgelegt werden (COMMAND$) 
+74=Hier kann (fï¿½r Testzwecke) die Parameterzeile, die der EXE ï¿½bergeben wird, festgelegt werden (COMMAND$) 
 75=&Compiler-Parameter.. 
-76=Festlegen der Parameter für den Compiler 
+76=Festlegen der Parameter fï¿½r den Compiler 
 77=&Exit-Code anzeigen 
 78=Zeigt den Exit-Code des Programms an 
 
-79=Ü&ber.. 
+79=ï¿½&ber.. 
 80=Zeigt den About-Dialog an 
 
-81=Alle Schließen 
-82=Schließt alle geöffneten Dateien 
+81=Alle Schlieï¿½en 
+82=Schlieï¿½t alle geï¿½ffneten Dateien 
 
 
 ;Toolbar 
 83=Neue Datei (Strg+N) 
-84=Datei öffnen (Strg+O) 
+84=Datei ï¿½ffnen (Strg+O) 
 85=Datei speichern (Strg+S) 
 86=Alle Dateien speichern 
-87=Aktuelle Datei schließen 
+87=Aktuelle Datei schlieï¿½en 
 
 88=Ausschneiden (Strg+X) 
 89=Kopieren (Strg+C) 
-90=Einfügen (Strg+V) 
+90=Einfï¿½gen (Strg+V) 
 
-91=Rückgängig (Strg+Z) 
+91=Rï¿½ckgï¿½ngig (Strg+Z) 
 92=Wiederholen (Strg+Shift+Z) 
 
 93=Compilieren (Strg+F9) 
-94=Ausführen (Strg+Shift+F9) 
-95=Compilieren und Ausführen (F9) 
+94=Ausfï¿½hren (Strg+Shift+F9) 
+95=Compilieren und Ausfï¿½hren (F9) 
 96=Quick-Run (F5) 
-97=Ausgabefenster öffnen/schließen 
+97=Ausgabefenster ï¿½ffnen/schlieï¿½en 
 
 
 ;FBIde Settings dialog box 
 98=FB-Ide Einstellungen 
 99=Allgemein 
 100=Themes 
-101=Schlüsselwörter 
+101=Schlï¿½sselwï¿½rter 
 102=Compiler 
 
 
 ;General tab 
 103=Zeige Zeilennummern 
 104=Editor-Einstellungen 
-105=zusammengehörige Klammern hervorheben 
+105=zusammengehï¿½rige Klammern hervorheben 
 106=Syntax-Highlighting verwenden 
 107=Rechten Seitenrand zeigen 
 108=Zeilenenden anzeigen 
 109=Whitespaces anzeigen 
-110=Zeige Einrückhilfen 
+110=Zeige Einrï¿½ckhilfen 
 111=Seitenrand falten 
-112=Auto-Einrücken 
+112=Auto-Einrï¿½cken 
 116=rechte Seitenrandsbreite 
-117=Tab-Größe 
+117=Tab-Grï¿½ï¿½e 
 201=Sprache 
-202=Das Ändern der Sprache erfordert einen Neustart der IDE 
-203=Sprache wählen: 
+202=Das ï¿½ndern der Sprache erfordert einen Neustart der IDE 
+203=Sprache wï¿½hlen: 
 
 ;Compile tab 
 113=Compiler-Einstellungen 
@@ -174,21 +174,21 @@
 ;Themes tab 
 118=Kommentare 
 119=Nummern 
-120=Schlüsselwörter 1 
+120=Schlï¿½sselwï¿½rter 1 
 121=String geschlossen 
 122=Preprozessor 
 123=Operator 
 124=Bezeichner 
 125=Datum (funzt noch nich) 
 126=String Open 
-127=Schlüsselwörter 2 
-128=Schlüsselwörter 3 
-129=Schlüsselwörter 4 
+127=Schlï¿½sselwï¿½rter 2 
+128=Schlï¿½sselwï¿½rter 3 
+129=Schlï¿½sselwï¿½rter 4 
 130=Zeiger 
 131=Zeilennummern 
 132=Text-Auswahl 
-133=übereinstimmende Klammern 
-134=nicht übereinstimmende Klammern 
+133=ï¿½bereinstimmende Klammern 
+134=nicht ï¿½bereinstimmende Klammern 
 135=Editor 
 
 136=Fett 
@@ -204,22 +204,22 @@
 145=Hintergrund 
 146=Schriftart 
 147=Schrift 
-148=Schriftgröße 
-149=Schlüsselwörter 
-150=Schlüsselwort-Gruppe wählen 
+148=Schriftgrï¿½ï¿½e 
+149=Schlï¿½sselwï¿½rter 
+150=Schlï¿½sselwort-Gruppe wï¿½hlen 
 151=Gruppe 1 
 152=Gruppe 2 
 153=Gruppe 3 
 154=Gruppe 4 
 
-155=Datei öffnen 
+155=Datei ï¿½ffnen 
 156=FreeBasic(fbc.exe)|fbc.exe|Alle Programme (*.exe)|*.exe 
 
 157=Theme-Namen eingeben: 
 158=Parameter.. 
 
 159=Theme \" 
-160=\" existiert bereits!\nSoll es überschrieben werden? 
+160=\" existiert bereits!\nSoll es ï¿½berschrieben werden? 
 161=Meldung 
 
 
@@ -229,13 +229,13 @@
 164=Vorschau! 
 
 ;Run stuff 
-177=COMMAND$ für dein Programm 
+177=COMMAND$ fï¿½r dein Programm 
 178=Nichts zu compilieren! 
 179=Fehler 
-180=Bevor das Programm ausgeführt werden kann, muß es compiliert werden! Jetzt compilieren? 
+180=Bevor das Programm ausgefï¿½hrt werden kann, muï¿½ es compiliert werden! Jetzt compilieren? 
 181=Compilieren? 
-182=Es trat ein Fehler auf, während versucht wurde \" 
-183=Das Dokument wurde geändert und muß gespeichert werden, um fortfahren zu können. 
+182=Es trat ein Fehler auf, wï¿½hrend versucht wurde \" 
+183=Das Dokument wurde geï¿½ndert und muï¿½ gespeichert werden, um fortfahren zu kï¿½nnen. 
 184=Datei speichern? 
 
 185=Exit-Code 
@@ -244,9 +244,9 @@
 186=Datei laden 
 187=FreeBasic(*.bas)|*.bas|FreeBasic-Header-Dateien(*.bi)|*.bi|HTML-Dateien(*.htm?)|*.htm?|Alle Dateien(*)|*.*| 
 188=Die Datei \" 
-189=\" wurde verändert. Speichern? 
-190=Die Datei '%s' wurde geändert.\nSollen die Änderungen gespeichert werden? 
-192=Datei geändert 
+189=\" wurde verï¿½ndert. Speichern? 
+190=Die Datei '%s' wurde geï¿½ndert.\nSollen die ï¿½nderungen gespeichert werden? 
+192=Datei geï¿½ndert 
 193=FreeBasic(*.bas)|*.bas|FB-Header-Dateien(*.bi)|*.bi|HTML-Dateien(*.html)|*.html| 
 194=Alle Dateien(*)|*.*| 
 195=Datei speichern 
@@ -257,17 +257,17 @@
 200=HTML-Dateien (*.html)|*.html| 
 
 ;About dialog stuff 
-204=eine Open-Source-IDE für den FreeBasic-Compiler 
+204=eine Open-Source-IDE fï¿½r den FreeBasic-Compiler 
 205=(www.freebasic.net und www.freebasic.de) 
 206=unter Benutzung von c++ mit wxWidgets und scintilla text control 
 207=Credits: 
 208=Programmierer 
-209=Hauptprogrammierer, Projektleiter und -Gründer 
+209=Hauptprogrammierer, Projektleiter und -Grï¿½nder 
 210=Projekt-Supervisor, Netzwerk-Code (Client und Serverseite) 
 211=Autocompletion-code 
 212=Code-Exportier und -Formatierroutinen 
 213=Internationalisierungs (i18n) Module 
-214=Außerdem 
+214=Auï¿½erdem 
 215=Webmaster und Dokumentation 
 216=FBIde-Logo 
 217=Tester 
@@ -297,10 +297,16 @@
 229=Unbenannt 
 
 ;Saving 
-230=Änderungen speichern? 
+230=ï¿½nderungen speichern? 
 231=Vor dem Beenden speichern? 
 232=FBIde-Logo anzeigen 
 
 
 245=Konstante
 246=Asm
+
+;Compiler status
+247=Kompiliere...
+248=Kompilierung abgeschlossen.
+249=Kompilierung fehlgeschlagen!
+250=Fbc-Ausgabe

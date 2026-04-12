@@ -4,14 +4,14 @@
 236=Afficher log
 237=Afficher log de la compilation
 238=Ligne de commande de lancement du programme
-239=Réglages du compilateur et du chemin
+239=Rï¿½glages du compilateur et du chemin
 240=Ligne de commande de lancement du programme
 241=Fichier d'aide ( .chm )
 242=FreeBASIC 
 243=Fichiers d'aide Windows (*.chm)
-244=Le chemin du compilateur n'est pas défini ou est erroné
+244=Le chemin du compilateur n'est pas dï¿½fini ou est erronï¿½
 
-;Générique
+;Gï¿½nï¿½rique
 1=Bienvenue a FBIde!
 2=&OK
 3=Annuler
@@ -26,7 +26,7 @@
 6=&Rechercher
 7=&Voir
 8=Ou&tils
-9=&Exécuter
+9=&Exï¿½cuter
 10=&Aide
 
 11=&Nouveau ..
@@ -41,77 +41,77 @@
 20=Enregistrer tous les fichiers ouverts
 21=Fermer
 22=fermer fichier courant
-23=Nouvelle &Fenêtre 
-24=Ouvrir nouvelle fenêtre d'édition
+23=Nouvelle &Fenï¿½tre 
+24=Ouvrir nouvelle fenï¿½tre d'ï¿½dition
 25=&Quitter
 26=Quitter FBIde
 169=Charger session
-170=Charge la dernière session enregistrée
+170=Charge la derniï¿½re session enregistrï¿½e
 171=Enregistrer session
 172=Enregistre la session courante
 173=Tout fermer
 174=Fermer tous les fichiers ouverts
 
 27=&Annuler
-28=Annulerla dernière action
-29=&Rétablir
-30=Rétablir dernière action
+28=Annulerla derniï¿½re action
+29=&Rï¿½tablir
+30=Rï¿½tablir derniï¿½re action
 31=Co&uper
-32=Couper texte sélectionné vers le presse papier
+32=Couper texte sï¿½lectionnï¿½ vers le presse papier
 33=&Copier
-34=Copier text sélectionné vers le presse papier
+34=Copier text sï¿½lectionnï¿½ vers le presse papier
 35=&Coller
 36=Coller depuis le presse papier
-37=&Sélectionner tous
-38=Sélectionner tous le document
-39=Sélectionner la &ligne
-40=Sélectionner la ligne courante.
+37=&Sï¿½lectionner tous
+38=Sï¿½lectionner tous le document
+39=Sï¿½lectionner la &ligne
+40=Sï¿½lectionner la ligne courante.
 41=&Indenter
-42=Indenter texte sélectionné vers la droite
-43=Réduire l'indentation
-44=Désindenter le texte vers la gauche
+42=Indenter texte sï¿½lectionnï¿½ vers la droite
+43=Rï¿½duire l'indentation
+44=Dï¿½sindenter le texte vers la gauche
 45=Mettre le bloc en commentaire  
-46=Mettre texte sélectionné en commentaire
-47=Décommenter le bloc
-48=Décommenter texte sélectionné
+46=Mettre texte sï¿½lectionnï¿½ en commentaire
+47=Dï¿½commenter le bloc
+48=Dï¿½commenter texte sï¿½lectionnï¿½
 
 49=Chercher 
 50=Chercher dans le document
 51=Chercher le suivant 
-52=Répéter la dernière recherche
+52=Rï¿½pï¿½ter la derniï¿½re recherche
 53=Remplacer 
 54=Remplacer le texte dans le document
-55=Aller à la Ligne...
-56=Aller à la ligne dans le document
+55=Aller ï¿½ la Ligne...
+56=Aller ï¿½ la ligne dans le document
 
-57=Paramètres
-58=Régler les paramètres de l'éditeur
-59=Voir fenêtre de résultats
+57=Paramï¿½tres
+58=Rï¿½gler les paramï¿½tres de l'ï¿½diteur
+59=Voir fenï¿½tre de rï¿½sultats
 60=Montre le tableau de sortie de console
-61=Procédures... 
-62=Ouvrir fenêtre du navigateur de procédures/fontions
+61=Procï¿½dures... 
+62=Ouvrir fenï¿½tre du navigateur de procï¿½dures/fontions
 175=Format
 176=Changer le formatage du code source
 
 63=Compiler
 64=Compiler fichier courant
-65=Compiler et Exécuter
-66=Compiler et exécuter le fichier courant
-67=Exécuter
-68=Exécuter dernier fichier compilé
-69=Exécution Accélérée
-70=Exécuter le programme sans enregistrer (fichier temporaire)
+65=Compiler et Exï¿½cuter
+66=Compiler et exï¿½cuter le fichier courant
+67=Exï¿½cuter
+68=Exï¿½cuter dernier fichier compilï¿½
+69=Exï¿½cution Accï¿½lï¿½rï¿½e
+70=Exï¿½cuter le programme sans enregistrer (fichier temporaire)
 71=Ligne de commande
-72=Ouvrir fenêtre de ligne de commande
-73=&Paramètres Ligne de commande...
-74=Régler les paramètres d'exécution du programme
-75=&Paramètres du compilateur...
-76=Régler la liste des paramètres de prototypage du programme
+72=Ouvrir fenï¿½tre de ligne de commande
+73=&Paramï¿½tres Ligne de commande...
+74=Rï¿½gler les paramï¿½tres d'exï¿½cution du programme
+75=&Paramï¿½tres du compilateur...
+76=Rï¿½gler la liste des paramï¿½tres de prototypage du programme
 77=&Montrer code de sortie de programme
-78=Montrer la valeur de retour au système.
+78=Montrer la valeur de retour au systï¿½me.
 
 79=&A propos de...
-80=Montrer la fenêtre d'information sur FBIDE
+80=Montrer la fenï¿½tre d'information sur FBIDE
 
 81=Fermer tous
 82=Fermer tous les fichiers actuellement ouverts
@@ -128,26 +128,26 @@
 90=Coller (Ctrl+V)
 
 91=Annuler (Ctrl+Z)
-92=Rétablir (Ctrl+Shift+Z)
+92=Rï¿½tablir (Ctrl+Shift+Z)
 
 93=Compiler (Ctrl+F9)
-94=Exécuter (Ctrl+Shift+F9)
-95=Compiler et Exécuter(F9)
-96=Exécution rapide (F5)
-97=Ouvrir/Fermer fenêtre de sortie
+94=Exï¿½cuter (Ctrl+Shift+F9)
+95=Compiler et Exï¿½cuter(F9)
+96=Exï¿½cution rapide (F5)
+97=Ouvrir/Fermer fenï¿½tre de sortie
 
-;Boite de dialogue des réglages de FBIde
-98=Paramètres de FBIde
-99=Général
-100=Thèmes
-101=Mots clés
+;Boite de dialogue des rï¿½glages de FBIde
+98=Paramï¿½tres de FBIde
+99=Gï¿½nï¿½ral
+100=Thï¿½mes
+101=Mots clï¿½s
 102=Compilateur
 
-;Onglet Général
-103=Voir numéros de lignes
-104=Paramètres de l'éditeur
-105=Surligner niveau de parenthèse correspondant
-106=Surligner les mots clés
+;Onglet Gï¿½nï¿½ral
+103=Voir numï¿½ros de lignes
+104=Paramï¿½tres de l'ï¿½diteur
+105=Surligner niveau de parenthï¿½se correspondant
+106=Surligner les mots clï¿½s
 107=Montrer marge de droite
 108=Montrer fins de lignes
 109=Montrer les espaces
@@ -157,51 +157,51 @@
 116=Largeur de la marge de droite
 117=Taille des tabulations
 201=Language
-202=NB: Changer de langue nécessite de relancer FBIDE
+202=NB: Changer de langue nï¿½cessite de relancer FBIDE
 203=Choix de la langue:
-232=Afficher écran de démarrage
+232=Afficher ï¿½cran de dï¿½marrage
 
 ;Onglet Compilation
-113=Paramètres du compilateur
+113=Paramï¿½tres du compilateur
 114=Chemin du compilateur
 115=Ligne de commande du compilateur
 
-;Onglet Thèmes
+;Onglet Thï¿½mes
 118=Commentaires
 119=Chiffres
-120=Mots clés 1
-121=Chaîne de caractères ouverte
-122=Préprocesseur
-123=Opérateur
+120=Mots clï¿½s 1
+121=Chaï¿½ne de caractï¿½res ouverte
+122=Prï¿½processeur
+123=Opï¿½rateur
 124=Identificateur
 125=Date (ne fonctionne pas)
-126=Chaîne de caractères fermée
-127=Mots clés 2
-128=Mots clés 3
-129=Mots clés 4
+126=Chaï¿½ne de caractï¿½res fermï¿½e
+127=Mots clï¿½s 2
+128=Mots clï¿½s 3
+129=Mots clï¿½s 4
 130=Curseur
-131=Numéros de ligne
-132=Texte sélectionné
-133=Parenthèses connectées
-134=Parenthèses déconnectées
+131=Numï¿½ros de ligne
+132=Texte sï¿½lectionnï¿½
+133=Parenthï¿½ses connectï¿½es
+134=Parenthï¿½ses dï¿½connectï¿½es
 135=Editeur
 
 136=Gras
 137=Italique
-138=Souligné
-139=Enregistrer le thème
-140=Thème
-141=Créer nouveau theme
+138=Soulignï¿½
+139=Enregistrer le thï¿½me
+140=Thï¿½me
+141=Crï¿½er nouveau theme
 
 142=Couleurs
 143=Type
-144=Couleur de caractères
+144=Couleur de caractï¿½res
 145=Couleur de fond
 146=Style de police
 147=Police\r\n
 148=Grosseur de police\r\n
-149=Mots clés\r\n
-150=Sélection un groupe de mots clés
+149=Mots clï¿½s\r\n
+150=Sï¿½lection un groupe de mots clï¿½s
 151=Groupe 1
 152=Groupe 2
 153=Groupe 3
@@ -210,26 +210,26 @@
 155=Ouvrir fichier
 156=FreeBASIC (fbc.exe)|fbc.exe|tous programmes (*.exe)|*.exe
 
-157=Entrer le nom du thème:
-158=Paramètres...
+157=Entrer le nom du thï¿½me:
+158=Paramï¿½tres...
 
-159=Thème \"
-160=\" déjà existant!\n Remplacer?
+159=Thï¿½me \"
+160=\" dï¿½jï¿½ existant!\n Remplacer?
 161=Message
 
 
 ;Conversion
 162=Type de conversion:
-163=Démarrer!
-164=Aperçu!
+163=Dï¿½marrer!
+164=Aperï¿½u!
 
-;Exécution
-177=Paramètres de ligne de commande de votre programme
+;Exï¿½cution
+177=Paramï¿½tres de ligne de commande de votre programme
 178=Rien a compiler!
 179=Erreur
-180=Vous devez d'abord compiler le programme avant de l'exécuter! Compiler?
+180=Vous devez d'abord compiler le programme avant de l'exï¿½cuter! Compiler?
 181=Compiler?
-182=Une erreur est survenue durant l'exécution \"
+182=Une erreur est survenue durant l'exï¿½cution \"
 183=Vous devez enregistrer le fichier avant de continuer!
 184=Enregistrer le fichier?
 
@@ -237,13 +237,13 @@
 
 ;Fichiers
 186=Charger le fichier
-187=Fichiers FB (*.bas)|*.bas|Fichier Entête FB (*.bi)|*.bi|Fichier HTML
+187=Fichiers FB (*.bas)|*.bas|Fichier Entï¿½te FB (*.bi)|*.bi|Fichier HTML
 (*.html)|*.html|Tous les fichiers(*)|*.*|
 188=Fichier \"
-189=\" a été modifier, sauver?
-190=Le fichier '%s' a été modifié.\nVoulez-vous sauver les changements?
-192=Fichier Modifié
-193=Fichiers FB (*.bas)|*.bas|Fichier Entête FB (*.bi)|*.bi|Fichier HTML
+189=\" a ï¿½tï¿½ modifier, sauver?
+190=Le fichier '%s' a ï¿½tï¿½ modifiï¿½.\nVoulez-vous sauver les changements?
+192=Fichier Modifiï¿½
+193=Fichiers FB (*.bas)|*.bas|Fichier Entï¿½te FB (*.bi)|*.bi|Fichier HTML
 (*.html)|*.html|
 194=Tous les fichiers(*)|*.*|
 195=Sauver Fichier
@@ -254,31 +254,31 @@
 200=Fichiers HTML (*.html)|*.html|
 
 ;Boite de dialogue
-204=Un Environnement de développement "Logiciel Libre" pour le compilateur
+204=Un Environnement de dï¿½veloppement "Logiciel Libre" pour le compilateur
 FreeBasic
 205=(www.freebasic.net)
-206=Programmé en C++ et utilisant wxWidgets et le contrôle d'édition de texte
+206=Programmï¿½ en C++ et utilisant wxWidgets et le contrï¿½le d'ï¿½dition de texte
 Scintilla.
-207=crédits:
+207=crï¿½dits:
 208=programmeurs
-209=Programmeur en chef, administrateur de programme et créateur du projet
-210=Superviseur de projet, code source pour réseau (client et serveur)
-211=auto-complétion automatique du code source 
+209=Programmeur en chef, administrateur de programme et crï¿½ateur du projet
+210=Superviseur de projet, code source pour rï¿½seau (client et serveur)
+211=auto-complï¿½tion automatique du code source 
 212=Routines d'exportation et de formatage du code
 213=Modules d'internationalisation (i18n)
 214=Divers
 215=Administrateur de site web et documentation
-216=Logo de l'écran de démarrage
+216=Logo de l'ï¿½cran de dï¿½marrage
 217=testeurs
-218=...et tous ceux qu'on a oubliés!
+218=...et tous ceux qu'on a oubliï¿½s!
 
 ;==================================
 ;Additionel: (groupes)
 ;Recherche
 219=Trouver le texte
 220=Remplacer le texte
-221=Aller à la ligne numéro:
-222=Aller à la ligne
+221=Aller ï¿½ la ligne numï¿½ro:
+222=Aller ï¿½ la ligne
 226=Chercher:
 ;Type, comme dans "de quel type est cette chose", pour expliquer ceci
 227=Type
@@ -286,7 +286,7 @@ Scintilla.
 
 ;Voir
 223=Convertir le format
-224=Navigateur de Procédures/Fonctions
+224=Navigateur de Procï¿½dures/Fonctions
 
 ;Information - DoMi(french2)
 225=Fichiers de langue par:
@@ -300,3 +300,9 @@ Scintilla.
 
 245=Constante
 246=Asm
+
+;Compiler status
+247=Compilation en cours...
+248=Compilation terminÃ©e.
+249=Ã‰chec de la compilation !
+250=Sortie Fbc

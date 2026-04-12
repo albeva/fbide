@@ -297,3 +297,9 @@
 
 245=Constant
 246=Asm
+
+;Compiler status
+247=Mengompilasi...
+248=Kompilasi selesai.
+249=Kompilasi gagal!
+250=Keluaran Fbc

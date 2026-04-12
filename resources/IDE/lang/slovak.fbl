@@ -15,290 +15,296 @@
 ;Generic stuff
 1=Vytajte vo FBIde!
 2=OK
-3=Zruši
+3=Zruï¿½iï¿½
 
 165=Riadok
-166=Súbor
-167=Chyba è.
-168=Hlásenia
+166=Sï¿½bor
+167=Chyba ï¿½.
+168=Hlï¿½senia
 
 ;Menus
-4=&Súbor
-5=&Úpravy
-6=&H¾ada
-7=&Vzh¾ad
-8=&Nástroje
-9=&Spusti
+4=&Sï¿½bor
+5=&ï¿½pravy
+6=&Hï¿½adaï¿½
+7=&Vzhï¿½ad
+8=&Nï¿½stroje
+9=&Spustiï¿½
 10=&Pomoc
 
-11=&Novı ..
-12=Vytvorí novı prázdny súbor
-13=&Otvori ..
-14=Otvorí existujúci súbor
-15=&Uloi
-16=Uloí aktuálny súbor
-17=Uloi &ako ..
-18=Uloí aktuálny súbor pod novım menom
-19=Uloi všetko
-20=Uloí všetky otvorené súbory
-21=Zavrie
-22=Zavrie aktuálny súbor
-23=Nové &okno
-24=Otvorí nové okno editora
-25=&Ukonèi
-26=Ukonèí FBIde
-169=Otvori Sedenie
-170=Otvorí uloené Sedenie
-171=Uloi Sedenie
-172=Uloí aktuálne sedenie
-173=Zavrie všetko
-174=Zavrie všetky aktuálne súbory
+11=&Novï¿½ ..
+12=Vytvorï¿½ novï¿½ prï¿½zdny sï¿½bor
+13=&Otvoriï¿½ ..
+14=Otvorï¿½ existujï¿½ci sï¿½bor
+15=&Uloï¿½iï¿½
+16=Uloï¿½ï¿½ aktuï¿½lny sï¿½bor
+17=Uloï¿½iï¿½ &ako ..
+18=Uloï¿½ï¿½ aktuï¿½lny sï¿½bor pod novï¿½m menom
+19=Uloï¿½iï¿½ vï¿½etko
+20=Uloï¿½ï¿½ vï¿½etky otvorenï¿½ sï¿½bory
+21=Zavrieï¿½
+22=Zavrie aktuï¿½lny sï¿½bor
+23=Novï¿½ &okno
+24=Otvorï¿½ novï¿½ okno editora
+25=&Ukonï¿½iï¿½
+26=Ukonï¿½ï¿½ FBIde
+169=Otvoriï¿½ Sedenie
+170=Otvorï¿½ uloï¿½enï¿½ Sedenie
+171=Uloï¿½iï¿½ Sedenie
+172=Uloï¿½ï¿½ aktuï¿½lne sedenie
+173=Zavrieï¿½ vï¿½etko
+174=Zavrie vï¿½etky aktuï¿½lne sï¿½bory
 
-27=&Spä
-28=Vráti spä poslednú vykonanú akciu
+27=&Spï¿½
+28=Vrï¿½ti spï¿½ poslednï¿½ vykonanï¿½ akciu
 29=&Redo
-30=Obnoví poslednú vykonanú akciu
-31=&Vystrihnú
-32=Vystrihne vybranı text a uloí ho do schránky
-33=&Kopírova
-34=Kopíruje vybranı text do schránky
-35=&Prilepi
-36=Prilepí text zo schránky
-37=&Oznaèi všetko
-38=Oznaèí celı dokument
-39=Oznaèi &riadok
-40=Oznaèí aktuálny riadok
-41=&Odsadi doprava
-42=Odsadí vybranı text doprava
-43=Odsadi do¾ava
-44=Odsadí vybranı text do¾ava
-45=Zakomentova
-46=Zakomentuje vybranı text
-47=Odkomentova
-48=Odkomentuje vybranı text
+30=Obnovï¿½ poslednï¿½ vykonanï¿½ akciu
+31=&Vystrihnï¿½ï¿½
+32=Vystrihne vybranï¿½ text a uloï¿½ï¿½ ho do schrï¿½nky
+33=&Kopï¿½rovaï¿½
+34=Kopï¿½ruje vybranï¿½ text do schrï¿½nky
+35=&Prilepiï¿½
+36=Prilepï¿½ text zo schrï¿½nky
+37=&Oznaï¿½iï¿½ vï¿½etko
+38=Oznaï¿½ï¿½ celï¿½ dokument
+39=Oznaï¿½iï¿½ &riadok
+40=Oznaï¿½ï¿½ aktuï¿½lny riadok
+41=&Odsadiï¿½ doprava
+42=Odsadï¿½ vybranï¿½ text doprava
+43=Odsadiï¿½ doï¿½ava
+44=Odsadï¿½ vybranï¿½ text doï¿½ava
+45=Zakomentovaï¿½
+46=Zakomentuje vybranï¿½ text
+47=Odkomentovaï¿½
+48=Odkomentuje vybranï¿½ text
 
-49=Vyh¾ada
-50=Vyh¾ada v súbore
-51=Vyh¾ada ïa¾ší
-52=Opä vyh¾adá posledne h¾adanı vıraz
-53=Nahradi
-54=Nahradí text v súbore
-55=Skoè na riadok...
-56=Presunie kurzor na zadanı riadok
+49=Vyhï¿½adaï¿½
+50=Vyhï¿½adaï¿½ v sï¿½bore
+51=Vyhï¿½adaï¿½ ï¿½aï¿½ï¿½ï¿½
+52=Opï¿½ vyhï¿½adï¿½ posledne hï¿½adanï¿½ vï¿½raz
+53=Nahradiï¿½
+54=Nahradï¿½ text v sï¿½bore
+55=Skoï¿½ na riadok...
+56=Presunie kurzor na zadanï¿½ riadok
 
 57=Nastavenia
-58=Umoní zmeni nastavenia editora
-59=Zobrazi vıpis
-60=Zobrazí poslednı vıpis na konzolu
-61=Procedúry (Subs)...
-62=Otvorí sub && function browser
-175=Zfromátuj
-176=Zmení formátovanie kódu
+58=Umoï¿½nï¿½ zmeniï¿½ nastavenia editora
+59=Zobraziï¿½ vï¿½pis
+60=Zobrazï¿½ poslednï¿½ vï¿½pis na konzolu
+61=Procedï¿½ry (Subs)...
+62=Otvorï¿½ sub && function browser
+175=Zfromï¿½tuj
+176=Zmenï¿½ formï¿½tovanie kï¿½du
 
 63=Skompiluj
-64=Skompiluje aktuálny súbor
+64=Skompiluje aktuï¿½lny sï¿½bor
 65=Skompiluj && spusti
-66=Skompiluje a spustí aktuálny súbor
+66=Skompiluje a spustï¿½ aktuï¿½lny sï¿½bor
 67=Spusti
-68=Spustí poslednı krát spustenı súbor
-69=Spusti zrıchlene
-70=Spustí program bez uloenia zdrojovıch súborov (pouije doèasné)
-71=Príkazovı riadok
-72=Spustí príkazovı riadok
+68=Spustï¿½ poslednï¿½ krï¿½t spustenï¿½ sï¿½bor
+69=Spusti zrï¿½chlene
+70=Spustï¿½ program bez uloï¿½enia zdrojovï¿½ch sï¿½borov (pouï¿½ije doï¿½asnï¿½)
+71=Prï¿½kazovï¿½ riadok
+72=Spustï¿½ prï¿½kazovï¿½ riadok
 73=&Parametre...
-74=Umoòuje nastavi parametre príkazového riadka pre spúšanı program
-75=&Parametre kompilátora...
-76=Umoòuje nastavi parametre predávané kompilátoru
-77=&Návratová hodnota
-78=Zobrazí hodnotu vrátenú z programu do OS.
+74=Umoï¿½ï¿½uje nastaviï¿½ parametre prï¿½kazovï¿½ho riadka pre spï¿½ï¿½ï¿½anï¿½ program
+75=&Parametre kompilï¿½tora...
+76=Umoï¿½ï¿½uje nastaviï¿½ parametre predï¿½vanï¿½ kompilï¿½toru
+77=&Nï¿½vratovï¿½ hodnota
+78=Zobrazï¿½ hodnotu vrï¿½tenï¿½ z programu do OS.
 
 79=&O FBIde...
-80=Zobrází dialóg O FBIde
+80=Zobrï¿½zï¿½ dialï¿½g O FBIde
 
-81=Zavrie všetko
-82=Zavrie všetky otvorené súbory
+81=Zavrieï¿½ vï¿½etko
+82=Zavrie vï¿½etky otvorenï¿½ sï¿½bory
 
 
 ;Toolbar
-83=Novı (Ctrl+N)
-84=Otvori (Ctrl+O)
-85=Uloi (Ctrl+S)
-86=Uloi všetko
-87=Zavrie (Ctrl+F4)
+83=Novï¿½ (Ctrl+N)
+84=Otvoriï¿½ (Ctrl+O)
+85=Uloï¿½iï¿½ (Ctrl+S)
+86=Uloï¿½iï¿½ vï¿½etko
+87=Zavrieï¿½ (Ctrl+F4)
 
-88=Vystrihnú (Ctrl+X)
-89=Kopírova (Ctrl+C)
-90=Prilepi (Ctrl+V)
+88=Vystrihnï¿½ï¿½ (Ctrl+X)
+89=Kopï¿½rovaï¿½ (Ctrl+C)
+90=Prilepiï¿½ (Ctrl+V)
 
-91=Spä (Ctrl+Z)
+91=Spï¿½ (Ctrl+Z)
 92=Redo (Ctrl+Shift+Z)
 
 93=Skompiluj (Ctrl+F9)
 94=Spusti (Ctrl+Shift+F9)
 95=Spusti a skompiluj(F9)
-96=Spusti zrıchlene(F5)
-97=Zobraz/Zavri vıstup kompilera
+96=Spusti zrï¿½chlene(F5)
+97=Zobraz/Zavri vï¿½stup kompilera
 
 
 ;FBIde Settings dialog box
 98=Nastavenie FBIde
-99=Všeobecné
-100=Témy
-101=K¾uèové slová
-102=Kompilátor
+99=Vï¿½eobecnï¿½
+100=Tï¿½my
+101=Kï¿½uï¿½ovï¿½ slovï¿½
+102=Kompilï¿½tor
 
 
 ;General tab
-103=Zobrazuj èísla riadkov
+103=Zobrazuj ï¿½ï¿½sla riadkov
 104=Nastvenia editora
-105=Zvırazni obe zátvorky
-106=Zvırazòuj syntax
-107=Zobrazuj pravı okraj
+105=Zvï¿½razni obe zï¿½tvorky
+106=Zvï¿½razï¿½uj syntax
+107=Zobrazuj pravï¿½ okraj
 108=Zobrazuj konce riadkov
-109=Zobrazuj prázdne znaky
-110=Zobrazuj osnovu pri odsadení
+109=Zobrazuj prï¿½zdne znaky
+110=Zobrazuj osnovu pri odsadenï¿½
 111=Zobrazuj okraj
 112=Auto odsadenie
-116=Pravı okraj
-117=Ve¾kos tabulátora
+116=Pravï¿½ okraj
+117=Veï¿½kosï¿½ tabulï¿½tora
 201=Jazyk
-202=Upozornenie! Zmena jazyka vyauje reštart FBIde!
-203=Vybra jazyk:
+202=Upozornenie! Zmena jazyka vyï¿½auje reï¿½tart FBIde!
+203=Vybraï¿½ jazyk:
 
 ;Compile tab
-113=Nastavenie kompilátora
-114=Cesta ku kompilátoru
-115=Príkaz
+113=Nastavenie kompilï¿½tora
+114=Cesta ku kompilï¿½toru
+115=Prï¿½kaz
 
 
 ;Themes tab
-118=Poznámky
-119=Èísla
-120=K¾úèové slová 1
-121=Reazec (uzavrenı)
+118=Poznï¿½mky
+119=ï¿½ï¿½sla
+120=Kï¿½ï¿½ï¿½ovï¿½ slovï¿½ 1
+121=Reï¿½azec (uzavrenï¿½)
 122=Preprocesor
-123=Operátor
-124=Identifikátor
-125=Dátum (nefunguje)
-126=Reazec (otvorenı)
-127=K¾úèové slová 2
-128=K¾úèové slová 3
-129=K¾úèové slová 4
-130=Textovı kurzor
-131=Èísla riadkov
-132=Oznaèenı text
-133=Uzavreté zátvorky
-134=Otvorené zátvorky
+123=Operï¿½tor
+124=Identifikï¿½tor
+125=Dï¿½tum (nefunguje)
+126=Reï¿½azec (otvorenï¿½)
+127=Kï¿½ï¿½ï¿½ovï¿½ slovï¿½ 2
+128=Kï¿½ï¿½ï¿½ovï¿½ slovï¿½ 3
+129=Kï¿½ï¿½ï¿½ovï¿½ slovï¿½ 4
+130=Textovï¿½ kurzor
+131=ï¿½ï¿½sla riadkov
+132=Oznaï¿½enï¿½ text
+133=Uzavretï¿½ zï¿½tvorky
+134=Otvorenï¿½ zï¿½tvorky
 135=Editor
 
-136=Hrubé
-137=Kurzíva
-138=Pdèiarknuté
-139=Uloi tému
-140=Téma
-141=Vytvori novú tému
+136=Hrubï¿½
+137=Kurzï¿½va
+138=Pdï¿½iarknutï¿½
+139=Uloï¿½iï¿½ tï¿½mu
+140=Tï¿½ma
+141=Vytvoriï¿½ novï¿½ tï¿½mu
 
 142=Farby
 143=Typ
 144=Popredie
 145=Pozadie
-146=Typ písma
-147=Písmo\r\n
-148=Ve¾kos\r\n
-149=K¾úèové slová\r\n
-150=Skupina k¾úèovıch slov
+146=Typ pï¿½sma
+147=Pï¿½smo\r\n
+148=Veï¿½kosï¿½\r\n
+149=Kï¿½ï¿½ï¿½ovï¿½ slovï¿½\r\n
+150=Skupina kï¿½ï¿½ï¿½ovï¿½ch slov
 151=Skupina 1
 152=Skupina 2
 153=Skupina 3
 154=Skupina 4
 
-155=Otvori súbor
-156=FreeBASIC (fbc.exe)|fbc.exe|Všetky programy (*.exe)|*.exe
+155=Otvoriï¿½ sï¿½bor
+156=FreeBASIC (fbc.exe)|fbc.exe|Vï¿½etky programy (*.exe)|*.exe
 
-157=Meno témy:
+157=Meno tï¿½my:
 158=Parametre...
 
-159=Téma \"
-160=\" u existuje!\nPrepísa?
-161=Vıpis
+159=Tï¿½ma \"
+160=\" uï¿½ existuje!\nPrepï¿½saï¿½?
+161=Vï¿½pis
 
 
 ;Conversion stuff
 162=Typ konverzie:
 163=Spusti!
-164=Náh¾ad!
+164=Nï¿½hï¿½ad!
 
 ;Run stuff
-177=Predaj programu nasledujúce parametre:
-178=Nie je èo kompilova!
+177=Predaj programu nasledujï¿½ce parametre:
+178=Nie je ï¿½o kompilovaï¿½!
 179=Chyba
-180=Pred prvım spustením musí by program skompilovanı! Skompilova?
-181=Skompilova?
-182=Chyba pri spúšaní \"
-183=Súbor bol upravenı a musí sa uloi ak chcete pokraèova!
-184=Uloi súbor?
+180=Pred prvï¿½m spustenï¿½m musï¿½ byï¿½ program skompilovanï¿½! Skompilovaï¿½?
+181=Skompilovaï¿½?
+182=Chyba pri spï¿½ï¿½ï¿½anï¿½ \"
+183=Sï¿½bor bol upravenï¿½ a musï¿½ sa uloï¿½iï¿½ ak chcete pokraï¿½ovaï¿½!
+184=Uloï¿½iï¿½ sï¿½bor?
 
-185=Návratová hodnota
+185=Nï¿½vratovï¿½ hodnota
 
 ;File stuff
-186=Otvori súbor
-187=FB Súbory (*.bas)|*.bas|FB Include súbory(*.bi)|*.bi|HTML súbory (*.html)|*.html|Všetky súbory(*)|*.*|
-188=Súbor \"
-189=\" bol upravenı. Uloi?
-190=Súbor '%s' bol upravenı.\nChcete uloi zmeny?
-192=Súbor bol upravenı
-193=FB Súbory (*.bas)|*.bas|FB Include súbory(*.bi)|*.bi|HTML súbory (*.html)|*.html|
-194=Hociakı súbor(*)|*.*|
-195=Uloi súbor
-196=Poui novı súbor?
-197=Otázka
-198=FBIde Sedenie (*.fbs)|*.fbs|Všetky súbory(*)|*.*|
-199=Uloi Sedenie
-200=HTML súbory (*.html)|*.html|
+186=Otvoriï¿½ sï¿½bor
+187=FB Sï¿½bory (*.bas)|*.bas|FB Include sï¿½bory(*.bi)|*.bi|HTML sï¿½bory (*.html)|*.html|Vï¿½etky sï¿½bory(*)|*.*|
+188=Sï¿½bor \"
+189=\" bol upravenï¿½. Uloï¿½iï¿½?
+190=Sï¿½bor '%s' bol upravenï¿½.\nChcete uloï¿½iï¿½ zmeny?
+192=Sï¿½bor bol upravenï¿½
+193=FB Sï¿½bory (*.bas)|*.bas|FB Include sï¿½bory(*.bi)|*.bi|HTML sï¿½bory (*.html)|*.html|
+194=Hociakï¿½ sï¿½bor(*)|*.*|
+195=Uloï¿½iï¿½ sï¿½bor
+196=Pouï¿½iï¿½ novï¿½ sï¿½bor?
+197=Otï¿½zka
+198=FBIde Sedenie (*.fbs)|*.fbs|Vï¿½etky sï¿½bory(*)|*.*|
+199=Uloï¿½iï¿½ Sedenie
+200=HTML sï¿½bory (*.html)|*.html|
 
 ;About dialog stuff
-204=Open-Source IDE pre FreeBASIC kompilátor
+204=Open-Source IDE pre FreeBASIC kompilï¿½tor
 205=(www.freebasic.net)
-206=naprogramované v C++ za pomoci wxWidgets a Scintilla text control
+206=naprogramovanï¿½ v C++ za pomoci wxWidgets a Scintilla text control
 207=Autori:
-208=Programátori
-209=Hlavnı programátor, zakladate¾ a vedúci projektu
-210=Supervízor, sieovı kód (klient a server side)
-211=Kód Automatického Dokonèovania
-212=Kód na exportovanie a formátovanie
-213=Medzinárodné (i18n) moduly
-214=Špeciálne
-215=Webmaster and dokumentácia
+208=Programï¿½tori
+209=Hlavnï¿½ programï¿½tor, zakladateï¿½ a vedï¿½ci projektu
+210=Supervï¿½zor, sieï¿½ovï¿½ kï¿½d (klient a server side)
+211=Kï¿½d Automatickï¿½ho Dokonï¿½ovania
+212=Kï¿½d na exportovanie a formï¿½tovanie
+213=Medzinï¿½rodnï¿½ (i18n) moduly
+214=ï¿½peciï¿½lne
+215=Webmaster and dokumentï¿½cia
 216=Splash screen logo
 217=Testeri
-218=...and kadı, na ktorého sme zabudli!
+218=...and kaï¿½dï¿½, na ktorï¿½ho sme zabudli!
 
 ;==================================
 ;Additional: (groups)
 ;searching stuff
-219=Nájdi text
-220=Nahraï text
-221=Skoè na riadok èíslo:
-222=Skoè na riadok
-226=H¾adaj:
+219=Nï¿½jdi text
+220=Nahraï¿½ text
+221=Skoï¿½ na riadok ï¿½ï¿½slo:
+222=Skoï¿½ na riadok
+226=Hï¿½adaj:
 ;Type, as in "What type is the thing", to explain this
 227=Typ
 228=Argumenty
 
 ;View
-223=Zformátuj
-224=Sub/Function prieskumník
+223=Zformï¿½tuj
+224=Sub/Function prieskumnï¿½k
 
 ;About
-225=Súbory s jazykmi od:
+225=Sï¿½bory s jazykmi od:
 
 ;Untitled filename :)
-229=Prázdny
+229=Prï¿½zdny
 
 ;Saving
-230=Uloi zmeny?
-231=Uloi pred ukonèením?
+230=Uloï¿½iï¿½ zmeny?
+231=Uloï¿½iï¿½ pred ukonï¿½enï¿½m?
 
 
 245=KonÅ¡tanta
 246=Asm
+
+;Compiler status
+247=KompilÃ¡cia...
+248=KompilÃ¡cia dokonÄenÃ¡.
+249=KompilÃ¡cia zlyhala!
+250=VÃ½stup Fbc

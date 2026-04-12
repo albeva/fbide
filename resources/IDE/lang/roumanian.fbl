@@ -300,3 +300,9 @@
 231=Savez inainte de iesire?
 245=Constant
 246=Asm
+
+;Compiler status
+247=Compilare...
+248=Compilare completă.
+249=Compilare eșuată!
+250=Ieșire Fbc

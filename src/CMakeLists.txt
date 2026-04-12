@@ -6,6 +6,7 @@ target_sources(fbide_lib
     lib/app/App.cpp
     lib/app/CommandManager.cpp
     lib/app/Context.cpp
+    lib/compiler/CompileCommand.cpp
     lib/compiler/CompilerManager.cpp
     lib/config/Config.cpp
     lib/config/FileHistory.cpp
@@ -22,12 +23,14 @@ target_sources(fbide_lib
     lib/settings/panels/KeywordsPage.cpp
     lib/settings/panels/Panel.cpp
     lib/settings/panels/ThemePage.cpp
+    lib/ui/OutputConsole.cpp
     lib/ui/UIManager.cpp
 
     PUBLIC FILE_SET HEADERS FILES
     lib/app/App.hpp
     lib/app/CommandManager.hpp
     lib/app/Context.hpp
+    lib/compiler/CompileCommand.hpp
     lib/compiler/CompilerManager.hpp
     lib/config/Config.hpp
     lib/config/FileHistory.hpp
@@ -46,6 +49,7 @@ target_sources(fbide_lib
     lib/settings/panels/Panel.hpp
     lib/settings/panels/ThemePage.hpp
     lib/ui/MenuId.hpp
+    lib/ui/OutputConsole.hpp
     lib/ui/UIManager.hpp
     lib/utils/NoCopy.hpp
     lib/utils/ValueRestorer.hpp
