@@ -283,10 +283,13 @@ void UIManager::createLayout() {
     m_notebook = make_unowned<wxAuiNotebook>(
         m_frame, wxID_ANY,
         wxDefaultPosition, wxDefaultSize,
-        wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_CLOSE_ON_ALL_TABS
+        wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_CLOSE_ON_ALL_TABS | wxAUI_NB_MIDDLE_CLICK_CLOSE
     );
     m_notebook->Bind(wxEVT_AUINOTEBOOK_PAGE_CLOSE, &UIManager::onPageClose, this);
     m_notebook->Bind(wxEVT_AUINOTEBOOK_PAGE_CHANGED, &UIManager::onPageChanged, this);
+    m_notebook->Bind(wxEVT_AUINOTEBOOK_BG_DCLICK, [this](wxAuiNotebookEvent&) {
+        m_ctx.getDocumentManager().createNew();
+    });
 
     m_aui.AddPane(
         m_notebook.get(),

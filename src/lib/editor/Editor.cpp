@@ -465,6 +465,7 @@ void Editor::updateStatusBar() const {
 void Editor::onFocus(wxFocusEvent& event) {
     event.Skip();
     updateStatusBar();
+    m_ctx.getUIManager().enableEditorMenus(true);
 }
 
 void Editor::onModified(wxStyledTextEvent& event) {

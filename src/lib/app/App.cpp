@@ -68,7 +68,6 @@ auto App::OnInit() -> bool {
 
     // Create initial document
     m_context->getDocumentManager().createNew();
-    m_context->getUIManager().enableEditorMenus(true);
 
     return true;
 }
