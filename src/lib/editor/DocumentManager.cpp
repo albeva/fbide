@@ -12,6 +12,16 @@
 #include "lib/ui/UIManager.hpp"
 using namespace fbide;
 
+// clang-format off
+wxBEGIN_EVENT_TABLE(DocumentManager, wxEvtHandler)
+    EVT_FIND(wxID_ANY,              DocumentManager::onFindDialog)
+    EVT_FIND_NEXT(wxID_ANY,         DocumentManager::onFindDialogNext)
+    EVT_FIND_REPLACE(wxID_ANY,      DocumentManager::onReplaceDialog)
+    EVT_FIND_REPLACE_ALL(wxID_ANY,  DocumentManager::onReplaceAllDialog)
+    EVT_FIND_CLOSE(wxID_ANY,        DocumentManager::onFindDialogClose)
+wxEND_EVENT_TABLE()
+// clang-format on
+
 DocumentManager::DocumentManager(Context& ctx)
 : m_ctx(ctx) {}
 
@@ -280,5 +290,104 @@ void DocumentManager::updateTabTitle(const Document& doc) const {
     auto idx = findPageIndex(doc);
     if (idx != wxNOT_FOUND) {
         getNotebook()->SetPageText(static_cast<size_t>(idx), doc.getTitle());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Find / Replace
+// ---------------------------------------------------------------------------
+
+void DocumentManager::showFind() {
+    showFindDialog(false);
+}
+
+void DocumentManager::showReplace() {
+    showFindDialog(true);
+}
+
+void DocumentManager::findNext() {
+    auto* doc = getActive();
+    if (!doc) {
+        return;
+    }
+    const auto text = m_findData.GetFindString();
+    if (text.empty()) {
+        showFindDialog(false);
+        return;
+    }
+    const bool forward = (m_findData.GetFlags() & wxFR_DOWN) != 0;
+    doc->getEditor()->findNext(text, m_findData.GetFlags(), forward);
+}
+
+void DocumentManager::gotoLine() {
+    auto* doc = getActive();
+    if (!doc) {
+        return;
+    }
+    const auto& lang = m_ctx.getLang();
+    const auto input = wxGetTextFromUser(
+        lang[LangId::SearchGotoPrompt],
+        lang[LangId::SearchGotoTitle],
+        "",
+        m_ctx.getUIManager().getMainFrame()
+    );
+    if (!input.empty()) {
+        doc->getEditor()->gotoLine(input);
+    }
+}
+
+void DocumentManager::showFindDialog(const bool replace) {
+    auto* doc = getActive();
+    if (!doc) {
+        return;
+    }
+
+    // Pre-fill with selection or word under cursor
+    if (const auto word = doc->getEditor()->getWordAtCursor(); !word.empty()) {
+        m_findData.SetFindString(word);
+    }
+
+    auto* frame = m_ctx.getUIManager().getMainFrame();
+    const auto& lang = m_ctx.getLang();
+    const int style = replace ? wxFR_REPLACEDIALOG : 0;
+    const auto& title = replace ? lang[LangId::SearchReplaceTitle] : lang[LangId::SearchFindTitle];
+
+    const auto dlg = make_unowned<wxFindReplaceDialog>(frame, &m_findData, title, style);
+    dlg->PushEventHandler(this);
+    dlg->Show();
+}
+
+void DocumentManager::onFindDialog(wxFindDialogEvent& event) {
+    auto* doc = getActive();
+    if (!doc) {
+        return;
+    }
+    const bool forward = (event.GetFlags() & wxFR_DOWN) != 0;
+    doc->getEditor()->findNext(event.GetFindString(), event.GetFlags(), forward);
+}
+
+void DocumentManager::onFindDialogNext(wxFindDialogEvent& event) {
+    onFindDialog(event);
+}
+
+void DocumentManager::onReplaceDialog(wxFindDialogEvent& event) {
+    auto* doc = getActive();
+    if (!doc) {
+        return;
+    }
+    doc->getEditor()->replaceNext(event.GetFindString(), event.GetReplaceString(), event.GetFlags());
+}
+
+void DocumentManager::onReplaceAllDialog(wxFindDialogEvent& event) {
+    auto* doc = getActive();
+    if (!doc) {
+        return;
+    }
+    doc->getEditor()->replaceAll(event.GetFindString(), event.GetReplaceString(), event.GetFlags());
+}
+
+void DocumentManager::onFindDialogClose(wxFindDialogEvent& event) {
+    if (auto* dlg = event.GetDialog()) {
+        dlg->Destroy();
     }
 }

@@ -13,7 +13,8 @@ namespace fbide {
 class Context;
 
 /// Manages open documents and their notebook tabs.
-class DocumentManager final {
+/// Extends wxEvtHandler to receive find/replace dialog events.
+class DocumentManager final : public wxEvtHandler {
 public:
     explicit DocumentManager(Context& ctx);
 
@@ -64,6 +65,18 @@ public:
     /// Find document by its editor widget.
     [[nodiscard]] auto findByEditor(const wxWindow* editor) const -> Document*;
 
+    /// Show the Find dialog (pre-filled from active editor).
+    void showFind();
+
+    /// Show the Replace dialog (pre-filled from active editor).
+    void showReplace();
+
+    /// Repeat the last find operation.
+    void findNext();
+
+    /// Show the Goto Line dialog.
+    void gotoLine();
+
 private:
 
     /// Find notebook page index for a document.
@@ -75,8 +88,21 @@ private:
     /// Get the notebook from UIManager.
     [[nodiscard]] auto getNotebook() const -> wxAuiNotebook*;
 
+    /// Open find or replace dialog.
+    void showFindDialog(bool replace);
+
+    // Find/Replace dialog events
+    void onFindDialog(wxFindDialogEvent& event);
+    void onFindDialogNext(wxFindDialogEvent& event);
+    void onReplaceDialog(wxFindDialogEvent& event);
+    void onReplaceAllDialog(wxFindDialogEvent& event);
+    void onFindDialogClose(wxFindDialogEvent& event);
+
     Context& m_ctx;
+    wxFindReplaceData m_findData { wxFR_DOWN };
     std::vector<std::unique_ptr<Document>> m_documents;
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide

@@ -204,6 +204,160 @@ void Editor::applyTextTheme() {
     SetLexer(wxSTC_LEX_NULL);
 }
 
+auto Editor::getWordAtCursor() -> wxString {
+    if (const auto sel = GetSelectedText(); !sel.empty()) {
+        return sel;
+    }
+    const auto pos = GetCurrentPos();
+    const auto start = WordStartPosition(pos, true);
+    const auto end = WordEndPosition(pos, true);
+    if (start < end) {
+        return GetTextRange(start, end);
+    }
+    return {};
+}
+
+auto Editor::findNext(const wxString& text, const int flags, const bool forward) -> bool {
+    if (text.empty()) {
+        return false;
+    }
+
+    // Convert wxFindReplaceDialog flags to wxSTC search flags
+    int stcFlags = 0;
+    if (flags & wxFR_WHOLEWORD) {
+        stcFlags |= wxSTC_FIND_WHOLEWORD;
+    }
+    if (flags & wxFR_MATCHCASE) {
+        stcFlags |= wxSTC_FIND_MATCHCASE;
+    }
+
+    if (forward) {
+        SetTargetStart(GetCurrentPos());
+        SetTargetEnd(GetLength());
+    } else {
+        // Search backward: from before current selection to start of document
+        SetTargetStart(GetCurrentPos() - 1);
+        SetTargetEnd(0);
+    }
+    SetSearchFlags(stcFlags);
+
+    if (SearchInTarget(text) != -1) {
+        SetSelection(GetTargetStart(), GetTargetEnd());
+        EnsureCaretVisible();
+        return true;
+    }
+
+    // Wrap around
+    if (forward) {
+        SetTargetStart(0);
+        SetTargetEnd(GetCurrentPos());
+    } else {
+        SetTargetStart(GetLength());
+        SetTargetEnd(GetCurrentPos());
+    }
+    SetSearchFlags(stcFlags);
+
+    if (SearchInTarget(text) != -1) {
+        SetSelection(GetTargetStart(), GetTargetEnd());
+        EnsureCaretVisible();
+        return true;
+    }
+
+    return false;
+}
+
+auto Editor::replaceNext(const wxString& findText, const wxString& replaceText, const int flags) -> bool {
+    if (findText.empty()) {
+        return false;
+    }
+
+    // Check if current selection matches the find text
+    const auto selected = GetSelectedText();
+    bool matches = false;
+    if (flags & wxFR_MATCHCASE) {
+        matches = (selected == findText);
+    } else {
+        matches = (selected.Lower() == findText.Lower());
+    }
+
+    if (matches) {
+        ReplaceSelection(replaceText);
+    }
+
+    return findNext(findText, flags, true);
+}
+
+auto Editor::replaceAll(const wxString& findText, const wxString& replaceText, const int flags) -> int {
+    if (findText.empty()) {
+        return 0;
+    }
+
+    int stcFlags = 0;
+    if (flags & wxFR_WHOLEWORD) {
+        stcFlags |= wxSTC_FIND_WHOLEWORD;
+    }
+    if (flags & wxFR_MATCHCASE) {
+        stcFlags |= wxSTC_FIND_MATCHCASE;
+    }
+
+    int count = 0;
+    BeginUndoAction();
+
+    SetTargetStart(0);
+    SetTargetEnd(GetLength());
+    SetSearchFlags(stcFlags);
+
+    while (SearchInTarget(findText) != -1) {
+        ReplaceTarget(replaceText);
+        count++;
+        SetTargetStart(GetTargetEnd());
+        SetTargetEnd(GetLength());
+    }
+
+    EndUndoAction();
+    return count;
+}
+
+void Editor::gotoLine(const wxString& input) {
+    if (input.empty()) {
+        return;
+    }
+
+    const auto colonPos = input.Find(':');
+    const auto linePart = colonPos != wxNOT_FOUND ? input.Left(static_cast<size_t>(colonPos)) : input;
+    const auto colPart = colonPos != wxNOT_FOUND ? input.Mid(static_cast<size_t>(colonPos) + 1) : wxString {};
+
+    // Parse line — "e" means last line, otherwise 1-based number
+    int line = 0;
+    if (linePart.Lower() == "e") {
+        line = GetLineCount() - 1;
+    } else {
+        long val = 0;
+        if (!linePart.ToLong(&val) || val < 1) {
+            return;
+        }
+        line = static_cast<int>(val) - 1;
+    }
+
+    GotoLine(line);
+
+    // Parse column if present
+    if (!colPart.empty()) {
+        int col = 0;
+        if (colPart.Lower() == "e") {
+            col = GetLineEndPosition(line) - PositionFromLine(line);
+        } else {
+            long val = 0;
+            if (colPart.ToLong(&val) && val >= 1) {
+                col = static_cast<int>(val) - 1;
+            }
+        }
+        GotoPos(PositionFromLine(line) + col);
+    }
+
+    EnsureCaretVisible();
+}
+
 void Editor::onModified(wxStyledTextEvent& event) {
     event.Skip();
     const auto mod = event.GetModificationType();

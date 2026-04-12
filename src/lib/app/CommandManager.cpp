@@ -7,11 +7,11 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 // ReSharper disable CppMemberFunctionMayBeStatic
 #include "CommandManager.hpp"
-#include "../settings/SettingsDialog.hpp"
 #include "Context.hpp"
 #include "lib/editor/Document.hpp"
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/editor/Editor.hpp"
+#include "lib/settings/SettingsDialog.hpp"
 #include "lib/ui/MenuId.hpp"
 #include "lib/ui/UIManager.hpp"
 using namespace fbide;
@@ -105,7 +105,7 @@ void CommandManager::onSaveAs(wxCommandEvent&) {
 }
 
 void CommandManager::onSaveAll(wxCommandEvent&) {
-    m_ctx.getDocumentManager().saveAll();
+    (void)m_ctx.getDocumentManager().saveAll();
 }
 
 void CommandManager::onClose(wxCommandEvent&) {
@@ -201,19 +201,19 @@ void CommandManager::onUncomment(wxCommandEvent&) {
 // -- Search --
 
 void CommandManager::onFind(wxCommandEvent&) {
-    // TODO: implement find
+    m_ctx.getDocumentManager().showFind();
 }
 
 void CommandManager::onFindNext(wxCommandEvent&) {
-    // TODO: implement find next
+    m_ctx.getDocumentManager().findNext();
 }
 
 void CommandManager::onReplace(wxCommandEvent&) {
-    // TODO: implement replace
+    m_ctx.getDocumentManager().showReplace();
 }
 
 void CommandManager::onGotoLine(wxCommandEvent&) {
-    // TODO: implement goto line
+    m_ctx.getDocumentManager().gotoLine();
 }
 
 // -- View --

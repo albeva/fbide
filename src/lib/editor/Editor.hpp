@@ -26,8 +26,23 @@ public:
     /// Change document type
     void setDocType(DocumentType type);
 
-    /// Select current line
+    /// Select current line.
     void selectLine();
+
+    /// Get word under the cursor, or selected text if any.
+    [[nodiscard]] auto getWordAtCursor() -> wxString;
+
+    /// Find next occurrence of text. Returns true if found.
+    auto findNext(const wxString& text, int flags, bool forward = true) -> bool;
+
+    /// Replace current selection if it matches, then find next. Returns true if replaced.
+    auto replaceNext(const wxString& findText, const wxString& replaceText, int flags) -> bool;
+
+    /// Replace all occurrences. Returns the number of replacements made.
+    auto replaceAll(const wxString& findText, const wxString& replaceText, int flags) -> int;
+
+    /// Go to line (1-based). Supports "line:col" and "e" for end.
+    void gotoLine(const wxString& input);
 
 private:
     void onModified(wxStyledTextEvent& event);

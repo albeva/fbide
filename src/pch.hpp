@@ -28,6 +28,7 @@
 #include <wx/aui/aui.h>
 #include <wx/colordlg.h>
 #include <wx/dir.h>
+#include <wx/fdrepdlg.h>
 #include <wx/fileconf.h>
 #include <wx/filename.h>
 #include <wx/fontenum.h>
