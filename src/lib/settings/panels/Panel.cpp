@@ -117,6 +117,7 @@ auto Panel::choice(const wxArrayString& choices, const Layout options) -> Unowne
 
 auto Panel::textField(wxString& value, const Layout options) -> Unowned<wxTextCtrl> {
     const auto text = textField(options);
+    text->SetValue(value);
     text->Bind(wxEVT_TEXT, [&](const wxCommandEvent& evt) {
         value = evt.GetString();
     });
