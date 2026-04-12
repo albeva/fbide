@@ -257,7 +257,7 @@ auto DocumentManager::findByEditor(const wxWindow* editor) const -> Document* {
 }
 
 auto DocumentManager::findPageIndex(const Document& doc) const -> int {
-    auto* notebook = m_ctx.getUIManager().getNotebook();
+    const auto* notebook = m_ctx.getUIManager().getNotebook();
     for (size_t idx = 0; idx < notebook->GetPageCount(); idx++) {
         if (notebook->GetPage(idx) == doc.getEditor()) {
             return static_cast<int>(idx);

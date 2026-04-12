@@ -25,7 +25,7 @@ public:
     [[nodiscard]] auto get(LangId id) const -> const wxString&;
 
     /// Shorthand for get().
-    [[nodiscard]] auto operator[](LangId id) const -> const wxString& { return get(id); }
+    [[nodiscard]] auto operator[](const LangId id) const -> const wxString& { return get(id); }
 
 private:
     static constexpr int maxId = 244;

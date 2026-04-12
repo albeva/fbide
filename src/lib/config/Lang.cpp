@@ -35,7 +35,7 @@ void Lang::clear() {
 
 auto Lang::get(LangId id) const -> const wxString& {
     static const wxString empty;
-    auto index = static_cast<size_t>(id);
+    const auto index = static_cast<size_t>(id);
     if (index < m_strings.size()) {
         return m_strings[index];
     }
