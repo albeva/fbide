@@ -6,6 +6,7 @@ target_sources(fbide_lib
     lib/app/App.cpp
     lib/app/CommandManager.cpp
     lib/app/Context.cpp
+    lib/compiler/CompilerManager.cpp
     lib/config/Config.cpp
     lib/config/FileHistory.cpp
     lib/config/Keywords.cpp
@@ -27,6 +28,7 @@ target_sources(fbide_lib
     lib/app/App.hpp
     lib/app/CommandManager.hpp
     lib/app/Context.hpp
+    lib/compiler/CompilerManager.hpp
     lib/config/Config.hpp
     lib/config/FileHistory.hpp
     lib/config/Keywords.hpp

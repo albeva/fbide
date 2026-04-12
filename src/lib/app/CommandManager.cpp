@@ -8,6 +8,7 @@
 // ReSharper disable CppMemberFunctionMayBeStatic
 #include "CommandManager.hpp"
 #include "Context.hpp"
+#include "lib/compiler/CompilerManager.hpp"
 #include "lib/config/FileHistory.hpp"
 #include "lib/editor/Document.hpp"
 #include "lib/editor/DocumentManager.hpp"
@@ -250,41 +251,41 @@ void CommandManager::onSubs(wxCommandEvent&) {
 }
 
 void CommandManager::onCompilerLog(wxCommandEvent&) {
-    // TODO: implement compiler log
+    m_ctx.getCompilerManager().showCompilerLog();
 }
 
 // -- Run --
 
 void CommandManager::onCompile(wxCommandEvent&) {
-    // TODO: implement compile
+    m_ctx.getCompilerManager().compile();
 }
 
 void CommandManager::onCompileAndRun(wxCommandEvent&) {
-    // TODO: implement compile and run
+    m_ctx.getCompilerManager().compileAndRun();
 }
 
 void CommandManager::onRun(wxCommandEvent&) {
-    // TODO: implement run
+    m_ctx.getCompilerManager().run();
 }
 
 void CommandManager::onQuickRun(wxCommandEvent&) {
-    // TODO: implement quick run
+    m_ctx.getCompilerManager().quickRun();
 }
 
 void CommandManager::onCmdPrompt(wxCommandEvent&) {
-    // TODO: open command prompt
+    m_ctx.getCompilerManager().openCmdPrompt();
 }
 
 void CommandManager::onParameters(wxCommandEvent&) {
-    // TODO: implement parameters dialog
+    m_ctx.getCompilerManager().showParametersDialog();
 }
 
 void CommandManager::onShowExitCode(wxCommandEvent&) {
-    // TODO: toggle show exit code
+    m_ctx.getCompilerManager().toggleShowExitCode();
 }
 
 void CommandManager::onActivePath(wxCommandEvent&) {
-    // TODO: toggle active path
+    m_ctx.getCompilerManager().toggleActivePath();
 }
 
 // -- Help --

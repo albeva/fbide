@@ -9,6 +9,7 @@
 
 namespace fbide {
 class CommandManager;
+class CompilerManager;
 class Config;
 class DocumentManager;
 class FileHistory;
@@ -63,6 +64,10 @@ public:
     [[nodiscard]] auto getCommandManager() -> CommandManager& { return *m_commandManager; }
     [[nodiscard]] auto getCommandManager() const -> const CommandManager& { return *m_commandManager; }
 
+    /// Get compiler manager.
+    [[nodiscard]] auto getCompilerManager() -> CompilerManager& { return *m_compilerManager; }
+    [[nodiscard]] auto getCompilerManager() const -> const CompilerManager& { return *m_compilerManager; }
+
 private:
     std::unique_ptr<Config> m_config;
     std::unique_ptr<FileHistory> m_fileHistory;
@@ -71,6 +76,7 @@ private:
     std::unique_ptr<Theme> m_theme;
     std::unique_ptr<UIManager> m_uiManager;
     std::unique_ptr<DocumentManager> m_documentManager;
+    std::unique_ptr<CompilerManager> m_compilerManager;
     std::unique_ptr<CommandManager> m_commandManager;
 };
 
