@@ -34,6 +34,12 @@ public:
     [[nodiscard]] auto getEditor() -> Editor* { return m_editor; }
     [[nodiscard]] auto getEditor() const -> const Editor* { return m_editor; }
 
+    /// Get compiled file path
+    [[nodiscard]] auto getCompiledFile() const -> wxString { return m_compiledFile; }
+
+    /// Set compiled file path
+    void setCompiledPath(const wxString& path) { m_compiledFile = path; }
+
     /// Is this an untitled (never saved) document?
     [[nodiscard]] auto isUntitled() const -> bool { return m_filePath.empty(); }
 
@@ -50,6 +56,7 @@ public:
     void updateModTime();
 
 private:
+    wxString m_compiledFile;
     wxString m_filePath;
     DocumentType m_type;
     Unowned<Editor> m_editor;

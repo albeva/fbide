@@ -58,7 +58,6 @@ void Config::load(const wxString& filePath) {
         m_themeFile = "classic";
     }
     m_helpFile = ini.Read("helpfile", m_helpFile);
-    m_terminal = ini.Read("terminal", m_terminal);
 
     // [compiler]
     ini.SetPath("/compiler");
@@ -104,7 +103,6 @@ void Config::save() const {
     ini.Write("syntax", m_syntaxFile);
     ini.Write("theme", m_themeFile);
     ini.Write("helpfile", m_helpFile);
-    ini.Write("terminal", m_terminal);
 
     // [compiler]
     ini.SetPath("/compiler");
@@ -187,6 +185,16 @@ auto Config::resolvePath(const wxString& path) const -> wxString {
     }
 
     return path;
+}
+
+auto Config::getTerminal() -> wxString {
+#ifdef __WXMSW__
+    return "cmd.exe";
+#elif defined(__WXOSX__)
+    return "open -a Terminal";
+#else
+    return "x-terminal-emulator";
+#endif
 }
 
 auto Config::getDefaultConfigFileName() -> wxString {

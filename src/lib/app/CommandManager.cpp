@@ -9,7 +9,9 @@
 #include "CommandManager.hpp"
 #include "Context.hpp"
 #include "lib/compiler/CompilerManager.hpp"
+#include "lib/config/Config.hpp"
 #include "lib/config/FileHistory.hpp"
+#include "lib/config/Lang.hpp"
 #include "lib/editor/Document.hpp"
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/editor/Editor.hpp"
@@ -257,7 +259,7 @@ void CommandManager::onCompilerLog(wxCommandEvent&) {
 // -- Run --
 
 void CommandManager::onCompile(wxCommandEvent&) {
-    m_ctx.getCompilerManager().compile();
+    (void)m_ctx.getCompilerManager().compile();
 }
 
 void CommandManager::onCompileAndRun(wxCommandEvent&) {
@@ -273,19 +275,40 @@ void CommandManager::onQuickRun(wxCommandEvent&) {
 }
 
 void CommandManager::onCmdPrompt(wxCommandEvent&) {
-    m_ctx.getCompilerManager().openCmdPrompt();
+    // Working directory: active document's folder or IDE folder
+    wxString cwd;
+    if (const auto* doc = m_ctx.getDocumentManager().getActive(); doc != nullptr && !doc->isUntitled()) {
+        cwd = wxPathOnly(doc->getFilePath());
+    } else {
+        cwd = m_ctx.getConfig().getFbidePath();
+    }
+
+    wxSetWorkingDirectory(cwd);
+    wxExecute(Config::getTerminal());
 }
 
 void CommandManager::onParameters(wxCommandEvent&) {
-    m_ctx.getCompilerManager().showParametersDialog();
+    const auto& lang = m_ctx.getLang();
+    wxTextEntryDialog dlg(
+        m_ctx.getUIManager().getMainFrame(),
+        lang[LangId::RunParamsPrompt],
+        lang[LangId::ThemeParametersTitle],
+        m_parameters,
+        wxOK | wxCANCEL
+    );
+    if (dlg.ShowModal() == wxID_OK) {
+        m_parameters = dlg.GetValue();
+    }
 }
 
 void CommandManager::onShowExitCode(wxCommandEvent&) {
-    m_ctx.getCompilerManager().toggleShowExitCode();
+    auto& config = m_ctx.getConfig();
+    config.setShowExitCode(!config.getShowExitCode());
 }
 
 void CommandManager::onActivePath(wxCommandEvent&) {
-    m_ctx.getCompilerManager().toggleActivePath();
+    auto& config = m_ctx.getConfig();
+    config.setActivePath(!config.getActivePath());
 }
 
 // -- Help --

@@ -114,8 +114,8 @@ public:
     [[nodiscard]] auto getHelpFile() const -> const wxString& { return m_helpFile; }
     void setHelpFile(const wxString& val) { m_helpFile = val; }
 
-    [[nodiscard]] auto getTerminal() const -> const wxString& { return m_terminal; }
-    void setTerminal(const wxString& val) { m_terminal = val; }
+    /// Get the default system terminal command.
+    [[nodiscard]] static auto getTerminal() -> wxString;
 
     // -- [compiler] --
 
@@ -173,7 +173,6 @@ private:
     wxString m_syntaxFile = "fbfull.lng";
     wxString m_themeFile = "classic";
     wxString m_helpFile;
-    wxString m_terminal;
 
     // [compiler]
     wxString m_compileCommand = R"("<$fbc>" "<$file>")";

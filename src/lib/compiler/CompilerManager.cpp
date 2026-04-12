@@ -13,12 +13,14 @@
 #include "lib/editor/Document.hpp"
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/editor/Editor.hpp"
+#include "lib/ui/OutputConsole.hpp"
 #include "lib/ui/UIManager.hpp"
 
 // ---------------------------------------------------------------------------
-// Async process wrapper
+// Async process wrapper — notifies CompilerManager on termination
 // ---------------------------------------------------------------------------
 
+namespace {
 class FbProcess final : public wxProcess {
 public:
     explicit FbProcess(fbide::CompilerManager* manager)
@@ -33,6 +35,7 @@ public:
 private:
     fbide::CompilerManager* m_manager;
 };
+} // namespace
 
 // ---------------------------------------------------------------------------
 
@@ -42,155 +45,99 @@ CompilerManager::CompilerManager(Context& ctx)
 : m_ctx(ctx) {}
 
 // ---------------------------------------------------------------------------
-// Public API
+// Public API — each method is a clear flow of pipeline steps
 // ---------------------------------------------------------------------------
 
-auto CompilerManager::compile() -> bool {
-    if (m_processRunning) {
-        return false;
+void CompilerManager::compile() {
+    auto* doc = getActiveDocument();
+    if (doc == nullptr || !ensureSaved(*doc)) {
+        return;
     }
 
-    // 1. Prep: save document
-    if (!prepareDocument()) {
-        return false;
+    if (executeCompiler(resolveCompiler(), doc->getFilePath()) == nullptr) {
+        setStatus(LangId::StatusCompileFailed);
+        return;
     }
 
-    auto* doc = m_ctx.getDocumentManager().getActive();
-    if (doc == nullptr || doc->getType() != DocumentType::FreeBASIC) {
-        return false;
-    }
-
-    auto result = compile(doc, { .temporary = false });
-    return true;
+    setStatus(LangId::StatusCompileComplete);
 }
 
 void CompilerManager::compileAndRun() {
-    if (m_processRunning) {
+    auto* doc = getActiveDocument();
+    if (doc == nullptr || !ensureSaved(*doc)) {
         return;
     }
 
-    if (!compile()) {
+    const auto* job = executeCompiler(resolveCompiler(), doc->getFilePath());
+    if (job == nullptr) {
+        setStatus(LangId::StatusCompileFailed);
         return;
     }
 
-    const auto* doc = m_ctx.getDocumentManager().getActive();
-    if (doc == nullptr) {
-        return;
-    }
-
-    const wxFileName file(doc->getCompiledFile());
-    runAsync(buildRunCommand(file));
+    setStatus(LangId::StatusCompileComplete);
+    runAsync(buildRunCommand(job->compiledFile));
 }
 
 void CompilerManager::run() {
-    if (m_processRunning) {
-        return;
-    }
-
-    auto* doc = m_ctx.getDocumentManager().getActive();
+    const auto* doc = getActiveDocument();
     if (doc == nullptr) {
         return;
     }
 
-    const wxFileName file(doc->getCompiledFile());
-    if (!file.IsOk() || !file.FileExists()) {
+    const auto exe = doc->getCompiledFile();
+    if (exe.empty() || !wxFileExists(exe)) {
         const auto& lang = m_ctx.getLang();
         if (wxMessageBox(lang[LangId::RunCompileFirst], lang[LangId::RunCompileQuestion],
-                wxYES_NO | wxICON_QUESTION) == wxNO) {
+                wxYES_NO | wxICON_QUESTION)
+            == wxNO) {
             return;
         }
         compileAndRun();
         return;
     }
 
-    runAsync(buildRunCommand(file));
+    runAsync(buildRunCommand(exe));
 }
 
 void CompilerManager::quickRun() {
-    if (m_processRunning) {
-        return;
-    }
-
-    auto* doc = m_ctx.getDocumentManager().getActive();
+    auto* doc = getActiveDocument();
     if (doc == nullptr) {
         return;
     }
 
-    // Determine temp folder
+    // Determine temp folder from current file or IDE path
     const auto& filePath = doc->getFilePath();
-    if (filePath.empty()) {
-        m_tempFolder = wxPathOnly(m_ctx.getConfig().getFbidePath()) + "/";
-    } else {
-        m_tempFolder = wxPathOnly(filePath) + "/";
-    }
+    m_tempFolder = filePath.empty()
+                     ? wxPathOnly(m_ctx.getConfig().getFbidePath()) + "/"
+                     : wxPathOnly(filePath) + "/";
 
-    // Save editor content to temp file
+    // Save content to temp file
     const auto tempFile = m_tempFolder + "FBIDETEMP.bas";
     doc->getEditor()->SaveFile(tempFile);
 
-    // Temporarily set document to temp file
-    const auto oldPath = doc->getFilePath();
-    const auto oldCompiled = doc->getCompiledFile();
-    doc->setFilePath(tempFile);
-
-    if (compile()) {
-        m_isTemp = true;
-        const wxFileName file(doc->getCompiledFile());
-        doc->setCompiledFile(oldCompiled);
-        doc->setFilePath(oldPath);
-        runAsync(buildRunCommand(file));
-    } else {
-        doc->setCompiledFile(oldCompiled);
-        doc->setFilePath(oldPath);
+    const auto* job = executeCompiler(resolveCompiler(), tempFile);
+    if (job == nullptr) {
+        setStatus(LangId::StatusCompileFailed);
         cleanupTempFiles();
+        return;
     }
+
+    setStatus(LangId::StatusCompileComplete);
+    m_cleanupOnExit = true;
+    runAsync(buildRunCommand(job->compiledFile));
 }
 
-void CompilerManager::openCmdPrompt() {
-#ifdef __WXMSW__
-    wxExecute("cmd.exe");
-#else
-    const auto& terminal = m_ctx.getConfig().getTerminal();
-    if (!terminal.empty()) {
-        wxExecute(terminal);
-    }
-#endif
-}
-
-void CompilerManager::showParametersDialog() {
-    const auto& lang = m_ctx.getLang();
-    wxTextEntryDialog dialog(
-        m_ctx.getUIManager().getMainFrame(),
-        lang[LangId::RunParamsPrompt],
-        lang[LangId::ThemeParametersTitle],
-        m_parameters,
-        wxOK | wxCANCEL
-    );
-
-    if (dialog.ShowModal() == wxID_OK) {
-        m_parameters = dialog.GetValue();
-    }
-}
-
-void CompilerManager::toggleShowExitCode() {
-    auto& config = m_ctx.getConfig();
-    config.setShowExitCode(!config.getShowExitCode());
-}
-
-void CompilerManager::toggleActivePath() {
-    auto& config = m_ctx.getConfig();
-    config.setActivePath(!config.getActivePath());
-}
+// ---------------------------------------------------------------------------
+// Compiler log
+// ---------------------------------------------------------------------------
 
 void CompilerManager::showCompilerLog() {
     const auto& lang = m_ctx.getLang();
     auto* frame = m_ctx.getUIManager().getMainFrame();
     const auto dlg = make_unowned<wxDialog>(
-        frame,
-        wxID_ANY,
+        frame, wxID_ANY,
         lang[LangId::CompilerLogTitle],
-        wxDefaultPosition,
-        wxSize(400, 200),
+        wxDefaultPosition, wxSize(400, 200),
         wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX
     );
 
@@ -209,20 +156,20 @@ void CompilerManager::showCompilerLog() {
 
     // Parse [bold] tags in compiler log
     for (const auto& line : m_compilerLog) {
-        bool nesting = false;
+        bool inTag = false;
         wxString tag;
         for (const auto ch : line) {
-            if (ch == '[' && !nesting) {
-                nesting = true;
-            } else if (ch == ']' && nesting) {
-                nesting = false;
+            if (ch == '[' && !inTag) {
+                inTag = true;
+            } else if (ch == ']' && inTag) {
+                inTag = false;
                 if (tag.Lower() == "bold") {
                     output->SetDefaultStyle(bold);
                 } else if (tag.Lower() == "/bold") {
                     output->SetDefaultStyle(normal);
                 }
                 tag.clear();
-            } else if (nesting) {
+            } else if (inTag) {
                 tag += ch;
             } else {
                 output->WriteText(wxString(ch));
@@ -236,15 +183,17 @@ void CompilerManager::showCompilerLog() {
     dlg->Show();
 }
 
-void CompilerManager::goToError(int line, const wxString& fileName) {
-    auto& docManager = m_ctx.getDocumentManager();
+// ---------------------------------------------------------------------------
+// Error navigation
+// ---------------------------------------------------------------------------
 
+void CompilerManager::goToError(const int line, const wxString& fileName) {
     // Skip temp files
     if (wxFileNameFromPath(fileName).Lower() == "fbidetemp.bas") {
         return;
     }
 
-    // Open the file if not already open
+    auto& docManager = m_ctx.getDocumentManager();
     auto* doc = docManager.findByPath(fileName);
     if (doc == nullptr) {
         doc = docManager.openFile(fileName);
@@ -254,7 +203,7 @@ void CompilerManager::goToError(int line, const wxString& fileName) {
     }
 
     auto* editor = doc->getEditor();
-    const int targetLine = line - 1; // Convert 1-based to 0-based
+    const int targetLine = line - 1;
     if (editor->GetCurrentLine() != targetLine) {
         editor->ScrollToLine(targetLine - editor->LinesOnScreen() / 2);
         editor->GotoLine(targetLine);
@@ -264,81 +213,117 @@ void CompilerManager::goToError(int line, const wxString& fileName) {
 }
 
 // ---------------------------------------------------------------------------
-// Compile pipeline steps
+// Async process lifecycle
 // ---------------------------------------------------------------------------
 
-auto CompilerManager::prepareDocument() -> bool {
-    auto* doc = m_ctx.getDocumentManager().getActive();
-    if (doc == nullptr) {
-        return false;
+void CompilerManager::onProcessTerminated(const int exitCode) {
+    m_processRunning = false;
+
+    if (m_ctx.getConfig().getShowExitCode()) {
+        wxString msg;
+        msg << exitCode;
+        wxMessageBox(msg, m_ctx.getLang()[LangId::RunExitCode]);
     }
 
-    if (!doc->isModified()) {
+    if (m_cleanupOnExit) {
+        cleanupTempFiles();
+        m_cleanupOnExit = false;
+    }
+
+    auto* frame = m_ctx.getUIManager().getMainFrame();
+    frame->Raise();
+    frame->SetFocus();
+
+    if (auto* doc = m_ctx.getDocumentManager().getActive()) {
+        doc->getEditor()->SetFocus();
+    }
+
+    m_ctx.getUIManager().enableRunMenus(true);
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline steps
+// ---------------------------------------------------------------------------
+
+auto CompilerManager::getActiveDocument() -> Document* {
+    if (m_processRunning) {
+        return nullptr;
+    }
+
+    auto* doc = m_ctx.getDocumentManager().getActive();
+    if (doc == nullptr || doc->getType() != DocumentType::FreeBASIC) {
+        return nullptr;
+    }
+    return doc;
+}
+
+auto CompilerManager::ensureSaved(Document& doc) -> bool {
+    if (!doc.isModified()) {
         return true;
     }
 
     const auto& lang = m_ctx.getLang();
-    if (wxMessageBox(lang[LangId::RunFileModified], lang[LangId::RunSaveFile],
-            wxICON_EXCLAMATION | wxYES_NO) != wxYES) {
+    const auto res = wxMessageBox(
+        lang[LangId::RunFileModified],
+        lang[LangId::RunSaveFile],
+        wxICON_EXCLAMATION | wxYES_NO
+    );
+    if (res != wxYES) {
         return false;
     }
 
-    return m_ctx.getDocumentManager().saveFile(*doc);
+    return m_ctx.getDocumentManager().saveFile(doc);
 }
 
-auto CompilerManager::buildCompileCommand(const wxString& sourceFile) const -> CompileCommand {
-    const auto compiler = resolveCompilerPath();
+auto CompilerManager::resolveCompiler() const -> wxString {
+#ifdef __WXMSW__
+    wxFileName path(m_ctx.getConfig().getCompilerPath());
+    path.MakeAbsolute();
+    if (!path.FileExists()) {
+        const auto& lang = m_ctx.getLang();
+        wxMessageBox(lang[LangId::SettingsCompilerPathError], "FBC", wxICON_ERROR);
+        return {};
+    }
+    return path.GetFullPath();
+#else
+    return m_ctx.getConfig().getCompilerPath();
+#endif
+}
+
+auto CompilerManager::executeCompiler(const wxString& compiler, const wxString& sourceFile) -> CompileJob* {
     if (compiler.empty()) {
-        return {};
+        return nullptr;
     }
 
-    // Only compile FreeBASIC source files
-    const wxFileName file(sourceFile);
-    const auto ext = file.GetExt().Lower();
-    if (ext != "bas" && ext != "bi" && ext != "rc") {
-        return {};
+    // Prepare UI
+    auto& ui = m_ctx.getUIManager();
+    ui.getOutputConsole().clear();
+    setStatus(LangId::StatusCompiling);
+
+    // Set working directory if active path is enabled
+    if (m_ctx.getConfig().getActivePath()) {
+        wxSetWorkingDirectory(wxPathOnly(sourceFile));
     }
 
-    auto cmd = CompileCommand::makeDefault(compiler, file.GetFullPath());
-    return cmd;
-}
-
-auto CompilerManager::executeCompiler(const CompileCommand& cmd) -> CompileResult {
-    CompileResult result;
-
+    // Build and execute command
+    const auto cmd = CompileCommand::makeDefault(compiler, sourceFile);
     const auto cmdStr = cmd.build();
-    if (cmdStr.empty()) {
-        return result;
-    }
 
     m_compilerLog.Empty();
     m_compilerLog.Add("[bold]Command executed:[/bold]");
     m_compilerLog.Add(cmdStr);
 
-    wxArrayString arrOutput;
-    wxArrayString arrErrOutput;
-    result.exitCode = wxExecute(cmdStr, arrOutput, arrErrOutput);
+    wxArrayString stdOutput;
+    wxArrayString errOutput;
+    const auto exitCode = wxExecute(cmdStr, stdOutput, errOutput);
+    WX_APPEND_ARRAY(stdOutput, errOutput);
 
-    // Merge stdout and stderr
-    WX_APPEND_ARRAY(arrOutput, arrErrOutput);
-    result.output = std::move(arrOutput);
-
-    return result;
-}
-
-auto CompilerManager::processResult(const CompileResult& result) -> bool {
-    auto& ui = m_ctx.getUIManager();
-
-    if (!result.output.empty()) {
+    // Log and show errors
+    if (!stdOutput.empty()) {
         m_compilerLog.Add("");
         m_compilerLog.Add("[bold]Compiler output:[/bold]");
-        const bool hasErrors = parseCompilerOutput(result.output);
-
+        showErrors(stdOutput);
         ui.showConsole();
-
-        if (hasErrors && m_firstErrorLine >= 0) {
-            goToError(m_firstErrorLine, m_firstErrorFile);
-        }
     } else {
         ui.hideConsole();
     }
@@ -346,30 +331,121 @@ auto CompilerManager::processResult(const CompileResult& result) -> bool {
     m_compilerLog.Add("");
     m_compilerLog.Add("[bold]Results:[/bold]");
 
-    return result.exitCode != 0;
+    if (exitCode != 0) {
+        return nullptr;
+    }
+
+    // Store the job for later use (run command, etc.)
+    auto* doc = m_ctx.getDocumentManager().getActive();
+    m_job = CompileJob {
+        .doc = doc,
+        .sourceFile = sourceFile,
+        .compiledFile = deriveExecutablePath(sourceFile),
+    };
+
+    // Update document's compiled file path
+    if (doc != nullptr) {
+        doc->setCompiledPath(m_job->compiledFile);
+    }
+    return &*m_job;
+}
+
+auto CompilerManager::showErrors(const wxArrayString& output) -> bool {
+    auto& console = m_ctx.getUIManager().getOutputConsole();
+    bool foundError = false;
+    bool navigated = false;
+
+    for (const auto& line : output) {
+        if (line.empty()) {
+            continue;
+        }
+
+        m_compilerLog.Add(line);
+
+        // Try to parse "file(line) error NR: message" format
+        const auto braceStart = line.Find('(');
+        const auto braceEnd = line.Find(')');
+
+#ifdef __WXMSW__
+        const bool hasPath = braceStart != wxNOT_FOUND && braceEnd != wxNOT_FOUND
+                          && line.length() > 1 && line[1] == ':';
+#else
+        const bool hasPath = braceStart != wxNOT_FOUND && braceEnd != wxNOT_FOUND
+                          && !line.empty() && line[0] == '/';
+#endif
+
+        if (!hasPath) {
+            auto cleaned = line;
+            cleaned.Replace("\t", "  ");
+            console.addItem(-1, -1, "", cleaned);
+            continue;
+        }
+
+        const auto numStr = line.Mid(
+            static_cast<size_t>(braceStart) + 1,
+            static_cast<size_t>(braceEnd - braceStart) - 1
+        );
+
+        long lineNr = -1;
+        if (!numStr.IsNumber() || !numStr.ToLong(&lineNr)) {
+            console.addItem(-1, -1, "", line);
+            continue;
+        }
+
+        wxFileName errorFile(line.Left(static_cast<size_t>(braceStart)));
+        errorFile.MakeAbsolute();
+        if (!errorFile.IsOk() || !errorFile.FileExists()) {
+            console.addItem(-1, -1, "", line);
+            continue;
+        }
+
+        // Parse error number and message: ") error NR: message"
+        auto rest = line.Mid(static_cast<size_t>(braceEnd) + 4);
+        rest = rest.Mid(static_cast<size_t>(rest.Find(' ')) + 1);
+        const auto message = rest.Mid(static_cast<size_t>(rest.Find(':')) + 2);
+        long errorNr = -1;
+        rest.Left(static_cast<size_t>(rest.Find(':'))).ToLong(&errorNr);
+        if (errorNr == 0) {
+            errorNr = -1;
+        }
+
+        console.addItem(
+            static_cast<int>(lineNr),
+            static_cast<int>(errorNr),
+            errorFile.GetFullPath(),
+            message
+        );
+
+        if (!navigated) {
+            goToError(static_cast<int>(lineNr), errorFile.GetFullPath());
+            navigated = true;
+        }
+        foundError = true;
+    }
+
+    return foundError;
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-auto CompilerManager::resolveCompilerPath() const -> wxString {
+auto CompilerManager::deriveExecutablePath(const wxString& sourceFile) -> wxString {
+    wxFileName exe(sourceFile);
+    const auto ext = exe.GetExt().Lower();
+    if (ext == "bas" || ext == "bi") {
 #ifdef __WXMSW__
-    wxFileName compilerPath(m_ctx.getConfig().getCompilerPath());
-    compilerPath.MakeAbsolute();
-    if (!compilerPath.FileExists()) {
-        const auto& lang = m_ctx.getLang();
-        wxMessageBox(lang[LangId::SettingsCompilerPathError], "FBC", wxICON_ERROR);
-        return {};
-    }
-    return compilerPath.GetFullPath();
+        exe.SetExt("exe");
 #else
-    return m_ctx.getConfig().getCompilerPath();
+        exe.SetExt("");
 #endif
+    }
+    return exe.GetFullPath();
 }
 
-auto CompilerManager::buildRunCommand(const wxFileName& file) const -> wxString {
-    auto cmd = m_ctx.getConfig().getRunCommand().Lower().Trim(true).Trim(false);
+auto CompilerManager::buildRunCommand(const wxString& executablePath) const -> wxString {
+    const wxFileName file(executablePath);
+    auto cmd = m_ctx.getConfig().getRunCommand();
 
     cmd.Replace("<$param>", m_parameters);
     cmd.Replace("<$file>", file.GetFullPath());
@@ -381,79 +457,6 @@ auto CompilerManager::buildRunCommand(const wxFileName& file) const -> wxString 
 #endif
 
     return cmd;
-}
-
-auto CompilerManager::parseCompilerOutput(const wxArrayString& output) -> bool {
-    m_firstErrorFile.clear();
-    m_firstErrorLine = -1;
-    bool foundError = false;
-
-    for (const auto& line : output) {
-        if (line.empty()) {
-            continue;
-        }
-
-        m_compilerLog.Add(line);
-
-        const auto braceStart = line.Find('(');
-        const auto braceEnd = line.Find(')');
-
-        bool isErrorLine = false;
-        long lineNr = -1;
-        long errorNr = -1;
-        wxString errorFile;
-        wxString errorMessage;
-
-#ifdef __WXMSW__
-        const bool hasFilePath = braceStart != wxNOT_FOUND && braceEnd != wxNOT_FOUND
-            && line.length() > 1 && line[1] == ':';
-#else
-        const bool hasFilePath = braceStart != wxNOT_FOUND && braceEnd != wxNOT_FOUND
-            && !line.empty() && line[0] == '/';
-#endif
-
-        if (hasFilePath) {
-            const auto numStr = line.Mid(
-                static_cast<size_t>(braceStart) + 1,
-                static_cast<size_t>(braceEnd - braceStart) - 1
-            );
-
-            if (numStr.IsNumber()) {
-                numStr.ToLong(&lineNr);
-
-                wxFileName outputFile(line.Left(static_cast<size_t>(braceStart)));
-                outputFile.MakeAbsolute();
-
-                if (outputFile.IsOk() && outputFile.FileExists()) {
-                    errorFile = outputFile.GetFullPath();
-                    auto rest = line.Mid(static_cast<size_t>(braceEnd) + 4);
-                    rest = rest.Mid(static_cast<size_t>(rest.Find(' ')) + 1);
-                    errorMessage = rest.Mid(static_cast<size_t>(rest.Find(':')) + 2);
-                    auto errStr = rest.Left(static_cast<size_t>(rest.Find(':')));
-                    errStr.ToLong(&errorNr);
-                    isErrorLine = true;
-                }
-            }
-        }
-
-        if (isErrorLine) {
-            if (errorNr == 0) {
-                errorNr = -1;
-            }
-            if (!foundError) {
-                m_firstErrorFile = errorFile;
-                m_firstErrorLine = static_cast<int>(lineNr);
-                foundError = true;
-            }
-            m_ctx.getUIManager().getOutputConsole().addItem(static_cast<int>(lineNr), static_cast<int>(errorNr), errorFile, errorMessage);
-        } else {
-            auto cleaned = line;
-            cleaned.Replace("\t", "  ");
-            m_ctx.getUIManager().getOutputConsole().addItem(-1, -1, "", cleaned);
-        }
-    }
-
-    return foundError;
 }
 
 void CompilerManager::runAsync(const wxString& command) {
@@ -472,78 +475,24 @@ void CompilerManager::runAsync(const wxString& command) {
     m_ctx.getUIManager().enableRunMenus(false);
 }
 
-void CompilerManager::onProcessTerminated(const int exitCode) {
-    m_processRunning = false;
-
-    if (m_ctx.getConfig().getShowExitCode()) {
-        wxString temp;
-        temp << exitCode;
-        wxMessageBox(temp, m_ctx.getLang()[LangId::RunExitCode]);
-    }
-
-    if (m_isTemp) {
-        cleanupTempFiles();
-        m_isTemp = false;
-    }
-
-    auto* frame = m_ctx.getUIManager().getMainFrame();
-    frame->Raise();
-    frame->SetFocus();
-
-    auto* doc = m_ctx.getDocumentManager().getActive();
-    if (doc != nullptr) {
-        doc->getEditor()->SetFocus();
-    }
-
-    m_ctx.getUIManager().enableRunMenus(true);
-}
-
-auto CompilerManager::compile(Document* doc)-> CompileResult {
-    //     // 2. Prep UI
-    //     const auto& lang = m_ctx.getLang();
-    //     auto& ui = m_ctx.getUIManager();
-    //     ui.getOutputConsole().clear();
-    //     ui.getMainFrame()->SetStatusText(lang[LangId::StatusCompiling]);
-    //
-    //     // 3. Build compile command
-    //     const auto cmd = buildCompileCommand(doc->getFilePath());
-    //
-    //     // 4. Execute compiler
-    //     if (m_ctx.getConfig().getActivePath()) {
-    //         const wxFileName file(doc->getFilePath());
-    //         wxSetWorkingDirectory(file.GetPath());
-    //     }
-    //
-    //     auto result = executeCompiler(cmd);
-    //
-    //     // 5. Update UI with results
-    //     if (processResult(result)) {
-    //         ui.getMainFrame()->SetStatusText(lang[LangId::StatusCompileFailed]);
-    //         return false;
-    //     }
-    //
-    //     // 6. Set compiled file path
-    //     wxFileName exeFile(doc->getFilePath());
-    //     const auto ext = exeFile.GetExt().Lower();
-    //     if (ext == "bas" || ext == "bi") {
-    // #ifdef __WXMSW__
-    //         exeFile.SetExt("exe");
-    // #else
-    //         exeFile.SetExt("");
-    // #endif
-    //         doc->setCompiledFile(exeFile.GetFullPath());
-    //         result.compiledFile = exeFile.GetFullPath();
-    //     }
-    //
-    //     ui.getMainFrame()->SetStatusText(lang[LangId::StatusCompileComplete]);
-    //     return true;
-}
-
 void CompilerManager::cleanupTempFiles() {
-    wxRemoveFile(m_tempFolder + "FBIDETEMP.bas");
-#ifdef __WXMSW__
-    wxRemoveFile(m_tempFolder + "FBIDETEMP.exe");
-#endif
-    wxRemoveFile(m_tempFolder + "fbidetemp.asm");
-    wxRemoveFile(m_tempFolder + "fbidetemp.o");
+    constexpr std::array files {
+        "FBIDETEMP.bas",
+        "FBIDETEMP.exe",
+        "FBIDETEMP",
+        "FBIDETEMP.asm",
+        "FBIDETEMP.o",
+        "FBIDETEMP.c",
+        "FBIDETEMP.ll",
+    };
+    for (const auto& file : files) {
+        const auto path = m_tempFolder + file;
+        if (wxFileExists(path)) {
+            wxRemoveFile(path);
+        }
+    }
+}
+
+void CompilerManager::setStatus(const LangId id) const {
+    m_ctx.getUIManager().getMainFrame()->SetStatusText(m_ctx.getLang()[id]);
 }

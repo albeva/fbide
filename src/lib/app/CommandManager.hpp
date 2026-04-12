@@ -74,6 +74,7 @@ private:
     void onAbout(wxCommandEvent& event);
 
     Context& m_ctx;
+    wxString m_parameters;
 
     wxDECLARE_EVENT_TABLE();
 };

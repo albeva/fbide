@@ -129,7 +129,7 @@ auto DocumentManager::saveFileAs(Document& doc) const -> bool {
         return false;
     }
 
-    auto newPath = dlg.GetPath();
+    const auto newPath = dlg.GetPath();
     if (!doc.getEditor()->SaveFile(newPath)) {
         return false;
     }
