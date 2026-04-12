@@ -249,7 +249,7 @@ void UIManager::createToolBar() {
     const auto add = [&](const MenuId menuIdm, const LangId langId, wxBitmap&& bitmap) {
         const auto mask = make_unowned<wxMask>(bitmap, wxColour(192, 192, 192));
         bitmap.SetMask(mask);
-        m_toolbar->AddTool(id(menuIdm), lang[langId], std::move(bitmap));
+        m_toolbar->AddTool(id(menuIdm), lang[langId], std::move(bitmap), lang[langId]);
     };
 
     // NOLINTBEGIN(*-avoid-c-arrays)
