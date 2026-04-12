@@ -67,7 +67,7 @@ void ThemePage::createTopRow() {
 
         auto themes = getConfig().getAllThemes();
         themes.insert(themes.begin(), lang[LangId::ThemeCreateNew]);
-        m_themeChoice = choice(m_activeTheme, themes, { .proportion = 1, .flag = wxEXPAND | wxALIGN_CENTER_VERTICAL });
+        m_themeChoice = choice(m_activeTheme, themes, { .proportion = 1, .flag = wxEXPAND });
         m_themeChoice->Bind(wxEVT_CHOICE, &ThemePage::onSelectTheme, this);
 
         spacer();
@@ -106,26 +106,23 @@ void ThemePage::createCategoryList() {
 
 void ThemePage::createLeftPanel() {
     vbox({ .proportion = 1, .flag = wxEXPAND, .border = 0 }, [&] {
-        const auto PAD = wxEXPAND | wxLEFT | wxTOP | wxRIGHT;
+        const auto TITLE = wxEXPAND | wxLEFT | wxTOP | wxRIGHT;
+        constexpr auto CTRL = wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND;
 
-        text(LangId::ThemeForeground, { .flag = PAD });
-        m_btnFg = button(LangId::EmptyString, { .flag = wxALL | wxEXPAND });
+        text(LangId::ThemeForeground, { .flag = TITLE });
+        m_btnFg = button(LangId::EmptyString, { .flag = CTRL });
         m_btnFg->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onColorButton(m_btnFg); });
 
-        spacer();
-
-        text(LangId::ThemeBackground, { .flag = PAD });
-        m_btnBg = button(LangId::EmptyString, { .flag = wxALL | wxEXPAND });
+        text(LangId::ThemeBackground, { .flag = TITLE });
+        m_btnBg = button(LangId::EmptyString, { .flag = CTRL });
         m_btnBg->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onColorButton(m_btnBg); });
 
-        spacer();
-
-        text(LangId::ThemeFont, { .flag = PAD });
+        text(LangId::ThemeFont, { .flag = TITLE });
         m_fontChoice = make_unowned<wxChoice>(this, wxID_ANY);
         auto fonts = getConfig().getAllFixedWidthFonts();
         fonts.insert(fonts.begin(), "");
         m_fontChoice->Append(fonts);
-        getCurrentSizer()->Add(m_fontChoice.get(), 0, wxEXPAND | wxALL, DEFAULT_PAD);
+        getCurrentSizer()->Add(m_fontChoice.get(), 0, CTRL, DEFAULT_PAD);
     });
 }
 
@@ -141,7 +138,7 @@ void ThemePage::createRightPanel() {
         spacer();
 
         text(LangId::ThemeFontSize, { .flag = flags });
-        m_spinFontSize = spinCtrl(LangId::EmptyString, 8, 64);
+        m_spinFontSize = spinCtrl(LangId::EmptyString, 8, 64, { .flag = wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM });
     });
 }
 

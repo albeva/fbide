@@ -8,7 +8,6 @@
 #include "lib/app/Context.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/Lang.hpp"
-#include "lib/editor/Editor.hpp"
 #include "lib/ui/UIManager.hpp"
 #include "panels/CompilerPage.hpp"
 #include "panels/GeneralPage.hpp"

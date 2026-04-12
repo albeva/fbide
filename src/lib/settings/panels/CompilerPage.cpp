@@ -76,16 +76,15 @@ void CompilerPage::helpFile() {
 }
 
 auto CompilerPage::makeEntryField(wxString& value, const LangId lang) -> Unowned<wxTextCtrl> {
-    text(lang);
-    return textField(value, { .flag = wxEXPAND | wxALL });
+    text(lang, { .flag = wxEXPAND | wxLEFT | wxTOP | wxRIGHT });
+    return textField(value, { .flag = wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM });
 }
 
 auto CompilerPage::makeFileEntry(wxString& value, const LangId lang) -> std::pair<Unowned<wxTextCtrl>, Unowned<wxButton>> {
-    text(lang);
+    text(lang, { .flag = wxEXPAND | wxLEFT | wxTOP | wxRIGHT });
     return hbox({ .flag = wxEXPAND | wxALL, .border = 0 }, [&] {
-        return std::make_pair(
-            textField(value, { .proportion = 1, .flag = wxEXPAND | wxALL | wxALIGN_CENTER_VERTICAL }),
-            button("...", { .flag = wxALL | wxALIGN_CENTER_VERTICAL })
-        );
+        const auto tf = textField(value, { .proportion = 1, .flag = wxLEFT | wxRIGHT | wxBOTTOM });
+        const auto btn = button("...", { .flag = wxLEFT | wxRIGHT | wxBOTTOM | wxALIGN_CENTER_VERTICAL });
+        return std::make_pair(tf, btn);
     });
 }
