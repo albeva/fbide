@@ -358,6 +358,44 @@ void Editor::gotoLine(const wxString& input) {
     EnsureCaretVisible();
 }
 
+void Editor::commentSelection() {
+    const auto lineStart = LineFromPosition(GetSelectionStart());
+    const auto lineEnd = LineFromPosition(GetSelectionEnd());
+
+    BeginUndoAction();
+    for (auto line = lineStart; line <= lineEnd; line++) {
+        InsertText(PositionFromLine(line), "'");
+    }
+    EndUndoAction();
+
+    SetSelection(PositionFromLine(lineStart), GetLineEndPosition(lineEnd));
+}
+
+void Editor::uncommentSelection() {
+    const auto lineStart = LineFromPosition(GetSelectionStart());
+    const auto lineEnd = LineFromPosition(GetSelectionEnd());
+
+    BeginUndoAction();
+    for (auto line = lineStart; line <= lineEnd; line++) {
+        const auto indent = GetLineIndentation(line);
+        const auto pos = PositionFromLine(line) + indent;
+        const auto text = GetLine(line).Trim(false).Lower();
+
+        if (text.StartsWith("rem ") || text.StartsWith("rem\t")) {
+            SetTargetStart(pos);
+            SetTargetEnd(pos + 3);
+            ReplaceTarget("");
+        } else if (text.StartsWith("'")) {
+            SetTargetStart(pos);
+            SetTargetEnd(pos + 1);
+            ReplaceTarget("");
+        }
+    }
+    EndUndoAction();
+
+    SetSelection(PositionFromLine(lineStart), GetLineEndPosition(lineEnd));
+}
+
 void Editor::onModified(wxStyledTextEvent& event) {
     event.Skip();
     const auto mod = event.GetModificationType();

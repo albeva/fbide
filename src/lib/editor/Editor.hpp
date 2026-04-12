@@ -44,6 +44,12 @@ public:
     /// Go to line (1-based). Supports "line:col" and "e" for end.
     void gotoLine(const wxString& input);
 
+    /// Comment selected lines (prepend ').
+    void commentSelection();
+
+    /// Uncomment selected lines (strip leading ' or REM).
+    void uncommentSelection();
+
 private:
     void onModified(wxStyledTextEvent& event);
     void applyEditorSettings();

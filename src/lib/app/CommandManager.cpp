@@ -191,11 +191,15 @@ void CommandManager::onIndentDecrease(wxCommandEvent&) {
 }
 
 void CommandManager::onComment(wxCommandEvent&) {
-    // TODO: implement comment block
+    if (auto* doc = m_ctx.getDocumentManager().getActive()) {
+        doc->getEditor()->commentSelection();
+    }
 }
 
 void CommandManager::onUncomment(wxCommandEvent&) {
-    // TODO: implement uncomment block
+    if (auto* doc = m_ctx.getDocumentManager().getActive()) {
+        doc->getEditor()->uncommentSelection();
+    }
 }
 
 // -- Search --
