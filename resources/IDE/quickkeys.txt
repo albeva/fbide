@@ -1,0 +1,65 @@
+File handling
+--------------------
+Ctrl+N		    - Opens a new empty document
+Ctrl+O		    - Gives a open file dialog
+Ctrl+S		    - Save file
+Ctrl+Shift+S	- Save file As
+
+
+Tab handling
+--------------------
+Ctrl+n		    - (where n is a number in range 0 to 9) selects given tab
+Ctrl+Shift+n	- Same as above only selects tabs between 10 to 19
+Ctrl+F4		    - Closes active tab
+Ctrl+Tab	    - Selects next tab
+Ctrl+Shift+Tab	- Selectsprevious tab
+
+
+Editing
+--------------------
+Ctrl+Z		    - Undo
+Ctrl+Shift+Z	- Redo
+Ctrl+X		    - Cut
+Ctrl+C		    - Copy
+Ctrl+V		    - Paste
+Ctrl+A		    - Select all
+Ctrl+L		    - Select line, or select a next line
+Ctrl+D		    - Makes a copy of current line
+Ctrl+Shift+L	- Delete next line
+Tab		        - Indent increase of selected text/line
+Shift+Tab	    - Indent decrease of selected text/line
+Ctrl+M		    - Comment selected text/line
+Ctrl+Shift+M	- UnComment selected text/line
+Ctrl+U		    - Make selected text uppercase
+Ctrl+Shift+U	- Make selected text lowercase
+Ctrl+Left/Right	- Will goto previous/next word
+ctrl+Shift+Left/Right	-Will add to selection previous/next word
+
+
+User interface
+--------------------
+Ctrl+'+'/ '-' or Ctrl + mousescroll up/down -zoom editor in/out
+
+Search/Replace
+--------------------
+Ctrl+F		    - Opens Find dialog
+F3		        - Finds next
+Ctrl+R		    - Opens replace dialog
+Ctrl+G		    - Opens "goto line" dialog
+
+
+Compiling
+--------------------
+F9		        - Compile and run
+Ctrl+F9		    - Compile
+Ctrl+Shift+F9	- Run
+F5		        - Quick run
+
+
+Misc
+--------------------
+F1		- Help
+F2		- Sub/Function browser
+F4		- Open/Close compiler output area
+F8		- Command prompt
+

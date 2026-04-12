@@ -1,0 +1,120 @@
+[default]
+background=0
+foreground=16777215
+caret=16777215
+fontsize=12
+caretline=14540253
+fontstyle=0
+font=
+[linenumber]
+background=2105376
+foreground=16777215
+[select]
+background=8421504
+foreground=16777215
+[brace]
+background=0
+foreground=16711680
+fontstyle=0
+[badbrace]
+background=16711680
+foreground=16777215
+fonstyle=0
+[comment]
+background=0
+foreground=12632256
+font=Courier New
+fontsize=12
+capital=0
+fontstyle=2
+[number]
+background=0
+foreground=16711935
+font=Courier New
+fontsize=12
+capital=0
+fontstyle=0
+[keyword]
+background=0
+foreground=65535
+font=Courier New
+fontsize=12
+capital=0
+fontstyle=0
+[string]
+background=0
+foreground=16776960
+font=Courier New
+fontsize=12
+capital=0
+fontstyle=0
+[preprocessor]
+background=0
+foreground=32768
+font=Courier New
+fontsize=12
+capital=0
+fontstyle=0
+[operator]
+background=0
+foreground=65535
+font=Courier New
+fontsize=12
+capital=0
+fontstyle=0
+[identifier]
+background=0
+foreground=16777215
+font=Courier New
+fontsize=12
+capital=0
+fontstyle=0
+[date]
+background=0
+foreground=0
+font=Courier New
+fontsize=12
+capital=0
+fontstyle=0
+[stringeol]
+background=0
+foreground=16776960
+font=Courier New
+fontsize=12
+capital=0
+fontstyle=1
+[keyword2]
+background=0
+foreground=65535
+font=Courier New
+fontsize=12
+capital=0
+fontstyle=0
+[keyword3]
+background=0
+foreground=65535
+font=Courier New
+fontsize=12
+capital=0
+fontstyle=0
+[keyword4]
+background=0
+foreground=65535
+font=Courier New
+fontsize=12
+capital=0
+fontstyle=0
+[constant]
+background=16777215
+foreground=0
+font=
+fontsize=12
+capital=0
+fontstyle=0
+[asm]
+background=16777215
+foreground=0
+font=
+fontsize=12
+capital=0
+fontstyle=0

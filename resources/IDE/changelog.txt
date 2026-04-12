@@ -1,0 +1,107 @@
+Version 0.4.6 release 4
+   * Added new and delete keywords ( VonGodric )
+   * Updated italian translation ( Fabrizio_0000 )
+   * Fixed issues with opening help in some cases ( MySoft )
+   
+Version 0.4.6 release 3
+   * Changed keyword TYPE group 1 ( VonGodric )
+   * Fixed issues with paths patch ( MySoft )
+   * Fixed issue with run commands ( MySoft )
+   
+Version 0.4.6 release 2
+   * Fixed help related issue where pressing F1 would make FBIde unresponsive ( Patch By MySoft )
+   * Fixed find failure ( Patch by MySoft )
+   * Fixed issue with fbc path becoming corrupt internally due to changing working directory ( Patch by MySoft )
+   * Fixed keyword save issue in settings dialog ( Patch by MySoft )
+   * Added missing keywords ( VonGodric )
+   * Added new theme Obsidian ( VonGodric )
+
+Version 0.4.6
+   * Added source structure viewer ( vongodric )
+   * Added built-in file browser ( vongodric )
+   * Added Ctrl+Tab and ctrl+shift+tab for switching between tabs ( vongodric )
+   * Fixed crash when Ctrl+0 is pressed ( vongodric )
+   * Fixed keyword save bug ( vongodric )
+   * Fixed rightmargin state saving ( vongodric )
+   * Fixed crash when closing FBIde while help is open ( vongodric )
+   * Fixed filename case and space bug in running / compiling ( Vongodric )
+   * Fixed keeping track of folding ( vongodric )
+   * Fixed brace highlight error when highlighting is turned on/off ( vongodric )
+   * Fixed crash when program is running, but all tabs have been closed	( vongodric )
+   * Fixed highlighting bugs: '$ is shown now as preprocessor, @ is treated as operator. Varios smaller fixes ( vongodric )
+   * Fixed After failed compilation go to first error ( vongodric )
+   * Changed code area tab's panel button are now a bit better lookin. ( vongodric )
+   * Changed active/inactive tabs have same width ( vongodric )
+   * Changed Sub/function list now also lists enums, types and unions ( vongodric )
+   
+
+Version 0.4.5
+   * Added optionally setting active paths when compiling / running. ( vongodric )
+   * Added suport for external chm help files ( win32 only ) ( VonGodric )
+   * Added compiler output log - click right mouse button on compiler output area will popup a dialog window with output ( vongodric )
+   * Changed New Visual Studio like looking tabs. Reason is mainly due bugs in Linux build of wxGTK wich doesn't seem to like tabs very much. ( vongodric )
+   * Changed New compilation system. Each tab has it's own compiled file, several bug fixes ( vongodric )
+   * Changed New settings dialog ( looks 99% like old one, but is 100% new code ) ( vongodric )
+   * Fixed noumerous bugs ( vongodric )
+   * Fixed bug with file history ( vongodric )
+
+
+Version 0.4.4
+   * Added filehistory ( vongodric )
+   * Added FreeBASIC chm help integration ( vongodric )
+   * Added lots of fonts into settings dialog ( vongodric )
+   * Fixed FBIde no longer changes default folders - coused troubles ( vongodric )
+   * Fixed bug with 'save as' cancelling ( vongodric )
+   * Fixed bug with running uncompiled file ( vongodric )
+   * Removed fpp default support ( vongodric)
+   * Removed WIKI help integration - CHM is much better and faster ( vongodric )
+   * Changed sessions now remember cursor and page scroll positions. Older versions will fail laoding new sessions! ( vongodric )
+   * Changed files that are executed are passed in quotes ( vongodric )
+   * Changed internal event ID's -so keyboards with special keys will probably function with FBIde ( vongodric )
+
+
+Version 0.4.3
+   * Added Compilation now takes place through FPP extender ( Eric Cowles )
+   * Added several help file shortcut's into help menu ( vongodric )
+   * Added Context help via wiki. ( vongodric )
+   * Added Status text of compilation progress into statusbar ( vongodric )
+   * Fixed bug with opening illegal tab. ( F9 ) ( vongodric )
+   * Fixed fbide now tries to detect FBC on it's own -before asking the user ( vongodric )
+   * Fixed seperators in toolbar ( vongodric )
+   * Fixed several syntax highlighting errors ( vongodric )
+   * Fixed FBIde no longer empties it's clipboard apon exit ( vongodric )
+   * Changed FBIde is now compiled with wxWidgets 2.6.2 ( vongodric )
+   * Changed New indent mopdule -faster, smarter. ( vongodric )
+   * Changed Console area is now resizeable using splitters ( vongodric )
+   * Changed '$ - is now recognised as preprocessor statament ( vongodric )
+   * Changed Cleaned up keywords, added missing ones ( vongodric )
+   * Changed New nicer looking about dialog ( vongodric )
+
+Version 0.4.2
+   * Added crappy supprt for single instance ( vongodric )
+   * Added popup menu on tabs ( vongodric )
+   * Added possibility to close a tab with middle mouse button. ( vongodric )
+   * Added russian, chinese, greek, japanese, roumanian, finnish, slovak and bulgarian languages. ( vongodric )
+   * Added Sub/Func browser closing with esc ( vongodric )
+   * Fixed bug with settings loading ( vongodric )
+   * Fixed bug with error reporting - that coused fbide crash. ( vongodric )
+   * Fixed wrong error marker position in error-reporting ( vongodric )
+   * Fixed problem with compiling when long paths were used. ( vongodric )
+   * Fixed several bugs with Sub/function browser. ( vongodric )
+   * Changed title to flash in taskbar when opening a new file under single instance ( dumbledore )
+   * Changed Sub/Func browser to stay open until all tabs are closed ( vongodric )
+   * Changed FBIde to refresh apon exiting programs -on some videocards otherwise coused problems ( vongodric )
+   * Changed in Sub/Func browser subs and functions are colored in different colors ( vongodric )
+   * Changed Sub/Functon now refreshes much faster ( vongodric )
+
+
+Version 0.4.1
+   * Fixed bug with closing IDE while it is minimized (Dumbledore)
+   * Updated HTML code generation (Dumbledore)
+   * Added filename to titlebar (Dumbledore)
+   * Updated html coloring in editor (VonGodric)
+   * Made splash screen disable-able (Dumbledore)
+   * Fixed right margin range from 100 to 1000 (VonGodric)
+   * Formatter would sometimes brake the code on #preprocessor by not adding lineend char (VonGodric)
+   * Fixed numpad-return bug (Dumbledore)
+   * Fixed many probs with the filename-in-the-titlebar (Dumbledore)

@@ -1,0 +1,302 @@
+[FBIde]
+
+234=Active paths
+235=Set paths active when running/compiling
+236=Show log
+237=Shows compilation log
+238=Run Command
+239=Compiler and path settings
+240=Run command
+241=Help file ( .chm )
+242=FreeBASIC 
+243=Windows helpfiles (*.chm)
+244=Compiler path is not set or is corrupt!
+
+;Generic stuff
+1=Bine ai venit la FBIde!
+2=Accept
+3=Renunt
+
+165=Linie
+166=Fisier
+167=Eroare nr
+168=Mesaje
+
+;Menus
+4=&Fisier
+5=&Editare
+6=&Cauta
+7=&Vezi
+8=&Unelte
+9=&Rulez
+10=&Ajutor
+
+11=&Nou ..
+12=Deschide document &gol
+13=&Deschide ..
+14=Deschide document &nou
+15=&Salveaza
+16=Salveaza fisirul curent
+17=Salveaza &ca ..
+18=Salveaza fisierul curent sub alt nume
+19=Salveaza tot
+20=Salveaza toate fisierele descise
+21=Inchide
+22=Inchide fisierul curent
+23=&Fereastra noua
+24=Deschide fereastra noua de editare
+25=&Iesire
+26=Iesire din FBIde
+169=Incarca sesiune
+170=Incarca sesiunea anterior salvata
+171=Salveaza sesiunea
+172=Salveaza sesiunea curenta
+173=Inchide tot
+174=Inchide toate fisierele deschise
+
+27=&Anuleaza
+28=Anuleaza ultima actiune
+29=&Reface
+30=Reface ultima actiune
+31=Decu&peaza
+32=Decupeaza textul selectat si-l copiaza in Clipboard
+33=&Copiaza
+34=Copiaza textul selectat in Clipboard
+35=&Lipeste
+36=Lipeste din clipboard
+37=&Selecteaza tot
+38=Selecteaza tot documentul
+39=Selecteaza &linie
+40=Selecteaza linia curenta 
+41=Creste &Indent 
+42=Aliniaza saptiat textul selectat la dreapta
+43=Reduce spatierea din stinga
+44=Dezactiveaza spatierea de aliniere din stinga ptr. textul selectat
+45=Comenteaza bloc
+46=Comenteaza textul selectat 
+47=Decomenteaza bloc
+48=Decomenteaza textul selectat
+
+49=Cauta
+50=Cauta in document
+51=Gaseste urmatorul
+52=Repeta ultima cautare
+53=Inlocuieste
+54=Inlocuieste text in document
+55=Salt la linia...
+56=Salt la linie in document
+
+57=Setari
+58=Seteaza editorul
+59=Vezi ferestra de rezultate
+60=Arata tabel iesirile la consola
+61=Subrutine... 
+62=Deschide suburutina, functie explorator
+175=Formateaza
+176=Schimba formatul codului
+
+63=Compileaza
+64=Compileaza fisierul curent 
+65=Compileaza si ruleaza
+66=Compileaza si ruleaza fisierul curent 
+67=Ruleaza
+68=Ruleaza fisierul anterior compilat
+69=Ruleaza rapid
+70=Ruleaza programul fara salvare (foloseste fisierul temporar)
+71=Prompter comanda
+72=Deschide prompter comanda 
+73=&Parametri...
+74=Seteaza parametri de tarnsmis programului tau
+75=Parametri &Compilator
+76=Seteaza parametrii compilatorului in lista de prototipuri
+77=&Arata codul de iesire
+78=Arata\' codul de iesire al programului .
+
+79=&Despre...
+80=Arata dialogul ...Despre
+
+81=Inchide tot
+82=Inchide toate fisierele deschise
+
+
+;Bara de unelete
+83=Fisier nou (Ctrl+N)
+84=Deschide fisier (Ctrl+O)
+85=Salveaza fisier (Ctrl+S)
+86=Salveaza toate fisierele
+87=Inchide fisierul curent (Ctrl+F4)
+
+88=Decupeaza (Ctrl+X)
+89=Copiaza (Ctrl+C)
+90=Lipeste (Ctrl+V)
+
+91=Anuleaza ultima comanda (Ctrl+Z)
+92=Reface ultima comanda (Ctrl+Shift+Z)
+
+93=Compileaza (Ctrl+F9)
+94=Ruleaza (Ctrl+Shift+F9)
+95=Compileaza si ruleaza (F9)
+96=Ruleaza rapid (F5)
+97=Deschide/Inchide fereastra de iesiri
+
+
+;Dialogul de setari FBIde 
+98=Setari FBIde 
+99=General
+100=Stiluri
+101=Cuvinte cheie
+102=Compilator
+
+
+;Tab General 
+103=Arata numarul liniilor
+104=Setari Editor 
+105=Evidentiaza parantezele imperecheate
+106=Utilizeaza evidentierea sintaxei
+107=Arata marginea dreapta
+108=Arata sfirsit de linie
+109=Arata spatiiile goale
+110=Arata ghidurile de spatiere din stinga
+111=Indoaie margine
+112=Autospatiere din stinga
+116=Latime margine dreapta
+117=Marime Tab 
+201=Limba
+202=NB! SChimbarea limbii necesita repornirea FBIde!
+203=Selecteaza Limba:
+
+;Tab Compilator
+113=Setari Compilator
+114=Cale Compilator
+115=Comanda
+
+
+;Tab Stiluri
+118=Comentarii
+119=Numere
+120=Cuvinte cheie 1
+121=Siruri apropiate(inchise?)
+122=Preprocessor
+123=Operator
+124=Identificator
+125=Data (doesn't work)
+126=Sir deschis
+127=Cuvinte cheie 2
+128=Cuvinte cheie 3
+129=Cuvinte cheie 4
+130=Cursor
+131=Numar Linie
+132=Selecteaza Text
+133=Imperechere paranteze
+134=Parnteze neimperecheate
+135=Editor
+
+136=Ingrosat
+137=Inclinat 
+138=Subliniat
+139=Salveaza stil
+140=Stil
+141=Creeaza stil
+
+142=Culori
+143=Tip
+144=Cerneala
+145=Fond
+146=Stil caracter
+147=Caracter\r\n
+148=Marime caracter\r\n
+149=Cuvinte cheie\r\n
+150=Selecteaza grup de cuvinte cheie
+151=Grup 1
+152=Grup 2
+153=Grup 3
+154=Grup 4
+
+155=Deschide fisier
+156=FreeBASIC (fbc.exe)|fbc.exe|Toate programele (*.exe)|*.exe
+
+157=Intrduceti numele stilului:
+158=Parametri...
+
+159=Stil \"
+160=\" Exista deja!\Suprascrieti?
+161=Mesaj
+
+
+;Conversie
+162=Tip dec onversie:
+163=Da!
+164=PreVizualizare!
+
+;Rulare
+177=Parametri de transmis programului
+178=Nimic de compilat!
+179=Eroare
+180=Programul trebule compilat inainte de a fi rulat! Compilez?
+181=Compilez?
+182=A aparut o  eroare la incercarea de rulare \"
+183=Fisierul a fost modificat si inainte de a continua trebuie salvat!
+184=Salvez fisierul?
+
+185=Cod de iesire
+
+;Fisier
+186=Incarca fisier
+187=Fisiere FB (*.bas)|*.bas|Header (*.bi)|*.bi|HTML (*.html)|*.html|Toate fisierele(*)|*.*|
+188=Fisierul \"
+189=\" a fost modificat. Salvez?
+190=Fisierul '%s' a fost modificat.\nDoriti salvrea modificarilor?
+192=File Modified
+193=Fisiere FB (*.bas)|*.bas|Header (*.bi)|*.bi|HTML (*.html)|*.html|
+194=Orice fisier(*)|*.*|
+195=Salvare fisier
+196=Folosesc fisier nou?
+197=Intrebare
+198=Sesiune FBIde (*.fbs)|*.fbs|Orice fisier(*)|*.*|
+199=Salvare sesiune
+200=Fisiere HTML (*.html)|*.html|
+
+;Dialogul Despre
+204=Un IDE open-source pentru compilatorul FreeBASIC 
+205=(www.freebasic.net)
+206=Costruit cu  c++ cu wxWidgets sicontrolul de text scintilla
+207=drepturi:
+208=programatori
+209=Programator header , Administrator proiect
+210=supervizor proiect, coduri retea (client - server )
+211=autocompletator de cod
+212=export si format de cod pentru routine
+213=Module de internationalizare (i18n) 
+214=Altele
+215=Site web si documentatie
+216=splash screen logo
+217=testeri
+218=...si altii pe care i-am putut uita!
+
+;==================================
+;Aditional: (groupuri)
+;Cautare
+219=Gaseste Text
+220=Inlocuieste Text
+221=Pozitionare pe Linia Numarul:
+222=Sari la  Linia
+226=Cauta:
+;Tip, ca in "Ce tip e ", ca sa explice aceasta
+227=Tip
+228=Argumente
+
+;Vedere
+223=Converteste  format
+224=Sub/Function explorator
+
+;Despre
+225=Fisiere Limba de:
+
+;fisiere fara nume :)
+229=FaraNume
+
+;Salveaza
+230=Salvez modificarile?
+231=Savez inainte de iesire?
+245=Constant
+246=Asm

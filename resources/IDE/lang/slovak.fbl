@@ -1,0 +1,304 @@
+[FBIde]
+
+234=Active paths
+235=Set paths active when running/compiling
+236=Show log
+237=Shows compilation log
+238=Run Command
+239=Compiler and path settings
+240=Run command
+241=Help file ( .chm )
+242=FreeBASIC 
+243=Windows helpfiles (*.chm)
+244=Compiler path is not set or is corrupt!
+
+;Generic stuff
+1=Vytajte vo FBIde!
+2=OK
+3=Zruši
+
+165=Riadok
+166=Súbor
+167=Chyba è.
+168=Hlásenia
+
+;Menus
+4=&Súbor
+5=&Úpravy
+6=&H¾ada
+7=&Vzh¾ad
+8=&Nástroje
+9=&Spusti
+10=&Pomoc
+
+11=&Novı ..
+12=Vytvorí novı prázdny súbor
+13=&Otvori ..
+14=Otvorí existujúci súbor
+15=&Uloi
+16=Uloí aktuálny súbor
+17=Uloi &ako ..
+18=Uloí aktuálny súbor pod novım menom
+19=Uloi všetko
+20=Uloí všetky otvorené súbory
+21=Zavrie
+22=Zavrie aktuálny súbor
+23=Nové &okno
+24=Otvorí nové okno editora
+25=&Ukonèi
+26=Ukonèí FBIde
+169=Otvori Sedenie
+170=Otvorí uloené Sedenie
+171=Uloi Sedenie
+172=Uloí aktuálne sedenie
+173=Zavrie všetko
+174=Zavrie všetky aktuálne súbory
+
+27=&Spä
+28=Vráti spä poslednú vykonanú akciu
+29=&Redo
+30=Obnoví poslednú vykonanú akciu
+31=&Vystrihnú
+32=Vystrihne vybranı text a uloí ho do schránky
+33=&Kopírova
+34=Kopíruje vybranı text do schránky
+35=&Prilepi
+36=Prilepí text zo schránky
+37=&Oznaèi všetko
+38=Oznaèí celı dokument
+39=Oznaèi &riadok
+40=Oznaèí aktuálny riadok
+41=&Odsadi doprava
+42=Odsadí vybranı text doprava
+43=Odsadi do¾ava
+44=Odsadí vybranı text do¾ava
+45=Zakomentova
+46=Zakomentuje vybranı text
+47=Odkomentova
+48=Odkomentuje vybranı text
+
+49=Vyh¾ada
+50=Vyh¾ada v súbore
+51=Vyh¾ada ïa¾ší
+52=Opä vyh¾adá posledne h¾adanı vıraz
+53=Nahradi
+54=Nahradí text v súbore
+55=Skoè na riadok...
+56=Presunie kurzor na zadanı riadok
+
+57=Nastavenia
+58=Umoní zmeni nastavenia editora
+59=Zobrazi vıpis
+60=Zobrazí poslednı vıpis na konzolu
+61=Procedúry (Subs)...
+62=Otvorí sub && function browser
+175=Zfromátuj
+176=Zmení formátovanie kódu
+
+63=Skompiluj
+64=Skompiluje aktuálny súbor
+65=Skompiluj && spusti
+66=Skompiluje a spustí aktuálny súbor
+67=Spusti
+68=Spustí poslednı krát spustenı súbor
+69=Spusti zrıchlene
+70=Spustí program bez uloenia zdrojovıch súborov (pouije doèasné)
+71=Príkazovı riadok
+72=Spustí príkazovı riadok
+73=&Parametre...
+74=Umoòuje nastavi parametre príkazového riadka pre spúšanı program
+75=&Parametre kompilátora...
+76=Umoòuje nastavi parametre predávané kompilátoru
+77=&Návratová hodnota
+78=Zobrazí hodnotu vrátenú z programu do OS.
+
+79=&O FBIde...
+80=Zobrází dialóg O FBIde
+
+81=Zavrie všetko
+82=Zavrie všetky otvorené súbory
+
+
+;Toolbar
+83=Novı (Ctrl+N)
+84=Otvori (Ctrl+O)
+85=Uloi (Ctrl+S)
+86=Uloi všetko
+87=Zavrie (Ctrl+F4)
+
+88=Vystrihnú (Ctrl+X)
+89=Kopírova (Ctrl+C)
+90=Prilepi (Ctrl+V)
+
+91=Spä (Ctrl+Z)
+92=Redo (Ctrl+Shift+Z)
+
+93=Skompiluj (Ctrl+F9)
+94=Spusti (Ctrl+Shift+F9)
+95=Spusti a skompiluj(F9)
+96=Spusti zrıchlene(F5)
+97=Zobraz/Zavri vıstup kompilera
+
+
+;FBIde Settings dialog box
+98=Nastavenie FBIde
+99=Všeobecné
+100=Témy
+101=K¾uèové slová
+102=Kompilátor
+
+
+;General tab
+103=Zobrazuj èísla riadkov
+104=Nastvenia editora
+105=Zvırazni obe zátvorky
+106=Zvırazòuj syntax
+107=Zobrazuj pravı okraj
+108=Zobrazuj konce riadkov
+109=Zobrazuj prázdne znaky
+110=Zobrazuj osnovu pri odsadení
+111=Zobrazuj okraj
+112=Auto odsadenie
+116=Pravı okraj
+117=Ve¾kos tabulátora
+201=Jazyk
+202=Upozornenie! Zmena jazyka vyauje reštart FBIde!
+203=Vybra jazyk:
+
+;Compile tab
+113=Nastavenie kompilátora
+114=Cesta ku kompilátoru
+115=Príkaz
+
+
+;Themes tab
+118=Poznámky
+119=Èísla
+120=K¾úèové slová 1
+121=Reazec (uzavrenı)
+122=Preprocesor
+123=Operátor
+124=Identifikátor
+125=Dátum (nefunguje)
+126=Reazec (otvorenı)
+127=K¾úèové slová 2
+128=K¾úèové slová 3
+129=K¾úèové slová 4
+130=Textovı kurzor
+131=Èísla riadkov
+132=Oznaèenı text
+133=Uzavreté zátvorky
+134=Otvorené zátvorky
+135=Editor
+
+136=Hrubé
+137=Kurzíva
+138=Pdèiarknuté
+139=Uloi tému
+140=Téma
+141=Vytvori novú tému
+
+142=Farby
+143=Typ
+144=Popredie
+145=Pozadie
+146=Typ písma
+147=Písmo\r\n
+148=Ve¾kos\r\n
+149=K¾úèové slová\r\n
+150=Skupina k¾úèovıch slov
+151=Skupina 1
+152=Skupina 2
+153=Skupina 3
+154=Skupina 4
+
+155=Otvori súbor
+156=FreeBASIC (fbc.exe)|fbc.exe|Všetky programy (*.exe)|*.exe
+
+157=Meno témy:
+158=Parametre...
+
+159=Téma \"
+160=\" u existuje!\nPrepísa?
+161=Vıpis
+
+
+;Conversion stuff
+162=Typ konverzie:
+163=Spusti!
+164=Náh¾ad!
+
+;Run stuff
+177=Predaj programu nasledujúce parametre:
+178=Nie je èo kompilova!
+179=Chyba
+180=Pred prvım spustením musí by program skompilovanı! Skompilova?
+181=Skompilova?
+182=Chyba pri spúšaní \"
+183=Súbor bol upravenı a musí sa uloi ak chcete pokraèova!
+184=Uloi súbor?
+
+185=Návratová hodnota
+
+;File stuff
+186=Otvori súbor
+187=FB Súbory (*.bas)|*.bas|FB Include súbory(*.bi)|*.bi|HTML súbory (*.html)|*.html|Všetky súbory(*)|*.*|
+188=Súbor \"
+189=\" bol upravenı. Uloi?
+190=Súbor '%s' bol upravenı.\nChcete uloi zmeny?
+192=Súbor bol upravenı
+193=FB Súbory (*.bas)|*.bas|FB Include súbory(*.bi)|*.bi|HTML súbory (*.html)|*.html|
+194=Hociakı súbor(*)|*.*|
+195=Uloi súbor
+196=Poui novı súbor?
+197=Otázka
+198=FBIde Sedenie (*.fbs)|*.fbs|Všetky súbory(*)|*.*|
+199=Uloi Sedenie
+200=HTML súbory (*.html)|*.html|
+
+;About dialog stuff
+204=Open-Source IDE pre FreeBASIC kompilátor
+205=(www.freebasic.net)
+206=naprogramované v C++ za pomoci wxWidgets a Scintilla text control
+207=Autori:
+208=Programátori
+209=Hlavnı programátor, zakladate¾ a vedúci projektu
+210=Supervízor, sieovı kód (klient a server side)
+211=Kód Automatického Dokonèovania
+212=Kód na exportovanie a formátovanie
+213=Medzinárodné (i18n) moduly
+214=Špeciálne
+215=Webmaster and dokumentácia
+216=Splash screen logo
+217=Testeri
+218=...and kadı, na ktorého sme zabudli!
+
+;==================================
+;Additional: (groups)
+;searching stuff
+219=Nájdi text
+220=Nahraï text
+221=Skoè na riadok èíslo:
+222=Skoè na riadok
+226=H¾adaj:
+;Type, as in "What type is the thing", to explain this
+227=Typ
+228=Argumenty
+
+;View
+223=Zformátuj
+224=Sub/Function prieskumník
+
+;About
+225=Súbory s jazykmi od:
+
+;Untitled filename :)
+229=Prázdny
+
+;Saving
+230=Uloi zmeny?
+231=Uloi pred ukonèením?
+
+
+245=KonÅ¡tanta
+246=Asm

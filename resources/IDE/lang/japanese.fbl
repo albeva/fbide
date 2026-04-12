@@ -1,0 +1,302 @@
+[FBIde]
+
+234=Active paths
+235=Set paths active when running/compiling
+236=Show log
+237=Shows compilation log
+238=Run Command
+239=Compiler and path settings
+240=Run command
+241=Help file ( .chm )
+242=FreeBASIC 
+243=Windows helpfiles (*.chm)
+244=Compiler path is not set or is corrupt!
+
+;一般的なもの
+1=FBIdeへようこそ!
+2=OK
+3=キャンセル
+
+165=行
+166=ファイル
+167=エラー nr
+168=メッセージ
+
+;メニュー
+4=ファイル(&F)
+5=編集(&E)
+6=検索(&S)
+7=表示(&V)
+8=ツール(&T)
+9=実行(&R)
+10=ヘルプ(&H)
+
+11=新規(&N) ..
+12=新しい空の文書を開く
+13=開く(&O) ..
+14=新しい文書を開く
+15=上書き保存(&S)
+16=現在のファイルを保存する
+17=名前を付けて保存(&A) ..
+18=現在のファイルを新しい名前で保存する
+19=全て保存する
+20=開かれている全てのファイルを保存する
+21=閉じる
+22=現在のファイルを閉じる
+23=新しいウィンドウ(&W)
+24=新しいエディタウィンドウを開く
+25=終了する(&Q)
+26=FBIdeを終了する
+169=Load session
+170=Loads previously saved session
+171=Save session
+172=Saves current session
+173=Close all
+174=Close all opened files
+
+27=&Undo
+28=Undo last action
+29=&Redo
+30=Redo last action
+31=Cu&t
+32=Cut selected text and copy to clipboard
+33=&Copy
+34=Copy selected text to clipboard
+35=&Paste
+36=Paste from clipboard
+37=&Select all
+38=Select whole document
+39=Select &line
+40=Select current line
+41=&Indent increase
+42=Indent selected text to right
+43=Indent reduce
+44=Unindent selected text to left
+45=Comment block
+46=Comments out selected text
+47=Uncomment block
+48=Uncomment selected text
+
+49=検索
+50=Find in the document
+51=Find next
+52=Repeat last search
+53=置き換え
+54=Replace text in the document
+55=Goto line...
+56=Goto to the line in document
+
+57=Settings
+58=Set editor settings
+59=View result window
+60=Shows table with console outputs
+61=Subs... 
+62=Open sub, function browser
+175=Format
+176=Change the format of the code
+
+63=Compile
+64=Compile current file
+65=Compile && run
+66=Compile and run current file
+67=Run
+68=Run previously compiled file
+69=Quick run
+70=Run program without saving (uses temp file)
+71=CMD prompt
+72=Open command prompt
+73=&Parameters...
+74=Set parameters to pass to your program
+75=&Compiler parameters...
+76=Set compiler parameter list prototype
+77=&Show exit code
+78=Show\'s program exit code.
+
+79=バージョン情報(&A)...
+80=バージョン情報を表示
+
+81=全てのファイルを閉じる
+82=全ての開かれたファイルを閉じる
+
+
+;Toolbar
+83=新しいファイル (Ctrl+N)
+84=ファイルを開く (Ctrl+O)
+85=ファイルを保存する (Ctrl+S)
+86=全てのファイルを保存する
+87=現在のファイルを閉じる (Ctrl+F4)
+
+88=切り取り (Ctrl+X)
+89=コピー (Ctrl+C)
+90=貼り付け (Ctrl+V)
+
+91=アンドゥ (Ctrl+Z)
+92=リドゥ (Ctrl+Shift+Z)
+
+93=コンパイル (Ctrl+F9)
+94=実行 (Ctrl+Shift+F9)
+95=コンパイル後実行 (F9)
+96=クイック実行 (F5)
+97=Open/Close output window
+
+
+;FBIde Settings dialog box
+98=FBIdeの設定
+99=一般
+100=テーマ
+101=キーワード
+102=コンパイラ
+
+
+;General tab
+103=Show line numbers
+104=エディタ設定
+105=Highlight matching braces
+106=Use syntax highlighting
+107=Show right margin
+108=Show line endings
+109=Show whitespace
+110=Show indentation guides
+111=Fold margin
+112=Auto indent
+116=Right margin width
+117=Tab Size
+201=言語
+202=注意! 言語を変更するにはFBIdeの再起動が必要です!
+203=言語を選択してください:
+
+;Compile tab
+113=コンパイラの設定
+114=コンパイラのパス
+115=コマンド
+
+
+;Themes tab
+118=コメント
+119=数字
+120=キーワード 1
+121=String closed
+122=Preprocessor
+123=Operator
+124=Identifier
+125=Date (doesn't work)
+126=String open
+127=キーワード 2
+128=キーワード 3
+129=キーワード 4
+130=キャレット
+131=行番号
+132=指定テキスト
+133=Brace match
+134=Brace mismatch
+135=Editor
+
+136=太字
+137=斜体
+138=Underlined
+139=テーマを保存する
+140=テーマ
+141=新しいテーマを作る
+
+142=Colors
+143=Type
+144=前景
+145=背景
+146=フォントスタイル
+147=フォント\r\n
+148=フォントサイズ\r\n
+149=キーワード\r\n
+150=キーワードグループを指定
+151=グループ 1
+152=グループ 2
+153=グループ 3
+154=グループ 4
+
+155=ファイルを開く
+156=FreeBASIC (fbc.exe)|fbc.exe|全てのプログラム (*.exe)|*.exe
+
+157=Enter theme name:
+158=Parameters...
+
+159=テーマ \"
+160=\" は既に存在しています!\n上書きしますか?
+161=メッセージ
+
+
+;Conversion stuff
+162=Type of conversion:
+163=Go!
+164=Preview!
+
+;Run stuff
+177=Parameters to pass to your program
+178=コンパイルするものがありません!
+179=エラー
+180=プログラムを実行する前にコンパイルする必要があります! コンパイルしますか?
+181=コンパイルしますか?
+182=An error occured when trying to run \"
+183=ファイルは変更されています。続けるならば保存してください!
+184=ファイルを保存しますか?
+
+185=終了コード
+
+;File stuff
+186=ファイル読み込み
+187=FB ファイル (*.bas)|*.bas|FBヘッダ ファイル(*.bi)|*.bi|HTML ファイル (*.html)|*.html|全てのファイル(*)|*.*|
+188=ファイル \"
+189=\" は変更されています。保存しますか?
+190=ファイル '%s' は変更されています。\n変更を保存しますか?
+192=ファイルは変更されました。
+193=FB ファイル (*.bas)|*.bas|FBヘッダ ファイル(*.bi)|*.bi|HTML ファイル (*.html)|*.html|
+194=全てのファイル(*)|*.*|
+195=ファイルを保存する
+196=新しいファイルを使いますか?
+197=質問
+198=FBIde セッション (*.fbs)|*.fbs|全てのファイル(*)|*.*|
+199=セッションを保存する
+200=HTML ファイル (*.html)|*.html|
+
+;About dialog stuff
+204=an open-source IDE for the FreeBASIC compiler
+205=(www.freebasic.net)
+206=made using c++ with wxWidgets and the scintilla text control
+207=credits:
+208=programmers
+209=head programmer, project administrator and founder of the project
+210=project supervisor, network code (client and server side)
+211=auto completion code
+212=code exporting and formatting routines
+213=internationalization (i18n) modules
+214=misc
+215=webmaster and documentation
+216=splash screen logo
+217=testers
+218=...and everyone we forgot!
+
+;==================================
+;Additional: (groups)
+;searching stuff
+219=文字を検索
+220=文字を置き換える
+221=指定した行番号へ飛ぶ:
+222=Go To Line
+226=Search:
+;Type, as in "What type is the thing", to explain this
+227=Type
+228=Arguments
+
+;View
+223=Convert the format
+224=Sub/Function browser
+
+;About
+225=言語ファイル
+
+;Untitled filename :)
+229=無題
+
+;Saving
+230=変更を保存しますか?
+231=保存する前に終了しますか?
+245=Constant
+246=Asm

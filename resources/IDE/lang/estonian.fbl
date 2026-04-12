@@ -1,0 +1,300 @@
+[FBIde]
+
+234=Active paths
+235=Set paths active when running/compiling
+236=Show log
+237=Shows compilation log
+238=Run Command
+239=Compiler and path settings
+240=Run command
+241=Help file ( .chm )
+242=FreeBASIC 
+243=Windows helpfiles (*.chm)
+244=Compiler path is not set or is corrupt!
+
+;Generic stuff
+1=Tere tulemast FBIde'sse.
+2=OK
+3=Tühista
+
+165=Rida
+166=Fail
+167=Veanumber
+168=Messages
+
+;Menus
+4=&Fail
+5=&Redigeeri
+6=&Otsi
+7=&Vaatle
+8=&Vahendid
+9=&Käivita
+10=&Abi
+
+11=&Uus ..
+12=Tekita uus, tühi dokument
+13=&Ava ..
+14=Ava uus dokument
+15=&Salvesta
+16=Salvesta fail
+17=&Muuda nimi...
+18=Salvesta fail uue nimega
+19=Salvesta &kõik
+20=Salvesta kõik avatud failid
+21=Sulge
+22=Sulge käesolev fail
+23=Uus ak&en 
+24=Ava uus editori aken
+25=&Välju
+26=Välju FBIde'st
+169=Lae sessioon
+170=Laeb salvestatud sessiooni
+171=Salvesta sessioon
+172=Salvestab käesoleva sessiooni
+173=Sulge kõik
+174=Sulgeb kõik avatud failid
+
+27=&Võta tagasi
+28=Tühista viimane tegevus
+29=&Ennista
+30=Võta viimane tühistus tagasi
+31=&Lõika
+32=Lõikab märgistatud teksti lõikelauale
+33=&Kopeeri
+34=Kopeerib valitud teksti lõikelauale
+35=K&leebi
+36=Kleebib teksti lõikelaualt
+37=&Märgista kõik
+38=Märgistab kogu teksti dokumendis
+39=Märgista &rida
+40=Märgistab aktiivse rea
+41=Liiguta paremale
+42=Liigutab valitud teksti või aktiivse rea paremale
+43=Liiguta vasakule
+44=Liigutab valitud teksti või aktiivse rea vasakule
+45=Kommenteeri blokk
+46=Kommenteerib välja valitud teksti või rea
+47=Eemalda kommentaar
+48=Eemaldab kommentaari märgid valitud tekstilt või realt
+
+49=Otsi
+50=Otsi lõikku dokumendist
+51=Otsi järgmist
+52=Korda viimast otsingut
+53=Asenda
+54=Asendab teksti dokumendis
+55=Mine reale...
+56=Läheb määratud reale dokumendis
+
+57=Seaded
+58=Muudab programmi sätteid
+59=Näita konsooli akent
+60=Näitab kompilaatori poolt väljastatud teavet
+61=Protseduurid
+62=Avab protseduuride/funksioonide akna
+175=Vorminda
+176=Muudab teksti või väljastab BB/HTML koodi
+
+63=Kompileeri
+64=Kompileerib aktiivse faili
+65=Kompileeri ja käivita
+66=Kompileerib aktiivse faili ja käivitab selle
+67=Käivita
+68=Käivitab viimati kompileeritud faili
+69=Kiirkäivitus
+70=Kompileerib ja käivitab faili kasutades varufaili.
+71=Ava konsooli aken
+72=Avab DOS'i konsooli akna
+73=Parameetrid
+74=Parameetrid, mis edastatakse kompileeritud programmi käivitamisel
+77=Väljumiskood
+78=Näitab programmi väljumiskoodi
+
+79=Programmist
+80=Näitab teavet selle programmi kohta
+
+81=Sulge kõik
+82=Sulgeb kõik avatud failid
+
+
+;Toolbar
+83=Uus fail (Ctrl+N)
+84=Ava fail (Ctrl+O)
+85=Salvesta fail (Ctrl+S)
+86=Salvesta kõik avatud failid
+87=Sule aktiivne fail
+
+88=Lõika (Ctrl+X)
+89=Kopeeri (Ctrl+C)
+90=Kleebi (Ctrl+V)
+
+91=Võta tagasi (Ctrl+Z)
+92=Ennista (Ctrl+Shift+Z)
+
+93=Kompileeri (Ctrl+F9)
+94=Käivita (Ctrl+Shift+F9)
+95=Kompileeri ja käivita (F9)
+96=Kiirkäivitus (F5)
+97=Sule/Ava kopmilaatori ala
+
+
+;FBIde Settings dialog box
+98=FBIde Seaded
+99=Üldine
+100=Teemad
+101=Võtmesõnad
+102=Kompileerija
+
+
+;General tab
+103=Näita reanumbreid
+104=Redigeerija seaded
+105=Märgista klappivad sulud
+106=Kasuta spntaxi stiilimist
+107=Näita paremat pikijoont
+108=Näita realõppe
+109=Näita tühikuid
+110=Näite taanet
+111=koodi varistamine
+112=Automaatne taane
+116=Parema pikijoone kaugus
+117=Tabulaatori suurus
+201=Keel
+202=NB! Keele muutus nõuab FBIde taaskäivitust!
+203=Vali oma keel:
+
+;Compile tab
+113=Kompileerija settingud
+114=Kompileerija
+115=Käsk
+
+
+;Themes tab
+118=Kommentaarid
+119=Numbrid
+120=Võtmesõnad 1
+121=Tekst suletud
+122=Eelprotsessor
+123=Operaator
+124=Identifikaator
+125=Kuupäev (doesn't work)
+126=Tekst avatud
+127=Võtmesõnad 2
+128=Võtmesõnad 3
+129=Võtmesõnad 4
+130=Kursor
+131=Rea numbrid
+132=Valitud tekst
+133=Sulgude klappivus
+134=Sulgude ebaklappivus
+135=Põhi
+
+136=Paks
+137=Kursiir
+138=Allajoonitud
+139=Salvesta teema
+140=Teema
+141=Loo uus
+
+142=Värvid
+143=Tüüp
+144=Esitaust
+145=Tagataust
+146=Fondi stiil
+147=Font\r\n
+148=Suurus\r\n
+149=Võtmesõnad\r\n
+150=Vali võtmesõnade grupp
+151=Grupp 1
+152=Grupp 2
+153=Grupp 3
+154=Grupp 4
+
+155=Ava fail
+156=FreeBASIC (fbc.exe)|fbc.exe|Kõik programmid (*.exe)|*.exe
+
+157=Sisesta teema nimi:
+158=Parameetrid
+
+159=Teema \"
+160=\" on juba olemas!\nKirjutada üle?
+161=Teade
+
+
+;Conversion stuff
+162=Konversiooni tüüp:
+163=Tee!
+164=Eelvaade!
+
+;Run stuff
+177=Parameetrid sinu programmile
+178=Pole midagi kompileerida!
+179=Vead
+180=Sa pead esmalt Faili kompileerima! Teen seda?
+181=Kompileeri?
+182=Tekkis viga faili \"
+183=Faili on muudetud ja vaja salvestada!
+184=Salvestan?
+
+185=Väljumiskood
+
+;File stuff
+186=Ava fail
+187=FB Failid (*.bas)|*.bas|FB päiste failid (*.bi)|*.bi|HTML failid (*.html)|*.html|Kõik failid(*)|*.*
+188=Fail \"
+189=\" On muudetud. Salvesta?
+190=Faili '%s' on muudetud.\nSalvestada muutused?
+192=Failmuudetud
+193=FB Failid (*.bas)|*.bas|FB päiste failid (*.bi)|*.bi|HTML failid (*.html)|*.html|
+194=Kõik failid(*)|*.*
+195=Salvesta fail
+196=Kasuta uut faili?
+197=Küsimus
+198=FBIde sessioon (*.fbs)|*.fbs|Kõik failid(*)|*.*
+199=Salvesta sessioon
+200=HTML failid (*.html)|*.html|
+
+;About dialog stuff
+204=avatud lähtekoodil põhinev keskkond FreeBASICu kompileerijale
+205=(www.freebasic.net)
+206=loodud kasutades c++'i, wxWidgeteid ja scintilla tekstikontrolli
+207=Tänud:
+208=programmeerijad
+209=juhtprogrammeerija, projektijuht projekti looja
+210=projekti ülevaataja, võrgukood (kliendi- ja serveripoolne)
+211=automaatlõpetus
+212=koodi eksportimis- ja vormindamisrutiinid
+213=internatsionaliseerimise (i18n) moodulid
+214=muu
+215=veebimeister ja dokumentatsioon
+216=Splash logo
+217=testijad
+218=...ja kõik ülejäänud kelle me unustasime!
+
+;==================================
+;Additonal: (groups)
+;searching stuff
+219=Otsi teksti
+220=Asenda tekst
+221=Mine reale number:
+222=Mine reale
+226=Otsi:
+;Type, as in "What type is the thing", to explain this
+227=Tüüp
+228=Argumendid
+
+;View
+223=Konverdi vorming
+224=Alamprogrammi\funktsioonibrauser
+
+;About
+225=Keelefailid:
+
+;Untitled filename :)
+229=Nimetu
+
+;Saving
+230=Salvesta muutused?
+231=Salevsta enne väljumist?
+245=Konstant
+246=Asm
