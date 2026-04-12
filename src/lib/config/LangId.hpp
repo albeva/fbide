@@ -187,6 +187,8 @@ enum class LangId : int {
     ThemeKeywords2 = 127,
     ThemeKeywords3 = 128,
     ThemeKeywords4 = 129,
+    ThemeConstant = 245,
+    ThemeAsm = 246,
     ThemeCaret = 130,
     ThemeLineNumbers = 131,
     ThemeTextSelect = 132,

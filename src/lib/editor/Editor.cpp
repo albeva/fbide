@@ -171,39 +171,56 @@ void Editor::applyFreebasicTheme() {
 
     // VB style mappings
     constexpr std::array styles {
-        wxSTC_B_DEFAULT, wxSTC_B_COMMENT,
-        wxSTC_B_NUMBER, wxSTC_B_KEYWORD,
-        wxSTC_B_STRING, wxSTC_B_PREPROCESSOR,
-        wxSTC_B_OPERATOR, wxSTC_B_IDENTIFIER,
-        wxSTC_B_DATE, wxSTC_B_STRINGEOL,
-        wxSTC_B_KEYWORD2, wxSTC_B_KEYWORD3,
-        wxSTC_B_KEYWORD4, wxSTC_B_CONSTANT,
+        wxSTC_B_DEFAULT,
+        wxSTC_B_COMMENT,
+        wxSTC_B_NUMBER,
+        wxSTC_B_KEYWORD,
+        wxSTC_B_STRING,
+        wxSTC_B_PREPROCESSOR,
+        wxSTC_B_OPERATOR,
+        wxSTC_B_IDENTIFIER,
+        wxSTC_B_DATE,
+        wxSTC_B_STRINGEOL,
+        wxSTC_B_KEYWORD2,
+        wxSTC_B_KEYWORD3,
+        wxSTC_B_KEYWORD4,
+        wxSTC_B_CONSTANT,
         wxSTC_B_ASM
     };
 
     for (size_t idx = 1; idx < styles.size(); idx++) {
         const auto& style = theme.getStyle(static_cast<Theme::ItemKind>(idx));
         const auto stcId = styles[idx];
-
-        StyleSetForeground(stcId, style.foreground);
-        StyleSetBackground(stcId, style.background);
-
-        auto font = wxFont(
-            style.fontSize > 0 ? style.fontSize : editor.fontSize,
-            wxFONTFAMILY_MODERN,
-            wxFONTSTYLE_NORMAL,
-            wxFONTWEIGHT_NORMAL,
-            false,
-            style.fontName.empty() ? editor.fontName : style.fontName
-        );
-        StyleSetFont(stcId, font);
-
-        StyleSetBold(stcId, style.fontStyle.bold);
-        StyleSetItalic(stcId, style.fontStyle.italic);
-        StyleSetUnderline(stcId, style.fontStyle.underline);
-        StyleSetVisible(stcId, !style.fontStyle.hidden);
-        StyleSetCase(stcId, style.letterCase);
+        applyStyle(stcId, style, editor);
     }
+
+    applyStyle(wxSTC_B_COMMENTBLOCK, theme.getStyle(Theme::ItemKind::Comment), editor);
+    applyStyle(wxSTC_B_DOCBLOCK, theme.getStyle(Theme::ItemKind::Comment), editor);
+    applyStyle(wxSTC_B_DOCLINE, theme.getStyle(Theme::ItemKind::Comment), editor);
+    applyStyle(wxSTC_B_DOCKEYWORD, theme.getStyle(Theme::ItemKind::Comment), editor);
+    applyStyle(wxSTC_B_HEXNUMBER, theme.getStyle(Theme::ItemKind::Number), editor);
+    applyStyle(wxSTC_B_BINNUMBER, theme.getStyle(Theme::ItemKind::Number), editor);
+}
+
+void Editor::applyStyle(const int stcId, const Theme::ItemStyle& style, const Theme::EditorStyle& editor) {
+    StyleSetForeground(stcId, style.foreground);
+    StyleSetBackground(stcId, style.background);
+
+    const auto font = wxFont(
+        style.fontSize > 0 ? style.fontSize : editor.fontSize,
+        wxFONTFAMILY_MODERN,
+        wxFONTSTYLE_NORMAL,
+        wxFONTWEIGHT_NORMAL,
+        false,
+        style.fontName.empty() ? editor.fontName : style.fontName
+    );
+    StyleSetFont(stcId, font);
+
+    StyleSetBold(stcId, style.fontStyle.bold);
+    StyleSetItalic(stcId, style.fontStyle.italic);
+    StyleSetUnderline(stcId, style.fontStyle.underline);
+    StyleSetVisible(stcId, !style.fontStyle.hidden);
+    StyleSetCase(stcId, style.letterCase);
 }
 
 void Editor::applyHtmlTheme() {
@@ -406,9 +423,36 @@ void Editor::uncommentSelection() {
     SetSelection(PositionFromLine(lineStart), GetLineEndPosition(lineEnd));
 }
 
+namespace {
+auto isBrace(const int ch) -> bool {
+    return ch == '(' || ch == ')' || ch == '[' || ch == ']' || ch == '{' || ch == '}';
+}
+} // namespace
+
 void Editor::onUpdateUI(wxStyledTextEvent& event) {
     event.Skip();
     updateStatusBar();
+    updateBraceMatch();
+}
+
+void Editor::updateBraceMatch() {
+    if (!m_ctx.getConfig().getBraceHighlight()) {
+        return;
+    }
+
+    const auto pos = GetCurrentPos();
+    const auto ch = GetCharAt(pos);
+
+    if (isBrace(ch)) {
+        const auto match = BraceMatch(pos);
+        if (match != wxSTC_INVALID_POSITION) {
+            BraceHighlight(pos, match);
+        } else {
+            BraceBadLight(pos);
+        }
+    } else {
+        BraceHighlight(wxSTC_INVALID_POSITION, wxSTC_INVALID_POSITION);
+    }
 }
 
 void Editor::updateStatusBar() const {

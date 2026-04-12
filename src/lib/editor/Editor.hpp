@@ -7,6 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "DocumentType.hpp"
+#include "lib/config/Theme.hpp"
 
 namespace fbide {
 class Context;
@@ -57,8 +58,10 @@ private:
     void onModified(wxStyledTextEvent& event);
     void onUpdateUI(wxStyledTextEvent& event);
     void onFocus(wxFocusEvent& event);
+    void updateBraceMatch();
     void applyEditorSettings();
     void applyTheme();
+    void applyStyle(int stcId, const Theme::ItemStyle& style, const Theme::EditorStyle& editor);
     void applyFreebasicTheme();
     void applyHtmlTheme();
     void applyTextTheme();

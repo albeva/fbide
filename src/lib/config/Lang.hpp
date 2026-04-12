@@ -28,7 +28,7 @@ public:
     [[nodiscard]] auto operator[](const LangId id) const -> const wxString& { return get(id); }
 
 private:
-    static constexpr int maxId = 244;
+    static constexpr int maxId = 246;
     std::vector<wxString> m_strings;
 };
 
