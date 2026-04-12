@@ -16,6 +16,7 @@ class ThemePage final : public Panel {
 public:
 
     ThemePage(Context& ctx, wxWindow* parent);
+    [[nodiscard]] auto isUnsavedNewTheme() const -> bool { return m_themeChoice->GetSelection() == 0; }
     void layout() override;
     void apply() override;
 
@@ -56,12 +57,13 @@ private:
     [[nodiscard]] static auto toItemKind(Category entry) -> Theme::ItemKind;
 
     void createTopRow();
-    void createTypeList();
-    void createColorControls(wxSizer* sizer);
-    void createFontControls(wxSizer* sizer);
+    void createCategoryList();
+    void createLeftPanel();
+    void createRightPanel();
 
     void onSelectCategory(const wxCommandEvent& event);
     void onSelectTheme(const wxCommandEvent& event);
+    void saveNewTheme(bool setActive);
     void onSaveTheme(wxCommandEvent& event);
     void onColorButton(wxButton* btn);
     void loadCategory();

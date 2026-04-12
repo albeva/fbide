@@ -11,6 +11,7 @@ namespace fbide {
 /// Translation string identifiers.
 /// Underlying values match legacy .fbl file indexes for direct import.
 enum class LangId : int {
+    EmptyString = 0,
     // Generic
     Welcome = 1,
     OK = 2,

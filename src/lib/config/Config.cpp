@@ -163,6 +163,13 @@ auto Config::getAllThemes() const -> std::vector<wxString> {
     return themes;
 }
 
+auto Config::getAllFixedWidthFonts() -> std::vector<wxString> {
+    wxFontEnumerator fontEnum;
+    auto fontList = fontEnum.GetFacenames(wxFONTENCODING_SYSTEM, true);
+    fontList.Sort();
+    return fontList;
+}
+
 void Config::setIdePath(const wxString& path) {
     wxFileName dir = wxFileName::DirName(path);
     dir.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS);

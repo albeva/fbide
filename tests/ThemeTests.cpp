@@ -19,7 +19,7 @@ TEST(ThemeTests, LoadClassic) {
     EXPECT_EQ(theme.getDefault().background, *wxWHITE);
     EXPECT_EQ(theme.getDefault().foreground, *wxBLACK);
     EXPECT_EQ(theme.getDefault().fontSize, 12);
-    EXPECT_EQ(theme.getStyle(Theme::Keyword).fontStyle, Theme::FontStyle::Bold);
+    EXPECT_TRUE(theme.getStyle(Theme::Keyword).fontStyle.bold);
 }
 
 TEST(ThemeTests, LoadObsidian) {

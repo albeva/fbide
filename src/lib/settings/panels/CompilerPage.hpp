@@ -18,6 +18,14 @@ public:
     void apply() override;
 
 private:
+    void compilerPath();
+    void compilerCommand();
+    void runCommand();
+    void helpFile();
+
+    auto makeEntryField(wxString& value, LangId lang) -> Unowned<wxTextCtrl>;
+    auto makeFileEntry(wxString& value, LangId lang) -> std::pair<Unowned<wxTextCtrl>, Unowned<wxButton>>;
+
     wxString m_compilerPath;
     wxString m_compileCommand;
     wxString m_runCommand;

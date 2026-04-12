@@ -30,46 +30,40 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 void GeneralPage::layout() {
     makeTitle(LangId::SettingsEditorSettings);
 
-    // Editor settings: left and right columns
-    const auto editorHBox = make_unowned<wxBoxSizer>(wxHORIZONTAL);
-    getVBox()->Add(editorHBox, 0, wxGROW, 5);
+    hbox({ .proportion = 0, .flag = wxGROW, .border = 0 }, [&] {
+        vbox({ .proportion = 1, .flag = wxALIGN_TOP | wxALL }, [&] {
+            checkBox(m_autoIndent, LangId::SettingsAutoIndent);
+            checkBox(m_indentGuide, LangId::SettingsIndentGuides);
+            checkBox(m_showWhiteSpaces, LangId::SettingsWhitespace);
+            checkBox(m_showLineEndings, LangId::SettingsLineEndings);
+            checkBox(m_braceHighlight, LangId::SettingsBraceHighlight);
+            spinCtrl(m_edgeColumn, LangId::SettingsRightMarginWidth, 1, 200, { .border = 0 });
+        });
 
-    const auto leftVBox = make_unowned<wxBoxSizer>(wxVERTICAL);
-    editorHBox->Add(leftVBox, 1, wxALIGN_TOP | wxALL, 5);
+        separator();
 
-    makeSeparator(editorHBox, wxVERTICAL);
-
-    const auto rightVBox = make_unowned<wxBoxSizer>(wxVERTICAL);
-    editorHBox->Add(rightVBox, 1, wxALIGN_TOP | wxALL, 5);
-
-    // Left column
-    makeCheckBox(leftVBox, m_autoIndent, LangId::SettingsAutoIndent);
-    makeCheckBox(leftVBox, m_indentGuide, LangId::SettingsIndentGuides);
-    makeCheckBox(leftVBox, m_showWhiteSpaces, LangId::SettingsWhitespace);
-    makeCheckBox(leftVBox, m_showLineEndings, LangId::SettingsLineEndings);
-    makeCheckBox(leftVBox, m_braceHighlight, LangId::SettingsBraceHighlight);
-    makeSpinCtrl(leftVBox, m_edgeColumn, LangId::SettingsRightMarginWidth, 1, 200);
-
-    // Right column
-    makeCheckBox(rightVBox, m_syntaxHighlight, LangId::SettingsSyntaxHighlight);
-    makeCheckBox(rightVBox, m_showLineNumbers, LangId::SettingsLineNumbers);
-    makeCheckBox(rightVBox, m_showRightMargin, LangId::SettingsRightMargin);
-    makeCheckBox(rightVBox, m_foldMargin, LangId::SettingsFoldMargin);
-    makeCheckBox(rightVBox, m_splashScreen, LangId::SettingsSplashScreen);
-    makeSpinCtrl(rightVBox, m_tabSize, LangId::SettingsTabSize, 1, 16);
+        vbox({ .proportion = 1, .flag = wxALIGN_TOP | wxALL }, [&] {
+            checkBox(m_syntaxHighlight, LangId::SettingsSyntaxHighlight);
+            checkBox(m_showLineNumbers, LangId::SettingsLineNumbers);
+            checkBox(m_showRightMargin, LangId::SettingsRightMargin);
+            checkBox(m_foldMargin, LangId::SettingsFoldMargin);
+            checkBox(m_splashScreen, LangId::SettingsSplashScreen);
+            spinCtrl(m_tabSize, LangId::SettingsTabSize, 1, 16, { .border = 0 });
+        });
+    });
 
     // Language section
     makeTitle(LangId::SettingsLanguage);
 
     // Scan for language files
-    const auto row = make_unowned<wxBoxSizer>(wxHORIZONTAL);
-    getVBox()->Add(row, 0, wxEXPAND | wxALL, 5);
-    makeText(row, LangId::SettingsLanguageSelect, wxALIGN_CENTER_VERTICAL);
-    row->AddSpacer(5);
-    makeChoice(row, m_language, getContext().getConfig().getAllLanguages());
+    hbox({ .flag = wxEXPAND | wxALL }, [&] {
+        text(LangId::SettingsLanguageSelect, { .flag = wxALIGN_CENTER_VERTICAL });
+        spacer();
+        choice(m_language, getContext().getConfig().getAllLanguages());
+    });
 
     // Restart warning
-    makeText(getVBox(), LangId::SettingsLanguageRestart);
+    text(LangId::SettingsLanguageRestart);
 }
 
 void GeneralPage::apply() {

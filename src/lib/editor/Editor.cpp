@@ -125,12 +125,12 @@ void Editor::applyTheme() {
     const auto& brace = theme.getBrace();
     StyleSetForeground(wxSTC_STYLE_BRACELIGHT, brace.foreground);
     StyleSetBackground(wxSTC_STYLE_BRACELIGHT, brace.background);
-    StyleSetBold(wxSTC_STYLE_BRACELIGHT, (static_cast<int>(brace.fontStyle) & static_cast<int>(Theme::FontStyle::Bold)) != 0);
+    StyleSetBold(wxSTC_STYLE_BRACELIGHT, brace.fontStyle.bold);
 
     const auto& badBrace = theme.getBadBrace();
     StyleSetForeground(wxSTC_STYLE_BRACEBAD, badBrace.foreground);
     StyleSetBackground(wxSTC_STYLE_BRACEBAD, badBrace.background);
-    StyleSetBold(wxSTC_STYLE_BRACEBAD, (static_cast<int>(badBrace.fontStyle) & static_cast<int>(Theme::FontStyle::Bold)) != 0);
+    StyleSetBold(wxSTC_STYLE_BRACEBAD, badBrace.fontStyle.bold);
 
     if (m_ctx.getConfig().getSyntaxHighlight()) {
         switch (m_docType) {
@@ -188,11 +188,10 @@ void Editor::applyFreebasicTheme() {
         );
         StyleSetFont(stcId, font);
 
-        const auto fs = static_cast<int>(style.fontStyle);
-        StyleSetBold(stcId, (fs & static_cast<int>(Theme::FontStyle::Bold)) != 0);
-        StyleSetItalic(stcId, (fs & static_cast<int>(Theme::FontStyle::Italic)) != 0);
-        StyleSetUnderline(stcId, (fs & static_cast<int>(Theme::FontStyle::Underline)) != 0);
-        StyleSetVisible(stcId, (fs & static_cast<int>(Theme::FontStyle::Hidden)) == 0);
+        StyleSetBold(stcId, style.fontStyle.bold);
+        StyleSetItalic(stcId, style.fontStyle.italic);
+        StyleSetUnderline(stcId, style.fontStyle.underline);
+        StyleSetVisible(stcId, !style.fontStyle.hidden);
         StyleSetCase(stcId, style.letterCase);
     }
 }

@@ -12,13 +12,28 @@ namespace fbide {
 /// Complete editor theme loaded from legacy .fbt files.
 class Theme final {
 public:
-    /// Font style flags matching legacy .fbt format.
-    enum class FontStyle : std::uint8_t {
-        None = 0,
-        Bold = 1,
-        Italic = 2,
-        Underline = 4,
-        Hidden = 8,
+    /// Font style with named fields, convertible to/from legacy flag int.
+    struct FontStyle final {
+        bool bold : 1 = false;
+        bool italic : 1 = false;
+        bool underline : 1 = false;
+        bool hidden : 1 = false;
+
+        constexpr FontStyle() = default;
+
+        /// Construct from legacy flag value (bold=1, italic=2, underline=4, hidden=8).
+        constexpr explicit FontStyle(const int f)
+            : bold((f & 1) != 0)
+            , italic((f & 2) != 0)
+            , underline((f & 4) != 0)
+            , hidden((f & 8) != 0) { }
+
+        /// Return legacy flag value.
+        [[nodiscard]] constexpr auto flags() const -> int {
+            return (bold ? 1 : 0) | (italic ? 2 : 0) | (underline ? 4 : 0) | (hidden ? 8 : 0);
+        }
+
+        constexpr auto operator==(const FontStyle&) const -> bool = default;
     };
 
     /// Background/foreground colour pair.
@@ -31,7 +46,7 @@ public:
     struct BraceStyle final {
         wxColour background;
         wxColour foreground;
-        FontStyle fontStyle = FontStyle::None;
+        FontStyle fontStyle;
     };
 
     /// Default editor style — global colours, caret, font.
@@ -42,7 +57,7 @@ public:
         wxColour caretLine { 0xDD, 0xDD, 0xDD };
         wxString fontName;
         int fontSize = 12;
-        FontStyle fontStyle = FontStyle::None;
+        FontStyle fontStyle;
     };
 
     /// Per-syntax-element style (comment, keyword, string, etc.)
@@ -51,7 +66,7 @@ public:
         wxColour background;
         wxString fontName;
         int fontSize = 0;
-        FontStyle fontStyle = FontStyle::None;
+        FontStyle fontStyle;
         int letterCase = 0;
     };
 

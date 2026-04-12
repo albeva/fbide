@@ -40,9 +40,9 @@ void writeColor(wxFileConfig& ini, const wxString& key, const wxColour& colour) 
 auto readFontStyle(const wxFileConfig& ini, Theme::FontStyle fallback) -> Theme::FontStyle {
     long val = ini.ReadLong("fontstyle", -1);
     if (val == -1) {
-        val = ini.ReadLong("fonstyle", static_cast<long>(fallback));
+        val = ini.ReadLong("fonstyle", static_cast<long>(fallback.flags()));
     }
-    return static_cast<Theme::FontStyle>(val);
+    return Theme::FontStyle(static_cast<int>(val));
 }
 
 template<typename T>
@@ -74,7 +74,7 @@ void Theme::load(const wxString& path) {
     m_editor.caretColour = readColor(ini, "caret", *wxBLACK);
     m_editor.caretLine = readColor(ini, "caretline", wxColour(0xDD, 0xDD, 0xDD));
     m_editor.fontSize = static_cast<int>(ini.ReadLong("fontsize", 12));
-    m_editor.fontStyle = static_cast<FontStyle>(ini.ReadLong("fontstyle", 0));
+    m_editor.fontStyle = FontStyle(static_cast<int>(ini.ReadLong("fontstyle", 0)));
     m_editor.fontName = ini.Read("font", "");
 
     // [linenumber]
@@ -88,12 +88,12 @@ void Theme::load(const wxString& path) {
     // [brace]
     ini.SetPath("/brace");
     readColors(ini, m_brace, m_editor.foreground, m_editor.background);
-    m_brace.fontStyle = readFontStyle(ini, FontStyle::None);
+    m_brace.fontStyle = readFontStyle(ini, FontStyle{});
 
     // [badbrace]
     ini.SetPath("/badbrace");
     readColors(ini, m_badBrace, m_editor.foreground, *wxBLACK);
-    m_badBrace.fontStyle = readFontStyle(ini, FontStyle::None);
+    m_badBrace.fontStyle = readFontStyle(ini, FontStyle{});
 
     // Per-style entries (1-14)
     for (size_t idx = 1; idx < sectionNames.size(); idx++) {
@@ -121,7 +121,7 @@ void Theme::save() const {
     writeColor(ini, "caret", m_editor.caretColour);
     writeColor(ini, "caretline", m_editor.caretLine);
     ini.Write("fontsize", static_cast<long>(m_editor.fontSize));
-    ini.Write("fontstyle", static_cast<long>(m_editor.fontStyle));
+    ini.Write("fontstyle", static_cast<long>(m_editor.fontStyle.flags()));
     ini.Write("font", m_editor.fontName);
 
     // [linenumber]
@@ -135,12 +135,12 @@ void Theme::save() const {
     // [brace]
     ini.SetPath("/brace");
     writeColors(ini, m_brace);
-    ini.Write("fontstyle", static_cast<long>(m_brace.fontStyle));
+    ini.Write("fontstyle", static_cast<long>(m_brace.fontStyle.flags()));
 
     // [badbrace]
     ini.SetPath("/badbrace");
     writeColors(ini, m_badBrace);
-    ini.Write("fontstyle", static_cast<long>(m_badBrace.fontStyle));
+    ini.Write("fontstyle", static_cast<long>(m_badBrace.fontStyle.flags()));
 
     // Per-style entries (1-14)
     for (size_t idx = 1; idx < sectionNames.size(); idx++) {
@@ -151,7 +151,7 @@ void Theme::save() const {
         ini.Write("font", fontName);
         ini.Write("fontsize", static_cast<long>(fontSize));
         ini.Write("capital", static_cast<long>(letterCase));
-        ini.Write("fontstyle", static_cast<long>(fontStyle));
+        ini.Write("fontstyle", static_cast<long>(fontStyle.flags()));
     }
 
     wxFileOutputStream outStream(m_themePath);

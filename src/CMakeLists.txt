@@ -43,6 +43,8 @@ target_sources(fbide_lib
     lib/settings/panels/ThemePage.hpp
     lib/ui/MenuId.hpp
     lib/ui/UIManager.hpp
+    lib/utils/NoCopy.hpp
+    lib/utils/ValueRestorer.hpp
     lib/utils/Macros.hpp
     lib/utils/Unowned.hpp
 )

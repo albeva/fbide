@@ -19,8 +19,23 @@ CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 
 void CompilerPage::layout() {
     makeTitle(LangId::SettingsCompilerAndPaths);
+    compilerPath();
+    compilerCommand();
+    runCommand();
+    helpFile();
+}
 
-    makeTextField(getVBox(), m_compilerPath, LangId::SettingsCompilerPath, [&] {
+void CompilerPage::apply() {
+    auto& config = getConfig();
+    config.setCompilerPath(m_compilerPath);
+    config.setCompileCommand(m_compileCommand);
+    config.setRunCommand(m_runCommand);
+    config.setHelpFile(m_helpFile);
+}
+
+void CompilerPage::compilerPath() {
+    const auto [tf, btn] = makeFileEntry(m_compilerPath, LangId::SettingsCompilerPath);
+    btn->Bind(wxEVT_BUTTON, [&, tf](wxCommandEvent&) {
         wxFileDialog dlg(
             this, "Select compiler", "", "",
 #ifdef __WXMSW__
@@ -33,12 +48,21 @@ void CompilerPage::layout() {
         if (dlg.ShowModal() == wxID_OK) {
             m_compilerPath = dlg.GetPath();
         }
+        tf->SetValue(m_compilerPath);
     });
+}
 
-    makeTextField(getVBox(), m_compileCommand, LangId::SettingsCompilerCommand);
-    makeTextField(getVBox(), m_runCommand, LangId::SettingsRunCmd);
+void CompilerPage::compilerCommand() {
+    makeEntryField(m_compileCommand, LangId::SettingsCompilerCommand);
+}
 
-    makeTextField(getVBox(), m_helpFile, LangId::SettingsHelpFile, [&] {
+void CompilerPage::runCommand() {
+    makeEntryField(m_runCommand, LangId::SettingsRunCmd);
+}
+
+void CompilerPage::helpFile() {
+    const auto [tf, btn] = makeFileEntry(m_helpFile, LangId::SettingsHelpFile);
+    btn->Bind(wxEVT_BUTTON, [&, tf](wxCommandEvent&) {
         wxFileDialog dlg(
             this, "Select help file", "", "",
             getContext().getLang()[LangId::SettingsHelpFileFilter] + "|*.chm",
@@ -47,13 +71,21 @@ void CompilerPage::layout() {
         if (dlg.ShowModal() == wxID_OK) {
             m_helpFile = dlg.GetPath();
         }
+        tf->SetValue(m_helpFile);
     });
 }
 
-void CompilerPage::apply() {
-    auto& config = getConfig();
-    config.setCompilerPath(m_compilerPath);
-    config.setCompileCommand(m_compileCommand);
-    config.setRunCommand(m_runCommand);
-    config.setHelpFile(m_helpFile);
+auto CompilerPage::makeEntryField(wxString& value, const LangId lang) -> Unowned<wxTextCtrl> {
+    text(lang);
+    return textField(value, { .flag = wxEXPAND | wxALL });
+}
+
+auto CompilerPage::makeFileEntry(wxString& value, const LangId lang) -> std::pair<Unowned<wxTextCtrl>, Unowned<wxButton>> {
+    text(lang);
+    return hbox({ .flag = wxEXPAND | wxALL, .border = 0 }, [&] {
+        return std::make_pair(
+            textField(value, { .proportion = 1, .flag = wxEXPAND | wxALL | wxALIGN_CENTER_VERTICAL }),
+            button("...", { .flag = wxALL | wxALIGN_CENTER_VERTICAL })
+        );
+    });
 }

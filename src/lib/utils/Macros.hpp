@@ -7,9 +7,9 @@
 #pragma once
 
 #ifdef _MSC_VER
-    #define FBIDE_INLINE __forceinline
+#define FBIDE_INLINE __forceinline
 #elif defined(__GNUC__) || defined(__clang__)
-    #define FBIDE_INLINE __attribute__((always_inline)) inline
+#define FBIDE_INLINE __attribute__((always_inline)) inline
 #else
-    #define FBIDE_INLINE inline
+#define FBIDE_INLINE inline
 #endif

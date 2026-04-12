@@ -44,7 +44,9 @@
 
 // fbide
 #include "lib/utils/Macros.hpp"
+#include "lib/utils/NoCopy.hpp"
 #include "lib/utils/Unowned.hpp"
+#include "lib/utils/ValueRestorer.hpp"
 
 namespace fbide {
 using namespace std::string_view_literals;

@@ -22,14 +22,18 @@ KeywordsPage::KeywordsPage(Context& ctx, wxWindow* parent)
 void KeywordsPage::layout() {
     const auto& lang = getContext().getLang();
 
-    // Dropdown
-    m_groupChoice = make_unowned<wxChoice>(this, wxID_ANY);
-    m_groupChoice->Append(lang[LangId::ThemeGroup1]);
-    m_groupChoice->Append(lang[LangId::ThemeGroup2]);
-    m_groupChoice->Append(lang[LangId::ThemeGroup3]);
-    m_groupChoice->Append(lang[LangId::ThemeGroup4]);
+    // Group dropdown
+    const std::vector options {
+        lang[LangId::ThemeGroup1],
+        lang[LangId::ThemeGroup2],
+        lang[LangId::ThemeGroup3],
+        lang[LangId::ThemeGroup4]
+    };
+    m_groupChoice = choice(options, { .flag = wxLEFT | wxTOP | wxRIGHT });
     m_groupChoice->SetSelection(static_cast<int>(m_selectedGroup));
-    getVBox()->Add(m_groupChoice.get(), 0, wxLEFT | wxTOP | wxRIGHT, 5);
+    m_groupChoice->Bind(wxEVT_CHOICE, &KeywordsPage::onGroupChanged, this);
+
+    // choice()
 
     // Keyword text area
     m_textKeywords = make_unowned<wxTextCtrl>(
@@ -38,8 +42,7 @@ void KeywordsPage::layout() {
         wxDefaultPosition, wxDefaultSize,
         wxTE_MULTILINE | wxTE_WORDWRAP
     );
-    getVBox()->Add(m_textKeywords.get(), 1, wxEXPAND | wxALL, 5);
-    m_groupChoice->Bind(wxEVT_CHOICE, &KeywordsPage::onGroupChanged, this);
+    getCurrentSizer()->Add(m_textKeywords, 1, wxEXPAND | wxALL, DEFAULT_PAD);
 }
 
 void KeywordsPage::apply() {

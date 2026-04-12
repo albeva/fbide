@@ -31,6 +31,9 @@ public:
     /// Get array with all the themes found
     [[nodiscard]] auto getAllThemes() const -> std::vector<wxString>;
 
+    /// Get all available fixed width fonts
+    [[nodiscard]] static auto getAllFixedWidthFonts() -> std::vector<wxString>;
+
     /// Get resolved binary directory path.
     [[nodiscard]] auto getFbidePath() const -> const wxString& { return m_fbideDir; }
 
