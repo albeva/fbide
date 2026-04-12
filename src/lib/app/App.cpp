@@ -49,6 +49,20 @@ auto App::OnInit() -> bool {
     m_context->getTheme().load(config.getThemeFile());
     m_context->getFileHistory().load(config.resolvePath("history.ini"));
 
+    // Splash screen
+    if (config.getSplashScreen()) {
+        wxInitAllImageHandlers();
+        const auto splashPath = config.resolvePath("splash.png");
+        if (wxBitmap bmp(splashPath, wxBITMAP_TYPE_PNG); bmp.IsOk()) {
+            new wxSplashScreen( // NOLINT(*-owning-memory)
+                bmp,
+                wxSPLASH_CENTRE_ON_SCREEN | wxSPLASH_TIMEOUT,
+                1000, nullptr, wxID_ANY
+            );
+            wxYield();
+        }
+    }
+
     // Create UI and push command handler
     m_context->getUIManager().createMainFrame();
 

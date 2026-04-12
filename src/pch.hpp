@@ -36,6 +36,7 @@
 #include <wx/listctrl.h>
 #include <wx/notebook.h>
 #include <wx/spinctrl.h>
+#include <wx/splash.h>
 #include <wx/splitter.h>
 #include <wx/statline.h>
 #include <wx/stc/stc.h>
