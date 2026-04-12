@@ -46,7 +46,7 @@ auto App::OnInit() -> bool {
     // Load keywords, theme, and file history
     m_context->getKeywords().load(config.resolvePath(config.getSyntaxFile()));
     m_context->getTheme().load(config.getThemeFile());
-    m_context->getFileHistory().load(config.resolvePath("history.ini"));
+    m_context->getFileHistory().load(config.getIdePath() + "history.ini");
 
     showSplash();
 
