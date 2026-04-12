@@ -29,6 +29,7 @@ private:
     void onQuit(wxCommandEvent& event);
     void onSessionLoad(wxCommandEvent& event);
     void onSessionSave(wxCommandEvent& event);
+    void onFileHistory(wxCommandEvent& event);
 
     // Edit
     void onUndo(wxCommandEvent& event);

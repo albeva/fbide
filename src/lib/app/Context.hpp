@@ -11,6 +11,7 @@ namespace fbide {
 class CommandManager;
 class Config;
 class DocumentManager;
+class FileHistory;
 class Keywords;
 class Lang;
 class Theme;
@@ -42,6 +43,10 @@ public:
     [[nodiscard]] auto getKeywords() -> Keywords& { return *m_keywords; }
     [[nodiscard]] auto getKeywords() const -> const Keywords& { return *m_keywords; }
 
+    /// Get file history.
+    [[nodiscard]] auto getFileHistory() -> FileHistory& { return *m_fileHistory; }
+    [[nodiscard]] auto getFileHistory() const -> const FileHistory& { return *m_fileHistory; }
+
     /// Get editor theme.
     [[nodiscard]] auto getTheme() -> Theme& { return *m_theme; }
     [[nodiscard]] auto getTheme() const -> const Theme& { return *m_theme; }
@@ -60,6 +65,7 @@ public:
 
 private:
     std::unique_ptr<Config> m_config;
+    std::unique_ptr<FileHistory> m_fileHistory;
     std::unique_ptr<Keywords> m_keywords;
     std::unique_ptr<Lang> m_lang;
     std::unique_ptr<Theme> m_theme;

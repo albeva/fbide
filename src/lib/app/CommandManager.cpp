@@ -8,6 +8,7 @@
 // ReSharper disable CppMemberFunctionMayBeStatic
 #include "CommandManager.hpp"
 #include "Context.hpp"
+#include "lib/config/FileHistory.hpp"
 #include "lib/editor/Document.hpp"
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/editor/Editor.hpp"
@@ -34,6 +35,7 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     EVT_MENU(id(MenuId::Quit),         CommandManager::onQuit)
     EVT_MENU(id(MenuId::SessionLoad),  CommandManager::onSessionLoad)
     EVT_MENU(id(MenuId::SessionSave),  CommandManager::onSessionSave)
+    EVT_MENU_RANGE(wxID_FILE1, wxID_FILE9, CommandManager::onFileHistory)
 
     // Edit
     EVT_MENU(id(MenuId::Undo),           CommandManager::onUndo)
@@ -132,6 +134,13 @@ void CommandManager::onSessionLoad(wxCommandEvent&) {
 
 void CommandManager::onSessionSave(wxCommandEvent&) {
     m_ctx.getDocumentManager().saveSession();
+}
+
+void CommandManager::onFileHistory(wxCommandEvent& event) {
+    const auto idx = static_cast<size_t>(event.GetId() - wxID_FILE1);
+    if (const auto file = m_ctx.getFileHistory().getFile(idx)) {
+        m_ctx.getDocumentManager().open(*file);
+    }
 }
 
 // -- Edit --

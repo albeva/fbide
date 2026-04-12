@@ -8,6 +8,8 @@
 #include "Document.hpp"
 #include "Editor.hpp"
 #include "lib/app/Context.hpp"
+#include "lib/config/Config.hpp"
+#include "lib/config/FileHistory.hpp"
 #include "lib/config/Lang.hpp"
 #include "lib/ui/UIManager.hpp"
 using namespace fbide;
@@ -35,7 +37,7 @@ auto DocumentManager::createNew(DocumentType type) -> Document& {
 auto DocumentManager::open(const wxString& filePath) -> Document* {
     // Check if already open
     if (auto* existing = findByPath(filePath)) {
-        auto idx = findPageIndex(*existing);
+        const auto idx = findPageIndex(*existing);
         if (idx != wxNOT_FOUND) {
             getNotebook()->SetSelection(static_cast<size_t>(idx));
         }
@@ -57,6 +59,8 @@ auto DocumentManager::open(const wxString& filePath) -> Document* {
 
     auto* notebook = getNotebook();
     notebook->AddPage(doc.getEditor(), doc.getTitle(), true);
+
+    m_ctx.getFileHistory().addFile(filePath);
     return &doc;
 }
 

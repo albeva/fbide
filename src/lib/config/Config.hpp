@@ -22,9 +22,6 @@ public:
     /// Save current settings to an INI file.
     void save() const;
 
-    /// Reset all settings to defaults.
-    void reset();
-
     /// Get array with all the langauges found
     [[nodiscard]] auto getAllLanguages() const -> std::vector<wxString>;
 

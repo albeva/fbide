@@ -10,6 +10,7 @@
 #include "lib/app/CommandManager.hpp"
 #include "lib/app/Context.hpp"
 #include "lib/config/Config.hpp"
+#include "lib/config/FileHistory.hpp"
 #include "lib/config/Lang.hpp"
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/editor/Editor.hpp"
@@ -86,6 +87,7 @@ void UIManager::onClose(wxCloseEvent& event) {
         config.setWindowH(sizeH);
     }
     config.save();
+    m_ctx.getFileHistory().save();
 
     // Clean up event handlers before frame destruction
     m_frame->RemoveEventHandler(this);
@@ -150,6 +152,8 @@ void UIManager::createMenuBar() {
     m_fileMenu = make_unowned<wxMenu>();
     append(m_fileMenu, lang, MenuId::New, LangId::FileNew, "Ctrl+N", LangId::FileNewHelp);
     append(m_fileMenu, lang, MenuId::Open, LangId::FileOpen, "Ctrl+O", LangId::FileOpenHelp);
+    m_ctx.getFileHistory().getHistory().UseMenu(m_fileMenu);
+    m_ctx.getFileHistory().getHistory().AddFilesToMenu();
     m_fileMenu->AppendSeparator();
     append(m_fileMenu, lang, MenuId::Save, LangId::FileSave, "Ctrl+S", LangId::FileSaveHelp);
     append(m_fileMenu, lang, MenuId::SaveAs, LangId::FileSaveAs, "Ctrl+Shift+S", LangId::FileSaveAsHelp);

@@ -7,6 +7,7 @@
 #include "App.hpp"
 #include "Context.hpp"
 #include "lib/config/Config.hpp"
+#include "lib/config/FileHistory.hpp"
 #include "lib/config/Keywords.hpp"
 #include "lib/config/Lang.hpp"
 #include "lib/config/Theme.hpp"
@@ -43,9 +44,10 @@ auto App::OnInit() -> bool {
     auto& lang = m_context->getLang();
     lang.load(config.getIdePath() + "lang/" + config.getLanguage() + ".fbl");
 
-    // Load keywords and theme
-    m_context->getKeywords().load(config.getIdePath() + config.getSyntaxFile());
+    // Load keywords, theme, and file history
+    m_context->getKeywords().load(config.resolvePath(config.getSyntaxFile()));
     m_context->getTheme().load(config.getThemeFile());
+    m_context->getFileHistory().load(config.resolvePath("history.ini"));
 
     // Create UI and push command handler
     m_context->getUIManager().createMainFrame();

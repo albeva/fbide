@@ -20,7 +20,6 @@ void Config::load(const wxString& filePath) {
     if (!wxFileExists(m_configPath)) {
         exit(EXIT_FAILURE);
     }
-    reset();
 
     wxFFileInputStream stream(filePath);
     if (!stream.IsOk()) {
@@ -122,18 +121,6 @@ void Config::save() const {
     ini.Write("winh", static_cast<long>(m_windowH));
 
     ini.Save(outStream);
-}
-
-void Config::reset() {
-    const auto fbideDir = m_fbideDir;
-    const auto ideDir = m_ideDir;
-    const auto cwd = m_cwd;
-    const auto configPath = m_configPath;
-    *this = Config("");
-    m_fbideDir = fbideDir;
-    m_ideDir = ideDir;
-    m_cwd = cwd;
-    m_configPath = configPath;
 }
 
 auto Config::getAllLanguages() const -> std::vector<wxString> {
