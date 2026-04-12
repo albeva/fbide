@@ -377,6 +377,15 @@ void UIManager::enableEditorMenus(const bool state) const {
     }
 }
 
+void UIManager::toggleConsole() {
+    auto& pane = m_aui.GetPane("console");
+    pane.Show(!pane.IsShown());
+    m_aui.Update();
+
+    // Update the check menu item
+    m_viewMenu->Check(id(MenuId::Result), pane.IsShown());
+}
+
 void UIManager::updateEditorSettigs() {
     // Reapply settings to all open editors
     const auto* notebook = getNotebook();

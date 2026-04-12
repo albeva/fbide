@@ -29,8 +29,11 @@ public:
     /// Enable/disable editor-dependent menus and toolbar items.
     void enableEditorMenus(bool state) const;
 
-    /// Force editors to update settings
+    /// Force editors to update settings.
     void updateEditorSettigs();
+
+    /// Toggle the console/output pane visibility.
+    void toggleConsole();
 
 private:
     void onClose(wxCloseEvent& event);

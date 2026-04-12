@@ -233,7 +233,7 @@ void CommandManager::onFormat(wxCommandEvent&) {
 }
 
 void CommandManager::onResult(wxCommandEvent&) {
-    // TODO: toggle console pane
+    m_ctx.getUIManager().toggleConsole();
 }
 
 void CommandManager::onSubs(wxCommandEvent&) {

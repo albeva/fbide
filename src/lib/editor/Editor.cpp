@@ -35,6 +35,8 @@ void Editor::applyEditorSettings() {
     SetIndent(config.getTabSize());
 
     SetEdgeColumn(config.getEdgeColumn());
+    SetScrollWidth(1);
+    SetScrollWidthTracking(true);
     SetEOLMode(wxSTC_EOL_LF);
     SetViewEOL(config.getDisplayEOL());
     SetIndentationGuides(config.getIndentGuide());
