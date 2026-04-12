@@ -40,7 +40,7 @@ void Panel::separator() {
     const auto line = make_unowned<wxStaticLine>(
         this, wxID_STATIC,
         wxDefaultPosition, wxSize(1, 1),
-        m_currentSizer->GetOrientation()
+        m_currentSizer->GetOrientation() == wxHORIZONTAL ? wxVERTICAL : wxHORIZONTAL
     );
     m_currentSizer->Add(line, 0, wxGROW, 5);
 }
