@@ -13,11 +13,21 @@
 #include "lib/config/Lang.hpp"
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/editor/Editor.hpp"
+#include "rc/bitmaps/toolbar.hpp"
 using namespace fbide;
 
 namespace {
 /// Cast MenuId to int for wx APIs.
 constexpr auto id(MenuId mid) -> int { return static_cast<int>(mid); }
+
+/// Build label with optional shortcut.
+auto makeLabel(const Lang& lang, const LangId label, const wxString& shortcut) -> wxString {
+    auto text = lang[label];
+    if (!shortcut.empty()) {
+        text += "\t" + shortcut;
+    }
+    return text;
+}
 
 /// Append a menu item with translated label, optional shortcut, and help text.
 void append(
@@ -28,11 +38,7 @@ void append(
     const wxString& shortcut = "",
     const LangId help = {}
 ) {
-    auto text = lang[label];
-    if (!shortcut.empty()) {
-        text += "\t" + shortcut;
-    }
-    menu->Append(id(mid), text, lang[help]);
+    menu->Append(id(mid), makeLabel(lang, label, shortcut), lang[help]);
 }
 
 /// Append a check menu item.
@@ -44,11 +50,7 @@ void appendCheck(
     const wxString& shortcut = "",
     const LangId help = {}
 ) {
-    auto text = lang[label];
-    if (!shortcut.empty()) {
-        text += "\t" + shortcut;
-    }
-    menu->AppendCheckItem(id(mid), text, lang[help]);
+    menu->AppendCheckItem(id(mid), makeLabel(lang, label, shortcut), lang[help]);
 }
 } // namespace
 
@@ -231,28 +233,26 @@ void UIManager::createToolBar() {
     const auto& lang = m_ctx.getLang();
     m_toolbar = m_frame->CreateToolBar(wxNO_BORDER | wxTB_HORIZONTAL | wxTB_FLAT);
 
-    auto bmp = [](const wxArtID& artId) {
-        return wxArtProvider::GetBitmapBundle(artId, wxART_TOOLBAR);
-    };
-
-    m_toolbar->AddTool(id(MenuId::New), lang[LangId::ToolbarNew], bmp(wxART_NEW));
-    m_toolbar->AddTool(id(MenuId::Open), lang[LangId::ToolbarOpen], bmp(wxART_FILE_OPEN));
-    m_toolbar->AddTool(id(MenuId::Save), lang[LangId::ToolbarSave], bmp(wxART_FILE_SAVE));
-    m_toolbar->AddTool(id(MenuId::SaveAll), lang[LangId::ToolbarSaveAll], bmp(wxART_FILE_SAVE_AS));
-    m_toolbar->AddTool(id(MenuId::Close), lang[LangId::ToolbarClose], bmp(wxART_CLOSE));
+    // NOLINTBEGIN(*-avoid-c-arrays)
+    m_toolbar->AddTool(id(MenuId::New), lang[LangId::ToolbarNew], wxBitmap(new_xpm));
+    m_toolbar->AddTool(id(MenuId::Open), lang[LangId::ToolbarOpen], wxBitmap(open_xpm));
+    m_toolbar->AddTool(id(MenuId::Save), lang[LangId::ToolbarSave], wxBitmap(save_xpm));
+    m_toolbar->AddTool(id(MenuId::SaveAll), lang[LangId::ToolbarSaveAll], wxBitmap(saveall_xpm));
+    m_toolbar->AddTool(id(MenuId::Close), lang[LangId::ToolbarClose], wxBitmap(close_xpm));
     m_toolbar->AddSeparator();
-    m_toolbar->AddTool(id(MenuId::Cut), lang[LangId::ToolbarCut], bmp(wxART_CUT));
-    m_toolbar->AddTool(id(MenuId::Copy), lang[LangId::ToolbarCopy], bmp(wxART_COPY));
-    m_toolbar->AddTool(id(MenuId::Paste), lang[LangId::ToolbarPaste], bmp(wxART_PASTE));
+    m_toolbar->AddTool(id(MenuId::Cut), lang[LangId::ToolbarCut], wxBitmap(cut_xpm));
+    m_toolbar->AddTool(id(MenuId::Copy), lang[LangId::ToolbarCopy], wxBitmap(copy_xpm));
+    m_toolbar->AddTool(id(MenuId::Paste), lang[LangId::ToolbarPaste], wxBitmap(paste_xpm));
     m_toolbar->AddSeparator();
-    m_toolbar->AddTool(id(MenuId::Undo), lang[LangId::ToolbarUndo], bmp(wxART_UNDO));
-    m_toolbar->AddTool(id(MenuId::Redo), lang[LangId::ToolbarRedo], bmp(wxART_REDO));
+    m_toolbar->AddTool(id(MenuId::Undo), lang[LangId::ToolbarUndo], wxBitmap(undo_xpm));
+    m_toolbar->AddTool(id(MenuId::Redo), lang[LangId::ToolbarRedo], wxBitmap(redo_xpm));
     m_toolbar->AddSeparator();
-    m_toolbar->AddTool(id(MenuId::Compile), lang[LangId::ToolbarCompile], bmp(wxART_EXECUTABLE_FILE));
-    m_toolbar->AddTool(id(MenuId::Run), lang[LangId::ToolbarRun], bmp(wxART_GO_FORWARD));
-    m_toolbar->AddTool(id(MenuId::CompileAndRun), lang[LangId::ToolbarCompileAndRun], bmp(wxART_GOTO_LAST));
-    m_toolbar->AddTool(id(MenuId::QuickRun), lang[LangId::ToolbarQuickRun], bmp(wxART_TIP));
-    m_toolbar->AddTool(id(MenuId::Result), lang[LangId::ToolbarResult], bmp(wxART_REPORT_VIEW));
+    m_toolbar->AddTool(id(MenuId::Compile), lang[LangId::ToolbarCompile], wxBitmap(compile_xpm));
+    m_toolbar->AddTool(id(MenuId::Run), lang[LangId::ToolbarRun], wxBitmap(run_xpm));
+    m_toolbar->AddTool(id(MenuId::CompileAndRun), lang[LangId::ToolbarCompileAndRun], wxBitmap(compnrun_xpm));
+    m_toolbar->AddTool(id(MenuId::QuickRun), lang[LangId::ToolbarQuickRun], wxBitmap(qrun_xpm));
+    m_toolbar->AddTool(id(MenuId::Result), lang[LangId::ToolbarResult], wxBitmap(output_xpm));
+    // NOLINTEND(*-avoid-c-arrays)
 
     m_toolbar->Realize();
 }

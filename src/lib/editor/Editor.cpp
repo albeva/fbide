@@ -13,7 +13,7 @@
 using namespace fbide;
 
 Editor::Editor(wxWindow* parent, Context& ctx, const DocumentType type)
-: wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_THEME)
+: wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize)
 , m_ctx(ctx)
 , m_docType(type) {
     applySettings();
