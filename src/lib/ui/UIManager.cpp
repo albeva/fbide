@@ -14,7 +14,7 @@
 #include "lib/config/Lang.hpp"
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/editor/Editor.hpp"
-#include "rc/bitmaps/toolbar.hpp"
+#include "../../rc/icons.hpp"
 using namespace fbide;
 
 namespace {
@@ -140,7 +140,7 @@ void UIManager::onPageClose(wxAuiNotebookEvent& event) {
     const auto* page = m_notebook->GetPage(static_cast<size_t>(pageIdx));
     auto& docManager = m_ctx.getDocumentManager();
     if (auto* doc = docManager.findByEditor(page)) {
-        docManager.close(*doc);
+        docManager.closeFile(*doc);
     }
 }
 
@@ -246,25 +246,31 @@ void UIManager::createToolBar() {
     const auto& lang = m_ctx.getLang();
     m_toolbar = m_frame->CreateToolBar(wxNO_BORDER | wxTB_HORIZONTAL | wxTB_FLAT);
 
+    const auto add = [&](const MenuId menuIdm, const LangId langId, wxBitmap&& bitmap) {
+        const auto mask = make_unowned<wxMask>(bitmap, wxColour(192, 192, 192));
+        bitmap.SetMask(mask);
+        m_toolbar->AddTool(id(menuIdm), lang[langId], std::move(bitmap));
+    };
+
     // NOLINTBEGIN(*-avoid-c-arrays)
-    m_toolbar->AddTool(id(MenuId::New), lang[LangId::ToolbarNew], wxBitmap(new_xpm));
-    m_toolbar->AddTool(id(MenuId::Open), lang[LangId::ToolbarOpen], wxBitmap(open_xpm));
-    m_toolbar->AddTool(id(MenuId::Save), lang[LangId::ToolbarSave], wxBitmap(save_xpm));
-    m_toolbar->AddTool(id(MenuId::SaveAll), lang[LangId::ToolbarSaveAll], wxBitmap(saveall_xpm));
-    m_toolbar->AddTool(id(MenuId::Close), lang[LangId::ToolbarClose], wxBitmap(close_xpm));
+    add(MenuId::New, LangId::ToolbarNew, wxBitmap(XPM::new_xpm));
+    add(MenuId::Open, LangId::ToolbarOpen, wxBitmap(XPM::open_xpm));
+    add(MenuId::Save, LangId::ToolbarSave, wxBitmap(XPM::save_xpm));
+    add(MenuId::SaveAll, LangId::ToolbarSaveAll, wxBitmap(XPM::saveall_xpm));
+    add(MenuId::Close, LangId::ToolbarClose, wxBitmap(XPM::close_xpm));
     m_toolbar->AddSeparator();
-    m_toolbar->AddTool(id(MenuId::Cut), lang[LangId::ToolbarCut], wxBitmap(cut_xpm));
-    m_toolbar->AddTool(id(MenuId::Copy), lang[LangId::ToolbarCopy], wxBitmap(copy_xpm));
-    m_toolbar->AddTool(id(MenuId::Paste), lang[LangId::ToolbarPaste], wxBitmap(paste_xpm));
+    add(MenuId::Cut, LangId::ToolbarCut, wxBitmap(XPM::cut_xpm));
+    add(MenuId::Copy, LangId::ToolbarCopy, wxBitmap(XPM::copy_xpm));
+    add(MenuId::Paste, LangId::ToolbarPaste, wxBitmap(XPM::paste_xpm));
     m_toolbar->AddSeparator();
-    m_toolbar->AddTool(id(MenuId::Undo), lang[LangId::ToolbarUndo], wxBitmap(undo_xpm));
-    m_toolbar->AddTool(id(MenuId::Redo), lang[LangId::ToolbarRedo], wxBitmap(redo_xpm));
+    add(MenuId::Undo, LangId::ToolbarUndo, wxBitmap(XPM::undo_xpm));
+    add(MenuId::Redo, LangId::ToolbarRedo, wxBitmap(XPM::redo_xpm));
     m_toolbar->AddSeparator();
-    m_toolbar->AddTool(id(MenuId::Compile), lang[LangId::ToolbarCompile], wxBitmap(compile_xpm));
-    m_toolbar->AddTool(id(MenuId::Run), lang[LangId::ToolbarRun], wxBitmap(run_xpm));
-    m_toolbar->AddTool(id(MenuId::CompileAndRun), lang[LangId::ToolbarCompileAndRun], wxBitmap(compnrun_xpm));
-    m_toolbar->AddTool(id(MenuId::QuickRun), lang[LangId::ToolbarQuickRun], wxBitmap(qrun_xpm));
-    m_toolbar->AddTool(id(MenuId::Result), lang[LangId::ToolbarResult], wxBitmap(output_xpm));
+    add(MenuId::Compile, LangId::ToolbarCompile, wxBitmap(XPM::compile_xpm));
+    add(MenuId::Run, LangId::ToolbarRun, wxBitmap(XPM::run_xpm));
+    add(MenuId::CompileAndRun, LangId::ToolbarCompileAndRun, wxBitmap(XPM::compnrun_xpm));
+    add(MenuId::QuickRun, LangId::ToolbarQuickRun, wxBitmap(XPM::qrun_xpm));
+    add(MenuId::Result, LangId::ToolbarResult, wxBitmap(XPM::output_xpm));
     // NOLINTEND(*-avoid-c-arrays)
 
     m_toolbar->Realize();
@@ -288,7 +294,7 @@ void UIManager::createLayout() {
     m_notebook->Bind(wxEVT_AUINOTEBOOK_PAGE_CLOSE, &UIManager::onPageClose, this);
     m_notebook->Bind(wxEVT_AUINOTEBOOK_PAGE_CHANGED, &UIManager::onPageChanged, this);
     m_notebook->Bind(wxEVT_AUINOTEBOOK_BG_DCLICK, [this](wxAuiNotebookEvent&) {
-        m_ctx.getDocumentManager().createNew();
+        m_ctx.getDocumentManager().newFile();
     });
 
     m_aui.AddPane(

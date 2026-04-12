@@ -27,14 +27,40 @@ wxEND_EVENT_TABLE()
 DocumentManager::DocumentManager(Context& ctx)
 : m_ctx(ctx) {}
 
-auto DocumentManager::createNew(DocumentType type) -> Document& {
+// ---------------------------------------------------------------------------
+// File andling
+// ---------------------------------------------------------------------------
+
+auto DocumentManager::newFile(DocumentType type) -> Document& {
     auto* notebook = getNotebook();
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(notebook, m_ctx, type));
     notebook->AddPage(doc.getEditor(), doc.getTitle(), true);
     return doc;
 }
 
-auto DocumentManager::open(const wxString& filePath) -> Document* {
+void DocumentManager::openFile() {
+    const auto& lang = m_ctx.getLang();
+    wxFileDialog dlg(
+        m_ctx.getUIManager().getMainFrame(),
+        lang[LangId::FileLoadTitle],
+        "",
+        ".bas",
+        lang[LangId::FileLoadFilter],
+        wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE
+    );
+
+    if (dlg.ShowModal() != wxID_OK) {
+        return;
+    }
+
+    wxArrayString paths;
+    dlg.GetPaths(paths);
+    for (const auto& path : paths) {
+        openFile(path);
+    }
+}
+
+auto DocumentManager::openFile(const wxString& filePath) -> Document* {
     // Check if already open
     if (auto* existing = findByPath(filePath)) {
         const auto idx = findPageIndex(*existing);
@@ -64,31 +90,9 @@ auto DocumentManager::open(const wxString& filePath) -> Document* {
     return &doc;
 }
 
-void DocumentManager::openWithDialog() {
-    const auto& lang = m_ctx.getLang();
-    wxFileDialog dlg(
-        m_ctx.getUIManager().getMainFrame(),
-        lang[LangId::FileLoadTitle],
-        "",
-        ".bas",
-        lang[LangId::FileLoadFilter],
-        wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE
-    );
-
-    if (dlg.ShowModal() != wxID_OK) {
-        return;
-    }
-
-    wxArrayString paths;
-    dlg.GetPaths(paths);
-    for (const auto& path : paths) {
-        open(path);
-    }
-}
-
-auto DocumentManager::save(Document& doc) const -> bool {
+auto DocumentManager::saveFile(Document& doc) const -> bool {
     if (doc.isUntitled()) {
-        return saveAs(doc);
+        return saveFileAs(doc);
     }
 
     if (!doc.getEditor()->SaveFile(doc.getFilePath())) {
@@ -101,7 +105,7 @@ auto DocumentManager::save(Document& doc) const -> bool {
     return true;
 }
 
-auto DocumentManager::saveAs(Document& doc) const -> bool {
+auto DocumentManager::saveFileAs(Document& doc) const -> bool {
     const auto& lang = m_ctx.getLang();
 
     wxString filter;
@@ -137,10 +141,10 @@ auto DocumentManager::saveAs(Document& doc) const -> bool {
     return true;
 }
 
-auto DocumentManager::saveAll() const -> bool {
+auto DocumentManager::saveAllFiles() const -> bool {
     for (auto& doc : m_documents) {
         if (doc->isModified()) {
-            if (!save(*doc)) {
+            if (!saveFile(*doc)) {
                 return false;
             }
         }
@@ -148,7 +152,7 @@ auto DocumentManager::saveAll() const -> bool {
     return true;
 }
 
-auto DocumentManager::close(Document& doc) -> bool {
+auto DocumentManager::closeFile(Document& doc) -> bool {
     if (doc.isModified()) {
         const auto& lang = m_ctx.getLang();
         const auto result = wxMessageBox(
@@ -162,7 +166,7 @@ auto DocumentManager::close(Document& doc) -> bool {
             return false;
         }
         if (result == wxYES) {
-            if (!save(doc)) {
+            if (!saveFile(doc)) {
                 return false;
             }
         }
@@ -182,14 +186,18 @@ auto DocumentManager::close(Document& doc) -> bool {
     return true;
 }
 
-auto DocumentManager::closeAll() -> bool {
+auto DocumentManager::closeAllFiles() -> bool {
     while (!m_documents.empty()) {
-        if (!close(*m_documents.back())) {
+        if (!closeFile(*m_documents.back())) {
             return false;
         }
     }
     return true;
 }
+
+// ---------------------------------------------------------------------------
+// Life cycle
+// ---------------------------------------------------------------------------
 
 auto DocumentManager::prepareToQuit() -> bool {
     if (getModifiedCount() == 0) {
@@ -209,7 +217,7 @@ auto DocumentManager::prepareToQuit() -> bool {
     }
 
     if (result == wxYES) {
-        if (!saveAll()) {
+        if (!saveAllFiles()) {
             return false;
         }
     }
@@ -329,7 +337,7 @@ void DocumentManager::loadSession(const wxString& path) {
             continue;
         }
 
-        auto* doc = open(filePath);
+        auto* doc = openFile(filePath);
         if (doc && isV2 && i + 2 < file.GetLineCount()) {
             unsigned long scrollLine = 0;
             unsigned long caretPos = 0;
@@ -389,7 +397,7 @@ void DocumentManager::saveSession() {
     // Prompt to save modified files first
     for (auto& doc : m_documents) {
         if (doc->isModified() && !doc->isUntitled()) {
-            if (!save(*doc)) {
+            if (!saveFile(*doc)) {
                 return;
             }
         }

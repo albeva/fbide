@@ -19,28 +19,28 @@ public:
     explicit DocumentManager(Context& ctx);
 
     /// Create a new empty document and add it as a tab.
-    auto createNew(DocumentType type = DocumentType::FreeBASIC) -> Document&;
+    auto newFile(DocumentType type = DocumentType::FreeBASIC) -> Document&;
 
     /// Open a file. Returns existing document if already open, or nullptr on failure.
-    auto open(const wxString& filePath) -> Document*;
+    auto openFile(const wxString& filePath) -> Document*;
 
     /// Show open file dialog and open selected files.
-    void openWithDialog();
+    void openFile();
 
     /// Save a document. Shows save dialog if untitled. Returns false if cancelled.
-    auto save(Document& doc) const -> bool;
+    auto saveFile(Document& doc) const -> bool;
 
     /// Save a document with a new name. Returns false if cancelled.
-    auto saveAs(Document& doc) const -> bool;
+    auto saveFileAs(Document& doc) const -> bool;
 
     /// Save all modified documents. Returns false if any save was cancelled.
-    auto saveAll() const -> bool;
+    auto saveAllFiles() const -> bool;
 
     /// Close a document. Returns false if user cancelled (unsaved changes).
-    auto close(Document& doc) -> bool;
+    auto closeFile(Document& doc) -> bool;
 
     /// Close all documents. Returns false if user cancelled.
-    auto closeAll() -> bool;
+    auto closeAllFiles() -> bool;
 
     /// Handle quit request. Prompts for unsaved docs. Returns true if safe to quit.
     /// If user chooses to save, saves all then returns true.

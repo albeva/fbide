@@ -87,37 +87,37 @@ CommandManager::CommandManager(Context& ctx)
 // -- File --
 
 void CommandManager::onNew(wxCommandEvent&) {
-    m_ctx.getDocumentManager().createNew();
+    m_ctx.getDocumentManager().newFile();
 }
 
 void CommandManager::onOpen(wxCommandEvent&) {
-    m_ctx.getDocumentManager().openWithDialog();
+    m_ctx.getDocumentManager().openFile();
 }
 
 void CommandManager::onSave(wxCommandEvent&) {
     if (auto* doc = m_ctx.getDocumentManager().getActive()) {
-        m_ctx.getDocumentManager().save(*doc);
+        m_ctx.getDocumentManager().saveFile(*doc);
     }
 }
 
 void CommandManager::onSaveAs(wxCommandEvent&) {
     if (auto* doc = m_ctx.getDocumentManager().getActive()) {
-        m_ctx.getDocumentManager().saveAs(*doc);
+        m_ctx.getDocumentManager().saveFileAs(*doc);
     }
 }
 
 void CommandManager::onSaveAll(wxCommandEvent&) {
-    (void)m_ctx.getDocumentManager().saveAll();
+    (void)m_ctx.getDocumentManager().saveAllFiles();
 }
 
 void CommandManager::onClose(wxCommandEvent&) {
     if (auto* doc = m_ctx.getDocumentManager().getActive()) {
-        m_ctx.getDocumentManager().close(*doc);
+        m_ctx.getDocumentManager().closeFile(*doc);
     }
 }
 
 void CommandManager::onCloseAll(wxCommandEvent&) {
-    m_ctx.getDocumentManager().closeAll();
+    m_ctx.getDocumentManager().closeAllFiles();
 }
 
 void CommandManager::onNewWindow(wxCommandEvent&) {
@@ -139,7 +139,7 @@ void CommandManager::onSessionSave(wxCommandEvent&) {
 void CommandManager::onFileHistory(wxCommandEvent& event) {
     const auto idx = static_cast<size_t>(event.GetId() - wxID_FILE1);
     if (const auto file = m_ctx.getFileHistory().getFile(idx)) {
-        m_ctx.getDocumentManager().open(*file);
+        m_ctx.getDocumentManager().openFile(*file);
     }
 }
 
