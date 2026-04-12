@@ -155,8 +155,8 @@ void Editor::applyFreebasicTheme() {
 
     // Apply keywords
     const auto& keywords = m_ctx.getKeywords();
-    for (int grp = 0; grp < Keywords::GROUP_COUNT; grp++) {
-        SetKeyWords(grp, keywords.getGroup(grp));
+    for (std::size_t grp = 0; grp < Keywords::GROUP_COUNT; grp++) {
+        SetKeyWords(static_cast<int>(grp), keywords.getGroup(grp));
     }
 
     // VB style mappings
@@ -206,7 +206,7 @@ void Editor::applyTextTheme() {
 
 void Editor::onModified(wxStyledTextEvent& event) {
     event.Skip();
-    auto mod = event.GetModificationType();
+    const auto mod = event.GetModificationType();
     if ((mod & (wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT | wxSTC_PERFORMED_UNDO | wxSTC_PERFORMED_REDO)) == 0) {
         return;
     }

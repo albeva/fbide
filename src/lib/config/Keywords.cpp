@@ -20,10 +20,10 @@ void Keywords::load(const wxString& filePath) {
     wxFileConfig ini(stream);
     ini.SetPath("/keywords");
 
-    for (int idx = 0; idx < GROUP_COUNT; idx++) {
+    for (std::size_t idx = 0; idx < GROUP_COUNT; idx++) {
         wxString key;
         key.Printf("kw%d", idx + 1);
-        m_groups[static_cast<size_t>(idx)] = ini.Read(key, "");
+        m_groups.at(idx) = ini.Read(key, "");
     }
 
     buildSortedList();
@@ -33,10 +33,10 @@ void Keywords::save() const {
     wxFileConfig ini;
     ini.SetPath("/keywords");
 
-    for (int idx = 0; idx < GROUP_COUNT; idx++) {
+    for (std::size_t idx = 0; idx < GROUP_COUNT; idx++) {
         wxString key;
         key.Printf("kw%d", idx + 1);
-        ini.Write(key, m_groups[static_cast<size_t>(idx)]);
+        ini.Write(key, m_groups.at(idx));
     }
 
     wxFileOutputStream outStream(m_langePath);

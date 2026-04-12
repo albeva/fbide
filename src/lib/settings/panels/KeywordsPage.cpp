@@ -14,8 +14,8 @@ using namespace fbide;
 KeywordsPage::KeywordsPage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent) {
     const auto& keywords = getContext().getKeywords();
-    for (int idx = 0; idx < Keywords::GROUP_COUNT; idx++) {
-        m_groups[static_cast<size_t>(idx)] = keywords.getGroup(idx);
+    for (std::size_t idx = 0; idx < Keywords::GROUP_COUNT; idx++) {
+        m_groups.at(idx) = keywords.getGroup(idx);
     }
 }
 
@@ -33,8 +33,6 @@ void KeywordsPage::layout() {
     m_groupChoice->SetSelection(static_cast<int>(m_selectedGroup));
     m_groupChoice->Bind(wxEVT_CHOICE, &KeywordsPage::onGroupChanged, this);
 
-    // choice()
-
     // Keyword text area
     m_textKeywords = make_unowned<wxTextCtrl>(
         this, wxID_ANY,
@@ -48,7 +46,7 @@ void KeywordsPage::layout() {
 void KeywordsPage::apply() {
     m_groups[m_selectedGroup] = m_textKeywords->GetValue();
     auto& keywords = getContext().getKeywords();
-    for (int idx = 0; idx < Keywords::GROUP_COUNT; idx++) {
+    for (std::size_t idx = 0; idx < Keywords::GROUP_COUNT; idx++) {
         keywords.setGroup(idx, m_groups[static_cast<size_t>(idx)]);
     }
     keywords.save();
