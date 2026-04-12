@@ -12,8 +12,8 @@
 #include "lib/config/Theme.hpp"
 using namespace fbide;
 
-Editor::Editor(wxWindow* parent, Context& ctx, DocumentType type)
-: wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
+Editor::Editor(wxWindow* parent, Context& ctx, const DocumentType type)
+: wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_THEME)
 , m_ctx(ctx)
 , m_docType(type) {
     applySettings();
