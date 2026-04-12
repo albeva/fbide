@@ -127,11 +127,11 @@ void CommandManager::onQuit(wxCommandEvent&) {
 }
 
 void CommandManager::onSessionLoad(wxCommandEvent&) {
-    // TODO: implement session load
+    m_ctx.getDocumentManager().loadSession();
 }
 
 void CommandManager::onSessionSave(wxCommandEvent&) {
-    // TODO: implement session save
+    m_ctx.getDocumentManager().saveSession();
 }
 
 // -- Edit --

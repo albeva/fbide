@@ -65,6 +65,15 @@ public:
     /// Find document by its editor widget.
     [[nodiscard]] auto findByEditor(const wxWindow* editor) const -> Document*;
 
+    /// Load a session from a .fbs file.
+    void loadSession(const wxString& path);
+
+    /// Show file dialog and load a session.
+    void loadSession();
+
+    /// Save current session to a .fbs file.
+    void saveSession();
+
     /// Show the Find dialog (pre-filled from active editor).
     void showFind();
 

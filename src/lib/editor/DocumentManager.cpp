@@ -294,6 +294,134 @@ void DocumentManager::updateTabTitle(const Document& doc) const {
 }
 
 // ---------------------------------------------------------------------------
+// Sessions
+// ---------------------------------------------------------------------------
+
+namespace {
+constexpr auto sessionHeader = "<fbide:session:version = \"0.2\"/>";
+} // namespace
+
+void DocumentManager::loadSession(const wxString& path) {
+    wxTextFile file(path);
+    if (!file.Open() || file.GetLineCount() == 0) {
+        return;
+    }
+
+    // Check version header
+    const bool isV2 = file[0].Trim().Trim(false).Lower() == sessionHeader;
+    const size_t startLine = isV2 ? 2 : 1;
+
+    // Read selected tab index
+    unsigned long selectedTab = 0;
+    file[isV2 ? 1 : 0].ToULong(&selectedTab);
+
+    // Open files
+    for (size_t i = startLine; i < file.GetLineCount(); i++) {
+        const auto filePath = file[i];
+        if (filePath.empty() || !wxFileExists(filePath)) {
+            if (isV2) {
+                i += 2; // skip scroll-line and caret-pos
+            }
+            continue;
+        }
+
+        auto* doc = open(filePath);
+        if (doc && isV2 && i + 2 < file.GetLineCount()) {
+            unsigned long scrollLine = 0;
+            unsigned long caretPos = 0;
+            file[i + 1].ToULong(&scrollLine);
+            file[i + 2].ToULong(&caretPos);
+
+            auto* editor = doc->getEditor();
+            editor->ScrollToLine(static_cast<int>(scrollLine));
+            editor->SetCurrentPos(static_cast<int>(caretPos));
+            editor->SetSelectionStart(static_cast<int>(caretPos));
+            editor->SetSelectionEnd(static_cast<int>(caretPos));
+        }
+
+        if (isV2) {
+            i += 2; // skip scroll-line and caret-pos
+        }
+    }
+
+    // Restore selected tab
+    auto* notebook = getNotebook();
+    if (selectedTab < notebook->GetPageCount()) {
+        notebook->SetSelection(selectedTab);
+    }
+}
+
+void DocumentManager::loadSession() {
+    const auto& lang = m_ctx.getLang();
+    wxFileDialog dlg(
+        m_ctx.getUIManager().getMainFrame(),
+        lang[LangId::FileLoadTitle],
+        "", ".fbs",
+        lang[LangId::FileSessionFilter],
+        wxFD_FILE_MUST_EXIST
+    );
+    if (dlg.ShowModal() == wxID_OK) {
+        loadSession(dlg.GetPath());
+    }
+}
+
+void DocumentManager::saveSession() {
+    if (m_documents.empty()) {
+        return;
+    }
+
+    const auto& lang = m_ctx.getLang();
+    wxFileDialog dlg(
+        m_ctx.getUIManager().getMainFrame(),
+        lang[LangId::FileSessionSaveTitle],
+        "", ".fbs",
+        lang[LangId::FileSessionFilter],
+        wxFD_SAVE | wxFD_OVERWRITE_PROMPT
+    );
+    if (dlg.ShowModal() != wxID_OK) {
+        return;
+    }
+
+    // Prompt to save modified files first
+    for (auto& doc : m_documents) {
+        if (doc->isModified() && !doc->isUntitled()) {
+            if (!save(*doc)) {
+                return;
+            }
+        }
+    }
+
+    wxTextFile file(dlg.GetPath());
+    if (file.Exists()) {
+        file.Open();
+        file.Clear();
+    } else {
+        file.Create();
+    }
+
+    // Header
+    file.AddLine(sessionHeader);
+
+    // Selected tab index
+    const auto* notebook = getNotebook();
+    file.AddLine(wxString::Format("%d", notebook->GetSelection()));
+
+    // File entries (skip untitled)
+    for (const auto& doc : m_documents) {
+        if (doc->isUntitled()) {
+            continue;
+        }
+        const auto* editor = doc->getEditor();
+        file.AddLine(doc->getFilePath());
+        file.AddLine(wxString::Format("%d", editor->GetFirstVisibleLine()));
+        file.AddLine(wxString::Format("%d", editor->GetCurrentPos()));
+    }
+
+    file.Write();
+    file.Close();
+}
+
+// ---------------------------------------------------------------------------
 // Find / Replace
 // ---------------------------------------------------------------------------
 
