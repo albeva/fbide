@@ -38,6 +38,7 @@ public:
 private:
     void onClose(wxCloseEvent& event);
     void onPageClose(wxAuiNotebookEvent& event);
+    void onPageChanged(wxAuiNotebookEvent& event);
 
     void createMenuBar();
     void createToolBar();

@@ -50,8 +50,13 @@ public:
     /// Uncomment selected lines (strip leading ' or REM).
     void uncommentSelection();
 
+    /// Update the statusbar with current cursor position.
+    void updateStatusBar() const;
+
 private:
     void onModified(wxStyledTextEvent& event);
+    void onUpdateUI(wxStyledTextEvent& event);
+    void onFocus(wxFocusEvent& event);
     void applyEditorSettings();
     void applyTheme();
     void applyFreebasicTheme();
@@ -60,6 +65,8 @@ private:
 
     Context& m_ctx;
     DocumentType m_docType;
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide

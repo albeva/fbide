@@ -10,14 +10,22 @@
 #include "lib/config/Config.hpp"
 #include "lib/config/Keywords.hpp"
 #include "lib/config/Theme.hpp"
+#include "lib/ui/UIManager.hpp"
 using namespace fbide;
+
+// clang-format off
+wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
+    EVT_STC_MODIFIED(wxID_ANY, Editor::onModified)
+    EVT_STC_UPDATEUI(wxID_ANY, Editor::onUpdateUI)
+    EVT_SET_FOCUS(Editor::onFocus)
+wxEND_EVENT_TABLE()
+// clang-format on
 
 Editor::Editor(wxWindow* parent, Context& ctx, const DocumentType type)
 : wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize)
 , m_ctx(ctx)
 , m_docType(type) {
     applySettings();
-    Bind(wxEVT_STC_MODIFIED, &Editor::onModified, this);
 }
 
 void Editor::applySettings() {
@@ -396,6 +404,23 @@ void Editor::uncommentSelection() {
     EndUndoAction();
 
     SetSelection(PositionFromLine(lineStart), GetLineEndPosition(lineEnd));
+}
+
+void Editor::onUpdateUI(wxStyledTextEvent& event) {
+    event.Skip();
+    updateStatusBar();
+}
+
+void Editor::updateStatusBar() const {
+    const auto pos = GetCurrentPos();
+    const auto line = LineFromPosition(pos) + 1;
+    const auto col = GetColumn(pos) + 1;
+    m_ctx.getUIManager().getMainFrame()->SetStatusText(wxString::Format("%d : %d", line, col), 1);
+}
+
+void Editor::onFocus(wxFocusEvent& event) {
+    event.Skip();
+    updateStatusBar();
 }
 
 void Editor::onModified(wxStyledTextEvent& event) {

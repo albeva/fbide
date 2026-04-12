@@ -144,6 +144,15 @@ void UIManager::onPageClose(wxAuiNotebookEvent& event) {
     }
 }
 
+void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
+    event.Skip();
+    const auto sel = event.GetSelection();
+    if (sel == wxNOT_FOUND) {
+        return;
+    }
+    m_notebook->GetPage(static_cast<size_t>(sel))->SetFocus();
+}
+
 void UIManager::createMenuBar() {
     const auto& lang = m_ctx.getLang();
     const auto menuBar = make_unowned<wxMenuBar>();
@@ -277,6 +286,7 @@ void UIManager::createLayout() {
         wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_CLOSE_ON_ALL_TABS
     );
     m_notebook->Bind(wxEVT_AUINOTEBOOK_PAGE_CLOSE, &UIManager::onPageClose, this);
+    m_notebook->Bind(wxEVT_AUINOTEBOOK_PAGE_CHANGED, &UIManager::onPageChanged, this);
 
     m_aui.AddPane(
         m_notebook.get(),
