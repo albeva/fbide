@@ -11,7 +11,6 @@
 #include "lib/config/Keywords.hpp"
 #include "lib/config/Lang.hpp"
 #include "lib/config/Theme.hpp"
-#include "lib/editor/DocumentManager.hpp"
 #include "lib/ui/UIManager.hpp"
 using namespace fbide;
 
@@ -49,12 +48,23 @@ auto App::OnInit() -> bool {
     m_context->getTheme().load(config.getThemeFile());
     m_context->getFileHistory().load(config.resolvePath("history.ini"));
 
-    // Splash screen
-    if (config.getSplashScreen()) {
+    showSplash();
+
+    m_context->getUIManager().createMainFrame();
+    return true;
+}
+
+auto App::getFbidePath() -> wxString {
+    const auto& sp = GetTraits()->GetStandardPaths();
+    return wxPathOnly(sp.GetExecutablePath());
+}
+
+void App::showSplash() {
+    if (m_context->getConfig().getSplashScreen()) {
         wxInitAllImageHandlers();
-        const auto splashPath = config.resolvePath("splash.png");
-        if (wxBitmap bmp(splashPath, wxBITMAP_TYPE_PNG); bmp.IsOk()) {
-            new wxSplashScreen( // NOLINT(*-owning-memory)
+        const auto splashPath = m_context->getConfig().resolvePath("splash.png");
+        if (const wxBitmap bmp(splashPath, wxBITMAP_TYPE_PNG); bmp.IsOk()) {
+            make_unowned<wxSplashScreen>(
                 bmp,
                 wxSPLASH_CENTRE_ON_SCREEN | wxSPLASH_TIMEOUT,
                 1000, nullptr, wxID_ANY
@@ -62,17 +72,4 @@ auto App::OnInit() -> bool {
             wxYield();
         }
     }
-
-    // Create UI and push command handler
-    m_context->getUIManager().createMainFrame();
-
-    // Create initial document
-    m_context->getDocumentManager().createNew();
-
-    return true;
-}
-
-auto App::getFbidePath() -> wxString {
-    const auto& sp = GetTraits()->GetStandardPaths();
-    return wxPathOnly(sp.GetExecutablePath());
 }

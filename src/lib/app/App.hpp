@@ -23,6 +23,7 @@ public:
 private:
     /// Get the directory of teh fbide binary
     [[nodiscard]] auto getFbidePath() -> wxString;
+    void showSplash();
 
     std::unique_ptr<Context> m_context;
 };

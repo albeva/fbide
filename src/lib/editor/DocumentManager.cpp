@@ -312,7 +312,7 @@ void DocumentManager::loadSession(const wxString& path) {
     }
 
     // Check version header
-    const bool isV2 = file[0].Trim().Trim(false).Lower() == sessionHeader;
+    const bool isV2 = wxString(file[0]).Trim().Trim(false).Lower() == sessionHeader;
     const size_t startLine = isV2 ? 2 : 1;
 
     // Read selected tab index
