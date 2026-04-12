@@ -5,20 +5,16 @@
 // https://github.com/albeva/fbide
 //
 #include "SettingsDialog.hpp"
-#include "panels/CompilerPage.hpp"
-#include "panels/GeneralPage.hpp"
-#include "panels/KeywordsPage.hpp"
-#include "panels/ThemePage.hpp"
 #include "lib/app/Context.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/Lang.hpp"
 #include "lib/editor/Editor.hpp"
 #include "lib/ui/UIManager.hpp"
+#include "panels/CompilerPage.hpp"
+#include "panels/GeneralPage.hpp"
+#include "panels/KeywordsPage.hpp"
+#include "panels/ThemePage.hpp"
 using namespace fbide;
-
-namespace {
-constexpr int border = 5;
-}
 
 SettingsDialog::SettingsDialog(wxWindow* parent, Context& ctx)
 : wxDialog(
@@ -52,8 +48,8 @@ void SettingsDialog::create() {
     auto* btnSizer = CreateStdDialogButtonSizer(wxOK | wxCANCEL);
 
     const auto mainSizer = make_unowned<wxBoxSizer>(wxVERTICAL);
-    mainSizer->Add(notebook, 1, wxEXPAND | wxALL, border);
-    mainSizer->Add(btnSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, border);
+    mainSizer->Add(notebook, 1, wxEXPAND | wxALL, 5);
+    mainSizer->Add(btnSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
     SetSizer(mainSizer);
     SetMinSize(wxSize(500, 400));
     Fit();
@@ -74,14 +70,6 @@ void SettingsDialog::applyChanges() const {
     m_themePage->apply();
     m_keywordsPage->apply();
     m_compilerPage->apply();
-
     m_ctx.getConfig().save();
-
-    // Reapply settings to all open editors
-    const auto* notebook = m_ctx.getUIManager().getNotebook();
-    for (size_t idx = 0; idx < notebook->GetPageCount(); idx++) {
-        if (auto* editor = dynamic_cast<Editor*>(notebook->GetPage(idx))) {
-            editor->applySettings();
-        }
-    }
+    m_ctx.getUIManager().updateEditorSettigs();
 }

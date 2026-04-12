@@ -12,6 +12,7 @@
 #include "lib/config/Config.hpp"
 #include "lib/config/Lang.hpp"
 #include "lib/editor/DocumentManager.hpp"
+#include "lib/editor/Editor.hpp"
 using namespace fbide;
 
 namespace {
@@ -373,5 +374,15 @@ void UIManager::enableEditorMenus(const bool state) const {
     for (const auto mid : runItems) {
         menuBar->Enable(id(mid), state);
         m_toolbar->EnableTool(id(mid), state);
+    }
+}
+
+void UIManager::updateEditorSettigs() {
+    // Reapply settings to all open editors
+    const auto* notebook = getNotebook();
+    for (size_t idx = 0; idx < notebook->GetPageCount(); idx++) {
+        if (auto* editor = dynamic_cast<Editor*>(notebook->GetPage(idx))) {
+            editor->applySettings();
+        }
     }
 }

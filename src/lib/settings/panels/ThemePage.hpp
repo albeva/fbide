@@ -7,35 +7,79 @@
 #pragma once
 #include "pch.hpp"
 #include "Panel.hpp"
+#include "lib/config/Theme.hpp"
 
 namespace fbide {
 
 /// Theme settings tab — style type selection, colors, fonts.
 class ThemePage final : public Panel {
 public:
-    explicit ThemePage(Context& ctx, wxWindow* parent);
+
+    ThemePage(Context& ctx, wxWindow* parent);
     void layout() override;
     void apply() override;
 
 private:
-    void onThemeTypeSelected(wxCommandEvent& event);
-    void onThemeChanged(wxCommandEvent& event);
-    void onSaveTheme(wxCommandEvent& event);
-    void onForegroundColor(wxCommandEvent& event);
-    void onBackgroundColor(wxCommandEvent& event);
-    void setTypeSelection(int sel);
-    void storeTypeSelection(int sel);
 
-    Unowned<wxListBox> m_themeTypeList;
+    /// All entries in the theme type listbox.
+    /// First 12 are syntax styles (map to Theme::ItemKind + 1),
+    /// rest are special theme elements.
+    enum class Category : int {
+        Comments = 0,
+        Numbers,
+        Keywords1,
+        StringClosed,
+        Preprocessor,
+        Operator,
+        Identifier,
+        Date,
+        StringOpen,
+        Keywords2,
+        Keywords3,
+        Keywords4,
+        // -- special entries below --
+        Caret,
+        LineNumbers,
+        Selection,
+        BraceMatch,
+        BraceMismatch,
+        Editor,
+    };
+
+    static constexpr int syntaxStyleCount = 12;
+    static constexpr int typeEntryCount = 18;
+
+    /// Check if entry is a syntax style (vs special element).
+    [[nodiscard]] static auto isSyntaxStyle(Category entry) -> bool;
+
+    /// Convert syntax style entry to Theme::ItemKind.
+    [[nodiscard]] static auto toItemKind(Category entry) -> Theme::ItemKind;
+
+    void createTopRow();
+    void createTypeList();
+    void createColorControls(wxSizer* sizer);
+    void createFontControls(wxSizer* sizer);
+
+    void onSelectCategory(const wxCommandEvent& event);
+    void onSelectTheme(const wxCommandEvent& event);
+    void onSaveTheme(wxCommandEvent& event);
+    void onColorButton(wxButton* btn);
+    void loadCategory();
+    void saveCategory();
+
+    Unowned<wxListBox> m_typeList;
     Unowned<wxChoice> m_themeChoice;
-    Unowned<wxButton> m_btnForeground;
-    Unowned<wxButton> m_btnBackground;
-    Unowned<wxChoice> m_chFont;
+    Unowned<wxButton> m_btnFg;
+    Unowned<wxButton> m_btnBg;
+    Unowned<wxChoice> m_fontChoice;
     Unowned<wxCheckBox> m_chkBold;
     Unowned<wxCheckBox> m_chkItalic;
     Unowned<wxCheckBox> m_chkUnderline;
     Unowned<wxSpinCtrl> m_spinFontSize;
-    int m_themeTypeOld = 0;
+
+    wxString m_activeTheme;
+    Category m_category = Category::Comments;
+    Theme m_theme;
 };
 
 } // namespace fbide

@@ -18,7 +18,7 @@ TEST(ConfigTests, Defaults) {
     EXPECT_EQ(cfg.getTabSize(), 4);
     EXPECT_EQ(cfg.getLanguage(), "english");
     EXPECT_EQ(cfg.getSyntaxFile(), "fbfull.lng");
-    EXPECT_EQ(cfg.getThemeFile(), "classic.fbt");
+    EXPECT_EQ(cfg.getTheme(), "classic.fbt");
 }
 
 TEST(ConfigTests, LoadLegacyIni) {

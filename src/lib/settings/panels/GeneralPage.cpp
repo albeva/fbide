@@ -62,7 +62,11 @@ void GeneralPage::layout() {
     makeTitle(LangId::SettingsLanguage);
 
     // Scan for language files
-    makeChoice(getVBox(), m_language, LangId::SettingsLanguageSelect, getContext().getConfig().getAllLanguages());
+    const auto row = make_unowned<wxBoxSizer>(wxHORIZONTAL);
+    getVBox()->Add(row, 0, wxEXPAND | wxALL, 5);
+    makeText(row, LangId::SettingsLanguageSelect, wxALIGN_CENTER_VERTICAL);
+    row->AddSpacer(5);
+    makeChoice(row, m_language, getContext().getConfig().getAllLanguages());
 
     // Restart warning
     makeText(getVBox(), LangId::SettingsLanguageRestart);

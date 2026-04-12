@@ -29,6 +29,9 @@ public:
     /// Enable/disable editor-dependent menus and toolbar items.
     void enableEditorMenus(bool state) const;
 
+    /// Force editors to update settings
+    void updateEditorSettigs();
+
 private:
     void onClose(wxCloseEvent& event);
     void onPageClose(wxAuiNotebookEvent& event);

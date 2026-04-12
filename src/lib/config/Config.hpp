@@ -28,6 +28,9 @@ public:
     /// Get array with all the langauges found
     [[nodiscard]] auto getAllLanguages() const -> std::vector<wxString>;
 
+    /// Get array with all the themes found
+    [[nodiscard]] auto getAllThemes() const -> std::vector<wxString>;
+
     /// Get resolved binary directory path.
     [[nodiscard]] auto getFbidePath() const -> const wxString& { return m_fbideDir; }
 
@@ -104,8 +107,9 @@ public:
     [[nodiscard]] auto getSyntaxFile() const -> const wxString& { return m_syntaxFile; }
     void setSyntaxFile(const wxString& val) { m_syntaxFile = val; }
 
-    [[nodiscard]] auto getThemeFile() const -> wxString { return m_themeFile + ".fbt"; }
-    void setThemeFile(const wxString& val) { m_themeFile = val; }
+    [[nodiscard]] auto getTheme() const -> wxString { return m_themeFile; }
+    [[nodiscard]] auto getThemeFile() const -> wxString;
+    void setTheme(const wxString& val) { m_themeFile = val; }
 
     [[nodiscard]] auto getHelpFile() const -> const wxString& { return m_helpFile; }
     void setHelpFile(const wxString& val) { m_helpFile = val; }

@@ -75,15 +75,9 @@ void Panel::makeSpinCtrl(wxSizer* sizer, int& value, const LangId langId, const 
     });
 }
 
-void Panel::makeChoice(wxSizer* sizer, wxString& value, const LangId langId, const wxArrayString& choices) {
-    const auto row = make_unowned<wxBoxSizer>(wxHORIZONTAL);
-    sizer->Add(row, 0, wxEXPAND | wxALL, 5);
-
-    makeText(row, langId, wxALIGN_CENTER_VERTICAL);
-
-    const auto choice = make_unowned<wxChoice>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, choices);
-    row->AddSpacer(5);
-    row->Add(choice, 1, wxGROW | wxALL, 0);
+auto Panel::makeChoice(wxSizer* sizer, wxString& value, const wxArrayString& choices) -> Unowned<wxChoice> {
+    auto choice = make_unowned<wxChoice>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, choices, wxCB_SORT);
+    sizer->Add(choice, 1, wxGROW | wxALL, 0);
 
     const auto sel = choice->FindString(value);
     choice->SetSelection(sel != wxNOT_FOUND ? sel : 0);
@@ -91,6 +85,8 @@ void Panel::makeChoice(wxSizer* sizer, wxString& value, const LangId langId, con
     choice->Bind(wxEVT_CHOICE, [&](const wxCommandEvent& evt) {
         value = evt.GetString();
     });
+
+    return choice;
 }
 
 void Panel::makeTextField(wxSizer* sizer, wxString& value, const LangId langId, std::function<void()> browseFn) {
@@ -112,4 +108,10 @@ void Panel::makeTextField(wxSizer* sizer, wxString& value, const LangId langId, 
     text->Bind(wxEVT_TEXT, [&](const wxCommandEvent& evt) {
         value = evt.GetString();
     });
+}
+
+auto Panel::makeButton(wxSizer* sizer, const LangId langId) -> Unowned<wxButton> {
+    auto btnSave = make_unowned<wxButton>(this, wxID_ANY, m_ctx.getLang()[langId]);
+    sizer->Add(btnSave);
+    return btnSave;
 }

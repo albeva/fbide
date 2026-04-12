@@ -25,8 +25,9 @@ protected:
     void makeSeparator(wxSizer* sizer, long style);
     void makeCheckBox(wxSizer* sizer, bool& value, LangId langId);
     void makeSpinCtrl(wxSizer* sizer, int& value, LangId langId, int minVal, int maxVal, int width = 50);
-    void makeChoice(wxSizer* sizer, wxString& value, LangId langId, const wxArrayString& choices);
+    auto makeChoice(wxSizer* sizer, wxString& value, const wxArrayString& choices) -> Unowned<wxChoice>;
     void makeTextField(wxSizer* sizer, wxString& value, LangId langId, std::function<void()> browseFn = {});
+    auto makeButton(wxSizer* sizer, LangId langId) -> Unowned<wxButton>;
 
 private:
     Unowned<wxBoxSizer> m_vbox;

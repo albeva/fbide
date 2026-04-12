@@ -79,6 +79,9 @@ public:
     /// Load theme from a legacy .fbt file.
     void load(const wxString& path);
 
+    /// Set theme file path
+    void setPath(const wxString& path) { m_themePath = path; }
+
     /// Save theme to a .fbt file.
     void save() const;
 

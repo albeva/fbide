@@ -150,6 +150,19 @@ auto Config::getAllLanguages() const -> std::vector<wxString> {
     return languages;
 }
 
+auto Config::getAllThemes() const -> std::vector<wxString> {
+    std::vector<wxString> themes;
+    if (const wxDir themeDir(getIdePath()); themeDir.IsOpened()) {
+        wxString filename;
+        if (themeDir.GetFirst(&filename, "*.fbt", wxDIR_FILES)) {
+            do {
+                themes.emplace_back(wxFileName(filename).GetName());
+            } while (themeDir.GetNext(&filename));
+        }
+    }
+    return themes;
+}
+
 void Config::setIdePath(const wxString& path) {
     wxFileName dir = wxFileName::DirName(path);
     dir.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS);
@@ -188,4 +201,8 @@ auto Config::getDefaultConfigFileName() -> wxString {
 #else
     return "prefs_linux.ini";
 #endif
+}
+
+auto Config::getThemeFile() const -> wxString {
+    return resolvePath(m_themeFile + ".fbt");
 }

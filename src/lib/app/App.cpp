@@ -45,7 +45,7 @@ auto App::OnInit() -> bool {
 
     // Load keywords and theme
     m_context->getKeywords().load(config.getIdePath() + config.getSyntaxFile());
-    m_context->getTheme().load(config.getIdePath() + config.getThemeFile());
+    m_context->getTheme().load(config.getThemeFile());
 
     // Create UI and push command handler
     m_context->getUIManager().createMainFrame();
