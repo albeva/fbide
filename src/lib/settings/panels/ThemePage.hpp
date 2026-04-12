@@ -38,8 +38,8 @@ private:
         Keywords2,
         Keywords3,
         Keywords4,
-        Constant,
-        Asm,
+        // Constant,
+        // Asm,
         // -- special entries below --
         Caret,
         LineNumbers,
@@ -49,7 +49,7 @@ private:
         Editor,
     };
 
-    static constexpr int syntaxStyleCount = 14;
+    static constexpr int syntaxStyleCount = 12;
     static constexpr int typeEntryCount = 20;
 
     /// Check if entry is a syntax style (vs special element).

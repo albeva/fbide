@@ -85,8 +85,8 @@ public:
         Keyword2,
         Keyword3,
         Keyword4,
-        Constant,
-        Asm,
+        // Constant,
+        // Asm,
     };
 
     static constexpr int KIND_COUNT = 15;

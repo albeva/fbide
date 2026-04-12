@@ -92,8 +92,8 @@ void ThemePage::createCategoryList() {
     typeNames.Add(lang[LangId::ThemeKeywords3]);
     typeNames.Add(lang[LangId::ThemeKeywords4]);
     typeNames.Add(lang[LangId::ThemeConstant]);
-    typeNames.Add(lang[LangId::ThemeAsm]);
-    typeNames.Add(lang[LangId::ThemeCaret]);
+    // typeNames.Add(lang[LangId::ThemeAsm]);
+    // typeNames.Add(lang[LangId::ThemeCaret]);
     typeNames.Add(lang[LangId::ThemeLineNumbers]);
     typeNames.Add(lang[LangId::ThemeTextSelect]);
     typeNames.Add(lang[LangId::ThemeBraceMatch]);
