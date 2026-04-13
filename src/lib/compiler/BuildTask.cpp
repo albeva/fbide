@@ -7,6 +7,7 @@
 #include "BuildTask.hpp"
 #include "CompileCommand.hpp"
 #include "CompilerManager.hpp"
+#include "RunCommand.hpp"
 #include "lib/app/Context.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/Lang.hpp"
@@ -65,7 +66,7 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     // Build command
     const auto compiler = m_ctx.getConfig().getResolvedCompilerPath();
     if (compiler.empty() || not wxIsExecutable(compiler)) {
-        // TODO: old fbide prompts for compiler path if missing or invalid
+        wxMessageBox(m_ctx.getLang()[LangId::SettingsCompilerPathError], "FBC", wxICON_ERROR);
         ui.enableRunMenus(true);
         return;
     }
@@ -245,20 +246,7 @@ auto BuildTask::deriveExecutablePath(const wxString& sourceFile) -> wxString {
 }
 
 auto BuildTask::buildRunCommand(const wxString& executablePath) const -> wxString {
-    // TODO: Similar to CompileCommand, let's add RunCommand, which sorts out the parameters, proper \" escapes, etc.
-    const wxFileName file(executablePath);
-    auto cmd = m_ctx.getConfig().getRunCommand();
-
-    cmd.Replace("<$param>", m_parameters);
-    cmd.Replace("<$file>", file.GetFullPath());
-    cmd.Replace("<$file_path>", file.GetPath());
-    cmd.Replace("<$file_name>", file.GetName());
-    cmd.Replace("<$file_ext>", file.GetExt());
-#ifndef __WXMSW__
-    cmd.Replace("<$terminal>", m_ctx.getConfig().getTerminal());
-#endif
-
-    return cmd;
+    return RunCommand::makeDefault(executablePath).build(m_ctx);
 }
 
 void BuildTask::cleanupTempFiles() {

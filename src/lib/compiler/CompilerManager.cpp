@@ -131,15 +131,7 @@ void CompilerManager::goToError(const int line, const wxString& fileName) {
     }
 
     docManager.setActive(doc);
-    auto* editor = doc->getEditor();
-    // TODO: This belongs in the Editor, let's add method navigateToLine(line)
-    const int targetLine = line - 1;
-    if (editor->GetCurrentLine() != targetLine) {
-        editor->ScrollToLine(targetLine - editor->LinesOnScreen() / 2);
-        editor->GotoLine(targetLine);
-    }
-    editor->SetFocus();
-    editor->EnsureCaretVisible();
+    doc->getEditor()->navigateToLine(line);
 }
 
 // ---------------------------------------------------------------------------

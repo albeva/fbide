@@ -45,6 +45,9 @@ public:
     /// Go to line (1-based). Supports "line:col" and "e" for end.
     void gotoLine(const wxString& input);
 
+    /// Navigate to a line (1-based), centering it in the viewport.
+    void navigateToLine(int line);
+
     /// Comment selected lines (prepend ').
     void commentSelection();
 

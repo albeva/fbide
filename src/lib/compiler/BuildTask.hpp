@@ -86,7 +86,6 @@ private:
     wxString m_sourceFile;
     wxString m_compiledFile;
     wxString m_tempFolder;
-    wxString m_parameters;
     wxArrayString m_compilerLog;
 };
 

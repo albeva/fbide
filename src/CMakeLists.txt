@@ -9,6 +9,7 @@ target_sources(fbide_lib
     lib/compiler/AsyncProcess.cpp
     lib/compiler/CompileCommand.cpp
     lib/compiler/BuildTask.cpp
+    lib/compiler/RunCommand.cpp
     lib/compiler/CompilerManager.cpp
     lib/config/Config.cpp
     lib/config/FileHistory.cpp
@@ -36,6 +37,8 @@ target_sources(fbide_lib
     lib/compiler/AsyncProcess.hpp
     lib/compiler/CompileCommand.hpp
     lib/compiler/BuildTask.hpp
+    lib/compiler/QuoteUtils.hpp
+    lib/compiler/RunCommand.hpp
     lib/compiler/CompilerManager.hpp
     lib/config/Config.hpp
     lib/config/FileHistory.hpp

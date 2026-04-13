@@ -38,6 +38,12 @@ public:
     /// Navigate to an error by line number and file name.
     void goToError(int line, const wxString& fileName);
 
+    /// Get runtime parameters for the executable.
+    [[nodiscard]] auto getParameters() const -> const wxString& { return m_parameters; }
+
+    /// Set runtime parameters (from the parameters dialog).
+    void setParameters(const wxString& params) { m_parameters = params; }
+
 private:
     /// Get active FreeBASIC document, or nullptr if unavailable.
     [[nodiscard]] auto getActiveDocument() -> Document*;
@@ -50,6 +56,7 @@ private:
 
     Context& m_ctx;
     std::unique_ptr<BuildTask> m_task;
+    wxString m_parameters;
 };
 
 } // namespace fbide

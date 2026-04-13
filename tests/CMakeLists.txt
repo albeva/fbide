@@ -16,6 +16,7 @@ add_executable(tests
     ConfigTests.cpp
     KeywordsTests.cpp
     LangTests.cpp
+    RunCommandTests.cpp
     ThemeTests.cpp
 )
 

@@ -385,6 +385,16 @@ void Editor::gotoLine(const wxString& input) {
     EnsureCaretVisible();
 }
 
+void Editor::navigateToLine(const int line) {
+    const int target = line - 1;
+    if (GetCurrentLine() != target) {
+        ScrollToLine(target - LinesOnScreen() / 2);
+        GotoLine(target);
+    }
+    SetFocus();
+    EnsureCaretVisible();
+}
+
 void Editor::commentSelection() {
     const auto lineStart = LineFromPosition(GetSelectionStart());
     const auto lineEnd = LineFromPosition(GetSelectionEnd());
