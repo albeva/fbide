@@ -38,9 +38,9 @@ void BuildTask::compileAndRun(const wxString& sourceFile, const bool quickRun) {
     startCompiler(sourceFile);
 }
 
-void BuildTask::run(const wxString& executablePath) {
+void BuildTask::run(const wxString& executablePath, const bool quickRun) {
     m_compiledFile = executablePath;
-    m_isQuickRun = false;
+    m_isQuickRun = quickRun;
     m_ctx.getUIManager().enableRunMenus(false);
 
     m_running = true;
@@ -56,6 +56,7 @@ void BuildTask::run(const wxString& executablePath) {
 
 void BuildTask::startCompiler(const wxString& sourceFile) {
     m_sourceFile = sourceFile;
+    m_buildDir = wxPathOnly(sourceFile);
 
     // Prepare UI
     auto& ui = m_ctx.getUIManager();
@@ -63,22 +64,23 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     ui.enableRunMenus(false);
     setStatus(LangId::StatusCompiling);
 
-    // Build command
-    const auto compiler = m_ctx.getConfig().getResolvedCompilerPath();
+    // Validate compiler path
+    const auto& compiler = m_ctx.getConfig().getResolvedCompilerPath();
     if (compiler.empty() || not wxIsExecutable(compiler)) {
         wxMessageBox(m_ctx.getLang()[LangId::SettingsCompilerPathError], "FBC", wxICON_ERROR);
         ui.enableRunMenus(true);
         return;
     }
-    const auto cmd = CompileCommand::makeDefault(compiler, sourceFile);
-    const auto cmdStr = cmd.build();
+
+    // Build command
+    const auto cmdStr = CompileCommand::makeDefault(sourceFile).build(m_ctx);
 
     m_compilerLog.Empty();
     m_compilerLog.Add("[bold]Command executed:[/bold]");
     m_compilerLog.Add(cmdStr);
 
     m_running = true;
-    AsyncProcess::exec(cmdStr, wxPathOnly(sourceFile), true, [&](const ProcessResult& result) {
+    AsyncProcess::exec(cmdStr, m_buildDir, true, [&](const ProcessResult& result) {
         onCompileFinished(result);
         m_running = false;
     });
@@ -119,7 +121,7 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
     }
 
     if (m_shouldRun) {
-        run(m_compiledFile);
+        run(m_compiledFile, m_isQuickRun);
     } else {
         ui.enableRunMenus(true);
     }
@@ -250,13 +252,13 @@ auto BuildTask::buildRunCommand(const wxString& executablePath) const -> wxStrin
 }
 
 void BuildTask::cleanupTempFiles() {
-    if (m_tempFolder.empty()) {
+    if (not m_isQuickRun || not wxDirExists(m_buildDir)) {
         return;
     }
 
     wxFileName file { TEMPNAME };
     file.ClearExt();
-    const auto base = m_tempFolder + file.GetFullName();
+    const auto base = m_buildDir + wxFileName::GetPathSeparator() + file.GetFullName();
     constexpr std::array exts {
         ".BAS",
         ".exe",
@@ -272,7 +274,7 @@ void BuildTask::cleanupTempFiles() {
             wxRemoveFile(path);
         }
     }
-    m_tempFolder.clear();
+    m_buildDir.clear();
 }
 
 auto BuildTask::getDocument() const -> Document* {

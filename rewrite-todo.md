@@ -2,17 +2,19 @@
 
 ## Compiler Integration
 
-- [ ] Compile. Run fbc with command template, capture output.
-- [ ] Compile & Run. Compile then execute if successful.
-- [ ] Run. Execute previously compiled program.
-- [ ] Quick Run. Run without recompiling.
-- [ ] Error parsing. Regex extract file/line/errnum/message, populate console.
-- [ ] Clickable errors. Double-click console row to jump to source location.
-- [ ] Compiler log viewer. Rich text dialog showing full compiler output.
-- [ ] Parameters dialog. Text entry for runtime arguments.
-- [ ] Command prompt. Open cmd.exe or configured terminal.
-- [ ] ShowExitCode toggle. Display program exit code after run.
-- [ ] ActivePath toggle. Use source file directory as working directory.
+- [x] Compile. Run fbc with command template, capture output.
+- [x] Compile & Run. Compile then execute if successful.
+- [x] Run. Execute previously compiled program.
+- [x] Quick Run. Run without recompiling.
+- [x] Error parsing. Regex extract file/line/errnum/message, populate console.
+- [x] Clickable errors. Double-click console row to jump to source location.
+- [x] Compiler log viewer. Rich text dialog showing full compiler output.
+- [ ] Compiler log: append system info (FBIde version, fbc version via `fbc --version`, OS description).
+- [ ] Compiler log: append "Generated executable: <path>" on successful compilation.
+- [x] Parameters dialog. Text entry for runtime arguments.
+- [x] Command prompt. Open cmd.exe or configured terminal.
+- [x] ShowExitCode toggle. Display program exit code after run.
+- [x] ActivePath toggle. Use source file directory as working directory.
 
 ## Sub/Function Browser
 

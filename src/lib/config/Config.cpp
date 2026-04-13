@@ -188,16 +188,9 @@ auto Config::resolvePath(const wxString& path) const -> wxString {
 }
 
 auto Config::getResolvedCompilerPath() const -> wxString {
-#ifdef __WXMSW__
     wxFileName path(m_compilerPath);
-    path.MakeAbsolute();
-    if (!path.FileExists()) {
-        return {};
-    }
+    path.MakeAbsolute(getFbidePath());
     return path.GetFullPath();
-#else
-    return m_compilerPath;
-#endif
 }
 
 auto Config::getTerminal() -> wxString {

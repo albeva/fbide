@@ -66,7 +66,7 @@ void CompilerManager::run() {
     }
 
     m_task = std::make_unique<BuildTask>(m_ctx, doc);
-    m_task->run(exe);
+    m_task->run(exe, false);
 }
 
 void CompilerManager::quickRun() {
@@ -86,7 +86,6 @@ void CompilerManager::quickRun() {
     doc->getEditor()->SaveFile(tempFile);
 
     m_task = std::make_unique<BuildTask>(m_ctx, doc);
-    m_task->setTempFolder(tempFolder);
     m_task->compileAndRun(tempFile, true);
 }
 

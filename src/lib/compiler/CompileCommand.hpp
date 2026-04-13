@@ -6,40 +6,31 @@
 //
 #pragma once
 #include "pch.hpp"
-#include <map>
 
 namespace fbide {
+class Context;
 
 /// Builds a command line for the FreeBASIC compiler (fbc).
 ///
-/// Common flags are exposed as typed attributes.
-/// Less common flags can be set via the extras map.
+/// Replaces meta-tags in the config template:
+///   <$fbc>  — compiler executable path
+///   <$file> — source file path
 class CompileCommand final {
 public:
-    /// Set the path to the fbc executable.
-    void setCompiler(const wxString& path) { m_compiler = path; }
-    [[nodiscard]] auto getCompiler() const -> const wxString& { return m_compiler; }
+    /// Set the source file to compile.
+    void setSourceFile(const wxString& path) { m_sourceFile = path; }
 
-    /// Add a source file to compile.
-    void addFile(const wxString& path) { m_files.push_back(path); }
-    [[nodiscard]] auto getFiles() const -> const std::vector<wxString>& { return m_files; }
+    /// Build the command line using context for the template and compiler path.
+    [[nodiscard]] auto build(const Context& ctx) const -> wxString;
 
-    /// Set an extra flag. Key is the flag name without leading dash.
-    /// Value is the argument, or empty for boolean flags (e.g. -v).
-    void setExtra(const wxString& flag, const wxString& value = {}) { m_extras[flag] = value; }
-    [[nodiscard]] auto getExtras() const -> const std::map<wxString, wxString>& { return m_extras; }
+    /// Build the command line from explicit template and compiler path.
+    [[nodiscard]] auto build(const wxString& compileTemplate, const wxString& compiler) const -> wxString;
 
-    /// Build the complete command line string.
-    [[nodiscard]] auto build() const -> wxString;
-
-    /// Create a default command suitable for quick runs.
-    [[nodiscard]] static auto makeDefault(const wxString& compiler, const wxString& sourceFile) -> CompileCommand;
+    /// Create a command for the given source file.
+    [[nodiscard]] static auto makeDefault(const wxString& sourceFile) -> CompileCommand;
 
 private:
-
-    wxString m_compiler;
-    std::vector<wxString> m_files;
-    std::map<wxString, wxString> m_extras;
+    wxString m_sourceFile;
 };
 
 } // namespace fbide

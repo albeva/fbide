@@ -19,7 +19,7 @@ struct ProcessResult final {
     bool launched = false;
 
     /// Convenience: true if launched and exited with code 0.
-    [[nodiscard]] explicit operator bool() const { return launched && exitCode == 0; }
+    [[nodiscard]] explicit operator bool() const { return launched && exitCode == EXIT_SUCCESS; }
 };
 
 /// Reusable async process wrapper.

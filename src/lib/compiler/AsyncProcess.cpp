@@ -56,6 +56,9 @@ void AsyncProcess::readStream(wxInputStream* stream, wxArrayString& output) {
     }
     wxTextInputStream text(*stream);
     while (!stream->Eof()) {
-        output.Add(text.ReadLine());
+        auto line = text.ReadLine();
+        if (!line.Strip(wxString::both).empty() || !stream->Eof()) {
+            output.Add(std::move(line));
+        }
     }
 }

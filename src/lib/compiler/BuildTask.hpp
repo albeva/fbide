@@ -33,10 +33,7 @@ public:
     void compileAndRun(const wxString& sourceFile, bool quickRun);
 
     /// Run a previously compiled executable.
-    void run(const wxString& executablePath);
-
-    /// Enable temp-file cleanup mode (for quick run).
-    void setTempFolder(const wxString& folder) { m_tempFolder = folder; }
+    void run(const wxString& executablePath, bool quickRun);
 
     /// Whether an async process is currently running.
     [[nodiscard]] auto isRunning() const -> bool { return m_running; }
@@ -84,8 +81,8 @@ private:
     bool m_shouldRun = false;
     bool m_isQuickRun = false;
     wxString m_sourceFile;
+    wxString m_buildDir;
     wxString m_compiledFile;
-    wxString m_tempFolder;
     wxArrayString m_compilerLog;
 };
 
