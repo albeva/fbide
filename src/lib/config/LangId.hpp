@@ -117,7 +117,6 @@ enum class LangId : int {
     RunParametersHelp = 74,
     RunShowExitCode = 77,
     RunShowExitCodeHelp = 78,
-    RunActivePath = 234,
     RunActivePathHelp = 235,
 
     // Help menu
@@ -302,6 +301,7 @@ enum class LangId : int {
     Missing82 = 82, // was: duplicate of FileCloseAllHelp
     Missing191 = 191,
     Missing233 = 233,
+    Missing234 = 234, // was active path. not used
 };
 
 } // namespace fbide

@@ -234,7 +234,6 @@ void UIManager::createMenuBar() {
     append(m_runMenu, lang, MenuId::Parameters, LangId::RunParameters, "", LangId::RunParametersHelp);
     appendCheck(m_runMenu, lang, MenuId::ShowExitCode, LangId::RunShowExitCode, "", LangId::RunShowExitCodeHelp);
     m_runMenu->Check(id(MenuId::ShowExitCode), m_ctx.getConfig().getShowExitCode());
-    appendCheck(m_runMenu, lang, MenuId::ActivePath, LangId::RunActivePath, "", LangId::RunActivePathHelp);
 
     // Help menu
     m_helpMenu = make_unowned<wxMenu>();

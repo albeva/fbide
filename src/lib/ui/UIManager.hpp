@@ -125,8 +125,7 @@ private:
         MenuId::QuickRun,
         MenuId::CmdPrompt,
         MenuId::Parameters,
-        MenuId::ShowExitCode,
-        MenuId::ActivePath,
+        MenuId::ShowExitCode
     };
 
     wxDECLARE_EVENT_TABLE();
