@@ -13,7 +13,7 @@ using namespace fbide;
 auto CompileCommand::build(const Context& ctx) const -> wxString {
     return build(
         ctx.getConfig().getCompileCommand(),
-        ctx.getConfig().getResolvedCompilerPath()
+        ctx.getConfig().getCompilerFullPath()
     );
 }
 

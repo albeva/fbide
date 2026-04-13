@@ -74,7 +74,6 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     EVT_MENU(id(MenuId::CmdPrompt),     CommandManager::onCmdPrompt)
     EVT_MENU(id(MenuId::Parameters),    CommandManager::onParameters)
     EVT_MENU(id(MenuId::ShowExitCode),  CommandManager::onShowExitCode)
-    EVT_MENU(id(MenuId::ActivePath),    CommandManager::onActivePath)
 
     // Help
     EVT_MENU(id(MenuId::Help),      CommandManager::onHelp)
@@ -280,7 +279,7 @@ void CommandManager::onCmdPrompt(wxCommandEvent&) {
     if (const auto* doc = m_ctx.getDocumentManager().getActive(); doc != nullptr && !doc->isUntitled()) {
         cwd = wxPathOnly(doc->getFilePath());
     } else {
-        cwd = m_ctx.getConfig().getFbidePath();
+        cwd = m_ctx.getConfig().getAppPath();
     }
 
     wxSetWorkingDirectory(cwd);
@@ -304,11 +303,6 @@ void CommandManager::onParameters(wxCommandEvent&) {
 void CommandManager::onShowExitCode(wxCommandEvent&) {
     auto& config = m_ctx.getConfig();
     config.setShowExitCode(!config.getShowExitCode());
-}
-
-void CommandManager::onActivePath(wxCommandEvent&) {
-    auto& config = m_ctx.getConfig();
-    config.setActivePath(!config.getActivePath());
 }
 
 // -- Help --

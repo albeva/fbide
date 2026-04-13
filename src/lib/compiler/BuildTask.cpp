@@ -65,7 +65,7 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     setStatus(LangId::StatusCompiling);
 
     // Validate compiler path
-    const auto& compiler = m_ctx.getConfig().getResolvedCompilerPath();
+    const auto& compiler = m_ctx.getConfig().getCompilerFullPath();
     if (compiler.empty() || not wxIsExecutable(compiler)) {
         wxMessageBox(m_ctx.getLang()[LangId::SettingsCompilerPathError], "FBC", wxICON_ERROR);
         ui.enableRunMenus(true);

@@ -199,7 +199,7 @@ void ThemePage::saveNewTheme(const bool setActive) {
         return;
     }
 
-    const wxFileName path = getConfig().getIdePath() + name + ".fbt";
+    const wxFileName path = getConfig().getAppSettingsPath() + name + ".fbt";
     if (not path.IsOk() or path.Exists()) {
         // TODO: show warning?
         wxLogWarning("Unable to save theme as %s", path.GetAbsolutePath());

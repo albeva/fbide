@@ -35,18 +35,18 @@ auto App::OnInit() -> bool {
         }
     }
     if (configFile.IsEmpty()) {
-        configFile = config.getIdePath() + config.getDefaultConfigFileName();
+        configFile = config.getAppSettingsPath() + config.getPlatformConfigFileName();
     }
     config.load(configFile);
 
     // Load language
     auto& lang = m_context->getLang();
-    lang.load(config.getIdePath() + "lang/" + config.getLanguage() + ".fbl");
+    lang.load(config.getAppSettingsPath() + "lang/" + config.getLanguage() + ".fbl");
 
     // Load keywords, theme, and file history
     m_context->getKeywords().load(config.resolvePath(config.getSyntaxFile()));
-    m_context->getTheme().load(config.getThemeFile());
-    m_context->getFileHistory().load(config.getIdePath() + "history.ini");
+    m_context->getTheme().load(config.getThemePath());
+    m_context->getFileHistory().load(config.getAppSettingsPath() + "history.ini");
 
     showSplash();
 

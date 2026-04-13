@@ -65,7 +65,6 @@ private:
     void onCmdPrompt(wxCommandEvent& event);
     void onParameters(wxCommandEvent& event);
     void onShowExitCode(wxCommandEvent& event);
-    void onActivePath(wxCommandEvent& event);
 
     // Help
     void onHelp(wxCommandEvent& event);

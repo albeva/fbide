@@ -41,7 +41,6 @@ void Config::load(const wxString& filePath) {
     m_folderMargin = ini.ReadBool("foldermargin", m_folderMargin);
     m_displayEOL = ini.ReadBool("Displayeol", m_displayEOL);
     m_currentLine = ini.ReadBool("lightcursorline", m_currentLine);
-    m_activePath = ini.ReadBool("ActivePath", m_activePath);
     m_tabSize = static_cast<int>(ini.ReadLong("tabsize", m_tabSize));
     m_edgeColumn = static_cast<int>(ini.ReadLong("edgecolumn", m_edgeColumn));
     m_language = ini.Read("language", m_language);
@@ -66,7 +65,6 @@ void Config::load(const wxString& filePath) {
 
     // [editor]
     ini.SetPath("/editor");
-    m_floatBars = ini.ReadBool("floatbars", m_floatBars);
     m_splashScreen = ini.ReadBool("splashscreen", m_splashScreen);
     m_windowX = static_cast<int>(ini.ReadLong("winx", m_windowX));
     m_windowY = static_cast<int>(ini.ReadLong("winy", m_windowY));
@@ -92,7 +90,6 @@ void Config::save() const {
     ini.Write("foldermargin", m_folderMargin);
     ini.Write("Displayeol", m_displayEOL);
     ini.Write("lightcursorline", m_currentLine);
-    ini.Write("ActivePath", m_activePath);
     ini.Write("tabsize", static_cast<long>(m_tabSize));
     ini.Write("edgecolumn", static_cast<long>(m_edgeColumn));
     ini.Write("language", m_language);
@@ -111,7 +108,6 @@ void Config::save() const {
 
     // [editor]
     ini.SetPath("/editor");
-    ini.Write("floatbars", m_floatBars);
     ini.Write("splashscreen", m_splashScreen);
     ini.Write("winx", static_cast<long>(m_windowX));
     ini.Write("winy", static_cast<long>(m_windowY));
@@ -123,7 +119,7 @@ void Config::save() const {
 
 auto Config::getAllLanguages() const -> std::vector<wxString> {
     std::vector<wxString> languages;
-    const wxString langDir = getIdePath() + "lang/";
+    const wxString langDir = getAppSettingsPath() + "lang/";
     if (const wxDir dir(langDir); dir.IsOpened()) {
         wxString filename;
         if (dir.GetFirst(&filename, "*.fbl", wxDIR_FILES)) {
@@ -137,7 +133,7 @@ auto Config::getAllLanguages() const -> std::vector<wxString> {
 
 auto Config::getAllThemes() const -> std::vector<wxString> {
     std::vector<wxString> themes;
-    if (const wxDir themeDir(getIdePath()); themeDir.IsOpened()) {
+    if (const wxDir themeDir(getAppSettingsPath()); themeDir.IsOpened()) {
         wxString filename;
         if (themeDir.GetFirst(&filename, "*.fbt", wxDIR_FILES)) {
             do {
@@ -155,41 +151,40 @@ auto Config::getAllFixedWidthFonts() -> std::vector<wxString> {
     return fontList;
 }
 
-void Config::setIdePath(const wxString& path) {
-    wxFileName dir = wxFileName::DirName(path);
-    dir.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS);
-    m_ideDir = dir.GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME);
-}
-
-void Config::setCwd(const wxString& path) {
-    wxFileName dir = wxFileName::DirName(path);
-    dir.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS);
-    m_cwd = dir.GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME);
-}
-
 auto Config::resolvePath(const wxString& path) const -> wxString {
+    // already a full path
     if (wxIsAbsolutePath(path)) {
         return path;
     }
 
+    // check against fbide path
     wxFileName fn(path);
-    fn.MakeAbsolute(getIdePath());
+    fn.MakeAbsolute(getAppPath());
     if (fn.Exists()) {
         return fn.GetFullPath();
     }
 
+    // check against fbide settings path
+    fn = path;
+    fn.MakeAbsolute(getAppSettingsPath());
+    if (fn.Exists()) {
+        return fn.GetFullPath();
+    }
+
+    // check against current working dir
     fn = path;
     fn.MakeAbsolute(getCwd());
     if (fn.Exists()) {
         return fn.GetFullPath();
     }
 
+    // no idea.
     return path;
 }
 
-auto Config::getResolvedCompilerPath() const -> wxString {
+auto Config::getCompilerFullPath() const -> wxString {
     wxFileName path(m_compilerPath);
-    path.MakeAbsolute(getFbidePath());
+    path.MakeAbsolute(getAppPath());
     return path.GetFullPath();
 }
 
@@ -203,7 +198,7 @@ auto Config::getTerminal() -> wxString {
 #endif
 }
 
-auto Config::getDefaultConfigFileName() -> wxString {
+auto Config::getPlatformConfigFileName() -> wxString {
 #ifdef __WXMSW__
     return "prefs_win32.ini";
 #else
@@ -211,6 +206,6 @@ auto Config::getDefaultConfigFileName() -> wxString {
 #endif
 }
 
-auto Config::getThemeFile() const -> wxString {
-    return resolvePath(m_themeFile + ".fbt");
+auto Config::getThemePath() const -> wxString {
+    return resolvePath(m_themeFile + "." + THEME_EXT);
 }

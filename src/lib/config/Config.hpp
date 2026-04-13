@@ -13,6 +13,10 @@ namespace fbide {
 /// Loads/saves legacy INI prefs files via wxFileConfig.
 class Config final {
 public:
+    static constexpr auto SESSION_EXT = "fbt";
+    static constexpr auto LANGUAGE_EXT = "lng";
+    static constexpr auto THEME_EXT = "fbt";
+
     /// Initialize with resolved binary path.
     explicit Config(const wxString& binaryPath);
 
@@ -32,25 +36,19 @@ public:
     [[nodiscard]] static auto getAllFixedWidthFonts() -> std::vector<wxString>;
 
     /// Get resolved binary directory path.
-    [[nodiscard]] auto getFbidePath() const -> const wxString& { return m_fbideDir; }
+    [[nodiscard]] auto getAppPath() const -> const wxString& { return m_fbideDir; }
 
     /// Get IDE config folder path (with trailing separator).
-    [[nodiscard]] auto getIdePath() const -> const wxString& { return m_ideDir; }
-
-    /// Override IDE config folder path.
-    void setIdePath(const wxString& path);
+    [[nodiscard]] auto getAppSettingsPath() const -> const wxString& { return m_ideDir; }
 
     /// Get current working directory (with trailing separator).
     [[nodiscard]] auto getCwd() const -> const wxString& { return m_cwd; }
-
-    /// Set current working directory.
-    void setCwd(const wxString& path);
 
     /// Resolve path to a fully qualified path.
     [[nodiscard]] auto resolvePath(const wxString& path) const -> wxString;
 
     /// Get platform specific default config file name.
-    [[nodiscard]] static auto getDefaultConfigFileName() -> wxString;
+    [[nodiscard]] static auto getPlatformConfigFileName() -> wxString;
 
     // -- [general] editor preferences --
 
@@ -87,9 +85,6 @@ public:
     [[nodiscard]] auto getCurrentLine() const -> bool { return m_currentLine; }
     void setCurrentLine(const bool val) { m_currentLine = val; }
 
-    [[nodiscard]] auto getActivePath() const -> bool { return m_activePath; }
-    void setActivePath(const bool val) { m_activePath = val; }
-
     [[nodiscard]] auto getTabSize() const -> int { return m_tabSize; }
     void setTabSize(const int val) { m_tabSize = val; }
 
@@ -107,13 +102,13 @@ public:
     /// Resolve the compiler path to an absolute path and validate it exists.
     /// On Windows, normalizes the path and checks existence.
     /// Returns empty string on failure.
-    [[nodiscard]] auto getResolvedCompilerPath() const -> wxString;
+    [[nodiscard]] auto getCompilerFullPath() const -> wxString;
 
     [[nodiscard]] auto getSyntaxFile() const -> const wxString& { return m_syntaxFile; }
     void setSyntaxFile(const wxString& val) { m_syntaxFile = val; }
 
     [[nodiscard]] auto getTheme() const -> wxString { return m_themeFile; }
-    [[nodiscard]] auto getThemeFile() const -> wxString;
+    [[nodiscard]] auto getThemePath() const -> wxString;
     void setTheme(const wxString& val) { m_themeFile = val; }
 
     [[nodiscard]] auto getHelpFile() const -> const wxString& { return m_helpFile; }
@@ -132,18 +127,17 @@ public:
 
     // -- [editor] window state --
 
-    [[nodiscard]] auto getFloatBars() const -> bool { return m_floatBars; }
-    void setFloatBars(const bool val) { m_floatBars = val; }
-
     [[nodiscard]] auto getSplashScreen() const -> bool { return m_splashScreen; }
     void setSplashScreen(const bool val) { m_splashScreen = val; }
 
+    // TODO: consolidate this into wxSize
     [[nodiscard]] auto getWindowX() const -> int { return m_windowX; }
     void setWindowX(const int val) { m_windowX = val; }
 
     [[nodiscard]] auto getWindowY() const -> int { return m_windowY; }
     void setWindowY(const int val) { m_windowY = val; }
 
+    // TODO: consolidate this into wxPoint
     [[nodiscard]] auto getWindowW() const -> int { return m_windowW; }
     void setWindowW(const int val) { m_windowW = val; }
 
@@ -157,18 +151,17 @@ private:
     wxString m_configPath;
 
     // [general]
-    bool m_autoIndent = false;
-    bool m_syntaxHighlight = false;
+    bool m_autoIndent = true;
+    bool m_syntaxHighlight = true;
     bool m_longLine = false;
     bool m_whiteSpace = false;
-    bool m_lineNumbers = false;
+    bool m_lineNumbers = true;
     bool m_indentGuide = false;
-    bool m_braceHighlight = false;
+    bool m_braceHighlight = true;
     bool m_showExitCode = false;
     bool m_folderMargin = false;
     bool m_displayEOL = false;
-    bool m_currentLine = false;
-    bool m_activePath = true;
+    bool m_currentLine = true;
     int m_tabSize = 4;
     int m_edgeColumn = 80;
     wxString m_language = "english";
@@ -184,12 +177,11 @@ private:
     wxString m_runCommand = R"(<$terminal> "<$file>" <$param>)";
 
     // [editor]
-    bool m_floatBars = false;
-    bool m_splashScreen = false;
-    int m_windowX = 50;
-    int m_windowY = 50;
-    int m_windowW = 350;
-    int m_windowH = 200;
+    bool m_splashScreen = true;
+    int m_windowX = wxDefaultCoord;
+    int m_windowY = wxDefaultCoord;
+    int m_windowW = 0;
+    int m_windowH = 0;
 };
 
 } // namespace fbide

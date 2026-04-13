@@ -78,7 +78,7 @@ void CompilerManager::quickRun() {
     // Determine temp folder from current file or IDE path
     const auto& filePath = doc->getFilePath();
     const auto tempFolder = filePath.empty()
-                              ? wxPathOnly(m_ctx.getConfig().getFbidePath()) + "/"
+                              ? wxPathOnly(m_ctx.getConfig().getAppPath()) + "/"
                               : wxPathOnly(filePath) + "/";
 
     // Save content to temp file
