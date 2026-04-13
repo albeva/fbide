@@ -104,7 +104,6 @@ void UIManager::onClose(wxCloseEvent& event) {
     // Clean up event handlers before frame destruction
     m_frame->RemoveEventHandler(this);
     m_frame->RemoveEventHandler(&m_ctx.getCommandManager());
-
     m_frame->Close();
 }
 
@@ -415,7 +414,6 @@ auto UIManager::getCompilerLog() -> CompilerLog& {
         m_compilerLog = make_unowned<CompilerLog>(m_frame, lang[LangId::CompilerLogTitle]);
         m_compilerLog->create(m_ctx);
         m_compilerLog->Bind(wxEVT_CLOSE_WINDOW, [&](wxCloseEvent& event) {
-            m_compilerLog = nullptr;
             event.Skip();
         });
     }
