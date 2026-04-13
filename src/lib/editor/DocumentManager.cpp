@@ -97,7 +97,7 @@ auto DocumentManager::openFile(const wxString& filePath) -> Document* {
 }
 
 auto DocumentManager::saveFile(Document& doc) const -> bool {
-    if (doc.isUntitled()) {
+    if (doc.isNew()) {
         return saveFileAs(doc);
     }
 
@@ -126,7 +126,7 @@ auto DocumentManager::saveFileAs(Document& doc) const -> bool {
         m_ctx.getUIManager().getMainFrame(),
         lang[LangId::FileSaveTitle],
         "",
-        doc.isUntitled() ? ".bas"s : wxFileName(doc.getFilePath()).GetFullName(),
+        doc.isNew() ? ".bas"s : wxFileName(doc.getFilePath()).GetFullName(),
         filter,
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
     );
@@ -269,7 +269,7 @@ auto DocumentManager::findByPath(const wxString& path) const -> Document* {
     const auto fullPath = normalized.GetFullPath();
 
     for (auto& doc : m_documents) {
-        if (!doc->isUntitled()) {
+        if (!doc->isNew()) {
             wxFileName docPath(doc->getFilePath());
             docPath.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS);
             if (docPath.GetFullPath() == fullPath) {
@@ -417,7 +417,7 @@ void DocumentManager::saveSession() {
 
     // Prompt to save modified files first
     for (auto& doc : m_documents) {
-        if (doc->isModified() && !doc->isUntitled()) {
+        if (doc->isModified() && !doc->isNew()) {
             if (!saveFile(*doc)) {
                 return;
             }
@@ -441,7 +441,7 @@ void DocumentManager::saveSession() {
 
     // File entries (skip untitled)
     for (const auto& doc : m_documents) {
-        if (doc->isUntitled()) {
+        if (doc->isNew()) {
             continue;
         }
         const auto* editor = doc->getEditor();

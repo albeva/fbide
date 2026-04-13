@@ -6,23 +6,30 @@
 //
 #include "Document.hpp"
 #include "Editor.hpp"
+#include "lib/app/Context.hpp"
+#include "lib/config/Lang.hpp"
+#include "lib/config/LangId.hpp"
 using namespace fbide;
 
 Document::Document(wxWindow* parent, Context& ctx, const DocumentType type)
-: m_type(type)
+: m_ctx(ctx)
+, m_type(type)
 , m_editor(new Editor(parent, ctx, type)) {}
 
 void Document::setFilePath(const wxString& path) {
     m_filePath = path;
-    m_type = documentTypeFromPath(path);
+    const auto newType = documentTypeFromPath(path);
+    if (newType != m_type) {
+        m_type = newType;
+        m_editor->setDocType(newType);
+    }
     updateModTime();
 }
 
 auto Document::getTitle() const -> wxString {
-    if (isUntitled()) {
-        return "Untitled";
-    }
-    auto title = wxFileName(m_filePath).GetFullName();
+    wxString title = isNew()
+        ? m_ctx.getLang()[LangId::Untitled]
+        : wxFileName(m_filePath).GetFullName();
     if (isModified()) {
         title = "[*] " + title;
     }
@@ -45,7 +52,7 @@ void Document::setModified(const bool modified) const {
 }
 
 auto Document::checkExternalChange() const -> bool {
-    if (isUntitled() || !wxFileExists(m_filePath)) {
+    if (isNew() || !wxFileExists(m_filePath)) {
         return false;
     }
     const wxDateTime currentModTime = wxFileName(m_filePath).GetModificationTime();
@@ -53,7 +60,7 @@ auto Document::checkExternalChange() const -> bool {
 }
 
 void Document::updateModTime() {
-    if (!isUntitled() && wxFileExists(m_filePath)) {
+    if (!isNew() && wxFileExists(m_filePath)) {
         m_modTime = wxFileName(m_filePath).GetModificationTime();
     } else {
         m_modTime = wxDateTime();

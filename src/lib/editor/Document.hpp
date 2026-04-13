@@ -42,8 +42,8 @@ public:
     /// Set compiled file path
     void setCompiledPath(const wxString& path) { m_compiledFile = path; }
 
-    /// Is this an untitled (never saved) document?
-    [[nodiscard]] auto isUntitled() const -> bool { return m_filePath.empty(); }
+    /// Is this a new (never saved) document?
+    [[nodiscard]] auto isNew() const -> bool { return m_filePath.empty(); }
 
     /// Is the document modified?
     [[nodiscard]] auto isModified() const -> bool;
@@ -58,6 +58,7 @@ public:
     void updateModTime();
 
 private:
+    Context& m_ctx;
     wxString m_compiledFile;
     wxString m_filePath;
     DocumentType m_type;
