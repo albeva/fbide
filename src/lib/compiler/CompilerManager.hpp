@@ -38,6 +38,13 @@ public:
     /// Navigate to an error by line number and file name.
     void goToError(int line, const wxString& fileName);
 
+    /// Get the fbc version string. Validates the compiler path, runs `fbc --version`,
+    /// and caches the result. Returns empty string if compiler is not accessible.
+    [[nodiscard]] auto getFbcVersion() -> const wxString&;
+
+    /// Reset the cached fbc version. Call when compiler path may have changed.
+    void resetFbcVersion() { m_fbcVersion.clear(); }
+
     /// Get runtime parameters for the executable.
     [[nodiscard]] auto getParameters() const -> const wxString& { return m_parameters; }
 
@@ -57,6 +64,7 @@ private:
     Context& m_ctx;
     std::unique_ptr<BuildTask> m_task;
     wxString m_parameters;
+    wxString m_fbcVersion;
 };
 
 } // namespace fbide

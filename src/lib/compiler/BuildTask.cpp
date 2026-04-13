@@ -16,6 +16,7 @@
 #include "lib/editor/Editor.hpp"
 #include "lib/ui/OutputConsole.hpp"
 #include "lib/ui/UIManager.hpp"
+#include <cmake/config.hpp>
 using namespace fbide;
 
 BuildTask::BuildTask(Context& ctx, Document* doc)
@@ -64,9 +65,9 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     ui.enableRunMenus(false);
     setStatus(LangId::StatusCompiling);
 
-    // Validate compiler path
-    const auto& compiler = m_ctx.getConfig().getCompilerFullPath();
-    if (compiler.empty() || not wxIsExecutable(compiler)) {
+    // Validate compiler — getFbcVersion() checks path and caches the result
+    const auto& fbcVersion = m_ctx.getCompilerManager().getFbcVersion();
+    if (fbcVersion.empty()) {
         wxMessageBox(m_ctx.getLang()[LangId::SettingsCompilerPathError], "FBC", wxICON_ERROR);
         ui.enableRunMenus(true);
         return;
@@ -104,6 +105,7 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
 
     if (!result) {
         m_compilerLog.Add("Compilation failed");
+        appendSystemInfo();
         setStatus(LangId::StatusCompileFailed);
         cleanupTempFiles();
         ui.enableRunMenus(true);
@@ -114,6 +116,9 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
     setStatus(LangId::StatusCompileComplete);
 
     m_compiledFile = deriveExecutablePath(m_sourceFile);
+    m_compilerLog.Add("Generated executable: " + m_compiledFile);
+
+    appendSystemInfo();
 
     // Update document's compiled file path
     if (auto* doc = getDocument()) {
@@ -249,6 +254,17 @@ auto BuildTask::deriveExecutablePath(const wxString& sourceFile) -> wxString {
 
 auto BuildTask::buildRunCommand(const wxString& executablePath) const -> wxString {
     return RunCommand::makeDefault(executablePath).build(m_ctx);
+}
+
+void BuildTask::appendSystemInfo() {
+    m_compilerLog.Add("");
+    m_compilerLog.Add("[bold]System:[/bold]");
+    m_compilerLog.Add("FBIde: "s + wxString(cmake::project.version));
+    const auto& fbcVersion = m_ctx.getCompilerManager().getFbcVersion();
+    if (!fbcVersion.empty()) {
+        m_compilerLog.Add("fbc:   " + fbcVersion);
+    }
+    m_compilerLog.Add("OS:    " + wxGetOsDescription());
 }
 
 void BuildTask::cleanupTempFiles() {

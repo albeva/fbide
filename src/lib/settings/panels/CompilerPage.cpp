@@ -6,6 +6,7 @@
 //
 #include "CompilerPage.hpp"
 #include "lib/app/Context.hpp"
+#include "lib/compiler/CompilerManager.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/Lang.hpp"
 using namespace fbide;
@@ -27,10 +28,13 @@ void CompilerPage::layout() {
 
 void CompilerPage::apply() {
     auto& config = getConfig();
-    config.setCompilerPath(m_compilerPath);
     config.setCompileCommand(m_compileCommand);
     config.setRunCommand(m_runCommand);
     config.setHelpFile(m_helpFile);
+    if (m_compilerPath != config.getCompilerPath()) {
+        config.setCompilerPath(m_compilerPath);
+        getContext().getCompilerManager().resetFbcVersion();
+    }
 }
 
 void CompilerPage::compilerPath() {

@@ -9,8 +9,8 @@
 - [x] Error parsing. Regex extract file/line/errnum/message, populate console.
 - [x] Clickable errors. Double-click console row to jump to source location.
 - [x] Compiler log viewer. Rich text dialog showing full compiler output.
-- [ ] Compiler log: append system info (FBIde version, fbc version via `fbc --version`, OS description).
-- [ ] Compiler log: append "Generated executable: <path>" on successful compilation.
+- [x] Compiler log: append system info (FBIde version, fbc version via `fbc --version`, OS description).
+- [x] Compiler log: append "Generated executable: <path>" on successful compilation.
 - [x] Parameters dialog. Text entry for runtime arguments.
 - [x] Command prompt. Open cmd.exe or configured terminal.
 - [x] ShowExitCode toggle. Display program exit code after run.

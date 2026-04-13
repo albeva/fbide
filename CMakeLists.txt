@@ -22,5 +22,6 @@ include(cmake/options.cmake)
 include(cmake/wxwidgets.cmake)
 
 # Sources
+add_subdirectory(configured_files)
 add_subdirectory(src)
 add_subdirectory(tests)

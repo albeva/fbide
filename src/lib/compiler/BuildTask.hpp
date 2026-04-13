@@ -69,6 +69,9 @@ private:
     /// Build the run command from config template and executable path.
     [[nodiscard]] auto buildRunCommand(const wxString& executablePath) const -> wxString;
 
+    /// Append system info (FBIde version, fbc version, OS) to the compiler log.
+    void appendSystemInfo();
+
     /// Clean up temp files from quick run.
     void cleanupTempFiles();
 

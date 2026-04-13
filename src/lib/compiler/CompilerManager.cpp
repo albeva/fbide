@@ -109,6 +109,28 @@ void CompilerManager::showCompilerLog() {
 }
 
 // ---------------------------------------------------------------------------
+// Compiler version
+// ---------------------------------------------------------------------------
+
+auto CompilerManager::getFbcVersion() -> const wxString& {
+    if (not m_fbcVersion.empty()) {
+        return m_fbcVersion;
+    }
+
+    const auto compiler = m_ctx.getConfig().getCompilerFullPath();
+    if (compiler.empty() || !wxIsExecutable(compiler)) {
+        return m_fbcVersion;
+    }
+
+    wxArrayString output;
+    wxExecute("\"" + compiler + "\" --version", output);
+    if (!output.empty()) {
+        m_fbcVersion = output[0];
+    }
+    return m_fbcVersion;
+}
+
+// ---------------------------------------------------------------------------
 // Error navigation
 // ---------------------------------------------------------------------------
 

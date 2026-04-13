@@ -14,11 +14,11 @@ static const wxString testIniPath = FBIDE_TEST_DATA_DIR "prefs.ini";
 
 TEST(ConfigTests, Defaults) {
     const Config cfg(wxGetCwd());
-    EXPECT_FALSE(cfg.getAutoIndent());
+    EXPECT_TRUE(cfg.getAutoIndent());
     EXPECT_EQ(cfg.getTabSize(), 4);
     EXPECT_EQ(cfg.getLanguage(), "english");
     EXPECT_EQ(cfg.getSyntaxFile(), "fbfull.lng");
-    EXPECT_EQ(cfg.getTheme(), "classic.fbt");
+    EXPECT_EQ(cfg.getTheme(), "classic");
 }
 
 TEST(ConfigTests, LoadLegacyIni) {

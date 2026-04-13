@@ -74,6 +74,7 @@ target_link_libraries(fbide_lib
 )
 
 # precompile header
+target_include_directories(fbide_lib PRIVATE "${CMAKE_BINARY_DIR}/configured_files/include")
 target_precompile_headers(fbide_lib PUBLIC pch.hpp)
 
 # fbide executable
