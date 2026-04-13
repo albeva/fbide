@@ -25,10 +25,12 @@ auto App::OnInit() -> bool {
     parseArgs(configFile, filesToOpen);
 
     // Single instance: if another FBIde is running, forward files and exit
-    m_instanceHandler = std::make_unique<InstanceHandler>(*m_context);
-    if (m_instanceHandler->isAnotherRunning()) {
-        m_instanceHandler->sendFiles(filesToOpen);
-        return false;
+    if (!m_newWindow) {
+        m_instanceHandler = std::make_unique<InstanceHandler>(*m_context);
+        if (m_instanceHandler->isAnotherRunning()) {
+            m_instanceHandler->sendFiles(filesToOpen);
+            return false;
+        }
     }
 
     showSplash();
@@ -54,7 +56,7 @@ auto App::OnInit() -> bool {
     return true;
 }
 
-void App::parseArgs(wxString& configFile, wxArrayString& filesToOpen) const {
+void App::parseArgs(wxString& configFile, wxArrayString& filesToOpen) {
     const auto& config = m_context->getConfig();
     auto args = argv.GetArguments();
 
@@ -66,6 +68,8 @@ void App::parseArgs(wxString& configFile, wxArrayString& filesToOpen) const {
                 continue;
             }
             configFile = config.resolvePath(args[index]);
+        } else if (arg == "--new-window") {
+            m_newWindow = true;
         } else if (arg == "--verbose") {
             wxLog::SetVerbose(true);
         } else if (!arg.StartsWith("-")) {
