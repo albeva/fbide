@@ -79,6 +79,7 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     m_compilerLog.Empty();
     m_compilerLog.Add("[bold]Command executed:[/bold]");
     m_compilerLog.Add(cmdStr);
+    m_ctx.getCompilerManager().refreshCompilerLog();
 
     m_running = true;
     AsyncProcess::exec(cmdStr, m_buildDir, true, [&](const ProcessResult& result) {
@@ -106,6 +107,7 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
     if (!result) {
         m_compilerLog.Add("Compilation failed");
         appendSystemInfo();
+        m_ctx.getCompilerManager().refreshCompilerLog();
         setStatus(LangId::StatusCompileFailed);
         cleanupTempFiles();
         ui.enableRunMenus(true);
@@ -119,6 +121,7 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
     m_compilerLog.Add("Generated executable: " + m_compiledFile);
 
     appendSystemInfo();
+    m_ctx.getCompilerManager().refreshCompilerLog();
 
     // Update document's compiled file path
     if (auto* doc = getDocument()) {

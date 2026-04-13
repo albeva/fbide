@@ -28,8 +28,8 @@
 ## Help
 
 - [ ] Help. Context-sensitive .chm keyword lookup.
-- [ ] QuickKeys viewer. Display quickkeys.txt.
-- [ ] ReadMe viewer. Display readme.txt.
+- [x] QuickKeys viewer. Display quickkeys.txt.
+- [x] ReadMe viewer. Display readme.txt.
 
 ## Application
 

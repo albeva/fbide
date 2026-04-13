@@ -312,11 +312,13 @@ void CommandManager::onHelp(wxCommandEvent&) {
 }
 
 void CommandManager::onQuickKeys(wxCommandEvent&) {
-    // TODO: open quickkeys.txt
+    const auto path = m_ctx.getConfig().getAppSettingsPath() + "quickkeys.txt";
+    m_ctx.getDocumentManager().openFile(path);
 }
 
 void CommandManager::onReadMe(wxCommandEvent&) {
-    // TODO: open readme.txt
+    const auto path = m_ctx.getConfig().getAppSettingsPath() + "readme.txt";
+    m_ctx.getDocumentManager().openFile(path);
 }
 
 void CommandManager::onAbout(wxCommandEvent&) {

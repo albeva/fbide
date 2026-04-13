@@ -6,6 +6,7 @@
 //
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "UIManager.hpp"
+#include "CompilerLog.hpp"
 #include "MenuId.hpp"
 #include "lib/app/CommandManager.hpp"
 #include "lib/app/Context.hpp"
@@ -14,7 +15,7 @@
 #include "lib/config/Lang.hpp"
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/editor/Editor.hpp"
-#include "../../rc/icons.hpp"
+#include "rc/icons.hpp"
 using namespace fbide;
 
 namespace {
@@ -416,6 +417,19 @@ void UIManager::hideConsole() {
 
 auto UIManager::isConsoleVisible() -> bool {
     return m_aui.GetPane("console").IsShown();
+}
+
+auto UIManager::getCompilerLog() -> CompilerLog& {
+    if (m_compilerLog == nullptr) {
+        const auto& lang = m_ctx.getLang();
+        m_compilerLog = make_unowned<CompilerLog>(m_frame, lang[LangId::CompilerLogTitle]);
+        m_compilerLog->create(m_ctx);
+        m_compilerLog->Bind(wxEVT_CLOSE_WINDOW, [&](wxCloseEvent& event) {
+            m_compilerLog = nullptr;
+            event.Skip();
+        });
+    }
+    return *m_compilerLog;
 }
 
 void UIManager::updateEditorSettigs() {

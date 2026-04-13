@@ -89,23 +89,24 @@ void CompilerManager::quickRun() {
     m_task->compileAndRun(tempFile, true);
 }
 
+
 // ---------------------------------------------------------------------------
 // Compiler log
 // ---------------------------------------------------------------------------
 
 void CompilerManager::showCompilerLog() {
-    const auto& lang = m_ctx.getLang();
-    const auto dlg = make_unowned<CompilerLog>(
-        m_ctx.getUIManager().getMainFrame(),
-        lang[LangId::CompilerLogTitle]
-    );
-    dlg->create();
+    auto& log = m_ctx.getUIManager().getCompilerLog();
+    refreshCompilerLog();
+    log.Show();
+    log.Raise();
+}
 
+void CompilerManager::refreshCompilerLog() {
+    auto& log = m_ctx.getUIManager().getCompilerLog();
+    log.clear();
     if (m_task) {
-        dlg->log(m_task->getCompilerLog());
+        log.log(m_task->getCompilerLog());
     }
-
-    dlg->Show();
 }
 
 // ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@
 #include "OutputConsole.hpp"
 
 namespace fbide {
+class CompilerLog;
 class Context;
 
 /// Manages the main application UI: frame, menus, toolbar, statusbar, layout.
@@ -51,6 +52,9 @@ public:
     /// Enable/disable compile/run toolbar and menu items.
     void enableRunMenus(bool state) const;
 
+    /// Get the compiler log dialog, creating it lazily if needed.
+    [[nodiscard]] auto getCompilerLog() -> CompilerLog&;
+
 private:
     void onClose(wxCloseEvent& event);
     void onPageClose(wxAuiNotebookEvent& event);
@@ -63,6 +67,7 @@ private:
 
     Context& m_ctx;
     wxAuiManager m_aui;
+    CompilerLog* m_compilerLog = nullptr;
     Unowned<OutputConsole> m_console;
     Unowned<wxFrame> m_frame;
     Unowned<wxToolBar> m_toolbar;

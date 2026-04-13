@@ -8,6 +8,7 @@
 #include "pch.hpp"
 
 namespace fbide {
+class Context;
 
 /// Dialog for displaying the compiler log with [bold] markup support.
 class CompilerLog final : public wxDialog {
@@ -15,7 +16,7 @@ public:
     CompilerLog(wxWindow* parent, const wxString& title);
 
     /// Set up the layout. Call after construction.
-    void create();
+    void create(const Context& ctx);
 
     /// Clear all log content.
     void clear();

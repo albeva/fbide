@@ -15,5 +15,6 @@ Changes from fbide 0.4.5
 
 ## Compiler
 - Compilation is now asynchronous. The UI remains responsive while the compiler runs.
+- Compiler log is now a single persistent window that updates automatically after each compilation.
 - Compile command paths are quoted by default: `"<$fbc>" "<$file>"`.
 - Run command paths are quoted by default: `<$terminal> "<$file>" <$param>`.
