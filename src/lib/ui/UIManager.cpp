@@ -18,6 +18,15 @@
 #include "rc/icons.hpp"
 using namespace fbide;
 
+// clang-format off
+wxBEGIN_EVENT_TABLE(UIManager, wxEvtHandler)
+    EVT_CLOSE(UIManager::onClose)
+    EVT_AUINOTEBOOK_PAGE_CLOSE(wxID_ANY, UIManager::onPageClose)
+    EVT_AUINOTEBOOK_PAGE_CHANGED(wxID_ANY, UIManager::onPageChanged)
+    EVT_AUINOTEBOOK_BG_DCLICK(wxID_ANY, UIManager::onNotebookDblClick)
+wxEND_EVENT_TABLE()
+// clang-format on
+
 namespace {
 /// Cast MenuId to int for wx APIs.
 constexpr auto id(MenuId mid) -> int { return static_cast<int>(mid); }
@@ -95,7 +104,6 @@ void UIManager::onClose(wxCloseEvent& event) {
     // Clean up event handlers before frame destruction
     m_frame->RemoveEventHandler(this);
     m_frame->RemoveEventHandler(&m_ctx.getCommandManager());
-    m_frame->Unbind(wxEVT_CLOSE_WINDOW, &UIManager::onClose, this);
 
     event.Skip();
 }
@@ -104,7 +112,6 @@ void UIManager::createMainFrame() {
     const auto& config = m_ctx.getConfig();
 
     m_frame = make_unowned<wxFrame>(nullptr, wxID_ANY, "FBIde");
-    m_frame->Bind(wxEVT_CLOSE_WINDOW, &UIManager::onClose, this);
     m_frame->PushEventHandler(this);
     m_frame->PushEventHandler(&m_ctx.getCommandManager());
 
@@ -154,6 +161,11 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
         return;
     }
     m_notebook->GetPage(static_cast<size_t>(sel))->SetFocus();
+}
+
+void UIManager::onNotebookDblClick(wxAuiNotebookEvent& event) {
+    event.Skip();
+    m_ctx.getDocumentManager().newFile();
 }
 
 void UIManager::createMenuBar() {
@@ -296,11 +308,6 @@ void UIManager::createLayout() {
         wxDefaultPosition, wxDefaultSize,
         wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_CLOSE_ON_ALL_TABS | wxAUI_NB_MIDDLE_CLICK_CLOSE
     );
-    m_notebook->Bind(wxEVT_AUINOTEBOOK_PAGE_CLOSE, &UIManager::onPageClose, this);
-    m_notebook->Bind(wxEVT_AUINOTEBOOK_PAGE_CHANGED, &UIManager::onPageChanged, this);
-    m_notebook->Bind(wxEVT_AUINOTEBOOK_BG_DCLICK, [this](wxAuiNotebookEvent&) {
-        m_ctx.getDocumentManager().newFile();
-    });
 
     m_aui.AddPane(
         m_notebook.get(),
@@ -357,13 +364,6 @@ void UIManager::applyState(const UIState state) const {
         disable(std::array<MenuId, 0> {});
         break;
     case UIState::Compiling:
-        disable(std::array {
-            MenuId::Compile,
-            MenuId::CompileAndRun,
-            MenuId::Run,
-            MenuId::QuickRun,
-        });
-        break;
     case UIState::Running:
         disable(std::array {
             MenuId::Compile,

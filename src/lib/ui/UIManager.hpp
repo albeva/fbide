@@ -67,6 +67,7 @@ private:
     void onClose(wxCloseEvent& event);
     void onPageClose(wxAuiNotebookEvent& event);
     void onPageChanged(wxAuiNotebookEvent& event);
+    void onNotebookDblClick(wxAuiNotebookEvent& event);
 
     void createMenuBar();
     void createToolBar();
@@ -127,6 +128,8 @@ private:
         MenuId::ShowExitCode,
         MenuId::ActivePath,
     };
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide
