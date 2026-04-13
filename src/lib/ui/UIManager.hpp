@@ -62,7 +62,7 @@ public:
     [[nodiscard]] auto getCompilerLog() -> CompilerLog&;
 
 private:
-    void enable(const std::initializer_list<MenuId>& range) const;
+    void disable(const std::ranges::range auto& range) const;
 
     void onClose(wxCloseEvent& event);
     void onPageClose(wxAuiNotebookEvent& event);

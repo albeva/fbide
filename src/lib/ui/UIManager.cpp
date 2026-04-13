@@ -337,143 +337,39 @@ void UIManager::setCompilerState(const UIState state) {
 
 void UIManager::applyState(const UIState state) const {
     switch (state) {
-    case UIState::None:
-        enable({});
+    case UIState::None: {
+        disable(mutableIds);
         break;
+    }
     case UIState::FocusedUnknownFile:
-        enable({
-            MenuId::Save,
-            MenuId::SaveAs,
-            MenuId::Close,
-            MenuId::Undo,
-            MenuId::Redo,
-            MenuId::Cut,
-            MenuId::Copy,
-            MenuId::Paste,
-            MenuId::SelectAll,
-            MenuId::Find,
-            MenuId::Replace,
-            MenuId::SaveAll,
-            MenuId::SessionSave,
-            MenuId::CloseAll,
-            MenuId::SelectLine,
-            MenuId::IndentIncrease,
-            MenuId::IndentDecrease,
-            MenuId::FindNext,
-            MenuId::FindPrevious,
-            MenuId::GotoLine,
-            MenuId::Result,
-            MenuId::CompilerLog,
-            MenuId::CmdPrompt,
-            MenuId::Parameters,
-            MenuId::ShowExitCode,
-            MenuId::ActivePath,
-        });
-        break;
-    case UIState::FocusedValidSourceFile:
-        enable({
-            MenuId::Save,
-            MenuId::SaveAs,
-            MenuId::Close,
-            MenuId::Undo,
-            MenuId::Redo,
-            MenuId::Cut,
-            MenuId::Copy,
-            MenuId::Paste,
-            MenuId::SelectAll,
-            MenuId::Find,
-            MenuId::Replace,
-            MenuId::SaveAll,
-            MenuId::SessionSave,
-            MenuId::CloseAll,
-            MenuId::SelectLine,
-            MenuId::IndentIncrease,
-            MenuId::IndentDecrease,
+        disable(std::array {
             MenuId::Comment,
             MenuId::Uncomment,
-            MenuId::FindNext,
-            MenuId::FindPrevious,
-            MenuId::GotoLine,
             MenuId::Format,
-            MenuId::Result,
-            MenuId::CompilerLog,
             MenuId::Subs,
             MenuId::Compile,
             MenuId::CompileAndRun,
             MenuId::Run,
             MenuId::QuickRun,
-            MenuId::CmdPrompt,
-            MenuId::Parameters,
-            MenuId::ShowExitCode,
-            MenuId::ActivePath,
         });
         break;
+    case UIState::FocusedValidSourceFile:
+        disable(std::array<MenuId, 0> {});
+        break;
     case UIState::Compiling:
-        enable({
-            MenuId::Save,
-            MenuId::SaveAs,
-            MenuId::Close,
-            MenuId::Undo,
-            MenuId::Redo,
-            MenuId::Cut,
-            MenuId::Copy,
-            MenuId::Paste,
-            MenuId::SelectAll,
-            MenuId::Find,
-            MenuId::Replace,
-            MenuId::SaveAll,
-            MenuId::SessionSave,
-            MenuId::CloseAll,
-            MenuId::SelectLine,
-            MenuId::IndentIncrease,
-            MenuId::IndentDecrease,
-            MenuId::Comment,
-            MenuId::Uncomment,
-            MenuId::FindNext,
-            MenuId::FindPrevious,
-            MenuId::GotoLine,
-            MenuId::Format,
-            MenuId::Result,
-            MenuId::CompilerLog,
-            MenuId::Subs,
-            MenuId::CmdPrompt,
-            MenuId::Parameters,
-            MenuId::ShowExitCode,
-            MenuId::ActivePath,
+        disable(std::array {
+            MenuId::Compile,
+            MenuId::CompileAndRun,
+            MenuId::Run,
+            MenuId::QuickRun,
         });
         break;
     case UIState::Running:
-        enable({
-            MenuId::Save,
-            MenuId::SaveAs,
-            MenuId::Close,
-            MenuId::Undo,
-            MenuId::Redo,
-            MenuId::Cut,
-            MenuId::Copy,
-            MenuId::Paste,
-            MenuId::SelectAll,
-            MenuId::Find,
-            MenuId::Replace,
-            MenuId::SaveAll,
-            MenuId::SessionSave,
-            MenuId::CloseAll,
-            MenuId::SelectLine,
-            MenuId::IndentIncrease,
-            MenuId::IndentDecrease,
-            MenuId::Comment,
-            MenuId::Uncomment,
-            MenuId::FindNext,
-            MenuId::FindPrevious,
-            MenuId::GotoLine,
-            MenuId::Format,
-            MenuId::Result,
-            MenuId::CompilerLog,
-            MenuId::Subs,
-            MenuId::CmdPrompt,
-            MenuId::Parameters,
-            MenuId::ShowExitCode,
-            MenuId::ActivePath,
+        disable(std::array {
+            MenuId::Compile,
+            MenuId::CompileAndRun,
+            MenuId::Run,
+            MenuId::QuickRun,
         });
         break;
     }
@@ -526,12 +422,12 @@ auto UIManager::getCompilerLog() -> CompilerLog& {
     return *m_compilerLog;
 }
 
-void UIManager::enable(const std::initializer_list<MenuId>& range) const {
+void UIManager::disable(const std::ranges::range auto& range) const {
     auto* menuBar = m_frame->GetMenuBar();
     for (const auto menuId : mutableIds) {
-        const bool enabled = std::ranges::contains(range, menuId);
-        m_toolbar->EnableTool(id(menuId), enabled);
-        menuBar->Enable(id(menuId), enabled);
+        const bool disabled = not std::ranges::contains(range, menuId);
+        m_toolbar->EnableTool(id(menuId), disabled);
+        menuBar->Enable(id(menuId), disabled);
     }
 }
 
