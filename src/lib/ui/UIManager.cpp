@@ -105,7 +105,7 @@ void UIManager::onClose(wxCloseEvent& event) {
     m_frame->RemoveEventHandler(this);
     m_frame->RemoveEventHandler(&m_ctx.getCommandManager());
 
-    event.Skip();
+    m_frame->Close();
 }
 
 void UIManager::createMainFrame() {
