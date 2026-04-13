@@ -475,7 +475,10 @@ void Editor::updateStatusBar() const {
 void Editor::onFocus(wxFocusEvent& event) {
     event.Skip();
     updateStatusBar();
-    m_ctx.getUIManager().enableEditorMenus(true);
+    const auto state = m_docType == DocumentType::FreeBASIC
+        ? UIState::FocusedValidSourceFile
+        : UIState::FocusedUnknownFile;
+    m_ctx.getUIManager().setDocumentState(state);
 }
 
 void Editor::onModified(wxStyledTextEvent& event) {

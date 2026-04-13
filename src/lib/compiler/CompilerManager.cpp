@@ -174,7 +174,7 @@ auto CompilerManager::getActiveDocument() -> Document* {
 
 auto CompilerManager::ensureSaved(Document& doc) -> bool {
     if (!doc.isModified()) {
-        return true;
+        return !doc.isNew();
     }
 
     const auto& lang = m_ctx.getLang();

@@ -6,7 +6,9 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "MenuId.hpp"
 #include "OutputConsole.hpp"
+#include "UIState.hpp"
 
 namespace fbide {
 class CompilerLog;
@@ -30,8 +32,13 @@ public:
     /// Get the document notebook.
     [[nodiscard]] auto getNotebook() -> wxAuiNotebook* { return m_notebook; }
 
-    /// Enable/disable editor-dependent menus and toolbar items.
-    void enableEditorMenus(bool state) const;
+    /// Set the document-level UI state (None, FocusedUnknownFile, FocusedValidSourceFile).
+    /// Compiler state takes precedence when active.
+    void setDocumentState(UIState state);
+
+    /// Set the compiler-level UI state (None, Compiling, Running).
+    /// When not None, overrides the document state.
+    void setCompilerState(UIState state);
 
     /// Force editors to update settings.
     void updateEditorSettigs();
@@ -51,13 +58,12 @@ public:
     /// Get the output console.
     [[nodiscard]] auto getOutputConsole() -> OutputConsole& { return *m_console; }
 
-    /// Enable/disable compile/run toolbar and menu items.
-    void enableRunMenus(bool state) const;
-
     /// Get the compiler log dialog, creating it lazily if needed.
     [[nodiscard]] auto getCompilerLog() -> CompilerLog&;
 
 private:
+    void enable(const std::initializer_list<MenuId>& range) const;
+
     void onClose(wxCloseEvent& event);
     void onPageClose(wxAuiNotebookEvent& event);
     void onPageChanged(wxAuiNotebookEvent& event);
@@ -67,8 +73,11 @@ private:
     void createStatusBar() const;
     void createLayout();
     void syncConsoleState(bool visible) const;
+    void applyState(UIState state) const;
 
     Context& m_ctx;
+    UIState m_documentState = UIState::None;
+    UIState m_compilerState = UIState::None;
     wxAuiManager m_aui;
     CompilerLog* m_compilerLog = nullptr;
     Unowned<OutputConsole> m_console;
@@ -81,6 +90,43 @@ private:
     Unowned<wxMenu> m_viewMenu;
     Unowned<wxMenu> m_runMenu;
     Unowned<wxMenu> m_helpMenu;
+
+    static constexpr std::array mutableIds = {
+        MenuId::Save,
+        MenuId::SaveAs,
+        MenuId::Close,
+        MenuId::Undo,
+        MenuId::Redo,
+        MenuId::Cut,
+        MenuId::Copy,
+        MenuId::Paste,
+        MenuId::SelectAll,
+        MenuId::Find,
+        MenuId::Replace,
+        MenuId::SaveAll,
+        MenuId::SessionSave,
+        MenuId::CloseAll,
+        MenuId::SelectLine,
+        MenuId::IndentIncrease,
+        MenuId::IndentDecrease,
+        MenuId::Comment,
+        MenuId::Uncomment,
+        MenuId::FindNext,
+        MenuId::FindPrevious,
+        MenuId::GotoLine,
+        MenuId::Format,
+        MenuId::Result,
+        MenuId::CompilerLog,
+        MenuId::Subs,
+        MenuId::Compile,
+        MenuId::CompileAndRun,
+        MenuId::Run,
+        MenuId::QuickRun,
+        MenuId::CmdPrompt,
+        MenuId::Parameters,
+        MenuId::ShowExitCode,
+        MenuId::ActivePath,
+    };
 };
 
 } // namespace fbide

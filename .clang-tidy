@@ -13,10 +13,7 @@ Checks: '-*,
     -*-special-member-functions,
     -*-no-recursion,
     -*-easily-swappable-parameters,
-    -*-magic-numbers,
-    -*-unchecked-container-access,
     -*-avoid-pragma-once,
-    -*-include-cleaner,
     '
 WarningsAsErrors: '*'
 CheckOptions:

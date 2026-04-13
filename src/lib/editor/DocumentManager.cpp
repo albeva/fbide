@@ -186,7 +186,7 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
 
     // Update UI state when no documents remain
     if (m_documents.empty()) {
-        m_ctx.getUIManager().enableEditorMenus(false);
+        m_ctx.getUIManager().setDocumentState(UIState::None);
         m_ctx.getUIManager().getMainFrame()->SetStatusText("", 1);
     }
 
@@ -239,7 +239,7 @@ auto DocumentManager::prepareToQuit() -> bool {
         m_documents.pop_back();
     }
 
-    m_ctx.getUIManager().enableEditorMenus(false);
+    m_ctx.getUIManager().setDocumentState(UIState::None);
     return true;
 }
 

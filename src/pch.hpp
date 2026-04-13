@@ -7,6 +7,7 @@
 #pragma once
 
 // STL
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstdint>
@@ -14,6 +15,8 @@
 #include <memory>
 #include <optional>
 #include <print>
+#include <ranges>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>

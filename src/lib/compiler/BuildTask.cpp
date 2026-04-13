@@ -42,12 +42,13 @@ void BuildTask::compileAndRun(const wxString& sourceFile, const bool quickRun) {
 void BuildTask::run(const wxString& executablePath, const bool quickRun) {
     m_compiledFile = executablePath;
     m_isQuickRun = quickRun;
-    m_ctx.getUIManager().enableRunMenus(false);
 
     m_running = true;
+    m_ctx.getUIManager().setCompilerState(UIState::Running);
     AsyncProcess::exec(buildRunCommand(executablePath), wxPathOnly(executablePath), false, [&](const ProcessResult& result) {
-        onRunFinished(result);
+        m_ctx.getUIManager().setCompilerState(UIState::None);
         m_running = false;
+        onRunFinished(result);
     });
 }
 
@@ -62,14 +63,11 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     // Prepare UI
     auto& ui = m_ctx.getUIManager();
     ui.getOutputConsole().clear();
-    ui.enableRunMenus(false);
-    setStatus(LangId::StatusCompiling);
 
     // Validate compiler — getFbcVersion() checks path and caches the result
     const auto& fbcVersion = m_ctx.getCompilerManager().getFbcVersion();
     if (fbcVersion.empty()) {
         wxMessageBox(m_ctx.getLang()[LangId::SettingsCompilerPathError], "FBC", wxICON_ERROR);
-        ui.enableRunMenus(true);
         return;
     }
 
@@ -82,9 +80,13 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     m_ctx.getCompilerManager().refreshCompilerLog();
 
     m_running = true;
+    m_ctx.getUIManager().setCompilerState(UIState::Compiling);
+    setStatus(LangId::StatusCompiling);
     AsyncProcess::exec(cmdStr, m_buildDir, true, [&](const ProcessResult& result) {
-        onCompileFinished(result);
+        setStatus(LangId::EmptyString);
+        m_ctx.getUIManager().setCompilerState(UIState::None);
         m_running = false;
+        onCompileFinished(result);
     });
 }
 
@@ -110,7 +112,6 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
         m_ctx.getCompilerManager().refreshCompilerLog();
         setStatus(LangId::StatusCompileFailed);
         cleanupTempFiles();
-        ui.enableRunMenus(true);
         return;
     }
 
@@ -130,8 +131,6 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
 
     if (m_shouldRun) {
         run(m_compiledFile, m_isQuickRun);
-    } else {
-        ui.enableRunMenus(true);
     }
 }
 
@@ -154,8 +153,6 @@ void BuildTask::onRunFinished(const ProcessResult& result) {
     if (auto* doc = getDocument()) {
         doc->getEditor()->SetFocus();
     }
-
-    m_ctx.getUIManager().enableRunMenus(true);
 }
 
 // ---------------------------------------------------------------------------

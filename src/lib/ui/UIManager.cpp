@@ -125,7 +125,7 @@ void UIManager::createMainFrame() {
     createStatusBar();
     createLayout();
 
-    enableEditorMenus(false);
+    applyState(UIState::None);
 
     m_aui.Update();
     m_frame->Show();
@@ -325,75 +325,157 @@ void UIManager::createLayout() {
     );
 }
 
-void UIManager::enableEditorMenus(const bool state) const {
-    auto* menuBar = m_frame->GetMenuBar();
-
-    constexpr std::array menuItems {
-        MenuId::Undo,
-        MenuId::Redo,
-        MenuId::Cut,
-        MenuId::Copy,
-        MenuId::Paste,
-        MenuId::SelectAll,
-        MenuId::Find,
-        MenuId::Replace,
-        MenuId::Save,
-        MenuId::SaveAll,
-        MenuId::SaveAs,
-        MenuId::Close,
-        MenuId::SessionSave,
-        MenuId::CloseAll,
-        MenuId::SelectLine,
-        MenuId::IndentIncrease,
-        MenuId::IndentDecrease,
-        MenuId::Comment,
-        MenuId::Uncomment,
-        MenuId::FindNext,
-        MenuId::GotoLine,
-        MenuId::Format,
-        MenuId::Subs,
-    };
-    for (const auto mid : menuItems) {
-        menuBar->Enable(id(mid), state);
-    }
-
-    constexpr std::array toolItems {
-        MenuId::Save,
-        MenuId::SaveAll,
-        MenuId::Close,
-        MenuId::Cut,
-        MenuId::Copy,
-        MenuId::Paste,
-        MenuId::Undo,
-        MenuId::Redo,
-    };
-    for (const auto mid : toolItems) {
-        m_toolbar->EnableTool(id(mid), state);
-    }
-
-    constexpr std::array runItems {
-        MenuId::Compile,
-        MenuId::Run,
-        MenuId::CompileAndRun,
-        MenuId::QuickRun,
-    };
-    for (const auto mid : runItems) {
-        menuBar->Enable(id(mid), state);
-        m_toolbar->EnableTool(id(mid), state);
-    }
+void UIManager::setDocumentState(const UIState state) {
+    m_documentState = state;
+    applyState(m_compilerState != UIState::None ? m_compilerState : m_documentState);
 }
 
-void UIManager::enableRunMenus(const bool state) const {
-    auto* menuBar = m_frame->GetMenuBar();
-    constexpr std::array items {
-        MenuId::Compile,
-        MenuId::Run,
-        MenuId::CompileAndRun,
-        MenuId::QuickRun,
-    };
-    for (const auto mid : items) {
-        menuBar->Enable(id(mid), state);
-        m_toolbar->EnableTool(id(mid), state);
+void UIManager::setCompilerState(const UIState state) {
+    m_compilerState = state;
+    applyState(m_compilerState != UIState::None ? m_compilerState : m_documentState);
+}
+
+void UIManager::applyState(const UIState state) const {
+    switch (state) {
+    case UIState::None:
+        enable({});
+        break;
+    case UIState::FocusedUnknownFile:
+        enable({
+            MenuId::Save,
+            MenuId::SaveAs,
+            MenuId::Close,
+            MenuId::Undo,
+            MenuId::Redo,
+            MenuId::Cut,
+            MenuId::Copy,
+            MenuId::Paste,
+            MenuId::SelectAll,
+            MenuId::Find,
+            MenuId::Replace,
+            MenuId::SaveAll,
+            MenuId::SessionSave,
+            MenuId::CloseAll,
+            MenuId::SelectLine,
+            MenuId::IndentIncrease,
+            MenuId::IndentDecrease,
+            MenuId::FindNext,
+            MenuId::FindPrevious,
+            MenuId::GotoLine,
+            MenuId::Result,
+            MenuId::CompilerLog,
+            MenuId::CmdPrompt,
+            MenuId::Parameters,
+            MenuId::ShowExitCode,
+            MenuId::ActivePath,
+        });
+        break;
+    case UIState::FocusedValidSourceFile:
+        enable({
+            MenuId::Save,
+            MenuId::SaveAs,
+            MenuId::Close,
+            MenuId::Undo,
+            MenuId::Redo,
+            MenuId::Cut,
+            MenuId::Copy,
+            MenuId::Paste,
+            MenuId::SelectAll,
+            MenuId::Find,
+            MenuId::Replace,
+            MenuId::SaveAll,
+            MenuId::SessionSave,
+            MenuId::CloseAll,
+            MenuId::SelectLine,
+            MenuId::IndentIncrease,
+            MenuId::IndentDecrease,
+            MenuId::Comment,
+            MenuId::Uncomment,
+            MenuId::FindNext,
+            MenuId::FindPrevious,
+            MenuId::GotoLine,
+            MenuId::Format,
+            MenuId::Result,
+            MenuId::CompilerLog,
+            MenuId::Subs,
+            MenuId::Compile,
+            MenuId::CompileAndRun,
+            MenuId::Run,
+            MenuId::QuickRun,
+            MenuId::CmdPrompt,
+            MenuId::Parameters,
+            MenuId::ShowExitCode,
+            MenuId::ActivePath,
+        });
+        break;
+    case UIState::Compiling:
+        enable({
+            MenuId::Save,
+            MenuId::SaveAs,
+            MenuId::Close,
+            MenuId::Undo,
+            MenuId::Redo,
+            MenuId::Cut,
+            MenuId::Copy,
+            MenuId::Paste,
+            MenuId::SelectAll,
+            MenuId::Find,
+            MenuId::Replace,
+            MenuId::SaveAll,
+            MenuId::SessionSave,
+            MenuId::CloseAll,
+            MenuId::SelectLine,
+            MenuId::IndentIncrease,
+            MenuId::IndentDecrease,
+            MenuId::Comment,
+            MenuId::Uncomment,
+            MenuId::FindNext,
+            MenuId::FindPrevious,
+            MenuId::GotoLine,
+            MenuId::Format,
+            MenuId::Result,
+            MenuId::CompilerLog,
+            MenuId::Subs,
+            MenuId::CmdPrompt,
+            MenuId::Parameters,
+            MenuId::ShowExitCode,
+            MenuId::ActivePath,
+        });
+        break;
+    case UIState::Running:
+        enable({
+            MenuId::Save,
+            MenuId::SaveAs,
+            MenuId::Close,
+            MenuId::Undo,
+            MenuId::Redo,
+            MenuId::Cut,
+            MenuId::Copy,
+            MenuId::Paste,
+            MenuId::SelectAll,
+            MenuId::Find,
+            MenuId::Replace,
+            MenuId::SaveAll,
+            MenuId::SessionSave,
+            MenuId::CloseAll,
+            MenuId::SelectLine,
+            MenuId::IndentIncrease,
+            MenuId::IndentDecrease,
+            MenuId::Comment,
+            MenuId::Uncomment,
+            MenuId::FindNext,
+            MenuId::FindPrevious,
+            MenuId::GotoLine,
+            MenuId::Format,
+            MenuId::Result,
+            MenuId::CompilerLog,
+            MenuId::Subs,
+            MenuId::CmdPrompt,
+            MenuId::Parameters,
+            MenuId::ShowExitCode,
+            MenuId::ActivePath,
+        });
+        break;
     }
 }
 
@@ -442,6 +524,15 @@ auto UIManager::getCompilerLog() -> CompilerLog& {
         });
     }
     return *m_compilerLog;
+}
+
+void UIManager::enable(const std::initializer_list<MenuId>& range) const {
+    auto* menuBar = m_frame->GetMenuBar();
+    for (const auto menuId : mutableIds) {
+        const bool enabled = std::ranges::contains(range, menuId);
+        m_toolbar->EnableTool(id(menuId), enabled);
+        menuBar->Enable(id(menuId), enabled);
+    }
 }
 
 void UIManager::updateEditorSettigs() {

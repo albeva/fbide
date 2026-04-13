@@ -59,6 +59,7 @@ target_sources(fbide_lib
     lib/settings/panels/Panel.hpp
     lib/settings/panels/ThemePage.hpp
     lib/ui/MenuId.hpp
+    lib/ui/UIState.hpp
     lib/ui/CompilerLog.hpp
     lib/ui/OutputConsole.hpp
     lib/ui/UIManager.hpp
