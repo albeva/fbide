@@ -66,6 +66,7 @@ private:
     void createToolBar();
     void createStatusBar() const;
     void createLayout();
+    void syncConsoleState(bool visible) const;
 
     Context& m_ctx;
     wxAuiManager m_aui;

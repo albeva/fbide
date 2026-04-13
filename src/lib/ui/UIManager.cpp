@@ -272,7 +272,12 @@ void UIManager::createToolBar() {
     add(MenuId::Run, LangId::ToolbarRun, wxBitmap(XPM::run_xpm));
     add(MenuId::CompileAndRun, LangId::ToolbarCompileAndRun, wxBitmap(XPM::compnrun_xpm));
     add(MenuId::QuickRun, LangId::ToolbarQuickRun, wxBitmap(XPM::qrun_xpm));
-    add(MenuId::Result, LangId::ToolbarResult, wxBitmap(XPM::output_xpm));
+    {
+        wxBitmap bitmap(XPM::output_xpm);
+        const auto mask = make_unowned<wxMask>(bitmap, wxColour(192, 192, 192));
+        bitmap.SetMask(mask);
+        m_toolbar->AddCheckTool(id(MenuId::Result), lang[LangId::ToolbarResult], std::move(bitmap));
+    }
     // NOLINTEND(*-avoid-c-arrays)
 
     m_toolbar->Realize();
@@ -396,7 +401,7 @@ void UIManager::toggleConsole() {
     auto& pane = m_aui.GetPane("console");
     pane.Show(!pane.IsShown());
     m_aui.Update();
-    m_viewMenu->Check(id(MenuId::Result), pane.IsShown());
+    syncConsoleState(pane.IsShown());
 }
 
 void UIManager::showConsole() {
@@ -404,7 +409,7 @@ void UIManager::showConsole() {
     if (!pane.IsShown()) {
         pane.Show();
         m_aui.Update();
-        m_viewMenu->Check(id(MenuId::Result), true);
+        syncConsoleState(true);
     }
 }
 
@@ -413,8 +418,13 @@ void UIManager::hideConsole() {
     if (pane.IsShown()) {
         pane.Hide();
         m_aui.Update();
-        m_viewMenu->Check(id(MenuId::Result), false);
+        syncConsoleState(false);
     }
+}
+
+void UIManager::syncConsoleState(const bool visible) const {
+    m_viewMenu->Check(id(MenuId::Result), visible);
+    m_toolbar->ToggleTool(id(MenuId::Result), visible);
 }
 
 auto UIManager::isConsoleVisible() -> bool {
