@@ -32,6 +32,8 @@ struct ProcessResult final {
 /// the process deletes itself after invoking the callback.
 class AsyncProcess final : wxProcess {
 public:
+    NO_COPY_AND_MOVE(AsyncProcess)
+
     using Callback = std::function<void(ProcessResult)>;
 
     /// Launch the command asynchronously.

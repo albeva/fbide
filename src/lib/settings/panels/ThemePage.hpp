@@ -14,6 +14,7 @@ namespace fbide {
 /// Theme settings tab — style type selection, colors, fonts.
 class ThemePage final : public Panel {
 public:
+    NO_COPY_AND_MOVE(ThemePage)
 
     ThemePage(Context& ctx, wxWindow* parent);
     [[nodiscard]] auto isUnsavedNewTheme() const -> bool { return m_themeChoice->GetSelection() == 0; }

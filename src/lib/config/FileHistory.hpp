@@ -12,6 +12,9 @@ namespace fbide {
 /// Manages recent file history, persisted to history.ini.
 class FileHistory final {
 public:
+    NO_COPY_AND_MOVE(FileHistory)
+    FileHistory() = default;
+
     /// Load history from an INI file.
     void load(const wxString& path);
 

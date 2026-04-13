@@ -13,6 +13,8 @@ namespace fbide {
 /// Compiler settings tab — paths and command prototypes.
 class CompilerPage final : public Panel {
 public:
+    NO_COPY_AND_MOVE(CompilerPage)
+
     explicit CompilerPage(Context& ctx, wxWindow* parent);
     void layout() override;
     void apply() override;

@@ -160,7 +160,7 @@ void ThemePage::onColorButton(wxButton* btn) {
 void ThemePage::onSelectTheme(const wxCommandEvent&) {
     m_activeTheme = m_themeChoice->GetStringSelection();
     if (not isUnsavedNewTheme()) {
-        m_theme.load(getConfig().resolvePath(m_activeTheme + ".fbt"));
+        m_theme.load(getConfig().resolvePath(m_activeTheme + "." + Config::THEME_EXT));
         loadCategory();
     }
 }
@@ -199,7 +199,7 @@ void ThemePage::saveNewTheme(const bool setActive) {
         return;
     }
 
-    const wxFileName path = getConfig().getAppSettingsPath() + name + ".fbt";
+    const wxFileName path = getConfig().getAppSettingsPath() + name + "." + Config::THEME_EXT;
     if (not path.IsOk() or path.Exists()) {
         // TODO: show warning?
         wxLogWarning("Unable to save theme as %s", path.GetAbsolutePath());

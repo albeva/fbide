@@ -14,6 +14,8 @@ class Context;
 /// General settings tab — editor preferences, language selection.
 class GeneralPage final : public Panel {
 public:
+    NO_COPY_AND_MOVE(GeneralPage)
+
     explicit GeneralPage(Context& ctx, wxWindow* parent);
     void layout() override;
     void apply() override;

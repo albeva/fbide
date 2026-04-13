@@ -15,6 +15,8 @@ class Editor;
 /// Represents a single open document with its editor widget.
 class Document final {
 public:
+    NO_COPY_AND_MOVE(Document)
+
     /// Create a new document. Editor is created as child of parent.
     Document(wxWindow* parent, Context& ctx, DocumentType type = DocumentType::FreeBASIC);
 

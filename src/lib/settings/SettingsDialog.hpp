@@ -19,6 +19,8 @@ class CompilerPage;
 /// Applies changes only on OK.
 class SettingsDialog : public wxDialog {
 public:
+    NO_COPY_AND_MOVE(SettingsDialog)
+
     SettingsDialog(wxWindow* parent, Context& ctx);
     ~SettingsDialog() override;
     void create();

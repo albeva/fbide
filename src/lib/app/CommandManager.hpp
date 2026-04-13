@@ -14,6 +14,8 @@ class Context;
 /// Thin handler — no logic, just dispatch.
 class CommandManager final : public wxEvtHandler {
 public:
+    NO_COPY_AND_MOVE(CommandManager)
+
     explicit CommandManager(Context& ctx);
 
 private:

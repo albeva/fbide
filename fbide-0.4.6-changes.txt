@@ -1,0 +1,16 @@
+Added source structure browser. - vongodric
+Added built-in file browser  - vongodric
+Added Ctrl+Tab and Ctrl+Shift+Tab for switching between tabs  - vongodric
+Fixed crash when Ctrl+0 is pressed  - vongodric
+Fixed keyword save bug  - vongodric
+Fixed rightmargin state saving  - vongodric
+Fixed crash when closing FBIde while help is open  - vongodric
+Fixed filename case and space bug in running / compiling  - vongodric
+Fixed keeping track of folding  - vongodric
+Fixed brace highlight error when highlighting is turned on/off  - vongodric
+Fixed crash when program is running, but all tabs have been closed  - vongodric
+Fixed highlighting bugs: '$ is shown now as preprocessor, @ is treated as operator. Varios smaller fixes  - vongodric
+Fixed After failed compilation go to first error  - vongodric
+Changed code area tab's panel buttons are now a bit better looking.  - vongodric
+Changed active/inactive tabs have now same width  - vongodric
+Changed Sub/function list now also lists enums, types and unions  - vongodric

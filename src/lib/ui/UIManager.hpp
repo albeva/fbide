@@ -16,6 +16,8 @@ class Context;
 /// Does not handle command logic — that is CommandManager's responsibility.
 class UIManager final : public wxEvtHandler {
 public:
+    NO_COPY_AND_MOVE(UIManager)
+
     explicit UIManager(Context& ctx);
     ~UIManager() override;
 

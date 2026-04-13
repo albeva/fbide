@@ -8,6 +8,7 @@
 #include "Document.hpp"
 #include "Editor.hpp"
 #include "lib/app/Context.hpp"
+#include "lib/config/Config.hpp"
 #include "lib/config/FileHistory.hpp"
 #include "lib/config/Lang.hpp"
 #include "lib/ui/UIManager.hpp"
@@ -60,6 +61,12 @@ void DocumentManager::openFile() {
 }
 
 auto DocumentManager::openFile(const wxString& filePath) -> Document* {
+    // Session files are loaded separately
+    if (wxFileName(filePath).GetExt() == Config::SESSION_EXT) {
+        loadSession(filePath);
+        return nullptr;
+    }
+
     // Check if already open
     if (auto* existing = findByPath(filePath)) {
         const auto idx = findPageIndex(*existing);
@@ -382,7 +389,7 @@ void DocumentManager::loadSession() {
     wxFileDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
         lang[LangId::FileLoadTitle],
-        "", ".fbs",
+        "", wxString(".") + Config::SESSION_EXT,
         lang[LangId::FileSessionFilter],
         wxFD_FILE_MUST_EXIST
     );
@@ -400,7 +407,7 @@ void DocumentManager::saveSession() {
     wxFileDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
         lang[LangId::FileSessionSaveTitle],
-        "", ".fbs",
+        "", wxString(".") + Config::SESSION_EXT,
         lang[LangId::FileSessionFilter],
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
     );

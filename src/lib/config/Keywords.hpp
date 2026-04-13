@@ -13,6 +13,9 @@ namespace fbide {
 /// 4 groups (matching Scintilla keyword sets) plus a sorted combined list.
 class Keywords final {
 public:
+    NO_COPY_AND_MOVE(Keywords)
+    Keywords() = default;
+
     static constexpr std::size_t GROUP_COUNT = 4;
 
     /// Load keywords from a legacy .lng file.

@@ -6,6 +6,7 @@ target_sources(fbide_lib
     lib/app/App.cpp
     lib/app/CommandManager.cpp
     lib/app/Context.cpp
+    lib/app/InstanceHandler.cpp
     lib/compiler/AsyncProcess.cpp
     lib/compiler/CompileCommand.cpp
     lib/compiler/BuildTask.cpp
@@ -34,6 +35,7 @@ target_sources(fbide_lib
     lib/app/App.hpp
     lib/app/CommandManager.hpp
     lib/app/Context.hpp
+    lib/app/InstanceHandler.hpp
     lib/compiler/AsyncProcess.hpp
     lib/compiler/CompileCommand.hpp
     lib/compiler/BuildTask.hpp
@@ -61,7 +63,6 @@ target_sources(fbide_lib
     lib/ui/OutputConsole.hpp
     lib/ui/UIManager.hpp
     lib/utils/NoCopy.hpp
-    lib/utils/ScopeGuard.hpp
     lib/utils/ValueRestorer.hpp
     lib/utils/Macros.hpp
     lib/utils/Unowned.hpp

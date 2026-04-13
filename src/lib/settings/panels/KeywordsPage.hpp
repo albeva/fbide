@@ -14,6 +14,8 @@ namespace fbide {
 /// Keywords settings tab — keyword group editor.
 class KeywordsPage final : public Panel {
 public:
+    NO_COPY_AND_MOVE(KeywordsPage)
+
     explicit KeywordsPage(Context& ctx, wxWindow* parent);
     void layout() override;
     void apply() override;

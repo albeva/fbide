@@ -1,10 +1,13 @@
-Changes from fbide 0.4.5
+Changes from fbide 0.4.5.
 
 ## Project changes
-- FBIde is completely rewritten from scratch, to match feature set of fbide 0.4.6
-- Updated to wxWidgets 3.3
-- Adopted C++23 as baseline
-- Adopted cmake build system
+- FBIde is completely rewritten from scratch, to match feature set of fbide 0.4.6.
+- Updated to wxWidgets 3.3.
+- Adopted C++23 as baseline.
+- Adopted cmake build system.
+
+## General
+- Added support for startign the editor with custom config file via `--config` command line option.
 
 ## Removed options
 - `ActivePath` option has been removed. FBIde now always sets the working directory to the source file location when compiling or running.

@@ -23,14 +23,11 @@ class UIManager;
 /// Created first, destroyed last.
 class Context final {
 public:
+    NO_COPY_AND_MOVE(Context)
+
     /// Initialize context with resolved binary path.
     explicit Context(const wxString& binaryPath);
     ~Context();
-
-    Context(const Context&) = delete;
-    auto operator=(const Context&) -> Context& = delete;
-    Context(Context&&) = delete;
-    auto operator=(Context&&) -> Context& = delete;
 
     /// Get application configuration.
     [[nodiscard]] auto getConfig() -> Config& { return *m_config; }

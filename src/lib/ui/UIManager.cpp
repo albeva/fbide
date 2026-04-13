@@ -60,7 +60,9 @@ UIManager::UIManager(Context& ctx)
 : m_ctx(ctx) {}
 
 UIManager::~UIManager() {
-    m_aui.UnInit();
+    if (m_frame != nullptr) {
+        m_aui.UnInit();
+    }
 }
 
 void UIManager::onClose(wxCloseEvent& event) {

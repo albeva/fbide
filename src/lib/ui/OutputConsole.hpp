@@ -13,6 +13,8 @@ class Context;
 /// Output console panel for displaying compiler messages and errors.
 class OutputConsole final : public wxListCtrl {
 public:
+    NO_COPY_AND_MOVE(OutputConsole)
+
     OutputConsole(wxWindow* parent, Context& ctx);
 
     /// Set up columns and event handlers. Call after construction.

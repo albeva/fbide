@@ -14,6 +14,9 @@ namespace fbide {
 /// Loads legacy .fbl files (INI format with numeric keys under [FBIde] section).
 class Lang final {
 public:
+    NO_COPY_AND_MOVE(Lang)
+    Lang() = default;
+
     /// Load translations from a legacy .fbl file.
     /// Clears any previously loaded strings before loading.
     void load(const wxString& filePath);

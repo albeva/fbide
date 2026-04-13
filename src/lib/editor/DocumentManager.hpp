@@ -16,6 +16,8 @@ class Context;
 /// Extends wxEvtHandler to receive find/replace dialog events.
 class DocumentManager final : public wxEvtHandler {
 public:
+    NO_COPY_AND_MOVE(DocumentManager)
+
     explicit DocumentManager(Context& ctx);
 
     /// Create a new empty document and add it as a tab.

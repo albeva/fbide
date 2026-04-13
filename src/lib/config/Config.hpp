@@ -13,8 +13,10 @@ namespace fbide {
 /// Loads/saves legacy INI prefs files via wxFileConfig.
 class Config final {
 public:
-    static constexpr auto SESSION_EXT = "fbt";
-    static constexpr auto LANGUAGE_EXT = "lng";
+    NO_COPY_AND_MOVE(Config)
+
+    static constexpr auto SESSION_EXT = "fbs";
+    static constexpr auto LANGUAGE_EXT = "fbl";
     static constexpr auto THEME_EXT = "fbt";
 
     /// Initialize with resolved binary path.

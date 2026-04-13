@@ -15,6 +15,8 @@ class Context;
 /// Scintilla-based code editor.
 class Editor final : public wxStyledTextCtrl {
 public:
+    NO_COPY_AND_MOVE(Editor)
+
     /// Create editor as child of parent window for given document type.
     Editor(wxWindow* parent, Context& ctx, DocumentType type = DocumentType::FreeBASIC);
 

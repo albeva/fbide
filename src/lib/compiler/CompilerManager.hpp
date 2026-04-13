@@ -17,6 +17,8 @@ class Context;
 /// the compiler, and delegates to BuildTask for execution.
 class CompilerManager final {
 public:
+    NO_COPY_AND_MOVE(CompilerManager)
+
     explicit CompilerManager(Context& ctx);
     ~CompilerManager();
 

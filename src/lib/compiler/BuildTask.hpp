@@ -19,6 +19,8 @@ class Document;
 /// Created by CompilerManager for each compile/run operation.
 class BuildTask final {
 public:
+    NO_COPY_AND_MOVE(BuildTask)
+
     static constexpr auto TEMPNAME = "FBIDETEMP.BAS";
 
     /// Create a compile process.

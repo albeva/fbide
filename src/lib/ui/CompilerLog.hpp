@@ -13,6 +13,8 @@ class Context;
 /// Dialog for displaying the compiler log with [bold] markup support.
 class CompilerLog final : public wxDialog {
 public:
+    NO_COPY_AND_MOVE(CompilerLog)
+
     CompilerLog(wxWindow* parent, const wxString& title);
 
     /// Set up the layout. Call after construction.
