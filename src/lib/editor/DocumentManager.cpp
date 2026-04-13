@@ -8,7 +8,6 @@
 #include "Document.hpp"
 #include "Editor.hpp"
 #include "lib/app/Context.hpp"
-#include "lib/config/Config.hpp"
 #include "lib/config/FileHistory.hpp"
 #include "lib/config/Lang.hpp"
 #include "lib/ui/UIManager.hpp"
@@ -246,10 +245,20 @@ auto DocumentManager::getActive() const -> Document* {
     return findByEditor(page);
 }
 
+void DocumentManager::setActive(Document* document) {
+    if (!contains(document) || document == getActive()) {
+        return;
+    }
+    const auto idx = findPageIndex(*document);
+    if (idx != wxNOT_FOUND) {
+        getNotebook()->SetSelection(static_cast<size_t>(idx));
+    }
+}
+
 auto DocumentManager::findByPath(const wxString& path) const -> Document* {
     auto normalized = wxFileName(path);
     normalized.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS);
-    auto fullPath = normalized.GetFullPath();
+    const auto fullPath = normalized.GetFullPath();
 
     for (auto& doc : m_documents) {
         if (!doc->isUntitled()) {
@@ -276,6 +285,10 @@ auto DocumentManager::findByEditor(const wxWindow* editor) const -> Document* {
         }
     }
     return nullptr;
+}
+
+auto DocumentManager::contains(const Document* doc) const -> bool {
+    return doc != nullptr && std::ranges::contains(m_documents, doc, &std::unique_ptr<Document>::get);
 }
 
 auto DocumentManager::findPageIndex(const Document& doc) const -> int {

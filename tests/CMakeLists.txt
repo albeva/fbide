@@ -12,6 +12,7 @@ FetchContent_MakeAvailable(googletest)
 # Tests
 add_executable(tests
     BasicTests.cpp
+    CompileCommandTests.cpp
     ConfigTests.cpp
     KeywordsTests.cpp
     LangTests.cpp

@@ -104,6 +104,11 @@ public:
     [[nodiscard]] auto getCompilerPath() const -> const wxString& { return m_compilerPath; }
     void setCompilerPath(const wxString& val) { m_compilerPath = val; }
 
+    /// Resolve the compiler path to an absolute path and validate it exists.
+    /// On Windows, normalizes the path and checks existence.
+    /// Returns empty string on failure.
+    [[nodiscard]] auto getResolvedCompilerPath() const -> wxString;
+
     [[nodiscard]] auto getSyntaxFile() const -> const wxString& { return m_syntaxFile; }
     void setSyntaxFile(const wxString& val) { m_syntaxFile = val; }
 
@@ -176,7 +181,7 @@ private:
 
     // [compiler]
     wxString m_compileCommand = R"("<$fbc>" "<$file>")";
-    wxString m_runCommand = R"("<$file>" <$param>)";
+    wxString m_runCommand = R"(<$terminal> "<$file>" <$param>)";
 
     // [editor]
     bool m_floatBars = false;

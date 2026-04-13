@@ -36,7 +36,6 @@ public:
     [[nodiscard]] static auto makeDefault(const wxString& compiler, const wxString& sourceFile) -> CompileCommand;
 
 private:
-    static void quote(wxString& cmd, const wxString& val);
 
     wxString m_compiler;
     std::vector<wxString> m_files;

@@ -75,6 +75,9 @@ public:
     /// Compare with nullptr.
     constexpr FBIDE_INLINE auto operator==(std::nullptr_t) const -> bool { return m_ptr == nullptr; }
 
+    /// Materialize this into a unique_ptr, which takes ownership of the held pointer
+    constexpr FBIDE_INLINE auto toUniquePtr() const -> std::unique_ptr<T> { return std::unique_ptr<T>(m_ptr); }
+
 private:
     T* m_ptr = nullptr;
 };

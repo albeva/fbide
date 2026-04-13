@@ -50,6 +50,9 @@ public:
     /// Get currently active document (selected tab), or nullptr if none.
     [[nodiscard]] auto getActive() const -> Document*;
 
+    /// Set documents' editor to be currently active editive one
+    void setActive(Document* document);
+
     /// Get document count.
     [[nodiscard]] auto getCount() const -> size_t { return m_documents.size(); }
 
@@ -61,6 +64,9 @@ public:
 
     /// Update the tab title for the active document.
     void updateActiveTabTitle() const;
+
+    /// Check if a document pointer is still valid (not closed).
+    [[nodiscard]] auto contains(const Document* doc) const -> bool;
 
     /// Find document by its editor widget.
     [[nodiscard]] auto findByEditor(const wxWindow* editor) const -> Document*;

@@ -187,6 +187,19 @@ auto Config::resolvePath(const wxString& path) const -> wxString {
     return path;
 }
 
+auto Config::getResolvedCompilerPath() const -> wxString {
+#ifdef __WXMSW__
+    wxFileName path(m_compilerPath);
+    path.MakeAbsolute();
+    if (!path.FileExists()) {
+        return {};
+    }
+    return path.GetFullPath();
+#else
+    return m_compilerPath;
+#endif
+}
+
 auto Config::getTerminal() -> wxString {
 #ifdef __WXMSW__
     return "cmd.exe";
