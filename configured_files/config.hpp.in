@@ -3,11 +3,12 @@
 //
 
 #pragma once
-#include <string_view>
 
 namespace @PROJECT_NAME@::cmake {
     struct Project final {
-        std::string_view name, description, version;
+        const char* name;
+        const char* description;
+        const char* version;
         int major, minor, patch;
     };
     static constexpr Project project {

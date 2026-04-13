@@ -424,8 +424,12 @@ void UIManager::disable(const std::ranges::range auto& range) const {
     auto* menuBar = m_frame->GetMenuBar();
     for (const auto menuId : mutableIds) {
         const bool disabled = not std::ranges::contains(range, menuId);
-        m_toolbar->EnableTool(id(menuId), disabled);
-        menuBar->Enable(id(menuId), disabled);
+        if (m_toolbar->FindById(id(menuId)) != nullptr) {
+            m_toolbar->EnableTool(id(menuId), disabled);
+        }
+        if (menuBar->FindItem(id(menuId)) != nullptr) {
+            menuBar->Enable(id(menuId), disabled);
+        }
     }
 }
 
