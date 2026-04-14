@@ -35,3 +35,4 @@ CMakeSettings.json
 
 # Custom files
 resources/IDE/history.ini
+resources/IDE/*.chm
