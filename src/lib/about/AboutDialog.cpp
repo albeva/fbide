@@ -23,6 +23,7 @@ AboutDialog::AboutDialog(wxWindow* parent, Context& ctx)
 , m_ctx(ctx) {}
 
 void AboutDialog::create() {
+
     const auto infoFont = wxFont(wxFontInfo(9).Family(wxFONTFAMILY_TELETYPE));
 
     const auto banner = make_unowned<wxStaticBitmap>(
@@ -50,7 +51,7 @@ void AboutDialog::create() {
         add(text, { .proportion = 1 });
     });
 
-    add(CreateStdDialogButtonSizer(wxOK), { .flag = wxEXPAND | wxBOTTOM, .margin = 5 });
+    add(CreateStdDialogButtonSizer(wxOK), {});
     Fit();
     Centre();
 }

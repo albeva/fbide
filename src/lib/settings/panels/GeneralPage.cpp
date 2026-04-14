@@ -30,8 +30,8 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 void GeneralPage::create() {
     makeTitle(LangId::SettingsEditorSettings);
 
-    hbox({ .proportion = 0, .flag = wxGROW, .margin = 0 }, [&] {
-        vbox({ .proportion = 1, .flag = wxALIGN_TOP | wxALL }, [&] {
+    hbox({ .proportion = 0, .margin = 0 }, [&] {
+        vbox({ .proportion = 1 }, [&] {
             checkBox(m_autoIndent, LangId::SettingsAutoIndent);
             checkBox(m_indentGuide, LangId::SettingsIndentGuides);
             checkBox(m_showWhiteSpaces, LangId::SettingsWhitespace);
@@ -42,7 +42,7 @@ void GeneralPage::create() {
 
         separator();
 
-        vbox({ .proportion = 1, .flag = wxALIGN_TOP | wxALL }, [&] {
+        vbox({ .proportion = 1 }, [&] {
             checkBox(m_syntaxHighlight, LangId::SettingsSyntaxHighlight);
             checkBox(m_showLineNumbers, LangId::SettingsLineNumbers);
             checkBox(m_showRightMargin, LangId::SettingsRightMargin);
@@ -56,7 +56,7 @@ void GeneralPage::create() {
     makeTitle(LangId::SettingsLanguage);
 
     // Scan for language files
-    hbox({ .flag = wxEXPAND | wxALL }, [&] {
+    hbox({ }, [&] {
         text(LangId::SettingsLanguageSelect, {  });
         spacer();
         choice(m_language, getContext().getConfig().getAllLanguages());

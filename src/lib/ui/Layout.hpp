@@ -32,7 +32,9 @@ public:
     /// Layout options container sizers
     struct LayoutContainerOptions final {
         int proportion = 0;
-        int flag = wxEXPAND | wxALL;
+        bool center = false;
+        bool expand = true;
+        bool collapse = true;
         int margin = DEFAULT_MARGIN;
         int padding = DEFAULT_PADDING;
         int gap = DEFAULT_GAP;
@@ -55,14 +57,64 @@ protected:
 
     /// Add a window to the current sizer with automatic gap.
     void add(wxWindow* view, LayoutItemOptions opts = {}) {
-        addGapIfNeeded();
-        m_currentSizer->Add(view, opts.proportion);
+        const bool isFirst = m_currentSizer->GetItemCount() == 0;
+        const bool vertical = m_currentSizer->IsVertical();
+        int flags =  vertical ? wxLEFT | wxRIGHT : wxTOP | wxBOTTOM;
+        const int border = m_currentOptions.padding;
+
+        if (opts.expand) {
+            flags |= wxEXPAND;
+        }
+
+        m_currentSizer->AddSpacer(isFirst ? m_currentOptions.padding : m_currentOptions.gap);
+
+        if (m_currentOptions.center) {
+            flags |= vertical ? wxALIGN_CENTER_HORIZONTAL : wxALIGN_CENTER_VERTICAL;
+        }
+
+        m_currentSizer->Add(view, opts.proportion, flags, border);
     }
 
     /// Add a sizer to the current sizer with automatic gap.
     void add(wxSizer* sizer, LayoutContainerOptions opts = {}) {
-        addGapIfNeeded();
-        m_currentSizer->Add(sizer, opts.proportion, opts.flag, opts.margin);
+        // m_currentSizer->Add(sizer, opts.proportion, 0, opts.margin);
+        const bool isFirst = m_currentSizer->GetItemCount() == 0;
+        const bool vertical = m_currentSizer->IsVertical();
+        int flags =  vertical ? wxLEFT | wxRIGHT : wxTOP | wxBOTTOM;
+
+        // calculate padding
+        int padding = m_currentOptions.padding;
+        if (opts.collapse) {
+            if (opts.margin > padding) {
+                padding -= opts.margin;
+            } else {
+                padding = 0;
+            }
+        }
+
+        // calculate gap
+        int gap = m_currentOptions.gap;
+        if (opts.collapse) {
+            if (opts.margin > gap) {
+                gap -= opts.margin;
+            } else {
+                gap = 0;
+            }
+        }
+
+        const int border = padding;
+
+        if (opts.expand) {
+            flags |= wxEXPAND;
+        }
+
+        m_currentSizer->AddSpacer(isFirst ? padding : gap);
+
+        if (m_currentOptions.center) {
+            flags |= vertical ? wxALIGN_CENTER_HORIZONTAL : wxALIGN_CENTER_VERTICAL;
+        }
+
+        m_currentSizer->Add(sizer, opts.proportion, flags, border);
     }
 
     /// Add a separator line (orientation auto-detected from parent sizer).
@@ -186,31 +238,48 @@ protected:
     [[nodiscard]] auto currentSizer() const -> wxBoxSizer* { return m_currentSizer; }
 
 private:
-    void addGapIfNeeded() {
-        if (m_currentSizer->GetItemCount() > 0 && m_currentOptions.gap > 0) {
-            m_currentSizer->AddSpacer(m_currentOptions.gap);
-        }
-    }
 
     template<std::invocable Func>
     auto makeBox(const wxString& title, const int direction, const LayoutContainerOptions opts, Func&& func) -> std::invoke_result_t<Func> {
-        const auto sizer = [&] -> wxBoxSizer* {
+        const ValueRestorer restoreSizer { m_currentSizer, m_currentOptions };
+        m_previous = opts;
+        m_currentOptions = opts;
+        DEFER(closeContainer());
+
+        auto* sizer = [&] -> wxBoxSizer* {
             if (title.empty()) {
                 return make_unowned<wxBoxSizer>(direction);
             }
             return make_unowned<wxStaticBoxSizer>(direction, this, title);
         }();
 
-        add(sizer, { .proportion = opts.proportion, .flag = opts.flag, .margin = opts.margin });
-
-        const ValueRestorer restoreSizer { m_currentSizer, m_currentOptions };
+        add(sizer, opts);
         m_currentSizer = sizer;
-        m_currentOptions = opts;
         return std::invoke(std::forward<Func>(func));
+    }
+
+    void closeContainer() {
+        if (m_currentSizer->IsEmpty()) {
+            return;
+        }
+
+        int padding = m_currentOptions.padding;
+        const auto item = m_currentSizer->GetChildren().GetLast()->GetData();
+        if (item->IsSizer()) {
+            if (m_previous.collapse) {
+                if (m_previous.margin > padding) {
+                    padding += (m_previous.margin - padding);
+                }
+            } else {
+                padding += m_previous.margin;
+            }
+        }
+        m_currentSizer->AddSpacer(padding);
     }
 
     wxBoxSizer* m_currentSizer = nullptr;
     LayoutContainerOptions m_currentOptions {};
+    LayoutContainerOptions m_previous{};
 };
 
 } // namespace fbide

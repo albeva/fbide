@@ -49,7 +49,7 @@ void ThemePage::create() {
     createTopRow();
     separator();
 
-    hbox({ .proportion = 1, .flag = wxEXPAND | wxALL, .margin = 0 }, [&] {
+    hbox({ .proportion = 1, .margin = 0 }, [&] {
         createCategoryList();
         createLeftPanel();
         separator();
@@ -61,7 +61,7 @@ void ThemePage::create() {
 
 void ThemePage::createTopRow() {
     const auto& lang = getContext().getLang();
-    hbox({ .flag = wxEXPAND | wxALL }, [&] {
+    hbox({ }, [&] {
         text(LangId::ThemeName, {});
         spacer();
 
@@ -107,7 +107,7 @@ void ThemePage::createCategoryList() {
 }
 
 void ThemePage::createLeftPanel() {
-    vbox({ .proportion = 1, .flag = wxEXPAND, .margin = 0 }, [&] {
+    vbox({ .proportion = 1, .margin = 0 }, [&] {
         text(LangId::ThemeForeground, {});
         m_btnFg = button(LangId::EmptyString, {});
         m_btnFg->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onColorButton(m_btnFg); });
@@ -126,7 +126,7 @@ void ThemePage::createLeftPanel() {
 }
 
 void ThemePage::createRightPanel() {
-    vbox({ .proportion = 0, .flag = wxEXPAND, .margin = 0 }, [&] {
+    vbox({ .proportion = 0, .margin = 0 }, [&] {
         text(LangId::ThemeFontStyle, { });
         m_chkBold = checkBox(LangId::ThemeBold);
         m_chkItalic = checkBox(LangId::ThemeItalic);

@@ -92,6 +92,7 @@ target_sources(fbide_lib
     lib/utils/NoCopy.hpp
     lib/utils/Unowned.hpp
     lib/utils/ValueRestorer.hpp
+    lib/utils/DeferHandler.hpp
 )
 
 # target settings
