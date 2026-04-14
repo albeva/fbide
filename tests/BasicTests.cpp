@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
-TEST(BasicTests, Sanity) {
+class BasicTests : public testing::Test {};
+
+TEST_F(BasicTests, Sanity) {
     EXPECT_EQ(1, 1);
 }

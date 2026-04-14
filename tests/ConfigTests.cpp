@@ -10,9 +10,12 @@
 
 using namespace fbide;
 
-static const wxString testIniPath = FBIDE_TEST_DATA_DIR "prefs.ini";
+class ConfigTests : public testing::Test {
+protected:
+    static inline const wxString testIniPath = FBIDE_TEST_DATA_DIR "prefs.ini";
+};
 
-TEST(ConfigTests, Defaults) {
+TEST_F(ConfigTests, Defaults) {
     const Config cfg(wxGetCwd());
     EXPECT_TRUE(cfg.getAutoIndent());
     EXPECT_EQ(cfg.getTabSize(), 4);
@@ -21,7 +24,7 @@ TEST(ConfigTests, Defaults) {
     EXPECT_EQ(cfg.getTheme(), "classic");
 }
 
-TEST(ConfigTests, LoadLegacyIni) {
+TEST_F(ConfigTests, LoadLegacyIni) {
     Config cfg(wxGetCwd());
     cfg.load(testIniPath);
 
@@ -33,7 +36,7 @@ TEST(ConfigTests, LoadLegacyIni) {
     EXPECT_EQ(cfg.getWindowW(), 902);
 }
 
-TEST(ConfigTests, SaveAndReload) {
+TEST_F(ConfigTests, SaveAndReload) {
     const wxString tmpFile = wxFileName::CreateTempFileName("fbide_cfg");
     wxCopyFile(testIniPath, tmpFile, true);
 

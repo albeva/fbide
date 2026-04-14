@@ -9,9 +9,12 @@
 
 using namespace fbide;
 
-static const wxString testLangPath = FBIDE_TEST_DATA_DIR "lang/";
+class LangTests : public testing::Test {
+protected:
+    static inline const wxString testLangPath = FBIDE_TEST_DATA_DIR "lang/";
+};
 
-TEST(LangTests, LoadEnglish) {
+TEST_F(LangTests, LoadEnglish) {
     Lang lang;
     lang.load(testLangPath + "english.fbl");
 
@@ -21,7 +24,7 @@ TEST(LangTests, LoadEnglish) {
     EXPECT_EQ(lang[LangId::Untitled], "Untitled");
 }
 
-TEST(LangTests, Reload) {
+TEST_F(LangTests, Reload) {
     Lang lang;
     lang.load(testLangPath + "english.fbl");
     EXPECT_EQ(lang[LangId::MenuFile], "&File");
@@ -30,7 +33,7 @@ TEST(LangTests, Reload) {
     EXPECT_EQ(lang[LangId::MenuFile], "&Datei");
 }
 
-TEST(LangTests, MissingKey) {
+TEST_F(LangTests, MissingKey) {
     Lang lang;
     lang.load(testLangPath + "english.fbl");
     EXPECT_EQ(lang.get(static_cast<LangId>(999)), "");

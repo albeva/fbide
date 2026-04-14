@@ -9,9 +9,12 @@
 
 using namespace fbide;
 
-static const wxString testDataPath = FBIDE_TEST_DATA_DIR;
+class KeywordsTests : public testing::Test {
+protected:
+    static inline const wxString testDataPath = FBIDE_TEST_DATA_DIR;
+};
 
-TEST(KeywordsTests, LoadFbFull) {
+TEST_F(KeywordsTests, LoadFbFull) {
     Keywords kw;
     kw.load(testDataPath + "fbfull.lng");
 

@@ -10,9 +10,12 @@
 
 using namespace fbide;
 
-static const wxString testDataPath = FBIDE_TEST_DATA_DIR;
+class ThemeTests : public testing::Test {
+protected:
+    static inline const wxString testDataPath = FBIDE_TEST_DATA_DIR;
+};
 
-TEST(ThemeTests, LoadClassic) {
+TEST_F(ThemeTests, LoadClassic) {
     Theme theme;
     theme.load(testDataPath + "classic.fbt");
 
@@ -22,24 +25,27 @@ TEST(ThemeTests, LoadClassic) {
     EXPECT_TRUE(theme.getStyle(Theme::Keyword).fontStyle.bold);
 }
 
-TEST(ThemeTests, LoadObsidian) {
+TEST_F(ThemeTests, LoadObsidian) {
     Theme theme;
     theme.load(testDataPath + "obsidian.fbt");
 
     EXPECT_NE(theme.getDefault().background, *wxWHITE);
 }
 
-TEST(ThemeTests, SaveAndReload) {
+TEST_F(ThemeTests, SaveAndReload) {
+    const wxString tmpFile = wxFileName::CreateTempFileName("fbide_theme");
+
     Theme theme;
     theme.load(testDataPath + "classic.fbt");
+    theme.setPath(tmpFile);
+    theme.save();
 
-    const wxString tmpFile = wxFileName::CreateTempFileName("fbide_theme") + ".fbt";
-    theme.getDefault() = theme.getDefault(); // no-op, just ensuring mutable access works
-    // save to temp by overriding path
-    theme.load(testDataPath + "classic.fbt");
+    Theme theme2;
+    theme2.load(tmpFile);
+    EXPECT_EQ(theme2.getDefault().background, *wxWHITE);
+    EXPECT_EQ(theme2.getDefault().foreground, *wxBLACK);
+    EXPECT_EQ(theme2.getDefault().fontSize, 12);
+    EXPECT_TRUE(theme2.getStyle(Theme::Keyword).fontStyle.bold);
 
-    // Can't easily test save() since it uses stored path.
-    // Verify loaded values are consistent.
-    EXPECT_EQ(theme.getDefault().background, *wxWHITE);
     wxRemoveFile(tmpFile);
 }

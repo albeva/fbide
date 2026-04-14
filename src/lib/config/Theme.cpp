@@ -109,6 +109,8 @@ void Theme::load(const wxString& path) {
 }
 
 void Theme::save() const {
+    wxAppConsole console;
+
     if (m_themePath.empty()) {
         return;
     }

@@ -11,6 +11,7 @@ FetchContent_MakeAvailable(googletest)
 
 # Tests
 add_executable(tests
+    main.cpp
     BasicTests.cpp
     CompileCommandTests.cpp
     ConfigTests.cpp
@@ -26,7 +27,7 @@ target_compile_definitions(tests PRIVATE
 )
 
 # Link
-target_link_libraries(tests PRIVATE fbide_lib compiler_options gtest_main)
+target_link_libraries(tests PRIVATE fbide_lib compiler_options gtest)
 target_include_directories(tests SYSTEM PRIVATE ${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 target_precompile_headers(tests REUSE_FROM fbide_lib)
 
