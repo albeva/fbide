@@ -25,14 +25,12 @@ public:
     void create() override {
         const auto infoFont = wxFont(wxFontInfo(9).Family(wxFONTFAMILY_TELETYPE));
 
-        // Banner image (embedded as BITMAP resource on Windows)
         const auto banner = make_unowned<wxStaticBitmap>(
             this, wxID_ANY, wxBITMAP(fbide),
             wxDefaultPosition, wxSize(300, 75)
         );
         add(banner, { .flag = wxALIGN_CENTER_HORIZONTAL });
 
-        // Version information
         vbox("FBIde information", { .flag = wxEXPAND | wxALL }, [&] {
             const auto info = make_unowned<wxStaticText>(
                 this, wxID_ANY,
@@ -49,7 +47,6 @@ public:
             add(info, { .flag = wxEXPAND | wxLEFT | wxRIGHT, .border = 0 });
             separator();
 
-            // Readme with bold titles
             const auto text = make_unowned<BBCodeText>(this, wxID_ANY, getAbout(), wxDefaultPosition, wxSize(-1, 150));
             add(text, { .proportion = 1, .flag = wxEXPAND | wxALL, .border = 0 });
         });
@@ -87,7 +84,7 @@ private:
 
 AboutDialog::AboutDialog(wxWindow* parent, Context& ctx)
 : wxDialog(
-      parent, wxID_ANY, ctx.getLang()[LangId::HelpAbout],
+      parent, wxID_ANY, "About",
       wxDefaultPosition, wxSize(300, -1),
       wxDEFAULT_DIALOG_STYLE
   )
@@ -100,8 +97,8 @@ void AboutDialog::create() {
     auto* btnSizer = CreateStdDialogButtonSizer(wxOK);
 
     const auto sizer = make_unowned<wxBoxSizer>(wxVERTICAL);
-    sizer->Add(panel, 1, wxEXPAND);
-    sizer->Add(btnSizer, 0, wxEXPAND | wxALL, 10);
+    sizer->Add(panel, 1, wxEXPAND | wxALL);
+    sizer->Add(btnSizer, 0, wxEXPAND | wxBOTTOM, 5);
 
     SetSizer(sizer);
     Fit();
