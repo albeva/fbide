@@ -27,11 +27,11 @@ void Panel::makeTitle(const LangId langId) {
     separator(0);
 }
 
-void Panel::add(wxWindow* view, const Layout options){
+void Panel::add(wxWindow* view, const LayoutOptions options){
     m_currentSizer->Add(view, options.proportion, options.flag, options.border);
 }
 
-void Panel::text(const LangId langId, const Layout options) {
+void Panel::text(const LangId langId, const LayoutOptions options) {
     const auto text = make_unowned<wxStaticText>(
         this, wxID_STATIC,
         m_ctx.getLang()[langId],
@@ -50,7 +50,7 @@ void Panel::separator(const int border) {
     add(line, { .flag = wxEXPAND | (vertical ? wxLEFT | wxRIGHT : wxTOP | wxBOTTOM), .border = border });
 }
 
-auto Panel::checkBox(bool& value, const LangId langId, const Layout options) -> Unowned<wxCheckBox> {
+auto Panel::checkBox(bool& value, const LangId langId, const LayoutOptions options) -> Unowned<wxCheckBox> {
     const auto chk = checkBox(langId, options);
     chk->SetValue(value);
     chk->Bind(wxEVT_CHECKBOX, [&](const wxCommandEvent& evt) {
@@ -59,13 +59,13 @@ auto Panel::checkBox(bool& value, const LangId langId, const Layout options) -> 
     return chk;
 }
 
-auto Panel::checkBox(const LangId langId, const Layout options) -> Unowned<wxCheckBox> {
+auto Panel::checkBox(const LangId langId, const LayoutOptions options) -> Unowned<wxCheckBox> {
     const auto chk = make_unowned<wxCheckBox>(this, wxID_ANY, m_ctx.getLang()[langId]);
     add(chk, options);
     return chk;
 }
 
-auto Panel::spinCtrl(int& value, const LangId langId, const int minVal, const int maxVal, const Layout options) -> Unowned<wxSpinCtrl> {
+auto Panel::spinCtrl(int& value, const LangId langId, const int minVal, const int maxVal, const LayoutOptions options) -> Unowned<wxSpinCtrl> {
     const auto spin = spinCtrl(langId, minVal, maxVal, options);
     spin->SetValue(value);
     spin->Bind(wxEVT_SPINCTRL, [&](const wxSpinEvent& evt) {
@@ -74,7 +74,7 @@ auto Panel::spinCtrl(int& value, const LangId langId, const int minVal, const in
     return spin;
 }
 
-auto Panel::spinCtrl(const LangId langId, const int minVal, const int maxVal, const Layout options) -> Unowned<wxSpinCtrl> {
+auto Panel::spinCtrl(const LangId langId, const int minVal, const int maxVal, const LayoutOptions options) -> Unowned<wxSpinCtrl> {
     if (langId == LangId::EmptyString) {
         const auto spin = make_unowned<wxSpinCtrl>(
             this, wxID_ANY, "",
@@ -101,7 +101,7 @@ auto Panel::spinCtrl(const LangId langId, const int minVal, const int maxVal, co
     });
 }
 
-auto Panel::choice(wxString& value, const wxArrayString& choices, const Layout options) -> Unowned<wxChoice> {
+auto Panel::choice(wxString& value, const wxArrayString& choices, const LayoutOptions options) -> Unowned<wxChoice> {
     auto cb = choice(choices, options);
 
     const auto sel = cb->FindString(value);
@@ -114,13 +114,13 @@ auto Panel::choice(wxString& value, const wxArrayString& choices, const Layout o
     return cb;
 }
 
-auto Panel::choice(const wxArrayString& choices, const Layout options) -> Unowned<wxChoice> {
+auto Panel::choice(const wxArrayString& choices, const LayoutOptions options) -> Unowned<wxChoice> {
     auto cb = make_unowned<wxChoice>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, choices, wxCB_SORT);
     add(cb, options);
     return cb;
 }
 
-auto Panel::textField(wxString& value, const Layout options) -> Unowned<wxTextCtrl> {
+auto Panel::textField(wxString& value, const LayoutOptions options) -> Unowned<wxTextCtrl> {
     const auto text = textField(options);
     text->SetValue(value);
     text->Bind(wxEVT_TEXT, [&](const wxCommandEvent& evt) {
@@ -129,17 +129,17 @@ auto Panel::textField(wxString& value, const Layout options) -> Unowned<wxTextCt
     return text;
 }
 
-auto Panel::textField(const Layout options) -> Unowned<wxTextCtrl> {
+auto Panel::textField(const LayoutOptions options) -> Unowned<wxTextCtrl> {
     const auto text = make_unowned<wxTextCtrl>(this, wxID_ANY);
     add(text, options);
     return text;
 }
 
-auto Panel::button(const LangId langId, const Layout options) -> Unowned<wxButton> {
+auto Panel::button(const LangId langId, const LayoutOptions options) -> Unowned<wxButton> {
     return button(m_ctx.getLang()[langId], options);
 }
 
-auto Panel::button(const wxString& str, const Layout options) -> Unowned<wxButton> {
+auto Panel::button(const wxString& str, const LayoutOptions options) -> Unowned<wxButton> {
     auto btnSave = make_unowned<wxButton>(this, wxID_ANY, str);
     add(btnSave, options);
     return btnSave;

@@ -82,6 +82,7 @@ target_sources(fbide_lib
     lib/settings/panels/ThemePage.hpp
     lib/ui/BBCodeText.hpp
     lib/ui/CompilerLog.hpp
+    lib/ui/Layout.hpp
     lib/ui/MenuId.hpp
     lib/ui/OutputConsole.hpp
     lib/ui/Panel.hpp
