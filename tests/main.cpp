@@ -17,7 +17,7 @@ public:
 } // namespace
 
 auto main(int argc, char** argv) -> int {
-    auto* app = new TestApp();
+    const auto app = fbide::make_unowned<TestApp>();
     wxApp::SetInstance(app);
     wxEntryStart(argc, argv);
     app->CallOnInit();
