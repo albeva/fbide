@@ -47,12 +47,12 @@ void ThemePage::apply() {
 
 void ThemePage::create() {
     createTopRow();
-    separator(0);
+    separator();
 
-    hbox({ .proportion = 1, .flag = wxEXPAND | wxALL, .border = 0 }, [&] {
+    hbox({ .proportion = 1, .flag = wxEXPAND | wxALL, .margin = 0 }, [&] {
         createCategoryList();
         createLeftPanel();
-        separator(0);
+        separator();
         createRightPanel();
     });
 
@@ -62,16 +62,16 @@ void ThemePage::create() {
 void ThemePage::createTopRow() {
     const auto& lang = getContext().getLang();
     hbox({ .flag = wxEXPAND | wxALL }, [&] {
-        text(LangId::ThemeName, { .flag = wxALIGN_CENTER_VERTICAL });
+        text(LangId::ThemeName, {});
         spacer();
 
         auto themes = getConfig().getAllThemes();
         themes.insert(themes.begin(), lang[LangId::ThemeCreateNew]);
-        m_themeChoice = choice(m_activeTheme, themes, { .proportion = 1, .flag = wxEXPAND });
+        m_themeChoice = choice(m_activeTheme, themes, { .proportion = 1 });
         m_themeChoice->Bind(wxEVT_CHOICE, &ThemePage::onSelectTheme, this);
 
         spacer();
-        const auto save = button(LangId::ThemeSave, { .flag = wxALIGN_CENTER_VERTICAL });
+        const auto save = button(LangId::ThemeSave, { });
         save->Bind(wxEVT_BUTTON, &ThemePage::onSaveTheme, this);
     });
 }
@@ -107,40 +107,35 @@ void ThemePage::createCategoryList() {
 }
 
 void ThemePage::createLeftPanel() {
-    vbox({ .proportion = 1, .flag = wxEXPAND, .border = 0 }, [&] {
-        const auto TITLE = wxEXPAND | wxLEFT | wxTOP | wxRIGHT;
-        constexpr auto CTRL = wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND;
-
-        text(LangId::ThemeForeground, { .flag = TITLE });
-        m_btnFg = button(LangId::EmptyString, { .flag = CTRL });
+    vbox({ .proportion = 1, .flag = wxEXPAND, .margin = 0 }, [&] {
+        text(LangId::ThemeForeground, {});
+        m_btnFg = button(LangId::EmptyString, {});
         m_btnFg->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onColorButton(m_btnFg); });
 
-        text(LangId::ThemeBackground, { .flag = TITLE });
-        m_btnBg = button(LangId::EmptyString, { .flag = CTRL });
+        text(LangId::ThemeBackground, {  });
+        m_btnBg = button(LangId::EmptyString, { });
         m_btnBg->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onColorButton(m_btnBg); });
 
-        text(LangId::ThemeFont, { .flag = TITLE });
+        text(LangId::ThemeFont, {  });
         m_fontChoice = make_unowned<wxChoice>(this, wxID_ANY);
         auto fonts = getConfig().getAllFixedWidthFonts();
         fonts.insert(fonts.begin(), "");
         m_fontChoice->Append(fonts);
-        getCurrentSizer()->Add(m_fontChoice.get(), 0, CTRL, DEFAULT_PAD);
+        getCurrentSizer()->Add(m_fontChoice.get(), 0, 0, DEFAULT_PAD);
     });
 }
 
 void ThemePage::createRightPanel() {
-    vbox({ .proportion = 0, .flag = wxEXPAND, .border = 0 }, [&] {
-        const auto flags = wxEXPAND | wxLEFT | wxTOP | wxRIGHT;
-
-        text(LangId::ThemeFontStyle, { .flag = flags });
+    vbox({ .proportion = 0, .flag = wxEXPAND, .margin = 0 }, [&] {
+        text(LangId::ThemeFontStyle, { });
         m_chkBold = checkBox(LangId::ThemeBold);
         m_chkItalic = checkBox(LangId::ThemeItalic);
         m_chkUnderline = checkBox(LangId::ThemeUnderline);
 
         spacer();
 
-        text(LangId::ThemeFontSize, { .flag = flags });
-        m_spinFontSize = spinCtrl(LangId::EmptyString, 8, 64, { .flag = wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM });
+        text(LangId::ThemeFontSize, { });
+        m_spinFontSize = spinCtrl(LangId::EmptyString, 8, 64, { });
     });
 }
 

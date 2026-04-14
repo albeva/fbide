@@ -6,11 +6,12 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "lib/ui/Layout.hpp"
 
 namespace fbide {
 class Context;
 
-class AboutDialog final : public wxDialog {
+class AboutDialog final : public Layout<wxDialog> {
 public:
     NO_COPY_AND_MOVE(AboutDialog)
 
@@ -18,6 +19,8 @@ public:
     void create();
 
 private:
+    [[nodiscard]] auto loadReadme() const -> wxString;
+
     Context& m_ctx;
 };
 

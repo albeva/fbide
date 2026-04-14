@@ -29,7 +29,7 @@ void KeywordsPage::create() {
         lang[LangId::ThemeGroup3],
         lang[LangId::ThemeGroup4]
     };
-    m_groupChoice = choice(options, { .flag = wxLEFT | wxTOP | wxRIGHT });
+    m_groupChoice = choice(options, {});
     m_groupChoice->SetSelection(static_cast<int>(m_selectedGroup));
     m_groupChoice->Bind(wxEVT_CHOICE, &KeywordsPage::onGroupChanged, this);
 

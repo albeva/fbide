@@ -30,17 +30,17 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 void GeneralPage::create() {
     makeTitle(LangId::SettingsEditorSettings);
 
-    hbox({ .proportion = 0, .flag = wxGROW, .border = 0 }, [&] {
+    hbox({ .proportion = 0, .flag = wxGROW, .margin = 0 }, [&] {
         vbox({ .proportion = 1, .flag = wxALIGN_TOP | wxALL }, [&] {
             checkBox(m_autoIndent, LangId::SettingsAutoIndent);
             checkBox(m_indentGuide, LangId::SettingsIndentGuides);
             checkBox(m_showWhiteSpaces, LangId::SettingsWhitespace);
             checkBox(m_showLineEndings, LangId::SettingsLineEndings);
             checkBox(m_braceHighlight, LangId::SettingsBraceHighlight);
-            spinCtrl(m_edgeColumn, LangId::SettingsRightMarginWidth, 1, 200, { .border = 0 });
+            spinCtrl(m_edgeColumn, LangId::SettingsRightMarginWidth, 1, 200, {});
         });
 
-        separator(0);
+        separator();
 
         vbox({ .proportion = 1, .flag = wxALIGN_TOP | wxALL }, [&] {
             checkBox(m_syntaxHighlight, LangId::SettingsSyntaxHighlight);
@@ -48,7 +48,7 @@ void GeneralPage::create() {
             checkBox(m_showRightMargin, LangId::SettingsRightMargin);
             checkBox(m_foldMargin, LangId::SettingsFoldMargin);
             checkBox(m_splashScreen, LangId::SettingsSplashScreen);
-            spinCtrl(m_tabSize, LangId::SettingsTabSize, 1, 16, { .border = 0 });
+            spinCtrl(m_tabSize, LangId::SettingsTabSize, 1, 16, {});
         });
     });
 
@@ -57,7 +57,7 @@ void GeneralPage::create() {
 
     // Scan for language files
     hbox({ .flag = wxEXPAND | wxALL }, [&] {
-        text(LangId::SettingsLanguageSelect, { .flag = wxALIGN_CENTER_VERTICAL });
+        text(LangId::SettingsLanguageSelect, {  });
         spacer();
         choice(m_language, getContext().getConfig().getAllLanguages());
     });
