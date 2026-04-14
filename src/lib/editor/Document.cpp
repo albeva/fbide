@@ -14,7 +14,7 @@ using namespace fbide;
 Document::Document(wxWindow* parent, Context& ctx, const DocumentType type)
 : m_ctx(ctx)
 , m_type(type)
-, m_editor(new Editor(parent, ctx, type)) {}
+, m_editor(make_unowned<Editor>(parent, ctx, type)) {}
 
 void Document::setFilePath(const wxString& path) {
     m_filePath = path;

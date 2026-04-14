@@ -14,6 +14,26 @@ namespace fbide {
 class CompilerLog;
 class Context;
 
+class FreezeLock final {
+public:
+    NO_COPY_AND_MOVE(FreezeLock);
+
+    explicit FreezeLock(wxWindow* window): m_wnd(window) {
+        if (window != nullptr) {
+            window->Freeze();
+        }
+    }
+
+    ~FreezeLock() {
+        if (m_wnd != nullptr) {
+            m_wnd->Thaw();
+        }
+    }
+
+private:
+    wxWindow* m_wnd;
+};
+
 /// Manages the main application UI: frame, menus, toolbar, statusbar, layout.
 /// Does not handle command logic — that is CommandManager's responsibility.
 class UIManager final : public wxEvtHandler {
@@ -60,6 +80,9 @@ public:
 
     /// Get the compiler log dialog, creating it lazily if needed.
     [[nodiscard]] auto getCompilerLog() -> CompilerLog&;
+
+    /// Freeze main window, returning object which will thaw when it goes out of scope
+    [[nodiscard]] auto freeze() -> FreezeLock;
 
 private:
     void disable(const std::ranges::range auto& range) const;

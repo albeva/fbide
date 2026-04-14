@@ -32,6 +32,7 @@ DocumentManager::DocumentManager(Context& ctx)
 // ---------------------------------------------------------------------------
 
 auto DocumentManager::newFile(DocumentType type) -> Document& {
+    const auto thaw = m_ctx.getUIManager().freeze();
     auto* notebook = getNotebook();
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(notebook, m_ctx, type));
     notebook->AddPage(doc.getEditor(), doc.getTitle(), true);
@@ -78,6 +79,8 @@ auto DocumentManager::openFile(const wxString& filePath) -> Document* {
 
     // Determine type and create document
     auto type = documentTypeFromPath(filePath);
+
+    const auto thaw = m_ctx.getUIManager().freeze();
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(getNotebook(), m_ctx, type));
 
     // Load file into editor

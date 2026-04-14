@@ -425,6 +425,10 @@ auto UIManager::getCompilerLog() -> CompilerLog& {
     return *m_compilerLog;
 }
 
+auto UIManager::freeze()-> FreezeLock{
+    return FreezeLock { m_frame };
+}
+
 void UIManager::disable(const std::ranges::range auto& range) const {
     auto* menuBar = m_frame->GetMenuBar();
     for (const auto menuId : mutableIds) {
