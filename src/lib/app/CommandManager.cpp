@@ -258,7 +258,7 @@ void CommandManager::onCompilerLog(wxCommandEvent&) {
 // -- Run --
 
 void CommandManager::onCompile(wxCommandEvent&) {
-    (void)m_ctx.getCompilerManager().compile();
+    m_ctx.getCompilerManager().compile();
 }
 
 void CommandManager::onCompileAndRun(wxCommandEvent&) {

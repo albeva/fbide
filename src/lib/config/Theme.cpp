@@ -30,7 +30,7 @@ constexpr std::array sectionNames {
 };
 
 auto readColor(const wxFileConfig& ini, const wxString& key, const wxColour& fallback) -> wxColour {
-    return colorFromBgr(static_cast<unsigned int>(ini.ReadLong(key, colorToBgr(fallback))));
+    return colorFromBgr(static_cast<unsigned int>(ini.ReadLong(key, static_cast<long>(colorToBgr(fallback)))));
 }
 
 void writeColor(wxFileConfig& ini, const wxString& key, const wxColour& colour) {

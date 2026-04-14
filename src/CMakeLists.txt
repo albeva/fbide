@@ -72,8 +72,8 @@ target_sources(fbide_lib
 # target settings
 target_link_libraries(fbide_lib
     PRIVATE compiler_options compiler_warnings
-    PUBLIC ${wxWidgets_LIBRARIES}
 )
+linkWxWidgets(fbide_lib)
 
 # precompile header
 target_include_directories(fbide_lib PRIVATE "${CMAKE_BINARY_DIR}/configured_files/include")
@@ -84,3 +84,7 @@ add_executable(fbide WIN32 main.cpp)
 target_link_libraries(fbide PRIVATE fbide_lib compiler_options compiler_warnings)
 target_precompile_headers(fbide REUSE_FROM fbide_lib)
 set_target_properties(fbide PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+
+if(MINGW)
+    target_sources(fbide PRIVATE rc/app.rc)
+endif()
