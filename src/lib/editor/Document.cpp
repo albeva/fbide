@@ -59,6 +59,29 @@ auto Document::checkExternalChange() const -> bool {
     return m_modTime.IsValid() && currentModTime.IsValid() && currentModTime != m_modTime;
 }
 
+auto Document::getKeywordAtCursor() const -> wxString {
+    if (m_editor == nullptr) {
+        return {};
+    }
+
+    const auto pos = m_editor->GetCurrentPos();
+    const auto start = m_editor->WordStartPosition(pos, true);
+    const auto end = m_editor->WordEndPosition(pos, true);
+    auto keyword = m_editor->GetTextRange(start, end).Strip(wxString::both);
+    keyword.MakeLower();
+
+    if (keyword.empty()) {
+        return {};
+    }
+
+    // Include '#' for preprocessor directives like #IFDEF
+    if (m_type == DocumentType::FreeBASIC && start > 0 && m_editor->GetCharAt(start - 1) == '#') {
+        keyword = "#" + keyword;
+    }
+
+    return keyword;
+}
+
 void Document::updateModTime() {
     if (!isNew() && wxFileExists(m_filePath)) {
         m_modTime = wxFileName(m_filePath).GetModificationTime();

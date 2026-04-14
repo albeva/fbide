@@ -42,6 +42,11 @@ public:
     /// Set compiled file path
     void setCompiledPath(const wxString& path) { m_compiledFile = path; }
 
+    /// Get the keyword at the cursor position.
+    /// For FreeBASIC documents, includes '#' prefix for preprocessor directives.
+    /// Returns empty string if no word at cursor.
+    [[nodiscard]] auto getKeywordAtCursor() const -> wxString;
+
     /// Is this a new (never saved) document?
     [[nodiscard]] auto isNew() const -> bool { return m_filePath.empty(); }
 

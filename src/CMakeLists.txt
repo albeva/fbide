@@ -7,6 +7,7 @@ target_sources(fbide_lib
     lib/app/App.cpp
     lib/app/CommandManager.cpp
     lib/app/Context.cpp
+    lib/app/HelpManager.cpp
     lib/app/InstanceHandler.cpp
     lib/compiler/AsyncProcess.cpp
     lib/compiler/CompileCommand.cpp
@@ -39,6 +40,7 @@ target_sources(fbide_lib
     lib/app/App.hpp
     lib/app/CommandManager.hpp
     lib/app/Context.hpp
+    lib/app/HelpManager.hpp
     lib/app/InstanceHandler.hpp
     lib/compiler/AsyncProcess.hpp
     lib/compiler/CompileCommand.hpp

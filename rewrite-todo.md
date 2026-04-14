@@ -27,11 +27,11 @@
 ## Dialogs
 
 - [ ] Format dialog. Keyword case conversion tool.
-- [ ] About dialog. Version and license info.
+- [x] About dialog. Version and license info.
 
 ## Help
 
-- [ ] Help. Context-sensitive .chm keyword lookup.
+- [x] Help. Context-sensitive .chm keyword lookup.
 - [x] QuickKeys viewer. Display quickkeys.txt.
 - [x] ReadMe viewer. Display readme.txt.
 
@@ -39,3 +39,8 @@
 
 - [x] New Window. Launch another fbide.exe instance.
 - [x] Single-instance handling. Reuse existing window when launched again.
+
+## Bugs
+
+- [ ] Fix open/save dialog file patterns that currently throw na error
+- [ ] Fix "assert "GetEventHandler() == this" failed in ~wxWindowBase(): any pushed event handlers must have been removed" on find/replace dialog

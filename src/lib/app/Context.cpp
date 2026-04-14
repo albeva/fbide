@@ -6,6 +6,7 @@
 //
 #include "lib/app/Context.hpp"
 #include "lib/app/CommandManager.hpp"
+#include "lib/app/HelpManager.hpp"
 #include "lib/compiler/CompilerManager.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/FileHistory.hpp"
@@ -25,6 +26,7 @@ Context::Context(const wxString& binaryPath)
 , m_uiManager(std::make_unique<UIManager>(*this))
 , m_documentManager(std::make_unique<DocumentManager>(*this))
 , m_compilerManager(std::make_unique<CompilerManager>(*this))
+, m_helpManager(std::make_unique<HelpManager>(*this))
 , m_commandManager(std::make_unique<CommandManager>(*this)) {}
 
 Context::~Context() = default;

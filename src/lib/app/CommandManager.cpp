@@ -8,6 +8,7 @@
 // ReSharper disable CppMemberFunctionMayBeStatic
 #include "CommandManager.hpp"
 #include "Context.hpp"
+#include "HelpManager.hpp"
 #include "lib/compiler/CompilerManager.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/FileHistory.hpp"
@@ -310,7 +311,7 @@ void CommandManager::onShowExitCode(wxCommandEvent&) {
 // -- Help --
 
 void CommandManager::onHelp(wxCommandEvent&) {
-    // TODO: open help file
+    m_ctx.getHelpManager().open();
 }
 
 void CommandManager::onQuickKeys(wxCommandEvent&) {

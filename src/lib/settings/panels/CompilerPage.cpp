@@ -6,6 +6,7 @@
 //
 #include "CompilerPage.hpp"
 #include "lib/app/Context.hpp"
+#include "lib/app/HelpManager.hpp"
 #include "lib/compiler/CompilerManager.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/Lang.hpp"
@@ -23,7 +24,9 @@ void CompilerPage::create() {
     compilerPath();
     compilerCommand();
     runCommand();
+#ifdef __WXMSW__
     helpFile();
+#endif
 }
 
 void CompilerPage::apply() {
@@ -74,6 +77,7 @@ void CompilerPage::helpFile() {
         );
         if (dlg.ShowModal() == wxID_OK) {
             m_helpFile = dlg.GetPath();
+            HelpManager::verifyHelpFileAccessible(this, m_helpFile);
         }
         tf->SetValue(m_helpFile);
     });

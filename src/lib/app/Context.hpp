@@ -13,6 +13,7 @@ class CompilerManager;
 class Config;
 class DocumentManager;
 class FileHistory;
+class HelpManager;
 class Keywords;
 class Lang;
 class Theme;
@@ -65,6 +66,10 @@ public:
     [[nodiscard]] auto getCompilerManager() -> CompilerManager& { return *m_compilerManager; }
     [[nodiscard]] auto getCompilerManager() const -> const CompilerManager& { return *m_compilerManager; }
 
+    /// Get help manager.
+    [[nodiscard]] auto getHelpManager() -> HelpManager& { return *m_helpManager; }
+    [[nodiscard]] auto getHelpManager() const -> const HelpManager& { return *m_helpManager; }
+
 private:
     std::unique_ptr<Config> m_config;
     std::unique_ptr<FileHistory> m_fileHistory;
@@ -74,6 +79,7 @@ private:
     std::unique_ptr<UIManager> m_uiManager;
     std::unique_ptr<DocumentManager> m_documentManager;
     std::unique_ptr<CompilerManager> m_compilerManager;
+    std::unique_ptr<HelpManager> m_helpManager;
     std::unique_ptr<CommandManager> m_commandManager;
 };
 
