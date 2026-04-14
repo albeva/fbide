@@ -124,7 +124,8 @@ void CommandManager::onCloseAll(wxCommandEvent&) {
 }
 
 void CommandManager::onNewWindow(wxCommandEvent&) {
-    // TODO: launch new editor instance
+    const auto exe = wxStandardPaths::Get().GetExecutablePath();
+    wxExecute("\"" + exe + "\" --new-window");
 }
 
 void CommandManager::onQuit(wxCommandEvent&) {

@@ -29,7 +29,7 @@ private:
     [[nodiscard]] auto getFbidePath() -> wxString;
 
     /// Parse command line arguments into config file and files to open.
-    void parseArgs(wxString& configFile, wxArrayString& filesToOpen) const;
+    void parseArgs(wxString& configFile, wxArrayString& filesToOpen);
 
     /// Show splash screen if enabled.
     void showSplash();
@@ -39,6 +39,7 @@ private:
 
     std::unique_ptr<Context> m_context;
     std::unique_ptr<InstanceHandler> m_instanceHandler;
+    bool m_newWindow = false;
 };
 
 } // namespace fbide
