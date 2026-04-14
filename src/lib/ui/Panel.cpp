@@ -24,7 +24,11 @@ auto Panel::getConfig() const -> Config& {
 
 void Panel::makeTitle(const LangId langId) {
     text(langId);
-    separator();
+    separator(0);
+}
+
+void Panel::add(wxWindow* view, const Layout options){
+    m_currentSizer->Add(view, options.proportion, options.flag, options.border);
 }
 
 void Panel::text(const LangId langId, const Layout options) {
@@ -33,16 +37,17 @@ void Panel::text(const LangId langId, const Layout options) {
         m_ctx.getLang()[langId],
         wxDefaultPosition, wxDefaultSize, 0
     );
-    m_currentSizer->Add(text, options.proportion, options.flag, options.border);
+    add(text, options);
 }
 
-void Panel::separator() {
+void Panel::separator(const int border) {
+    const bool vertical =  m_currentSizer->GetOrientation() == wxHORIZONTAL;
     const auto line = make_unowned<wxStaticLine>(
         this, wxID_STATIC,
-        wxDefaultPosition, wxSize(1, 1),
-        m_currentSizer->GetOrientation() == wxHORIZONTAL ? wxVERTICAL : wxHORIZONTAL
+        wxDefaultPosition, wxDefaultSize,
+        vertical ? wxVERTICAL : wxHORIZONTAL
     );
-    m_currentSizer->Add(line, 0, wxGROW, 5);
+    add(line, { .flag = wxEXPAND | (vertical ? wxLEFT | wxRIGHT : wxTOP | wxBOTTOM), .border = border });
 }
 
 auto Panel::checkBox(bool& value, const LangId langId, const Layout options) -> Unowned<wxCheckBox> {
@@ -56,7 +61,7 @@ auto Panel::checkBox(bool& value, const LangId langId, const Layout options) -> 
 
 auto Panel::checkBox(const LangId langId, const Layout options) -> Unowned<wxCheckBox> {
     const auto chk = make_unowned<wxCheckBox>(this, wxID_ANY, m_ctx.getLang()[langId]);
-    m_currentSizer->Add(chk, options.proportion, options.flag, options.border);
+    add(chk, options);
     return chk;
 }
 
@@ -77,7 +82,7 @@ auto Panel::spinCtrl(const LangId langId, const int minVal, const int maxVal, co
             wxSP_ARROW_KEYS,
             minVal, maxVal
         );
-        m_currentSizer->Add(spin, options.proportion, options.flag, options.border);
+        add(spin, options);
         return spin;
     }
     return hbox(options, [&] {
@@ -88,7 +93,7 @@ auto Panel::spinCtrl(const LangId langId, const int minVal, const int maxVal, co
             wxSP_ARROW_KEYS,
             minVal, maxVal
         );
-        m_currentSizer->Add(spin, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+        add(spin, { .flag = wxALIGN_CENTER_VERTICAL | wxALL });
 
         // label
         text(langId, { .flag = wxALIGN_CENTER_VERTICAL | wxALL });
@@ -111,7 +116,7 @@ auto Panel::choice(wxString& value, const wxArrayString& choices, const Layout o
 
 auto Panel::choice(const wxArrayString& choices, const Layout options) -> Unowned<wxChoice> {
     auto cb = make_unowned<wxChoice>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, choices, wxCB_SORT);
-    m_currentSizer->Add(cb, options.proportion, options.flag, options.border);
+    add(cb, options);
     return cb;
 }
 
@@ -126,7 +131,7 @@ auto Panel::textField(wxString& value, const Layout options) -> Unowned<wxTextCt
 
 auto Panel::textField(const Layout options) -> Unowned<wxTextCtrl> {
     const auto text = make_unowned<wxTextCtrl>(this, wxID_ANY);
-    m_currentSizer->Add(text, options.proportion, options.flag, options.border);
+    add(text, options);
     return text;
 }
 
@@ -136,6 +141,6 @@ auto Panel::button(const LangId langId, const Layout options) -> Unowned<wxButto
 
 auto Panel::button(const wxString& str, const Layout options) -> Unowned<wxButton> {
     auto btnSave = make_unowned<wxButton>(this, wxID_ANY, str);
-    m_currentSizer->Add(btnSave, options.proportion, options.flag, options.border);
+    add(btnSave, options);
     return btnSave;
 }

@@ -3,6 +3,7 @@ add_library(fbide_lib)
 
 target_sources(fbide_lib
     PRIVATE
+    lib/about/AboutDialog.cpp
     lib/app/App.cpp
     lib/app/CommandManager.cpp
     lib/app/Context.cpp
@@ -32,6 +33,7 @@ target_sources(fbide_lib
     lib/ui/UIManager.cpp
 
     PUBLIC FILE_SET HEADERS FILES
+    lib/about/AboutDialog.hpp
     lib/app/App.hpp
     lib/app/CommandManager.hpp
     lib/app/Context.hpp

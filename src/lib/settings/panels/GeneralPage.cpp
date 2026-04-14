@@ -40,7 +40,7 @@ void GeneralPage::create() {
             spinCtrl(m_edgeColumn, LangId::SettingsRightMarginWidth, 1, 200, { .border = 0 });
         });
 
-        separator();
+        separator(0);
 
         vbox({ .proportion = 1, .flag = wxALIGN_TOP | wxALL }, [&] {
             checkBox(m_syntaxHighlight, LangId::SettingsSyntaxHighlight);

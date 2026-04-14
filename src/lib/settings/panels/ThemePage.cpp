@@ -47,12 +47,12 @@ void ThemePage::apply() {
 
 void ThemePage::create() {
     createTopRow();
-    separator();
+    separator(0);
 
     hbox({ .proportion = 1, .flag = wxEXPAND | wxALL, .border = 0 }, [&] {
         createCategoryList();
         createLeftPanel();
-        separator();
+        separator(0);
         createRightPanel();
     });
 
