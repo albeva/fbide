@@ -37,5 +37,5 @@
 
 ## Application
 
-- [ ] New Window. Launch another fbide.exe instance.
-- [ ] Single-instance handling. Reuse existing window when launched again.
+- [x] New Window. Launch another fbide.exe instance.
+- [x] Single-instance handling. Reuse existing window when launched again.
