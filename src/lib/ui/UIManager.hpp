@@ -14,11 +14,12 @@ namespace fbide {
 class CompilerLog;
 class Context;
 
-class FreezeLock final {
+class [[nodiscard]] FreezeLock final {
 public:
     NO_COPY_AND_MOVE(FreezeLock);
 
-    explicit FreezeLock(wxWindow* window): m_wnd(window) {
+    explicit FreezeLock(wxWindow* window)
+    : m_wnd(window) {
         if (window != nullptr) {
             window->Freeze();
         }

@@ -343,6 +343,9 @@ void DocumentManager::loadSession(const wxString& path) {
         return;
     }
 
+    // freeze UI while loading files.
+    const auto thaw = m_ctx.getUIManager().freeze();
+
     // Check version header
     const bool isV2 = wxString(file[0]).Trim().Trim(false).Lower() == sessionHeader;
     const size_t startLine = isV2 ? 2 : 1;
