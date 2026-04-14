@@ -555,6 +555,7 @@ void DocumentManager::onReplaceAllDialog(wxFindDialogEvent& event) {
 
 void DocumentManager::onFindDialogClose(wxFindDialogEvent& event) {
     if (auto* dlg = event.GetDialog()) {
+        dlg->PopEventHandler();
         dlg->Destroy();
     }
 }
