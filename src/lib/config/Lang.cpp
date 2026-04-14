@@ -24,7 +24,12 @@ void Lang::load(const wxString& filePath) {
         wxString key;
         key << index;
         if (config.Read(key, &value)) {
-            m_strings[static_cast<size_t>(index)] = value.Trim();
+            value.Trim();
+            // Legacy language files have trailing '|' on file dialog filters
+            if (value.EndsWith("|")) {
+                value.RemoveLast();
+            }
+            m_strings[static_cast<size_t>(index)] = value;
         }
     }
 }

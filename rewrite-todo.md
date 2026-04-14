@@ -42,5 +42,5 @@
 
 ## Bugs
 
-- [ ] Fix open/save dialog file patterns that currently throw na error
+- [x] Fix open/save dialog file patterns that currently throw na error
 - [ ] Fix "assert "GetEventHandler() == this" failed in ~wxWindowBase(): any pushed event handlers must have been removed" on find/replace dialog

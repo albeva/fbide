@@ -123,7 +123,7 @@ auto DocumentManager::saveFileAs(Document& doc) const -> bool {
     } else {
         filter = lang[LangId::FileSaveFilter];
     }
-    filter += lang[LangId::FileSaveFilterAny];
+    filter += "|" + lang[LangId::FileSaveFilterAny];
 
     wxFileDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
