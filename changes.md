@@ -10,6 +10,8 @@ Changes from fbide 0.4.5.
 ## General
 - Added option to start the editor with a custom config file via `--config` option.
 - Line numbers margin now zooms with font size changes.
+- FBIde validates chm files, if they are locked, show a dialog with instructions and a link for more info
+- If no local CHM file found, or when on non Windows platform, open freebasic wiki page instead.
 
 ## Removed options
 - `ActivePath` option has been removed. FBIde now always sets the working directory to the source file location when compiling or running.
