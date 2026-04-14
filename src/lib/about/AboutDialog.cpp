@@ -11,6 +11,11 @@
 #include "lib/config/Lang.hpp"
 #include "lib/ui/BBCodeText.hpp"
 #include "lib/ui/Panel.hpp"
+#ifndef __WXMSW__
+namespace XPM {
+#include "rc/fbide.xpm"
+}
+#endif
 using namespace fbide;
 
 namespace {
@@ -27,7 +32,7 @@ public:
 
         // Banner image (embedded as BITMAP resource on Windows)
         const auto banner = make_unowned<wxStaticBitmap>(
-            this, wxID_ANY, wxBITMAP(fbide),
+            this, wxID_ANY, wxBITMAP(XPM::fbide),
             wxDefaultPosition, wxSize(300, 75)
         );
         add(banner, { .flag = wxALIGN_CENTER_HORIZONTAL });

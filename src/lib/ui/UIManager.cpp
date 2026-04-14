@@ -16,6 +16,11 @@
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/editor/Editor.hpp"
 #include "rc/icons.hpp"
+#ifndef __WXMSW__
+namespace XPM {
+#include "rc/appicon.xpm"
+}
+#endif
 using namespace fbide;
 
 // clang-format off
@@ -111,7 +116,7 @@ void UIManager::createMainFrame() {
     const auto& config = m_ctx.getConfig();
 
     m_frame = make_unowned<wxFrame>(nullptr, wxID_ANY, "FBIde");
-    m_frame->SetIcon(wxICON(appicon));
+    m_frame->SetIcon(wxICON(XPM::appicon));
     m_frame->PushEventHandler(this);
     m_frame->PushEventHandler(&m_ctx.getCommandManager());
 

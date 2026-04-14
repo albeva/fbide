@@ -11,20 +11,20 @@
 
 // NOLINTBEGIN(*-avoid-c-arrays)
 namespace XPM {
+#include "icons/close.xpm"
+#include "icons/compile.xpm"
+#include "icons/compnrun.xpm"
+#include "icons/copy.xpm"
+#include "icons/cut.xpm"
 #include "icons/new.xpm"
 #include "icons/open.xpm"
+#include "icons/output.xpm"
+#include "icons/paste.xpm"
+#include "icons/qrun.xpm"
+#include "icons/redo.xpm"
+#include "icons/run.xpm"
 #include "icons/save.xpm"
 #include "icons/saveall.xpm"
-#include "icons/close.xpm"
-#include "icons/cut.xpm"
-#include "icons/copy.xpm"
-#include "icons/paste.xpm"
 #include "icons/undo.xpm"
-#include "icons/redo.xpm"
-#include "icons/compile.xpm"
-#include "icons/run.xpm"
-#include "icons/compnrun.xpm"
-#include "icons/qrun.xpm"
-#include "icons/output.xpm"
-};
+}; // namespace XPM
 // NOLINTEND(*-avoid-c-arrays)
