@@ -1,73 +1,30 @@
-FBIde 0.4:
+FBIde - open source IDE for the FreeBASIC compiler.
+Copyright (c) 2004-2005 Albert Varaksin
 
-   FBIde - is a free open source IDE for FreeBasic compiler written using 
-   Dev-Cpp and wxWidgets framework library.
-   Copyright (C) 2004-2005 Albert Varaksin [ vongodric@hotmail.com ]
-
-
-
-License:
-
-   MIT License. Copyright (c) 2026 Albert Varaksin.
-   See LICENSE file for details.
-
-
-
-Installing:
-
-   Using installer: Run installer and select path where to install. On first run
-                    FBIde will ask you for fbc path. After it enjoy.
-
-   Using FBC+IDE:   Run installer, select path where to install and enjoy!
-
-   Using rar/zip pacakage: extract ide somewhere, on first run it will ask you
-                           fbc path, after it enjoy.
-
-
-
-Requirements:
-
-   - Any modern version of Microsoft windows since 95
-   - 4MB hdd space
-   - SVGA videocard
-   - Mouse and keyboard
-
-
-
-Basic features:
-
-   - FB syntax highlight
-   - indentation guides
-   - Matching brace highlighting
-   - Multilangual
-   - Costomisible editing enviroment
-   - Compilation support from within IDE
-   - Tabbed enviroment
-   - Code formatting and export to HTML/BBcode
-   - and lot more ...
-
-
+License: MIT. See LICENSE file for details.
 
 Links:
+   - Website: https://fbide.freebasic.net
+   - Repository: https://github.com/albeva/fbide
+   - FreeBASIC: https://freebasic.net
 
-   - Official site: http://fbide.sourceforge.net or http://fbide.freebasic.net/
-   - Sourceforge project page: http://www.sourceforge.net/projects/fbide/
-   - FreeBasic official site: http://www.freebasic.net/
-
-
+Features:
+   - FreeBASIC syntax highlighting
+   - Indentation guides
+   - Brace matching
+   - Multilingual interface
+   - Customizable editor
+   - Integrated compilation and execution
+   - Tabbed editing
 
 Credits:
-
    - dumbledore - code exporting and formatting routines
    - Madedog - internationalization (i18n) modules
    - Mecki - splash screen logo
-   - MySoft - Many patches to fix FBIde
-
-
+   - MySoft - many patches to fix FBIde
 
 Betatesters:
-
-   - Shadowolf	
+   - Shadowolf
    - AetherFox
    - Z!re
    - ak00ma
@@ -78,22 +35,17 @@ Betatesters:
    - SJ Zero
    - Nexinarus
 
-
-
 Language files by:
-
-   - v!ct0r          - portuguese
-   - Mecki           - german
-   - MystikShadows   - french
-   - Dutchtux        - dutch
-   - E. Gerfanow     - russion
-   - Rojalus Kele    - chinese
-   - Drakontas       - greek
-   - Shion           - japanese
-   - N. Panaitoiu    - romanian
-   - lurah           - finnish
-   - etko            - slovak
-
+   - v!ct0r          - Portuguese
+   - Mecki           - German
+   - MystikShadows   - French
+   - Dutchtux        - Dutch
+   - E. Gerfanow     - Russian
+   - Rojalus Kele    - Chinese
+   - Drakontas       - Greek
+   - Shion           - Japanese
+   - N. Panaitoiu    - Romanian
+   - lurah           - Finnish
+   - etko            - Slovak
 
 ...and everyone we forgot!
-
