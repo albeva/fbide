@@ -4,13 +4,12 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "HelpManager.hpp"
-#include "Context.hpp"
+#include "lib/help/HelpManager.hpp"
+#include "lib/app/Context.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/editor/Document.hpp"
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/ui/UIManager.hpp"
-#include <wx/hyperlink.h>
 using namespace fbide;
 
 namespace {

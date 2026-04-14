@@ -43,6 +43,7 @@
 #include <wx/txtstrm.h>
 #include <wx/wfstream.h>
 #include <wx/wupdlock.h>
+#include <wx/hyperlink.h>
 
 // fbide
 #include "lib/utils/Macros.hpp"

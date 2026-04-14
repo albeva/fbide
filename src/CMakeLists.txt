@@ -7,13 +7,12 @@ target_sources(fbide_lib
     lib/app/App.cpp
     lib/app/CommandManager.cpp
     lib/app/Context.cpp
-    lib/app/HelpManager.cpp
     lib/app/InstanceHandler.cpp
     lib/compiler/AsyncProcess.cpp
-    lib/compiler/CompileCommand.cpp
     lib/compiler/BuildTask.cpp
-    lib/compiler/RunCommand.cpp
+    lib/compiler/CompileCommand.cpp
     lib/compiler/CompilerManager.cpp
+    lib/compiler/RunCommand.cpp
     lib/config/Config.cpp
     lib/config/FileHistory.cpp
     lib/config/Keywords.cpp
@@ -23,31 +22,30 @@ target_sources(fbide_lib
     lib/editor/DocumentManager.cpp
     lib/editor/DocumentType.cpp
     lib/editor/Editor.cpp
+    lib/help/HelpManager.cpp
     lib/settings/SettingsDialog.cpp
     lib/settings/panels/CompilerPage.cpp
     lib/settings/panels/GeneralPage.cpp
     lib/settings/panels/KeywordsPage.cpp
-    lib/ui/Panel.cpp
     lib/settings/panels/ThemePage.cpp
     lib/ui/BBCodeText.cpp
     lib/ui/CompilerLog.cpp
     lib/ui/OutputConsole.cpp
+    lib/ui/Panel.cpp
     lib/ui/UIManager.cpp
 
     PUBLIC FILE_SET HEADERS FILES
     lib/about/AboutDialog.hpp
-    lib/ui/BBCodeText.hpp
     lib/app/App.hpp
     lib/app/CommandManager.hpp
     lib/app/Context.hpp
-    lib/app/HelpManager.hpp
     lib/app/InstanceHandler.hpp
     lib/compiler/AsyncProcess.hpp
-    lib/compiler/CompileCommand.hpp
     lib/compiler/BuildTask.hpp
+    lib/compiler/CompileCommand.hpp
+    lib/compiler/CompilerManager.hpp
     lib/compiler/QuoteUtils.hpp
     lib/compiler/RunCommand.hpp
-    lib/compiler/CompilerManager.hpp
     lib/config/Config.hpp
     lib/config/FileHistory.hpp
     lib/config/Keywords.hpp
@@ -58,21 +56,23 @@ target_sources(fbide_lib
     lib/editor/DocumentManager.hpp
     lib/editor/DocumentType.hpp
     lib/editor/Editor.hpp
+    lib/help/HelpManager.hpp
     lib/settings/SettingsDialog.hpp
     lib/settings/panels/CompilerPage.hpp
     lib/settings/panels/GeneralPage.hpp
     lib/settings/panels/KeywordsPage.hpp
-    lib/ui/Panel.hpp
     lib/settings/panels/ThemePage.hpp
-    lib/ui/MenuId.hpp
-    lib/ui/UIState.hpp
+    lib/ui/BBCodeText.hpp
     lib/ui/CompilerLog.hpp
+    lib/ui/MenuId.hpp
     lib/ui/OutputConsole.hpp
+    lib/ui/Panel.hpp
     lib/ui/UIManager.hpp
-    lib/utils/NoCopy.hpp
-    lib/utils/ValueRestorer.hpp
+    lib/ui/UIState.hpp
     lib/utils/Macros.hpp
+    lib/utils/NoCopy.hpp
     lib/utils/Unowned.hpp
+    lib/utils/ValueRestorer.hpp
 )
 
 # target settings

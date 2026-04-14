@@ -6,7 +6,7 @@
 //
 #include "CompilerPage.hpp"
 #include "lib/app/Context.hpp"
-#include "lib/app/HelpManager.hpp"
+#include "../../help/HelpManager.hpp"
 #include "lib/compiler/CompilerManager.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/Lang.hpp"
