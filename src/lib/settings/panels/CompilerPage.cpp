@@ -18,7 +18,7 @@ CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 , m_runCommand(getConfig().getRunCommand())
 , m_helpFile(getConfig().getHelpFile()) {}
 
-void CompilerPage::layout() {
+void CompilerPage::create() {
     makeTitle(LangId::SettingsCompilerAndPaths);
     compilerPath();
     compilerCommand();

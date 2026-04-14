@@ -34,10 +34,10 @@ void SettingsDialog::create() {
     m_keywordsPage = make_unowned<KeywordsPage>(m_ctx, notebook);
     m_compilerPage = make_unowned<CompilerPage>(m_ctx, notebook);
 
-    m_generalPage->layout();
-    m_themePage->layout();
-    m_keywordsPage->layout();
-    m_compilerPage->layout();
+    m_generalPage->create();
+    m_themePage->create();
+    m_keywordsPage->create();
+    m_compilerPage->create();
 
     notebook->AddPage(m_generalPage, lang[LangId::SettingsGeneral]);
     notebook->AddPage(m_themePage, lang[LangId::SettingsThemes]);

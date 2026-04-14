@@ -14,7 +14,7 @@ public:
     NO_COPY_AND_MOVE(Panel)
 
     Panel(Context& ctx, wxWindowID id, wxWindow* parent);
-    virtual void layout() = 0;
+    virtual void create() = 0;
     virtual void apply() = 0;
 
 protected:

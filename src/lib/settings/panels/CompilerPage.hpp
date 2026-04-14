@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "Panel.hpp"
+#include "lib/ui/Panel.hpp"
 
 namespace fbide {
 
@@ -16,7 +16,7 @@ public:
     NO_COPY_AND_MOVE(CompilerPage)
 
     explicit CompilerPage(Context& ctx, wxWindow* parent);
-    void layout() override;
+    void create() override;
     void apply() override;
 
 private:

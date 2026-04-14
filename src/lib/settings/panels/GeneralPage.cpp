@@ -27,7 +27,7 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 , m_tabSize(getConfig().getTabSize())
 , m_language(getConfig().getLanguage()) {}
 
-void GeneralPage::layout() {
+void GeneralPage::create() {
     makeTitle(LangId::SettingsEditorSettings);
 
     hbox({ .proportion = 0, .flag = wxGROW, .border = 0 }, [&] {

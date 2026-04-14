@@ -45,7 +45,7 @@ void ThemePage::apply() {
 // Layout
 // ---------------------------------------------------------------------------
 
-void ThemePage::layout() {
+void ThemePage::create() {
     createTopRow();
     separator();
 
