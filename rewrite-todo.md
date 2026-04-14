@@ -1,8 +1,8 @@
 # Rewrite TODO
 
 ## Project
-- [ ] Upgrade app licence in the app to MIT
-- [ ] Set windows binary details (description, name, version, copyright, etc.)
+- [x] Upgrade app licence in the app to MIT
+- [x] Set windows binary details (description, name, version, copyright, etc.)
 
 ## Compiler Integration
 

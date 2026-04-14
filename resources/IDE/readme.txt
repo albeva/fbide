@@ -1,5 +1,5 @@
 FBIde - open source IDE for the FreeBASIC compiler.
-Copyright (c) 2004-2005 Albert Varaksin
+Copyright (c) 2006-2026 Albert Varaksin
 
 License: MIT. See LICENSE file for details.
 
