@@ -20,9 +20,13 @@ BBCodeText::BBCodeText(
       pos, size,
       wxTE_MULTILINE | wxTE_READONLY | wxTE_DONTWRAP | wxTE_RICH2 | style
   ) {
-    m_normal = wxTextCtrl::GetDefaultStyle();
-    m_bold = wxTextAttr(m_normal);
-    m_bold.SetFont(m_bold.GetFont().Bold());
+    const auto fg = GetForegroundColour();
+    const auto bg = GetBackgroundColour();
+
+    const auto font = GetFont();
+    m_normal = wxTextAttr(fg, bg, font);
+    m_bold = wxTextAttr(fg, bg, font.Bold());
+    wxTextCtrl::SetDefaultStyle(m_normal);
     parseBBCode(value);
     wxTextCtrl::SetInsertionPoint(0);
 }
