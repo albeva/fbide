@@ -16,7 +16,7 @@ class Context;
 
 class [[nodiscard]] FreezeLock final {
 public:
-    NO_COPY_AND_MOVE(FreezeLock);
+    NO_COPY_AND_MOVE(FreezeLock)
 
     explicit FreezeLock(wxWindow* window)
     : m_wnd(window) {

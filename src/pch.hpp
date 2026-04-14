@@ -7,20 +7,14 @@
 #pragma once
 
 // STL
-#include <algorithm>
 #include <array>
-#include <cassert>
-#include <cstdint>
-#include <format>
-#include <memory>
-#include <optional>
-#include <print>
-#include <ranges>
-#include <span>
-#include <string>
-#include <string_view>
 #include <utility>
+#include <cstddef>
+#include <memory>
+#include <functional>
 #include <vector>
+#include <optional>
+#include <concepts>
 
 // wxWidgets
 #include <wx/wx.h>
@@ -55,8 +49,3 @@
 #include "lib/utils/NoCopy.hpp"
 #include "lib/utils/Unowned.hpp"
 #include "lib/utils/ValueRestorer.hpp"
-
-namespace fbide {
-using namespace std::string_view_literals;
-using namespace std::string_literals;
-} // namespace fbide
