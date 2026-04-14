@@ -28,12 +28,14 @@ target_sources(fbide_lib
     lib/settings/panels/KeywordsPage.cpp
     lib/ui/Panel.cpp
     lib/settings/panels/ThemePage.cpp
+    lib/ui/BBCodeText.cpp
     lib/ui/CompilerLog.cpp
     lib/ui/OutputConsole.cpp
     lib/ui/UIManager.cpp
 
     PUBLIC FILE_SET HEADERS FILES
     lib/about/AboutDialog.hpp
+    lib/ui/BBCodeText.hpp
     lib/app/App.hpp
     lib/app/CommandManager.hpp
     lib/app/Context.hpp

@@ -9,6 +9,7 @@
 #include "lib/app/Context.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/Lang.hpp"
+#include "lib/ui/BBCodeText.hpp"
 #include "lib/ui/Panel.hpp"
 using namespace fbide;
 
@@ -46,30 +47,39 @@ public:
             );
             info->SetFont(infoFont);
             add(info, { .flag = wxEXPAND | wxLEFT | wxRIGHT, .border = 0 });
-
             separator();
 
-            // Load readme.txt
-            const auto text = make_unowned<wxTextCtrl>(
-                this, wxID_ANY, getReadme(),
-                wxDefaultPosition, wxDefaultSize,
-                wxTE_MULTILINE | wxTE_READONLY | wxTE_DONTWRAP | wxTE_RICH2
-            );
-            text->SetFont(infoFont);
+            // Readme with bold titles
+            const auto text = make_unowned<BBCodeText>(this, wxID_ANY, getAbout(), wxDefaultPosition, wxSize(-1, 150));
             add(text, { .proportion = 1, .flag = wxEXPAND | wxALL, .border = 0 });
         });
     }
 
     void apply() override {}
 
-    [[nodiscard]] auto getReadme() const -> wxString {
+private:
+    auto getAbout() -> wxString {
         const auto readmePath = getConfig().getAppSettingsPath() + "readme.txt";
         wxString content;
         wxFile file(readmePath);
-        if (file.IsOpened()) {
-            file.ReadAll(&content);
+        if (!file.IsOpened()) {
+            return "";
         }
-        return content;
+        file.ReadAll(&content);
+
+        // Lines ending with ':' are titles — wrap them in [bold] tags
+        wxString bbcode;
+        wxStringTokenizer lines(content, "\n", wxTOKEN_RET_EMPTY);
+        while (lines.HasMoreTokens()) {
+            auto line = lines.GetNextToken();
+            line.Trim();
+            if (!line.empty() && line.Last() == ':') {
+                bbcode += "[bold]" + line + "[/bold]\n";
+            } else {
+                bbcode += line + "\n";
+            }
+        }
+        return bbcode;
     }
 };
 

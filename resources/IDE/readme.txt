@@ -1,4 +1,5 @@
-FBIde - open source IDE for the FreeBASIC compiler.
+FBIde
+open source IDE for the FreeBASIC compiler.
 Copyright (c) 2006-2026 Albert Varaksin
 
 License: MIT. See LICENSE file for details.
