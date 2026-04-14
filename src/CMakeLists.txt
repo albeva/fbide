@@ -3,6 +3,7 @@ add_library(fbide_lib)
 
 target_sources(fbide_lib
     PRIVATE
+    lib/about/AboutDialog.cpp
     lib/app/App.cpp
     lib/app/CommandManager.cpp
     lib/app/Context.cpp
@@ -25,13 +26,16 @@ target_sources(fbide_lib
     lib/settings/panels/CompilerPage.cpp
     lib/settings/panels/GeneralPage.cpp
     lib/settings/panels/KeywordsPage.cpp
-    lib/settings/panels/Panel.cpp
+    lib/ui/Panel.cpp
     lib/settings/panels/ThemePage.cpp
+    lib/ui/BBCodeText.cpp
     lib/ui/CompilerLog.cpp
     lib/ui/OutputConsole.cpp
     lib/ui/UIManager.cpp
 
     PUBLIC FILE_SET HEADERS FILES
+    lib/about/AboutDialog.hpp
+    lib/ui/BBCodeText.hpp
     lib/app/App.hpp
     lib/app/CommandManager.hpp
     lib/app/Context.hpp
@@ -56,7 +60,7 @@ target_sources(fbide_lib
     lib/settings/panels/CompilerPage.hpp
     lib/settings/panels/GeneralPage.hpp
     lib/settings/panels/KeywordsPage.hpp
-    lib/settings/panels/Panel.hpp
+    lib/ui/Panel.hpp
     lib/settings/panels/ThemePage.hpp
     lib/ui/MenuId.hpp
     lib/ui/UIState.hpp
@@ -72,8 +76,8 @@ target_sources(fbide_lib
 # target settings
 target_link_libraries(fbide_lib
     PRIVATE compiler_options compiler_warnings
-    PUBLIC ${wxWidgets_LIBRARIES}
 )
+linkWxWidgets(fbide_lib)
 
 # precompile header
 target_include_directories(fbide_lib PRIVATE "${CMAKE_BINARY_DIR}/configured_files/include")
@@ -84,3 +88,12 @@ add_executable(fbide WIN32 main.cpp)
 target_link_libraries(fbide PRIVATE fbide_lib compiler_options compiler_warnings)
 target_precompile_headers(fbide REUSE_FROM fbide_lib)
 set_target_properties(fbide PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+
+if (WIN32)
+    target_sources(fbide PRIVATE rc/app.rc)
+    target_include_directories(fbide PRIVATE "${CMAKE_BINARY_DIR}/configured_files/include")
+endif ()
+
+if (MINGW AND CMAKE_BUILD_TYPE STREQUAL "Release")
+    target_link_options(fbide PRIVATE -Wl,--gc-sections -Wl,--strip-all)
+endif ()

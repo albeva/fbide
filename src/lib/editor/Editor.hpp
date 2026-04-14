@@ -62,6 +62,7 @@ public:
 private:
     void onModified(wxStyledTextEvent& event);
     void onUpdateUI(wxStyledTextEvent& event);
+    void onZoom(wxStyledTextEvent& event);
     void onFocus(wxFocusEvent& event);
     void updateBraceMatch();
     void applyEditorSettings();
@@ -70,6 +71,7 @@ private:
     void applyFreebasicTheme();
     void applyHtmlTheme();
     void applyTextTheme();
+    void updateLineNumberMarginWidth();
 
     Context& m_ctx;
     DocumentType m_docType;

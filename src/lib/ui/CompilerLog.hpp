@@ -8,6 +8,7 @@
 #include "pch.hpp"
 
 namespace fbide {
+class BBCodeText;
 class Context;
 
 /// Dialog for displaying the compiler log with [bold] markup support.
@@ -30,9 +31,7 @@ public:
     void log(const wxArrayString& lines);
 
 private:
-    Unowned<wxTextCtrl> m_output;
-    wxTextAttr m_normal;
-    wxTextAttr m_bold;
+    Unowned<BBCodeText> m_output;
 };
 
 } // namespace fbide

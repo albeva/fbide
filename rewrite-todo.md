@@ -1,5 +1,9 @@
 # Rewrite TODO
 
+## Project
+- [x] Upgrade app licence in the app to MIT
+- [x] Set windows binary details (description, name, version, copyright, etc.)
+
 ## Compiler Integration
 
 - [x] Compile. Run fbc with command template, capture output.

@@ -19,7 +19,7 @@ KeywordsPage::KeywordsPage(Context& ctx, wxWindow* parent)
     }
 }
 
-void KeywordsPage::layout() {
+void KeywordsPage::create() {
     const auto& lang = getContext().getLang();
 
     // Group dropdown

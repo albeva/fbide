@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "Panel.hpp"
+#include "lib/ui/Panel.hpp"
 #include "lib/config/Theme.hpp"
 
 namespace fbide {
@@ -18,7 +18,7 @@ public:
 
     ThemePage(Context& ctx, wxWindow* parent);
     [[nodiscard]] auto isUnsavedNewTheme() const -> bool { return m_themeChoice->GetSelection() == 0; }
-    void layout() override;
+    void create() override;
     void apply() override;
 
 private:

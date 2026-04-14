@@ -14,7 +14,7 @@ public:
     NO_COPY_AND_MOVE(Panel)
 
     Panel(Context& ctx, wxWindowID id, wxWindow* parent);
-    virtual void layout() = 0;
+    virtual void create() = 0;
     virtual void apply() = 0;
 
 protected:
@@ -34,8 +34,10 @@ protected:
 
     void makeTitle(LangId langId);
 
+    void add(wxWindow* view, Layout options = defaultBoxOptions);
+
     void text(LangId langId, Layout options = defaultBoxOptions);
-    void separator();
+    void separator(int border = DEFAULT_PAD);
     auto checkBox(bool& value, LangId langId, Layout options = defaultBoxOptions) -> Unowned<wxCheckBox>;
     auto checkBox(LangId langId, Layout options = defaultBoxOptions) -> Unowned<wxCheckBox>;
     auto spinCtrl(int& value, LangId langId, int minVal, int maxVal, Layout options = defaultBoxOptions) -> Unowned<wxSpinCtrl>;
@@ -49,18 +51,33 @@ protected:
 
     template<std::invocable Func>
     auto hbox(const Layout options, Func&& func) -> std::invoke_result_t<Func> {
-        return makeBox(wxHORIZONTAL, options, std::forward<Func>(func));
+        return makeBox(wxEmptyString, wxHORIZONTAL, options, std::forward<Func>(func));
+    }
+
+    template<std::invocable Func>
+    auto hbox(const wxString& title, const Layout options, Func&& func) -> std::invoke_result_t<Func> {
+        return makeBox(title, wxHORIZONTAL, options, std::forward<Func>(func));
     }
 
     template<std::invocable Func>
     auto vbox(const Layout options, Func&& func) -> std::invoke_result_t<Func> {
-        return makeBox(wxVERTICAL, options, std::forward<Func>(func));
+        return makeBox(wxEmptyString, wxVERTICAL, options, std::forward<Func>(func));
     }
 
     template<std::invocable Func>
-    auto makeBox(int direction, const Layout options, Func&& func) -> std::invoke_result_t<Func> {
+    auto vbox(const wxString& title, const Layout options, Func&& func) -> std::invoke_result_t<Func> {
+        return makeBox(title, wxVERTICAL, options, std::forward<Func>(func));
+    }
+
+    template<std::invocable Func>
+    auto makeBox(const wxString& title, int direction, const Layout options, Func&& func) -> std::invoke_result_t<Func> {
         const ValueRestorer restore { m_currentSizer };
-        const auto sizer = make_unowned<wxBoxSizer>(direction);
+        const auto sizer = [&] -> wxBoxSizer* {
+            if (title.empty()) {
+                return make_unowned<wxBoxSizer>(direction);
+            }
+            return make_unowned<wxStaticBoxSizer>(direction, this, title);
+        }();
         m_currentSizer->Add(sizer, options.proportion, options.flag, options.border);
         m_currentSizer = sizer;
         return std::invoke(std::forward<Func>(func));

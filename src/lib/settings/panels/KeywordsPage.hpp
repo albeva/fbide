@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "Panel.hpp"
+#include "lib/ui/Panel.hpp"
 #include "lib/config/Keywords.hpp"
 
 namespace fbide {
@@ -17,7 +17,7 @@ public:
     NO_COPY_AND_MOVE(KeywordsPage)
 
     explicit KeywordsPage(Context& ctx, wxWindow* parent);
-    void layout() override;
+    void create() override;
     void apply() override;
 
 private:

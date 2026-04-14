@@ -27,7 +27,7 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 , m_tabSize(getConfig().getTabSize())
 , m_language(getConfig().getLanguage()) {}
 
-void GeneralPage::layout() {
+void GeneralPage::create() {
     makeTitle(LangId::SettingsEditorSettings);
 
     hbox({ .proportion = 0, .flag = wxGROW, .border = 0 }, [&] {
@@ -40,7 +40,7 @@ void GeneralPage::layout() {
             spinCtrl(m_edgeColumn, LangId::SettingsRightMarginWidth, 1, 200, { .border = 0 });
         });
 
-        separator();
+        separator(0);
 
         vbox({ .proportion = 1, .flag = wxALIGN_TOP | wxALL }, [&] {
             checkBox(m_syntaxHighlight, LangId::SettingsSyntaxHighlight);

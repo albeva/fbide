@@ -111,6 +111,7 @@ void UIManager::createMainFrame() {
     const auto& config = m_ctx.getConfig();
 
     m_frame = make_unowned<wxFrame>(nullptr, wxID_ANY, "FBIde");
+    m_frame->SetIcon(wxICON(appicon));
     m_frame->PushEventHandler(this);
     m_frame->PushEventHandler(&m_ctx.getCommandManager());
 
@@ -234,7 +235,6 @@ void UIManager::createMenuBar() {
     append(m_runMenu, lang, MenuId::Parameters, LangId::RunParameters, "", LangId::RunParametersHelp);
     appendCheck(m_runMenu, lang, MenuId::ShowExitCode, LangId::RunShowExitCode, "", LangId::RunShowExitCodeHelp);
     m_runMenu->Check(id(MenuId::ShowExitCode), m_ctx.getConfig().getShowExitCode());
-    appendCheck(m_runMenu, lang, MenuId::ActivePath, LangId::RunActivePath, "", LangId::RunActivePathHelp);
 
     // Help menu
     m_helpMenu = make_unowned<wxMenu>();
@@ -424,8 +424,12 @@ void UIManager::disable(const std::ranges::range auto& range) const {
     auto* menuBar = m_frame->GetMenuBar();
     for (const auto menuId : mutableIds) {
         const bool disabled = not std::ranges::contains(range, menuId);
-        m_toolbar->EnableTool(id(menuId), disabled);
-        menuBar->Enable(id(menuId), disabled);
+        if (m_toolbar->FindById(id(menuId)) != nullptr) {
+            m_toolbar->EnableTool(id(menuId), disabled);
+        }
+        if (menuBar->FindItem(id(menuId)) != nullptr) {
+            menuBar->Enable(id(menuId), disabled);
+        }
     }
 }
 
@@ -433,7 +437,7 @@ void UIManager::updateEditorSettigs() {
     // Reapply settings to all open editors
     const auto* notebook = getNotebook();
     for (size_t idx = 0; idx < notebook->GetPageCount(); idx++) {
-        if (auto* editor = dynamic_cast<Editor*>(notebook->GetPage(idx))) {
+        if (auto* editor = static_cast<Editor*>(notebook->GetPage(idx))) {
             editor->applySettings();
         }
     }

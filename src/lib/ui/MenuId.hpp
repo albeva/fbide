@@ -57,7 +57,6 @@ enum class MenuId : int {
     CmdPrompt,
     Parameters,
     ShowExitCode,
-    ActivePath,
     QuickKeys,
     ReadMe,
 };

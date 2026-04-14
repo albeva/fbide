@@ -15,6 +15,7 @@
 #include "lib/editor/Document.hpp"
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/editor/Editor.hpp"
+#include "lib/about/AboutDialog.hpp"
 #include "lib/settings/SettingsDialog.hpp"
 #include "lib/ui/MenuId.hpp"
 #include "lib/ui/UIManager.hpp"
@@ -259,7 +260,7 @@ void CommandManager::onCompilerLog(wxCommandEvent&) {
 // -- Run --
 
 void CommandManager::onCompile(wxCommandEvent&) {
-    (void)m_ctx.getCompilerManager().compile();
+    m_ctx.getCompilerManager().compile();
 }
 
 void CommandManager::onCompileAndRun(wxCommandEvent&) {
@@ -323,5 +324,7 @@ void CommandManager::onReadMe(wxCommandEvent&) {
 }
 
 void CommandManager::onAbout(wxCommandEvent&) {
-    // TODO: implement about dialog
+    AboutDialog dlg(m_ctx.getUIManager().getMainFrame(), m_ctx);
+    dlg.create();
+    dlg.ShowModal();
 }
