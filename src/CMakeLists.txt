@@ -22,6 +22,14 @@ target_sources(fbide_lib
     lib/editor/DocumentManager.cpp
     lib/editor/DocumentType.cpp
     lib/editor/Editor.cpp
+    lib/format/Renderers/BBCodeRenderer.cpp
+    lib/format/formatters/CaseTransform.cpp
+    lib/format/FormatDialog.cpp
+    lib/format/Renderers/HtmlRenderer.cpp
+    lib/format/Lexer.cpp
+    lib/format/Renderers/PlainTextRenderer.cpp
+    lib/format/Renderers/Renderer.cpp
+    lib/format/formatters/ReindentTransform.cpp
     lib/help/HelpManager.cpp
     lib/settings/SettingsDialog.cpp
     lib/settings/panels/CompilerPage.cpp
@@ -56,6 +64,16 @@ target_sources(fbide_lib
     lib/editor/DocumentManager.hpp
     lib/editor/DocumentType.hpp
     lib/editor/Editor.hpp
+    lib/format/Renderers/BBCodeRenderer.hpp
+    lib/format/formatters/CaseTransform.hpp
+    lib/format/FormatDialog.hpp
+    lib/format/Renderers/HtmlRenderer.hpp
+    lib/format/Lexer.hpp
+    lib/format/Renderers/PlainTextRenderer.hpp
+    lib/format/formatters/ReindentTransform.hpp
+    lib/format/renderers/Renderer.hpp
+    lib/format/Token.hpp
+    lib/format/formatters/TokenTransform.hpp
     lib/help/HelpManager.hpp
     lib/settings/SettingsDialog.hpp
     lib/settings/panels/CompilerPage.hpp

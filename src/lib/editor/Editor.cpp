@@ -22,10 +22,11 @@ wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
 wxEND_EVENT_TABLE()
 // clang-format on
 
-Editor::Editor(wxWindow* parent, Context& ctx, const DocumentType type)
+Editor::Editor(wxWindow* parent, Context& ctx, const DocumentType type, const bool preview)
 : wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize)
 , m_ctx(ctx)
-, m_docType(type) {
+, m_docType(type)
+, m_preview(preview) {
     applySettings();
 }
 
@@ -44,10 +45,26 @@ void Editor::applyEditorSettings() {
     SetBackSpaceUnIndents(true);
     SetIndent(config.getTabSize());
 
-    SetEdgeColumn(config.getEdgeColumn());
     SetScrollWidth(1);
     SetScrollWidthTracking(true);
     SetEOLMode(wxSTC_EOL_LF);
+
+    if (m_preview) {
+        // Preview mode: hide all margins and decorations
+        SetMarginWidth(0, 0);
+        SetMarginWidth(1, 0);
+        SetMarginWidth(2, 0);
+        SetEdgeMode(wxSTC_EDGE_NONE);
+        SetViewEOL(false);
+        SetIndentationGuides(false);
+        SetViewWhiteSpace(wxSTC_WS_INVISIBLE);
+        // Prevent horizontal scrollbar flashing on content changes
+        SetScrollWidthTracking(false);
+        SetScrollWidth(10000);
+        return;
+    }
+
+    SetEdgeColumn(config.getEdgeColumn());
     SetViewEOL(config.getDisplayEOL());
     SetIndentationGuides(config.getIndentGuide());
     SetEdgeMode(config.getLongLine() ? wxSTC_EDGE_LINE : wxSTC_EDGE_NONE);

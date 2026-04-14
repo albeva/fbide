@@ -18,7 +18,8 @@ public:
     NO_COPY_AND_MOVE(Editor)
 
     /// Create editor as child of parent window for given document type.
-    Editor(wxWindow* parent, Context& ctx, DocumentType type = DocumentType::FreeBASIC);
+    /// If preview is true, hides all margins and decorations.
+    Editor(wxWindow* parent, Context& ctx, DocumentType type = DocumentType::FreeBASIC, bool preview = false);
 
     /// Apply theme and settings from context.
     void applySettings();
@@ -75,6 +76,7 @@ private:
 
     Context& m_ctx;
     DocumentType m_docType;
+    bool m_preview;
 
     wxDECLARE_EVENT_TABLE();
 };

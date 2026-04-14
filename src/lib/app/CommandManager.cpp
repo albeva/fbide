@@ -9,6 +9,7 @@
 #include "CommandManager.hpp"
 #include "Context.hpp"
 #include "lib/help/HelpManager.hpp"
+#include "lib/format/FormatDialog.hpp"
 #include "lib/compiler/CompilerManager.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/FileHistory.hpp"
@@ -243,7 +244,9 @@ void CommandManager::onSettings(wxCommandEvent&) {
 }
 
 void CommandManager::onFormat(wxCommandEvent&) {
-    // TODO: implement format dialog
+    FormatDialog dlg(m_ctx.getUIManager().getMainFrame(), m_ctx);
+    dlg.create();
+    dlg.ShowModal();
 }
 
 void CommandManager::onResult(wxCommandEvent&) {
