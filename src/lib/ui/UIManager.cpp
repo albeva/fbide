@@ -111,6 +111,7 @@ void UIManager::createMainFrame() {
     const auto& config = m_ctx.getConfig();
 
     m_frame = make_unowned<wxFrame>(nullptr, wxID_ANY, "FBIde");
+    m_frame->SetIcon(wxICON(appicon));
     m_frame->PushEventHandler(this);
     m_frame->PushEventHandler(&m_ctx.getCommandManager());
 
@@ -436,7 +437,7 @@ void UIManager::updateEditorSettigs() {
     // Reapply settings to all open editors
     const auto* notebook = getNotebook();
     for (size_t idx = 0; idx < notebook->GetPageCount(); idx++) {
-        if (auto* editor = dynamic_cast<Editor*>(notebook->GetPage(idx))) {
+        if (auto* editor = static_cast<Editor*>(notebook->GetPage(idx))) {
             editor->applySettings();
         }
     }

@@ -8,6 +8,7 @@ Changes from fbide 0.4.5.
 
 ## General
 - Added support for startign the editor with custom config file via `--config` command line option.
+- Line numbers margin now zooms with font size changes
 
 ## Removed options
 - `ActivePath` option has been removed. FBIde now always sets the working directory to the source file location when compiling or running.

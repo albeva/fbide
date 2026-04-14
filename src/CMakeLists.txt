@@ -87,4 +87,7 @@ set_target_properties(fbide PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE
 
 if(MINGW)
     target_sources(fbide PRIVATE rc/app.rc)
+    if(CMAKE_BUILD_TYPE STREQUAL "Release")
+        target_link_options(fbide PRIVATE -Wl,--gc-sections -Wl,--strip-all)
+    endif()
 endif()

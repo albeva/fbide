@@ -15,8 +15,9 @@ using namespace fbide;
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
-    EVT_STC_MODIFIED(wxID_ANY, Editor::onModified)
-    EVT_STC_UPDATEUI(wxID_ANY, Editor::onUpdateUI)
+    EVT_STC_MODIFIED(wxID_ANY,  Editor::onModified)
+    EVT_STC_UPDATEUI(wxID_ANY,  Editor::onUpdateUI)
+    EVT_STC_ZOOM(wxID_ANY,      Editor::onZoom)
     EVT_SET_FOCUS(Editor::onFocus)
 wxEND_EVENT_TABLE()
 // clang-format on
@@ -31,6 +32,7 @@ Editor::Editor(wxWindow* parent, Context& ctx, const DocumentType type)
 void Editor::applySettings() {
     applyEditorSettings();
     applyTheme();
+    updateLineNumberMarginWidth();
 }
 
 void Editor::applyEditorSettings() {
@@ -52,12 +54,6 @@ void Editor::applyEditorSettings() {
     SetViewWhiteSpace(config.getWhiteSpace() ? wxSTC_WS_VISIBLEALWAYS : wxSTC_WS_INVISIBLE);
 
     // Line number margin
-    if (config.getLineNumbers()) {
-        const auto lineNrWidth = TextWidth(wxSTC_STYLE_LINENUMBER, "00001");
-        SetMarginWidth(0, lineNrWidth);
-    } else {
-        SetMarginWidth(0, 0);
-    }
     SetMarginWidth(1, 0);
 
     // Fold margin
@@ -229,6 +225,15 @@ void Editor::applyHtmlTheme() {
 
 void Editor::applyTextTheme() {
     SetLexer(wxSTC_LEX_NULL);
+}
+
+void Editor::updateLineNumberMarginWidth() {
+    if (m_ctx.getConfig().getLineNumbers()) {
+        const auto lineNrWidth = TextWidth(wxSTC_STYLE_LINENUMBER, "00001");
+        SetMarginWidth(0, lineNrWidth);
+    } else {
+        SetMarginWidth(0, 0);
+    }
 }
 
 auto Editor::getWordAtCursor() -> wxString {
@@ -443,6 +448,10 @@ void Editor::onUpdateUI(wxStyledTextEvent& event) {
     event.Skip();
     updateStatusBar();
     updateBraceMatch();
+}
+
+void Editor::onZoom(wxStyledTextEvent&) {
+    updateLineNumberMarginWidth();
 }
 
 void Editor::updateBraceMatch() {
