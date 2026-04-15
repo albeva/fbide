@@ -22,14 +22,14 @@ target_sources(fbide_lib
     lib/editor/DocumentManager.cpp
     lib/editor/DocumentType.cpp
     lib/editor/Editor.cpp
-    lib/format/Renderers/BBCodeRenderer.cpp
-    lib/format/formatters/CaseTransform.cpp
     lib/format/FormatDialog.cpp
-    lib/format/Renderers/HtmlRenderer.cpp
-    lib/format/Lexer.cpp
-    lib/format/Renderers/PlainTextRenderer.cpp
-    lib/format/Renderers/Renderer.cpp
+    lib/analyses/lexer/Lexer.cpp
+    lib/format/formatters/CaseTransform.cpp
     lib/format/formatters/ReindentTransform.cpp
+    lib/format/renderers/BBCodeRenderer.cpp
+    lib/format/renderers/HtmlRenderer.cpp
+    lib/format/renderers/PlainTextRenderer.cpp
+    lib/format/renderers/Renderer.cpp
     lib/help/HelpManager.cpp
     lib/settings/SettingsDialog.cpp
     lib/settings/panels/CompilerPage.cpp
@@ -64,16 +64,16 @@ target_sources(fbide_lib
     lib/editor/DocumentManager.hpp
     lib/editor/DocumentType.hpp
     lib/editor/Editor.hpp
-    lib/format/Renderers/BBCodeRenderer.hpp
-    lib/format/formatters/CaseTransform.hpp
     lib/format/FormatDialog.hpp
-    lib/format/Renderers/HtmlRenderer.hpp
-    lib/format/Lexer.hpp
-    lib/format/Renderers/PlainTextRenderer.hpp
+    lib/analyses/lexer/Lexer.hpp
+    lib/analyses/lexer/Token.hpp
+    lib/format/formatters/CaseTransform.hpp
     lib/format/formatters/ReindentTransform.hpp
-    lib/format/renderers/Renderer.hpp
-    lib/format/Token.hpp
     lib/format/formatters/TokenTransform.hpp
+    lib/format/renderers/BBCodeRenderer.hpp
+    lib/format/renderers/HtmlRenderer.hpp
+    lib/format/renderers/PlainTextRenderer.hpp
+    lib/format/renderers/Renderer.hpp
     lib/help/HelpManager.hpp
     lib/settings/SettingsDialog.hpp
     lib/settings/panels/CompilerPage.hpp
@@ -88,11 +88,11 @@ target_sources(fbide_lib
     lib/ui/Panel.hpp
     lib/ui/UIManager.hpp
     lib/ui/UIState.hpp
+    lib/utils/DeferHandler.hpp
     lib/utils/Macros.hpp
     lib/utils/NoCopy.hpp
     lib/utils/Unowned.hpp
     lib/utils/ValueRestorer.hpp
-    lib/utils/DeferHandler.hpp
 )
 
 # target settings

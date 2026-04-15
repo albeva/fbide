@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "Token.hpp"
+#include "lib/analyses/lexer/Token.hpp"
 #include "lib/ui/Layout.hpp"
 
 namespace fbide {
@@ -43,7 +43,7 @@ private:
     [[nodiscard]] auto getKeywordCase() const -> std::optional<CaseMode>;
 
     Context& m_ctx;
-    std::vector<Token> m_tokens;
+    std::vector<lexer::Token> m_tokens;
     std::vector<std::unique_ptr<TokenTransform>> m_transforms;
     std::unique_ptr<Renderer> m_renderer;
 

@@ -16,7 +16,7 @@ class BBCodeRenderer final : public Renderer {
 public:
     explicit BBCodeRenderer(const Theme& theme) : m_theme(theme) {}
 
-    [[nodiscard]] auto render(const std::vector<Token>& tokens) const -> wxString override;
+    [[nodiscard]] auto render(const std::vector<lexer::Token>& tokens) const -> wxString override;
     [[nodiscard]] auto getType() const -> DocumentType override { return DocumentType::Text; }
 
 private:

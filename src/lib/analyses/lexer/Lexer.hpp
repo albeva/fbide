@@ -7,9 +7,11 @@
 #pragma once
 #include "pch.hpp"
 #include "Token.hpp"
-
 namespace fbide {
 class Keywords;
+}
+
+namespace fbide::lexer {
 
 /// Simple FreeBASIC lexer that tokenises source code.
 /// No syntax validation — unrecognised input becomes Identifier tokens.
@@ -26,6 +28,7 @@ private:
     [[nodiscard]] auto classifyWord(const wxString& word) const -> TokenKind;
 
     std::array<wxArrayString, 4> m_keywords;
+
 };
 
 } // namespace fbide

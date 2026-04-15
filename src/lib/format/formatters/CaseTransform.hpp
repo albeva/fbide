@@ -17,7 +17,7 @@ enum class CaseMode { Mixed, Upper, Lower };
 class CaseTransform final : public TokenTransform {
 public:
     explicit CaseTransform(const CaseMode mode) : m_mode(mode) {}
-    [[nodiscard]] auto apply(std::vector<Token> tokens) const -> std::vector<Token> override;
+    [[nodiscard]] auto apply(std::vector<lexer::Token> tokens) const -> std::vector<lexer::Token> override;
 
 private:
     CaseMode m_mode;

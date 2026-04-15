@@ -9,16 +9,16 @@ using namespace fbide;
 
 namespace {
 
-auto isKeyword(const TokenKind kind) -> bool {
-    return kind == TokenKind::Keyword1
-        || kind == TokenKind::Keyword2
-        || kind == TokenKind::Keyword3
-        || kind == TokenKind::Keyword4;
+auto isKeyword(const lexer::TokenKind kind) -> bool {
+    return kind == lexer::TokenKind::Keyword1
+        || kind == lexer::TokenKind::Keyword2
+        || kind == lexer::TokenKind::Keyword3
+        || kind == lexer::TokenKind::Keyword4;
 }
 
 } // namespace
 
-auto CaseTransform::apply(std::vector<Token> tokens) const -> std::vector<Token> {
+auto CaseTransform::apply(std::vector<lexer::Token> tokens) const -> std::vector<lexer::Token> {
     for (auto& [kind, text] : tokens) {
         if (!isKeyword(kind)) {
             continue;

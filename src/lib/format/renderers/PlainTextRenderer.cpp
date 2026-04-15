@@ -7,7 +7,7 @@
 #include "PlainTextRenderer.hpp"
 using namespace fbide;
 
-auto PlainTextRenderer::render(const std::vector<Token>& tokens) const -> wxString {
+auto PlainTextRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxString {
     wxString output;
     for (const auto& tok : tokens) {
         output += tok.text;

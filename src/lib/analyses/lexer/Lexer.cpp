@@ -6,7 +6,7 @@
 //
 #include "Lexer.hpp"
 #include "lib/config/Keywords.hpp"
-using namespace fbide;
+using namespace fbide::lexer;
 
 namespace {
 
@@ -23,7 +23,7 @@ auto isOperatorChar(const wxUniChar ch) -> bool {
 }
 
 auto isWordChar(const wxUniChar ch) -> bool {
-    if (wxIsalnum(ch) || ch == '_' || ch == '$' || ch == '&') {
+    if (wxIsalnum(ch) || ch == '_' || ch == '$') {
         return true;
     }
     return false;
@@ -82,6 +82,7 @@ auto Lexer::classifyWord(const wxString& word) const -> TokenKind {
 auto Lexer::tokenise(const wxString& source) const -> std::vector<Token> {
     std::vector<Token> tokens;
     const auto len = source.length();
+    tokens.reserve(len / 5); // Assime each token, on average, to be 5 characters long
     std::size_t pos = 0;
     bool atLineStart = true;
 
@@ -115,6 +116,33 @@ auto Lexer::tokenise(const wxString& source) const -> std::vector<Token> {
         }
 
         atLineStart = false;
+
+        // Multi-line comment (/' ... '/)  — may nest
+        if (ch == '/' && pos + 1 < len && source[pos + 1] == '\'') {
+            wxString text;
+            text += source[pos];     // /
+            text += source[pos + 1]; // '
+            pos += 2;
+            int depth = 1;
+            while (pos < len && depth > 0) {
+                if (source[pos] == '/' && pos + 1 < len && source[pos + 1] == '\'') {
+                    text += source[pos];
+                    text += source[pos + 1];
+                    pos += 2;
+                    depth++;
+                } else if (source[pos] == '\'' && pos + 1 < len && source[pos + 1] == '/') {
+                    text += source[pos];
+                    text += source[pos + 1];
+                    pos += 2;
+                    depth--;
+                } else {
+                    text += source[pos];
+                    pos++;
+                }
+            }
+            tokens.push_back({ TokenKind::CommentBlock, text });
+            continue;
+        }
 
         // Single-line comment (')
         if (ch == '\'') {

@@ -15,7 +15,7 @@ namespace fbide {
 class ReindentTransform final : public TokenTransform {
 public:
     explicit ReindentTransform(const int tabSize) : m_tabSize(tabSize) {}
-    [[nodiscard]] auto apply(std::vector<Token> tokens) const -> std::vector<Token> override;
+    [[nodiscard]] auto apply(std::vector<lexer::Token> tokens) const -> std::vector<lexer::Token> override;
 
 private:
     int m_tabSize;

@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "lib/format/Token.hpp"
+#include "lib/analyses/lexer/Token.hpp"
 #include "lib/format/formatters/TokenTransform.hpp"
 #include "lib/editor/DocumentType.hpp"
 
@@ -19,7 +19,7 @@ public:
 
     /// Render the token stream to a string, applying transforms first.
     [[nodiscard]] auto render(
-        const std::vector<Token>& tokens,
+        const std::vector<lexer::Token>& tokens,
         const std::vector<std::unique_ptr<TokenTransform>>& transforms
     ) const -> wxString;
 
@@ -28,7 +28,7 @@ public:
     [[nodiscard]] virtual auto getType() const -> DocumentType = 0;
 
     /// Subclasses implement this to render the (already transformed) tokens.
-    [[nodiscard]] virtual auto render(const std::vector<Token>& tokens) const -> wxString = 0;
+    [[nodiscard]] virtual auto render(const std::vector<lexer::Token>& tokens) const -> wxString = 0;
 };
 
 } // namespace fbide

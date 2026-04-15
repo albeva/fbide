@@ -8,7 +8,7 @@
 #include "renderers/BBCodeRenderer.hpp"
 #include "formatters/CaseTransform.hpp"
 #include "renderers/HtmlRenderer.hpp"
-#include "Lexer.hpp"
+#include "lib/analyses/lexer/Lexer.hpp"
 #include "renderers/PlainTextRenderer.hpp"
 #include "formatters/ReindentTransform.hpp"
 #include "lib/app/Context.hpp"
@@ -108,7 +108,7 @@ void FormatDialog::create() {
     // Tokenise source once
     const auto source = getSourceText();
     if (!source.empty()) {
-        const Lexer lexer(m_ctx.getKeywords());
+        const lexer::Lexer lexer(m_ctx.getKeywords());
         m_tokens = lexer.tokenise(source);
     }
 

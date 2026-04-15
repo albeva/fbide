@@ -9,14 +9,14 @@ using namespace fbide;
 
 namespace {
 
-auto isKeyword(const TokenKind kind) -> bool {
-    return kind == TokenKind::Keyword1
-        || kind == TokenKind::Keyword2
-        || kind == TokenKind::Keyword3
-        || kind == TokenKind::Keyword4;
+auto isKeyword(const lexer::TokenKind kind) -> bool {
+    return kind == lexer::TokenKind::Keyword1
+        || kind == lexer::TokenKind::Keyword2
+        || kind == lexer::TokenKind::Keyword3
+        || kind == lexer::TokenKind::Keyword4;
 }
 
-auto keywordText(const Token& tok) -> wxString {
+auto keywordText(const lexer::Token& tok) -> wxString {
     if (!isKeyword(tok.kind)) {
         return {};
     }
@@ -29,13 +29,13 @@ struct LineKeywords {
     wxString last;
 };
 
-auto getLineKeywords(const std::vector<Token*>& lineTokens) -> LineKeywords {
+auto getLineKeywords(const std::vector<lexer::Token*>& lineTokens) -> LineKeywords {
     LineKeywords result;
     for (const auto* tok : lineTokens) {
-        if (tok->kind == TokenKind::Whitespace || tok->kind == TokenKind::Newline) {
+        if (tok->kind == lexer::TokenKind::Whitespace || tok->kind == lexer::TokenKind::Newline) {
             continue;
         }
-        if (tok->kind == TokenKind::Comment) {
+        if (tok->kind == lexer::TokenKind::Comment || tok->kind == lexer::TokenKind::CommentBlock) {
             break;
         }
         const auto kw = keywordText(*tok);
@@ -70,13 +70,13 @@ auto isMidBlock(const wxString& kw) -> bool {
 
 } // namespace
 
-auto ReindentTransform::apply(std::vector<Token> tokens) const -> std::vector<Token> {
+auto ReindentTransform::apply(std::vector<lexer::Token> tokens) const -> std::vector<lexer::Token> {
     // Split tokens into lines (pointers into the tokens vector)
-    std::vector<std::vector<Token*>> lines;
+    std::vector<std::vector<lexer::Token*>> lines;
     lines.emplace_back();
 
     for (auto& tok : tokens) {
-        if (tok.kind == TokenKind::Newline) {
+        if (tok.kind == lexer::TokenKind::Newline) {
             lines.emplace_back();
         } else {
             lines.back().push_back(&tok);
@@ -88,7 +88,7 @@ auto ReindentTransform::apply(std::vector<Token> tokens) const -> std::vector<To
 
     for (auto& line : lines) {
         // Strip leading whitespace tokens
-        while (!line.empty() && line.front()->kind == TokenKind::Whitespace) {
+        while (!line.empty() && line.front()->kind == lexer::TokenKind::Whitespace) {
             line.front()->text.clear();
             line.erase(line.begin());
         }
@@ -100,7 +100,7 @@ auto ReindentTransform::apply(std::vector<Token> tokens) const -> std::vector<To
         const auto kws = getLineKeywords(line);
 
         // Preprocessor lines: flush to column 0
-        if (line.front()->kind == TokenKind::Preprocessor) {
+        if (line.front()->kind == lexer::TokenKind::Preprocessor) {
             continue;
         }
 
@@ -136,8 +136,8 @@ auto ReindentTransform::apply(std::vector<Token> tokens) const -> std::vector<To
     }
 
     // Remove tokens that were cleared (empty text whitespace)
-    std::erase_if(tokens, [](const Token& tok) {
-        return tok.kind == TokenKind::Whitespace && tok.text.empty();
+    std::erase_if(tokens, [](const lexer::Token& tok) {
+        return tok.kind == lexer::TokenKind::Whitespace && tok.text.empty();
     });
 
     return tokens;

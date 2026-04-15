@@ -14,25 +14,26 @@ auto hexColour(const wxColour& colour) -> wxString {
     return wxString::Format("#%02X%02X%02X", colour.Red(), colour.Green(), colour.Blue());
 }
 
-auto tokenToItemKind(const TokenKind kind) -> Theme::ItemKind {
+auto tokenToItemKind(const lexer::TokenKind kind) -> Theme::ItemKind {
     switch (kind) {
-        case TokenKind::Keyword1: return Theme::Keyword;
-        case TokenKind::Keyword2: return Theme::Keyword2;
-        case TokenKind::Keyword3: return Theme::Keyword3;
-        case TokenKind::Keyword4: return Theme::Keyword4;
-        case TokenKind::Comment: return Theme::Comment;
-        case TokenKind::String: return Theme::String;
-        case TokenKind::Number: return Theme::Number;
-        case TokenKind::Preprocessor: return Theme::Preprocessor;
-        case TokenKind::Operator: return Theme::Operator;
+        case lexer::TokenKind::Keyword1: return Theme::Keyword;
+        case lexer::TokenKind::Keyword2: return Theme::Keyword2;
+        case lexer::TokenKind::Keyword3: return Theme::Keyword3;
+        case lexer::TokenKind::Keyword4: return Theme::Keyword4;
+        case lexer::TokenKind::Comment: return Theme::Comment;
+        case lexer::TokenKind::CommentBlock: return Theme::Comment;
+        case lexer::TokenKind::String: return Theme::String;
+        case lexer::TokenKind::Number: return Theme::Number;
+        case lexer::TokenKind::Preprocessor: return Theme::Preprocessor;
+        case lexer::TokenKind::Operator: return Theme::Operator;
         default: return Theme::Default;
     }
 }
 
-auto needsStyling(const TokenKind kind) -> bool {
-    return kind != TokenKind::Identifier
-        && kind != TokenKind::Whitespace
-        && kind != TokenKind::Newline;
+auto needsStyling(const lexer::TokenKind kind) -> bool {
+    return kind != lexer::TokenKind::Identifier
+        && kind != lexer::TokenKind::Whitespace
+        && kind != lexer::TokenKind::Newline;
 }
 
 auto escapeHtml(const wxString& text) -> wxString {
@@ -52,7 +53,7 @@ auto escapeHtml(const wxString& text) -> wxString {
 
 } // namespace
 
-auto HtmlRenderer::render(const std::vector<Token>& tokens) const -> wxString {
+auto HtmlRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxString {
     const auto& editor = m_theme.getDefault();
     wxString output = "<pre>";
 

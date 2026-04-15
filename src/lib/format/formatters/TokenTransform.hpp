@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "../Token.hpp"
+#include "lib/analyses/lexer/Token.hpp"
 
 namespace fbide {
 
@@ -14,7 +14,7 @@ namespace fbide {
 class TokenTransform {
 public:
     virtual ~TokenTransform() = default;
-    [[nodiscard]] virtual auto apply(std::vector<Token> tokens) const -> std::vector<Token> = 0;
+    [[nodiscard]] virtual auto apply(std::vector<lexer::Token> tokens) const -> std::vector<lexer::Token> = 0;
 };
 
 } // namespace fbide

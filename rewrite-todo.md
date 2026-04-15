@@ -26,7 +26,7 @@
 
 ## Dialogs
 
-- [ ] Format dialog. Keyword case conversion tool.
+- [x] Format dialog. Keyword case conversion tool.
 - [x] About dialog. Version and license info.
 
 ## Help
@@ -42,5 +42,14 @@
 
 ## Bugs
 
-- [x] Fix open/save dialog file patterns that currently throw na error
-- [x] Fix "assert "GetEventHandler() == this" failed in ~wxWindowBase(): any pushed event handlers must have been removed" on find/replace dialog
+- [x] Open/save dialog file patterns that currently throw na error
+- [x] "assert "GetEventHandler() == this" failed in ~wxWindowBase(): any pushed event handlers must have been removed" on find/replace dialog
+- [ ] Syntax highlighter matches identifiers as keywords after "."
+- [ ] Formatter doesn't handle multi line comments. /' /' '/ '/
+- [ ] Auto indent fails on single line IFs
+
+# Editor
+
+- [ ] Auto indentation in the editor as user types
+- [ ] Open #include directives
+- [ ] Implement new FB scintilla lexer

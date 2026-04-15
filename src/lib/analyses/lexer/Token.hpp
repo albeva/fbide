@@ -7,7 +7,7 @@
 #pragma once
 #include "pch.hpp"
 
-namespace fbide {
+namespace fbide::lexer {
 
 /// Token types produced by the FreeBASIC lexer.
 enum class TokenKind {
@@ -16,6 +16,7 @@ enum class TokenKind {
     Keyword3,      // keyword group 3
     Keyword4,      // keyword group 4
     Comment,       // ' single-line comment
+    CommentBlock,  // /' nested multi-line comment '/
     String,        // "double-quoted string"
     Number,        // numeric literal (including &H, &O, &B prefixes)
     Preprocessor,  // #directive (entire line)

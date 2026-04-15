@@ -8,7 +8,7 @@
 using namespace fbide;
 
 auto Renderer::render(
-    const std::vector<Token>& tokens,
+    const std::vector<lexer::Token>& tokens,
     const std::vector<std::unique_ptr<TokenTransform>>& transforms
 ) const -> wxString {
     if (transforms.empty()) {
