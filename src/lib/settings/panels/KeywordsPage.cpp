@@ -23,13 +23,13 @@ void KeywordsPage::create() {
     const auto& lang = getContext().getLang();
 
     // Group dropdown
-    const std::vector options {
+    const wxArrayString options {
         lang[LangId::ThemeGroup1],
         lang[LangId::ThemeGroup2],
         lang[LangId::ThemeGroup3],
         lang[LangId::ThemeGroup4]
     };
-    m_groupChoice = choice(options, {});
+    m_groupChoice = choice(options, { .expand = false });
     m_groupChoice->SetSelection(static_cast<int>(m_selectedGroup));
     m_groupChoice->Bind(wxEVT_CHOICE, &KeywordsPage::onGroupChanged, this);
 
@@ -40,7 +40,7 @@ void KeywordsPage::create() {
         wxDefaultPosition, wxDefaultSize,
         wxTE_MULTILINE | wxTE_WORDWRAP
     );
-    currentSizer()->Add(m_textKeywords, 1, wxEXPAND | wxALL, DEFAULT_PADDING);
+    add(m_textKeywords, { .proportion = 1 } );
 }
 
 void KeywordsPage::apply() {
