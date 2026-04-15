@@ -48,7 +48,7 @@ void ThemePage::apply() {
 void ThemePage::create() {
     createTopRow();
 
-    hbox(m_activeTheme, { .border = 0 }, [&] {
+    hbox(m_activeTheme, { .proportion = 1, .border = 0 }, [&] {
         m_themeBox = wxDynamicCast(currentSizer(), wxStaticBoxSizer);
         createCategoryList();
         createLeftPanel();

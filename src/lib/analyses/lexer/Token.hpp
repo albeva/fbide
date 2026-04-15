@@ -31,9 +31,12 @@ enum class TokenKind {
 /// Structural keyword classification for autoindent and formatting.
 enum class KeywordKind {
     None,       // not a keyword
-    // Block openers
+    // Block openers (require definition check — may be Declare'd)
     Sub,
     Function,
+    Constructor,
+    Destructor,
+    Operator,
     Do,
     While,
     For,
@@ -58,8 +61,25 @@ enum class KeywordKind {
     // Type
     Type,
     As,
+    // Declaration
+    Declare,
     // Comment keyword
     Rem,
+    // Preprocessor block openers
+    PpIf,
+    PpIfDef,
+    PpIfNDef,
+    PpMacro,
+    // Preprocessor block closers
+    PpEndIf,
+    PpEndMacro,
+    // Preprocessor mid-block
+    PpElse,
+    PpElseIf,
+    PpElseIfDef,
+    PpElseIfNDef,
+    // Preprocessor non-block
+    PpOther,
     // A keyword not structurally significant
     Other,
 };

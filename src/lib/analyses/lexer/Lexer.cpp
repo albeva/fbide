@@ -42,8 +42,11 @@ auto asciiLower(const char ch) -> char {
 /// Map of structurally significant keywords to their KeywordKind.
 const std::unordered_map<std::string, KeywordKind> structuralKeywords = {
     // Block openers
-    { "sub",      KeywordKind::Sub },
-    { "function", KeywordKind::Function },
+    { "sub",         KeywordKind::Sub },
+    { "function",    KeywordKind::Function },
+    { "constructor", KeywordKind::Constructor },
+    { "destructor",  KeywordKind::Destructor },
+    { "operator",    KeywordKind::Operator },
     { "do",       KeywordKind::Do },
     { "while",    KeywordKind::While },
     { "for",      KeywordKind::For },
@@ -68,8 +71,27 @@ const std::unordered_map<std::string, KeywordKind> structuralKeywords = {
     // Type
     { "type",     KeywordKind::Type },
     { "as",       KeywordKind::As },
+    // Declaration
+    { "declare",  KeywordKind::Declare },
     // Comment keyword
     { "rem",      KeywordKind::Rem },
+};
+
+/// Preprocessor directive keywords mapped to their KeywordKind.
+const std::unordered_map<std::string, KeywordKind> ppKeywords = {
+    // Block openers
+    { "if",          KeywordKind::PpIf },
+    { "ifdef",       KeywordKind::PpIfDef },
+    { "ifndef",      KeywordKind::PpIfNDef },
+    { "macro",       KeywordKind::PpMacro },
+    // Block closers
+    { "endif",       KeywordKind::PpEndIf },
+    { "endmacro",    KeywordKind::PpEndMacro },
+    // Mid-block
+    { "else",        KeywordKind::PpElse },
+    { "elseif",      KeywordKind::PpElseIf },
+    { "elseifdef",   KeywordKind::PpElseIfDef },
+    { "elseifndef",  KeywordKind::PpElseIfNDef },
 };
 
 /// Lowercase an ASCII string_view into a std::string.
@@ -329,10 +351,28 @@ auto Lexer::stringLiteral(const StringMode mode) -> Token {
 }
 
 auto Lexer::preprocessor() -> Token {
+    // Skip '#' (already at m_start)
+    advance();
+    // Skip optional whitespace after '#'
+    while (current() == ' ' || current() == '\t') {
+        advance();
+    }
+    // Read directive word
+    const auto* dirStart = m_pos;
+    while (!atEnd() && ((current() >= 'a' && current() <= 'z') || (current() >= 'A' && current() <= 'Z'))) {
+        advance();
+    }
+    // Classify directive
+    const auto directive = toLower({ dirStart, static_cast<std::size_t>(m_pos - dirStart) });
+    auto kwKind = KeywordKind::PpOther;
+    if (const auto it = ppKeywords.find(directive); it != ppKeywords.end()) {
+        kwKind = it->second;
+    }
+    // Consume rest of line
     while (!atEnd() && current() != '\n' && current() != '\r') {
         advance();
     }
-    return makeToken(TokenKind::Preprocessor);
+    return makeToken(TokenKind::Preprocessor, kwKind);
 }
 
 auto Lexer::number() -> Token {

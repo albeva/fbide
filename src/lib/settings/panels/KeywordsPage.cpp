@@ -40,6 +40,11 @@ void KeywordsPage::create() {
         wxDefaultPosition, wxDefaultSize,
         wxTE_MULTILINE | wxTE_WORDWRAP
     );
+
+    wxFont font = m_textKeywords->GetFont();
+    font.SetFamily(wxFONTFAMILY_TELETYPE);
+    m_textKeywords->SetFont(font);
+
     add(m_textKeywords, { .proportion = 1 } );
     spacer();
 }

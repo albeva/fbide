@@ -83,7 +83,7 @@ private:
     Unowned<wxCheckBox> m_chkUnderline;
     Unowned<wxSpinCtrl> m_spinFontSize;
 
-    wxStaticBoxSizer* m_themeBox;
+    wxStaticBoxSizer* m_themeBox = nullptr;
 
     wxString m_activeTheme;
     Category m_category = Category::Comments;

@@ -24,6 +24,7 @@ AboutDialog::AboutDialog(wxWindow* parent, Context& ctx)
 
 void AboutDialog::create() {
     const auto infoFont = wxFont(wxFontInfo(9).Family(wxFONTFAMILY_TELETYPE));
+
     const auto banner = make_unowned<wxStaticBitmap>(
         currentParent(), wxID_ANY, wxBitmap(XPM::fbide_xpm),
         wxDefaultPosition, wxSize(300, 75)

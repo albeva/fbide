@@ -23,9 +23,9 @@ protected:
     }
 
     /// Tokenise, reindent, and return the resulting text.
-    auto reindent(const char* source) -> std::string {
+    auto reindent(const char* source, const bool anchorHash = false) -> std::string {
         const auto tokens = m_lexer->tokenise(source);
-        const ReindentTransform transform(tabSize);
+        const ReindentTransform transform(tabSize, anchorHash);
         const auto result = transform.apply(tokens);
 
         std::string output;
@@ -65,6 +65,114 @@ TEST_F(ReindentTests, FunctionBlock) {
         "Function Add(a As Integer, b As Integer) As Integer\n"
         "    Return a + b\n"
         "End Function\n"
+    );
+}
+
+TEST_F(ReindentTests, DeclareSubNoIndent) {
+    const auto result = reindent(
+        "Declare Sub Main()\n"
+        "Dim x = 1\n"
+    );
+    EXPECT_EQ(result,
+        "Declare Sub Main()\n"
+        "Dim x = 1\n"
+    );
+}
+
+TEST_F(ReindentTests, DeclareFunctionNoIndent) {
+    const auto result = reindent(
+        "Declare Function Add(a As Integer, b As Integer) As Integer\n"
+        "Dim x = 1\n"
+    );
+    EXPECT_EQ(result,
+        "Declare Function Add(a As Integer, b As Integer) As Integer\n"
+        "Dim x = 1\n"
+    );
+}
+
+TEST_F(ReindentTests, FunctionReturnValueNoIndent) {
+    // "Function = value" inside a function body — must not indent
+    const auto result = reindent(
+        "Function Foo() As Integer\n"
+        "Function = 10\n"
+        "End Function\n"
+    );
+    EXPECT_EQ(result,
+        "Function Foo() As Integer\n"
+        "    Function = 10\n"
+        "End Function\n"
+    );
+}
+
+TEST_F(ReindentTests, ConstructorBlock) {
+    const auto result = reindent(
+        "Constructor MyType()\n"
+        "x = 1\n"
+        "End Constructor\n"
+    );
+    EXPECT_EQ(result,
+        "Constructor MyType()\n"
+        "    x = 1\n"
+        "End Constructor\n"
+    );
+}
+
+TEST_F(ReindentTests, DestructorBlock) {
+    const auto result = reindent(
+        "Destructor MyType()\n"
+        "x = 0\n"
+        "End Destructor\n"
+    );
+    EXPECT_EQ(result,
+        "Destructor MyType()\n"
+        "    x = 0\n"
+        "End Destructor\n"
+    );
+}
+
+TEST_F(ReindentTests, OperatorBlock) {
+    const auto result = reindent(
+        "Operator MyType.Cast() As String\n"
+        "Return \"hello\"\n"
+        "End Operator\n"
+    );
+    EXPECT_EQ(result,
+        "Operator MyType.Cast() As String\n"
+        "    Return \"hello\"\n"
+        "End Operator\n"
+    );
+}
+
+TEST_F(ReindentTests, DeclareConstructorNoIndent) {
+    const auto result = reindent(
+        "Declare Constructor()\n"
+        "Dim x = 1\n"
+    );
+    EXPECT_EQ(result,
+        "Declare Constructor()\n"
+        "Dim x = 1\n"
+    );
+}
+
+TEST_F(ReindentTests, DeclareDestructorNoIndent) {
+    const auto result = reindent(
+        "Declare Destructor()\n"
+        "Dim x = 1\n"
+    );
+    EXPECT_EQ(result,
+        "Declare Destructor()\n"
+        "Dim x = 1\n"
+    );
+}
+
+TEST_F(ReindentTests, DeclareOperatorNoIndent) {
+    const auto result = reindent(
+        "Declare Operator Cast() As String\n"
+        "Dim x = 1\n"
+    );
+    EXPECT_EQ(result,
+        "Declare Operator Cast() As String\n"
+        "Dim x = 1\n"
     );
 }
 
@@ -327,10 +435,10 @@ TEST_F(ReindentTests, ScopeBlock) {
 }
 
 // ---------------------------------------------------------------------------
-// Preprocessor stays at column 0
+// Preprocessor — non-block directives indent with surrounding code
 // ---------------------------------------------------------------------------
 
-TEST_F(ReindentTests, PreprocessorFlushLeft) {
+TEST_F(ReindentTests, PreprocessorIncludeIndented) {
     const auto result = reindent(
         "Sub Main\n"
         "#include \"file.bi\"\n"
@@ -339,9 +447,153 @@ TEST_F(ReindentTests, PreprocessorFlushLeft) {
     );
     EXPECT_EQ(result,
         "Sub Main\n"
-        "#include \"file.bi\"\n"
+        "    #include \"file.bi\"\n"
         "    Print x\n"
         "End Sub\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Preprocessor — #ifdef / #endif blocks
+// ---------------------------------------------------------------------------
+
+TEST_F(ReindentTests, PreprocessorIfdefEndif) {
+    const auto result = reindent(
+        "#ifdef DEBUG\n"
+        "#define LOG(x) Print x\n"
+        "#endif\n"
+    );
+    EXPECT_EQ(result,
+        "#ifdef DEBUG\n"
+        "    #define LOG(x) Print x\n"
+        "#endif\n"
+    );
+}
+
+TEST_F(ReindentTests, PreprocessorIfdefElseEndif) {
+    const auto result = reindent(
+        "#ifdef DEBUG\n"
+        "#define LOG(x) Print x\n"
+        "#else\n"
+        "#define LOG(x)\n"
+        "#endif\n"
+    );
+    EXPECT_EQ(result,
+        "#ifdef DEBUG\n"
+        "    #define LOG(x) Print x\n"
+        "#else\n"
+        "    #define LOG(x)\n"
+        "#endif\n"
+    );
+}
+
+TEST_F(ReindentTests, PreprocessorNested) {
+    const auto result = reindent(
+        "#ifdef A\n"
+        "#ifdef B\n"
+        "#define X 1\n"
+        "#endif\n"
+        "#endif\n"
+    );
+    EXPECT_EQ(result,
+        "#ifdef A\n"
+        "    #ifdef B\n"
+        "        #define X 1\n"
+        "    #endif\n"
+        "#endif\n"
+    );
+}
+
+TEST_F(ReindentTests, PreprocessorIfEndif) {
+    const auto result = reindent(
+        "#if FOO = 1\n"
+        "#define BAR 2\n"
+        "#endif\n"
+    );
+    EXPECT_EQ(result,
+        "#if FOO = 1\n"
+        "    #define BAR 2\n"
+        "#endif\n"
+    );
+}
+
+TEST_F(ReindentTests, PreprocessorIfndefEndif) {
+    const auto result = reindent(
+        "#ifndef GUARD\n"
+        "#define GUARD\n"
+        "#endif\n"
+    );
+    EXPECT_EQ(result,
+        "#ifndef GUARD\n"
+        "    #define GUARD\n"
+        "#endif\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Preprocessor — #macro / #endmacro
+// ---------------------------------------------------------------------------
+
+TEST_F(ReindentTests, PreprocessorMacroBlock) {
+    const auto result = reindent(
+        "#macro MyMacro(x)\n"
+        "Print x\n"
+        "#endmacro\n"
+    );
+    EXPECT_EQ(result,
+        "#macro MyMacro(x)\n"
+        "    Print x\n"
+        "#endmacro\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Preprocessor — mixed with code blocks
+// ---------------------------------------------------------------------------
+
+TEST_F(ReindentTests, PreprocessorInsideCodeBlock) {
+    const auto result = reindent(
+        "Sub Main\n"
+        "#ifdef DEBUG\n"
+        "Print \"debug\"\n"
+        "#endif\n"
+        "End Sub\n"
+    );
+    EXPECT_EQ(result,
+        "Sub Main\n"
+        "    #ifdef DEBUG\n"
+        "        Print \"debug\"\n"
+        "    #endif\n"
+        "End Sub\n"
+    );
+}
+
+TEST_F(ReindentTests, PreprocessorElseIfVariants) {
+    const auto result = reindent(
+        "#ifdef A\n"
+        "#define X 1\n"
+        "#elseifdef B\n"
+        "#define X 2\n"
+        "#elseifndef C\n"
+        "#define X 3\n"
+        "#elseif D = 1\n"
+        "#define X 4\n"
+        "#else\n"
+        "#define X 0\n"
+        "#endif\n"
+    );
+    EXPECT_EQ(result,
+        "#ifdef A\n"
+        "    #define X 1\n"
+        "#elseifdef B\n"
+        "    #define X 2\n"
+        "#elseifndef C\n"
+        "    #define X 3\n"
+        "#elseif D = 1\n"
+        "    #define X 4\n"
+        "#else\n"
+        "    #define X 0\n"
+        "#endif\n"
     );
 }
 
@@ -376,6 +628,156 @@ TEST_F(ReindentTests, StripExistingIndent) {
     EXPECT_EQ(result,
         "Sub Main\n"
         "    Print \"over-indented\"\n"
+        "End Sub\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Preprocessor / code indent independence
+// ---------------------------------------------------------------------------
+
+TEST_F(ReindentTests, PpCodeIndentResetAtElse) {
+    const auto result = reindent(
+        "#ifdef DEBUG\n"
+        "if x then\n"
+        "print x\n"
+        "end if\n"
+        "#else\n"
+        "if y then\n"
+        "print y\n"
+        "end if\n"
+        "#endif\n"
+    );
+    EXPECT_EQ(result,
+        "#ifdef DEBUG\n"
+        "    if x then\n"
+        "        print x\n"
+        "    end if\n"
+        "#else\n"
+        "    if y then\n"
+        "        print y\n"
+        "    end if\n"
+        "#endif\n"
+    );
+}
+
+TEST_F(ReindentTests, PpInsideCodeBlock) {
+    const auto result = reindent(
+        "Sub Main\n"
+        "#ifdef DEBUG\n"
+        "print \"debug\"\n"
+        "#endif\n"
+        "print \"hello\"\n"
+        "End Sub\n"
+    );
+    EXPECT_EQ(result,
+        "Sub Main\n"
+        "    #ifdef DEBUG\n"
+        "        print \"debug\"\n"
+        "    #endif\n"
+        "    print \"hello\"\n"
+        "End Sub\n"
+    );
+}
+
+TEST_F(ReindentTests, PpNestedWithCode) {
+    const auto result = reindent(
+        "#ifdef A\n"
+        "#ifdef B\n"
+        "print x\n"
+        "#endif\n"
+        "print y\n"
+        "#endif\n"
+    );
+    EXPECT_EQ(result,
+        "#ifdef A\n"
+        "    #ifdef B\n"
+        "        print x\n"
+        "    #endif\n"
+        "    print y\n"
+        "#endif\n"
+    );
+}
+
+TEST_F(ReindentTests, PpElseIfChainResetsCode) {
+    const auto result = reindent(
+        "#ifdef A\n"
+        "if x then\n"
+        "print 1\n"
+        "end if\n"
+        "#elseif B\n"
+        "if y then\n"
+        "print 2\n"
+        "end if\n"
+        "#else\n"
+        "print 3\n"
+        "#endif\n"
+    );
+    EXPECT_EQ(result,
+        "#ifdef A\n"
+        "    if x then\n"
+        "        print 1\n"
+        "    end if\n"
+        "#elseif B\n"
+        "    if y then\n"
+        "        print 2\n"
+        "    end if\n"
+        "#else\n"
+        "    print 3\n"
+        "#endif\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Anchored # mode
+// ---------------------------------------------------------------------------
+
+TEST_F(ReindentTests, AnchoredHashSimple) {
+    const auto result = reindent(
+        "#ifdef DEBUG\n"
+        "#define X 1\n"
+        "#endif\n",
+        true
+    );
+    EXPECT_EQ(result,
+        "#ifdef DEBUG\n"
+        "#   define X 1\n"
+        "#endif\n"
+    );
+}
+
+TEST_F(ReindentTests, AnchoredHashNested) {
+    const auto result = reindent(
+        "#if 1\n"
+        "#if 1\n"
+        "print \"hello\"\n"
+        "#endif\n"
+        "#endif\n",
+        true
+    );
+    EXPECT_EQ(result,
+        "#if 1\n"
+        "#   if 1\n"
+        "        print \"hello\"\n"
+        "#   endif\n"
+        "#endif\n"
+    );
+}
+
+TEST_F(ReindentTests, AnchoredHashInsideCodeBlock) {
+    const auto result = reindent(
+        "Sub Main\n"
+        "#ifdef DEBUG\n"
+        "print x\n"
+        "#endif\n"
+        "End Sub\n",
+        true
+    );
+    EXPECT_EQ(result,
+        "Sub Main\n"
+        "#   ifdef DEBUG\n"
+        "        print x\n"
+        "#   endif\n"
         "End Sub\n"
     );
 }
