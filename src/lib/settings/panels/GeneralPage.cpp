@@ -30,7 +30,7 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 void GeneralPage::create() {
     makeTitle(LangId::SettingsEditorSettings);
 
-    hbox({ .proportion = 0, .margin = 0 }, [&] {
+    hbox({}, [&] {
         vbox({ .proportion = 1 }, [&] {
             checkBox(m_autoIndent, LangId::SettingsAutoIndent);
             checkBox(m_indentGuide, LangId::SettingsIndentGuides);

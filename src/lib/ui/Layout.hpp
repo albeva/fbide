@@ -14,6 +14,40 @@ concept SizerAware = requires(T& parent, wxSizer* sizer) {
     { parent.SetSizer(sizer) } -> std::same_as<void>;
 };
 
+
+static constexpr auto DEFAULT_PADDING = 5;
+static constexpr auto DEFAULT_GAP = 5;
+
+/// Layout options container sizers
+struct LayoutContainerOptions final {
+    /// Sizing proportion inside parent container
+    int proportion = 0;
+    /// Fill view along container axis
+    bool expand = true;
+    /// Add leading (left or top) space
+    bool space = true;
+    /// Apply parent container padding
+    bool padding = true;
+    /// Center child items within the container
+    bool center = false;
+    /// Space around cihld items
+    int border = DEFAULT_PADDING;
+    /// Space between child items
+    int gap = DEFAULT_GAP;
+};
+
+/// Layout options for individual managed items
+struct LayoutItemOptions final {
+    /// Sizing proportion inside parent container
+    int proportion = 0;
+    /// Fill view along container axis
+    bool expand = true;
+    /// Add leading (left or top) space
+    bool space = true;
+    /// Apply parent container padding
+    bool padding = true;
+};
+
 /// Templated layout helper that can extend any wxWindow-derived class.
 /// Provides automatic gap management between sibling elements.
 ///
@@ -25,27 +59,6 @@ class Layout : public Base {
 public:
     NO_COPY_AND_MOVE(Layout)
 
-    static constexpr auto DEFAULT_MARGIN = 5;
-    static constexpr auto DEFAULT_PADDING = 5;
-    static constexpr auto DEFAULT_GAP = 5;
-
-    /// Layout options container sizers
-    struct LayoutContainerOptions final {
-        int proportion = 0;
-        bool center = false;
-        bool expand = true;
-        bool collapse = true;
-        int margin = DEFAULT_MARGIN;
-        int padding = DEFAULT_PADDING;
-        int gap = DEFAULT_GAP;
-    };
-
-    /// Layout options for individual managed items
-    struct LayoutItemOptions final {
-        int proportion = 0;
-        bool expand = true;
-    };
-
     template<typename... Args>
     explicit Layout(Args&&... args)
     : Base(std::forward<Args>(args)...) {
@@ -56,65 +69,20 @@ public:
 protected:
 
     /// Add a window to the current sizer with automatic gap.
-    void add(wxWindow* view, LayoutItemOptions opts = {}) {
-        const bool isFirst = m_currentSizer->GetItemCount() == 0;
-        const bool vertical = m_currentSizer->IsVertical();
-        int flags =  vertical ? wxLEFT | wxRIGHT : wxTOP | wxBOTTOM;
-        const int border = m_currentOptions.padding;
-
-        if (opts.expand) {
-            flags |= wxEXPAND;
-        }
-
-        m_currentSizer->AddSpacer(isFirst ? m_currentOptions.padding : m_currentOptions.gap);
-
-        if (m_currentOptions.center) {
-            flags |= vertical ? wxALIGN_CENTER_HORIZONTAL : wxALIGN_CENTER_VERTICAL;
-        }
-
-        m_currentSizer->Add(view, opts.proportion, flags, border);
+    void add(wxWindow* view, const LayoutItemOptions opts = {}) {
+        const auto calc = calculate(opts);
+        m_currentSizer->Add(view, calc.proportion, calc.flags, calc.border);
     }
 
-    /// Add a sizer to the current sizer with automatic gap.
-    void add(wxSizer* sizer, LayoutContainerOptions opts = {}) {
-        // m_currentSizer->Add(sizer, opts.proportion, 0, opts.margin);
-        const bool isFirst = m_currentSizer->GetItemCount() == 0;
-        const bool vertical = m_currentSizer->IsVertical();
-        int flags =  vertical ? wxLEFT | wxRIGHT : wxTOP | wxBOTTOM;
-
-        // calculate padding
-        int padding = m_currentOptions.padding;
-        if (opts.collapse) {
-            if (opts.margin > padding) {
-                padding -= opts.margin;
-            } else {
-                padding = 0;
-            }
-        }
-
-        // calculate gap
-        int gap = m_currentOptions.gap;
-        if (opts.collapse) {
-            if (opts.margin > gap) {
-                gap -= opts.margin;
-            } else {
-                gap = 0;
-            }
-        }
-
-        const int border = padding;
-
-        if (opts.expand) {
-            flags |= wxEXPAND;
-        }
-
-        m_currentSizer->AddSpacer(isFirst ? padding : gap);
-
-        if (m_currentOptions.center) {
-            flags |= vertical ? wxALIGN_CENTER_HORIZONTAL : wxALIGN_CENTER_VERTICAL;
-        }
-
-        m_currentSizer->Add(sizer, opts.proportion, flags, border);
+    /// Add child sizer
+    void add(wxSizer* sizer, const LayoutContainerOptions opts = {}) {
+        const auto calc = calculate({
+            .proportion = opts.proportion,
+            .expand = opts.expand,
+            .space = opts.space,
+            .padding = opts.padding
+        });
+        m_currentSizer->Add(sizer, calc.proportion, calc.flags, calc.border);
     }
 
     /// Add a separator line (orientation auto-detected from parent sizer).
@@ -128,7 +96,9 @@ protected:
         add(line, {});
     }
 
-    // -- View creators --
+    // -----------------------------------------------------------------------
+    // Controls
+    // -----------------------------------------------------------------------
 
     /// Add a static text label.
     auto label(const wxString& str, const LayoutItemOptions opts = {}) -> Unowned<wxStaticText> {
@@ -137,11 +107,10 @@ protected:
         return ctrl;
     }
 
-    /// Add a checkbox. Binds value automatically.
-    auto checkBox(bool& value, const wxString& str, const LayoutItemOptions opts = {}) -> Unowned<wxCheckBox> {
+    /// Add a checkbox
+    auto checkBox(const bool value, const wxString& str, const LayoutItemOptions opts = {}) -> Unowned<wxCheckBox> {
         const auto ctrl = checkBox(str, opts);
         ctrl->SetValue(value);
-        ctrl->Bind(wxEVT_CHECKBOX, [&](const wxCommandEvent& evt) { value = evt.IsChecked(); });
         return ctrl;
     }
 
@@ -151,14 +120,14 @@ protected:
         return ctrl;
     }
 
-    /// Add a spin control. Binds value automatically.
-    auto spinCtrl(int& value, const int minVal, const int maxVal, const LayoutItemOptions opts = {}) -> Unowned<wxSpinCtrl> {
+    /// Add a spin control with initial value
+    auto spinCtrl(const int value, const int minVal, const int maxVal, const LayoutItemOptions opts = {}) -> Unowned<wxSpinCtrl> {
         const auto ctrl = spinCtrl(minVal, maxVal, opts);
         ctrl->SetValue(value);
-        ctrl->Bind(wxEVT_SPINCTRL, [&](const wxSpinEvent& evt) { value = evt.GetInt(); });
         return ctrl;
     }
 
+    /// Add spin control
     auto spinCtrl(int minVal, int maxVal, const LayoutItemOptions opts = {}) -> Unowned<wxSpinCtrl> {
         const auto ctrl = make_unowned<wxSpinCtrl>(
             this, wxID_ANY, "",
@@ -169,29 +138,29 @@ protected:
         return ctrl;
     }
 
-    /// Add a choice dropdown. Binds value automatically.
-    auto choice(wxString& value, const wxArrayString& choices, const LayoutItemOptions opts = {}) -> Unowned<wxChoice> {
+    /// Add a choice dropdown with initial value.
+    auto choice(const wxString& value, const wxArrayString& choices, const LayoutItemOptions opts = {}) -> Unowned<wxChoice> {
         const auto ctrl = choice(choices, opts);
         const auto sel = ctrl->FindString(value);
         ctrl->SetSelection(sel != wxNOT_FOUND ? sel : 0);
-        ctrl->Bind(wxEVT_CHOICE, [&](const wxCommandEvent& evt) { value = evt.GetString(); });
         return ctrl;
     }
 
+    /// Add a choise dropdown
     auto choice(const wxArrayString& choices, LayoutItemOptions opts = {}) -> Unowned<wxChoice> {
         const auto ctrl = make_unowned<wxChoice>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, choices);
         add(ctrl, opts);
         return ctrl;
     }
 
-    /// Add a text field. Binds value automatically.
-    auto textField(wxString& value, const LayoutItemOptions opts = {}) -> Unowned<wxTextCtrl> {
+    /// Add a text field with initial value
+    auto textField(const wxString& value, const LayoutItemOptions opts = {}) -> Unowned<wxTextCtrl> {
         const auto ctrl = textField(opts);
         ctrl->SetValue(value);
-        ctrl->Bind(wxEVT_TEXT, [&](const wxCommandEvent& evt) { value = evt.GetString(); });
         return ctrl;
     }
 
+    /// Add a text field
     auto textField(const LayoutItemOptions opts = {}) -> Unowned<wxTextCtrl> {
         const auto ctrl = make_unowned<wxTextCtrl>(this, wxID_ANY);
         add(ctrl, opts);
@@ -205,56 +174,98 @@ protected:
         return ctrl;
     }
 
-    /// Add a radio button. Pass wxRB_GROUP in opts.flag to start a new group.
-    auto radioButton(const wxString& str, const LayoutItemOptions opts = {}) -> Unowned<wxRadioButton> {
-        const auto ctrl = make_unowned<wxRadioButton>(this, wxID_ANY, str, wxDefaultPosition, wxDefaultSize,
-            opts.flag & wxRB_GROUP ? wxRB_GROUP : 0);
-        add(ctrl, { .proportion = opts.proportion, .flag = opts.flag & ~wxRB_GROUP, .margin = opts.margin });
+    /// Add a radio button
+    auto radio(const wxString& str, const LayoutItemOptions opts = {}) -> Unowned<wxRadioButton> {
+        const auto ctrl = make_unowned<wxRadioButton>(this, wxID_ANY, str, wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
+        add(ctrl, opts);
         return ctrl;
     }
 
-    // -- Box containers --
+    // -----------------------------------------------------------------------
+    // HBOX
+    // -----------------------------------------------------------------------
 
+    /// Lay child items out horizontally
     template<std::invocable Func>
     auto hbox(const LayoutContainerOptions opts, Func&& func) -> std::invoke_result_t<Func> {
         return makeBox(wxEmptyString, wxHORIZONTAL, opts, std::forward<Func>(func));
     }
 
+    /// Lay child items out horizontally in a named bordered box
     template<std::invocable Func>
     auto hbox(const wxString& title, const LayoutContainerOptions opts, Func&& func) -> std::invoke_result_t<Func> {
         return makeBox(title, wxHORIZONTAL, opts, std::forward<Func>(func));
     }
 
+    // -----------------------------------------------------------------------
+    // VBOX
+    // -----------------------------------------------------------------------
+
+    /// Lay child items out vertically
     template<std::invocable Func>
     auto vbox(const LayoutContainerOptions opts, Func&& func) -> std::invoke_result_t<Func> {
         return makeBox(wxEmptyString, wxVERTICAL, opts, std::forward<Func>(func));
     }
 
+    /// Lay child items out vertically in a named bordered box
     template<std::invocable Func>
     auto vbox(const wxString& title, const LayoutContainerOptions opts, Func&& func) -> std::invoke_result_t<Func> {
         return makeBox(title, wxVERTICAL, opts, std::forward<Func>(func));
     }
 
+    // -----------------------------------------------------------------------
+    // Layout options
+    // -----------------------------------------------------------------------
+
+    /// Gey current managed sizer (hbox or vbox)
     [[nodiscard]] auto currentSizer() const -> wxBoxSizer* { return m_currentSizer; }
 
+    /// Get current layout options
+    [[nodiscard]] auto currentOptions() -> LayoutContainerOptions& { return m_currentOptions; }
+
 private:
+    struct CalculatedOptions final {
+        int proportion;
+        int flags;
+        int border;
+    };
+
+    auto calculate(LayoutItemOptions opts) -> CalculatedOptions {
+        const bool isFirst = m_currentSizer->GetItemCount() == 0;
+        const bool vertical = m_currentSizer->IsVertical();
+        int flags = vertical ? wxLEFT | wxRIGHT : wxTOP | wxBOTTOM;
+        const int padding = opts.padding ? m_currentOptions.border : 0;
+        const int border = padding;
+
+        if (opts.expand) {
+            flags |= wxEXPAND;
+        }
+
+        if (opts.space) {
+            m_currentSizer->AddSpacer(isFirst ? padding : m_currentOptions.gap);
+        }
+
+        if (m_currentOptions.center) {
+            flags |= vertical ? wxALIGN_CENTER_HORIZONTAL : wxALIGN_CENTER_VERTICAL;
+        }
+
+        return { .proportion = opts.proportion, .flags = flags, .border = border };
+    }
+
 
     template<std::invocable Func>
     auto makeBox(const wxString& title, const int direction, const LayoutContainerOptions opts, Func&& func) -> std::invoke_result_t<Func> {
         const ValueRestorer restoreSizer { m_currentSizer, m_currentOptions };
-        m_previous = opts;
-        m_currentOptions = opts;
-        DEFER(closeContainer());
-
         auto* sizer = [&] -> wxBoxSizer* {
             if (title.empty()) {
                 return make_unowned<wxBoxSizer>(direction);
             }
             return make_unowned<wxStaticBoxSizer>(direction, this, title);
         }();
-
         add(sizer, opts);
         m_currentSizer = sizer;
+        m_currentOptions = opts;
+        DEFER(closeContainer());
         return std::invoke(std::forward<Func>(func));
     }
 
@@ -262,24 +273,11 @@ private:
         if (m_currentSizer->IsEmpty()) {
             return;
         }
-
-        int padding = m_currentOptions.padding;
-        const auto item = m_currentSizer->GetChildren().GetLast()->GetData();
-        if (item->IsSizer()) {
-            if (m_previous.collapse) {
-                if (m_previous.margin > padding) {
-                    padding += (m_previous.margin - padding);
-                }
-            } else {
-                padding += m_previous.margin;
-            }
-        }
-        m_currentSizer->AddSpacer(padding);
+        m_currentSizer->AddSpacer(m_currentOptions.border);
     }
 
     wxBoxSizer* m_currentSizer = nullptr;
-    LayoutContainerOptions m_currentOptions {};
-    LayoutContainerOptions m_previous{};
+    LayoutContainerOptions m_currentOptions = {};
 };
 
 } // namespace fbide

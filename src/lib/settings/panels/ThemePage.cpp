@@ -49,7 +49,7 @@ void ThemePage::create() {
     createTopRow();
     separator();
 
-    hbox({ .proportion = 1, .margin = 0 }, [&] {
+    hbox({ }, [&] {
         createCategoryList();
         createLeftPanel();
         separator();
@@ -107,7 +107,7 @@ void ThemePage::createCategoryList() {
 }
 
 void ThemePage::createLeftPanel() {
-    vbox({ .proportion = 1, .margin = 0 }, [&] {
+    vbox({ .proportion = 1 }, [&] {
         text(LangId::ThemeForeground, {});
         m_btnFg = button(LangId::EmptyString, {});
         m_btnFg->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onColorButton(m_btnFg); });
@@ -126,7 +126,7 @@ void ThemePage::createLeftPanel() {
 }
 
 void ThemePage::createRightPanel() {
-    vbox({ .proportion = 0, .margin = 0 }, [&] {
+    vbox({}, [&] {
         text(LangId::ThemeFontStyle, { });
         m_chkBold = checkBox(LangId::ThemeBold);
         m_chkItalic = checkBox(LangId::ThemeItalic);

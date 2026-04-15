@@ -23,16 +23,14 @@ AboutDialog::AboutDialog(wxWindow* parent, Context& ctx)
 , m_ctx(ctx) {}
 
 void AboutDialog::create() {
-
     const auto infoFont = wxFont(wxFontInfo(9).Family(wxFONTFAMILY_TELETYPE));
-
     const auto banner = make_unowned<wxStaticBitmap>(
         this, wxID_ANY, wxBitmap(XPM::fbide_xpm),
         wxDefaultPosition, wxSize(300, 75)
     );
-    add(banner, {});
+    add(banner, { .padding = false });
 
-    vbox("FBIde information", {}, [&] {
+    vbox("FBIde information", { .border = 0 }, [&] {
         const auto info = label(
             wxString::Format(
                 "Version:       %s\n"
@@ -41,17 +39,20 @@ void AboutDialog::create() {
                 cmake::project.version,
                 __DATE__,
                 wxMAJOR_VERSION, wxMINOR_VERSION, wxRELEASE_NUMBER
-            )
+            ),
+            { .space = false }
         );
         info->SetFont(infoFont);
 
         separator();
 
-        const auto text = make_unowned<BBCodeText>(this, wxID_ANY, loadReadme(), wxDefaultPosition, wxSize(-1, 150));
+        const auto text = make_unowned<BBCodeText>(this, wxID_ANY, loadReadme(), wxDefaultPosition, wxSize(-1, 200));
         add(text, { .proportion = 1 });
     });
 
-    add(CreateStdDialogButtonSizer(wxOK), {});
+    add(CreateStdDialogButtonSizer(wxOK), { .padding = false });
+    currentSizer()->AddSpacer(DEFAULT_PADDING);
+
     Fit();
     Centre();
 }
