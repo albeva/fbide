@@ -97,10 +97,12 @@ auto CompilerPage::makeEntryField(wxString& value, const LangId lang) -> Unowned
 
 auto CompilerPage::makeFileEntry(wxString& value, const LangId lang) -> std::pair<Unowned<wxTextCtrl>, Unowned<wxButton>> {
     const auto lbl = text(lang, {});
-    return hbox({ .center = true, .border = 0 }, [&] {
-        const auto tf = textField(value, { .proportion = 1 });
+    Unowned<wxButton> btn;
+    Unowned<wxTextCtrl> tf;
+    hbox({ .center = true, .border = 0 }, [&] {
+        tf = textField(value, { .proportion = 1 });
         connect(lbl, tf);
-        const auto btn = button("...", {});
-        return std::make_pair(tf, btn);
+        btn = button("...", {});
     });
+    return std::make_pair(tf, btn);
 }

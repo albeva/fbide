@@ -120,15 +120,15 @@ protected:
     // -----------------------------------------------------------------------
 
     /// Add a static text label.
-    auto label(const wxString& str, const LayoutItemOptions opts = {}) -> Unowned<wxStaticText> {
-        const auto ctrl = make_unowned<wxStaticText>(this, wxID_ANY, str);
+    auto label(const wxString& str, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxStaticText> {
+        const auto ctrl = make_unowned<wxStaticText>(this, wxID_ANY, str, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }
 
     /// Add a checkbox
-    auto checkBox(bool& value, const wxString& str, const LayoutItemOptions opts = {}) -> Unowned<wxCheckBox> {
-        const auto ctrl = checkBox(str, opts);
+    auto checkBox(bool& value, const wxString& str, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxCheckBox> {
+        const auto ctrl = checkBox(str, opts, style);
         ctrl->SetValue(value);
         ctrl->Bind(wxEVT_CHECKBOX, [&](const wxCommandEvent& evt) {
             value = evt.IsChecked();
@@ -136,15 +136,15 @@ protected:
         return ctrl;
     }
 
-    auto checkBox(const wxString& str, const LayoutItemOptions opts = {}) -> Unowned<wxCheckBox> {
-        const auto ctrl = make_unowned<wxCheckBox>(this, wxID_ANY, str);
+    auto checkBox(const wxString& str, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxCheckBox> {
+        const auto ctrl = make_unowned<wxCheckBox>(this, wxID_ANY, str, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }
 
     /// Add a spin control with initial value
-    auto spinCtrl(int& value, const int minVal, const int maxVal, const LayoutItemOptions opts = {}) -> Unowned<wxSpinCtrl> {
-        const auto ctrl = spinCtrl(minVal, maxVal, opts);
+    auto spinCtrl(int& value, const int minVal, const int maxVal, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxSpinCtrl> {
+        const auto ctrl = spinCtrl(minVal, maxVal, opts, style);
         ctrl->SetValue(value);
         ctrl->Bind(wxEVT_SPINCTRL, [&](const wxSpinEvent& evt) {
             value = evt.GetInt();
@@ -153,19 +153,19 @@ protected:
     }
 
     /// Add spin control
-    auto spinCtrl(int minVal, int maxVal, const LayoutItemOptions opts = {}) -> Unowned<wxSpinCtrl> {
+    auto spinCtrl(int minVal, int maxVal, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxSpinCtrl> {
         const auto ctrl = make_unowned<wxSpinCtrl>(
             this, wxID_ANY, "",
             wxDefaultPosition, wxDefaultSize,
-            wxSP_ARROW_KEYS, minVal, maxVal
+            wxSP_ARROW_KEYS | style, minVal, maxVal
         );
         add(ctrl, opts);
         return ctrl;
     }
 
     /// Add a choice dropdown with initial value.
-    auto choice(wxString& value, const wxArrayString& choices, const LayoutItemOptions opts = {}) -> Unowned<wxChoice> {
-        const auto ctrl = choice(choices, opts);
+    auto choice(wxString& value, const wxArrayString& choices, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxChoice> {
+        const auto ctrl = choice(choices, opts, style);
         const auto sel = ctrl->FindString(value);
         ctrl->SetSelection(sel != wxNOT_FOUND ? sel : 0);
         ctrl->Bind(wxEVT_CHOICE, [&](const wxCommandEvent& evt) {
@@ -175,15 +175,15 @@ protected:
     }
 
     /// Add a choice dropdown
-    auto choice(const wxArrayString& choices, LayoutItemOptions opts = {}) -> Unowned<wxChoice> {
-        const auto ctrl = make_unowned<wxChoice>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, choices);
+    auto choice(const wxArrayString& choices, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxChoice> {
+        const auto ctrl = make_unowned<wxChoice>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, choices, style);
         add(ctrl, opts);
         return ctrl;
     }
 
     /// Add a text field with initial value
-    auto textField(wxString& value, const LayoutItemOptions opts = {}) -> Unowned<wxTextCtrl> {
-        const auto ctrl = textField(opts);
+    auto textField(wxString& value, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxTextCtrl> {
+        const auto ctrl = textField(opts, style);
         ctrl->SetValue(value);
         ctrl->Bind(wxEVT_TEXT, [&](const wxCommandEvent& evt) {
             value = evt.GetString();
@@ -192,22 +192,22 @@ protected:
     }
 
     /// Add a text field
-    auto textField(const LayoutItemOptions opts = {}) -> Unowned<wxTextCtrl> {
-        const auto ctrl = make_unowned<wxTextCtrl>(this, wxID_ANY);
+    auto textField(const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxTextCtrl> {
+        const auto ctrl = make_unowned<wxTextCtrl>(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }
 
     /// Add a button.
-    auto button(const wxString& str, const LayoutItemOptions opts = {}) -> Unowned<wxButton> {
-        const auto ctrl = make_unowned<wxButton>(this, wxID_ANY, str);
+    auto button(const wxString& str, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxButton> {
+        const auto ctrl = make_unowned<wxButton>(this, wxID_ANY, str, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }
 
     /// Add a radio button
-    auto radio(const wxString& str, const LayoutItemOptions opts = {}) -> Unowned<wxRadioButton> {
-        const auto ctrl = make_unowned<wxRadioButton>(this, wxID_ANY, str, wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
+    auto radio(const wxString& str, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxRadioButton> {
+        const auto ctrl = make_unowned<wxRadioButton>(this, wxID_ANY, str, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }
@@ -225,14 +225,14 @@ protected:
 
     /// Lay child items out horizontally
     template<std::invocable Func>
-    auto hbox(const LayoutContainerOptions opts, Func&& func) -> std::invoke_result_t<Func> {
-        return makeBox(wxEmptyString, wxHORIZONTAL, opts, std::forward<Func>(func));
+    void hbox(const LayoutContainerOptions opts, Func&& func) {
+        makeBox(wxEmptyString, wxHORIZONTAL, opts, std::forward<Func>(func));
     }
 
     /// Lay child items out horizontally in a named bordered box
     template<std::invocable Func>
-    auto hbox(const wxString& title, const LayoutContainerOptions opts, Func&& func) -> std::invoke_result_t<Func> {
-        return makeBox(title, wxHORIZONTAL, opts, std::forward<Func>(func));
+    void hbox(const wxString& title, const LayoutContainerOptions opts, Func&& func) {
+        makeBox(title, wxHORIZONTAL, opts, std::forward<Func>(func));
     }
 
     // -----------------------------------------------------------------------
@@ -241,14 +241,14 @@ protected:
 
     /// Lay child items out vertically
     template<std::invocable Func>
-    auto vbox(const LayoutContainerOptions opts, Func&& func) -> std::invoke_result_t<Func> {
-        return makeBox(wxEmptyString, wxVERTICAL, opts, std::forward<Func>(func));
+    void vbox(const LayoutContainerOptions opts, Func&& func) {
+        makeBox(wxEmptyString, wxVERTICAL, opts, std::forward<Func>(func));
     }
 
     /// Lay child items out vertically in a named bordered box
     template<std::invocable Func>
-    auto vbox(const wxString& title, const LayoutContainerOptions opts, Func&& func) -> std::invoke_result_t<Func> {
-        return makeBox(title, wxVERTICAL, opts, std::forward<Func>(func));
+    void vbox(const wxString& title, const LayoutContainerOptions opts, Func&& func) {
+        makeBox(title, wxVERTICAL, opts, std::forward<Func>(func));
     }
 
     // -----------------------------------------------------------------------
@@ -288,7 +288,7 @@ private:
 
 
     template<std::invocable Func>
-    auto makeBox(const wxString& title, const int direction, const LayoutContainerOptions opts, Func&& func) -> std::invoke_result_t<Func> {
+    void makeBox(const wxString& title, const int direction, const LayoutContainerOptions opts, Func&& func) {
         const ValueRestorer restoreSizer { m_currentSizer, m_currentOptions };
         auto* sizer = [&] -> wxBoxSizer* {
             if (title.empty()) {
@@ -299,8 +299,8 @@ private:
         add(sizer, opts);
         m_currentSizer = sizer;
         m_currentOptions = opts;
-        DEFER(closeContainer());
-        return std::invoke(std::forward<Func>(func));
+        std::invoke(std::forward<Func>(func));
+        closeContainer();
     }
 
     void closeContainer() {
