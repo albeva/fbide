@@ -1,0 +1,3 @@
+[submodule "third_party/lexilla"]
+	path = third_party/lexilla
+	url = https://github.com/wxWidgets/lexilla.git

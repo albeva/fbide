@@ -6,6 +6,7 @@
 //
 #include "Editor.hpp"
 #include "DocumentManager.hpp"
+#include "lexilla/FBSciLexer.hpp"
 #include "lib/app/Context.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/Keywords.hpp"
@@ -174,7 +175,7 @@ void Editor::applyFreebasicTheme() {
     const auto& theme = m_ctx.getTheme();
     const auto& editor = theme.getDefault();
 
-    SetLexer(wxSTC_LEX_FREEBASIC);
+    SetILexer(FBSciLexer::Create());
 
     // Apply keywords
     const auto& keywords = m_ctx.getKeywords();
@@ -237,7 +238,20 @@ void Editor::applyStyle(const int stcId, const Theme::ItemStyle& style, const Th
 }
 
 void Editor::applyHtmlTheme() {
+    const auto& theme = m_ctx.getTheme();
+    const auto& editor = theme.getDefault();
     SetLexer(wxSTC_LEX_HTML);
+
+    applyStyle(wxSTC_H_TAG, theme.getStyle(Theme::ItemKind::Keyword), editor);
+    applyStyle(wxSTC_H_TAGUNKNOWN, theme.getStyle(Theme::ItemKind::Keyword), editor);
+    applyStyle(wxSTC_H_ATTRIBUTE, theme.getStyle(Theme::ItemKind::Keyword2), editor);
+    applyStyle(wxSTC_H_ATTRIBUTEUNKNOWN, theme.getStyle(Theme::ItemKind::Keyword2), editor);
+    applyStyle(wxSTC_H_NUMBER, theme.getStyle(Theme::ItemKind::Number), editor);
+    applyStyle(wxSTC_H_SINGLESTRING, theme.getStyle(Theme::ItemKind::String), editor);
+    applyStyle(wxSTC_H_DOUBLESTRING, theme.getStyle(Theme::ItemKind::StringEol), editor);
+    applyStyle(wxSTC_H_COMMENT, theme.getStyle(Theme::ItemKind::Comment), editor);
+    applyStyle(wxSTC_H_ENTITY, theme.getStyle(Theme::ItemKind::Keyword3), editor);
+    applyStyle(wxSTC_H_OTHER, theme.getStyle(Theme::ItemKind::Keyword4), editor);
 }
 
 void Editor::applyTextTheme() {

@@ -22,6 +22,7 @@ target_sources(fbide_lib
     lib/editor/DocumentManager.cpp
     lib/editor/DocumentType.cpp
     lib/editor/Editor.cpp
+    lib/editor/lexilla/FBSciLexer.cpp
     lib/format/FormatDialog.cpp
     lib/analyses/lexer/Lexer.cpp
     lib/format/formatters/CaseTransform.cpp
@@ -64,6 +65,7 @@ target_sources(fbide_lib
     lib/editor/DocumentManager.hpp
     lib/editor/DocumentType.hpp
     lib/editor/Editor.hpp
+    lib/editor/lexilla/FBSciLexer.hpp
     lib/format/FormatDialog.hpp
     lib/analyses/lexer/Lexer.hpp
     lib/analyses/lexer/Token.hpp
@@ -100,6 +102,13 @@ target_link_libraries(fbide_lib
     PRIVATE compiler_options compiler_warnings
 )
 linkWxWidgets(fbide_lib)
+
+# Scintilla/Lexilla headers for custom lexer
+target_include_directories(fbide_lib SYSTEM PRIVATE
+    "${PROJECT_SOURCE_DIR}/third_party/scintilla/include"
+    "${PROJECT_SOURCE_DIR}/third_party/lexilla/include"
+    "${PROJECT_SOURCE_DIR}/third_party/lexilla/lexlib"
+)
 
 # precompile header
 target_include_directories(fbide_lib PRIVATE "${CMAKE_BINARY_DIR}/configured_files/include")
