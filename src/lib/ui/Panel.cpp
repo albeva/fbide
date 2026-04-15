@@ -26,8 +26,8 @@ void Panel::makeTitle(const LangId langId) {
     separator();
 }
 
-void Panel::text(const LangId langId, const LayoutItemOptions opts) {
-    label(m_ctx.getLang()[langId], opts);
+auto Panel::text(const LangId langId, const LayoutItemOptions opts) -> Unowned<wxStaticText> {
+    return label(m_ctx.getLang()[langId], opts);
 }
 
 auto Panel::checkBox(bool& value, const LangId langId, const LayoutItemOptions opts) -> Unowned<wxCheckBox> {
@@ -42,9 +42,17 @@ auto Panel::spinCtrl(int& value, const LangId langId, const int minVal, const in
     if (langId == LangId::EmptyString) {
         return Layout::spinCtrl(value, minVal, maxVal, opts);
     }
-    return hbox({}, [&] {
+    return hbox({
+        .proportion = opts.proportion,
+        .expand = opts.expand,
+        .space = opts.space,
+        .padding = opts.padding,
+        .center = true,
+        .border = 0
+    }, [&] {
         const auto spin = Layout::spinCtrl(value, minVal, maxVal, {});
-        text(langId, {});
+        const auto lbl = text(langId, { .expand = false });
+        connect(lbl, spin);
         return spin;
     });
 }

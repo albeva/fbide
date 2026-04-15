@@ -48,6 +48,9 @@ struct LayoutItemOptions final {
     bool padding = true;
 };
 
+static constexpr LayoutItemOptions defaultItemOptions = {};
+static constexpr LayoutItemOptions defaultSeparatorOptions = { .padding = false };
+
 /// Templated layout helper that can extend any wxWindow-derived class.
 /// Provides automatic gap management between sibling elements.
 ///
@@ -86,14 +89,14 @@ protected:
     }
 
     /// Add a separator line (orientation auto-detected from parent sizer).
-    void separator() {
+    void separator(const LayoutItemOptions opts = defaultSeparatorOptions) {
         const bool horizontal = m_currentSizer->GetOrientation() == wxHORIZONTAL;
         const auto line = make_unowned<wxStaticLine>(
             this, wxID_STATIC,
             wxDefaultPosition, wxDefaultSize,
             horizontal ? wxVERTICAL : wxHORIZONTAL
         );
-        add(line, {});
+        add(line, opts);
     }
 
     // -----------------------------------------------------------------------
@@ -108,9 +111,12 @@ protected:
     }
 
     /// Add a checkbox
-    auto checkBox(const bool value, const wxString& str, const LayoutItemOptions opts = {}) -> Unowned<wxCheckBox> {
+    auto checkBox(bool& value, const wxString& str, const LayoutItemOptions opts = {}) -> Unowned<wxCheckBox> {
         const auto ctrl = checkBox(str, opts);
         ctrl->SetValue(value);
+        ctrl->Bind(wxEVT_CHECKBOX, [&](const wxCommandEvent& evt) {
+            value = evt.IsChecked();
+        });
         return ctrl;
     }
 
@@ -121,9 +127,12 @@ protected:
     }
 
     /// Add a spin control with initial value
-    auto spinCtrl(const int value, const int minVal, const int maxVal, const LayoutItemOptions opts = {}) -> Unowned<wxSpinCtrl> {
+    auto spinCtrl(int& value, const int minVal, const int maxVal, const LayoutItemOptions opts = {}) -> Unowned<wxSpinCtrl> {
         const auto ctrl = spinCtrl(minVal, maxVal, opts);
         ctrl->SetValue(value);
+        ctrl->Bind(wxEVT_SPINCTRL, [&](const wxSpinEvent& evt) {
+            value = evt.GetInt();
+        });
         return ctrl;
     }
 
@@ -139,10 +148,13 @@ protected:
     }
 
     /// Add a choice dropdown with initial value.
-    auto choice(const wxString& value, const wxArrayString& choices, const LayoutItemOptions opts = {}) -> Unowned<wxChoice> {
+    auto choice(wxString& value, const wxArrayString& choices, const LayoutItemOptions opts = {}) -> Unowned<wxChoice> {
         const auto ctrl = choice(choices, opts);
         const auto sel = ctrl->FindString(value);
         ctrl->SetSelection(sel != wxNOT_FOUND ? sel : 0);
+        ctrl->Bind(wxEVT_CHOICE, [&](const wxCommandEvent& evt) {
+            value = evt.GetString();
+        });
         return ctrl;
     }
 
@@ -154,9 +166,12 @@ protected:
     }
 
     /// Add a text field with initial value
-    auto textField(const wxString& value, const LayoutItemOptions opts = {}) -> Unowned<wxTextCtrl> {
+    auto textField(wxString& value, const LayoutItemOptions opts = {}) -> Unowned<wxTextCtrl> {
         const auto ctrl = textField(opts);
         ctrl->SetValue(value);
+        ctrl->Bind(wxEVT_TEXT, [&](const wxCommandEvent& evt) {
+            value = evt.GetString();
+        });
         return ctrl;
     }
 
@@ -179,6 +194,13 @@ protected:
         const auto ctrl = make_unowned<wxRadioButton>(this, wxID_ANY, str, wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
         add(ctrl, opts);
         return ctrl;
+    }
+
+    /// Connect label to a control
+    void connect(wxStaticText* label, wxControl* control) {
+        label->Bind(wxEVT_LEFT_DOWN, [control](const auto&) {
+            control->SetFocus();
+        });
     }
 
     // -----------------------------------------------------------------------
@@ -230,22 +252,20 @@ private:
         int border;
     };
 
-    auto calculate(LayoutItemOptions opts) -> CalculatedOptions {
+    auto calculate(const LayoutItemOptions opts) -> CalculatedOptions {
         const bool isFirst = m_currentSizer->GetItemCount() == 0;
         const bool vertical = m_currentSizer->IsVertical();
         int flags = vertical ? wxLEFT | wxRIGHT : wxTOP | wxBOTTOM;
         const int padding = opts.padding ? m_currentOptions.border : 0;
         const int border = padding;
 
-        if (opts.expand) {
-            flags |= wxEXPAND;
-        }
-
         if (opts.space) {
             m_currentSizer->AddSpacer(isFirst ? padding : m_currentOptions.gap);
         }
 
-        if (m_currentOptions.center) {
+        if (opts.expand) {
+            flags |= wxEXPAND;
+        } else if (m_currentOptions.center) {
             flags |= vertical ? wxALIGN_CENTER_HORIZONTAL : wxALIGN_CENTER_VERTICAL;
         }
 

@@ -30,7 +30,7 @@ protected:
     void makeTitle(LangId langId);
 
     /// LangId overloads — delegate to Layout's string-based methods.
-    void text(LangId langId, LayoutItemOptions opts = {});
+    auto text(LangId langId, LayoutItemOptions opts = {}) -> Unowned<wxStaticText>;
     auto checkBox(bool& value, LangId langId, LayoutItemOptions opts = {}) -> Unowned<wxCheckBox>;
     auto checkBox(LangId langId, LayoutItemOptions opts = {}) -> Unowned<wxCheckBox>;
     auto spinCtrl(int& value, LangId langId, int minVal, int maxVal, LayoutItemOptions opts = {}) -> Unowned<wxSpinCtrl>;

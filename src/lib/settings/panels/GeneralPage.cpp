@@ -28,9 +28,8 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 , m_language(getConfig().getLanguage()) {}
 
 void GeneralPage::create() {
-    makeTitle(LangId::SettingsEditorSettings);
-
-    hbox({}, [&] {
+    const auto& lang = getContext().getLang();
+    hbox(lang[LangId::SettingsEditorSettings], { .border = 0 }, [&] {
         vbox({ .proportion = 1 }, [&] {
             checkBox(m_autoIndent, LangId::SettingsAutoIndent);
             checkBox(m_indentGuide, LangId::SettingsIndentGuides);
@@ -40,7 +39,7 @@ void GeneralPage::create() {
             spinCtrl(m_edgeColumn, LangId::SettingsRightMarginWidth, 1, 200, {});
         });
 
-        separator();
+        separator({ .space = false });
 
         vbox({ .proportion = 1 }, [&] {
             checkBox(m_syntaxHighlight, LangId::SettingsSyntaxHighlight);
@@ -53,17 +52,15 @@ void GeneralPage::create() {
     });
 
     // Language section
-    makeTitle(LangId::SettingsLanguage);
+    vbox(lang[LangId::SettingsLanguage], {}, [&] {
+        hbox({ .padding = false, .center = true }, [&]{
+            text(LangId::SettingsLanguageSelect, { .proportion = 1, .expand = false });
+            choice(m_language, getContext().getConfig().getAllLanguages(), { .expand = false })->SetMinSize(wxSize(200, -1));
+        });
 
-    // Scan for language files
-    hbox({ }, [&] {
-        text(LangId::SettingsLanguageSelect, {  });
-        spacer();
-        choice(m_language, getContext().getConfig().getAllLanguages());
+        // Restart warning
+        text(LangId::SettingsLanguageRestart);
     });
-
-    // Restart warning
-    text(LangId::SettingsLanguageRestart);
 }
 
 void GeneralPage::apply() {
