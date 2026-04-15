@@ -41,6 +41,7 @@ void KeywordsPage::create() {
         wxTE_MULTILINE | wxTE_WORDWRAP
     );
     add(m_textKeywords, { .proportion = 1 } );
+    spacer();
 }
 
 void KeywordsPage::apply() {

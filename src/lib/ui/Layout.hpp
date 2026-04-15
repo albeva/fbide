@@ -14,9 +14,9 @@ concept SizerAware = requires(T& parent, wxSizer* sizer) {
     { parent.SetSizer(sizer) } -> std::same_as<void>;
 };
 
-
-static constexpr auto DEFAULT_PADDING = 5;
-static constexpr auto DEFAULT_GAP = 5;
+/// Default gaps and paddings, adhere to platform default
+static inline constexpr auto DEFAULT_PADDING = -1;
+static inline constexpr auto DEFAULT_GAP = -1;
 
 /// Layout options container sizers
 struct LayoutContainerOptions final {
@@ -71,10 +71,21 @@ public:
 
 protected:
 
+    static auto defaultBorder() -> int {
+        return std::max(5, wxSizerFlags::GetDefaultBorder());
+    }
+
+    static auto fix(const int border) -> int {
+        return border == DEFAULT_PADDING ? defaultBorder() : border;
+    }
+
     /// Add a window to the current sizer with automatic gap.
     void add(wxWindow* view, const LayoutItemOptions opts = {}) {
         const auto calc = calculate(opts);
-        m_currentSizer->Add(view, calc.proportion, calc.flags, calc.border);
+        if (calc.space != 0) {
+            m_currentSizer->AddSpacer(fix(calc.space));
+        }
+        m_currentSizer->Add(view, calc.proportion, calc.flags, fix(calc.border));
     }
 
     /// Add child sizer
@@ -85,7 +96,10 @@ protected:
             .space = opts.space,
             .padding = opts.padding
         });
-        m_currentSizer->Add(sizer, calc.proportion, calc.flags, calc.border);
+        if (calc.space != 0) {
+            m_currentSizer->AddSpacer(fix(calc.space));
+        }
+        m_currentSizer->Add(sizer, calc.proportion, calc.flags, fix(calc.border));
     }
 
     /// Add a separator line (orientation auto-detected from parent sizer).
@@ -100,7 +114,7 @@ protected:
     }
 
     /// Add a space
-    void spacer(const int size = DEFAULT_GAP) { currentSizer()->AddSpacer(size); }
+    void spacer(const int size = DEFAULT_GAP) { currentSizer()->AddSpacer(fix(size)); }
 
     // -----------------------------------------------------------------------
     // Controls
@@ -250,6 +264,7 @@ protected:
 
 private:
     struct CalculatedOptions final {
+        int space;
         int proportion;
         int flags;
         int border;
@@ -261,10 +276,7 @@ private:
         int flags = vertical ? wxLEFT | wxRIGHT : wxTOP | wxBOTTOM;
         const int padding = opts.padding ? m_currentOptions.border : 0;
         const int border = padding;
-
-        if (opts.space) {
-            m_currentSizer->AddSpacer(isFirst ? padding : m_currentOptions.gap);
-        }
+        const int space = opts.space ? (isFirst ? padding : m_currentOptions.gap) : 0;
 
         if (opts.expand) {
             flags |= wxEXPAND;
@@ -272,7 +284,7 @@ private:
             flags |= vertical ? wxALIGN_CENTER_HORIZONTAL : wxALIGN_CENTER_VERTICAL;
         }
 
-        return { .proportion = opts.proportion, .flags = flags, .border = border };
+        return { .space = space, .proportion = opts.proportion, .flags = flags, .border = border };
     }
 
 
@@ -296,7 +308,7 @@ private:
         if (m_currentSizer->IsEmpty()) {
             return;
         }
-        m_currentSizer->AddSpacer(m_currentOptions.border);
+        m_currentSizer->AddSpacer(fix(m_currentOptions.border));
     }
 
     wxBoxSizer* m_currentSizer = nullptr;

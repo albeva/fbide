@@ -20,13 +20,18 @@ CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 , m_helpFile(getConfig().getHelpFile()) {}
 
 void CompilerPage::create() {
-    makeTitle(LangId::SettingsCompilerAndPaths);
-    compilerPath();
-    compilerCommand();
-    runCommand();
+    // makeTitle(LangId::SettingsCompilerAndPaths);
+    vbox(getContext().getLang()[LangId::SettingsCompilerAndPaths], { .border = 0 }, [&] {
+        compilerPath();
+        spacer();
+        compilerCommand();
+        spacer();
+        runCommand();
 #ifdef __WXMSW__
-    helpFile();
+        spacer();
+        helpFile();
 #endif
+    });
 }
 
 void CompilerPage::apply() {
@@ -84,14 +89,17 @@ void CompilerPage::helpFile() {
 }
 
 auto CompilerPage::makeEntryField(wxString& value, const LangId lang) -> Unowned<wxTextCtrl> {
-    text(lang, {});
-    return textField(value, {});
+    const auto lbl = text(lang, {});
+    const auto tf = textField(value, {});
+    connect(lbl, tf);
+    return tf;
 }
 
 auto CompilerPage::makeFileEntry(wxString& value, const LangId lang) -> std::pair<Unowned<wxTextCtrl>, Unowned<wxButton>> {
-    text(lang, {});
-    return hbox({}, [&] {
+    const auto lbl = text(lang, {});
+    return hbox({ .center = true, .border = 0 }, [&] {
         const auto tf = textField(value, { .proportion = 1 });
+        connect(lbl, tf);
         const auto btn = button("...", {});
         return std::make_pair(tf, btn);
     });

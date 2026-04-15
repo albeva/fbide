@@ -51,7 +51,7 @@ void AboutDialog::create() {
     });
 
     add(CreateStdDialogButtonSizer(wxOK), { .padding = false });
-    currentSizer()->AddSpacer(DEFAULT_PADDING);
+    currentSizer()->AddSpacer(defaultBorder());
 
     Fit();
     Centre();

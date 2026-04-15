@@ -62,7 +62,7 @@ void ThemePage::create() {
 
 void ThemePage::createTopRow() {
     const auto& lang = getContext().getLang();
-    hbox(lang[LangId::ThemeName], { .center = true }, [&] {
+    hbox(lang[LangId::ThemeName], { .center = true, .border = 0 }, [&] {
         auto themes = getConfig().getAllThemes();
         themes.insert(themes.begin(), lang[LangId::ThemeCreateNew]);
 
