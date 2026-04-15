@@ -26,10 +26,49 @@ enum class TokenKind {
     Newline,       // line break
 };
 
+/// Structural keyword classification for autoindent and formatting.
+enum class KeywordKind {
+    None,       // not a keyword
+    // Block openers
+    Sub,
+    Function,
+    Do,
+    While,
+    For,
+    With,
+    Scope,
+    Enum,
+    Union,
+    Select,
+    Asm,
+    // Block closers
+    End,
+    Loop,
+    Next,
+    Wend,
+    // Mid-block
+    Else,
+    ElseIf,
+    Case,
+    // Conditional
+    If,
+    Then,
+    // Type
+    Type,
+    As,
+    // Comment keyword
+    Rem,
+    // A keyword not structurally significant
+    Other,
+};
+
 /// A single token from the lexer.
 struct Token final {
     TokenKind kind;
+    KeywordKind keywordKind = KeywordKind::None;
     wxString text;
+    std::size_t start = 0;
+    std::size_t end = 0;
 };
 
 } // namespace fbide

@@ -42,13 +42,13 @@ auto BBCodeRenderer::render(const std::vector<lexer::Token>& tokens) const -> wx
     wxString output;
     output += "[code]\n";
 
-    for (const auto& [kind, text] : tokens) {
-        if (!needsStyling(kind)) {
-            output += text;
+    for (const auto& tok : tokens) {
+        if (!needsStyling(tok.kind)) {
+            output += tok.text;
             continue;
         }
 
-        const auto& style = m_theme.getStyle(tokenToItemKind(kind));
+        const auto& style = m_theme.getStyle(tokenToItemKind(tok.kind));
         const auto colour = hexColour(style.foreground.IsOk() ? style.foreground : m_theme.getDefault().foreground);
 
         if (style.fontStyle.bold) {
@@ -58,7 +58,7 @@ auto BBCodeRenderer::render(const std::vector<lexer::Token>& tokens) const -> wx
             output += "[i]";
         }
         output += "[color=" + colour + "]";
-        output += text;
+        output += tok.text;
         output += "[/color]";
         if (style.fontStyle.italic) {
             output += "[/i]";

@@ -6,27 +6,14 @@
 //
 #include "ReindentTransform.hpp"
 using namespace fbide;
+using lexer::KeywordKind;
 
 namespace {
 
-auto isKeyword(const lexer::TokenKind kind) -> bool {
-    return kind == lexer::TokenKind::Keyword1
-        || kind == lexer::TokenKind::Keyword2
-        || kind == lexer::TokenKind::Keyword3
-        || kind == lexer::TokenKind::Keyword4;
-}
-
-auto keywordText(const lexer::Token& tok) -> wxString {
-    if (!isKeyword(tok.kind)) {
-        return {};
-    }
-    return tok.text.Upper();
-}
-
 struct LineKeywords {
-    wxString first;
-    wxString second;
-    wxString last;
+    KeywordKind first = KeywordKind::None;
+    KeywordKind second = KeywordKind::None;
+    KeywordKind last = KeywordKind::None;
 };
 
 auto getLineKeywords(const std::vector<lexer::Token*>& lineTokens) -> LineKeywords {
@@ -38,34 +25,59 @@ auto getLineKeywords(const std::vector<lexer::Token*>& lineTokens) -> LineKeywor
         if (tok->kind == lexer::TokenKind::Comment || tok->kind == lexer::TokenKind::CommentBlock) {
             break;
         }
-        const auto kw = keywordText(*tok);
-        if (kw.empty()) {
+        if (tok->keywordKind == KeywordKind::None || tok->keywordKind == KeywordKind::Other) {
             continue;
         }
-        if (result.first.empty()) {
-            result.first = kw;
-        } else if (result.second.empty()) {
-            result.second = kw;
+        if (result.first == KeywordKind::None) {
+            result.first = tok->keywordKind;
+        } else if (result.second == KeywordKind::None) {
+            result.second = tok->keywordKind;
         }
-        result.last = kw;
+        result.last = tok->keywordKind;
     }
     return result;
 }
 
-auto opensBlock(const wxString& kw) -> bool {
-    return kw == "SUB" || kw == "FUNCTION" || kw == "DO"
-        || kw == "WHILE" || kw == "FOR" || kw == "WITH"
-        || kw == "SCOPE" || kw == "ENUM" || kw == "UNION"
-        || kw == "SELECT" || kw == "ASM";
+auto opensBlock(const KeywordKind kw) -> bool {
+    switch (kw) {
+        case KeywordKind::Sub:
+        case KeywordKind::Function:
+        case KeywordKind::Do:
+        case KeywordKind::While:
+        case KeywordKind::For:
+        case KeywordKind::With:
+        case KeywordKind::Scope:
+        case KeywordKind::Enum:
+        case KeywordKind::Union:
+        case KeywordKind::Select:
+        case KeywordKind::Asm:
+            return true;
+        default:
+            return false;
+    }
 }
 
-auto closesBlock(const wxString& kw) -> bool {
-    return kw == "END" || kw == "LOOP" || kw == "NEXT"
-        || kw == "WEND";
+auto closesBlock(const KeywordKind kw) -> bool {
+    switch (kw) {
+        case KeywordKind::End:
+        case KeywordKind::Loop:
+        case KeywordKind::Next:
+        case KeywordKind::Wend:
+            return true;
+        default:
+            return false;
+    }
 }
 
-auto isMidBlock(const wxString& kw) -> bool {
-    return kw == "ELSE" || kw == "ELSEIF" || kw == "CASE";
+auto isMidBlock(const KeywordKind kw) -> bool {
+    switch (kw) {
+        case KeywordKind::Else:
+        case KeywordKind::ElseIf:
+        case KeywordKind::Case:
+            return true;
+        default:
+            return false;
+    }
 }
 
 } // namespace
@@ -113,9 +125,9 @@ auto ReindentTransform::apply(std::vector<lexer::Token> tokens) const -> std::ve
         } else if (isMidBlock(kws.first)) {
             dedentBefore = true;
             indentAfter = true;
-        } else if (kws.first == "IF" && kws.last == "THEN") {
+        } else if (kws.first == KeywordKind::If && kws.last == KeywordKind::Then) {
             indentAfter = true;
-        } else if (kws.first == "TYPE" && kws.second != "AS") {
+        } else if (kws.first == KeywordKind::Type && kws.second != KeywordKind::As) {
             indentAfter = true;
         } else if (opensBlock(kws.first)) {
             indentAfter = true;

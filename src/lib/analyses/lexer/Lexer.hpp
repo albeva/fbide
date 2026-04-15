@@ -13,6 +13,12 @@ class Keywords;
 
 namespace fbide::lexer {
 
+/// Keyword lookup result: which group and structural role.
+struct KeywordInfo {
+    TokenKind tokenKind;
+    KeywordKind keywordKind;
+};
+
 /// Simple FreeBASIC lexer that tokenises source code.
 /// No syntax validation — unrecognised input becomes Identifier tokens.
 class Lexer final {
@@ -25,9 +31,9 @@ public:
     [[nodiscard]] auto tokenise(const wxString& source) const -> std::vector<Token>;
 
 private:
-    [[nodiscard]] auto classifyWord(const wxString& word) const -> TokenKind;
+    [[nodiscard]] auto classifyWord(const wxString& word) const -> std::pair<TokenKind, KeywordKind>;
 
-    std::array<wxArrayString, 4> m_keywords;
+    std::unordered_map<wxString, KeywordInfo> m_keywords;
 
 };
 

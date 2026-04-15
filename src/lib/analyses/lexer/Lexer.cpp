@@ -45,49 +45,84 @@ auto isNumericLiteral(const wxString& word) -> bool {
     return wxIsdigit(word[0]);
 }
 
+/// Map of structurally significant keywords to their KeywordKind.
+const std::unordered_map<wxString, KeywordKind> structuralKeywords = {
+    // Block openers
+    { "sub",      KeywordKind::Sub },
+    { "function", KeywordKind::Function },
+    { "do",       KeywordKind::Do },
+    { "while",    KeywordKind::While },
+    { "for",      KeywordKind::For },
+    { "with",     KeywordKind::With },
+    { "scope",    KeywordKind::Scope },
+    { "enum",     KeywordKind::Enum },
+    { "union",    KeywordKind::Union },
+    { "select",   KeywordKind::Select },
+    { "asm",      KeywordKind::Asm },
+    // Block closers
+    { "end",      KeywordKind::End },
+    { "loop",     KeywordKind::Loop },
+    { "next",     KeywordKind::Next },
+    { "wend",     KeywordKind::Wend },
+    // Mid-block
+    { "else",     KeywordKind::Else },
+    { "elseif",   KeywordKind::ElseIf },
+    { "case",     KeywordKind::Case },
+    // Conditional
+    { "if",       KeywordKind::If },
+    { "then",     KeywordKind::Then },
+    // Type
+    { "type",     KeywordKind::Type },
+    { "as",       KeywordKind::As },
+    // Comment keyword
+    { "rem",      KeywordKind::Rem },
+};
+
 } // namespace
 
 Lexer::Lexer(const Keywords& keywords) {
-    for (std::size_t i = 0; i < m_keywords.size(); i++) {
-        wxStringTokenizer tokenizer(keywords.getGroup(i));
-        while (tokenizer.HasMoreTokens()) {
-            m_keywords[i].Add(tokenizer.GetNextToken().Upper());
-        }
-    }
-}
-
-auto Lexer::classifyWord(const wxString& word) const -> TokenKind {
-    if (word.empty()) {
-        return TokenKind::Identifier;
-    }
-
-    if (isNumericLiteral(word)) {
-        return TokenKind::Number;
-    }
-
-    const auto upper = word.Upper();
     constexpr TokenKind groups[] = {
         TokenKind::Keyword1, TokenKind::Keyword2,
         TokenKind::Keyword3, TokenKind::Keyword4
     };
-    for (std::size_t i = 0; i < m_keywords.size(); i++) {
-        if (m_keywords[i].Index(upper) != wxNOT_FOUND) {
-            return groups[i];
+    for (std::size_t i = 0; i < 4; i++) {
+        wxStringTokenizer tokenizer(keywords.getGroup(i));
+        while (tokenizer.HasMoreTokens()) {
+            auto key = tokenizer.GetNextToken();
+            auto it = structuralKeywords.find(key);
+            const auto kwKind = (it != structuralKeywords.end()) ? it->second : KeywordKind::Other;
+            m_keywords.emplace(std::move(key), KeywordInfo { groups[i], kwKind });
         }
     }
+}
 
-    return TokenKind::Identifier;
+auto Lexer::classifyWord(const wxString& word) const -> std::pair<TokenKind, KeywordKind> {
+    if (word.empty()) {
+        return { TokenKind::Identifier, KeywordKind::None };
+    }
+
+    if (isNumericLiteral(word)) {
+        return { TokenKind::Number, KeywordKind::None };
+    }
+
+    const auto it = m_keywords.find(word.Lower());
+    if (it != m_keywords.end()) {
+        return { it->second.tokenKind, it->second.keywordKind };
+    }
+
+    return { TokenKind::Identifier, KeywordKind::None };
 }
 
 auto Lexer::tokenise(const wxString& source) const -> std::vector<Token> {
     std::vector<Token> tokens;
     const auto len = source.length();
-    tokens.reserve(len / 5); // Assime each token, on average, to be 5 characters long
+    tokens.reserve(len / 5); // Assume each token, on average, to be 5 characters long
     std::size_t pos = 0;
     bool atLineStart = true;
 
     while (pos < len) {
         const auto ch = source[pos];
+        const auto start = pos;
 
         // Newline
         if (ch == '\n' || ch == '\r') {
@@ -99,7 +134,7 @@ auto Lexer::tokenise(const wxString& source) const -> std::vector<Token> {
                 text += '\n';
                 pos++;
             }
-            tokens.push_back({ TokenKind::Newline, text });
+            tokens.push_back({ TokenKind::Newline, KeywordKind::None, text, start, pos });
             atLineStart = true;
             continue;
         }
@@ -111,7 +146,7 @@ auto Lexer::tokenise(const wxString& source) const -> std::vector<Token> {
                 text += source[pos];
                 pos++;
             }
-            tokens.push_back({ TokenKind::Whitespace, text });
+            tokens.push_back({ TokenKind::Whitespace, KeywordKind::None, text, start, pos });
             continue;
         }
 
@@ -140,7 +175,7 @@ auto Lexer::tokenise(const wxString& source) const -> std::vector<Token> {
                     pos++;
                 }
             }
-            tokens.push_back({ TokenKind::CommentBlock, text });
+            tokens.push_back({ TokenKind::CommentBlock, KeywordKind::None, text, start, pos });
             continue;
         }
 
@@ -151,7 +186,7 @@ auto Lexer::tokenise(const wxString& source) const -> std::vector<Token> {
                 text += source[pos];
                 pos++;
             }
-            tokens.push_back({ TokenKind::Comment, text });
+            tokens.push_back({ TokenKind::Comment, KeywordKind::None, text, start, pos });
             continue;
         }
 
@@ -168,7 +203,7 @@ auto Lexer::tokenise(const wxString& source) const -> std::vector<Token> {
                 text += source[pos];
                 pos++;
             }
-            tokens.push_back({ TokenKind::String, text });
+            tokens.push_back({ TokenKind::String, KeywordKind::None, text, start, pos });
             continue;
         }
 
@@ -179,13 +214,13 @@ auto Lexer::tokenise(const wxString& source) const -> std::vector<Token> {
                 text += source[pos];
                 pos++;
             }
-            tokens.push_back({ TokenKind::Preprocessor, text });
+            tokens.push_back({ TokenKind::Preprocessor, KeywordKind::None, text, start, pos });
             continue;
         }
 
         // Operator
         if (isOperatorChar(ch)) {
-            tokens.push_back({ TokenKind::Operator, wxString(ch) });
+            tokens.push_back({ TokenKind::Operator, KeywordKind::None, wxString(ch), start, start + 1 });
             pos++;
             continue;
         }
@@ -198,23 +233,25 @@ auto Lexer::tokenise(const wxString& source) const -> std::vector<Token> {
                 pos++;
             }
 
+            auto [kind, kwKind] = classifyWord(word);
+
             // Check for REM comment
-            if (word.Upper() == "REM" && (pos >= len || !isWordChar(source[pos]))) {
+            if (kwKind == KeywordKind::Rem && (pos >= len || !isWordChar(source[pos]))) {
                 // Rest of line is comment
                 while (pos < len && source[pos] != '\n' && source[pos] != '\r') {
                     word += source[pos];
                     pos++;
                 }
-                tokens.push_back({ TokenKind::Comment, word });
+                tokens.push_back({ TokenKind::Comment, KeywordKind::None, word, start, pos });
                 continue;
             }
 
-            tokens.push_back({ classifyWord(word), word });
+            tokens.push_back({ kind, kwKind, word, start, pos });
             continue;
         }
 
         // Anything else — single character as identifier
-        tokens.push_back({ TokenKind::Identifier, wxString(ch) });
+        tokens.push_back({ TokenKind::Identifier, KeywordKind::None, wxString(ch), start, start + 1 });
         pos++;
     }
 

@@ -19,19 +19,19 @@ auto isKeyword(const lexer::TokenKind kind) -> bool {
 } // namespace
 
 auto CaseTransform::apply(std::vector<lexer::Token> tokens) const -> std::vector<lexer::Token> {
-    for (auto& [kind, text] : tokens) {
-        if (!isKeyword(kind)) {
+    for (auto& tok : tokens) {
+        if (!isKeyword(tok.kind)) {
             continue;
         }
         switch (m_mode) {
             case CaseMode::Mixed:
-                text = text.Left(1).Upper() + text.Mid(1).Lower();
+                tok.text = tok.text.Capitalize();
                 break;
             case CaseMode::Upper:
-                text = text.Upper();
+                tok.text = tok.text.Upper();
                 break;
             case CaseMode::Lower:
-                text = text.Lower();
+                tok.text = tok.text.Lower();
                 break;
         }
     }

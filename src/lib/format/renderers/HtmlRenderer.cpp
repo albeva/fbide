@@ -57,15 +57,15 @@ auto HtmlRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxSt
     const auto& editor = m_theme.getDefault();
     wxString output = "<pre>";
 
-    for (const auto& [kind, text] : tokens) {
-        const auto escaped = escapeHtml(text);
+    for (const auto& tok : tokens) {
+        const auto escaped = escapeHtml(tok.text);
 
-        if (!needsStyling(kind)) {
+        if (!needsStyling(tok.kind)) {
             output += escaped;
             continue;
         }
 
-        const auto& style = m_theme.getStyle(tokenToItemKind(kind));
+        const auto& style = m_theme.getStyle(tokenToItemKind(tok.kind));
         const auto colour = hexColour(style.foreground.IsOk() ? style.foreground : editor.foreground);
 
         wxString css = "color:" + colour;
