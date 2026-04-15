@@ -71,6 +71,7 @@ private:
     void onColorButton(wxButton* btn);
     void loadCategory();
     void saveCategory();
+    void updateTitle();
 
     Unowned<wxListBox> m_typeList;
     Unowned<wxChoice> m_themeChoice;
@@ -81,6 +82,8 @@ private:
     Unowned<wxCheckBox> m_chkItalic;
     Unowned<wxCheckBox> m_chkUnderline;
     Unowned<wxSpinCtrl> m_spinFontSize;
+
+    wxStaticBoxSizer* m_themeBox;
 
     wxString m_activeTheme;
     Category m_category = Category::Comments;

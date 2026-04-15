@@ -40,7 +40,7 @@ void KeywordsPage::create() {
         wxDefaultPosition, wxDefaultSize,
         wxTE_MULTILINE | wxTE_WORDWRAP
     );
-    getCurrentSizer()->Add(m_textKeywords, 1, wxEXPAND | wxALL, DEFAULT_PAD);
+    currentSizer()->Add(m_textKeywords, 1, wxEXPAND | wxALL, DEFAULT_PADDING);
 }
 
 void KeywordsPage::apply() {

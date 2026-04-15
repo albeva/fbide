@@ -61,9 +61,17 @@ auto Panel::spinCtrl(const LangId langId, const int minVal, const int maxVal, co
     if (langId == LangId::EmptyString) {
         return Layout::spinCtrl(minVal, maxVal, opts);
     }
-    return hbox({}, [&] {
-        const auto spin = Layout::spinCtrl(minVal, maxVal, { });
-        text(langId, { });
+    return hbox({
+        .proportion = opts.proportion,
+        .expand = opts.expand,
+        .space = opts.space,
+        .padding = opts.padding,
+        .center = true,
+        .border = 0
+    }, [&] {
+        const auto spin = Layout::spinCtrl(minVal, maxVal, {});
+        const auto lbl = text(langId, { .expand = false });
+        connect(lbl, spin);
         return spin;
     });
 }

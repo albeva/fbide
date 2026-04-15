@@ -47,31 +47,29 @@ void ThemePage::apply() {
 
 void ThemePage::create() {
     createTopRow();
-    separator();
 
-    hbox({ }, [&] {
+    hbox(m_activeTheme, { .border = 0 }, [&] {
+        m_themeBox = wxDynamicCast(currentSizer(), wxStaticBoxSizer);
         createCategoryList();
         createLeftPanel();
         separator();
         createRightPanel();
     });
 
+    updateTitle();
     loadCategory();
 }
 
 void ThemePage::createTopRow() {
     const auto& lang = getContext().getLang();
-    hbox({ }, [&] {
-        text(LangId::ThemeName, {});
-        spacer();
-
+    hbox(lang[LangId::ThemeName], { .center = true }, [&] {
         auto themes = getConfig().getAllThemes();
         themes.insert(themes.begin(), lang[LangId::ThemeCreateNew]);
-        m_themeChoice = choice(m_activeTheme, themes, { .proportion = 1 });
+
+        m_themeChoice = choice(m_activeTheme, themes, { .proportion = 1, .expand = false });
         m_themeChoice->Bind(wxEVT_CHOICE, &ThemePage::onSelectTheme, this);
 
-        spacer();
-        const auto save = button(LangId::ThemeSave, { });
+        const auto save = button(LangId::ThemeSave, { .expand = false });
         save->Bind(wxEVT_BUTTON, &ThemePage::onSaveTheme, this);
     });
 }
@@ -100,42 +98,47 @@ void ThemePage::createCategoryList() {
     typeNames.Add(lang[LangId::ThemeBraceMismatch]);
     typeNames.Add(lang[LangId::ThemeEditor]);
 
-    m_typeList = make_unowned<wxListBox>(this, wxID_ANY, wxDefaultPosition, wxSize(130, -1), typeNames);
+    m_typeList = make_unowned<wxListBox>(this, wxID_ANY, wxDefaultPosition, wxSize(130, 200), typeNames);
     m_typeList->SetSelection(0);
     m_typeList->Bind(wxEVT_LISTBOX, &ThemePage::onSelectCategory, this);
-    getCurrentSizer()->Add(m_typeList, 0, wxEXPAND | wxTOP | wxBOTTOM | wxLEFT, 5);
+    add(m_typeList, {});
 }
 
 void ThemePage::createLeftPanel() {
-    vbox({ .proportion = 1 }, [&] {
-        text(LangId::ThemeForeground, {});
-        m_btnFg = button(LangId::EmptyString, {});
+    vbox({ .proportion = 2, .border = 0 }, [&] {
+        auto lbl = text(LangId::ThemeForeground, {});
+        m_btnFg = button(LangId::EmptyString);
         m_btnFg->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onColorButton(m_btnFg); });
+        connect(lbl, m_btnFg);
 
-        text(LangId::ThemeBackground, {  });
-        m_btnBg = button(LangId::EmptyString, { });
+        spacer();
+
+        lbl = text(LangId::ThemeBackground, {  });
+        m_btnBg = button(LangId::EmptyString);
         m_btnBg->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onColorButton(m_btnBg); });
+        connect(lbl, m_btnBg);
 
-        text(LangId::ThemeFont, {  });
+        spacer();
+
+        lbl = text(LangId::ThemeFont, {  });
         m_fontChoice = make_unowned<wxChoice>(this, wxID_ANY);
         auto fonts = getConfig().getAllFixedWidthFonts();
         fonts.insert(fonts.begin(), "");
         m_fontChoice->Append(fonts);
-        getCurrentSizer()->Add(m_fontChoice.get(), 0, 0, DEFAULT_PAD);
+        add(m_fontChoice);
+        connect(lbl, m_fontChoice);
     });
 }
 
 void ThemePage::createRightPanel() {
-    vbox({}, [&] {
-        text(LangId::ThemeFontStyle, { });
+    vbox({ .proportion = 1, .border = 0 }, [&] {
         m_chkBold = checkBox(LangId::ThemeBold);
         m_chkItalic = checkBox(LangId::ThemeItalic);
         m_chkUnderline = checkBox(LangId::ThemeUnderline);
 
         spacer();
 
-        text(LangId::ThemeFontSize, { });
-        m_spinFontSize = spinCtrl(LangId::EmptyString, 8, 64, { });
+        m_spinFontSize = spinCtrl(LangId::ThemeFontSize, 8, 64, { });
     });
 }
 
@@ -154,6 +157,7 @@ void ThemePage::onColorButton(wxButton* btn) {
 
 void ThemePage::onSelectTheme(const wxCommandEvent&) {
     m_activeTheme = m_themeChoice->GetStringSelection();
+    updateTitle();
     if (not isUnsavedNewTheme()) {
         m_theme.load(getConfig().resolvePath(m_activeTheme + "." + Config::THEME_EXT));
         loadCategory();
@@ -166,6 +170,7 @@ void ThemePage::onSaveTheme(wxCommandEvent&) {
     // Save existing theme?
     if (isUnsavedNewTheme()) {
         saveNewTheme(false);
+        updateTitle();
     }
 
     m_theme.save();
@@ -350,4 +355,8 @@ void ThemePage::saveCategory() {
             break;
         }
     }
+}
+
+void ThemePage::updateTitle() {
+    m_themeBox->GetStaticBox()->SetLabel(m_activeTheme.Capitalize());
 }

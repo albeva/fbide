@@ -52,8 +52,8 @@ void GeneralPage::create() {
     });
 
     // Language section
-    vbox(lang[LangId::SettingsLanguage], {}, [&] {
-        hbox({ .padding = false, .center = true }, [&]{
+    vbox(lang[LangId::SettingsLanguage], { }, [&] {
+        hbox({ .center = true, .border = 0 }, [&]{
             text(LangId::SettingsLanguageSelect, { .proportion = 1, .expand = false });
             choice(m_language, getContext().getConfig().getAllLanguages(), { .expand = false })->SetMinSize(wxSize(200, -1));
         });

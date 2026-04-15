@@ -45,11 +45,6 @@ protected:
     using Layout::choice;
     using Layout::textField;
 
-    // TODO: remove these compatibility shims once consumers are migrated to Layout API.
-    static constexpr auto DEFAULT_PAD = DEFAULT_GAP;
-    void spacer(int size = DEFAULT_GAP) { currentSizer()->AddSpacer(size); }
-    [[nodiscard]] auto getCurrentSizer() const -> wxBoxSizer* { return currentSizer(); }
-
 private:
     Context& m_ctx;
 };

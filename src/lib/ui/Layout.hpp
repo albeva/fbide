@@ -99,6 +99,9 @@ protected:
         add(line, opts);
     }
 
+    /// Add a space
+    void spacer(const int size = DEFAULT_GAP) { currentSizer()->AddSpacer(size); }
+
     // -----------------------------------------------------------------------
     // Controls
     // -----------------------------------------------------------------------
