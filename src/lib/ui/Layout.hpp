@@ -105,7 +105,7 @@ protected:
     void separator(const LayoutItemOptions opts = defaultSeparatorOptions) {
         const bool horizontal = m_currentSizer->GetOrientation() == wxHORIZONTAL;
         const auto line = make_unowned<wxStaticLine>(
-            this, wxID_STATIC,
+            m_currentParent, wxID_STATIC,
             wxDefaultPosition, wxDefaultSize,
             horizontal ? wxVERTICAL : wxHORIZONTAL
         );
@@ -121,7 +121,7 @@ protected:
 
     /// Add a static text label.
     auto label(const wxString& str, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxStaticText> {
-        const auto ctrl = make_unowned<wxStaticText>(this, id, str, wxDefaultPosition, wxDefaultSize, style);
+        const auto ctrl = make_unowned<wxStaticText>(m_currentParent, id, str, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }
@@ -137,7 +137,7 @@ protected:
     }
 
     auto checkBox(const wxString& str, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxCheckBox> {
-        const auto ctrl = make_unowned<wxCheckBox>(this, id, str, wxDefaultPosition, wxDefaultSize, style);
+        const auto ctrl = make_unowned<wxCheckBox>(m_currentParent, id, str, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }
@@ -155,7 +155,7 @@ protected:
     /// Add spin control
     auto spinCtrl(int minVal, int maxVal, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxSpinCtrl> {
         const auto ctrl = make_unowned<wxSpinCtrl>(
-            this, id, "",
+            m_currentParent, id, "",
             wxDefaultPosition, wxDefaultSize,
             wxSP_ARROW_KEYS | style, minVal, maxVal
         );
@@ -176,7 +176,7 @@ protected:
 
     /// Add a choice dropdown
     auto choice(const wxArrayString& choices, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxChoice> {
-        const auto ctrl = make_unowned<wxChoice>(this, id, wxDefaultPosition, wxDefaultSize, choices, style);
+        const auto ctrl = make_unowned<wxChoice>(m_currentParent, id, wxDefaultPosition, wxDefaultSize, choices, style);
         add(ctrl, opts);
         return ctrl;
     }
@@ -193,21 +193,21 @@ protected:
 
     /// Add a text field
     auto textField(const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxTextCtrl> {
-        const auto ctrl = make_unowned<wxTextCtrl>(this, id, wxEmptyString, wxDefaultPosition, wxDefaultSize, style);
+        const auto ctrl = make_unowned<wxTextCtrl>(m_currentParent, id, wxEmptyString, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }
 
     /// Add a button.
     auto button(const wxString& str, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxButton> {
-        const auto ctrl = make_unowned<wxButton>(this, id, str, wxDefaultPosition, wxDefaultSize, style);
+        const auto ctrl = make_unowned<wxButton>(m_currentParent, id, str, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }
 
     /// Add a radio button
     auto radio(const wxString& str, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxRadioButton> {
-        const auto ctrl = make_unowned<wxRadioButton>(this, id, str, wxDefaultPosition, wxDefaultSize, style);
+        const auto ctrl = make_unowned<wxRadioButton>(m_currentParent, id, str, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }
@@ -258,6 +258,9 @@ protected:
     /// Gey current managed sizer (hbox or vbox)
     [[nodiscard]] auto currentSizer() const -> wxBoxSizer* { return m_currentSizer; }
 
+    /// Get current parent that should own the added view
+    [[nodiscard]] auto currentParent() const -> wxWindow* { return m_currentParent; }
+
     /// Get current layout options
     [[nodiscard]] auto currentOptions() -> LayoutContainerOptions& { return m_currentOptions; }
 
@@ -289,12 +292,14 @@ private:
 
     template<std::invocable Func>
     void makeBox(const wxString& title, const int direction, const LayoutContainerOptions opts, Func&& func) {
-        const ValueRestorer restoreSizer { m_currentSizer, m_currentOptions };
+        const ValueRestorer restoreSizer { m_currentSizer, m_currentOptions, m_currentParent };
         auto* sizer = [&] -> wxBoxSizer* {
             if (title.empty()) {
                 return make_unowned<wxBoxSizer>(direction);
             }
-            return make_unowned<wxStaticBoxSizer>(direction, this, title);
+            const auto ss = make_unowned<wxStaticBoxSizer>(direction, m_currentParent, title);
+            m_currentParent = ss->GetStaticBox();
+            return ss;
         }();
         add(sizer, opts);
         m_currentSizer = sizer;
@@ -311,6 +316,7 @@ private:
     }
 
     wxBoxSizer* m_currentSizer = nullptr;
+    wxWindow* m_currentParent = this;
     LayoutContainerOptions m_currentOptions = {};
 };
 

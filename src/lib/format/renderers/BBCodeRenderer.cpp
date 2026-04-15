@@ -23,6 +23,7 @@ auto tokenToItemKind(const lexer::TokenKind kind) -> Theme::ItemKind {
         case lexer::TokenKind::Comment: return Theme::Comment;
         case lexer::TokenKind::CommentBlock: return Theme::Comment;
         case lexer::TokenKind::String: return Theme::String;
+        case lexer::TokenKind::UnterminatedString: return Theme::String;
         case lexer::TokenKind::Number: return Theme::Number;
         case lexer::TokenKind::Preprocessor: return Theme::Preprocessor;
         case lexer::TokenKind::Operator: return Theme::Operator;
@@ -32,6 +33,7 @@ auto tokenToItemKind(const lexer::TokenKind kind) -> Theme::ItemKind {
 
 auto needsStyling(const lexer::TokenKind kind) -> bool {
     return kind != lexer::TokenKind::Identifier
+        && kind != lexer::TokenKind::Invalid
         && kind != lexer::TokenKind::Whitespace
         && kind != lexer::TokenKind::Newline;
 }

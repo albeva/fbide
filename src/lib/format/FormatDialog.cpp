@@ -86,7 +86,7 @@ void FormatDialog::create() {
 
     // Preview editor
     vbox("Previw", { .proportion = 1, .border = 0 }, [&] {
-        m_preview = make_unowned<Editor>(this, m_ctx, DocumentType::FreeBASIC, true);
+        m_preview = make_unowned<Editor>(currentParent(), m_ctx, DocumentType::FreeBASIC, true);
         m_preview->SetReadOnly(true);
         m_preview->SetMinSize(wxSize(-1, 200));
         add(m_preview, { .proportion = 1 });
@@ -108,7 +108,7 @@ void FormatDialog::create() {
     // Tokenise source once
     const auto source = getSourceText();
     if (!source.empty()) {
-        const lexer::Lexer lexer(m_ctx.getKeywords());
+        lexer::Lexer lexer(m_ctx.getKeywords());
         m_tokens = lexer.tokenise(source);
     }
 

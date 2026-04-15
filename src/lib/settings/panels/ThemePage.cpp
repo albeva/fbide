@@ -98,7 +98,7 @@ void ThemePage::createCategoryList() {
     typeNames.Add(lang[LangId::ThemeBraceMismatch]);
     typeNames.Add(lang[LangId::ThemeEditor]);
 
-    m_typeList = make_unowned<wxListBox>(this, wxID_ANY, wxDefaultPosition, wxSize(130, 200), typeNames);
+    m_typeList = make_unowned<wxListBox>(currentParent(), wxID_ANY, wxDefaultPosition, wxSize(130, 200), typeNames);
     m_typeList->SetSelection(0);
     m_typeList->Bind(wxEVT_LISTBOX, &ThemePage::onSelectCategory, this);
     add(m_typeList, {});
@@ -121,7 +121,7 @@ void ThemePage::createLeftPanel() {
         spacer();
 
         lbl = text(LangId::ThemeFont, {  });
-        m_fontChoice = make_unowned<wxChoice>(this, wxID_ANY);
+        m_fontChoice = make_unowned<wxChoice>(currentParent(), wxID_ANY);
         auto fonts = getConfig().getAllFixedWidthFonts();
         fonts.insert(fonts.begin(), "");
         m_fontChoice->Append(fonts);

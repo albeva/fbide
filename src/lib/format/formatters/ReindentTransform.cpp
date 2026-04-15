@@ -14,10 +14,13 @@ struct LineKeywords {
     KeywordKind first = KeywordKind::None;
     KeywordKind second = KeywordKind::None;
     KeywordKind last = KeywordKind::None;
+    bool lastAtEnd = false;  // true when last structural keyword is at end of line
+    bool hasColon = false;   // true when line contains ':' statement separator
 };
 
 auto getLineKeywords(const std::vector<lexer::Token*>& lineTokens) -> LineKeywords {
     LineKeywords result;
+    bool trailingContent = false;
     for (const auto* tok : lineTokens) {
         if (tok->kind == lexer::TokenKind::Whitespace || tok->kind == lexer::TokenKind::Newline) {
             continue;
@@ -25,9 +28,14 @@ auto getLineKeywords(const std::vector<lexer::Token*>& lineTokens) -> LineKeywor
         if (tok->kind == lexer::TokenKind::Comment || tok->kind == lexer::TokenKind::CommentBlock) {
             break;
         }
+        if (tok->kind == lexer::TokenKind::Operator && tok->text == ":") {
+            result.hasColon = true;
+        }
         if (tok->keywordKind == KeywordKind::None || tok->keywordKind == KeywordKind::Other) {
+            trailingContent = true;
             continue;
         }
+        trailingContent = false;
         if (result.first == KeywordKind::None) {
             result.first = tok->keywordKind;
         } else if (result.second == KeywordKind::None) {
@@ -35,6 +43,7 @@ auto getLineKeywords(const std::vector<lexer::Token*>& lineTokens) -> LineKeywor
         }
         result.last = tok->keywordKind;
     }
+    result.lastAtEnd = !trailingContent && result.last != KeywordKind::None;
     return result;
 }
 
@@ -68,18 +77,6 @@ auto closesBlock(const KeywordKind kw) -> bool {
             return false;
     }
 }
-
-auto isMidBlock(const KeywordKind kw) -> bool {
-    switch (kw) {
-        case KeywordKind::Else:
-        case KeywordKind::ElseIf:
-        case KeywordKind::Case:
-            return true;
-        default:
-            return false;
-    }
-}
-
 } // namespace
 
 auto ReindentTransform::apply(std::vector<lexer::Token> tokens) const -> std::vector<lexer::Token> {
@@ -117,15 +114,21 @@ auto ReindentTransform::apply(std::vector<lexer::Token> tokens) const -> std::ve
         }
 
         // Determine indent adjustments
+        // Colon-separated statements are self-contained — no indent changes
         bool dedentBefore = false;
         bool indentAfter = false;
 
-        if (closesBlock(kws.first)) {
+        if (kws.hasColon) {
+            // Multi-statement line, skip indent logic
+        } else if (closesBlock(kws.first)) {
             dedentBefore = true;
-        } else if (isMidBlock(kws.first)) {
+        } else if (kws.first == KeywordKind::Case || kws.first == KeywordKind::ElseIf) {
             dedentBefore = true;
             indentAfter = true;
-        } else if (kws.first == KeywordKind::If && kws.last == KeywordKind::Then) {
+        } else if (kws.first == KeywordKind::Else && kws.lastAtEnd) {
+            dedentBefore = true;
+            indentAfter = true;
+        } else if (kws.first == KeywordKind::If && kws.last == KeywordKind::Then && kws.lastAtEnd) {
             indentAfter = true;
         } else if (kws.first == KeywordKind::Type && kws.second != KeywordKind::As) {
             indentAfter = true;

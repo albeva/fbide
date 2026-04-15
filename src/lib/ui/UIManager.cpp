@@ -116,7 +116,9 @@ void UIManager::createMainFrame() {
     const auto& config = m_ctx.getConfig();
 
     m_frame = make_unowned<wxFrame>(nullptr, wxID_ANY, "FBIde");
+#ifndef __WXMSW__
     m_frame->SetIcon(wxICON(XPM::appicon));
+#endif
     m_frame->PushEventHandler(this);
     m_frame->PushEventHandler(&m_ctx.getCommandManager());
 

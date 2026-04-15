@@ -53,3 +53,10 @@
 - [ ] Auto indentation in the editor as user types
 - [ ] Open #include directives
 - [ ] Implement new FB scintilla lexer
+- [ ] Make editor fully utf-8 compatible (config/langauge files, the editor, save/load, etc.)
+
+# General
+
+- [ ] Add stop/kill button that terminates running app/compile process
+- [ ] Do not clear clipboard when quitting FBde
+- [ ] Use file pattern allowing all supported files to be open in file open dialog

@@ -17,6 +17,8 @@ add_executable(tests
     ConfigTests.cpp
     KeywordsTests.cpp
     LangTests.cpp
+    LexerTests.cpp
+    ReindentTests.cpp
     RunCommandTests.cpp
     ThemeTests.cpp
 )

@@ -11,19 +11,21 @@ namespace fbide::lexer {
 
 /// Token types produced by the FreeBASIC lexer.
 enum class TokenKind {
-    Keyword1,      // keyword group 1
-    Keyword2,      // keyword group 2
-    Keyword3,      // keyword group 3
-    Keyword4,      // keyword group 4
-    Comment,       // ' single-line comment
-    CommentBlock,  // /' nested multi-line comment '/
-    String,        // "double-quoted string"
-    Number,        // numeric literal (including &H, &O, &B prefixes)
-    Preprocessor,  // #directive (entire line)
-    Operator,      // punctuation and operators
-    Identifier,    // any other word
-    Whitespace,    // spaces and tabs
-    Newline,       // line break
+    Keyword1,            // keyword group 1
+    Keyword2,            // keyword group 2
+    Keyword3,            // keyword group 3
+    Keyword4,            // keyword group 4
+    Comment,             // ' single-line comment
+    CommentBlock,        // /' nested multi-line comment '/
+    String,              // "double-quoted string"
+    UnterminatedString,  // string missing closing quote
+    Number,              // numeric literal (including &H, &O, &B prefixes)
+    Preprocessor,        // #directive (entire line)
+    Operator,            // punctuation and operators
+    Identifier,          // any other word
+    Whitespace,          // spaces and tabs
+    Newline,             // line break
+    Invalid,             // unrecognised input
 };
 
 /// Structural keyword classification for autoindent and formatting.
@@ -67,8 +69,8 @@ struct Token final {
     TokenKind kind;
     KeywordKind keywordKind = KeywordKind::None;
     wxString text;
-    std::size_t start = 0;
-    std::size_t end = 0;
+    unsigned start = 0;
+    unsigned end = 0;
 };
 
 } // namespace fbide

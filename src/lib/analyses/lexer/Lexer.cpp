@@ -10,39 +10,8 @@ using namespace fbide::lexer;
 
 namespace {
 
-auto isOperatorChar(const wxUniChar ch) -> bool {
-    switch (ch.GetValue()) {
-        case '(': case ')': case ',': case '.': case '/':
-        case ':': case ';': case '<': case '=': case '>':
-        case '?': case '\\': case '^': case '{': case '|':
-        case '}': case '~': case '+': case '-': case '*':
-            return true;
-        default:
-            return false;
-    }
-}
-
 auto isWordChar(const wxUniChar ch) -> bool {
-    if (wxIsalnum(ch) || ch == '_' || ch == '$') {
-        return true;
-    }
-    return false;
-}
-
-auto isNumericLiteral(const wxString& word) -> bool {
-    if (word.empty()) {
-        return false;
-    }
-
-    // &H (hex), &O (octal), &B (binary) prefixes
-    if (word.length() >= 2 && word[0] == '&') {
-        const auto prefix = wxToupper(word[1]);
-        if (prefix == 'H' || prefix == 'O' || prefix == 'B') {
-            return true;
-        }
-    }
-
-    return wxIsdigit(word[0]);
+    return wxIsalnum(ch) || ch == '_' || ch == '$';
 }
 
 /// Map of structurally significant keywords to their KeywordKind.
@@ -80,6 +49,10 @@ const std::unordered_map<wxString, KeywordKind> structuralKeywords = {
 
 } // namespace
 
+// ---------------------------------------------------------------------------
+// Construction
+// ---------------------------------------------------------------------------
+
 Lexer::Lexer(const Keywords& keywords) {
     constexpr TokenKind groups[] = {
         TokenKind::Keyword1, TokenKind::Keyword2,
@@ -91,169 +64,315 @@ Lexer::Lexer(const Keywords& keywords) {
             auto key = tokenizer.GetNextToken();
             auto it = structuralKeywords.find(key);
             const auto kwKind = (it != structuralKeywords.end()) ? it->second : KeywordKind::Other;
-            m_keywords.emplace(std::move(key), KeywordInfo { groups[i], kwKind });
+            m_keywords.emplace(std::move(key), TokenInfo { groups[i], kwKind });
         }
     }
 }
 
-auto Lexer::classifyWord(const wxString& word) const -> std::pair<TokenKind, KeywordKind> {
-    if (word.empty()) {
-        return { TokenKind::Identifier, KeywordKind::None };
-    }
+// ---------------------------------------------------------------------------
+// Cursor helpers
+// ---------------------------------------------------------------------------
 
-    if (isNumericLiteral(word)) {
-        return { TokenKind::Number, KeywordKind::None };
-    }
-
-    const auto it = m_keywords.find(word.Lower());
-    if (it != m_keywords.end()) {
-        return { it->second.tokenKind, it->second.keywordKind };
-    }
-
-    return { TokenKind::Identifier, KeywordKind::None };
+auto Lexer::current() const -> wxUniChar {
+    return (*m_source)[m_pos];
 }
 
-auto Lexer::tokenise(const wxString& source) const -> std::vector<Token> {
+auto Lexer::peek() const -> wxUniChar {
+    return (m_pos + 1 < m_len) ? (*m_source)[m_pos + 1] : wxUniChar('\0');
+}
+
+auto Lexer::atEnd() const -> bool {
+    return m_pos >= m_len;
+}
+
+void Lexer::advance(const unsigned count) {
+    m_pos += count;
+}
+
+void Lexer::skipWhile(bool (*pred)(wxUniChar)) {
+    while (m_pos < m_len && pred((*m_source)[m_pos])) {
+        m_pos++;
+    }
+}
+
+void Lexer::skipToLineEnd() {
+    while (m_pos < m_len && current() != '\n' && current() != '\r') {
+        m_pos++;
+    }
+}
+
+auto Lexer::extract() const -> wxString {
+    return m_source->Mid(m_start, m_pos - m_start);
+}
+
+auto Lexer::makeToken(const TokenKind kind, const KeywordKind kwKind) const -> Token {
+    return { kind, kwKind, extract(), m_start, m_pos };
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+auto Lexer::tokenise(const wxString& source) -> std::vector<Token> {
+    m_source = &source;
+    m_len = static_cast<unsigned>(source.length());
+    m_pos = 0;
+    m_atLineStart = true;
+
     std::vector<Token> tokens;
-    const auto len = source.length();
-    tokens.reserve(len / 5); // Assume each token, on average, to be 5 characters long
-    std::size_t pos = 0;
-    bool atLineStart = true;
+    tokens.reserve(m_len / 5);
 
-    while (pos < len) {
-        const auto ch = source[pos];
-        const auto start = pos;
-
-        // Newline
-        if (ch == '\n' || ch == '\r') {
-            wxString text;
-            text += ch;
-            pos++;
-            // Handle \r\n
-            if (ch == '\r' && pos < len && source[pos] == '\n') {
-                text += '\n';
-                pos++;
-            }
-            tokens.push_back({ TokenKind::Newline, KeywordKind::None, text, start, pos });
-            atLineStart = true;
-            continue;
-        }
-
-        // Whitespace
-        if (ch == ' ' || ch == '\t') {
-            wxString text;
-            while (pos < len && (source[pos] == ' ' || source[pos] == '\t')) {
-                text += source[pos];
-                pos++;
-            }
-            tokens.push_back({ TokenKind::Whitespace, KeywordKind::None, text, start, pos });
-            continue;
-        }
-
-        atLineStart = false;
-
-        // Multi-line comment (/' ... '/)  — may nest
-        if (ch == '/' && pos + 1 < len && source[pos + 1] == '\'') {
-            wxString text;
-            text += source[pos];     // /
-            text += source[pos + 1]; // '
-            pos += 2;
-            int depth = 1;
-            while (pos < len && depth > 0) {
-                if (source[pos] == '/' && pos + 1 < len && source[pos + 1] == '\'') {
-                    text += source[pos];
-                    text += source[pos + 1];
-                    pos += 2;
-                    depth++;
-                } else if (source[pos] == '\'' && pos + 1 < len && source[pos + 1] == '/') {
-                    text += source[pos];
-                    text += source[pos + 1];
-                    pos += 2;
-                    depth--;
-                } else {
-                    text += source[pos];
-                    pos++;
-                }
-            }
-            tokens.push_back({ TokenKind::CommentBlock, KeywordKind::None, text, start, pos });
-            continue;
-        }
-
-        // Single-line comment (')
-        if (ch == '\'') {
-            wxString text;
-            while (pos < len && source[pos] != '\n' && source[pos] != '\r') {
-                text += source[pos];
-                pos++;
-            }
-            tokens.push_back({ TokenKind::Comment, KeywordKind::None, text, start, pos });
-            continue;
-        }
-
-        // Double-quoted string
-        if (ch == '"') {
-            wxString text;
-            text += ch;
-            pos++;
-            while (pos < len && source[pos] != '"' && source[pos] != '\n' && source[pos] != '\r') {
-                text += source[pos];
-                pos++;
-            }
-            if (pos < len && source[pos] == '"') {
-                text += source[pos];
-                pos++;
-            }
-            tokens.push_back({ TokenKind::String, KeywordKind::None, text, start, pos });
-            continue;
-        }
-
-        // Preprocessor directive (# at start of line)
-        if (ch == '#' && atLineStart) {
-            wxString text;
-            while (pos < len && source[pos] != '\n' && source[pos] != '\r') {
-                text += source[pos];
-                pos++;
-            }
-            tokens.push_back({ TokenKind::Preprocessor, KeywordKind::None, text, start, pos });
-            continue;
-        }
-
-        // Operator
-        if (isOperatorChar(ch)) {
-            tokens.push_back({ TokenKind::Operator, KeywordKind::None, wxString(ch), start, start + 1 });
-            pos++;
-            continue;
-        }
-
-        // Word (identifier, keyword, or number)
-        if (isWordChar(ch)) {
-            wxString word;
-            while (pos < len && isWordChar(source[pos])) {
-                word += source[pos];
-                pos++;
-            }
-
-            auto [kind, kwKind] = classifyWord(word);
-
-            // Check for REM comment
-            if (kwKind == KeywordKind::Rem && (pos >= len || !isWordChar(source[pos]))) {
-                // Rest of line is comment
-                while (pos < len && source[pos] != '\n' && source[pos] != '\r') {
-                    word += source[pos];
-                    pos++;
-                }
-                tokens.push_back({ TokenKind::Comment, KeywordKind::None, word, start, pos });
-                continue;
-            }
-
-            tokens.push_back({ kind, kwKind, word, start, pos });
-            continue;
-        }
-
-        // Anything else — single character as identifier
-        tokens.push_back({ TokenKind::Identifier, KeywordKind::None, wxString(ch), start, start + 1 });
-        pos++;
+    while (!atEnd()) {
+        tokens.push_back(next());
     }
 
     return tokens;
+}
+
+// ---------------------------------------------------------------------------
+// Main dispatch
+// ---------------------------------------------------------------------------
+
+auto Lexer::next() -> Token {
+    m_start = m_pos;
+    const auto ch = current();
+
+    switch (ch.GetValue()) {
+    // Newlines
+    case '\n':
+    case '\r':
+        return newline();
+
+    // Whitespace
+    case ' ':
+    case '\t':
+        return whitespace();
+
+    // Single-line comment or block comment closer fragment
+    case '\'':
+        m_atLineStart = false;
+        return comment();
+
+    // Block comment opener or '/' operator
+    case '/':
+        m_atLineStart = false;
+        if (peek() == '\'') {
+            return commentBlock();
+        }
+        advance();
+        return makeToken(TokenKind::Operator);
+
+    // String literal
+    case '!':
+        if (peek() == '"') {
+            m_atLineStart = false;
+            advance(); // skip '!'
+            return stringLiteral(StringMode::Escaped);
+        }
+        // '!' alone — treat as operator
+        m_atLineStart = false;
+        advance();
+        return makeToken(TokenKind::Operator);
+
+    case '$':
+        if (peek() == '"') {
+            m_atLineStart = false;
+            advance(); // skip '$'
+            return stringLiteral(StringMode::Normal);
+        }
+        // '$' is a word char — handle as word
+        m_atLineStart = false;
+        return identifier();
+
+    case '"':
+        m_atLineStart = false;
+        return stringLiteral(StringMode::Normal);
+
+    // Preprocessor directive
+    case '#':
+        if (m_atLineStart) {
+            m_atLineStart = false;
+            return preprocessor();
+        }
+        // '#' not at line start — treat as operator
+        m_atLineStart = false;
+        advance();
+        return makeToken(TokenKind::Operator);
+
+    // '.' — operator, or number if followed by digit (.3)
+    case '.': { // ...
+        m_atLineStart = false;
+        if (wxIsdigit(peek())) {
+            return number();
+        }
+        advance();
+        if (!atEnd() && current() == '.') {
+            advance();
+            if (!atEnd() && current() == '.') {
+                advance();
+            }
+        }
+        return makeToken(TokenKind::Operator);
+    }
+    // clang-format off
+    case '(': case ')': case ',':
+    case ':': case ';': case '<': case '=': case '>':
+    case '?': case '\\': case '^': case '{': case '|':
+    case '}': case '~': case '+': case '-': case '*':
+    // clang-format on
+        m_atLineStart = false;
+        advance();
+        return makeToken(TokenKind::Operator);
+    // &H, &O, &B number prefixes
+    case '&': {
+        m_atLineStart = false;
+        const auto next = wxToupper(peek());
+        if (next == 'H' || next == 'O' || next == 'B') {
+            advance(); // skip '&'
+            return number();
+        }
+        advance();
+        return makeToken(TokenKind::Operator);
+    }
+    // clang-format off
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
+    // clang-format on
+        m_atLineStart = false;
+        return number();
+
+    default:
+        m_atLineStart = false;
+        // Word (identifier, keyword, or number)
+        if (isWordChar(ch)) {
+            return identifier();
+        }
+        // Anything else — unrecognised input
+        advance();
+        return makeToken(TokenKind::Invalid);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Token producers
+// ---------------------------------------------------------------------------
+
+auto Lexer::newline() -> Token {
+    advance();
+    // Handle \r\n
+    if ((*m_source)[m_start] == '\r' && !atEnd() && current() == '\n') {
+        advance();
+    }
+    m_atLineStart = true;
+    return makeToken(TokenKind::Newline);
+}
+
+auto Lexer::whitespace() -> Token {
+    skipWhile([](const wxUniChar ch) { return ch == ' ' || ch == '\t'; });
+    return makeToken(TokenKind::Whitespace);
+}
+
+auto Lexer::comment() -> Token {
+    skipToLineEnd();
+    return makeToken(TokenKind::Comment);
+}
+
+auto Lexer::commentBlock() -> Token {
+    advance(2); // skip /'
+    int depth = 1;
+    while (!atEnd() && depth > 0) {
+        const auto ch = current();
+        if (ch == '/' && peek() == '\'') {
+            advance(2);
+            depth++;
+        } else if (ch == '\'' && peek() == '/') {
+            advance(2);
+            depth--;
+        } else {
+            advance();
+        }
+    }
+    return makeToken(TokenKind::CommentBlock);
+}
+
+auto Lexer::stringLiteral(const StringMode mode) -> Token {
+    advance(); // skip opening quote
+
+    while (!atEnd() && current() != '\n' && current() != '\r') {
+        if (mode == StringMode::Escaped && current() == '\\') {
+            advance(); // skip backslash
+            if (!atEnd()) {
+                advance(); // skip escaped char
+            }
+            continue;
+        }
+        if (current() == '"') {
+            if (peek() == '"') {
+                advance(2); // skip doubled quote
+                continue;
+            }
+            advance(); // skip closing quote
+            return makeToken(TokenKind::String);
+        }
+        advance();
+    }
+
+    // Unterminated string — don't consume the newline
+    return makeToken(TokenKind::UnterminatedString);
+}
+
+auto Lexer::preprocessor() -> Token {
+    skipToLineEnd();
+    return makeToken(TokenKind::Preprocessor);
+}
+
+auto Lexer::number() -> Token {
+    // Consume digits, letters (hex, exponent, type suffix), '.', and '_'
+    // Also consume '+'/'-' after exponent marker (e/E/d/D) in floating-point mode
+    bool fp = current() == '.';
+    wxUniChar prev = '\0';
+    while (!atEnd()) {
+        const auto ch = current();
+        if (ch == '.') {
+            fp = true;
+            prev = ch;
+            advance();
+        } else if (wxIsalnum(ch) || ch == '_') {
+            prev = ch;
+            advance();
+        } else if (fp && (ch == '+' || ch == '-') && (prev == 'e' || prev == 'E' || prev == 'd' || prev == 'D')) {
+            prev = ch;
+            advance();
+        } else {
+            break;
+        }
+    }
+    return makeToken(TokenKind::Number);
+}
+
+auto Lexer::identifier() -> Token {
+    skipWhile(isWordChar);
+    const auto text = extract();
+
+    // REM is a comment keyword — rest of line is comment
+    if (text.IsSameAs("rem", false)) {
+        skipToLineEnd();
+        return makeToken(TokenKind::Comment);
+    }
+
+    // Classify as keyword or identifier
+    auto info = classifyWord(text);
+    return { info.tokenKind, info.keywordKind, text, m_start, m_pos };
+}
+
+// ---------------------------------------------------------------------------
+// Keyword classification
+// ---------------------------------------------------------------------------
+
+auto Lexer::classifyWord(const wxString& text) const -> TokenInfo {
+    const auto it = m_keywords.find(text.Lower());
+    if (it != m_keywords.end()) {
+        return it->second;
+    }
+    return { .tokenKind = TokenKind::Identifier, .keywordKind = KeywordKind::None };
 }

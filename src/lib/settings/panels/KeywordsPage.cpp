@@ -35,7 +35,7 @@ void KeywordsPage::create() {
 
     // Keyword text area
     m_textKeywords = make_unowned<wxTextCtrl>(
-        this, wxID_ANY,
+        currentParent(), wxID_ANY,
         m_groups[m_selectedGroup],
         wxDefaultPosition, wxDefaultSize,
         wxTE_MULTILINE | wxTE_WORDWRAP

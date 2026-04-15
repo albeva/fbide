@@ -25,7 +25,7 @@ AboutDialog::AboutDialog(wxWindow* parent, Context& ctx)
 void AboutDialog::create() {
     const auto infoFont = wxFont(wxFontInfo(9).Family(wxFONTFAMILY_TELETYPE));
     const auto banner = make_unowned<wxStaticBitmap>(
-        this, wxID_ANY, wxBitmap(XPM::fbide_xpm),
+        currentParent(), wxID_ANY, wxBitmap(XPM::fbide_xpm),
         wxDefaultPosition, wxSize(300, 75)
     );
     add(banner, { .padding = false });
@@ -46,7 +46,7 @@ void AboutDialog::create() {
 
         separator();
 
-        const auto text = make_unowned<BBCodeText>(this, wxID_ANY, loadReadme(), wxDefaultPosition, wxSize(-1, 200));
+        const auto text = make_unowned<BBCodeText>(currentParent(), wxID_ANY, loadReadme(), wxDefaultPosition, wxSize(-1, 200));
         add(text, { .proportion = 1 });
     });
 
