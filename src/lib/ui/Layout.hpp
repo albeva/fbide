@@ -15,8 +15,7 @@ concept SizerAware = requires(T& parent, wxSizer* sizer) {
 };
 
 /// Default gaps and paddings, adhere to platform default
-static inline constexpr auto DEFAULT_PADDING = -1;
-static inline constexpr auto DEFAULT_GAP = -1;
+inline constexpr auto DEFAULT_PADDING = -1;
 
 /// Layout options container sizers
 struct LayoutContainerOptions final {
@@ -30,10 +29,10 @@ struct LayoutContainerOptions final {
     bool padding = true;
     /// Center child items within the container
     bool center = false;
-    /// Space around cihld items
+    /// Space around child items
     int border = DEFAULT_PADDING;
     /// Space between child items
-    int gap = DEFAULT_GAP;
+    int gap = DEFAULT_PADDING;
 };
 
 /// Layout options for individual managed items
@@ -48,8 +47,8 @@ struct LayoutItemOptions final {
     bool padding = true;
 };
 
-static constexpr LayoutItemOptions defaultItemOptions = {};
-static constexpr LayoutItemOptions defaultSeparatorOptions = { .padding = false };
+constexpr LayoutItemOptions defaultItemOptions = {};
+constexpr LayoutItemOptions defaultSeparatorOptions = { .padding = false };
 
 /// Templated layout helper that can extend any wxWindow-derived class.
 /// Provides automatic gap management between sibling elements.
@@ -75,7 +74,7 @@ protected:
         return std::max(5, wxSizerFlags::GetDefaultBorder());
     }
 
-    static auto fix(const int border) -> int {
+    static auto resolveBorder(const int border) -> int {
         return border == DEFAULT_PADDING ? defaultBorder() : border;
     }
 
@@ -83,9 +82,9 @@ protected:
     void add(wxWindow* view, const LayoutItemOptions opts = {}) {
         const auto calc = calculate(opts);
         if (calc.space != 0) {
-            m_currentSizer->AddSpacer(fix(calc.space));
+            m_currentSizer->AddSpacer(resolveBorder(calc.space));
         }
-        m_currentSizer->Add(view, calc.proportion, calc.flags, fix(calc.border));
+        m_currentSizer->Add(view, calc.proportion, calc.flags, resolveBorder(calc.border));
     }
 
     /// Add child sizer
@@ -97,9 +96,9 @@ protected:
             .padding = opts.padding
         });
         if (calc.space != 0) {
-            m_currentSizer->AddSpacer(fix(calc.space));
+            m_currentSizer->AddSpacer(resolveBorder(calc.space));
         }
-        m_currentSizer->Add(sizer, calc.proportion, calc.flags, fix(calc.border));
+        m_currentSizer->Add(sizer, calc.proportion, calc.flags, resolveBorder(calc.border));
     }
 
     /// Add a separator line (orientation auto-detected from parent sizer).
@@ -114,7 +113,7 @@ protected:
     }
 
     /// Add a space
-    void spacer(const int size = DEFAULT_GAP) { currentSizer()->AddSpacer(fix(size)); }
+    void spacer(const int size = DEFAULT_PADDING) { currentSizer()->AddSpacer(resolveBorder(size)); }
 
     // -----------------------------------------------------------------------
     // Controls
@@ -175,7 +174,7 @@ protected:
         return ctrl;
     }
 
-    /// Add a choise dropdown
+    /// Add a choice dropdown
     auto choice(const wxArrayString& choices, LayoutItemOptions opts = {}) -> Unowned<wxChoice> {
         const auto ctrl = make_unowned<wxChoice>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, choices);
         add(ctrl, opts);
@@ -308,7 +307,7 @@ private:
         if (m_currentSizer->IsEmpty()) {
             return;
         }
-        m_currentSizer->AddSpacer(fix(m_currentOptions.border));
+        m_currentSizer->AddSpacer(resolveBorder(m_currentOptions.border));
     }
 
     wxBoxSizer* m_currentSizer = nullptr;
