@@ -13,6 +13,7 @@ namespace fbide {
 /// Renders tokens back to plain text by concatenating token text.
 class PlainTextRenderer final : public Renderer {
 public:
+    using Renderer::Renderer;
     [[nodiscard]] auto render(const std::vector<lexer::Token>& tokens) const -> wxString override;
     [[nodiscard]] auto getType() const -> DocumentType override { return DocumentType::FreeBASIC; }
 };

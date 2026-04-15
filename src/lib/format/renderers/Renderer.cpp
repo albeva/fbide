@@ -18,7 +18,7 @@ auto Renderer::render(
     // Apply transforms in sequence
     auto transformed = transforms.front()->apply(tokens);
     for (std::size_t i = 1; i < transforms.size(); i++) {
-        transformed = transforms[i]->apply(std::move(transformed));
+        transformed = transforms[i]->apply(transformed);
     }
     return render(transformed);
 }

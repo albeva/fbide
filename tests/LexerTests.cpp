@@ -24,12 +24,12 @@ protected:
         m_lexer = std::make_unique<Lexer>(kw);
     }
 
-    auto tokenise(const wxString& source) -> std::vector<Token> {
+    auto tokenise(const char* source) -> std::vector<Token> {
         return m_lexer->tokenise(source);
     }
 
     // Helper: return only non-whitespace, non-newline tokens
-    auto significant(const wxString& source) -> std::vector<Token> {
+    auto significant(const char* source) -> std::vector<Token> {
         auto tokens = tokenise(source);
         std::erase_if(tokens, [](const Token& tok) {
             return tok.kind == TokenKind::Whitespace || tok.kind == TokenKind::Newline;
@@ -465,12 +465,14 @@ TEST_F(LexerTests, HashNotAtLineStartIsOperator) {
 // ---------------------------------------------------------------------------
 
 TEST_F(LexerTests, TokenPositions) {
-    const auto tokens = significant("Dim x");
+    const char* source = "Dim x";
+    const auto tokens = significant(source);
     ASSERT_EQ(tokens.size(), 2);
-    EXPECT_EQ(tokens[0].start, 0u);
-    EXPECT_EQ(tokens[0].end, 3u);
-    EXPECT_EQ(tokens[1].start, 4u);
-    EXPECT_EQ(tokens[1].end, 5u);
+    // string_view data() points into source buffer
+    EXPECT_EQ(tokens[0].text.data() - source, 0);
+    EXPECT_EQ(tokens[0].text.size(), 3u);
+    EXPECT_EQ(tokens[1].text.data() - source, 4);
+    EXPECT_EQ(tokens[1].text.size(), 1u);
 }
 
 // ---------------------------------------------------------------------------
@@ -498,4 +500,101 @@ TEST_F(LexerTests, ArithmeticExpression) {
     EXPECT_EQ(tokens[3].text, "+");
     EXPECT_EQ(tokens[4].kind, TokenKind::Number);
     EXPECT_EQ(tokens[4].text, "3.5e+2");
+}
+
+// ---------------------------------------------------------------------------
+// UTF-8 in comments
+// ---------------------------------------------------------------------------
+
+TEST_F(LexerTests, Utf8InComment2Byte) {
+    // 2-byte: é = C3 A9
+    const auto tokens = significant("' café");
+    ASSERT_EQ(tokens.size(), 1);
+    EXPECT_EQ(tokens[0].kind, TokenKind::Comment);
+    EXPECT_EQ(tokens[0].text, "' caf\xC3\xA9");
+}
+
+TEST_F(LexerTests, Utf8InComment3Byte) {
+    // 3-byte: € = E2 82 AC
+    const auto tokens = significant("' price: 10\xE2\x82\xAC");
+    ASSERT_EQ(tokens.size(), 1);
+    EXPECT_EQ(tokens[0].kind, TokenKind::Comment);
+}
+
+TEST_F(LexerTests, Utf8InComment4Byte) {
+    // 4-byte: 😀 = F0 9F 98 80
+    const auto tokens = significant("' emoji \xF0\x9F\x98\x80 here");
+    ASSERT_EQ(tokens.size(), 1);
+    EXPECT_EQ(tokens[0].kind, TokenKind::Comment);
+}
+
+TEST_F(LexerTests, Utf8InBlockComment) {
+    const auto tokens = significant("/\' \xC3\xA9\xE2\x82\xAC\xF0\x9F\x98\x80 \'/");
+    ASSERT_EQ(tokens.size(), 1);
+    EXPECT_EQ(tokens[0].kind, TokenKind::CommentBlock);
+}
+
+// ---------------------------------------------------------------------------
+// UTF-8 in string literals
+// ---------------------------------------------------------------------------
+
+TEST_F(LexerTests, Utf8InString2Byte) {
+    // "café"
+    const auto tokens = significant("\"caf\xC3\xA9\"");
+    ASSERT_EQ(tokens.size(), 1);
+    EXPECT_EQ(tokens[0].kind, TokenKind::String);
+    EXPECT_EQ(tokens[0].text, "\"caf\xC3\xA9\"");
+}
+
+TEST_F(LexerTests, Utf8InString3Byte) {
+    // "10€"
+    const auto tokens = significant("\"10\xE2\x82\xAC\"");
+    ASSERT_EQ(tokens.size(), 1);
+    EXPECT_EQ(tokens[0].kind, TokenKind::String);
+}
+
+TEST_F(LexerTests, Utf8InString4Byte) {
+    // "😀"
+    const auto tokens = significant("\"\xF0\x9F\x98\x80\"");
+    ASSERT_EQ(tokens.size(), 1);
+    EXPECT_EQ(tokens[0].kind, TokenKind::String);
+}
+
+TEST_F(LexerTests, Utf8InEscapedString) {
+    // !"héllo"
+    const auto tokens = significant("!\"h\xC3\xA9llo\"");
+    ASSERT_EQ(tokens.size(), 1);
+    EXPECT_EQ(tokens[0].kind, TokenKind::String);
+}
+
+TEST_F(LexerTests, Utf8InDollarString) {
+    // $"日本語"  (3-byte chars)
+    const auto tokens = significant("$\"\xE6\x97\xA5\xE6\x9C\xAC\xE8\xAA\x9E\"");
+    ASSERT_EQ(tokens.size(), 1);
+    EXPECT_EQ(tokens[0].kind, TokenKind::String);
+}
+
+// ---------------------------------------------------------------------------
+// Non-ASCII outside comments/strings is invalid
+// ---------------------------------------------------------------------------
+
+TEST_F(LexerTests, NonAsciiOutsideCommentOrStringIsInvalid) {
+    // é (C3 A9) at top level — each byte is invalid
+    const auto tokens = significant("\xC3\xA9");
+    ASSERT_EQ(tokens.size(), 2);
+    EXPECT_EQ(tokens[0].kind, TokenKind::Invalid);
+    EXPECT_EQ(tokens[1].kind, TokenKind::Invalid);
+}
+
+TEST_F(LexerTests, NonAsciiMixedWithCode) {
+    // "Dim x" then a non-ASCII byte, then more code
+    const auto tokens = significant("Dim x\xC3\xA9= 1");
+    // Dim, x, invalid, invalid, =, 1
+    ASSERT_EQ(tokens.size(), 6);
+    EXPECT_EQ(tokens[0].kind, TokenKind::Keyword1); // Dim
+    EXPECT_EQ(tokens[1].kind, TokenKind::Identifier); // x
+    EXPECT_EQ(tokens[2].kind, TokenKind::Invalid); // C3
+    EXPECT_EQ(tokens[3].kind, TokenKind::Invalid); // A9
+    EXPECT_EQ(tokens[4].kind, TokenKind::Operator); // =
+    EXPECT_EQ(tokens[5].kind, TokenKind::Number); // 1
 }

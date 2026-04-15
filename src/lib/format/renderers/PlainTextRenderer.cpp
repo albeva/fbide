@@ -8,9 +8,10 @@
 using namespace fbide;
 
 auto PlainTextRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxString {
-    wxString output;
+    std::string output;
+    output.reserve(getSizeHint());
     for (const auto& tok : tokens) {
         output += tok.text;
     }
-    return output;
+    return wxString::FromUTF8(output);
 }

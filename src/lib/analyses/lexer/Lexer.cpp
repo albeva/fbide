@@ -10,12 +10,37 @@ using namespace fbide::lexer;
 
 namespace {
 
-auto isWordChar(const wxUniChar ch) -> bool {
-    return wxIsalnum(ch) || ch == '_' || ch == '$';
+/// ASCII word character: alphanumeric, underscore, dollar sign.
+/// FB identifiers are ASCII only — non-ASCII bytes are invalid outside
+/// comments and string literals.
+auto isWordChar(const char ch) -> bool {
+    if (ch >= 'a' && ch <= 'z') return true;
+    if (ch >= 'A' && ch <= 'Z') return true;
+    if (ch >= '0' && ch <= '9') return true;
+    return ch == '_' || ch == '$';
+}
+
+auto isDigit(const char ch) -> bool {
+    return ch >= '0' && ch <= '9';
+}
+
+auto isAlnum(const char ch) -> bool {
+    if (ch >= 'a' && ch <= 'z') return true;
+    if (ch >= 'A' && ch <= 'Z') return true;
+    if (ch >= '0' && ch <= '9') return true;
+    return false;
+}
+
+auto asciiUpper(const char ch) -> char {
+    return (ch >= 'a' && ch <= 'z') ? static_cast<char>(ch - ('a' - 'A')) : ch;
+}
+
+auto asciiLower(const char ch) -> char {
+    return (ch >= 'A' && ch <= 'Z') ? static_cast<char>(ch + ('a' - 'A')) : ch;
 }
 
 /// Map of structurally significant keywords to their KeywordKind.
-const std::unordered_map<wxString, KeywordKind> structuralKeywords = {
+const std::unordered_map<std::string, KeywordKind> structuralKeywords = {
     // Block openers
     { "sub",      KeywordKind::Sub },
     { "function", KeywordKind::Function },
@@ -47,6 +72,23 @@ const std::unordered_map<wxString, KeywordKind> structuralKeywords = {
     { "rem",      KeywordKind::Rem },
 };
 
+/// Lowercase an ASCII string_view into a std::string.
+auto toLower(const std::string_view sv) -> std::string {
+    std::string result(sv.size(), '\0');
+    for (std::size_t i = 0; i < sv.size(); i++) {
+        result[i] = asciiLower(sv[i]);
+    }
+    return result;
+}
+
+/// Case-insensitive ASCII compare (3 chars max for "rem").
+auto isRem(const std::string_view sv) -> bool {
+    return sv.size() == 3
+        && asciiLower(sv[0]) == 'r'
+        && asciiLower(sv[1]) == 'e'
+        && asciiLower(sv[2]) == 'm';
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -61,66 +103,27 @@ Lexer::Lexer(const Keywords& keywords) {
     for (std::size_t i = 0; i < 4; i++) {
         wxStringTokenizer tokenizer(keywords.getGroup(i));
         while (tokenizer.HasMoreTokens()) {
-            auto key = tokenizer.GetNextToken();
-            auto it = structuralKeywords.find(key);
+            auto key = tokenizer.GetNextToken().ToStdString(wxConvUTF8);
+            auto lower = toLower(key);
+            auto it = structuralKeywords.find(lower);
             const auto kwKind = (it != structuralKeywords.end()) ? it->second : KeywordKind::Other;
-            m_keywords.emplace(std::move(key), TokenInfo { groups[i], kwKind });
+            m_keywords.emplace(std::move(lower), TokenInfo { groups[i], kwKind });
         }
     }
-}
-
-// ---------------------------------------------------------------------------
-// Cursor helpers
-// ---------------------------------------------------------------------------
-
-auto Lexer::current() const -> wxUniChar {
-    return (*m_source)[m_pos];
-}
-
-auto Lexer::peek() const -> wxUniChar {
-    return (m_pos + 1 < m_len) ? (*m_source)[m_pos + 1] : wxUniChar('\0');
-}
-
-auto Lexer::atEnd() const -> bool {
-    return m_pos >= m_len;
-}
-
-void Lexer::advance(const unsigned count) {
-    m_pos += count;
-}
-
-void Lexer::skipWhile(bool (*pred)(wxUniChar)) {
-    while (m_pos < m_len && pred((*m_source)[m_pos])) {
-        m_pos++;
-    }
-}
-
-void Lexer::skipToLineEnd() {
-    while (m_pos < m_len && current() != '\n' && current() != '\r') {
-        m_pos++;
-    }
-}
-
-auto Lexer::extract() const -> wxString {
-    return m_source->Mid(m_start, m_pos - m_start);
-}
-
-auto Lexer::makeToken(const TokenKind kind, const KeywordKind kwKind) const -> Token {
-    return { kind, kwKind, extract(), m_start, m_pos };
 }
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-auto Lexer::tokenise(const wxString& source) -> std::vector<Token> {
-    m_source = &source;
-    m_len = static_cast<unsigned>(source.length());
-    m_pos = 0;
+auto Lexer::tokenise(const char* source) -> std::vector<Token> {
+    m_pos = source;
+    m_start = source;
     m_atLineStart = true;
 
     std::vector<Token> tokens;
-    tokens.reserve(m_len / 5);
+    // Estimate: one token per ~5 chars
+    tokens.reserve(std::strlen(source) / 5);
 
     while (!atEnd()) {
         tokens.push_back(next());
@@ -137,7 +140,7 @@ auto Lexer::next() -> Token {
     m_start = m_pos;
     const auto ch = current();
 
-    switch (ch.GetValue()) {
+    switch (ch) {
     // Newlines
     case '\n':
     case '\r':
@@ -148,7 +151,7 @@ auto Lexer::next() -> Token {
     case '\t':
         return whitespace();
 
-    // Single-line comment or block comment closer fragment
+    // Single-line comment
     case '\'':
         m_atLineStart = false;
         return comment();
@@ -180,7 +183,7 @@ auto Lexer::next() -> Token {
             advance(); // skip '$'
             return stringLiteral(StringMode::Normal);
         }
-        // '$' is a word char — handle as word
+        // '$' is a word char — handle as identifier
         m_atLineStart = false;
         return identifier();
 
@@ -200,15 +203,15 @@ auto Lexer::next() -> Token {
         return makeToken(TokenKind::Operator);
 
     // '.' — operator, or number if followed by digit (.3)
-    case '.': { // ...
+    case '.': {
         m_atLineStart = false;
-        if (wxIsdigit(peek())) {
+        if (isDigit(peek())) {
             return number();
         }
         advance();
-        if (!atEnd() && current() == '.') {
+        if (current() == '.') {
             advance();
-            if (!atEnd() && current() == '.') {
+            if (current() == '.') {
                 advance();
             }
         }
@@ -223,10 +226,11 @@ auto Lexer::next() -> Token {
         m_atLineStart = false;
         advance();
         return makeToken(TokenKind::Operator);
+
     // &H, &O, &B number prefixes
     case '&': {
         m_atLineStart = false;
-        const auto next = wxToupper(peek());
+        const auto next = asciiUpper(peek());
         if (next == 'H' || next == 'O' || next == 'B') {
             advance(); // skip '&'
             return number();
@@ -243,11 +247,10 @@ auto Lexer::next() -> Token {
 
     default:
         m_atLineStart = false;
-        // Word (identifier, keyword, or number)
         if (isWordChar(ch)) {
             return identifier();
         }
-        // Anything else — unrecognised input
+        // Unrecognised input
         advance();
         return makeToken(TokenKind::Invalid);
     }
@@ -260,7 +263,7 @@ auto Lexer::next() -> Token {
 auto Lexer::newline() -> Token {
     advance();
     // Handle \r\n
-    if ((*m_source)[m_start] == '\r' && !atEnd() && current() == '\n') {
+    if (*m_start == '\r' && !atEnd() && current() == '\n') {
         advance();
     }
     m_atLineStart = true;
@@ -268,12 +271,16 @@ auto Lexer::newline() -> Token {
 }
 
 auto Lexer::whitespace() -> Token {
-    skipWhile([](const wxUniChar ch) { return ch == ' ' || ch == '\t'; });
+    while (current() == ' ' || current() == '\t') {
+        advance();
+    }
     return makeToken(TokenKind::Whitespace);
 }
 
 auto Lexer::comment() -> Token {
-    skipToLineEnd();
+    while (!atEnd() && current() != '\n' && current() != '\r') {
+        advance();
+    }
     return makeToken(TokenKind::Comment);
 }
 
@@ -322,7 +329,9 @@ auto Lexer::stringLiteral(const StringMode mode) -> Token {
 }
 
 auto Lexer::preprocessor() -> Token {
-    skipToLineEnd();
+    while (!atEnd() && current() != '\n' && current() != '\r') {
+        advance();
+    }
     return makeToken(TokenKind::Preprocessor);
 }
 
@@ -330,14 +339,14 @@ auto Lexer::number() -> Token {
     // Consume digits, letters (hex, exponent, type suffix), '.', and '_'
     // Also consume '+'/'-' after exponent marker (e/E/d/D) in floating-point mode
     bool fp = current() == '.';
-    wxUniChar prev = '\0';
+    char prev = '\0';
     while (!atEnd()) {
         const auto ch = current();
         if (ch == '.') {
             fp = true;
             prev = ch;
             advance();
-        } else if (wxIsalnum(ch) || ch == '_') {
+        } else if (isAlnum(ch) || ch == '_') {
             prev = ch;
             advance();
         } else if (fp && (ch == '+' || ch == '-') && (prev == 'e' || prev == 'E' || prev == 'd' || prev == 'D')) {
@@ -351,26 +360,31 @@ auto Lexer::number() -> Token {
 }
 
 auto Lexer::identifier() -> Token {
-    skipWhile(isWordChar);
+    while (!atEnd() && isWordChar(current())) {
+        advance();
+    }
     const auto text = extract();
 
     // REM is a comment keyword — rest of line is comment
-    if (text.IsSameAs("rem", false)) {
-        skipToLineEnd();
+    if (isRem(text)) {
+        while (!atEnd() && current() != '\n' && current() != '\r') {
+            advance();
+        }
         return makeToken(TokenKind::Comment);
     }
 
     // Classify as keyword or identifier
-    auto info = classifyWord(text);
-    return { info.tokenKind, info.keywordKind, text, m_start, m_pos };
+    const auto info = classifyWord(text);
+    return { info.tokenKind, info.keywordKind, text };
 }
 
 // ---------------------------------------------------------------------------
 // Keyword classification
 // ---------------------------------------------------------------------------
 
-auto Lexer::classifyWord(const wxString& text) const -> TokenInfo {
-    const auto it = m_keywords.find(text.Lower());
+auto Lexer::classifyWord(const std::string_view text) const -> TokenInfo {
+    const auto key = toLower(text);
+    const auto it = m_keywords.find(key);
     if (it != m_keywords.end()) {
         return it->second;
     }

@@ -65,12 +65,11 @@ enum class KeywordKind {
 };
 
 /// A single token from the lexer.
+/// `text` is a view into the source buffer — the source must outlive the token.
 struct Token final {
-    TokenKind kind;
+    TokenKind kind {};
     KeywordKind keywordKind = KeywordKind::None;
-    wxString text;
-    unsigned start = 0;
-    unsigned end = 0;
+    std::string_view text {};
 };
 
 } // namespace fbide

@@ -23,16 +23,16 @@ protected:
     }
 
     /// Tokenise, reindent, and return the resulting text.
-    auto reindent(const wxString& source) -> wxString {
-        auto tokens = m_lexer->tokenise(source);
+    auto reindent(const char* source) -> std::string {
+        const auto tokens = m_lexer->tokenise(source);
         const ReindentTransform transform(tabSize);
-        tokens = transform.apply(std::move(tokens));
+        const auto result = transform.apply(tokens);
 
-        wxString result;
-        for (const auto& tok : tokens) {
-            result += tok.text;
+        std::string output;
+        for (const auto& tok : result) {
+            output += tok.text;
         }
-        return result;
+        return output;
     }
 
     std::unique_ptr<lexer::Lexer> m_lexer;

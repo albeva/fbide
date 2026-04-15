@@ -11,10 +11,12 @@
 namespace fbide {
 
 /// Abstract base for token-to-token transforms. Composable in a pipeline.
+/// Transforms that modify token text store the new strings internally;
+/// the returned tokens' views are valid as long as the transform is alive.
 class TokenTransform {
 public:
     virtual ~TokenTransform() = default;
-    [[nodiscard]] virtual auto apply(std::vector<lexer::Token> tokens) const -> std::vector<lexer::Token> = 0;
+    [[nodiscard]] virtual auto apply(const std::vector<lexer::Token>& tokens) const -> std::vector<lexer::Token> = 0;
 };
 
 } // namespace fbide

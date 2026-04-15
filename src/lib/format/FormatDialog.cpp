@@ -105,14 +105,15 @@ void FormatDialog::create() {
     SetSizerAndFit(currentSizer());
     Centre();
 
-    // Tokenise source once
+    // Tokenise source once (convert to UTF-8 for the lexer)
     const auto source = getSourceText();
     if (!source.empty()) {
+        m_source = source.utf8_string();
         lexer::Lexer lexer(m_ctx.getKeywords());
-        m_tokens = lexer.tokenise(source);
+        m_tokens = lexer.tokenise(m_source.c_str());
     }
 
-    m_renderer = std::make_unique<PlainTextRenderer>();
+    m_renderer = std::make_unique<PlainTextRenderer>(m_source.size());
     updatePreview();
 }
 
@@ -122,17 +123,17 @@ void FormatDialog::onTransformChanged(wxCommandEvent&) {
 }
 
 void FormatDialog::renderCode(wxCommandEvent&) {
-    m_renderer = std::make_unique<PlainTextRenderer>();
+    m_renderer = std::make_unique<PlainTextRenderer>(m_source.size());
     updatePreview();
 }
 
 void FormatDialog::renderHtml(wxCommandEvent&) {
-    m_renderer = std::make_unique<HtmlRenderer>(m_ctx.getTheme());
+    m_renderer = std::make_unique<HtmlRenderer>(m_ctx.getTheme(), m_source.size());
     updatePreview();
 }
 
 void FormatDialog::renderBBCode(wxCommandEvent&) {
-    m_renderer = std::make_unique<BBCodeRenderer>(m_ctx.getTheme());
+    m_renderer = std::make_unique<BBCodeRenderer>(m_ctx.getTheme(), m_source.size());
     updatePreview();
 }
 
@@ -150,12 +151,10 @@ void FormatDialog::onApply(wxCommandEvent&) {
             editor->SetText(rendered);
             editor->EndUndoAction();
         }
-    } else {
-        if (!m_tokens.empty()) {
-            if (wxTheClipboard->Open()) {
-                wxTheClipboard->SetData(make_unowned<wxTextDataObject>(rendered));
-                wxTheClipboard->Close();
-            }
+    } else if (!m_tokens.empty()) {
+        if (wxTheClipboard->Open()) {
+            wxTheClipboard->SetData(make_unowned<wxTextDataObject>(rendered));
+            wxTheClipboard->Close();
         }
     }
 

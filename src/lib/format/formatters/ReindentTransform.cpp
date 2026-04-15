@@ -14,11 +14,11 @@ struct LineKeywords {
     KeywordKind first = KeywordKind::None;
     KeywordKind second = KeywordKind::None;
     KeywordKind last = KeywordKind::None;
-    bool lastAtEnd = false;  // true when last structural keyword is at end of line
-    bool hasColon = false;   // true when line contains ':' statement separator
+    bool lastAtEnd = false;
+    bool hasColon = false;
 };
 
-auto getLineKeywords(const std::vector<lexer::Token*>& lineTokens) -> LineKeywords {
+auto getLineKeywords(const std::vector<const lexer::Token*>& lineTokens) -> LineKeywords {
     LineKeywords result;
     bool trailingContent = false;
     for (const auto* tok : lineTokens) {
@@ -77,83 +77,93 @@ auto closesBlock(const KeywordKind kw) -> bool {
             return false;
     }
 }
+
+/// A line and its trailing newline token (if any).
+struct Line {
+    std::vector<const lexer::Token*> tokens;
+    const lexer::Token* newline = nullptr;
+};
+
 } // namespace
 
-auto ReindentTransform::apply(std::vector<lexer::Token> tokens) const -> std::vector<lexer::Token> {
-    // Split tokens into lines (pointers into the tokens vector)
-    std::vector<std::vector<lexer::Token*>> lines;
-    lines.emplace_back();
+auto ReindentTransform::apply(const std::vector<lexer::Token>& tokens) const -> std::vector<lexer::Token> {
+    m_pool.clear();
+    m_pool.reserve(tokens.size() / 5); // rough estimate: one indent string per ~5 tokens
 
-    for (auto& tok : tokens) {
+    // Split into lines, tracking the newline that ends each
+    std::vector<Line> lines;
+    lines.emplace_back();
+    for (const auto& tok : tokens) {
         if (tok.kind == lexer::TokenKind::Newline) {
+            lines.back().newline = &tok;
             lines.emplace_back();
         } else {
-            lines.back().push_back(&tok);
+            lines.back().tokens.push_back(&tok);
         }
     }
 
-    // Process each line: strip leading whitespace, compute new indentation
+    // Build output
+    std::vector<lexer::Token> result;
+    result.reserve(tokens.size());
     std::size_t indent = 0;
 
-    for (auto& line : lines) {
-        // Strip leading whitespace tokens
-        while (!line.empty() && line.front()->kind == lexer::TokenKind::Whitespace) {
-            line.front()->text.clear();
-            line.erase(line.begin());
+    for (const auto& line : lines) {
+        // Find first non-whitespace token
+        auto contentStart = line.tokens.begin();
+        while (contentStart != line.tokens.end() && (*contentStart)->kind == lexer::TokenKind::Whitespace) {
+            ++contentStart;
         }
 
-        if (line.empty()) {
-            continue;
+        if (contentStart != line.tokens.end()) {
+            const auto kws = getLineKeywords(line.tokens);
+            const bool isPreprocessor = (*contentStart)->kind == lexer::TokenKind::Preprocessor;
+
+            bool dedentBefore = false;
+            bool indentAfter = false;
+
+            if (!isPreprocessor && !kws.hasColon) {
+                if (closesBlock(kws.first)) {
+                    dedentBefore = true;
+                } else if (kws.first == KeywordKind::Case || kws.first == KeywordKind::ElseIf) {
+                    dedentBefore = true;
+                    indentAfter = true;
+                } else if (kws.first == KeywordKind::Else && kws.lastAtEnd) {
+                    dedentBefore = true;
+                    indentAfter = true;
+                } else if (kws.first == KeywordKind::If && kws.last == KeywordKind::Then && kws.lastAtEnd) {
+                    indentAfter = true;
+                } else if (kws.first == KeywordKind::Type && kws.second != KeywordKind::As) {
+                    indentAfter = true;
+                } else if (opensBlock(kws.first)) {
+                    indentAfter = true;
+                }
+            }
+
+            if (dedentBefore && indent > 0) {
+                indent--;
+            }
+
+            // Emit indentation
+            if (!isPreprocessor && indent > 0) {
+                m_pool.emplace_back(indent * static_cast<std::size_t>(m_tabSize), ' ');
+                result.push_back({ lexer::TokenKind::Whitespace, lexer::KeywordKind::None, m_pool.back() });
+            }
+
+            // Emit content tokens (skip leading whitespace)
+            for (auto it = contentStart; it != line.tokens.end(); ++it) {
+                result.push_back(**it);
+            }
+
+            if (indentAfter) {
+                indent++;
+            }
         }
 
-        const auto kws = getLineKeywords(line);
-
-        // Preprocessor lines: flush to column 0
-        if (line.front()->kind == lexer::TokenKind::Preprocessor) {
-            continue;
-        }
-
-        // Determine indent adjustments
-        // Colon-separated statements are self-contained — no indent changes
-        bool dedentBefore = false;
-        bool indentAfter = false;
-
-        if (kws.hasColon) {
-            // Multi-statement line, skip indent logic
-        } else if (closesBlock(kws.first)) {
-            dedentBefore = true;
-        } else if (kws.first == KeywordKind::Case || kws.first == KeywordKind::ElseIf) {
-            dedentBefore = true;
-            indentAfter = true;
-        } else if (kws.first == KeywordKind::Else && kws.lastAtEnd) {
-            dedentBefore = true;
-            indentAfter = true;
-        } else if (kws.first == KeywordKind::If && kws.last == KeywordKind::Then && kws.lastAtEnd) {
-            indentAfter = true;
-        } else if (kws.first == KeywordKind::Type && kws.second != KeywordKind::As) {
-            indentAfter = true;
-        } else if (opensBlock(kws.first)) {
-            indentAfter = true;
-        }
-
-        if (dedentBefore && indent > 0) {
-            indent--;
-        }
-
-        // Set leading whitespace on the first token
-        if (indent > 0) {
-            line.front()->text = wxString(' ', indent * static_cast<std::size_t>(m_tabSize)) + line.front()->text;
-        }
-
-        if (indentAfter) {
-            indent++;
+        // Emit trailing newline
+        if (line.newline != nullptr) {
+            result.push_back(*line.newline);
         }
     }
 
-    // Remove tokens that were cleared (empty text whitespace)
-    std::erase_if(tokens, [](const lexer::Token& tok) {
-        return tok.kind == lexer::TokenKind::Whitespace && tok.text.empty();
-    });
-
-    return tokens;
+    return result;
 }

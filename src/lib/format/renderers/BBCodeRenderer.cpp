@@ -10,8 +10,10 @@ using namespace fbide;
 
 namespace {
 
-auto hexColour(const wxColour& colour) -> wxString {
-    return wxString::Format("#%02X%02X%02X", colour.Red(), colour.Green(), colour.Blue());
+auto hexColour(const wxColour& colour) -> std::string {
+    char buf[8];
+    std::snprintf(buf, sizeof(buf), "#%02X%02X%02X", colour.Red(), colour.Green(), colour.Blue());
+    return buf;
 }
 
 auto tokenToItemKind(const lexer::TokenKind kind) -> Theme::ItemKind {
@@ -41,7 +43,8 @@ auto needsStyling(const lexer::TokenKind kind) -> bool {
 } // namespace
 
 auto BBCodeRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxString {
-    wxString output;
+    std::string output;
+    output.reserve(getSizeHint() + tokens.size() * 30);
     output += "[code]\n";
 
     for (const auto& tok : tokens) {
@@ -71,5 +74,5 @@ auto BBCodeRenderer::render(const std::vector<lexer::Token>& tokens) const -> wx
     }
 
     output += "\n[/code]";
-    return output;
+    return wxString::FromUTF8(output);
 }

@@ -15,6 +15,8 @@ namespace fbide {
 /// Abstract base for token renderers. Terminal step in a format pipeline.
 class Renderer {
 public:
+    NO_COPY_AND_MOVE(Renderer)
+    explicit Renderer(const std::size_t sizeHint) : m_sizeHint(sizeHint) {}
     virtual ~Renderer() = default;
 
     /// Render the token stream to a string, applying transforms first.
@@ -29,6 +31,11 @@ public:
 
     /// Subclasses implement this to render the (already transformed) tokens.
     [[nodiscard]] virtual auto render(const std::vector<lexer::Token>& tokens) const -> wxString = 0;
+
+    /// Get input size hint
+    [[nodiscard]] auto getSizeHint() const -> std::size_t { return m_sizeHint; }
+private:
+    std::size_t m_sizeHint;
 };
 
 } // namespace fbide

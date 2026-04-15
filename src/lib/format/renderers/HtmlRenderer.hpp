@@ -16,8 +16,8 @@ class HtmlRenderer final : public Renderer {
 public:
     /// If fullDocument is true, wraps output in a complete HTML page.
     /// If false, produces only <code><pre>...</pre></code> tags.
-    explicit HtmlRenderer(const Theme& theme)
-    : m_theme(theme) {}
+    explicit HtmlRenderer(const Theme& theme, const std::size_t sizeHint)
+    : Renderer(sizeHint), m_theme(theme) {}
 
     [[nodiscard]] auto render(const std::vector<lexer::Token>& tokens) const -> wxString override;
     [[nodiscard]] auto getType() const -> DocumentType override { return DocumentType::HTML; }

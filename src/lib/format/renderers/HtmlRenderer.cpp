@@ -10,8 +10,10 @@ using namespace fbide;
 
 namespace {
 
-auto hexColour(const wxColour& colour) -> wxString {
-    return wxString::Format("#%02X%02X%02X", colour.Red(), colour.Green(), colour.Blue());
+auto hexColour(const wxColour& colour) -> std::string {
+    char buf[8];
+    std::snprintf(buf, sizeof(buf), "#%02X%02X%02X", colour.Red(), colour.Green(), colour.Blue());
+    return buf;
 }
 
 auto tokenToItemKind(const lexer::TokenKind kind) -> Theme::ItemKind {
@@ -38,11 +40,11 @@ auto needsStyling(const lexer::TokenKind kind) -> bool {
         && kind != lexer::TokenKind::Newline;
 }
 
-auto escapeHtml(const wxString& text) -> wxString {
-    wxString escaped;
-    escaped.reserve(text.length());
+auto escapeHtml(std::string_view text) -> std::string {
+    std::string escaped;
+    escaped.reserve(text.size());
     for (const auto ch : text) {
-        switch (ch.GetValue()) {
+        switch (ch) {
             case '&': escaped += "&amp;"; break;
             case '<': escaped += "&lt;"; break;
             case '>': escaped += "&gt;"; break;
@@ -57,7 +59,9 @@ auto escapeHtml(const wxString& text) -> wxString {
 
 auto HtmlRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxString {
     const auto& editor = m_theme.getDefault();
-    wxString output = "<pre>";
+    std::string output;
+    output.reserve(getSizeHint() + tokens.size() * 50); // html needs lot of markup
+    output += "<pre>";
 
     for (const auto& tok : tokens) {
         const auto escaped = escapeHtml(tok.text);
@@ -70,7 +74,7 @@ auto HtmlRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxSt
         const auto& style = m_theme.getStyle(tokenToItemKind(tok.kind));
         const auto colour = hexColour(style.foreground.IsOk() ? style.foreground : editor.foreground);
 
-        wxString css = "color:" + colour;
+        std::string css = "color:" + colour;
         if (style.fontStyle.bold) {
             css += ";font-weight:bold";
         }
@@ -84,7 +88,8 @@ auto HtmlRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxSt
         output += "<span style=\"" + css + "\">" + escaped + "</span>";
     }
 
-    return output + "</pre>";
+    output += "</pre>";
+    return wxString::FromUTF8(output);
 }
 
 auto HtmlRenderer::decorate(const wxString& rendered)-> wxString {
