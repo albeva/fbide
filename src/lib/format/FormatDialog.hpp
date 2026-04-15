@@ -7,6 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "Token.hpp"
+#include "lib/ui/Layout.hpp"
 
 namespace fbide {
 class Context;
@@ -16,7 +17,7 @@ class TokenTransform;
 enum class CaseMode;
 
 /// Format dialog — keyword case conversion and code export.
-class FormatDialog final : public wxDialog {
+class FormatDialog final : public Layout<wxDialog> {
 public:
     NO_COPY_AND_MOVE(FormatDialog)
 
@@ -51,9 +52,6 @@ private:
     Unowned<wxRadioButton> m_caseKeyWord = nullptr;
     Unowned<wxRadioButton> m_caseKEYWORD = nullptr;
     Unowned<wxRadioButton> m_casekeyword = nullptr;
-    Unowned<wxRadioButton> m_outputFormat = nullptr;
-    Unowned<wxRadioButton> m_outputHtml = nullptr;
-    Unowned<wxRadioButton> m_outputBBCode = nullptr;
     Unowned<Editor> m_preview = nullptr;
     Unowned<wxButton> m_actionBtn = nullptr;
     Unowned<wxButton> m_browserBtn = nullptr;

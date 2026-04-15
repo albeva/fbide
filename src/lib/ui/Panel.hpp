@@ -30,12 +30,12 @@ protected:
     void makeTitle(LangId langId);
 
     /// LangId overloads — delegate to Layout's string-based methods.
-    auto text(LangId langId, LayoutItemOptions opts = {}, long style = 0) -> Unowned<wxStaticText>;
-    auto checkBox(bool& value, LangId langId, LayoutItemOptions opts = {}, long style = 0) -> Unowned<wxCheckBox>;
-    auto checkBox(LangId langId, LayoutItemOptions opts = {}, long style = 0) -> Unowned<wxCheckBox>;
-    auto spinCtrl(int& value, LangId langId, int minVal, int maxVal, LayoutItemOptions opts = {}, long style = 0) -> Unowned<wxSpinCtrl>;
-    auto spinCtrl(LangId langId, int minVal, int maxVal, LayoutItemOptions opts = {}, long style = 0) -> Unowned<wxSpinCtrl>;
-    auto button(LangId langId, LayoutItemOptions opts = {}, long style = 0) -> Unowned<wxButton>;
+    auto text(LangId langId, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxStaticText>;
+    auto checkBox(bool& value, LangId langId, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxCheckBox>;
+    auto checkBox(LangId langId, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxCheckBox>;
+    auto spinCtrl(int& value, LangId langId, int minVal, int maxVal, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxSpinCtrl>;
+    auto spinCtrl(LangId langId, int minVal, int maxVal, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxSpinCtrl>;
+    auto button(LangId langId, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxButton>;
 
     // Pull in Layout's string-based overloads (otherwise hidden by the LangId ones).
     using Layout::label;

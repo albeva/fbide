@@ -65,7 +65,7 @@ public:
     explicit Layout(Args&&... args)
     : Base(std::forward<Args>(args)...) {
         m_currentSizer = make_unowned<wxBoxSizer>(wxVERTICAL);
-        Base::SetSizer(m_currentSizer);
+        Base::SetSizerAndFit(m_currentSizer);
     }
 
 protected:
@@ -120,15 +120,15 @@ protected:
     // -----------------------------------------------------------------------
 
     /// Add a static text label.
-    auto label(const wxString& str, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxStaticText> {
-        const auto ctrl = make_unowned<wxStaticText>(this, wxID_ANY, str, wxDefaultPosition, wxDefaultSize, style);
+    auto label(const wxString& str, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxStaticText> {
+        const auto ctrl = make_unowned<wxStaticText>(this, id, str, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }
 
     /// Add a checkbox
-    auto checkBox(bool& value, const wxString& str, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxCheckBox> {
-        const auto ctrl = checkBox(str, opts, style);
+    auto checkBox(bool& value, const wxString& str, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxCheckBox> {
+        const auto ctrl = checkBox(str, opts, id, style);
         ctrl->SetValue(value);
         ctrl->Bind(wxEVT_CHECKBOX, [&](const wxCommandEvent& evt) {
             value = evt.IsChecked();
@@ -136,15 +136,15 @@ protected:
         return ctrl;
     }
 
-    auto checkBox(const wxString& str, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxCheckBox> {
-        const auto ctrl = make_unowned<wxCheckBox>(this, wxID_ANY, str, wxDefaultPosition, wxDefaultSize, style);
+    auto checkBox(const wxString& str, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxCheckBox> {
+        const auto ctrl = make_unowned<wxCheckBox>(this, id, str, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }
 
     /// Add a spin control with initial value
-    auto spinCtrl(int& value, const int minVal, const int maxVal, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxSpinCtrl> {
-        const auto ctrl = spinCtrl(minVal, maxVal, opts, style);
+    auto spinCtrl(int& value, const int minVal, const int maxVal, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxSpinCtrl> {
+        const auto ctrl = spinCtrl(minVal, maxVal, opts, id, style);
         ctrl->SetValue(value);
         ctrl->Bind(wxEVT_SPINCTRL, [&](const wxSpinEvent& evt) {
             value = evt.GetInt();
@@ -153,9 +153,9 @@ protected:
     }
 
     /// Add spin control
-    auto spinCtrl(int minVal, int maxVal, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxSpinCtrl> {
+    auto spinCtrl(int minVal, int maxVal, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxSpinCtrl> {
         const auto ctrl = make_unowned<wxSpinCtrl>(
-            this, wxID_ANY, "",
+            this, id, "",
             wxDefaultPosition, wxDefaultSize,
             wxSP_ARROW_KEYS | style, minVal, maxVal
         );
@@ -164,8 +164,8 @@ protected:
     }
 
     /// Add a choice dropdown with initial value.
-    auto choice(wxString& value, const wxArrayString& choices, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxChoice> {
-        const auto ctrl = choice(choices, opts, style);
+    auto choice(wxString& value, const wxArrayString& choices, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxChoice> {
+        const auto ctrl = choice(choices, opts, id, style);
         const auto sel = ctrl->FindString(value);
         ctrl->SetSelection(sel != wxNOT_FOUND ? sel : 0);
         ctrl->Bind(wxEVT_CHOICE, [&](const wxCommandEvent& evt) {
@@ -175,15 +175,15 @@ protected:
     }
 
     /// Add a choice dropdown
-    auto choice(const wxArrayString& choices, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxChoice> {
-        const auto ctrl = make_unowned<wxChoice>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, choices, style);
+    auto choice(const wxArrayString& choices, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxChoice> {
+        const auto ctrl = make_unowned<wxChoice>(this, id, wxDefaultPosition, wxDefaultSize, choices, style);
         add(ctrl, opts);
         return ctrl;
     }
 
     /// Add a text field with initial value
-    auto textField(wxString& value, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxTextCtrl> {
-        const auto ctrl = textField(opts, style);
+    auto textField(wxString& value, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxTextCtrl> {
+        const auto ctrl = textField(opts, id, style);
         ctrl->SetValue(value);
         ctrl->Bind(wxEVT_TEXT, [&](const wxCommandEvent& evt) {
             value = evt.GetString();
@@ -192,22 +192,22 @@ protected:
     }
 
     /// Add a text field
-    auto textField(const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxTextCtrl> {
-        const auto ctrl = make_unowned<wxTextCtrl>(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, style);
+    auto textField(const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxTextCtrl> {
+        const auto ctrl = make_unowned<wxTextCtrl>(this, id, wxEmptyString, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }
 
     /// Add a button.
-    auto button(const wxString& str, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxButton> {
-        const auto ctrl = make_unowned<wxButton>(this, wxID_ANY, str, wxDefaultPosition, wxDefaultSize, style);
+    auto button(const wxString& str, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxButton> {
+        const auto ctrl = make_unowned<wxButton>(this, id, str, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }
 
     /// Add a radio button
-    auto radio(const wxString& str, const LayoutItemOptions opts = {}, const long style = 0) -> Unowned<wxRadioButton> {
-        const auto ctrl = make_unowned<wxRadioButton>(this, wxID_ANY, str, wxDefaultPosition, wxDefaultSize, style);
+    auto radio(const wxString& str, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxRadioButton> {
+        const auto ctrl = make_unowned<wxRadioButton>(this, id, str, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }

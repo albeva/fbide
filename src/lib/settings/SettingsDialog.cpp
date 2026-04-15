@@ -49,9 +49,8 @@ void SettingsDialog::create() {
     const auto mainSizer = make_unowned<wxBoxSizer>(wxVERTICAL);
     mainSizer->Add(notebook, 1, wxEXPAND | wxALL, 5);
     mainSizer->Add(btnSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
-    SetSizer(mainSizer);
-    SetMinSize(wxSize(500, 400));
-    Fit();
+
+    SetSizerAndFit(mainSizer);
     Centre();
 
     Bind(

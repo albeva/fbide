@@ -40,7 +40,7 @@ enum ControlId {
 } // namespace
 
 // clang-format off
-wxBEGIN_EVENT_TABLE(FormatDialog, wxDialog)
+wxBEGIN_EVENT_TABLE(FormatDialog, Layout<wxDialog>)
     EVT_CHECKBOX(ID_REINDENT,               FormatDialog::onTransformChanged)
     EVT_RADIOBUTTON(ID_CASE_UNCHANGED,      FormatDialog::onTransformChanged)
     EVT_RADIOBUTTON(ID_CASE_KEYWORD,        FormatDialog::onTransformChanged)
@@ -55,7 +55,7 @@ wxEND_EVENT_TABLE()
 // clang-format on
 
 FormatDialog::FormatDialog(wxWindow* parent, Context& ctx)
-: wxDialog(
+: Layout(
       parent, wxID_ANY, ctx.getLang()[LangId::ViewFormatTitle],
       wxDefaultPosition, wxDefaultSize,
       wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER
@@ -65,78 +65,44 @@ FormatDialog::FormatDialog(wxWindow* parent, Context& ctx)
 FormatDialog::~FormatDialog() = default;
 
 void FormatDialog::create() {
-    const auto mainSizer = make_unowned<wxBoxSizer>(wxVERTICAL);
-
     // Options bar
-    {
-        const auto row = make_unowned<wxBoxSizer>(wxHORIZONTAL);
+    hbox("Format options", { .center = true }, [&] {
+        m_reindentCheck = checkBox("Re-indent", { .expand = false }, ID_REINDENT);
 
-        m_reindentCheck = make_unowned<wxCheckBox>(this, ID_REINDENT, "Re-indent");
-        row->Add(m_reindentCheck, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+        separator({ .space = false });
 
-        row->Add(make_unowned<wxStaticLine>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_VERTICAL),
-            0, wxEXPAND | wxLEFT | wxRIGHT, 5);
-
-        m_caseUnchanged = make_unowned<wxRadioButton>(this, ID_CASE_UNCHANGED, "Unchanged", wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
-        m_caseKeyWord = make_unowned<wxRadioButton>(this, ID_CASE_KEYWORD, "KeyWord");
-        m_caseKEYWORD = make_unowned<wxRadioButton>(this, ID_CASE_KEYWORD_UPPER, "KEYWORD");
-        m_casekeyword = make_unowned<wxRadioButton>(this, ID_CASE_KEYWORD_LOWER, "keyword");
+        m_caseUnchanged = radio("Unchanged", { .expand = false }, ID_CASE_UNCHANGED, wxRB_GROUP);
+        m_caseKeyWord = radio("KeyWord", { .expand = false }, ID_CASE_KEYWORD);
+        m_caseKEYWORD = radio("KEYWORD", { .expand = false }, ID_CASE_KEYWORD_UPPER);
+        m_casekeyword = radio("keyword", { .expand = false }, ID_CASE_KEYWORD_LOWER);
         m_caseUnchanged->SetValue(true);
 
-        row->Add(m_caseUnchanged, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
-        row->Add(m_caseKeyWord, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
-        row->Add(m_caseKEYWORD, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
-        row->Add(m_casekeyword, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+        separator({ .space = false });
 
-        row->Add(make_unowned<wxStaticLine>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_VERTICAL),
-            0, wxEXPAND | wxLEFT | wxRIGHT, 5);
-
-        m_outputFormat = make_unowned<wxRadioButton>(this, ID_RENDER_CODE, "Format", wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
-        m_outputHtml = make_unowned<wxRadioButton>(this, ID_RENDER_HTML, "As HTML");
-        m_outputBBCode = make_unowned<wxRadioButton>(this, ID_RENDER_BBCODE, "As BBCode");
-        m_outputFormat->SetValue(true);
-
-        row->Add(m_outputFormat, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
-        row->Add(m_outputHtml, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
-        row->Add(m_outputBBCode, 0, wxALIGN_CENTER_VERTICAL);
-
-        mainSizer->Add(row, 0, wxEXPAND | wxALL, 5);
-    }
-
-    // Preview label
-    {
-        const auto label = make_unowned<wxStaticText>(this, wxID_ANY, "Preview");
-        label->SetFont(label->GetFont().Bold());
-        mainSizer->Add(label, 0, wxLEFT | wxRIGHT | wxTOP, 5);
-    }
+        radio("Format", { .expand = false }, ID_RENDER_CODE, wxRB_GROUP)->SetValue(true);
+        radio("As HTML", { .expand = false }, ID_RENDER_HTML);
+        radio("As BBCode", { .expand = false }, ID_RENDER_BBCODE);
+    });
 
     // Preview editor
-    {
+    vbox("Previw", { .proportion = 1, .border = 0 }, [&] {
         m_preview = make_unowned<Editor>(this, m_ctx, DocumentType::FreeBASIC, true);
         m_preview->SetReadOnly(true);
-        m_preview->SetMinSize(wxSize(450, 250));
-        mainSizer->Add(m_preview, 1, wxEXPAND | wxALL, 5);
-    }
+        m_preview->SetMinSize(wxSize(-1, 200));
+        add(m_preview, { .proportion = 1 });
+    });
 
     // Buttons
-    {
-        const auto btnSizer = make_unowned<wxBoxSizer>(wxHORIZONTAL);
+    hbox({ .border = 0 }, [&] {
+        m_browserBtn = button("Open in Browser", { .expand = false }, ID_BROWSER);
 
-        m_browserBtn = make_unowned<wxButton>(this, ID_BROWSER, "Open in Browser");
-        btnSizer->Add(m_browserBtn, 0, wxRIGHT, 5);
+        currentSizer()->AddStretchSpacer();
 
-        btnSizer->AddStretchSpacer();
-
-        m_actionBtn = make_unowned<wxButton>(this, wxID_OK, "Apply");
-        btnSizer->Add(m_actionBtn, 0, wxRIGHT, 5);
-        btnSizer->Add(make_unowned<wxButton>(this, wxID_CANCEL), 0);
-
-        mainSizer->Add(btnSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
-    }
-
-    SetSizer(mainSizer);
-    SetMinSize(wxSize(700, 450));
-    Fit();
+        m_actionBtn = button("Apply", { .expand = false }, wxID_OK);
+        button("Cancel", { .expand = false }, wxID_CANCEL);
+    });
+    spacer();
+    SetSizerAndFit(currentSizer());
     Centre();
 
     // Tokenise source once
