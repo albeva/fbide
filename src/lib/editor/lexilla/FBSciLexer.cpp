@@ -478,6 +478,7 @@ void FBSciLexer::lexStringOpen() noexcept {
 void FBSciLexer::lexIdentifier() noexcept {
     if (!isIdentifier(m_sc->ch)) {
         if (m_sc->ch == ':' && m_isFirst) {
+            m_sc->Forward();
             m_sc->ChangeState(+FBSciLexerState::Label);
         } else if (m_fieldAccess) {
             m_fieldAccess = false;

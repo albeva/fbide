@@ -15,12 +15,14 @@ add_executable(tests
     BasicTests.cpp
     CompileCommandTests.cpp
     ConfigTests.cpp
+    FBSciLexerTests.cpp
     KeywordsTests.cpp
     LangTests.cpp
     LexerTests.cpp
     ReindentTests.cpp
     RunCommandTests.cpp
     ThemeTests.cpp
+    ${CMAKE_SOURCE_DIR}/third_party/lexilla/test/TestDocument.cxx
 )
 
 # Test data path
@@ -30,7 +32,14 @@ target_compile_definitions(tests PRIVATE
 
 # Link
 target_link_libraries(tests PRIVATE fbide_lib compiler_options gtest)
-target_include_directories(tests SYSTEM PRIVATE ${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
+target_include_directories(tests SYSTEM PRIVATE
+    ${gtest_SOURCE_DIR}/include
+    ${gtest_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/third_party/scintilla/include
+    ${CMAKE_SOURCE_DIR}/third_party/lexilla/include
+    ${CMAKE_SOURCE_DIR}/third_party/lexilla/lexlib
+    ${CMAKE_SOURCE_DIR}/third_party/lexilla/test
+)
 target_precompile_headers(tests REUSE_FROM fbide_lib)
 
 # Discover tests
