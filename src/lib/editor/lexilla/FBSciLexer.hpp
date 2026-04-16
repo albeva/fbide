@@ -47,6 +47,8 @@ enum class FBSciLexerState : int {
     Constant,
     /// Preprocessor
     Preprocessor,
+    /// Error state
+    Error
 };
 
 /// Allow simple conversion from enum to int
@@ -99,6 +101,15 @@ private:
     };
     static_assert(sizeof(LineState) == sizeof(int) && alignof(LineState) == alignof(int));
 
+    /// Form of the number being lexed
+    enum class NumberForm : std::uint8_t {
+        Decimal,
+        FloatingPoint,
+        Hexadecimal,
+        Octal,
+        Binary
+    };
+
     FBIDE_INLINE void lexLineStart() noexcept;
     FBIDE_INLINE void lexLineEnd() noexcept;
     FBIDE_INLINE void resetToDefault() noexcept;
@@ -117,14 +128,15 @@ private:
     static constexpr Sci_Position INVALID_LINE = std::numeric_limits<Sci_Position>::max() - 1;
     static constexpr std::size_t MAX_IDENT_LEN = 128;
 
+    std::array<Lexilla::WordList, WORD_LIST_COUNT> m_wordLists;
     Lexilla::StyleContext* m_sc = nullptr;
     Lexilla::LexAccessor* m_styler = nullptr;
-    std::array<Lexilla::WordList, WORD_LIST_COUNT> m_wordLists;
-    bool m_isFirst = true;
-    bool m_fieldAccess = false;
     Sci_Position m_line = 0;
     LineState m_previousLineState;
     LineState m_lineState;
+    NumberForm m_numberForm = NumberForm::Decimal;
+    bool m_isFirst = true;
+    bool m_fieldAccess = false;
     std::array<char, MAX_IDENT_LEN> m_identBuffer{};
 };
 

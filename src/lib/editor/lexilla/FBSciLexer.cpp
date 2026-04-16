@@ -6,6 +6,7 @@
 //
 // ReSharper disable CppDFALocalValueEscapesFunction
 #include "FBSciLexer.hpp"
+#include "CharCategory.hpp"
 #include "StyleContext.h"
 using namespace fbide;
 
@@ -51,77 +52,6 @@ constexpr std::array wordListStyle {
 static_assert(wordListStyle.size() == FBSciLexer::WORD_LIST_COUNT);
 
 //endregion
-
-// region ---------- Utilities ----------
-
-enum class CharClass: int {
-    Whitespace = 1 << 0,
-    Operator   = 1 << 1,
-    Identifier = 1 << 2,
-    Digit      = 1 << 3,
-    HexDigit   = 1 << 4,
-    BinDigit   = 1 << 5,
-    Letter     = 1 << 6
-};
-
-constexpr auto operator+(const CharClass& rhs) -> int {
-    return static_cast<int>(rhs);
-}
-
-// clang-format off
-constexpr std::array charClasses = {
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  1,   1,  0,  0,  1,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,   0,  0,  0,  0,  0,  0,
-    1,  2,  0,  2,  2,  2,  2,  2,  2,  2,   2,  2,  2,  2,  10, 2,
-    60, 60, 28, 28, 28, 28, 28, 28, 28, 28,  2,  2,  2,  2,  2,  2,
-    2,  84, 84, 84, 84, 84, 84, 68, 68, 68, 68, 68, 68, 68, 68, 68,
-    68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68,  2,  2,  2,  2, 68,
-    2,  84, 84, 84, 84, 84, 84, 68, 68, 68, 68, 68, 68, 68, 68, 68,
-    68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68,  2,  2,  2,  2,  0
-};
-// clang-format on
-
-bool isSpace(const int ch) {
-    const auto idx = static_cast<std::size_t>(ch);
-    return idx < charClasses.size() && (charClasses[idx] & +CharClass::Whitespace);
-}
-
-bool isOperator(const int ch) {
-    const auto idx = static_cast<std::size_t>(ch);
-    return idx < charClasses.size() && (charClasses[idx] & +CharClass::Operator);
-}
-
-bool isIdentifier(const int ch) {
-    const auto idx = static_cast<std::size_t>(ch);
-    return idx < charClasses.size() && (charClasses[idx] & +CharClass::Identifier);
-}
-
-bool isDigit(const int ch) {
-    const auto idx = static_cast<std::size_t>(ch);
-    return idx < charClasses.size() && (charClasses[idx] & +CharClass::Digit);
-}
-
-// bool isHexDigit(const int ch) {
-//     const auto idx = static_cast<std::size_t>(ch);
-//     return idx < charClasses.size() && (charClasses[idx] & +CharClass::HexDigit);
-// }
-//
-// bool isBinDigit(const int ch) {
-//     const auto idx = static_cast<std::size_t>(ch);
-//     return idx < charClasses.size() && (charClasses[idx] & +CharClass::BinDigit);
-// }
-
-// bool isLetter(const int ch) {
-//     const auto idx = static_cast<std::size_t>(ch);
-//     return idx < charClasses.size() && (charClasses[idx] & +CharClass::Letter);
-// }
-
-// int lowerCase(const int c) {
-//     if (c >= 'A' && c <= 'Z') {
-//         return 'a' + c - 'A';
-//     }
-//     return c;
-// }
 
 // endregion
 
@@ -210,6 +140,11 @@ void SCI_METHOD FBSciLexer::Lex(
             break;
         case +Preprocessor:
             lexPreprocessor();
+            break;
+        case +Error:
+            if (isValidAfterNumOrWord(sc.ch)) {
+                resetToDefault();
+            }
             break;
         default:
             break;
@@ -306,6 +241,7 @@ void FBSciLexer::lexDefault() noexcept {
     // .
     else if (m_sc->ch == '.') {
         if (isDigit(m_sc->chNext)) {
+            m_numberForm = NumberForm::FloatingPoint;
             m_sc->SetState(+Number);
         } else if (m_sc->chNext != '.') {
             m_sc->SetState(+Operator);
@@ -324,7 +260,27 @@ void FBSciLexer::lexDefault() noexcept {
     }
     // Numbers
     else if (isDigit(m_sc->ch)) {
+        m_numberForm = NumberForm::Decimal;
         m_sc->SetState(+Number);
+    }
+    // number format?
+    else if (m_sc->ch == '&') {
+        const auto lcn = fastUnsafeLowerCase(m_sc->chNext);
+        if (lcn == 'h') {
+            m_numberForm = NumberForm::Hexadecimal;
+            m_sc->SetState(+Number);
+            m_sc->Forward();
+        } else if (lcn == 'o') {
+            m_numberForm = NumberForm::Octal;
+            m_sc->SetState(+Number);
+            m_sc->Forward();
+        } else if (lcn == 'b') {
+            m_numberForm = NumberForm::Binary;
+            m_sc->SetState(+Number);
+            m_sc->Forward();
+        } else {
+            m_sc->SetState(+Operator);
+        }
     }
     // operators
     else if (isOperator(m_sc->ch)) {
@@ -378,8 +334,64 @@ void FBSciLexer::lexMultilineComment() noexcept {
 }
 
 void FBSciLexer::lexNumber() noexcept {
-    if (!isDigit(m_sc->ch)) {
-        resetToDefault();
+    const auto finish = [&] {
+        if (isValidAfterNumOrWord(m_sc->ch)) {
+            resetToDefault();
+        } else {
+            m_sc->ChangeState(+FBSciLexerState::Error);
+        }
+    };
+    const auto integralSuffixes = [&] {
+        // %     signed 32/64 (depending on platform) bit integer
+        // l, &  signed 32 bit long integer
+        // u     unsigned 32/64 (depending on platform) bit integer
+        // ul    unsigned 32 bit integer
+        // ll    signed 64 bit integer
+        // ull   unsigned 64 bit integer
+        if (m_sc->ch == '%' || m_sc->ch == '&') {
+            m_sc->Forward();
+        } else if (fastUnsafeLowerCase(m_sc->ch) == 'u') {
+            m_sc->Forward();
+            if (fastUnsafeLowerCase(m_sc->ch) == 'l') {
+                m_sc->Forward();
+                if (fastUnsafeLowerCase(m_sc->ch) == 'l') {
+                    m_sc->Forward();
+                }
+            }
+        } else if (fastUnsafeLowerCase(m_sc->ch) == 'l') {
+            m_sc->Forward();
+            if (fastUnsafeLowerCase(m_sc->ch) == 'l') {
+                m_sc->Forward();
+            }
+        }
+        finish();
+    };
+
+    switch (m_numberForm) {
+    case NumberForm::Decimal:
+        if (m_sc->ch == '.') {
+            m_numberForm = NumberForm::FloatingPoint;
+        } else if (!isDigit(m_sc->ch)) {
+            integralSuffixes();
+        }
+        break;
+    case NumberForm::FloatingPoint:
+        break;
+    case NumberForm::Hexadecimal:
+        if (!isHexDigit(m_sc->ch)) {
+            integralSuffixes();
+        }
+        break;
+    case NumberForm::Octal:
+        if (!isOctDigit(m_sc->ch)) {
+            integralSuffixes();
+        }
+        break;
+    case NumberForm::Binary:
+        if (!isBinDigit(m_sc->ch)) {
+            integralSuffixes();
+        }
+        break;
     }
 }
 

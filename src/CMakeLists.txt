@@ -65,6 +65,7 @@ target_sources(fbide_lib
     lib/editor/DocumentManager.hpp
     lib/editor/DocumentType.hpp
     lib/editor/Editor.hpp
+    lib/editor/lexilla/CharCategory.hpp
     lib/editor/lexilla/FBSciLexer.hpp
     lib/format/FormatDialog.hpp
     lib/analyses/lexer/Lexer.hpp

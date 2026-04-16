@@ -202,6 +202,8 @@ void Editor::applyFreebasicTheme() {
     applyStyle(+Label, theme.getStyle(Theme::Identifier), editor);    // TODO: label
     applyStyle(+Constant, theme.getStyle(Theme::Identifier), editor); // TODO: constant
     applyStyle(+Preprocessor, theme.getStyle(Theme::Preprocessor), editor);
+
+    applyStyle(+Error, theme.getStyle(Theme::Identifier), editor);
 }
 
 void Editor::applyStyle(const int stcId, const Theme::ItemStyle& style, const Theme::EditorStyle& editor) {
