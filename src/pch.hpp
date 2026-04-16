@@ -14,6 +14,7 @@
 #include <functional>
 #include <vector>
 #include <optional>
+#include <variant>
 #include <concepts>
 
 // wxWidgets

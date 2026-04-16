@@ -424,6 +424,8 @@ TEST_F(LexerTests, IdentifierNotKeyword) {
 // Operators
 // ---------------------------------------------------------------------------
 
+using lexer::OperatorKind;
+
 TEST_F(LexerTests, Operators) {
     const auto tokens = significant("()+*");
     ASSERT_EQ(tokens.size(), 4);
@@ -438,6 +440,216 @@ TEST_F(LexerTests, ExclamationAloneIsOperator) {
     ASSERT_EQ(tokens.size(), 2);
     EXPECT_EQ(tokens[0].kind, TokenKind::Operator);
     EXPECT_EQ(tokens[0].text, "!");
+}
+
+// ---------------------------------------------------------------------------
+// Compound operators
+// ---------------------------------------------------------------------------
+
+TEST_F(LexerTests, CompoundAddAssign) {
+    const auto tokens = significant("x += 1");
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens[1].kind, TokenKind::Operator);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::AddAssign);
+    EXPECT_EQ(tokens[1].text, "+=");
+}
+
+TEST_F(LexerTests, CompoundSubAssign) {
+    const auto tokens = significant("x -= 1");
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::SubAssign);
+    EXPECT_EQ(tokens[1].text, "-=");
+}
+
+TEST_F(LexerTests, CompoundMulAssign) {
+    const auto tokens = significant("x *= 2");
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::MulAssign);
+    EXPECT_EQ(tokens[1].text, "*=");
+}
+
+TEST_F(LexerTests, CompoundDivAssign) {
+    const auto tokens = significant("x /= 2");
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::DivAssign);
+    EXPECT_EQ(tokens[1].text, "/=");
+}
+
+TEST_F(LexerTests, CompoundIntDivAssign) {
+    const auto tokens = significant("x \\= 2");
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::IntDivAssign);
+    EXPECT_EQ(tokens[1].text, "\\=");
+}
+
+TEST_F(LexerTests, CompoundExpAssign) {
+    const auto tokens = significant("x ^= 2");
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::ExpAssign);
+    EXPECT_EQ(tokens[1].text, "^=");
+}
+
+TEST_F(LexerTests, CompoundConcatAssign) {
+    const auto tokens = significant("x &= y");
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::ConcatAssign);
+    EXPECT_EQ(tokens[1].text, "&=");
+}
+
+TEST_F(LexerTests, CompoundNotEqual) {
+    const auto tokens = significant("x <> y");
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::NotEqual);
+    EXPECT_EQ(tokens[1].text, "<>");
+}
+
+TEST_F(LexerTests, CompoundLessEqual) {
+    const auto tokens = significant("x <= y");
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::LessEqual);
+    EXPECT_EQ(tokens[1].text, "<=");
+}
+
+TEST_F(LexerTests, CompoundGreaterEqual) {
+    const auto tokens = significant("x >= y");
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::GreaterEqual);
+    EXPECT_EQ(tokens[1].text, ">=");
+}
+
+TEST_F(LexerTests, CompoundShiftLeft) {
+    const auto tokens = significant("x << 2");
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::ShiftLeft);
+    EXPECT_EQ(tokens[1].text, "<<");
+}
+
+TEST_F(LexerTests, CompoundShiftRight) {
+    const auto tokens = significant("x >> 2");
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::ShiftRight);
+    EXPECT_EQ(tokens[1].text, ">>");
+}
+
+TEST_F(LexerTests, CompoundShlAssign) {
+    const auto tokens = significant("x <<= 2");
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::ShlAssign);
+    EXPECT_EQ(tokens[1].text, "<<=");
+}
+
+TEST_F(LexerTests, CompoundShrAssign) {
+    const auto tokens = significant("x >>= 2");
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::ShrAssign);
+    EXPECT_EQ(tokens[1].text, ">>=");
+}
+
+TEST_F(LexerTests, CompoundArrow) {
+    const auto tokens = significant("p->x");
+    ASSERT_EQ(tokens.size(), 3);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::Arrow);
+    EXPECT_EQ(tokens[1].text, "->");
+}
+
+// ---------------------------------------------------------------------------
+// Operator kind classification
+// ---------------------------------------------------------------------------
+
+TEST_F(LexerTests, OperatorKindParens) {
+    const auto tokens = significant("()[]{}");
+    ASSERT_EQ(tokens.size(), 6);
+    EXPECT_EQ(tokens[0].operatorKind, OperatorKind::ParenOpen);
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::ParenClose);
+    EXPECT_EQ(tokens[2].operatorKind, OperatorKind::BracketOpen);
+    EXPECT_EQ(tokens[3].operatorKind, OperatorKind::BracketClose);
+    EXPECT_EQ(tokens[4].operatorKind, OperatorKind::BraceOpen);
+    EXPECT_EQ(tokens[5].operatorKind, OperatorKind::BraceClose);
+}
+
+TEST_F(LexerTests, OperatorKindPunctuation) {
+    const auto tokens = significant("a , ; : ?");
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::Comma);
+    EXPECT_EQ(tokens[2].operatorKind, OperatorKind::Semicolon);
+    EXPECT_EQ(tokens[3].operatorKind, OperatorKind::Colon);
+    EXPECT_EQ(tokens[4].operatorKind, OperatorKind::Question);
+}
+
+TEST_F(LexerTests, OperatorKindDot) {
+    const auto tokens = significant("x.y");
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::Dot);
+}
+
+TEST_F(LexerTests, OperatorKindEllipsis) {
+    const auto tokens = significant("a..b");
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::Ellipsis2);
+    const auto tokens2 = significant("a...");
+    EXPECT_EQ(tokens2[1].operatorKind, OperatorKind::Ellipsis3);
+}
+
+// ---------------------------------------------------------------------------
+// Binary vs unary operator detection
+// ---------------------------------------------------------------------------
+
+TEST_F(LexerTests, BinaryMinusAfterIdentifier) {
+    const auto tokens = significant("a - b");
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::Subtract);
+}
+
+TEST_F(LexerTests, UnaryMinusAfterOperator) {
+    const auto tokens = significant("= -3");
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::Negate);
+}
+
+TEST_F(LexerTests, UnaryMinusAfterOpenParen) {
+    const auto tokens = significant("(-3)");
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::Negate);
+}
+
+TEST_F(LexerTests, UnaryMinusAfterComma) {
+    const auto tokens = significant("f(a, -b)");
+    EXPECT_EQ(tokens[4].operatorKind, OperatorKind::Negate);
+}
+
+TEST_F(LexerTests, BinaryMinusAfterCloseParen) {
+    const auto tokens = significant("(a) - b");
+    ASSERT_EQ(tokens.size(), 5);
+    EXPECT_EQ(tokens[3].operatorKind, OperatorKind::Subtract);
+}
+
+TEST_F(LexerTests, BinaryMinusAfterNumber) {
+    const auto tokens = significant("3 - 1");
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::Subtract);
+}
+
+TEST_F(LexerTests, UnaryPlusAfterAssign) {
+    const auto tokens = significant("x = +3");
+    EXPECT_EQ(tokens[2].operatorKind, OperatorKind::UnaryPlus);
+}
+
+TEST_F(LexerTests, BinaryPlusAfterIdentifier) {
+    const auto tokens = significant("a + b");
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::Add);
+}
+
+TEST_F(LexerTests, DerefAfterAssign) {
+    const auto tokens = significant("x = *ptr");
+    EXPECT_EQ(tokens[2].operatorKind, OperatorKind::Dereference);
+}
+
+TEST_F(LexerTests, BinaryMultiplyAfterIdentifier) {
+    const auto tokens = significant("a * b");
+    EXPECT_EQ(tokens[1].operatorKind, OperatorKind::Multiply);
+}
+
+TEST_F(LexerTests, AddressOfAlwaysUnary) {
+    const auto tokens = significant("@x");
+    EXPECT_EQ(tokens[0].operatorKind, OperatorKind::AddressOf);
+}
+
+TEST_F(LexerTests, UnaryAtStartOfLine) {
+    const auto tokens = significant("-x");
+    EXPECT_EQ(tokens[0].operatorKind, OperatorKind::Negate);
 }
 
 // ---------------------------------------------------------------------------

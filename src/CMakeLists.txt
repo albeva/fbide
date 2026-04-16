@@ -26,7 +26,10 @@ target_sources(fbide_lib
     lib/format/FormatDialog.cpp
     lib/analyses/lexer/Lexer.cpp
     lib/format/formatters/CaseTransform.cpp
-    lib/format/formatters/ReindentTransform.cpp
+    lib/format/formatters/Formatter.cpp
+    lib/format/formatters/Renderer.cpp
+    lib/format/formatters/Scanner.cpp
+    lib/format/formatters/TreeBuilder.cpp
     lib/format/renderers/HtmlRenderer.cpp
     lib/format/renderers/PlainTextRenderer.cpp
     lib/format/renderers/Renderer.cpp
@@ -70,7 +73,11 @@ target_sources(fbide_lib
     lib/analyses/lexer/Lexer.hpp
     lib/analyses/lexer/Token.hpp
     lib/format/formatters/CaseTransform.hpp
-    lib/format/formatters/ReindentTransform.hpp
+    lib/format/formatters/FormatTree.hpp
+    lib/format/formatters/Formatter.hpp
+    lib/format/formatters/Renderer.hpp
+    lib/format/formatters/Scanner.hpp
+    lib/format/formatters/TreeBuilder.hpp
     lib/format/formatters/TokenTransform.hpp
     lib/format/renderers/HtmlRenderer.hpp
     lib/format/renderers/PlainTextRenderer.hpp

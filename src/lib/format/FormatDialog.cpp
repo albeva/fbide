@@ -6,10 +6,10 @@
 //
 #include "FormatDialog.hpp"
 #include "formatters/CaseTransform.hpp"
+#include "formatters/Formatter.hpp"
 #include "renderers/HtmlRenderer.hpp"
 #include "lib/analyses/lexer/Lexer.hpp"
 #include "renderers/PlainTextRenderer.hpp"
-#include "formatters/ReindentTransform.hpp"
 #include "lib/app/Context.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/Keywords.hpp"
@@ -173,10 +173,7 @@ void FormatDialog::onBrowser(wxCommandEvent&) {
 
 void FormatDialog::rebuildTransforms() {
     m_transforms.clear();
-
-    if (m_reindentCheck->IsChecked()) {
-        m_transforms.push_back(std::make_unique<ReindentTransform>(m_ctx.getConfig().getTabSize()));
-    }
+    m_reindent = m_reindentCheck->IsChecked();
 
     if (const auto mode = getKeywordCase()) {
          m_transforms.push_back(std::make_unique<CaseTransform>(*mode));
@@ -198,7 +195,7 @@ auto FormatDialog::getSourceText() const -> wxString {
 }
 
 auto FormatDialog::isTransforming() const -> bool {
-    return not m_transforms.empty() || m_renderer->getType() != DocumentType::FreeBASIC;
+    return m_reindent || !m_transforms.empty() || m_renderer->getType() != DocumentType::FreeBASIC;
 }
 
 void FormatDialog::updateButtons() {
@@ -223,7 +220,34 @@ void FormatDialog::updatePreview() {
     m_preview->SetReadOnly(false);
     m_preview->setDocType(m_renderer->getType());
     if (isTransforming()) {
-        m_preview->SetText(m_renderer->render(m_tokens, m_transforms));
+        // Apply token transforms (CaseTransform etc.) first
+        auto tokens = m_tokens;
+        if (!m_transforms.empty()) {
+            std::vector<std::string> pool;
+            pool.reserve(tokens.size());
+            for (const auto& transform : m_transforms) {
+                transform->apply(tokens, pool);
+            }
+        }
+
+        if (m_reindent) {
+            // Use the new tree-based formatter
+            const format::Formatter formatter(static_cast<std::size_t>(m_ctx.getConfig().getTabSize()));
+            auto formatted = formatter.format(tokens);
+
+            if (m_renderer->getType() == DocumentType::FreeBASIC) {
+                // PlainText: use formatted string directly
+                m_preview->SetText(wxString::FromUTF8(formatted));
+            } else {
+                // HTML etc.: re-tokenize for the renderer
+                lexer::Lexer lexer(m_ctx.getKeywords());
+                m_formatted = std::move(formatted);
+                const auto renderedTokens = lexer.tokenise(m_formatted.c_str());
+                m_preview->SetText(m_renderer->render(renderedTokens));
+            }
+        } else {
+            m_preview->SetText(m_renderer->render(tokens));
+        }
     } else {
         m_preview->SetText(getSourceText());
     }

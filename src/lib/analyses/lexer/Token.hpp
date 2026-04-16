@@ -46,6 +46,7 @@ enum class KeywordKind {
     Union,
     Select,
     Asm,
+    Namespace,
     // Block closers
     End,
     Loop,
@@ -84,11 +85,79 @@ enum class KeywordKind {
     Other,
 };
 
+/// Classification of symbol operators for formatting.
+/// Keyword operators (And, Or, Mod, Shl, etc.) are identified by TokenKind::Keyword3
+/// and don't need OperatorKind — they always get binary spacing.
+enum class OperatorKind : std::uint8_t {
+    None,            // not a symbol operator
+
+    // Punctuation / structural
+    ParenOpen,       // (
+    ParenClose,      // )
+    BracketOpen,     // [
+    BracketClose,    // ]
+    BraceOpen,       // {
+    BraceClose,      // }
+    Comma,           // ,
+    Semicolon,       // ;
+    Colon,           // :
+    Dot,             // .
+    Ellipsis2,       // ..
+    Ellipsis3,       // ...
+    Arrow,           // ->
+    Question,        // ?
+
+    // Assignment
+    Assign,          // =
+    AddAssign,       // +=
+    SubAssign,       // -=
+    MulAssign,       // *=
+    DivAssign,       // /=
+    IntDivAssign,    // \=
+    ExpAssign,       // ^=
+    ConcatAssign,    // &=
+
+    // Comparison
+    NotEqual,        // <>
+    Less,            // <
+    Greater,         // >
+    LessEqual,       // <=
+    GreaterEqual,    // >=
+
+    // Arithmetic (binary)
+    Add,             // + (binary)
+    Subtract,        // - (binary)
+    Multiply,        // * (binary)
+    Divide,          // /
+    IntDivide,       // backslash
+    Exponentiate,    // ^
+    Concatenate,     // &
+
+    // Arithmetic (unary)
+    Negate,          // - (unary)
+    UnaryPlus,       // + (unary)
+    AddressOf,       // @ (unary)
+    Dereference,     // * (unary)
+
+    // Shift (symbol forms)
+    ShiftLeft,       // <<
+    ShiftRight,      // >>
+    ShlAssign,       // <<=
+    ShrAssign,       // >>=
+
+    // Type suffix sigils
+    Hash,            // #
+    Dollar,          // $
+    Percent,         // %
+    Exclamation,     // !
+};
+
 /// A single token from the lexer.
 /// `text` is a view into the source buffer — the source must outlive the token.
 struct Token final {
     TokenKind kind {};
     KeywordKind keywordKind = KeywordKind::None;
+    OperatorKind operatorKind = OperatorKind::None;
     std::string_view text {};
 };
 

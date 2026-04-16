@@ -142,6 +142,7 @@ auto Lexer::tokenise(const char* source) -> std::vector<Token> {
     m_pos = source;
     m_start = source;
     m_atLineStart = true;
+    m_canBeUnary = true;
 
     std::vector<Token> tokens;
     // Estimate: one token per ~5 chars
@@ -182,52 +183,55 @@ auto Lexer::next() -> Token {
     case '/':
         m_atLineStart = false;
         if (peek() == '\'') {
+            m_canBeUnary = true;
             return commentBlock();
         }
-        advance();
-        return makeToken(TokenKind::Operator);
+        if (peek() == '=') {
+            return operatorToken(OperatorKind::DivAssign, 2);
+        }
+        return operatorToken(OperatorKind::Divide);
 
-    // String literal
+    // String literal or '!' operator
     case '!':
         if (peek() == '"') {
             m_atLineStart = false;
+            m_canBeUnary = false;
             advance(); // skip '!'
             return stringLiteral(StringMode::Escaped);
         }
-        // '!' alone — treat as operator
-        m_atLineStart = false;
-        advance();
-        return makeToken(TokenKind::Operator);
+        return operatorToken(OperatorKind::Exclamation);
 
     case '$':
         if (peek() == '"') {
             m_atLineStart = false;
+            m_canBeUnary = false;
             advance(); // skip '$'
             return stringLiteral(StringMode::Normal);
         }
         // '$' is a word char — handle as identifier
         m_atLineStart = false;
+        m_canBeUnary = false;
         return identifier();
 
     case '"':
         m_atLineStart = false;
+        m_canBeUnary = false;
         return stringLiteral(StringMode::Normal);
 
     // Preprocessor directive
     case '#':
         if (m_atLineStart) {
             m_atLineStart = false;
+            m_canBeUnary = true;
             return preprocessor();
         }
-        // '#' not at line start — treat as operator
-        m_atLineStart = false;
-        advance();
-        return makeToken(TokenKind::Operator);
+        return operatorToken(OperatorKind::Hash);
 
     // '.' — operator, or number if followed by digit (.3)
     case '.': {
         m_atLineStart = false;
         if (isDigit(peek())) {
+            m_canBeUnary = false;
             return number();
         }
         advance();
@@ -235,30 +239,110 @@ auto Lexer::next() -> Token {
             advance();
             if (current() == '.') {
                 advance();
+                m_canBeUnary = true;
+                return makeToken(TokenKind::Operator, KeywordKind::None, OperatorKind::Ellipsis3);
             }
+            m_canBeUnary = true;
+            return makeToken(TokenKind::Operator, KeywordKind::None, OperatorKind::Ellipsis2);
         }
-        return makeToken(TokenKind::Operator);
+        m_canBeUnary = false;
+        return makeToken(TokenKind::Operator, KeywordKind::None, OperatorKind::Dot);
     }
-    // clang-format off
-    case '(': case ')': case ',':
-    case ':': case ';': case '<': case '=': case '>':
-    case '?': case '\\': case '^': case '{': case '|':
-    case '}': case '~': case '+': case '-': case '*':
-    // clang-format on
+
+    // Compound operators starting with '<'
+    case '<':
         m_atLineStart = false;
+        if (peek() == '<') {
+            if (m_pos[2] == '=') {
+                return operatorToken(OperatorKind::ShlAssign, 3);
+            }
+            return operatorToken(OperatorKind::ShiftLeft, 2);
+        }
+        if (peek() == '>') return operatorToken(OperatorKind::NotEqual, 2);
+        if (peek() == '=') return operatorToken(OperatorKind::LessEqual, 2);
+        return operatorToken(OperatorKind::Less);
+
+    // Compound operators starting with '>'
+    case '>':
+        m_atLineStart = false;
+        if (peek() == '>') {
+            if (m_pos[2] == '=') {
+                return operatorToken(OperatorKind::ShrAssign, 3);
+            }
+            return operatorToken(OperatorKind::ShiftRight, 2);
+        }
+        if (peek() == '=') return operatorToken(OperatorKind::GreaterEqual, 2);
+        return operatorToken(OperatorKind::Greater);
+
+    // '-' — subtract, negate, -=, ->
+    case '-':
+        m_atLineStart = false;
+        if (peek() == '=') return operatorToken(OperatorKind::SubAssign, 2);
+        if (peek() == '>') return operatorToken(OperatorKind::Arrow, 2);
+        return operatorToken(m_canBeUnary ? OperatorKind::Negate : OperatorKind::Subtract);
+
+    // '+' — add, unary plus, +=
+    case '+':
+        m_atLineStart = false;
+        if (peek() == '=') return operatorToken(OperatorKind::AddAssign, 2);
+        return operatorToken(m_canBeUnary ? OperatorKind::UnaryPlus : OperatorKind::Add);
+
+    // '*' — multiply, dereference, *=
+    case '*':
+        m_atLineStart = false;
+        if (peek() == '=') return operatorToken(OperatorKind::MulAssign, 2);
+        return operatorToken(m_canBeUnary ? OperatorKind::Dereference : OperatorKind::Multiply);
+
+    // '=' — always Assign (formatter treats = and == the same for spacing)
+    case '=':
+        return operatorToken(OperatorKind::Assign);
+
+    // '\' — integer divide, \=
+    case '\\':
+        m_atLineStart = false;
+        if (peek() == '=') return operatorToken(OperatorKind::IntDivAssign, 2);
+        return operatorToken(OperatorKind::IntDivide);
+
+    // '^' — exponentiate, ^=
+    case '^':
+        m_atLineStart = false;
+        if (peek() == '=') return operatorToken(OperatorKind::ExpAssign, 2);
+        return operatorToken(OperatorKind::Exponentiate);
+
+    // '@' — always unary (address of)
+    case '@':
+        return operatorToken(OperatorKind::AddressOf);
+
+    // Simple single-char operators
+    case '(':  return operatorToken(OperatorKind::ParenOpen);
+    case ')':  return operatorToken(OperatorKind::ParenClose);
+    case '[':  return operatorToken(OperatorKind::BracketOpen);
+    case ']':  return operatorToken(OperatorKind::BracketClose);
+    case '{':  return operatorToken(OperatorKind::BraceOpen);
+    case '}':  return operatorToken(OperatorKind::BraceClose);
+    case ',':  return operatorToken(OperatorKind::Comma);
+    case ';':  return operatorToken(OperatorKind::Semicolon);
+    case ':':  return operatorToken(OperatorKind::Colon);
+    case '?':  return operatorToken(OperatorKind::Question);
+    case '%':  return operatorToken(OperatorKind::Percent);
+    case '~':  // bitwise not symbol — treat as generic operator for now
+    case '|':  // pipe — not a standard FB operator but accept it
+        m_atLineStart = false;
+        m_canBeUnary = true;
         advance();
         return makeToken(TokenKind::Operator);
 
-    // &H, &O, &B number prefixes
+    // '&' — concatenate, &=, or number prefix &H/&O/&B
     case '&': {
         m_atLineStart = false;
         const auto next = asciiUpper(peek());
         if (next == 'H' || next == 'O' || next == 'B') {
+            m_canBeUnary = false;
             advance(); // skip '&'
             return number();
         }
-        advance();
-        return makeToken(TokenKind::Operator);
+        if (peek() == '=') return operatorToken(OperatorKind::ConcatAssign, 2);
+        return operatorToken(OperatorKind::Concatenate);
     }
     // clang-format off
     case '0': case '1': case '2': case '3': case '4':
@@ -282,6 +366,30 @@ auto Lexer::next() -> Token {
 // Token producers
 // ---------------------------------------------------------------------------
 
+auto Lexer::operatorToken(const OperatorKind kind) -> Token {
+    m_atLineStart = false;
+    advance();
+    // Update unary context: after closing brackets → binary, everything else → unary
+    switch (kind) {
+    case OperatorKind::ParenClose:
+    case OperatorKind::BracketClose:
+    case OperatorKind::BraceClose:
+        m_canBeUnary = false;
+        break;
+    default:
+        m_canBeUnary = true;
+        break;
+    }
+    return makeToken(TokenKind::Operator, KeywordKind::None, kind);
+}
+
+auto Lexer::operatorToken(const OperatorKind kind, const unsigned len) -> Token {
+    m_atLineStart = false;
+    advance(len);
+    m_canBeUnary = true;
+    return makeToken(TokenKind::Operator, KeywordKind::None, kind);
+}
+
 auto Lexer::newline() -> Token {
     advance();
     // Handle \r\n
@@ -289,6 +397,7 @@ auto Lexer::newline() -> Token {
         advance();
     }
     m_atLineStart = true;
+    m_canBeUnary = true;
     return makeToken(TokenKind::Newline);
 }
 
@@ -396,6 +505,7 @@ auto Lexer::number() -> Token {
             break;
         }
     }
+    m_canBeUnary = false;
     return makeToken(TokenKind::Number);
 }
 
@@ -410,12 +520,15 @@ auto Lexer::identifier() -> Token {
         while (!atEnd() && current() != '\n' && current() != '\r') {
             advance();
         }
+        m_canBeUnary = true;
         return makeToken(TokenKind::Comment);
     }
 
     // Classify as keyword or identifier
     const auto info = classifyWord(text);
-    return { info.tokenKind, info.keywordKind, text };
+    // After identifiers → binary. After keyword operators (And, Not, etc.) → unary.
+    m_canBeUnary = (info.tokenKind != TokenKind::Identifier);
+    return { info.tokenKind, info.keywordKind, OperatorKind::None, text };
 }
 
 // ---------------------------------------------------------------------------

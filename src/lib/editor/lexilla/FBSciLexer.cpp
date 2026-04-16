@@ -508,7 +508,10 @@ void FBSciLexer::lexOperator() noexcept {
 void FBSciLexer::lexPreprocessor() noexcept {
     if (m_sc->atLineEnd) {
         m_sc->SetState(+FBSciLexerState::Default); // no reset
-    } else if (m_sc->ch == '_' && !isIdentifier(m_sc->chNext)) {
+    } else if (m_sc->ch == '_') {
+        if (isIdentifier(m_sc->chPrev) || isIdentifier(m_sc->chNext)) {
+            return;
+        }
         m_lineState.continuePP = true;
         m_sc->SetState(+FBSciLexerState::Comment);
     }

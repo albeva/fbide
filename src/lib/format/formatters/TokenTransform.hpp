@@ -16,7 +16,7 @@ namespace fbide {
 class TokenTransform {
 public:
     virtual ~TokenTransform() = default;
-    [[nodiscard]] virtual auto apply(const std::vector<lexer::Token>& tokens) const -> std::vector<lexer::Token> = 0;
+    virtual void apply(std::vector<lexer::Token>& tokens, std::vector<std::string>& pool) = 0;
 };
 
 } // namespace fbide

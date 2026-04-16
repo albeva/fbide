@@ -6,7 +6,7 @@
 //
 #include "lib/analyses/lexer/Lexer.hpp"
 #include "lib/config/Keywords.hpp"
-#include "lib/format/formatters/ReindentTransform.hpp"
+#include "lib/format/formatters/Formatter.hpp"
 #include <gtest/gtest.h>
 
 using namespace fbide;
@@ -22,17 +22,11 @@ protected:
         m_lexer = std::make_unique<lexer::Lexer>(kw);
     }
 
-    /// Tokenise, reindent, and return the resulting text.
+    /// Tokenise, format, and return the resulting text.
     auto reindent(const char* source, const bool anchorHash = false) -> std::string {
         const auto tokens = m_lexer->tokenise(source);
-        const ReindentTransform transform(tabSize, anchorHash);
-        const auto result = transform.apply(tokens);
-
-        std::string output;
-        for (const auto& tok : result) {
-            output += tok.text;
-        }
-        return output;
+        format::Formatter formatter(tabSize, anchorHash);
+        return formatter.format(tokens);
     }
 
     std::unique_ptr<lexer::Lexer> m_lexer;
@@ -287,23 +281,29 @@ TEST_F(ReindentTests, SingleLineIfNoIndentOnNext) {
 // ---------------------------------------------------------------------------
 
 TEST_F(ReindentTests, ColonSeparatedIfThenEndIf) {
+    // Colons are split into separate lines with proper indentation
     const auto result = reindent(
         "If x Then : Print x : End If\n"
         "Print \"done\"\n"
     );
     EXPECT_EQ(result,
-        "If x Then : Print x : End If\n"
+        "If x Then\n"
+        "    Print x\n"
+        "End If\n"
         "Print \"done\"\n"
     );
 }
 
 TEST_F(ReindentTests, ColonSeparatedForNext) {
+    // Colons are split into separate lines with proper indentation
     const auto result = reindent(
         "For i = 1 To 10 : Print i : Next\n"
         "Print \"done\"\n"
     );
     EXPECT_EQ(result,
-        "For i = 1 To 10 : Print i : Next\n"
+        "For i = 1 To 10\n"
+        "    Print i\n"
+        "Next\n"
         "Print \"done\"\n"
     );
 }

@@ -44,8 +44,8 @@ private:
     [[nodiscard]] auto extract() const -> std::string_view {
         return { m_start, static_cast<std::size_t>(m_pos - m_start) };
     }
-    [[nodiscard]] auto makeToken(const TokenKind kind, const KeywordKind kwKind = KeywordKind::None) const -> Token {
-        return { kind, kwKind, extract() };
+    [[nodiscard]] auto makeToken(const TokenKind kind, const KeywordKind kwKind = KeywordKind::None, const OperatorKind opKind = OperatorKind::None) const -> Token {
+        return { kind, kwKind, opKind, extract() };
     }
 
     // Token producers
@@ -65,10 +65,15 @@ private:
     // Keyword lookup table (built once)
     std::unordered_map<std::string, TokenInfo> m_keywords;
 
+    // Operator helpers
+    [[nodiscard]] auto operatorToken(OperatorKind kind) -> Token;
+    [[nodiscard]] auto operatorToken(OperatorKind kind, unsigned len) -> Token;
+
     // Scanning state (per tokenise() call)
     const char* m_pos = nullptr;
     const char* m_start = nullptr;
     bool m_atLineStart = true;
+    bool m_canBeUnary = true; // true when next +/-/*/@  would be unary
 };
 
 } // namespace fbide

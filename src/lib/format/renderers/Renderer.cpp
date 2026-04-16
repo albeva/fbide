@@ -16,9 +16,13 @@ auto Renderer::render(
     }
 
     // Apply transforms in sequence
-    auto transformed = transforms.front()->apply(tokens);
-    for (std::size_t i = 1; i < transforms.size(); i++) {
-        transformed = transforms[i]->apply(transformed);
+    std::vector<std::string> m_pool;
+    m_pool.reserve(tokens.size() * transforms.size());
+
+    auto transformed = tokens;
+    for (const auto& transformer : transforms) {
+        transformer->apply(transformed, m_pool);
     }
+
     return render(transformed);
 }

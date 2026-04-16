@@ -1,0 +1,636 @@
+//
+// FBIde editor for FreeBASIC - https://freebasic.net
+// Copyright (c) 2026 Albert Varaksin
+// Licensed under the MIT License. See LICENSE file for details.
+// https://github.com/albeva/fbide
+//
+#include "lib/analyses/lexer/Lexer.hpp"
+#include "lib/config/Keywords.hpp"
+#include "lib/format/formatters/Formatter.hpp"
+#include <gtest/gtest.h>
+
+using namespace fbide;
+using namespace fbide::format;
+
+class FormatRendererTests : public testing::Test {
+protected:
+    static inline const wxString testDataPath = FBIDE_TEST_DATA_DIR;
+    static constexpr std::size_t tabSize = 4;
+
+    void SetUp() override {
+        Keywords kw;
+        kw.load(testDataPath + "fbfull.lng");
+        m_lexer = std::make_unique<lexer::Lexer>(kw);
+    }
+
+    auto format(const char* source, const bool anchorHash = false) -> std::string {
+        const auto tokens = m_lexer->tokenise(source);
+        Formatter formatter(tabSize, anchorHash);
+        return formatter.format(tokens);
+    }
+
+    std::unique_ptr<lexer::Lexer> m_lexer;
+};
+
+// ---------------------------------------------------------------------------
+// Simple statements
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, SingleStatement) {
+    EXPECT_EQ(format("Print \"hello\"\n"), "Print \"hello\"\n");
+}
+
+TEST_F(FormatRendererTests, MultipleStatements) {
+    EXPECT_EQ(format("x = 1\ny = 2\n"), "x = 1\ny = 2\n");
+}
+
+// ---------------------------------------------------------------------------
+// Sub / Function blocks
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, SubBlock) {
+    EXPECT_EQ(format(
+        "Sub Main\n"
+        "Print \"hello\"\n"
+        "End Sub\n"
+    ),
+        "Sub Main\n"
+        "    Print \"hello\"\n"
+        "End Sub\n"
+    );
+}
+
+TEST_F(FormatRendererTests, NestedBlocks) {
+    EXPECT_EQ(format(
+        "Sub Main\n"
+        "For i = 1 To 10\n"
+        "Print i\n"
+        "Next\n"
+        "End Sub\n"
+    ),
+        "Sub Main\n"
+        "    For i = 1 To 10\n"
+        "        Print i\n"
+        "    Next\n"
+        "End Sub\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// If / Then / Else
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, MultiLineIfThen) {
+    EXPECT_EQ(format(
+        "If x > 0 Then\n"
+        "Print x\n"
+        "End If\n"
+    ),
+        "If x > 0 Then\n"
+        "    Print x\n"
+        "End If\n"
+    );
+}
+
+TEST_F(FormatRendererTests, MultiLineIfThenElse) {
+    EXPECT_EQ(format(
+        "If x > 0 Then\n"
+        "Print \"pos\"\n"
+        "Else\n"
+        "Print \"neg\"\n"
+        "End If\n"
+    ),
+        "If x > 0 Then\n"
+        "    Print \"pos\"\n"
+        "Else\n"
+        "    Print \"neg\"\n"
+        "End If\n"
+    );
+}
+
+TEST_F(FormatRendererTests, MultiLineIfThenElseIf) {
+    EXPECT_EQ(format(
+        "If x > 0 Then\n"
+        "Print \"pos\"\n"
+        "ElseIf x < 0 Then\n"
+        "Print \"neg\"\n"
+        "Else\n"
+        "Print \"zero\"\n"
+        "End If\n"
+    ),
+        "If x > 0 Then\n"
+        "    Print \"pos\"\n"
+        "ElseIf x < 0 Then\n"
+        "    Print \"neg\"\n"
+        "Else\n"
+        "    Print \"zero\"\n"
+        "End If\n"
+    );
+}
+
+TEST_F(FormatRendererTests, SingleLineIfNotIndented) {
+    EXPECT_EQ(format(
+        "If x > 0 Then Print x\n"
+        "Print \"done\"\n"
+    ),
+        "If x > 0 Then Print x\n"
+        "Print \"done\"\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Select / Case
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, SelectCase) {
+    EXPECT_EQ(format(
+        "Select Case x\n"
+        "Case 1\n"
+        "Print \"one\"\n"
+        "Case 2\n"
+        "Print \"two\"\n"
+        "Case Else\n"
+        "Print \"other\"\n"
+        "End Select\n"
+    ),
+        "Select Case x\n"
+        "Case 1\n"
+        "    Print \"one\"\n"
+        "Case 2\n"
+        "    Print \"two\"\n"
+        "Case Else\n"
+        "    Print \"other\"\n"
+        "End Select\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// For / Do / While
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, ForNext) {
+    EXPECT_EQ(format(
+        "For i = 1 To 10\n"
+        "Print i\n"
+        "Next\n"
+    ),
+        "For i = 1 To 10\n"
+        "    Print i\n"
+        "Next\n"
+    );
+}
+
+TEST_F(FormatRendererTests, DoLoop) {
+    EXPECT_EQ(format(
+        "Do\n"
+        "x += 1\n"
+        "Loop\n"
+    ),
+        "Do\n"
+        "    x += 1\n"
+        "Loop\n"
+    );
+}
+
+TEST_F(FormatRendererTests, WhileWend) {
+    EXPECT_EQ(format(
+        "While x > 0\n"
+        "x -= 1\n"
+        "Wend\n"
+    ),
+        "While x > 0\n"
+        "    x -= 1\n"
+        "Wend\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Type / Scope
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, TypeBlock) {
+    EXPECT_EQ(format(
+        "Type MyType\n"
+        "x As Integer\n"
+        "y As Integer\n"
+        "End Type\n"
+    ),
+        "Type MyType\n"
+        "    x As Integer\n"
+        "    y As Integer\n"
+        "End Type\n"
+    );
+}
+
+TEST_F(FormatRendererTests, ScopeBlock) {
+    EXPECT_EQ(format(
+        "Scope\n"
+        "Dim x = 1\n"
+        "End Scope\n"
+    ),
+        "Scope\n"
+        "    Dim x = 1\n"
+        "End Scope\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Preprocessor blocks
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, PPIfdefEndif) {
+    EXPECT_EQ(format(
+        "#ifdef DEBUG\n"
+        "#define LOG(x) Print x\n"
+        "#endif\n"
+    ),
+        "#ifdef DEBUG\n"
+        "    #define LOG(x) Print x\n"
+        "#endif\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PPIfdefElseEndif) {
+    EXPECT_EQ(format(
+        "#ifdef DEBUG\n"
+        "#define LOG(x) Print x\n"
+        "#else\n"
+        "#define LOG(x)\n"
+        "#endif\n"
+    ),
+        "#ifdef DEBUG\n"
+        "    #define LOG(x) Print x\n"
+        "#else\n"
+        "    #define LOG(x)\n"
+        "#endif\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PPInsideCodeBlock) {
+    EXPECT_EQ(format(
+        "Sub Main\n"
+        "#ifdef DEBUG\n"
+        "Print \"debug\"\n"
+        "#endif\n"
+        "End Sub\n"
+    ),
+        "Sub Main\n"
+        "    #ifdef DEBUG\n"
+        "        Print \"debug\"\n"
+        "    #endif\n"
+        "End Sub\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PPCodeIndentResetAtElse) {
+    EXPECT_EQ(format(
+        "#ifdef DEBUG\n"
+        "if x then\n"
+        "print x\n"
+        "end if\n"
+        "#else\n"
+        "if y then\n"
+        "print y\n"
+        "end if\n"
+        "#endif\n"
+    ),
+        "#ifdef DEBUG\n"
+        "    if x then\n"
+        "        print x\n"
+        "    end if\n"
+        "#else\n"
+        "    if y then\n"
+        "        print y\n"
+        "    end if\n"
+        "#endif\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PPNested) {
+    EXPECT_EQ(format(
+        "#ifdef A\n"
+        "#ifdef B\n"
+        "#define X 1\n"
+        "#endif\n"
+        "#endif\n"
+    ),
+        "#ifdef A\n"
+        "    #ifdef B\n"
+        "        #define X 1\n"
+        "    #endif\n"
+        "#endif\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Colon splitting
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, ColonSplitsIntoBlock) {
+    EXPECT_EQ(format(
+        "If x Then : Print x : End If\n"
+    ),
+        "If x Then\n"
+        "    Print x\n"
+        "End If\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Strip existing indent
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, StripExistingIndent) {
+    EXPECT_EQ(format(
+        "Sub Main\n"
+        "            Print \"over-indented\"\n"
+        "End Sub\n"
+    ),
+        "Sub Main\n"
+        "    Print \"over-indented\"\n"
+        "End Sub\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Blank lines
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, BlankLinesPreserved) {
+    EXPECT_EQ(format(
+        "x = 1\n"
+        "\n"
+        "y = 2\n"
+    ),
+        "x = 1\n"
+        "\n"
+        "y = 2\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Spacing — binary operators
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, SpacingBinaryArithmetic) {
+    EXPECT_EQ(format("x = a + b\n"), "x = a + b\n");
+}
+
+TEST_F(FormatRendererTests, SpacingCompoundAssign) {
+    EXPECT_EQ(format("x += 1\n"), "x += 1\n");
+}
+
+TEST_F(FormatRendererTests, SpacingComparison) {
+    EXPECT_EQ(format("If x >= 0 Then\nEnd If\n"), "If x >= 0 Then\nEnd If\n");
+}
+
+TEST_F(FormatRendererTests, SpacingShiftOperator) {
+    EXPECT_EQ(format("x = y << 2\n"), "x = y << 2\n");
+}
+
+// ---------------------------------------------------------------------------
+// Spacing — unary operators
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, SpacingUnaryNegate) {
+    EXPECT_EQ(format("x = -3\n"), "x = -3\n");
+}
+
+TEST_F(FormatRendererTests, SpacingUnaryInExpression) {
+    EXPECT_EQ(format("x = a + -b\n"), "x = a + -b\n");
+}
+
+TEST_F(FormatRendererTests, SpacingDereference) {
+    EXPECT_EQ(format("x = *ptr\n"), "x = *ptr\n");
+}
+
+TEST_F(FormatRendererTests, SpacingAddressOf) {
+    EXPECT_EQ(format("p = @x\n"), "p = @x\n");
+}
+
+// ---------------------------------------------------------------------------
+// Spacing — parens and brackets
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, SpacingFunctionCall) {
+    EXPECT_EQ(format("foo(x)\n"), "foo(x)\n");
+}
+
+TEST_F(FormatRendererTests, SpacingFunctionCallMultiArg) {
+    EXPECT_EQ(format("foo(a, b, c)\n"), "foo(a, b, c)\n");
+}
+
+TEST_F(FormatRendererTests, SpacingArrayIndex) {
+    EXPECT_EQ(format("a[i]\n"), "a[i]\n");
+}
+
+TEST_F(FormatRendererTests, SpacingNestedParens) {
+    EXPECT_EQ(format("x = (a + b)\n"), "x = (a + b)\n");
+}
+
+// ---------------------------------------------------------------------------
+// Spacing — braces
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, SpacingBraces) {
+    EXPECT_EQ(format("x = { 1, 2, 3 }\n"), "x = { 1, 2, 3 }\n");
+}
+
+// ---------------------------------------------------------------------------
+// Spacing — dot and arrow
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, SpacingDotAccess) {
+    EXPECT_EQ(format("x.y\n"), "x.y\n");
+}
+
+TEST_F(FormatRendererTests, SpacingArrowAccess) {
+    EXPECT_EQ(format("p->x\n"), "p->x\n");
+}
+
+// ---------------------------------------------------------------------------
+// Spacing — keywords
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, SpacingKeywords) {
+    EXPECT_EQ(format("Dim x As Integer\n"), "Dim x As Integer\n");
+}
+
+// ---------------------------------------------------------------------------
+// Spacing — semicolon (Print separator)
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, SpacingSemicolon) {
+    EXPECT_EQ(format("Print a ; b\n"), "Print a ; b\n");
+}
+
+// ---------------------------------------------------------------------------
+// Blank lines — collapse and enforcement
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, MultipleBlankLinesCollapsed) {
+    EXPECT_EQ(format(
+        "x = 1\n"
+        "\n"
+        "\n"
+        "\n"
+        "y = 2\n"
+    ),
+        "x = 1\n"
+        "\n"
+        "y = 2\n"
+    );
+}
+
+TEST_F(FormatRendererTests, BlankLineBetweenDefinitions) {
+    EXPECT_EQ(format(
+        "Sub Foo\n"
+        "End Sub\n"
+        "Sub Bar\n"
+        "End Sub\n"
+    ),
+        "Sub Foo\n"
+        "End Sub\n"
+        "\n"
+        "Sub Bar\n"
+        "End Sub\n"
+    );
+}
+
+TEST_F(FormatRendererTests, BlankLineBetweenFunctionAndType) {
+    EXPECT_EQ(format(
+        "Function Foo\n"
+        "End Function\n"
+        "Type Bar\n"
+        "End Type\n"
+    ),
+        "Function Foo\n"
+        "End Function\n"
+        "\n"
+        "Type Bar\n"
+        "End Type\n"
+    );
+}
+
+TEST_F(FormatRendererTests, NoBlankLineBetweenNonDefinitions) {
+    // For/While are not definitions — no extra blank line
+    EXPECT_EQ(format(
+        "Sub Main\n"
+        "For i = 1 To 10\n"
+        "Next\n"
+        "While x > 0\n"
+        "Wend\n"
+        "End Sub\n"
+    ),
+        "Sub Main\n"
+        "    For i = 1 To 10\n"
+        "    Next\n"
+        "    While x > 0\n"
+        "    Wend\n"
+        "End Sub\n"
+    );
+}
+
+TEST_F(FormatRendererTests, ExistingBlankLineNotDuplicated) {
+    // Already has a blank line — don't add another
+    EXPECT_EQ(format(
+        "Sub Foo\n"
+        "End Sub\n"
+        "\n"
+        "Sub Bar\n"
+        "End Sub\n"
+    ),
+        "Sub Foo\n"
+        "End Sub\n"
+        "\n"
+        "Sub Bar\n"
+        "End Sub\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// PP crossing code blocks — unclosed code blocks auto-close at PP boundary
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, PPElseClosesUnclosedCodeBlock) {
+    // if x then is unclosed when #else arrives — auto-close it
+    EXPECT_EQ(format(
+        "#if _FBMAP_STOREHASH\n"
+        "if x then\n"
+        "#else\n"
+        "print foo\n"
+        "#endif\n"
+    ),
+        "#if _FBMAP_STOREHASH\n"
+        "    if x then\n"
+        "#else\n"
+        "    print foo\n"
+        "#endif\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PPEndifClosesUnclosedCodeBlock) {
+    // For loop unclosed when #endif arrives
+    EXPECT_EQ(format(
+        "#ifdef DEBUG\n"
+        "for i = 1 to 10\n"
+        "print i\n"
+        "#endif\n"
+    ),
+        "#ifdef DEBUG\n"
+        "    for i = 1 to 10\n"
+        "        print i\n"
+        "#endif\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Anchored hash mode
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, AnchoredHashSimple) {
+    EXPECT_EQ(format(
+        "#ifdef DEBUG\n"
+        "#define X 1\n"
+        "#endif\n",
+        true
+    ),
+        "#ifdef DEBUG\n"
+        "#   define X 1\n"
+        "#endif\n"
+    );
+}
+
+TEST_F(FormatRendererTests, AnchoredHashNested) {
+    EXPECT_EQ(format(
+        "#if 1\n"
+        "#if 1\n"
+        "print \"hello\"\n"
+        "#endif\n"
+        "#endif\n",
+        true
+    ),
+        "#if 1\n"
+        "#   if 1\n"
+        "        print \"hello\"\n"
+        "#   endif\n"
+        "#endif\n"
+    );
+}
+
+TEST_F(FormatRendererTests, AnchoredHashInsideCodeBlock) {
+    EXPECT_EQ(format(
+        "Sub Main\n"
+        "#ifdef DEBUG\n"
+        "print x\n"
+        "#endif\n"
+        "End Sub\n",
+        true
+    ),
+        "Sub Main\n"
+        "#   ifdef DEBUG\n"
+        "        print x\n"
+        "#   endif\n"
+        "End Sub\n"
+    );
+}
