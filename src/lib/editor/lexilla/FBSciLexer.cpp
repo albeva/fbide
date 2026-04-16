@@ -127,7 +127,7 @@ const char* SCI_METHOD FBSciLexer::DescribeWordListSets() {
         }
         return result;
     }();
-    return dem_sc->c_str();
+    return desc.c_str();
 }
 
 Sci_Position SCI_METHOD FBSciLexer::WordListSet(const int n, const char* wl) {
@@ -153,8 +153,6 @@ void SCI_METHOD FBSciLexer::Lex(
     const int initStyle,
     Scintilla::IDocument* pAccess
 ) {
-    using enum FBSciLexerState;
-
     Lexilla::LexAccessor styler(pAccess);
     m_styler = &styler;
     styler.StartAt(startPos);
@@ -163,9 +161,12 @@ void SCI_METHOD FBSciLexer::Lex(
     Lexilla::StyleContext sc(startPos, lengthDoc, initStyle, styler);
     m_sc = &sc;
 
+    // unknown line
     m_line = INVALID_LINE;
 
     for (; sc.More(); sc.Forward()) {
+        using enum FBSciLexerState;
+
         if (m_sc->atLineStart) {
             lexLineStart();
         }
@@ -230,6 +231,7 @@ void FBSciLexer::lexLineStart() noexcept{
     m_lineState = {};
 
     m_isFirst = m_previousLineState.getLineContinuation();
+    m_lineState.commentNestLevel = m_previousLineState.commentNestLevel;
 }
 
 void FBSciLexer::resetToDefault() noexcept {
@@ -253,6 +255,7 @@ void FBSciLexer::lexDefault() noexcept {
     else if (m_sc->ch == '/' && m_sc->chNext == '\'') {
         m_sc->SetState(+MultilineComment);
         m_sc->Forward();
+        m_lineState.commentNestLevel++;
     }
     // preprocessor? operator?
     else if (m_sc->ch == '#') {
@@ -265,6 +268,11 @@ void FBSciLexer::lexDefault() noexcept {
     // operators
     else if (isOperator(m_sc->ch)) {
         m_sc->SetState(+Operator);
+    }
+    // line continuation
+    else if (m_sc->ch == '_' && !isIdentifier(m_sc->chNext)) {
+        m_lineState.setLineContinuation(true);
+        m_sc->SetState(+Comment);
     }
     // identifier
     else if (isIdentifier(m_sc->ch)) {
@@ -283,9 +291,24 @@ void FBSciLexer::lexComment() noexcept {
 }
 
 void FBSciLexer::lexMultilineComment() noexcept {
-    if (m_sc->ch == '\'' && m_sc->chNext == '/') {
-        m_sc->Forward();
-        m_sc->SetState(+FBSciLexerState::Default); // no reset!
+    switch (m_sc->ch) {
+    case '\'':
+        if (m_sc->chNext == '/') {
+            m_sc->Forward();
+            m_lineState.commentNestLevel--;
+            if (m_lineState.commentNestLevel == 0) {
+                m_sc->ForwardSetState(+FBSciLexerState::Default); // no reset!
+            }
+        }
+        break;
+    case '/':
+        if (m_sc->chNext == '\'') {
+            m_sc->Forward();
+            m_lineState.commentNestLevel++;
+        }
+        break;
+    default:
+        break;
     }
 }
 

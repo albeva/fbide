@@ -78,18 +78,13 @@ private:
     /// Per-line state stored via IDocument::SetLineState / GetLineState.
     /// Packed into a single int for Scintilla compatibility.
     struct alignas(int) LineState {
-        /// Multiline comment nesting depth
-        std::uint8_t commentNestLevel = 0;
-
-        /// Flags
         enum Flag : std::uint8_t {
             None = 0,
-            /// Line ends with _ continuation character
             LineContinuation = 1 << 0,
         };
-        Flag flags = Flag::None;
 
-        /// Reserved for future use
+        Flag flags = None;
+        std::uint8_t commentNestLevel = 0;
         std::uint8_t reserved1 = 0;
         std::uint8_t reserved2 = 0;
 
@@ -103,13 +98,18 @@ private:
             return std::bit_cast<int>(*this);
         }
 
+        /// Get line continuation state
         [[nodiscard]] constexpr auto getLineContinuation() const -> bool {
-            // TODO: get flag value
-            return false;
+            return (flags & LineContinuation) != None;
         }
 
-        constexpr void setLineContinuation(bool state) {
-            // TODO: set flag value
+        /// Set line continuation state
+        constexpr void setLineContinuation(const bool state) {
+            if (state) {
+                flags = static_cast<Flag>(flags | LineContinuation);
+            } else {
+                flags = static_cast<Flag>(flags & ~LineContinuation);
+            }
         }
     };
     static_assert(sizeof(LineState) == sizeof(int) && alignof(LineState) == alignof(int));
@@ -125,8 +125,10 @@ private:
     FBIDE_INLINE void lexOperator() noexcept;
     FBIDE_INLINE void lexPreprocessor() noexcept;
 
+    /// Invalid line marker
     static constexpr Sci_Position INVALID_LINE = std::numeric_limits<Sci_Position>::max() - 1;
 
+    /// Keywords list
     std::array<Lexilla::WordList, WORD_LIST_COUNT> m_wordLists;
 
     Lexilla::LexAccessor* m_styler = nullptr;
