@@ -77,13 +77,11 @@ public:
 private:
     /// Per-line state stored via IDocument::SetLineState / GetLineState.
     /// Packed into a single int for Scintilla compatibility.
-    struct alignas(int) LineState {
-        enum Flag : std::uint8_t {
-            None = 0,
-            LineContinuation = 1 << 0,
-        };
+    struct alignas(int) LineState final {
+        bool continueLine:1 = false;
+        bool isFirst:1 = false;
+        bool continuePP: 1 = false;
 
-        Flag flags = None;
         std::uint8_t commentNestLevel = 0;
         std::uint8_t reserved1 = 0;
         std::uint8_t reserved2 = 0;
@@ -97,24 +95,11 @@ private:
         constexpr auto toInt() const noexcept -> int {
             return std::bit_cast<int>(*this);
         }
-
-        /// Get line continuation state
-        [[nodiscard]] constexpr auto getLineContinuation() const -> bool {
-            return (flags & LineContinuation) != None;
-        }
-
-        /// Set line continuation state
-        constexpr void setLineContinuation(const bool state) {
-            if (state) {
-                flags = static_cast<Flag>(flags | LineContinuation);
-            } else {
-                flags = static_cast<Flag>(flags & ~LineContinuation);
-            }
-        }
     };
     static_assert(sizeof(LineState) == sizeof(int) && alignof(LineState) == alignof(int));
 
     FBIDE_INLINE void lexLineStart() noexcept;
+    FBIDE_INLINE void lexLineEnd() noexcept;
     FBIDE_INLINE void resetToDefault() noexcept;
     FBIDE_INLINE void lexDefault() noexcept;
     FBIDE_INLINE void lexComment() noexcept;

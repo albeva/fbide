@@ -200,7 +200,7 @@ void SCI_METHOD FBSciLexer::Lex(
 
         // we in default?
         if (sc.atLineEnd) {
-            styler.SetLineState(m_line, m_lineState.toInt());
+            lexLineEnd();
         } else if (sc.state == +Default) {
             lexDefault();
         }
@@ -230,8 +230,21 @@ void FBSciLexer::lexLineStart() noexcept{
     m_line = newLine;
     m_lineState = {};
 
-    m_isFirst = m_previousLineState.getLineContinuation();
+    if (m_previousLineState.continueLine) {
+        m_isFirst = m_previousLineState.isFirst;
+    } else {
+        m_isFirst = true;
+    }
     m_lineState.commentNestLevel = m_previousLineState.commentNestLevel;
+
+    if (m_previousLineState.continuePP) {
+        m_sc->SetState(+FBSciLexerState::Preprocessor);
+    }
+}
+
+void FBSciLexer::lexLineEnd() noexcept{
+    m_lineState.isFirst = m_isFirst;
+    m_styler->SetLineState(m_line, m_lineState.toInt());
 }
 
 void FBSciLexer::resetToDefault() noexcept {
@@ -271,7 +284,7 @@ void FBSciLexer::lexDefault() noexcept {
     }
     // line continuation
     else if (m_sc->ch == '_' && !isIdentifier(m_sc->chNext)) {
-        m_lineState.setLineContinuation(true);
+        m_lineState.continueLine = true;
         m_sc->SetState(+Comment);
     }
     // identifier
@@ -351,6 +364,9 @@ void FBSciLexer::lexOperator() noexcept {
 void FBSciLexer::lexPreprocessor() noexcept {
     if (m_sc->atLineEnd) {
         m_sc->SetState(+FBSciLexerState::Default); // no reset
+    } else if (m_sc->ch == '_' && !isIdentifier(m_sc->chNext)) {
+        m_lineState.continuePP = true;
+        m_sc->SetState(+FBSciLexerState::Comment);
     }
 }
 
