@@ -157,17 +157,19 @@ void Scanner::dispatch() {
 
     // Keyword dispatch based on first structural keyword
     switch (firstKeyword()) {
-    // Block openers — but not property setters (Function = value)
+    // Callable block openers — only when followed by a name (body definition).
+    // Rejects: "exit sub", "Function = 10", bare "Sub" without a name.
+    // Allows: "Sub Main", "Private Sub Main", "Operator Cast"
     case KeywordKind::Sub:
     case KeywordKind::Function:
     case KeywordKind::Constructor:
     case KeywordKind::Destructor:
     case KeywordKind::Operator:
-        if (hasAssignAfterKeyword()) {
+        if (isBodyDefinition()) {
+            m_builder.openBlock();
+        } else {
             m_builder.statement();
-            return;
         }
-        m_builder.openBlock();
         return;
 
     case KeywordKind::Do:
@@ -261,20 +263,31 @@ auto Scanner::lastSignificantKeyword() const -> KeywordKind {
     return KeywordKind::None;
 }
 
-auto Scanner::hasAssignAfterKeyword() const -> bool {
-    // Check if '=' appears after the first structural keyword on the line.
-    // Detects property setter pattern: Function = value
+auto Scanner::isBodyDefinition() const -> bool {
+    // Check that a callable keyword (Sub/Function/etc.) is followed by a name.
+    // Returns false for: "exit sub" (no name after Sub), "Function = 10" (= not a name).
+    // Returns true for: "Sub Main", "Private Sub Main", "Operator Cast".
     bool foundKeyword = false;
     for (const auto& tkn : m_segment) {
         if (!foundKeyword) {
-            if (tkn.keywordKind != KeywordKind::None && tkn.keywordKind != KeywordKind::Other) {
+            switch (tkn.keywordKind) {
+            case KeywordKind::Sub:
+            case KeywordKind::Function:
+            case KeywordKind::Constructor:
+            case KeywordKind::Destructor:
+            case KeywordKind::Operator:
                 foundKeyword = true;
+                continue;
+            default:
+                continue;
             }
-            continue;
         }
-        if (tkn.operatorKind == OperatorKind::Assign) {
+        // After the keyword: identifier or '(' means body definition
+        if (tkn.kind == TokenKind::Identifier || tkn.operatorKind == OperatorKind::ParenOpen) {
             return true;
         }
+        // Anything else (=, end of line, etc.) means not a definition
+        return false;
     }
     return false;
 }

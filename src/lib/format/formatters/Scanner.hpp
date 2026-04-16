@@ -36,7 +36,7 @@ private:
     void dispatch();
     [[nodiscard]] auto firstKeyword() const -> lexer::KeywordKind;
     [[nodiscard]] auto lastSignificantKeyword() const -> lexer::KeywordKind;
-    [[nodiscard]] auto hasAssignAfterKeyword() const -> bool;
+    [[nodiscard]] auto isBodyDefinition() const -> bool;
 
     const std::vector<lexer::Token>& m_tokens;
     std::size_t m_index = 0;

@@ -687,6 +687,30 @@ TEST_F(FormatRendererTests, DeclareFunction) {
 // Function = value (property setter)
 // ---------------------------------------------------------------------------
 
+TEST_F(FormatRendererTests, ExitSubNotBlockOpener) {
+    EXPECT_EQ(format(
+        "If True Then\n"
+        "Exit Sub\n"
+        "End If\n"
+    ),
+        "If True Then\n"
+        "    Exit Sub\n"
+        "End If\n"
+    );
+}
+
+TEST_F(FormatRendererTests, ExitForNotBlockOpener) {
+    EXPECT_EQ(format(
+        "For i = 1 To 10\n"
+        "Exit For\n"
+        "Next\n"
+    ),
+        "For i = 1 To 10\n"
+        "    Exit For\n"
+        "Next\n"
+    );
+}
+
 TEST_F(FormatRendererTests, FunctionPropertySetter) {
     EXPECT_EQ(format(
         "Function Foo() As Integer\n"
