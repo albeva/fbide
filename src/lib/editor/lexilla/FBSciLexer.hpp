@@ -81,6 +81,7 @@ private:
         bool continueLine:1 = false;
         bool isFirst:1 = false;
         bool continuePP: 1 = false;
+        bool fieldAccess: 1 = false;
 
         std::uint8_t commentNestLevel = 0;
         std::uint8_t reserved1 = 0;
@@ -101,28 +102,30 @@ private:
     FBIDE_INLINE void lexLineStart() noexcept;
     FBIDE_INLINE void lexLineEnd() noexcept;
     FBIDE_INLINE void resetToDefault() noexcept;
+    FBIDE_INLINE bool canAccessMember() noexcept;
     FBIDE_INLINE void lexDefault() noexcept;
     FBIDE_INLINE void lexComment() noexcept;
     FBIDE_INLINE void lexMultilineComment() noexcept;
     FBIDE_INLINE void lexNumber() noexcept;
     FBIDE_INLINE void lexStringOpen() noexcept;
     FBIDE_INLINE void lexIdentifier() noexcept;
+    FBIDE_INLINE void identifyKeyword() noexcept;
     FBIDE_INLINE void lexOperator() noexcept;
     FBIDE_INLINE void lexPreprocessor() noexcept;
 
     /// Invalid line marker
     static constexpr Sci_Position INVALID_LINE = std::numeric_limits<Sci_Position>::max() - 1;
+    static constexpr std::size_t MAX_IDENT_LEN = 128;
 
-    /// Keywords list
-    std::array<Lexilla::WordList, WORD_LIST_COUNT> m_wordLists;
-
-    Lexilla::LexAccessor* m_styler = nullptr;
     Lexilla::StyleContext* m_sc = nullptr;
-
+    Lexilla::LexAccessor* m_styler = nullptr;
+    std::array<Lexilla::WordList, WORD_LIST_COUNT> m_wordLists;
     bool m_isFirst = true;
+    bool m_fieldAccess = false;
     Sci_Position m_line = 0;
     LineState m_previousLineState;
     LineState m_lineState;
+    std::array<char, MAX_IDENT_LEN> m_identBuffer{};
 };
 
 } // namespace fbide

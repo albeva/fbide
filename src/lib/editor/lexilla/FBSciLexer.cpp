@@ -41,6 +41,15 @@ constexpr std::array<const char*, FBSciLexer::WORD_LIST_COUNT + 1> wordListDescr
     nullptr
 };
 
+constexpr std::array wordListStyle {
+    FBSciLexerState::Keyword1,
+    FBSciLexerState::Keyword2,
+    FBSciLexerState::Keyword3,
+    FBSciLexerState::Keyword4,
+    FBSciLexerState::Keyword5
+};
+static_assert(wordListStyle.size() == FBSciLexer::WORD_LIST_COUNT);
+
 //endregion
 
 // region ---------- Utilities ----------
@@ -232,8 +241,10 @@ void FBSciLexer::lexLineStart() noexcept{
 
     if (m_previousLineState.continueLine) {
         m_isFirst = m_previousLineState.isFirst;
+        m_fieldAccess = m_previousLineState.fieldAccess;
     } else {
         m_isFirst = true;
+        m_fieldAccess = false;
     }
     m_lineState.commentNestLevel = m_previousLineState.commentNestLevel;
 
@@ -244,12 +255,22 @@ void FBSciLexer::lexLineStart() noexcept{
 
 void FBSciLexer::lexLineEnd() noexcept{
     m_lineState.isFirst = m_isFirst;
+    m_lineState.fieldAccess = m_fieldAccess;
     m_styler->SetLineState(m_line, m_lineState.toInt());
 }
 
 void FBSciLexer::resetToDefault() noexcept {
     m_sc->SetState(+FBSciLexerState::Default);
     m_isFirst = false;
+}
+
+bool FBSciLexer::canAccessMember() noexcept {
+    using enum FBSciLexerState;
+    const auto st = m_sc->state;
+    if (st == +Comment) {
+        return m_lineState.continueLine;
+    }
+    return st == +Identifier || st == +MultilineComment;
 }
 
 void FBSciLexer::lexDefault() noexcept {
@@ -274,6 +295,24 @@ void FBSciLexer::lexDefault() noexcept {
     else if (m_sc->ch == '#') {
         m_sc->SetState(m_isFirst ? +Preprocessor : +Operator);
     }
+    // .
+    else if (m_sc->ch == '.') {
+        if (isDigit(m_sc->chNext)) {
+            m_sc->SetState(+Number);
+        } else if (m_sc->chNext != '.') {
+            m_sc->SetState(+Operator);
+            m_fieldAccess = true;
+            return; // short circuit!
+        } else {
+            m_sc->SetState(+Operator);
+        }
+    }
+    // ->
+    else if (m_sc->ch == '-' && m_sc->chNext == '>') {
+        m_sc->SetState(+Operator);
+        m_sc->Forward();
+        m_fieldAccess = true;
+    }
     // Numbers
     else if (isDigit(m_sc->ch)) {
         m_sc->SetState(+Number);
@@ -294,6 +333,10 @@ void FBSciLexer::lexDefault() noexcept {
     // String literal
     else if (m_sc->ch == '"') {
         m_sc->SetState(+StringOpen);
+    }
+
+    if (m_fieldAccess && !canAccessMember()) {
+        m_fieldAccess = false;
     }
 }
 
@@ -350,8 +393,22 @@ void FBSciLexer::lexIdentifier() noexcept {
     if (!isIdentifier(m_sc->ch)) {
         if (m_sc->ch == ':' && m_isFirst) {
             m_sc->ChangeState(+FBSciLexerState::Label);
+        } else if (m_fieldAccess) {
+            m_fieldAccess = false;
+        } else {
+            identifyKeyword();
         }
         resetToDefault();
+    }
+}
+
+void FBSciLexer::identifyKeyword() noexcept{
+    m_sc->GetCurrentLowered(m_identBuffer.data(), m_identBuffer.size());
+    for (std::size_t index = 0; index < WORD_LIST_COUNT; index++) {
+        if (m_wordLists[index].InList(m_identBuffer.data())) {
+            m_sc->ChangeState(+wordListStyle[index]);
+            break;
+        }
     }
 }
 
