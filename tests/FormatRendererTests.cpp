@@ -569,6 +569,31 @@ TEST_F(FormatRendererTests, PPElseClosesUnclosedCodeBlock) {
     );
 }
 
+TEST_F(FormatRendererTests, PPWithUnmatchedCodeClosers) {
+    // end if inside PP has no matching if — treated as statements
+    EXPECT_EQ(format(
+        "if x then\n"
+        "#if TEST\n"
+        "end if\n"
+        "end if\n"
+        "#else\n"
+        "end if\n"
+        "end if\n"
+        "#endif\n"
+        "end if\n"
+    ),
+        "if x then\n"
+        "    #if TEST\n"
+        "        end if\n"
+        "        end if\n"
+        "    #else\n"
+        "        end if\n"
+        "        end if\n"
+        "    #endif\n"
+        "end if\n"
+    );
+}
+
 TEST_F(FormatRendererTests, PPEndifClosesUnclosedCodeBlock) {
     // For loop unclosed when #endif arrives
     EXPECT_EQ(format(

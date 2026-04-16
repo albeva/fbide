@@ -18,12 +18,12 @@ void TreeBuilder::statement() {
     addNode(flushTokens());
 }
 
-void TreeBuilder::openBlock() {
+void TreeBuilder::openBlock(const bool isPP) {
     auto block = std::make_unique<BlockNode>();
     if (!m_collected.empty()) {
         block->opener = flushTokens();
     }
-    m_stack.push_back({ std::move(block), false });
+    m_stack.push_back({ std::move(block), false, isPP });
 }
 
 void TreeBuilder::openBranch() {
@@ -39,12 +39,27 @@ void TreeBuilder::openBranch() {
 void TreeBuilder::closeBlock() {
     closeBranch();
 
-    if (m_stack.empty()) {
-        // Unmatched closer — emit as a statement
+    if (m_stack.empty() || m_stack.back().isPP) {
+        // Unmatched closer or would close a PP block — emit as statement
         statement();
         return;
     }
 
+    popBlock();
+}
+
+void TreeBuilder::closePPBlock() {
+    closeBranch();
+
+    if (m_stack.empty()) {
+        statement();
+        return;
+    }
+
+    popBlock();
+}
+
+void TreeBuilder::popBlock() {
     auto entry = std::move(m_stack.back());
     m_stack.pop_back();
 

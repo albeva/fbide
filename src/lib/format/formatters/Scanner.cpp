@@ -128,7 +128,7 @@ void Scanner::dispatch() {
         case KeywordKind::PpIfNDef:
         case KeywordKind::PpMacro:
             m_ppDepths.push_back(m_builder.stackDepth());
-            m_builder.openBlock();
+            m_builder.openBlock(true);
             return;
         case KeywordKind::PpEndIf:
         case KeywordKind::PpEndMacro:
@@ -137,7 +137,7 @@ void Scanner::dispatch() {
                 m_builder.closeToDepth(m_ppDepths.back() + 1);
                 m_ppDepths.pop_back();
             }
-            m_builder.closeBlock();
+            m_builder.closePPBlock();
             return;
         case KeywordKind::PpElse:
         case KeywordKind::PpElseIf:
@@ -213,7 +213,7 @@ void Scanner::dispatch() {
         return;
     }
 
-    // Block closers
+    // Block closers — TreeBuilder won't close past PP boundaries
     case KeywordKind::End:
     case KeywordKind::Loop:
     case KeywordKind::Next:

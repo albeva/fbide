@@ -41,7 +41,7 @@ void Renderer::renderNodes(const std::vector<Node>& nodes, const std::size_t ind
                     emitNewline();
                 }
 
-                if (branch) {
+                if (branch && indent > 0) {
                     renderBlock(*block, indent - 1);
                 } else {
                     renderBlock(*block, indent);
