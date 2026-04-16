@@ -5,7 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "FormatDialog.hpp"
-#include "renderers/BBCodeRenderer.hpp"
 #include "formatters/CaseTransform.hpp"
 #include "renderers/HtmlRenderer.hpp"
 #include "lib/analyses/lexer/Lexer.hpp"
@@ -33,7 +32,6 @@ enum ControlId {
     ID_CASE_KEYWORD_LOWER,
     ID_RENDER_CODE,
     ID_RENDER_HTML,
-    ID_RENDER_BBCODE,
     ID_BROWSER,
 };
 
@@ -48,7 +46,6 @@ wxBEGIN_EVENT_TABLE(FormatDialog, Layout<wxDialog>)
     EVT_RADIOBUTTON(ID_CASE_KEYWORD_LOWER,  FormatDialog::onTransformChanged)
     EVT_RADIOBUTTON(ID_RENDER_CODE,         FormatDialog::renderCode)
     EVT_RADIOBUTTON(ID_RENDER_HTML,         FormatDialog::renderHtml)
-    EVT_RADIOBUTTON(ID_RENDER_BBCODE,       FormatDialog::renderBBCode)
     EVT_BUTTON(wxID_OK,                     FormatDialog::onApply)
     EVT_BUTTON(ID_BROWSER,                  FormatDialog::onBrowser)
 wxEND_EVENT_TABLE()
@@ -81,7 +78,6 @@ void FormatDialog::create() {
 
         radio("Format", { .expand = false }, ID_RENDER_CODE, wxRB_GROUP)->SetValue(true);
         radio("As HTML", { .expand = false }, ID_RENDER_HTML);
-        radio("As BBCode", { .expand = false }, ID_RENDER_BBCODE);
     });
 
     // Preview editor
@@ -129,11 +125,6 @@ void FormatDialog::renderCode(wxCommandEvent&) {
 
 void FormatDialog::renderHtml(wxCommandEvent&) {
     m_renderer = std::make_unique<HtmlRenderer>(m_ctx.getTheme(), m_source.size());
-    updatePreview();
-}
-
-void FormatDialog::renderBBCode(wxCommandEvent&) {
-    m_renderer = std::make_unique<BBCodeRenderer>(m_ctx.getTheme(), m_source.size());
     updatePreview();
 }
 

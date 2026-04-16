@@ -48,6 +48,9 @@
 - [x] Formatter doesn't handle multi line comments. /' /' '/ '/
 - [x] Auto indent fails on single line IFs
 - [ ] In the formatter, "Open in the browser" button sometimes does not appear
+- [ ] Formatter: indent namespace ... end namespace
+- [ ] Formatter: fails to handle "EXIT DO" when nested in a block properly.
+- [ ] Formatter: indent initializer lists { ... } when spread over multiple lines
 
 # Editor
 
@@ -61,3 +64,4 @@
 - [ ] Add stop/kill button that terminates running app/compile process
 - [ ] Do not clear clipboard when quitting FBde
 - [ ] Use file pattern allowing all supported files to be open in file open dialog
+- [ ] Review all defined keywords

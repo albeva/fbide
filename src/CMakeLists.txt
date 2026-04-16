@@ -27,7 +27,6 @@ target_sources(fbide_lib
     lib/analyses/lexer/Lexer.cpp
     lib/format/formatters/CaseTransform.cpp
     lib/format/formatters/ReindentTransform.cpp
-    lib/format/renderers/BBCodeRenderer.cpp
     lib/format/renderers/HtmlRenderer.cpp
     lib/format/renderers/PlainTextRenderer.cpp
     lib/format/renderers/Renderer.cpp
@@ -73,7 +72,6 @@ target_sources(fbide_lib
     lib/format/formatters/CaseTransform.hpp
     lib/format/formatters/ReindentTransform.hpp
     lib/format/formatters/TokenTransform.hpp
-    lib/format/renderers/BBCodeRenderer.hpp
     lib/format/renderers/HtmlRenderer.hpp
     lib/format/renderers/PlainTextRenderer.hpp
     lib/format/renderers/Renderer.hpp
