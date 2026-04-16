@@ -610,6 +610,204 @@ TEST_F(FormatRendererTests, PPEndifClosesUnclosedCodeBlock) {
 }
 
 // ---------------------------------------------------------------------------
+// PP — elseif with unmatched closers
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, PPElseIfWithUnmatchedClosers) {
+    EXPECT_EQ(format(
+        "#ifdef A\n"
+        "if x then\n"
+        "#elseif B\n"
+        "if y then\n"
+        "#endif\n"
+    ),
+        "#ifdef A\n"
+        "    if x then\n"
+        "#elseif B\n"
+        "    if y then\n"
+        "#endif\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// PP — multiple PP blocks inside code
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, MultiplePPBlocksInsideCode) {
+    EXPECT_EQ(format(
+        "Sub Main\n"
+        "#ifdef A\n"
+        "print 1\n"
+        "#endif\n"
+        "#ifdef B\n"
+        "print 2\n"
+        "#endif\n"
+        "End Sub\n"
+    ),
+        "Sub Main\n"
+        "    #ifdef A\n"
+        "        print 1\n"
+        "    #endif\n"
+        "    #ifdef B\n"
+        "        print 2\n"
+        "    #endif\n"
+        "End Sub\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// PP — empty PP blocks
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, EmptyPPBlock) {
+    EXPECT_EQ(format(
+        "#ifdef DEBUG\n"
+        "#endif\n"
+    ),
+        "#ifdef DEBUG\n"
+        "#endif\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Declare — various forms don't open blocks
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, DeclareFunction) {
+    EXPECT_EQ(format(
+        "Declare Function Add(a As Integer, b As Integer) As Integer\n"
+        "Dim x = 1\n"
+    ),
+        "Declare Function Add(a As Integer, b As Integer) As Integer\n"
+        "Dim x = 1\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Function = value (property setter)
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, FunctionPropertySetter) {
+    EXPECT_EQ(format(
+        "Function Foo() As Integer\n"
+        "Function = 10\n"
+        "End Function\n"
+    ),
+        "Function Foo() As Integer\n"
+        "    Function = 10\n"
+        "End Function\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Deeply nested blocks
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, DeeplyNestedBlocks) {
+    EXPECT_EQ(format(
+        "Sub Main\n"
+        "If x Then\n"
+        "For i = 1 To 10\n"
+        "Print i\n"
+        "Next\n"
+        "End If\n"
+        "End Sub\n"
+    ),
+        "Sub Main\n"
+        "    If x Then\n"
+        "        For i = 1 To 10\n"
+        "            Print i\n"
+        "        Next\n"
+        "    End If\n"
+        "End Sub\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Colon splitting with nested blocks
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, ColonSplitNestedBlock) {
+    EXPECT_EQ(format(
+        "Sub Main : If x Then : Print x : End If : End Sub\n"
+    ),
+        "Sub Main\n"
+        "    If x Then\n"
+        "        Print x\n"
+        "    End If\n"
+        "End Sub\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Malformed input — extra closers at top level
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, ExtraClosersAtTopLevel) {
+    EXPECT_EQ(format(
+        "End Sub\n"
+        "End If\n"
+        "Next\n"
+    ),
+        "End Sub\n"
+        "End If\n"
+        "Next\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Mixed code and PP with proper nesting
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, PPNestedWithCodeAndBranches) {
+    EXPECT_EQ(format(
+        "#ifdef A\n"
+        "#ifdef B\n"
+        "print x\n"
+        "#endif\n"
+        "print y\n"
+        "#else\n"
+        "print z\n"
+        "#endif\n"
+    ),
+        "#ifdef A\n"
+        "    #ifdef B\n"
+        "        print x\n"
+        "    #endif\n"
+        "    print y\n"
+        "#else\n"
+        "    print z\n"
+        "#endif\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Comment preservation
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, CommentAfterBlockOpener) {
+    EXPECT_EQ(format(
+        "If x > 0 Then ' check positive\n"
+        "Print x\n"
+        "End If\n"
+    ),
+        "If x > 0 Then ' check positive\n"
+        "    Print x\n"
+        "End If\n"
+    );
+}
+
+TEST_F(FormatRendererTests, StandaloneComment) {
+    EXPECT_EQ(format(
+        "' this is a comment\n"
+        "Print x\n"
+    ),
+        "' this is a comment\n"
+        "Print x\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Anchored hash mode
 // ---------------------------------------------------------------------------
 
