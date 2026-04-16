@@ -73,7 +73,7 @@ static constexpr auto charClasses = [] consteval {
         /* '+' */ +Operator,
         /* ',' */ +Operator,
         /* '-' */ +Operator,
-        /* '.' */ +Operator,
+        /* '.' */ 0,
         /* '/' */ +Operator,
         /* '0' */ +Identifier | +Digit | +HexDigit | +OctDigit | +BinDigit,
         /* '1' */ +Identifier | +Digit | +HexDigit | +OctDigit | +BinDigit,

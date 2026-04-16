@@ -104,7 +104,8 @@ private:
     /// Form of the number being lexed
     enum class NumberForm : std::uint8_t {
         Decimal,
-        FloatingPoint,
+        Fraction,
+        Exponent,
         Hexadecimal,
         Octal,
         Binary
@@ -137,6 +138,7 @@ private:
     NumberForm m_numberForm = NumberForm::Decimal;
     bool m_isFirst = true;
     bool m_fieldAccess = false;
+    bool m_slashEscapableString = false;
     std::array<char, MAX_IDENT_LEN> m_identBuffer{};
 };
 

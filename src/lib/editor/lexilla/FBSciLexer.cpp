@@ -241,14 +241,24 @@ void FBSciLexer::lexDefault() noexcept {
     // .
     else if (m_sc->ch == '.') {
         if (isDigit(m_sc->chNext)) {
-            m_numberForm = NumberForm::FloatingPoint;
+            m_numberForm = NumberForm::Fraction;
             m_sc->SetState(+Number);
-        } else if (m_sc->chNext != '.') {
+        } else if (m_sc->chNext == '.') {
+            m_sc->SetState(+Operator);
+            m_sc->Forward();
+            if (m_sc->chNext == '.') {
+                m_sc->Forward();
+                if (m_sc->chNext == '.') {
+                    m_sc->ChangeState(+Error);
+                    while (m_sc->chNext == '.') {
+                        m_sc->Forward();
+                    }
+                }
+            }
+        } else {
             m_sc->SetState(+Operator);
             m_fieldAccess = true;
             return; // short circuit!
-        } else {
-            m_sc->SetState(+Operator);
         }
     }
     // ->
@@ -281,6 +291,17 @@ void FBSciLexer::lexDefault() noexcept {
         } else {
             m_sc->SetState(+Operator);
         }
+    }
+    // !"string literal"
+    else if (m_sc->ch == '!' && m_sc->chNext == '"') {
+        m_slashEscapableString = true;
+        m_sc->SetState(+StringOpen);
+        m_sc->Forward();
+    }
+    // $"string literal"
+    else if (m_sc->ch == '$' &&  m_sc->chNext == '"') {
+        m_sc->SetState(+StringOpen);
+        m_sc->Forward();
     }
     // operators
     else if (isOperator(m_sc->ch)) {
@@ -341,16 +362,13 @@ void FBSciLexer::lexNumber() noexcept {
             m_sc->ChangeState(+FBSciLexerState::Error);
         }
     };
+
+    // %, &, u[l[l]], l[l]
     const auto integralSuffixes = [&] {
-        // %     signed 32/64 (depending on platform) bit integer
-        // l, &  signed 32 bit long integer
-        // u     unsigned 32/64 (depending on platform) bit integer
-        // ul    unsigned 32 bit integer
-        // ll    signed 64 bit integer
-        // ull   unsigned 64 bit integer
+        const auto lc = fastUnsafeLowerCase(m_sc->ch);
         if (m_sc->ch == '%' || m_sc->ch == '&') {
             m_sc->Forward();
-        } else if (fastUnsafeLowerCase(m_sc->ch) == 'u') {
+        } else if (lc == 'u') {
             m_sc->Forward();
             if (fastUnsafeLowerCase(m_sc->ch) == 'l') {
                 m_sc->Forward();
@@ -358,7 +376,7 @@ void FBSciLexer::lexNumber() noexcept {
                     m_sc->Forward();
                 }
             }
-        } else if (fastUnsafeLowerCase(m_sc->ch) == 'l') {
+        } else if (lc == 'l') {
             m_sc->Forward();
             if (fastUnsafeLowerCase(m_sc->ch) == 'l') {
                 m_sc->Forward();
@@ -367,15 +385,57 @@ void FBSciLexer::lexNumber() noexcept {
         finish();
     };
 
+    // !, #, F, D
+    const auto fpSuffixes = [&] {
+        const auto lc = fastUnsafeLowerCase(m_sc->ch);
+        if (m_sc->ch == '!' || m_sc->ch == '#' || lc == 'f' || lc == 'd') {
+            m_sc->Forward();
+        }
+        finish();
+    };
+
+    // Try to enter exponent: (D|E)[+|-]
+    const auto tryExponent = [&] -> bool {
+        const auto lc = fastUnsafeLowerCase(m_sc->ch);
+        if ((lc == 'e' || lc == 'd') &&
+            (isDigit(m_sc->chNext) || m_sc->chNext == '+' || m_sc->chNext == '-')) {
+            m_numberForm = NumberForm::Exponent;
+            m_sc->Forward();
+            if (m_sc->ch == '+' || m_sc->ch == '-') {
+                m_sc->Forward();
+            }
+            return true;
+        }
+        return false;
+    };
+
     switch (m_numberForm) {
     case NumberForm::Decimal:
         if (m_sc->ch == '.') {
-            m_numberForm = NumberForm::FloatingPoint;
+            m_numberForm = NumberForm::Fraction;
         } else if (!isDigit(m_sc->ch)) {
-            integralSuffixes();
+            if (!tryExponent()) {
+                const auto lc = fastUnsafeLowerCase(m_sc->ch);
+                if (m_sc->ch == '!' || m_sc->ch == '#' || lc == 'f' || lc == 'd') {
+                    m_sc->Forward();
+                    finish();
+                } else {
+                    integralSuffixes();
+                }
+            }
         }
         break;
-    case NumberForm::FloatingPoint:
+    case NumberForm::Fraction:
+        if (!isDigit(m_sc->ch)) {
+            if (!tryExponent()) {
+                fpSuffixes();
+            }
+        }
+        break;
+    case NumberForm::Exponent:
+        if (!isDigit(m_sc->ch)) {
+            fpSuffixes();
+        }
         break;
     case NumberForm::Hexadecimal:
         if (!isHexDigit(m_sc->ch)) {
@@ -404,9 +464,14 @@ void FBSciLexer::lexStringOpen() noexcept {
         }
         m_sc->ChangeState(+FBSciLexerState::String);
         resetToDefault();
+        m_slashEscapableString = false;
     }
-    if (m_sc->atLineEnd) {
+    else if (m_sc->ch == '\\' && m_sc->chNext == '\"' && m_slashEscapableString) {
+        m_sc->Forward();
+    }
+    else if (m_sc->atLineEnd) {
         m_sc->SetState(+FBSciLexerState::Default); // no reset
+        m_slashEscapableString = false;
     }
 }
 
