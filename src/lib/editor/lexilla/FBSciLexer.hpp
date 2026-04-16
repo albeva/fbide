@@ -60,7 +60,7 @@ class FBSciLexer final : public Lexilla::DefaultLexer {
     FBSciLexer();
 public:
     /// Number of keyword groups our lexer supports
-    static constexpr int WORD_LIST_COUNT = 5;
+    static constexpr std::size_t WORD_LIST_COUNT = 5;
 
     const char* SCI_METHOD DescribeWordListSets() override;
     Sci_Position SCI_METHOD WordListSet(int n, const char* wl) override;

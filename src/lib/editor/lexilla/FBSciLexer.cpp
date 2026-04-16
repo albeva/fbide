@@ -82,39 +82,46 @@ constexpr std::array charClasses = {
 // clang-format on
 
 bool isSpace(const int ch) {
-    return ch < charClasses.size() && (charClasses[ch] & +CharClass::Whitespace);
+    const auto idx = static_cast<std::size_t>(ch);
+    return idx < charClasses.size() && (charClasses[idx] & +CharClass::Whitespace);
 }
 
 bool isOperator(const int ch) {
-    return ch < charClasses.size() && (charClasses[ch] & +CharClass::Operator);
+    const auto idx = static_cast<std::size_t>(ch);
+    return idx < charClasses.size() && (charClasses[idx] & +CharClass::Operator);
 }
 
 bool isIdentifier(const int ch) {
-    return ch < charClasses.size() && (charClasses[ch] & +CharClass::Identifier);
+    const auto idx = static_cast<std::size_t>(ch);
+    return idx < charClasses.size() && (charClasses[idx] & +CharClass::Identifier);
 }
 
 bool isDigit(const int ch) {
-    return ch < charClasses.size() && (charClasses[ch] & +CharClass::Digit);
+    const auto idx = static_cast<std::size_t>(ch);
+    return idx < charClasses.size() && (charClasses[idx] & +CharClass::Digit);
 }
 
-bool isHexDigit(const int ch) {
-    return ch < charClasses.size() && (charClasses[ch] & +CharClass::HexDigit);
-}
+// bool isHexDigit(const int ch) {
+//     const auto idx = static_cast<std::size_t>(ch);
+//     return idx < charClasses.size() && (charClasses[idx] & +CharClass::HexDigit);
+// }
+//
+// bool isBinDigit(const int ch) {
+//     const auto idx = static_cast<std::size_t>(ch);
+//     return idx < charClasses.size() && (charClasses[idx] & +CharClass::BinDigit);
+// }
 
-bool isBinDigit(const int ch) {
-    return ch < charClasses.size() && (charClasses[ch] & +CharClass::BinDigit);
-}
+// bool isLetter(const int ch) {
+//     const auto idx = static_cast<std::size_t>(ch);
+//     return idx < charClasses.size() && (charClasses[idx] & +CharClass::Letter);
+// }
 
-bool isLetter(const int ch) {
-    return ch < charClasses.size() && (charClasses[ch] & +CharClass::Letter);
-}
-
-int lowerCase(const int c) {
-    if (c >= 'A' && c <= 'Z') {
-        return 'a' + c - 'A';
-    }
-    return c;
-}
+// int lowerCase(const int c) {
+//     if (c >= 'A' && c <= 'Z') {
+//         return 'a' + c - 'A';
+//     }
+//     return c;
+// }
 
 // endregion
 
@@ -140,8 +147,9 @@ const char* SCI_METHOD FBSciLexer::DescribeWordListSets() {
 }
 
 Sci_Position SCI_METHOD FBSciLexer::WordListSet(const int n, const char* wl) {
-    if (n >= 0 && n < WORD_LIST_COUNT) {
-        if (m_wordLists[n].Set(wl)) {
+    const auto idx = static_cast<std::size_t>(n);
+    if (idx < WORD_LIST_COUNT) {
+        if (m_wordLists[idx].Set(wl)) {
             return 0;
         }
     }
@@ -167,7 +175,7 @@ void SCI_METHOD FBSciLexer::Lex(
     styler.StartAt(startPos);
     styler.StartSegment(startPos);
 
-    Lexilla::StyleContext sc(startPos, lengthDoc, initStyle, styler);
+    Lexilla::StyleContext sc(startPos, static_cast<Sci_PositionU>(lengthDoc), initStyle, styler);
     m_sc = &sc;
 
     // unknown line
@@ -312,6 +320,7 @@ void FBSciLexer::lexDefault() noexcept {
         m_sc->SetState(+Operator);
         m_sc->Forward();
         m_fieldAccess = true;
+        return; // short circuit!
     }
     // Numbers
     else if (isDigit(m_sc->ch)) {
