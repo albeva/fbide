@@ -71,7 +71,7 @@ void Renderer::renderStatement(const StatementNode& stmt, const std::size_t inde
     }
 
     // Anchored hash mode for preprocessor tokens
-    if (m_anchorHash && stmt.tokens[0].kind == TokenKind::Preprocessor) {
+    if (m_options.anchoredPP && stmt.tokens[0].kind == TokenKind::Preprocessor) {
         renderAnchoredPP(stmt, indent);
         return;
     }
@@ -97,7 +97,7 @@ void Renderer::renderAnchoredPP(const StatementNode& stmt, const std::size_t ind
 
     // Indent between '#' and directive word
     if (indent > 0) {
-        m_output.append(indent * m_tabSize - 1, ' ');
+        m_output.append(indent * m_options.tabSize - 1, ' ');
     }
 
     // Skip '#' and optional whitespace in original token text
@@ -114,7 +114,7 @@ void Renderer::renderAnchoredPP(const StatementNode& stmt, const std::size_t ind
 }
 
 void Renderer::emitIndent(const std::size_t indent) {
-    m_output.append(indent * m_tabSize, ' ');
+    m_output.append(indent * m_options.tabSize, ' ');
 }
 
 void Renderer::emitNewline() {

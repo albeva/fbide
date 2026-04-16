@@ -23,9 +23,9 @@ protected:
     }
 
     /// Tokenise, format, and return the resulting text.
-    auto reindent(const char* source, const bool anchorHash = false) -> std::string {
+    auto reindent(const char* source, const bool anchoredPP = false) -> std::string {
         const auto tokens = m_lexer->tokenise(source);
-        format::Formatter formatter(tabSize, anchorHash);
+        format::Formatter formatter({ .tabSize = static_cast<std::size_t>(tabSize), .anchoredPP = anchoredPP });
         return formatter.format(tokens);
     }
 

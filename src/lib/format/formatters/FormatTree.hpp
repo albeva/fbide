@@ -10,6 +10,12 @@
 
 namespace fbide::format {
 
+/// Formatting options.
+struct FormatOptions {
+    std::size_t tabSize = 4;
+    bool anchoredPP = false;
+};
+
 /// Blank line preserved from source.
 struct BlankLineNode {};
 

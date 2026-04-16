@@ -14,9 +14,8 @@ namespace fbide::format {
 /// Applies indentation based on tree structure and spacing based on OperatorKind.
 class Renderer final {
 public:
-    explicit Renderer(const std::size_t tabSize, const bool anchorHash = false)
-        : m_tabSize(tabSize)
-        , m_anchorHash(anchorHash) {}
+    explicit Renderer(const FormatOptions& options)
+        : m_options(options) {}
 
     /// Render the tree to a formatted string.
     [[nodiscard]] auto render(const ProgramTree& tree) -> std::string;
@@ -33,8 +32,7 @@ private:
     [[nodiscard]] static auto isDefinition(const BlockNode& block) -> bool;
     [[nodiscard]] static auto needsSpaceBefore(const lexer::Token& prev, const lexer::Token& curr) -> bool;
 
-    std::size_t m_tabSize;
-    bool m_anchorHash;
+    FormatOptions m_options;
     bool m_lastWasBlankLine = false;
     bool m_lastWasBlock = false;
     std::string m_output;

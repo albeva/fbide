@@ -232,7 +232,7 @@ void FormatDialog::updatePreview() {
 
         if (m_reindent) {
             // Use the new tree-based formatter
-            const format::Formatter formatter(static_cast<std::size_t>(m_ctx.getConfig().getTabSize()));
+            const format::Formatter formatter({ .tabSize = static_cast<std::size_t>(m_ctx.getConfig().getTabSize()) });
             auto formatted = formatter.format(tokens);
 
             if (m_renderer->getType() == DocumentType::FreeBASIC) {

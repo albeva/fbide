@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "lib/analyses/lexer/Token.hpp"
+#include "FormatTree.hpp"
 
 namespace fbide::format {
 
@@ -14,16 +14,14 @@ namespace fbide::format {
 /// Pipeline: tokens → Scanner → TreeBuilder → Renderer → string.
 class Formatter final {
 public:
-    explicit Formatter(const std::size_t tabSize, const bool anchorHash = false)
-        : m_tabSize(tabSize)
-        , m_anchorHash(anchorHash) {}
+    explicit Formatter(const FormatOptions& options)
+        : m_options(options) {}
 
     /// Format the token stream and return the formatted source code.
     [[nodiscard]] auto format(const std::vector<lexer::Token>& tokens) const -> std::string;
 
 private:
-    std::size_t m_tabSize;
-    bool m_anchorHash;
+    FormatOptions m_options;
 };
 
 } // namespace fbide::format

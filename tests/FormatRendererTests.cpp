@@ -23,9 +23,9 @@ protected:
         m_lexer = std::make_unique<lexer::Lexer>(kw);
     }
 
-    auto format(const char* source, const bool anchorHash = false) -> std::string {
+    auto format(const char* source, const bool anchoredPP = false) -> std::string {
         const auto tokens = m_lexer->tokenise(source);
-        Formatter formatter(tabSize, anchorHash);
+        Formatter formatter({ .tabSize = tabSize, .anchoredPP = anchoredPP });
         return formatter.format(tokens);
     }
 
