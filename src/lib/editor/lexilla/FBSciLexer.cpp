@@ -4,6 +4,7 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
+// ReSharper disable CppDFALocalValueEscapesFunction
 #include "FBSciLexer.hpp"
 #include "StyleContext.h"
 using namespace fbide;
@@ -126,7 +127,7 @@ const char* SCI_METHOD FBSciLexer::DescribeWordListSets() {
         }
         return result;
     }();
-    return desc.c_str();
+    return dem_sc->c_str();
 }
 
 Sci_Position SCI_METHOD FBSciLexer::WordListSet(const int n, const char* wl) {
@@ -152,70 +153,182 @@ void SCI_METHOD FBSciLexer::Lex(
     const int initStyle,
     Scintilla::IDocument* pAccess
 ) {
+    using enum FBSciLexerState;
+
     Lexilla::LexAccessor styler(pAccess);
+    m_styler = &styler;
     styler.StartAt(startPos);
     styler.StartSegment(startPos);
+
     Lexilla::StyleContext sc(startPos, lengthDoc, initStyle, styler);
+    m_sc = &sc;
+
+    m_line = INVALID_LINE;
 
     for (; sc.More(); sc.Forward()) {
+        if (m_sc->atLineStart) {
+            lexLineStart();
+        }
+
+        // Lex non-default states
         switch (sc.state) {
-        case +FBSciLexerState::Default:
-            lexDefault(sc);
+        case +Comment:
+            lexComment();
             break;
-        case +FBSciLexerState::Comment:
-            lexComment(sc);
+        case +MultilineComment:
+            lexMultilineComment();
             break;
-        case +FBSciLexerState::MultilineComment:
-            lexMultilineComment(sc);
+        case +Number:
+            lexNumber();
             break;
-        case +FBSciLexerState::Number:
-            lexNumber(sc);
+        case +StringOpen:
+            lexStringOpen();
             break;
-        case +FBSciLexerState::String:
-            lexString(sc);
+        case +Identifier:
+            lexIdentifier();
             break;
-        case +FBSciLexerState::StringOpen:
-            lexStringOpen(sc);
+        case +Operator:
+            lexOperator();
             break;
-        case +FBSciLexerState::Identifier:
-            lexIdentifier(sc);
-            break;
-        case +FBSciLexerState::Operator:
-            sc.SetState(+FBSciLexerState::Default);
-            break;
-        case +FBSciLexerState::Preprocessor:
-            lexPreprocessor(sc);
+        case +Preprocessor:
+            lexPreprocessor();
             break;
         default:
             break;
         }
+
+        // we in default?
+        if (sc.atLineEnd) {
+            styler.SetLineState(m_line, m_lineState.toInt());
+        } else if (sc.state == +Default) {
+            lexDefault();
+        }
     }
 
+    m_sc = nullptr;
+    m_styler = nullptr;
     sc.Complete();
 }
 
-void FBSciLexer::lexDefault(Lexilla::StyleContext& /*sc*/) const noexcept {
+void FBSciLexer::lexLineStart() noexcept{
+    const auto newLine = m_sc->currentLine;
+
+    // is the next line?
+    if (newLine - 1 == m_line) {
+        m_previousLineState = m_lineState;
+    }
+    // initial, or jumped ahead
+    else if (newLine > 0) {
+        m_previousLineState = LineState::fromInt(m_styler->GetLineState(newLine - 1));
+    }
+    // very first line
+    else {
+        m_previousLineState = {};
+    }
+
+    m_line = newLine;
+    m_lineState = {};
+
+    m_isFirst = m_previousLineState.getLineContinuation();
 }
 
-void FBSciLexer::lexComment(Lexilla::StyleContext& /*sc*/) const noexcept {
+void FBSciLexer::resetToDefault() noexcept {
+    m_sc->SetState(+FBSciLexerState::Default);
+    m_isFirst = false;
 }
 
-void FBSciLexer::lexMultilineComment(Lexilla::StyleContext& /*sc*/) const noexcept {
+void FBSciLexer::lexDefault() noexcept {
+    using enum FBSciLexerState;
+
+    // white space
+    if (isSpace(m_sc->ch)) {
+        return;
+    }
+
+    // single line comment
+    if (m_sc->ch == '\'') {
+        m_sc->SetState(+Comment);
+    }
+    // multi line comment
+    else if (m_sc->ch == '/' && m_sc->chNext == '\'') {
+        m_sc->SetState(+MultilineComment);
+        m_sc->Forward();
+    }
+    // preprocessor? operator?
+    else if (m_sc->ch == '#') {
+        m_sc->SetState(m_isFirst ? +Preprocessor : +Operator);
+    }
+    // Numbers
+    else if (isDigit(m_sc->ch)) {
+        m_sc->SetState(+Number);
+    }
+    // operators
+    else if (isOperator(m_sc->ch)) {
+        m_sc->SetState(+Operator);
+    }
+    // identifier
+    else if (isIdentifier(m_sc->ch)) {
+        m_sc->SetState(+Identifier);
+    }
+    // String literal
+    else if (m_sc->ch == '"') {
+        m_sc->SetState(+StringOpen);
+    }
 }
 
-void FBSciLexer::lexNumber(Lexilla::StyleContext& /*sc*/) const noexcept {
+void FBSciLexer::lexComment() noexcept {
+    if (m_sc->atLineEnd) {
+        m_sc->SetState(+FBSciLexerState::Default); // no reset!
+    }
 }
 
-void FBSciLexer::lexString(Lexilla::StyleContext& /*sc*/) const noexcept {
+void FBSciLexer::lexMultilineComment() noexcept {
+    if (m_sc->ch == '\'' && m_sc->chNext == '/') {
+        m_sc->Forward();
+        m_sc->SetState(+FBSciLexerState::Default); // no reset!
+    }
 }
 
-void FBSciLexer::lexStringOpen(Lexilla::StyleContext& /*sc*/) const noexcept {
+void FBSciLexer::lexNumber() noexcept {
+    if (!isDigit(m_sc->ch)) {
+        resetToDefault();
+    }
 }
 
-void FBSciLexer::lexIdentifier(Lexilla::StyleContext& /*sc*/) const noexcept {
+void FBSciLexer::lexStringOpen() noexcept {
+    // closing string
+    if (m_sc->ch == '"') {
+        m_sc->Forward();
+        if (m_sc->ch == '\"') {
+            return;
+        }
+        m_sc->ChangeState(+FBSciLexerState::String);
+        resetToDefault();
+    }
+    if (m_sc->atLineEnd) {
+        m_sc->SetState(+FBSciLexerState::Default); // no reset
+    }
 }
 
-void FBSciLexer::lexPreprocessor(Lexilla::StyleContext& /*sc*/) const noexcept {
+void FBSciLexer::lexIdentifier() noexcept {
+    if (!isIdentifier(m_sc->ch)) {
+        if (m_sc->ch == ':' && m_isFirst) {
+            m_sc->ChangeState(+FBSciLexerState::Label);
+        }
+        resetToDefault();
+    }
+}
+
+void FBSciLexer::lexOperator() noexcept {
+    if (!isOperator(m_sc->ch)) {
+        resetToDefault();
+    }
+}
+
+void FBSciLexer::lexPreprocessor() noexcept {
+    if (m_sc->atLineEnd) {
+        m_sc->SetState(+FBSciLexerState::Default); // no reset
+    }
 }
 
 // endregion

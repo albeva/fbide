@@ -75,16 +75,67 @@ public:
     static auto Create() -> Scintilla::ILexer5*;
 
 private:
-    void lexDefault(Lexilla::StyleContext& sc) const noexcept;
-    void lexComment(Lexilla::StyleContext& sc) const noexcept;
-    void lexMultilineComment(Lexilla::StyleContext& sc) const noexcept;
-    void lexNumber(Lexilla::StyleContext& sc) const noexcept;
-    void lexString(Lexilla::StyleContext& sc) const noexcept;
-    void lexStringOpen(Lexilla::StyleContext& sc) const noexcept;
-    void lexIdentifier(Lexilla::StyleContext& sc) const noexcept;
-    void lexPreprocessor(Lexilla::StyleContext& sc) const noexcept;
+    /// Per-line state stored via IDocument::SetLineState / GetLineState.
+    /// Packed into a single int for Scintilla compatibility.
+    struct alignas(int) LineState {
+        /// Multiline comment nesting depth
+        std::uint8_t commentNestLevel = 0;
+
+        /// Flags
+        enum Flag : std::uint8_t {
+            None = 0,
+            /// Line ends with _ continuation character
+            LineContinuation = 1 << 0,
+        };
+        Flag flags = Flag::None;
+
+        /// Reserved for future use
+        std::uint8_t reserved1 = 0;
+        std::uint8_t reserved2 = 0;
+
+        /// Convert from Scintilla line state int
+        static constexpr auto fromInt(const int value) noexcept -> LineState {
+            return std::bit_cast<LineState>(value);
+        }
+
+        /// Convert to Scintilla line state int
+        constexpr auto toInt() const noexcept -> int {
+            return std::bit_cast<int>(*this);
+        }
+
+        [[nodiscard]] constexpr auto getLineContinuation() const -> bool {
+            // TODO: get flag value
+            return false;
+        }
+
+        constexpr void setLineContinuation(bool state) {
+            // TODO: set flag value
+        }
+    };
+    static_assert(sizeof(LineState) == sizeof(int) && alignof(LineState) == alignof(int));
+
+    FBIDE_INLINE void lexLineStart() noexcept;
+    FBIDE_INLINE void resetToDefault() noexcept;
+    FBIDE_INLINE void lexDefault() noexcept;
+    FBIDE_INLINE void lexComment() noexcept;
+    FBIDE_INLINE void lexMultilineComment() noexcept;
+    FBIDE_INLINE void lexNumber() noexcept;
+    FBIDE_INLINE void lexStringOpen() noexcept;
+    FBIDE_INLINE void lexIdentifier() noexcept;
+    FBIDE_INLINE void lexOperator() noexcept;
+    FBIDE_INLINE void lexPreprocessor() noexcept;
+
+    static constexpr Sci_Position INVALID_LINE = std::numeric_limits<Sci_Position>::max() - 1;
 
     std::array<Lexilla::WordList, WORD_LIST_COUNT> m_wordLists;
+
+    Lexilla::LexAccessor* m_styler = nullptr;
+    Lexilla::StyleContext* m_sc = nullptr;
+
+    bool m_isFirst = true;
+    Sci_Position m_line = 0;
+    LineState m_previousLineState;
+    LineState m_lineState;
 };
 
 } // namespace fbide

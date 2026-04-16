@@ -172,48 +172,36 @@ void Editor::applyTheme() {
 }
 
 void Editor::applyFreebasicTheme() {
+    using enum FBSciLexerState;
+
     const auto& theme = m_ctx.getTheme();
     const auto& editor = theme.getDefault();
 
     SetILexer(FBSciLexer::Create());
 
     // Apply keywords
+    // TODO: add keyword group 5
     const auto& keywords = m_ctx.getKeywords();
     for (std::size_t grp = 0; grp < Keywords::GROUP_COUNT; grp++) {
         SetKeyWords(static_cast<int>(grp), keywords.getGroup(grp));
     }
 
-    // VB style mappings
-    constexpr std::array styles {
-        wxSTC_B_DEFAULT,
-        wxSTC_B_COMMENT,
-        wxSTC_B_NUMBER,
-        wxSTC_B_KEYWORD,
-        wxSTC_B_STRING,
-        wxSTC_B_PREPROCESSOR,
-        wxSTC_B_OPERATOR,
-        wxSTC_B_IDENTIFIER,
-        wxSTC_B_DATE,
-        wxSTC_B_STRINGEOL,
-        wxSTC_B_KEYWORD2,
-        wxSTC_B_KEYWORD3,
-        wxSTC_B_KEYWORD4,
-        wxSTC_B_CONSTANT,
-        wxSTC_B_ASM
-    };
-
-    for (size_t idx = 1; idx < styles.size(); idx++) {
-        const auto& style = theme.getStyle(static_cast<Theme::ItemKind>(idx));
-        const auto stcId = styles[idx];
-        applyStyle(stcId, style, editor);
-    }
-
-    applyStyle(wxSTC_B_COMMENTBLOCK, theme.getStyle(Theme::ItemKind::Comment), editor);
-    applyStyle(wxSTC_B_DOCBLOCK, theme.getStyle(Theme::ItemKind::Comment), editor);
-    applyStyle(wxSTC_B_DOCLINE, theme.getStyle(Theme::ItemKind::Comment), editor);
-    applyStyle(wxSTC_B_DOCKEYWORD, theme.getStyle(Theme::ItemKind::Comment), editor);
-    applyStyle(wxSTC_B_HEXNUMBER, theme.getStyle(Theme::ItemKind::Number), editor);
-    applyStyle(wxSTC_B_BINNUMBER, theme.getStyle(Theme::ItemKind::Number), editor);
+    // applyStyle(+Default, theme.getStyle(Theme::Default), editor); // TODO: define proper default
+    applyStyle(+Comment, theme.getStyle(Theme::Comment), editor);
+    applyStyle(+MultilineComment, theme.getStyle(Theme::Comment), editor);
+    applyStyle(+Number, theme.getStyle(Theme::Number), editor);
+    applyStyle(+String, theme.getStyle(Theme::String), editor);
+    applyStyle(+StringOpen, theme.getStyle(Theme::StringEol), editor);
+    applyStyle(+Identifier, theme.getStyle(Theme::Identifier), editor);
+    applyStyle(+Keyword1, theme.getStyle(Theme::Keyword), editor);
+    applyStyle(+Keyword2, theme.getStyle(Theme::Keyword2), editor);
+    applyStyle(+Keyword3, theme.getStyle(Theme::Keyword3), editor);
+    applyStyle(+Keyword4, theme.getStyle(Theme::Keyword4), editor);
+    applyStyle(+Keyword5, theme.getStyle(Theme::Keyword), editor);    // TODO: keyword 5
+    applyStyle(+Operator, theme.getStyle(Theme::Operator), editor);
+    applyStyle(+Label, theme.getStyle(Theme::Identifier), editor);    // TODO: label
+    applyStyle(+Constant, theme.getStyle(Theme::Identifier), editor); // TODO: constant
+    applyStyle(+Preprocessor, theme.getStyle(Theme::Preprocessor), editor);
 }
 
 void Editor::applyStyle(const int stcId, const Theme::ItemStyle& style, const Theme::EditorStyle& editor) {
