@@ -244,6 +244,10 @@ void FormatDialog::updatePreview() {
         return;
     }
 
+    const int firstVisible = m_preview->GetFirstVisibleLine();
+    const int xOffset = m_preview->GetXOffset();
+    const int caretPos = m_preview->GetCurrentPos();
+
     const auto thaw = FreezeLock(this);
     m_preview->SetReadOnly(false);
     m_preview->setDocType(m_renderer->getType());
@@ -257,4 +261,10 @@ void FormatDialog::updatePreview() {
         m_preview->SetText(getSourceText());
     }
     m_preview->SetReadOnly(true);
+
+    const int lastPos = static_cast<int>(m_preview->GetLastPosition());
+    m_preview->SetEmptySelection(std::min(caretPos, lastPos));
+    const int lineCount = m_preview->GetLineCount();
+    m_preview->SetFirstVisibleLine(std::min(firstVisible, std::max(0, lineCount - 1)));
+    m_preview->SetXOffset(xOffset);
 }
