@@ -4,7 +4,7 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "lib/format/formatters/TreeBuilder.hpp"
+#include "../src/lib/format/formatters/reformat/TreeBuilder.hpp"
 #include <gtest/gtest.h>
 
 using namespace fbide::lexer;

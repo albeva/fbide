@@ -6,7 +6,7 @@
 //
 #include "lib/analyses/lexer/Lexer.hpp"
 #include "lib/config/Keywords.hpp"
-#include "lib/format/formatters/Formatter.hpp"
+#include "../src/lib/format/formatters/reformat/Formatter.hpp"
 #include <gtest/gtest.h>
 
 using namespace fbide;

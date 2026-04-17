@@ -4,6 +4,7 @@ add_library(fbide_lib)
 target_sources(fbide_lib
     PRIVATE
     lib/about/AboutDialog.cpp
+    lib/analyses/lexer/Lexer.cpp
     lib/app/App.cpp
     lib/app/CommandManager.cpp
     lib/app/Context.cpp
@@ -24,12 +25,11 @@ target_sources(fbide_lib
     lib/editor/Editor.cpp
     lib/editor/lexilla/FBSciLexer.cpp
     lib/format/FormatDialog.cpp
-    lib/analyses/lexer/Lexer.cpp
-    lib/format/formatters/CaseTransform.cpp
-    lib/format/formatters/Formatter.cpp
-    lib/format/formatters/Renderer.cpp
-    lib/format/formatters/Scanner.cpp
-    lib/format/formatters/TreeBuilder.cpp
+    lib/format/formatters/case/CaseTransform.cpp
+    lib/format/formatters/reformat/Formatter.cpp
+    lib/format/formatters/reformat/Renderer.cpp
+    lib/format/formatters/reformat/Scanner.cpp
+    lib/format/formatters/reformat/TreeBuilder.cpp
     lib/format/renderers/HtmlRenderer.cpp
     lib/format/renderers/PlainTextRenderer.cpp
     lib/format/renderers/Renderer.cpp
@@ -47,6 +47,8 @@ target_sources(fbide_lib
 
     PUBLIC FILE_SET HEADERS FILES
     lib/about/AboutDialog.hpp
+    lib/analyses/lexer/Lexer.hpp
+    lib/analyses/lexer/Token.hpp
     lib/app/App.hpp
     lib/app/CommandManager.hpp
     lib/app/Context.hpp
@@ -70,15 +72,13 @@ target_sources(fbide_lib
     lib/editor/lexilla/CharCategory.hpp
     lib/editor/lexilla/FBSciLexer.hpp
     lib/format/FormatDialog.hpp
-    lib/analyses/lexer/Lexer.hpp
-    lib/analyses/lexer/Token.hpp
-    lib/format/formatters/CaseTransform.hpp
-    lib/format/formatters/FormatTree.hpp
-    lib/format/formatters/Formatter.hpp
-    lib/format/formatters/Renderer.hpp
-    lib/format/formatters/Scanner.hpp
-    lib/format/formatters/TreeBuilder.hpp
     lib/format/formatters/TokenTransform.hpp
+    lib/format/formatters/case/CaseTransform.hpp
+    lib/format/formatters/reformat/FormatTree.hpp
+    lib/format/formatters/reformat/Formatter.hpp
+    lib/format/formatters/reformat/Renderer.hpp
+    lib/format/formatters/reformat/Scanner.hpp
+    lib/format/formatters/reformat/TreeBuilder.hpp
     lib/format/renderers/HtmlRenderer.hpp
     lib/format/renderers/PlainTextRenderer.hpp
     lib/format/renderers/Renderer.hpp

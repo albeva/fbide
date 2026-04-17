@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "TokenTransform.hpp"
+#include "lib/format/formatters/TokenTransform.hpp"
 
 namespace fbide {
 
@@ -20,7 +20,7 @@ class CaseTransform final : public TokenTransform {
 public:
     explicit CaseTransform(const CaseMode mode) : m_mode(mode) {}
 
-    void apply(std::vector<lexer::Token>& tokens, std::vector<std::string>& pool) override;
+    [[nodiscard]] auto apply(const std::vector<lexer::Token>& tokens, std::vector<std::string>& pool) -> std::vector<lexer::Token> override;
 
 private:
     CaseMode m_mode;

@@ -5,8 +5,8 @@
 // https://github.com/albeva/fbide
 //
 #include "FormatDialog.hpp"
-#include "formatters/CaseTransform.hpp"
-#include "formatters/Formatter.hpp"
+#include "formatters/case/CaseTransform.hpp"
+#include "formatters/reformat/Formatter.hpp"
 #include "renderers/HtmlRenderer.hpp"
 #include "lib/analyses/lexer/Lexer.hpp"
 #include "renderers/PlainTextRenderer.hpp"
@@ -226,7 +226,7 @@ void FormatDialog::updatePreview() {
             std::vector<std::string> pool;
             pool.reserve(tokens.size());
             for (const auto& transform : m_transforms) {
-                transform->apply(tokens, pool);
+                tokens = transform->apply(tokens, pool);
             }
         }
 
