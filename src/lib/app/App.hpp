@@ -20,6 +20,9 @@ public:
     /// Initialize the application, create main window.
     auto OnInit() -> bool override;
 
+    /// Cleanup on exit — flush clipboard so copied content persists after app closes.
+    auto OnExit() -> int override;
+
     /// Get the application context.
     [[nodiscard]] auto getContext() -> Context& { return *m_context; }
     [[nodiscard]] auto getContext() const -> const Context& { return *m_context; }

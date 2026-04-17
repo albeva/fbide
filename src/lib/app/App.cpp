@@ -14,7 +14,18 @@
 #include "lib/config/Theme.hpp"
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/ui/UIManager.hpp"
+#include <wx/clipbrd.h>
 using namespace fbide;
+
+auto App::OnExit() -> int {
+    // Flush clipboard so text copied from fbide (e.g. Format dialog "Copy"
+    // output) remains available in other applications after we close.
+    if (wxTheClipboard->Open()) {
+        wxTheClipboard->Flush();
+        wxTheClipboard->Close();
+    }
+    return wxApp::OnExit();
+}
 
 auto App::OnInit() -> bool {
     // Create context and parse arguments early (before IPC check)
