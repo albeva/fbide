@@ -3,6 +3,7 @@
 ## Project
 - [x] Upgrade app licence in the app to MIT
 - [x] Set windows binary details (description, name, version, copyright, etc.)
+- [x] Remove lexilla git submodule, instead copy only the headers we need directly into the project
 
 ## Compiler Integration
 
@@ -44,24 +45,27 @@
 
 - [x] Open/save dialog file patterns that currently throw na error
 - [x] "assert "GetEventHandler() == this" failed in ~wxWindowBase(): any pushed event handlers must have been removed" on find/replace dialog
-- [ ] Syntax highlighter matches identifiers as keywords after "."
+- [x] Syntax highlighter matches identifiers as keywords after "."
 - [x] Formatter doesn't handle multi line comments. /' /' '/ '/
 - [x] Auto indent fails on single line IFs
-- [ ] In the formatter, "Open in the browser" button sometimes does not appear
-- [ ] Formatter: indent namespace ... end namespace
-- [ ] Formatter: fails to handle "EXIT DO" when nested in a block properly.
+- [x] In the formatter, "Open in the browser" button sometimes does not appear
+- [x] Formatter: indent namespace ... end namespace
+- [x] Formatter: fails to handle "EXIT DO" when nested in a block properly.
+
+## Formatter
+
 - [ ] Formatter: indent initializer lists { ... } when spread over multiple lines
 
 # Editor
 
 - [ ] Auto indentation in the editor as user types
 - [ ] Open #include directives
-- [ ] Implement new FB scintilla lexer
+- [x] Implement new FB scintilla lexer
 - [ ] Make editor fully utf-8 compatible (config/langauge files, the editor, save/load, etc.)
 
 # General
 
 - [ ] Add stop/kill button that terminates running app/compile process
-- [ ] Do not clear clipboard when quitting FBde
+- [x] Do not clear clipboard when quitting FBIde
 - [ ] Use file pattern allowing all supported files to be open in file open dialog
-- [ ] Review all defined keywords
+- [ ] Review & update all defined keywords to match latest version of FreeBASIC
