@@ -12,7 +12,7 @@ title = "Help"
 [dialogs.format]
 title = "Format"
 
-# About dialog strings
+# About dialog
 [dialogs.about]
 title = "About"
 
@@ -21,12 +21,24 @@ title = "About"
 # Settings window has 4 sections:
 # general, themes, keywords and compiler
 # each of them has a title propery
+#
+# Themes have categories, each has single unique
+# identifier, which is alo used in theme configurations
 [dialogs.settings]
 title = "Settings"
-general.title = "General"
-themes.title = "Themes"
-keywords.title = "Keywords"
-compiler.title = "Compiler"
+
+[dialogs.settings.general]
+title = "General"
+
+[dialogs.settings.themes]
+title = "Themes"
+categories.comments = "Comments"
+
+[dialogs.settings.keywords]
+title = "Keywords"
+
+[dialogs.settings.compiler]
+title = "Compiler"
 
 # Compile log dialog
 [dialogs.log]
@@ -34,6 +46,9 @@ title = "FBC output"
 
 # Commands are actions that can appear either in the main
 # menu and/or on the toolbar
+#
+# Commands a simple unique IDs that are persistent between
+# locale, settings, keybinds, etc.
 #
 # Each command has two properties
 # name: Text that appears in the menu
