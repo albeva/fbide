@@ -10,15 +10,17 @@
 
 namespace fbide::format {
 
-/// Renders a ProgramTree back to formatted source code.
-/// Applies indentation based on tree structure and spacing based on OperatorKind.
+/// Renders a ProgramTree back to a stream of lexer tokens.
+/// Indentation and inter-token spaces are emitted as Whitespace tokens;
+/// line breaks as Newline tokens. Significant tokens are copied through
+/// with their original kind/keywordKind/operatorKind preserved.
 class Renderer final {
 public:
     explicit Renderer(const FormatOptions& options)
         : m_options(options) {}
 
-    /// Render the tree to a formatted string.
-    [[nodiscard]] auto render(const ProgramTree& tree) -> std::string;
+    /// Render the tree to a formatted token stream.
+    [[nodiscard]] auto render(const ProgramTree& tree) -> std::vector<lexer::Token>;
 
 private:
     void renderNodes(const std::vector<Node>& nodes, std::size_t indent);
@@ -27,7 +29,9 @@ private:
     void renderAnchoredPP(const StatementNode& stmt, std::size_t indent, std::size_t first);
     void emitLeadingIndent(const StatementNode& stmt, std::size_t first, std::size_t indent);
     void emitIndent(std::size_t indent);
+    void emitSpace();
     void emitNewline();
+    void emit(lexer::Token token);
 
     [[nodiscard]] static auto isBranch(const BlockNode& block) -> bool;
     [[nodiscard]] static auto isDefinition(const BlockNode& block) -> bool;
@@ -37,7 +41,7 @@ private:
     FormatOptions m_options;
     bool m_lastWasBlankLine = false;
     bool m_lastWasBlock = false;
-    std::string m_output;
+    std::vector<lexer::Token> m_output;
 };
 
 } // namespace fbide::format

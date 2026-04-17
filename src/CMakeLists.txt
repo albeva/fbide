@@ -26,9 +26,8 @@ target_sources(fbide_lib
     lib/editor/lexilla/FBSciLexer.cpp
     lib/format/FormatDialog.cpp
     lib/format/formatters/case/CaseTransform.cpp
-    lib/format/formatters/reformat/Formatter.cpp
+    lib/format/formatters/reformat/ReFormatter.cpp
     lib/format/formatters/reformat/Renderer.cpp
-    lib/format/formatters/reformat/Scanner.cpp
     lib/format/formatters/reformat/TreeBuilder.cpp
     lib/format/renderers/HtmlRenderer.cpp
     lib/format/renderers/PlainTextRenderer.cpp
@@ -75,9 +74,8 @@ target_sources(fbide_lib
     lib/format/formatters/TokenTransform.hpp
     lib/format/formatters/case/CaseTransform.hpp
     lib/format/formatters/reformat/FormatTree.hpp
-    lib/format/formatters/reformat/Formatter.hpp
+    lib/format/formatters/reformat/ReFormatter.hpp
     lib/format/formatters/reformat/Renderer.hpp
-    lib/format/formatters/reformat/Scanner.hpp
     lib/format/formatters/reformat/TreeBuilder.hpp
     lib/format/renderers/HtmlRenderer.hpp
     lib/format/renderers/PlainTextRenderer.hpp

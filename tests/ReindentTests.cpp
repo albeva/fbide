@@ -6,7 +6,7 @@
 //
 #include "lib/analyses/lexer/Lexer.hpp"
 #include "lib/config/Keywords.hpp"
-#include "../src/lib/format/formatters/reformat/Formatter.hpp"
+#include "../src/lib/format/formatters/reformat/ReFormatter.hpp"
 #include <gtest/gtest.h>
 
 using namespace fbide;
@@ -25,8 +25,18 @@ protected:
     /// Tokenise, format, and return the resulting text.
     auto reindent(const char* source, const bool anchoredPP = false) -> std::string {
         const auto tokens = m_lexer->tokenise(source);
-        format::Formatter formatter({ .tabSize = static_cast<std::size_t>(tabSize), .anchoredPP = anchoredPP });
-        return formatter.format(tokens);
+        format::ReFormatter formatter({ .tabSize = static_cast<std::size_t>(tabSize), .anchoredPP = anchoredPP });
+        const auto rendered = formatter.apply(tokens);
+        std::string out;
+        std::size_t size = 0;
+        for (const auto& tok : rendered) {
+            size += tok.text.size();
+        }
+        out.reserve(size);
+        for (const auto& tok : rendered) {
+            out += tok.text;
+        }
+        return out;
     }
 
     std::unique_ptr<lexer::Lexer> m_lexer;

@@ -6,7 +6,7 @@
 //
 #include "lib/analyses/lexer/Lexer.hpp"
 #include "lib/config/Keywords.hpp"
-#include "../src/lib/format/formatters/reformat/Formatter.hpp"
+#include "../src/lib/format/formatters/reformat/ReFormatter.hpp"
 #include <gtest/gtest.h>
 
 using namespace fbide;
@@ -24,15 +24,26 @@ protected:
     }
 
     auto format(const char* source, const bool anchoredPP = false) -> std::string {
-        const auto tokens = m_lexer->tokenise(source);
-        Formatter formatter({ .tabSize = tabSize, .anchoredPP = anchoredPP });
-        return formatter.format(tokens);
+        return formatWith(source, { .tabSize = tabSize, .anchoredPP = anchoredPP });
     }
 
     auto formatWith(const char* source, const FormatOptions& options) -> std::string {
         const auto tokens = m_lexer->tokenise(source);
-        Formatter formatter(options);
-        return formatter.format(tokens);
+        ReFormatter formatter(options);
+        return joinText(formatter.apply(tokens));
+    }
+
+    static auto joinText(const std::vector<lexer::Token>& tokens) -> std::string {
+        std::string out;
+        std::size_t size = 0;
+        for (const auto& tok : tokens) {
+            size += tok.text.size();
+        }
+        out.reserve(size);
+        for (const auto& tok : tokens) {
+            out += tok.text;
+        }
+        return out;
     }
 
     std::unique_ptr<lexer::Lexer> m_lexer;

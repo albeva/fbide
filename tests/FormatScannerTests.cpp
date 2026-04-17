@@ -6,7 +6,7 @@
 //
 #include "lib/analyses/lexer/Lexer.hpp"
 #include "lib/config/Keywords.hpp"
-#include "../src/lib/format/formatters/reformat/Scanner.hpp"
+#include "../src/lib/format/formatters/reformat/ReFormatter.hpp"
 #include <gtest/gtest.h>
 
 using namespace fbide;
@@ -25,7 +25,7 @@ protected:
 
     auto scan(const char* source, const FormatOptions& options = {}) -> ProgramTree {
         const auto tokens = m_lexer->tokenise(source);
-        return Scanner::scan(tokens, options);
+        return ReFormatter(options).buildTree(tokens);
     }
 
     static auto asStatement(const Node& node) -> const StatementNode* {

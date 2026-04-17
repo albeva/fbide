@@ -19,12 +19,6 @@ public:
     explicit Renderer(const std::size_t sizeHint) : m_sizeHint(sizeHint) {}
     virtual ~Renderer() = default;
 
-    /// Render the token stream to a string, applying transforms first.
-    [[nodiscard]] auto render(
-        const std::vector<lexer::Token>& tokens,
-        const std::vector<std::unique_ptr<TokenTransform>>& transforms
-    ) const -> wxString;
-
     /// If the renderer produces a new document, return its type.
     /// std::nullopt means in-place edit of the active document.
     [[nodiscard]] virtual auto getType() const -> DocumentType = 0;

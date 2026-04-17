@@ -8,7 +8,7 @@
 using namespace fbide::format;
 using namespace fbide::lexer;
 
-auto Renderer::render(const ProgramTree& tree) -> std::string {
+auto Renderer::render(const ProgramTree& tree) -> std::vector<Token> {
     m_output.clear();
     m_lastWasBlankLine = false;
     m_lastWasBlock = false;
@@ -91,28 +91,28 @@ void Renderer::renderStatement(const StatementNode& stmt, const std::size_t inde
     }
 
     emitLeadingIndent(stmt, first, indent);
-    m_output += stmt.tokens[first].text;
+    emit(stmt.tokens[first]);
 
     if (m_options.reFormat) {
-        const lexer::Token* prev = &stmt.tokens[first];
+        const Token* prev = &stmt.tokens[first];
         for (std::size_t i = first + 1; i < stmt.tokens.size(); i++) {
             if (isLayout(stmt.tokens[i])) {
                 continue;
             }
             if (needsSpaceBefore(*prev, stmt.tokens[i])) {
-                m_output += ' ';
+                emitSpace();
             }
-            m_output += stmt.tokens[i].text;
+            emit(stmt.tokens[i]);
             prev = &stmt.tokens[i];
         }
         emitNewline();
     } else {
-        // Verbatim: echo every remaining token's text as-is.
+        // Verbatim: echo every remaining token as-is.
         for (std::size_t i = first + 1; i < stmt.tokens.size(); i++) {
-            m_output += stmt.tokens[i].text;
+            emit(stmt.tokens[i]);
         }
         // Suppress our trailing newline only if the statement already ends with one.
-        if (!stmt.tokens.empty() && stmt.tokens.back().kind != TokenKind::Newline) {
+        if (stmt.tokens.back().kind != TokenKind::Newline) {
             emitNewline();
         }
     }
@@ -126,23 +126,25 @@ void Renderer::emitLeadingIndent(const StatementNode& stmt, const std::size_t fi
     // Echo original leading whitespace verbatim (ignore any stray newlines).
     for (std::size_t i = 0; i < first; i++) {
         if (stmt.tokens[i].kind == TokenKind::Whitespace) {
-            m_output += stmt.tokens[i].text;
+            emit(stmt.tokens[i]);
         }
     }
 }
 
 void Renderer::renderAnchoredPP(const StatementNode& stmt, const std::size_t indent, const std::size_t first) {
-    const auto& text = stmt.tokens[first].text;
+    const auto& original = stmt.tokens[first];
+    const auto& text = original.text;
 
-    // Emit '#' at column 0
-    m_output += '#';
-
-    // Indent between '#' and directive word
+    // Build a rewritten Preprocessor token with '#' at column 0, then padding
+    // and the directive word. Keeps kind/keywordKind so downstream renderers
+    // (HTML) can still style it.
+    std::string rewritten;
+    rewritten.reserve(text.size() + indent * m_options.tabSize);
+    rewritten += '#';
     if (indent > 0) {
-        m_output.append(indent * m_options.tabSize - 1, ' ');
+        rewritten.append(indent * m_options.tabSize - 1, ' ');
     }
 
-    // Skip '#' and optional whitespace in original token text
     std::size_t pos = 0;
     if (pos < text.size() && text[pos] == '#') {
         pos++;
@@ -150,17 +152,29 @@ void Renderer::renderAnchoredPP(const StatementNode& stmt, const std::size_t ind
     while (pos < text.size() && (text[pos] == ' ' || text[pos] == '\t')) {
         pos++;
     }
+    rewritten.append(text, pos);
 
-    m_output += text.substr(pos);
+    m_output.push_back({ TokenKind::Preprocessor, original.keywordKind, OperatorKind::None, std::move(rewritten) });
     emitNewline();
 }
 
 void Renderer::emitIndent(const std::size_t indent) {
-    m_output.append(indent * m_options.tabSize, ' ');
+    if (indent == 0) {
+        return;
+    }
+    m_output.push_back({ TokenKind::Whitespace, KeywordKind::None, OperatorKind::None, std::string(indent * m_options.tabSize, ' ') });
+}
+
+void Renderer::emitSpace() {
+    m_output.push_back({ TokenKind::Whitespace, KeywordKind::None, OperatorKind::None, " " });
 }
 
 void Renderer::emitNewline() {
-    m_output += '\n';
+    m_output.push_back({ TokenKind::Newline, KeywordKind::None, OperatorKind::None, "\n" });
+}
+
+void Renderer::emit(Token token) {
+    m_output.push_back(std::move(token));
 }
 
 // region ---------- Classification ----------

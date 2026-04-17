@@ -4,61 +4,70 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "Scanner.hpp"
+#include "ReFormatter.hpp"
+#include "Renderer.hpp"
 using namespace fbide::format;
 using namespace fbide::lexer;
 
-auto Scanner::scan(const std::vector<Token>& tokens, const FormatOptions& options) -> ProgramTree {
-    Scanner scanner(tokens, options);
-    scanner.run();
-    return scanner.m_builder.finish();
+auto ReFormatter::apply(const std::vector<Token>& tokens) -> std::vector<Token> {
+    const auto tree = buildTree(tokens);
+    Renderer renderer(m_options);
+    return renderer.render(tree);
 }
 
-Scanner::Scanner(const std::vector<Token>& tokens, const FormatOptions& options)
-    : m_tokens(tokens)
-    , m_options(options) {}
+auto ReFormatter::buildTree(const std::vector<Token>& tokens) -> ProgramTree {
+    // Reset per-invocation state
+    m_tokens = &tokens;
+    m_index = 0;
+    m_prevWasNewline = true;
+    m_builder = TreeBuilder {};
+    m_segment.clear();
+    m_ppDepths.clear();
 
-void Scanner::run() {
     while (hasMore()) {
-        const auto& tkn = current();
+        step();
+    }
+    return m_builder.finish();
+}
 
-        // Whitespace at the top level: peek past it. If followed by a newline
-        // (or EOF), it is part of a blank/whitespace-only line and we skip it.
-        // Otherwise, leave the whitespace in place so processLine() captures
-        // it as the statement's leading indent.
-        if (tkn.kind == TokenKind::Whitespace) {
-            std::size_t j = m_index + 1;
-            while (j < m_tokens.size() && m_tokens[j].kind == TokenKind::Whitespace) {
-                j++;
-            }
-            if (j == m_tokens.size() || m_tokens[j].kind == TokenKind::Newline) {
-                // Whitespace-only line — swallow it, let newline handler run next.
-                m_index = j;
-                continue;
-            }
-            m_prevWasNewline = false;
-            processLine();
-            continue;
+void ReFormatter::step() {
+    const auto& tkn = current();
+
+    // Whitespace at the top level: peek past it. If followed by a newline
+    // (or EOF), it is part of a blank/whitespace-only line and we skip it.
+    // Otherwise, leave it in place so processLine() captures it as the
+    // statement's leading indent.
+    if (tkn.kind == TokenKind::Whitespace) {
+        std::size_t j = m_index + 1;
+        while (j < m_tokens->size() && (*m_tokens)[j].kind == TokenKind::Whitespace) {
+            j++;
         }
-
-        // Track blank lines
-        if (tkn.kind == TokenKind::Newline) {
-            if (m_prevWasNewline) {
-                m_builder.blankLine();
-            }
-            m_prevWasNewline = true;
-            advance();
-            continue;
+        if (j == m_tokens->size() || (*m_tokens)[j].kind == TokenKind::Newline) {
+            m_index = j;
+            return;
         }
-
         m_prevWasNewline = false;
         processLine();
+        return;
     }
+
+    // Track blank lines
+    if (tkn.kind == TokenKind::Newline) {
+        if (m_prevWasNewline) {
+            m_builder.blankLine();
+        }
+        m_prevWasNewline = true;
+        advance();
+        return;
+    }
+
+    m_prevWasNewline = false;
+    processLine();
 }
 
 // region ---------- Line collection ----------
 
-void Scanner::processLine() {
+void ReFormatter::processLine() {
     m_segment.clear();
 
     while (hasMore()) {
@@ -104,9 +113,9 @@ void Scanner::processLine() {
     dispatch();
 }
 
-auto Scanner::isContinuation() const -> bool {
-    for (auto j = m_index + 1; j < m_tokens.size(); j++) {
-        const auto k = m_tokens[j].kind;
+auto ReFormatter::isContinuation() const -> bool {
+    for (auto j = m_index + 1; j < m_tokens->size(); j++) {
+        const auto k = (*m_tokens)[j].kind;
         if (k == TokenKind::Newline) {
             return true;
         }
@@ -122,7 +131,7 @@ auto Scanner::isContinuation() const -> bool {
 
 // region ---------- Dispatch ----------
 
-void Scanner::dispatch() {
+void ReFormatter::dispatch() {
     if (m_segment.empty()) {
         return;
     }
@@ -184,8 +193,6 @@ void Scanner::dispatch() {
     // Keyword dispatch based on first structural keyword
     switch (firstKeyword()) {
     // Callable block openers — only when followed by a name (body definition).
-    // Rejects: "exit sub", "Function = 10", bare "Sub" without a name.
-    // Allows: "Sub Main", "Private Sub Main", "Operator Cast"
     case KeywordKind::Sub:
     case KeywordKind::Function:
     case KeywordKind::Constructor:
@@ -271,7 +278,7 @@ void Scanner::dispatch() {
     }
 }
 
-auto Scanner::firstKeyword() const -> KeywordKind {
+auto ReFormatter::firstKeyword() const -> KeywordKind {
     for (const auto& tkn : m_segment) {
         if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
             continue;
@@ -283,7 +290,7 @@ auto Scanner::firstKeyword() const -> KeywordKind {
     return KeywordKind::None;
 }
 
-auto Scanner::lastSignificantKeyword() const -> KeywordKind {
+auto ReFormatter::lastSignificantKeyword() const -> KeywordKind {
     // Walk backward, skip comments and layout tokens. Return the keywordKind
     // of the last significant token — could be structural, Other, or None.
     for (auto it = m_segment.rbegin(); it != m_segment.rend(); ++it) {
@@ -296,7 +303,7 @@ auto Scanner::lastSignificantKeyword() const -> KeywordKind {
     return KeywordKind::None;
 }
 
-void Scanner::openBlockOrStatement() {
+void ReFormatter::openBlockOrStatement() {
     // Under reFormat=false a physical line can contain both opener and
     // closer (e.g. `For i = 1 To 10 : Print i : Next`). Such lines are
     // self-contained and should not push a block onto the stack.
@@ -307,7 +314,7 @@ void Scanner::openBlockOrStatement() {
     }
 }
 
-auto Scanner::hasBlockCloserAfterFirst() const -> bool {
+auto ReFormatter::hasBlockCloserAfterFirst() const -> bool {
     bool seenFirstStructural = false;
     for (const auto& tkn : m_segment) {
         if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
@@ -332,7 +339,7 @@ auto Scanner::hasBlockCloserAfterFirst() const -> bool {
     return false;
 }
 
-auto Scanner::isBodyDefinition() const -> bool {
+auto ReFormatter::isBodyDefinition() const -> bool {
     // Check that a callable keyword (Sub/Function/etc.) is followed by a name.
     // Returns false for: "exit sub" (no name after Sub), "Function = 10" (= not a name).
     // Returns true for: "Sub Main", "Private Sub Main", "Operator Cast".

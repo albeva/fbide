@@ -43,12 +43,10 @@ private:
     [[nodiscard]] auto getKeywordCase() const -> std::optional<CaseMode>;
 
     Context& m_ctx;
-    std::string m_source;                // UTF-8 source (tokens point into this)
-    std::string m_formatted;             // formatted output (re-tokenized for HTML renderer)
+    std::string m_source;                // UTF-8 source buffer for tokenisation
     std::vector<lexer::Token> m_tokens;
     std::vector<std::unique_ptr<TokenTransform>> m_transforms;
     std::unique_ptr<Renderer> m_renderer;
-    bool m_reindent = false;
 
     Unowned<wxCheckBox> m_reindentCheck = nullptr;
     Unowned<wxRadioButton> m_caseUnchanged = nullptr;
