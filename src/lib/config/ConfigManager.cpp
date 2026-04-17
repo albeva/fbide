@@ -42,10 +42,10 @@ void ConfigManager::load(const Category category) {
     if (category == Category::Config) {
         file = entry.path;
     } else {
-        const auto& cfg = getConfig();
-        const auto key = std::string(getCategoryName(category));
-        if (cfg.contains(key)) {
-            file = absolute(cfg.at(key).as_string());
+        const auto cfg = getConfig();
+        const auto key =getCategoryName(category);
+        if (const auto path = cfg.getString(key)) {
+            file = absolute(*path);
         } else {
             wxLogError("Key for category '%s' is missing in config", key.data());
             return;
@@ -80,12 +80,12 @@ void ConfigManager::save(const Category category) {
     out << entry.value;
 }
 
-auto ConfigManager::get(Category category)-> toml::value& {
+auto ConfigManager::get(Category category)-> Value {
     auto& entry = m_categories.at(static_cast<std::size_t>(category));
     if (entry.category != category) {
         load(category);
     }
-    return entry.value;
+    return Value { entry.value };
 }
 
 auto ConfigManager::absolute(const wxString& pathName) const-> wxString {

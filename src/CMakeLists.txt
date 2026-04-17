@@ -21,6 +21,7 @@ target_sources(fbide_lib
     lib/config/Keywords.cpp
     lib/config/Lang.cpp
     lib/config/Theme.cpp
+    lib/config/Value.cpp
     lib/editor/Document.cpp
     lib/editor/DocumentManager.cpp
     lib/editor/DocumentType.cpp
@@ -66,6 +67,7 @@ target_sources(fbide_lib
     lib/config/Lang.hpp
     lib/config/LangId.hpp
     lib/config/Theme.hpp
+    lib/config/Value.hpp
     lib/editor/Document.hpp
     lib/editor/DocumentManager.hpp
     lib/editor/DocumentType.hpp
