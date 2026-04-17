@@ -14,6 +14,8 @@ namespace fbide::format {
 struct FormatOptions {
     std::size_t tabSize = 4;
     bool anchoredPP = false;
+    bool reIndent = true;
+    bool reFormat = true;
 };
 
 /// Blank line preserved from source.

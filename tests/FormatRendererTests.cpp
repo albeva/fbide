@@ -29,6 +29,12 @@ protected:
         return formatter.format(tokens);
     }
 
+    auto formatWith(const char* source, const FormatOptions& options) -> std::string {
+        const auto tokens = m_lexer->tokenise(source);
+        Formatter formatter(options);
+        return formatter.format(tokens);
+    }
+
     std::unique_ptr<lexer::Lexer> m_lexer;
 };
 
@@ -880,4 +886,297 @@ TEST_F(FormatRendererTests, AnchoredHashInsideCodeBlock) {
         "#   endif\n"
         "End Sub\n"
     );
+}
+
+// ---------------------------------------------------------------------------
+// reIndent = false — preserve original leading whitespace
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, PreserveIndent_SimpleSubBody) {
+    // Body has no indent in source — preserved as-is.
+    EXPECT_EQ(formatWith(
+        "Sub Main\n"
+        "Print \"hello\"\n"
+        "End Sub\n",
+        { .tabSize = tabSize, .reIndent = false }
+    ),
+        "Sub Main\n"
+        "Print \"hello\"\n"
+        "End Sub\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PreserveIndent_NonStandardIndent) {
+    // Source uses 2-space indent; preserved (formatter would otherwise use 4).
+    EXPECT_EQ(formatWith(
+        "Sub Main\n"
+        "  Print \"a\"\n"
+        "  Print \"b\"\n"
+        "End Sub\n",
+        { .tabSize = tabSize, .reIndent = false }
+    ),
+        "Sub Main\n"
+        "  Print \"a\"\n"
+        "  Print \"b\"\n"
+        "End Sub\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PreserveIndent_MixedTabsAndSpaces) {
+    // Tab followed by two spaces — echoed verbatim.
+    EXPECT_EQ(formatWith(
+        "Sub Main\n"
+        "\t  Print x\n"
+        "End Sub\n",
+        { .tabSize = tabSize, .reIndent = false }
+    ),
+        "Sub Main\n"
+        "\t  Print x\n"
+        "End Sub\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PreserveIndent_OverIndented) {
+    // Source over-indents for readability; formatter respects it.
+    EXPECT_EQ(formatWith(
+        "If x Then\n"
+        "            Print x\n"
+        "End If\n",
+        { .tabSize = tabSize, .reIndent = false }
+    ),
+        "If x Then\n"
+        "            Print x\n"
+        "End If\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PreserveIndent_InterTokenStillNormalized) {
+    // reIndent=false but reFormat=true — inter-token spacing still normalized.
+    EXPECT_EQ(formatWith(
+        "    x=1+2\n",
+        { .tabSize = tabSize, .reIndent = false }
+    ),
+        "    x = 1 + 2\n"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// reFormat = false — preserve inter-token whitespace
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, PreserveFormat_QuirkySpacing) {
+    // Inter-token spacing echoed verbatim; indent still rebuilt.
+    EXPECT_EQ(formatWith(
+        "x=  1  +  2\n",
+        { .tabSize = tabSize, .reFormat = false }
+    ),
+        "x=  1  +  2\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PreserveFormat_NoSpaceAroundEquals) {
+    EXPECT_EQ(formatWith(
+        "x=1\n",
+        { .tabSize = tabSize, .reFormat = false }
+    ),
+        "x=1\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PreserveFormat_IndentRebuiltInSubBody) {
+    // reFormat=false but reIndent=true — body lines re-indented, but the
+    // existing source already uses 4-space indent so output matches.
+    EXPECT_EQ(formatWith(
+        "Sub Main\n"
+        "    x=1\n"
+        "End Sub\n",
+        { .tabSize = tabSize, .reFormat = false }
+    ),
+        "Sub Main\n"
+        "    x=1\n"
+        "End Sub\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PreserveFormat_ContinuationPreserved) {
+    // Continuation newline and following indent echoed verbatim.
+    EXPECT_EQ(formatWith(
+        "Dim x = 1 _\n"
+        "        + 2\n",
+        { .tabSize = tabSize, .reFormat = false }
+    ),
+        "Dim x = 1 _\n"
+        "        + 2\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PreserveFormat_ColonSeparated) {
+    // With reFormat=true, these split to two lines. With reFormat=false,
+    // the colon stays inline.
+    EXPECT_EQ(formatWith(
+        "x = 1 : y = 2\n",
+        { .tabSize = tabSize, .reFormat = false }
+    ),
+        "x = 1 : y = 2\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PreserveFormat_ForNextOnOneLine) {
+    // `For i = 1 To 10 : Print i : Next` is self-contained — no phantom block.
+    EXPECT_EQ(formatWith(
+        "For i = 1 To 10 : Print i : Next\n",
+        { .tabSize = tabSize, .reFormat = false }
+    ),
+        "For i = 1 To 10 : Print i : Next\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PreserveFormat_IfThenEndIfOnOneLine) {
+    EXPECT_EQ(formatWith(
+        "If x Then : y = 1 : End If\n",
+        { .tabSize = tabSize, .reFormat = false }
+    ),
+        "If x Then : y = 1 : End If\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PreserveFormat_BlankLineRunsPreserved) {
+    // Three blank lines between statements preserved under reFormat=false.
+    EXPECT_EQ(formatWith(
+        "x = 1\n"
+        "\n"
+        "\n"
+        "\n"
+        "y = 2\n",
+        { .tabSize = tabSize, .reFormat = false }
+    ),
+        "x = 1\n"
+        "\n"
+        "\n"
+        "\n"
+        "y = 2\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PreserveFormat_SingleBlankLinePreserved) {
+    EXPECT_EQ(formatWith(
+        "x = 1\n"
+        "\n"
+        "y = 2\n",
+        { .tabSize = tabSize, .reFormat = false }
+    ),
+        "x = 1\n"
+        "\n"
+        "y = 2\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PreserveIndent_AnchoredPPBypassed) {
+    // anchoredPP is a reindent-time override; with reIndent=false, the
+    // source's own leading whitespace wins, so no anchor rewrite happens.
+    EXPECT_EQ(formatWith(
+        "Sub Main\n"
+        "  #ifdef DEBUG\n"
+        "  Print x\n"
+        "  #endif\n"
+        "End Sub\n",
+        { .tabSize = tabSize, .anchoredPP = true, .reIndent = false }
+    ),
+        "Sub Main\n"
+        "  #ifdef DEBUG\n"
+        "  Print x\n"
+        "  #endif\n"
+        "End Sub\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PreserveFormat_NoAutoBlankBetweenDefs) {
+    // reFormat=true would insert a blank line between the two Subs;
+    // reFormat=false preserves the user's (lack of) blank line.
+    EXPECT_EQ(formatWith(
+        "Sub A\n"
+        "End Sub\n"
+        "Sub B\n"
+        "End Sub\n",
+        { .tabSize = tabSize, .reFormat = false }
+    ),
+        "Sub A\n"
+        "End Sub\n"
+        "Sub B\n"
+        "End Sub\n"
+    );
+}
+
+TEST_F(FormatRendererTests, PreserveFormatAndIndent_Passthrough) {
+    // Both flags off → near-identity for well-formed input.
+    const char* source =
+        "Sub Main\n"
+        "  x=1+2\n"
+        "  Print x\n"
+        "End Sub\n";
+    EXPECT_EQ(formatWith(source, { .tabSize = tabSize, .reIndent = false, .reFormat = false }), source);
+}
+
+// ---------------------------------------------------------------------------
+// Round-trip acceptance: both flags off preserves source byte-for-byte.
+// ---------------------------------------------------------------------------
+
+TEST_F(FormatRendererTests, RoundTrip_MixedTabsAndSpaces) {
+    const char* source =
+        "Sub Main\n"
+        "\tx = 1\n"
+        "\t  y = 2\n"
+        "End Sub\n";
+    EXPECT_EQ(formatWith(source, { .tabSize = tabSize, .reIndent = false, .reFormat = false }), source);
+}
+
+TEST_F(FormatRendererTests, RoundTrip_ContinuationAndColons) {
+    const char* source =
+        "Dim total = 1 _\n"
+        "          + 2 _\n"
+        "          + 3\n"
+        "x = 1 : y = 2 : z = 3\n";
+    EXPECT_EQ(formatWith(source, { .tabSize = tabSize, .reIndent = false, .reFormat = false }), source);
+}
+
+TEST_F(FormatRendererTests, RoundTrip_PPDirectives) {
+    const char* source =
+        "Sub Main\n"
+        "  #ifdef DEBUG\n"
+        "    Print \"dbg\"\n"
+        "  #else\n"
+        "    Print \"rel\"\n"
+        "  #endif\n"
+        "End Sub\n";
+    EXPECT_EQ(formatWith(source, { .tabSize = tabSize, .reIndent = false, .reFormat = false }), source);
+}
+
+TEST_F(FormatRendererTests, RoundTrip_BlankLineRuns) {
+    const char* source =
+        "Sub A\n"
+        "End Sub\n"
+        "\n"
+        "\n"
+        "\n"
+        "Sub B\n"
+        "End Sub\n";
+    EXPECT_EQ(formatWith(source, { .tabSize = tabSize, .reIndent = false, .reFormat = false }), source);
+}
+
+TEST_F(FormatRendererTests, RoundTrip_QuirkySpacing) {
+    const char* source =
+        "x=1+2*3\n"
+        "y = foo(a,b ,c)\n"
+        "z =   42\n";
+    EXPECT_EQ(formatWith(source, { .tabSize = tabSize, .reIndent = false, .reFormat = false }), source);
+}
+
+TEST_F(FormatRendererTests, RoundTrip_OddIndentNested) {
+    const char* source =
+        "If x Then\n"
+        "   For i = 1 To 10\n"
+        "      Print i\n"
+        "   Next\n"
+        "End If\n";
+    EXPECT_EQ(formatWith(source, { .tabSize = tabSize, .reIndent = false, .reFormat = false }), source);
 }

@@ -24,13 +24,15 @@ private:
     void renderNodes(const std::vector<Node>& nodes, std::size_t indent);
     void renderBlock(const BlockNode& block, std::size_t indent);
     void renderStatement(const StatementNode& stmt, std::size_t indent);
-    void renderAnchoredPP(const StatementNode& stmt, std::size_t indent);
+    void renderAnchoredPP(const StatementNode& stmt, std::size_t indent, std::size_t first);
+    void emitLeadingIndent(const StatementNode& stmt, std::size_t first, std::size_t indent);
     void emitIndent(std::size_t indent);
     void emitNewline();
 
     [[nodiscard]] static auto isBranch(const BlockNode& block) -> bool;
     [[nodiscard]] static auto isDefinition(const BlockNode& block) -> bool;
     [[nodiscard]] static auto needsSpaceBefore(const lexer::Token& prev, const lexer::Token& curr) -> bool;
+    [[nodiscard]] static auto isLayout(const lexer::Token& token) -> bool;
 
     FormatOptions m_options;
     bool m_lastWasBlankLine = false;

@@ -23,9 +23,9 @@ protected:
         m_lexer = std::make_unique<Lexer>(kw);
     }
 
-    auto scan(const char* source) -> ProgramTree {
+    auto scan(const char* source, const FormatOptions& options = {}) -> ProgramTree {
         const auto tokens = m_lexer->tokenise(source);
-        return Scanner::scan(tokens);
+        return Scanner::scan(tokens, options);
     }
 
     static auto asStatement(const Node& node) -> const StatementNode* {

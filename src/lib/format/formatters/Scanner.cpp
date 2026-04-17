@@ -8,22 +8,36 @@
 using namespace fbide::format;
 using namespace fbide::lexer;
 
-auto Scanner::scan(const std::vector<Token>& tokens) -> ProgramTree {
-    Scanner scanner(tokens);
+auto Scanner::scan(const std::vector<Token>& tokens, const FormatOptions& options) -> ProgramTree {
+    Scanner scanner(tokens, options);
     scanner.run();
     return scanner.m_builder.finish();
 }
 
-Scanner::Scanner(const std::vector<Token>& tokens)
-    : m_tokens(tokens) {}
+Scanner::Scanner(const std::vector<Token>& tokens, const FormatOptions& options)
+    : m_tokens(tokens)
+    , m_options(options) {}
 
 void Scanner::run() {
     while (hasMore()) {
         const auto& tkn = current();
 
-        // Skip whitespace
+        // Whitespace at the top level: peek past it. If followed by a newline
+        // (or EOF), it is part of a blank/whitespace-only line and we skip it.
+        // Otherwise, leave the whitespace in place so processLine() captures
+        // it as the statement's leading indent.
         if (tkn.kind == TokenKind::Whitespace) {
-            advance();
+            std::size_t j = m_index + 1;
+            while (j < m_tokens.size() && m_tokens[j].kind == TokenKind::Whitespace) {
+                j++;
+            }
+            if (j == m_tokens.size() || m_tokens[j].kind == TokenKind::Newline) {
+                // Whitespace-only line — swallow it, let newline handler run next.
+                m_index = j;
+                continue;
+            }
+            m_prevWasNewline = false;
+            processLine();
             continue;
         }
 
@@ -50,19 +64,15 @@ void Scanner::processLine() {
     while (hasMore()) {
         const auto& tkn = current();
 
-        // Skip whitespace
-        if (tkn.kind == TokenKind::Whitespace) {
-            advance();
-            continue;
-        }
-
         // Newline ends the physical line
         if (tkn.kind == TokenKind::Newline) {
             break;
         }
 
-        // Colon → dispatch current segment, start new one
-        if (tkn.operatorKind == OperatorKind::Colon) {
+        // Colon → dispatch current segment, start new one.
+        // Under reFormat=false the colon stays as a regular token in the
+        // segment so the original inline layout survives.
+        if (tkn.operatorKind == OperatorKind::Colon && m_options.reFormat) {
             dispatch();
             m_segment.clear();
             advance();
@@ -78,8 +88,10 @@ void Scanner::processLine() {
                 m_segment.push_back(current());
                 advance();
             }
-            // Skip the newline, continue collecting on next line
+            // Capture the continuation newline so verbatim rendering can echo
+            // the original line break. Renderer filters it out in reFormat=true.
             if (hasMore()) {
+                m_segment.push_back(current());
                 advance();
             }
             continue;
@@ -120,9 +132,23 @@ void Scanner::dispatch() {
         m_builder.append(tkn);
     }
 
+    // Find the first significant token (skipping whitespace/newlines)
+    std::size_t firstIdx = 0;
+    while (firstIdx < m_segment.size()
+        && (m_segment[firstIdx].kind == TokenKind::Whitespace
+            || m_segment[firstIdx].kind == TokenKind::Newline)) {
+        firstIdx++;
+    }
+    if (firstIdx == m_segment.size()) {
+        // Segment is all layout — nothing structural to dispatch.
+        // Flush it as a statement so the layout tokens survive for verbatim render.
+        m_builder.statement();
+        return;
+    }
+
     // Preprocessor directives
-    if (m_segment[0].kind == TokenKind::Preprocessor) {
-        switch (m_segment[0].keywordKind) {
+    if (m_segment[firstIdx].kind == TokenKind::Preprocessor) {
+        switch (m_segment[firstIdx].keywordKind) {
         case KeywordKind::PpIf:
         case KeywordKind::PpIfDef:
         case KeywordKind::PpIfNDef:
@@ -166,7 +192,7 @@ void Scanner::dispatch() {
     case KeywordKind::Destructor:
     case KeywordKind::Operator:
         if (isBodyDefinition()) {
-            m_builder.openBlock();
+            openBlockOrStatement();
         } else {
             m_builder.statement();
         }
@@ -182,13 +208,13 @@ void Scanner::dispatch() {
     case KeywordKind::Asm:
     case KeywordKind::Namespace:
     case KeywordKind::Select:
-        m_builder.openBlock();
+        openBlockOrStatement();
         return;
 
     // If — multi-line only when Then is the last significant token
     case KeywordKind::If:
         if (lastSignificantKeyword() == KeywordKind::Then) {
-            m_builder.openBlock();
+            openBlockOrStatement();
         } else {
             m_builder.statement();
         }
@@ -199,6 +225,9 @@ void Scanner::dispatch() {
         KeywordKind second = KeywordKind::None;
         bool foundFirst = false;
         for (const auto& tkn : m_segment) {
+            if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
+                continue;
+            }
             if (tkn.keywordKind != KeywordKind::None && tkn.keywordKind != KeywordKind::Other) {
                 if (foundFirst) {
                     second = tkn.keywordKind;
@@ -210,7 +239,7 @@ void Scanner::dispatch() {
         if (second == KeywordKind::As) {
             m_builder.statement();
         } else {
-            m_builder.openBlock();
+            openBlockOrStatement();
         }
         return;
     }
@@ -244,6 +273,9 @@ void Scanner::dispatch() {
 
 auto Scanner::firstKeyword() const -> KeywordKind {
     for (const auto& tkn : m_segment) {
+        if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
+            continue;
+        }
         if (tkn.keywordKind != KeywordKind::None && tkn.keywordKind != KeywordKind::Other) {
             return tkn.keywordKind;
         }
@@ -252,15 +284,52 @@ auto Scanner::firstKeyword() const -> KeywordKind {
 }
 
 auto Scanner::lastSignificantKeyword() const -> KeywordKind {
-    // Walk backward, skip comments. Return the keywordKind of the last
-    // significant token — could be a structural keyword, Other, or None.
+    // Walk backward, skip comments and layout tokens. Return the keywordKind
+    // of the last significant token — could be structural, Other, or None.
     for (auto it = m_segment.rbegin(); it != m_segment.rend(); ++it) {
-        if (it->kind == TokenKind::Comment || it->kind == TokenKind::CommentBlock) {
+        if (it->kind == TokenKind::Comment || it->kind == TokenKind::CommentBlock
+            || it->kind == TokenKind::Whitespace || it->kind == TokenKind::Newline) {
             continue;
         }
         return it->keywordKind;
     }
     return KeywordKind::None;
+}
+
+void Scanner::openBlockOrStatement() {
+    // Under reFormat=false a physical line can contain both opener and
+    // closer (e.g. `For i = 1 To 10 : Print i : Next`). Such lines are
+    // self-contained and should not push a block onto the stack.
+    if (!m_options.reFormat && hasBlockCloserAfterFirst()) {
+        m_builder.statement();
+    } else {
+        m_builder.openBlock();
+    }
+}
+
+auto Scanner::hasBlockCloserAfterFirst() const -> bool {
+    bool seenFirstStructural = false;
+    for (const auto& tkn : m_segment) {
+        if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
+            continue;
+        }
+        if (!seenFirstStructural) {
+            if (tkn.keywordKind != KeywordKind::None && tkn.keywordKind != KeywordKind::Other) {
+                seenFirstStructural = true;
+            }
+            continue;
+        }
+        switch (tkn.keywordKind) {
+        case KeywordKind::End:
+        case KeywordKind::Next:
+        case KeywordKind::Loop:
+        case KeywordKind::Wend:
+            return true;
+        default:
+            break;
+        }
+    }
+    return false;
 }
 
 auto Scanner::isBodyDefinition() const -> bool {
@@ -269,6 +338,9 @@ auto Scanner::isBodyDefinition() const -> bool {
     // Returns true for: "Sub Main", "Private Sub Main", "Operator Cast".
     bool foundKeyword = false;
     for (const auto& tkn : m_segment) {
+        if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
+            continue;
+        }
         if (!foundKeyword) {
             switch (tkn.keywordKind) {
             case KeywordKind::Sub:

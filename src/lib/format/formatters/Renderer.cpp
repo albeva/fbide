@@ -20,8 +20,12 @@ void Renderer::renderNodes(const std::vector<Node>& nodes, const std::size_t ind
     for (const auto& node : nodes) {
         std::visit(overloaded {
             [&](const BlankLineNode&) {
-                // Collapse multiple blank lines to 1
-                if (!m_lastWasBlankLine) {
+                // reFormat=true collapses runs of blank lines to one.
+                // reFormat=false emits each blank line to preserve the
+                // original vertical layout.
+                if (m_options.reFormat && m_lastWasBlankLine) {
+                    // skip — collapse
+                } else {
                     emitNewline();
                     m_lastWasBlankLine = true;
                 }
@@ -35,8 +39,10 @@ void Renderer::renderNodes(const std::vector<Node>& nodes, const std::size_t ind
             [&](const std::unique_ptr<BlockNode>& block) {
                 const bool branch = isBranch(*block);
 
-                // Ensure blank line between consecutive definitions
-                if (!branch && m_lastWasBlock && !m_lastWasBlankLine
+                // Ensure blank line between consecutive definitions.
+                // Suppressed when reFormat=false — user's original vertical
+                // layout takes precedence.
+                if (m_options.reFormat && !branch && m_lastWasBlock && !m_lastWasBlankLine
                     && isDefinition(*block)) {
                     emitNewline();
                 }
@@ -66,31 +72,67 @@ void Renderer::renderBlock(const BlockNode& block, const std::size_t indent) {
 }
 
 void Renderer::renderStatement(const StatementNode& stmt, const std::size_t indent) {
-    if (stmt.tokens.empty()) {
+    // Find first significant (non-whitespace, non-newline) token.
+    std::size_t first = 0;
+    while (first < stmt.tokens.size() && isLayout(stmt.tokens[first])) {
+        first++;
+    }
+    if (first == stmt.tokens.size()) {
         return;
     }
 
-    // Anchored hash mode for preprocessor tokens
-    if (m_options.anchoredPP && stmt.tokens[0].kind == TokenKind::Preprocessor) {
-        renderAnchoredPP(stmt, indent);
+    // Anchored hash mode for preprocessor tokens. Only meaningful when we
+    // are rebuilding indentation — with reIndent=false we preserve the
+    // source's own leading whitespace for PP lines instead.
+    if (m_options.anchoredPP && m_options.reIndent
+        && stmt.tokens[first].kind == TokenKind::Preprocessor) {
+        renderAnchoredPP(stmt, indent, first);
         return;
     }
 
-    emitIndent(indent);
-    m_output += stmt.tokens[0].text;
+    emitLeadingIndent(stmt, first, indent);
+    m_output += stmt.tokens[first].text;
 
-    for (std::size_t i = 1; i < stmt.tokens.size(); i++) {
-        if (needsSpaceBefore(stmt.tokens[i - 1], stmt.tokens[i])) {
-            m_output += ' ';
+    if (m_options.reFormat) {
+        const lexer::Token* prev = &stmt.tokens[first];
+        for (std::size_t i = first + 1; i < stmt.tokens.size(); i++) {
+            if (isLayout(stmt.tokens[i])) {
+                continue;
+            }
+            if (needsSpaceBefore(*prev, stmt.tokens[i])) {
+                m_output += ' ';
+            }
+            m_output += stmt.tokens[i].text;
+            prev = &stmt.tokens[i];
         }
-        m_output += stmt.tokens[i].text;
+        emitNewline();
+    } else {
+        // Verbatim: echo every remaining token's text as-is.
+        for (std::size_t i = first + 1; i < stmt.tokens.size(); i++) {
+            m_output += stmt.tokens[i].text;
+        }
+        // Suppress our trailing newline only if the statement already ends with one.
+        if (!stmt.tokens.empty() && stmt.tokens.back().kind != TokenKind::Newline) {
+            emitNewline();
+        }
     }
-
-    emitNewline();
 }
 
-void Renderer::renderAnchoredPP(const StatementNode& stmt, const std::size_t indent) {
-    const auto& text = stmt.tokens[0].text;
+void Renderer::emitLeadingIndent(const StatementNode& stmt, const std::size_t first, const std::size_t indent) {
+    if (m_options.reIndent) {
+        emitIndent(indent);
+        return;
+    }
+    // Echo original leading whitespace verbatim (ignore any stray newlines).
+    for (std::size_t i = 0; i < first; i++) {
+        if (stmt.tokens[i].kind == TokenKind::Whitespace) {
+            m_output += stmt.tokens[i].text;
+        }
+    }
+}
+
+void Renderer::renderAnchoredPP(const StatementNode& stmt, const std::size_t indent, const std::size_t first) {
+    const auto& text = stmt.tokens[first].text;
 
     // Emit '#' at column 0
     m_output += '#';
@@ -122,6 +164,10 @@ void Renderer::emitNewline() {
 }
 
 // region ---------- Classification ----------
+
+auto Renderer::isLayout(const Token& token) -> bool {
+    return token.kind == TokenKind::Whitespace || token.kind == TokenKind::Newline;
+}
 
 auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
     using enum OperatorKind;

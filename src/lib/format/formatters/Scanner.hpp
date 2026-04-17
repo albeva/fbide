@@ -17,10 +17,10 @@ namespace fbide::format {
 class Scanner final {
 public:
     /// Scan the token stream and return the formatting tree.
-    [[nodiscard]] static auto scan(const std::vector<lexer::Token>& tokens) -> ProgramTree;
+    [[nodiscard]] static auto scan(const std::vector<lexer::Token>& tokens, const FormatOptions& options) -> ProgramTree;
 
 private:
-    explicit Scanner(const std::vector<lexer::Token>& tokens);
+    Scanner(const std::vector<lexer::Token>& tokens, const FormatOptions& options);
     void run();
 
     // Navigation
@@ -34,11 +34,14 @@ private:
 
     // Dispatch collected segment to builder
     void dispatch();
+    void openBlockOrStatement();
     [[nodiscard]] auto firstKeyword() const -> lexer::KeywordKind;
     [[nodiscard]] auto lastSignificantKeyword() const -> lexer::KeywordKind;
     [[nodiscard]] auto isBodyDefinition() const -> bool;
+    [[nodiscard]] auto hasBlockCloserAfterFirst() const -> bool;
 
     const std::vector<lexer::Token>& m_tokens;
+    const FormatOptions& m_options;
     std::size_t m_index = 0;
     bool m_prevWasNewline = true;
 
