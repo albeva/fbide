@@ -5,7 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "TreeBuilder.hpp"
-using namespace fbide::format;
+using namespace fbide::reformat;
 
 void TreeBuilder::append(const lexer::Token& token) {
     m_collected.push_back(token);

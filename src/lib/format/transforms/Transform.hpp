@@ -12,9 +12,9 @@ namespace fbide {
 
 /// Abstract base for token-to-token transforms. Composable in a pipeline.
 /// The returned tokens own their text.
-class TokenTransform {
+class Transform {
 public:
-    virtual ~TokenTransform() = default;
+    virtual ~Transform() = default;
     [[nodiscard]] virtual auto apply(const std::vector<lexer::Token>& tokens) -> std::vector<lexer::Token> = 0;
 };
 

@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "lib/format/formatters/TokenTransform.hpp"
+#include "lib/format/transforms/Transform.hpp"
 
 namespace fbide {
 
@@ -14,7 +14,7 @@ namespace fbide {
 enum class CaseMode { Mixed, Upper, Lower };
 
 /// Transforms keyword token text to the selected case.
-class CaseTransform final : public TokenTransform {
+class CaseTransform final : public Transform {
 public:
     explicit CaseTransform(const CaseMode mode) : m_mode(mode) {}
 

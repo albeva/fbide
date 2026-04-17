@@ -13,7 +13,7 @@ namespace fbide {
 class Context;
 class Editor;
 class Renderer;
-class TokenTransform;
+class Transform;
 enum class CaseMode;
 
 /// Format dialog — keyword case conversion and code export.
@@ -45,7 +45,7 @@ private:
     Context& m_ctx;
     std::string m_source;                // UTF-8 source buffer for tokenisation
     std::vector<lexer::Token> m_tokens;
-    std::vector<std::unique_ptr<TokenTransform>> m_transforms;
+    std::vector<std::unique_ptr<Transform>> m_transforms;
     std::unique_ptr<Renderer> m_renderer;
 
     Unowned<wxCheckBox> m_reindentCheck = nullptr;

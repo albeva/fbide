@@ -25,13 +25,13 @@ target_sources(fbide_lib
     lib/editor/Editor.cpp
     lib/editor/lexilla/FBSciLexer.cpp
     lib/format/FormatDialog.cpp
-    lib/format/formatters/case/CaseTransform.cpp
-    lib/format/formatters/reformat/ReFormatter.cpp
-    lib/format/formatters/reformat/Renderer.cpp
-    lib/format/formatters/reformat/TreeBuilder.cpp
     lib/format/renderers/HtmlRenderer.cpp
     lib/format/renderers/PlainTextRenderer.cpp
     lib/format/renderers/Renderer.cpp
+    lib/format/transforms/case/CaseTransform.cpp
+    lib/format/transforms/reformat/ReFormatter.cpp
+    lib/format/transforms/reformat/Renderer.cpp
+    lib/format/transforms/reformat/TreeBuilder.cpp
     lib/help/HelpManager.cpp
     lib/settings/SettingsDialog.cpp
     lib/settings/panels/CompilerPage.cpp
@@ -71,15 +71,15 @@ target_sources(fbide_lib
     lib/editor/lexilla/CharCategory.hpp
     lib/editor/lexilla/FBSciLexer.hpp
     lib/format/FormatDialog.hpp
-    lib/format/formatters/TokenTransform.hpp
-    lib/format/formatters/case/CaseTransform.hpp
-    lib/format/formatters/reformat/FormatTree.hpp
-    lib/format/formatters/reformat/ReFormatter.hpp
-    lib/format/formatters/reformat/Renderer.hpp
-    lib/format/formatters/reformat/TreeBuilder.hpp
     lib/format/renderers/HtmlRenderer.hpp
     lib/format/renderers/PlainTextRenderer.hpp
     lib/format/renderers/Renderer.hpp
+    lib/format/transforms/Transform.hpp
+    lib/format/transforms/case/CaseTransform.hpp
+    lib/format/transforms/reformat/FormatTree.hpp
+    lib/format/transforms/reformat/ReFormatter.hpp
+    lib/format/transforms/reformat/Renderer.hpp
+    lib/format/transforms/reformat/TreeBuilder.hpp
     lib/help/HelpManager.hpp
     lib/settings/SettingsDialog.hpp
     lib/settings/panels/CompilerPage.hpp

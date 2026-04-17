@@ -6,7 +6,7 @@
 //
 #include "ReFormatter.hpp"
 #include "Renderer.hpp"
-using namespace fbide::format;
+using namespace fbide::reformat;
 using namespace fbide::lexer;
 
 auto ReFormatter::apply(const std::vector<Token>& tokens) -> std::vector<Token> {

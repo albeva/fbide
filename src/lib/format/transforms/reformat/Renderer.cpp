@@ -5,7 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "Renderer.hpp"
-using namespace fbide::format;
+using namespace fbide::reformat;
 using namespace fbide::lexer;
 
 auto Renderer::render(const ProgramTree& tree) -> std::vector<Token> {

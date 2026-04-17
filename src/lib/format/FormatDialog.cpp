@@ -5,8 +5,8 @@
 // https://github.com/albeva/fbide
 //
 #include "FormatDialog.hpp"
-#include "formatters/case/CaseTransform.hpp"
-#include "formatters/reformat/ReFormatter.hpp"
+#include "transforms/case/CaseTransform.hpp"
+#include "transforms/reformat/ReFormatter.hpp"
 #include "renderers/HtmlRenderer.hpp"
 #include "lib/analyses/lexer/Lexer.hpp"
 #include "renderers/PlainTextRenderer.hpp"
@@ -179,7 +179,7 @@ void FormatDialog::rebuildTransforms() {
     }
 
     if (m_reindentCheck->IsChecked()) {
-        m_transforms.push_back(std::make_unique<format::ReFormatter>(format::FormatOptions {
+        m_transforms.push_back(std::make_unique<reformat::ReFormatter>(reformat::FormatOptions {
             .tabSize = static_cast<std::size_t>(m_ctx.getConfig().getTabSize())
         }));
     }

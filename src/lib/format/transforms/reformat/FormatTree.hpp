@@ -8,7 +8,7 @@
 #include "pch.hpp"
 #include "lib/analyses/lexer/Token.hpp"
 
-namespace fbide::format {
+namespace fbide::reformat {
 
 /// Formatting options.
 struct FormatOptions {

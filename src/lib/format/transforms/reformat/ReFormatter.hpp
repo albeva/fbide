@@ -8,9 +8,9 @@
 #include "pch.hpp"
 #include "FormatTree.hpp"
 #include "TreeBuilder.hpp"
-#include "lib/format/formatters/TokenTransform.hpp"
+#include "lib/format/transforms/Transform.hpp"
 
-namespace fbide::format {
+namespace fbide::reformat {
 
 /// Reformat transform: reads a lexer token stream, scans it into a
 /// ProgramTree, and renders the tree back as a formatted token stream.
@@ -18,7 +18,7 @@ namespace fbide::format {
 ///
 /// Reusable: calling apply() (or buildTree()) multiple times resets the
 /// per-invocation scan state at entry.
-class ReFormatter final : public TokenTransform {
+class ReFormatter final : public Transform {
 public:
     explicit ReFormatter(const FormatOptions& options) : m_options(options) {}
 

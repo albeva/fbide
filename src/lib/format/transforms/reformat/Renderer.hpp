@@ -8,7 +8,7 @@
 #include "pch.hpp"
 #include "FormatTree.hpp"
 
-namespace fbide::format {
+namespace fbide::reformat {
 
 /// Renders a ProgramTree back to a stream of lexer tokens.
 /// Indentation and inter-token spaces are emitted as Whitespace tokens;

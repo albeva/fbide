@@ -8,7 +8,7 @@
 #include "pch.hpp"
 #include "FormatTree.hpp"
 
-namespace fbide::format {
+namespace fbide::reformat {
 
 /// Stack-based tree builder driven by the scanner.
 ///

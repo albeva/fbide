@@ -6,11 +6,11 @@
 //
 #include "lib/analyses/lexer/Lexer.hpp"
 #include "lib/config/Keywords.hpp"
-#include "../src/lib/format/formatters/reformat/ReFormatter.hpp"
+#include "../src/lib/format/transforms/reformat/ReFormatter.hpp"
 #include <gtest/gtest.h>
 
 using namespace fbide;
-using namespace fbide::format;
+using namespace fbide::reformat;
 
 class ReFormatterTests : public testing::Test {
 protected:
