@@ -673,21 +673,6 @@ TEST_F(LexerTests, HashNotAtLineStartIsOperator) {
 }
 
 // ---------------------------------------------------------------------------
-// Token positions
-// ---------------------------------------------------------------------------
-
-TEST_F(LexerTests, TokenPositions) {
-    const char* source = "Dim x";
-    const auto tokens = significant(source);
-    ASSERT_EQ(tokens.size(), 2);
-    // string_view data() points into source buffer
-    EXPECT_EQ(tokens[0].text.data() - source, 0);
-    EXPECT_EQ(tokens[0].text.size(), 3u);
-    EXPECT_EQ(tokens[1].text.data() - source, 4);
-    EXPECT_EQ(tokens[1].text.size(), 1u);
-}
-
-// ---------------------------------------------------------------------------
 // Mixed expressions
 // ---------------------------------------------------------------------------
 

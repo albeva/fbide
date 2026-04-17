@@ -14,27 +14,27 @@ namespace {
 
 // Helpers to make tokens concisely
 auto kw(const std::string_view text, const KeywordKind kk = KeywordKind::Other) -> Token {
-    return { TokenKind::Keyword1, kk, OperatorKind::None, text };
+    return { TokenKind::Keyword1, kk, OperatorKind::None, std::string(text) };
 }
 
 auto id(const std::string_view text) -> Token {
-    return { TokenKind::Identifier, KeywordKind::None, OperatorKind::None, text };
+    return { TokenKind::Identifier, KeywordKind::None, OperatorKind::None, std::string(text) };
 }
 
 auto op(const std::string_view text, const OperatorKind ok = OperatorKind::Assign) -> Token {
-    return { TokenKind::Operator, KeywordKind::None, ok, text };
+    return { TokenKind::Operator, KeywordKind::None, ok, std::string(text) };
 }
 
 auto num(const std::string_view text) -> Token {
-    return { TokenKind::Number, KeywordKind::None, OperatorKind::None, text };
+    return { TokenKind::Number, KeywordKind::None, OperatorKind::None, std::string(text) };
 }
 
 auto str(const std::string_view text) -> Token {
-    return { TokenKind::String, KeywordKind::None, OperatorKind::None, text };
+    return { TokenKind::String, KeywordKind::None, OperatorKind::None, std::string(text) };
 }
 
 auto pp(const std::string_view text, const KeywordKind kk = KeywordKind::PpOther) -> Token {
-    return { TokenKind::Preprocessor, kk, OperatorKind::None, text };
+    return { TokenKind::Preprocessor, kk, OperatorKind::None, std::string(text) };
 }
 
 // Helpers to inspect the tree

@@ -153,12 +153,12 @@ enum class OperatorKind : std::uint8_t {
 };
 
 /// A single token from the lexer.
-/// `text` is a view into the source buffer — the source must outlive the token.
+/// `text` owns its contents — tokens are self-contained and outlive the source.
 struct Token final {
     TokenKind kind {};
     KeywordKind keywordKind = KeywordKind::None;
     OperatorKind operatorKind = OperatorKind::None;
-    std::string_view text {};
+    std::string text;
 };
 
 } // namespace fbide

@@ -41,7 +41,7 @@ private:
     [[nodiscard]] auto peek() const -> char { return m_pos[1]; }
     [[nodiscard]] auto atEnd() const -> bool { return *m_pos == '\0'; }
     void advance(const unsigned count = 1) { m_pos += count; }
-    [[nodiscard]] auto extract() const -> std::string_view {
+    [[nodiscard]] auto extract() const -> std::string {
         return { m_start, static_cast<std::size_t>(m_pos - m_start) };
     }
     [[nodiscard]] auto makeToken(const TokenKind kind, const KeywordKind kwKind = KeywordKind::None, const OperatorKind opKind = OperatorKind::None) const -> Token {

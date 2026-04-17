@@ -15,13 +15,9 @@ auto Renderer::render(
         return render(tokens);
     }
 
-    // Apply transforms in sequence
-    std::vector<std::string> m_pool;
-    m_pool.reserve(tokens.size() * transforms.size());
-
     std::vector<lexer::Token> transformed;
     for (const auto& transformer : transforms) {
-        transformed = transformer->apply(transformed.empty() ? tokens : transformed, m_pool);
+        transformed = transformer->apply(transformed.empty() ? tokens : transformed);
     }
 
     return render(transformed);

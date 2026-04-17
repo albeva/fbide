@@ -25,36 +25,32 @@ auto asciiLower(const char ch) -> char {
 }
 } // namespace
 
-auto CaseTransform::apply(const std::vector<lexer::Token>& tokens, std::vector<std::string>& pool) -> std::vector<lexer::Token> {
+auto CaseTransform::apply(const std::vector<lexer::Token>& tokens) -> std::vector<lexer::Token> {
     std::vector result { tokens };
 
     for (auto& tok : result) {
         if (not isKeyword(tok)) {
             continue;
         }
-        std::string converted { tok.text };
 
         switch (m_mode) {
         case CaseMode::Mixed:
-            converted[0] = asciiUpper(converted[0]);
-            for (std::size_t i = 1; i < converted.size(); i++) {
-                converted[i] = asciiLower(converted[i]);
+            tok.text[0] = asciiUpper(tok.text[0]);
+            for (std::size_t i = 1; i < tok.text.size(); i++) {
+                tok.text[i] = asciiLower(tok.text[i]);
             }
             break;
         case CaseMode::Upper:
-            for (auto& c : converted) {
+            for (auto& c : tok.text) {
                 c = asciiUpper(c);
             }
             break;
         case CaseMode::Lower:
-            for (auto& c : converted) {
+            for (auto& c : tok.text) {
                 c = asciiLower(c);
             }
             break;
         }
-
-        pool.emplace_back(std::move(converted));
-        tok.text = pool.back();
     }
 
     return result;

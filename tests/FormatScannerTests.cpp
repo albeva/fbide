@@ -43,7 +43,10 @@ protected:
 
     /// Get text of first token in a statement
     static auto firstText(const StatementNode& stmt) -> std::string_view {
-        return stmt.tokens.empty() ? "" : stmt.tokens[0].text;
+        if (stmt.tokens.empty()) {
+            return {};
+        }
+        return stmt.tokens[0].text;
     }
 
     std::unique_ptr<Lexer> m_lexer;

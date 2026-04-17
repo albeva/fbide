@@ -222,12 +222,8 @@ void FormatDialog::updatePreview() {
     if (isTransforming()) {
         // Apply token transforms (CaseTransform etc.) first
         auto tokens = m_tokens;
-        if (!m_transforms.empty()) {
-            std::vector<std::string> pool;
-            pool.reserve(tokens.size());
-            for (const auto& transform : m_transforms) {
-                tokens = transform->apply(tokens, pool);
-            }
+        for (const auto& transform : m_transforms) {
+            tokens = transform->apply(tokens);
         }
 
         if (m_reindent) {
