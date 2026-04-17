@@ -9,7 +9,6 @@
 
 #include "ILexer.h"
 #include "Scintilla.h"
-#include "SciLexer.h"
 #include "WordList.h"
 #include "LexAccessor.h"
 #include "DefaultLexer.h"

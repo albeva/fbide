@@ -8,6 +8,7 @@
 #include "FBSciLexer.hpp"
 #include "CharCategory.hpp"
 #include "StyleContext.h"
+#include "SciLexer.h"
 using namespace fbide;
 
 namespace {

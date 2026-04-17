@@ -107,12 +107,18 @@ target_link_libraries(fbide_lib
 )
 linkWxWidgets(fbide_lib)
 
-# Scintilla/Lexilla headers for custom lexer
-target_include_directories(fbide_lib SYSTEM PRIVATE
-    "${PROJECT_SOURCE_DIR}/third_party/scintilla/include"
-    "${PROJECT_SOURCE_DIR}/third_party/lexilla/include"
-    "${PROJECT_SOURCE_DIR}/third_party/lexilla/lexlib"
-)
+# Scintilla/Lexilla for custom lexer
+if(TARGET lexilla_lexlib)
+    # Non-Windows: link lexlib static library (provides include dirs transitively)
+    target_link_libraries(fbide_lib PRIVATE lexilla_lexlib)
+else()
+    # Windows (static wxWidgets): symbols come from static libs, just need headers
+    target_include_directories(fbide_lib SYSTEM PRIVATE
+        "${PROJECT_SOURCE_DIR}/third_party/scintilla/include"
+        "${PROJECT_SOURCE_DIR}/third_party/lexilla/include"
+        "${PROJECT_SOURCE_DIR}/third_party/lexilla/lexlib"
+    )
+endif()
 
 # precompile header
 target_include_directories(fbide_lib PRIVATE "${CMAKE_BINARY_DIR}/configured_files/include")

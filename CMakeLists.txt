@@ -20,6 +20,7 @@ include(FetchContent)
 include(cmake/warnings.cmake)
 include(cmake/options.cmake)
 include(cmake/wxwidgets.cmake)
+include(cmake/lexilla.cmake)
 
 # Sources
 add_subdirectory(configured_files)
