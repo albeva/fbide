@@ -225,21 +225,29 @@ auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
 }
 
 auto Renderer::isBranch(const BlockNode& block) -> bool {
-    if (!block.opener || block.opener->tokens.empty()) {
+    if (!block.opener) {
         return false;
     }
-    switch (block.opener->tokens[0].keywordKind) {
-    case KeywordKind::Else:
-    case KeywordKind::ElseIf:
-    case KeywordKind::Case:
-    case KeywordKind::PpElse:
-    case KeywordKind::PpElseIf:
-    case KeywordKind::PpElseIfDef:
-    case KeywordKind::PpElseIfNDef:
-        return true;
-    default:
-        return false;
+    // Skip leading layout tokens (whitespace/newline may appear when
+    // scanner preserves original indentation).
+    for (const auto& tkn : block.opener->tokens) {
+        if (isLayout(tkn)) {
+            continue;
+        }
+        switch (tkn.keywordKind) {
+        case KeywordKind::Else:
+        case KeywordKind::ElseIf:
+        case KeywordKind::Case:
+        case KeywordKind::PpElse:
+        case KeywordKind::PpElseIf:
+        case KeywordKind::PpElseIfDef:
+        case KeywordKind::PpElseIfNDef:
+            return true;
+        default:
+            return false;
+        }
     }
+    return false;
 }
 
 auto Renderer::isDefinition(const BlockNode& block) -> bool {

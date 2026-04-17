@@ -49,6 +49,8 @@ private:
     std::unique_ptr<Renderer> m_renderer;
 
     Unowned<wxCheckBox> m_reindentCheck = nullptr;
+    Unowned<wxCheckBox> m_reformatCheck = nullptr;
+    Unowned<wxCheckBox> m_alignPPCheck = nullptr;
     Unowned<wxRadioButton> m_caseUnchanged = nullptr;
     Unowned<wxRadioButton> m_caseKeyWord = nullptr;
     Unowned<wxRadioButton> m_caseKEYWORD = nullptr;

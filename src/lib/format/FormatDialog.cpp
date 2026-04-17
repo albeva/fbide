@@ -26,6 +26,8 @@ namespace {
 
 enum ControlId {
     ID_REINDENT = wxID_HIGHEST + 1,
+    ID_REFORMAT,
+    ID_ALIGN_PP,
     ID_CASE_UNCHANGED,
     ID_CASE_KEYWORD,
     ID_CASE_KEYWORD_UPPER,
@@ -40,6 +42,8 @@ enum ControlId {
 // clang-format off
 wxBEGIN_EVENT_TABLE(FormatDialog, Layout<wxDialog>)
     EVT_CHECKBOX(ID_REINDENT,               FormatDialog::onTransformChanged)
+    EVT_CHECKBOX(ID_REFORMAT,               FormatDialog::onTransformChanged)
+    EVT_CHECKBOX(ID_ALIGN_PP,               FormatDialog::onTransformChanged)
     EVT_RADIOBUTTON(ID_CASE_UNCHANGED,      FormatDialog::onTransformChanged)
     EVT_RADIOBUTTON(ID_CASE_KEYWORD,        FormatDialog::onTransformChanged)
     EVT_RADIOBUTTON(ID_CASE_KEYWORD_UPPER,  FormatDialog::onTransformChanged)
@@ -55,7 +59,7 @@ FormatDialog::FormatDialog(wxWindow* parent, Context& ctx)
 : Layout(
       parent, wxID_ANY, ctx.getLang()[LangId::ViewFormatTitle],
       wxDefaultPosition, wxDefaultSize,
-      wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER
+      wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX | wxMINIMIZE_BOX
   )
 , m_ctx(ctx) {}
 
@@ -65,6 +69,17 @@ void FormatDialog::create() {
     // Options bar
     hbox("Format options", { .center = true }, [&] {
         m_reindentCheck = checkBox("Re-indent", { .expand = false }, ID_REINDENT);
+        m_reindentCheck->SetToolTip("Rebuild indentation from code structure (overrides any existing indent).");
+
+        m_alignPPCheck = checkBox("Align PP", { .expand = false }, ID_ALIGN_PP);
+        m_alignPPCheck->SetToolTip(
+            "Pin '#' of preprocessor directives to column 0 and indent the directive name.\n"
+            "Requires Re-indent.");
+
+        m_reformatCheck = checkBox("Re-format", { .expand = false }, ID_REFORMAT);
+        m_reformatCheck->SetToolTip(
+            "Normalise spacing between tokens (one space around binary ops, no space inside parens, etc.).\n"
+            "Off = preserve the original inter-token whitespace.");
 
         separator({ .space = false });
 
@@ -178,9 +193,14 @@ void FormatDialog::rebuildTransforms() {
         m_transforms.push_back(std::make_unique<CaseTransform>(*mode));
     }
 
-    if (m_reindentCheck->IsChecked()) {
+    const bool reIndent = m_reindentCheck->IsChecked();
+    const bool reFormat = m_reformatCheck->IsChecked();
+    if (reIndent || reFormat) {
         m_transforms.push_back(std::make_unique<reformat::ReFormatter>(reformat::FormatOptions {
-            .tabSize = static_cast<std::size_t>(m_ctx.getConfig().getTabSize())
+            .tabSize = static_cast<std::size_t>(m_ctx.getConfig().getTabSize()),
+            .anchoredPP = reIndent && m_alignPPCheck->IsChecked(),
+            .reIndent = reIndent,
+            .reFormat = reFormat,
         }));
     }
 }
@@ -212,6 +232,9 @@ void FormatDialog::updateButtons() {
     }
     m_actionBtn->Enable(isTransforming());
     m_browserBtn->Show(docTy == DocumentType::HTML);
+
+    // Align PP is only meaningful when Re-indent is active.
+    m_alignPPCheck->Enable(m_reindentCheck->IsChecked());
 }
 
 void FormatDialog::updatePreview() {

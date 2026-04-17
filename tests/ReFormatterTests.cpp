@@ -772,6 +772,56 @@ TEST_F(ReFormatterTests, AnchoredHashInsideCodeBlock) {
     );
 }
 
+TEST_F(ReFormatterTests, AnchoredHashBranchesStayAtParentDepth) {
+    // #else/#endif are branches/closers of the enclosing #if — their
+    // directive keyword must sit at the same indent column as #if.
+    EXPECT_EQ(format(
+        "Sub Main\n"
+        "#if DEBUG\n"
+        "print \"dbg\"\n"
+        "#else\n"
+        "print \"rel\"\n"
+        "#endif\n"
+        "End Sub\n",
+        true
+    ),
+        "Sub Main\n"
+        "#   if DEBUG\n"
+        "        print \"dbg\"\n"
+        "#   else\n"
+        "        print \"rel\"\n"
+        "#   endif\n"
+        "End Sub\n"
+    );
+}
+
+TEST_F(ReFormatterTests, AnchoredHashBranchesInsideNestedBlocks) {
+    // Reproduction of the operator-with-#if-#else case: branches at
+    // deep code nesting should still render at the #if's column.
+    EXPECT_EQ(format(
+        "Type Foo\n"
+        "Operator Cast() As Integer\n"
+        "#if FAST\n"
+        "Return 1\n"
+        "#else\n"
+        "Return 0\n"
+        "#endif\n"
+        "End Operator\n"
+        "End Type\n",
+        true
+    ),
+        "Type Foo\n"
+        "    Operator Cast() As Integer\n"
+        "#       if FAST\n"
+        "            Return 1\n"
+        "#       else\n"
+        "            Return 0\n"
+        "#       endif\n"
+        "    End Operator\n"
+        "End Type\n"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // reIndent = false — preserve original leading whitespace
 // ---------------------------------------------------------------------------
