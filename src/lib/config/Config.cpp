@@ -56,7 +56,10 @@ void Config::load(const wxString& filePath) {
     if (m_themeFile.empty()) {
         m_themeFile = "classic";
     }
+
+#ifdef __WXMSW__
     m_helpFile = ini.Read("helpfile", m_helpFile);
+#endif
 
     // [compiler]
     ini.SetPath("/compiler");
@@ -99,7 +102,9 @@ void Config::save() const {
     ini.Write("fbc", m_compilerPath);
     ini.Write("syntax", m_syntaxFile);
     ini.Write("theme", m_themeFile);
+#ifdef __WXMSW__
     ini.Write("helpfile", m_helpFile);
+#endif
 
     // [compiler]
     ini.SetPath("/compiler");

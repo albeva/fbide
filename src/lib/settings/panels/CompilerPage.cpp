@@ -41,7 +41,9 @@ void CompilerPage::apply() {
     auto& config = getConfig();
     config.setCompileCommand(m_compileCommand);
     config.setRunCommand(m_runCommand);
+#ifdef __WXMSW__
     config.setHelpFile(m_helpFile);
+#endif
     if (m_compilerPath != config.getCompilerPath()) {
         config.setCompilerPath(m_compilerPath);
         getContext().getCompilerManager().resetFbcVersion();
