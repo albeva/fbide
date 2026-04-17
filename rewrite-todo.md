@@ -55,6 +55,7 @@
 ## Formatter
 
 - [ ] Indent initializer lists { ... } when spread over multiple lines with line continuations
+- [ ] Add support for `' format off` and `' format on` regions to disale/enable formatting (or with `rem format`)
 
 # Editor
 

@@ -64,6 +64,9 @@ enum class KeywordKind {
     As,
     // Declaration
     Declare,
+    // Early-exit statements (prevent following block keyword from opening a scope)
+    Exit,
+    Continue,
     // Comment keyword
     Rem,
     // Preprocessor block openers

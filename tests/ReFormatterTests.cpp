@@ -167,6 +167,38 @@ TEST_F(ReFormatterTests, ExitSubIsNotBlockOpener) {
     );
 }
 
+TEST_F(ReFormatterTests, ExitLoopKeywordsDoNotOpenBlock) {
+    EXPECT_EQ(format(
+        "If true Then\n"
+        "Exit Do, Do\n"
+        "End If\n"
+    ),
+        "If true Then\n"
+        "    Exit Do, Do\n"
+        "End If\n"
+    );
+
+    EXPECT_EQ(format(
+        "Do\n"
+        "Exit Do\n"
+        "Loop\n"
+    ),
+        "Do\n"
+        "    Exit Do\n"
+        "Loop\n"
+    );
+
+    EXPECT_EQ(format(
+        "For i = 1 To 10\n"
+        "Continue For\n"
+        "Next\n"
+    ),
+        "For i = 1 To 10\n"
+        "    Continue For\n"
+        "Next\n"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Nested blocks
 // ---------------------------------------------------------------------------
