@@ -484,20 +484,28 @@ void FBSciLexer::lexIdentifier() noexcept {
         } else if (m_fieldAccess) {
             m_fieldAccess = false;
         } else {
-            identifyKeyword();
+            if (!identifyKeyword()) {
+                return;
+            }
         }
         resetToDefault();
     }
 }
 
-void FBSciLexer::identifyKeyword() noexcept{
+auto FBSciLexer::identifyKeyword() noexcept -> bool {
     m_sc->GetCurrentLowered(m_identBuffer.data(), m_identBuffer.size());
+    if (strcmp("rem", m_identBuffer.data()) == 0) {
+        m_sc->ChangeState(+FBSciLexerState::Comment);
+        return false;
+    }
+
     for (std::size_t index = 0; index < WORD_LIST_COUNT; index++) {
         if (m_wordLists[index].InList(m_identBuffer.data())) {
             m_sc->ChangeState(+wordListStyle[index]);
             break;
         }
     }
+    return true;
 }
 
 void FBSciLexer::lexOperator() noexcept {

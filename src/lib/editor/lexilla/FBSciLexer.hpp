@@ -119,7 +119,7 @@ private:
     FBIDE_INLINE void lexNumber() noexcept;
     FBIDE_INLINE void lexStringOpen() noexcept;
     FBIDE_INLINE void lexIdentifier() noexcept;
-    FBIDE_INLINE void identifyKeyword() noexcept;
+    FBIDE_INLINE auto identifyKeyword() noexcept -> bool;
     FBIDE_INLINE void lexOperator() noexcept;
     FBIDE_INLINE void lexPreprocessor() noexcept;
 
