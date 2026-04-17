@@ -29,7 +29,7 @@ enum class MenuId : int {
     SelectAll = wxID_SELECTALL,
     Find = wxID_FIND,
     Replace = wxID_REPLACE,
-    Settings = wxID_PROPERTIES,
+    Settings = wxID_PREFERENCES,
 
     // Custom IDs
     NewWindow = wxID_HIGHEST,
