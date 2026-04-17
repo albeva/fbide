@@ -17,7 +17,10 @@ CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 , m_compilerPath(getConfig().getCompilerPath())
 , m_compileCommand(getConfig().getCompileCommand())
 , m_runCommand(getConfig().getRunCommand())
-, m_helpFile(getConfig().getHelpFile()) {}
+#ifdef __WXMSW__
+, m_helpFile(getConfig().getHelpFile())
+#endif
+{}
 
 void CompilerPage::create() {
     // makeTitle(LangId::SettingsCompilerAndPaths);
@@ -72,6 +75,7 @@ void CompilerPage::runCommand() {
     makeEntryField(m_runCommand, LangId::SettingsRunCmd);
 }
 
+#ifdef __WXMSW__
 void CompilerPage::helpFile() {
     const auto [tf, btn] = makeFileEntry(m_helpFile, LangId::SettingsHelpFile);
     btn->Bind(wxEVT_BUTTON, [&, tf](wxCommandEvent&) {
@@ -87,6 +91,7 @@ void CompilerPage::helpFile() {
         tf->SetValue(m_helpFile);
     });
 }
+#endif
 
 auto CompilerPage::makeEntryField(wxString& value, const LangId lang) -> Unowned<wxTextCtrl> {
     const auto lbl = text(lang, {});

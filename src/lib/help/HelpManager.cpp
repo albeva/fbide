@@ -9,6 +9,7 @@
 #include "lib/config/Config.hpp"
 #include "lib/editor/Document.hpp"
 #include "lib/editor/DocumentManager.hpp"
+#include "lib/ui/Layout.hpp"
 #include "lib/ui/UIManager.hpp"
 using namespace fbide;
 
@@ -29,61 +30,54 @@ auto isChmBlocked(const wxString& path) -> bool {
     return true;
 }
 
-void showChmBlockedWarning(wxWindow* parent, const wxString& fileName) {
-    wxDialog dlg(parent, wxID_ANY, "Help file is locked",
-        wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE);
-    const auto sizer = make_unowned<wxBoxSizer>(wxVERTICAL);
-
-    const auto title = make_unowned<wxStaticText>(&dlg, wxID_ANY, "Help file is locked");
+void buildChmBlockedContent(Layout<wxDialog>& dlg, const wxString& fileName) {
+    const auto title = dlg.label("Help file is locked");
     title->SetFont(title->GetFont().Bold());
-    sizer->Add(title, 0, wxLEFT | wxRIGHT | wxTOP, 10);
 
-    sizer->Add(make_unowned<wxStaticText>(&dlg, wxID_ANY,
+    dlg.label(
         "The file \"" + fileName + "\" is currently locked\n"
         "by Windows. You can unlock it by right-clicking the\n"
-        "file, opening Properties, and clicking Unblock."),
-        0, wxLEFT | wxRIGHT | wxTOP, 10);
+        "file, opening Properties, and clicking Unblock."
+    );
 
-    sizer->Add(make_unowned<wxHyperlinkCtrl>(&dlg, wxID_ANY,
+    dlg.add(make_unowned<wxHyperlinkCtrl>(
+        dlg.currentParent(), wxID_ANY,
         "More info",
-        "https://www.helpscribble.com/chmnetwork.html"),
-        0, wxLEFT | wxRIGHT | wxTOP, 10);
+        "https://www.helpscribble.com/chmnetwork.html"
+    ));
+}
 
-    sizer->Add(dlg.CreateStdDialogButtonSizer(wxOK),
-        0, wxALL | wxEXPAND, 10);
+void showChmBlockedWarning(wxWindow* parent, const wxString& fileName) {
+    Layout<wxDialog> dlg(
+        parent, wxID_ANY, "Help file is locked",
+        wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE
+    );
 
-    dlg.SetSizerAndFit(sizer);
+    buildChmBlockedContent(dlg, fileName);
+    dlg.add(dlg.CreateStdDialogButtonSizer(wxOK));
+    dlg.spacer();
+
+    dlg.SetSizerAndFit(dlg.currentSizer());
     dlg.CentreOnParent();
     dlg.ShowModal();
 }
 
 auto showChmBlockedWithWikiOption(wxWindow* parent, const wxString& fileName) -> bool {
-    wxDialog dlg(parent, wxID_ANY, "Help file is locked",
-        wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE);
-    const auto sizer = make_unowned<wxBoxSizer>(wxVERTICAL);
+    Layout<wxDialog> dlg(
+        parent, wxID_ANY, "Help file is locked",
+        wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE
+    );
 
-    const auto title = make_unowned<wxStaticText>(&dlg, wxID_ANY, "Help file is locked");
-    title->SetFont(title->GetFont().Bold());
-    sizer->Add(title, 0, wxLEFT | wxRIGHT | wxTOP, 10);
+    buildChmBlockedContent(dlg, fileName);
 
-    sizer->Add(make_unowned<wxStaticText>(&dlg, wxID_ANY,
-        "The file \"" + fileName + "\" is currently locked\n"
-        "by Windows. You can unlock it by right-clicking the\n"
-        "file, opening Properties, and clicking Unblock."),
-        0, wxLEFT | wxRIGHT | wxTOP, 10);
+    dlg.hbox({ .border = 0 }, [&] {
+        dlg.currentSizer()->AddStretchSpacer();
+        dlg.button("Open Online Wiki", { .expand = false }, wxID_OK);
+        dlg.button("", { .expand = false }, wxID_CANCEL);
+    });
+    dlg.spacer();
 
-    sizer->Add(make_unowned<wxHyperlinkCtrl>(&dlg, wxID_ANY,
-        "More info",
-        "https://www.helpscribble.com/chmnetwork.html"),
-        0, wxLEFT | wxRIGHT | wxTOP, 10);
-
-    const auto btnSizer = make_unowned<wxBoxSizer>(wxHORIZONTAL);
-    btnSizer->AddStretchSpacer();
-    btnSizer->Add(make_unowned<wxButton>(&dlg, wxID_OK, "Open Online Wiki"), 0, wxRIGHT, 5);
-    btnSizer->Add(make_unowned<wxButton>(&dlg, wxID_CANCEL));
-    sizer->Add(btnSizer, 0, wxALL | wxEXPAND, 10);
-
-    dlg.SetSizerAndFit(sizer);
+    dlg.SetSizerAndFit(dlg.currentSizer());
     dlg.CentreOnParent();
     return dlg.ShowModal() == wxID_OK;
 }
@@ -92,23 +86,6 @@ auto showChmBlockedWithWikiOption(wxWindow* parent, const wxString& fileName) ->
 
 HelpManager::HelpManager(Context& ctx)
 : m_ctx(ctx) {}
-
-auto HelpManager::verifyHelpFileAccessible(wxWindow* parent, const wxString& path) -> bool {
-#ifdef __WXMSW__
-    if (path.empty() || !wxFileExists(path)) {
-        return true;
-    }
-
-    if (isChmBlocked(path)) {
-        showChmBlockedWarning(parent, wxFileName(path).GetFullName());
-        return false;
-    }
-#else
-    wxUnusedVar(parent);
-    wxUnusedVar(path);
-#endif
-    return true;
-}
 
 void HelpManager::open() {
     wxString query;
@@ -141,6 +118,18 @@ void HelpManager::openWiki(const wxString& query) {
 }
 
 #ifdef __WXMSW__
+auto HelpManager::verifyHelpFileAccessible(wxWindow* parent, const wxString& path) -> bool {
+    if (path.empty() || !wxFileExists(path)) {
+        return true;
+    }
+
+    if (isChmBlocked(path)) {
+        showChmBlockedWarning(parent, wxFileName(path).GetFullName());
+        return false;
+    }
+    return true;
+}
+
 auto HelpManager::openChm(const wxString& query) -> bool {
     const auto& helpFile = m_ctx.getConfig().getHelpFile();
     if (helpFile.empty()) {
@@ -153,14 +142,10 @@ auto HelpManager::openChm(const wxString& query) -> bool {
     }
 
     if (isChmBlocked(helpPath)) {
-        const auto useWiki = showChmBlockedWithWikiOption(
+        return not showChmBlockedWithWikiOption(
             m_ctx.getUIManager().getMainFrame(),
             wxFileName(helpPath).GetFullName()
         );
-        if (!useWiki) {
-            return true; // handled — user cancelled
-        }
-        return false; // fall through to wiki
     }
 
     if (!m_help) {

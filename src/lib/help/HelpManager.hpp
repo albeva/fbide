@@ -26,13 +26,13 @@ public:
     /// Open FreeBASIC wiki in the default browser.
     void openWiki(const wxString& query = {});
 
+#ifdef __WXMSW__
     /// Check if a help file is accessible.
     /// On Windows, shows a warning if the CHM file is blocked.
     /// Returns true if the file is accessible (or doesn't exist).
     static auto verifyHelpFileAccessible(wxWindow* parent, const wxString& path) -> bool;
 
 private:
-#ifdef __WXMSW__
     /// Open CHM help file. Returns false if CHM is unavailable.
     auto openChm(const wxString& query) -> bool;
 

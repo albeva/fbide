@@ -69,4 +69,4 @@
 - [x] Do not clear clipboard when quitting FBIde
 - [ ] Use file pattern allowing all supported files to be open in file open dialog
 - [ ] Review & update all defined keywords to match latest version of FreeBASIC
-- [ ] Resolve compiler and helpfile to relative paths, if located in the same or sub folder as fbide bianry
+- [ ] Resolve compiler and helpfile to relative paths, if located in the same or sub folder as fbide binary OR the IDE/

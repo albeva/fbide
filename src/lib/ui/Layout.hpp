@@ -68,8 +68,6 @@ public:
         Base::SetSizerAndFit(m_currentSizer);
     }
 
-protected:
-
     static auto defaultBorder() -> int {
         return std::max(5, wxSizerFlags::GetDefaultBorder());
     }

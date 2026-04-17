@@ -113,8 +113,10 @@ public:
     [[nodiscard]] auto getThemePath() const -> wxString;
     void setTheme(const wxString& val) { m_themeFile = val; }
 
+#ifdef __WXMSW__
     [[nodiscard]] auto getHelpFile() const -> const wxString& { return m_helpFile; }
     void setHelpFile(const wxString& val) { m_helpFile = val; }
+#endif
 
     /// Get the default system terminal command.
     [[nodiscard]] static auto getTerminal() -> wxString;
@@ -172,7 +174,9 @@ private:
     wxString m_compilerPath;
     wxString m_syntaxFile = "fbfull.lng";
     wxString m_themeFile = "classic";
+#ifdef __WXMSW__
     wxString m_helpFile;
+#endif
 
     // [compiler]
     wxString m_compileCommand = R"("<$fbc>" "<$file>")";

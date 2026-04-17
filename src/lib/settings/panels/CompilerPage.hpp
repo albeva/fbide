@@ -23,7 +23,9 @@ private:
     void compilerPath();
     void compilerCommand();
     void runCommand();
+#ifdef __WXMSW__
     void helpFile();
+#endif
 
     auto makeEntryField(wxString& value, LangId lang) -> Unowned<wxTextCtrl>;
     auto makeFileEntry(wxString& value, LangId lang) -> std::pair<Unowned<wxTextCtrl>, Unowned<wxButton>>;
@@ -31,7 +33,9 @@ private:
     wxString m_compilerPath;
     wxString m_compileCommand;
     wxString m_runCommand;
+#ifdef __WXMSW__
     wxString m_helpFile;
+#endif
 };
 
 } // namespace fbide
