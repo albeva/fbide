@@ -8,7 +8,6 @@
 #include "pch.hpp"
 
 #include "ILexer.h"
-#include "Scintilla.h"
 #include "WordList.h"
 #include "LexAccessor.h"
 #include "DefaultLexer.h"
@@ -52,7 +51,7 @@ enum class FBSciLexerState : int {
 
 /// Allow simple conversion from enum to int
 /// int labelId = +FBSciLexerState::Label;
-static constexpr auto operator+(const FBSciLexerState& rhs) -> int {
+[[maybe_unused]] static constexpr auto operator+(const FBSciLexerState& rhs) -> int {
     return static_cast<int>(rhs);
 }
 
