@@ -16,13 +16,10 @@ add_executable(tests
     CompileCommandTests.cpp
     ConfigTests.cpp
     FBSciLexerTests.cpp
-    FormatTreeBuilderTests.cpp
-    FormatScannerTests.cpp
-    FormatRendererTests.cpp
     KeywordsTests.cpp
     LangTests.cpp
     LexerTests.cpp
-    ReindentTests.cpp
+    ReFormatterTests.cpp
     RunCommandTests.cpp
     ThemeTests.cpp
     ${CMAKE_SOURCE_DIR}/third_party/lexilla/test/TestDocument.cxx

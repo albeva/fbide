@@ -342,7 +342,7 @@ auto ReFormatter::hasBlockCloserAfterFirst() const -> bool {
 auto ReFormatter::isBodyDefinition() const -> bool {
     // Check that a callable keyword (Sub/Function/etc.) is followed by a name.
     // Returns false for: "exit sub" (no name after Sub), "Function = 10" (= not a name).
-    // Returns true for: "Sub Main", "Private Sub Main", "Operator Cast".
+    // Returns true for: "Sub Main", "Private Sub Main", "Operator Cast", "Function Add(...)".
     bool foundKeyword = false;
     for (const auto& tkn : m_segment) {
         if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
@@ -361,8 +361,21 @@ auto ReFormatter::isBodyDefinition() const -> bool {
                 continue;
             }
         }
-        // After the keyword: identifier or '(' means body definition
-        if (tkn.kind == TokenKind::Identifier || tkn.operatorKind == OperatorKind::ParenOpen) {
+        // After the keyword: any word-like token (identifier or keyword group)
+        // or '(' means a name follows — this is a body definition. The name
+        // may shadow a keyword (e.g. `Function Add(...)`), so accept any
+        // Keyword1-4 here as well as Identifier.
+        switch (tkn.kind) {
+        case TokenKind::Identifier:
+        case TokenKind::Keyword1:
+        case TokenKind::Keyword2:
+        case TokenKind::Keyword3:
+        case TokenKind::Keyword4:
+            return true;
+        default:
+            break;
+        }
+        if (tkn.operatorKind == OperatorKind::ParenOpen) {
             return true;
         }
         // Anything else (=, end of line, etc.) means not a definition
