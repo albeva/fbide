@@ -55,13 +55,15 @@ wxBEGIN_EVENT_TABLE(FormatDialog, Layout<wxDialog>)
 wxEND_EVENT_TABLE()
 // clang-format on
 
-FormatDialog::FormatDialog(wxWindow* parent, Context& ctx)
+FormatDialog::FormatDialog(wxWindow* parent, Context& ctx, Document* doc)
 : Layout(
       parent, wxID_ANY, ctx.getLang()[LangId::ViewFormatTitle],
       wxDefaultPosition, wxDefaultSize,
       wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX | wxMINIMIZE_BOX
   )
-, m_ctx(ctx) {}
+, m_ctx(ctx)
+, m_doc(doc)
+, m_buffer(doc->getEditor()->GetTextRaw()) {}
 
 FormatDialog::~FormatDialog() = default;
 
@@ -117,14 +119,12 @@ void FormatDialog::create() {
     Centre();
 
     // Tokenise source once (convert to UTF-8 for the lexer)
-    const auto source = getSourceText();
-    if (!source.empty()) {
-        m_source = source.utf8_string();
+    if (m_buffer.length() > 0) {
         lexer::Lexer lexer(m_ctx.getKeywords());
-        m_tokens = lexer.tokenise(m_source.c_str());
+        m_tokens = lexer.tokenise(m_buffer.data());
     }
 
-    m_renderer = std::make_unique<PlainTextRenderer>(m_source.size());
+    m_renderer = std::make_unique<PlainTextRenderer>(m_buffer.length());
     updatePreview();
 }
 
@@ -134,12 +134,12 @@ void FormatDialog::onTransformChanged(wxCommandEvent&) {
 }
 
 void FormatDialog::renderCode(wxCommandEvent&) {
-    m_renderer = std::make_unique<PlainTextRenderer>(m_source.size());
+    m_renderer = std::make_unique<PlainTextRenderer>(m_buffer.length());
     updatePreview();
 }
 
 void FormatDialog::renderHtml(wxCommandEvent&) {
-    m_renderer = std::make_unique<HtmlRenderer>(m_ctx.getTheme(), m_source.size());
+    m_renderer = std::make_unique<HtmlRenderer>(m_ctx.getTheme(), m_buffer.length());
     updatePreview();
 }
 
@@ -150,13 +150,10 @@ void FormatDialog::onApply(wxCommandEvent&) {
     }
 
     if (m_renderer->getType() == DocumentType::FreeBASIC) {
-        auto* doc = m_ctx.getDocumentManager().getActive();
-        if (doc != nullptr) {
-            auto* editor = doc->getEditor();
-            editor->BeginUndoAction();
-            editor->SetText(rendered);
-            editor->EndUndoAction();
-        }
+        auto* editor = m_doc->getEditor();
+        editor->BeginUndoAction();
+        editor->SetText(rendered);
+        editor->EndUndoAction();
     } else if (!m_tokens.empty()) {
         if (wxTheClipboard->Open()) {
             wxTheClipboard->SetData(make_unowned<wxTextDataObject>(rendered));
@@ -212,13 +209,6 @@ auto FormatDialog::getKeywordCase() const -> std::optional<CaseMode> {
     return std::nullopt;
 }
 
-auto FormatDialog::getSourceText() const -> wxString {
-    if (const auto* doc = m_ctx.getDocumentManager().getActive()) {
-        return doc->getEditor()->GetText();
-    }
-    return {};
-}
-
 auto FormatDialog::isTransforming() const -> bool {
     return !m_transforms.empty() || m_renderer->getType() != DocumentType::FreeBASIC;
 }
@@ -231,7 +221,14 @@ void FormatDialog::updateButtons() {
         m_actionBtn->SetLabel("Apply");
     }
     m_actionBtn->Enable(isTransforming());
-    m_browserBtn->Show(docTy == DocumentType::HTML);
+
+    const auto show = docTy == DocumentType::HTML;
+    if (show != m_browserBtn->IsShown()) {
+        m_browserBtn->Show(show);
+        if (auto* sizer = m_browserBtn->GetContainingSizer()) {
+            sizer->Layout();
+        }
+    }
 
     // Align PP is only meaningful when Re-indent is active.
     m_alignPPCheck->Enable(m_reindentCheck->IsChecked());
@@ -258,7 +255,7 @@ void FormatDialog::updatePreview() {
         }
         m_preview->SetText(m_renderer->render(tokens));
     } else {
-        m_preview->SetText(getSourceText());
+        m_preview->SetTextRaw(m_buffer);
     }
     m_preview->SetReadOnly(true);
 

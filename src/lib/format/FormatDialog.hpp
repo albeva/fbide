@@ -14,6 +14,7 @@ class Context;
 class Editor;
 class Renderer;
 class Transform;
+class Document;
 enum class CaseMode;
 
 /// Format dialog — keyword case conversion and code export.
@@ -21,7 +22,7 @@ class FormatDialog final : public Layout<wxDialog> {
 public:
     NO_COPY_AND_MOVE(FormatDialog)
 
-    FormatDialog(wxWindow* parent, Context& ctx);
+    FormatDialog(wxWindow* parent, Context& ctx, Document* doc);
     ~FormatDialog() override;
     void create();
 
@@ -29,7 +30,6 @@ private:
     void onTransformChanged(wxCommandEvent& event);
     void renderCode(wxCommandEvent& event);
     void renderHtml(wxCommandEvent& event);
-    void renderBBCode(wxCommandEvent& event);
     void onApply(wxCommandEvent& event);
     void onBrowser(wxCommandEvent& event);
 
@@ -38,12 +38,12 @@ private:
 
     void rebuildTransforms();
 
-    [[nodiscard]] auto getSourceText() const -> wxString;
     [[nodiscard]] auto isTransforming() const -> bool;
     [[nodiscard]] auto getKeywordCase() const -> std::optional<CaseMode>;
 
     Context& m_ctx;
-    std::string m_source;                // UTF-8 source buffer for tokenisation
+    Document* m_doc;
+    wxCharBuffer m_buffer;
     std::vector<lexer::Token> m_tokens;
     std::vector<std::unique_ptr<Transform>> m_transforms;
     std::unique_ptr<Renderer> m_renderer;
