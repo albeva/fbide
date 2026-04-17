@@ -7,7 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "lib/analyses/lexer/Token.hpp"
-#include "lib/format/transforms/Transform.hpp"
+#include "lib/format/transformers/Transform.hpp"
 #include "lib/editor/DocumentType.hpp"
 
 namespace fbide {

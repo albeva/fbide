@@ -5,8 +5,8 @@
 // https://github.com/albeva/fbide
 //
 #include "FormatDialog.hpp"
-#include "transforms/case/CaseTransform.hpp"
-#include "transforms/reformat/ReFormatter.hpp"
+#include "transformers/case/CaseTransform.hpp"
+#include "transformers/reformat/ReFormatter.hpp"
 #include "renderers/HtmlRenderer.hpp"
 #include "lib/analyses/lexer/Lexer.hpp"
 #include "renderers/PlainTextRenderer.hpp"

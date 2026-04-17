@@ -28,10 +28,10 @@ target_sources(fbide_lib
     lib/format/renderers/HtmlRenderer.cpp
     lib/format/renderers/PlainTextRenderer.cpp
     lib/format/renderers/Renderer.cpp
-    lib/format/transforms/case/CaseTransform.cpp
-    lib/format/transforms/reformat/ReFormatter.cpp
-    lib/format/transforms/reformat/Renderer.cpp
-    lib/format/transforms/reformat/TreeBuilder.cpp
+    lib/format/transformers/case/CaseTransform.cpp
+    lib/format/transformers/reformat/ReFormatter.cpp
+    lib/format/transformers/reformat/Renderer.cpp
+    lib/format/transformers/reformat/TreeBuilder.cpp
     lib/help/HelpManager.cpp
     lib/settings/SettingsDialog.cpp
     lib/settings/panels/CompilerPage.cpp
@@ -74,12 +74,12 @@ target_sources(fbide_lib
     lib/format/renderers/HtmlRenderer.hpp
     lib/format/renderers/PlainTextRenderer.hpp
     lib/format/renderers/Renderer.hpp
-    lib/format/transforms/Transform.hpp
-    lib/format/transforms/case/CaseTransform.hpp
-    lib/format/transforms/reformat/FormatTree.hpp
-    lib/format/transforms/reformat/ReFormatter.hpp
-    lib/format/transforms/reformat/Renderer.hpp
-    lib/format/transforms/reformat/TreeBuilder.hpp
+    lib/format/transformers/Transform.hpp
+    lib/format/transformers/case/CaseTransform.hpp
+    lib/format/transformers/reformat/FormatTree.hpp
+    lib/format/transformers/reformat/ReFormatter.hpp
+    lib/format/transformers/reformat/Renderer.hpp
+    lib/format/transformers/reformat/TreeBuilder.hpp
     lib/help/HelpManager.hpp
     lib/settings/SettingsDialog.hpp
     lib/settings/panels/CompilerPage.hpp
