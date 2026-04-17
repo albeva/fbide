@@ -4,6 +4,9 @@
 - [x] Upgrade app licence in the app to MIT
 - [x] Set windows binary details (description, name, version, copyright, etc.)
 - [x] Remove lexilla git submodule, instead copy only the headers we need directly into the project
+- [ ] Remove all unused langauge keys from both FBIde as well as language files
+- [ ] Add all new string literals in FBIde to Trans and language files
+- [ ] Update translations
 
 ## Compiler Integration
 
@@ -21,14 +24,11 @@
 - [x] ShowExitCode toggle. Display program exit code after run.
 - [x] ActivePath toggle. Use source file directory as working directory.
 
-## Sub/Function Browser
-
-- [ ] Sub/Function browser. Parse SUB/FUNCTION declarations, list with jump-to-definition.
-
 ## Dialogs
 
 - [x] Format dialog. Keyword case conversion tool.
 - [x] About dialog. Version and license info.
+- [ ] Sub/Function browser. Parse SUB/FUNCTION declarations, list with jump-to-definition.
 
 ## Help
 
@@ -54,11 +54,11 @@
 
 ## Formatter
 
-- [ ] Formatter: indent initializer lists { ... } when spread over multiple lines
+- [ ] Indent initializer lists { ... } when spread over multiple lines with line continuations
 
 # Editor
 
-- [ ] Auto indentation in the editor as user types
+- [ ] Auto indent code as user types
 - [ ] Open #include directives
 - [x] Implement new FB scintilla lexer
 - [ ] Make editor fully utf-8 compatible (config/langauge files, the editor, save/load, etc.)
