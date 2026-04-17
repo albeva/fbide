@@ -51,6 +51,7 @@
 - [x] In the formatter, "Open in the browser" button sometimes does not appear
 - [x] Formatter: indent namespace ... end namespace
 - [x] Formatter: fails to handle "EXIT DO" when nested in a block properly.
+- [ ] Recent files seem to jump around in the menu, when new one is added.
 
 ## Formatter
 

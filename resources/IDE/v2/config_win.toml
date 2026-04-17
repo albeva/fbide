@@ -1,0 +1,5 @@
+# Config for windows
+locale    = "locales/en.toml"
+theme     = "themes/classic.toml"
+shortcuts = "shortcuts_win.toml"
+keywords  = "keywords.toml"

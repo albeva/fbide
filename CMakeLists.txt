@@ -17,6 +17,7 @@ endif()
 
 # CMake modules
 include(FetchContent)
+include(cmake/dependencies.cmake)
 include(cmake/warnings.cmake)
 include(cmake/options.cmake)
 include(cmake/wxwidgets.cmake)

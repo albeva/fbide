@@ -9,6 +9,7 @@
 #include "lib/help/HelpManager.hpp"
 #include "lib/compiler/CompilerManager.hpp"
 #include "lib/config/Config.hpp"
+#include "lib/config/ConfigManager.hpp"
 #include "lib/config/FileHistory.hpp"
 #include "lib/config/Keywords.hpp"
 #include "lib/config/Lang.hpp"
@@ -19,6 +20,7 @@ using namespace fbide;
 
 Context::Context(const wxString& binaryPath)
 : m_config(std::make_unique<Config>(binaryPath))
+, m_configManager(std::make_unique<ConfigManager>(binaryPath))
 , m_fileHistory(std::make_unique<FileHistory>())
 , m_keywords(std::make_unique<Keywords>())
 , m_lang(std::make_unique<Lang>())

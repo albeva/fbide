@@ -17,6 +17,9 @@
 #include <variant>
 #include <concepts>
 
+// TOML++
+#include <toml.hpp>
+
 // wxWidgets
 #include <wx/wx.h>
 
@@ -45,6 +48,7 @@
 #include <wx/wfstream.h>
 #include <wx/wupdlock.h>
 #include <wx/hyperlink.h>
+#include <wx/log.h>
 
 // fbide
 #include "lib/utils/Macros.hpp"
@@ -52,3 +56,4 @@
 #include "lib/utils/Unowned.hpp"
 #include "lib/utils/ValueRestorer.hpp"
 #include "lib/utils/DeferHandler.hpp"
+#include "lib/utils/Utils.hpp"

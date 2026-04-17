@@ -7,7 +7,7 @@
 239=Compiler and path settings
 240=Run command
 241=Help file ( .chm )
-242=FreeBASIC 
+242=FreeBASIC
 243=Windows helpfiles (*.chm)
 244=Compiler path is not set or is corrupt!
 
@@ -29,7 +29,7 @@
 9=&Run
 10=&Help
 
-11=&New ..
+11=New ..
 12=Open new empty document
 13=&Open ..
 14=Open new document
@@ -88,7 +88,7 @@
 58=Set editor settings
 59=View result window
 60=Shows table with console outputs
-61=Subs... 
+61=Subs...
 62=Open sub, function browser
 175=Format
 176=Change the format of the code

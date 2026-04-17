@@ -1,5 +1,7 @@
 # fbide library
-add_library(fbide_lib)
+add_library(fbide_lib
+    lib/config/ConfigManager.cpp
+    lib/config/ConfigManager.hpp)
 
 target_sources(fbide_lib
     PRIVATE
@@ -98,12 +100,14 @@ target_sources(fbide_lib
     lib/utils/Macros.hpp
     lib/utils/NoCopy.hpp
     lib/utils/Unowned.hpp
+    lib/utils/Utils.hpp
     lib/utils/ValueRestorer.hpp
 )
 
 # target settings
 target_link_libraries(fbide_lib
     PRIVATE compiler_options compiler_warnings
+    PUBLIC toml11::toml11
 )
 linkWxWidgets(fbide_lib)
 

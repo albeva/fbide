@@ -15,6 +15,8 @@
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/ui/UIManager.hpp"
 #include <wx/clipbrd.h>
+
+#include "lib/config/ConfigManager.hpp"
 using namespace fbide;
 
 auto App::OnExit() -> int {
@@ -28,8 +30,11 @@ auto App::OnExit() -> int {
 }
 
 auto App::OnInit() -> bool {
+    const auto fbidePath = getFbidePath();
+    wxLog::SetActiveTarget(new wxLogStream(new std::ofstream((fbidePath / "app.log").ToStdString(), std::ios::app)));
+
     // Create context and parse arguments early (before IPC check)
-    m_context = std::make_unique<Context>(getFbidePath());
+    m_context = std::make_unique<Context>(fbidePath);
 
     wxString configFile;
     wxArrayString filesToOpen;

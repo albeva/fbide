@@ -1,0 +1,51 @@
+# English locale
+name = "English"
+author = "albeva"
+date = 2026-04-17
+version = "0.5.0"
+
+# Help message popups (only visible on Windows)
+[dialogs.help]
+title = "Help"
+
+# Code formatting options
+[dialogs.format]
+title = "Format"
+
+# About dialog strings
+[dialogs.about]
+title = "About"
+
+# Settings dialog
+#
+# Settings window has 4 sections:
+# general, themes, keywords and compiler
+# each of them has a title propery
+[dialogs.settings]
+title = "Settings"
+general.title = "General"
+themes.title = "Themes"
+keywords.title = "Keywords"
+compiler.title = "Compiler"
+
+# Compile log dialog
+[dialogs.log]
+title = "FBC output"
+
+# Commands are actions that can appear either in the main
+# menu and/or on the toolbar
+#
+# Each command has two properties
+# name: Text that appears in the menu
+# help: Text that appears in the statusbar or in a tooltip for toolbar items
+[commands]
+new.name = "New"
+new.help = "New document"
+open.name = "Open"
+open.help = "Open document"
+
+# Compilation results panel
+[panels.reulsts]
+title = "Output"
+columns.line = "Line"
+

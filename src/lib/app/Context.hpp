@@ -11,6 +11,7 @@ namespace fbide {
 class CommandManager;
 class CompilerManager;
 class Config;
+class ConfigManager;
 class DocumentManager;
 class FileHistory;
 class HelpManager;
@@ -33,6 +34,9 @@ public:
     /// Get application configuration.
     [[nodiscard]] auto getConfig() -> Config& { return *m_config; }
     [[nodiscard]] auto getConfig() const -> const Config& { return *m_config; }
+
+    [[nodiscard]] auto getConfigManager() -> ConfigManager& { return *m_configManager; }
+    [[nodiscard]] auto getConfigManager() const -> const ConfigManager& { return *m_configManager; }
 
     /// Get translation strings.
     [[nodiscard]] auto getLang() -> Lang& { return *m_lang; }
@@ -72,6 +76,7 @@ public:
 
 private:
     std::unique_ptr<Config> m_config;
+    std::unique_ptr<ConfigManager> m_configManager;
     std::unique_ptr<FileHistory> m_fileHistory;
     std::unique_ptr<Keywords> m_keywords;
     std::unique_ptr<Lang> m_lang;
