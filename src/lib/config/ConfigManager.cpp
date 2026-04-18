@@ -146,10 +146,11 @@ static auto makeRelative(const wxString& path, const wxString& to) -> std::optio
 }
 
 auto ConfigManager::relative(const wxString& path) const -> wxString {
-    if (const auto ide = makeRelative(m_ideDir, absolute(path))) {
+    const auto abs = absolute(path);
+    if (const auto ide = makeRelative(m_ideDir, abs)) {
         return *ide;
     }
-    if (const auto app = makeRelative(m_appDir, absolute(path))) {
+    if (const auto app = makeRelative(m_appDir, abs)) {
         return *app;
     }
     return path;
