@@ -66,7 +66,7 @@ void CompilerPage::compilerPath() {
             wxFD_FILE_MUST_EXIST
         );
         if (dlg.ShowModal() == wxID_OK) {
-            m_compilerPath = dlg.GetPath();
+            m_compilerPath = getContext().getConfigManager().relative(dlg.GetPath());
         }
         tf->SetValue(m_compilerPath);
     });
@@ -90,7 +90,7 @@ void CompilerPage::helpFile() {
             wxFD_FILE_MUST_EXIST
         );
         if (dlg.ShowModal() == wxID_OK) {
-            m_helpFile = dlg.GetPath();
+            m_helpFile = getContext().getConfigManager().relative(dlg.GetPath());
             HelpManager::verifyHelpFileAccessible(this, m_helpFile);
         }
         tf->SetValue(m_helpFile);

@@ -33,7 +33,7 @@ splashScreen = true
 # Compiler settings
 # ----------------------------------------------------------------------------
 [compiler]
-path = ""
+path = "C:\\Users\\Albert\\Developer\\FreeBASIC\\fbc.exe"
 compileCommand = '"<$fbc>" "<$file>"'
 runCommand = '<$terminal> "<$file>" <$param>'
 
@@ -41,7 +41,7 @@ runCommand = '<$terminal> "<$file>" <$param>'
 # Paths
 # ----------------------------------------------------------------------------
 [paths]
-helpFile = ""
+helpFile = "FB-manual-1.10.1.chm"
 
 # ----------------------------------------------------------------------------
 # Fbide Window

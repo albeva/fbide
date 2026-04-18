@@ -55,6 +55,12 @@ public:
     /// Save given category
     void save(Category category);
 
+    /// Resolve the path against ide folders and return absolute path
+    [[nodiscard]] auto absolute(const wxString& pathName) const -> wxString;
+
+    /// Turn absolute path relative to known paths
+    [[nodiscard]] auto relative(const wxString& path) const -> wxString;
+
     /// Get toml for the category
     [[nodiscard]] auto get(Category category) -> ConfigValue&;
     [[nodiscard]] auto getConfig() -> ConfigValue& { return get(Category::Config); }
@@ -112,12 +118,6 @@ private:
             std::unreachable();
         }
     }
-
-    /// Resolve the path against ide folders and return absolute path
-    [[nodiscard]] auto absolute(const wxString& pathName) const -> wxString;
-
-    /// Turn absolute path relative to known paths
-    [[nodiscard]] auto relative(const wxString& path) const -> wxString;
 
     struct Entry final {
         Category category;
