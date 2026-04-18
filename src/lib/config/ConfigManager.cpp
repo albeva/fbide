@@ -94,7 +94,7 @@ void ConfigManager::load(const Category category) {
             wxLogError("Config category '%s' missing or invalid", key.data());
             return;
         }
-        file = absolute(wxString { ref.raw().as_string() });
+        file = absolute(wxString::FromUTF8(ref.raw().as_string()));
     }
 
     if (!wxFileExists(file)) {

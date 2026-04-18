@@ -90,6 +90,9 @@ public:
     template<typename T>
     [[nodiscard]] auto as() const -> std::optional<T>;
 
+    /// Iterate array elements as Values. Empty if node isn't an array.
+    [[nodiscard]] auto asArray() const -> std::vector<Value>;
+
     // -------------------------------------------------------------------
     // Read current node with default. Default type drives the return type.
     // -------------------------------------------------------------------

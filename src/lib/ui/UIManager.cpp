@@ -145,27 +145,35 @@ void UIManager::configureMenuBar() {
     try {
         auto& cmd = m_ctx.getCommandManager();
         auto& cfg = m_ctx.getConfigManager();
-        const auto& menus = find(cfg.layout().raw(), "menus").as_array();
-        const auto& locale = cfg.locale().raw()["menus"];
+        const auto menus = cfg.layout().at("menus");
+        const auto localeMenus = cfg.locale().at("menus");
 
         const bool createMenus = m_frame->GetMenuBar() == nullptr;
         const auto menuBar = createMenus ? make_unowned<wxMenuBar>() : m_frame->GetMenuBar();
 
-        for (const auto& id : menus) {
-            const auto key = id.as_string();
+        for (auto menuId : menus.asArray()) {
+            const auto key = menuId.as<wxString>().value_or("");
+            if (key.empty()) {
+                continue;
+            }
             auto* entry = cmd.find("menus." + key);
             if (entry == nullptr) {
                 wxLogError("Unknown menu '%s'", key);
                 continue;
             }
-            const auto name = find(locale, key).as_string();
+            const auto name = localeMenus.get_or(key, "");
             auto menu = entry->get<wxMenu>();
             if (menu == nullptr) {
                 menu = make_unowned<wxMenu>();
                 entry->binds.push_back(menu);
                 menuBar->Append(menu, name);
             } else {
-                menu->SetTitle(name);
+                for (std::size_t idx = 0; idx < menuBar->GetMenuCount(); idx++) {
+                    if (menuBar->GetMenu(idx) == menu) {
+                        menuBar->SetMenuLabel(idx, name);
+                        break;
+                    }
+                }
             }
             configureMenuItems(menu, key, createMenus);
         }
@@ -178,7 +186,7 @@ void UIManager::configureMenuBar() {
             }
             m_frame->SetMenuBar(menuBar);
         } else {
-            menuBar->UpdateMenus();
+            menuBar->Update();
         }
     } catch (const std::exception& ex) {
         wxLogError("Invalid layout config for menus: %s", ex.what());
@@ -189,12 +197,12 @@ void UIManager::configureMenuItems(wxMenu* menu, const wxString& id, const bool 
     try {
         auto& cmd = m_ctx.getCommandManager();
         auto& cfg = m_ctx.getConfigManager();
-        const auto& items = find(cfg.layout().raw(), "menu", id).as_array();
-        const auto& commands = find(cfg.locale().raw(), "commands");
-        const auto& shortcuts = find(cfg.shortcuts().raw(), "commands");
+        const auto items = cfg.layout().at("menu").at(id);
+        const auto commands = cfg.locale().at("commands");
+        const auto shortcuts = cfg.shortcuts().at("commands");
 
-        for (const auto& item : items) {
-            const auto key = item.as_string();
+        for (auto item : items.asArray()) {
+            const auto key = item.as<wxString>().value_or("");
             if (key == "-") {
                 if (addSeparators) {
                     menu->AppendSeparator();
@@ -208,12 +216,11 @@ void UIManager::configureMenuItems(wxMenu* menu, const wxString& id, const bool 
                 continue;
             }
 
-            const auto& locale = find(commands, key);
-            auto name = locale.at("name").as_string();
-            const auto help = find_or(locale, "help", "");
+            const auto locale = commands.at(key);
+            auto name = locale.get_or("name", "");
+            const auto help = locale.get_or("help", "");
 
-            const auto shortcut = find_or(shortcuts, key, "");
-            if (not shortcut.empty()) {
+            if (const auto shortcut = shortcuts.get_or(key, ""); not shortcut.empty()) {
                 name += "\t" + shortcut;
             }
 
@@ -248,8 +255,8 @@ void UIManager::configureToolBar() {
     try {
         auto& cmd = m_ctx.getCommandManager();
         auto& cfg = m_ctx.getConfigManager();
-        const auto& items = find(cfg.layout().raw(), "toolbar").as_array();
-        const auto& commands = find(cfg.locale().raw(), "commands");
+        const auto items = cfg.layout().at("toolbar");
+        const auto commands = cfg.locale().at("commands");
 
         // NOLINTBEGIN(*-avoid-c-arrays)
         static const std::unordered_map<wxString, const char* const*> icons = {
@@ -276,8 +283,8 @@ void UIManager::configureToolBar() {
             m_toolbar = m_frame->CreateToolBar(wxNO_BORDER | wxTB_HORIZONTAL | wxTB_FLAT);
         }
 
-        for (const auto& item : items) {
-            const auto key = item.as_string();
+        for (auto item : items.asArray()) {
+            const auto key = item.as<wxString>().value_or("");
             if (key == "-") {
                 if (createTools) {
                     m_toolbar->AddSeparator();
@@ -291,9 +298,9 @@ void UIManager::configureToolBar() {
                 continue;
             }
 
-            const auto& locale = find(commands, key);
-            const auto name = locale.at("name").as_string();
-            const auto help = find_or(locale, "help", "");
+            const auto locale = commands.at(key);
+            const auto name = locale.get_or("name", "");
+            const auto help = locale.get_or("help", "");
 
             if (entry->get<wxToolBarToolBase>() != nullptr) {
                 m_toolbar->SetToolShortHelp(entry->id, name);
@@ -451,6 +458,7 @@ void UIManager::disable(const std::ranges::range auto& range) const {
 }
 
 void UIManager::refreshUi() {
+    const auto thaw = freeze();
     configureMenuBar();
     configureToolBar();
 }

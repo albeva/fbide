@@ -1,7 +1,7 @@
 # Config for windows
 version = "0.5.0"
 layout = "layout.toml"
-locale = "locales\\et.toml"
+locale = "locales\\en.toml"
 theme = "themes/classic.toml"
 shortcuts = "shortcuts_win.toml"
 keywords = "keywords.toml"
@@ -57,5 +57,5 @@ height = 866
 # ----------------------------------------------------------------------------
 [commands]
 showExitCode = false
-viewResult = false
+viewResult = true
 

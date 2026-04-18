@@ -147,6 +147,19 @@ auto Value::as<wxString>() const -> std::optional<wxString> {
     return wxString::FromUTF8(raw.data(), raw.size());
 }
 
+auto Value::asArray() const -> std::vector<Value> {
+    std::vector<Value> out;
+    if (!isArray()) {
+        return out;
+    }
+    auto& arr = m_val->as_array();
+    out.reserve(arr.size());
+    for (auto& item : arr) {
+        out.emplace_back(item);
+    }
+    return out;
+}
+
 // -------------------------------------------------------------------------
 // Read with default
 // -------------------------------------------------------------------------
