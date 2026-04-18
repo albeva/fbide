@@ -6,7 +6,6 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "Value.hpp"
 
 namespace fbide {
 
@@ -54,13 +53,13 @@ public:
     void save(Category category);
 
     /// Get toml for the category
-    [[nodiscard]] auto get(Category category) -> Value;
-    [[nodiscard]] auto getConfig() -> Value { return get(Category::Config); }
-    [[nodiscard]] auto getLocale() -> Value { return get(Category::Locale); }
-    [[nodiscard]] auto getTheme() -> Value { return get(Category::Theme); }
-    [[nodiscard]] auto getShortcuts() -> Value { return get(Category::Shortcuts); }
-    [[nodiscard]] auto getKeywords() -> Value { return get(Category::Keywords); }
-    [[nodiscard]] auto getLayout() -> Value { return get(Category::Layout); }
+    [[nodiscard]] auto get(Category category) -> toml::value&;
+    [[nodiscard]] auto getConfig() -> toml::value& { return get(Category::Config); }
+    [[nodiscard]] auto getLocale() -> toml::value& { return get(Category::Locale); }
+    [[nodiscard]] auto getTheme() -> toml::value& { return get(Category::Theme); }
+    [[nodiscard]] auto getShortcuts() -> toml::value& { return get(Category::Shortcuts); }
+    [[nodiscard]] auto getKeywords() -> toml::value& { return get(Category::Keywords); }
+    [[nodiscard]] auto getLayout() -> toml::value& { return get(Category::Layout); }
 
 private:
     /// Resolve the path against ide folders and return absolute path

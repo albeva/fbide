@@ -142,8 +142,8 @@ void UIManager::configureMenuBar() {
     try {
         auto& cmd = m_ctx.getCommandManager();
         auto& cfg = m_ctx.getConfigManager();
-        const auto& menus = find(cfg.getLayout().raw(), "menus").as_array();
-        const auto& locale = cfg.getLocale().raw()["menus"];
+        const auto& menus = find(cfg.getLayout(), "menus").as_array();
+        const auto& locale = cfg.getLocale()["menus"];
 
         const bool createMenus = m_frame->GetMenuBar() == nullptr;
         const auto menuBar = createMenus ? make_unowned<wxMenuBar>() : m_frame->GetMenuBar();
@@ -186,9 +186,9 @@ void UIManager::configureMenuItems(wxMenu* menu, const wxString& id, const bool 
     try {
         auto& cmd = m_ctx.getCommandManager();
         auto& cfg = m_ctx.getConfigManager();
-        const auto& items = find(cfg.getLayout().raw(), "menu", id).as_array();
-        const auto& commands = find(cfg.getLocale().raw(), "commands");
-        const auto& shortcuts = find(cfg.getShortcuts().raw(), "commands");
+        const auto& items = find(cfg.getLayout(), "menu", id).as_array();
+        const auto& commands = find(cfg.getLocale(), "commands");
+        const auto& shortcuts = find(cfg.getShortcuts(), "commands");
 
         for (const auto& item : items) {
             const auto key = item.as_string();
