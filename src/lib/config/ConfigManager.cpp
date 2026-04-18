@@ -43,8 +43,8 @@ void ConfigManager::load(const Category category) {
         file = entry.path;
     } else {
         const auto cfg = getConfig();
-        const auto key =getCategoryName(category);
-        if (const auto path = cfg.getString(key)) {
+        const auto key = getCategoryName(category);
+        if (const auto path = cfg.getString(wxString(key))) {
             file = absolute(*path);
         } else {
             wxLogError("Key for category '%s' is missing in config", key.data());

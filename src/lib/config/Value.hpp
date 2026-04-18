@@ -12,18 +12,13 @@ namespace fbide {
 /// Non-owning view over a toml::value.
 ///
 /// Provides ergonomic typed and path-based access. All getters return
-/// std::optional — any failure (missing key, wrong type, out-of-range
-/// array index, malformed path) silently yields std::nullopt.
+/// std::optional — any failure (missing key, wrong type, malformed path)
+/// silently yields std::nullopt.
 ///
-/// Path syntax:
-///   dot separates table keys:     "dialogs.format.title"
-///   [N] indexes arrays:           "commands[0].name"
-///   indices may chain:            "matrix[0][1]"
+/// Path syntax: dot-separated table keys, e.g. "dialogs.format.title".
 ///
-/// Strings default to wxString. Use the std::string overloads when
+/// Strings default to wxString. Use asStdString / getStdString when
 /// working directly with toml11 / UTF-8 raw strings.
-///
-/// Paths may be passed as std::string_view or wxString.
 ///
 /// Note: the wrapped toml::value is non-const, so mutation is possible
 /// via raw(). All getXxx / asXxx methods are read-only regardless.
@@ -54,43 +49,24 @@ public:
     // Path lookup — returns a view of the sub-node, or nullopt if the
     // path cannot be resolved.
     // -------------------------------------------------------------------
-    [[nodiscard]] auto find(std::string_view path) const noexcept -> std::optional<Value>;
     [[nodiscard]] auto find(const wxString& path) const noexcept -> std::optional<Value>;
 
     // -------------------------------------------------------------------
     // Typed path reads — combine find() + asXxx()
     // -------------------------------------------------------------------
-    [[nodiscard]] auto getString(std::string_view path) const noexcept -> std::optional<wxString>;
     [[nodiscard]] auto getString(const wxString& path) const noexcept -> std::optional<wxString>;
-
-    [[nodiscard]] auto getStdString(std::string_view path) const noexcept -> std::optional<std::string>;
     [[nodiscard]] auto getStdString(const wxString& path) const noexcept -> std::optional<std::string>;
-
-    [[nodiscard]] auto getInt(std::string_view path) const noexcept -> std::optional<std::int64_t>;
     [[nodiscard]] auto getInt(const wxString& path) const noexcept -> std::optional<std::int64_t>;
-
-    [[nodiscard]] auto getBool(std::string_view path) const noexcept -> std::optional<bool>;
     [[nodiscard]] auto getBool(const wxString& path) const noexcept -> std::optional<bool>;
-
-    [[nodiscard]] auto getFloat(std::string_view path) const noexcept -> std::optional<double>;
     [[nodiscard]] auto getFloat(const wxString& path) const noexcept -> std::optional<double>;
 
     // -------------------------------------------------------------------
     // Typed path reads with fallback default
     // -------------------------------------------------------------------
-    [[nodiscard]] auto getString(std::string_view path, const wxString& def) const noexcept -> wxString;
     [[nodiscard]] auto getString(const wxString& path, const wxString& def) const noexcept -> wxString;
-
-    [[nodiscard]] auto getStdString(std::string_view path, std::string def) const noexcept -> std::string;
     [[nodiscard]] auto getStdString(const wxString& path, std::string def) const noexcept -> std::string;
-
-    [[nodiscard]] auto getInt(std::string_view path, std::int64_t def) const noexcept -> std::int64_t;
     [[nodiscard]] auto getInt(const wxString& path, std::int64_t def) const noexcept -> std::int64_t;
-
-    [[nodiscard]] auto getBool(std::string_view path, bool def) const noexcept -> bool;
     [[nodiscard]] auto getBool(const wxString& path, bool def) const noexcept -> bool;
-
-    [[nodiscard]] auto getFloat(std::string_view path, double def) const noexcept -> double;
     [[nodiscard]] auto getFloat(const wxString& path, double def) const noexcept -> double;
 
     // -------------------------------------------------------------------

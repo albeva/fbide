@@ -21,6 +21,7 @@ public:
         Theme,
         Shortcuts,
         Keywords,
+        Layout,
     };
 
     [[nodiscard]] static constexpr auto getCategoryName(const Category category) -> std::string_view {
@@ -30,6 +31,7 @@ public:
         case Category::Theme:  return "theme";
         case Category::Shortcuts: return "shortcuts";
         case Category::Keywords: return "keywords";
+        case Category::Layout: return "layout";
         }
         std::unreachable();
     }
@@ -52,6 +54,7 @@ public:
     [[nodiscard]] auto getTheme() -> Value { return get(Category::Theme); }
     [[nodiscard]] auto getShortcuts() -> Value { return get(Category::Shortcuts); }
     [[nodiscard]] auto getKeywords() -> Value { return get(Category::Keywords); }
+    [[nodiscard]] auto getLayout() -> Value { return get(Category::Layout); }
 
 private:
     /// Resolve the path against ide folders and return absolute path
@@ -65,7 +68,7 @@ private:
         wxString path;
         toml::value value;
     };
-    static constexpr std::size_t CAT_COUNT = 5;
+    static constexpr std::size_t CAT_COUNT = 6;
 
     wxString m_appDir;
     wxString m_ideDir{};
