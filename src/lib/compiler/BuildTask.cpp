@@ -11,7 +11,6 @@
 #include "RunCommand.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "config/Lang.hpp"
 #include "editor/Document.hpp"
 #include "editor/DocumentManager.hpp"
 #include "editor/Editor.hpp"
@@ -67,7 +66,7 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     // Validate compiler — getFbcVersion() checks path and caches the result
     const auto& fbcVersion = m_ctx.getCompilerManager().getFbcVersion();
     if (fbcVersion.empty()) {
-        wxMessageBox(m_ctx.getLang()[LangId::SettingsCompilerPathError], "FBC", wxICON_ERROR);
+        wxMessageBox(m_ctx.tr("dialogs.settings.compiler.compilerPathError"), "FBC", wxICON_ERROR);
         return;
     }
 
@@ -81,9 +80,9 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
 
     m_running = true;
     m_ctx.getUIManager().setCompilerState(UIState::Compiling);
-    setStatus(LangId::StatusCompiling);
+    setStatus("status.compiling");
     AsyncProcess::exec(cmdStr, m_buildDir, true, [&](const ProcessResult& result) {
-        setStatus(LangId::EmptyString);
+        setStatus("");
         m_ctx.getUIManager().setCompilerState(UIState::None);
         m_running = false;
         onCompileFinished(result);
@@ -108,13 +107,13 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
         m_compilerLog.Add("Compilation failed");
         appendSystemInfo();
         m_ctx.getCompilerManager().refreshCompilerLog();
-        setStatus(LangId::StatusCompileFailed);
+        setStatus("status.compileFailed");
         cleanupTempFiles();
         return;
     }
 
     m_compilerLog.Add("Compilation successful");
-    setStatus(LangId::StatusCompileComplete);
+    setStatus("status.compileComplete");
 
     m_compiledFile = deriveExecutablePath(m_sourceFile);
     m_compilerLog.Add("Generated executable: " + m_compiledFile);
@@ -134,12 +133,11 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
 
 void BuildTask::onRunFinished(const ProcessResult& result) {
     if (!result.launched) {
-        const auto& lang = m_ctx.getLang();
-        wxMessageBox(lang[LangId::RunExecError], lang[LangId::RunError], wxICON_ERROR);
+        wxMessageBox(m_ctx.tr("messages.execError"), m_ctx.tr("common.error"), wxICON_ERROR);
     } else if (m_ctx.getConfigManager().config_or("commands.showExitCode", false)) {
         wxString msg;
         msg << result.exitCode;
-        wxMessageBox(msg, m_ctx.getLang()[LangId::RunExitCode]);
+        wxMessageBox(msg, m_ctx.tr("messages.exitCode"));
     }
 
     cleanupTempFiles();
@@ -298,6 +296,6 @@ auto BuildTask::getDocument() const -> Document* {
     return nullptr;
 }
 
-void BuildTask::setStatus(const LangId id) const {
-    m_ctx.getUIManager().getMainFrame()->SetStatusText(m_ctx.getLang()[id]);
+void BuildTask::setStatus(const wxString& path) const {
+    m_ctx.getUIManager().getMainFrame()->SetStatusText(path.empty() ? wxString {} : m_ctx.tr(path));
 }

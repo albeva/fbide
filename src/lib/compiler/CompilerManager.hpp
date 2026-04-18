@@ -6,7 +6,6 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "config/LangId.hpp"
 
 namespace fbide {
 class BuildTask;
@@ -63,8 +62,8 @@ private:
     /// Ensure document is saved. Returns false if user cancelled.
     auto ensureSaved(Document& doc) -> bool;
 
-    /// Set status bar text.
-    void setStatus(LangId id) const;
+    /// Set status bar text from locale path (empty for none).
+    void setStatus(const wxString& path) const;
 
     Context& m_ctx;
     std::unique_ptr<BuildTask> m_task;

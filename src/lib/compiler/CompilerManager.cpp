@@ -9,7 +9,6 @@
 #include "app/Context.hpp"
 #include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
-#include "config/Lang.hpp"
 #include "editor/Document.hpp"
 #include "editor/DocumentManager.hpp"
 #include "editor/Editor.hpp"
@@ -54,9 +53,8 @@ void CompilerManager::run() {
 
     const auto exe = doc->getCompiledFile();
     if (exe.empty() || !wxFileExists(exe)) {
-        const auto& lang = m_ctx.getLang();
         const auto res = wxMessageBox(
-            lang[LangId::RunCompileFirst], lang[LangId::RunCompileQuestion],
+            m_ctx.tr("messages.compileFirst"), m_ctx.tr("messages.compileQuestion"),
             wxYES_NO | wxICON_QUESTION
         );
         if (res == wxNO) {
@@ -180,10 +178,9 @@ auto CompilerManager::ensureSaved(Document& doc) -> bool {
         return !doc.isNew();
     }
 
-    const auto& lang = m_ctx.getLang();
     const auto res = wxMessageBox(
-        lang[LangId::RunFileModified],
-        lang[LangId::RunSaveFile],
+        m_ctx.tr("messages.saveFile"),
+        m_ctx.tr("messages.saveFileTitle"),
         wxICON_EXCLAMATION | wxYES_NO
     );
     if (res != wxYES) {
@@ -193,6 +190,6 @@ auto CompilerManager::ensureSaved(Document& doc) -> bool {
     return m_ctx.getDocumentManager().saveFile(doc);
 }
 
-void CompilerManager::setStatus(const LangId id) const {
-    m_ctx.getUIManager().getMainFrame()->SetStatusText(m_ctx.getLang()[id]);
+void CompilerManager::setStatus(const wxString& path) const {
+    m_ctx.getUIManager().getMainFrame()->SetStatusText(path.empty() ? wxString {} : m_ctx.tr(path));
 }

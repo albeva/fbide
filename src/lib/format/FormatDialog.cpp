@@ -9,7 +9,6 @@
 #include "analyses/lexer/Lexer.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "config/Lang.hpp"
 #include "config/Theme.hpp"
 #include "editor/Document.hpp"
 #include "editor/DocumentManager.hpp"
@@ -56,7 +55,7 @@ wxEND_EVENT_TABLE()
 
 FormatDialog::FormatDialog(wxWindow* parent, Context& ctx, Document* doc)
 : Layout(
-      parent, wxID_ANY, ctx.getLang()[LangId::ViewFormatTitle],
+      parent, wxID_ANY, ctx.tr("dialogs.format.title"),
       wxDefaultPosition, wxDefaultSize,
       wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX | wxMINIMIZE_BOX
   )

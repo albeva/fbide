@@ -8,7 +8,6 @@
 #include "app/Context.hpp"
 #include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
-#include "config/Lang.hpp"
 #include "ui/UIManager.hpp"
 #include "panels/CompilerPage.hpp"
 #include "panels/GeneralPage.hpp"
@@ -18,7 +17,7 @@ using namespace fbide;
 
 SettingsDialog::SettingsDialog(wxWindow* parent, Context& ctx)
 : wxDialog(
-      parent, wxID_ANY, ctx.getLang()[LangId::SettingsTitle],
+      parent, wxID_ANY, ctx.tr("dialogs.settings.title"),
       wxDefaultPosition, wxDefaultSize,
       wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER
   )
@@ -27,7 +26,6 @@ SettingsDialog::SettingsDialog(wxWindow* parent, Context& ctx)
 SettingsDialog::~SettingsDialog() = default;
 
 void SettingsDialog::create() {
-    const auto& lang = m_ctx.getLang();
     const auto notebook = make_unowned<wxNotebook>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
 
     m_generalPage = make_unowned<GeneralPage>(m_ctx, notebook);
@@ -40,10 +38,10 @@ void SettingsDialog::create() {
     m_keywordsPage->create();
     m_compilerPage->create();
 
-    notebook->AddPage(m_generalPage, lang[LangId::SettingsGeneral]);
-    notebook->AddPage(m_themePage, lang[LangId::SettingsThemes]);
-    notebook->AddPage(m_keywordsPage, lang[LangId::SettingsKeywords]);
-    notebook->AddPage(m_compilerPage, lang[LangId::SettingsCompiler]);
+    notebook->AddPage(m_generalPage, m_ctx.tr("dialogs.settings.general.title"));
+    notebook->AddPage(m_themePage, m_ctx.tr("dialogs.settings.themes.title"));
+    notebook->AddPage(m_keywordsPage, m_ctx.tr("dialogs.settings.keywords.title"));
+    notebook->AddPage(m_compilerPage, m_ctx.tr("dialogs.settings.compiler.title"));
 
     auto* btnSizer = CreateStdDialogButtonSizer(wxOK | wxCANCEL);
 

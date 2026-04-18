@@ -9,7 +9,6 @@
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
-#include "config/Lang.hpp"
 using namespace fbide;
 
 CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
@@ -24,8 +23,7 @@ CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 }
 
 void CompilerPage::create() {
-    // makeTitle(LangId::SettingsCompilerAndPaths);
-    vbox(getContext().getLang()[LangId::SettingsCompilerAndPaths], { .border = 0 }, [&] {
+    vbox(tr("dialogs.settings.compiler.compilerAndPaths"), { .border = 0 }, [&] {
         compilerPath();
         spacer();
         compilerCommand();
@@ -54,7 +52,7 @@ void CompilerPage::apply() {
 }
 
 void CompilerPage::compilerPath() {
-    const auto [tf, btn] = makeFileEntry(m_compilerPath, LangId::SettingsCompilerPath);
+    const auto [tf, btn] = makeFileEntry(m_compilerPath, tr("dialogs.settings.compiler.compilerPath"));
     btn->Bind(wxEVT_BUTTON, [&, tf](wxCommandEvent&) {
         wxFileDialog dlg(
             this, "Select compiler", "", "",
@@ -73,20 +71,20 @@ void CompilerPage::compilerPath() {
 }
 
 void CompilerPage::compilerCommand() {
-    makeEntryField(m_compileCommand, LangId::SettingsCompilerCommand);
+    makeEntryField(m_compileCommand, tr("dialogs.settings.compiler.compilerCommand"));
 }
 
 void CompilerPage::runCommand() {
-    makeEntryField(m_runCommand, LangId::SettingsRunCmd);
+    makeEntryField(m_runCommand, tr("dialogs.settings.compiler.runCommand"));
 }
 
 #ifdef __WXMSW__
 void CompilerPage::helpFile() {
-    const auto [tf, btn] = makeFileEntry(m_helpFile, LangId::SettingsHelpFile);
+    const auto [tf, btn] = makeFileEntry(m_helpFile, tr("dialogs.settings.compiler.helpFile"));
     btn->Bind(wxEVT_BUTTON, [&, tf](wxCommandEvent&) {
         wxFileDialog dlg(
             this, "Select help file", "", "",
-            getContext().getLang()[LangId::SettingsHelpFileFilter] + "|*.chm",
+            "Help files (*.chm)|*.chm",
             wxFD_FILE_MUST_EXIST
         );
         if (dlg.ShowModal() == wxID_OK) {
@@ -98,15 +96,15 @@ void CompilerPage::helpFile() {
 }
 #endif
 
-auto CompilerPage::makeEntryField(wxString& value, const LangId lang) -> Unowned<wxTextCtrl> {
-    const auto lbl = text(lang, {});
+auto CompilerPage::makeEntryField(wxString& value, const wxString& labelText) -> Unowned<wxTextCtrl> {
+    const auto lbl = text(labelText, {});
     const auto tf = textField(value, {});
     connect(lbl, tf);
     return tf;
 }
 
-auto CompilerPage::makeFileEntry(wxString& value, const LangId lang) -> std::pair<Unowned<wxTextCtrl>, Unowned<wxButton>> {
-    const auto lbl = text(lang, {});
+auto CompilerPage::makeFileEntry(wxString& value, const wxString& labelText) -> std::pair<Unowned<wxTextCtrl>, Unowned<wxButton>> {
+    const auto lbl = text(labelText, {});
     Unowned<wxButton> btn;
     Unowned<wxTextCtrl> tf;
     hbox({ .center = true, .border = 0 }, [&] {

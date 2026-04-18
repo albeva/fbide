@@ -8,7 +8,6 @@
 #include "ThemePage.hpp"
 #include "app/Context.hpp"
 #include "config/Config.hpp"
-#include "config/Lang.hpp"
 #include "config/Theme.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
@@ -61,42 +60,38 @@ void ThemePage::create() {
 }
 
 void ThemePage::createTopRow() {
-    const auto& lang = getContext().getLang();
-    hbox(lang[LangId::ThemeName], { .center = true, .border = 0 }, [&] {
+    hbox(tr("dialogs.settings.themes.name"), { .center = true, .border = 0 }, [&] {
         auto themes = getConfig().getAllThemes();
-        themes.insert(themes.begin(), lang[LangId::ThemeCreateNew]);
+        themes.insert(themes.begin(), tr("dialogs.settings.themes.createNew"));
 
         m_themeChoice = choice(m_activeTheme, themes, { .proportion = 1, .expand = false });
         m_themeChoice->Bind(wxEVT_CHOICE, &ThemePage::onSelectTheme, this);
 
-        const auto save = button(LangId::ThemeSave, { .expand = false });
+        const auto save = button(tr("dialogs.settings.themes.save"), { .expand = false });
         save->Bind(wxEVT_BUTTON, &ThemePage::onSaveTheme, this);
     });
 }
 
 void ThemePage::createCategoryList() {
-    const auto& lang = getContext().getLang();
     wxArrayString typeNames;
-    typeNames.Add(lang[LangId::ThemeComments]);
-    typeNames.Add(lang[LangId::ThemeNumbers]);
-    typeNames.Add(lang[LangId::ThemeKeywords1]);
-    typeNames.Add(lang[LangId::ThemeStringClosed]);
-    typeNames.Add(lang[LangId::ThemePreprocessor]);
-    typeNames.Add(lang[LangId::ThemeOperator]);
-    typeNames.Add(lang[LangId::ThemeIdentifier]);
-    typeNames.Add(lang[LangId::ThemeDate]);
-    typeNames.Add(lang[LangId::ThemeStringOpen]);
-    typeNames.Add(lang[LangId::ThemeKeywords2]);
-    typeNames.Add(lang[LangId::ThemeKeywords3]);
-    typeNames.Add(lang[LangId::ThemeKeywords4]);
-    // typeNames.Add(lang[LangId::ThemeConstant]);
-    // typeNames.Add(lang[LangId::ThemeAsm]);
-    typeNames.Add(lang[LangId::ThemeCaret]);
-    typeNames.Add(lang[LangId::ThemeLineNumbers]);
-    typeNames.Add(lang[LangId::ThemeTextSelect]);
-    typeNames.Add(lang[LangId::ThemeBraceMatch]);
-    typeNames.Add(lang[LangId::ThemeBraceMismatch]);
-    typeNames.Add(lang[LangId::ThemeEditor]);
+    typeNames.Add(tr("dialogs.settings.themes.categories.comments"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.numbers"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.keywords1"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.stringClosed"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.preprocessor"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.operator"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.identifier"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.date"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.stringOpen"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.keywords2"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.keywords3"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.keywords4"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.caret"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.lineNumbers"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.textSelect"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.braceMatch"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.braceMismatch"));
+    typeNames.Add(tr("dialogs.settings.themes.categories.editor"));
 
     m_typeList = make_unowned<wxListBox>(currentParent(), wxID_ANY, wxDefaultPosition, wxSize(130, 200), typeNames);
     m_typeList->SetSelection(0);
@@ -106,21 +101,21 @@ void ThemePage::createCategoryList() {
 
 void ThemePage::createLeftPanel() {
     vbox({ .proportion = 2, .border = 0 }, [&] {
-        auto lbl = text(LangId::ThemeForeground, {});
-        m_btnFg = button(LangId::EmptyString);
+        auto lbl = text(tr("dialogs.settings.themes.foreground"), {});
+        m_btnFg = button(wxString {});
         m_btnFg->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onColorButton(m_btnFg); });
         connect(lbl, m_btnFg);
 
         spacer();
 
-        lbl = text(LangId::ThemeBackground, {});
-        m_btnBg = button(LangId::EmptyString);
+        lbl = text(tr("dialogs.settings.themes.background"), {});
+        m_btnBg = button(wxString {});
         m_btnBg->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onColorButton(m_btnBg); });
         connect(lbl, m_btnBg);
 
         spacer();
 
-        lbl = text(LangId::ThemeFont, {});
+        lbl = text(tr("dialogs.settings.themes.font"), {});
         m_fontChoice = make_unowned<wxChoice>(currentParent(), wxID_ANY);
         auto fonts = getConfig().getAllFixedWidthFonts();
         fonts.insert(fonts.begin(), "");
@@ -132,13 +127,13 @@ void ThemePage::createLeftPanel() {
 
 void ThemePage::createRightPanel() {
     vbox({ .proportion = 1, .border = 0 }, [&] {
-        m_chkBold = checkBox(LangId::ThemeBold);
-        m_chkItalic = checkBox(LangId::ThemeItalic);
-        m_chkUnderline = checkBox(LangId::ThemeUnderline);
+        m_chkBold = checkBox(tr("dialogs.settings.themes.bold"));
+        m_chkItalic = checkBox(tr("dialogs.settings.themes.italic"));
+        m_chkUnderline = checkBox(tr("dialogs.settings.themes.underline"));
 
         spacer();
 
-        m_spinFontSize = spinCtrl(LangId::ThemeFontSize, 8, 64, {});
+        m_spinFontSize = spinCtrl(tr("dialogs.settings.themes.fontSize"), 8, 64, {});
     });
 }
 
@@ -188,8 +183,7 @@ void ThemePage::saveNewTheme(const bool setActive) {
     }
 
     // creating a new theme
-    const auto& lang = getContext().getLang();
-    wxTextEntryDialog dlg(this, lang[LangId::ThemeEnterName], lang[LangId::ThemeParametersTitle]);
+    wxTextEntryDialog dlg(this, tr("dialogs.settings.themes.enterName"), tr("dialogs.settings.themes.nameDialogTitle"));
     if (dlg.ShowModal() != wxID_OK) {
         return;
     }

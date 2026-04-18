@@ -6,7 +6,7 @@
 //
 #include "Panel.hpp"
 #include "app/Context.hpp"
-#include "config/Lang.hpp"
+#include "config/ConfigManager.hpp"
 using namespace fbide;
 
 Panel::Panel(Context& ctx, const wxWindowID id, wxWindow* parent)
@@ -21,25 +21,21 @@ auto Panel::getConfig() const -> Config& {
     return m_ctx.getConfig();
 }
 
-void Panel::makeTitle(const LangId langId) {
-    text(langId);
+auto Panel::tr(const wxString& path) const -> wxString {
+    return m_ctx.getConfigManager().locale_or(path, "");
+}
+
+void Panel::makeTitle(const wxString& labelText) {
+    text(labelText);
     separator();
 }
 
-auto Panel::text(const LangId langId, const LayoutItemOptions opts, const wxWindowID id, const long style) -> Unowned<wxStaticText> {
-    return label(m_ctx.getLang()[langId], opts, id, style);
+auto Panel::text(const wxString& labelText, const LayoutItemOptions opts, const wxWindowID id, const long style) -> Unowned<wxStaticText> {
+    return label(labelText, opts, id, style);
 }
 
-auto Panel::checkBox(bool& value, const LangId langId, const LayoutItemOptions opts, const wxWindowID id, const long style) -> Unowned<wxCheckBox> {
-    return Layout::checkBox(value, m_ctx.getLang()[langId], opts, id, style);
-}
-
-auto Panel::checkBox(const LangId langId, const LayoutItemOptions opts, const wxWindowID id, const long style) -> Unowned<wxCheckBox> {
-    return Layout::checkBox(m_ctx.getLang()[langId], opts, id, style);
-}
-
-auto Panel::spinCtrl(int& value, const LangId langId, const int minVal, const int maxVal, const LayoutItemOptions opts, const wxWindowID id, const long style) -> Unowned<wxSpinCtrl> {
-    if (langId == LangId::EmptyString) {
+auto Panel::spinCtrl(int& value, const wxString& labelText, const int minVal, const int maxVal, const LayoutItemOptions opts, const wxWindowID id, const long style) -> Unowned<wxSpinCtrl> {
+    if (labelText.empty()) {
         return Layout::spinCtrl(value, minVal, maxVal, opts, id, style);
     }
 
@@ -52,14 +48,14 @@ auto Panel::spinCtrl(int& value, const LangId langId, const int minVal, const in
              .border = 0 },
         [&] {
             spin = Layout::spinCtrl(value, minVal, maxVal, {}, id, style);
-            const auto lbl = text(langId, { .expand = false });
+            const auto lbl = text(labelText, { .expand = false });
             connect(lbl, spin);
         });
     return spin;
 }
 
-auto Panel::spinCtrl(const LangId langId, const int minVal, const int maxVal, const LayoutItemOptions opts, const wxWindowID id, const long style) -> Unowned<wxSpinCtrl> {
-    if (langId == LangId::EmptyString) {
+auto Panel::spinCtrl(const wxString& labelText, const int minVal, const int maxVal, const LayoutItemOptions opts, const wxWindowID id, const long style) -> Unowned<wxSpinCtrl> {
+    if (labelText.empty()) {
         return Layout::spinCtrl(minVal, maxVal, opts, id, style);
     }
 
@@ -72,12 +68,8 @@ auto Panel::spinCtrl(const LangId langId, const int minVal, const int maxVal, co
              .border = 0 },
         [&] {
             spin = Layout::spinCtrl(minVal, maxVal, {}, id, style);
-            const auto lbl = text(langId, { .expand = false });
+            const auto lbl = text(labelText, { .expand = false });
             connect(lbl, spin);
         });
     return spin;
-}
-
-auto Panel::button(const LangId langId, const LayoutItemOptions opts, const wxWindowID id, const long style) -> Unowned<wxButton> {
-    return Layout::button(m_ctx.getLang()[langId], opts, id, style);
 }

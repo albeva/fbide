@@ -16,12 +16,11 @@ class DocumentManager;
 class FileHistory;
 class HelpManager;
 class Keywords;
-class Lang;
 class Theme;
 class UIManager;
 
 /// Central access point for editor service objects.
-/// Owns Config, Lang, and other shared state.
+/// Owns Config and other shared state.
 /// Created first, destroyed last.
 class Context final {
 public:
@@ -38,9 +37,8 @@ public:
     [[nodiscard]] auto getConfigManager() -> ConfigManager& { return *m_configManager; }
     [[nodiscard]] auto getConfigManager() const -> const ConfigManager& { return *m_configManager; }
 
-    /// Get translation strings.
-    [[nodiscard]] auto getLang() -> Lang& { return *m_lang; }
-    [[nodiscard]] auto getLang() const -> const Lang& { return *m_lang; }
+    /// Translate a locale path to a display string (ConfigManager::locale_or with empty default).
+    [[nodiscard]] auto tr(const wxString& path) -> wxString;
 
     /// Get syntax keywords.
     [[nodiscard]] auto getKeywords() -> Keywords& { return *m_keywords; }
@@ -79,7 +77,6 @@ private:
     std::unique_ptr<ConfigManager> m_configManager;
     std::unique_ptr<FileHistory> m_fileHistory;
     std::unique_ptr<Keywords> m_keywords;
-    std::unique_ptr<Lang> m_lang;
     std::unique_ptr<Theme> m_theme;
     std::unique_ptr<UIManager> m_uiManager;
     std::unique_ptr<DocumentManager> m_documentManager;

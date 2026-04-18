@@ -11,7 +11,6 @@
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "config/Keywords.hpp"
-#include "config/Lang.hpp"
 #include "config/Theme.hpp"
 #include "editor/DocumentManager.hpp"
 #include "help/HelpManager.hpp"
@@ -23,7 +22,6 @@ Context::Context(const wxString& binaryPath)
 , m_configManager(std::make_unique<ConfigManager>(binaryPath))
 , m_fileHistory(std::make_unique<FileHistory>())
 , m_keywords(std::make_unique<Keywords>())
-, m_lang(std::make_unique<Lang>())
 , m_theme(std::make_unique<Theme>())
 , m_uiManager(std::make_unique<UIManager>(*this))
 , m_documentManager(std::make_unique<DocumentManager>(*this))
@@ -32,3 +30,7 @@ Context::Context(const wxString& binaryPath)
 , m_commandManager(std::make_unique<CommandManager>(*this)) {}
 
 Context::~Context() = default;
+
+auto Context::tr(const wxString& path) -> wxString {
+    return m_configManager->locale_or(path, "");
+}

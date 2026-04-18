@@ -16,7 +16,6 @@
 #include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
-#include "config/Lang.hpp"
 #include "editor/Document.hpp"
 #include "editor/DocumentManager.hpp"
 #include "editor/Editor.hpp"
@@ -372,11 +371,10 @@ void CommandManager::onCmdPrompt(wxCommandEvent&) {
 }
 
 void CommandManager::onParameters(wxCommandEvent&) {
-    const auto& lang = m_ctx.getLang();
     wxTextEntryDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
-        lang[LangId::RunParamsPrompt],
-        lang[LangId::ThemeParametersTitle],
+        m_ctx.tr("dialogs.runParams.prompt"),
+        m_ctx.tr("dialogs.settings.themes.nameDialogTitle"),
         m_parameters,
         wxOK | wxCANCEL
     );

@@ -7,8 +7,6 @@
 #include "Document.hpp"
 #include "Editor.hpp"
 #include "app/Context.hpp"
-#include "config/Lang.hpp"
-#include "config/LangId.hpp"
 using namespace fbide;
 
 Document::Document(wxWindow* parent, Context& ctx, const DocumentType type)
@@ -28,7 +26,7 @@ void Document::setFilePath(const wxString& path) {
 
 auto Document::getTitle() const -> wxString {
     wxString title = isNew()
-                       ? m_ctx.getLang()[LangId::Untitled]
+                       ? m_ctx.tr("document.untitled")
                        : wxFileName(m_filePath).GetFullName();
     if (isModified()) {
         title = "[*] " + title;

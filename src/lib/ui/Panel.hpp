@@ -11,9 +11,8 @@
 namespace fbide {
 class Context;
 class Config;
-enum class LangId : int;
 
-/// Settings panel base — extends Layout<wxPanel> with Context and LangId support.
+/// Settings panel base — extends Layout<wxPanel> with Context access.
 class Panel : public Layout<wxPanel> {
 public:
     NO_COPY_AND_MOVE(Panel)
@@ -26,23 +25,24 @@ protected:
     [[nodiscard]] auto getContext() const -> Context& { return m_ctx; }
     [[nodiscard]] auto getConfig() const -> Config&;
 
+    /// Translate a locale path to a display string (wrapper over ConfigManager::locale_or).
+    [[nodiscard]] auto tr(const wxString& path) const -> wxString;
+
     /// Title + separator.
-    void makeTitle(LangId langId);
+    void makeTitle(const wxString& labelText);
 
-    /// LangId overloads — delegate to Layout's string-based methods.
-    auto text(LangId langId, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxStaticText>;
-    auto checkBox(bool& value, LangId langId, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxCheckBox>;
-    auto checkBox(LangId langId, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxCheckBox>;
-    auto spinCtrl(int& value, LangId langId, int minVal, int maxVal, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxSpinCtrl>;
-    auto spinCtrl(LangId langId, int minVal, int maxVal, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxSpinCtrl>;
-    auto button(LangId langId, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxButton>;
+    /// Static text (synonym for Layout::label, avoids name clash with Layout::text if added).
+    auto text(const wxString& labelText, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxStaticText>;
 
-    // Pull in Layout's string-based overloads (otherwise hidden by the LangId ones).
+    /// Spin control with optional trailing label.
+    auto spinCtrl(int& value, const wxString& labelText, int minVal, int maxVal, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxSpinCtrl>;
+    auto spinCtrl(const wxString& labelText, int minVal, int maxVal, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxSpinCtrl>;
+
+    // Pull in Layout's label/button/checkBox/etc overloads.
     using Layout::button;
     using Layout::checkBox;
     using Layout::choice;
     using Layout::label;
-    using Layout::spinCtrl;
     using Layout::textField;
 
 private:

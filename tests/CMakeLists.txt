@@ -17,7 +17,6 @@ add_executable(tests
     ConfigTests.cpp
     FBSciLexerTests.cpp
     KeywordsTests.cpp
-    LangTests.cpp
     LexerTests.cpp
     ReFormatterTests.cpp
     RunCommandTests.cpp

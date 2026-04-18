@@ -9,7 +9,6 @@
 #include "app/Context.hpp"
 #include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
-#include "config/Lang.hpp"
 using namespace fbide;
 
 GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
@@ -31,38 +30,37 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 }
 
 void GeneralPage::create() {
-    const auto& lang = getContext().getLang();
-    hbox(lang[LangId::SettingsEditorSettings], { .border = 0 }, [&] {
+    hbox(tr("dialogs.settings.general.editorSettings"), { .border = 0 }, [&] {
         vbox({ .proportion = 1 }, [&] {
-            checkBox(m_autoIndent, LangId::SettingsAutoIndent);
-            checkBox(m_indentGuide, LangId::SettingsIndentGuides);
-            checkBox(m_showWhiteSpaces, LangId::SettingsWhitespace);
-            checkBox(m_showLineEndings, LangId::SettingsLineEndings);
-            checkBox(m_braceHighlight, LangId::SettingsBraceHighlight);
-            spinCtrl(m_edgeColumn, LangId::SettingsRightMarginWidth, 1, 200, {});
+            checkBox(m_autoIndent,      tr("dialogs.settings.general.autoIndent"));
+            checkBox(m_indentGuide,     tr("dialogs.settings.general.indentGuides"));
+            checkBox(m_showWhiteSpaces, tr("dialogs.settings.general.whitespace"));
+            checkBox(m_showLineEndings, tr("dialogs.settings.general.lineEndings"));
+            checkBox(m_braceHighlight,  tr("dialogs.settings.general.braceHighlight"));
+            spinCtrl(m_edgeColumn, tr("dialogs.settings.general.rightMarginWidth"), 1, 200, {});
         });
 
         separator({ .space = false });
 
         vbox({ .proportion = 1 }, [&] {
-            checkBox(m_syntaxHighlight, LangId::SettingsSyntaxHighlight);
-            checkBox(m_showLineNumbers, LangId::SettingsLineNumbers);
-            checkBox(m_showRightMargin, LangId::SettingsRightMargin);
-            checkBox(m_foldMargin, LangId::SettingsFoldMargin);
-            checkBox(m_splashScreen, LangId::SettingsSplashScreen);
-            spinCtrl(m_tabSize, LangId::SettingsTabSize, 1, 16, {});
+            checkBox(m_syntaxHighlight, tr("dialogs.settings.general.syntaxHighlight"));
+            checkBox(m_showLineNumbers, tr("dialogs.settings.general.lineNumbers"));
+            checkBox(m_showRightMargin, tr("dialogs.settings.general.rightMargin"));
+            checkBox(m_foldMargin,      tr("dialogs.settings.general.foldMargin"));
+            checkBox(m_splashScreen,    tr("dialogs.settings.general.splashScreen"));
+            spinCtrl(m_tabSize, tr("dialogs.settings.general.tabSize"), 1, 16, {});
         });
     });
 
     // Language section
-    vbox(lang[LangId::SettingsLanguage], {}, [&] {
+    vbox(tr("dialogs.settings.general.language"), {}, [&] {
         hbox({ .center = true, .border = 0 }, [&] {
-            text(LangId::SettingsLanguageSelect, { .proportion = 1, .expand = false });
+            text(tr("dialogs.settings.general.languageSelect"), { .proportion = 1, .expand = false });
             choice(m_language, getContext().getConfig().getAllLanguages(), { .expand = false })->SetMinSize(wxSize(200, -1));
         });
 
         // Restart warning
-        text(LangId::SettingsLanguageRestart);
+        text(tr("dialogs.settings.general.languageRestart"));
     });
 }
 

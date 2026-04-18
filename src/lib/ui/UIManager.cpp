@@ -13,7 +13,6 @@
 #include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
-#include "config/Lang.hpp"
 #include "editor/DocumentManager.hpp"
 #include "editor/Editor.hpp"
 #include "rc/icons.hpp"
@@ -324,9 +323,8 @@ void UIManager::configureToolBar() {
 }
 
 void UIManager::createStatusBar() const {
-    const auto& lang = m_ctx.getLang();
     m_frame->CreateStatusBar(2);
-    m_frame->SetStatusText(lang[LangId::Welcome]);
+    m_frame->SetStatusText(m_ctx.tr("common.welcome"));
 }
 
 void UIManager::createLayout() {
@@ -426,8 +424,7 @@ void UIManager::syncConsoleState(const bool visible) const {
 
 auto UIManager::getCompilerLog() -> CompilerLog& {
     if (m_compilerLog == nullptr) {
-        const auto& lang = m_ctx.getLang();
-        m_compilerLog = make_unowned<CompilerLog>(m_frame, lang[LangId::CompilerLogTitle]);
+        m_compilerLog = make_unowned<CompilerLog>(m_frame, m_ctx.tr("dialogs.log.title"));
         m_compilerLog->create(m_ctx);
         m_compilerLog->Bind(wxEVT_CLOSE_WINDOW, [&](wxCloseEvent& event) {
             event.Skip();

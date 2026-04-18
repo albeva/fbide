@@ -7,7 +7,6 @@
 #include "OutputConsole.hpp"
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
-#include "config/Lang.hpp"
 using namespace fbide;
 
 // clang-format off
@@ -24,23 +23,22 @@ OutputConsole::OutputConsole(wxWindow* parent, Context& ctx)
 void OutputConsole::create() {
     SetFont(wxFont(10, wxFONTFAMILY_MODERN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
 
-    const auto& lang = m_ctx.getLang();
     wxListItem col;
     col.SetAlign(wxLIST_FORMAT_LEFT);
 
-    col.SetText(lang[LangId::ConsoleLine]);
+    col.SetText(m_ctx.tr("panels.results.columns.line"));
     InsertColumn(0, col);
     SetColumnWidth(0, 60);
 
-    col.SetText(lang[LangId::ConsoleFile]);
+    col.SetText(m_ctx.tr("panels.results.columns.file"));
     InsertColumn(1, col);
     SetColumnWidth(1, 150);
 
-    col.SetText(lang[LangId::ConsoleErrorNr]);
+    col.SetText(m_ctx.tr("panels.results.columns.errorNr"));
     InsertColumn(2, col);
     SetColumnWidth(2, 100);
 
-    col.SetText(lang[LangId::ConsoleMessage]);
+    col.SetText(m_ctx.tr("panels.results.columns.message"));
     InsertColumn(3, col);
     SetColumnWidth(3, 600);
 }

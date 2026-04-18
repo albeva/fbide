@@ -131,8 +131,10 @@ public:
     CONGIG_ACCESSOR(keywords, getKeywords)
     CONGIG_ACCESSOR(layout, getLayout)
 
-private:
+    /// Resolve path on the given ConfigValue
     [[nodiscard]] auto read(ConfigValue* src, const wxString& path) -> std::optional<ConfigValue*>;
+
+private:
 
     template<typename T>
     [[nodiscard]] static auto read(const ConfigValue& value) -> const T* {

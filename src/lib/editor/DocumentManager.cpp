@@ -10,7 +10,6 @@
 #include "app/Context.hpp"
 #include "config/Config.hpp"
 #include "config/FileHistory.hpp"
-#include "config/Lang.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
@@ -40,13 +39,12 @@ auto DocumentManager::newFile(DocumentType type) -> Document& {
 }
 
 void DocumentManager::openFile() {
-    const auto& lang = m_ctx.getLang();
     wxFileDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
-        lang[LangId::FileLoadTitle],
+        m_ctx.tr("files.loadTitle"),
         "",
         ".bas",
-        lang[LangId::FileLoadFilter],
+        "FreeBASIC files (*.bas;*.bi)|*.bas;*.bi|All files|*.*",
         wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE
     );
 
@@ -115,19 +113,17 @@ auto DocumentManager::saveFile(Document& doc) const -> bool {
 }
 
 auto DocumentManager::saveFileAs(Document& doc) const -> bool {
-    const auto& lang = m_ctx.getLang();
-
     wxString filter;
     if (doc.getType() == DocumentType::HTML) {
-        filter = lang[LangId::FileHtmlFilter];
+        filter = "HTML files (*.html)|*.html";
     } else {
-        filter = lang[LangId::FileSaveFilter];
+        filter = "FreeBASIC files (*.bas;*.bi)|*.bas;*.bi";
     }
-    filter += "|" + lang[LangId::FileSaveFilterAny];
+    filter += "|All files|*.*";
 
     wxFileDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
-        lang[LangId::FileSaveTitle],
+        m_ctx.tr("files.saveTitle"),
         "",
         doc.isNew() ? wxString(".bas") : wxFileName(doc.getFilePath()).GetFullName(),
         filter,
@@ -163,10 +159,9 @@ auto DocumentManager::saveAllFiles() const -> bool {
 
 auto DocumentManager::closeFile(Document& doc) -> bool {
     if (doc.isModified()) {
-        const auto& lang = m_ctx.getLang();
         const auto result = wxMessageBox(
-            wxString::Format(lang[LangId::FileModifiedFormat], doc.getTitle()),
-            lang[LangId::FileModifiedTitle],
+            wxString::Format(m_ctx.tr("messages.fileModifiedFormat"), doc.getTitle()),
+            m_ctx.tr("messages.fileModifiedTitle"),
             wxYES_NO | wxCANCEL | wxICON_EXCLAMATION,
             m_ctx.getUIManager().getMainFrame()
         );
@@ -214,10 +209,9 @@ auto DocumentManager::prepareToQuit() -> bool {
         return true;
     }
 
-    const auto& lang = m_ctx.getLang();
     const auto result = wxMessageBox(
-        lang[LangId::SaveChanges],
-        lang[LangId::SaveBeforeExit],
+        m_ctx.tr("messages.saveChanges"),
+        m_ctx.tr("messages.saveBeforeExit"),
         wxYES_NO | wxCANCEL | wxICON_EXCLAMATION,
         m_ctx.getUIManager().getMainFrame()
     );
@@ -391,12 +385,11 @@ void DocumentManager::loadSession(const wxString& path) {
 }
 
 void DocumentManager::loadSession() {
-    const auto& lang = m_ctx.getLang();
     wxFileDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
-        lang[LangId::FileLoadTitle],
+        m_ctx.tr("files.loadTitle"),
         "", wxString(".") + Config::SESSION_EXT,
-        lang[LangId::FileSessionFilter],
+        "FBIde session files (*.fbs)|*.fbs",
         wxFD_FILE_MUST_EXIST
     );
     if (dlg.ShowModal() == wxID_OK) {
@@ -409,12 +402,11 @@ void DocumentManager::saveSession() {
         return;
     }
 
-    const auto& lang = m_ctx.getLang();
     wxFileDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
-        lang[LangId::FileSessionSaveTitle],
+        m_ctx.tr("files.sessionSaveTitle"),
         "", wxString(".") + Config::SESSION_EXT,
-        lang[LangId::FileSessionFilter],
+        "FBIde session files (*.fbs)|*.fbs",
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
     );
     if (dlg.ShowModal() != wxID_OK) {
@@ -491,10 +483,9 @@ void DocumentManager::gotoLine() {
     if (!doc) {
         return;
     }
-    const auto& lang = m_ctx.getLang();
     const auto input = wxGetTextFromUser(
-        lang[LangId::SearchGotoPrompt],
-        lang[LangId::SearchGotoTitle],
+        m_ctx.tr("dialogs.goto.prompt"),
+        m_ctx.tr("dialogs.goto.title"),
         "",
         m_ctx.getUIManager().getMainFrame()
     );
@@ -515,9 +506,8 @@ void DocumentManager::showFindDialog(const bool replace) {
     }
 
     auto* frame = m_ctx.getUIManager().getMainFrame();
-    const auto& lang = m_ctx.getLang();
     const int style = replace ? wxFR_REPLACEDIALOG : 0;
-    const auto& title = replace ? lang[LangId::SearchReplaceTitle] : lang[LangId::SearchFindTitle];
+    const auto title = replace ? m_ctx.tr("dialogs.replace.title") : m_ctx.tr("dialogs.find.title");
 
     const auto dlg = make_unowned<wxFindReplaceDialog>(frame, &m_findData, title, style);
     dlg->PushEventHandler(this);

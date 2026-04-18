@@ -7,7 +7,6 @@
 #pragma once
 #include "pch.hpp"
 #include "AsyncProcess.hpp"
-#include "config/LangId.hpp"
 
 namespace fbide {
 class Context;
@@ -77,8 +76,8 @@ private:
     /// Clean up temp files from quick run.
     void cleanupTempFiles();
 
-    /// Set status bar text.
-    void setStatus(LangId id) const;
+    /// Set status bar text from a locale path (empty for none).
+    void setStatus(const wxString& path) const;
 
     Context& m_ctx;
     Document* m_doc;

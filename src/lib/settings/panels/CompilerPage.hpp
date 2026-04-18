@@ -27,8 +27,8 @@ private:
     void helpFile();
 #endif
 
-    auto makeEntryField(wxString& value, LangId lang) -> Unowned<wxTextCtrl>;
-    auto makeFileEntry(wxString& value, LangId lang) -> std::pair<Unowned<wxTextCtrl>, Unowned<wxButton>>;
+    auto makeEntryField(wxString& value, const wxString& labelText) -> Unowned<wxTextCtrl>;
+    auto makeFileEntry(wxString& value, const wxString& labelText) -> std::pair<Unowned<wxTextCtrl>, Unowned<wxButton>>;
 
     wxString m_compilerPath;
     wxString m_compileCommand;

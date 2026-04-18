@@ -9,7 +9,6 @@
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/Keywords.hpp"
-#include "config/Lang.hpp"
 using namespace fbide;
 
 namespace {
@@ -37,14 +36,12 @@ KeywordsPage::KeywordsPage(Context& ctx, wxWindow* parent)
 }
 
 void KeywordsPage::create() {
-    const auto& lang = getContext().getLang();
-
     // Group dropdown
     const wxArrayString options {
-        lang[LangId::ThemeGroup1],
-        lang[LangId::ThemeGroup2],
-        lang[LangId::ThemeGroup3],
-        lang[LangId::ThemeGroup4]
+        tr("dialogs.settings.keywords.group1"),
+        tr("dialogs.settings.keywords.group2"),
+        tr("dialogs.settings.keywords.group3"),
+        tr("dialogs.settings.keywords.group4")
     };
     m_groupChoice = choice(options, { .expand = false });
     m_groupChoice->SetSelection(static_cast<int>(m_selectedGroup));
