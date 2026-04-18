@@ -7,10 +7,14 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 // ReSharper disable CppMemberFunctionMayBeStatic
 #include "CommandManager.hpp"
+
+#include <ranges>
+
 #include "about/AboutDialog.hpp"
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/Config.hpp"
+#include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "config/Lang.hpp"
 #include "editor/Document.hpp"
@@ -24,6 +28,7 @@ using namespace fbide;
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
+    EVT_MENU(wxID_ANY, CommandManager::onAnyEvent)
     // File
     EVT_MENU(+CommandId::New,          CommandManager::onNew)
     EVT_MENU(+CommandId::Open,         CommandManager::onOpen)
@@ -60,7 +65,7 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     // View
     EVT_MENU(+CommandId::Preferences, CommandManager::onSettings)
     EVT_MENU(+CommandId::Format,      CommandManager::onFormat)
-    EVT_MENU(+CommandId::Result,      CommandManager::onResult)
+    // EVT_MENU(+CommandId::Result,      CommandManager::onResult)
     EVT_MENU(+CommandId::Subs,        CommandManager::onSubs)
     EVT_MENU(+CommandId::CompilerLog, CommandManager::onCompilerLog)
 
@@ -141,6 +146,38 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .id = +CommandId::Undo,             .name="undo" },
     });
 #// clang-format on
+}
+
+void CommandManager::initializeCommands(){
+    // Load checked states from config
+    auto& cfg = m_ctx.getConfigManager().getConfig();
+    auto& commands = cfg["commands"];
+    for (auto& entry : m_namedCommands | std::views::values) {
+        if (entry.kind == wxITEM_CHECK) {
+            const auto key = entry.name.ToStdString();
+            if (commands.contains(key) && commands[key].is_boolean()) {
+                entry.checked = commands[key].as_boolean();
+            } else {
+                commands[key] = entry.checked;
+            }
+            entry.update();
+        }
+    }
+}
+
+void CommandManager::onAnyEvent(wxCommandEvent& event) {
+    event.Skip();
+    const auto thaw = m_ctx.getUIManager().freeze();
+
+    if (auto* entry = find(event.GetId())) {
+        if (entry->kind != wxITEM_CHECK || entry->checked == event.IsChecked()) {
+            return;
+        }
+        auto& cfg = m_ctx.getConfigManager().getConfig();
+        auto& commands = cfg["commands"];
+        commands[entry->name.ToStdString()] = event.IsChecked();
+        entry->setChecked(event.IsChecked());
+    }
 }
 
 // region ---------- Event Handling ----------
@@ -299,9 +336,10 @@ void CommandManager::onFormat(wxCommandEvent&) {
     }
 }
 
-void CommandManager::onResult(wxCommandEvent&) {
-    m_ctx.getUIManager().toggleConsole();
-}
+// void CommandManager::onResult(wxCommandEvent&) {
+//
+//     // m_ctx.getUIManager().toggleConsole();
+// }
 
 void CommandManager::onSubs(wxCommandEvent&) {
     // TODO: implement sub/function browser
@@ -400,7 +438,6 @@ auto CommandManager::find(const wxString& name)-> CommandEntry* {
     if (iter != m_namedCommands.end()) {
         return &iter->second;
     }
-    wxLogWarning("Command '%s' not registered", name);
     return nullptr;
 }
 
@@ -409,7 +446,6 @@ auto CommandManager::find(const wxString& name) const-> const CommandEntry* {
     if (iter != m_namedCommands.end()) {
         return &iter->second;
     }
-    wxLogWarning("Command '%s' not registered", name);
     return nullptr;
 }
 
@@ -418,7 +454,6 @@ auto CommandManager::find(const wxWindowID id)-> CommandEntry* {
     if (iter != m_idNames.end()) {
         return find(iter->second);
     }
-    wxLogWarning("Command with ID '%d' not registered", id);
     return nullptr;
 }
 
@@ -427,7 +462,6 @@ auto CommandManager::find(const wxWindowID id) const-> const CommandEntry* {
     if (iter != m_idNames.end()) {
         return find(iter->second);
     }
-    wxLogWarning("Command with ID '%d' not registered", id);
     return nullptr;
 }
 

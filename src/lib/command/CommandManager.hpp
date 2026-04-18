@@ -49,8 +49,14 @@ public:
         return nullptr;
     }
 
+    /// Initialize all command states from config
+    /// and trigger UI sync.
+    void initializeCommands();
+
 private:
+
     // File
+    void onAnyEvent(wxCommandEvent& event);
     void onNew(wxCommandEvent& event);
     void onOpen(wxCommandEvent& event);
     void onSave(wxCommandEvent& event);
@@ -86,7 +92,7 @@ private:
     // View
     void onSettings(wxCommandEvent& event);
     void onFormat(wxCommandEvent& event);
-    void onResult(wxCommandEvent& event);
+    // void onResult(wxCommandEvent& event);
     void onSubs(wxCommandEvent& event);
     void onCompilerLog(wxCommandEvent& event);
 

@@ -1,7 +1,12 @@
 # Config for windows
-version   = "0.5.0"
-locale    = "locales/en.toml"
-theme     = "themes/classic.toml"
+version = "0.5.0"
+locale = "locales/en.toml"
+layout = "layout.toml"
+theme = "themes/classic.toml"
 shortcuts = "shortcuts_win.toml"
-keywords  = "keywords.toml"
-layout    = "layout.toml"
+keywords = "keywords.toml"
+
+[commands]
+viewResult = false
+showExitCode = false
+

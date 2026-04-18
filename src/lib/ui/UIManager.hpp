@@ -64,17 +64,8 @@ public:
     /// Force editors to update settings.
     void updateEditorSettigs();
 
-    /// Toggle the console/output pane visibility.
-    void toggleConsole();
-
-    /// Show the console pane if not already visible.
-    void showConsole();
-
-    /// Hide the console pane if visible.
-    void hideConsole();
-
-    /// Is the console pane visible?
-    [[nodiscard]] auto isConsoleVisible() -> bool;
+    // /// Show the console pane if not already visible.
+    void showConsole(bool show);
 
     /// Get the output console.
     [[nodiscard]] auto getOutputConsole() -> OutputConsole& { return *m_console; }
@@ -95,7 +86,8 @@ private:
 
     void configureMenuBar();
     void configureMenuItems(wxMenu* menu, const wxString& id, bool addSeparators);
-    void createToolBar();
+    void configureToolBar();
+
     void createStatusBar() const;
     void createLayout();
     void syncConsoleState(bool visible) const;
@@ -135,7 +127,7 @@ private:
         CommandId::FindPrevious,
         CommandId::GotoLine,
         CommandId::Format,
-        CommandId::Result,
+        // CommandId::Result,
         CommandId::CompilerLog,
         CommandId::Subs,
         CommandId::Compile,

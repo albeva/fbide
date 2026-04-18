@@ -16,8 +16,9 @@ namespace fbide {
  * on the toolbar it is a dropdown.
  */
 struct CommandEntry final {
+
     /// Possible controls that can bind to command entry
-    using Bind = std::variant<wxMenu*, wxMenuItem*, wxToolBarToolBase*>;
+    using Bind = std::variant<wxMenu*, wxMenuItem*, wxToolBarToolBase*, wxAuiManager*>;
 
     /// Get control from binds for a given type
     template<typename T>
@@ -37,7 +38,7 @@ struct CommandEntry final {
     void setChecked(bool state);
 
     /// update bound controls
-    void update() const;
+    void update();
 
     wxWindowID id = wxID_ANY;
     wxString name;

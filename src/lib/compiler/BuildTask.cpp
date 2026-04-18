@@ -98,9 +98,7 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
         m_compilerLog.Add("");
         m_compilerLog.Add("[bold]Compiler output:[/bold]");
         showErrors(result.output);
-        ui.showConsole();
-    } else {
-        ui.hideConsole();
+        ui.showConsole(true);
     }
 
     m_compilerLog.Add("");

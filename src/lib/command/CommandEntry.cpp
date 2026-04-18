@@ -25,19 +25,42 @@ void CommandEntry::setChecked(const bool state) {
     update();
 }
 
-void CommandEntry::update() const {
+void CommandEntry::update() {
     const auto visitor = Visitor {
-        [&](wxMenu* /*menu*/) {},
-        [&](wxMenuItem* item) {
-            item->Enable(enabled);
-            if (item->IsCheckable()) {
+        [](wxMenu* /*menu*/) {},
+        [this](wxMenuItem* item) {
+            bool refresh = false;
+            if (item->IsEnabled() != enabled) {
+                item->Enable(enabled);
+                refresh = true;
+            }
+            if (item->IsCheckable() && item->IsChecked() != checked) {
                 item->Check(checked);
+                refresh = true;
+            }
+            if (refresh) {
+                item->GetMenu()->UpdateUI();
             }
         },
-        [&](wxToolBarToolBase* tool) {
-            tool->Enable(enabled);
-            if (tool->CanBeToggled()) {
+        [this](wxToolBarToolBase* tool) {
+            bool refresh = false;
+            if (tool->IsEnabled() != enabled) {
+                tool->Enable(enabled);
+                refresh = true;
+            }
+            if (tool->CanBeToggled() && tool->IsToggled() != checked) {
                 tool->Toggle(checked);
+                refresh = true;
+            }
+            if (refresh) {
+                tool->GetToolBar()->Realize();
+            }
+        },
+        [this](wxAuiManager* aui) {
+            auto& pane = aui->GetPane(name);
+            if (pane.IsShown() != checked) {
+                pane.Show(checked);
+                aui->Update();
             }
         }
     };

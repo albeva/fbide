@@ -67,6 +67,7 @@ void UIManager::onClose(wxCloseEvent& event) {
         config.setWindowH(sizeH);
     }
     config.save();
+    m_ctx.getConfigManager().save(ConfigManager::Category::Config);
     m_ctx.getFileHistory().save();
 
     // Clean up event handlers before frame destruction
@@ -98,12 +99,12 @@ void UIManager::createMainFrame() {
     m_aui.SetManagedWindow(m_frame);
 
     configureMenuBar();
-    createToolBar();
+    configureToolBar();
     createStatusBar();
     createLayout();
+    m_ctx.getCommandManager().initializeCommands();
 
     applyState(UIState::None);
-
     m_aui.Update();
     m_frame->Show();
 }
@@ -241,43 +242,82 @@ void UIManager::configureMenuItems(wxMenu* menu, const wxString& id, const bool 
     }
 }
 
-void UIManager::createToolBar() {
-    const auto& lang = m_ctx.getLang();
-    m_toolbar = m_frame->CreateToolBar(wxNO_BORDER | wxTB_HORIZONTAL | wxTB_FLAT);
+void UIManager::configureToolBar() {
+    try {
+        auto& cmd = m_ctx.getCommandManager();
+        auto& cfg = m_ctx.getConfigManager();
+        const auto& items = find(cfg.getLayout(), "toolbar").as_array();
+        const auto& commands = find(cfg.getLocale(), "commands");
 
-    const auto add = [&](const CommandId menuIdm, const LangId langId, wxBitmap&& bitmap) {
-        const auto mask = make_unowned<wxMask>(bitmap, wxColour(192, 192, 192));
-        bitmap.SetMask(mask);
-        m_toolbar->AddTool(+menuIdm, lang[langId], std::move(bitmap), lang[langId]);
-    };
+        // NOLINTBEGIN(*-avoid-c-arrays)
+        static const std::unordered_map<wxString, const char* const*> icons = {
+            { "new",           XPM::new_xpm      },
+            { "open",          XPM::open_xpm     },
+            { "save",          XPM::save_xpm     },
+            { "saveAll",       XPM::saveall_xpm  },
+            { "close",         XPM::close_xpm    },
+            { "cut",           XPM::cut_xpm      },
+            { "copy",          XPM::copy_xpm     },
+            { "paste",         XPM::paste_xpm    },
+            { "undo",          XPM::undo_xpm     },
+            { "redo",          XPM::redo_xpm     },
+            { "compile",       XPM::compile_xpm  },
+            { "run",           XPM::run_xpm      },
+            { "compileAndRun", XPM::compnrun_xpm },
+            { "quickRun",      XPM::qrun_xpm     },
+            { "viewResult",    XPM::output_xpm   },
+        };
+        // NOLINTEND(*-avoid-c-arrays)
 
-    // NOLINTBEGIN(*-avoid-c-arrays)
-    add(CommandId::New, LangId::ToolbarNew, wxBitmap(XPM::new_xpm));
-    add(CommandId::Open, LangId::ToolbarOpen, wxBitmap(XPM::open_xpm));
-    add(CommandId::Save, LangId::ToolbarSave, wxBitmap(XPM::save_xpm));
-    add(CommandId::SaveAll, LangId::ToolbarSaveAll, wxBitmap(XPM::saveall_xpm));
-    add(CommandId::Close, LangId::ToolbarClose, wxBitmap(XPM::close_xpm));
-    m_toolbar->AddSeparator();
-    add(CommandId::Cut, LangId::ToolbarCut, wxBitmap(XPM::cut_xpm));
-    add(CommandId::Copy, LangId::ToolbarCopy, wxBitmap(XPM::copy_xpm));
-    add(CommandId::Paste, LangId::ToolbarPaste, wxBitmap(XPM::paste_xpm));
-    m_toolbar->AddSeparator();
-    add(CommandId::Undo, LangId::ToolbarUndo, wxBitmap(XPM::undo_xpm));
-    add(CommandId::Redo, LangId::ToolbarRedo, wxBitmap(XPM::redo_xpm));
-    m_toolbar->AddSeparator();
-    add(CommandId::Compile, LangId::ToolbarCompile, wxBitmap(XPM::compile_xpm));
-    add(CommandId::Run, LangId::ToolbarRun, wxBitmap(XPM::run_xpm));
-    add(CommandId::CompileAndRun, LangId::ToolbarCompileAndRun, wxBitmap(XPM::compnrun_xpm));
-    add(CommandId::QuickRun, LangId::ToolbarQuickRun, wxBitmap(XPM::qrun_xpm));
-    {
-        wxBitmap bitmap(XPM::output_xpm);
-        const auto mask = make_unowned<wxMask>(bitmap, wxColour(192, 192, 192));
-        bitmap.SetMask(mask);
-        m_toolbar->AddCheckTool(+CommandId::Result, lang[LangId::ToolbarResult], std::move(bitmap));
+        const bool createTools = m_toolbar == nullptr;
+        if (createTools) {
+            m_toolbar = m_frame->CreateToolBar(wxNO_BORDER | wxTB_HORIZONTAL | wxTB_FLAT);
+        }
+
+        for (const auto& item : items) {
+            const auto key = item.as_string();
+            if (key == "-") {
+                if (createTools) {
+                    m_toolbar->AddSeparator();
+                }
+                continue;
+            }
+
+            auto* entry = cmd.find(key);
+            if (entry == nullptr) {
+                wxLogError("Unknown command '%s'", key);
+                continue;
+            }
+
+            const auto& locale = find(commands, key);
+            const auto name = locale.at("name").as_string();
+            const auto help = find_or(locale, "help", "");
+
+            if (entry->get<wxToolBarToolBase>() != nullptr) {
+                m_toolbar->SetToolShortHelp(entry->id, name);
+                m_toolbar->SetToolLongHelp(entry->id, help);
+                continue;
+            }
+
+            const auto iconIt = icons.find(key);
+            if (iconIt == icons.end()) {
+                wxLogError("No toolbar icon for command '%s'", key);
+                continue;
+            }
+
+            wxBitmap bitmap(iconIt->second);
+            const auto mask = make_unowned<wxMask>(bitmap, wxColour(192, 192, 192));
+            bitmap.SetMask(mask);
+            auto* tool = m_toolbar->AddTool(entry->id, name, bitmap, help, entry->kind);
+            entry->binds.push_back(tool);
+        }
+
+        if (createTools) {
+            m_toolbar->Realize();
+        }
+    } catch (const std::exception& ex) {
+        wxLogError("Invalid layout config for toolbar: %s", ex.what());
     }
-    // NOLINTEND(*-avoid-c-arrays)
-
-    m_toolbar->Realize();
 }
 
 void UIManager::createStatusBar() const {
@@ -306,15 +346,23 @@ void UIManager::createLayout() {
     m_console = make_unowned<OutputConsole>(m_frame.get(), m_ctx);
     m_console->create();
 
+    auto* entry = m_ctx.getCommandManager().find(+CommandId::Result);
+    if (entry == nullptr) {
+        wxLogError("Entry is missing for the result console");
+        return;
+    }
     m_aui.AddPane(
         m_console,
         wxAuiPaneInfo()
-            .Name("console")
-            .Caption("Output")
+            .Name(entry->name)
+            .Caption("Output") // TODO: grab from locale
             .Bottom()
             .BestSize(-1, 150)
             .Hide()
     );
+
+    // This is safe, wx stores panes as heap allocated objects.
+    entry->binds.push_back(&m_aui);
 }
 
 void UIManager::setDocumentState(const UIState state) {
@@ -360,39 +408,17 @@ void UIManager::applyState(const UIState state) const {
     }
 }
 
-void UIManager::toggleConsole() {
-    auto& pane = m_aui.GetPane("console");
-    pane.Show(!pane.IsShown());
-    m_aui.Update();
-    syncConsoleState(pane.IsShown());
-}
-
-void UIManager::showConsole() {
-    auto& pane = m_aui.GetPane("console");
-    if (!pane.IsShown()) {
-        pane.Show();
-        m_aui.Update();
-        syncConsoleState(true);
-    }
-}
-
-void UIManager::hideConsole() {
-    auto& pane = m_aui.GetPane("console");
-    if (pane.IsShown()) {
-        pane.Hide();
-        m_aui.Update();
-        syncConsoleState(false);
+void UIManager::showConsole(const bool show) {
+    if (auto* entry = m_ctx.getCommandManager().find(+CommandId::Result)) {
+        entry->setChecked(show);
     }
 }
 
 void UIManager::syncConsoleState(const bool visible) const {
     if (auto* item = m_ctx.getCommandManager().find(+CommandId::Result)) {
         item->setChecked(visible);
+        m_toolbar->Realize();
     }
-}
-
-auto UIManager::isConsoleVisible() -> bool {
-    return m_aui.GetPane("console").IsShown();
 }
 
 auto UIManager::getCompilerLog() -> CompilerLog& {
