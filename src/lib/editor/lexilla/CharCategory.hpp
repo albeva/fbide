@@ -9,14 +9,14 @@
 
 /// Character classification flags for the FreeBASIC lexer.
 enum class CharClass : int {
-    EndOfFile  = 1 << 0,
+    EndOfFile = 1 << 0,
     Whitespace = 1 << 1,
-    Operator   = 1 << 2,
+    Operator = 1 << 2,
     Identifier = 1 << 3,
-    Digit      = 1 << 4,
-    HexDigit   = 1 << 5,
-    BinDigit   = 1 << 6,
-    OctDigit   = 1 << 7,
+    Digit = 1 << 4,
+    HexDigit = 1 << 5,
+    BinDigit = 1 << 6,
+    OctDigit = 1 << 7,
 };
 
 static constexpr auto operator+(const CharClass& rhs) -> int {

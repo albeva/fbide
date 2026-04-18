@@ -47,11 +47,11 @@ auto resolve(toml::value& root, const std::string_view path) noexcept -> toml::v
 // Type checks
 // -------------------------------------------------------------------------
 auto Value::isString() const noexcept -> bool { return m_val->is_string(); }
-auto Value::isInt() const noexcept -> bool    { return m_val->is_integer(); }
-auto Value::isBool() const noexcept -> bool   { return m_val->is_boolean(); }
-auto Value::isFloat() const noexcept -> bool  { return m_val->is_floating(); }
-auto Value::isTable() const noexcept -> bool  { return m_val->is_table(); }
-auto Value::isArray() const noexcept -> bool  { return m_val->is_array(); }
+auto Value::isInt() const noexcept -> bool { return m_val->is_integer(); }
+auto Value::isBool() const noexcept -> bool { return m_val->is_boolean(); }
+auto Value::isFloat() const noexcept -> bool { return m_val->is_floating(); }
+auto Value::isTable() const noexcept -> bool { return m_val->is_table(); }
+auto Value::isArray() const noexcept -> bool { return m_val->is_array(); }
 
 // -------------------------------------------------------------------------
 // Direct reads

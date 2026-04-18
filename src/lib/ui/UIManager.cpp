@@ -8,8 +8,8 @@
 #include "UIManager.hpp"
 #include "CompilerLog.hpp"
 #include "MenuId.hpp"
-#include "../command/CommandManager.hpp"
 #include "lib/app/Context.hpp"
+#include "lib/command/CommandManager.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/FileHistory.hpp"
 #include "lib/config/Lang.hpp"
@@ -427,7 +427,7 @@ auto UIManager::getCompilerLog() -> CompilerLog& {
     return *m_compilerLog;
 }
 
-auto UIManager::freeze()-> FreezeLock{
+auto UIManager::freeze() -> FreezeLock {
     return FreezeLock { m_frame };
 }
 

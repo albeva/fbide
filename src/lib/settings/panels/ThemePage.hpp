@@ -6,8 +6,8 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "lib/ui/Panel.hpp"
 #include "lib/config/Theme.hpp"
+#include "lib/ui/Panel.hpp"
 
 namespace fbide {
 
@@ -22,7 +22,6 @@ public:
     void apply() override;
 
 private:
-
     /// All entries in the theme type listbox.
     /// First 12 are syntax styles (map to Theme::ItemKind + 1),
     /// rest are special theme elements.

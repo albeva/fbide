@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "App.hpp"
+#include <wx/clipbrd.h>
 #include "Context.hpp"
 #include "InstanceHandler.hpp"
 #include "lib/config/Config.hpp"
@@ -14,7 +15,6 @@
 #include "lib/config/Theme.hpp"
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/ui/UIManager.hpp"
-#include <wx/clipbrd.h>
 
 #include "lib/config/ConfigManager.hpp"
 using namespace fbide;

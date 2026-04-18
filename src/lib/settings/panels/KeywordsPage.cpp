@@ -45,7 +45,7 @@ void KeywordsPage::create() {
     font.SetFamily(wxFONTFAMILY_TELETYPE);
     m_textKeywords->SetFont(font);
 
-    add(m_textKeywords, { .proportion = 1 } );
+    add(m_textKeywords, { .proportion = 1 });
     spacer();
 }
 

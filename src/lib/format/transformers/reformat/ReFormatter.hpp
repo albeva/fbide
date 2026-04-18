@@ -20,7 +20,8 @@ namespace fbide::reformat {
 /// per-invocation scan state at entry.
 class ReFormatter final : public Transform {
 public:
-    explicit ReFormatter(const FormatOptions& options) : m_options(options) {}
+    explicit ReFormatter(const FormatOptions& options)
+    : m_options(options) {}
 
     [[nodiscard]] auto apply(const std::vector<lexer::Token>& tokens) -> std::vector<lexer::Token> override;
 
@@ -56,4 +57,4 @@ private:
     std::vector<std::size_t> m_ppDepths; // builder stack depth at each PP block open
 };
 
-} // namespace fbide::format
+} // namespace fbide::reformat

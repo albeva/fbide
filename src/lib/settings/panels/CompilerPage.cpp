@@ -5,8 +5,8 @@
 // https://github.com/albeva/fbide
 //
 #include "CompilerPage.hpp"
+#include "lib/help/HelpManager.hpp"
 #include "lib/app/Context.hpp"
-#include "../../help/HelpManager.hpp"
 #include "lib/compiler/CompilerManager.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/Lang.hpp"
@@ -20,7 +20,8 @@ CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 #ifdef __WXMSW__
 , m_helpFile(getConfig().getHelpFile())
 #endif
-{}
+{
+}
 
 void CompilerPage::create() {
     // makeTitle(LangId::SettingsCompilerAndPaths);

@@ -6,13 +6,17 @@
 //
 #pragma once
 #include "pch.hpp"
-
+// Order is important!
+// clang-format off
 #include "ILexer.h"
 #include "WordList.h"
 #include "LexAccessor.h"
 #include "DefaultLexer.h"
+// clang-format on
 
-namespace Lexilla { class StyleContext; }
+namespace Lexilla {
+class StyleContext;
+}
 
 namespace fbide {
 
@@ -58,6 +62,7 @@ enum class FBSciLexerState : int {
 /// Custom Scintilla lexer for FreeBASIC.
 class FBSciLexer final : public Lexilla::DefaultLexer {
     FBSciLexer();
+
 public:
     /// Number of keyword groups our lexer supports
     static constexpr std::size_t WORD_LIST_COUNT = 5;
@@ -78,10 +83,10 @@ private:
     /// Per-line state stored via IDocument::SetLineState / GetLineState.
     /// Packed into a single int for Scintilla compatibility.
     struct alignas(int) LineState final {
-        bool continueLine:1 = false;
-        bool isFirst:1 = false;
-        bool continuePP: 1 = false;
-        bool fieldAccess: 1 = false;
+        bool continueLine : 1 = false;
+        bool isFirst      : 1 = false;
+        bool continuePP   : 1 = false;
+        bool fieldAccess  : 1 = false;
 
         std::uint8_t commentNestLevel = 0;
         std::uint8_t reserved1 = 0;
@@ -137,7 +142,7 @@ private:
     bool m_isFirst = true;
     bool m_fieldAccess = false;
     bool m_slashEscapableString = false;
-    std::array<char, MAX_IDENT_LEN> m_identBuffer{};
+    std::array<char, MAX_IDENT_LEN> m_identBuffer {};
 };
 
 } // namespace fbide

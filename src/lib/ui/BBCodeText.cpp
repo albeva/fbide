@@ -8,7 +8,7 @@
 using namespace fbide;
 
 BBCodeText::BBCodeText(
-    wxWindow *parent,
+    wxWindow* parent,
     const wxWindowID id,
     const wxString& value,
     const wxPoint& pos,

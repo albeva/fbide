@@ -38,11 +38,11 @@ protected:
     auto button(LangId langId, LayoutItemOptions opts = {}, wxWindowID id = wxID_ANY, long style = 0) -> Unowned<wxButton>;
 
     // Pull in Layout's string-based overloads (otherwise hidden by the LangId ones).
-    using Layout::label;
-    using Layout::checkBox;
-    using Layout::spinCtrl;
     using Layout::button;
+    using Layout::checkBox;
     using Layout::choice;
+    using Layout::label;
+    using Layout::spinCtrl;
     using Layout::textField;
 
 private:

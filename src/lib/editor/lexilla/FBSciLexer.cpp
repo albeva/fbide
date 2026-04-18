@@ -7,8 +7,8 @@
 // ReSharper disable CppDFALocalValueEscapesFunction
 #include "FBSciLexer.hpp"
 #include "CharCategory.hpp"
-#include "StyleContext.h"
 #include "SciLexer.h"
+#include "StyleContext.h"
 using namespace fbide;
 
 namespace {
@@ -16,22 +16,22 @@ namespace {
 // region ---------- Metadata ----------
 
 constexpr std::array lexicalClasses {
-    Lexilla::LexicalClass { +FBSciLexerState::Default,          "state.default",          "default",                 "Default" },
-    Lexilla::LexicalClass { +FBSciLexerState::Comment,          "state.comment",          "comment line",            "Single-line comment" },
-    Lexilla::LexicalClass { +FBSciLexerState::MultilineComment, "state.comment.block",    "comment",                 "Block comment" },
-    Lexilla::LexicalClass { +FBSciLexerState::Number,           "state.number",           "literal numeric",         "Number" },
-    Lexilla::LexicalClass { +FBSciLexerState::String,           "state.string",           "literal string",          "String literal" },
-    Lexilla::LexicalClass { +FBSciLexerState::StringOpen,       "state.string.unclosed",  "literal string unclosed", "Unclosed string" },
-    Lexilla::LexicalClass { +FBSciLexerState::Identifier,       "state.identifier",       "identifier",              "Identifier" },
-    Lexilla::LexicalClass { +FBSciLexerState::Keyword1,         "state.keyword",          "keyword",                 "Keywords" },
-    Lexilla::LexicalClass { +FBSciLexerState::Keyword2,         "state.keyword2",         "keyword",                 "Types" },
-    Lexilla::LexicalClass { +FBSciLexerState::Keyword3,         "state.keyword3",         "keyword",                 "Operators" },
-    Lexilla::LexicalClass { +FBSciLexerState::Keyword4,         "state.keyword4",         "keyword",                 "Defines" },
-    Lexilla::LexicalClass { +FBSciLexerState::Keyword5,         "state.keyword5",         "keyword",                 "User keywords" },
-    Lexilla::LexicalClass { +FBSciLexerState::Operator,         "state.operator",         "operator",                "Operator" },
-    Lexilla::LexicalClass { +FBSciLexerState::Label,            "state.label",            "label",                   "Label" },
-    Lexilla::LexicalClass { +FBSciLexerState::Constant,         "state.constant",         "keyword constant value",  "Built-in constants" },
-    Lexilla::LexicalClass { +FBSciLexerState::Preprocessor,     "state.preprocessor",     "preprocessor",            "Preprocessor" },
+    Lexilla::LexicalClass { +FBSciLexerState::Default, "state.default", "default", "Default" },
+    Lexilla::LexicalClass { +FBSciLexerState::Comment, "state.comment", "comment line", "Single-line comment" },
+    Lexilla::LexicalClass { +FBSciLexerState::MultilineComment, "state.comment.block", "comment", "Block comment" },
+    Lexilla::LexicalClass { +FBSciLexerState::Number, "state.number", "literal numeric", "Number" },
+    Lexilla::LexicalClass { +FBSciLexerState::String, "state.string", "literal string", "String literal" },
+    Lexilla::LexicalClass { +FBSciLexerState::StringOpen, "state.string.unclosed", "literal string unclosed", "Unclosed string" },
+    Lexilla::LexicalClass { +FBSciLexerState::Identifier, "state.identifier", "identifier", "Identifier" },
+    Lexilla::LexicalClass { +FBSciLexerState::Keyword1, "state.keyword", "keyword", "Keywords" },
+    Lexilla::LexicalClass { +FBSciLexerState::Keyword2, "state.keyword2", "keyword", "Types" },
+    Lexilla::LexicalClass { +FBSciLexerState::Keyword3, "state.keyword3", "keyword", "Operators" },
+    Lexilla::LexicalClass { +FBSciLexerState::Keyword4, "state.keyword4", "keyword", "Defines" },
+    Lexilla::LexicalClass { +FBSciLexerState::Keyword5, "state.keyword5", "keyword", "User keywords" },
+    Lexilla::LexicalClass { +FBSciLexerState::Operator, "state.operator", "operator", "Operator" },
+    Lexilla::LexicalClass { +FBSciLexerState::Label, "state.label", "label", "Label" },
+    Lexilla::LexicalClass { +FBSciLexerState::Constant, "state.constant", "keyword constant value", "Built-in constants" },
+    Lexilla::LexicalClass { +FBSciLexerState::Preprocessor, "state.preprocessor", "preprocessor", "Preprocessor" },
 };
 
 constexpr std::array<const char*, FBSciLexer::WORD_LIST_COUNT + 1> wordListDescriptions {
@@ -52,7 +52,7 @@ constexpr std::array wordListStyle {
 };
 static_assert(wordListStyle.size() == FBSciLexer::WORD_LIST_COUNT);
 
-//endregion
+// endregion
 
 // endregion
 
@@ -61,15 +61,17 @@ static_assert(wordListStyle.size() == FBSciLexer::WORD_LIST_COUNT);
 // region ---------- Scintilla Boilerplate ----------
 
 FBSciLexer::FBSciLexer()
-    : DefaultLexer("freebasic", SCLEX_AUTOMATIC, lexicalClasses.data(), lexicalClasses.size()) {}
+: DefaultLexer("freebasic", SCLEX_AUTOMATIC, lexicalClasses.data(), lexicalClasses.size()) {}
 
 const char* SCI_METHOD FBSciLexer::DescribeWordListSets() {
     // ReSharper disable once CppVariableCanBeMadeConstexpr
     static const std::string desc = [] {
         std::string result;
         for (const auto* entry : wordListDescriptions) {
-            if (entry == nullptr) break;
-            if (!result.empty()) result += '\n';
+            if (entry == nullptr)
+                break;
+            if (!result.empty())
+                result += '\n';
             result += entry;
         }
         return result;
@@ -164,7 +166,7 @@ void SCI_METHOD FBSciLexer::Lex(
     sc.Complete();
 }
 
-void FBSciLexer::lexLineStart() noexcept{
+void FBSciLexer::lexLineStart() noexcept {
     const auto newLine = m_sc->currentLine;
 
     // is the next line?
@@ -197,7 +199,7 @@ void FBSciLexer::lexLineStart() noexcept{
     }
 }
 
-void FBSciLexer::lexLineEnd() noexcept{
+void FBSciLexer::lexLineEnd() noexcept {
     m_lineState.isFirst = m_isFirst;
     m_lineState.fieldAccess = m_fieldAccess;
     m_styler->SetLineState(m_line, m_lineState.toInt());
@@ -300,7 +302,7 @@ void FBSciLexer::lexDefault() noexcept {
         m_sc->Forward();
     }
     // $"string literal"
-    else if (m_sc->ch == '$' &&  m_sc->chNext == '"') {
+    else if (m_sc->ch == '$' && m_sc->chNext == '"') {
         m_sc->SetState(+StringOpen);
         m_sc->Forward();
     }
@@ -398,8 +400,7 @@ void FBSciLexer::lexNumber() noexcept {
     // Try to enter exponent: (D|E)[+|-]
     const auto tryExponent = [&] -> bool {
         const auto lc = fastUnsafeLowerCase(m_sc->ch);
-        if ((lc == 'e' || lc == 'd') &&
-            (isDigit(m_sc->chNext) || m_sc->chNext == '+' || m_sc->chNext == '-')) {
+        if ((lc == 'e' || lc == 'd') && (isDigit(m_sc->chNext) || m_sc->chNext == '+' || m_sc->chNext == '-')) {
             m_numberForm = NumberForm::Exponent;
             m_sc->Forward();
             if (m_sc->ch == '+' || m_sc->ch == '-') {
@@ -466,11 +467,9 @@ void FBSciLexer::lexStringOpen() noexcept {
         m_sc->ChangeState(+FBSciLexerState::String);
         resetToDefault();
         m_slashEscapableString = false;
-    }
-    else if (m_sc->ch == '\\' && m_sc->chNext == '\"' && m_slashEscapableString) {
+    } else if (m_sc->ch == '\\' && m_sc->chNext == '\"' && m_slashEscapableString) {
         m_sc->Forward();
-    }
-    else if (m_sc->atLineEnd) {
+    } else if (m_sc->atLineEnd) {
         m_sc->SetState(+FBSciLexerState::Default); // no reset
         m_slashEscapableString = false;
     }

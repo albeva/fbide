@@ -46,7 +46,9 @@ struct ProgramTree {
 };
 
 /// Helper for std::visit with multiple lambdas.
-template <class... Ts>
-struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts>
+struct overloaded : Ts... {
+    using Ts::operator()...;
+};
 
-} // namespace fbide::format
+} // namespace fbide::reformat

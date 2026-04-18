@@ -14,6 +14,7 @@ namespace fbide {
 FBIDE_INLINE static wxString operator/(const wxString& lhs, const wxString& rhs) {
     return wxString(lhs).append(wxFileName::GetPathSeparator()).append(rhs);
 }
+
 FBIDE_INLINE static wxString operator/=(const wxString& lhs, const wxString& rhs) {
     return wxString(lhs).append(wxFileName::GetPathSeparator()).append(rhs);
 }
@@ -25,4 +26,4 @@ FBIDE_INLINE static wxString operator""_wx(const char* s, std::size_t len) {
     return { s, len };
 }
 
-}
+} // namespace fbide

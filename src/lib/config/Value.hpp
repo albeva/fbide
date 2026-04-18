@@ -24,7 +24,8 @@ namespace fbide {
 /// via raw(). All getXxx / asXxx methods are read-only regardless.
 class Value final {
 public:
-    explicit Value(toml::value& v) noexcept : m_val(&v) {}
+    explicit Value(toml::value& v) noexcept
+    : m_val(&v) {}
 
     // -------------------------------------------------------------------
     // Type checks on the current node

@@ -9,14 +9,13 @@
 
 namespace fbide {
 
-template <std::invocable Callback>
+template<std::invocable Callback>
 class DeferHandler {
 public:
     NO_COPY_AND_MOVE(DeferHandler)
 
     explicit DeferHandler(Callback&& callback) noexcept
     : m_callback(std::forward<Callback>(callback)) {}
-
 
     ~DeferHandler() noexcept {
         m_callback();
@@ -26,12 +25,14 @@ private:
     Callback m_callback;
 };
 
-template <typename F>
+template<typename F>
 DeferHandler(F) -> DeferHandler<F>;
 
 #define DEFER_CONCAT_INTERNAL(x, y) x##y
 #define DEFER_CONCAT(x, y) DEFER_CONCAT_INTERNAL(x, y)
-#define DEFER(STMT) \
-    const DeferHandler DEFER_CONCAT(_defer_, __LINE__) { [&]() { STMT; } }
+#define DEFER(STMT)                                      \
+    const DeferHandler DEFER_CONCAT(_defer_, __LINE__) { \
+        [&]() { STMT; }                                  \
+    }
 
 } // namespace fbide

@@ -36,8 +36,8 @@ void buildChmBlockedContent(Layout<wxDialog>& dlg, const wxString& fileName) {
 
     dlg.label(
         "The file \"" + fileName + "\" is currently locked\n"
-        "by Windows. You can unlock it by right-clicking the\n"
-        "file, opening Properties, and clicking Unblock."
+                                   "by Windows. You can unlock it by right-clicking the\n"
+                                   "file, opening Properties, and clicking Unblock."
     );
 
     dlg.add(make_unowned<wxHyperlinkCtrl>(

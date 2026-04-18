@@ -28,8 +28,8 @@ void Document::setFilePath(const wxString& path) {
 
 auto Document::getTitle() const -> wxString {
     wxString title = isNew()
-        ? m_ctx.getLang()[LangId::Untitled]
-        : wxFileName(m_filePath).GetFullName();
+                       ? m_ctx.getLang()[LangId::Untitled]
+                       : wxFileName(m_filePath).GetFullName();
     if (isModified()) {
         title = "[*] " + title;
     }

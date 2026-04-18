@@ -18,44 +18,47 @@ auto Renderer::render(const ProgramTree& tree) -> std::vector<Token> {
 
 void Renderer::renderNodes(const std::vector<Node>& nodes, const std::size_t indent) {
     for (const auto& node : nodes) {
-        std::visit(overloaded {
-            [&](const BlankLineNode&) {
-                // reFormat=true collapses runs of blank lines to one.
-                // reFormat=false emits each blank line to preserve the
-                // original vertical layout.
-                if (m_options.reFormat && m_lastWasBlankLine) {
-                    // skip — collapse
-                } else {
-                    emitNewline();
-                    m_lastWasBlankLine = true;
-                }
-                m_lastWasBlock = false;
-            },
-            [&](const StatementNode& stmt) {
-                renderStatement(stmt, indent);
-                m_lastWasBlankLine = false;
-                m_lastWasBlock = false;
-            },
-            [&](const std::unique_ptr<BlockNode>& block) {
-                const bool branch = isBranch(*block);
+        std::visit(
+            overloaded {
+                [&](const BlankLineNode&) {
+                    // reFormat=true collapses runs of blank lines to one.
+                    // reFormat=false emits each blank line to preserve the
+                    // original vertical layout.
+                    if (m_options.reFormat && m_lastWasBlankLine) {
+                        // skip — collapse
+                    } else {
+                        emitNewline();
+                        m_lastWasBlankLine = true;
+                    }
+                    m_lastWasBlock = false;
+                },
+                [&](const StatementNode& stmt) {
+                    renderStatement(stmt, indent);
+                    m_lastWasBlankLine = false;
+                    m_lastWasBlock = false;
+                },
+                [&](const std::unique_ptr<BlockNode>& block) {
+                    const bool branch = isBranch(*block);
 
-                // Ensure blank line between consecutive definitions.
-                // Suppressed when reFormat=false — user's original vertical
-                // layout takes precedence.
-                if (m_options.reFormat && !branch && m_lastWasBlock && !m_lastWasBlankLine
-                    && isDefinition(*block)) {
-                    emitNewline();
-                }
+                    // Ensure blank line between consecutive definitions.
+                    // Suppressed when reFormat=false — user's original vertical
+                    // layout takes precedence.
+                    if (m_options.reFormat && !branch && m_lastWasBlock && !m_lastWasBlankLine
+                        && isDefinition(*block)) {
+                        emitNewline();
+                    }
 
-                if (branch && indent > 0) {
-                    renderBlock(*block, indent - 1);
-                } else {
-                    renderBlock(*block, indent);
-                }
-                m_lastWasBlankLine = false;
-                m_lastWasBlock = !branch;
+                    if (branch && indent > 0) {
+                        renderBlock(*block, indent - 1);
+                    } else {
+                        renderBlock(*block, indent);
+                    }
+                    m_lastWasBlankLine = false;
+                    m_lastWasBlock = !branch;
+                },
             },
-        }, node);
+            node
+        );
     }
 }
 

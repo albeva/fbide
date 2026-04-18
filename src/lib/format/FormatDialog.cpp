@@ -5,21 +5,20 @@
 // https://github.com/albeva/fbide
 //
 #include "FormatDialog.hpp"
-#include "transformers/case/CaseTransform.hpp"
-#include "transformers/reformat/ReFormatter.hpp"
-#include "renderers/HtmlRenderer.hpp"
+#include <wx/clipbrd.h>
 #include "lib/analyses/lexer/Lexer.hpp"
-#include "renderers/PlainTextRenderer.hpp"
 #include "lib/app/Context.hpp"
 #include "lib/config/Config.hpp"
-#include "lib/config/Keywords.hpp"
 #include "lib/config/Lang.hpp"
 #include "lib/config/Theme.hpp"
 #include "lib/editor/Document.hpp"
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/editor/Editor.hpp"
 #include "lib/ui/UIManager.hpp"
-#include <wx/clipbrd.h>
+#include "renderers/HtmlRenderer.hpp"
+#include "renderers/PlainTextRenderer.hpp"
+#include "transformers/case/CaseTransform.hpp"
+#include "transformers/reformat/ReFormatter.hpp"
 using namespace fbide;
 
 namespace {
@@ -76,12 +75,14 @@ void FormatDialog::create() {
         m_alignPPCheck = checkBox("Align PP", { .expand = false }, ID_ALIGN_PP);
         m_alignPPCheck->SetToolTip(
             "Pin '#' of preprocessor directives to column 0 and indent the directive name.\n"
-            "Requires Re-indent.");
+            "Requires Re-indent."
+        );
 
         m_reformatCheck = checkBox("Re-format", { .expand = false }, ID_REFORMAT);
         m_reformatCheck->SetToolTip(
             "Normalise spacing between tokens (one space around binary ops, no space inside parens, etc.).\n"
-            "Off = preserve the original inter-token whitespace.");
+            "Off = preserve the original inter-token whitespace."
+        );
 
         separator({ .space = false });
 
@@ -203,9 +204,12 @@ void FormatDialog::rebuildTransforms() {
 }
 
 auto FormatDialog::getKeywordCase() const -> std::optional<CaseMode> {
-    if (m_caseKeyWord->GetValue()) return CaseMode::Mixed;
-    if (m_caseKEYWORD->GetValue()) return CaseMode::Upper;
-    if (m_casekeyword->GetValue()) return CaseMode::Lower;
+    if (m_caseKeyWord->GetValue())
+        return CaseMode::Mixed;
+    if (m_caseKEYWORD->GetValue())
+        return CaseMode::Upper;
+    if (m_casekeyword->GetValue())
+        return CaseMode::Lower;
     return std::nullopt;
 }
 

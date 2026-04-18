@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "BuildTask.hpp"
+#include <cmake/config.hpp>
 #include "CompileCommand.hpp"
 #include "CompilerManager.hpp"
 #include "RunCommand.hpp"
@@ -16,7 +17,6 @@
 #include "lib/editor/Editor.hpp"
 #include "lib/ui/OutputConsole.hpp"
 #include "lib/ui/UIManager.hpp"
-#include <cmake/config.hpp>
 using namespace fbide;
 
 BuildTask::BuildTask(Context& ctx, Document* doc)

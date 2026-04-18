@@ -197,7 +197,7 @@ void Editor::applyFreebasicTheme() {
     applyStyle(+Keyword2, theme.getStyle(Theme::Keyword2), editor);
     applyStyle(+Keyword3, theme.getStyle(Theme::Keyword3), editor);
     applyStyle(+Keyword4, theme.getStyle(Theme::Keyword4), editor);
-    applyStyle(+Keyword5, theme.getStyle(Theme::Keyword), editor);    // TODO: keyword 5
+    applyStyle(+Keyword5, theme.getStyle(Theme::Keyword), editor); // TODO: keyword 5
     applyStyle(+Operator, theme.getStyle(Theme::Operator), editor);
     applyStyle(+Label, theme.getStyle(Theme::Identifier), editor);    // TODO: label
     applyStyle(+Constant, theme.getStyle(Theme::Identifier), editor); // TODO: constant
@@ -505,8 +505,8 @@ void Editor::onFocus(wxFocusEvent& event) {
     event.Skip();
     updateStatusBar();
     const auto state = m_docType == DocumentType::FreeBASIC
-        ? UIState::FocusedValidSourceFile
-        : UIState::FocusedUnknownFile;
+                         ? UIState::FocusedValidSourceFile
+                         : UIState::FocusedUnknownFile;
     m_ctx.getUIManager().setDocumentState(state);
 }
 

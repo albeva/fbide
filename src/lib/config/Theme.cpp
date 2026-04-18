@@ -88,12 +88,12 @@ void Theme::load(const wxString& path) {
     // [brace]
     ini.SetPath("/brace");
     readColors(ini, m_brace, m_editor.foreground, m_editor.background);
-    m_brace.fontStyle = readFontStyle(ini, FontStyle{});
+    m_brace.fontStyle = readFontStyle(ini, FontStyle {});
 
     // [badbrace]
     ini.SetPath("/badbrace");
     readColors(ini, m_badBrace, m_editor.foreground, *wxBLACK);
-    m_badBrace.fontStyle = readFontStyle(ini, FontStyle{});
+    m_badBrace.fontStyle = readFontStyle(ini, FontStyle {});
 
     // Per-style entries (1-14)
     for (size_t idx = 1; idx < sectionNames.size(); idx++) {

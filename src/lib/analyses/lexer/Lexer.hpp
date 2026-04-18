@@ -34,7 +34,8 @@ public:
 
 private:
     // String lexing modes
-    enum class StringMode { Normal, Escaped };
+    enum class StringMode { Normal,
+        Escaped };
 
     // Cursor helpers
     [[nodiscard]] auto current() const -> char { return *m_pos; }
@@ -76,4 +77,4 @@ private:
     bool m_canBeUnary = true; // true when next +/-/*/@  would be unary
 };
 
-} // namespace fbide
+} // namespace fbide::lexer

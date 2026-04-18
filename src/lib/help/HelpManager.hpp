@@ -7,7 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #ifdef __WXMSW__
-#    include <wx/msw/helpchm.h>
+#include <wx/msw/helpchm.h>
 #endif
 
 namespace fbide {

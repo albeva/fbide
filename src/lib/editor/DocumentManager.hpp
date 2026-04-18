@@ -95,7 +95,6 @@ public:
     void gotoLine();
 
 private:
-
     /// Find notebook page index for a document.
     [[nodiscard]] auto findPageIndex(const Document& doc) const -> int;
 

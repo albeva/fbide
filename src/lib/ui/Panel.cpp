@@ -44,18 +44,17 @@ auto Panel::spinCtrl(int& value, const LangId langId, const int minVal, const in
     }
 
     Unowned<wxSpinCtrl> spin;
-    hbox({
-        .proportion = opts.proportion,
-        .expand = opts.expand,
-        .space = opts.space,
-        .padding = opts.padding,
-        .center = true,
-        .border = 0
-    }, [&] {
-        spin = Layout::spinCtrl(value, minVal, maxVal, {}, id, style);
-        const auto lbl = text(langId, { .expand = false });
-        connect(lbl, spin);
-    });
+    hbox({ .proportion = opts.proportion,
+             .expand = opts.expand,
+             .space = opts.space,
+             .padding = opts.padding,
+             .center = true,
+             .border = 0 },
+        [&] {
+            spin = Layout::spinCtrl(value, minVal, maxVal, {}, id, style);
+            const auto lbl = text(langId, { .expand = false });
+            connect(lbl, spin);
+        });
     return spin;
 }
 
@@ -65,18 +64,17 @@ auto Panel::spinCtrl(const LangId langId, const int minVal, const int maxVal, co
     }
 
     Unowned<wxSpinCtrl> spin;
-    hbox({
-        .proportion = opts.proportion,
-        .expand = opts.expand,
-        .space = opts.space,
-        .padding = opts.padding,
-        .center = true,
-        .border = 0
-    }, [&] {
-        spin = Layout::spinCtrl(minVal, maxVal, {}, id, style);
-        const auto lbl = text(langId, { .expand = false });
-        connect(lbl, spin);
-    });
+    hbox({ .proportion = opts.proportion,
+             .expand = opts.expand,
+             .space = opts.space,
+             .padding = opts.padding,
+             .center = true,
+             .border = 0 },
+        [&] {
+            spin = Layout::spinCtrl(minVal, maxVal, {}, id, style);
+            const auto lbl = text(langId, { .expand = false });
+            connect(lbl, spin);
+        });
     return spin;
 }
 

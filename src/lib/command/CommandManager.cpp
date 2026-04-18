@@ -7,9 +7,8 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 // ReSharper disable CppMemberFunctionMayBeStatic
 #include "CommandManager.hpp"
+#include "lib/about/AboutDialog.hpp"
 #include "lib/app/Context.hpp"
-#include "lib/help/HelpManager.hpp"
-#include "lib/format/FormatDialog.hpp"
 #include "lib/compiler/CompilerManager.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/FileHistory.hpp"
@@ -17,7 +16,8 @@
 #include "lib/editor/Document.hpp"
 #include "lib/editor/DocumentManager.hpp"
 #include "lib/editor/Editor.hpp"
-#include "lib/about/AboutDialog.hpp"
+#include "lib/format/FormatDialog.hpp"
+#include "lib/help/HelpManager.hpp"
 #include "lib/settings/SettingsDialog.hpp"
 #include "lib/ui/MenuId.hpp"
 #include "lib/ui/UIManager.hpp"

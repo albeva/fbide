@@ -11,12 +11,15 @@
 namespace fbide {
 
 /// Keyword case conversion modes.
-enum class CaseMode { Mixed, Upper, Lower };
+enum class CaseMode { Mixed,
+    Upper,
+    Lower };
 
 /// Transforms keyword token text to the selected case.
 class CaseTransform final : public Transform {
 public:
-    explicit CaseTransform(const CaseMode mode) : m_mode(mode) {}
+    explicit CaseTransform(const CaseMode mode)
+    : m_mode(mode) {}
 
     [[nodiscard]] auto apply(const std::vector<lexer::Token>& tokens) -> std::vector<lexer::Token> override;
 

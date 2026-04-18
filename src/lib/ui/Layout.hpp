@@ -87,12 +87,10 @@ public:
 
     /// Add child sizer
     void add(wxSizer* sizer, const LayoutContainerOptions opts = {}) {
-        const auto calc = calculate({
-            .proportion = opts.proportion,
+        const auto calc = calculate({ .proportion = opts.proportion,
             .expand = opts.expand,
             .space = opts.space,
-            .padding = opts.padding
-        });
+            .padding = opts.padding });
         if (calc.space != 0) {
             m_currentSizer->AddSpacer(resolveBorder(calc.space));
         }
@@ -286,7 +284,6 @@ private:
 
         return { .space = space, .proportion = opts.proportion, .flags = flags, .border = border };
     }
-
 
     template<std::invocable Func>
     void makeBox(const wxString& title, const int direction, const LayoutContainerOptions opts, Func&& func) {

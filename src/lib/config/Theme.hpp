@@ -14,19 +14,19 @@ class Theme final {
 public:
     /// Font style with named fields, convertible to/from legacy flag int.
     struct FontStyle final {
-        bool bold : 1 = false;
-        bool italic : 1 = false;
+        bool bold      : 1 = false;
+        bool italic    : 1 = false;
         bool underline : 1 = false;
-        bool hidden : 1 = false;
+        bool hidden    : 1 = false;
 
         constexpr FontStyle() = default;
 
         /// Construct from legacy flag value (bold=1, italic=2, underline=4, hidden=8).
         constexpr explicit FontStyle(const int f)
-            : bold((f & 1) != 0)
-            , italic((f & 2) != 0)
-            , underline((f & 4) != 0)
-            , hidden((f & 8) != 0) { }
+        : bold((f & 1) != 0)
+        , italic((f & 2) != 0)
+        , underline((f & 4) != 0)
+        , hidden((f & 8) != 0) {}
 
         /// Return legacy flag value.
         [[nodiscard]] constexpr auto flags() const -> int {

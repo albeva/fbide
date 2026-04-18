@@ -17,7 +17,7 @@ namespace fbide::reformat {
 class Renderer final {
 public:
     explicit Renderer(const FormatOptions& options)
-        : m_options(options) {}
+    : m_options(options) {}
 
     /// Render the tree to a formatted token stream.
     [[nodiscard]] auto render(const ProgramTree& tree) -> std::vector<lexer::Token>;
@@ -44,4 +44,4 @@ private:
     std::vector<lexer::Token> m_output;
 };
 
-} // namespace fbide::format
+} // namespace fbide::reformat

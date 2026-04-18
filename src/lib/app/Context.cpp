@@ -6,7 +6,6 @@
 //
 #include "lib/app/Context.hpp"
 #include "lib/command/CommandManager.hpp"
-#include "lib/help/HelpManager.hpp"
 #include "lib/compiler/CompilerManager.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/ConfigManager.hpp"
@@ -15,6 +14,7 @@
 #include "lib/config/Lang.hpp"
 #include "lib/config/Theme.hpp"
 #include "lib/editor/DocumentManager.hpp"
+#include "lib/help/HelpManager.hpp"
 #include "lib/ui/UIManager.hpp"
 using namespace fbide;
 

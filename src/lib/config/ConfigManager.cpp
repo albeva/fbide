@@ -60,7 +60,7 @@ void ConfigManager::load(const Category category) {
     try {
         entry.category = category;
         entry.path = file;
-        entry.value = toml::parse(file.ToStdString(), toml::spec::v(1,1,0));
+        entry.value = toml::parse(file.ToStdString(), toml::spec::v(1, 1, 0));
     } catch (const toml::exception& ex) {
         wxLogError(
             "Failed to parse toml file '%s' for category '%s', with error: %s",
@@ -80,7 +80,7 @@ void ConfigManager::save(const Category category) {
     out << entry.value;
 }
 
-auto ConfigManager::get(Category category)-> Value {
+auto ConfigManager::get(Category category) -> Value {
     auto& entry = m_categories.at(static_cast<std::size_t>(category));
     if (entry.category != category) {
         load(category);
@@ -88,7 +88,7 @@ auto ConfigManager::get(Category category)-> Value {
     return Value { entry.value };
 }
 
-auto ConfigManager::absolute(const wxString& pathName) const-> wxString {
+auto ConfigManager::absolute(const wxString& pathName) const -> wxString {
     wxFileName path(pathName);
     path.Normalize(wxPATH_NORM_ENV_VARS | wxPATH_NORM_DOTS | wxPATH_NORM_TILDE | wxPATH_NORM_SHORTCUT);
 
@@ -133,7 +133,7 @@ static auto makeRelative(const wxString& path, const wxString& to) -> std::optio
     return {};
 }
 
-auto ConfigManager::relative(const wxString& path) const-> wxString {
+auto ConfigManager::relative(const wxString& path) const -> wxString {
     if (const auto ide = makeRelative(m_ideDir, path)) {
         return *ide;
     }

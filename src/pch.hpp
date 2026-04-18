@@ -8,14 +8,14 @@
 
 // STL
 #include <array>
-#include <utility>
-#include <cstddef>
-#include <memory>
-#include <functional>
-#include <vector>
-#include <optional>
-#include <variant>
 #include <concepts>
+#include <cstddef>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <utility>
+#include <variant>
+#include <vector>
 
 // TOML++
 #include <toml.hpp>
@@ -34,7 +34,9 @@
 #include <wx/filehistory.h>
 #include <wx/filename.h>
 #include <wx/fontenum.h>
+#include <wx/hyperlink.h>
 #include <wx/listctrl.h>
+#include <wx/log.h>
 #include <wx/notebook.h>
 #include <wx/process.h>
 #include <wx/spinctrl.h>
@@ -47,13 +49,11 @@
 #include <wx/txtstrm.h>
 #include <wx/wfstream.h>
 #include <wx/wupdlock.h>
-#include <wx/hyperlink.h>
-#include <wx/log.h>
 
 // fbide
+#include "lib/utils/DeferHandler.hpp"
 #include "lib/utils/Macros.hpp"
 #include "lib/utils/NoCopy.hpp"
 #include "lib/utils/Unowned.hpp"
-#include "lib/utils/ValueRestorer.hpp"
-#include "lib/utils/DeferHandler.hpp"
 #include "lib/utils/Utils.hpp"
+#include "lib/utils/ValueRestorer.hpp"

@@ -14,9 +14,12 @@ namespace {
 /// FB identifiers are ASCII only — non-ASCII bytes are invalid outside
 /// comments and string literals.
 auto isWordChar(const char ch) -> bool {
-    if (ch >= 'a' && ch <= 'z') return true;
-    if (ch >= 'A' && ch <= 'Z') return true;
-    if (ch >= '0' && ch <= '9') return true;
+    if (ch >= 'a' && ch <= 'z')
+        return true;
+    if (ch >= 'A' && ch <= 'Z')
+        return true;
+    if (ch >= '0' && ch <= '9')
+        return true;
     return ch == '_' || ch == '$';
 }
 
@@ -25,9 +28,12 @@ auto isDigit(const char ch) -> bool {
 }
 
 auto isAlnum(const char ch) -> bool {
-    if (ch >= 'a' && ch <= 'z') return true;
-    if (ch >= 'A' && ch <= 'Z') return true;
-    if (ch >= '0' && ch <= '9') return true;
+    if (ch >= 'a' && ch <= 'z')
+        return true;
+    if (ch >= 'A' && ch <= 'Z')
+        return true;
+    if (ch >= '0' && ch <= '9')
+        return true;
     return false;
 }
 
@@ -42,59 +48,59 @@ auto asciiLower(const char ch) -> char {
 /// Map of structurally significant keywords to their KeywordKind.
 const std::unordered_map<std::string, KeywordKind> structuralKeywords = {
     // Block openers
-    { "sub",         KeywordKind::Sub },
-    { "function",    KeywordKind::Function },
+    { "sub", KeywordKind::Sub },
+    { "function", KeywordKind::Function },
     { "constructor", KeywordKind::Constructor },
-    { "destructor",  KeywordKind::Destructor },
-    { "operator",    KeywordKind::Operator },
-    { "do",       KeywordKind::Do },
-    { "while",    KeywordKind::While },
-    { "for",      KeywordKind::For },
-    { "with",     KeywordKind::With },
-    { "scope",    KeywordKind::Scope },
-    { "enum",     KeywordKind::Enum },
-    { "union",    KeywordKind::Union },
-    { "select",   KeywordKind::Select },
-    { "asm",      KeywordKind::Asm },
+    { "destructor", KeywordKind::Destructor },
+    { "operator", KeywordKind::Operator },
+    { "do", KeywordKind::Do },
+    { "while", KeywordKind::While },
+    { "for", KeywordKind::For },
+    { "with", KeywordKind::With },
+    { "scope", KeywordKind::Scope },
+    { "enum", KeywordKind::Enum },
+    { "union", KeywordKind::Union },
+    { "select", KeywordKind::Select },
+    { "asm", KeywordKind::Asm },
     // Block closers
-    { "end",      KeywordKind::End },
-    { "loop",     KeywordKind::Loop },
-    { "next",     KeywordKind::Next },
-    { "wend",     KeywordKind::Wend },
+    { "end", KeywordKind::End },
+    { "loop", KeywordKind::Loop },
+    { "next", KeywordKind::Next },
+    { "wend", KeywordKind::Wend },
     // Mid-block
-    { "else",     KeywordKind::Else },
-    { "elseif",   KeywordKind::ElseIf },
-    { "case",     KeywordKind::Case },
+    { "else", KeywordKind::Else },
+    { "elseif", KeywordKind::ElseIf },
+    { "case", KeywordKind::Case },
     // Conditional
-    { "if",       KeywordKind::If },
-    { "then",     KeywordKind::Then },
+    { "if", KeywordKind::If },
+    { "then", KeywordKind::Then },
     // Type
-    { "type",     KeywordKind::Type },
-    { "as",       KeywordKind::As },
+    { "type", KeywordKind::Type },
+    { "as", KeywordKind::As },
     // Declaration
-    { "declare",  KeywordKind::Declare },
+    { "declare", KeywordKind::Declare },
     // Early-exit (keeps following block keyword from opening a scope)
-    { "exit",     KeywordKind::Exit },
+    { "exit", KeywordKind::Exit },
     { "continue", KeywordKind::Continue },
     // Comment keyword
-    { "rem",      KeywordKind::Rem },
+    { "rem", KeywordKind::Rem },
 };
 
 /// Preprocessor directive keywords mapped to their KeywordKind.
 const std::unordered_map<std::string, KeywordKind> ppKeywords = {
     // Block openers
-    { "if",          KeywordKind::PpIf },
-    { "ifdef",       KeywordKind::PpIfDef },
-    { "ifndef",      KeywordKind::PpIfNDef },
-    { "macro",       KeywordKind::PpMacro },
+    { "if", KeywordKind::PpIf },
+    { "ifdef", KeywordKind::PpIfDef },
+    { "ifndef", KeywordKind::PpIfNDef },
+    { "macro", KeywordKind::PpMacro },
     // Block closers
-    { "endif",       KeywordKind::PpEndIf },
-    { "endmacro",    KeywordKind::PpEndMacro },
+    { "endif", KeywordKind::PpEndIf },
+    { "endmacro", KeywordKind::PpEndMacro },
     // Mid-block
-    { "else",        KeywordKind::PpElse },
-    { "elseif",      KeywordKind::PpElseIf },
-    { "elseifdef",   KeywordKind::PpElseIfDef },
-    { "elseifndef",  KeywordKind::PpElseIfNDef },
+    { "else", KeywordKind::PpElse },
+    { "elseif", KeywordKind::PpElseIf },
+    { "elseifdef", KeywordKind::PpElseIfDef },
+    { "elseifndef", KeywordKind::PpElseIfNDef },
 };
 
 /// Lowercase an ASCII string_view into a std::string.
@@ -261,8 +267,10 @@ auto Lexer::next() -> Token {
             }
             return operatorToken(OperatorKind::ShiftLeft, 2);
         }
-        if (peek() == '>') return operatorToken(OperatorKind::NotEqual, 2);
-        if (peek() == '=') return operatorToken(OperatorKind::LessEqual, 2);
+        if (peek() == '>')
+            return operatorToken(OperatorKind::NotEqual, 2);
+        if (peek() == '=')
+            return operatorToken(OperatorKind::LessEqual, 2);
         return operatorToken(OperatorKind::Less);
 
     // Compound operators starting with '>'
@@ -274,26 +282,31 @@ auto Lexer::next() -> Token {
             }
             return operatorToken(OperatorKind::ShiftRight, 2);
         }
-        if (peek() == '=') return operatorToken(OperatorKind::GreaterEqual, 2);
+        if (peek() == '=')
+            return operatorToken(OperatorKind::GreaterEqual, 2);
         return operatorToken(OperatorKind::Greater);
 
     // '-' — subtract, negate, -=, ->
     case '-':
         m_atLineStart = false;
-        if (peek() == '=') return operatorToken(OperatorKind::SubAssign, 2);
-        if (peek() == '>') return operatorToken(OperatorKind::Arrow, 2);
+        if (peek() == '=')
+            return operatorToken(OperatorKind::SubAssign, 2);
+        if (peek() == '>')
+            return operatorToken(OperatorKind::Arrow, 2);
         return operatorToken(m_canBeUnary ? OperatorKind::Negate : OperatorKind::Subtract);
 
     // '+' — add, unary plus, +=
     case '+':
         m_atLineStart = false;
-        if (peek() == '=') return operatorToken(OperatorKind::AddAssign, 2);
+        if (peek() == '=')
+            return operatorToken(OperatorKind::AddAssign, 2);
         return operatorToken(m_canBeUnary ? OperatorKind::UnaryPlus : OperatorKind::Add);
 
     // '*' — multiply, dereference, *=
     case '*':
         m_atLineStart = false;
-        if (peek() == '=') return operatorToken(OperatorKind::MulAssign, 2);
+        if (peek() == '=')
+            return operatorToken(OperatorKind::MulAssign, 2);
         return operatorToken(m_canBeUnary ? OperatorKind::Dereference : OperatorKind::Multiply);
 
     // '=' — always Assign (formatter treats = and == the same for spacing)
@@ -303,13 +316,15 @@ auto Lexer::next() -> Token {
     // '\' — integer divide, \=
     case '\\':
         m_atLineStart = false;
-        if (peek() == '=') return operatorToken(OperatorKind::IntDivAssign, 2);
+        if (peek() == '=')
+            return operatorToken(OperatorKind::IntDivAssign, 2);
         return operatorToken(OperatorKind::IntDivide);
 
     // '^' — exponentiate, ^=
     case '^':
         m_atLineStart = false;
-        if (peek() == '=') return operatorToken(OperatorKind::ExpAssign, 2);
+        if (peek() == '=')
+            return operatorToken(OperatorKind::ExpAssign, 2);
         return operatorToken(OperatorKind::Exponentiate);
 
     // '@' — always unary (address of)
@@ -317,19 +332,30 @@ auto Lexer::next() -> Token {
         return operatorToken(OperatorKind::AddressOf);
 
     // Simple single-char operators
-    case '(':  return operatorToken(OperatorKind::ParenOpen);
-    case ')':  return operatorToken(OperatorKind::ParenClose);
-    case '[':  return operatorToken(OperatorKind::BracketOpen);
-    case ']':  return operatorToken(OperatorKind::BracketClose);
-    case '{':  return operatorToken(OperatorKind::BraceOpen);
-    case '}':  return operatorToken(OperatorKind::BraceClose);
-    case ',':  return operatorToken(OperatorKind::Comma);
-    case ';':  return operatorToken(OperatorKind::Semicolon);
-    case ':':  return operatorToken(OperatorKind::Colon);
-    case '?':  return operatorToken(OperatorKind::Question);
-    case '%':  return operatorToken(OperatorKind::Percent);
-    case '~':  // bitwise not symbol — treat as generic operator for now
-    case '|':  // pipe — not a standard FB operator but accept it
+    case '(':
+        return operatorToken(OperatorKind::ParenOpen);
+    case ')':
+        return operatorToken(OperatorKind::ParenClose);
+    case '[':
+        return operatorToken(OperatorKind::BracketOpen);
+    case ']':
+        return operatorToken(OperatorKind::BracketClose);
+    case '{':
+        return operatorToken(OperatorKind::BraceOpen);
+    case '}':
+        return operatorToken(OperatorKind::BraceClose);
+    case ',':
+        return operatorToken(OperatorKind::Comma);
+    case ';':
+        return operatorToken(OperatorKind::Semicolon);
+    case ':':
+        return operatorToken(OperatorKind::Colon);
+    case '?':
+        return operatorToken(OperatorKind::Question);
+    case '%':
+        return operatorToken(OperatorKind::Percent);
+    case '~': // bitwise not symbol — treat as generic operator for now
+    case '|': // pipe — not a standard FB operator but accept it
         m_atLineStart = false;
         m_canBeUnary = true;
         advance();
@@ -344,13 +370,14 @@ auto Lexer::next() -> Token {
             advance(); // skip '&'
             return number();
         }
-        if (peek() == '=') return operatorToken(OperatorKind::ConcatAssign, 2);
+        if (peek() == '=')
+            return operatorToken(OperatorKind::ConcatAssign, 2);
         return operatorToken(OperatorKind::Concatenate);
     }
-    // clang-format off
+        // clang-format off
     case '0': case '1': case '2': case '3': case '4':
     case '5': case '6': case '7': case '8': case '9':
-    // clang-format on
+        // clang-format on
         m_atLineStart = false;
         return number();
 

@@ -15,7 +15,7 @@ public:
     NO_COPY_AND_MOVE(ConfigManager)
 
     /// Types of config this class manages
-    enum class Category: std::uint8_t {
+    enum class Category : std::uint8_t {
         Config,
         Locale,
         Theme,
@@ -26,12 +26,18 @@ public:
 
     [[nodiscard]] static constexpr auto getCategoryName(const Category category) -> std::string_view {
         switch (category) {
-        case Category::Config: return "config";
-        case Category::Locale: return "locale";
-        case Category::Theme:  return "theme";
-        case Category::Shortcuts: return "shortcuts";
-        case Category::Keywords: return "keywords";
-        case Category::Layout: return "layout";
+        case Category::Config:
+            return "config";
+        case Category::Locale:
+            return "locale";
+        case Category::Theme:
+            return "theme";
+        case Category::Shortcuts:
+            return "shortcuts";
+        case Category::Keywords:
+            return "keywords";
+        case Category::Layout:
+            return "layout";
         }
         std::unreachable();
     }
@@ -71,8 +77,8 @@ private:
     static constexpr std::size_t CAT_COUNT = 6;
 
     wxString m_appDir;
-    wxString m_ideDir{};
-    std::array<Entry, CAT_COUNT> m_categories{};
+    wxString m_ideDir {};
+    std::array<Entry, CAT_COUNT> m_categories {};
 };
 
-} // fbide
+} // namespace fbide

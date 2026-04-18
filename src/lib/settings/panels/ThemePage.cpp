@@ -113,14 +113,14 @@ void ThemePage::createLeftPanel() {
 
         spacer();
 
-        lbl = text(LangId::ThemeBackground, {  });
+        lbl = text(LangId::ThemeBackground, {});
         m_btnBg = button(LangId::EmptyString);
         m_btnBg->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onColorButton(m_btnBg); });
         connect(lbl, m_btnBg);
 
         spacer();
 
-        lbl = text(LangId::ThemeFont, {  });
+        lbl = text(LangId::ThemeFont, {});
         m_fontChoice = make_unowned<wxChoice>(currentParent(), wxID_ANY);
         auto fonts = getConfig().getAllFixedWidthFonts();
         fonts.insert(fonts.begin(), "");
@@ -138,7 +138,7 @@ void ThemePage::createRightPanel() {
 
         spacer();
 
-        m_spinFontSize = spinCtrl(LangId::ThemeFontSize, 8, 64, { });
+        m_spinFontSize = spinCtrl(LangId::ThemeFontSize, 8, 64, {});
     });
 }
 

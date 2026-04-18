@@ -144,8 +144,8 @@ void ReFormatter::dispatch() {
     // Find the first significant token (skipping whitespace/newlines)
     std::size_t firstIdx = 0;
     while (firstIdx < m_segment.size()
-        && (m_segment[firstIdx].kind == TokenKind::Whitespace
-            || m_segment[firstIdx].kind == TokenKind::Newline)) {
+           && (m_segment[firstIdx].kind == TokenKind::Whitespace
+               || m_segment[firstIdx].kind == TokenKind::Newline)) {
         firstIdx++;
     }
     if (firstIdx == m_segment.size()) {
