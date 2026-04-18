@@ -25,7 +25,7 @@ question = "Question"
 # keyboard navigation (e.g. Alt+F opens "&File"). Use '&&' to output
 # a literal ampersand.
 # ============================================================================
-[menu]
+[menus]
 file = "&File"
 edit = "&Edit"
 search = "&Search"
@@ -49,8 +49,6 @@ help = "&Help"
 # it for keyboard navigation (e.g. Alt+F on Windows opens the "&File"
 # menu). Use '&&' to output a literal ampersand (see "Compile && run").
 # ============================================================================
-[commands]
-
 # --- File menu ---
 [commands.new]
 name = "New .."
@@ -59,6 +57,10 @@ help = "Open new empty document"
 [commands.open]
 name = "&Open .."
 help = "Open new document"
+
+[commands.clearRecentFiles]
+name = "&Clear recent files"
+help = "Clear all recent files from this menu"
 
 [commands.save]
 name = "&Save"
@@ -95,6 +97,10 @@ help = "Loads previously saved session"
 [commands.sessionSave]
 name = "Save session"
 help = "Saves current session"
+
+[commands.recentFiles]
+name = "Recent Files..."
+help = "Re-open recently opened files"
 
 # --- Edit menu ---
 [commands.undo]
@@ -213,6 +219,10 @@ name = "Active paths"
 help = "Set paths active when running/compiling"
 
 # --- Help menu ---
+[commands.help]
+name = "&Help..."
+help = "Show help"
+
 [commands.about]
 name = "&About..."
 help = "Show about dialog"

@@ -1,5 +1,5 @@
-#include "lib/compiler/RunCommand.hpp"
-#include "lib/compiler/QuoteUtils.hpp"
+#include "compiler/RunCommand.hpp"
+#include "compiler/QuoteUtils.hpp"
 #include <gtest/gtest.h>
 #include <wx/filename.h>
 using namespace fbide;

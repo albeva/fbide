@@ -6,11 +6,12 @@
 //
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "UIManager.hpp"
-#include "CompilerLog.hpp"
-#include "MenuId.hpp"
 #include "app/Context.hpp"
+#include "CompilerLog.hpp"
+#include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
 #include "config/Config.hpp"
+#include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "config/Lang.hpp"
 #include "editor/DocumentManager.hpp"
@@ -31,44 +32,6 @@ wxBEGIN_EVENT_TABLE(UIManager, wxEvtHandler)
     EVT_AUINOTEBOOK_BG_DCLICK(wxID_ANY, UIManager::onNotebookDblClick)
 wxEND_EVENT_TABLE()
 // clang-format on
-
-namespace {
-/// Cast MenuId to int for wx APIs.
-constexpr auto id(MenuId mid) -> int { return static_cast<int>(mid); }
-
-/// Build label with optional shortcut.
-auto makeLabel(const Lang& lang, const LangId label, const wxString& shortcut) -> wxString {
-    auto text = lang[label];
-    if (!shortcut.empty()) {
-        text += "\t" + shortcut;
-    }
-    return text;
-}
-
-/// Append a menu item with translated label, optional shortcut, and help text.
-void append(
-    wxMenu* menu,
-    const Lang& lang,
-    const MenuId mid,
-    const LangId label,
-    const wxString& shortcut = "",
-    const LangId help = {}
-) {
-    menu->Append(id(mid), makeLabel(lang, label, shortcut), lang[help]);
-}
-
-/// Append a check menu item.
-void appendCheck(
-    wxMenu* menu,
-    const Lang& lang,
-    const MenuId mid,
-    const LangId label,
-    const wxString& shortcut = "",
-    const LangId help = {}
-) {
-    menu->AppendCheckItem(id(mid), makeLabel(lang, label, shortcut), lang[help]);
-}
-} // namespace
 
 UIManager::UIManager(Context& ctx)
 : m_ctx(ctx) {}
@@ -134,7 +97,7 @@ void UIManager::createMainFrame() {
     m_aui.SetFlags(wxAUI_MGR_LIVE_RESIZE | wxAUI_MGR_DEFAULT);
     m_aui.SetManagedWindow(m_frame);
 
-    createMenuBar();
+    configureMenuBar();
     createToolBar();
     createStatusBar();
     createLayout();
@@ -175,126 +138,142 @@ void UIManager::onNotebookDblClick(wxAuiNotebookEvent& event) {
     m_ctx.getDocumentManager().newFile();
 }
 
-void UIManager::createMenuBar() {
-    const auto& lang = m_ctx.getLang();
-    const auto menuBar = make_unowned<wxMenuBar>();
+void UIManager::configureMenuBar() {
+    try {
+        auto& cmd = m_ctx.getCommandManager();
+        auto& cfg = m_ctx.getConfigManager();
+        const auto& menus = find(cfg.getLayout().raw(), "menus").as_array();
+        const auto& locale = cfg.getLocale().raw()["menus"];
 
-    // File menu
-    m_fileMenu = make_unowned<wxMenu>();
-    append(m_fileMenu, lang, MenuId::New, LangId::FileNew, "Ctrl+N", LangId::FileNewHelp);
-    append(m_fileMenu, lang, MenuId::Open, LangId::FileOpen, "Ctrl+O", LangId::FileOpenHelp);
-    m_ctx.getFileHistory().getHistory().UseMenu(m_fileMenu);
-    m_ctx.getFileHistory().getHistory().AddFilesToMenu();
-    m_fileMenu->AppendSeparator();
-    append(m_fileMenu, lang, MenuId::Save, LangId::FileSave, "Ctrl+S", LangId::FileSaveHelp);
-    append(m_fileMenu, lang, MenuId::SaveAs, LangId::FileSaveAs, "Ctrl+Shift+S", LangId::FileSaveAsHelp);
-    append(m_fileMenu, lang, MenuId::SaveAll, LangId::FileSaveAll, "", LangId::FileSaveAllHelp);
-    m_fileMenu->AppendSeparator();
-    append(m_fileMenu, lang, MenuId::SessionLoad, LangId::FileSessionLoad, "", LangId::FileSessionLoadHelp);
-    append(m_fileMenu, lang, MenuId::SessionSave, LangId::FileSessionSave, "", LangId::FileSessionSaveHelp);
-    m_fileMenu->AppendSeparator();
-    append(m_fileMenu, lang, MenuId::Close, LangId::FileClose, "Ctrl+F4", LangId::FileCloseHelp);
-    append(m_fileMenu, lang, MenuId::CloseAll, LangId::FileCloseAll, "", LangId::FileCloseAllHelp);
-    m_fileMenu->AppendSeparator();
-    append(m_fileMenu, lang, MenuId::NewWindow, LangId::FileNewWindow, "Shift+Ctrl+N", LangId::FileNewWindowHelp);
-    append(m_fileMenu, lang, MenuId::Quit, LangId::FileQuit, "Ctrl+Q", LangId::FileQuitHelp);
+        const bool createMenus = m_frame->GetMenuBar() == nullptr;
+        const auto menuBar = createMenus ? make_unowned<wxMenuBar>() : m_frame->GetMenuBar();
 
-    // Edit menu
-    m_editMenu = make_unowned<wxMenu>();
-    append(m_editMenu, lang, MenuId::Undo, LangId::EditUndo, "Ctrl+Z", LangId::EditUndoHelp);
-    append(m_editMenu, lang, MenuId::Redo, LangId::EditRedo, "Ctrl+Shift+Z", LangId::EditRedoHelp);
-    m_editMenu->AppendSeparator();
-    append(m_editMenu, lang, MenuId::Cut, LangId::EditCut, "Ctrl+X", LangId::EditCutHelp);
-    append(m_editMenu, lang, MenuId::Copy, LangId::EditCopy, "Ctrl+C", LangId::EditCopyHelp);
-    append(m_editMenu, lang, MenuId::Paste, LangId::EditPaste, "Ctrl+V", LangId::EditPasteHelp);
-    m_editMenu->AppendSeparator();
-    append(m_editMenu, lang, MenuId::SelectAll, LangId::EditSelectAll, "Ctrl+A", LangId::EditSelectAllHelp);
-    append(m_editMenu, lang, MenuId::SelectLine, LangId::EditSelectLine, "Ctrl+L", LangId::EditSelectLineHelp);
-    m_editMenu->AppendSeparator();
-    append(m_editMenu, lang, MenuId::IndentIncrease, LangId::EditIndentInc, "Tab", LangId::EditIndentIncHelp);
-    append(m_editMenu, lang, MenuId::IndentDecrease, LangId::EditIndentDec, "Shift+Tab", LangId::EditIndentDecHelp);
-    m_editMenu->AppendSeparator();
-    append(m_editMenu, lang, MenuId::Comment, LangId::EditComment, "Ctrl+M", LangId::EditCommentHelp);
-    append(m_editMenu, lang, MenuId::Uncomment, LangId::EditUncomment, "Ctrl+Shift+M", LangId::EditUncommentHelp);
+        for (const auto& id : menus) {
+            const auto key = id.as_string();
+            auto* entry = cmd.find("menus." + key);
+            if (entry == nullptr) {
+                wxLogError("Unknown menu '%s'", key);
+                continue;
+            }
+            const auto name = find(locale, key).as_string();
+            auto menu = entry->get<wxMenu>();
+            if (menu == nullptr) {
+                menu = make_unowned<wxMenu>();
+                entry->binds.push_back(menu);
+                menuBar->Append(menu, name);
+            } else {
+                menu->SetTitle(name);
+            }
+            configureMenuItems(menu, key, createMenus);
+        }
 
-    // Search menu
-    m_searchMenu = make_unowned<wxMenu>();
-    append(m_searchMenu, lang, MenuId::Find, LangId::SearchFind, "Ctrl+F", LangId::SearchFindHelp);
-    append(m_searchMenu, lang, MenuId::FindNext, LangId::SearchFindNext, "F3", LangId::SearchFindNextHelp);
-    append(m_searchMenu, lang, MenuId::Replace, LangId::SearchReplace, "Ctrl+R", LangId::SearchReplaceHelp);
-    append(m_searchMenu, lang, MenuId::GotoLine, LangId::SearchGotoLine, "Ctrl+G", LangId::SearchGotoLineHelp);
+        if (createMenus) {
+            if (auto* menu = cmd.find<wxMenu>(+CommandId::RecentFiles)) {
+                auto& history = m_ctx.getFileHistory().getHistory();
+                history.UseMenu(menu);
+                history.AddFilesToMenu();
+            }
+            m_frame->SetMenuBar(menuBar);
+        } else {
+            menuBar->UpdateMenus();
+        }
+    } catch (const std::exception& ex) {
+        wxLogError("Invalid layout config for menus: %s", ex.what());
+    }
+}
 
-    // View menu
-    m_viewMenu = make_unowned<wxMenu>();
-    append(m_viewMenu, lang, MenuId::Settings, LangId::ViewSettings, "", LangId::ViewSettingsHelp);
-    append(m_viewMenu, lang, MenuId::Format, LangId::ViewFormat, "", LangId::ViewFormatHelp);
-    appendCheck(m_viewMenu, lang, MenuId::Result, LangId::ViewResult, "F4", LangId::ViewResultHelp);
-    append(m_viewMenu, lang, MenuId::Subs, LangId::ViewSubs, "F2", LangId::ViewSubsHelp);
-    append(m_viewMenu, lang, MenuId::CompilerLog, LangId::ViewCompilerLog, "", LangId::ViewCompilerLogHelp);
+void UIManager::configureMenuItems(wxMenu* menu, const wxString& id, const bool addSeparators) {
+    try {
+        auto& cmd = m_ctx.getCommandManager();
+        auto& cfg = m_ctx.getConfigManager();
+        const auto& items = find(cfg.getLayout().raw(), "menu", id).as_array();
+        const auto& commands = find(cfg.getLocale().raw(), "commands");
+        const auto& shortcuts = find(cfg.getShortcuts().raw(), "commands");
 
-    // Run menu
-    m_runMenu = make_unowned<wxMenu>();
-    append(m_runMenu, lang, MenuId::Compile, LangId::RunCompile, "Ctrl+F9", LangId::RunCompileHelp);
-    append(m_runMenu, lang, MenuId::CompileAndRun, LangId::RunCompileAndRun, "F9", LangId::RunCompileAndRunHelp);
-    append(m_runMenu, lang, MenuId::Run, LangId::RunRun, "Shift+Ctrl+F9", LangId::RunRunHelp);
-    append(m_runMenu, lang, MenuId::QuickRun, LangId::RunQuickRun, "F5", LangId::RunQuickRunHelp);
-    append(m_runMenu, lang, MenuId::CmdPrompt, LangId::RunCmdPrompt, "F8", LangId::RunCmdPromptHelp);
-    append(m_runMenu, lang, MenuId::Parameters, LangId::RunParameters, "", LangId::RunParametersHelp);
-    appendCheck(m_runMenu, lang, MenuId::ShowExitCode, LangId::RunShowExitCode, "", LangId::RunShowExitCodeHelp);
-    m_runMenu->Check(id(MenuId::ShowExitCode), m_ctx.getConfig().getShowExitCode());
+        for (const auto& item : items) {
+            const auto key = item.as_string();
+            if (key == "-") {
+                if (addSeparators) {
+                    menu->AppendSeparator();
+                }
+                continue;
+            }
 
-    // Help menu
-    m_helpMenu = make_unowned<wxMenu>();
-    m_helpMenu->Append(id(MenuId::Help), lang[LangId::MenuHelp] + "\tF1");
-    m_helpMenu->Append(id(MenuId::QuickKeys), "QuickKeys.txt");
-    m_helpMenu->Append(id(MenuId::ReadMe), "ReadMe.txt");
-    m_helpMenu->AppendSeparator();
-    append(m_helpMenu, lang, MenuId::About, LangId::HelpAbout, "", LangId::HelpAboutHelp);
+            auto* entry = cmd.find(key);
+            if (entry == nullptr) {
+                wxLogError("Unknown command '%s'", key);
+                continue;
+            }
 
-    // Assemble menu bar
-    menuBar->Append(m_fileMenu, lang[LangId::MenuFile]);
-    menuBar->Append(m_editMenu, lang[LangId::MenuEdit]);
-    menuBar->Append(m_searchMenu, lang[LangId::MenuSearch]);
-    menuBar->Append(m_viewMenu, lang[LangId::MenuView]);
-    menuBar->Append(m_runMenu, lang[LangId::MenuRun]);
-    menuBar->Append(m_helpMenu, lang[LangId::MenuHelp]);
+            const auto& locale = find(commands, key);
+            auto name = locale.at("name").as_string();
+            const auto help = find_or(locale, "help", "");
 
-    m_frame->SetMenuBar(menuBar);
+            const auto shortcut = find_or(shortcuts, key, "");
+            if (not shortcut.empty()) {
+                name += "\t" + shortcut;
+            }
+
+            if (auto* tool = entry->get<wxMenuItem>()) {
+                tool->SetItemLabel(name);
+                tool->SetHelp(help);
+            } else {
+                wxMenu* submenu = nullptr;
+                if (entry->kind == wxITEM_DROPDOWN) {
+                    submenu = entry->get<wxMenu>();
+                    if (submenu == nullptr) {
+                        submenu = make_unowned<wxMenu>();
+                        entry->binds.push_back(submenu);
+                    }
+                }
+                tool = make_unowned<wxMenuItem>(menu, entry->id, name, help, entry->kind, submenu);
+                entry->binds.push_back(tool);
+                menu->Append(tool);
+            }
+
+            // traverse subfolder?
+            if (auto* submenu = entry->get<wxMenu>()) {
+                configureMenuItems(submenu, entry->name, addSeparators);
+            }
+        }
+    } catch (const std::exception& ex) {
+        wxLogError("Failed to configure menu '%s': %s", id, ex.what());
+    }
 }
 
 void UIManager::createToolBar() {
     const auto& lang = m_ctx.getLang();
     m_toolbar = m_frame->CreateToolBar(wxNO_BORDER | wxTB_HORIZONTAL | wxTB_FLAT);
 
-    const auto add = [&](const MenuId menuIdm, const LangId langId, wxBitmap&& bitmap) {
+    const auto add = [&](const CommandId menuIdm, const LangId langId, wxBitmap&& bitmap) {
         const auto mask = make_unowned<wxMask>(bitmap, wxColour(192, 192, 192));
         bitmap.SetMask(mask);
-        m_toolbar->AddTool(id(menuIdm), lang[langId], std::move(bitmap), lang[langId]);
+        m_toolbar->AddTool(+menuIdm, lang[langId], std::move(bitmap), lang[langId]);
     };
 
     // NOLINTBEGIN(*-avoid-c-arrays)
-    add(MenuId::New, LangId::ToolbarNew, wxBitmap(XPM::new_xpm));
-    add(MenuId::Open, LangId::ToolbarOpen, wxBitmap(XPM::open_xpm));
-    add(MenuId::Save, LangId::ToolbarSave, wxBitmap(XPM::save_xpm));
-    add(MenuId::SaveAll, LangId::ToolbarSaveAll, wxBitmap(XPM::saveall_xpm));
-    add(MenuId::Close, LangId::ToolbarClose, wxBitmap(XPM::close_xpm));
+    add(CommandId::New, LangId::ToolbarNew, wxBitmap(XPM::new_xpm));
+    add(CommandId::Open, LangId::ToolbarOpen, wxBitmap(XPM::open_xpm));
+    add(CommandId::Save, LangId::ToolbarSave, wxBitmap(XPM::save_xpm));
+    add(CommandId::SaveAll, LangId::ToolbarSaveAll, wxBitmap(XPM::saveall_xpm));
+    add(CommandId::Close, LangId::ToolbarClose, wxBitmap(XPM::close_xpm));
     m_toolbar->AddSeparator();
-    add(MenuId::Cut, LangId::ToolbarCut, wxBitmap(XPM::cut_xpm));
-    add(MenuId::Copy, LangId::ToolbarCopy, wxBitmap(XPM::copy_xpm));
-    add(MenuId::Paste, LangId::ToolbarPaste, wxBitmap(XPM::paste_xpm));
+    add(CommandId::Cut, LangId::ToolbarCut, wxBitmap(XPM::cut_xpm));
+    add(CommandId::Copy, LangId::ToolbarCopy, wxBitmap(XPM::copy_xpm));
+    add(CommandId::Paste, LangId::ToolbarPaste, wxBitmap(XPM::paste_xpm));
     m_toolbar->AddSeparator();
-    add(MenuId::Undo, LangId::ToolbarUndo, wxBitmap(XPM::undo_xpm));
-    add(MenuId::Redo, LangId::ToolbarRedo, wxBitmap(XPM::redo_xpm));
+    add(CommandId::Undo, LangId::ToolbarUndo, wxBitmap(XPM::undo_xpm));
+    add(CommandId::Redo, LangId::ToolbarRedo, wxBitmap(XPM::redo_xpm));
     m_toolbar->AddSeparator();
-    add(MenuId::Compile, LangId::ToolbarCompile, wxBitmap(XPM::compile_xpm));
-    add(MenuId::Run, LangId::ToolbarRun, wxBitmap(XPM::run_xpm));
-    add(MenuId::CompileAndRun, LangId::ToolbarCompileAndRun, wxBitmap(XPM::compnrun_xpm));
-    add(MenuId::QuickRun, LangId::ToolbarQuickRun, wxBitmap(XPM::qrun_xpm));
+    add(CommandId::Compile, LangId::ToolbarCompile, wxBitmap(XPM::compile_xpm));
+    add(CommandId::Run, LangId::ToolbarRun, wxBitmap(XPM::run_xpm));
+    add(CommandId::CompileAndRun, LangId::ToolbarCompileAndRun, wxBitmap(XPM::compnrun_xpm));
+    add(CommandId::QuickRun, LangId::ToolbarQuickRun, wxBitmap(XPM::qrun_xpm));
     {
         wxBitmap bitmap(XPM::output_xpm);
         const auto mask = make_unowned<wxMask>(bitmap, wxColour(192, 192, 192));
         bitmap.SetMask(mask);
-        m_toolbar->AddCheckTool(id(MenuId::Result), lang[LangId::ToolbarResult], std::move(bitmap));
+        m_toolbar->AddCheckTool(+CommandId::Result, lang[LangId::ToolbarResult], std::move(bitmap));
     }
     // NOLINTEND(*-avoid-c-arrays)
 
@@ -356,26 +335,26 @@ void UIManager::applyState(const UIState state) const {
     }
     case UIState::FocusedUnknownFile:
         disable(std::array {
-            MenuId::Comment,
-            MenuId::Uncomment,
-            MenuId::Format,
-            MenuId::Subs,
-            MenuId::Compile,
-            MenuId::CompileAndRun,
-            MenuId::Run,
-            MenuId::QuickRun,
+            CommandId::Comment,
+            CommandId::Uncomment,
+            CommandId::Format,
+            CommandId::Subs,
+            CommandId::Compile,
+            CommandId::CompileAndRun,
+            CommandId::Run,
+            CommandId::QuickRun,
         });
         break;
     case UIState::FocusedValidSourceFile:
-        disable(std::array<MenuId, 0> {});
+        disable(std::array<CommandId, 0> {});
         break;
     case UIState::Compiling:
     case UIState::Running:
         disable(std::array {
-            MenuId::Compile,
-            MenuId::CompileAndRun,
-            MenuId::Run,
-            MenuId::QuickRun,
+            CommandId::Compile,
+            CommandId::CompileAndRun,
+            CommandId::Run,
+            CommandId::QuickRun,
         });
         break;
     }
@@ -407,8 +386,9 @@ void UIManager::hideConsole() {
 }
 
 void UIManager::syncConsoleState(const bool visible) const {
-    m_viewMenu->Check(id(MenuId::Result), visible);
-    m_toolbar->ToggleTool(id(MenuId::Result), visible);
+    if (auto* item = m_ctx.getCommandManager().find(+CommandId::Result)) {
+        item->setChecked(visible);
+    }
 }
 
 auto UIManager::isConsoleVisible() -> bool {
@@ -435,11 +415,11 @@ void UIManager::disable(const std::ranges::range auto& range) const {
     auto* menuBar = m_frame->GetMenuBar();
     for (const auto menuId : mutableIds) {
         const bool disabled = not std::ranges::contains(range, menuId);
-        if (m_toolbar->FindById(id(menuId)) != nullptr) {
-            m_toolbar->EnableTool(id(menuId), disabled);
+        if (m_toolbar->FindById(+menuId) != nullptr) {
+            m_toolbar->EnableTool(+menuId, disabled);
         }
-        if (menuBar->FindItem(id(menuId)) != nullptr) {
-            menuBar->Enable(id(menuId), disabled);
+        if (menuBar->FindItem(+menuId) != nullptr) {
+            menuBar->Enable(+menuId, disabled);
         }
     }
 }

@@ -54,6 +54,7 @@ target_sources(fbide_lib
     app/Context.hpp
     app/InstanceHandler.hpp
     command/CommandEntry.hpp
+    command/CommandId.hpp
     command/CommandManager.hpp
     compiler/AsyncProcess.hpp
     compiler/BuildTask.hpp
@@ -94,7 +95,6 @@ target_sources(fbide_lib
     ui/BBCodeText.hpp
     ui/CompilerLog.hpp
     ui/Layout.hpp
-    ui/MenuId.hpp
     ui/OutputConsole.hpp
     ui/Panel.hpp
     ui/UIManager.hpp

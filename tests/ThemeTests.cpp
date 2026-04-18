@@ -4,7 +4,7 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "lib/config/Theme.hpp"
+#include "config/Theme.hpp"
 #include <gtest/gtest.h>
 #include <wx/filename.h>
 

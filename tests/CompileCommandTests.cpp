@@ -1,4 +1,4 @@
-#include "lib/compiler/CompileCommand.hpp"
+#include "compiler/CompileCommand.hpp"
 #include <gtest/gtest.h>
 using namespace fbide;
 

@@ -4,7 +4,7 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "lib/editor/lexilla/FBSciLexer.hpp"
+#include "editor/lexilla/FBSciLexer.hpp"
 #include "TestDocument.h"
 #include <gtest/gtest.h>
 

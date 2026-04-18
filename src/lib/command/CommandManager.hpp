@@ -6,6 +6,8 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "CommandEntry.hpp"
+#include "CommandId.hpp"
 
 namespace fbide {
 class Context;
@@ -17,6 +19,35 @@ public:
     NO_COPY_AND_MOVE(CommandManager)
 
     explicit CommandManager(Context& ctx);
+
+    /// Add managed command entries
+    void addCommands(const std::initializer_list<CommandEntry>& commands);
+
+    /// get command by name, return nullptr if not found
+    [[nodiscard]] auto find(const wxString& name) -> CommandEntry*;
+    [[nodiscard]] auto find(const wxString& name) const -> const CommandEntry*;
+
+    /// Found bound control for given entry, return nullptr if nothing found
+    template<typename T>
+    [[nodiscard]] auto find(const wxString& name) const -> T* {
+        if (const auto* found = find(name)) {
+            return found->get<T>();
+        }
+        return nullptr;
+    }
+
+    /// get command by id, return nullptr if not found
+    [[nodiscard]] auto find(wxWindowID id) -> CommandEntry*;
+    [[nodiscard]] auto find(wxWindowID id) const -> const CommandEntry*;
+
+    /// Found bound control for given entry, return nullptr if nothing found
+    template<typename T>
+    [[nodiscard]] auto find(const wxWindowID id) const -> T* {
+        if (const auto* found = find(id)) {
+            return found->get<T>();
+        }
+        return nullptr;
+    }
 
 private:
     // File
@@ -76,6 +107,8 @@ private:
 
     Context& m_ctx;
     wxString m_parameters;
+    std::unordered_map<wxString, CommandEntry> m_namedCommands;
+    std::unordered_map<wxWindowID, wxString> m_idNames;
 
     wxDECLARE_EVENT_TABLE();
 };

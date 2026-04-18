@@ -4,7 +4,7 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "lib/config/Keywords.hpp"
+#include "config/Keywords.hpp"
 #include <gtest/gtest.h>
 
 using namespace fbide;

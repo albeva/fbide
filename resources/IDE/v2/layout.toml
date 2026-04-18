@@ -12,7 +12,7 @@ menus = ["file", "edit", "search", "view", "run", "help"]
 menu.file = [
     "new",
     "open",
-    "fileHistory",
+    "recentFiles",
     "-",
     "save",
     "saveAs",
@@ -27,6 +27,8 @@ menu.file = [
     "newWindow",
     "quit",
 ]
+
+menu.recentFiles = []
 
 menu.edit = [
     "undo",

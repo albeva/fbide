@@ -25,7 +25,7 @@ question = "Küsimus"
 # keyboard navigation (e.g. Alt+F opens "&File"). Use '&&' to output
 # a literal ampersand.
 # ============================================================================
-[menu]
+[menus]
 file = "&Fail"
 edit = "&Redigeeri"
 search = "&Otsi"
@@ -59,6 +59,14 @@ help = "Tekita uus, tühi dokument"
 [commands.open]
 name = "&Ava .."
 help = "Ava uus dokument"
+
+[commands.clearRecentFiles]
+name = "&Eemalda"
+help = "Eemalda hiljutised failid sellest menüüst"
+
+[commands.recentFiles]
+name = "Hiljutised failid..."
+help = "Ava file mida avasid hiljuti"
 
 [commands.save]
 name = "&Salvesta"

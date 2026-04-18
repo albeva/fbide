@@ -26,4 +26,9 @@ FBIDE_INLINE static wxString operator""_wx(const char* s, std::size_t len) {
     return { s, len };
 }
 
+template<typename... Base>
+struct Visitor : Base... {
+    using Base::operator()...;
+};
+
 } // namespace fbide

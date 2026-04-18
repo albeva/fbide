@@ -4,8 +4,8 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "lib/analyses/lexer/Lexer.hpp"
-#include "lib/config/Keywords.hpp"
+#include "analyses/lexer/Lexer.hpp"
+#include "config/Keywords.hpp"
 #include "../src/lib/format/transformers/reformat/ReFormatter.hpp"
 #include <gtest/gtest.h>
 

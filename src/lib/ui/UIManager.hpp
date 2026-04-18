@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "MenuId.hpp"
+#include "command/CommandId.hpp"
 #include "OutputConsole.hpp"
 #include "UIState.hpp"
 
@@ -93,7 +93,8 @@ private:
     void onPageChanged(wxAuiNotebookEvent& event);
     void onNotebookDblClick(wxAuiNotebookEvent& event);
 
-    void createMenuBar();
+    void configureMenuBar();
+    void configureMenuItems(wxMenu* menu, const wxString& id, bool addSeparators);
     void createToolBar();
     void createStatusBar() const;
     void createLayout();
@@ -109,47 +110,41 @@ private:
     Unowned<wxFrame> m_frame;
     Unowned<wxToolBar> m_toolbar;
     Unowned<wxAuiNotebook> m_notebook;
-    Unowned<wxMenu> m_fileMenu;
-    Unowned<wxMenu> m_editMenu;
-    Unowned<wxMenu> m_searchMenu;
-    Unowned<wxMenu> m_viewMenu;
-    Unowned<wxMenu> m_runMenu;
-    Unowned<wxMenu> m_helpMenu;
 
     static constexpr std::array mutableIds = {
-        MenuId::Save,
-        MenuId::SaveAs,
-        MenuId::Close,
-        MenuId::Undo,
-        MenuId::Redo,
-        MenuId::Cut,
-        MenuId::Copy,
-        MenuId::Paste,
-        MenuId::SelectAll,
-        MenuId::Find,
-        MenuId::Replace,
-        MenuId::SaveAll,
-        MenuId::SessionSave,
-        MenuId::CloseAll,
-        MenuId::SelectLine,
-        MenuId::IndentIncrease,
-        MenuId::IndentDecrease,
-        MenuId::Comment,
-        MenuId::Uncomment,
-        MenuId::FindNext,
-        MenuId::FindPrevious,
-        MenuId::GotoLine,
-        MenuId::Format,
-        MenuId::Result,
-        MenuId::CompilerLog,
-        MenuId::Subs,
-        MenuId::Compile,
-        MenuId::CompileAndRun,
-        MenuId::Run,
-        MenuId::QuickRun,
-        MenuId::CmdPrompt,
-        MenuId::Parameters,
-        MenuId::ShowExitCode
+        CommandId::Save,
+        CommandId::SaveAs,
+        CommandId::Close,
+        CommandId::Undo,
+        CommandId::Redo,
+        CommandId::Cut,
+        CommandId::Copy,
+        CommandId::Paste,
+        CommandId::SelectAll,
+        CommandId::Find,
+        CommandId::Replace,
+        CommandId::SaveAll,
+        CommandId::SessionSave,
+        CommandId::CloseAll,
+        CommandId::SelectLine,
+        CommandId::IndentIncrease,
+        CommandId::IndentDecrease,
+        CommandId::Comment,
+        CommandId::Uncomment,
+        CommandId::FindNext,
+        CommandId::FindPrevious,
+        CommandId::GotoLine,
+        CommandId::Format,
+        CommandId::Result,
+        CommandId::CompilerLog,
+        CommandId::Subs,
+        CommandId::Compile,
+        CommandId::CompileAndRun,
+        CommandId::Run,
+        CommandId::QuickRun,
+        CommandId::CmdPrompt,
+        CommandId::Parameters,
+        CommandId::ShowExitCode
     };
 
     wxDECLARE_EVENT_TABLE();

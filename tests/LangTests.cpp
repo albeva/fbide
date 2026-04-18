@@ -4,7 +4,7 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "lib/config/Lang.hpp"
+#include "config/Lang.hpp"
 #include <gtest/gtest.h>
 
 using namespace fbide;

@@ -19,77 +19,131 @@
 #include "format/FormatDialog.hpp"
 #include "help/HelpManager.hpp"
 #include "settings/SettingsDialog.hpp"
-#include "ui/MenuId.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
-
-namespace {
-constexpr auto id(MenuId mid) -> int { return static_cast<int>(mid); }
-} // namespace
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     // File
-    EVT_MENU(id(MenuId::New),          CommandManager::onNew)
-    EVT_MENU(id(MenuId::Open),         CommandManager::onOpen)
-    EVT_MENU(id(MenuId::Save),         CommandManager::onSave)
-    EVT_MENU(id(MenuId::SaveAs),       CommandManager::onSaveAs)
-    EVT_MENU(id(MenuId::SaveAll),      CommandManager::onSaveAll)
-    EVT_MENU(id(MenuId::Close),        CommandManager::onClose)
-    EVT_MENU(id(MenuId::CloseAll),     CommandManager::onCloseAll)
-    EVT_MENU(id(MenuId::NewWindow),    CommandManager::onNewWindow)
-    EVT_MENU(id(MenuId::Quit),         CommandManager::onQuit)
-    EVT_MENU(id(MenuId::SessionLoad),  CommandManager::onSessionLoad)
-    EVT_MENU(id(MenuId::SessionSave),  CommandManager::onSessionSave)
+    EVT_MENU(+CommandId::New,          CommandManager::onNew)
+    EVT_MENU(+CommandId::Open,         CommandManager::onOpen)
+    EVT_MENU(+CommandId::Save,         CommandManager::onSave)
+    EVT_MENU(+CommandId::SaveAs,       CommandManager::onSaveAs)
+    EVT_MENU(+CommandId::SaveAll,      CommandManager::onSaveAll)
+    EVT_MENU(+CommandId::Close,        CommandManager::onClose)
+    EVT_MENU(+CommandId::CloseAll,     CommandManager::onCloseAll)
+    EVT_MENU(+CommandId::NewWindow,    CommandManager::onNewWindow)
+    EVT_MENU(+CommandId::Quit,         CommandManager::onQuit)
+    EVT_MENU(+CommandId::SessionLoad,  CommandManager::onSessionLoad)
+    EVT_MENU(+CommandId::SessionSave,  CommandManager::onSessionSave)
     EVT_MENU_RANGE(wxID_FILE1, wxID_FILE9, CommandManager::onFileHistory)
 
     // Edit
-    EVT_MENU(id(MenuId::Undo),           CommandManager::onUndo)
-    EVT_MENU(id(MenuId::Redo),           CommandManager::onRedo)
-    EVT_MENU(id(MenuId::Cut),            CommandManager::onCut)
-    EVT_MENU(id(MenuId::Copy),           CommandManager::onCopy)
-    EVT_MENU(id(MenuId::Paste),          CommandManager::onPaste)
-    EVT_MENU(id(MenuId::SelectAll),      CommandManager::onSelectAll)
-    EVT_MENU(id(MenuId::SelectLine),     CommandManager::onSelectLine)
-    EVT_MENU(id(MenuId::IndentIncrease), CommandManager::onIndentIncrease)
-    EVT_MENU(id(MenuId::IndentDecrease), CommandManager::onIndentDecrease)
-    EVT_MENU(id(MenuId::Comment),        CommandManager::onComment)
-    EVT_MENU(id(MenuId::Uncomment),      CommandManager::onUncomment)
+    EVT_MENU(+CommandId::Undo,           CommandManager::onUndo)
+    EVT_MENU(+CommandId::Redo,           CommandManager::onRedo)
+    EVT_MENU(+CommandId::Cut,            CommandManager::onCut)
+    EVT_MENU(+CommandId::Copy,           CommandManager::onCopy)
+    EVT_MENU(+CommandId::Paste,          CommandManager::onPaste)
+    EVT_MENU(+CommandId::SelectAll,      CommandManager::onSelectAll)
+    EVT_MENU(+CommandId::SelectLine,     CommandManager::onSelectLine)
+    EVT_MENU(+CommandId::IndentIncrease, CommandManager::onIndentIncrease)
+    EVT_MENU(+CommandId::IndentDecrease, CommandManager::onIndentDecrease)
+    EVT_MENU(+CommandId::Comment,        CommandManager::onComment)
+    EVT_MENU(+CommandId::Uncomment,      CommandManager::onUncomment)
 
     // Search
-    EVT_MENU(id(MenuId::Find),      CommandManager::onFind)
-    EVT_MENU(id(MenuId::FindNext),  CommandManager::onFindNext)
-    EVT_MENU(id(MenuId::Replace),   CommandManager::onReplace)
-    EVT_MENU(id(MenuId::GotoLine),  CommandManager::onGotoLine)
+    EVT_MENU(+CommandId::Find,      CommandManager::onFind)
+    EVT_MENU(+CommandId::FindNext,  CommandManager::onFindNext)
+    EVT_MENU(+CommandId::Replace,   CommandManager::onReplace)
+    EVT_MENU(+CommandId::GotoLine,  CommandManager::onGotoLine)
 
     // View
-    EVT_MENU(id(MenuId::Settings),    CommandManager::onSettings)
-    EVT_MENU(id(MenuId::Format),      CommandManager::onFormat)
-    EVT_MENU(id(MenuId::Result),      CommandManager::onResult)
-    EVT_MENU(id(MenuId::Subs),        CommandManager::onSubs)
-    EVT_MENU(id(MenuId::CompilerLog), CommandManager::onCompilerLog)
+    EVT_MENU(+CommandId::Preferences, CommandManager::onSettings)
+    EVT_MENU(+CommandId::Format,      CommandManager::onFormat)
+    EVT_MENU(+CommandId::Result,      CommandManager::onResult)
+    EVT_MENU(+CommandId::Subs,        CommandManager::onSubs)
+    EVT_MENU(+CommandId::CompilerLog, CommandManager::onCompilerLog)
 
     // Run
-    EVT_MENU(id(MenuId::Compile),       CommandManager::onCompile)
-    EVT_MENU(id(MenuId::CompileAndRun), CommandManager::onCompileAndRun)
-    EVT_MENU(id(MenuId::Run),           CommandManager::onRun)
-    EVT_MENU(id(MenuId::QuickRun),      CommandManager::onQuickRun)
-    EVT_MENU(id(MenuId::CmdPrompt),     CommandManager::onCmdPrompt)
-    EVT_MENU(id(MenuId::Parameters),    CommandManager::onParameters)
-    EVT_MENU(id(MenuId::ShowExitCode),  CommandManager::onShowExitCode)
+    EVT_MENU(+CommandId::Compile,       CommandManager::onCompile)
+    EVT_MENU(+CommandId::CompileAndRun, CommandManager::onCompileAndRun)
+    EVT_MENU(+CommandId::Run,           CommandManager::onRun)
+    EVT_MENU(+CommandId::QuickRun,      CommandManager::onQuickRun)
+    EVT_MENU(+CommandId::CmdPrompt,     CommandManager::onCmdPrompt)
+    EVT_MENU(+CommandId::Parameters,    CommandManager::onParameters)
+    EVT_MENU(+CommandId::ShowExitCode,  CommandManager::onShowExitCode)
 
     // Help
-    EVT_MENU(id(MenuId::Help),      CommandManager::onHelp)
-    EVT_MENU(id(MenuId::QuickKeys), CommandManager::onQuickKeys)
-    EVT_MENU(id(MenuId::ReadMe),    CommandManager::onReadMe)
-    EVT_MENU(id(MenuId::About),     CommandManager::onAbout)
+    EVT_MENU(+CommandId::Help,      CommandManager::onHelp)
+    EVT_MENU(+CommandId::QuickKeys, CommandManager::onQuickKeys)
+    EVT_MENU(+CommandId::ReadMe,    CommandManager::onReadMe)
+    EVT_MENU(+CommandId::About,     CommandManager::onAbout)
 wxEND_EVENT_TABLE()
 // clang-format on
 
 CommandManager::CommandManager(Context& ctx)
-: m_ctx(ctx) {}
+: m_ctx(ctx) {
+    // clang-format off
+    addCommands({
+        // Main menu entries
+        CommandEntry { .name="menus.file",   .kind = wxITEM_DROPDOWN },
+        CommandEntry { .name="menus.edit",   .kind = wxITEM_DROPDOWN },
+        CommandEntry { .name="menus.search", .kind = wxITEM_DROPDOWN },
+        CommandEntry { .name="menus.view",   .kind = wxITEM_DROPDOWN },
+        CommandEntry { .name="menus.run",    .kind = wxITEM_DROPDOWN },
+        CommandEntry { .name="menus.help",   .kind = wxITEM_DROPDOWN },
+        // commands
+        CommandEntry { .id = +CommandId::About,            .name="about" },
+        CommandEntry { .id = +CommandId::Close,            .name="close" },
+        CommandEntry { .id = +CommandId::CloseAll,         .name="closeAll" },
+        CommandEntry { .id = +CommandId::CmdPrompt,        .name="cmdPrompt" },
+        CommandEntry { .id = +CommandId::Comment,          .name="comment" },
+        CommandEntry { .id = +CommandId::Compile,          .name="compile" },
+        CommandEntry { .id = +CommandId::CompileAndRun,    .name="compileAndRun" },
+        CommandEntry { .id = +CommandId::CompilerLog,      .name="compilerLog" },
+        CommandEntry { .id = +CommandId::Copy,             .name="copy" },
+        CommandEntry { .id = +CommandId::Cut,              .name="cut" },
+        CommandEntry { .id = +CommandId::FileHistory,      .name="fileHistory" },
+        CommandEntry { .id = +CommandId::Find,             .name="find" },
+        CommandEntry { .id = +CommandId::FindNext,         .name="findNext" },
+        CommandEntry { .id = +CommandId::FindPrevious,     .name="findPrevious" },
+        CommandEntry { .id = +CommandId::Format,           .name="format" },
+        CommandEntry { .id = +CommandId::GotoLine,         .name="gotoLine" },
+        CommandEntry { .id = +CommandId::Help,             .name="help"  },
+        CommandEntry { .id = +CommandId::IndentDecrease,   .name="indentDec" },
+        CommandEntry { .id = +CommandId::IndentIncrease,   .name="indentInc" },
+        CommandEntry { .id = +CommandId::New,              .name="new" },
+        CommandEntry { .id = +CommandId::NewWindow,        .name="newWindow" },
+        CommandEntry { .id = +CommandId::Open,             .name="open" },
+        CommandEntry { .id = +CommandId::Parameters,       .name="parameters" },
+        CommandEntry { .id = +CommandId::Paste,            .name="paste" },
+        CommandEntry { .id = +CommandId::Preferences,      .name="settings" },
+        CommandEntry { .id = +CommandId::QuickKeys,        .name="quickKeys" },
+        CommandEntry { .id = +CommandId::QuickRun,         .name="quickRun" },
+        CommandEntry { .id = +CommandId::Quit,             .name="quit"  },
+        CommandEntry { .id = +CommandId::ReadMe,           .name="readMe" },
+        CommandEntry { .id = +CommandId::RecentFiles,      .name="recentFiles", .kind = wxITEM_DROPDOWN },
+        CommandEntry { .id = +CommandId::ClearRecentFiles, .name="clearRecentFiles" },
+        CommandEntry { .id = +CommandId::Redo,             .name="redo" },
+        CommandEntry { .id = +CommandId::Replace,          .name="replace" },
+        CommandEntry { .id = +CommandId::Result,           .name="viewResult", .kind = wxITEM_CHECK },
+        CommandEntry { .id = +CommandId::Run,              .name="run" },
+        CommandEntry { .id = +CommandId::Save,             .name="save" },
+        CommandEntry { .id = +CommandId::SaveAll,          .name="saveAll" },
+        CommandEntry { .id = +CommandId::SaveAs,           .name="saveAs" },
+        CommandEntry { .id = +CommandId::SelectAll,        .name="selectAll" },
+        CommandEntry { .id = +CommandId::SelectLine,       .name="selectLine" },
+        CommandEntry { .id = +CommandId::SessionLoad,      .name="sessionLoad" },
+        CommandEntry { .id = +CommandId::SessionSave,      .name="sessionSave" },
+        CommandEntry { .id = +CommandId::ShowExitCode,     .name="showExitCode", .kind = wxITEM_CHECK },
+        CommandEntry { .id = +CommandId::Subs,             .name="viewSubs" },
+        CommandEntry { .id = +CommandId::Uncomment,        .name="uncomment" },
+        CommandEntry { .id = +CommandId::Undo,             .name="undo" },
+    });
+#// clang-format on
+}
 
-// -- File --
+// region ---------- Event Handling ----------
 
 void CommandManager::onNew(wxCommandEvent&) {
     m_ctx.getDocumentManager().newFile();
@@ -148,8 +202,6 @@ void CommandManager::onFileHistory(wxCommandEvent& event) {
         m_ctx.getDocumentManager().openFile(*file);
     }
 }
-
-// -- Edit --
 
 void CommandManager::onUndo(wxCommandEvent&) {
     if (auto* doc = m_ctx.getDocumentManager().getActive()) {
@@ -217,8 +269,6 @@ void CommandManager::onUncomment(wxCommandEvent&) {
     }
 }
 
-// -- Search --
-
 void CommandManager::onFind(wxCommandEvent&) {
     m_ctx.getDocumentManager().showFind();
 }
@@ -234,8 +284,6 @@ void CommandManager::onReplace(wxCommandEvent&) {
 void CommandManager::onGotoLine(wxCommandEvent&) {
     m_ctx.getDocumentManager().gotoLine();
 }
-
-// -- View --
 
 void CommandManager::onSettings(wxCommandEvent&) {
     SettingsDialog dlg(m_ctx.getUIManager().getMainFrame(), m_ctx);
@@ -262,8 +310,6 @@ void CommandManager::onSubs(wxCommandEvent&) {
 void CommandManager::onCompilerLog(wxCommandEvent&) {
     m_ctx.getCompilerManager().showCompilerLog();
 }
-
-// -- Run --
 
 void CommandManager::onCompile(wxCommandEvent&) {
     m_ctx.getCompilerManager().compile();
@@ -313,8 +359,6 @@ void CommandManager::onShowExitCode(wxCommandEvent&) {
     config.setShowExitCode(!config.getShowExitCode());
 }
 
-// -- Help --
-
 void CommandManager::onHelp(wxCommandEvent&) {
     m_ctx.getHelpManager().open();
 }
@@ -334,3 +378,57 @@ void CommandManager::onAbout(wxCommandEvent&) {
     dlg.create();
     dlg.ShowModal();
 }
+
+// endregion
+
+// region ---------- Command Handling ----------
+
+void CommandManager::addCommands(const std::initializer_list<CommandEntry>& commands) {
+    const auto size = m_namedCommands.size() + commands.size();
+    m_namedCommands.reserve(size);
+    m_namedCommands.reserve(size);
+    for (const auto& cmd : commands) {
+        const auto id = cmd.id == 0 || cmd.id == wxID_ANY ? wxNewId() : cmd.id;
+        auto& entry = m_namedCommands[cmd.name] = cmd;
+        entry.id = id;
+        m_idNames[id] = cmd.name;
+    }
+}
+
+auto CommandManager::find(const wxString& name)-> CommandEntry* {
+    const auto iter = m_namedCommands.find(name);
+    if (iter != m_namedCommands.end()) {
+        return &iter->second;
+    }
+    wxLogWarning("Command '%s' not registered", name);
+    return nullptr;
+}
+
+auto CommandManager::find(const wxString& name) const-> const CommandEntry* {
+    const auto iter = m_namedCommands.find(name);
+    if (iter != m_namedCommands.end()) {
+        return &iter->second;
+    }
+    wxLogWarning("Command '%s' not registered", name);
+    return nullptr;
+}
+
+auto CommandManager::find(const wxWindowID id)-> CommandEntry* {
+    const auto iter = m_idNames.find(id);
+    if (iter != m_idNames.end()) {
+        return find(iter->second);
+    }
+    wxLogWarning("Command with ID '%d' not registered", id);
+    return nullptr;
+}
+
+auto CommandManager::find(const wxWindowID id) const-> const CommandEntry* {
+    const auto iter = m_idNames.find(id);
+    if (iter != m_idNames.end()) {
+        return find(iter->second);
+    }
+    wxLogWarning("Command with ID '%d' not registered", id);
+    return nullptr;
+}
+
+// endregion

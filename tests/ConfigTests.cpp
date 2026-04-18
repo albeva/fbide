@@ -4,7 +4,7 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "lib/config/Config.hpp"
+#include "config/Config.hpp"
 #include <gtest/gtest.h>
 #include <wx/filename.h>
 

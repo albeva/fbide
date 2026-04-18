@@ -11,7 +11,7 @@ namespace fbide {
 
 /// Menu and toolbar command IDs.
 /// Standard wxWidgets IDs used where possible for built-in accelerators.
-enum class MenuId : int {
+enum class CommandId : wxWindowID {
     // Standard wxWidgets IDs
     Quit = wxID_EXIT,
     About = wxID_ABOUT,
@@ -29,10 +29,12 @@ enum class MenuId : int {
     SelectAll = wxID_SELECTALL,
     Find = wxID_FIND,
     Replace = wxID_REPLACE,
-    Settings = wxID_PREFERENCES,
+    Preferences = wxID_PREFERENCES,
 
     // Custom IDs
     NewWindow = wxID_HIGHEST,
+    RecentFiles,
+    ClearRecentFiles,
     SaveAll,
     FileHistory,
     SessionSave,
@@ -60,5 +62,8 @@ enum class MenuId : int {
     QuickKeys,
     ReadMe,
 };
+FBIDE_INLINE static constexpr auto operator+(const CommandId& rhs) -> wxWindowID {
+    return static_cast<wxWindowID>(rhs);
+}
 
 } // namespace fbide
