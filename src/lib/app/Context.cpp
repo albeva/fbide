@@ -5,7 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "lib/app/Context.hpp"
-#include "lib/app/CommandManager.hpp"
+#include "lib/command/CommandManager.hpp"
 #include "lib/help/HelpManager.hpp"
 #include "lib/compiler/CompilerManager.hpp"
 #include "lib/config/Config.hpp"

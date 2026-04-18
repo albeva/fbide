@@ -8,9 +8,9 @@ target_sources(fbide_lib
     lib/about/AboutDialog.cpp
     lib/analyses/lexer/Lexer.cpp
     lib/app/App.cpp
-    lib/app/CommandManager.cpp
     lib/app/Context.cpp
     lib/app/InstanceHandler.cpp
+    lib/command/CommandManager.cpp
     lib/compiler/AsyncProcess.cpp
     lib/compiler/BuildTask.cpp
     lib/compiler/CompileCommand.cpp
@@ -52,9 +52,9 @@ target_sources(fbide_lib
     lib/analyses/lexer/Lexer.hpp
     lib/analyses/lexer/Token.hpp
     lib/app/App.hpp
-    lib/app/CommandManager.hpp
     lib/app/Context.hpp
     lib/app/InstanceHandler.hpp
+    lib/command/CommandManager.hpp
     lib/compiler/AsyncProcess.hpp
     lib/compiler/BuildTask.hpp
     lib/compiler/CompileCommand.hpp

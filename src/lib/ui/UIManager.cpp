@@ -8,7 +8,7 @@
 #include "UIManager.hpp"
 #include "CompilerLog.hpp"
 #include "MenuId.hpp"
-#include "lib/app/CommandManager.hpp"
+#include "../command/CommandManager.hpp"
 #include "lib/app/Context.hpp"
 #include "lib/config/Config.hpp"
 #include "lib/config/FileHistory.hpp"
