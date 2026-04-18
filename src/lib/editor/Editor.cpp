@@ -8,7 +8,7 @@
 #include "DocumentManager.hpp"
 #include "lexilla/FBSciLexer.hpp"
 #include "app/Context.hpp"
-#include "config/Config.hpp"
+#include "config/ConfigManager.hpp"
 #include "config/Keywords.hpp"
 #include "config/Theme.hpp"
 #include "ui/UIManager.hpp"
@@ -38,13 +38,14 @@ void Editor::applySettings() {
 }
 
 void Editor::applyEditorSettings() {
-    const auto& config = m_ctx.getConfig();
+    auto& cfg = m_ctx.getConfigManager();
+    const auto tabSize =cfg.read_or("editor.tabSize", 4);
 
-    SetTabWidth(config.getTabSize());
+    SetTabWidth(tabSize);
     SetUseTabs(false);
     SetTabIndents(true);
     SetBackSpaceUnIndents(true);
-    SetIndent(config.getTabSize());
+    SetIndent(tabSize);
 
     SetScrollWidth(1);
     SetScrollWidthTracking(true);
@@ -65,17 +66,17 @@ void Editor::applyEditorSettings() {
         return;
     }
 
-    SetEdgeColumn(config.getEdgeColumn());
-    SetViewEOL(config.getDisplayEOL());
-    SetIndentationGuides(config.getIndentGuide());
-    SetEdgeMode(config.getLongLine() ? wxSTC_EDGE_LINE : wxSTC_EDGE_NONE);
-    SetViewWhiteSpace(config.getWhiteSpace() ? wxSTC_WS_VISIBLEALWAYS : wxSTC_WS_INVISIBLE);
+    SetEdgeColumn(cfg.read_or("editor.edgeColumn", 80));
+    SetViewEOL(cfg.read_or("editor.displayEOL", false));
+    SetIndentationGuides(cfg.read_or("editor.indentGuide", false));
+    SetEdgeMode(cfg.read_or("editor.longLine", false) ? wxSTC_EDGE_LINE : wxSTC_EDGE_NONE);
+    SetViewWhiteSpace(cfg.read_or("editor.whiteSpace", false) ? wxSTC_WS_VISIBLEALWAYS : wxSTC_WS_INVISIBLE);
 
     // Line number margin
     SetMarginWidth(1, 0);
 
     // Fold margin
-    if (config.getFolderMargin()) {
+    if (cfg.read_or("editor.folderMargin", false)) {
         SetMarginType(2, wxSTC_MARGIN_SYMBOL);
         SetMarginMask(2, static_cast<int>(wxSTC_MASK_FOLDERS));
         SetMarginWidth(2, 14);
@@ -156,7 +157,7 @@ void Editor::applyTheme() {
     StyleSetBackground(wxSTC_STYLE_BRACEBAD, badBrace.background);
     StyleSetBold(wxSTC_STYLE_BRACEBAD, badBrace.fontStyle.bold);
 
-    if (m_ctx.getConfig().getSyntaxHighlight()) {
+    if (m_ctx.getConfigManager().read_or("editor.syntaxHighlight", true)) {
         switch (m_docType) {
         case DocumentType::FreeBASIC:
             applyFreebasicTheme();
@@ -248,7 +249,7 @@ void Editor::applyTextTheme() {
 }
 
 void Editor::updateLineNumberMarginWidth() {
-    if (m_ctx.getConfig().getLineNumbers()) {
+    if (m_ctx.getConfigManager().read_or("editor.lineNumbers", true)) {
         const auto lineNrWidth = TextWidth(wxSTC_STYLE_LINENUMBER, "00001");
         SetMarginWidth(0, lineNrWidth);
     } else {
@@ -475,7 +476,7 @@ void Editor::onZoom(wxStyledTextEvent&) {
 }
 
 void Editor::updateBraceMatch() {
-    if (!m_ctx.getConfig().getBraceHighlight()) {
+    if (!m_ctx.getConfigManager().read_or("editor.braceHighlight", true)) {
         return;
     }
 

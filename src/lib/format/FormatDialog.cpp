@@ -8,7 +8,7 @@
 #include <wx/clipbrd.h>
 #include "analyses/lexer/Lexer.hpp"
 #include "app/Context.hpp"
-#include "config/Config.hpp"
+#include "config/ConfigManager.hpp"
 #include "config/Lang.hpp"
 #include "config/Theme.hpp"
 #include "editor/Document.hpp"
@@ -195,7 +195,7 @@ void FormatDialog::rebuildTransforms() {
     const bool reFormat = m_reformatCheck->IsChecked();
     if (reIndent || reFormat) {
         m_transforms.push_back(std::make_unique<reformat::ReFormatter>(reformat::FormatOptions {
-            .tabSize = static_cast<std::size_t>(m_ctx.getConfig().getTabSize()),
+            .tabSize = static_cast<std::size_t>(m_ctx.getConfigManager().read_or("editor.tabSize", 4)),
             .anchoredPP = reIndent && m_alignPPCheck->IsChecked(),
             .reIndent = reIndent,
             .reFormat = reFormat,

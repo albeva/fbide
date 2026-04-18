@@ -13,6 +13,9 @@ class ConfigManager final {
 public:
     NO_COPY_AND_MOVE(ConfigManager)
 
+    /// Config value
+    using ConfigValue = toml::basic_value<toml::ordered_type_config>;
+
     /// Types of config this class manages
     enum class Category : std::uint8_t {
         Config,
@@ -53,15 +56,57 @@ public:
     void save(Category category);
 
     /// Get toml for the category
-    [[nodiscard]] auto get(Category category) -> toml::value&;
-    [[nodiscard]] auto getConfig() -> toml::value& { return get(Category::Config); }
-    [[nodiscard]] auto getLocale() -> toml::value& { return get(Category::Locale); }
-    [[nodiscard]] auto getTheme() -> toml::value& { return get(Category::Theme); }
-    [[nodiscard]] auto getShortcuts() -> toml::value& { return get(Category::Shortcuts); }
-    [[nodiscard]] auto getKeywords() -> toml::value& { return get(Category::Keywords); }
-    [[nodiscard]] auto getLayout() -> toml::value& { return get(Category::Layout); }
+    [[nodiscard]] auto get(Category category) -> ConfigValue&;
+    [[nodiscard]] auto getConfig() -> ConfigValue& { return get(Category::Config); }
+    [[nodiscard]] auto getLocale() -> ConfigValue& { return get(Category::Locale); }
+    [[nodiscard]] auto getTheme() -> ConfigValue& { return get(Category::Theme); }
+    [[nodiscard]] auto getShortcuts() -> ConfigValue& { return get(Category::Shortcuts); }
+    [[nodiscard]] auto getKeywords() -> ConfigValue& { return get(Category::Keywords); }
+    [[nodiscard]] auto getLayout() -> ConfigValue& { return get(Category::Layout); }
+
+    template<typename T>
+    [[nodiscard]] auto read(const wxString& path) -> std::optional<T> {
+        if (const auto existing = read(path)) {
+            return read<T>(*existing);
+        }
+        return std::nullopt;
+    }
+
+    [[nodiscard]] auto read(const wxString& path) -> std::optional<ConfigValue*>;
+
+    template<typename T>
+    [[nodiscard]] auto read_or(const wxString& path, const T& def) -> const T& {
+        if (const auto cfg = read(path)) {
+            if (const auto value = read<T>(*cfg.value())) {
+                return *value;
+            }
+        }
+        return def;
+    }
+
+    [[nodiscard]] auto read_or(const wxString& path, const int def) -> int {
+        const ConfigValue::integer_type value = def;
+        return static_cast<int>(read_or(path, value));
+    }
 
 private:
+
+    template<typename T>
+    [[nodiscard]] static auto read(const ConfigValue& value) -> const T* {
+        if constexpr (std::is_same_v<T, ConfigValue::boolean_type>) {
+            return value.is_boolean() ? &value.as_boolean() : nullptr;
+        } else if constexpr (std::is_same_v<T, ConfigValue::integer_type>) {
+            return value.is_integer() ? &value.as_integer() : nullptr;
+        } else if constexpr (std::is_same_v<T, ConfigValue::floating_type>) {
+            return value.is_floating() ? &value.as_floating() : nullptr;
+        } else if constexpr (std::is_same_v<T, ConfigValue::string_type>) {
+            return value.is_string() ? &value.as_string() : nullptr;
+        } else {
+            static_assert(false, "Invalid value type for TOML");
+            std::unreachable();
+        }
+    }
+
     /// Resolve the path against ide folders and return absolute path
     [[nodiscard]] auto absolute(const wxString& pathName) const -> wxString;
 
@@ -71,7 +116,7 @@ private:
     struct Entry final {
         Category category;
         wxString path;
-        toml::value value;
+        ConfigValue value;
     };
     static constexpr std::size_t CAT_COUNT = 6;
 

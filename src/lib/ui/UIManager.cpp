@@ -50,10 +50,10 @@ void UIManager::onClose(wxCloseEvent& event) {
     }
 
     // Save window state to config
-    auto& config = m_ctx.getConfig();
+    auto& window = m_ctx.getConfigManager().getConfig()["window"];
     if (m_frame->IsMaximized() || m_frame->IsIconized()) {
-        config.setWindowW(-1);
-        config.setWindowH(-1);
+        window["width"] = -1;
+        window["height"] = -1;
     } else {
         int posX = 0;
         int posY = 0;
@@ -61,12 +61,11 @@ void UIManager::onClose(wxCloseEvent& event) {
         int sizeH = 0;
         m_frame->GetPosition(&posX, &posY);
         m_frame->GetSize(&sizeW, &sizeH);
-        config.setWindowX(posX);
-        config.setWindowY(posY);
-        config.setWindowW(sizeW);
-        config.setWindowH(sizeH);
+        window["x"] = posX;
+        window["y"] = posY;
+        window["width"] = sizeW;
+        window["height"] = sizeH;
     }
-    config.save();
     m_ctx.getConfigManager().save(ConfigManager::Category::Config);
     m_ctx.getFileHistory().save();
 
@@ -77,8 +76,6 @@ void UIManager::onClose(wxCloseEvent& event) {
 }
 
 void UIManager::createMainFrame() {
-    const auto& config = m_ctx.getConfig();
-
     m_frame = make_unowned<wxFrame>(nullptr, wxID_ANY, "FBIde");
 #ifndef __WXMSW__
     m_frame->SetIcon(wxICON(XPM::appicon));
@@ -87,11 +84,17 @@ void UIManager::createMainFrame() {
     m_frame->PushEventHandler(&m_ctx.getCommandManager());
 
     // Position and size from config
-    if (config.getWindowW() == -1 || config.getWindowH() == -1) {
+    auto& cfg = m_ctx.getConfigManager();
+    const int winW = cfg.read_or("window.width", wxDefaultSize.GetWidth());
+    const int winH = cfg.read_or("window.height", wxDefaultSize.GetHeight());
+    if (winW == -1 || winH == -1) {
         m_frame->Maximize();
     } else {
-        m_frame->Move(config.getWindowX(), config.getWindowY());
-        m_frame->SetSize(config.getWindowW(), config.getWindowH());
+        m_frame->Move(
+            cfg.read_or("window.x", wxDefaultPosition.x),
+            cfg.read_or("window.y", wxDefaultPosition.y)
+        );
+        m_frame->SetSize(winW, winH);
     }
 
     // Initialize AUI manager

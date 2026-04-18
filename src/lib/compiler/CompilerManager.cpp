@@ -8,6 +8,7 @@
 #include "BuildTask.hpp"
 #include "app/Context.hpp"
 #include "config/Config.hpp"
+#include "config/ConfigManager.hpp"
 #include "config/Lang.hpp"
 #include "editor/Document.hpp"
 #include "editor/DocumentManager.hpp"
@@ -117,7 +118,10 @@ auto CompilerManager::getFbcVersion() -> const wxString& {
         return m_fbcVersion;
     }
 
-    const auto compiler = m_ctx.getConfig().getCompilerFullPath();
+    const auto compilerPath = m_ctx.getConfigManager().read_or("compiler.path", std::string {});
+    wxFileName path(wxString::FromUTF8(compilerPath));
+    path.MakeAbsolute(m_ctx.getConfig().getAppPath());
+    const auto compiler = path.GetFullPath();
     if (compiler.empty() || !wxIsExecutable(compiler)) {
         return m_fbcVersion;
     }

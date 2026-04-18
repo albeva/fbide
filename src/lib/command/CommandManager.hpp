@@ -92,7 +92,6 @@ private:
     // View
     void onSettings(wxCommandEvent& event);
     void onFormat(wxCommandEvent& event);
-    // void onResult(wxCommandEvent& event);
     void onSubs(wxCommandEvent& event);
     void onCompilerLog(wxCommandEvent& event);
 
@@ -103,7 +102,6 @@ private:
     void onQuickRun(wxCommandEvent& event);
     void onCmdPrompt(wxCommandEvent& event);
     void onParameters(wxCommandEvent& event);
-    void onShowExitCode(wxCommandEvent& event);
 
     // Help
     void onHelp(wxCommandEvent& event);

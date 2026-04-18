@@ -76,7 +76,6 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     EVT_MENU(+CommandId::QuickRun,      CommandManager::onQuickRun)
     EVT_MENU(+CommandId::CmdPrompt,     CommandManager::onCmdPrompt)
     EVT_MENU(+CommandId::Parameters,    CommandManager::onParameters)
-    EVT_MENU(+CommandId::ShowExitCode,  CommandManager::onShowExitCode)
 
     // Help
     EVT_MENU(+CommandId::Help,      CommandManager::onHelp)
@@ -145,11 +144,10 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .id = +CommandId::Uncomment,        .name="uncomment" },
         CommandEntry { .id = +CommandId::Undo,             .name="undo" },
     });
-#// clang-format on
+    // clang-format on
 }
 
 void CommandManager::initializeCommands(){
-    // Load checked states from config
     auto& cfg = m_ctx.getConfigManager().getConfig();
     auto& commands = cfg["commands"];
     for (auto& entry : m_namedCommands | std::views::values) {
@@ -336,11 +334,6 @@ void CommandManager::onFormat(wxCommandEvent&) {
     }
 }
 
-// void CommandManager::onResult(wxCommandEvent&) {
-//
-//     // m_ctx.getUIManager().toggleConsole();
-// }
-
 void CommandManager::onSubs(wxCommandEvent&) {
     // TODO: implement sub/function browser
 }
@@ -390,11 +383,6 @@ void CommandManager::onParameters(wxCommandEvent&) {
     if (dlg.ShowModal() == wxID_OK) {
         m_parameters = dlg.GetValue();
     }
-}
-
-void CommandManager::onShowExitCode(wxCommandEvent&) {
-    auto& config = m_ctx.getConfig();
-    config.setShowExitCode(!config.getShowExitCode());
 }
 
 void CommandManager::onHelp(wxCommandEvent&) {

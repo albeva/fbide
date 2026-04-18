@@ -10,7 +10,7 @@
 #include "CompilerManager.hpp"
 #include "RunCommand.hpp"
 #include "app/Context.hpp"
-#include "config/Config.hpp"
+#include "config/ConfigManager.hpp"
 #include "config/Lang.hpp"
 #include "editor/Document.hpp"
 #include "editor/DocumentManager.hpp"
@@ -136,7 +136,7 @@ void BuildTask::onRunFinished(const ProcessResult& result) {
     if (!result.launched) {
         const auto& lang = m_ctx.getLang();
         wxMessageBox(lang[LangId::RunExecError], lang[LangId::RunError], wxICON_ERROR);
-    } else if (m_ctx.getConfig().getShowExitCode()) {
+    } else if (m_ctx.getConfigManager().read_or("commands.showExitCode", false)) {
         wxString msg;
         msg << result.exitCode;
         wxMessageBox(msg, m_ctx.getLang()[LangId::RunExitCode]);

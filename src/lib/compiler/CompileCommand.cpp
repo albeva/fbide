@@ -8,13 +8,16 @@
 #include "QuoteUtils.hpp"
 #include "app/Context.hpp"
 #include "config/Config.hpp"
+#include "config/ConfigManager.hpp"
 using namespace fbide;
 
-auto CompileCommand::build(const Context& ctx) const -> wxString {
-    return build(
-        ctx.getConfig().getCompileCommand(),
-        ctx.getConfig().getCompilerFullPath()
-    );
+auto CompileCommand::build(Context& ctx) const -> wxString {
+    auto& cfg = ctx.getConfigManager();
+    const auto compileTemplate = cfg.read_or("compiler.compileCommand", std::string { R"("<$fbc>" "<$file>")" });
+    const auto compilerPath = cfg.read_or("compiler.path", std::string {});
+    wxFileName path(compilerPath);
+    path.MakeAbsolute(ctx.getConfig().getAppPath());
+    return build(compileTemplate, path.GetFullPath());
 }
 
 auto CompileCommand::build(const wxString& compileTemplate, const wxString& compiler) const -> wxString {

@@ -21,7 +21,7 @@ public:
     void setSourceFile(const wxString& path) { m_sourceFile = path; }
 
     /// Build the command line using context for the template and compiler path.
-    [[nodiscard]] auto build(const Context& ctx) const -> wxString;
+    [[nodiscard]] auto build(Context& ctx) const -> wxString;
 
     /// Build the command line from explicit template and compiler path.
     [[nodiscard]] auto build(const wxString& compileTemplate, const wxString& compiler) const -> wxString;

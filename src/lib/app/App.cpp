@@ -107,7 +107,8 @@ void App::openFiles(const wxArrayString& files) {
 }
 
 void App::showSplash() {
-    if (m_context->getConfig().getSplashScreen()) {
+    auto& cfg = m_context->getConfigManager();
+    if (cfg.read_or("general.splashScreen", true)) {
         wxImage::AddHandler(make_unowned<wxPNGHandler>());
         const auto splashPath = m_context->getConfig().resolvePath("splash.png");
         if (const wxBitmap bmp(splashPath, wxBITMAP_TYPE_PNG); bmp.IsOk()) {

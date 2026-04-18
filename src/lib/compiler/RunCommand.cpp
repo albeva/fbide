@@ -9,11 +9,16 @@
 #include "QuoteUtils.hpp"
 #include "app/Context.hpp"
 #include "config/Config.hpp"
+#include "config/ConfigManager.hpp"
 using namespace fbide;
 
-auto RunCommand::build(const Context& ctx) const -> wxString {
+auto RunCommand::build(Context& ctx) const -> wxString {
+    const auto runTemplate = ctx.getConfigManager().read_or(
+        "compiler.runCommand",
+        std::string { R"(<$terminal> "<$file>" <$param>)" }
+    );
     return build(
-        ctx.getConfig().getRunCommand(),
+        runTemplate,
         Config::getTerminal(),
         ctx.getCompilerManager().getParameters()
     );

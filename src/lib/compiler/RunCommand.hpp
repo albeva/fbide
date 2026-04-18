@@ -25,7 +25,7 @@ public:
     void setExecutable(const wxString& path) { m_executable = path; }
 
     /// Build the complete command line string using context for config values.
-    [[nodiscard]] auto build(const Context& ctx) const -> wxString;
+    [[nodiscard]] auto build(Context& ctx) const -> wxString;
 
     /// Build the complete command line string from explicit values.
     [[nodiscard]] auto build(const wxString& runTemplate, const wxString& terminal = {}, const wxString& parameters = {}) const -> wxString;

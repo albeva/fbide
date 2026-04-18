@@ -1,12 +1,61 @@
 # Config for windows
 version = "0.5.0"
-locale = "locales/en.toml"
 layout = "layout.toml"
+locale = "locales/en.toml"
 theme = "themes/classic.toml"
 shortcuts = "shortcuts_win.toml"
 keywords = "keywords.toml"
 
+# ----------------------------------------------------------------------------
+# Editor settings
+# ----------------------------------------------------------------------------
+[editor]
+tabSize = 4
+edgeColumn = 80
+autoIndent = true
+syntaxHighlight = true
+lineNumbers = true
+braceHighlight = true
+longLine = false
+whiteSpace = false
+indentGuide = false
+folderMargin = false
+displayEOL = false
+currentLine = true
+
+# ----------------------------------------------------------------------------
+# General settings
+# ----------------------------------------------------------------------------
+[general]
+splashScreen = true
+
+# ----------------------------------------------------------------------------
+# Compiler settings
+# ----------------------------------------------------------------------------
+[compiler]
+path = ""
+compileCommand = '"<$fbc>" "<$file>"'
+runCommand = '<$terminal> "<$file>" <$param>'
+
+# ----------------------------------------------------------------------------
+# Paths
+# ----------------------------------------------------------------------------
+[paths]
+helpFile = ""
+
+# ----------------------------------------------------------------------------
+# Fbide Window
+# ----------------------------------------------------------------------------
+[window]
+x = 521
+y = 283
+width = 1438
+height = 866
+
+# ----------------------------------------------------------------------------
+# UI state configs
+# ----------------------------------------------------------------------------
 [commands]
-viewResult = false
 showExitCode = false
+viewResult = false
 

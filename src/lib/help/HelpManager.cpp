@@ -7,6 +7,7 @@
 #include "help/HelpManager.hpp"
 #include "app/Context.hpp"
 #include "config/Config.hpp"
+#include "config/ConfigManager.hpp"
 #include "editor/Document.hpp"
 #include "editor/DocumentManager.hpp"
 #include "ui/Layout.hpp"
@@ -131,7 +132,7 @@ auto HelpManager::verifyHelpFileAccessible(wxWindow* parent, const wxString& pat
 }
 
 auto HelpManager::openChm(const wxString& query) -> bool {
-    const auto& helpFile = m_ctx.getConfig().getHelpFile();
+    const auto helpFile = m_ctx.getConfigManager().read_or("paths.helpFile", std::string {});
     if (helpFile.empty()) {
         return false;
     }

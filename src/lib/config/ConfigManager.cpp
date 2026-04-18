@@ -59,7 +59,7 @@ void ConfigManager::load(const Category category) {
     try {
         entry.category = category;
         entry.path = file;
-        entry.value = toml::parse(file.ToStdString(), toml::spec::v(1, 1, 0));
+        entry.value = toml::parse<toml::ordered_type_config>(file.ToStdString(), toml::spec::v(1, 1, 0));
     } catch (const toml::exception& ex) {
         wxLogError(
             "Failed to parse toml file '%s' for category '%s', with error: %s",
@@ -79,12 +79,25 @@ void ConfigManager::save(const Category category) {
     out << entry.value;
 }
 
-auto ConfigManager::get(Category category) -> toml::value& {
+auto ConfigManager::get(Category category) -> ConfigValue& {
     auto& entry = m_categories.at(static_cast<std::size_t>(category));
     if (entry.category != category) {
         load(category);
     }
     return entry.value;
+}
+
+auto ConfigManager::read(const wxString& path)-> std::optional<ConfigValue*> {
+    auto* cfg = &getConfig();
+    const wxArrayString parts = wxSplit(path, '.');
+    for (const auto& part : parts) {
+        const auto key = part.ToStdString();
+        if (not cfg->contains(key)) {
+            return std::nullopt;
+        }
+        cfg = &cfg->at(key);
+    }
+    return cfg;
 }
 
 auto ConfigManager::absolute(const wxString& pathName) const -> wxString {
