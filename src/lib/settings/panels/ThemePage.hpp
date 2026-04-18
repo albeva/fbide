@@ -6,8 +6,8 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "lib/config/Theme.hpp"
-#include "lib/ui/Panel.hpp"
+#include "config/Theme.hpp"
+#include "ui/Panel.hpp"
 
 namespace fbide {
 

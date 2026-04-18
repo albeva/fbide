@@ -7,11 +7,11 @@
 #include "DocumentManager.hpp"
 #include "Document.hpp"
 #include "Editor.hpp"
-#include "lib/app/Context.hpp"
-#include "lib/config/Config.hpp"
-#include "lib/config/FileHistory.hpp"
-#include "lib/config/Lang.hpp"
-#include "lib/ui/UIManager.hpp"
+#include "app/Context.hpp"
+#include "config/Config.hpp"
+#include "config/FileHistory.hpp"
+#include "config/Lang.hpp"
+#include "ui/UIManager.hpp"
 using namespace fbide;
 
 // clang-format off

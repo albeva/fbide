@@ -5,8 +5,8 @@
 // https://github.com/albeva/fbide
 //
 #include "Panel.hpp"
-#include "lib/app/Context.hpp"
-#include "lib/config/Lang.hpp"
+#include "app/Context.hpp"
+#include "config/Lang.hpp"
 using namespace fbide;
 
 Panel::Panel(Context& ctx, const wxWindowID id, wxWindow* parent)

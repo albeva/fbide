@@ -5,7 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "HtmlRenderer.hpp"
-#include "lib/config/Theme.hpp"
+#include "config/Theme.hpp"
 using namespace fbide;
 
 namespace {

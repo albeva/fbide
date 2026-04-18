@@ -4,18 +4,18 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "lib/app/Context.hpp"
-#include "lib/command/CommandManager.hpp"
-#include "lib/compiler/CompilerManager.hpp"
-#include "lib/config/Config.hpp"
-#include "lib/config/ConfigManager.hpp"
-#include "lib/config/FileHistory.hpp"
-#include "lib/config/Keywords.hpp"
-#include "lib/config/Lang.hpp"
-#include "lib/config/Theme.hpp"
-#include "lib/editor/DocumentManager.hpp"
-#include "lib/help/HelpManager.hpp"
-#include "lib/ui/UIManager.hpp"
+#include "app/Context.hpp"
+#include "command/CommandManager.hpp"
+#include "compiler/CompilerManager.hpp"
+#include "config/Config.hpp"
+#include "config/ConfigManager.hpp"
+#include "config/FileHistory.hpp"
+#include "config/Keywords.hpp"
+#include "config/Lang.hpp"
+#include "config/Theme.hpp"
+#include "editor/DocumentManager.hpp"
+#include "help/HelpManager.hpp"
+#include "ui/UIManager.hpp"
 using namespace fbide;
 
 Context::Context(const wxString& binaryPath)

@@ -7,7 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "AsyncProcess.hpp"
-#include "lib/config/LangId.hpp"
+#include "config/LangId.hpp"
 
 namespace fbide {
 class Context;

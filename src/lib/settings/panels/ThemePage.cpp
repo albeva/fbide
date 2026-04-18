@@ -6,11 +6,11 @@
 //
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "ThemePage.hpp"
-#include "lib/app/Context.hpp"
-#include "lib/config/Config.hpp"
-#include "lib/config/Lang.hpp"
-#include "lib/config/Theme.hpp"
-#include "lib/ui/UIManager.hpp"
+#include "app/Context.hpp"
+#include "config/Config.hpp"
+#include "config/Lang.hpp"
+#include "config/Theme.hpp"
+#include "ui/UIManager.hpp"
 using namespace fbide;
 
 auto ThemePage::isSyntaxStyle(const Category entry) -> bool {

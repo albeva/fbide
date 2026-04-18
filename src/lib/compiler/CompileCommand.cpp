@@ -6,8 +6,8 @@
 //
 #include "CompileCommand.hpp"
 #include "QuoteUtils.hpp"
-#include "lib/app/Context.hpp"
-#include "lib/config/Config.hpp"
+#include "app/Context.hpp"
+#include "config/Config.hpp"
 using namespace fbide;
 
 auto CompileCommand::build(const Context& ctx) const -> wxString {

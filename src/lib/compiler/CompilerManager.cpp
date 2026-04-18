@@ -6,14 +6,14 @@
 //
 #include "CompilerManager.hpp"
 #include "BuildTask.hpp"
-#include "lib/app/Context.hpp"
-#include "lib/config/Config.hpp"
-#include "lib/config/Lang.hpp"
-#include "lib/editor/Document.hpp"
-#include "lib/editor/DocumentManager.hpp"
-#include "lib/editor/Editor.hpp"
-#include "lib/ui/CompilerLog.hpp"
-#include "lib/ui/UIManager.hpp"
+#include "app/Context.hpp"
+#include "config/Config.hpp"
+#include "config/Lang.hpp"
+#include "editor/Document.hpp"
+#include "editor/DocumentManager.hpp"
+#include "editor/Editor.hpp"
+#include "ui/CompilerLog.hpp"
+#include "ui/UIManager.hpp"
 using namespace fbide;
 
 CompilerManager::CompilerManager(Context& ctx)

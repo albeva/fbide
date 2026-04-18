@@ -8,15 +8,15 @@
 #include <wx/clipbrd.h>
 #include "Context.hpp"
 #include "InstanceHandler.hpp"
-#include "lib/config/Config.hpp"
-#include "lib/config/FileHistory.hpp"
-#include "lib/config/Keywords.hpp"
-#include "lib/config/Lang.hpp"
-#include "lib/config/Theme.hpp"
-#include "lib/editor/DocumentManager.hpp"
-#include "lib/ui/UIManager.hpp"
+#include "config/Config.hpp"
+#include "config/FileHistory.hpp"
+#include "config/Keywords.hpp"
+#include "config/Lang.hpp"
+#include "config/Theme.hpp"
+#include "editor/DocumentManager.hpp"
+#include "ui/UIManager.hpp"
 
-#include "lib/config/ConfigManager.hpp"
+#include "config/ConfigManager.hpp"
 using namespace fbide;
 
 auto App::OnExit() -> int {

@@ -6,9 +6,9 @@
 //
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "KeywordsPage.hpp"
-#include "lib/app/Context.hpp"
-#include "lib/config/Keywords.hpp"
-#include "lib/config/Lang.hpp"
+#include "app/Context.hpp"
+#include "config/Keywords.hpp"
+#include "config/Lang.hpp"
 using namespace fbide;
 
 KeywordsPage::KeywordsPage(Context& ctx, wxWindow* parent)

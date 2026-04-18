@@ -7,8 +7,8 @@
 #include "RunCommand.hpp"
 #include "CompilerManager.hpp"
 #include "QuoteUtils.hpp"
-#include "lib/app/Context.hpp"
-#include "lib/config/Config.hpp"
+#include "app/Context.hpp"
+#include "config/Config.hpp"
 using namespace fbide;
 
 auto RunCommand::build(const Context& ctx) const -> wxString {

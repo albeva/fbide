@@ -7,11 +7,11 @@
 #include "Editor.hpp"
 #include "DocumentManager.hpp"
 #include "lexilla/FBSciLexer.hpp"
-#include "lib/app/Context.hpp"
-#include "lib/config/Config.hpp"
-#include "lib/config/Keywords.hpp"
-#include "lib/config/Theme.hpp"
-#include "lib/ui/UIManager.hpp"
+#include "app/Context.hpp"
+#include "config/Config.hpp"
+#include "config/Keywords.hpp"
+#include "config/Theme.hpp"
+#include "ui/UIManager.hpp"
 using namespace fbide;
 
 // clang-format off

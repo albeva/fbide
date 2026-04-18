@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "lib/ui/Layout.hpp"
+#include "ui/Layout.hpp"
 
 namespace fbide {
 class Context;

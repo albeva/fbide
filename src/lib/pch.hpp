@@ -51,9 +51,9 @@
 #include <wx/wupdlock.h>
 
 // fbide
-#include "lib/utils/DeferHandler.hpp"
-#include "lib/utils/Macros.hpp"
-#include "lib/utils/NoCopy.hpp"
-#include "lib/utils/Unowned.hpp"
-#include "lib/utils/Utils.hpp"
-#include "lib/utils/ValueRestorer.hpp"
+#include "utils/DeferHandler.hpp"
+#include "utils/Macros.hpp"
+#include "utils/NoCopy.hpp"
+#include "utils/Unowned.hpp"
+#include "utils/Utils.hpp"
+#include "utils/ValueRestorer.hpp"

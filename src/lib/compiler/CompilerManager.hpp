@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "lib/config/LangId.hpp"
+#include "config/LangId.hpp"
 
 namespace fbide {
 class BuildTask;

@@ -5,11 +5,11 @@
 // https://github.com/albeva/fbide
 //
 #include "CompilerPage.hpp"
-#include "lib/help/HelpManager.hpp"
-#include "lib/app/Context.hpp"
-#include "lib/compiler/CompilerManager.hpp"
-#include "lib/config/Config.hpp"
-#include "lib/config/Lang.hpp"
+#include "help/HelpManager.hpp"
+#include "app/Context.hpp"
+#include "compiler/CompilerManager.hpp"
+#include "config/Config.hpp"
+#include "config/Lang.hpp"
 using namespace fbide;
 
 CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)

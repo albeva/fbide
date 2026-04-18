@@ -5,7 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "Lexer.hpp"
-#include "lib/config/Keywords.hpp"
+#include "config/Keywords.hpp"
 using namespace fbide::lexer;
 
 namespace {

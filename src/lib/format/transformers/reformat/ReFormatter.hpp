@@ -8,7 +8,7 @@
 #include "pch.hpp"
 #include "FormatTree.hpp"
 #include "TreeBuilder.hpp"
-#include "lib/format/transformers/Transform.hpp"
+#include "format/transformers/Transform.hpp"
 
 namespace fbide::reformat {
 

@@ -6,9 +6,9 @@
 //
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "GeneralPage.hpp"
-#include "lib/app/Context.hpp"
-#include "lib/config/Config.hpp"
-#include "lib/config/Lang.hpp"
+#include "app/Context.hpp"
+#include "config/Config.hpp"
+#include "config/Lang.hpp"
 using namespace fbide;
 
 GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)

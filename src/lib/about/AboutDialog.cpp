@@ -6,9 +6,9 @@
 //
 #include "AboutDialog.hpp"
 #include "cmake/config.hpp"
-#include "lib/app/Context.hpp"
-#include "lib/config/Config.hpp"
-#include "lib/ui/BBCodeText.hpp"
+#include "app/Context.hpp"
+#include "config/Config.hpp"
+#include "ui/BBCodeText.hpp"
 namespace XPM {
 #include "rc/fbide.xpm"
 }

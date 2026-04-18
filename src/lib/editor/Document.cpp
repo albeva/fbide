@@ -6,9 +6,9 @@
 //
 #include "Document.hpp"
 #include "Editor.hpp"
-#include "lib/app/Context.hpp"
-#include "lib/config/Lang.hpp"
-#include "lib/config/LangId.hpp"
+#include "app/Context.hpp"
+#include "config/Lang.hpp"
+#include "config/LangId.hpp"
 using namespace fbide;
 
 Document::Document(wxWindow* parent, Context& ctx, const DocumentType type)

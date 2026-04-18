@@ -6,8 +6,8 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "lib/config/Keywords.hpp"
-#include "lib/ui/Panel.hpp"
+#include "config/Keywords.hpp"
+#include "ui/Panel.hpp"
 
 namespace fbide {
 

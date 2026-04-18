@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "lib/analyses/lexer/Token.hpp"
+#include "analyses/lexer/Token.hpp"
 
 namespace fbide::reformat {
 

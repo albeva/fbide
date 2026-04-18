@@ -5,9 +5,9 @@
 // https://github.com/albeva/fbide
 //
 #include "OutputConsole.hpp"
-#include "lib/app/Context.hpp"
-#include "lib/compiler/CompilerManager.hpp"
-#include "lib/config/Lang.hpp"
+#include "app/Context.hpp"
+#include "compiler/CompilerManager.hpp"
+#include "config/Lang.hpp"
 using namespace fbide;
 
 // clang-format off

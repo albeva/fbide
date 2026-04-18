@@ -8,8 +8,8 @@
 #include <cmake/config.hpp>
 #include <wx/ipc.h>
 #include "Context.hpp"
-#include "lib/editor/DocumentManager.hpp"
-#include "lib/ui/UIManager.hpp"
+#include "editor/DocumentManager.hpp"
+#include "ui/UIManager.hpp"
 
 using namespace fbide;
 
