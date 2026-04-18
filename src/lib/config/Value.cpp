@@ -140,7 +140,11 @@ auto Value::as<std::string>() const -> std::optional<std::string> {
 
 template<>
 auto Value::as<wxString>() const -> std::optional<wxString> {
-    return isString() ? std::optional<wxString> { m_val->as_string() } : std::nullopt;
+    if (!isString()) {
+        return std::nullopt;
+    }
+    const auto& raw = m_val->as_string();
+    return wxString::FromUTF8(raw.data(), raw.size());
 }
 
 // -------------------------------------------------------------------------
@@ -194,7 +198,8 @@ auto Value::operator=(const double v) -> Value& {
 }
 
 auto Value::operator=(const wxString& v) -> Value& {
-    *m_val = v.ToStdString();
+    const auto utf8 = v.utf8_str();
+    *m_val = std::string { utf8.data(), utf8.length() };
     return *this;
 }
 

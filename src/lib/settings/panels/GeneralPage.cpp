@@ -7,13 +7,20 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "GeneralPage.hpp"
 #include "app/Context.hpp"
-#include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
+#include "ui/UIManager.hpp"
 using namespace fbide;
+
+namespace {
+auto currentLocaleFileName(Value cfg) -> wxString {
+    return wxFileName(cfg.get_or("locale", "")).GetFullName();
+}
+} // namespace
 
 GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent) {
-    const auto editor = getContext().getConfigManager().config().at("editor");
+    auto cfg = getContext().getConfigManager().config();
+    const auto editor = cfg.at("editor");
     m_autoIndent      = editor.get_or("autoIndent",      true);
     m_indentGuide     = editor.get_or("indentGuide",     false);
     m_showWhiteSpaces = editor.get_or("whiteSpace",      false);
@@ -25,8 +32,8 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
     m_foldMargin      = editor.get_or("folderMargin",    false);
     m_edgeColumn      = editor.get_or("edgeColumn",      80);
     m_tabSize         = editor.get_or("tabSize",         4);
-    m_splashScreen    = getContext().getConfigManager().config().get_or("general.splashScreen", true);
-    m_language        = getConfig().getLanguage();
+    m_splashScreen    = cfg.get_or("general.splashScreen", true);
+    m_language        = currentLocaleFileName(cfg);
 }
 
 void GeneralPage::create() {
@@ -56,16 +63,18 @@ void GeneralPage::create() {
     vbox(tr("dialogs.settings.general.language"), {}, [&] {
         hbox({ .center = true, .border = 0 }, [&] {
             text(tr("dialogs.settings.general.languageSelect"), { .proportion = 1, .expand = false });
-            choice(m_language, getContext().getConfig().getAllLanguages(), { .expand = false })->SetMinSize(wxSize(200, -1));
+            wxArrayString names;
+            for (const auto& path : getContext().getConfigManager().getAllLanguages()) {
+                names.Add(wxFileName(path).GetFullName());
+            }
+            choice(m_language, names, { .expand = false })->SetMinSize(wxSize(200, -1));
         });
-
-        // Restart warning
-        text(tr("dialogs.settings.general.languageRestart"));
     });
 }
 
 void GeneralPage::apply() {
-    auto cfg = getContext().getConfigManager().config();
+    auto& cfgManager = getContext().getConfigManager();
+    auto cfg = cfgManager.config();
     auto editor = cfg["editor"];
     editor["autoIndent"]      = m_autoIndent;
     editor["indentGuide"]     = m_indentGuide;
@@ -79,6 +88,10 @@ void GeneralPage::apply() {
     editor["edgeColumn"]      = m_edgeColumn;
     editor["tabSize"]         = m_tabSize;
     cfg["general"]["splashScreen"] = m_splashScreen;
-    // Language persists via old Config (locale deferred)
-    getConfig().setLanguage(m_language);
+
+    // Swap locale file if the user picked a different language.
+    if (!m_language.empty() && m_language != currentLocaleFileName(cfg)) {
+        cfgManager.setCategoryPath(ConfigManager::Category::Locale, "locales/" + m_language);
+        getContext().getUIManager().refreshUi();
+    }
 }

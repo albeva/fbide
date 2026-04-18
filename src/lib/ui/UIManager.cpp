@@ -450,6 +450,11 @@ void UIManager::disable(const std::ranges::range auto& range) const {
     }
 }
 
+void UIManager::refreshUi() {
+    configureMenuBar();
+    configureToolBar();
+}
+
 void UIManager::updateEditorSettigs() {
     // Reapply settings to all open editors
     const auto* notebook = getNotebook();

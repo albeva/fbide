@@ -27,11 +27,11 @@ static auto enumerate(const wxString& base) -> std::vector<wxString> {
 }
 
 auto ConfigManager::getAllLanguages() const -> std::vector<wxString> {
-    return enumerate(m_appDir / "locales");
+    return enumerate(m_ideDir / "locales");
 }
 
 auto ConfigManager::getAllThemes() const -> std::vector<wxString> {
-    return enumerate(m_appDir / "themes");
+    return enumerate(m_ideDir / "themes");
 }
 
 // -----------------------------------------------------------------------
