@@ -147,15 +147,14 @@ CommandManager::CommandManager(Context& ctx)
 }
 
 void CommandManager::initializeCommands(){
-    auto& cfg = m_ctx.getConfigManager().getConfig();
-    auto& commands = cfg["commands"];
+    auto commands = m_ctx.getConfigManager().config()["commands"];
     for (auto& entry : m_namedCommands | std::views::values) {
         if (entry.kind == wxITEM_CHECK) {
-            const auto key = entry.name.ToStdString();
-            if (commands.contains(key) && commands[key].is_boolean()) {
-                entry.checked = commands[key].as_boolean();
+            auto node = commands[entry.name];
+            if (const auto existing = node.as<bool>()) {
+                entry.checked = *existing;
             } else {
-                commands[key] = entry.checked;
+                node = entry.checked;
             }
             entry.update();
         }
@@ -170,9 +169,7 @@ void CommandManager::onAnyEvent(wxCommandEvent& event) {
         if (entry->kind != wxITEM_CHECK || entry->checked == event.IsChecked()) {
             return;
         }
-        auto& cfg = m_ctx.getConfigManager().getConfig();
-        auto& commands = cfg["commands"];
-        commands[entry->name.ToStdString()] = event.IsChecked();
+        m_ctx.getConfigManager().config()["commands"][entry->name] = event.IsChecked();
         entry->setChecked(event.IsChecked());
     }
 }

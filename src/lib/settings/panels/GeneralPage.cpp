@@ -13,19 +13,19 @@ using namespace fbide;
 
 GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent) {
-    auto& cfg = getContext().getConfigManager();
-    m_autoIndent      = cfg.config_or("editor.autoIndent",      true);
-    m_indentGuide     = cfg.config_or("editor.indentGuide",     false);
-    m_showWhiteSpaces = cfg.config_or("editor.whiteSpace",      false);
-    m_showLineEndings = cfg.config_or("editor.displayEOL",      false);
-    m_braceHighlight  = cfg.config_or("editor.braceHighlight",  true);
-    m_syntaxHighlight = cfg.config_or("editor.syntaxHighlight", true);
-    m_showLineNumbers = cfg.config_or("editor.lineNumbers",     true);
-    m_showRightMargin = cfg.config_or("editor.longLine",        false);
-    m_foldMargin      = cfg.config_or("editor.folderMargin",    false);
-    m_splashScreen    = cfg.config_or("general.splashScreen",   true);
-    m_edgeColumn      = cfg.config_or("editor.edgeColumn",      80);
-    m_tabSize         = cfg.config_or("editor.tabSize",         4);
+    const auto editor = getContext().getConfigManager().config().at("editor");
+    m_autoIndent      = editor.get_or("autoIndent",      true);
+    m_indentGuide     = editor.get_or("indentGuide",     false);
+    m_showWhiteSpaces = editor.get_or("whiteSpace",      false);
+    m_showLineEndings = editor.get_or("displayEOL",      false);
+    m_braceHighlight  = editor.get_or("braceHighlight",  true);
+    m_syntaxHighlight = editor.get_or("syntaxHighlight", true);
+    m_showLineNumbers = editor.get_or("lineNumbers",     true);
+    m_showRightMargin = editor.get_or("longLine",        false);
+    m_foldMargin      = editor.get_or("folderMargin",    false);
+    m_edgeColumn      = editor.get_or("edgeColumn",      80);
+    m_tabSize         = editor.get_or("tabSize",         4);
+    m_splashScreen    = getContext().getConfigManager().config().get_or("general.splashScreen", true);
     m_language        = getConfig().getLanguage();
 }
 
@@ -65,8 +65,8 @@ void GeneralPage::create() {
 }
 
 void GeneralPage::apply() {
-    auto& cfg = getContext().getConfigManager().getConfig();
-    auto& editor = cfg["editor"];
+    auto cfg = getContext().getConfigManager().config();
+    auto editor = cfg["editor"];
     editor["autoIndent"]      = m_autoIndent;
     editor["indentGuide"]     = m_indentGuide;
     editor["whiteSpace"]      = m_showWhiteSpaces;

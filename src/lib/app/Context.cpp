@@ -32,5 +32,5 @@ Context::Context(const wxString& binaryPath)
 Context::~Context() = default;
 
 auto Context::tr(const wxString& path) -> wxString {
-    return m_configManager->locale_or(path, "");
+    return m_configManager->locale().get_or(path, "");
 }

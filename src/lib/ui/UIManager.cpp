@@ -49,7 +49,7 @@ void UIManager::onClose(wxCloseEvent& event) {
     }
 
     // Save window state to config
-    auto& window = m_ctx.getConfigManager().getConfig()["window"];
+    auto window = m_ctx.getConfigManager().config()["window"];
     if (m_frame->IsMaximized() || m_frame->IsIconized()) {
         window["width"] = -1;
         window["height"] = -1;
@@ -83,15 +83,15 @@ void UIManager::createMainFrame() {
     m_frame->PushEventHandler(&m_ctx.getCommandManager());
 
     // Position and size from config
-    auto& cfg = m_ctx.getConfigManager();
-    const int winW = cfg.config_or("window.width", wxDefaultSize.GetWidth());
-    const int winH = cfg.config_or("window.height", wxDefaultSize.GetHeight());
+    const auto window = m_ctx.getConfigManager().config().at("window");
+    const int winW = window.get_or("width", wxDefaultSize.GetWidth());
+    const int winH = window.get_or("height", wxDefaultSize.GetHeight());
     if (winW == -1 || winH == -1) {
         m_frame->Maximize();
     } else {
         m_frame->Move(
-            cfg.config_or("window.x", wxDefaultPosition.x),
-            cfg.config_or("window.y", wxDefaultPosition.y)
+            window.get_or("x", wxDefaultPosition.x),
+            window.get_or("y", wxDefaultPosition.y)
         );
         m_frame->SetSize(winW, winH);
     }
@@ -145,8 +145,8 @@ void UIManager::configureMenuBar() {
     try {
         auto& cmd = m_ctx.getCommandManager();
         auto& cfg = m_ctx.getConfigManager();
-        const auto& menus = find(cfg.getLayout(), "menus").as_array();
-        const auto& locale = cfg.getLocale()["menus"];
+        const auto& menus = find(cfg.layout().raw(), "menus").as_array();
+        const auto& locale = cfg.locale().raw()["menus"];
 
         const bool createMenus = m_frame->GetMenuBar() == nullptr;
         const auto menuBar = createMenus ? make_unowned<wxMenuBar>() : m_frame->GetMenuBar();
@@ -189,9 +189,9 @@ void UIManager::configureMenuItems(wxMenu* menu, const wxString& id, const bool 
     try {
         auto& cmd = m_ctx.getCommandManager();
         auto& cfg = m_ctx.getConfigManager();
-        const auto& items = find(cfg.getLayout(), "menu", id).as_array();
-        const auto& commands = find(cfg.getLocale(), "commands");
-        const auto& shortcuts = find(cfg.getShortcuts(), "commands");
+        const auto& items = find(cfg.layout().raw(), "menu", id).as_array();
+        const auto& commands = find(cfg.locale().raw(), "commands");
+        const auto& shortcuts = find(cfg.shortcuts().raw(), "commands");
 
         for (const auto& item : items) {
             const auto key = item.as_string();
@@ -248,8 +248,8 @@ void UIManager::configureToolBar() {
     try {
         auto& cmd = m_ctx.getCommandManager();
         auto& cfg = m_ctx.getConfigManager();
-        const auto& items = find(cfg.getLayout(), "toolbar").as_array();
-        const auto& commands = find(cfg.getLocale(), "commands");
+        const auto& items = find(cfg.layout().raw(), "toolbar").as_array();
+        const auto& commands = find(cfg.locale().raw(), "commands");
 
         // NOLINTBEGIN(*-avoid-c-arrays)
         static const std::unordered_map<wxString, const char* const*> icons = {

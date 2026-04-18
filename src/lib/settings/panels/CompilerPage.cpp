@@ -13,12 +13,13 @@ using namespace fbide;
 
 CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent) {
-    auto& cfg = getContext().getConfigManager();
-    m_compilerPath   = cfg.config_or("compiler.path",           "");
-    m_compileCommand = cfg.config_or("compiler.compileCommand", "");
-    m_runCommand     = cfg.config_or("compiler.runCommand",     "");
+    const auto cfg = getContext().getConfigManager().config();
+    const auto compiler = cfg.at("compiler");
+    m_compilerPath   = compiler.get_or("path",           "");
+    m_compileCommand = compiler.get_or("compileCommand", "");
+    m_runCommand     = compiler.get_or("runCommand",     "");
 #ifdef __WXMSW__
-    m_helpFile = cfg.config_or("paths.helpFile", std::string {});
+    m_helpFile = cfg.get_or("paths.helpFile", "");
 #endif
 }
 
@@ -37,16 +38,16 @@ void CompilerPage::create() {
 }
 
 void CompilerPage::apply() {
-    auto& cfg = getContext().getConfigManager().getConfig();
-    auto& compiler = cfg["compiler"];
-    compiler["compileCommand"] = m_compileCommand.ToStdString();
-    compiler["runCommand"]     = m_runCommand.ToStdString();
+    auto cfg = getContext().getConfigManager().config();
+    auto compiler = cfg["compiler"];
+    compiler["compileCommand"] = m_compileCommand;
+    compiler["runCommand"]     = m_runCommand;
 #ifdef __WXMSW__
-    cfg["paths"]["helpFile"] = m_helpFile.ToStdString();
+    cfg["paths"]["helpFile"] = m_helpFile;
 #endif
-    const wxString existing = toml::find_or(compiler, "path", std::string {});
+    const wxString existing = compiler.get_or("path", "");
     if (m_compilerPath != existing) {
-        compiler["path"] = m_compilerPath.ToStdString();
+        compiler["path"] = m_compilerPath;
         getContext().getCompilerManager().resetFbcVersion();
     }
 }

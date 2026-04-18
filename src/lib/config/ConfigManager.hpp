@@ -6,12 +6,15 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "Value.hpp"
 
 namespace fbide {
 
 class ConfigManager final {
 public:
     NO_COPY_AND_MOVE(ConfigManager)
+
+    using ConfigValue = Value::Inner;
 
     // -----------------------------------------------------------------------
     // Config categories
@@ -71,87 +74,19 @@ public:
     [[nodiscard]] auto relative(const wxString& path) const -> wxString;
 
     // -----------------------------------------------------------------------
-    // Config accesors
+    // Category accessors — return a Value cursor at the category root.
     // -----------------------------------------------------------------------
 
-    /// Config value
-    using ConfigValue = toml::basic_value<toml::ordered_type_config>;
+    [[nodiscard]] auto get(Category category) -> Value;
 
-    /// Get toml for the category
-    [[nodiscard]] auto get(Category category) -> ConfigValue&;
-    [[nodiscard]] auto getConfig() -> ConfigValue& { return get(Category::Config); }
-    [[nodiscard]] auto getLocale() -> ConfigValue& { return get(Category::Locale); }
-    [[nodiscard]] auto getTheme() -> ConfigValue& { return get(Category::Theme); }
-    [[nodiscard]] auto getShortcuts() -> ConfigValue& { return get(Category::Shortcuts); }
-    [[nodiscard]] auto getKeywords() -> ConfigValue& { return get(Category::Keywords); }
-    [[nodiscard]] auto getLayout() -> ConfigValue& { return get(Category::Layout); }
-
-    // -----------------------------------------------------------------------
-    // Config readers
-    // -----------------------------------------------------------------------
-
-#define CONGIG_ACCESSOR(NAME, GETTER)                                                         \
-    template<typename T>                                                                      \
-    [[nodiscard]] auto NAME(const wxString& path) -> std::optional<T> {                       \
-        if (const auto existing = NAME(path)) {                                               \
-            return read<T>(*existing);                                                        \
-        }                                                                                     \
-        return std::nullopt;                                                                  \
-    }                                                                                         \
-                                                                                              \
-    [[nodiscard]] auto NAME(const wxString& path) -> std::optional<ConfigValue*> {            \
-        return read(&GETTER(), path);                                                         \
-    }                                                                                         \
-                                                                                              \
-    template<typename T>                                                                      \
-    [[nodiscard]] auto NAME##_or(const wxString& path, const T& def) -> const T& {            \
-        if (const auto cfg = NAME(path)) {                                                    \
-            if (const auto value = read<T>(*cfg.value())) {                                   \
-                return *value;                                                                \
-            }                                                                                 \
-        }                                                                                     \
-        return def;                                                                           \
-    }                                                                                         \
-                                                                                              \
-    [[nodiscard]] auto NAME##_or(const wxString& path, const int def) -> int {                \
-        const ConfigValue::integer_type value = def;                                          \
-        return static_cast<int>(NAME##_or(path, value));                                      \
-    }                                                                                         \
-                                                                                              \
-    template<std::size_t N>                                                                   \
-    [[nodiscard]] auto NAME##_or(const wxString& path, const char (&def)[N]) -> std::string { \
-        const std::string str { def };                                                        \
-        return NAME##_or(path, str);                                                          \
-    }
-
-    CONGIG_ACCESSOR(config, getConfig)
-    CONGIG_ACCESSOR(locale, getLocale)
-    CONGIG_ACCESSOR(theme, getTheme)
-    CONGIG_ACCESSOR(shortcuts, getShortcuts)
-    CONGIG_ACCESSOR(keywords, getKeywords)
-    CONGIG_ACCESSOR(layout, getLayout)
-
-    /// Resolve path on the given ConfigValue
-    [[nodiscard]] auto read(ConfigValue* src, const wxString& path) -> std::optional<ConfigValue*>;
+    [[nodiscard]] auto config()    -> Value { return get(Category::Config); }
+    [[nodiscard]] auto locale()    -> Value { return get(Category::Locale); }
+    [[nodiscard]] auto theme()     -> Value { return get(Category::Theme); }
+    [[nodiscard]] auto shortcuts() -> Value { return get(Category::Shortcuts); }
+    [[nodiscard]] auto keywords()  -> Value { return get(Category::Keywords); }
+    [[nodiscard]] auto layout()    -> Value { return get(Category::Layout); }
 
 private:
-
-    template<typename T>
-    [[nodiscard]] static auto read(const ConfigValue& value) -> const T* {
-        if constexpr (std::is_same_v<T, ConfigValue::boolean_type>) {
-            return value.is_boolean() ? &value.as_boolean() : nullptr;
-        } else if constexpr (std::is_same_v<T, ConfigValue::integer_type>) {
-            return value.is_integer() ? &value.as_integer() : nullptr;
-        } else if constexpr (std::is_same_v<T, ConfigValue::floating_type>) {
-            return value.is_floating() ? &value.as_floating() : nullptr;
-        } else if constexpr (std::is_same_v<T, ConfigValue::string_type>) {
-            return value.is_string() ? &value.as_string() : nullptr;
-        } else {
-            static_assert(false, "Invalid value type for TOML");
-            std::unreachable();
-        }
-    }
-
     struct Entry final {
         Category category;
         wxString path;

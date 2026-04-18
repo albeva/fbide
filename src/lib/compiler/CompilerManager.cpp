@@ -116,7 +116,7 @@ auto CompilerManager::getFbcVersion() -> const wxString& {
         return m_fbcVersion;
     }
 
-    const wxString compilerPath = m_ctx.getConfigManager().config_or("compiler.path", std::string {});
+    const wxString compilerPath = m_ctx.getConfigManager().config().get_or("compiler.path", "");
     wxFileName path(compilerPath);
     path.MakeAbsolute(m_ctx.getConfig().getAppPath());
     const auto compiler = path.GetFullPath();

@@ -1,5 +1,8 @@
 //
-// Created by Albert on 17/04/2026.
+// FBIde editor for FreeBASIC - https://freebasic.net
+// Copyright (c) 2026 Albert Varaksin
+// Licensed under the MIT License. See LICENSE file for details.
+// https://github.com/albeva/fbide
 //
 #include "ConfigManager.hpp"
 using namespace fbide;
@@ -42,13 +45,13 @@ void ConfigManager::load(const Category category) {
     if (category == Category::Config) {
         file = entry.path;
     } else {
-        const auto cfg = getConfig();
         const auto key = getCategoryName(category);
-        try {
-            file = absolute(cfg.at(std::string(key)).as_string());
-        } catch (const std::exception& ex) {
-            wxLogError("Config category '%s' error: %s", key.data(), ex.what());
+        const auto ref = config().at(std::string_view { key });
+        if (!ref.isString()) {
+            wxLogError("Config category '%s' missing or invalid", key.data());
+            return;
         }
+        file = absolute(wxString { ref.raw().as_string() });
     }
 
     if (!wxFileExists(file)) {
@@ -79,24 +82,12 @@ void ConfigManager::save(const Category category) {
     out << entry.value;
 }
 
-auto ConfigManager::get(Category category) -> ConfigValue& {
+auto ConfigManager::get(Category category) -> Value {
     auto& entry = m_categories.at(static_cast<std::size_t>(category));
     if (entry.category != category) {
         load(category);
     }
-    return entry.value;
-}
-
-auto ConfigManager::read(ConfigValue* src, const wxString& path) -> std::optional<ConfigValue*> {
-    const wxArrayString parts = wxSplit(path, '.');
-    for (const auto& part : parts) {
-        const auto key = part.ToStdString();
-        if (not src->contains(key)) {
-            return std::nullopt;
-        }
-        src = &src->at(key);
-    }
-    return src;
+    return Value { entry.value };
 }
 
 auto ConfigManager::absolute(const wxString& pathName) const -> wxString {
@@ -131,7 +122,7 @@ auto ConfigManager::absolute(const wxString& pathName) const -> wxString {
     }
 
     // No idea
-    wxLogError("Fauiled to resolve absolute path %s", pathName);
+    wxLogError("Failed to resolve absolute path %s", pathName);
     return pathName;
 }
 

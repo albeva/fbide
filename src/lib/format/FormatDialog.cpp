@@ -194,7 +194,7 @@ void FormatDialog::rebuildTransforms() {
     const bool reFormat = m_reformatCheck->IsChecked();
     if (reIndent || reFormat) {
         m_transforms.push_back(std::make_unique<reformat::ReFormatter>(reformat::FormatOptions {
-            .tabSize = static_cast<std::size_t>(m_ctx.getConfigManager().config_or("editor.tabSize", 4)),
+            .tabSize = static_cast<std::size_t>(m_ctx.getConfigManager().config().get_or("editor.tabSize", 4)),
             .anchoredPP = reIndent && m_alignPPCheck->IsChecked(),
             .reIndent = reIndent,
             .reFormat = reFormat,

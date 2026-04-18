@@ -12,9 +12,9 @@
 using namespace fbide;
 
 auto CompileCommand::build(Context& ctx) const -> wxString {
-    auto& cfg = ctx.getConfigManager();
-    const wxString compileTemplate = cfg.config_or("compiler.compileCommand", R"("<$fbc>" "<$file>")");
-    const wxString compilerPath = cfg.config_or("compiler.path", "");
+    const auto compiler = ctx.getConfigManager().config().at("compiler");
+    const wxString compileTemplate = compiler.get_or("compileCommand", R"("<$fbc>" "<$file>")");
+    const wxString compilerPath = compiler.get_or("path", "");
     wxFileName path(compilerPath);
     path.MakeAbsolute(ctx.getConfig().getAppPath());
     return build(compileTemplate, path.GetFullPath());

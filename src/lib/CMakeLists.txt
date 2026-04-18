@@ -17,6 +17,7 @@ target_sources(fbide_lib
     config/Config.cpp
     config/ConfigManager.cpp
     config/FileHistory.cpp
+    config/Value.cpp
     config/Keywords.cpp
     config/Theme.cpp
     editor/Document.cpp
@@ -63,6 +64,7 @@ target_sources(fbide_lib
     config/Config.hpp
     config/ConfigManager.hpp
     config/FileHistory.hpp
+    config/Value.hpp
     config/Keywords.hpp
     config/Theme.hpp
     editor/Document.hpp

@@ -22,7 +22,7 @@ auto Panel::getConfig() const -> Config& {
 }
 
 auto Panel::tr(const wxString& path) const -> wxString {
-    return m_ctx.getConfigManager().locale_or(path, "");
+    return m_ctx.getConfigManager().locale().get_or(path, "");
 }
 
 void Panel::makeTitle(const wxString& labelText) {

@@ -134,7 +134,7 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
 void BuildTask::onRunFinished(const ProcessResult& result) {
     if (!result.launched) {
         wxMessageBox(m_ctx.tr("messages.execError"), m_ctx.tr("common.error"), wxICON_ERROR);
-    } else if (m_ctx.getConfigManager().config_or("commands.showExitCode", false)) {
+    } else if (m_ctx.getConfigManager().config().get_or("commands.showExitCode", false)) {
         wxString msg;
         msg << result.exitCode;
         wxMessageBox(msg, m_ctx.tr("messages.exitCode"));
