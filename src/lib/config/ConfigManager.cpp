@@ -7,6 +7,37 @@
 #include "ConfigManager.hpp"
 using namespace fbide;
 
+// -----------------------------------------------------------------------
+// Get info
+// -----------------------------------------------------------------------
+
+static auto enumerate(const wxString& base) -> std::vector<wxString> {
+    std::vector<wxString> files;
+    if (const wxDir dir(base); dir.IsOpened()) {
+        wxString name;
+        if (dir.GetFirst(&name, "*.toml", wxDIR_FILES)) {
+            do {
+                wxFileName path { name };
+                path.MakeAbsolute(base);
+                files.emplace_back(path.GetFullPath());
+            } while (dir.GetNext(&name));
+        }
+    }
+    return files;
+}
+
+auto ConfigManager::getAllLanguages() const -> std::vector<wxString> {
+    return enumerate(m_appDir / "locales");
+}
+
+auto ConfigManager::getAllThemes() const -> std::vector<wxString> {
+    return enumerate(m_appDir / "themes");
+}
+
+// -----------------------------------------------------------------------
+// Init
+// -----------------------------------------------------------------------
+
 ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, const wxString& configPath)
 : m_appDir(appPath) {
     // resolve appPath
@@ -38,6 +69,18 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
     load(Category::Config);
 }
 
+void ConfigManager::setCategoryPath(const Category category, const wxString& path) {
+    if (category == Category::Config) {
+        wxLogError("Trying to set category path '%s' for root config.", path);
+        return;
+    }
+
+    const auto key = getCategoryName(category);
+    config()[key] = relative(path);
+
+    load(category);
+}
+
 void ConfigManager::load(const Category category) {
     auto& entry = m_categories[static_cast<std::size_t>(category)];
     wxString file;
@@ -46,7 +89,7 @@ void ConfigManager::load(const Category category) {
         file = entry.path;
     } else {
         const auto key = getCategoryName(category);
-        const auto ref = config().at(std::string_view { key });
+        const auto ref = config().at(key);
         if (!ref.isString()) {
             wxLogError("Config category '%s' missing or invalid", key.data());
             return;
@@ -89,6 +132,10 @@ auto ConfigManager::get(Category category) -> Value {
     }
     return Value { entry.value };
 }
+
+// -----------------------------------------------------------------------
+// Path handling
+// -----------------------------------------------------------------------
 
 auto ConfigManager::absolute(const wxString& pathName) const -> wxString {
     wxFileName path(pathName);

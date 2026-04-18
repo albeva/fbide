@@ -9,7 +9,6 @@
 #include "lexilla/FBSciLexer.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "config/Keywords.hpp"
 #include "config/Theme.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
@@ -182,9 +181,11 @@ void Editor::applyFreebasicTheme() {
 
     // Apply keywords
     // TODO: add keyword group 5
-    const auto& keywords = m_ctx.getKeywords();
-    for (std::size_t grp = 0; grp < Keywords::GROUP_COUNT; grp++) {
-        SetKeyWords(static_cast<int>(grp), keywords.getGroup(grp));
+    const auto groups = m_ctx.getConfigManager().keywords().at("groups");
+    for (std::size_t grp = 0; grp < 4; grp++) {
+        wxString key;
+        key.Printf("group%zu", grp + 1);
+        SetKeyWords(static_cast<int>(grp), groups.get_or(key, ""));
     }
 
     // applyStyle(+Default, theme.getStyle(Theme::Default), editor); // TODO: define proper default

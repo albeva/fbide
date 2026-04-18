@@ -8,7 +8,6 @@
 #include "KeywordsPage.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "config/Keywords.hpp"
 using namespace fbide;
 
 namespace {
@@ -19,16 +18,9 @@ auto groupKey(std::size_t idx) -> std::string {
 
 KeywordsPage::KeywordsPage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent) {
-    // Load from keywords toml, fall back to runtime Keywords for unset groups
     const auto groups = getContext().getConfigManager().keywords().at("groups");
-    const auto& runtime = getContext().getKeywords();
-    for (std::size_t idx = 0; idx < Keywords::GROUP_COUNT; idx++) {
-        const auto key = groupKey(idx);
-        if (const auto stored = groups.at(key).as<wxString>()) {
-            m_groups.at(idx) = *stored;
-        } else {
-            m_groups.at(idx) = runtime.getGroup(idx);
-        }
+    for (std::size_t idx = 0; idx < GROUP_COUNT; idx++) {
+        m_groups.at(idx) = groups.get_or(groupKey(idx), "");
     }
 }
 
@@ -63,19 +55,14 @@ void KeywordsPage::create() {
 void KeywordsPage::apply() {
     m_groups[m_selectedGroup] = m_textKeywords->GetValue();
 
-    // Persist to keywords toml via ConfigManager
+    // Persist to keywords toml via ConfigManager. Editors pick up changes
+    // on UIManager::updateEditorSettigs() via Editor::applyTheme.
     auto& cfg = getContext().getConfigManager();
     auto groups = cfg.keywords()["groups"];
-    for (std::size_t idx = 0; idx < Keywords::GROUP_COUNT; idx++) {
+    for (std::size_t idx = 0; idx < GROUP_COUNT; idx++) {
         groups[groupKey(idx)] = m_groups[idx];
     }
     cfg.save(ConfigManager::Category::Keywords);
-
-    // Update runtime for syntax highlighting
-    auto& keywords = getContext().getKeywords();
-    for (std::size_t idx = 0; idx < Keywords::GROUP_COUNT; idx++) {
-        keywords.setGroup(idx, m_groups[idx]);
-    }
 }
 
 void KeywordsPage::onGroupChanged(const wxCommandEvent& event) {

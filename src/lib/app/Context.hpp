@@ -15,7 +15,6 @@ class ConfigManager;
 class DocumentManager;
 class FileHistory;
 class HelpManager;
-class Keywords;
 class Theme;
 class UIManager;
 
@@ -39,10 +38,6 @@ public:
 
     /// Translate a locale path to a display string (ConfigManager::locale_or with empty default).
     [[nodiscard]] auto tr(const wxString& path) -> wxString;
-
-    /// Get syntax keywords.
-    [[nodiscard]] auto getKeywords() -> Keywords& { return *m_keywords; }
-    [[nodiscard]] auto getKeywords() const -> const Keywords& { return *m_keywords; }
 
     /// Get file history.
     [[nodiscard]] auto getFileHistory() -> FileHistory& { return *m_fileHistory; }
@@ -76,7 +71,6 @@ private:
     std::unique_ptr<Config> m_config;
     std::unique_ptr<ConfigManager> m_configManager;
     std::unique_ptr<FileHistory> m_fileHistory;
-    std::unique_ptr<Keywords> m_keywords;
     std::unique_ptr<Theme> m_theme;
     std::unique_ptr<UIManager> m_uiManager;
     std::unique_ptr<DocumentManager> m_documentManager;

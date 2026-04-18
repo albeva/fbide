@@ -49,6 +49,16 @@ public:
     }
 
     // -----------------------------------------------------------------------
+    // Get info
+    // -----------------------------------------------------------------------
+
+    /// Get array with all the langauges found
+    [[nodiscard]] auto getAllLanguages() const -> std::vector<wxString>;
+
+    /// Get array with all the themes found
+    [[nodiscard]] auto getAllThemes() const -> std::vector<wxString>;
+
+    // -----------------------------------------------------------------------
     // Init
     // -----------------------------------------------------------------------
 
@@ -57,8 +67,10 @@ public:
     /// if configPath is not provided, load it from resolved ide path + "config_{platform}.toml"
     explicit ConfigManager(const wxString& appPath, const wxString& idePath = "", const wxString& configPath = "");
 
-    /// Load category from given path.
-    void load(Category category);
+    /// Load new config for given category from the given file.
+    /// Any changes in current file will be discarded
+    /// This will update filename entry in the config.
+    void setCategoryPath(Category category, const wxString& path);
 
     /// Save given category
     void save(Category category);
@@ -79,14 +91,17 @@ public:
 
     [[nodiscard]] auto get(Category category) -> Value;
 
-    [[nodiscard]] auto config()    -> Value { return get(Category::Config); }
-    [[nodiscard]] auto locale()    -> Value { return get(Category::Locale); }
-    [[nodiscard]] auto theme()     -> Value { return get(Category::Theme); }
+    [[nodiscard]] auto config() -> Value { return get(Category::Config); }
+    [[nodiscard]] auto locale() -> Value { return get(Category::Locale); }
+    [[nodiscard]] auto theme() -> Value { return get(Category::Theme); }
     [[nodiscard]] auto shortcuts() -> Value { return get(Category::Shortcuts); }
-    [[nodiscard]] auto keywords()  -> Value { return get(Category::Keywords); }
-    [[nodiscard]] auto layout()    -> Value { return get(Category::Layout); }
+    [[nodiscard]] auto keywords() -> Value { return get(Category::Keywords); }
+    [[nodiscard]] auto layout() -> Value { return get(Category::Layout); }
 
 private:
+    /// Load category from given path.
+    void load(Category category);
+
     struct Entry final {
         Category category;
         wxString path;

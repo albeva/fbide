@@ -5,7 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "Lexer.hpp"
-#include "config/Keywords.hpp"
 using namespace fbide::lexer;
 
 namespace {
@@ -126,19 +125,20 @@ auto isRem(const std::string_view sv) -> bool {
 // Construction
 // ---------------------------------------------------------------------------
 
-Lexer::Lexer(const Keywords& keywords) {
-    constexpr TokenKind groups[] = {
+Lexer::Lexer(std::span<const wxString> keywordGroups) {
+    constexpr TokenKind tokenKinds[] = {
         TokenKind::Keyword1, TokenKind::Keyword2,
         TokenKind::Keyword3, TokenKind::Keyword4
     };
-    for (std::size_t i = 0; i < 4; i++) {
-        wxStringTokenizer tokenizer(keywords.getGroup(i));
+    const auto count = std::min<std::size_t>(keywordGroups.size(), std::size(tokenKinds));
+    for (std::size_t i = 0; i < count; i++) {
+        wxStringTokenizer tokenizer(keywordGroups[i]);
         while (tokenizer.HasMoreTokens()) {
             auto key = tokenizer.GetNextToken().ToStdString(wxConvUTF8);
             auto lower = toLower(key);
             auto it = structuralKeywords.find(lower);
             const auto kwKind = (it != structuralKeywords.end()) ? it->second : KeywordKind::Other;
-            m_keywords.emplace(std::move(lower), TokenInfo { groups[i], kwKind });
+            m_keywords.emplace(std::move(lower), TokenInfo { tokenKinds[i], kwKind });
         }
     }
 }

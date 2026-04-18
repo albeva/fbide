@@ -6,7 +6,6 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "config/Keywords.hpp"
 #include "ui/Panel.hpp"
 
 namespace fbide {
@@ -15,6 +14,8 @@ namespace fbide {
 class KeywordsPage final : public Panel {
 public:
     NO_COPY_AND_MOVE(KeywordsPage)
+
+    static constexpr std::size_t GROUP_COUNT = 4;
 
     explicit KeywordsPage(Context& ctx, wxWindow* parent);
     void create() override;
@@ -26,7 +27,7 @@ private:
     Unowned<wxChoice> m_groupChoice;
     Unowned<wxTextCtrl> m_textKeywords;
     std::size_t m_selectedGroup = 0;
-    std::array<wxString, Keywords::GROUP_COUNT> m_groups {};
+    std::array<wxString, GROUP_COUNT> m_groups {};
 };
 
 } // namespace fbide

@@ -6,10 +6,8 @@
 //
 #pragma once
 #include "pch.hpp"
+#include <span>
 #include "Token.hpp"
-namespace fbide {
-class Keywords;
-}
 
 namespace fbide::lexer {
 
@@ -27,7 +25,9 @@ class Lexer final {
 public:
     NO_COPY_AND_MOVE(Lexer)
 
-    explicit Lexer(const Keywords& keywords);
+    /// Construct with 4 keyword groups (whitespace-separated keyword strings).
+    /// Index 0 maps to TokenKind::Keyword1, index 3 to Keyword4.
+    explicit Lexer(std::span<const wxString> keywordGroups);
 
     /// Tokenise the given null-terminated UTF-8 source.
     [[nodiscard]] auto tokenise(const char* source) -> std::vector<Token>;

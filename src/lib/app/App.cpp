@@ -10,7 +10,6 @@
 #include "InstanceHandler.hpp"
 #include "config/Config.hpp"
 #include "config/FileHistory.hpp"
-#include "config/Keywords.hpp"
 #include "config/Theme.hpp"
 #include "editor/DocumentManager.hpp"
 #include "ui/UIManager.hpp"
@@ -57,8 +56,7 @@ auto App::OnInit() -> bool {
     }
     config.load(configFile);
 
-    // Load keywords, theme, and file history
-    m_context->getKeywords().load(config.resolvePath(config.getSyntaxFile()));
+    // Load theme and file history (keywords loaded lazily via ConfigManager)
     m_context->getTheme().load(config.getThemePath());
     m_context->getFileHistory().load(config.getAppSettingsPath() + "history.ini");
 
