@@ -85,14 +85,14 @@ void UIManager::createMainFrame() {
 
     // Position and size from config
     auto& cfg = m_ctx.getConfigManager();
-    const int winW = cfg.read_or("window.width", wxDefaultSize.GetWidth());
-    const int winH = cfg.read_or("window.height", wxDefaultSize.GetHeight());
+    const int winW = cfg.config_or("window.width", wxDefaultSize.GetWidth());
+    const int winH = cfg.config_or("window.height", wxDefaultSize.GetHeight());
     if (winW == -1 || winH == -1) {
         m_frame->Maximize();
     } else {
         m_frame->Move(
-            cfg.read_or("window.x", wxDefaultPosition.x),
-            cfg.read_or("window.y", wxDefaultPosition.y)
+            cfg.config_or("window.x", wxDefaultPosition.x),
+            cfg.config_or("window.y", wxDefaultPosition.y)
         );
         m_frame->SetSize(winW, winH);
     }

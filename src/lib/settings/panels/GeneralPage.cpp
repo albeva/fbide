@@ -15,18 +15,18 @@ using namespace fbide;
 GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent) {
     auto& cfg = getContext().getConfigManager();
-    m_autoIndent      = cfg.read_or("editor.autoIndent",      true);
-    m_indentGuide     = cfg.read_or("editor.indentGuide",     false);
-    m_showWhiteSpaces = cfg.read_or("editor.whiteSpace",      false);
-    m_showLineEndings = cfg.read_or("editor.displayEOL",      false);
-    m_braceHighlight  = cfg.read_or("editor.braceHighlight",  true);
-    m_syntaxHighlight = cfg.read_or("editor.syntaxHighlight", true);
-    m_showLineNumbers = cfg.read_or("editor.lineNumbers",     true);
-    m_showRightMargin = cfg.read_or("editor.longLine",        false);
-    m_foldMargin      = cfg.read_or("editor.folderMargin",    false);
-    m_splashScreen    = cfg.read_or("general.splashScreen",   true);
-    m_edgeColumn      = cfg.read_or("editor.edgeColumn",      80);
-    m_tabSize         = cfg.read_or("editor.tabSize",         4);
+    m_autoIndent      = cfg.config_or("editor.autoIndent",      true);
+    m_indentGuide     = cfg.config_or("editor.indentGuide",     false);
+    m_showWhiteSpaces = cfg.config_or("editor.whiteSpace",      false);
+    m_showLineEndings = cfg.config_or("editor.displayEOL",      false);
+    m_braceHighlight  = cfg.config_or("editor.braceHighlight",  true);
+    m_syntaxHighlight = cfg.config_or("editor.syntaxHighlight", true);
+    m_showLineNumbers = cfg.config_or("editor.lineNumbers",     true);
+    m_showRightMargin = cfg.config_or("editor.longLine",        false);
+    m_foldMargin      = cfg.config_or("editor.folderMargin",    false);
+    m_splashScreen    = cfg.config_or("general.splashScreen",   true);
+    m_edgeColumn      = cfg.config_or("editor.edgeColumn",      80);
+    m_tabSize         = cfg.config_or("editor.tabSize",         4);
     m_language        = getConfig().getLanguage();
 }
 

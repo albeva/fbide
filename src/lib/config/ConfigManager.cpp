@@ -87,17 +87,16 @@ auto ConfigManager::get(Category category) -> ConfigValue& {
     return entry.value;
 }
 
-auto ConfigManager::read(const wxString& path)-> std::optional<ConfigValue*> {
-    auto* cfg = &getConfig();
+auto ConfigManager::read(ConfigValue* src, const wxString& path) -> std::optional<ConfigValue*> {
     const wxArrayString parts = wxSplit(path, '.');
     for (const auto& part : parts) {
         const auto key = part.ToStdString();
-        if (not cfg->contains(key)) {
+        if (not src->contains(key)) {
             return std::nullopt;
         }
-        cfg = &cfg->at(key);
+        src = &src->at(key);
     }
-    return cfg;
+    return src;
 }
 
 auto ConfigManager::absolute(const wxString& pathName) const -> wxString {

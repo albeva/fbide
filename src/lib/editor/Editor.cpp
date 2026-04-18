@@ -39,7 +39,7 @@ void Editor::applySettings() {
 
 void Editor::applyEditorSettings() {
     auto& cfg = m_ctx.getConfigManager();
-    const auto tabSize =cfg.read_or("editor.tabSize", 4);
+    const auto tabSize =cfg.config_or("editor.tabSize", 4);
 
     SetTabWidth(tabSize);
     SetUseTabs(false);
@@ -66,17 +66,17 @@ void Editor::applyEditorSettings() {
         return;
     }
 
-    SetEdgeColumn(cfg.read_or("editor.edgeColumn", 80));
-    SetViewEOL(cfg.read_or("editor.displayEOL", false));
-    SetIndentationGuides(cfg.read_or("editor.indentGuide", false));
-    SetEdgeMode(cfg.read_or("editor.longLine", false) ? wxSTC_EDGE_LINE : wxSTC_EDGE_NONE);
-    SetViewWhiteSpace(cfg.read_or("editor.whiteSpace", false) ? wxSTC_WS_VISIBLEALWAYS : wxSTC_WS_INVISIBLE);
+    SetEdgeColumn(cfg.config_or("editor.edgeColumn", 80));
+    SetViewEOL(cfg.config_or("editor.displayEOL", false));
+    SetIndentationGuides(cfg.config_or("editor.indentGuide", false));
+    SetEdgeMode(cfg.config_or("editor.longLine", false) ? wxSTC_EDGE_LINE : wxSTC_EDGE_NONE);
+    SetViewWhiteSpace(cfg.config_or("editor.whiteSpace", false) ? wxSTC_WS_VISIBLEALWAYS : wxSTC_WS_INVISIBLE);
 
     // Line number margin
     SetMarginWidth(1, 0);
 
     // Fold margin
-    if (cfg.read_or("editor.folderMargin", false)) {
+    if (cfg.config_or("editor.folderMargin", false)) {
         SetMarginType(2, wxSTC_MARGIN_SYMBOL);
         SetMarginMask(2, static_cast<int>(wxSTC_MASK_FOLDERS));
         SetMarginWidth(2, 14);
@@ -157,7 +157,7 @@ void Editor::applyTheme() {
     StyleSetBackground(wxSTC_STYLE_BRACEBAD, badBrace.background);
     StyleSetBold(wxSTC_STYLE_BRACEBAD, badBrace.fontStyle.bold);
 
-    if (m_ctx.getConfigManager().read_or("editor.syntaxHighlight", true)) {
+    if (m_ctx.getConfigManager().config_or("editor.syntaxHighlight", true)) {
         switch (m_docType) {
         case DocumentType::FreeBASIC:
             applyFreebasicTheme();
@@ -249,7 +249,7 @@ void Editor::applyTextTheme() {
 }
 
 void Editor::updateLineNumberMarginWidth() {
-    if (m_ctx.getConfigManager().read_or("editor.lineNumbers", true)) {
+    if (m_ctx.getConfigManager().config_or("editor.lineNumbers", true)) {
         const auto lineNrWidth = TextWidth(wxSTC_STYLE_LINENUMBER, "00001");
         SetMarginWidth(0, lineNrWidth);
     } else {
@@ -476,7 +476,7 @@ void Editor::onZoom(wxStyledTextEvent&) {
 }
 
 void Editor::updateBraceMatch() {
-    if (!m_ctx.getConfigManager().read_or("editor.braceHighlight", true)) {
+    if (!m_ctx.getConfigManager().config_or("editor.braceHighlight", true)) {
         return;
     }
 

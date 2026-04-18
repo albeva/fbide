@@ -13,8 +13,9 @@ class ConfigManager final {
 public:
     NO_COPY_AND_MOVE(ConfigManager)
 
-    /// Config value
-    using ConfigValue = toml::basic_value<toml::ordered_type_config>;
+    // -----------------------------------------------------------------------
+    // Config categories
+    // -----------------------------------------------------------------------
 
     /// Types of config this class manages
     enum class Category : std::uint8_t {
@@ -44,6 +45,10 @@ public:
         std::unreachable();
     }
 
+    // -----------------------------------------------------------------------
+    // Init
+    // -----------------------------------------------------------------------
+
     /// Load configuration from given path information
     /// If idePath is empty, then load fbidePath + "/ide"
     /// if configPath is not provided, load it from resolved ide path + "config_{platform}.toml"
@@ -55,11 +60,22 @@ public:
     /// Save given category
     void save(Category category);
 
+    // -----------------------------------------------------------------------
+    // Path management
+    // -----------------------------------------------------------------------
+
     /// Resolve the path against ide folders and return absolute path
     [[nodiscard]] auto absolute(const wxString& pathName) const -> wxString;
 
     /// Turn absolute path relative to known paths
     [[nodiscard]] auto relative(const wxString& path) const -> wxString;
+
+    // -----------------------------------------------------------------------
+    // Config accesors
+    // -----------------------------------------------------------------------
+
+    /// Config value
+    using ConfigValue = toml::basic_value<toml::ordered_type_config>;
 
     /// Get toml for the category
     [[nodiscard]] auto get(Category category) -> ConfigValue&;
@@ -70,38 +86,53 @@ public:
     [[nodiscard]] auto getKeywords() -> ConfigValue& { return get(Category::Keywords); }
     [[nodiscard]] auto getLayout() -> ConfigValue& { return get(Category::Layout); }
 
-    template<typename T>
-    [[nodiscard]] auto read(const wxString& path) -> std::optional<T> {
-        if (const auto existing = read(path)) {
-            return read<T>(*existing);
-        }
-        return std::nullopt;
+    // -----------------------------------------------------------------------
+    // Config readers
+    // -----------------------------------------------------------------------
+
+#define CONGIG_ACCESSOR(NAME, GETTER)                                                         \
+    template<typename T>                                                                      \
+    [[nodiscard]] auto NAME(const wxString& path) -> std::optional<T> {                       \
+        if (const auto existing = NAME(path)) {                                               \
+            return read<T>(*existing);                                                        \
+        }                                                                                     \
+        return std::nullopt;                                                                  \
+    }                                                                                         \
+                                                                                              \
+    [[nodiscard]] auto NAME(const wxString& path) -> std::optional<ConfigValue*> {            \
+        return read(&GETTER(), path);                                                         \
+    }                                                                                         \
+                                                                                              \
+    template<typename T>                                                                      \
+    [[nodiscard]] auto NAME##_or(const wxString& path, const T& def) -> const T& {            \
+        if (const auto cfg = NAME(path)) {                                                    \
+            if (const auto value = read<T>(*cfg.value())) {                                   \
+                return *value;                                                                \
+            }                                                                                 \
+        }                                                                                     \
+        return def;                                                                           \
+    }                                                                                         \
+                                                                                              \
+    [[nodiscard]] auto NAME##_or(const wxString& path, const int def) -> int {                \
+        const ConfigValue::integer_type value = def;                                          \
+        return static_cast<int>(NAME##_or(path, value));                                      \
+    }                                                                                         \
+                                                                                              \
+    template<std::size_t N>                                                                   \
+    [[nodiscard]] auto NAME##_or(const wxString& path, const char (&def)[N]) -> std::string { \
+        const std::string str { def };                                                        \
+        return NAME##_or(path, str);                                                          \
     }
 
-    [[nodiscard]] auto read(const wxString& path) -> std::optional<ConfigValue*>;
-
-    template<typename T>
-    [[nodiscard]] auto read_or(const wxString& path, const T& def) -> const T& {
-        if (const auto cfg = read(path)) {
-            if (const auto value = read<T>(*cfg.value())) {
-                return *value;
-            }
-        }
-        return def;
-    }
-
-    [[nodiscard]] auto read_or(const wxString& path, const int def) -> int {
-        const ConfigValue::integer_type value = def;
-        return static_cast<int>(read_or(path, value));
-    }
-
-    template<std::size_t N>
-    [[nodiscard]] auto read_or(const wxString& path, const char (&def)[N]) -> std::string {
-        const std::string str{def};
-        return read_or(path, str);
-    }
+    CONGIG_ACCESSOR(config, getConfig)
+    CONGIG_ACCESSOR(locale, getLocale)
+    CONGIG_ACCESSOR(theme, getTheme)
+    CONGIG_ACCESSOR(shortcuts, getShortcuts)
+    CONGIG_ACCESSOR(keywords, getKeywords)
+    CONGIG_ACCESSOR(layout, getLayout)
 
 private:
+    [[nodiscard]] auto read(ConfigValue* src, const wxString& path) -> std::optional<ConfigValue*>;
 
     template<typename T>
     [[nodiscard]] static auto read(const ConfigValue& value) -> const T* {

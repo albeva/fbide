@@ -13,7 +13,7 @@
 using namespace fbide;
 
 auto RunCommand::build(Context& ctx) const -> wxString {
-    const wxString runTemplate = ctx.getConfigManager().read_or(
+    const wxString runTemplate = ctx.getConfigManager().config_or(
         "compiler.runCommand",
         R"(<$terminal> "<$file>" <$param>)"
     );

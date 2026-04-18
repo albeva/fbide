@@ -15,11 +15,11 @@ using namespace fbide;
 CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent) {
     auto& cfg = getContext().getConfigManager();
-    m_compilerPath   = cfg.read_or("compiler.path",           "");
-    m_compileCommand = cfg.read_or("compiler.compileCommand", "");
-    m_runCommand     = cfg.read_or("compiler.runCommand",     "");
+    m_compilerPath   = cfg.config_or("compiler.path",           "");
+    m_compileCommand = cfg.config_or("compiler.compileCommand", "");
+    m_runCommand     = cfg.config_or("compiler.runCommand",     "");
 #ifdef __WXMSW__
-    m_helpFile = cfg.read_or("paths.helpFile", std::string {});
+    m_helpFile = cfg.config_or("paths.helpFile", std::string {});
 #endif
 }
 

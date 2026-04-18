@@ -136,7 +136,7 @@ void BuildTask::onRunFinished(const ProcessResult& result) {
     if (!result.launched) {
         const auto& lang = m_ctx.getLang();
         wxMessageBox(lang[LangId::RunExecError], lang[LangId::RunError], wxICON_ERROR);
-    } else if (m_ctx.getConfigManager().read_or("commands.showExitCode", false)) {
+    } else if (m_ctx.getConfigManager().config_or("commands.showExitCode", false)) {
         wxString msg;
         msg << result.exitCode;
         wxMessageBox(msg, m_ctx.getLang()[LangId::RunExitCode]);

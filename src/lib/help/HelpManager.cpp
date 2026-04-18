@@ -132,7 +132,7 @@ auto HelpManager::verifyHelpFileAccessible(wxWindow* parent, const wxString& pat
 }
 
 auto HelpManager::openChm(const wxString& query) -> bool {
-    const wxString helpFile = m_ctx.getConfigManager().read_or("paths.helpFile", "");
+    const wxString helpFile = m_ctx.getConfigManager().config_or("paths.helpFile", "");
     if (helpFile.empty()) {
         return false;
     }
