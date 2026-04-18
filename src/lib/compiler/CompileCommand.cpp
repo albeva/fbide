@@ -13,8 +13,8 @@ using namespace fbide;
 
 auto CompileCommand::build(Context& ctx) const -> wxString {
     auto& cfg = ctx.getConfigManager();
-    const auto compileTemplate = cfg.read_or("compiler.compileCommand", std::string { R"("<$fbc>" "<$file>")" });
-    const auto compilerPath = cfg.read_or("compiler.path", std::string {});
+    const wxString compileTemplate = cfg.read_or("compiler.compileCommand", R"("<$fbc>" "<$file>")");
+    const wxString compilerPath = cfg.read_or("compiler.path", "");
     wxFileName path(compilerPath);
     path.MakeAbsolute(ctx.getConfig().getAppPath());
     return build(compileTemplate, path.GetFullPath());

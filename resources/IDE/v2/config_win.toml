@@ -16,11 +16,11 @@ autoIndent = true
 syntaxHighlight = true
 lineNumbers = true
 braceHighlight = true
-longLine = false
-whiteSpace = false
-indentGuide = false
-folderMargin = false
-displayEOL = false
+longLine = true
+whiteSpace = true
+indentGuide = true
+folderMargin = true
+displayEOL = true
 currentLine = true
 
 # ----------------------------------------------------------------------------

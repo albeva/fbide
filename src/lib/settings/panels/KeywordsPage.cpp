@@ -7,15 +7,32 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "KeywordsPage.hpp"
 #include "app/Context.hpp"
+#include "config/ConfigManager.hpp"
 #include "config/Keywords.hpp"
 #include "config/Lang.hpp"
 using namespace fbide;
 
+namespace {
+auto groupKey(std::size_t idx) -> std::string {
+    return "group" + std::to_string(idx + 1);
+}
+} // namespace
+
 KeywordsPage::KeywordsPage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent) {
-    const auto& keywords = getContext().getKeywords();
+    // Load from keywords toml, fall back to runtime Keywords for unset groups
+    const auto& keywordsToml = getContext().getConfigManager().getKeywords();
+    const auto& runtime = getContext().getKeywords();
+    const auto* groups = keywordsToml.is_table() && keywordsToml.contains("groups")
+                       ? &keywordsToml.at("groups")
+                       : nullptr;
     for (std::size_t idx = 0; idx < Keywords::GROUP_COUNT; idx++) {
-        m_groups.at(idx) = keywords.getGroup(idx);
+        const auto key = groupKey(idx);
+        if (groups != nullptr && groups->is_table() && groups->contains(key) && groups->at(key).is_string()) {
+            m_groups.at(idx) = groups->at(key).as_string();
+        } else {
+            m_groups.at(idx) = runtime.getGroup(idx);
+        }
     }
 }
 
@@ -51,11 +68,21 @@ void KeywordsPage::create() {
 
 void KeywordsPage::apply() {
     m_groups[m_selectedGroup] = m_textKeywords->GetValue();
+
+    // Persist to keywords toml via ConfigManager
+    auto& cfg = getContext().getConfigManager();
+    auto& keywordsToml = cfg.getKeywords();
+    auto& groups = keywordsToml["groups"];
+    for (std::size_t idx = 0; idx < Keywords::GROUP_COUNT; idx++) {
+        groups[groupKey(idx)] = m_groups[idx].ToStdString();
+    }
+    cfg.save(ConfigManager::Category::Keywords);
+
+    // Update runtime for syntax highlighting
     auto& keywords = getContext().getKeywords();
     for (std::size_t idx = 0; idx < Keywords::GROUP_COUNT; idx++) {
-        keywords.setGroup(idx, m_groups[static_cast<size_t>(idx)]);
+        keywords.setGroup(idx, m_groups[idx]);
     }
-    keywords.save();
 }
 
 void KeywordsPage::onGroupChanged(const wxCommandEvent& event) {

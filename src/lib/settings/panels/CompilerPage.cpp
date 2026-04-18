@@ -8,19 +8,19 @@
 #include "help/HelpManager.hpp"
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
-#include "config/Config.hpp"
+#include "config/ConfigManager.hpp"
 #include "config/Lang.hpp"
 using namespace fbide;
 
 CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
-: Panel(ctx, wxID_ANY, parent)
-, m_compilerPath(getConfig().getCompilerPath())
-, m_compileCommand(getConfig().getCompileCommand())
-, m_runCommand(getConfig().getRunCommand())
+: Panel(ctx, wxID_ANY, parent) {
+    auto& cfg = getContext().getConfigManager();
+    m_compilerPath   = cfg.read_or("compiler.path",           "");
+    m_compileCommand = cfg.read_or("compiler.compileCommand", "");
+    m_runCommand     = cfg.read_or("compiler.runCommand",     "");
 #ifdef __WXMSW__
-, m_helpFile(getConfig().getHelpFile())
+    m_helpFile = cfg.read_or("paths.helpFile", std::string {});
 #endif
-{
 }
 
 void CompilerPage::create() {
@@ -39,14 +39,16 @@ void CompilerPage::create() {
 }
 
 void CompilerPage::apply() {
-    auto& config = getConfig();
-    config.setCompileCommand(m_compileCommand);
-    config.setRunCommand(m_runCommand);
+    auto& cfg = getContext().getConfigManager().getConfig();
+    auto& compiler = cfg["compiler"];
+    compiler["compileCommand"] = m_compileCommand.ToStdString();
+    compiler["runCommand"]     = m_runCommand.ToStdString();
 #ifdef __WXMSW__
-    config.setHelpFile(m_helpFile);
+    cfg["paths"]["helpFile"] = m_helpFile.ToStdString();
 #endif
-    if (m_compilerPath != config.getCompilerPath()) {
-        config.setCompilerPath(m_compilerPath);
+    const wxString existing = toml::find_or(compiler, "path", std::string {});
+    if (m_compilerPath != existing) {
+        compiler["path"] = m_compilerPath.ToStdString();
         getContext().getCompilerManager().resetFbcVersion();
     }
 }

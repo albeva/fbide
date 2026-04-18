@@ -118,8 +118,8 @@ auto CompilerManager::getFbcVersion() -> const wxString& {
         return m_fbcVersion;
     }
 
-    const auto compilerPath = m_ctx.getConfigManager().read_or("compiler.path", std::string {});
-    wxFileName path(wxString::FromUTF8(compilerPath));
+    const wxString compilerPath = m_ctx.getConfigManager().read_or("compiler.path", std::string {});
+    wxFileName path(compilerPath);
     path.MakeAbsolute(m_ctx.getConfig().getAppPath());
     const auto compiler = path.GetFullPath();
     if (compiler.empty() || !wxIsExecutable(compiler)) {

@@ -8,24 +8,27 @@
 #include "GeneralPage.hpp"
 #include "app/Context.hpp"
 #include "config/Config.hpp"
+#include "config/ConfigManager.hpp"
 #include "config/Lang.hpp"
 using namespace fbide;
 
 GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
-: Panel(ctx, wxID_ANY, parent)
-, m_autoIndent(getConfig().getAutoIndent())
-, m_indentGuide(getConfig().getIndentGuide())
-, m_showWhiteSpaces(getConfig().getWhiteSpace())
-, m_showLineEndings(getConfig().getDisplayEOL())
-, m_braceHighlight(getConfig().getBraceHighlight())
-, m_syntaxHighlight(getConfig().getSyntaxHighlight())
-, m_showLineNumbers(getConfig().getLineNumbers())
-, m_showRightMargin(getConfig().getLongLine())
-, m_foldMargin(getConfig().getFolderMargin())
-, m_splashScreen(getConfig().getSplashScreen())
-, m_edgeColumn(getConfig().getEdgeColumn())
-, m_tabSize(getConfig().getTabSize())
-, m_language(getConfig().getLanguage()) {}
+: Panel(ctx, wxID_ANY, parent) {
+    auto& cfg = getContext().getConfigManager();
+    m_autoIndent      = cfg.read_or("editor.autoIndent",      true);
+    m_indentGuide     = cfg.read_or("editor.indentGuide",     false);
+    m_showWhiteSpaces = cfg.read_or("editor.whiteSpace",      false);
+    m_showLineEndings = cfg.read_or("editor.displayEOL",      false);
+    m_braceHighlight  = cfg.read_or("editor.braceHighlight",  true);
+    m_syntaxHighlight = cfg.read_or("editor.syntaxHighlight", true);
+    m_showLineNumbers = cfg.read_or("editor.lineNumbers",     true);
+    m_showRightMargin = cfg.read_or("editor.longLine",        false);
+    m_foldMargin      = cfg.read_or("editor.folderMargin",    false);
+    m_splashScreen    = cfg.read_or("general.splashScreen",   true);
+    m_edgeColumn      = cfg.read_or("editor.edgeColumn",      80);
+    m_tabSize         = cfg.read_or("editor.tabSize",         4);
+    m_language        = getConfig().getLanguage();
+}
 
 void GeneralPage::create() {
     const auto& lang = getContext().getLang();
@@ -64,18 +67,20 @@ void GeneralPage::create() {
 }
 
 void GeneralPage::apply() {
-    auto& config = getConfig();
-    config.setAutoIndent(m_autoIndent);
-    config.setIndentGuide(m_indentGuide);
-    config.setWhiteSpace(m_showWhiteSpaces);
-    config.setDisplayEOL(m_showLineEndings);
-    config.setBraceHighlight(m_braceHighlight);
-    config.setSyntaxHighlight(m_syntaxHighlight);
-    config.setLineNumbers(m_showLineNumbers);
-    config.setLongLine(m_showRightMargin);
-    config.setFolderMargin(m_foldMargin);
-    config.setSplashScreen(m_splashScreen);
-    config.setEdgeColumn(m_edgeColumn);
-    config.setTabSize(m_tabSize);
-    config.setLanguage(m_language);
+    auto& cfg = getContext().getConfigManager().getConfig();
+    auto& editor = cfg["editor"];
+    editor["autoIndent"]      = m_autoIndent;
+    editor["indentGuide"]     = m_indentGuide;
+    editor["whiteSpace"]      = m_showWhiteSpaces;
+    editor["displayEOL"]      = m_showLineEndings;
+    editor["braceHighlight"]  = m_braceHighlight;
+    editor["syntaxHighlight"] = m_syntaxHighlight;
+    editor["lineNumbers"]     = m_showLineNumbers;
+    editor["longLine"]        = m_showRightMargin;
+    editor["folderMargin"]    = m_foldMargin;
+    editor["edgeColumn"]      = m_edgeColumn;
+    editor["tabSize"]         = m_tabSize;
+    cfg["general"]["splashScreen"] = m_splashScreen;
+    // Language persists via old Config (locale deferred)
+    getConfig().setLanguage(m_language);
 }

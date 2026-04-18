@@ -89,6 +89,12 @@ public:
         return static_cast<int>(read_or(path, value));
     }
 
+    template<std::size_t N>
+    [[nodiscard]] auto read_or(const wxString& path, const char (&def)[N]) -> std::string {
+        const std::string str{def};
+        return read_or(path, str);
+    }
+
 private:
 
     template<typename T>
