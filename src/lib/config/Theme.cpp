@@ -10,6 +10,21 @@ using namespace fbide;
 
 namespace {
 
+/// Utility method to restore active path in the ini object.
+/// Unfortunately wxConfigPathChanger does not work if path is not terminated by "/"
+template<std::invocable T>
+auto restore(wxFileConfig& ini, const wxString& path, T&& callable) -> std::invoke_result_t<T> {
+    if (path.IsEmpty()) {
+        return std::invoke(std::forward<T>(callable));
+    }
+
+    const auto current = ini.GetPath();
+    ini.SetPath(path);
+    DEFER(ini.SetPath(current));
+
+    return std::invoke(std::forward<T>(callable));
+}
+
 // ---------------------------------------------------------------------------
 // Read/write basic value type
 // ---------------------------------------------------------------------------
@@ -77,18 +92,21 @@ void write<wxColour>(wxFileConfig& ini, const wxString& key, const wxColour& val
 
 template<>
 [[nodiscard]] auto read<Theme::Colors>(wxFileConfig& ini, const wxString& path) -> Theme::Colors {
-    const wxConfigPathChanger restore { &ini, path };
-    return {
-        .foreground = read<wxColour>(ini, "foreground"),
-        .background = read<wxColour>(ini, "background")
-    };
+    return restore(ini, path, [&] {
+        return Theme::Colors {
+            .foreground = read<wxColour>(ini, "foreground"),
+            .background = read<wxColour>(ini, "background")
+        };
+    });
 }
 
 template<>
 void write<Theme::Colors>(wxFileConfig& ini, const wxString& path, const Theme::Colors& value) {
-    const wxConfigPathChanger restore { &ini, path };
-    write(ini, "foreground", value.foreground);
-    write(ini, "background", value.background);
+    // const wxConfigPathChanger restore { &ini, path };
+    return restore(ini, path, [&] {
+        write(ini, "foreground", value.foreground);
+        write(ini, "background", value.background);
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -97,22 +115,24 @@ void write<Theme::Colors>(wxFileConfig& ini, const wxString& path, const Theme::
 
 template<>
 [[nodiscard]] auto read<Theme::Entry>(wxFileConfig& ini, const wxString& path) -> Theme::Entry {
-    const wxConfigPathChanger restore { &ini, path };
-    return {
-        .colors = read<Theme::Colors>(ini, wxEmptyString),
-        .bold = read<bool>(ini, "bold"),
-        .italic = read<bool>(ini, "italic"),
-        .underlined = read<bool>(ini, "underlined"),
-    };
+    return restore(ini, path, [&] {
+        return Theme::Entry {
+            .colors = read<Theme::Colors>(ini, wxEmptyString),
+            .bold = read<bool>(ini, "bold"),
+            .italic = read<bool>(ini, "italic"),
+            .underlined = read<bool>(ini, "underlined"),
+        };
+    });
 }
 
 template<>
 void write<Theme::Entry>(wxFileConfig& ini, const wxString& path, const Theme::Entry& value) {
-    const wxConfigPathChanger restore { &ini, path };
-    write(ini, wxEmptyString, value.colors);
-    write(ini, "bold", value.bold);
-    write(ini, "italic", value.italic);
-    write(ini, "underlined", value.underlined);
+    return restore(ini, path, [&] {
+        write(ini, wxEmptyString, value.colors);
+        write(ini, "bold", value.bold);
+        write(ini, "italic", value.italic);
+        write(ini, "underlined", value.underlined);
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -144,8 +164,11 @@ auto readLegacyFontFlags(const wxFileConfig& ini) -> int {
     return static_cast<int>(val);
 }
 
-auto readLegacyEntry(wxFileConfig& ini, const wxString& section,
-                     const wxColour& defBg, const wxColour& defFg) -> Theme::Entry {
+auto readLegacyEntry(
+    wxFileConfig& ini,
+    const wxString& section,
+    const wxColour& defBg, const wxColour& defFg
+) -> Theme::Entry {
     // Trailing slash is required — wxConfigPathChanger otherwise strips the
     // last component, treating it as an entry name instead of a group.
     const wxConfigPathChanger restore { &ini, section + "/" };
@@ -162,7 +185,7 @@ auto readLegacyEntry(wxFileConfig& ini, const wxString& section,
 }
 
 auto readLegacyColors(wxFileConfig& ini, const wxString& section,
-                      const wxColour& defBg, const wxColour& defFg) -> Theme::Colors {
+    const wxColour& defBg, const wxColour& defFg) -> Theme::Colors {
     const wxConfigPathChanger restore { &ini, section + "/" };
     return {
         .foreground = readBgrColor(ini, "foreground", defFg),
@@ -207,9 +230,7 @@ void Theme::load(const wxString& themePath, const bool reset) {
 
     // Legacy v4 format — .fbt extension.
     if (m_themePath.Lower().EndsWith(".fbt")) {
-        const wxString legacyPath = m_themePath;
-        loadV4(legacyPath);
-        m_themePath = legacyPath;
+        loadV4(m_themePath);
         return;
     }
 
@@ -289,22 +310,22 @@ void Theme::loadV4(const wxString& themePath) {
         .colors = { .foreground = defaultFg, .background = defaultBg },
     };
 
-    mapCategory(ThemeCategory::Comment,          "/comment");
+    mapCategory(ThemeCategory::Comment, "/comment");
     mapCategory(ThemeCategory::MultilineComment, "/comment");
-    mapCategory(ThemeCategory::Number,           "/number");
-    mapCategory(ThemeCategory::String,           "/string");
-    mapCategory(ThemeCategory::StringOpen,       "/stringeol");
-    mapCategory(ThemeCategory::Identifier,       "/identifier");
-    mapCategory(ThemeCategory::Keyword1,         "/keyword");
-    mapCategory(ThemeCategory::Keyword2,         "/keyword2");
-    mapCategory(ThemeCategory::Keyword3,         "/keyword3");
-    mapCategory(ThemeCategory::Keyword4,         "/keyword4");
-    mapCategory(ThemeCategory::Keyword5,         "/keyword");
-    mapCategory(ThemeCategory::Operator,         "/operator");
-    mapCategory(ThemeCategory::Label,            "/identifier");
-    mapCategory(ThemeCategory::Constant,         "/constant");
-    mapCategory(ThemeCategory::Preprocessor,     "/preprocessor");
-    mapCategory(ThemeCategory::Error,            "/identifier");
+    mapCategory(ThemeCategory::Number, "/number");
+    mapCategory(ThemeCategory::String, "/string");
+    mapCategory(ThemeCategory::StringOpen, "/stringeol");
+    mapCategory(ThemeCategory::Identifier, "/identifier");
+    mapCategory(ThemeCategory::Keyword1, "/keyword");
+    mapCategory(ThemeCategory::Keyword2, "/keyword2");
+    mapCategory(ThemeCategory::Keyword3, "/keyword3");
+    mapCategory(ThemeCategory::Keyword4, "/keyword4");
+    mapCategory(ThemeCategory::Keyword5, "/keyword");
+    mapCategory(ThemeCategory::Operator, "/operator");
+    mapCategory(ThemeCategory::Label, "/identifier");
+    mapCategory(ThemeCategory::Constant, "/constant");
+    mapCategory(ThemeCategory::Preprocessor, "/preprocessor");
+    mapCategory(ThemeCategory::Error, "/identifier");
 }
 
 void Theme::save(const wxString& newThemePath) {
