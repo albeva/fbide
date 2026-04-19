@@ -122,7 +122,7 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
         }
     }
     if (m_ideDir.empty()) {
-        m_ideDir = m_appDir / "IDE" / "v2";
+        m_ideDir = m_appDir / "ide";
     }
     if (not wxDirExists(m_ideDir)) {
         wxLogError("ide config directory '%s' does not exist", m_ideDir);

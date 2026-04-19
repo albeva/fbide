@@ -22,6 +22,7 @@ public:
 
     /// Cleanup on exit — flush clipboard so copied content persists after app closes.
     auto OnExit() -> int override;
+    void initAppearance();
 
     /// Get the application context.
     [[nodiscard]] auto getContext() -> Context& { return *m_context; }

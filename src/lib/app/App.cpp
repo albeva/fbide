@@ -24,6 +24,19 @@ auto App::OnExit() -> int {
     return wxApp::OnExit();
 }
 
+void App::initAppearance() {
+    // Enable light/dark mode appearance
+    // EXTREMELY buggy on windows, not reccomended enabling this
+    const auto appearance = m_context->getConfigManager().config().get_or("appearance", "").Lower();
+    if (appearance == "dark") {
+        SetAppearance(Appearance::Dark);
+    } else if (appearance == "light") {
+        SetAppearance(Appearance::Light);
+    } else if (appearance == "system") {
+        SetAppearance(Appearance::System);
+    }
+}
+
 auto App::OnInit() -> bool {
     const auto fbidePath = getFbidePath();
     wxLog::SetActiveTarget(new wxLogStream(new std::ofstream((fbidePath / "app.log").ToStdString(), std::ios::app)));
@@ -45,6 +58,7 @@ auto App::OnInit() -> bool {
     }
 
     showSplash();
+    initAppearance();
 
     // If --config was supplied, reload ConfigManager from that file.
     auto& configManager = m_context->getConfigManager();
