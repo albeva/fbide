@@ -40,6 +40,9 @@ void App::initAppearance() {
 auto App::OnInit() -> bool {
     const auto fbidePath = getFbidePath();
     wxLog::SetActiveTarget(new wxLogStream(new std::ofstream((fbidePath / "app.log").ToStdString(), std::ios::app)));
+#if FBIDE_DEBUG_BUILD
+    wxLog::SetVerbose(true);
+#endif
 
     // Create context and parse arguments early (before IPC check)
     m_context = std::make_unique<Context>(fbidePath);
@@ -66,7 +69,7 @@ auto App::OnInit() -> bool {
         configManager.reloadConfig(configFile);
     }
 
-    m_context->getFileHistory().load(configManager.getIdeDir() + "history.ini");
+    m_context->getFileHistory().load(configManager.getIdeDir() / "history.ini");
 
     m_context->getUIManager().createMainFrame();
     openFiles(filesToOpen);
