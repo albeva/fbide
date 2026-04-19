@@ -20,6 +20,7 @@ target_sources(fbide_lib
     config/Theme.cpp
     config/ThemeOld.cpp
     config/Value.cpp
+    config/Version.cpp
     editor/Document.cpp
     editor/DocumentManager.cpp
     editor/DocumentType.cpp
@@ -68,6 +69,7 @@ target_sources(fbide_lib
     config/ThemeCategory.hpp
     config/ThemeOld.hpp
     config/Value.hpp
+    config/Version.hpp
     editor/Document.hpp
     editor/DocumentManager.hpp
     editor/DocumentType.hpp

@@ -7,6 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "Value.hpp"
+#include "Version.hpp"
 
 namespace fbide {
 

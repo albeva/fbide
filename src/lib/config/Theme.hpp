@@ -7,11 +7,13 @@
 #pragma once
 #include "pch.hpp"
 #include "ThemeCategory.hpp"
+#include "Version.hpp"
 // clang-format off
 namespace fbide {
 
 #define DEFINE_THEME_PROPERTY(_)           \
     /* name        getter      type     */ \
+    _( version,    Version,    Version   ) \
     _( font,       Font,       wxString  ) \
     _( fontSize,   FontSize,   int       ) \
     _( lineNumber, LineNumber, Colors    ) \
@@ -34,6 +36,9 @@ public:
 
     /// Reload theme from file, will reset all content
     void load(const wxString& themePath = wxEmptyString) { load(themePath, true); }
+
+    /// Load legacy v4 .fbt theme (read-only migration; does not store path)
+    void loadV4(const wxString& themePath);
 
     /// Save theme, Optionally to a new path
     void save(const wxString& newThemePath = wxEmptyString);
