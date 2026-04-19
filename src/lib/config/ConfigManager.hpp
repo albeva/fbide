@@ -54,6 +54,12 @@ public:
     /// Get paths of every theme file under resources/IDE/v2/themes.
     [[nodiscard]] auto getAllThemes() const -> std::vector<wxString>;
 
+    /// Platform default config file name.
+    [[nodiscard]] static auto getPlatformConfigFileName() -> wxString;
+
+    /// Platform default terminal command (for running programs).
+    [[nodiscard]] static auto getTerminal() -> wxString;
+
     // -----------------------------------------------------------------------
     // Init
     // -----------------------------------------------------------------------
@@ -62,6 +68,9 @@ public:
 
     /// Point a category to a new file and reload it.
     void setCategoryPath(Category category, const wxString& path);
+
+    /// Override the main config file path (used by --config) and reload.
+    void reloadConfig(const wxString& configPath);
 
     /// Save the category's Value tree to its backing file.
     void save(Category category);
@@ -72,6 +81,9 @@ public:
 
     [[nodiscard]] auto absolute(const wxString& pathName) const -> wxString;
     [[nodiscard]] auto relative(const wxString& path) const -> wxString;
+
+    [[nodiscard]] auto getAppDir() const -> const wxString& { return m_appDir; }
+    [[nodiscard]] auto getIdeDir() const -> const wxString& { return m_ideDir; }
 
     // -----------------------------------------------------------------------
     // Category accessors — return a reference to the category root Value.

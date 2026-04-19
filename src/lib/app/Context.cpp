@@ -7,7 +7,6 @@
 #include "app/Context.hpp"
 #include "command/CommandManager.hpp"
 #include "compiler/CompilerManager.hpp"
-#include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "editor/DocumentManager.hpp"
@@ -16,8 +15,7 @@
 using namespace fbide;
 
 Context::Context(const wxString& binaryPath)
-: m_config(std::make_unique<Config>(binaryPath))
-, m_configManager(std::make_unique<ConfigManager>(binaryPath))
+: m_configManager(std::make_unique<ConfigManager>(binaryPath))
 , m_fileHistory(std::make_unique<FileHistory>())
 , m_uiManager(std::make_unique<UIManager>(*this))
 , m_documentManager(std::make_unique<DocumentManager>(*this))

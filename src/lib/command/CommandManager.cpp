@@ -13,7 +13,6 @@
 #include "about/AboutDialog.hpp"
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
-#include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "editor/Document.hpp"
@@ -360,11 +359,11 @@ void CommandManager::onCmdPrompt(wxCommandEvent&) {
     if (const auto* doc = m_ctx.getDocumentManager().getActive(); doc != nullptr && !doc->isNew()) {
         cwd = wxPathOnly(doc->getFilePath());
     } else {
-        cwd = m_ctx.getConfig().getAppPath();
+        cwd = m_ctx.getConfigManager().getAppDir();
     }
 
     wxSetWorkingDirectory(cwd);
-    wxExecute(Config::getTerminal());
+    wxExecute(ConfigManager::getTerminal());
 }
 
 void CommandManager::onParameters(wxCommandEvent&) {
@@ -385,12 +384,12 @@ void CommandManager::onHelp(wxCommandEvent&) {
 }
 
 void CommandManager::onQuickKeys(wxCommandEvent&) {
-    const auto path = m_ctx.getConfig().getAppSettingsPath() + "quickkeys.txt";
+    const auto path = m_ctx.getConfigManager().absolute("IDE/quickkeys.txt");
     m_ctx.getDocumentManager().openFile(path);
 }
 
 void CommandManager::onReadMe(wxCommandEvent&) {
-    const auto path = m_ctx.getConfig().getAppSettingsPath() + "readme.txt";
+    const auto path = m_ctx.getConfigManager().absolute("IDE/readme.txt");
     m_ctx.getDocumentManager().openFile(path);
 }
 

@@ -82,6 +82,26 @@ auto ConfigManager::getAllThemes() const -> std::vector<wxString> {
     return enumerate(m_ideDir / "themes");
 }
 
+auto ConfigManager::getPlatformConfigFileName() -> wxString {
+#ifdef __WXMSW__
+    return "config_win.ini";
+#elif defined(__WXOSX__)
+    return "config_macos.ini";
+#else
+    return "config_linux.ini";
+#endif
+}
+
+auto ConfigManager::getTerminal() -> wxString {
+#ifdef __WXMSW__
+    return "cmd.exe";
+#elif defined(__WXOSX__)
+    return "open -a Terminal";
+#else
+    return "x-terminal-emulator";
+#endif
+}
+
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
@@ -110,7 +130,7 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
     }
 
     auto& entry = m_categories[static_cast<std::size_t>(Category::Config)];
-    entry.path = absolute(configPath.empty() ? "config_win.ini"_wx : configPath);
+    entry.path = absolute(configPath.empty() ? getPlatformConfigFileName() : configPath);
     load(Category::Config);
 
     // Resolve + load theme immediately after config is available.
@@ -131,6 +151,16 @@ void ConfigManager::setCategoryPath(const Category category, const wxString& pat
     config()[wxString { key.data(), key.size() }] = relative(path);
 
     load(category);
+}
+
+void ConfigManager::reloadConfig(const wxString& configPath) {
+    auto& entry = m_categories[static_cast<std::size_t>(Category::Config)];
+    entry.path = absolute(configPath);
+    load(Category::Config);
+
+    if (const auto themeRel = config().get_or("theme", wxString {}); not themeRel.empty()) {
+        m_theme.load(absolute(themeRel));
+    }
 }
 
 // ---------------------------------------------------------------------------

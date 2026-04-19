@@ -11,14 +11,13 @@
 namespace fbide {
 class CommandManager;
 class CompilerManager;
-class Config;
 class DocumentManager;
 class FileHistory;
 class HelpManager;
 class UIManager;
 
 /// Central access point for editor service objects.
-/// Owns Config and other shared state.
+/// Owns ConfigManager and other shared state.
 /// Created first, destroyed last.
 class Context final {
 public:
@@ -27,10 +26,6 @@ public:
     /// Initialize context with resolved binary path.
     explicit Context(const wxString& binaryPath);
     ~Context();
-
-    /// Get application configuration.
-    [[nodiscard]] auto getConfig() -> Config& { return *m_config; }
-    [[nodiscard]] auto getConfig() const -> const Config& { return *m_config; }
 
     [[nodiscard]] auto getConfigManager() -> ConfigManager& { return *m_configManager; }
     [[nodiscard]] auto getConfigManager() const -> const ConfigManager& { return *m_configManager; }
@@ -67,7 +62,6 @@ public:
     [[nodiscard]] auto getHelpManager() const -> const HelpManager& { return *m_helpManager; }
 
 private:
-    std::unique_ptr<Config> m_config;
     std::unique_ptr<ConfigManager> m_configManager;
     std::unique_ptr<FileHistory> m_fileHistory;
     std::unique_ptr<UIManager> m_uiManager;

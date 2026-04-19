@@ -23,6 +23,9 @@ public:
     void create() override;
     void apply() override;
 
+    /// Enumerate all fixed-width system fonts — used only by this panel.
+    [[nodiscard]] static auto getAllFixedWidthFonts() -> std::vector<wxString>;
+
 private:
     auto tr(const wxString& path) const -> wxString;
 

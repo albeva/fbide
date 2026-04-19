@@ -8,10 +8,13 @@
 #include "Document.hpp"
 #include "Editor.hpp"
 #include "app/Context.hpp"
-#include "config/Config.hpp"
 #include "config/FileHistory.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
+
+namespace {
+constexpr auto SESSION_EXT = "fbs";
+} // namespace
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(DocumentManager, wxEvtHandler)
@@ -61,7 +64,7 @@ void DocumentManager::openFile() {
 
 auto DocumentManager::openFile(const wxString& filePath) -> Document* {
     // Session files are loaded separately
-    if (wxFileName(filePath).GetExt() == Config::SESSION_EXT) {
+    if (wxFileName(filePath).GetExt() == SESSION_EXT) {
         loadSession(filePath);
         return nullptr;
     }
@@ -388,7 +391,7 @@ void DocumentManager::loadSession() {
     wxFileDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
         m_ctx.tr("files.loadTitle"),
-        "", wxString(".") + Config::SESSION_EXT,
+        "", wxString(".") + SESSION_EXT,
         "FBIde session files (*.fbs)|*.fbs",
         wxFD_FILE_MUST_EXIST
     );
@@ -405,7 +408,7 @@ void DocumentManager::saveSession() {
     wxFileDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
         m_ctx.tr("files.sessionSaveTitle"),
-        "", wxString(".") + Config::SESSION_EXT,
+        "", wxString(".") + SESSION_EXT,
         "FBIde session files (*.fbs)|*.fbs",
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
     );

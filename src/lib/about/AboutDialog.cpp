@@ -7,7 +7,7 @@
 #include "AboutDialog.hpp"
 #include "cmake/config.hpp"
 #include "app/Context.hpp"
-#include "config/Config.hpp"
+#include "config/ConfigManager.hpp"
 #include "ui/BBCodeText.hpp"
 namespace XPM {
 #include "rc/fbide.xpm"
@@ -59,7 +59,7 @@ void AboutDialog::create() {
 }
 
 auto AboutDialog::loadReadme() const -> wxString {
-    const auto readmePath = m_ctx.getConfig().getAppSettingsPath() + "readme.txt";
+    const auto readmePath = m_ctx.getConfigManager().absolute("IDE/readme.txt");
     wxString content;
     wxFile file(readmePath);
     if (!file.IsOpened()) {

@@ -8,7 +8,6 @@
 #include "CompilerManager.hpp"
 #include "QuoteUtils.hpp"
 #include "app/Context.hpp"
-#include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
 using namespace fbide;
 
@@ -19,7 +18,7 @@ auto RunCommand::build(Context& ctx) const -> wxString {
     );
     return build(
         runTemplate,
-        Config::getTerminal(),
+        ConfigManager::getTerminal(),
         ctx.getCompilerManager().getParameters()
     );
 }

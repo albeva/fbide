@@ -8,12 +8,10 @@
 #include <wx/clipbrd.h>
 #include "Context.hpp"
 #include "InstanceHandler.hpp"
-#include "config/Config.hpp"
+#include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "editor/DocumentManager.hpp"
 #include "ui/UIManager.hpp"
-
-#include "config/ConfigManager.hpp"
 using namespace fbide;
 
 auto App::OnExit() -> int {
@@ -48,15 +46,13 @@ auto App::OnInit() -> bool {
 
     showSplash();
 
-    // Load config
-    auto& config = m_context->getConfig();
-    if (configFile.IsEmpty()) {
-        configFile = config.getAppSettingsPath() + config.getPlatformConfigFileName();
+    // If --config was supplied, reload ConfigManager from that file.
+    auto& configManager = m_context->getConfigManager();
+    if (not configFile.IsEmpty()) {
+        configManager.reloadConfig(configFile);
     }
-    config.load(configFile);
 
-    // Theme is loaded by ConfigManager on construction via config()["theme"].
-    m_context->getFileHistory().load(config.getAppSettingsPath() + "history.ini");
+    m_context->getFileHistory().load(configManager.getIdeDir() + "history.ini");
 
     m_context->getUIManager().createMainFrame();
     openFiles(filesToOpen);
@@ -64,7 +60,7 @@ auto App::OnInit() -> bool {
 }
 
 void App::parseArgs(wxString& configFile, wxArrayString& filesToOpen) {
-    const auto& config = m_context->getConfig();
+    const auto& configManager = m_context->getConfigManager();
     auto args = argv.GetArguments();
 
     for (size_t index = 1; index < args.GetCount(); index++) {
@@ -74,7 +70,7 @@ void App::parseArgs(wxString& configFile, wxArrayString& filesToOpen) {
                 wxLogError("--config requires a path argument");
                 continue;
             }
-            configFile = config.resolvePath(args[index]);
+            configFile = configManager.absolute(args[index]);
         } else if (arg == "--new-window") {
             m_newWindow = true;
         } else if (arg == "--verbose") {
@@ -100,7 +96,7 @@ void App::openFiles(const wxArrayString& files) {
 void App::showSplash() {
     if (m_context->getConfigManager().config().get_or("general.splashScreen", true)) {
         wxImage::AddHandler(make_unowned<wxPNGHandler>());
-        const auto splashPath = m_context->getConfig().resolvePath("splash.png");
+        const auto splashPath = m_context->getConfigManager().absolute("splash.png");
         if (const wxBitmap bmp(splashPath, wxBITMAP_TYPE_PNG); bmp.IsOk()) {
             make_unowned<wxSplashScreen>(
                 bmp,

@@ -10,7 +10,6 @@
 
 namespace fbide {
 class Context;
-class Config;
 
 /// Settings panel base — extends Layout<wxPanel> with Context access.
 class Panel : public Layout<wxPanel> {
@@ -23,7 +22,6 @@ public:
 
 protected:
     [[nodiscard]] auto getContext() const -> Context& { return m_ctx; }
-    [[nodiscard]] auto getConfig() const -> Config&;
 
     /// Title + separator.
     void makeTitle(const wxString& labelText);

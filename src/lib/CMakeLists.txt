@@ -14,7 +14,6 @@ target_sources(fbide_lib
     compiler/CompileCommand.cpp
     compiler/CompilerManager.cpp
     compiler/RunCommand.cpp
-    config/Config.cpp
     config/ConfigManager.cpp
     config/FileHistory.cpp
     config/Theme.cpp
@@ -61,7 +60,6 @@ target_sources(fbide_lib
     compiler/CompilerManager.hpp
     compiler/QuoteUtils.hpp
     compiler/RunCommand.hpp
-    config/Config.hpp
     config/ConfigManager.hpp
     config/FileHistory.hpp
     config/Theme.hpp

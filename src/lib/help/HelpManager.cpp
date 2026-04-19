@@ -6,7 +6,6 @@
 //
 #include "help/HelpManager.hpp"
 #include "app/Context.hpp"
-#include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
 #include "editor/Document.hpp"
 #include "editor/DocumentManager.hpp"
@@ -137,7 +136,7 @@ auto HelpManager::openChm(const wxString& query) -> bool {
         return false;
     }
 
-    const auto helpPath = m_ctx.getConfig().resolvePath(helpFile);
+    const auto helpPath = m_ctx.getConfigManager().absolute(helpFile);
     if (!wxFileExists(helpPath)) {
         return false;
     }

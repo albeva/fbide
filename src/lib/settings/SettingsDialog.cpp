@@ -6,7 +6,6 @@
 //
 #include "SettingsDialog.hpp"
 #include "app/Context.hpp"
-#include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
 #include "ui/UIManager.hpp"
 #include "panels/CompilerPage.hpp"
@@ -67,7 +66,6 @@ void SettingsDialog::applyChanges() const {
     m_themePage->apply();
     m_keywordsPage->apply();
     m_compilerPage->apply();
-    m_ctx.getConfig().save();
     m_ctx.getConfigManager().save(ConfigManager::Category::Config);
     m_ctx.getUIManager().updateEditorSettigs();
 }

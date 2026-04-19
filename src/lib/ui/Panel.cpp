@@ -17,10 +17,6 @@ Panel::Panel(Context& ctx, const wxWindowID id, wxWindow* parent)
   )
 , m_ctx(ctx) {}
 
-auto Panel::getConfig() const -> Config& {
-    return m_ctx.getConfig();
-}
-
 void Panel::makeTitle(const wxString& labelText) {
     text(labelText);
     separator();

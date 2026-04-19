@@ -7,7 +7,6 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "ThemePage.hpp"
 #include "app/Context.hpp"
-#include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
@@ -95,9 +94,16 @@ wxEND_EVENT_TABLE()
 
 ThemePage::ThemePage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent)
-, m_activeTheme(getConfig().getTheme())
+, m_activeTheme(wxFileName(ctx.getTheme().getPath()).GetName())
 , m_theme(getContext().getTheme())
 , m_tr(getContext().getConfigManager().locale().at("dialogs.settings.themes")) {}
+
+auto ThemePage::getAllFixedWidthFonts() -> std::vector<wxString> {
+    wxFontEnumerator fontEnum;
+    auto fontList = fontEnum.GetFacenames(wxFONTENCODING_SYSTEM, true);
+    fontList.Sort();
+    return { fontList.begin(), fontList.end() };
+}
 
 // ---------------------------------------------------------------------------
 // Apply theme settings
@@ -110,7 +116,7 @@ void ThemePage::apply() {
         saveNewTheme(true);
     } else {
         getContext().getTheme() = m_theme;
-        getConfig().setTheme(m_activeTheme);
+        syncActiveThemeConfig();
     }
 }
 
@@ -139,10 +145,15 @@ void ThemePage::create() {
 
 void ThemePage::createTopRow() {
     hbox(tr("name"), { .center = true, .border = 0 }, [&] {
-        auto themes = getConfig().getAllThemes();
-        themes.insert(themes.begin(), tr("createNew"));
+        auto themes = getContext().getConfigManager().getAllThemes();
+        std::vector<wxString> names;
+        names.reserve(themes.size() + 1);
+        names.emplace_back(tr("createNew"));
+        for (const auto& path : themes) {
+            names.emplace_back(wxFileName(path).GetName());
+        }
 
-        m_themeChoice = choice(m_activeTheme, themes, { .proportion = 1, .expand = false }, ID_THEME_CHOICE);
+        m_themeChoice = choice(m_activeTheme, names, { .proportion = 1, .expand = false }, ID_THEME_CHOICE);
         button(tr("save"), { .expand = false }, ID_SAVE_THEME);
     });
 }
@@ -214,9 +225,13 @@ void ThemePage::createLeftPanel() {
 
         m_lblFont = text(tr("font"), {});
         m_fontChoice = make_unowned<wxChoice>(currentParent(), wxID_ANY);
-        auto fonts = Config::getAllFixedWidthFonts();
+        auto fonts = getAllFixedWidthFonts();
         fonts.insert(fonts.begin(), "");
-        m_fontChoice->Append(fonts);
+        wxArrayString fontArr;
+        for (const auto& f : fonts) {
+            fontArr.Add(f);
+        }
+        m_fontChoice->Append(fontArr);
         add(m_fontChoice);
         connect(m_lblFont, m_fontChoice);
     });
@@ -292,7 +307,7 @@ void ThemePage::onSelectTheme(wxCommandEvent&) {
     updateTitle();
     if (not isUnsavedNewTheme()) {
         m_theme = {};
-        m_theme.load(getConfig().resolvePath(m_activeTheme + ".ini"));
+        m_theme.load(getContext().getConfigManager().absolute("themes/" + m_activeTheme + ".ini"));
         loadCategory();
     }
 }
@@ -306,10 +321,11 @@ void ThemePage::onSaveTheme(wxCommandEvent&) {
     }
 
     m_theme.save();
-    syncActiveThemeConfig();
 
-    if (m_activeTheme == getConfig().getTheme()) {
+    const auto currentThemeName = wxFileName(getContext().getTheme().getPath()).GetName();
+    if (m_activeTheme == currentThemeName) {
         getContext().getTheme() = m_theme;
+        syncActiveThemeConfig();
         getContext().getUIManager().updateEditorSettigs();
     }
 }
@@ -329,7 +345,7 @@ void ThemePage::saveNewTheme(const bool setActive) {
         return;
     }
 
-    const wxFileName path = getConfig().getAppSettingsPath() + name + ".ini";
+    const wxFileName path(getContext().getConfigManager().getIdeDir() + "themes/" + name + ".ini");
     if (not path.IsOk() or path.Exists()) {
         wxLogWarning("Unable to save theme as %s", path.GetAbsolutePath());
         return;
@@ -342,8 +358,8 @@ void ThemePage::saveNewTheme(const bool setActive) {
     m_activeTheme = name;
 
     if (setActive) {
-        getConfig().setTheme(name);
         getContext().getTheme() = m_theme;
+        syncActiveThemeConfig();
     }
 }
 

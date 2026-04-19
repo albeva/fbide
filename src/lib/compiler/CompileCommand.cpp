@@ -7,7 +7,6 @@
 #include "CompileCommand.hpp"
 #include "QuoteUtils.hpp"
 #include "app/Context.hpp"
-#include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
 using namespace fbide;
 
@@ -16,7 +15,7 @@ auto CompileCommand::build(Context& ctx) const -> wxString {
     const wxString compileTemplate = compiler.get_or("compileCommand", R"("<$fbc>" "<$file>")");
     const wxString compilerPath = compiler.get_or("path", "");
     wxFileName path(compilerPath);
-    path.MakeAbsolute(ctx.getConfig().getAppPath());
+    path.MakeAbsolute(ctx.getConfigManager().getAppDir());
     return build(compileTemplate, path.GetFullPath());
 }
 

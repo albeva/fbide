@@ -7,7 +7,6 @@
 #include "CompilerManager.hpp"
 #include "BuildTask.hpp"
 #include "app/Context.hpp"
-#include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
 #include "editor/Document.hpp"
 #include "editor/DocumentManager.hpp"
@@ -77,7 +76,7 @@ void CompilerManager::quickRun() {
     // Determine temp folder from current file or IDE path
     const auto& filePath = doc->getFilePath();
     const auto tempFolder = filePath.empty()
-                              ? wxPathOnly(m_ctx.getConfig().getAppPath()) + "/"
+                              ? wxPathOnly(m_ctx.getConfigManager().getAppDir()) + "/"
                               : wxPathOnly(filePath) + "/";
 
     // Save content to temp file
@@ -118,7 +117,7 @@ auto CompilerManager::getFbcVersion() -> const wxString& {
 
     const wxString compilerPath = m_ctx.getConfigManager().config().get_or("compiler.path", "");
     wxFileName path(compilerPath);
-    path.MakeAbsolute(m_ctx.getConfig().getAppPath());
+    path.MakeAbsolute(m_ctx.getConfigManager().getAppDir());
     const auto compiler = path.GetFullPath();
     if (compiler.empty() || !wxIsExecutable(compiler)) {
         return m_fbcVersion;

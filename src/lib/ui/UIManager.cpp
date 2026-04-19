@@ -10,7 +10,6 @@
 #include "CompilerLog.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
-#include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "editor/DocumentManager.hpp"
