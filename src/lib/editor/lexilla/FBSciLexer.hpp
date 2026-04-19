@@ -13,51 +13,13 @@
 #include "LexAccessor.h"
 #include "DefaultLexer.h"
 // clang-format on
+#include "config/ThemeCategory.hpp"
 
 namespace Lexilla {
 class StyleContext;
 }
 
 namespace fbide {
-
-enum class FBSciLexerState : int {
-    /// Unknown, default token style
-    Default,
-    /// Single line comment starting with ' or REM
-    Comment,
-    /// Multiline nested comment /' ... '/
-    MultilineComment,
-    /// Any valid number
-    Number,
-    /// String literal
-    String,
-    /// Unclosed string literal
-    StringOpen,
-    /// Any non-keyword identifier
-    Identifier,
-    /// Keyword groups
-    Keyword1,
-    Keyword2,
-    Keyword3,
-    Keyword4,
-    Keyword5,
-    /// Operator symbols
-    Operator,
-    /// Label
-    Label,
-    /// Built-in constant values, such as true, false, etc.
-    Constant,
-    /// Preprocessor
-    Preprocessor,
-    /// Error state
-    Error
-};
-
-/// Allow simple conversion from enum to int
-/// int labelId = +FBSciLexerState::Label;
-[[maybe_unused]] static constexpr auto operator+(const FBSciLexerState& rhs) -> int {
-    return static_cast<int>(rhs);
-}
 
 /// Custom Scintilla lexer for FreeBASIC.
 class FBSciLexer final : public Lexilla::DefaultLexer {

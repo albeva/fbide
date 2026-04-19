@@ -1,0 +1,91 @@
+//
+// FBIde editor for FreeBASIC - https://freebasic.net
+// Copyright (c) 2026 Albert Varaksin
+// Licensed under the MIT License. See LICENSE file for details.
+// https://github.com/albeva/fbide
+//
+#pragma once
+#include "pch.hpp"
+#include "ThemeCategory.hpp"
+// clang-format off
+namespace fbide {
+
+#define DEFINE_THEME_PROPERTY(_)           \
+    /* name        getter      type     */ \
+    _( font,       Font,       wxString  ) \
+    _( fontSize,   FontSize,   int       ) \
+    _( lineNumber, LineNumber, Colors    ) \
+    _( selection,  Selection,  Colors    ) \
+    _( brace,      Brace,      Entry     ) \
+    _( badBrace,   BadBrace,   Entry     )
+
+class Theme final {
+public:
+    // Default plumbing
+    Theme() = default;
+    Theme(const Theme&) noexcept = default;
+    Theme(Theme&&) noexcept = default;
+    auto operator=(const Theme&) -> Theme& = default;
+    auto operator=(Theme&&) -> Theme& = default;
+    auto operator==(const Theme&) const noexcept -> bool = default;
+
+    /// Load from given theme file
+    explicit Theme(const wxString& themePath);
+
+    /// Reload theme from file, will reset all content
+    void load(const wxString& themePath = wxEmptyString) { load(themePath, true); }
+
+    /// Save theme, Optionally to a new path
+    void save(const wxString& newThemePath = wxEmptyString);
+
+    /// Background and foreground colour combo
+    struct Colors final {
+        wxColour foreground;
+        wxColour background;
+        auto operator==(const Colors& other) const noexcept -> bool = default;
+    };
+
+    // -----------------------------------------------------------------------
+    // Category entries
+    // -----------------------------------------------------------------------
+
+    struct Entry final {
+        Colors colors;
+        bool bold = false;
+        bool italic = false;
+        bool underlined = false;
+        auto operator==(const Entry& other) const noexcept -> bool = default;
+    };
+
+    [[nodiscard]] auto get(const ThemeCategory category) const -> const Entry& {
+        return m_categories[static_cast<std::size_t>(category)];
+    }
+
+    void set(const ThemeCategory category, const Entry& entry) {
+        m_categories[static_cast<std::size_t>(category)] = entry;
+    }
+
+    // -----------------------------------------------------------------------
+    // Style property getters and setters
+    // -----------------------------------------------------------------------
+    #define FUNCS(NAME, GETTER, TYPE)                                                \
+        [[nodiscard]] auto get## GETTER() const -> const TYPE& { return m_## NAME; } \
+        void set## GETTER(const TYPE& NAME) { m_## NAME = NAME; }
+        DEFINE_THEME_PROPERTY(FUNCS)
+    #undef FUNCS
+
+private:
+    void load(const wxString& themePath, bool reset);
+
+    wxString m_themePath;
+    std::array<Entry, kThemeCategoryCount> m_categories {};
+
+    // -----------------------------------------------------------------------
+    // Style properties
+    // -----------------------------------------------------------------------
+    #define MEMBERS(NAME, GETTER, TYPE) TYPE m_## NAME {};
+        DEFINE_THEME_PROPERTY(MEMBERS)
+    #undef MEMBERS
+};
+
+} // namespace fbide

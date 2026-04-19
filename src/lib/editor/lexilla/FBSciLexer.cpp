@@ -16,22 +16,22 @@ namespace {
 // region ---------- Metadata ----------
 
 constexpr std::array lexicalClasses {
-    Lexilla::LexicalClass { +FBSciLexerState::Default, "state.default", "default", "Default" },
-    Lexilla::LexicalClass { +FBSciLexerState::Comment, "state.comment", "comment line", "Single-line comment" },
-    Lexilla::LexicalClass { +FBSciLexerState::MultilineComment, "state.comment.block", "comment", "Block comment" },
-    Lexilla::LexicalClass { +FBSciLexerState::Number, "state.number", "literal numeric", "Number" },
-    Lexilla::LexicalClass { +FBSciLexerState::String, "state.string", "literal string", "String literal" },
-    Lexilla::LexicalClass { +FBSciLexerState::StringOpen, "state.string.unclosed", "literal string unclosed", "Unclosed string" },
-    Lexilla::LexicalClass { +FBSciLexerState::Identifier, "state.identifier", "identifier", "Identifier" },
-    Lexilla::LexicalClass { +FBSciLexerState::Keyword1, "state.keyword", "keyword", "Keywords" },
-    Lexilla::LexicalClass { +FBSciLexerState::Keyword2, "state.keyword2", "keyword", "Types" },
-    Lexilla::LexicalClass { +FBSciLexerState::Keyword3, "state.keyword3", "keyword", "Operators" },
-    Lexilla::LexicalClass { +FBSciLexerState::Keyword4, "state.keyword4", "keyword", "Defines" },
-    Lexilla::LexicalClass { +FBSciLexerState::Keyword5, "state.keyword5", "keyword", "User keywords" },
-    Lexilla::LexicalClass { +FBSciLexerState::Operator, "state.operator", "operator", "Operator" },
-    Lexilla::LexicalClass { +FBSciLexerState::Label, "state.label", "label", "Label" },
-    Lexilla::LexicalClass { +FBSciLexerState::Constant, "state.constant", "keyword constant value", "Built-in constants" },
-    Lexilla::LexicalClass { +FBSciLexerState::Preprocessor, "state.preprocessor", "preprocessor", "Preprocessor" },
+    Lexilla::LexicalClass { +ThemeCategory::Default, "state.default", "default", "Default" },
+    Lexilla::LexicalClass { +ThemeCategory::Comment, "state.comment", "comment line", "Single-line comment" },
+    Lexilla::LexicalClass { +ThemeCategory::MultilineComment, "state.comment.block", "comment", "Block comment" },
+    Lexilla::LexicalClass { +ThemeCategory::Number, "state.number", "literal numeric", "Number" },
+    Lexilla::LexicalClass { +ThemeCategory::String, "state.string", "literal string", "String literal" },
+    Lexilla::LexicalClass { +ThemeCategory::StringOpen, "state.string.unclosed", "literal string unclosed", "Unclosed string" },
+    Lexilla::LexicalClass { +ThemeCategory::Identifier, "state.identifier", "identifier", "Identifier" },
+    Lexilla::LexicalClass { +ThemeCategory::Keyword1, "state.keyword", "keyword", "Keywords" },
+    Lexilla::LexicalClass { +ThemeCategory::Keyword2, "state.keyword2", "keyword", "Types" },
+    Lexilla::LexicalClass { +ThemeCategory::Keyword3, "state.keyword3", "keyword", "Operators" },
+    Lexilla::LexicalClass { +ThemeCategory::Keyword4, "state.keyword4", "keyword", "Defines" },
+    Lexilla::LexicalClass { +ThemeCategory::Keyword5, "state.keyword5", "keyword", "User keywords" },
+    Lexilla::LexicalClass { +ThemeCategory::Operator, "state.operator", "operator", "Operator" },
+    Lexilla::LexicalClass { +ThemeCategory::Label, "state.label", "label", "Label" },
+    Lexilla::LexicalClass { +ThemeCategory::Constant, "state.constant", "keyword constant value", "Built-in constants" },
+    Lexilla::LexicalClass { +ThemeCategory::Preprocessor, "state.preprocessor", "preprocessor", "Preprocessor" },
 };
 
 constexpr std::array<const char*, FBSciLexer::WORD_LIST_COUNT + 1> wordListDescriptions {
@@ -44,11 +44,11 @@ constexpr std::array<const char*, FBSciLexer::WORD_LIST_COUNT + 1> wordListDescr
 };
 
 constexpr std::array wordListStyle {
-    FBSciLexerState::Keyword1,
-    FBSciLexerState::Keyword2,
-    FBSciLexerState::Keyword3,
-    FBSciLexerState::Keyword4,
-    FBSciLexerState::Keyword5
+    ThemeCategory::Keyword1,
+    ThemeCategory::Keyword2,
+    ThemeCategory::Keyword3,
+    ThemeCategory::Keyword4,
+    ThemeCategory::Keyword5
 };
 static_assert(wordListStyle.size() == FBSciLexer::WORD_LIST_COUNT);
 
@@ -115,7 +115,7 @@ void SCI_METHOD FBSciLexer::Lex(
     m_line = INVALID_LINE;
 
     for (; sc.More(); sc.Forward()) {
-        using enum FBSciLexerState;
+        using enum ThemeCategory;
 
         if (m_sc->atLineStart) {
             lexLineStart();
@@ -195,7 +195,7 @@ void FBSciLexer::lexLineStart() noexcept {
     m_lineState.commentNestLevel = m_previousLineState.commentNestLevel;
 
     if (m_previousLineState.continuePP) {
-        m_sc->SetState(+FBSciLexerState::Preprocessor);
+        m_sc->SetState(+ThemeCategory::Preprocessor);
     }
 }
 
@@ -206,12 +206,12 @@ void FBSciLexer::lexLineEnd() noexcept {
 }
 
 void FBSciLexer::resetToDefault() noexcept {
-    m_sc->SetState(+FBSciLexerState::Default);
+    m_sc->SetState(+ThemeCategory::Default);
     m_isFirst = false;
 }
 
 bool FBSciLexer::canAccessMember() noexcept {
-    using enum FBSciLexerState;
+    using enum ThemeCategory;
     const auto st = m_sc->state;
     if (st == +Comment) {
         return m_lineState.continueLine;
@@ -220,7 +220,7 @@ bool FBSciLexer::canAccessMember() noexcept {
 }
 
 void FBSciLexer::lexDefault() noexcept {
-    using enum FBSciLexerState;
+    using enum ThemeCategory;
 
     // white space
     if (isSpace(m_sc->ch)) {
@@ -331,7 +331,7 @@ void FBSciLexer::lexDefault() noexcept {
 
 void FBSciLexer::lexComment() noexcept {
     if (m_sc->atLineEnd) {
-        m_sc->SetState(+FBSciLexerState::Default); // no reset!
+        m_sc->SetState(+ThemeCategory::Default); // no reset!
     }
 }
 
@@ -342,7 +342,7 @@ void FBSciLexer::lexMultilineComment() noexcept {
             m_sc->Forward();
             m_lineState.commentNestLevel--;
             if (m_lineState.commentNestLevel == 0) {
-                m_sc->ForwardSetState(+FBSciLexerState::Default); // no reset!
+                m_sc->ForwardSetState(+ThemeCategory::Default); // no reset!
             }
         }
         break;
@@ -362,7 +362,7 @@ void FBSciLexer::lexNumber() noexcept {
         if (isValidAfterNumOrWord(m_sc->ch)) {
             resetToDefault();
         } else {
-            m_sc->ChangeState(+FBSciLexerState::Error);
+            m_sc->ChangeState(+ThemeCategory::Error);
         }
     };
 
@@ -464,13 +464,13 @@ void FBSciLexer::lexStringOpen() noexcept {
         if (m_sc->ch == '\"') {
             return;
         }
-        m_sc->ChangeState(+FBSciLexerState::String);
+        m_sc->ChangeState(+ThemeCategory::String);
         resetToDefault();
         m_slashEscapableString = false;
     } else if (m_sc->ch == '\\' && m_sc->chNext == '\"' && m_slashEscapableString) {
         m_sc->Forward();
     } else if (m_sc->atLineEnd) {
-        m_sc->SetState(+FBSciLexerState::Default); // no reset
+        m_sc->SetState(+ThemeCategory::Default); // no reset
         m_slashEscapableString = false;
     }
 }
@@ -479,7 +479,7 @@ void FBSciLexer::lexIdentifier() noexcept {
     if (!isIdentifier(m_sc->ch)) {
         if (m_sc->ch == ':' && m_isFirst) {
             m_sc->Forward();
-            m_sc->ChangeState(+FBSciLexerState::Label);
+            m_sc->ChangeState(+ThemeCategory::Label);
         } else if (m_fieldAccess) {
             m_fieldAccess = false;
         } else {
@@ -494,7 +494,7 @@ void FBSciLexer::lexIdentifier() noexcept {
 auto FBSciLexer::identifyKeyword() noexcept -> bool {
     m_sc->GetCurrentLowered(m_identBuffer.data(), m_identBuffer.size());
     if (strcmp("rem", m_identBuffer.data()) == 0) {
-        m_sc->ChangeState(+FBSciLexerState::Comment);
+        m_sc->ChangeState(+ThemeCategory::Comment);
         return false;
     }
 
@@ -515,13 +515,13 @@ void FBSciLexer::lexOperator() noexcept {
 
 void FBSciLexer::lexPreprocessor() noexcept {
     if (m_sc->atLineEnd) {
-        m_sc->SetState(+FBSciLexerState::Default); // no reset
+        m_sc->SetState(+ThemeCategory::Default); // no reset
     } else if (m_sc->ch == '_') {
         if (isIdentifier(m_sc->chPrev) || isIdentifier(m_sc->chNext)) {
             return;
         }
         m_lineState.continuePP = true;
-        m_sc->SetState(+FBSciLexerState::Comment);
+        m_sc->SetState(+ThemeCategory::Comment);
     }
 }
 

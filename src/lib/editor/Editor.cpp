@@ -172,7 +172,7 @@ void Editor::applyTheme() {
 }
 
 void Editor::applyFreebasicTheme() {
-    using enum FBSciLexerState;
+    using enum ThemeCategory;
 
     const auto& theme = m_ctx.getTheme();
     const auto& editor = theme.getDefault();
