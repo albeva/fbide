@@ -147,10 +147,10 @@ CommandManager::CommandManager(Context& ctx)
 }
 
 void CommandManager::initializeCommands(){
-    auto commands = m_ctx.getConfigManager().config()["commands"];
+    auto& commands = m_ctx.getConfigManager().config()["commands"];
     for (auto& entry : m_namedCommands | std::views::values) {
         if (entry.kind == wxITEM_CHECK) {
-            auto node = commands[entry.name];
+            auto& node = commands[entry.name];
             if (const auto existing = node.as<bool>()) {
                 entry.checked = *existing;
             } else {

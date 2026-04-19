@@ -105,7 +105,6 @@ target_sources(fbide_lib
 # target settings
 target_link_libraries(fbide_lib
     PRIVATE compiler_options compiler_warnings
-    PUBLIC toml11::toml11
 )
 linkWxWidgets(fbide_lib)
 

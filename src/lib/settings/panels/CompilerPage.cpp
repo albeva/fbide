@@ -13,8 +13,8 @@ using namespace fbide;
 
 CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent) {
-    const auto cfg = getContext().getConfigManager().config();
-    const auto compiler = cfg.at("compiler");
+    auto& cfg = getContext().getConfigManager().config();
+    const auto& compiler = cfg.at("compiler");
     m_compilerPath   = compiler.get_or("path",           "");
     m_compileCommand = compiler.get_or("compileCommand", "");
     m_runCommand     = compiler.get_or("runCommand",     "");
@@ -38,8 +38,8 @@ void CompilerPage::create() {
 }
 
 void CompilerPage::apply() {
-    auto cfg = getContext().getConfigManager().config();
-    auto compiler = cfg["compiler"];
+    auto& cfg = getContext().getConfigManager().config();
+    auto& compiler = cfg["compiler"];
     compiler["compileCommand"] = m_compileCommand;
     compiler["runCommand"]     = m_runCommand;
 #ifdef __WXMSW__

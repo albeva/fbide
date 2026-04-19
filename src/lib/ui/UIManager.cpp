@@ -49,7 +49,7 @@ void UIManager::onClose(wxCloseEvent& event) {
     }
 
     // Save window state to config
-    auto window = m_ctx.getConfigManager().config()["window"];
+    auto& window = m_ctx.getConfigManager().config()["window"];
     if (m_frame->IsMaximized() || m_frame->IsIconized()) {
         window["width"] = -1;
         window["height"] = -1;
@@ -83,7 +83,7 @@ void UIManager::createMainFrame() {
     m_frame->PushEventHandler(&m_ctx.getCommandManager());
 
     // Position and size from config
-    const auto window = m_ctx.getConfigManager().config().at("window");
+    const auto& window = m_ctx.getConfigManager().config().at("window");
     const int winW = window.get_or("width", wxDefaultSize.GetWidth());
     const int winH = window.get_or("height", wxDefaultSize.GetHeight());
     if (winW == -1 || winH == -1) {
@@ -145,14 +145,13 @@ void UIManager::configureMenuBar() {
     try {
         auto& cmd = m_ctx.getCommandManager();
         auto& cfg = m_ctx.getConfigManager();
-        const auto menus = cfg.layout().at("menus");
-        const auto localeMenus = cfg.locale().at("menus");
+        const auto& menus = cfg.layout().at("menus");
+        const auto& localeMenus = cfg.locale().at("menus");
 
         const bool createMenus = m_frame->GetMenuBar() == nullptr;
         const auto menuBar = createMenus ? make_unowned<wxMenuBar>() : m_frame->GetMenuBar();
 
-        for (auto menuId : menus.asArray()) {
-            const auto key = menuId.as<wxString>().value_or("");
+        for (const auto& key : menus.asArray()) {
             if (key.empty()) {
                 continue;
             }
@@ -197,12 +196,11 @@ void UIManager::configureMenuItems(wxMenu* menu, const wxString& id, const bool 
     try {
         auto& cmd = m_ctx.getCommandManager();
         auto& cfg = m_ctx.getConfigManager();
-        const auto items = cfg.layout().at("menu").at(id);
-        const auto commands = cfg.locale().at("commands");
-        const auto shortcuts = cfg.shortcuts().at("commands");
+        const auto& items = cfg.layout().at("menu").at(id);
+        const auto& commands = cfg.locale().at("commands");
+        const auto& shortcuts = cfg.shortcuts().at("commands");
 
-        for (auto item : items.asArray()) {
-            const auto key = item.as<wxString>().value_or("");
+        for (const auto& key : items.asArray()) {
             if (key == "-") {
                 if (addSeparators) {
                     menu->AppendSeparator();
@@ -216,7 +214,7 @@ void UIManager::configureMenuItems(wxMenu* menu, const wxString& id, const bool 
                 continue;
             }
 
-            const auto locale = commands.at(key);
+            const auto& locale = commands.at(key);
             auto name = locale.get_or("name", "");
             const auto help = locale.get_or("help", "");
 
@@ -255,8 +253,8 @@ void UIManager::configureToolBar() {
     try {
         auto& cmd = m_ctx.getCommandManager();
         auto& cfg = m_ctx.getConfigManager();
-        const auto items = cfg.layout().at("toolbar");
-        const auto commands = cfg.locale().at("commands");
+        const auto& items = cfg.layout().at("toolbar");
+        const auto& commands = cfg.locale().at("commands");
 
         // NOLINTBEGIN(*-avoid-c-arrays)
         static const std::unordered_map<wxString, const char* const*> icons = {
@@ -283,8 +281,7 @@ void UIManager::configureToolBar() {
             m_toolbar = m_frame->CreateToolBar(wxNO_BORDER | wxTB_HORIZONTAL | wxTB_FLAT);
         }
 
-        for (auto item : items.asArray()) {
-            const auto key = item.as<wxString>().value_or("");
+        for (const auto& key : items.asArray()) {
             if (key == "-") {
                 if (createTools) {
                     m_toolbar->AddSeparator();
@@ -298,7 +295,7 @@ void UIManager::configureToolBar() {
                 continue;
             }
 
-            const auto locale = commands.at(key);
+            const auto& locale = commands.at(key);
             const auto name = locale.get_or("name", "");
             const auto help = locale.get_or("help", "");
 

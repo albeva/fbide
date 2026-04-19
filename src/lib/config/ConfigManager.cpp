@@ -7,15 +7,95 @@
 #include "ConfigManager.hpp"
 using namespace fbide;
 
-// -----------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// INI <-> Value tree
+// ---------------------------------------------------------------------------
+namespace {
+
+/// Recursively copy a wxFileConfig subtree into a Value node. `cfg` is
+/// already positioned at the group to import.
+void importGroup(wxFileConfig& cfg, Value& node) {
+    // Entries (leaves) — GetFirst/NextEntry preserve INI order.
+    wxString entryName;
+    long entryCookie = 0;
+    auto hasEntry = cfg.GetFirstEntry(entryName, entryCookie);
+    while (hasEntry) {
+        wxString leaf;
+        cfg.Read(entryName, &leaf);
+        node[entryName] = leaf;
+        hasEntry = cfg.GetNextEntry(entryName, entryCookie);
+    }
+
+    // Groups — recurse.
+    wxString groupName;
+    long groupCookie = 0;
+    auto hasGroup = cfg.GetFirstGroup(groupName, groupCookie);
+    while (hasGroup) {
+        const auto oldPath = cfg.GetPath();
+        cfg.SetPath(groupName);
+        importGroup(cfg, node[groupName]);
+        cfg.SetPath(oldPath);
+        hasGroup = cfg.GetNextGroup(groupName, groupCookie);
+    }
+}
+
+/// Escape a leaf value for INI output. Wraps in quotes if leading /
+/// trailing whitespace would otherwise be trimmed.
+auto quoteIfNeeded(const wxString& value) -> wxString {
+    if (value.empty()) {
+        return value;
+    }
+    const auto first = value[0];
+    const auto last = value[value.length() - 1];
+    const bool hasEdgeSpace = first == ' ' || first == '\t' || last == ' ' || last == '\t';
+    if (hasEdgeSpace) {
+        return "\"" + value + "\"";
+    }
+    return value;
+}
+
+/// Emit a Value subtree to an output stream under the given INI path
+/// prefix. `path` is the accumulated section name with `/` separators
+/// (empty at root).
+void emitNode(const Value& node, const wxString& path, wxTextOutputStream& out) {
+    // First: leaves under this path.
+    bool emittedHeader = false;
+    for (const auto& [key, child] : node.entries()) {
+        if (!child->isTable() && child->isString()) {
+            if (!emittedHeader && !path.empty()) {
+                out << "[" << path << "]\n";
+                emittedHeader = true;
+            }
+            const auto leaf = child->as<wxString>().value_or("");
+            out << key << "=" << quoteIfNeeded(leaf) << "\n";
+        }
+    }
+
+    if (emittedHeader) {
+        out << "\n";
+    }
+
+    // Second: subgroups.
+    for (const auto& [key, child] : node.entries()) {
+        if (!child->isTable()) {
+            continue;
+        }
+        const auto subPath = path.empty() ? key : (path + "/" + key);
+        emitNode(*child, subPath, out);
+    }
+}
+
+} // namespace
+
+// ---------------------------------------------------------------------------
 // Get info
-// -----------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 
 static auto enumerate(const wxString& base) -> std::vector<wxString> {
     std::vector<wxString> files;
     if (const wxDir dir(base); dir.IsOpened()) {
         wxString name;
-        if (dir.GetFirst(&name, "*.toml", wxDIR_FILES)) {
+        if (dir.GetFirst(&name, "*.ini", wxDIR_FILES)) {
             do {
                 wxFileName path { name };
                 path.MakeAbsolute(base);
@@ -34,19 +114,17 @@ auto ConfigManager::getAllThemes() const -> std::vector<wxString> {
     return enumerate(m_ideDir / "themes");
 }
 
-// -----------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // Init
-// -----------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 
 ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, const wxString& configPath)
 : m_appDir(appPath) {
-    // resolve appPath
     if (not wxDirExists(appPath)) {
         wxLogError("app directory '%s' does not exist", appPath);
         return;
     }
 
-    // Resolve ide/ path
     if (not idePath.empty()) {
         const auto path = absolute(idePath);
         if (wxDirExists(path)) {
@@ -63,9 +141,8 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
         return;
     }
 
-    // Initialize main config
     auto& entry = m_categories[static_cast<std::size_t>(Category::Config)];
-    entry.path = absolute(configPath.empty() ? "config_win.toml"_wx : configPath);
+    entry.path = absolute(configPath.empty() ? "config_win.ini"_wx : configPath);
     load(Category::Config);
 }
 
@@ -76,10 +153,14 @@ void ConfigManager::setCategoryPath(const Category category, const wxString& pat
     }
 
     const auto key = getCategoryName(category);
-    config()[key] = relative(path);
+    config()[wxString { key.data(), key.size() }] = relative(path);
 
     load(category);
 }
+
+// ---------------------------------------------------------------------------
+// Load / save
+// ---------------------------------------------------------------------------
 
 void ConfigManager::load(const Category category) {
     auto& entry = m_categories[static_cast<std::size_t>(category)];
@@ -89,12 +170,13 @@ void ConfigManager::load(const Category category) {
         file = entry.path;
     } else {
         const auto key = getCategoryName(category);
-        const auto ref = config().at(key);
-        if (!ref.isString()) {
+        const auto& ref = config().at(wxString { key.data(), key.size() });
+        const auto relPath = ref.as<wxString>();
+        if (!relPath.has_value() || relPath->empty()) {
             wxLogError("Config category '%s' missing or invalid", key.data());
             return;
         }
-        file = absolute(wxString::FromUTF8(ref.raw().as_string()));
+        file = absolute(*relPath);
     }
 
     if (!wxFileExists(file)) {
@@ -102,73 +184,79 @@ void ConfigManager::load(const Category category) {
         return;
     }
 
-    try {
-        entry.category = category;
-        entry.path = file;
-        entry.value = toml::parse<toml::ordered_type_config>(file.ToStdString(), toml::spec::v(1, 1, 0));
-    } catch (const toml::exception& ex) {
-        wxLogError(
-            "Failed to parse toml file '%s' for category '%s', with error: %s",
-            file, getCategoryName(category).data(), ex.what()
-        );
+    wxFFileInputStream stream(file);
+    if (!stream.IsOk()) {
+        wxLogError("Failed to open '%s' for reading", file);
+        return;
     }
+
+    wxFileConfig cfg(stream, wxConvUTF8);
+    cfg.SetPath("/");
+
+    Value root;
+    importGroup(cfg, root);
+
+    entry.category = category;
+    entry.path = file;
+    entry.root = std::move(root);
 }
 
 void ConfigManager::save(const Category category) {
-    const auto& entry = m_categories[static_cast<std::size_t>(category)];
+    auto& entry = m_categories[static_cast<std::size_t>(category)];
     if (entry.category != category) {
         wxLogWarning("Trying to save unloaded category '%s'", getCategoryName(category).data());
         return;
     }
 
-    std::ofstream out(entry.path.ToStdString());
-    out << entry.value;
+    wxFFileOutputStream outStream(entry.path);
+    if (!outStream.IsOk()) {
+        wxLogError("Failed to open '%s' for writing", entry.path);
+        return;
+    }
+    wxTextOutputStream text(outStream, wxEOL_NATIVE, wxConvUTF8);
+
+    emitNode(entry.root, "", text);
 }
 
-auto ConfigManager::get(Category category) -> Value {
+auto ConfigManager::get(Category category) -> Value& {
     auto& entry = m_categories.at(static_cast<std::size_t>(category));
     if (entry.category != category) {
         load(category);
     }
-    return Value { entry.value };
+    return entry.root;
 }
 
-// -----------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // Path handling
-// -----------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 
 auto ConfigManager::absolute(const wxString& pathName) const -> wxString {
     wxFileName path(pathName);
     path.Normalize(wxPATH_NORM_ENV_VARS | wxPATH_NORM_DOTS | wxPATH_NORM_TILDE | wxPATH_NORM_SHORTCUT);
 
-    // already a full path
     if (path.IsAbsolute()) {
         return path.GetAbsolutePath();
     }
 
     wxFileName fn(path);
 
-    // check against ide/ path
     fn.MakeAbsolute(m_ideDir);
     if (fn.Exists()) {
         return fn.GetAbsolutePath();
     }
 
-    // check against fbide path
     fn = path;
     fn.MakeAbsolute(m_appDir);
     if (fn.Exists()) {
         return fn.GetAbsolutePath();
     }
 
-    // check against cwd
     fn = path;
     fn.MakeAbsolute(wxGetCwd());
     if (fn.Exists()) {
         return fn.GetAbsolutePath();
     }
 
-    // No idea
     wxLogError("Failed to resolve absolute path %s", pathName);
     return pathName;
 }

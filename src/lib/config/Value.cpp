@@ -8,160 +8,211 @@
 using namespace fbide;
 
 namespace {
-constexpr auto DOT = '.';
+constexpr auto PATH_SEP = '.';
+constexpr auto ARRAY_SEP = ',';
 } // namespace
 
-auto Value::asView(const wxString& s) -> std::string {
-    return s.ToStdString();
+// -------------------------------------------------------------------------
+// Boolean-ish coercion
+// -------------------------------------------------------------------------
+namespace {
+auto parseBool(const wxString& s) -> std::optional<bool> {
+    if (s == "1") {
+        return true;
+    }
+    if (s == "0") {
+        return false;
+    }
+    if (s.CmpNoCase("true") == 0 || s.CmpNoCase("yes") == 0) {
+        return true;
+    }
+    if (s.CmpNoCase("false") == 0 || s.CmpNoCase("no") == 0) {
+        return false;
+    }
+    return std::nullopt;
 }
+} // namespace
 
 // -------------------------------------------------------------------------
-// Type checks
+// Basic state
 // -------------------------------------------------------------------------
+Value::operator bool() const noexcept {
+    return !std::holds_alternative<std::monostate>(m_data);
+}
+
 auto Value::isTable() const noexcept -> bool {
-    return m_val != nullptr && m_val->is_table();
-}
-
-auto Value::isArray() const noexcept -> bool {
-    return m_val != nullptr && m_val->is_array();
+    return std::holds_alternative<Group>(m_data);
 }
 
 auto Value::isString() const noexcept -> bool {
-    return m_val != nullptr && m_val->is_string();
+    // Any leaf is a string by storage; callers distinguish typed content
+    // via `isInt`/`isBool`/`isFloat` (which also return true).
+    return std::holds_alternative<wxString>(m_data);
 }
 
 auto Value::isInt() const noexcept -> bool {
-    return m_val != nullptr && m_val->is_integer();
+    if (const auto* leaf = std::get_if<wxString>(&m_data)) {
+        long tmp = 0;
+        return leaf->ToLong(&tmp);
+    }
+    return false;
 }
 
 auto Value::isBool() const noexcept -> bool {
-    return m_val != nullptr && m_val->is_boolean();
+    if (const auto* leaf = std::get_if<wxString>(&m_data)) {
+        return parseBool(*leaf).has_value();
+    }
+    return false;
 }
 
 auto Value::isFloat() const noexcept -> bool {
-    return m_val != nullptr && m_val->is_floating();
+    if (const auto* leaf = std::get_if<wxString>(&m_data)) {
+        double tmp = 0;
+        return leaf->ToDouble(&tmp);
+    }
+    return false;
 }
 
 // -------------------------------------------------------------------------
-// Navigation (read)
+// Sentinel — returned by at() on miss. Valid for program lifetime.
 // -------------------------------------------------------------------------
-auto Value::at(const std::string_view path) const -> Value {
-    if (m_val == nullptr) {
-        return Value {};
+auto Value::invalidValue() -> const Value& {
+    static const Value sentinel {};
+    return sentinel;
+}
+
+// -------------------------------------------------------------------------
+// Navigation
+// -------------------------------------------------------------------------
+auto Value::findChild(const wxString& key) const -> const Value* {
+    const auto* group = std::get_if<Group>(&m_data);
+    if (group == nullptr) {
+        return nullptr;
     }
+    for (const auto& [k, child] : *group) {
+        if (k == key) {
+            return child.get();
+        }
+    }
+    return nullptr;
+}
+
+auto Value::findOrCreateChild(const wxString& key) -> Value* {
+    if (!std::holds_alternative<Group>(m_data)) {
+        m_data = Group {};
+    }
+    auto& group = std::get<Group>(m_data);
+    for (auto& [k, child] : group) {
+        if (k == key) {
+            return child.get();
+        }
+    }
+    auto& slot = group.emplace_back(key, std::make_unique<Value>());
+    return slot.second.get();
+}
+
+auto Value::at(const wxString& path) const -> const Value& {
     if (path.empty()) {
         return *this;
     }
-    auto* cur = m_val;
+    const Value* cur = this;
     std::size_t start = 0;
-    while (start <= path.size()) {
-        const auto dot = path.find(DOT, start);
-        const auto end = (dot == std::string_view::npos) ? path.size() : dot;
-        const auto seg = path.substr(start, end - start);
-        if (seg.empty()) {
-            return Value {};
+    while (start <= path.length()) {
+        const auto dot = path.find(PATH_SEP, start);
+        const auto end = (dot == wxString::npos) ? path.length() : dot;
+        if (end == start) {
+            return invalidValue();
         }
-        if (!cur->is_table()) {
-            return Value {};
+        const auto key = path.SubString(start, end - 1);
+        const auto* next = cur->findChild(key);
+        if (next == nullptr) {
+            return invalidValue();
         }
-        auto& table = cur->as_table();
-        const auto it = table.find(std::string { seg });
-        if (it == table.end()) {
-            return Value {};
-        }
-        cur = &it->second;
-        if (dot == std::string_view::npos) {
+        cur = next;
+        if (dot == wxString::npos) {
             break;
         }
         start = dot + 1;
     }
-    return Value { *cur };
+    return *cur;
 }
 
-// -------------------------------------------------------------------------
-// Navigation (write) — auto-creates intermediate tables
-// -------------------------------------------------------------------------
-auto Value::operator[](const std::string_view path) -> Value {
-    if (m_val == nullptr) {
-        return Value {};
-    }
+auto Value::operator[](const wxString& path) -> Value& {
     if (path.empty()) {
         return *this;
     }
-    auto* cur = m_val;
+    Value* cur = this;
     std::size_t start = 0;
-    while (start <= path.size()) {
-        const auto dot = path.find(DOT, start);
-        const auto end = (dot == std::string_view::npos) ? path.size() : dot;
-        const auto seg = path.substr(start, end - start);
-        if (seg.empty()) {
-            return Value {};
+    while (start <= path.length()) {
+        const auto dot = path.find(PATH_SEP, start);
+        const auto end = (dot == wxString::npos) ? path.length() : dot;
+        if (end == start) {
+            break;
         }
-        if (!cur->is_table()) {
-            *cur = Inner { Inner::table_type {} };
-        }
-        auto& table = cur->as_table();
-        cur = &table[std::string { seg }];
-        if (dot == std::string_view::npos) {
+        const auto key = path.SubString(start, end - 1);
+        cur = cur->findOrCreateChild(key);
+        if (dot == wxString::npos) {
             break;
         }
         start = dot + 1;
     }
-    return Value { *cur };
+    return *cur;
 }
 
 // -------------------------------------------------------------------------
-// Typed read (optional)
+// Typed reads
 // -------------------------------------------------------------------------
 template<>
 auto Value::as<bool>() const -> std::optional<bool> {
-    return isBool() ? std::optional { m_val->as_boolean() } : std::nullopt;
+    if (const auto* leaf = std::get_if<wxString>(&m_data)) {
+        return parseBool(*leaf);
+    }
+    return std::nullopt;
 }
 
 template<>
 auto Value::as<int>() const -> std::optional<int> {
-    return isInt() ? std::optional { static_cast<int>(m_val->as_integer()) } : std::nullopt;
+    if (const auto* leaf = std::get_if<wxString>(&m_data)) {
+        long tmp = 0;
+        if (leaf->ToLong(&tmp)) {
+            return static_cast<int>(tmp);
+        }
+    }
+    return std::nullopt;
 }
 
 template<>
 auto Value::as<std::int64_t>() const -> std::optional<std::int64_t> {
-    return isInt() ? std::optional { m_val->as_integer() } : std::nullopt;
+    if (const auto* leaf = std::get_if<wxString>(&m_data)) {
+        wxLongLong_t tmp = 0;
+        if (leaf->ToLongLong(&tmp)) {
+            return static_cast<std::int64_t>(tmp);
+        }
+    }
+    return std::nullopt;
 }
 
 template<>
 auto Value::as<double>() const -> std::optional<double> {
-    return isFloat() ? std::optional { m_val->as_floating() } : std::nullopt;
-}
-
-template<>
-auto Value::as<std::string>() const -> std::optional<std::string> {
-    return isString() ? std::optional { m_val->as_string() } : std::nullopt;
+    if (const auto* leaf = std::get_if<wxString>(&m_data)) {
+        double tmp = 0;
+        if (leaf->ToDouble(&tmp)) {
+            return tmp;
+        }
+    }
+    return std::nullopt;
 }
 
 template<>
 auto Value::as<wxString>() const -> std::optional<wxString> {
-    if (!isString()) {
-        return std::nullopt;
+    if (const auto* leaf = std::get_if<wxString>(&m_data)) {
+        return *leaf;
     }
-    const auto& raw = m_val->as_string();
-    return wxString::FromUTF8(raw.data(), raw.size());
-}
-
-auto Value::asArray() const -> std::vector<Value> {
-    std::vector<Value> out;
-    if (!isArray()) {
-        return out;
-    }
-    auto& arr = m_val->as_array();
-    out.reserve(arr.size());
-    for (auto& item : arr) {
-        out.emplace_back(item);
-    }
-    return out;
+    return std::nullopt;
 }
 
 // -------------------------------------------------------------------------
-// Read with default
+// value_or wrappers
 // -------------------------------------------------------------------------
 auto Value::value_or(const bool def) const -> bool {
     return as<bool>().value_or(def);
@@ -183,45 +234,67 @@ auto Value::value_or(const wxString& def) const -> wxString {
     return as<wxString>().value_or(def);
 }
 
-auto Value::value_or(const std::string& def) const -> std::string {
-    return as<std::string>().value_or(def);
+// -------------------------------------------------------------------------
+// Arrays (leaf string split on ',')
+// -------------------------------------------------------------------------
+auto Value::asArray() const -> std::vector<wxString> {
+    std::vector<wxString> out;
+    const auto* leaf = std::get_if<wxString>(&m_data);
+    if (leaf == nullptr || leaf->empty()) {
+        return out;
+    }
+    std::size_t start = 0;
+    while (start <= leaf->length()) {
+        const auto sep = leaf->find(ARRAY_SEP, start);
+        const auto end = (sep == wxString::npos) ? leaf->length() : sep;
+        auto item = leaf->SubString(start, end - 1);
+        item.Trim(true).Trim(false);
+        if (not item.empty()) {
+            out.emplace_back(std::move(item));
+        }
+        if (sep == wxString::npos) {
+            break;
+        }
+        start = sep + 1;
+    }
+    return out;
+}
+
+auto Value::entries() const -> const Group& {
+    static const Group empty {};
+    const auto* group = std::get_if<Group>(&m_data);
+    return group != nullptr ? *group : empty;
 }
 
 // -------------------------------------------------------------------------
-// Write (precondition: m_val is valid)
+// Writes
 // -------------------------------------------------------------------------
 auto Value::operator=(const bool v) -> Value& {
-    *m_val = v;
+    m_data = wxString { v ? "1" : "0" };
     return *this;
 }
 
 auto Value::operator=(const int v) -> Value& {
-    *m_val = static_cast<std::int64_t>(v);
+    m_data = wxString::Format("%d", v);
     return *this;
 }
 
 auto Value::operator=(const std::int64_t v) -> Value& {
-    *m_val = v;
+    m_data = wxString::Format("%lld", static_cast<long long>(v));
     return *this;
 }
 
 auto Value::operator=(const double v) -> Value& {
-    *m_val = v;
+    m_data = wxString::FromDouble(v);
     return *this;
 }
 
 auto Value::operator=(const wxString& v) -> Value& {
-    const auto utf8 = v.utf8_str();
-    *m_val = std::string { utf8.data(), utf8.length() };
-    return *this;
-}
-
-auto Value::operator=(const std::string& v) -> Value& {
-    *m_val = v;
+    m_data = v;
     return *this;
 }
 
 auto Value::operator=(const char* v) -> Value& {
-    *m_val = std::string { v };
+    m_data = wxString { v };
     return *this;
 }

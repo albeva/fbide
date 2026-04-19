@@ -12,7 +12,7 @@
 using namespace fbide;
 
 auto CompileCommand::build(Context& ctx) const -> wxString {
-    const auto compiler = ctx.getConfigManager().config().at("compiler");
+    const auto& compiler = ctx.getConfigManager().config().at("compiler");
     const wxString compileTemplate = compiler.get_or("compileCommand", R"("<$fbc>" "<$file>")");
     const wxString compilerPath = compiler.get_or("path", "");
     wxFileName path(compilerPath);

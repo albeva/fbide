@@ -37,7 +37,7 @@ void Editor::applySettings() {
 }
 
 void Editor::applyEditorSettings() {
-    const auto editor = m_ctx.getConfigManager().config().at("editor");
+    const auto& editor = m_ctx.getConfigManager().config().at("editor");
     const auto tabSize = editor.get_or("tabSize", 4);
 
     SetTabWidth(tabSize);
@@ -181,7 +181,7 @@ void Editor::applyFreebasicTheme() {
 
     // Apply keywords
     // TODO: add keyword group 5
-    const auto groups = m_ctx.getConfigManager().keywords().at("groups");
+    const auto& groups = m_ctx.getConfigManager().keywords().at("groups");
     for (std::size_t grp = 0; grp < 4; grp++) {
         wxString key;
         key.Printf("group%zu", grp + 1);

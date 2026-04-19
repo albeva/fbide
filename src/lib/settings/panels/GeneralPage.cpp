@@ -12,15 +12,15 @@
 using namespace fbide;
 
 namespace {
-auto currentLocaleFileName(Value cfg) -> wxString {
+auto currentLocaleFileName(const Value& cfg) -> wxString {
     return wxFileName(cfg.get_or("locale", "")).GetFullName();
 }
 } // namespace
 
 GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent) {
-    auto cfg = getContext().getConfigManager().config();
-    const auto editor = cfg.at("editor");
+    auto& cfg = getContext().getConfigManager().config();
+    const auto& editor = cfg.at("editor");
     m_autoIndent      = editor.get_or("autoIndent",      true);
     m_indentGuide     = editor.get_or("indentGuide",     false);
     m_showWhiteSpaces = editor.get_or("whiteSpace",      false);
@@ -74,8 +74,8 @@ void GeneralPage::create() {
 
 void GeneralPage::apply() {
     auto& cfgManager = getContext().getConfigManager();
-    auto cfg = cfgManager.config();
-    auto editor = cfg["editor"];
+    auto& cfg = cfgManager.config();
+    auto& editor = cfg["editor"];
     editor["autoIndent"]      = m_autoIndent;
     editor["indentGuide"]     = m_indentGuide;
     editor["whiteSpace"]      = m_showWhiteSpaces;

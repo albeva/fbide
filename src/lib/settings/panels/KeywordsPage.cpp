@@ -18,7 +18,7 @@ auto groupKey(std::size_t idx) -> std::string {
 
 KeywordsPage::KeywordsPage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent) {
-    const auto groups = getContext().getConfigManager().keywords().at("groups");
+    const auto& groups = getContext().getConfigManager().keywords().at("groups");
     for (std::size_t idx = 0; idx < GROUP_COUNT; idx++) {
         m_groups.at(idx) = groups.get_or(groupKey(idx), "");
     }
@@ -58,7 +58,7 @@ void KeywordsPage::apply() {
     // Persist to keywords toml via ConfigManager. Editors pick up changes
     // on UIManager::updateEditorSettigs() via Editor::applyTheme.
     auto& cfg = getContext().getConfigManager();
-    auto groups = cfg.keywords()["groups"];
+    auto& groups = cfg.keywords()["groups"];
     for (std::size_t idx = 0; idx < GROUP_COUNT; idx++) {
         groups[groupKey(idx)] = m_groups[idx];
     }

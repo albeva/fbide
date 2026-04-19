@@ -10,15 +10,13 @@
 #include <array>
 #include <concepts>
 #include <cstddef>
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <utility>
 #include <variant>
 #include <vector>
-
-// TOML++
-#include <toml.hpp>
 
 // wxWidgets
 #include <wx/wx.h>

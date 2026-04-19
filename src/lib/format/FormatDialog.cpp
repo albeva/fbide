@@ -120,7 +120,7 @@ void FormatDialog::create() {
 
     // Tokenise source once (convert to UTF-8 for the lexer)
     if (m_buffer.length() > 0) {
-        const auto groupsNode = m_ctx.getConfigManager().keywords().at("groups");
+        const auto& groupsNode = m_ctx.getConfigManager().keywords().at("groups");
         std::array<wxString, 4> groups;
         for (std::size_t i = 0; i < 4; i++) {
             wxString key;

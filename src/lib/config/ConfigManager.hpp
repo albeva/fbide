@@ -14,13 +14,10 @@ class ConfigManager final {
 public:
     NO_COPY_AND_MOVE(ConfigManager)
 
-    using ConfigValue = Value::Inner;
-
     // -----------------------------------------------------------------------
     // Config categories
     // -----------------------------------------------------------------------
 
-    /// Types of config this class manages
     enum class Category : std::uint8_t {
         Config,
         Locale,
@@ -52,60 +49,52 @@ public:
     // Get info
     // -----------------------------------------------------------------------
 
-    /// Get array with all the langauges found
+    /// Get paths of every language file under resources/IDE/v2/locales.
     [[nodiscard]] auto getAllLanguages() const -> std::vector<wxString>;
 
-    /// Get array with all the themes found
+    /// Get paths of every theme file under resources/IDE/v2/themes.
     [[nodiscard]] auto getAllThemes() const -> std::vector<wxString>;
 
     // -----------------------------------------------------------------------
     // Init
     // -----------------------------------------------------------------------
 
-    /// Load configuration from given path information
-    /// If idePath is empty, then load fbidePath + "/ide"
-    /// if configPath is not provided, load it from resolved ide path + "config_{platform}.toml"
     explicit ConfigManager(const wxString& appPath, const wxString& idePath = "", const wxString& configPath = "");
 
-    /// Load new config for given category from the given file.
-    /// Any changes in current file will be discarded
-    /// This will update filename entry in the config.
+    /// Point a category to a new file and reload it.
     void setCategoryPath(Category category, const wxString& path);
 
-    /// Save given category
+    /// Save the category's Value tree to its backing file.
     void save(Category category);
 
     // -----------------------------------------------------------------------
     // Path management
     // -----------------------------------------------------------------------
 
-    /// Resolve the path against ide folders and return absolute path
     [[nodiscard]] auto absolute(const wxString& pathName) const -> wxString;
-
-    /// Turn absolute path relative to known paths
     [[nodiscard]] auto relative(const wxString& path) const -> wxString;
 
     // -----------------------------------------------------------------------
-    // Category accessors — return a Value cursor at the category root.
+    // Category accessors — return a reference to the category root Value.
     // -----------------------------------------------------------------------
 
-    [[nodiscard]] auto get(Category category) -> Value;
+    [[nodiscard]] auto get(Category category) -> Value&;
 
-    [[nodiscard]] auto config() -> Value { return get(Category::Config); }
-    [[nodiscard]] auto locale() -> Value { return get(Category::Locale); }
-    [[nodiscard]] auto theme() -> Value { return get(Category::Theme); }
-    [[nodiscard]] auto shortcuts() -> Value { return get(Category::Shortcuts); }
-    [[nodiscard]] auto keywords() -> Value { return get(Category::Keywords); }
-    [[nodiscard]] auto layout() -> Value { return get(Category::Layout); }
+    [[nodiscard]] auto config()    -> Value& { return get(Category::Config); }
+    [[nodiscard]] auto locale()    -> Value& { return get(Category::Locale); }
+    [[nodiscard]] auto theme()     -> Value& { return get(Category::Theme); }
+    [[nodiscard]] auto shortcuts() -> Value& { return get(Category::Shortcuts); }
+    [[nodiscard]] auto keywords()  -> Value& { return get(Category::Keywords); }
+    [[nodiscard]] auto layout()    -> Value& { return get(Category::Layout); }
 
 private:
-    /// Load category from given path.
+    /// Load the category file from disk and rebuild its Value tree.
     void load(Category category);
 
     struct Entry final {
         Category category;
         wxString path;
-        ConfigValue value;
+        Value    root;
     };
     static constexpr std::size_t CAT_COUNT = 6;
 
