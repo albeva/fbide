@@ -213,16 +213,18 @@ void ConfigManager::save(const Category category) {
         return;
     }
 
+    // Open the read stream before the write stream: wxFileConfig parses
+    // existingStream in its constructor (preserves comments + ordering),
+    // then we truncate the file for writing. Reversing the order would
+    // zero the file before parsing completed.
+    wxFileInputStream existingStream(entry.path);
+    wxFileConfig cfg(existingStream, wxConvUTF8);
     wxFFileOutputStream outStream(entry.path);
     if (!outStream.IsOk()) {
         wxLogError("Failed to open '%s' for writing", entry.path);
         return;
     }
 
-    // Build a wxFileConfig from the Value tree, then let it serialize.
-    // This delegates INI escaping (backslashes, quotes, whitespace) to
-    // wxFileConfig's writer.
-    wxFileConfig cfg;
     exportGroup(entry.root, "", cfg);
     cfg.Save(outStream, wxConvUTF8);
 }

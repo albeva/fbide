@@ -348,7 +348,22 @@ void Theme::save(const wxString& newThemePath) {
     }
     m_version = Version::fbide();
 
-    wxFileConfig ini { "", "", "", "", wxCONFIG_USE_LOCAL_FILE };
+    // Seed from the existing file first so wxFileConfig retains comments
+    // and ordering across the round-trip. wxFileInputStream must be
+    // constructed before wxFileOutputStream — otherwise the output stream
+    // truncates the file before parsing completes. If the file does not
+    // yet exist (new theme), start from an empty config instead.
+    std::unique_ptr<wxFileConfig> iniPtr;
+    if (wxFileExists(m_themePath)) {
+        wxFileInputStream existingStream(m_themePath);
+        if (existingStream.IsOk()) {
+            iniPtr = std::make_unique<wxFileConfig>(existingStream, wxConvUTF8);
+        }
+    }
+    if (!iniPtr) {
+        iniPtr = std::make_unique<wxFileConfig>("", "", "", "", wxCONFIG_USE_LOCAL_FILE);
+    }
+    auto& ini = *iniPtr;
 
     // patch version
     if (not m_version.isValid() || m_version == Version::oldFbide()) {
@@ -368,5 +383,5 @@ void Theme::save(const wxString& newThemePath) {
 
     // save
     wxFileOutputStream outStream(m_themePath);
-    ini.Save(outStream);
+    ini.Save(outStream, wxConvUTF8);
 }
