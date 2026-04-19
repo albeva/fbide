@@ -192,7 +192,7 @@ void Editor::applyFreebasicTheme() {
     for (std::size_t grp = 0; grp < kThemeKeywordGroupsCount; grp++) {
         wxString key;
         key.Printf("group%zu", grp + 1);
-        SetKeyWords(static_cast<int>(grp), groups.get_or(key, ""));
+        SetKeyWords(static_cast<int>(grp), groups.get_or(key, "").Lower());
     }
 
     for (const auto cat : kThemeCategories) {

@@ -228,9 +228,13 @@ void Theme::load(const wxString& themePath, const bool reset) {
         }
     }
 
-    // Legacy v4 format — .fbt extension.
+    // Legacy v4 format — .fbt extension. loadV4 resets the object, so
+    // stash the path and restore it after so getPath() still returns the
+    // file we actually loaded.
     if (m_themePath.Lower().EndsWith(".fbt")) {
-        loadV4(m_themePath);
+        const wxString legacyPath = m_themePath;
+        loadV4(legacyPath);
+        m_themePath = legacyPath;
         return;
     }
 

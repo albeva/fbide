@@ -16,11 +16,12 @@ protected:
     void SetUp() override {
         m_lexer = FBSciLexer::Create();
         // Set up keyword lists matching fbfull.lng groups
-        m_lexer->WordListSet(0, "dim as if then else end sub function type");
+        m_lexer->WordListSet(0, "dim as if then else end sub function type asm");
         m_lexer->WordListSet(1, "integer string single double long byte");
         m_lexer->WordListSet(2, "and or not mod xor");
         m_lexer->WordListSet(3, "__fb_version__");
-        m_lexer->WordListSet(4, "true false nothing");
+        m_lexer->WordListSet(4, "mov push pop ret jmp");   // asm-only mnemonics
+        m_lexer->WordListSet(5, "eax ebx ecx edx");        // asm-only registers
     }
 
     void TearDown() override {
@@ -64,6 +65,7 @@ protected:
             table['3'] = S::Keyword3;
             table['4'] = S::Keyword4;
             table['5'] = S::Keyword5;
+            table['6'] = S::Keyword6;
             table['P'] = S::Operator;
             table['L'] = S::Label;
             table['V'] = S::Constant;
@@ -96,6 +98,7 @@ protected:
             table[+S::Keyword3] = '3';
             table[+S::Keyword4] = '4';
             table[+S::Keyword5] = '5';
+            table[+S::Keyword6] = '6';
             table[+S::Operator] = 'P';
             table[+S::Label] = 'L';
             table[+S::Constant] = 'V';
@@ -263,6 +266,63 @@ TEST_F(FBSciLexerTests, DimStatement) {
     expectStyles(
         "dim x as integer",
         "111 I 11 2222222"
+    );
+}
+
+// endregion
+
+// region ---------- Asm blocks ----------
+
+// Newlines in source take the Default style, which format() renders as
+// space — so expected patterns use a space at every line-break position.
+TEST_F(FBSciLexerTests, AsmBlockEnterExit) {
+    // Regular keyword lists (Keyword1-4) are suppressed inside asm blocks;
+    // asm-only lists (Keyword5-6) kick in instead. "end asm" closes the
+    // block and restores normal keyword lookup.
+    expectStyles(
+        "asm\nmov eax\nend asm\ndim\n",
+        "111 555 666 111 111 111 "
+    );
+}
+
+TEST_F(FBSciLexerTests, AsmBlockSuppressesRegularKeywords) {
+    // "dim" is a Keyword1 outside asm but must not highlight inside.
+    expectStyles(
+        "asm\ndim\nend asm\n",
+        "111 III 111 111 "
+    );
+}
+
+TEST_F(FBSciLexerTests, AsmBlockBareEndStaysInBlock) {
+    // A lone "end" (no asm follower) must not exit the asm block.
+    // Next "mov" still lexes as an asm mnemonic (Keyword5).
+    expectStyles(
+        "asm\nend\nmov\nend asm\n",
+        "111 III 555 111 111 "
+    );
+}
+
+TEST_F(FBSciLexerTests, AsmBlockEndAsmExtraWhitespace) {
+    // Tabs and multiple spaces between "end" and "asm" should still match.
+    expectStyles(
+        "asm\nend\t asm\n",
+        "111 111  111 "
+    );
+}
+
+TEST_F(FBSciLexerTests, AsmBlockEndIdentifierDoesNotExit) {
+    // "end" followed by an identifier starting with "asm..." must not
+    // match — the look-ahead requires a word break after "asm".
+    expectStyles(
+        "asm\nend asmfoo\nend asm\n",
+        "111 III IIIIII 111 111 "
+    );
+}
+
+TEST_F(FBSciLexerTests, AsmRegistersInKeyword6) {
+    expectStyles(
+        "asm\nmov eax\nend asm\n",
+        "111 555 666 111 111 "
     );
 }
 

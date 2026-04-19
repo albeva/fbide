@@ -41,7 +41,7 @@ constexpr std::array<const char*, kThemeKeywordGroupsCount + 1> wordListDescript
 #define GROUPS(NAME) #NAME,
     DEFINE_THEME_KEYWORD_GROUPS(GROUPS)
 #undef GROUPS
-    nullptr
+        nullptr
 };
 
 // endregion
@@ -185,6 +185,7 @@ void FBSciLexer::lexLineStart() noexcept {
         m_fieldAccess = false;
     }
     m_lineState.commentNestLevel = m_previousLineState.commentNestLevel;
+    m_asmBlock = m_previousLineState.asmBlock;
 
     if (m_previousLineState.continuePP) {
         m_sc->SetState(+ThemeCategory::Preprocessor);
@@ -194,6 +195,7 @@ void FBSciLexer::lexLineStart() noexcept {
 void FBSciLexer::lexLineEnd() noexcept {
     m_lineState.isFirst = m_isFirst;
     m_lineState.fieldAccess = m_fieldAccess;
+    m_lineState.asmBlock = m_asmBlock;
     m_styler->SetLineState(m_line, m_lineState.toInt());
 }
 
@@ -490,7 +492,39 @@ auto FBSciLexer::identifyKeyword() noexcept -> bool {
         return false;
     }
 
-    for (std::size_t index = 0; index < kThemeKeywordGroupsCount; index++) {
+    if (m_isFirst) {
+        if (m_asmBlock) {
+            // "end asm" terminates the block. Peek past the trailing
+            // whitespace to confirm "asm" follows as a separate token, so
+            // bare "end" (not a valid FB statement in asm, but guard anyway)
+            // or something like "endasm" does not exit the block early.
+            if (strcmp("end", m_identBuffer.data()) == 0) {
+                auto pos = static_cast<Sci_Position>(m_sc->currentPos);
+                while (true) {
+                    const char c = m_styler->SafeGetCharAt(pos, '\0');
+                    if (c != ' ' && c != '\t') {
+                        break;
+                    }
+                    pos++;
+                }
+                if (fastUnsafeLowerCase(m_styler->SafeGetCharAt(pos, '\0')) == 'a'
+                    && fastUnsafeLowerCase(m_styler->SafeGetCharAt(pos + 1, '\0')) == 's'
+                    && fastUnsafeLowerCase(m_styler->SafeGetCharAt(pos + 2, '\0')) == 'm'
+                    && !isIdentifier(static_cast<unsigned char>(m_styler->SafeGetCharAt(pos + 3, '\0')))) {
+                    m_asmBlock = false;
+                }
+            }
+        } else if (strcmp("asm", m_identBuffer.data()) == 0) {
+            m_asmBlock = true;
+            m_sc->ChangeState(+ThemeCategory::Keyword1);
+            return true;
+        }
+    }
+
+    const std::size_t first = m_asmBlock ? kThemeKeywordGroupsCount - 2 : 0;
+    const std::size_t last = m_asmBlock ? kThemeKeywordGroupsCount : kThemeKeywordGroupsCount - 2;
+
+    for (std::size_t index = first; index < last; index++) {
         if (m_wordLists[index].InList(m_identBuffer.data())) {
             m_sc->ChangeState(+kThemeKeywordCategories[index]);
             break;

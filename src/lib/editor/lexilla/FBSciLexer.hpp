@@ -47,6 +47,7 @@ private:
         bool isFirst      : 1 = false;
         bool continuePP   : 1 = false;
         bool fieldAccess  : 1 = false;
+        bool asmBlock     : 1 = false;
 
         std::uint8_t commentNestLevel = 0;
         std::uint8_t reserved1 = 0;
@@ -102,6 +103,7 @@ private:
     bool m_isFirst = true;
     bool m_fieldAccess = false;
     bool m_slashEscapableString = false;
+    bool m_asmBlock = false;
     std::array<char, MAX_IDENT_LEN> m_identBuffer {};
 };
 
