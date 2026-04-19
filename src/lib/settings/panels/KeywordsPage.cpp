@@ -19,19 +19,22 @@ auto groupKey(std::size_t idx) -> std::string {
 KeywordsPage::KeywordsPage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent) {
     const auto& groups = getContext().getConfigManager().keywords().at("groups");
-    for (std::size_t idx = 0; idx < GROUP_COUNT; idx++) {
+    for (std::size_t idx = 0; idx < kThemeKeywordGroupsCount; idx++) {
         m_groups.at(idx) = groups.get_or(groupKey(idx), "");
     }
 }
 
 void KeywordsPage::create() {
     // Group dropdown
-    const wxArrayString options {
-        tr("dialogs.settings.keywords.group1"),
-        tr("dialogs.settings.keywords.group2"),
-        tr("dialogs.settings.keywords.group3"),
-        tr("dialogs.settings.keywords.group4")
-    };
+    wxArrayString options;
+    options.reserve(kThemeKeywordGroupsCount);
+    const auto& group = getContext().getConfigManager().locale().at("dialogs.settings.themes.categories");
+    for (const auto& cat : kThemeKeywordCategories) {
+        wxString key { getThemeCategoryName(cat) };
+        key[0] = wxTolower(key[0]);
+        options.Add(group.get_or(key, key));
+    }
+
     m_groupChoice = choice(options, { .expand = false });
     m_groupChoice->SetSelection(static_cast<int>(m_selectedGroup));
     m_groupChoice->Bind(wxEVT_CHOICE, &KeywordsPage::onGroupChanged, this);
@@ -59,7 +62,7 @@ void KeywordsPage::apply() {
     // on UIManager::updateEditorSettigs() via Editor::applyTheme.
     auto& cfg = getContext().getConfigManager();
     auto& groups = cfg.keywords()["groups"];
-    for (std::size_t idx = 0; idx < GROUP_COUNT; idx++) {
+    for (std::size_t idx = 0; idx < kThemeKeywordGroupsCount; idx++) {
         groups[groupKey(idx)] = m_groups[idx];
     }
     cfg.save(ConfigManager::Category::Keywords);

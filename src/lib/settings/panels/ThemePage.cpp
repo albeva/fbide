@@ -145,15 +145,20 @@ void ThemePage::create() {
 
 void ThemePage::createTopRow() {
     hbox(tr("name"), { .center = true, .border = 0 }, [&] {
-        auto themes = getContext().getConfigManager().getAllThemes();
-        std::vector<wxString> names;
-        names.reserve(themes.size() + 1);
-        names.emplace_back(tr("createNew"));
+        const auto themes = getContext().getConfigManager().getAllThemes();
+        wxArrayString names;
+        names.Add(tr("createNew"));
         for (const auto& path : themes) {
-            names.emplace_back(wxFileName(path).GetName());
+            names.Add(wxFileName(path).GetName());
         }
 
-        m_themeChoice = choice(m_activeTheme, names, { .proportion = 1, .expand = false }, ID_THEME_CHOICE);
+        // Use the non-ref choice overload — Layout's value-bound overload
+        // installs its own EVT_CHOICE lambda that consumes the event and
+        // blocks our event-table handler (onSelectTheme) from firing.
+        m_themeChoice = choice(names, { .proportion = 1, .expand = false }, ID_THEME_CHOICE);
+        const auto sel = m_themeChoice->FindString(m_activeTheme);
+        m_themeChoice->SetSelection(sel != wxNOT_FOUND ? sel : 0);
+
         button(tr("save"), { .expand = false }, ID_SAVE_THEME);
     });
 }

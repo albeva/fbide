@@ -9,25 +9,33 @@
 // clang-format off
 namespace fbide {
 
+// ===========================================================================
+// Keyword groups
+// ===========================================================================
+
+#define DEFINE_THEME_KEYWORD_GROUPS(_) \
+    _( Keyword1 ) \
+    _( Keyword2 ) \
+    _( Keyword3 ) \
+    _( Keyword4 ) \
+    _( Keyword5 ) \
+    _( Keyword6 )
+
 /// Syntax style categories. These map 1:1 to Scintilla style IDs in
 /// the FBStc lexer and per-style entries in Theme.
-#define DEFINE_THEME_CATEGORY(_) \
-    _(Default)                   \
-    _(Comment)                   \
-    _(MultilineComment)          \
-    _(Number)                    \
-    _(String)                    \
-    _(StringOpen)                \
-    _(Identifier)                \
-    _(Keyword1)                  \
-    _(Keyword2)                  \
-    _(Keyword3)                  \
-    _(Keyword4)                  \
-    _(Keyword5)                  \
-    _(Operator)                  \
-    _(Label)                     \
-    _(Constant)                  \
-    _(Preprocessor)              \
+#define DEFINE_THEME_CATEGORY(_)   \
+    _(Default)                     \
+    _(Comment)                     \
+    _(MultilineComment)            \
+    _(Number)                      \
+    _(String)                      \
+    _(StringOpen)                  \
+    _(Identifier)                  \
+    DEFINE_THEME_KEYWORD_GROUPS(_) \
+    _(Operator)                    \
+    _(Label)                       \
+    _(Constant)                    \
+    _(Preprocessor)                \
     _(Error)
 
 enum class ThemeCategory : int {
@@ -61,5 +69,14 @@ constexpr auto getThemeCategoryName(const ThemeCategory category) -> std::string
     }
     std::unreachable();
 }
+
+/// Keyword groups
+inline constexpr std::array kThemeKeywordCategories {
+    #define GROUPS(NAME) ThemeCategory::NAME,
+        DEFINE_THEME_KEYWORD_GROUPS(GROUPS)
+    #undef GROUPS
+};
+inline constexpr std::size_t kThemeKeywordGroupsCount = kThemeKeywordCategories.size();
+
 
 } // namespace fbide

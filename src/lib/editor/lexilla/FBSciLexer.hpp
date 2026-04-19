@@ -26,8 +26,6 @@ class FBSciLexer final : public Lexilla::DefaultLexer {
     FBSciLexer();
 
 public:
-    /// Number of keyword groups our lexer supports
-    static constexpr std::size_t WORD_LIST_COUNT = 5;
 
     const char* SCI_METHOD DescribeWordListSets() override;
     Sci_Position SCI_METHOD WordListSet(int n, const char* wl) override;
@@ -94,7 +92,7 @@ private:
     static constexpr Sci_Position INVALID_LINE = std::numeric_limits<Sci_Position>::max() - 1;
     static constexpr std::size_t MAX_IDENT_LEN = 128;
 
-    std::array<Lexilla::WordList, WORD_LIST_COUNT> m_wordLists;
+    std::array<Lexilla::WordList, kThemeKeywordGroupsCount> m_wordLists;
     Lexilla::StyleContext* m_sc = nullptr;
     Lexilla::LexAccessor* m_styler = nullptr;
     Sci_Position m_line = 0;

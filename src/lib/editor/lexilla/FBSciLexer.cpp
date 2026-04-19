@@ -27,30 +27,22 @@ constexpr std::array lexicalClasses {
     Lexilla::LexicalClass { +ThemeCategory::Keyword2, "state.keyword2", "keyword", "Types" },
     Lexilla::LexicalClass { +ThemeCategory::Keyword3, "state.keyword3", "keyword", "Operators" },
     Lexilla::LexicalClass { +ThemeCategory::Keyword4, "state.keyword4", "keyword", "Defines" },
-    Lexilla::LexicalClass { +ThemeCategory::Keyword5, "state.keyword5", "keyword", "User keywords" },
+    Lexilla::LexicalClass { +ThemeCategory::Keyword5, "state.keyword5", "keyword", "User keywords 1" },
+    Lexilla::LexicalClass { +ThemeCategory::Keyword6, "state.keyword6", "keyword", "User keywords 2" },
     Lexilla::LexicalClass { +ThemeCategory::Operator, "state.operator", "operator", "Operator" },
     Lexilla::LexicalClass { +ThemeCategory::Label, "state.label", "label", "Label" },
     Lexilla::LexicalClass { +ThemeCategory::Constant, "state.constant", "keyword constant value", "Built-in constants" },
     Lexilla::LexicalClass { +ThemeCategory::Preprocessor, "state.preprocessor", "preprocessor", "Preprocessor" },
+    Lexilla::LexicalClass { +ThemeCategory::Error, "state.error", "errpr", "Syntax error" },
 };
+static_assert(lexicalClasses.size() == kThemeCategoryCount);
 
-constexpr std::array<const char*, FBSciLexer::WORD_LIST_COUNT + 1> wordListDescriptions {
-    "Keywords",
-    "Types",
-    "Operators",
-    "Defines",
-    "Constants",
+constexpr std::array<const char*, kThemeKeywordGroupsCount + 1> wordListDescriptions {
+#define GROUPS(NAME) #NAME,
+    DEFINE_THEME_KEYWORD_GROUPS(GROUPS)
+#undef GROUPS
     nullptr
 };
-
-constexpr std::array wordListStyle {
-    ThemeCategory::Keyword1,
-    ThemeCategory::Keyword2,
-    ThemeCategory::Keyword3,
-    ThemeCategory::Keyword4,
-    ThemeCategory::Keyword5
-};
-static_assert(wordListStyle.size() == FBSciLexer::WORD_LIST_COUNT);
 
 // endregion
 
@@ -81,7 +73,7 @@ const char* SCI_METHOD FBSciLexer::DescribeWordListSets() {
 
 Sci_Position SCI_METHOD FBSciLexer::WordListSet(const int n, const char* wl) {
     const auto idx = static_cast<std::size_t>(n);
-    if (idx < WORD_LIST_COUNT) {
+    if (idx < kThemeKeywordGroupsCount) {
         if (m_wordLists[idx].Set(wl)) {
             return 0;
         }
@@ -498,9 +490,9 @@ auto FBSciLexer::identifyKeyword() noexcept -> bool {
         return false;
     }
 
-    for (std::size_t index = 0; index < WORD_LIST_COUNT; index++) {
+    for (std::size_t index = 0; index < kThemeKeywordGroupsCount; index++) {
         if (m_wordLists[index].InList(m_identBuffer.data())) {
-            m_sc->ChangeState(+wordListStyle[index]);
+            m_sc->ChangeState(+kThemeKeywordCategories[index]);
             break;
         }
     }

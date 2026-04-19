@@ -188,9 +188,8 @@ void Editor::applyFreebasicTheme() {
     SetILexer(FBSciLexer::Create());
 
     // Apply keywords
-    // TODO: add keyword group 5
     const auto& groups = m_ctx.getConfigManager().keywords().at("groups");
-    for (std::size_t grp = 0; grp < 4; grp++) {
+    for (std::size_t grp = 0; grp < kThemeKeywordGroupsCount; grp++) {
         wxString key;
         key.Printf("group%zu", grp + 1);
         SetKeyWords(static_cast<int>(grp), groups.get_or(key, ""));
