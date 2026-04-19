@@ -11,15 +11,19 @@
 // clang-format off
 namespace fbide {
 
+#define DEFINE_THEME_EXTRA_CATEGORIES(_)   \
+    /* name        getter      type     */ \
+    _( lineNumber, LineNumber, Colors    ) \
+    _( selection,  Selection,  Colors    ) \
+    _( brace,      Brace,      Entry     ) \
+    _( badBrace,   BadBrace,   Entry     )
+
 #define DEFINE_THEME_PROPERTY(_)           \
     /* name        getter      type     */ \
     _( version,    Version,    Version   ) \
     _( font,       Font,       wxString  ) \
     _( fontSize,   FontSize,   int       ) \
-    _( lineNumber, LineNumber, Colors    ) \
-    _( selection,  Selection,  Colors    ) \
-    _( brace,      Brace,      Entry     ) \
-    _( badBrace,   BadBrace,   Entry     )
+    DEFINE_THEME_EXTRA_CATEGORIES(_)
 
 class Theme final {
 public:
