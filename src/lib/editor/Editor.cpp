@@ -111,6 +111,12 @@ void Editor::selectLine() {
     SetSelection(PositionFromLine(line), PositionFromLine(line + 1));
 }
 
+namespace {
+auto resolve(const wxColour& c, const wxColour& fallback) -> wxColour {
+    return c.IsOk() ? c : fallback;
+}
+} // namespace
+
 void Editor::applyTheme() {
     const auto& theme = m_ctx.getTheme();
     const auto& defaultEntry = theme.get(ThemeCategory::Default);
@@ -134,8 +140,8 @@ void Editor::applyTheme() {
 
     // Line numbers
     const auto& lineNum = theme.getLineNumber();
-    StyleSetForeground(wxSTC_STYLE_LINENUMBER, lineNum.foreground);
-    StyleSetBackground(wxSTC_STYLE_LINENUMBER, lineNum.background);
+    StyleSetForeground(wxSTC_STYLE_LINENUMBER, resolve(lineNum.foreground, defaultColors.foreground));
+    StyleSetBackground(wxSTC_STYLE_LINENUMBER, resolve(lineNum.background, defaultColors.background));
     StyleSetFont(wxSTC_STYLE_LINENUMBER, defaultFont);
 
     // Caret — no dedicated field, use default foreground.
@@ -143,20 +149,20 @@ void Editor::applyTheme() {
 
     // Selection
     const auto& sel = theme.getSelection();
-    SetSelBackground(true, sel.background);
-    SetSelForeground(true, sel.foreground);
+    SetSelBackground(true, resolve(sel.background, defaultColors.background));
+    SetSelForeground(true, resolve(sel.foreground, defaultColors.foreground));
 
     // Brace matching
     const auto& brace = theme.getBrace();
-    StyleSetForeground(wxSTC_STYLE_BRACELIGHT, brace.colors.foreground);
-    StyleSetBackground(wxSTC_STYLE_BRACELIGHT, brace.colors.background);
+    StyleSetForeground(wxSTC_STYLE_BRACELIGHT, resolve(brace.colors.foreground, defaultColors.foreground));
+    StyleSetBackground(wxSTC_STYLE_BRACELIGHT, resolve(brace.colors.background, defaultColors.background));
     StyleSetBold(wxSTC_STYLE_BRACELIGHT, brace.bold);
     StyleSetItalic(wxSTC_STYLE_BRACELIGHT, brace.italic);
     StyleSetUnderline(wxSTC_STYLE_BRACELIGHT, brace.underlined);
 
     const auto& badBrace = theme.getBadBrace();
-    StyleSetForeground(wxSTC_STYLE_BRACEBAD, badBrace.colors.foreground);
-    StyleSetBackground(wxSTC_STYLE_BRACEBAD, badBrace.colors.background);
+    StyleSetForeground(wxSTC_STYLE_BRACEBAD, resolve(badBrace.colors.foreground, defaultColors.foreground));
+    StyleSetBackground(wxSTC_STYLE_BRACEBAD, resolve(badBrace.colors.background, defaultColors.background));
     StyleSetBold(wxSTC_STYLE_BRACEBAD, badBrace.bold);
     StyleSetItalic(wxSTC_STYLE_BRACEBAD, badBrace.italic);
     StyleSetUnderline(wxSTC_STYLE_BRACEBAD, badBrace.underlined);
@@ -196,8 +202,9 @@ void Editor::applyFreebasicTheme() {
 }
 
 void Editor::applyStyle(const int stcId, const Theme::Entry& style, const Theme& theme) {
-    StyleSetForeground(stcId, style.colors.foreground);
-    StyleSetBackground(stcId, style.colors.background);
+    const auto& defaultColors = theme.get(ThemeCategory::Default).colors;
+    StyleSetForeground(stcId, resolve(style.colors.foreground, defaultColors.foreground));
+    StyleSetBackground(stcId, resolve(style.colors.background, defaultColors.background));
 
     const auto font = wxFont(
         theme.getFontSize(),

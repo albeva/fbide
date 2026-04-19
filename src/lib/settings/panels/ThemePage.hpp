@@ -31,10 +31,25 @@ private:
     void createLeftPanel();
     void createRightPanel();
 
-    void onSelectCategory(const wxCommandEvent& event);
-    void onSelectTheme(const wxCommandEvent& event);
-    void saveNewTheme(bool setActive);
+    enum ControlId : int {
+        ID_THEME_CHOICE = wxID_HIGHEST + 1,
+        ID_SAVE_THEME,
+        ID_CATEGORY_LIST,
+        ID_CHK_INHERIT_FG,
+        ID_CHK_INHERIT_BG,
+        ID_BTN_FG,
+        ID_BTN_BG,
+    };
+
+    void onSelectCategory(wxCommandEvent& event);
+    void onSelectTheme(wxCommandEvent& event);
     void onSaveTheme(wxCommandEvent& event);
+    void onInheritFgToggle(wxCommandEvent& event);
+    void onInheritBgToggle(wxCommandEvent& event);
+    void onFgClick(wxCommandEvent& event);
+    void onBgClick(wxCommandEvent& event);
+
+    void saveNewTheme(bool setActive);
     void onColorButton(wxButton* btn);
     void loadCategory();
     void saveCategory();
@@ -42,16 +57,18 @@ private:
     void applyCapability();
     void syncActiveThemeConfig();
 
-    Unowned<wxListBox>   m_typeList;
-    Unowned<wxChoice>    m_themeChoice;
-    Unowned<wxButton>    m_btnFg;
-    Unowned<wxButton>    m_btnBg;
-    Unowned<wxChoice>    m_fontChoice;
+    Unowned<wxListBox>    m_typeList;
+    Unowned<wxChoice>     m_themeChoice;
+    Unowned<wxCheckBox>   m_chkInheritFg;
+    Unowned<wxCheckBox>   m_chkInheritBg;
+    Unowned<wxButton>     m_btnFg;
+    Unowned<wxButton>     m_btnBg;
+    Unowned<wxChoice>     m_fontChoice;
     Unowned<wxStaticText> m_fontOptionsLabel;
-    Unowned<wxCheckBox>  m_chkBold;
-    Unowned<wxCheckBox>  m_chkItalic;
-    Unowned<wxCheckBox>  m_chkUnderline;
-    Unowned<wxSpinCtrl>  m_spinFontSize;
+    Unowned<wxCheckBox>   m_chkBold;
+    Unowned<wxCheckBox>   m_chkItalic;
+    Unowned<wxCheckBox>   m_chkUnderline;
+    Unowned<wxSpinCtrl>   m_spinFontSize;
     Unowned<wxStaticText> m_lblFg;
     Unowned<wxStaticText> m_lblBg;
     Unowned<wxStaticText> m_lblFont;
@@ -67,6 +84,8 @@ private:
     std::array<SettingsCategory, kSettingsCategoryCount> m_categoryOrder {};
     int m_selectedRow = 0;
     const Value& m_tr;
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide

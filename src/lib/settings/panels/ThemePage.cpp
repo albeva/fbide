@@ -24,15 +24,7 @@ auto lowerFirst(const std::string_view name) -> wxString {
     return out;
 }
 
-/// Read-only snapshot of theme data for category.
-struct CategoryView final {
-    Theme::Colors colors;
-    bool bold = false;
-    bool italic = false;
-    bool underlined = false;
-};
-
-auto readCategory(const Theme& theme, const SettingsCategory cat) -> CategoryView {
+auto readCategory(const Theme& theme, const SettingsCategory cat) -> Theme::Entry {
     if (isSyntaxCategory(cat)) {
         const auto& e = theme.get(static_cast<ThemeCategory>(+cat));
         return { e.colors, e.bold, e.italic, e.underlined };
@@ -55,7 +47,7 @@ auto readCategory(const Theme& theme, const SettingsCategory cat) -> CategoryVie
     }
 }
 
-void writeCategory(Theme& theme, const SettingsCategory cat, const CategoryView& v) {
+void writeCategory(Theme& theme, const SettingsCategory cat, const Theme::Entry& v) {
     if (isSyntaxCategory(cat)) {
         theme.set(static_cast<ThemeCategory>(+cat), Theme::Entry {
             .colors = v.colors,
@@ -84,6 +76,18 @@ void writeCategory(Theme& theme, const SettingsCategory cat, const CategoryView&
 }
 
 } // namespace
+
+// clang-format off
+wxBEGIN_EVENT_TABLE(ThemePage, Panel)
+    EVT_CHOICE  (ThemePage::ID_THEME_CHOICE,    ThemePage::onSelectTheme)
+    EVT_BUTTON  (ThemePage::ID_SAVE_THEME,      ThemePage::onSaveTheme)
+    EVT_LISTBOX (ThemePage::ID_CATEGORY_LIST,   ThemePage::onSelectCategory)
+    EVT_CHECKBOX(ThemePage::ID_CHK_INHERIT_FG,  ThemePage::onInheritFgToggle)
+    EVT_CHECKBOX(ThemePage::ID_CHK_INHERIT_BG,  ThemePage::onInheritBgToggle)
+    EVT_BUTTON  (ThemePage::ID_BTN_FG,          ThemePage::onFgClick)
+    EVT_BUTTON  (ThemePage::ID_BTN_BG,          ThemePage::onBgClick)
+wxEND_EVENT_TABLE()
+// clang-format on
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -138,11 +142,8 @@ void ThemePage::createTopRow() {
         auto themes = getConfig().getAllThemes();
         themes.insert(themes.begin(), tr("createNew"));
 
-        m_themeChoice = choice(m_activeTheme, themes, { .proportion = 1, .expand = false });
-        m_themeChoice->Bind(wxEVT_CHOICE, &ThemePage::onSelectTheme, this);
-
-        const auto save = button(tr("save"), { .expand = false });
-        save->Bind(wxEVT_BUTTON, &ThemePage::onSaveTheme, this);
+        m_themeChoice = choice(m_activeTheme, themes, { .proportion = 1, .expand = false }, ID_THEME_CHOICE);
+        button(tr("save"), { .expand = false }, ID_SAVE_THEME);
     });
 }
 
@@ -181,26 +182,32 @@ void ThemePage::createCategoryList() {
         m_categoryOrder[i] = rows[i].cat;
     }
 
-    m_typeList = make_unowned<wxListBox>(currentParent(), wxID_ANY, wxDefaultPosition, wxSize(160, 240), displayNames);
+    m_typeList = make_unowned<wxListBox>(currentParent(), ID_CATEGORY_LIST, wxDefaultPosition, wxSize(160, 240), displayNames);
     m_selectedRow = 0;
     m_typeList->SetSelection(m_selectedRow);
-
-    m_typeList->Bind(wxEVT_LISTBOX, &ThemePage::onSelectCategory, this);
     add(m_typeList, {});
 }
 
 void ThemePage::createLeftPanel() {
+    const auto inheritTip = tr("inheritColor");
+
     vbox({ .proportion = 2, .border = 0 }, [&] {
         m_lblFg = text(tr("foreground"), {});
-        m_btnFg = button(wxString {});
-        m_btnFg->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onColorButton(m_btnFg); });
+        hbox({ .center = true, .border = 0 }, [&] {
+            m_chkInheritFg = checkBox(wxEmptyString, { .expand = false }, ID_CHK_INHERIT_FG);
+            m_chkInheritFg->SetToolTip(inheritTip);
+            m_btnFg = button(wxString {}, { .proportion = 1, .space = false }, ID_BTN_FG);
+        });
         connect(m_lblFg, m_btnFg);
 
         spacer();
 
         m_lblBg = text(tr("background"), {});
-        m_btnBg = button(wxString {});
-        m_btnBg->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onColorButton(m_btnBg); });
+        hbox({ .center = true, .border = 0 }, [&] {
+            m_chkInheritBg = checkBox(wxEmptyString, { .expand = false }, ID_CHK_INHERIT_BG);
+            m_chkInheritBg->SetToolTip(inheritTip);
+            m_btnBg = button(wxString {}, { .proportion = 1, .space = false }, ID_BTN_BG);
+        });
         connect(m_lblBg, m_btnBg);
 
         spacer();
@@ -248,7 +255,39 @@ void ThemePage::onColorButton(wxButton* btn) {
 // Theme selection
 // ---------------------------------------------------------------------------
 
-void ThemePage::onSelectTheme(const wxCommandEvent&) {
+void ThemePage::onInheritFgToggle(wxCommandEvent&) {
+    m_btnFg->Enable(not m_chkInheritFg->GetValue());
+    if (m_chkInheritFg->GetValue()) {
+        m_btnFg->SetBackgroundColour(m_theme.get(ThemeCategory::Default).colors.foreground);
+    } else {
+        const auto cat = m_categoryOrder[static_cast<std::size_t>(m_selectedRow)];
+        const auto view = readCategory(m_theme, cat);
+        m_btnFg->SetBackgroundColour(view.colors.foreground);
+    }
+    m_btnFg->Update();
+}
+
+void ThemePage::onInheritBgToggle(wxCommandEvent&) {
+    m_btnBg->Enable(not m_chkInheritBg->GetValue());
+    if (m_chkInheritBg->GetValue()) {
+        m_btnBg->SetBackgroundColour(m_theme.get(ThemeCategory::Default).colors.background);
+    } else {
+        const auto cat = m_categoryOrder[static_cast<std::size_t>(m_selectedRow)];
+        const auto view = readCategory(m_theme, cat);
+        m_btnBg->SetBackgroundColour(view.colors.background);
+    }
+    m_btnBg->Update();
+}
+
+void ThemePage::onFgClick(wxCommandEvent&) {
+    onColorButton(m_btnFg);
+}
+
+void ThemePage::onBgClick(wxCommandEvent&) {
+    onColorButton(m_btnBg);
+}
+
+void ThemePage::onSelectTheme(wxCommandEvent&) {
     m_activeTheme = m_themeChoice->GetStringSelection();
     updateTitle();
     if (not isUnsavedNewTheme()) {
@@ -312,7 +351,7 @@ void ThemePage::saveNewTheme(const bool setActive) {
 // Category handling
 // ---------------------------------------------------------------------------
 
-void ThemePage::onSelectCategory(const wxCommandEvent& event) {
+void ThemePage::onSelectCategory(wxCommandEvent& event) {
     saveCategory();
     m_selectedRow = event.GetSelection();
     loadCategory();
@@ -322,16 +361,32 @@ void ThemePage::loadCategory() {
     const auto cat = m_categoryOrder[static_cast<std::size_t>(m_selectedRow)];
     const auto cap = capabilityOf(cat);
     const auto view = readCategory(m_theme, cat);
+    const auto& defaultColors = m_theme.get(ThemeCategory::Default).colors;
 
     applyCapability();
 
-    if (view.colors.foreground.IsOk()) {
-        m_btnFg->SetBackgroundColour(view.colors.foreground);
-        m_btnFg->Refresh();
+    // Foreground — inherit tick reflects wxNullColour stored in theme.
+    const bool fgInherit = cat != SettingsCategory::Default && not view.colors.foreground.IsOk();
+    m_chkInheritFg->SetValue(fgInherit);
+    m_btnFg->Enable(not fgInherit);
+    {
+        const auto effective = view.colors.foreground.IsOk() ? view.colors.foreground : defaultColors.foreground;
+        if (effective.IsOk()) {
+            m_btnFg->SetBackgroundColour(effective);
+            m_btnFg->Refresh();
+        }
     }
-    if (view.colors.background.IsOk()) {
-        m_btnBg->SetBackgroundColour(view.colors.background);
-        m_btnBg->Refresh();
+
+    // Background — same pattern.
+    const bool bgInherit = cat != SettingsCategory::Default && not view.colors.background.IsOk();
+    m_chkInheritBg->SetValue(bgInherit);
+    m_btnBg->Enable(not bgInherit);
+    {
+        const auto effective = view.colors.background.IsOk() ? view.colors.background : defaultColors.background;
+        if (effective.IsOk()) {
+            m_btnBg->SetBackgroundColour(effective);
+            m_btnBg->Refresh();
+        }
     }
 
     m_chkBold->SetValue(view.bold);
@@ -353,13 +408,18 @@ void ThemePage::loadCategory() {
 void ThemePage::saveCategory() {
     const auto cat = m_categoryOrder[static_cast<std::size_t>(m_selectedRow)];
     const auto cap = capabilityOf(cat);
+    const bool isDefault = cat == SettingsCategory::Default;
 
-    CategoryView view;
+    Theme::Entry view;
     if (cap.foreground) {
-        view.colors.foreground = m_btnFg->GetBackgroundColour();
+        view.colors.foreground = (not isDefault && m_chkInheritFg->GetValue())
+            ? wxNullColour
+            : m_btnFg->GetBackgroundColour();
     }
     if (cap.background) {
-        view.colors.background = m_btnBg->GetBackgroundColour();
+        view.colors.background = (not isDefault && m_chkInheritBg->GetValue())
+            ? wxNullColour
+            : m_btnBg->GetBackgroundColour();
     }
     if (cap.style) {
         view.bold = m_chkBold->GetValue();
@@ -380,10 +440,13 @@ void ThemePage::saveCategory() {
 void ThemePage::applyCapability() {
     const auto cat = m_categoryOrder[static_cast<std::size_t>(m_selectedRow)];
     const auto cap = capabilityOf(cat);
+    const bool inheritable = cat != SettingsCategory::Default;
 
     m_lblFg->Show(cap.foreground);
+    m_chkInheritFg->Show(cap.foreground && inheritable);
     m_btnFg->Show(cap.foreground);
     m_lblBg->Show(cap.background);
+    m_chkInheritBg->Show(cap.background && inheritable);
     m_btnBg->Show(cap.background);
 
     m_chkBold->Show(cap.style);
