@@ -4,7 +4,7 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "Theme.hpp"
+#include "ThemeOld.hpp"
 using namespace fbide;
 
 namespace {
@@ -37,12 +37,12 @@ void writeColor(wxFileConfig& ini, const wxString& key, const wxColour& colour) 
     ini.Write(key, static_cast<long>(colorToBgr(colour)));
 }
 
-auto readFontStyle(const wxFileConfig& ini, Theme::FontStyle fallback) -> Theme::FontStyle {
+auto readFontStyle(const wxFileConfig& ini, ThemeOld::FontStyle fallback) -> ThemeOld::FontStyle {
     long val = ini.ReadLong("fontstyle", -1);
     if (val == -1) {
         val = ini.ReadLong("fonstyle", static_cast<long>(fallback.flags()));
     }
-    return Theme::FontStyle(static_cast<int>(val));
+    return ThemeOld::FontStyle(static_cast<int>(val));
 }
 
 template<typename T>
@@ -58,7 +58,7 @@ void writeColors(wxFileConfig& ini, const T& pair) {
 }
 } // namespace
 
-void Theme::load(const wxString& path) {
+void ThemeOld::load(const wxString& path) {
     m_themePath = path;
     wxFFileInputStream stream(path);
     if (!stream.IsOk()) {
@@ -108,7 +108,7 @@ void Theme::load(const wxString& path) {
     }
 }
 
-void Theme::save() const {
+void ThemeOld::save() const {
     wxAppConsole console;
 
     if (m_themePath.empty()) {

@@ -9,15 +9,15 @@
 #include "analyses/lexer/Lexer.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "config/Theme.hpp"
+#include "config/ThemeOld.hpp"
 #include "editor/Document.hpp"
 #include "editor/DocumentManager.hpp"
 #include "editor/Editor.hpp"
-#include "ui/UIManager.hpp"
 #include "renderers/HtmlRenderer.hpp"
 #include "renderers/PlainTextRenderer.hpp"
 #include "transformers/case/CaseTransform.hpp"
 #include "transformers/reformat/ReFormatter.hpp"
+#include "ui/UIManager.hpp"
 using namespace fbide;
 
 namespace {

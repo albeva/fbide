@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "config/Theme.hpp"
+#include "config/ThemeOld.hpp"
 #include "ui/Panel.hpp"
 
 namespace fbide {
@@ -56,7 +56,7 @@ private:
     [[nodiscard]] static auto isSyntaxStyle(Category entry) -> bool;
 
     /// Convert syntax style entry to Theme::ItemKind.
-    [[nodiscard]] static auto toItemKind(Category entry) -> Theme::ItemKind;
+    [[nodiscard]] static auto toItemKind(Category entry) -> ThemeOld::ItemKind;
 
     void createTopRow();
     void createCategoryList();
@@ -86,7 +86,7 @@ private:
 
     wxString m_activeTheme;
     Category m_category = Category::Comments;
-    Theme m_theme;
+    ThemeOld m_theme;
 };
 
 } // namespace fbide

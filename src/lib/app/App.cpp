@@ -10,7 +10,7 @@
 #include "InstanceHandler.hpp"
 #include "config/Config.hpp"
 #include "config/FileHistory.hpp"
-#include "config/Theme.hpp"
+#include "config/ThemeOld.hpp"
 #include "editor/DocumentManager.hpp"
 #include "ui/UIManager.hpp"
 

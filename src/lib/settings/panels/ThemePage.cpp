@@ -8,7 +8,7 @@
 #include "ThemePage.hpp"
 #include "app/Context.hpp"
 #include "config/Config.hpp"
-#include "config/Theme.hpp"
+#include "config/ThemeOld.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
@@ -16,8 +16,8 @@ auto ThemePage::isSyntaxStyle(const Category entry) -> bool {
     return static_cast<int>(entry) < syntaxStyleCount;
 }
 
-auto ThemePage::toItemKind(const Category entry) -> Theme::ItemKind {
-    return static_cast<Theme::ItemKind>(static_cast<int>(entry) + 1);
+auto ThemePage::toItemKind(const Category entry) -> ThemeOld::ItemKind {
+    return static_cast<ThemeOld::ItemKind>(static_cast<int>(entry) + 1);
 }
 
 ThemePage::ThemePage(Context& ctx, wxWindow* parent)
@@ -227,7 +227,7 @@ void ThemePage::loadCategory() {
     wxColour fg, bg;
     wxString fontName;
     int fontSize = 12;
-    Theme::FontStyle fontStyle;
+    ThemeOld::FontStyle fontStyle;
 
     if (isSyntaxStyle(m_category)) {
         const auto& st = m_theme.getStyle(toItemKind(m_category));
@@ -307,7 +307,7 @@ void ThemePage::loadCategory() {
 void ThemePage::saveCategory() {
     const auto fg = m_btnFg->GetBackgroundColour();
     const auto bg = m_btnBg->GetBackgroundColour();
-    Theme::FontStyle fontSt;
+    ThemeOld::FontStyle fontSt;
     fontSt.bold = m_chkBold->GetValue();
     fontSt.italic = m_chkItalic->GetValue();
     fontSt.underline = m_chkUnderline->GetValue();

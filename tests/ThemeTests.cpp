@@ -4,9 +4,9 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "config/Theme.hpp"
-#include <gtest/gtest.h>
 #include <wx/filename.h>
+#include <gtest/gtest.h>
+#include "config/ThemeOld.hpp"
 
 using namespace fbide;
 
@@ -16,17 +16,17 @@ protected:
 };
 
 TEST_F(ThemeTests, LoadClassic) {
-    Theme theme;
+    ThemeOld theme;
     theme.load(testDataPath + "classic.fbt");
 
     EXPECT_EQ(theme.getDefault().background, *wxWHITE);
     EXPECT_EQ(theme.getDefault().foreground, *wxBLACK);
     EXPECT_EQ(theme.getDefault().fontSize, 12);
-    EXPECT_TRUE(theme.getStyle(Theme::Keyword).fontStyle.bold);
+    EXPECT_TRUE(theme.getStyle(ThemeOld::Keyword).fontStyle.bold);
 }
 
 TEST_F(ThemeTests, LoadObsidian) {
-    Theme theme;
+    ThemeOld theme;
     theme.load(testDataPath + "obsidian.fbt");
 
     EXPECT_NE(theme.getDefault().background, *wxWHITE);
@@ -35,17 +35,17 @@ TEST_F(ThemeTests, LoadObsidian) {
 TEST_F(ThemeTests, SaveAndReload) {
     const wxString tmpFile = wxFileName::CreateTempFileName("fbide_theme");
 
-    Theme theme;
+    ThemeOld theme;
     theme.load(testDataPath + "classic.fbt");
     theme.setPath(tmpFile);
     theme.save();
 
-    Theme theme2;
+    ThemeOld theme2;
     theme2.load(tmpFile);
     EXPECT_EQ(theme2.getDefault().background, *wxWHITE);
     EXPECT_EQ(theme2.getDefault().foreground, *wxBLACK);
     EXPECT_EQ(theme2.getDefault().fontSize, 12);
-    EXPECT_TRUE(theme2.getStyle(Theme::Keyword).fontStyle.bold);
+    EXPECT_TRUE(theme2.getStyle(ThemeOld::Keyword).fontStyle.bold);
 
     wxRemoveFile(tmpFile);
 }

@@ -15,7 +15,7 @@ class ConfigManager;
 class DocumentManager;
 class FileHistory;
 class HelpManager;
-class Theme;
+class ThemeOld;
 class UIManager;
 
 /// Central access point for editor service objects.
@@ -44,8 +44,8 @@ public:
     [[nodiscard]] auto getFileHistory() const -> const FileHistory& { return *m_fileHistory; }
 
     /// Get editor theme.
-    [[nodiscard]] auto getTheme() -> Theme& { return *m_theme; }
-    [[nodiscard]] auto getTheme() const -> const Theme& { return *m_theme; }
+    [[nodiscard]] auto getTheme() -> ThemeOld& { return *m_theme; }
+    [[nodiscard]] auto getTheme() const -> const ThemeOld& { return *m_theme; }
 
     /// Get UI manager.
     [[nodiscard]] auto getUIManager() -> UIManager& { return *m_uiManager; }
@@ -71,7 +71,7 @@ private:
     std::unique_ptr<Config> m_config;
     std::unique_ptr<ConfigManager> m_configManager;
     std::unique_ptr<FileHistory> m_fileHistory;
-    std::unique_ptr<Theme> m_theme;
+    std::unique_ptr<ThemeOld> m_theme;
     std::unique_ptr<UIManager> m_uiManager;
     std::unique_ptr<DocumentManager> m_documentManager;
     std::unique_ptr<CompilerManager> m_compilerManager;

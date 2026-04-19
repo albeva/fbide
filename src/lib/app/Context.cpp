@@ -10,7 +10,7 @@
 #include "config/Config.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
-#include "config/Theme.hpp"
+#include "config/ThemeOld.hpp"
 #include "editor/DocumentManager.hpp"
 #include "help/HelpManager.hpp"
 #include "ui/UIManager.hpp"
@@ -20,7 +20,7 @@ Context::Context(const wxString& binaryPath)
 : m_config(std::make_unique<Config>(binaryPath))
 , m_configManager(std::make_unique<ConfigManager>(binaryPath))
 , m_fileHistory(std::make_unique<FileHistory>())
-, m_theme(std::make_unique<Theme>())
+, m_theme(std::make_unique<ThemeOld>())
 , m_uiManager(std::make_unique<UIManager>(*this))
 , m_documentManager(std::make_unique<DocumentManager>(*this))
 , m_compilerManager(std::make_unique<CompilerManager>(*this))

@@ -10,7 +10,7 @@
 namespace fbide {
 
 /// Complete editor theme loaded from legacy .fbt files.
-class Theme final {
+class ThemeOld final {
 public:
     /// Font style with named fields, convertible to/from legacy flag int.
     struct FontStyle final {

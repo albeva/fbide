@@ -18,7 +18,7 @@ target_sources(fbide_lib
     config/ConfigManager.cpp
     config/FileHistory.cpp
     config/Value.cpp
-    config/Theme.cpp
+    config/ThemeOld.cpp
     editor/Document.cpp
     editor/DocumentManager.cpp
     editor/DocumentType.cpp
@@ -64,7 +64,7 @@ target_sources(fbide_lib
     config/ConfigManager.hpp
     config/FileHistory.hpp
     config/Value.hpp
-    config/Theme.hpp
+    config/ThemeOld.hpp
     editor/Document.hpp
     editor/DocumentManager.hpp
     editor/DocumentType.hpp

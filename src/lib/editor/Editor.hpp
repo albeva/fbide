@@ -7,7 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "DocumentType.hpp"
-#include "config/Theme.hpp"
+#include "config/ThemeOld.hpp"
 
 namespace fbide {
 class Context;
@@ -68,7 +68,7 @@ private:
     void updateBraceMatch();
     void applyEditorSettings();
     void applyTheme();
-    void applyStyle(int stcId, const Theme::ItemStyle& style, const Theme::EditorStyle& editor);
+    void applyStyle(int stcId, const ThemeOld::ItemStyle& style, const ThemeOld::EditorStyle& editor);
     void applyFreebasicTheme();
     void applyHtmlTheme();
     void applyTextTheme();

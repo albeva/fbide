@@ -6,10 +6,10 @@
 //
 #include "Editor.hpp"
 #include "DocumentManager.hpp"
-#include "lexilla/FBSciLexer.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "config/Theme.hpp"
+#include "config/ThemeOld.hpp"
+#include "lexilla/FBSciLexer.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
@@ -189,25 +189,25 @@ void Editor::applyFreebasicTheme() {
     }
 
     // applyStyle(+Default, theme.getStyle(Theme::Default), editor); // TODO: define proper default
-    applyStyle(+Comment, theme.getStyle(Theme::Comment), editor);
-    applyStyle(+MultilineComment, theme.getStyle(Theme::Comment), editor);
-    applyStyle(+Number, theme.getStyle(Theme::Number), editor);
-    applyStyle(+String, theme.getStyle(Theme::String), editor);
-    applyStyle(+StringOpen, theme.getStyle(Theme::StringEol), editor);
-    applyStyle(+Identifier, theme.getStyle(Theme::Identifier), editor);
-    applyStyle(+Keyword1, theme.getStyle(Theme::Keyword), editor);
-    applyStyle(+Keyword2, theme.getStyle(Theme::Keyword2), editor);
-    applyStyle(+Keyword3, theme.getStyle(Theme::Keyword3), editor);
-    applyStyle(+Keyword4, theme.getStyle(Theme::Keyword4), editor);
-    applyStyle(+Keyword5, theme.getStyle(Theme::Keyword), editor); // TODO: keyword 5
-    applyStyle(+Operator, theme.getStyle(Theme::Operator), editor);
-    applyStyle(+Label, theme.getStyle(Theme::Identifier), editor);    // TODO: label
-    applyStyle(+Constant, theme.getStyle(Theme::Identifier), editor); // TODO: constant
-    applyStyle(+Preprocessor, theme.getStyle(Theme::Preprocessor), editor);
-    applyStyle(+Error, theme.getStyle(Theme::Identifier), editor);
+    applyStyle(+Comment, theme.getStyle(ThemeOld::Comment), editor);
+    applyStyle(+MultilineComment, theme.getStyle(ThemeOld::Comment), editor);
+    applyStyle(+Number, theme.getStyle(ThemeOld::Number), editor);
+    applyStyle(+String, theme.getStyle(ThemeOld::String), editor);
+    applyStyle(+StringOpen, theme.getStyle(ThemeOld::StringEol), editor);
+    applyStyle(+Identifier, theme.getStyle(ThemeOld::Identifier), editor);
+    applyStyle(+Keyword1, theme.getStyle(ThemeOld::Keyword), editor);
+    applyStyle(+Keyword2, theme.getStyle(ThemeOld::Keyword2), editor);
+    applyStyle(+Keyword3, theme.getStyle(ThemeOld::Keyword3), editor);
+    applyStyle(+Keyword4, theme.getStyle(ThemeOld::Keyword4), editor);
+    applyStyle(+Keyword5, theme.getStyle(ThemeOld::Keyword), editor); // TODO: keyword 5
+    applyStyle(+Operator, theme.getStyle(ThemeOld::Operator), editor);
+    applyStyle(+Label, theme.getStyle(ThemeOld::Identifier), editor);    // TODO: label
+    applyStyle(+Constant, theme.getStyle(ThemeOld::Identifier), editor); // TODO: constant
+    applyStyle(+Preprocessor, theme.getStyle(ThemeOld::Preprocessor), editor);
+    applyStyle(+Error, theme.getStyle(ThemeOld::Identifier), editor);
 }
 
-void Editor::applyStyle(const int stcId, const Theme::ItemStyle& style, const Theme::EditorStyle& editor) {
+void Editor::applyStyle(const int stcId, const ThemeOld::ItemStyle& style, const ThemeOld::EditorStyle& editor) {
     StyleSetForeground(stcId, style.foreground);
     StyleSetBackground(stcId, style.background);
 
@@ -233,16 +233,16 @@ void Editor::applyHtmlTheme() {
     const auto& editor = theme.getDefault();
     SetLexer(wxSTC_LEX_HTML);
 
-    applyStyle(wxSTC_H_TAG, theme.getStyle(Theme::ItemKind::Keyword), editor);
-    applyStyle(wxSTC_H_TAGUNKNOWN, theme.getStyle(Theme::ItemKind::Keyword), editor);
-    applyStyle(wxSTC_H_ATTRIBUTE, theme.getStyle(Theme::ItemKind::Keyword2), editor);
-    applyStyle(wxSTC_H_ATTRIBUTEUNKNOWN, theme.getStyle(Theme::ItemKind::Keyword2), editor);
-    applyStyle(wxSTC_H_NUMBER, theme.getStyle(Theme::ItemKind::Number), editor);
-    applyStyle(wxSTC_H_SINGLESTRING, theme.getStyle(Theme::ItemKind::String), editor);
-    applyStyle(wxSTC_H_DOUBLESTRING, theme.getStyle(Theme::ItemKind::StringEol), editor);
-    applyStyle(wxSTC_H_COMMENT, theme.getStyle(Theme::ItemKind::Comment), editor);
-    applyStyle(wxSTC_H_ENTITY, theme.getStyle(Theme::ItemKind::Keyword3), editor);
-    applyStyle(wxSTC_H_OTHER, theme.getStyle(Theme::ItemKind::Keyword4), editor);
+    applyStyle(wxSTC_H_TAG, theme.getStyle(ThemeOld::ItemKind::Keyword), editor);
+    applyStyle(wxSTC_H_TAGUNKNOWN, theme.getStyle(ThemeOld::ItemKind::Keyword), editor);
+    applyStyle(wxSTC_H_ATTRIBUTE, theme.getStyle(ThemeOld::ItemKind::Keyword2), editor);
+    applyStyle(wxSTC_H_ATTRIBUTEUNKNOWN, theme.getStyle(ThemeOld::ItemKind::Keyword2), editor);
+    applyStyle(wxSTC_H_NUMBER, theme.getStyle(ThemeOld::ItemKind::Number), editor);
+    applyStyle(wxSTC_H_SINGLESTRING, theme.getStyle(ThemeOld::ItemKind::String), editor);
+    applyStyle(wxSTC_H_DOUBLESTRING, theme.getStyle(ThemeOld::ItemKind::StringEol), editor);
+    applyStyle(wxSTC_H_COMMENT, theme.getStyle(ThemeOld::ItemKind::Comment), editor);
+    applyStyle(wxSTC_H_ENTITY, theme.getStyle(ThemeOld::ItemKind::Keyword3), editor);
+    applyStyle(wxSTC_H_OTHER, theme.getStyle(ThemeOld::ItemKind::Keyword4), editor);
 }
 
 void Editor::applyTextTheme() {

@@ -7,7 +7,7 @@
 #include "CompilerLog.hpp"
 #include "BBCodeText.hpp"
 #include "app/Context.hpp"
-#include "config/Theme.hpp"
+#include "config/ThemeOld.hpp"
 using namespace fbide;
 
 CompilerLog::CompilerLog(wxWindow* parent, const wxString& title)

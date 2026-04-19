@@ -5,7 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "HtmlRenderer.hpp"
-#include "config/Theme.hpp"
+#include "config/ThemeOld.hpp"
 using namespace fbide;
 
 namespace {
@@ -16,20 +16,20 @@ auto hexColour(const wxColour& colour) -> std::string {
     return buf;
 }
 
-auto tokenToItemKind(const lexer::TokenKind kind) -> Theme::ItemKind {
+auto tokenToItemKind(const lexer::TokenKind kind) -> ThemeOld::ItemKind {
     switch (kind) {
-        case lexer::TokenKind::Keyword1: return Theme::Keyword;
-        case lexer::TokenKind::Keyword2: return Theme::Keyword2;
-        case lexer::TokenKind::Keyword3: return Theme::Keyword3;
-        case lexer::TokenKind::Keyword4: return Theme::Keyword4;
-        case lexer::TokenKind::Comment: return Theme::Comment;
-        case lexer::TokenKind::CommentBlock: return Theme::Comment;
-        case lexer::TokenKind::String: return Theme::String;
-        case lexer::TokenKind::UnterminatedString: return Theme::String;
-        case lexer::TokenKind::Number: return Theme::Number;
-        case lexer::TokenKind::Preprocessor: return Theme::Preprocessor;
-        case lexer::TokenKind::Operator: return Theme::Operator;
-        default: return Theme::Default;
+        case lexer::TokenKind::Keyword1: return ThemeOld::Keyword;
+        case lexer::TokenKind::Keyword2: return ThemeOld::Keyword2;
+        case lexer::TokenKind::Keyword3: return ThemeOld::Keyword3;
+        case lexer::TokenKind::Keyword4: return ThemeOld::Keyword4;
+        case lexer::TokenKind::Comment: return ThemeOld::Comment;
+        case lexer::TokenKind::CommentBlock: return ThemeOld::Comment;
+        case lexer::TokenKind::String: return ThemeOld::String;
+        case lexer::TokenKind::UnterminatedString: return ThemeOld::String;
+        case lexer::TokenKind::Number: return ThemeOld::Number;
+        case lexer::TokenKind::Preprocessor: return ThemeOld::Preprocessor;
+        case lexer::TokenKind::Operator: return ThemeOld::Operator;
+        default: return ThemeOld::Default;
     }
 }
 
