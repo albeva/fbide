@@ -7,6 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "ui/Panel.hpp"
+#include "app/Context.hpp"
 
 namespace fbide {
 class Context;
@@ -21,6 +22,10 @@ public:
     void apply() override;
 
 private:
+    auto tr(const wxString& path) const -> wxString {
+        return getContext().getConfigManager().locale().get_or(path, "");
+    }
+
     // Left column
     bool m_autoIndent;
     bool m_indentGuide;

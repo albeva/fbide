@@ -10,7 +10,6 @@
 #include "InstanceHandler.hpp"
 #include "config/Config.hpp"
 #include "config/FileHistory.hpp"
-#include "config/ThemeOld.hpp"
 #include "editor/DocumentManager.hpp"
 #include "ui/UIManager.hpp"
 
@@ -56,8 +55,7 @@ auto App::OnInit() -> bool {
     }
     config.load(configFile);
 
-    // Load theme and file history (keywords loaded lazily via ConfigManager)
-    m_context->getTheme().load(config.getThemePath());
+    // Theme is loaded by ConfigManager on construction via config()["theme"].
     m_context->getFileHistory().load(config.getAppSettingsPath() + "history.ini");
 
     m_context->getUIManager().createMainFrame();

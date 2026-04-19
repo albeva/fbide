@@ -8,7 +8,8 @@
 #include "DocumentManager.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "config/ThemeOld.hpp"
+#include "config/Theme.hpp"
+#include "config/ThemeCategory.hpp"
 #include "lexilla/FBSciLexer.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
@@ -112,20 +113,20 @@ void Editor::selectLine() {
 
 void Editor::applyTheme() {
     const auto& theme = m_ctx.getTheme();
-    const auto& editor = theme.getDefault();
+    const auto& defaultEntry = theme.get(ThemeCategory::Default);
+    const auto& defaultColors = defaultEntry.colors;
 
-    // Default style
     const auto defaultFont = wxFont(
-        editor.fontSize,
+        theme.getFontSize(),
         wxFONTFAMILY_MODERN,
         wxFONTSTYLE_NORMAL,
         wxFONTWEIGHT_NORMAL,
         false,
-        editor.fontName
+        theme.getFont()
     );
 
-    StyleSetForeground(wxSTC_STYLE_DEFAULT, editor.foreground);
-    StyleSetBackground(wxSTC_STYLE_DEFAULT, editor.background);
+    StyleSetForeground(wxSTC_STYLE_DEFAULT, defaultColors.foreground);
+    StyleSetBackground(wxSTC_STYLE_DEFAULT, defaultColors.background);
     StyleSetFont(wxSTC_STYLE_DEFAULT, defaultFont);
 
     // Propagate default style to all styles before applying overrides
@@ -137,8 +138,8 @@ void Editor::applyTheme() {
     StyleSetBackground(wxSTC_STYLE_LINENUMBER, lineNum.background);
     StyleSetFont(wxSTC_STYLE_LINENUMBER, defaultFont);
 
-    // Caret
-    SetCaretForeground(editor.caretColour);
+    // Caret — no dedicated field, use default foreground.
+    SetCaretForeground(defaultColors.foreground);
 
     // Selection
     const auto& sel = theme.getSelection();
@@ -147,14 +148,18 @@ void Editor::applyTheme() {
 
     // Brace matching
     const auto& brace = theme.getBrace();
-    StyleSetForeground(wxSTC_STYLE_BRACELIGHT, brace.foreground);
-    StyleSetBackground(wxSTC_STYLE_BRACELIGHT, brace.background);
-    StyleSetBold(wxSTC_STYLE_BRACELIGHT, brace.fontStyle.bold);
+    StyleSetForeground(wxSTC_STYLE_BRACELIGHT, brace.colors.foreground);
+    StyleSetBackground(wxSTC_STYLE_BRACELIGHT, brace.colors.background);
+    StyleSetBold(wxSTC_STYLE_BRACELIGHT, brace.bold);
+    StyleSetItalic(wxSTC_STYLE_BRACELIGHT, brace.italic);
+    StyleSetUnderline(wxSTC_STYLE_BRACELIGHT, brace.underlined);
 
     const auto& badBrace = theme.getBadBrace();
-    StyleSetForeground(wxSTC_STYLE_BRACEBAD, badBrace.foreground);
-    StyleSetBackground(wxSTC_STYLE_BRACEBAD, badBrace.background);
-    StyleSetBold(wxSTC_STYLE_BRACEBAD, badBrace.fontStyle.bold);
+    StyleSetForeground(wxSTC_STYLE_BRACEBAD, badBrace.colors.foreground);
+    StyleSetBackground(wxSTC_STYLE_BRACEBAD, badBrace.colors.background);
+    StyleSetBold(wxSTC_STYLE_BRACEBAD, badBrace.bold);
+    StyleSetItalic(wxSTC_STYLE_BRACEBAD, badBrace.italic);
+    StyleSetUnderline(wxSTC_STYLE_BRACEBAD, badBrace.underlined);
 
     if (m_ctx.getConfigManager().config().get_or("editor.syntaxHighlight", true)) {
         switch (m_docType) {
@@ -172,10 +177,7 @@ void Editor::applyTheme() {
 }
 
 void Editor::applyFreebasicTheme() {
-    using enum ThemeCategory;
-
     const auto& theme = m_ctx.getTheme();
-    const auto& editor = theme.getDefault();
 
     SetILexer(FBSciLexer::Create());
 
@@ -188,61 +190,44 @@ void Editor::applyFreebasicTheme() {
         SetKeyWords(static_cast<int>(grp), groups.get_or(key, ""));
     }
 
-    // applyStyle(+Default, theme.getStyle(Theme::Default), editor); // TODO: define proper default
-    applyStyle(+Comment, theme.getStyle(ThemeOld::Comment), editor);
-    applyStyle(+MultilineComment, theme.getStyle(ThemeOld::Comment), editor);
-    applyStyle(+Number, theme.getStyle(ThemeOld::Number), editor);
-    applyStyle(+String, theme.getStyle(ThemeOld::String), editor);
-    applyStyle(+StringOpen, theme.getStyle(ThemeOld::StringEol), editor);
-    applyStyle(+Identifier, theme.getStyle(ThemeOld::Identifier), editor);
-    applyStyle(+Keyword1, theme.getStyle(ThemeOld::Keyword), editor);
-    applyStyle(+Keyword2, theme.getStyle(ThemeOld::Keyword2), editor);
-    applyStyle(+Keyword3, theme.getStyle(ThemeOld::Keyword3), editor);
-    applyStyle(+Keyword4, theme.getStyle(ThemeOld::Keyword4), editor);
-    applyStyle(+Keyword5, theme.getStyle(ThemeOld::Keyword), editor); // TODO: keyword 5
-    applyStyle(+Operator, theme.getStyle(ThemeOld::Operator), editor);
-    applyStyle(+Label, theme.getStyle(ThemeOld::Identifier), editor);    // TODO: label
-    applyStyle(+Constant, theme.getStyle(ThemeOld::Identifier), editor); // TODO: constant
-    applyStyle(+Preprocessor, theme.getStyle(ThemeOld::Preprocessor), editor);
-    applyStyle(+Error, theme.getStyle(ThemeOld::Identifier), editor);
+    for (const auto cat : kThemeCategories) {
+        applyStyle(+cat, theme.get(cat), theme);
+    }
 }
 
-void Editor::applyStyle(const int stcId, const ThemeOld::ItemStyle& style, const ThemeOld::EditorStyle& editor) {
-    StyleSetForeground(stcId, style.foreground);
-    StyleSetBackground(stcId, style.background);
+void Editor::applyStyle(const int stcId, const Theme::Entry& style, const Theme& theme) {
+    StyleSetForeground(stcId, style.colors.foreground);
+    StyleSetBackground(stcId, style.colors.background);
 
     const auto font = wxFont(
-        style.fontSize > 0 ? style.fontSize : editor.fontSize,
+        theme.getFontSize(),
         wxFONTFAMILY_MODERN,
         wxFONTSTYLE_NORMAL,
         wxFONTWEIGHT_NORMAL,
         false,
-        style.fontName.empty() ? editor.fontName : style.fontName
+        theme.getFont()
     );
     StyleSetFont(stcId, font);
 
-    StyleSetBold(stcId, style.fontStyle.bold);
-    StyleSetItalic(stcId, style.fontStyle.italic);
-    StyleSetUnderline(stcId, style.fontStyle.underline);
-    StyleSetVisible(stcId, !style.fontStyle.hidden);
-    StyleSetCase(stcId, style.letterCase);
+    StyleSetBold(stcId, style.bold);
+    StyleSetItalic(stcId, style.italic);
+    StyleSetUnderline(stcId, style.underlined);
 }
 
 void Editor::applyHtmlTheme() {
     const auto& theme = m_ctx.getTheme();
-    const auto& editor = theme.getDefault();
     SetLexer(wxSTC_LEX_HTML);
 
-    applyStyle(wxSTC_H_TAG, theme.getStyle(ThemeOld::ItemKind::Keyword), editor);
-    applyStyle(wxSTC_H_TAGUNKNOWN, theme.getStyle(ThemeOld::ItemKind::Keyword), editor);
-    applyStyle(wxSTC_H_ATTRIBUTE, theme.getStyle(ThemeOld::ItemKind::Keyword2), editor);
-    applyStyle(wxSTC_H_ATTRIBUTEUNKNOWN, theme.getStyle(ThemeOld::ItemKind::Keyword2), editor);
-    applyStyle(wxSTC_H_NUMBER, theme.getStyle(ThemeOld::ItemKind::Number), editor);
-    applyStyle(wxSTC_H_SINGLESTRING, theme.getStyle(ThemeOld::ItemKind::String), editor);
-    applyStyle(wxSTC_H_DOUBLESTRING, theme.getStyle(ThemeOld::ItemKind::StringEol), editor);
-    applyStyle(wxSTC_H_COMMENT, theme.getStyle(ThemeOld::ItemKind::Comment), editor);
-    applyStyle(wxSTC_H_ENTITY, theme.getStyle(ThemeOld::ItemKind::Keyword3), editor);
-    applyStyle(wxSTC_H_OTHER, theme.getStyle(ThemeOld::ItemKind::Keyword4), editor);
+    applyStyle(wxSTC_H_TAG, theme.get(ThemeCategory::Keyword1), theme);
+    applyStyle(wxSTC_H_TAGUNKNOWN, theme.get(ThemeCategory::Keyword1), theme);
+    applyStyle(wxSTC_H_ATTRIBUTE, theme.get(ThemeCategory::Keyword2), theme);
+    applyStyle(wxSTC_H_ATTRIBUTEUNKNOWN, theme.get(ThemeCategory::Keyword2), theme);
+    applyStyle(wxSTC_H_NUMBER, theme.get(ThemeCategory::Number), theme);
+    applyStyle(wxSTC_H_SINGLESTRING, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_H_DOUBLESTRING, theme.get(ThemeCategory::StringOpen), theme);
+    applyStyle(wxSTC_H_COMMENT, theme.get(ThemeCategory::Comment), theme);
+    applyStyle(wxSTC_H_ENTITY, theme.get(ThemeCategory::Keyword3), theme);
+    applyStyle(wxSTC_H_OTHER, theme.get(ThemeCategory::Keyword4), theme);
 }
 
 void Editor::applyTextTheme() {

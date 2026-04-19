@@ -146,7 +146,9 @@ auto readLegacyFontFlags(const wxFileConfig& ini) -> int {
 
 auto readLegacyEntry(wxFileConfig& ini, const wxString& section,
                      const wxColour& defBg, const wxColour& defFg) -> Theme::Entry {
-    const wxConfigPathChanger restore { &ini, section };
+    // Trailing slash is required — wxConfigPathChanger otherwise strips the
+    // last component, treating it as an entry name instead of a group.
+    const wxConfigPathChanger restore { &ini, section + "/" };
     const int flags = readLegacyFontFlags(ini);
     return {
         .colors = {
@@ -161,7 +163,7 @@ auto readLegacyEntry(wxFileConfig& ini, const wxString& section,
 
 auto readLegacyColors(wxFileConfig& ini, const wxString& section,
                       const wxColour& defBg, const wxColour& defFg) -> Theme::Colors {
-    const wxConfigPathChanger restore { &ini, section };
+    const wxConfigPathChanger restore { &ini, section + "/" };
     return {
         .foreground = readBgrColor(ini, "foreground", defFg),
         .background = readBgrColor(ini, "background", defBg),
@@ -186,6 +188,29 @@ void Theme::load(const wxString& themePath, const bool reset) {
 
     if (not themePath.IsEmpty()) {
         m_themePath = themePath;
+    }
+
+    // If the requested file doesn't exist, try swapping the extension
+    // between .ini and .fbt — keeps callers unaware of format versions.
+    if (not wxFileExists(m_themePath)) {
+        wxFileName fn(m_themePath);
+        const auto ext = fn.GetExt().Lower();
+        if (ext == "ini") {
+            fn.SetExt("fbt");
+        } else if (ext == "fbt") {
+            fn.SetExt("ini");
+        }
+        if (wxFileExists(fn.GetFullPath())) {
+            m_themePath = fn.GetFullPath();
+        }
+    }
+
+    // Legacy v4 format — .fbt extension.
+    if (m_themePath.Lower().EndsWith(".fbt")) {
+        const wxString legacyPath = m_themePath;
+        loadV4(legacyPath);
+        m_themePath = legacyPath;
+        return;
     }
 
     wxFFileInputStream stream(m_themePath);
@@ -227,7 +252,7 @@ void Theme::loadV4(const wxString& themePath) {
     wxColour defaultBg;
     wxColour defaultFg;
     {
-        const wxConfigPathChanger restore { &ini, "/default" };
+        const wxConfigPathChanger restore { &ini, "/default/" };
         defaultBg = readBgrColor(ini, "background", *wxWHITE);
         defaultFg = readBgrColor(ini, "foreground", *wxBLACK);
         m_font = ini.Read("font", wxEmptyString);
@@ -236,7 +261,7 @@ void Theme::loadV4(const wxString& themePath) {
 
     // Old themes often leave [default].font empty; fall back to any syntax font
     if (m_font.IsEmpty()) {
-        for (const auto* section : { "/comment", "/keyword", "/string", "/identifier" }) {
+        for (const auto* section : { "/comment/", "/keyword/", "/string/", "/identifier/" }) {
             const wxConfigPathChanger restore { &ini, section };
             m_font = ini.Read("font", wxEmptyString);
             if (not m_font.IsEmpty()) {
@@ -290,6 +315,18 @@ void Theme::save(const wxString& newThemePath) {
         wxLogError("Missing filename when saving theme");
         return;
     }
+
+    // Migrate legacy (.fbt) paths to .ini on first save.
+    if (m_version < Version::fbide()) {
+        wxFileName fn(m_themePath);
+        if (fn.GetExt().Lower() == "fbt") {
+            fn.SetExt("ini");
+            wxLogMessage("Migrating theme '%s' to new format at '%s'", m_themePath, fn.GetFullPath());
+            m_themePath = fn.GetFullPath();
+        }
+    }
+    m_version = Version::fbide();
+
     wxFileConfig ini { "", "", "", "", wxCONFIG_USE_LOCAL_FILE };
 
     // patch version

@@ -7,7 +7,7 @@
 #include "CompilerLog.hpp"
 #include "BBCodeText.hpp"
 #include "app/Context.hpp"
-#include "config/ThemeOld.hpp"
+#include "config/Theme.hpp"
 using namespace fbide;
 
 CompilerLog::CompilerLog(wxWindow* parent, const wxString& title)
@@ -18,11 +18,11 @@ CompilerLog::CompilerLog(wxWindow* parent, const wxString& title)
   ) {}
 
 void CompilerLog::create(const Context& ctx) {
-    const auto& style = ctx.getTheme().getDefault();
+    const auto& theme = ctx.getTheme();
 
-    auto font = wxFont(style.fontSize, wxFONTFAMILY_MODERN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
-    if (!style.fontName.empty()) {
-        font.SetFaceName(style.fontName);
+    auto font = wxFont(theme.getFontSize(), wxFONTFAMILY_MODERN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+    if (!theme.getFont().empty()) {
+        font.SetFaceName(theme.getFont());
     }
 
     m_output = make_unowned<BBCodeText>(this, wxID_ANY);

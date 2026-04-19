@@ -6,12 +6,14 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "config/ThemeOld.hpp"
+#include "SettingsCategory.hpp"
+#include "config/Theme.hpp"
+#include "config/Value.hpp"
 #include "ui/Panel.hpp"
 
 namespace fbide {
 
-/// Theme settings tab — style type selection, colors, fonts.
+/// Theme settings tab — category list on the left, style editor on the right.
 class ThemePage final : public Panel {
 public:
     NO_COPY_AND_MOVE(ThemePage)
@@ -22,41 +24,7 @@ public:
     void apply() override;
 
 private:
-    /// All entries in the theme type listbox.
-    /// First 12 are syntax styles (map to Theme::ItemKind + 1),
-    /// rest are special theme elements.
-    enum class Category : int {
-        Comments = 0,
-        Numbers,
-        Keywords1,
-        StringClosed,
-        Preprocessor,
-        Operator,
-        Identifier,
-        Date,
-        StringOpen,
-        Keywords2,
-        Keywords3,
-        Keywords4,
-        // Constant,
-        // Asm,
-        // -- special entries below --
-        Caret,
-        LineNumbers,
-        Selection,
-        BraceMatch,
-        BraceMismatch,
-        Editor,
-    };
-
-    static constexpr int syntaxStyleCount = 12;
-    static constexpr int typeEntryCount = 20;
-
-    /// Check if entry is a syntax style (vs special element).
-    [[nodiscard]] static auto isSyntaxStyle(Category entry) -> bool;
-
-    /// Convert syntax style entry to Theme::ItemKind.
-    [[nodiscard]] static auto toItemKind(Category entry) -> ThemeOld::ItemKind;
+    auto tr(const wxString& path) const -> wxString;
 
     void createTopRow();
     void createCategoryList();
@@ -71,22 +39,34 @@ private:
     void loadCategory();
     void saveCategory();
     void updateTitle();
+    void applyCapability();
+    void syncActiveThemeConfig();
 
-    Unowned<wxListBox> m_typeList;
-    Unowned<wxChoice> m_themeChoice;
-    Unowned<wxButton> m_btnFg;
-    Unowned<wxButton> m_btnBg;
-    Unowned<wxChoice> m_fontChoice;
-    Unowned<wxCheckBox> m_chkBold;
-    Unowned<wxCheckBox> m_chkItalic;
-    Unowned<wxCheckBox> m_chkUnderline;
-    Unowned<wxSpinCtrl> m_spinFontSize;
+    Unowned<wxListBox>   m_typeList;
+    Unowned<wxChoice>    m_themeChoice;
+    Unowned<wxButton>    m_btnFg;
+    Unowned<wxButton>    m_btnBg;
+    Unowned<wxChoice>    m_fontChoice;
+    Unowned<wxStaticText> m_fontOptionsLabel;
+    Unowned<wxCheckBox>  m_chkBold;
+    Unowned<wxCheckBox>  m_chkItalic;
+    Unowned<wxCheckBox>  m_chkUnderline;
+    Unowned<wxSpinCtrl>  m_spinFontSize;
+    Unowned<wxStaticText> m_lblFg;
+    Unowned<wxStaticText> m_lblBg;
+    Unowned<wxStaticText> m_lblFont;
+    Unowned<wxStaticText> m_lblFontSize;
 
     wxStaticBoxSizer* m_themeBox = nullptr;
 
     wxString m_activeTheme;
-    Category m_category = Category::Comments;
-    ThemeOld m_theme;
+    Theme    m_theme {};
+
+    /// List-index → SettingsCategory. Default at index 0, rest sorted
+    /// alphabetically by translated label.
+    std::array<SettingsCategory, kSettingsCategoryCount> m_categoryOrder {};
+    int m_selectedRow = 0;
+    const Value& m_tr;
 };
 
 } // namespace fbide

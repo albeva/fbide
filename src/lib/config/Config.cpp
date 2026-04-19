@@ -139,11 +139,16 @@ auto Config::getAllLanguages() const -> std::vector<wxString> {
 auto Config::getAllThemes() const -> std::vector<wxString> {
     std::vector<wxString> themes;
     if (const wxDir themeDir(getAppSettingsPath()); themeDir.IsOpened()) {
-        wxString filename;
-        if (themeDir.GetFirst(&filename, "*.fbt", wxDIR_FILES)) {
-            do {
-                themes.emplace_back(wxFileName(filename).GetName());
-            } while (themeDir.GetNext(&filename));
+        for (const auto* pattern : { "*.ini", "*.fbt" }) {
+            wxString filename;
+            if (themeDir.GetFirst(&filename, pattern, wxDIR_FILES)) {
+                do {
+                    auto name = wxFileName(filename).GetName();
+                    if (std::ranges::find(themes, name) == themes.end()) {
+                        themes.emplace_back(std::move(name));
+                    }
+                } while (themeDir.GetNext(&filename));
+            }
         }
     }
     return themes;

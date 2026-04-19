@@ -25,9 +25,6 @@ protected:
     [[nodiscard]] auto getContext() const -> Context& { return m_ctx; }
     [[nodiscard]] auto getConfig() const -> Config&;
 
-    /// Translate a locale path to a display string (wrapper over ConfigManager::locale_or).
-    [[nodiscard]] auto tr(const wxString& path) const -> wxString;
-
     /// Title + separator.
     void makeTitle(const wxString& labelText);
 

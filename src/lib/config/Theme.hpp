@@ -11,7 +11,10 @@
 // clang-format off
 namespace fbide {
 
-#define DEFINE_THEME_EXTRA_CATEGORIES(_)   \
+// Property triples for the extra categories from ThemeCategory.hpp.
+// Kept here (not in ThemeCategory.hpp) because it references the
+// nested Theme::Colors / Theme::Entry types.
+#define DEFINE_THEME_EXTRA_PROPERTY(_)     \
     /* name        getter      type     */ \
     _( lineNumber, LineNumber, Colors    ) \
     _( selection,  Selection,  Colors    ) \
@@ -23,7 +26,7 @@ namespace fbide {
     _( version,    Version,    Version   ) \
     _( font,       Font,       wxString  ) \
     _( fontSize,   FontSize,   int       ) \
-    DEFINE_THEME_EXTRA_CATEGORIES(_)
+    DEFINE_THEME_EXTRA_PROPERTY(_)
 
 class Theme final {
 public:
@@ -46,6 +49,9 @@ public:
 
     /// Save theme, Optionally to a new path
     void save(const wxString& newThemePath = wxEmptyString);
+
+    /// Current backing file path
+    [[nodiscard]] auto getPath() const -> const wxString& { return m_themePath; }
 
     /// Background and foreground colour combo
     struct Colors final {

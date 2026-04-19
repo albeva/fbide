@@ -7,6 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "ui/Panel.hpp"
+#include "app/Context.hpp"
 
 namespace fbide {
 
@@ -22,6 +23,10 @@ public:
     void apply() override;
 
 private:
+    auto tr(const wxString& path) const -> wxString {
+        return getContext().getConfigManager().locale().get_or(path, "");
+    }
+
     void onGroupChanged(const wxCommandEvent& event);
 
     Unowned<wxChoice> m_groupChoice;

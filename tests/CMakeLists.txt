@@ -38,6 +38,7 @@ target_include_directories(tests SYSTEM PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/lexilla/lexlib
     ${CMAKE_SOURCE_DIR}/third_party/lexilla/test
 )
+target_include_directories(tests PRIVATE "${CMAKE_BINARY_DIR}/configured_files/include")
 target_precompile_headers(tests REUSE_FROM fbide_lib)
 
 # Discover tests

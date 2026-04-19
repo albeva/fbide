@@ -18,7 +18,6 @@ target_sources(fbide_lib
     config/ConfigManager.cpp
     config/FileHistory.cpp
     config/Theme.cpp
-    config/ThemeOld.cpp
     config/Value.cpp
     config/Version.cpp
     editor/Document.cpp
@@ -67,7 +66,6 @@ target_sources(fbide_lib
     config/FileHistory.hpp
     config/Theme.hpp
     config/ThemeCategory.hpp
-    config/ThemeOld.hpp
     config/Value.hpp
     config/Version.hpp
     editor/Document.hpp
@@ -91,6 +89,7 @@ target_sources(fbide_lib
     settings/panels/CompilerPage.hpp
     settings/panels/GeneralPage.hpp
     settings/panels/KeywordsPage.hpp
+    settings/panels/SettingsCategory.hpp
     settings/panels/ThemePage.hpp
     ui/BBCodeText.hpp
     ui/CompilerLog.hpp

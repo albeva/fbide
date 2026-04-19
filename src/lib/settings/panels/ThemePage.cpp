@@ -8,22 +8,92 @@
 #include "ThemePage.hpp"
 #include "app/Context.hpp"
 #include "config/Config.hpp"
-#include "config/ThemeOld.hpp"
+#include "config/ConfigManager.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
-auto ThemePage::isSyntaxStyle(const Category entry) -> bool {
-    return static_cast<int>(entry) < syntaxStyleCount;
+namespace {
+
+/// Lowercase the first character — used for locale key lookup
+/// ("LineNumber" → "lineNumber").
+auto lowerFirst(const std::string_view name) -> wxString {
+    wxString out = wxString::FromAscii(name.data(), name.size());
+    if (not out.empty()) {
+        out[0] = wxTolower(out[0]);
+    }
+    return out;
 }
 
-auto ThemePage::toItemKind(const Category entry) -> ThemeOld::ItemKind {
-    return static_cast<ThemeOld::ItemKind>(static_cast<int>(entry) + 1);
+/// Read-only snapshot of theme data for category.
+struct CategoryView final {
+    Theme::Colors colors;
+    bool bold = false;
+    bool italic = false;
+    bool underlined = false;
+};
+
+auto readCategory(const Theme& theme, const SettingsCategory cat) -> CategoryView {
+    if (isSyntaxCategory(cat)) {
+        const auto& e = theme.get(static_cast<ThemeCategory>(+cat));
+        return { e.colors, e.bold, e.italic, e.underlined };
+    }
+    switch (cat) {
+    case SettingsCategory::LineNumber:
+        return { theme.getLineNumber() };
+    case SettingsCategory::Selection:
+        return { theme.getSelection() };
+    case SettingsCategory::Brace: {
+        const auto& e = theme.getBrace();
+        return { e.colors, e.bold, e.italic, e.underlined };
+    }
+    case SettingsCategory::BadBrace: {
+        const auto& e = theme.getBadBrace();
+        return { e.colors, e.bold, e.italic, e.underlined };
+    }
+    default:
+        return {};
+    }
 }
+
+void writeCategory(Theme& theme, const SettingsCategory cat, const CategoryView& v) {
+    if (isSyntaxCategory(cat)) {
+        theme.set(static_cast<ThemeCategory>(+cat), Theme::Entry {
+            .colors = v.colors,
+            .bold = v.bold,
+            .italic = v.italic,
+            .underlined = v.underlined,
+        });
+        return;
+    }
+    switch (cat) {
+    case SettingsCategory::LineNumber:
+        theme.setLineNumber(v.colors);
+        break;
+    case SettingsCategory::Selection:
+        theme.setSelection(v.colors);
+        break;
+    case SettingsCategory::Brace:
+        theme.setBrace({ .colors = v.colors, .bold = v.bold, .italic = v.italic, .underlined = v.underlined });
+        break;
+    case SettingsCategory::BadBrace:
+        theme.setBadBrace({ .colors = v.colors, .bold = v.bold, .italic = v.italic, .underlined = v.underlined });
+        break;
+    default:
+        break;
+    }
+}
+
+} // namespace
+
+// ---------------------------------------------------------------------------
+// Construction
+// ---------------------------------------------------------------------------
 
 ThemePage::ThemePage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent)
 , m_activeTheme(getConfig().getTheme())
-, m_theme(getContext().getTheme()) {}
+, m_theme(getContext().getTheme())
+, m_tr(getContext().getConfigManager().locale().at("dialogs.settings.themes")) {}
 
 // ---------------------------------------------------------------------------
 // Apply theme settings
@@ -38,6 +108,10 @@ void ThemePage::apply() {
         getContext().getTheme() = m_theme;
         getConfig().setTheme(m_activeTheme);
     }
+}
+
+auto ThemePage::tr(const wxString& path) const -> wxString {
+    return m_tr.get_or(path, path);
 }
 
 // ---------------------------------------------------------------------------
@@ -60,80 +134,104 @@ void ThemePage::create() {
 }
 
 void ThemePage::createTopRow() {
-    hbox(tr("dialogs.settings.themes.name"), { .center = true, .border = 0 }, [&] {
+    hbox(tr("name"), { .center = true, .border = 0 }, [&] {
         auto themes = getConfig().getAllThemes();
-        themes.insert(themes.begin(), tr("dialogs.settings.themes.createNew"));
+        themes.insert(themes.begin(), tr("createNew"));
 
         m_themeChoice = choice(m_activeTheme, themes, { .proportion = 1, .expand = false });
         m_themeChoice->Bind(wxEVT_CHOICE, &ThemePage::onSelectTheme, this);
 
-        const auto save = button(tr("dialogs.settings.themes.save"), { .expand = false });
+        const auto save = button(tr("save"), { .expand = false });
         save->Bind(wxEVT_BUTTON, &ThemePage::onSaveTheme, this);
     });
 }
 
 void ThemePage::createCategoryList() {
-    wxArrayString typeNames;
-    typeNames.Add(tr("dialogs.settings.themes.categories.comments"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.numbers"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.keywords1"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.stringClosed"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.preprocessor"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.operator"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.identifier"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.date"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.stringOpen"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.keywords2"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.keywords3"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.keywords4"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.caret"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.lineNumbers"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.textSelect"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.braceMatch"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.braceMismatch"));
-    typeNames.Add(tr("dialogs.settings.themes.categories.editor"));
+    struct Row {
+        SettingsCategory cat;
+        wxString         label;
+    };
+    std::array<Row, kSettingsCategoryCount - 1> rows;
+    wxArrayString displayNames;
+    displayNames.reserve(kSettingsCategoryCount);
 
-    m_typeList = make_unowned<wxListBox>(currentParent(), wxID_ANY, wxDefaultPosition, wxSize(130, 200), typeNames);
-    m_typeList->SetSelection(0);
+    std::size_t index = 0;
+    for (const auto cat : kSettingsCategories) {
+        const auto key = "categories." + lowerFirst(getSettingsCategoryName(cat));
+        auto label = tr(key);
+        if (label.empty()) {
+            label = getSettingsCategoryName(cat);
+        }
+        if (cat == SettingsCategory::Default) {
+            displayNames.Add(std::move(label));
+            m_categoryOrder[0] = cat;
+        } else {
+            rows[index].cat = cat;
+            rows[index].label = std::move(label);
+            index++;
+        }
+    }
+
+    std::ranges::sort(rows, [](const Row& a, const Row& b) {
+        return a.label.CmpNoCase(b.label) < 0;
+    });
+
+    for (std::size_t i = 1; i < rows.size(); i++) {
+        displayNames.Add(rows[i].label);
+        m_categoryOrder[i] = rows[i].cat;
+    }
+
+    m_typeList = make_unowned<wxListBox>(currentParent(), wxID_ANY, wxDefaultPosition, wxSize(160, 240), displayNames);
+    m_selectedRow = 0;
+    m_typeList->SetSelection(m_selectedRow);
+
     m_typeList->Bind(wxEVT_LISTBOX, &ThemePage::onSelectCategory, this);
     add(m_typeList, {});
 }
 
 void ThemePage::createLeftPanel() {
     vbox({ .proportion = 2, .border = 0 }, [&] {
-        auto lbl = text(tr("dialogs.settings.themes.foreground"), {});
+        m_lblFg = text(tr("foreground"), {});
         m_btnFg = button(wxString {});
         m_btnFg->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onColorButton(m_btnFg); });
-        connect(lbl, m_btnFg);
+        connect(m_lblFg, m_btnFg);
 
         spacer();
 
-        lbl = text(tr("dialogs.settings.themes.background"), {});
+        m_lblBg = text(tr("background"), {});
         m_btnBg = button(wxString {});
         m_btnBg->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onColorButton(m_btnBg); });
-        connect(lbl, m_btnBg);
+        connect(m_lblBg, m_btnBg);
 
         spacer();
 
-        lbl = text(tr("dialogs.settings.themes.font"), {});
+        m_lblFont = text(tr("font"), {});
         m_fontChoice = make_unowned<wxChoice>(currentParent(), wxID_ANY);
-        auto fonts = getConfig().getAllFixedWidthFonts();
+        auto fonts = Config::getAllFixedWidthFonts();
         fonts.insert(fonts.begin(), "");
         m_fontChoice->Append(fonts);
         add(m_fontChoice);
-        connect(lbl, m_fontChoice);
+        connect(m_lblFont, m_fontChoice);
     });
 }
 
 void ThemePage::createRightPanel() {
     vbox({ .proportion = 1, .border = 0 }, [&] {
-        m_chkBold = checkBox(tr("dialogs.settings.themes.bold"));
-        m_chkItalic = checkBox(tr("dialogs.settings.themes.italic"));
-        m_chkUnderline = checkBox(tr("dialogs.settings.themes.underline"));
+        m_fontOptionsLabel = text(tr("fontOptions"), {});
+
+        m_chkBold = checkBox(tr("bold"));
+        m_chkItalic = checkBox(tr("italic"));
+        m_chkUnderline = checkBox(tr("underline"));
 
         spacer();
 
-        m_spinFontSize = spinCtrl(tr("dialogs.settings.themes.fontSize"), 8, 64, {});
+        m_lblFontSize = text(tr("fontSize"), {});
+        m_spinFontSize = make_unowned<wxSpinCtrl>(
+            currentParent(), wxID_ANY, wxEmptyString,
+            wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 8, 64, 12
+        );
+        add(m_spinFontSize);
+        connect(m_lblFontSize, m_spinFontSize);
     });
 }
 
@@ -154,7 +252,8 @@ void ThemePage::onSelectTheme(const wxCommandEvent&) {
     m_activeTheme = m_themeChoice->GetStringSelection();
     updateTitle();
     if (not isUnsavedNewTheme()) {
-        m_theme.load(getConfig().resolvePath(m_activeTheme + "." + Config::THEME_EXT));
+        m_theme = {};
+        m_theme.load(getConfig().resolvePath(m_activeTheme + ".ini"));
         loadCategory();
     }
 }
@@ -162,15 +261,14 @@ void ThemePage::onSelectTheme(const wxCommandEvent&) {
 void ThemePage::onSaveTheme(wxCommandEvent&) {
     saveCategory();
 
-    // Save existing theme?
     if (isUnsavedNewTheme()) {
         saveNewTheme(false);
         updateTitle();
     }
 
     m_theme.save();
+    syncActiveThemeConfig();
 
-    // saving currently active theme?
     if (m_activeTheme == getConfig().getTheme()) {
         getContext().getTheme() = m_theme;
         getContext().getUIManager().updateEditorSettigs();
@@ -182,8 +280,7 @@ void ThemePage::saveNewTheme(const bool setActive) {
         return;
     }
 
-    // creating a new theme
-    wxTextEntryDialog dlg(this, tr("dialogs.settings.themes.enterName"), tr("dialogs.settings.themes.nameDialogTitle"));
+    wxTextEntryDialog dlg(this, tr("enterName"), tr("nameDialogTitle"));
     if (dlg.ShowModal() != wxID_OK) {
         return;
     }
@@ -193,18 +290,17 @@ void ThemePage::saveNewTheme(const bool setActive) {
         return;
     }
 
-    const wxFileName path = getConfig().getAppSettingsPath() + name + "." + Config::THEME_EXT;
+    const wxFileName path = getConfig().getAppSettingsPath() + name + ".ini";
     if (not path.IsOk() or path.Exists()) {
-        // TODO: show warning?
         wxLogWarning("Unable to save theme as %s", path.GetAbsolutePath());
         return;
     }
 
-    m_theme.setPath(path.GetAbsolutePath());
-    m_theme.save();
+    m_theme.save(path.GetAbsolutePath());
 
     m_themeChoice->Append(name);
     m_themeChoice->SetStringSelection(name);
+    m_activeTheme = name;
 
     if (setActive) {
         getConfig().setTheme(name);
@@ -213,142 +309,102 @@ void ThemePage::saveNewTheme(const bool setActive) {
 }
 
 // ---------------------------------------------------------------------------
-// Theme category handling
+// Category handling
 // ---------------------------------------------------------------------------
 
 void ThemePage::onSelectCategory(const wxCommandEvent& event) {
     saveCategory();
-    m_category = static_cast<Category>(event.GetSelection());
+    m_selectedRow = event.GetSelection();
     loadCategory();
 }
 
 void ThemePage::loadCategory() {
-    bool enBg = true, enFont = true, enStyle = true, enSize = true;
-    wxColour fg, bg;
-    wxString fontName;
-    int fontSize = 12;
-    ThemeOld::FontStyle fontStyle;
+    const auto cat = m_categoryOrder[static_cast<std::size_t>(m_selectedRow)];
+    const auto cap = capabilityOf(cat);
+    const auto view = readCategory(m_theme, cat);
 
-    if (isSyntaxStyle(m_category)) {
-        const auto& st = m_theme.getStyle(toItemKind(m_category));
-        fg = st.foreground;
-        bg = st.background;
-        fontName = st.fontName;
-        fontSize = st.fontSize;
-        fontStyle = st.fontStyle;
-    } else {
-        switch (m_category) {
-        case Category::Caret:
-            fg = m_theme.getDefault().caretColour;
-            enBg = enFont = enStyle = enSize = false;
-            break;
-        case Category::LineNumbers:
-            fg = m_theme.getLineNumber().foreground;
-            bg = m_theme.getLineNumber().background;
-            enFont = enStyle = enSize = false;
-            break;
-        case Category::Selection:
-            fg = m_theme.getSelection().foreground;
-            bg = m_theme.getSelection().background;
-            enFont = enStyle = enSize = false;
-            break;
-        case Category::BraceMatch:
-            fg = m_theme.getBrace().foreground;
-            bg = m_theme.getBrace().background;
-            fontStyle = m_theme.getBrace().fontStyle;
-            enFont = enSize = false;
-            break;
-        case Category::BraceMismatch:
-            fg = m_theme.getBadBrace().foreground;
-            bg = m_theme.getBadBrace().background;
-            fontStyle = m_theme.getBadBrace().fontStyle;
-            enFont = enSize = false;
-            break;
-        case Category::Editor:
-            fg = m_theme.getDefault().foreground;
-            bg = m_theme.getDefault().background;
-            fontSize = m_theme.getDefault().fontSize;
-            enFont = enStyle = false;
-            break;
-        default:
-            break;
-        }
-    }
+    applyCapability();
 
-    m_btnFg->Enable(true);
-    m_btnBg->Enable(enBg);
-    m_fontChoice->Enable(enFont);
-    m_chkBold->Enable(enStyle);
-    m_chkItalic->Enable(enStyle);
-    m_chkUnderline->Enable(enStyle);
-    m_spinFontSize->Enable(enSize);
-
-    if (fg.IsOk()) {
-        m_btnFg->SetBackgroundColour(fg);
+    if (view.colors.foreground.IsOk()) {
+        m_btnFg->SetBackgroundColour(view.colors.foreground);
         m_btnFg->Refresh();
     }
-
-    if (bg.IsOk()) {
-        m_btnBg->SetBackgroundColour(bg);
+    if (view.colors.background.IsOk()) {
+        m_btnBg->SetBackgroundColour(view.colors.background);
         m_btnBg->Refresh();
     }
 
-    m_chkBold->SetValue(fontStyle.bold);
-    m_chkItalic->SetValue(fontStyle.italic);
-    m_chkUnderline->SetValue(fontStyle.underline);
-    m_spinFontSize->SetValue(fontSize);
+    m_chkBold->SetValue(view.bold);
+    m_chkItalic->SetValue(view.italic);
+    m_chkUnderline->SetValue(view.underlined);
 
-    if (enFont) {
-        const auto idx = m_fontChoice->FindString(fontName);
+    if (cap.font) {
+        const auto idx = m_fontChoice->FindString(m_theme.getFont());
         m_fontChoice->SetSelection(idx != wxNOT_FOUND ? idx : 0);
     }
+    if (cap.fontSize) {
+        m_spinFontSize->SetValue(m_theme.getFontSize() > 0 ? m_theme.getFontSize() : 12);
+    }
+
+    GetSizer()->Layout();
+    Update();
 }
 
 void ThemePage::saveCategory() {
-    const auto fg = m_btnFg->GetBackgroundColour();
-    const auto bg = m_btnBg->GetBackgroundColour();
-    ThemeOld::FontStyle fontSt;
-    fontSt.bold = m_chkBold->GetValue();
-    fontSt.italic = m_chkItalic->GetValue();
-    fontSt.underline = m_chkUnderline->GetValue();
+    const auto cat = m_categoryOrder[static_cast<std::size_t>(m_selectedRow)];
+    const auto cap = capabilityOf(cat);
 
-    if (isSyntaxStyle(m_category)) {
-        auto& st = m_theme.getStyle(toItemKind(m_category));
-        st.foreground = fg;
-        st.background = bg;
-        st.fontStyle = fontSt;
-        st.fontSize = m_spinFontSize->GetValue();
-        if (m_fontChoice->GetSelection() > 0) {
-            st.fontName = m_fontChoice->GetStringSelection();
-        }
-    } else {
-        switch (m_category) {
-        case Category::Caret:
-            m_theme.getDefault().caretColour = fg;
-            break;
-        case Category::LineNumbers:
-            m_theme.getLineNumber() = { bg, fg };
-            break;
-        case Category::Selection:
-            m_theme.getSelection() = { bg, fg };
-            break;
-        case Category::BraceMatch:
-            m_theme.getBrace() = { bg, fg, fontSt };
-            break;
-        case Category::BraceMismatch:
-            m_theme.getBadBrace() = { bg, fg, fontSt };
-            break;
-        case Category::Editor: {
-            auto& def = m_theme.getDefault();
-            def.foreground = fg;
-            def.background = bg;
-            def.fontSize = m_spinFontSize->GetValue();
-            break;
-        }
-        default:
-            break;
-        }
+    CategoryView view;
+    if (cap.foreground) {
+        view.colors.foreground = m_btnFg->GetBackgroundColour();
     }
+    if (cap.background) {
+        view.colors.background = m_btnBg->GetBackgroundColour();
+    }
+    if (cap.style) {
+        view.bold = m_chkBold->GetValue();
+        view.italic = m_chkItalic->GetValue();
+        view.underlined = m_chkUnderline->GetValue();
+    }
+    writeCategory(m_theme, cat, view);
+
+    // Font + size are editor-wide; only written when capability has them (Default).
+    if (cap.font && m_fontChoice->GetSelection() > 0) {
+        m_theme.setFont(m_fontChoice->GetStringSelection());
+    }
+    if (cap.fontSize) {
+        m_theme.setFontSize(m_spinFontSize->GetValue());
+    }
+}
+
+void ThemePage::applyCapability() {
+    const auto cat = m_categoryOrder[static_cast<std::size_t>(m_selectedRow)];
+    const auto cap = capabilityOf(cat);
+
+    m_lblFg->Show(cap.foreground);
+    m_btnFg->Show(cap.foreground);
+    m_lblBg->Show(cap.background);
+    m_btnBg->Show(cap.background);
+
+    m_chkBold->Show(cap.style);
+    m_chkItalic->Show(cap.style);
+    m_chkUnderline->Show(cap.style);
+    if (not cap.style) {
+        m_fontOptionsLabel->Hide();
+    }
+
+    m_lblFont->Show(cap.font);
+    m_fontChoice->Show(cap.font);
+    m_lblFontSize->Show(cap.fontSize);
+    m_spinFontSize->Show(cap.fontSize);
+
+    Layout();
+}
+
+void ThemePage::syncActiveThemeConfig() {
+    auto& cm = getContext().getConfigManager();
+    cm.config()["theme"] = cm.relative(m_theme.getPath());
+    cm.save(ConfigManager::Category::Config);
 }
 
 void ThemePage::updateTitle() {

@@ -9,7 +9,7 @@
 #include <gtest/gtest.h>
 
 using namespace fbide;
-using S = FBSciLexerState;
+using S = ThemeCategory;
 
 class FBSciLexerTests : public testing::Test {
 protected:

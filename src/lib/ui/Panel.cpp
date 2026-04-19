@@ -21,10 +21,6 @@ auto Panel::getConfig() const -> Config& {
     return m_ctx.getConfig();
 }
 
-auto Panel::tr(const wxString& path) const -> wxString {
-    return m_ctx.getConfigManager().locale().get_or(path, "");
-}
-
 void Panel::makeTitle(const wxString& labelText) {
     text(labelText);
     separator();

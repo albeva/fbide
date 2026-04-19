@@ -9,7 +9,6 @@
 #include "analyses/lexer/Lexer.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "config/ThemeOld.hpp"
 #include "editor/Document.hpp"
 #include "editor/DocumentManager.hpp"
 #include "editor/Editor.hpp"

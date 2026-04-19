@@ -112,6 +112,13 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
     auto& entry = m_categories[static_cast<std::size_t>(Category::Config)];
     entry.path = absolute(configPath.empty() ? "config_win.ini"_wx : configPath);
     load(Category::Config);
+
+    // Resolve + load theme immediately after config is available.
+    if (const auto themeRel = config().get_or("theme", wxString {}); not themeRel.empty()) {
+        m_theme.load(absolute(themeRel));
+    } else {
+        wxLogWarning("No 'theme' entry found in config '%s'", entry.path);
+    }
 }
 
 void ConfigManager::setCategoryPath(const Category category, const wxString& path) {

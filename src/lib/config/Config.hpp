@@ -17,7 +17,7 @@ public:
 
     static constexpr auto SESSION_EXT = "fbs";
     static constexpr auto LANGUAGE_EXT = "fbl";
-    static constexpr auto THEME_EXT = "fbt";
+    static constexpr auto THEME_EXT = "ini";
 
     /// Initialize with resolved binary path.
     explicit Config(const wxString& binaryPath);

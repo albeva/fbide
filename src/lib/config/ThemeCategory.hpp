@@ -9,8 +9,8 @@
 // clang-format off
 namespace fbide {
 
-/// Define theme category entries. Expan via passed in macro parameter
-/// These categories are used by theme configuratation, editor and FBStc lexer
+/// Syntax style categories. These map 1:1 to Scintilla style IDs in
+/// the FBStc lexer and per-style entries in Theme.
 #define DEFINE_THEME_CATEGORY(_) \
     _(Default)                   \
     _(Comment)                   \
@@ -37,12 +37,12 @@ enum class ThemeCategory : int {
 };
 
 /// Allow simple conversion from enum to int
-/// int labelId = +FBSciLexerState::Label;
+/// int labelId = +ThemeCategory::Label;
 constexpr auto operator+(const ThemeCategory& rhs) -> int {
     return static_cast<int>(rhs);
 }
 
-/// All categories enumerated
+/// All syntax categories enumerated
 inline constexpr std::array kThemeCategories {
     #define ALL(NAME) ThemeCategory::NAME,
         DEFINE_THEME_CATEGORY(ALL)
@@ -52,7 +52,7 @@ inline constexpr std::array kThemeCategories {
 /// Total number of theme categories
 inline constexpr std::size_t kThemeCategoryCount = kThemeCategories.size();
 
-/// Get category name
+/// Get syntax category name
 constexpr auto getThemeCategoryName(const ThemeCategory category) -> std::string_view {
     switch (category) {
         #define CASE(NAME) case ThemeCategory::NAME: return #NAME;
@@ -61,4 +61,5 @@ constexpr auto getThemeCategoryName(const ThemeCategory category) -> std::string
     }
     std::unreachable();
 }
+
 } // namespace fbide

@@ -5,7 +5,8 @@
 // https://github.com/albeva/fbide
 //
 #include "HtmlRenderer.hpp"
-#include "config/ThemeOld.hpp"
+#include "config/Theme.hpp"
+#include "config/ThemeCategory.hpp"
 using namespace fbide;
 
 namespace {
@@ -16,20 +17,20 @@ auto hexColour(const wxColour& colour) -> std::string {
     return buf;
 }
 
-auto tokenToItemKind(const lexer::TokenKind kind) -> ThemeOld::ItemKind {
+auto tokenToCategory(const lexer::TokenKind kind) -> ThemeCategory {
     switch (kind) {
-        case lexer::TokenKind::Keyword1: return ThemeOld::Keyword;
-        case lexer::TokenKind::Keyword2: return ThemeOld::Keyword2;
-        case lexer::TokenKind::Keyword3: return ThemeOld::Keyword3;
-        case lexer::TokenKind::Keyword4: return ThemeOld::Keyword4;
-        case lexer::TokenKind::Comment: return ThemeOld::Comment;
-        case lexer::TokenKind::CommentBlock: return ThemeOld::Comment;
-        case lexer::TokenKind::String: return ThemeOld::String;
-        case lexer::TokenKind::UnterminatedString: return ThemeOld::String;
-        case lexer::TokenKind::Number: return ThemeOld::Number;
-        case lexer::TokenKind::Preprocessor: return ThemeOld::Preprocessor;
-        case lexer::TokenKind::Operator: return ThemeOld::Operator;
-        default: return ThemeOld::Default;
+        case lexer::TokenKind::Keyword1: return ThemeCategory::Keyword1;
+        case lexer::TokenKind::Keyword2: return ThemeCategory::Keyword2;
+        case lexer::TokenKind::Keyword3: return ThemeCategory::Keyword3;
+        case lexer::TokenKind::Keyword4: return ThemeCategory::Keyword4;
+        case lexer::TokenKind::Comment: return ThemeCategory::Comment;
+        case lexer::TokenKind::CommentBlock: return ThemeCategory::MultilineComment;
+        case lexer::TokenKind::String: return ThemeCategory::String;
+        case lexer::TokenKind::UnterminatedString: return ThemeCategory::StringOpen;
+        case lexer::TokenKind::Number: return ThemeCategory::Number;
+        case lexer::TokenKind::Preprocessor: return ThemeCategory::Preprocessor;
+        case lexer::TokenKind::Operator: return ThemeCategory::Operator;
+        default: return ThemeCategory::Default;
     }
 }
 
@@ -58,7 +59,7 @@ auto escapeHtml(std::string_view text) -> std::string {
 } // namespace
 
 auto HtmlRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxString {
-    const auto& editor = m_theme.getDefault();
+    const auto& defaultColors = m_theme.get(ThemeCategory::Default).colors;
     std::string output;
     output.reserve(getSizeHint() + tokens.size() * 50); // html needs lot of markup
     output += "<pre>";
@@ -71,17 +72,17 @@ auto HtmlRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxSt
             continue;
         }
 
-        const auto& style = m_theme.getStyle(tokenToItemKind(tok.kind));
-        const auto colour = hexColour(style.foreground.IsOk() ? style.foreground : editor.foreground);
+        const auto& style = m_theme.get(tokenToCategory(tok.kind));
+        const auto colour = hexColour(style.colors.foreground.IsOk() ? style.colors.foreground : defaultColors.foreground);
 
         std::string css = "color:" + colour;
-        if (style.fontStyle.bold) {
+        if (style.bold) {
             css += ";font-weight:bold";
         }
-        if (style.fontStyle.italic) {
+        if (style.italic) {
             css += ";font-style:italic";
         }
-        if (style.fontStyle.underline) {
+        if (style.underlined) {
             css += ";text-decoration:underline";
         }
 

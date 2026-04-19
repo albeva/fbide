@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "Theme.hpp"
 #include "Value.hpp"
 #include "Version.hpp"
 
@@ -22,7 +23,6 @@ public:
     enum class Category : std::uint8_t {
         Config,
         Locale,
-        Theme,
         Shortcuts,
         Keywords,
         Layout,
@@ -34,8 +34,6 @@ public:
             return "config";
         case Category::Locale:
             return "locale";
-        case Category::Theme:
-            return "theme";
         case Category::Shortcuts:
             return "shortcuts";
         case Category::Keywords:
@@ -83,10 +81,16 @@ public:
 
     [[nodiscard]] auto config()    -> Value& { return get(Category::Config); }
     [[nodiscard]] auto locale()    -> Value& { return get(Category::Locale); }
-    [[nodiscard]] auto theme()     -> Value& { return get(Category::Theme); }
     [[nodiscard]] auto shortcuts() -> Value& { return get(Category::Shortcuts); }
     [[nodiscard]] auto keywords()  -> Value& { return get(Category::Keywords); }
     [[nodiscard]] auto layout()    -> Value& { return get(Category::Layout); }
+
+    // -----------------------------------------------------------------------
+    // Theme (owned directly, not part of Value tree)
+    // -----------------------------------------------------------------------
+
+    [[nodiscard]] auto getTheme() -> Theme& { return m_theme; }
+    [[nodiscard]] auto getTheme() const -> const Theme& { return m_theme; }
 
 private:
     /// Load the category file from disk and rebuild its Value tree.
@@ -97,11 +101,12 @@ private:
         wxString path;
         Value    root;
     };
-    static constexpr std::size_t CAT_COUNT = 6;
+    static constexpr std::size_t CAT_COUNT = 5;
 
     wxString m_appDir;
     wxString m_ideDir {};
     std::array<Entry, CAT_COUNT> m_categories {};
+    Theme    m_theme {};
 };
 
 } // namespace fbide
