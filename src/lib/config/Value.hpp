@@ -35,9 +35,9 @@ namespace fbide {
 ///     cfg["compiler"]["path"] = wxString{"fbc.exe"};
 class Value final {
 public:
-    /// Ordered child nodes. Vector preserves insertion order; unique_ptr
-    /// breaks the recursive type.
-    using Group = std::vector<std::pair<wxString, std::unique_ptr<Value>>>;
+    /// Child nodes. Unordered lookup — wxFileConfig handles output
+    /// ordering on save. unique_ptr breaks the recursive type.
+    using Table = std::unordered_map<wxString, std::unique_ptr<Value>>;
 
     Value() = default;
     Value(const Value&) = delete;
@@ -85,9 +85,10 @@ public:
     [[nodiscard]] auto value_or(std::int64_t def) const -> std::int64_t;
     [[nodiscard]] auto value_or(double def) const -> double;
     [[nodiscard]] auto value_or(const wxString& def) const -> wxString;
+
     template<std::size_t N>
     [[nodiscard]] auto value_or(const char (&def)[N]) const -> wxString {
-        return value_or(wxString { def });
+        return value_or(wxString { def, N > 0 ? N - 1 : 0 });
     }
 
     /// `at(path).value_or(def)` in one call.
@@ -96,6 +97,7 @@ public:
         -> decltype(std::declval<const Value&>().value_or(def)) {
         return at(path).value_or(def);
     }
+
     template<typename P, std::size_t N>
     [[nodiscard]] auto get_or(const P& path, const char (&def)[N]) const -> wxString {
         return at(path).value_or(def);
@@ -106,7 +108,7 @@ public:
     [[nodiscard]] auto asArray() const -> std::vector<wxString>;
 
     /// Group children in insertion order. Empty if not a group.
-    [[nodiscard]] auto entries() const -> const Group&;
+    [[nodiscard]] auto entries() const -> const Table&;
 
     // -------------------------------------------------------------------
     // Writes — replace this node's contents with a leaf
@@ -130,7 +132,7 @@ private:
     /// group, it is converted to one (losing any existing leaf value).
     [[nodiscard]] auto findOrCreateChild(const wxString& key) -> Value*;
 
-    std::variant<std::monostate, wxString, Group> m_data;
+    std::variant<std::monostate, wxString, Table> m_data;
 };
 
 } // namespace fbide

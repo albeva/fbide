@@ -39,49 +39,17 @@ void importGroup(wxFileConfig& cfg, Value& node) {
     }
 }
 
-/// Escape a leaf value for INI output. Wraps in quotes if leading /
-/// trailing whitespace would otherwise be trimmed.
-auto quoteIfNeeded(const wxString& value) -> wxString {
-    if (value.empty()) {
-        return value;
-    }
-    const auto first = value[0];
-    const auto last = value[value.length() - 1];
-    const bool hasEdgeSpace = first == ' ' || first == '\t' || last == ' ' || last == '\t';
-    if (hasEdgeSpace) {
-        return "\"" + value + "\"";
-    }
-    return value;
-}
-
-/// Emit a Value subtree to an output stream under the given INI path
-/// prefix. `path` is the accumulated section name with `/` separators
-/// (empty at root).
-void emitNode(const Value& node, const wxString& path, wxTextOutputStream& out) {
-    // First: leaves under this path.
-    bool emittedHeader = false;
+/// Walk a Value subtree and write every leaf into a wxFileConfig under
+/// the given path prefix. `cfg` is positioned at the root on entry.
+void exportGroup(const Value& node, const wxString& path, wxFileConfig& cfg) {
     for (const auto& [key, child] : node.entries()) {
-        if (!child->isTable() && child->isString()) {
-            if (!emittedHeader && !path.empty()) {
-                out << "[" << path << "]\n";
-                emittedHeader = true;
-            }
-            const auto leaf = child->as<wxString>().value_or("");
-            out << key << "=" << quoteIfNeeded(leaf) << "\n";
-        }
-    }
-
-    if (emittedHeader) {
-        out << "\n";
-    }
-
-    // Second: subgroups.
-    for (const auto& [key, child] : node.entries()) {
-        if (!child->isTable()) {
-            continue;
-        }
         const auto subPath = path.empty() ? key : (path + "/" + key);
-        emitNode(*child, subPath, out);
+        if (child->isTable()) {
+            exportGroup(*child, subPath, cfg);
+        } else {
+            const auto leaf = child->as<wxString>().value_or("");
+            cfg.Write(subPath, leaf);
+        }
     }
 }
 
@@ -170,7 +138,7 @@ void ConfigManager::load(const Category category) {
         file = entry.path;
     } else {
         const auto key = getCategoryName(category);
-        const auto& ref = config().at(wxString { key.data(), key.size() });
+        const auto& ref = config().at({ key.data(), key.size() });
         const auto relPath = ref.as<wxString>();
         if (!relPath.has_value() || relPath->empty()) {
             wxLogError("Config category '%s' missing or invalid", key.data());
@@ -202,7 +170,7 @@ void ConfigManager::load(const Category category) {
 }
 
 void ConfigManager::save(const Category category) {
-    auto& entry = m_categories[static_cast<std::size_t>(category)];
+    const auto& entry = m_categories[static_cast<std::size_t>(category)];
     if (entry.category != category) {
         wxLogWarning("Trying to save unloaded category '%s'", getCategoryName(category).data());
         return;
@@ -213,9 +181,13 @@ void ConfigManager::save(const Category category) {
         wxLogError("Failed to open '%s' for writing", entry.path);
         return;
     }
-    wxTextOutputStream text(outStream, wxEOL_NATIVE, wxConvUTF8);
 
-    emitNode(entry.root, "", text);
+    // Build a wxFileConfig from the Value tree, then let it serialize.
+    // This delegates INI escaping (backslashes, quotes, whitespace) to
+    // wxFileConfig's writer.
+    wxFileConfig cfg;
+    exportGroup(entry.root, "", cfg);
+    cfg.Save(outStream, wxConvUTF8);
 }
 
 auto ConfigManager::get(Category category) -> Value& {

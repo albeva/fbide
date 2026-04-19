@@ -41,7 +41,7 @@ Value::operator bool() const noexcept {
 }
 
 auto Value::isTable() const noexcept -> bool {
-    return std::holds_alternative<Group>(m_data);
+    return std::holds_alternative<Table>(m_data);
 }
 
 auto Value::isString() const noexcept -> bool {
@@ -85,37 +85,28 @@ auto Value::invalidValue() -> const Value& {
 // Navigation
 // -------------------------------------------------------------------------
 auto Value::findChild(const wxString& key) const -> const Value* {
-    const auto* group = std::get_if<Group>(&m_data);
+    const auto* group = std::get_if<Table>(&m_data);
     if (group == nullptr) {
         return nullptr;
     }
-    for (const auto& [k, child] : *group) {
-        if (k == key) {
-            return child.get();
-        }
-    }
-    return nullptr;
+    const auto it = group->find(key);
+    return it != group->end() ? it->second.get() : nullptr;
 }
 
 auto Value::findOrCreateChild(const wxString& key) -> Value* {
-    if (!std::holds_alternative<Group>(m_data)) {
-        m_data = Group {};
+    if (!std::holds_alternative<Table>(m_data)) {
+        m_data = Table {};
     }
-    auto& group = std::get<Group>(m_data);
-    for (auto& [k, child] : group) {
-        if (k == key) {
-            return child.get();
-        }
-    }
-    auto& slot = group.emplace_back(key, std::make_unique<Value>());
-    return slot.second.get();
+    auto& group = std::get<Table>(m_data);
+    auto [it, inserted] = group.try_emplace(key, std::make_unique<Value>());
+    return it->second.get();
 }
 
 auto Value::at(const wxString& path) const -> const Value& {
     if (path.empty()) {
         return *this;
     }
-    const Value* cur = this;
+    auto cur = this;
     std::size_t start = 0;
     while (start <= path.length()) {
         const auto dot = path.find(PATH_SEP, start);
@@ -141,7 +132,7 @@ auto Value::operator[](const wxString& path) -> Value& {
     if (path.empty()) {
         return *this;
     }
-    Value* cur = this;
+    auto cur = this;
     std::size_t start = 0;
     while (start <= path.length()) {
         const auto dot = path.find(PATH_SEP, start);
@@ -260,9 +251,9 @@ auto Value::asArray() const -> std::vector<wxString> {
     return out;
 }
 
-auto Value::entries() const -> const Group& {
-    static const Group empty {};
-    const auto* group = std::get_if<Group>(&m_data);
+auto Value::entries() const -> const Table& {
+    static const Table empty {};
+    const auto* group = std::get_if<Table>(&m_data);
     return group != nullptr ? *group : empty;
 }
 
