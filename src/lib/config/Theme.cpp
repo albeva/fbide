@@ -330,7 +330,6 @@ void Theme::loadV4(const wxString& themePath) {
     mapCategory(ThemeCategory::KeywordAsm2, "/keyword2");
     mapCategory(ThemeCategory::Operator, "/operator");
     mapCategory(ThemeCategory::Label, "/identifier");
-    mapCategory(ThemeCategory::Constant, "/constant");
     mapCategory(ThemeCategory::Preprocessor, "/preprocessor");
     mapCategory(ThemeCategory::Error, "/identifier");
 }

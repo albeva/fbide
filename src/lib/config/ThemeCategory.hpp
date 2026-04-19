@@ -20,6 +20,7 @@ namespace fbide {
     _( Keyword4       ) \
     _( KeywordCustom1 ) \
     _( KeywordCustom2 ) \
+    _( KeywordPP      ) \
     _( KeywordAsm1    ) \
     _( KeywordAsm2    ) \
 
@@ -36,7 +37,6 @@ namespace fbide {
     DEFINE_THEME_KEYWORD_GROUPS(_) \
     _(Operator)                    \
     _(Label)                       \
-    _(Constant)                    \
     _(Preprocessor)                \
     _(Error)
 
@@ -79,6 +79,14 @@ inline constexpr std::array kThemeKeywordCategories {
     #undef GROUPS
 };
 inline constexpr std::size_t kThemeKeywordGroupsCount = kThemeKeywordCategories.size();
+
+static constexpr auto indexOfKeywordGroup(const ThemeCategory cat) -> std::size_t {
+    const auto it = std::ranges::find(kThemeKeywordCategories, cat);
+    if (it == kThemeKeywordCategories.end()) {
+        std::unreachable();
+    }
+    return static_cast<std::size_t>(std::ranges::distance(kThemeKeywordCategories.begin(), it));
+};
 
 
 } // namespace fbide

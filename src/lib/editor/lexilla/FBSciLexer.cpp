@@ -29,11 +29,11 @@ constexpr std::array lexicalClasses {
     Lexilla::LexicalClass { +ThemeCategory::Keyword4, "state.keyword4", "keyword", "Defines" },
     Lexilla::LexicalClass { +ThemeCategory::KeywordCustom1, "state.custom1", "keyword", "User keywords 1" },
     Lexilla::LexicalClass { +ThemeCategory::KeywordCustom2, "state.custom2", "keyword", "User keywords 2" },
+    Lexilla::LexicalClass { +ThemeCategory::KeywordPP, "state.keyword.preprocessor", "keyword", "Preprocessor keyword" },
     Lexilla::LexicalClass { +ThemeCategory::KeywordAsm1, "state.keyword.asm1", "keyword", "Asm keywords 1" },
     Lexilla::LexicalClass { +ThemeCategory::KeywordAsm2, "state.keyword.asm2", "keyword", "Asm keywords 2" },
     Lexilla::LexicalClass { +ThemeCategory::Operator, "state.operator", "operator", "Operator" },
     Lexilla::LexicalClass { +ThemeCategory::Label, "state.label", "label", "Label" },
-    Lexilla::LexicalClass { +ThemeCategory::Constant, "state.constant", "keyword constant value", "Built-in constants" },
     Lexilla::LexicalClass { +ThemeCategory::Preprocessor, "state.preprocessor", "preprocessor", "Preprocessor" },
     Lexilla::LexicalClass { +ThemeCategory::Error, "state.error", "errpr", "Syntax error" },
 };
@@ -523,8 +523,9 @@ auto FBSciLexer::identifyKeyword() noexcept -> bool {
         }
     }
 
-    const std::size_t first = m_asmBlock ? kThemeKeywordGroupsCount - 2 : 0;
-    const std::size_t last = m_asmBlock ? kThemeKeywordGroupsCount : kThemeKeywordGroupsCount - 2;
+    constexpr std::size_t pp = indexOfKeywordGroup(ThemeCategory::KeywordPP);
+    const std::size_t first = m_asmBlock ? pp + 1 : 0;
+    const std::size_t last = m_asmBlock ? kThemeKeywordGroupsCount : pp;
 
     for (std::size_t index = first; index < last; index++) {
         if (m_wordLists[index].InList(m_identBuffer.data())) {
@@ -544,12 +545,29 @@ void FBSciLexer::lexOperator() noexcept {
 void FBSciLexer::lexPreprocessor() noexcept {
     if (m_sc->atLineEnd) {
         m_sc->SetState(+ThemeCategory::Default); // no reset
-    } else if (m_sc->ch == '_') {
-        if (isIdentifier(m_sc->chPrev) || isIdentifier(m_sc->chNext)) {
+        return;
+    }
+
+    if (m_sc->ch == '_') {
+        if (not isIdentifier(m_sc->chPrev) and not isIdentifier(m_sc->chNext)) {
+            m_lineState.continuePP = true;
+            m_sc->SetState(+ThemeCategory::Comment);
             return;
         }
-        m_lineState.continuePP = true;
-        m_sc->SetState(+ThemeCategory::Comment);
+    }
+
+    if (isIdentifier(m_sc->ch)) {
+        m_sc->SetState(+ThemeCategory::Preprocessor);
+        while (isIdentifier(m_sc->ch) && m_sc->More()) {
+            m_sc->Forward();
+        }
+
+        m_sc->GetCurrentLowered(m_identBuffer.data(), m_identBuffer.size());
+        constexpr std::size_t pp = indexOfKeywordGroup(ThemeCategory::KeywordPP);
+        if (m_wordLists[pp].InList(m_identBuffer.data())) {
+            m_sc->ChangeState(+kThemeKeywordCategories[pp]);
+        }
+        m_sc->SetState(+ThemeCategory::Preprocessor);
     }
 }
 
