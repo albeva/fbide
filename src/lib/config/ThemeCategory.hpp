@@ -14,12 +14,14 @@ namespace fbide {
 // ===========================================================================
 
 #define DEFINE_THEME_KEYWORD_GROUPS(_) \
-    _( Keyword1 ) \
-    _( Keyword2 ) \
-    _( Keyword3 ) \
-    _( Keyword4 ) \
-    _( Keyword5 ) \
-    _( Keyword6 )
+    _( Keyword1       ) \
+    _( Keyword2       ) \
+    _( Keyword3       ) \
+    _( Keyword4       ) \
+    _( KeywordCustom1 ) \
+    _( KeywordCustom2 ) \
+    _( KeywordAsm1    ) \
+    _( KeywordAsm2    ) \
 
 /// Syntax style categories. These map 1:1 to Scintilla style IDs in
 /// the FBStc lexer and per-style entries in Theme.

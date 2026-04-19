@@ -189,10 +189,6 @@ void ThemePage::createCategoryList() {
         }
     }
 
-    std::ranges::sort(rows, [](const Row& a, const Row& b) {
-        return a.label.CmpNoCase(b.label) < 0;
-    });
-
     for (std::size_t i = 1; i < rows.size(); i++) {
         displayNames.Add(rows[i].label);
         m_categoryOrder[i] = rows[i].cat;
