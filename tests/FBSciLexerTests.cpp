@@ -16,12 +16,15 @@ protected:
     void SetUp() override {
         m_lexer = FBSciLexer::Create();
         // Set up keyword lists matching fbfull.lng groups
-        m_lexer->WordListSet(0, "dim as if then else end sub function type asm");
-        m_lexer->WordListSet(1, "integer string single double long byte");
-        m_lexer->WordListSet(2, "and or not mod xor");
-        m_lexer->WordListSet(3, "__fb_version__");
-        m_lexer->WordListSet(4, "mov push pop ret jmp");   // asm-only mnemonics
-        m_lexer->WordListSet(5, "eax ebx ecx edx");        // asm-only registers
+        // Indices map 1:1 to DEFINE_THEME_KEYWORD_GROUPS order.
+        m_lexer->WordListSet(0, "dim as if then else end sub function type asm"); // Keyword1
+        m_lexer->WordListSet(1, "integer string single double long byte");        // Keyword2
+        m_lexer->WordListSet(2, "and or not mod xor");                            // Keyword3
+        m_lexer->WordListSet(3, "__fb_version__");                                // Keyword4
+        m_lexer->WordListSet(4, "");                                              // KeywordCustom1
+        m_lexer->WordListSet(5, "");                                              // KeywordCustom2
+        m_lexer->WordListSet(6, "mov push pop ret jmp");                          // KeywordAsm1
+        m_lexer->WordListSet(7, "eax ebx ecx edx");                               // KeywordAsm2
     }
 
     void TearDown() override {
@@ -44,11 +47,11 @@ protected:
     /// Build expected styles from a shorthand string.
     /// Each char maps to a state, repeated for the length of the span.
     /// Legend:
-    ///   ' ' = Default    'C' = Comment       'M' = MultilineComment
-    ///   'N' = Number     'S' = String         'O' = StringOpen
-    ///   'I' = Identifier '1' = Keyword1       '2' = Keyword2
-    ///   '3' = Keyword3   '4' = Keyword4       '5' = Keyword5
-    ///   'P' = Operator   'L' = Label          'V' = Constant
+    ///   ' ' = Default    'C' = Comment          'M' = MultilineComment
+    ///   'N' = Number     'S' = String            'O' = StringOpen
+    ///   'I' = Identifier '1'..'4' = Keyword1..4  '5' = KeywordCustom1
+    ///   '6' = KeywordCustom2 '7' = KeywordAsm1  '8' = KeywordAsm2
+    ///   'P' = Operator   'L' = Label             'V' = Constant
     ///   '#' = Preprocessor  'E' = Error
     static auto expect(const std::string& pattern) -> std::vector<S> {
         static constexpr auto map = [] consteval {
@@ -64,8 +67,10 @@ protected:
             table['2'] = S::Keyword2;
             table['3'] = S::Keyword3;
             table['4'] = S::Keyword4;
-            table['5'] = S::Keyword5;
-            table['6'] = S::Keyword6;
+            table['5'] = S::KeywordCustom1;
+            table['6'] = S::KeywordCustom2;
+            table['7'] = S::KeywordAsm1;
+            table['8'] = S::KeywordAsm2;
             table['P'] = S::Operator;
             table['L'] = S::Label;
             table['V'] = S::Constant;
@@ -97,8 +102,10 @@ protected:
             table[+S::Keyword2] = '2';
             table[+S::Keyword3] = '3';
             table[+S::Keyword4] = '4';
-            table[+S::Keyword5] = '5';
-            table[+S::Keyword6] = '6';
+            table[+S::KeywordCustom1] = '5';
+            table[+S::KeywordCustom2] = '6';
+            table[+S::KeywordAsm1] = '7';
+            table[+S::KeywordAsm2] = '8';
             table[+S::Operator] = 'P';
             table[+S::Label] = 'L';
             table[+S::Constant] = 'V';
@@ -276,12 +283,13 @@ TEST_F(FBSciLexerTests, DimStatement) {
 // Newlines in source take the Default style, which format() renders as
 // space — so expected patterns use a space at every line-break position.
 TEST_F(FBSciLexerTests, AsmBlockEnterExit) {
-    // Regular keyword lists (Keyword1-4) are suppressed inside asm blocks;
-    // asm-only lists (Keyword5-6) kick in instead. "end asm" closes the
-    // block and restores normal keyword lookup.
+    // Regular keyword lists (Keyword1-4, KeywordCustom1-2) are suppressed
+    // inside asm blocks; asm-only lists (KeywordAsm1='7', KeywordAsm2='8')
+    // kick in instead. "end asm" closes the block and restores normal
+    // keyword lookup.
     expectStyles(
         "asm\nmov eax\nend asm\ndim\n",
-        "111 555 666 111 111 111 "
+        "111 777 888 111 111 111 "
     );
 }
 
@@ -295,10 +303,10 @@ TEST_F(FBSciLexerTests, AsmBlockSuppressesRegularKeywords) {
 
 TEST_F(FBSciLexerTests, AsmBlockBareEndStaysInBlock) {
     // A lone "end" (no asm follower) must not exit the asm block.
-    // Next "mov" still lexes as an asm mnemonic (Keyword5).
+    // Next "mov" still lexes as an asm mnemonic (KeywordAsm1).
     expectStyles(
         "asm\nend\nmov\nend asm\n",
-        "111 III 555 111 111 "
+        "111 III 777 111 111 "
     );
 }
 
@@ -319,10 +327,10 @@ TEST_F(FBSciLexerTests, AsmBlockEndIdentifierDoesNotExit) {
     );
 }
 
-TEST_F(FBSciLexerTests, AsmRegistersInKeyword6) {
+TEST_F(FBSciLexerTests, AsmRegistersInKeywordAsm2) {
     expectStyles(
         "asm\nmov eax\nend asm\n",
-        "111 555 666 111 111 "
+        "111 777 888 111 111 "
     );
 }
 
