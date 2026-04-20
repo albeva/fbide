@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "ArtiProvider.hpp"
 #include "command/CommandId.hpp"
 #include "OutputConsole.hpp"
 #include "UIState.hpp"
@@ -74,6 +75,10 @@ public:
     /// Get the output console.
     [[nodiscard]] auto getOutputConsole() -> OutputConsole& { return *m_console; }
 
+    /// Get the icon/bitmap provider.
+    [[nodiscard]] auto getArtProvider() -> ArtiProvider& { return *m_artProvider; }
+    [[nodiscard]] auto getArtProvider() const -> const ArtiProvider& { return *m_artProvider; }
+
     /// Get the compiler log dialog, creating it lazily if needed.
     [[nodiscard]] auto getCompilerLog() -> CompilerLog&;
 
@@ -101,6 +106,7 @@ private:
     UIState m_documentState = UIState::None;
     UIState m_compilerState = UIState::None;
     wxAuiManager m_aui;
+    std::unique_ptr<ArtiProvider> m_artProvider;
     CompilerLog* m_compilerLog = nullptr;
     Unowned<OutputConsole> m_console;
     Unowned<wxFrame> m_frame;

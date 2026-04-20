@@ -6,11 +6,24 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "command/CommandId.hpp"
+#include <unordered_map>
 
 namespace fbide {
 
-class ArtiProvider {
-    NO_COPY_AND_MOVE(ArtiProvider);
+/// Maps command IDs to toolbar/menu bitmaps.
+/// Decoupled from wxArtProvider — owned directly by UIManager.
+class ArtiProvider final {
+public:
+    NO_COPY_AND_MOVE(ArtiProvider)
+
+    ArtiProvider();
+
+    /// Get bitmap for the given command ID. Returns wxNullBitmap if unknown.
+    [[nodiscard]] auto getBitmap(CommandId id) const -> wxBitmap;
+
+private:
+    std::unordered_map<CommandId, const char* const*> m_icons;
 };
 
-} // fbide
+} // namespace fbide

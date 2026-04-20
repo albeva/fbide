@@ -32,7 +32,8 @@ wxEND_EVENT_TABLE()
 // clang-format on
 
 UIManager::UIManager(Context& ctx)
-: m_ctx(ctx) {}
+: m_ctx(ctx)
+, m_artProvider(std::make_unique<ArtiProvider>()) {}
 
 UIManager::~UIManager() {
     if (m_frame != nullptr) {
@@ -255,26 +256,6 @@ void UIManager::configureToolBar() {
         const auto& items = cfg.layout().at("toolbar");
         const auto& commands = cfg.locale().at("commands");
 
-        // NOLINTBEGIN(*-avoid-c-arrays)
-        static const std::unordered_map<wxString, const char* const*> icons = {
-            { "new",           XPM::new_xpm      },
-            { "open",          XPM::open_xpm     },
-            { "save",          XPM::save_xpm     },
-            { "saveAll",       XPM::saveall_xpm  },
-            { "close",         XPM::close_xpm    },
-            { "cut",           XPM::cut_xpm      },
-            { "copy",          XPM::copy_xpm     },
-            { "paste",         XPM::paste_xpm    },
-            { "undo",          XPM::undo_xpm     },
-            { "redo",          XPM::redo_xpm     },
-            { "compile",       XPM::compile_xpm  },
-            { "run",           XPM::run_xpm      },
-            { "compileAndRun", XPM::compnrun_xpm },
-            { "quickRun",      XPM::qrun_xpm     },
-            { "viewResult",    XPM::output_xpm   },
-        };
-        // NOLINTEND(*-avoid-c-arrays)
-
         const bool createTools = m_toolbar == nullptr;
         if (createTools) {
             m_toolbar = m_frame->CreateToolBar(wxNO_BORDER | wxTB_HORIZONTAL | wxTB_FLAT);
@@ -304,15 +285,12 @@ void UIManager::configureToolBar() {
                 continue;
             }
 
-            const auto iconIt = icons.find(key);
-            if (iconIt == icons.end()) {
-                wxLogError("No toolbar icon for command '%s'", key);
+            const auto bitmap = m_artProvider->getBitmap(static_cast<CommandId>(entry->id));
+            if (!bitmap.IsOk()) {
+                wxLogWarning("No toolbar icon for command '%s'", key);
                 continue;
             }
 
-            wxBitmap bitmap(iconIt->second);
-            const auto mask = make_unowned<wxMask>(bitmap, wxColour(192, 192, 192));
-            bitmap.SetMask(mask);
             auto* tool = m_toolbar->AddTool(entry->id, name, bitmap, help, entry->kind);
             entry->binds.push_back(tool);
         }
