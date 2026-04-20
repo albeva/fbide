@@ -51,6 +51,9 @@ public:
     /// Get the document if still valid, or nullptr.
     [[nodiscard]] auto getDocument() const -> Document*;
 
+    /// Kill this task
+    void kill();
+
 private:
     /// Start the compiler asynchronously.
     void startCompiler(const wxString& sourceFile);
@@ -88,6 +91,7 @@ private:
     wxString m_buildDir;
     wxString m_compiledFile;
     wxArrayString m_compilerLog;
+    AsyncProcess* m_process = nullptr;
 };
 
 } // namespace fbide

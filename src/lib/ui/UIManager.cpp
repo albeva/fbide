@@ -373,10 +373,13 @@ void UIManager::applyState(const UIState state) const {
             CommandId::CompileAndRun,
             CommandId::Run,
             CommandId::QuickRun,
+            CommandId::KillProcess,
         });
         break;
     case UIState::FocusedValidSourceFile:
-        disable(std::array<CommandId, 0> {});
+        disable(std::array {
+            CommandId::KillProcess,
+        });
         break;
     case UIState::Compiling:
     case UIState::Running:

@@ -144,6 +144,7 @@ private:
         CommandId::CompileAndRun,
         CommandId::Run,
         CommandId::QuickRun,
+        CommandId::KillProcess,
         CommandId::CmdPrompt,
         CommandId::Parameters,
         CommandId::ShowExitCode

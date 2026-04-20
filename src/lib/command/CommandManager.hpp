@@ -100,6 +100,7 @@ private:
     void onCompileAndRun(wxCommandEvent& event);
     void onRun(wxCommandEvent& event);
     void onQuickRun(wxCommandEvent& event);
+    void onKillProcess(wxCommandEvent& event);
     void onCmdPrompt(wxCommandEvent& event);
     void onParameters(wxCommandEvent& event);
 

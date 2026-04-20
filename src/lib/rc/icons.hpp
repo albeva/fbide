@@ -26,5 +26,6 @@ namespace XPM {
 #include "icons/save.xpm"
 #include "icons/saveall.xpm"
 #include "icons/undo.xpm"
+#include "icons/compresx.xpm"
 }; // namespace XPM
 // NOLINTEND(*-avoid-c-arrays)

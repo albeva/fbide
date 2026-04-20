@@ -87,6 +87,12 @@ void CompilerManager::quickRun() {
     m_task->compileAndRun(tempFile, true);
 }
 
+void CompilerManager::killProcess() {
+    if (m_task != nullptr && m_task->isRunning()) {
+        m_task->kill();
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Compiler log
 // ---------------------------------------------------------------------------

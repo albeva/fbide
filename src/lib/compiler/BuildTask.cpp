@@ -44,7 +44,8 @@ void BuildTask::run(const wxString& executablePath, const bool quickRun) {
 
     m_running = true;
     m_ctx.getUIManager().setCompilerState(UIState::Running);
-    AsyncProcess::exec(buildRunCommand(executablePath), wxPathOnly(executablePath), false, [&](const ProcessResult& result) {
+    m_process = AsyncProcess::exec(buildRunCommand(executablePath), wxPathOnly(executablePath), false, [&](const ProcessResult& result) {
+        m_process = nullptr;
         m_ctx.getUIManager().setCompilerState(UIState::None);
         m_running = false;
         onRunFinished(result);
@@ -81,7 +82,8 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     m_running = true;
     m_ctx.getUIManager().setCompilerState(UIState::Compiling);
     setStatus("status.compiling");
-    AsyncProcess::exec(cmdStr, m_buildDir, true, [&](const ProcessResult& result) {
+    m_process = AsyncProcess::exec(cmdStr, m_buildDir, true, [&](const ProcessResult& result) {
+        m_process = nullptr;
         setStatus("");
         m_ctx.getUIManager().setCompilerState(UIState::None);
         m_running = false;
@@ -294,6 +296,13 @@ auto BuildTask::getDocument() const -> Document* {
         return m_doc;
     }
     return nullptr;
+}
+
+void BuildTask::kill() {
+    if (m_process != nullptr) {
+        m_process->kill();
+        m_process = nullptr;
+    }
 }
 
 void BuildTask::setStatus(const wxString& path) const {

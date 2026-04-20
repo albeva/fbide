@@ -41,12 +41,15 @@ public:
     /// @param workingDir Working directory for the process. Empty = inherit.
     /// @param redirect   If true, capture stdout/stderr into ProcessResult::output.
     /// @param callback Called exactly once when the process terminates (or fails to launch).
-    static void exec(
+    static auto exec(
         const wxString& command,
         const wxString& workingDir,
         bool redirect,
         Callback&& callback
-    );
+    ) -> AsyncProcess*;
+
+    /// Kill the process
+    void kill();
 
 private:
     /// Create an async process.

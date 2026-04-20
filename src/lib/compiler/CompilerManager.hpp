@@ -33,6 +33,9 @@ public:
     /// Compile active document as temp file, run, then clean up.
     void quickRun();
 
+    /// Kill active compile or run task
+    void killProcess();
+
     /// Show compiler log dialog with full output.
     void showCompilerLog();
 

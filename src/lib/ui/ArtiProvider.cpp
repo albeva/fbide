@@ -25,6 +25,7 @@ ArtiProvider::ArtiProvider()
     { CommandId::Run,           XPM::run_xpm      },
     { CommandId::CompileAndRun, XPM::compnrun_xpm },
     { CommandId::QuickRun,      XPM::qrun_xpm     },
+    { CommandId::KillProcess,   XPM::compresx_xpm },
     { CommandId::Result,        XPM::output_xpm   },
 } {}
 

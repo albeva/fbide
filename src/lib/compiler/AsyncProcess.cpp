@@ -8,9 +8,10 @@
 #include <wx/txtstrm.h>
 using namespace fbide;
 
-void AsyncProcess::exec(const wxString& command, const wxString& workingDir, const bool redirect, Callback&& callback) {
+auto AsyncProcess::exec(const wxString& command, const wxString& workingDir, const bool redirect, Callback&& callback) -> AsyncProcess* {
     auto* self = new AsyncProcess(std::move(callback));
     self->exec(command, workingDir, redirect);
+    return self;
 }
 
 AsyncProcess::AsyncProcess(Callback&& callback)
@@ -28,11 +29,22 @@ void AsyncProcess::exec(
 
     wxExecuteEnv env;
     env.cwd = workingDir;
-    const long pid = wxExecute(command, wxEXEC_ASYNC, this, &env);
+    const long pid = wxExecute(command, wxEXEC_ASYNC | wxEXEC_MAKE_GROUP_LEADER, this, &env);
 
     if (pid == 0) {
         m_callback(ProcessResult {});
         delete this; // NOLINT(*-owning-memory)
+    }
+}
+
+void AsyncProcess::kill() {
+    const auto pid = GetPid();
+    if (pid == 0) {
+        return;
+    }
+    const auto err = wxProcess::Kill(pid, wxSIGKILL, wxKILL_CHILDREN);
+    if (err != wxKILL_OK) {
+        wxLogError("Failed to kill process %ld: error %d", pid, static_cast<int>(err));
     }
 }
 

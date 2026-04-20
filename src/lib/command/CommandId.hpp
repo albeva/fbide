@@ -56,6 +56,7 @@ enum class CommandId : wxWindowID {
     CompileAndRun,
     Run,
     QuickRun,
+    KillProcess,
     CmdPrompt,
     Parameters,
     ShowExitCode,

@@ -72,6 +72,7 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     EVT_MENU(+CommandId::CompileAndRun, CommandManager::onCompileAndRun)
     EVT_MENU(+CommandId::Run,           CommandManager::onRun)
     EVT_MENU(+CommandId::QuickRun,      CommandManager::onQuickRun)
+    EVT_MENU(+CommandId::KillProcess,   CommandManager::onKillProcess)
     EVT_MENU(+CommandId::CmdPrompt,     CommandManager::onCmdPrompt)
     EVT_MENU(+CommandId::Parameters,    CommandManager::onParameters)
 
@@ -122,6 +123,7 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .id = +CommandId::Preferences,      .name="settings" },
         CommandEntry { .id = +CommandId::QuickKeys,        .name="quickKeys" },
         CommandEntry { .id = +CommandId::QuickRun,         .name="quickRun" },
+        CommandEntry { .id = +CommandId::KillProcess,      .name="killProcess" },
         CommandEntry { .id = +CommandId::Quit,             .name="quit"  },
         CommandEntry { .id = +CommandId::ReadMe,           .name="readMe" },
         CommandEntry { .id = +CommandId::RecentFiles,      .name="recentFiles", .kind = wxITEM_DROPDOWN },
@@ -351,6 +353,10 @@ void CommandManager::onRun(wxCommandEvent&) {
 
 void CommandManager::onQuickRun(wxCommandEvent&) {
     m_ctx.getCompilerManager().quickRun();
+}
+
+void CommandManager::onKillProcess(wxCommandEvent&) {
+    m_ctx.getCompilerManager().killProcess();
 }
 
 void CommandManager::onCmdPrompt(wxCommandEvent&) {
