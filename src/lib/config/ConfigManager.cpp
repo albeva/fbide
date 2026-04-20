@@ -258,7 +258,7 @@ auto ConfigManager::filePattern(const wxString& key) -> wxString {
     return composeFilter(key, desc, glob);
 }
 
-auto ConfigManager::filePatterns(std::initializer_list<std::string_view> keys) -> wxString {
+auto ConfigManager::filePatterns(const std::initializer_list<std::string_view> keys) -> wxString {
     const auto& patterns = config().at("filePatterns");
     const auto& filetypes = locale().at("filetypes");
     wxString joined;
