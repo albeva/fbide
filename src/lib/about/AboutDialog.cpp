@@ -5,10 +5,10 @@
 // https://github.com/albeva/fbide
 //
 #include "AboutDialog.hpp"
-#include "cmake/config.hpp"
+#include "ui/controls/BBCodeText.hpp"
 #include "app/Context.hpp"
+#include "cmake/config.hpp"
 #include "config/ConfigManager.hpp"
-#include "ui/BBCodeText.hpp"
 namespace XPM {
 #include "rc/fbide.xpm"
 }

@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "ui/Panel.hpp"
+#include "../../ui/controls/Panel.hpp"
 #include "app/Context.hpp"
 #include "config/ThemeCategory.hpp"
 

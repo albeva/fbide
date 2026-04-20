@@ -6,10 +6,10 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "../../ui/controls/Panel.hpp"
 #include "SettingsCategory.hpp"
 #include "config/Theme.hpp"
 #include "config/Value.hpp"
-#include "ui/Panel.hpp"
 
 namespace fbide {
 

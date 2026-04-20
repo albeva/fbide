@@ -52,7 +52,7 @@
 - [x] Formatter: indent namespace ... end namespace
 - [x] Formatter: fails to handle "EXIT DO" when nested in a block properly.
 - [x] Recent files seem to jump around in the menu, when new one is added.
-- [ ] Resized dialog causes broken layout in theme panel.
+- [x] Resized dialog causes broken layout in theme panel.
 
 ## Formatter
 

@@ -38,11 +38,12 @@ target_sources(fbide_lib
     settings/panels/GeneralPage.cpp
     settings/panels/KeywordsPage.cpp
     settings/panels/ThemePage.cpp
-    ui/BBCodeText.cpp
+    ui/ArtiProvider.cpp
     ui/CompilerLog.cpp
     ui/OutputConsole.cpp
-    ui/Panel.cpp
     ui/UIManager.cpp
+    ui/controls/BBCodeText.cpp
+    ui/controls/Panel.cpp
 
     PUBLIC FILE_SET HEADERS FILES
     about/AboutDialog.hpp
@@ -89,13 +90,14 @@ target_sources(fbide_lib
     settings/panels/KeywordsPage.hpp
     settings/panels/SettingsCategory.hpp
     settings/panels/ThemePage.hpp
-    ui/BBCodeText.hpp
+    ui/ArtiProvider.hpp
     ui/CompilerLog.hpp
-    ui/Layout.hpp
     ui/OutputConsole.hpp
-    ui/Panel.hpp
     ui/UIManager.hpp
     ui/UIState.hpp
+    ui/controls/BBCodeText.hpp
+    ui/controls/Layout.hpp
+    ui/controls/Panel.hpp
     utils/DeferHandler.hpp
     utils/Macros.hpp
     utils/NoCopy.hpp
