@@ -37,6 +37,16 @@ void Renderer::renderNodes(const std::vector<Node>& nodes, const std::size_t ind
                     m_lastWasBlankLine = false;
                     m_lastWasBlock = false;
                 },
+                [&](const VerbatimNode& region) {
+                    // Copy every token's text exactly — no indent prefix,
+                    // no spacing normalisation. Original Whitespace and
+                    // Newline tokens in the region supply all layout.
+                    for (const auto& tok : region.tokens) {
+                        m_output.push_back(tok);
+                    }
+                    m_lastWasBlankLine = false;
+                    m_lastWasBlock = false;
+                },
                 [&](const std::unique_ptr<BlockNode>& block) {
                     const bool branch = isBranch(*block);
 
@@ -157,7 +167,7 @@ void Renderer::renderAnchoredPP(const StatementNode& stmt, const std::size_t ind
     }
     rewritten.append(text, pos);
 
-    m_output.push_back({ TokenKind::Preprocessor, original.keywordKind, OperatorKind::None, std::move(rewritten) });
+    m_output.push_back(Token { .kind = TokenKind::Preprocessor, .keywordKind = original.keywordKind, .text = std::move(rewritten) });
     emitNewline();
 }
 
@@ -165,15 +175,15 @@ void Renderer::emitIndent(const std::size_t indent) {
     if (indent == 0) {
         return;
     }
-    m_output.push_back({ TokenKind::Whitespace, KeywordKind::None, OperatorKind::None, std::string(indent * m_options.tabSize, ' ') });
+    m_output.push_back(Token { .kind = TokenKind::Whitespace, .text = std::string(indent * m_options.tabSize, ' ') });
 }
 
 void Renderer::emitSpace() {
-    m_output.push_back({ TokenKind::Whitespace, KeywordKind::None, OperatorKind::None, " " });
+    m_output.push_back(Token { .kind = TokenKind::Whitespace, .text = " " });
 }
 
 void Renderer::emitNewline() {
-    m_output.push_back({ TokenKind::Newline, KeywordKind::None, OperatorKind::None, "\n" });
+    m_output.push_back(Token { .kind = TokenKind::Newline, .text = "\n" });
 }
 
 void Renderer::emit(Token token) {

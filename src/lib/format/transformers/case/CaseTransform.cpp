@@ -26,7 +26,7 @@ auto CaseTransform::apply(const std::vector<lexer::Token>& tokens) -> std::vecto
     std::vector result { tokens };
 
     for (auto& tok : result) {
-        if (not isKeyword(tok)) {
+        if (tok.verbatim || not isKeyword(tok)) {
             continue;
         }
 

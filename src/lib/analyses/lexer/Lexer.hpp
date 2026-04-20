@@ -94,7 +94,7 @@ private:
         return { m_start, static_cast<std::size_t>(m_pos - m_start) };
     }
     [[nodiscard]] auto makeToken(const TokenKind kind, const KeywordKind kwKind = KeywordKind::None, const OperatorKind opKind = OperatorKind::None) const -> Token {
-        return { kind, kwKind, opKind, extract() };
+        return Token { .kind = kind, .keywordKind = kwKind, .operatorKind = opKind, .text = extract() };
     }
 
     // Token producers
@@ -112,6 +112,15 @@ private:
     /// word is `asm` followed by a non-identifier char. Used to detect
     /// `end asm` while already positioned just after the `end` token.
     [[nodiscard]] auto peekEndAsm() const -> bool;
+
+    /// Scan the token stream for `' format off` / `' format on` pragma
+    /// comments and mark every token inside a region with `verbatim = true`.
+    /// Pragmas must be single-line comments (`'` or `REM` form) alone on
+    /// their line; body must match `^\s*format\s+(on|off)\s*$` case-
+    /// insensitive. Nested pragmas adjust a depth counter; tokens are
+    /// verbatim iff any enclosing depth is > 0. Unbalanced `on` is a no-op.
+    /// Unbalanced `off` leaves the rest of the file verbatim.
+    static void annotateVerbatim(std::vector<Token>& tokens);
 
     // Per-scope keyword lookup tables (built once).
     // Preprocessor scope is accepted and stored for API symmetry with the

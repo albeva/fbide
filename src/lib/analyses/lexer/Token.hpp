@@ -186,10 +186,13 @@ enum class OperatorKind : std::uint8_t {
 
 /// A single token from the lexer.
 /// `text` owns its contents — tokens are self-contained and outlive the source.
+/// `verbatim` marks the token as residing inside a `' format off` region;
+/// downstream transforms must preserve its original text unchanged.
 struct Token final {
     TokenKind kind {};
     KeywordKind keywordKind = KeywordKind::None;
     OperatorKind operatorKind = OperatorKind::None;
+    bool verbatim = false;
     std::string text;
 };
 

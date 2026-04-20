@@ -42,6 +42,11 @@ public:
     /// Add a BlankLineNode to the current block's body.
     void blankLine();
 
+    /// Add a VerbatimNode wrapping `tokens` to the current block's body.
+    /// Does not touch the collection buffer, indent state, or branch state —
+    /// the region is opaque to the tree shape.
+    void verbatim(std::vector<lexer::Token> tokens);
+
     /// Auto-close any unclosed blocks and return the root ProgramTree.
     [[nodiscard]] auto finish() -> ProgramTree;
 

@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "TestHelpers.hpp"
+#include "../src/lib/format/transformers/case/CaseTransform.hpp"
 #include "../src/lib/format/transformers/reformat/ReFormatter.hpp"
 #include <gtest/gtest.h>
 
@@ -1036,4 +1037,170 @@ TEST_F(ReFormatterTests, RoundTrip_BlankLineRuns) {
         "Sub B\n"
         "End Sub\n";
     EXPECT_EQ(formatWith(source, { .tabSize = tabSize, .reIndent = false, .reFormat = false }), source);
+}
+
+// ---------------------------------------------------------------------------
+// Format pragma regions (' format off / ' format on)
+// ---------------------------------------------------------------------------
+
+TEST_F(ReFormatterTests, FormatOff_PreservesContentInsideRegion) {
+    // Everything between `' format off` and `' format on` survives verbatim —
+    // odd spacing, lack of indent, original case, all of it.
+    EXPECT_EQ(format(
+        "Sub Main\n"
+        "' format off\n"
+        "x=  1+   2\n"
+        "y=x*3\n"
+        "' format on\n"
+        "z = x + y\n"
+        "End Sub\n"
+    ),
+        "Sub Main\n"
+        "' format off\n"
+        "x=  1+   2\n"
+        "y=x*3\n"
+        "' format on\n"
+        "    z = x + y\n"
+        "End Sub\n"
+    );
+}
+
+TEST_F(ReFormatterTests, FormatOff_IndentResumesAfterRegion) {
+    // After the region ends, code returns to the correct indent for its block.
+    EXPECT_EQ(format(
+        "If x Then\n"
+        "' format off\n"
+        "nope\n"
+        "' format on\n"
+        "yes = 1\n"
+        "End If\n"
+    ),
+        "If x Then\n"
+        "' format off\n"
+        "nope\n"
+        "' format on\n"
+        "    yes = 1\n"
+        "End If\n"
+    );
+}
+
+TEST_F(ReFormatterTests, FormatOff_PreservesBlankLineRuns) {
+    EXPECT_EQ(format(
+        "' format off\n"
+        "a\n"
+        "\n"
+        "\n"
+        "b\n"
+        "' format on\n"
+    ),
+        "' format off\n"
+        "a\n"
+        "\n"
+        "\n"
+        "b\n"
+        "' format on\n"
+    );
+}
+
+TEST_F(ReFormatterTests, FormatOff_NestedPragmasRoundTrip) {
+    // Inner off/on just bump the counter; the whole region is preserved.
+    EXPECT_EQ(format(
+        "' format off\n"
+        "outer\n"
+        "' format off\n"
+        "inner\n"
+        "' format on\n"
+        "tail\n"
+        "' format on\n"
+    ),
+        "' format off\n"
+        "outer\n"
+        "' format off\n"
+        "inner\n"
+        "' format on\n"
+        "tail\n"
+        "' format on\n"
+    );
+}
+
+TEST_F(ReFormatterTests, FormatOff_UnbalancedOffRunsToEof) {
+    EXPECT_EQ(format(
+        "Dim a = 1\n"
+        "' format off\n"
+        "messy  code  here\n"
+        "more = weird\n"
+    ),
+        "Dim a = 1\n"
+        "' format off\n"
+        "messy  code  here\n"
+        "more = weird\n"
+    );
+}
+
+TEST_F(ReFormatterTests, FormatOff_OutsideRegionStillNormalises) {
+    // Spacing and indentation outside the region are still normalised.
+    EXPECT_EQ(format(
+        "Sub   Main\n"
+        "x=1+2\n"
+        "' format off\n"
+        "y   =   3\n"
+        "' format on\n"
+        "z=4\n"
+        "End Sub\n"
+    ),
+        "Sub Main\n"
+        "    x = 1 + 2\n"
+        "' format off\n"
+        "y   =   3\n"
+        "' format on\n"
+        "    z = 4\n"
+        "End Sub\n"
+    );
+}
+
+TEST_F(ReFormatterTests, FormatOff_RoundTripStable) {
+    // Idempotence: format(format(src)) == format(src).
+    const char* source =
+        "Sub Main\n"
+        "' format off\n"
+        "ugly   = 1\n"
+        "' format on\n"
+        "clean = 2\n"
+        "End Sub\n";
+    const auto once = format(source);
+    const auto twice = format(once.c_str());
+    EXPECT_EQ(once, twice);
+}
+
+// ---------------------------------------------------------------------------
+// CaseTransform interaction with verbatim regions
+// ---------------------------------------------------------------------------
+
+TEST_F(ReFormatterTests, FormatOff_CaseTransformSkipsVerbatimKeywords) {
+    // Tokens inside a verbatim region keep their original casing even under
+    // Upper case conversion.
+    auto tokens = m_lexer->tokenise(
+        "dim x = 1\n"
+        "' format off\n"
+        "dim y = 2\n"
+        "' format on\n"
+        "dim z = 3\n"
+    );
+
+    CaseTransform upper { CaseMode::Upper };
+    const auto transformed = upper.apply(tokens);
+
+    // Find the three `dim` identifier/keyword tokens. First and third should
+    // be upper-cased; the middle one (inside the region) stays lowercase.
+    std::vector<std::string> dimTexts;
+    for (const auto& tok : transformed) {
+        if (tok.kind == lexer::TokenKind::Keyword1
+            && (tok.text == "dim" || tok.text == "DIM")) {
+            dimTexts.push_back(tok.text);
+        }
+    }
+    ASSERT_EQ(dimTexts.size(), 3);
+    EXPECT_EQ(dimTexts[0], "DIM");
+    EXPECT_EQ(dimTexts[1], "dim"); // inside region — untouched
+    EXPECT_EQ(dimTexts[2], "DIM");
 }

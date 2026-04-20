@@ -793,3 +793,232 @@ TEST_F(LexerTests, NonAsciiMixedWithCode) {
     EXPECT_EQ(tokens[4].kind, TokenKind::Operator); // =
     EXPECT_EQ(tokens[5].kind, TokenKind::Number); // 1
 }
+
+// ---------------------------------------------------------------------------
+// Format pragma regions (' format off / ' format on)
+// ---------------------------------------------------------------------------
+
+namespace {
+/// Return a vector of verbatim flags aligned with the token stream. Useful
+/// for compact assertions — lets tests express the expected pattern as a
+/// string like "0011110" over the token sequence.
+auto verbatimPattern(const std::vector<Token>& tokens) -> std::string {
+    std::string out;
+    out.reserve(tokens.size());
+    for (const auto& tok : tokens) {
+        out += tok.verbatim ? '1' : '0';
+    }
+    return out;
+}
+} // namespace
+
+TEST_F(LexerTests, FormatOffOnFlipsBit) {
+    const auto tokens = tokenise(
+        "Dim x = 1\n"
+        "' format off\n"
+        "messy   = 2\n"
+        "' format on\n"
+        "Dim y = 3\n"
+    );
+    // Walk tokens; verbatim should be true for lines 2, 3, 4 and false for 1, 5.
+    // Line 1 (formatted): Dim WS x WS = WS 1 \n
+    // Line 2 (pragma off, verbatim): WS Comment \n  (no WS at start, "' format off")
+    // Line 3 (inside region): messy WS = WS 2 \n  ... all verbatim
+    // Line 4 (pragma on, verbatim): Comment \n
+    // Line 5 (formatted): Dim WS y WS = WS 3 \n
+    bool sawOff = false;
+    bool sawOn = false;
+    for (const auto& tok : tokens) {
+        if (tok.kind == TokenKind::Comment) {
+            if (tok.text == "' format off") {
+                EXPECT_TRUE(tok.verbatim);
+                sawOff = true;
+            } else if (tok.text == "' format on") {
+                EXPECT_TRUE(tok.verbatim);
+                sawOn = true;
+            }
+        }
+    }
+    EXPECT_TRUE(sawOff);
+    EXPECT_TRUE(sawOn);
+}
+
+TEST_F(LexerTests, FormatOffContentIsVerbatim) {
+    const auto tokens = tokenise(
+        "' format off\n"
+        "messy = 1\n"
+        "' format on\n"
+    );
+    // Find the "messy" identifier token and verify it's verbatim.
+    bool found = false;
+    for (const auto& tok : tokens) {
+        if (tok.kind == TokenKind::Identifier && tok.text == "messy") {
+            EXPECT_TRUE(tok.verbatim);
+            found = true;
+        }
+    }
+    EXPECT_TRUE(found);
+}
+
+TEST_F(LexerTests, FormatOffOutsideRegionIsNotVerbatim) {
+    const auto tokens = tokenise(
+        "Dim x = 1\n"
+        "Dim y = 2\n"
+    );
+    for (const auto& tok : tokens) {
+        EXPECT_FALSE(tok.verbatim) << "token: " << tok.text;
+    }
+}
+
+TEST_F(LexerTests, FormatPragmaCaseInsensitive) {
+    // Upper, mixed, and lowercase all trigger.
+    const auto variants = {
+        "' FORMAT OFF\nx\n' FORMAT ON\n",
+        "' Format Off\nx\n' Format On\n",
+        "' format off\nx\n' format on\n",
+        "'  format   off  \nx\n'  format   on  \n", // extra whitespace
+    };
+    for (const auto* src : variants) {
+        const auto tokens = tokenise(src);
+        bool foundX = false;
+        for (const auto& tok : tokens) {
+            if (tok.kind == TokenKind::Identifier && tok.text == "x") {
+                EXPECT_TRUE(tok.verbatim) << "src: " << src;
+                foundX = true;
+            }
+        }
+        EXPECT_TRUE(foundX) << "src: " << src;
+    }
+}
+
+TEST_F(LexerTests, FormatPragmaIndentTolerated) {
+    const auto tokens = tokenise(
+        "    ' format off\n"
+        "    x\n"
+        "    ' format on\n"
+    );
+    bool foundX = false;
+    for (const auto& tok : tokens) {
+        if (tok.kind == TokenKind::Identifier && tok.text == "x") {
+            EXPECT_TRUE(tok.verbatim);
+            foundX = true;
+        }
+    }
+    EXPECT_TRUE(foundX);
+}
+
+TEST_F(LexerTests, FormatPragmaRemForm) {
+    const auto tokens = tokenise(
+        "REM format off\n"
+        "x\n"
+        "REM format on\n"
+    );
+    bool foundX = false;
+    for (const auto& tok : tokens) {
+        if (tok.kind == TokenKind::Identifier && tok.text == "x") {
+            EXPECT_TRUE(tok.verbatim);
+            foundX = true;
+        }
+    }
+    EXPECT_TRUE(foundX);
+}
+
+TEST_F(LexerTests, FormatPragmaMidLineRejected) {
+    // `x = 1 ' format off` is not a pragma line — has code on the line.
+    const auto tokens = tokenise(
+        "x = 1 ' format off\n"
+        "y = 2\n"
+    );
+    for (const auto& tok : tokens) {
+        EXPECT_FALSE(tok.verbatim) << "token: " << tok.text;
+    }
+}
+
+TEST_F(LexerTests, FormatPragmaBlockCommentRejected) {
+    // Block comments do not qualify as pragma lines.
+    const auto tokens = tokenise(
+        "/' format off '/\n"
+        "x = 1\n"
+        "/' format on '/\n"
+    );
+    for (const auto& tok : tokens) {
+        EXPECT_FALSE(tok.verbatim) << "token: " << tok.text;
+    }
+}
+
+TEST_F(LexerTests, FormatPragmaTrailingContentRejected) {
+    // Anything after `off`/`on` disqualifies the line.
+    const auto tokens = tokenise(
+        "' format off oops\n"
+        "x = 1\n"
+        "' format on\n"
+    );
+    for (const auto& tok : tokens) {
+        EXPECT_FALSE(tok.verbatim) << "token: " << tok.text;
+    }
+}
+
+TEST_F(LexerTests, FormatPragmaNestedCollapses) {
+    // Nested off/on pairs: outer region survives, inner pairs just nudge
+    // the counter. `y` sits between the inner `off`/`on` at depth 2; `z`
+    // sits between inner `on` and outer `on` at depth 1. Both verbatim.
+    const auto tokens = tokenise(
+        "x\n"                  // not verbatim
+        "' format off\n"       // verbatim (transition 0→1)
+        "y\n"                  // verbatim (depth 1)
+        "' format off\n"       // verbatim (depth 1→2)
+        "nested\n"             // verbatim (depth 2)
+        "' format on\n"        // verbatim (depth 2→1)
+        "z\n"                  // verbatim (depth 1)
+        "' format on\n"        // verbatim (depth 1→0)
+        "w\n"                  // not verbatim
+    );
+    std::unordered_map<std::string, bool> expectations {
+        { "x", false },
+        { "y", true },
+        { "nested", true },
+        { "z", true },
+        { "w", false },
+    };
+    std::size_t matched = 0;
+    for (const auto& tok : tokens) {
+        if (tok.kind != TokenKind::Identifier) {
+            continue;
+        }
+        const auto it = expectations.find(tok.text);
+        if (it != expectations.end()) {
+            EXPECT_EQ(tok.verbatim, it->second) << "identifier: " << tok.text;
+            matched++;
+        }
+    }
+    EXPECT_EQ(matched, expectations.size());
+}
+
+TEST_F(LexerTests, FormatPragmaUnbalancedOnIsNoOp) {
+    // A stray `' format on` without a preceding `off` leaves state alone.
+    const auto tokens = tokenise(
+        "x\n"
+        "' format on\n"
+        "y\n"
+    );
+    for (const auto& tok : tokens) {
+        EXPECT_FALSE(tok.verbatim) << "token: " << tok.text;
+    }
+}
+
+TEST_F(LexerTests, FormatPragmaUnbalancedOffRunsToEof) {
+    const auto tokens = tokenise(
+        "x\n"
+        "' format off\n"
+        "y\n"
+        "z\n"
+    );
+    for (const auto& tok : tokens) {
+        if (tok.kind == TokenKind::Identifier && tok.text == "x") {
+            EXPECT_FALSE(tok.verbatim);
+        } else if (tok.kind == TokenKind::Identifier
+                   && (tok.text == "y" || tok.text == "z")) {
+            EXPECT_TRUE(tok.verbatim);
+        }
+    }
+}

@@ -26,11 +26,18 @@ struct StatementNode {
     std::vector<lexer::Token> tokens;
 };
 
+/// A contiguous run of tokens from a `' format off` region. Rendered as-is
+/// (original text, original whitespace, no indent prefix, no space
+/// normalisation). Bypasses all structural formatting.
+struct VerbatimNode {
+    std::vector<lexer::Token> tokens;
+};
+
 /// Forward declare for recursive variant.
 struct BlockNode;
 
 /// A node in the formatting tree.
-using Node = std::variant<BlankLineNode, StatementNode, std::unique_ptr<BlockNode>>;
+using Node = std::variant<BlankLineNode, StatementNode, VerbatimNode, std::unique_ptr<BlockNode>>;
 
 /// A block: optional opener, body of child nodes, optional closer.
 /// Branches (Else, Case, #else) are child BlockNodes with an opener but no closer.

@@ -74,6 +74,10 @@ void TreeBuilder::blankLine() {
     addNode(BlankLineNode {});
 }
 
+void TreeBuilder::verbatim(std::vector<lexer::Token> tokens) {
+    addNode(VerbatimNode { std::move(tokens) });
+}
+
 auto TreeBuilder::finish() -> ProgramTree {
     // Auto-close any unclosed blocks
     while (!m_stack.empty()) {

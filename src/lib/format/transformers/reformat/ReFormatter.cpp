@@ -33,6 +33,24 @@ auto ReFormatter::buildTree(const std::vector<Token>& tokens) -> ProgramTree {
 void ReFormatter::step() {
     const auto& tkn = current();
 
+    // Verbatim region: lexer marked these tokens as inside `' format off`.
+    // Collect the whole contiguous run (including Whitespace/Newline tokens
+    // inside, which carry the region's layout) and hand it to the builder
+    // as an opaque VerbatimNode. Skip structural dispatch entirely.
+    if (tkn.verbatim) {
+        std::vector<lexer::Token> run;
+        while (hasMore() && current().verbatim) {
+            run.push_back(current());
+            advance();
+        }
+        m_builder.verbatim(std::move(run));
+        // The trailing Newline belonging to the `' format on` line is
+        // typically included in the verbatim run. Resume blank-line
+        // tracking as though we just crossed a newline.
+        m_prevWasNewline = true;
+        return;
+    }
+
     // Whitespace at the top level: peek past it. If followed by a newline
     // (or EOF), it is part of a blank/whitespace-only line and we skip it.
     // Otherwise, leave it in place so processLine() captures it as the
