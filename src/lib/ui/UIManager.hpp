@@ -96,6 +96,7 @@ private:
     void configureMenuBar();
     void configureMenuItems(wxMenu* menu, const wxString& id, bool addSeparators);
     void configureToolBar();
+    void generateExternalLinks(wxMenu* menu);
 
     void createStatusBar() const;
     void createLayout();
@@ -112,6 +113,7 @@ private:
     Unowned<wxFrame> m_frame;
     Unowned<wxToolBar> m_toolbar;
     Unowned<wxAuiNotebook> m_notebook;
+    std::vector<wxMenuItem*> m_externalLinkItems;
 
     static constexpr std::array mutableIds = {
         CommandId::Save,

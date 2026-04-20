@@ -107,11 +107,23 @@ private:
     // Help
     void onHelp(wxCommandEvent& event);
     void onAbout(wxCommandEvent& event);
+    void onExternalLink(wxCommandEvent& event);
 
+public:
+    /// Drop all previously registered external link URLs.
+    /// Call before repopulating the Help menu's dynamic section.
+    void clearExternalLinks();
+
+    /// Reserve the next free external-link ID, remember the URL,
+    /// and return the ID. Returns wxID_ANY if the range is exhausted.
+    [[nodiscard]] auto registerExternalLink(const wxString& url) -> wxWindowID;
+
+private:
     Context& m_ctx;
     wxString m_parameters;
     std::unordered_map<wxString, CommandEntry> m_namedCommands;
     std::unordered_map<wxWindowID, wxString> m_idNames;
+    std::unordered_map<wxWindowID, wxString> m_externalLinks;
 
     wxDECLARE_EVENT_TABLE();
 };

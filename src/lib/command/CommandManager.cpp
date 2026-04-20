@@ -79,6 +79,7 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     // Help
     EVT_MENU(+CommandId::Help,      CommandManager::onHelp)
     EVT_MENU(+CommandId::About,     CommandManager::onAbout)
+    EVT_MENU_RANGE(+CommandId::ExternalLinkFirst, +CommandId::ExternalLinkLast, CommandManager::onExternalLink)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -389,6 +390,33 @@ void CommandManager::onAbout(wxCommandEvent&) {
     AboutDialog dlg(m_ctx.getUIManager().getMainFrame(), m_ctx);
     dlg.create();
     dlg.ShowModal();
+}
+
+void CommandManager::onExternalLink(wxCommandEvent& event) {
+    if (const auto* menuItem = wxDynamicCast(event.GetClientData(), wxMenuItem)) {
+        wxMessageBox(menuItem->GetHelp());
+    }
+    const auto it = m_externalLinks.find(event.GetId());
+    if (it == m_externalLinks.end()) {
+        return;
+    }
+    wxLaunchDefaultBrowser(it->second);
+}
+
+void CommandManager::clearExternalLinks() {
+    m_externalLinks.clear();
+}
+
+auto CommandManager::registerExternalLink(const wxString& url) -> wxWindowID {
+    constexpr auto first = +CommandId::ExternalLinkFirst;
+    constexpr auto last = +CommandId::ExternalLinkLast;
+    for (auto id = first; id <= last; ++id) {
+        if (!m_externalLinks.contains(id)) {
+            m_externalLinks.emplace(id, url);
+            return id;
+        }
+    }
+    return wxID_ANY;
 }
 
 // endregion

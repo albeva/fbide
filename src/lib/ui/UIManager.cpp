@@ -208,6 +208,11 @@ void UIManager::configureMenuItems(wxMenu* menu, const wxString& id, const bool 
                 continue;
             }
 
+            if (key == "externalLinks") {
+                generateExternalLinks(menu);
+                continue;
+            }
+
             auto* entry = cmd.find(key);
             if (entry == nullptr) {
                 wxLogError("Unknown command '%s'", key);
@@ -248,6 +253,42 @@ void UIManager::configureMenuItems(wxMenu* menu, const wxString& id, const bool 
         }
     } catch (const std::exception& ex) {
         wxLogError("Failed to configure menu '%s': %s", id, ex.what());
+    }
+}
+
+void UIManager::generateExternalLinks(wxMenu* menu) {
+    auto& cmd = m_ctx.getCommandManager();
+    auto& cfg = m_ctx.getConfigManager();
+
+    for (wxMenuItem* item : m_externalLinkItems) {
+        if (item != nullptr) {
+            menu->Destroy(item);
+        }
+    }
+    m_externalLinkItems.clear();
+    cmd.clearExternalLinks();
+
+    const auto& urls = cfg.config().at("help.external");
+    if (!urls.isTable()) {
+        return;
+    }
+    const auto& labels = cfg.locale().at("help.external");
+
+    for (const auto& [key, value] : urls.entries()) {
+        const auto url = value->value_or(wxString {});
+        if (url.empty()) {
+            wxLogWarning("External link '%s' has empty URL", key);
+            continue;
+        }
+        const auto id = cmd.registerExternalLink(url);
+        if (id == wxID_ANY) {
+            wxLogWarning("External link slot exhausted, '%s' skipped", key);
+            break;
+        }
+        const auto label = labels.get_or(key, url);
+        wxMenuItem* item = make_unowned<wxMenuItem>(menu, id, label, url);
+        menu->Append(item);
+        m_externalLinkItems.push_back(item);
     }
 }
 

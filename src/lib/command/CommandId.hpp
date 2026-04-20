@@ -59,7 +59,12 @@ enum class CommandId : wxWindowID {
     KillProcess,
     CmdPrompt,
     Parameters,
-    ShowExitCode
+    ShowExitCode,
+
+    /// Dynamic slots for externally configured Help menu links.
+    /// Range reserved for wxEVT_MENU dispatch via EVT_MENU_RANGE.
+    ExternalLinkFirst = wxID_HIGHEST + 100,
+    ExternalLinkLast = ExternalLinkFirst + 63
 };
 FBIDE_INLINE static constexpr auto operator+(const CommandId& rhs) -> wxWindowID {
     return static_cast<wxWindowID>(rhs);
