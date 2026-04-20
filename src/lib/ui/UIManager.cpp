@@ -227,14 +227,16 @@ void UIManager::configureMenuItems(wxMenu* menu, const wxString& id, const bool 
                 tool->SetHelp(help);
             } else {
                 wxMenu* submenu = nullptr;
+                wxItemKind kind = entry->kind;
                 if (entry->kind == wxITEM_DROPDOWN) {
                     submenu = entry->get<wxMenu>();
                     if (submenu == nullptr) {
                         submenu = make_unowned<wxMenu>();
                         entry->binds.push_back(submenu);
                     }
+                    kind = wxITEM_NORMAL;
                 }
-                tool = make_unowned<wxMenuItem>(menu, entry->id, name, help, entry->kind, submenu);
+                tool = make_unowned<wxMenuItem>(menu, entry->id, name, help, kind, submenu);
                 entry->binds.push_back(tool);
                 menu->Append(tool);
             }
