@@ -8,6 +8,7 @@
 #include "Document.hpp"
 #include "Editor.hpp"
 #include "app/Context.hpp"
+#include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
@@ -47,7 +48,7 @@ void DocumentManager::openFile() {
         m_ctx.tr("files.loadTitle"),
         "",
         ".bas",
-        "FreeBASIC files (*.bas;*.bi)|*.bas;*.bi|All files|*.*",
+        m_ctx.getConfigManager().filePatterns({ "freebasic", "all" }),
         wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE
     );
 
@@ -116,13 +117,8 @@ auto DocumentManager::saveFile(Document& doc) const -> bool {
 }
 
 auto DocumentManager::saveFileAs(Document& doc) const -> bool {
-    wxString filter;
-    if (doc.getType() == DocumentType::HTML) {
-        filter = "HTML files (*.html)|*.html";
-    } else {
-        filter = "FreeBASIC files (*.bas;*.bi)|*.bas;*.bi";
-    }
-    filter += "|All files|*.*";
+    const auto typeKey = doc.getType() == DocumentType::HTML ? "html" : "freebasic";
+    const auto filter = m_ctx.getConfigManager().filePatterns({ typeKey, "all" });
 
     wxFileDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
@@ -392,7 +388,7 @@ void DocumentManager::loadSession() {
         m_ctx.getUIManager().getMainFrame(),
         m_ctx.tr("files.loadTitle"),
         "", wxString(".") + SESSION_EXT,
-        "FBIde session files (*.fbs)|*.fbs",
+        m_ctx.getConfigManager().filePattern("session"),
         wxFD_FILE_MUST_EXIST
     );
     if (dlg.ShowModal() == wxID_OK) {
@@ -409,7 +405,7 @@ void DocumentManager::saveSession() {
         m_ctx.getUIManager().getMainFrame(),
         m_ctx.tr("files.sessionSaveTitle"),
         "", wxString(".") + SESSION_EXT,
-        "FBIde session files (*.fbs)|*.fbs",
+        m_ctx.getConfigManager().filePattern("session"),
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
     );
     if (dlg.ShowModal() != wxID_OK) {

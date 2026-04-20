@@ -4,8 +4,8 @@
 - [x] Upgrade app licence in the app to MIT
 - [x] Set windows binary details (description, name, version, copyright, etc.)
 - [x] Remove lexilla git submodule, instead copy only the headers we need directly into the project
-- [ ] Remove all unused langauge keys from both FBIde as well as language files
-- [ ] Add all new string literals in FBIde to Trans and language files
+- [x] Remove all unused langauge keys from both FBIde as well as language files
+- [x] Add all new string literals in FBIde to Trans and language files
 - [ ] Update translations
 
 ## Compiler Integration
@@ -51,12 +51,12 @@
 - [x] In the formatter, "Open in the browser" button sometimes does not appear
 - [x] Formatter: indent namespace ... end namespace
 - [x] Formatter: fails to handle "EXIT DO" when nested in a block properly.
-- [ ] Recent files seem to jump around in the menu, when new one is added.
+- [x] Recent files seem to jump around in the menu, when new one is added.
 
 ## Formatter
 
 - [ ] Indent initializer lists { ... } when spread over multiple lines with line continuations
-- [ ] Add support for `' format off` and `' format on` regions to disale/enable formatting (or with `rem format`)
+- [x] Add support for `' format off` and `' format on` regions to disale/enable formatting (or with `rem format`)
 
 # Editor
 

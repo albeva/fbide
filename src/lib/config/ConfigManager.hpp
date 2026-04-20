@@ -98,6 +98,21 @@ public:
     [[nodiscard]] auto layout()    -> Value& { return get(Category::Layout); }
 
     // -----------------------------------------------------------------------
+    // File dialog wildcard patterns
+    //
+    // Each platform-specific config file has a `[filePatterns]` section with
+    // named wildcard fragments (e.g. `freebasic`, `session`, `allFiles`).
+    // Dialog code looks up one or more by name and joins with `|`.
+    // -----------------------------------------------------------------------
+
+    /// Look up a single `[filePatterns]` entry. Returns "" if absent.
+    [[nodiscard]] auto filePattern(const wxString& key) -> wxString;
+
+    /// Join multiple `[filePatterns]` entries into one wxFileDialog
+    /// wildcard string. Missing or empty entries are skipped.
+    [[nodiscard]] auto filePatterns(std::initializer_list<std::string_view> keys) -> wxString;
+
+    // -----------------------------------------------------------------------
     // Theme (owned directly, not part of Value tree)
     // -----------------------------------------------------------------------
 

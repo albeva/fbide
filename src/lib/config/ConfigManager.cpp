@@ -237,6 +237,46 @@ auto ConfigManager::get(Category category) -> Value& {
     return entry.root;
 }
 
+namespace {
+/// Compose a wxFileDialog filter fragment from a description + glob:
+///     `<desc> (<glob>)|<glob>`
+/// Returns empty when `glob` is empty. Falls back to `key` for the
+/// description when the locale entry is missing so translation gaps
+/// are visible in the dialog.
+auto composeFilter(const wxString& key, const wxString& desc, const wxString& glob) -> wxString {
+    if (glob.IsEmpty()) {
+        return {};
+    }
+    const auto& label = desc.IsEmpty() ? key : desc;
+    return label + " (" + glob + ")|" + glob;
+}
+} // namespace
+
+auto ConfigManager::filePattern(const wxString& key) -> wxString {
+    const auto glob = config().at("filePatterns").get_or(key, "");
+    const auto desc = locale().at("filetypes").get_or(key, key);
+    return composeFilter(key, desc, glob);
+}
+
+auto ConfigManager::filePatterns(std::initializer_list<std::string_view> keys) -> wxString {
+    const auto& patterns = config().at("filePatterns");
+    const auto& filetypes = locale().at("filetypes");
+    wxString joined;
+    for (const auto sv : keys) {
+        const wxString key(sv.data(), sv.size());
+        const auto glob = patterns.get_or(key, "");
+        if (glob.IsEmpty()) {
+            continue;
+        }
+        const auto desc = filetypes.get_or(key, key);
+        if (!joined.IsEmpty()) {
+            joined += "|";
+        }
+        joined += composeFilter(key, desc, glob);
+    }
+    return joined;
+}
+
 // ---------------------------------------------------------------------------
 // Path handling
 // ---------------------------------------------------------------------------

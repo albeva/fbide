@@ -58,11 +58,7 @@ void CompilerPage::compilerPath() {
     btn->Bind(wxEVT_BUTTON, [&, tf](wxCommandEvent&) {
         wxFileDialog dlg(
             this, "Select compiler", "", "",
-#ifdef __WXMSW__
-            "FreeBASIC (fbc.exe)|fbc.exe|All programs (*.exe)|*.exe",
-#else
-            "All files (*)|*",
-#endif
+            getContext().getConfigManager().filePatterns({ "compiler", "all" }),
             wxFD_FILE_MUST_EXIST
         );
         if (dlg.ShowModal() == wxID_OK) {
@@ -86,7 +82,7 @@ void CompilerPage::helpFile() {
     btn->Bind(wxEVT_BUTTON, [&, tf](wxCommandEvent&) {
         wxFileDialog dlg(
             this, "Select help file", "", "",
-            "Help files (*.chm)|*.chm",
+            getContext().getConfigManager().filePattern("help"),
             wxFD_FILE_MUST_EXIST
         );
         if (dlg.ShowModal() == wxID_OK) {
