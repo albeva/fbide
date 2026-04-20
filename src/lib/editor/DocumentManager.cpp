@@ -64,6 +64,10 @@ void DocumentManager::openFile() {
 }
 
 auto DocumentManager::openFile(const wxString& filePath) -> Document* {
+    if (not wxFileExists(filePath)) {
+        return nullptr;
+    }
+
     // Session files are loaded separately
     if (wxFileName(filePath).GetExt() == SESSION_EXT) {
         loadSession(filePath);

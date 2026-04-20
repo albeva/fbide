@@ -93,7 +93,10 @@ void App::parseArgs(wxString& configFile, wxArrayString& filesToOpen) {
         } else if (arg == "--verbose") {
             wxLog::SetVerbose(true);
         } else if (!arg.StartsWith("-")) {
-            filesToOpen.Add(arg);
+            wxFileName fn(arg);
+            fn.Normalize(wxPATH_NORM_ENV_VARS | wxPATH_NORM_DOTS | wxPATH_NORM_TILDE | wxPATH_NORM_ABSOLUTE);
+            wxMessageBox(fn.GetAbsolutePath());
+            filesToOpen.Add(fn.GetAbsolutePath());
         }
     }
 }
