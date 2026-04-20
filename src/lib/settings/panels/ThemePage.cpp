@@ -138,6 +138,7 @@ void ThemePage::create() {
         separator();
         createRightPanel();
     });
+    SetSizerAndFit(currentSizer());
 
     updateTitle();
     loadCategory();
@@ -206,7 +207,8 @@ void ThemePage::createLeftPanel() {
     vbox({ .proportion = 2, .border = 0 }, [&] {
         m_lblFg = text(tr("foreground"), {});
         hbox({ .center = true, .border = 0 }, [&] {
-            m_chkInheritFg = checkBox(wxEmptyString, { .expand = false }, ID_CHK_INHERIT_FG);
+            m_chkInheritFg = make_unowned<wxCheckBox>(currentParent(), ID_CHK_INHERIT_FG, wxEmptyString);
+            currentSizer()->Add(m_chkInheritFg, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder());
             m_chkInheritFg->SetToolTip(inheritTip);
             m_btnFg = button(wxString {}, { .proportion = 1, .space = false }, ID_BTN_FG);
         });
@@ -216,7 +218,8 @@ void ThemePage::createLeftPanel() {
 
         m_lblBg = text(tr("background"), {});
         hbox({ .center = true, .border = 0 }, [&] {
-            m_chkInheritBg = checkBox(wxEmptyString, { .expand = false }, ID_CHK_INHERIT_BG);
+            m_chkInheritBg = make_unowned<wxCheckBox>(currentParent(), ID_CHK_INHERIT_BG, wxEmptyString);
+            currentSizer()->Add(m_chkInheritBg, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder());
             m_chkInheritBg->SetToolTip(inheritTip);
             m_btnBg = button(wxString {}, { .proportion = 1, .space = false }, ID_BTN_BG);
         });
@@ -417,9 +420,8 @@ void ThemePage::loadCategory() {
     if (cap.fontSize) {
         m_spinFontSize->SetValue(m_theme.getFontSize() > 0 ? m_theme.getFontSize() : 12);
     }
-    SetSizerAndFit(currentSizer());
+
     GetSizer()->Layout();
-    Update();
 }
 
 void ThemePage::saveCategory() {
