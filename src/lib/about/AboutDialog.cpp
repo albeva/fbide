@@ -59,7 +59,7 @@ void AboutDialog::create() {
 }
 
 auto AboutDialog::loadReadme() const -> wxString {
-    const auto readmePath = m_ctx.getConfigManager().absolute("IDE/readme.txt");
+    const auto readmePath = m_ctx.getConfigManager().absolute("ide/readme.txt");
     wxString content;
     wxFile file(readmePath);
     if (!file.IsOpened()) {
