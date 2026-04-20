@@ -38,7 +38,7 @@ void AsyncProcess::exec(
 }
 
 void AsyncProcess::kill() {
-    const auto pid = GetPid();
+    const auto pid = static_cast<int>(GetPid());
     if (pid == 0) {
         return;
     }

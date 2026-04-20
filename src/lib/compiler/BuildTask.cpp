@@ -301,7 +301,6 @@ auto BuildTask::getDocument() const -> Document* {
 void BuildTask::kill() {
     if (m_process != nullptr) {
         m_process->kill();
-        m_process = nullptr;
     }
 }
 
