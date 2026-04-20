@@ -122,7 +122,27 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
         }
     }
     if (m_ideDir.empty()) {
+#ifdef __WXOSX__
+        // Prefer bundle Resources when running inside a macOS .app
+        wxFileName appPathFn(m_appDir, "");
+        const auto& dirs = appPathFn.GetDirs();
+        if (!dirs.empty() && dirs.back() == "MacOS") {
+            appPathFn.RemoveLastDir(); // MacOS -> Contents
+            const wxString contentsDir = appPathFn.GetPath();
+            const wxString bundleIde = contentsDir + "/Resources/ide";
+            if (wxDirExists(bundleIde)) {
+                m_ideDir = bundleIde;
+            } else {
+                // Fallback if bundle layout not as expected
+                m_ideDir = m_appDir / "ide";
+            }
+        } else {
+            // Not in a bundle (e.g., running from build dir)
+            m_ideDir = m_appDir / "ide";
+        }
+#else
         m_ideDir = m_appDir / "ide";
+#endif
     }
     if (not wxDirExists(m_ideDir)) {
         wxLogError("ide config directory '%s' does not exist", m_ideDir);
