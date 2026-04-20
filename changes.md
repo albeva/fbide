@@ -15,6 +15,8 @@ Changes from fbide 0.4.5.
 - More keyword groups in settins
 - ASM syntax highlighting
 - Simplified Theme settings
+- Config file to modify sohrtcuts used by theh fbide
+- Config file to modify menu and toolbar layouts
 
 ## Removed options
 - `ActivePath` option has been removed. FBIde now always sets the working directory to the source file location when compiling or running.
@@ -28,3 +30,4 @@ Changes from fbide 0.4.5.
 - Compiler log is now a single persistent window that updates automatically after each compilation.
 - Compile command paths are quoted by default: `"<$fbc>" "<$file>"`.
 - Run command paths are quoted by default: `<$terminal> "<$file>" <$param>`.
+- Added toolbar button to kill running process
