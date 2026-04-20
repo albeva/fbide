@@ -8,6 +8,7 @@
 #include "pch.hpp"
 #include <span>
 #include "Token.hpp"
+#include "config/ThemeCategory.hpp"
 
 namespace fbide::lexer {
 
@@ -17,6 +18,50 @@ struct TokenInfo {
     KeywordKind keywordKind;
 };
 
+/// Which lexing context a keyword group applies to.
+enum class KeywordScope : std::uint8_t {
+    Code,         ///< Normal code (outside asm blocks)
+    Asm,          ///< Only inside `asm ... end asm`
+    Preprocessor, ///< Only on `#` directive lines (accepted for symmetry)
+};
+
+/// One keyword group: the word list, its TokenKind, and the scope it applies in.
+struct KeywordGroup {
+    wxString keywords;
+    TokenKind tokenKind = TokenKind::Identifier;
+    KeywordScope scope = KeywordScope::Code;
+};
+
+/// Map a ThemeCategory keyword group to the corresponding Lexer TokenKind.
+/// Non-keyword categories fall back to Identifier.
+constexpr auto tokenKindFor(const ThemeCategory cat) noexcept -> TokenKind {
+    switch (cat) {
+    case ThemeCategory::Keyword1:       return TokenKind::Keyword1;
+    case ThemeCategory::Keyword2:       return TokenKind::Keyword2;
+    case ThemeCategory::Keyword3:       return TokenKind::Keyword3;
+    case ThemeCategory::Keyword4:       return TokenKind::Keyword4;
+    case ThemeCategory::KeywordCustom1: return TokenKind::KeywordCustom1;
+    case ThemeCategory::KeywordCustom2: return TokenKind::KeywordCustom2;
+    case ThemeCategory::KeywordPP:      return TokenKind::KeywordPP;
+    case ThemeCategory::KeywordAsm1:    return TokenKind::KeywordAsm1;
+    case ThemeCategory::KeywordAsm2:    return TokenKind::KeywordAsm2;
+    default:                            return TokenKind::Identifier;
+    }
+}
+
+/// Map a ThemeCategory keyword group to the lexing scope it belongs to.
+constexpr auto scopeFor(const ThemeCategory cat) noexcept -> KeywordScope {
+    switch (cat) {
+    case ThemeCategory::KeywordAsm1:
+    case ThemeCategory::KeywordAsm2:
+        return KeywordScope::Asm;
+    case ThemeCategory::KeywordPP:
+        return KeywordScope::Preprocessor;
+    default:
+        return KeywordScope::Code;
+    }
+}
+
 /// Simple FreeBASIC lexer that tokenises source code.
 /// Operates on null-terminated UTF-8 input. Keywords, numbers, and operators
 /// are ASCII; UTF-8 multi-byte sequences are valid in identifiers, comments,
@@ -25,9 +70,12 @@ class Lexer final {
 public:
     NO_COPY_AND_MOVE(Lexer)
 
-    /// Construct with 4 keyword groups (whitespace-separated keyword strings).
-    /// Index 0 maps to TokenKind::Keyword1, index 3 to Keyword4.
-    explicit Lexer(std::span<const wxString> keywordGroups);
+    /// Construct from a set of keyword groups. Each group specifies its
+    /// TokenKind and the scope it applies in (Code / Asm / Preprocessor).
+    /// Inside an `asm ... end asm` block only Asm-scoped groups are consulted
+    /// for non-structural words; the structural `end`/`asm` pair is detected
+    /// through the Code-scoped lookup regardless.
+    explicit Lexer(std::span<const KeywordGroup> keywordGroups);
 
     /// Tokenise the given null-terminated UTF-8 source.
     [[nodiscard]] auto tokenise(const char* source) -> std::vector<Token>;
@@ -58,13 +106,20 @@ private:
     [[nodiscard]] auto stringLiteral(StringMode mode) -> Token;
     [[nodiscard]] auto preprocessor() -> Token;
     [[nodiscard]] auto number() -> Token;
-    [[nodiscard]] auto identifier() -> Token;
+    [[nodiscard]] auto identifier(bool firstOnLine) -> Token;
 
-    // Keyword classification
-    [[nodiscard]] auto classifyWord(std::string_view text) const -> TokenInfo;
+    /// Peek past whitespace/tabs on the current line; true when the next
+    /// word is `asm` followed by a non-identifier char. Used to detect
+    /// `end asm` while already positioned just after the `end` token.
+    [[nodiscard]] auto peekEndAsm() const -> bool;
 
-    // Keyword lookup table (built once)
-    std::unordered_map<std::string, TokenInfo> m_keywords;
+    // Per-scope keyword lookup tables (built once).
+    // Preprocessor scope is accepted and stored for API symmetry with the
+    // Scintilla lexer; token-level classification on `#` lines currently
+    // happens via the internal ppKeywords table in Lexer.cpp.
+    std::unordered_map<std::string, TokenInfo> m_codeKeywords;
+    std::unordered_map<std::string, TokenInfo> m_asmKeywords;
+    std::unordered_map<std::string, TokenInfo> m_ppKeywords;
 
     // Operator helpers
     [[nodiscard]] auto operatorToken(OperatorKind kind) -> Token;
@@ -75,6 +130,7 @@ private:
     const char* m_start = nullptr;
     bool m_atLineStart = true;
     bool m_canBeUnary = true; // true when next +/-/*/@  would be unary
+    bool m_inAsmBlock = false; // inside `asm ... end asm`
 };
 
 } // namespace fbide::lexer

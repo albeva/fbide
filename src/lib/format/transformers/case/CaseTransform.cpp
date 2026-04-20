@@ -10,10 +10,7 @@ using namespace fbide;
 namespace {
 
 auto isKeyword(const lexer::Token& tkn) -> bool {
-    return tkn.kind == lexer::TokenKind::Keyword1
-        || tkn.kind == lexer::TokenKind::Keyword2
-        || tkn.kind == lexer::TokenKind::Keyword3
-        || tkn.kind == lexer::TokenKind::Keyword4;
+    return lexer::isKeywordToken(tkn.kind);
 }
 
 auto asciiUpper(const char ch) -> char {

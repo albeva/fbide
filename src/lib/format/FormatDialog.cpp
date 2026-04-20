@@ -119,12 +119,16 @@ void FormatDialog::create() {
 
     // Tokenise source once (convert to UTF-8 for the lexer)
     if (m_buffer.length() > 0) {
-        const auto& groupsNode = m_ctx.getConfigManager().keywords().at("groups");
-        std::array<wxString, 4> groups;
-        for (std::size_t i = 0; i < 4; i++) {
-            wxString key;
-            key.Printf("group%zu", i + 1);
-            groups[i] = groupsNode.get_or(key, "");
+        const auto& keywords = m_ctx.getConfigManager().keywords();
+        std::vector<lexer::KeywordGroup> groups;
+        groups.reserve(kThemeKeywordCategories.size());
+        for (const auto cat : kThemeKeywordCategories) {
+            const auto key = getThemeCategoryName(cat);
+            groups.push_back({
+                keywords.get_or(wxString(key), ""),
+                lexer::tokenKindFor(cat),
+                lexer::scopeFor(cat),
+            });
         }
         lexer::Lexer lexer(groups);
         m_tokens = lexer.tokenise(m_buffer.data());

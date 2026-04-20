@@ -4,7 +4,7 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "analyses/lexer/Lexer.hpp"
+#include "TestHelpers.hpp"
 #include <gtest/gtest.h>
 
 using namespace fbide;
@@ -13,30 +13,12 @@ using lexer::Lexer;
 using lexer::Token;
 using lexer::TokenKind;
 
-namespace {
-auto loadKeywordGroups(const wxString& path) -> std::array<wxString, 4> {
-    std::array<wxString, 4> groups;
-    wxFFileInputStream stream(path);
-    if (!stream.IsOk()) {
-        return groups;
-    }
-    wxFileConfig ini(stream);
-    ini.SetPath("/keywords");
-    for (std::size_t i = 0; i < 4; i++) {
-        wxString key;
-        key.Printf("kw%zu", i + 1);
-        groups[i] = ini.Read(key, "");
-    }
-    return groups;
-}
-} // namespace
-
 class LexerTests : public testing::Test {
 protected:
     static inline const wxString testDataPath = FBIDE_TEST_DATA_DIR;
 
     void SetUp() override {
-        const auto groups = loadKeywordGroups(testDataPath + "fbfull.lng");
+        const auto groups = tests::loadKeywordGroups(testDataPath + "fbfull.lng");
         m_lexer = std::make_unique<Lexer>(groups);
     }
 

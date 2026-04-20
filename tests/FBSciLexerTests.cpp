@@ -23,8 +23,9 @@ protected:
         m_lexer->WordListSet(3, "__fb_version__");                                // Keyword4
         m_lexer->WordListSet(4, "");                                              // KeywordCustom1
         m_lexer->WordListSet(5, "");                                              // KeywordCustom2
-        m_lexer->WordListSet(6, "mov push pop ret jmp");                          // KeywordAsm1
-        m_lexer->WordListSet(7, "eax ebx ecx edx");                               // KeywordAsm2
+        m_lexer->WordListSet(6, "if ifdef ifndef else elseif endif macro endmacro"); // KeywordPP
+        m_lexer->WordListSet(7, "mov push pop ret jmp");                          // KeywordAsm1
+        m_lexer->WordListSet(8, "eax ebx ecx edx");                               // KeywordAsm2
     }
 
     void TearDown() override {
@@ -73,7 +74,6 @@ protected:
             table['8'] = S::KeywordAsm2;
             table['P'] = S::Operator;
             table['L'] = S::Label;
-            table['V'] = S::Constant;
             table['#'] = S::Preprocessor;
             table['E'] = S::Error;
             return table;
@@ -108,7 +108,6 @@ protected:
             table[+S::KeywordAsm2] = '8';
             table[+S::Operator] = 'P';
             table[+S::Label] = 'L';
-            table[+S::Constant] = 'V';
             table[+S::Preprocessor] = '#';
             table[+S::Error] = 'E';
             return table;

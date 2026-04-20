@@ -125,20 +125,27 @@ auto isRem(const std::string_view sv) -> bool {
 // Construction
 // ---------------------------------------------------------------------------
 
-Lexer::Lexer(std::span<const wxString> keywordGroups) {
-    constexpr TokenKind tokenKinds[] = {
-        TokenKind::Keyword1, TokenKind::Keyword2,
-        TokenKind::Keyword3, TokenKind::Keyword4
-    };
-    const auto count = std::min<std::size_t>(keywordGroups.size(), std::size(tokenKinds));
-    for (std::size_t i = 0; i < count; i++) {
-        wxStringTokenizer tokenizer(keywordGroups[i]);
+Lexer::Lexer(std::span<const KeywordGroup> keywordGroups) {
+    for (const auto& group : keywordGroups) {
+        auto& map = (group.scope == KeywordScope::Asm)          ? m_asmKeywords
+                  : (group.scope == KeywordScope::Preprocessor) ? m_ppKeywords
+                                                                : m_codeKeywords;
+        wxStringTokenizer tokenizer(group.keywords);
         while (tokenizer.HasMoreTokens()) {
             auto key = tokenizer.GetNextToken().ToStdString(wxConvUTF8);
             auto lower = toLower(key);
-            auto it = structuralKeywords.find(lower);
-            const auto kwKind = (it != structuralKeywords.end()) ? it->second : KeywordKind::Other;
-            m_keywords.emplace(std::move(lower), TokenInfo { tokenKinds[i], kwKind });
+            // Structural classification only applies inside the code scope.
+            // Asm / PP-group words are non-structural from the formatter's
+            // perspective (asm mnemonics are not block keywords, and PP
+            // structural classification lives in the hardcoded ppKeywords
+            // table consulted by preprocessor()).
+            auto kwKind = KeywordKind::Other;
+            if (group.scope == KeywordScope::Code) {
+                if (const auto it = structuralKeywords.find(lower); it != structuralKeywords.end()) {
+                    kwKind = it->second;
+                }
+            }
+            map.emplace(std::move(lower), TokenInfo { group.tokenKind, kwKind });
         }
     }
 }
@@ -152,6 +159,7 @@ auto Lexer::tokenise(const char* source) -> std::vector<Token> {
     m_start = source;
     m_atLineStart = true;
     m_canBeUnary = true;
+    m_inAsmBlock = false;
 
     std::vector<Token> tokens;
     // Estimate: one token per ~5 chars
@@ -218,9 +226,12 @@ auto Lexer::next() -> Token {
             return stringLiteral(StringMode::Normal);
         }
         // '$' is a word char — handle as identifier
-        m_atLineStart = false;
-        m_canBeUnary = false;
-        return identifier();
+        {
+            const bool firstOnLine = m_atLineStart;
+            m_atLineStart = false;
+            m_canBeUnary = false;
+            return identifier(firstOnLine);
+        }
 
     case '"':
         m_atLineStart = false;
@@ -382,10 +393,12 @@ auto Lexer::next() -> Token {
         return number();
 
     default:
-        m_atLineStart = false;
         if (isWordChar(ch)) {
-            return identifier();
+            const bool firstOnLine = m_atLineStart;
+            m_atLineStart = false;
+            return identifier(firstOnLine);
         }
+        m_atLineStart = false;
         // Unrecognised input
         advance();
         return makeToken(TokenKind::Invalid);
@@ -539,7 +552,7 @@ auto Lexer::number() -> Token {
     return makeToken(TokenKind::Number);
 }
 
-auto Lexer::identifier() -> Token {
+auto Lexer::identifier(const bool firstOnLine) -> Token {
     while (!atEnd() && isWordChar(current())) {
         advance();
     }
@@ -554,22 +567,43 @@ auto Lexer::identifier() -> Token {
         return makeToken(TokenKind::Comment);
     }
 
-    // Classify as keyword or identifier
-    const auto info = classifyWord(text);
+    const auto lower = toLower(text);
+    TokenInfo info { TokenKind::Identifier, KeywordKind::None };
+
+    if (m_inAsmBlock) {
+        // Inside asm: `end asm` at line start exits the block. The structural
+        // `end` classification lives in the Code-scoped map, so exit first
+        // then do the Code lookup below for `end` itself.
+        if (firstOnLine && lower == "end" && peekEndAsm()) {
+            m_inAsmBlock = false;
+        }
+        const auto& map = m_inAsmBlock ? m_asmKeywords : m_codeKeywords;
+        if (const auto it = map.find(lower); it != map.end()) {
+            info = it->second;
+        }
+    } else {
+        if (const auto it = m_codeKeywords.find(lower); it != m_codeKeywords.end()) {
+            info = it->second;
+        }
+        // `asm` at line start opens an asm block. Inline `asm "..."` forms
+        // (where `asm` is not first) do not open a block — matching FBSciLexer.
+        if (firstOnLine && info.keywordKind == KeywordKind::Asm) {
+            m_inAsmBlock = true;
+        }
+    }
+
     // After identifiers → binary. After keyword operators (And, Not, etc.) → unary.
     m_canBeUnary = (info.tokenKind != TokenKind::Identifier);
     return { info.tokenKind, info.keywordKind, OperatorKind::None, text };
 }
 
-// ---------------------------------------------------------------------------
-// Keyword classification
-// ---------------------------------------------------------------------------
-
-auto Lexer::classifyWord(const std::string_view text) const -> TokenInfo {
-    const auto key = toLower(text);
-    const auto it = m_keywords.find(key);
-    if (it != m_keywords.end()) {
-        return it->second;
+auto Lexer::peekEndAsm() const -> bool {
+    const auto* p = m_pos;
+    while (*p == ' ' || *p == '\t') {
+        p++;
     }
-    return { .tokenKind = TokenKind::Identifier, .keywordKind = KeywordKind::None };
+    if (asciiLower(p[0]) != 'a') return false;
+    if (asciiLower(p[1]) != 's') return false;
+    if (asciiLower(p[2]) != 'm') return false;
+    return !isWordChar(p[3]);
 }

@@ -10,11 +10,17 @@
 namespace fbide::lexer {
 
 /// Token types produced by the FreeBASIC lexer.
+/// Keyword* kinds mirror the keyword-group categories in ThemeCategory.
 enum class TokenKind {
-    Keyword1,           // keyword group 1
-    Keyword2,           // keyword group 2
-    Keyword3,           // keyword group 3
-    Keyword4,           // keyword group 4
+    Keyword1,           // keyword group 1 (code scope)
+    Keyword2,           // keyword group 2 (code scope)
+    Keyword3,           // keyword group 3 (code scope)
+    Keyword4,           // keyword group 4 (code scope)
+    KeywordCustom1,     // user-defined keywords (code scope)
+    KeywordCustom2,     // user-defined keywords (code scope)
+    KeywordPP,          // preprocessor-scoped keyword group
+    KeywordAsm1,        // asm-block-scoped keyword group 1
+    KeywordAsm2,        // asm-block-scoped keyword group 2
     Comment,            // ' single-line comment
     CommentBlock,       // /' nested multi-line comment '/
     String,             // "double-quoted string"
@@ -27,6 +33,29 @@ enum class TokenKind {
     Newline,            // line break
     Invalid,            // unrecognised input
 };
+
+/// True when `kind` is any of the keyword-group token kinds (excludes Identifier).
+constexpr auto isKeywordToken(const TokenKind kind) noexcept -> bool {
+    switch (kind) {
+    case TokenKind::Keyword1:
+    case TokenKind::Keyword2:
+    case TokenKind::Keyword3:
+    case TokenKind::Keyword4:
+    case TokenKind::KeywordCustom1:
+    case TokenKind::KeywordCustom2:
+    case TokenKind::KeywordPP:
+    case TokenKind::KeywordAsm1:
+    case TokenKind::KeywordAsm2:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/// True when `kind` is word-shaped: Identifier or any keyword kind.
+constexpr auto isWordLike(const TokenKind kind) noexcept -> bool {
+    return kind == TokenKind::Identifier || isKeywordToken(kind);
+}
 
 /// Structural keyword classification for autoindent and formatting.
 enum class KeywordKind {

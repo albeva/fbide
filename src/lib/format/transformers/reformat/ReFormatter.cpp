@@ -365,15 +365,8 @@ auto ReFormatter::isBodyDefinition() const -> bool {
         // or '(' means a name follows — this is a body definition. The name
         // may shadow a keyword (e.g. `Function Add(...)`), so accept any
         // Keyword1-4 here as well as Identifier.
-        switch (tkn.kind) {
-        case TokenKind::Identifier:
-        case TokenKind::Keyword1:
-        case TokenKind::Keyword2:
-        case TokenKind::Keyword3:
-        case TokenKind::Keyword4:
+        if (isWordLike(tkn.kind)) {
             return true;
-        default:
-            break;
         }
         if (tkn.operatorKind == OperatorKind::ParenOpen) {
             return true;
