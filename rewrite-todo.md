@@ -54,6 +54,7 @@
 - [x] Recent files seem to jump around in the menu, when new one is added.
 - [x] Resized dialog causes broken layout in theme panel.
 - [ ] Opening non-existing file seems to break document loading, leaving with unattached editor hanging.
+- [ ] On linux, the wxStaticBoxSizer does not pad its content (wxGTK issue?)
 
 ## Formatter
 
