@@ -417,7 +417,7 @@ void ThemePage::loadCategory() {
     if (cap.fontSize) {
         m_spinFontSize->SetValue(m_theme.getFontSize() > 0 ? m_theme.getFontSize() : 12);
     }
-
+    SetSizerAndFit(currentSizer());
     GetSizer()->Layout();
     Update();
 }

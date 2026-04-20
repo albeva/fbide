@@ -13,7 +13,7 @@ using namespace fbide;
 
 CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent) {
-    auto& cfg = getContext().getConfigManager().config();
+    const auto& cfg = getContext().getConfigManager().config();
     const auto& compiler = cfg.at("compiler");
     m_compilerPath   = compiler.get_or("path",           "");
     m_compileCommand = compiler.get_or("compileCommand", "");
@@ -35,6 +35,7 @@ void CompilerPage::create() {
         helpFile();
 #endif
     });
+    SetSizerAndFit(currentSizer());
 }
 
 void CompilerPage::apply() {

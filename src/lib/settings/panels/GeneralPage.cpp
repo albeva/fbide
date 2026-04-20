@@ -70,6 +70,8 @@ void GeneralPage::create() {
             choice(m_language, names, { .expand = false })->SetMinSize(wxSize(200, -1));
         });
     });
+
+    SetSizerAndFit(currentSizer());
 }
 
 void GeneralPage::apply() {

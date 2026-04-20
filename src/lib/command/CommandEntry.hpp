@@ -35,7 +35,7 @@ struct CommandEntry final {
     template<typename T>
     void remove() {
         auto it = std::ranges::find_if(binds, [](const T& x) {
-            return std::holds_alternative<T*>(bind);
+            return std::holds_alternative<T*>(x);
         });
 
         if (it != binds.end()) {

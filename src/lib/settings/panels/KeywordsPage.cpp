@@ -48,6 +48,7 @@ void KeywordsPage::create() {
 
     add(m_textKeywords, { .proportion = 1 });
     spacer();
+    SetSizerAndFit(currentSizer());
 }
 
 void KeywordsPage::apply() {

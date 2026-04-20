@@ -124,5 +124,5 @@ else ()
 endif ()
 
 # precompile header
-target_include_directories(fbide_lib PRIVATE "${CMAKE_BINARY_DIR}/configured_files/include")
+target_include_directories(fbide_lib PUBLIC "${CMAKE_BINARY_DIR}/configured_files/include")
 target_precompile_headers(fbide_lib PUBLIC pch.hpp)

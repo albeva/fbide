@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include <cmake/config.hpp>
+#include "cmake/config.hpp"
 
 namespace fbide {
 

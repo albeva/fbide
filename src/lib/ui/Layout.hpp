@@ -65,7 +65,6 @@ public:
     explicit Layout(Args&&... args)
     : Base(std::forward<Args>(args)...) {
         m_currentSizer = make_unowned<wxBoxSizer>(wxVERTICAL);
-        Base::SetSizerAndFit(m_currentSizer);
     }
 
     static auto defaultBorder() -> int {
