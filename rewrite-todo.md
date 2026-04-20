@@ -71,7 +71,7 @@
 
 # General
 
-- [ ] Add stop/kill button that terminates running app/compile process
+- [x] Add stop/kill button that terminates running app/compile process
 - [x] Do not clear clipboard when quitting FBIde
 - [x] Use file pattern allowing all supported files to be open in file open dialog
 - [ ] Review & update all defined keywords to match latest version of FreeBASIC

@@ -17,6 +17,7 @@ Changes from fbide 0.4.5.
 - Simplified Theme settings
 - Config file to modify sohrtcuts used by theh fbide
 - Config file to modify menu and toolbar layouts
+- List useful linkes in the Help menu
 
 ## Removed options
 - `ActivePath` option has been removed. FBIde now always sets the working directory to the source file location when compiling or running.
