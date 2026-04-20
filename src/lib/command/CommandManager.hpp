@@ -106,8 +106,6 @@ private:
 
     // Help
     void onHelp(wxCommandEvent& event);
-    void onQuickKeys(wxCommandEvent& event);
-    void onReadMe(wxCommandEvent& event);
     void onAbout(wxCommandEvent& event);
 
     Context& m_ctx;

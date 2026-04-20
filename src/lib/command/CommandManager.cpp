@@ -78,8 +78,6 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
 
     // Help
     EVT_MENU(+CommandId::Help,      CommandManager::onHelp)
-    EVT_MENU(+CommandId::QuickKeys, CommandManager::onQuickKeys)
-    EVT_MENU(+CommandId::ReadMe,    CommandManager::onReadMe)
     EVT_MENU(+CommandId::About,     CommandManager::onAbout)
 wxEND_EVENT_TABLE()
 // clang-format on
@@ -121,11 +119,9 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .id = +CommandId::Parameters,       .name="parameters" },
         CommandEntry { .id = +CommandId::Paste,            .name="paste" },
         CommandEntry { .id = +CommandId::Preferences,      .name="settings" },
-        CommandEntry { .id = +CommandId::QuickKeys,        .name="quickKeys" },
         CommandEntry { .id = +CommandId::QuickRun,         .name="quickRun" },
         CommandEntry { .id = +CommandId::KillProcess,      .name="killProcess" },
         CommandEntry { .id = +CommandId::Quit,             .name="quit"  },
-        CommandEntry { .id = +CommandId::ReadMe,           .name="readMe" },
         CommandEntry { .id = +CommandId::RecentFiles,      .name="recentFiles", .kind = wxITEM_DROPDOWN },
         CommandEntry { .id = +CommandId::ClearRecentFiles, .name="clearRecentFiles" },
         CommandEntry { .id = +CommandId::Redo,             .name="redo" },
@@ -387,16 +383,6 @@ void CommandManager::onParameters(wxCommandEvent&) {
 
 void CommandManager::onHelp(wxCommandEvent&) {
     m_ctx.getHelpManager().open();
-}
-
-void CommandManager::onQuickKeys(wxCommandEvent&) {
-    const auto path = m_ctx.getConfigManager().absolute("IDE/quickkeys.txt");
-    m_ctx.getDocumentManager().openFile(path);
-}
-
-void CommandManager::onReadMe(wxCommandEvent&) {
-    const auto path = m_ctx.getConfigManager().absolute("IDE/readme.txt");
-    m_ctx.getDocumentManager().openFile(path);
 }
 
 void CommandManager::onAbout(wxCommandEvent&) {

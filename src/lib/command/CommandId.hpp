@@ -59,9 +59,7 @@ enum class CommandId : wxWindowID {
     KillProcess,
     CmdPrompt,
     Parameters,
-    ShowExitCode,
-    QuickKeys,
-    ReadMe,
+    ShowExitCode
 };
 FBIDE_INLINE static constexpr auto operator+(const CommandId& rhs) -> wxWindowID {
     return static_cast<wxWindowID>(rhs);
