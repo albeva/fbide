@@ -12,12 +12,13 @@ Changes from fbide 0.4.5.
 - Line numbers margin now zooms with font size changes.
 - FBIde validates chm files, if they are locked, show a dialog with instructions and a link for more info
 - If no local CHM file found, or when on non Windows platform, open freebasic wiki page instead.
-- More keyword groups in settins
-- ASM syntax highlighting
+- Added More keyword groups in settings
+- Added ASM syntax highlighting
 - Simplified Theme settings
-- Config file to modify sohrtcuts used by theh fbide
-- Config file to modify menu and toolbar layouts
-- List useful linkes in the Help menu
+- Added config file for shortcuts
+- Added Config file for menu and toolbar layouts
+- Added useful linkes in the Help menu
+- Added support for INI (and other fbide config files) files
 
 ## Removed options
 - `ActivePath` option has been removed. FBIde now always sets the working directory to the source file location when compiling or running.
