@@ -73,6 +73,7 @@ private:
     void applyStyle(int stcId, const Theme::Entry& style, const Theme& theme);
     void applyFreebasicTheme();
     void applyHtmlTheme();
+    void applyPropertiesTheme();
     void applyTextTheme();
     void updateLineNumberMarginWidth();
 

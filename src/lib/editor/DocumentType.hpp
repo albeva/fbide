@@ -11,9 +11,10 @@ namespace fbide {
 
 /// Document type determines lexer and syntax highlighting behaviour.
 enum class DocumentType {
-    FreeBASIC, // .bas, .bi — FreeBASIC lexer with keyword groups
-    HTML,      // .html, .htm — HTML lexer
-    Text,      // .txt and anything else — no lexer
+    FreeBASIC,  // .bas, .bi — FreeBASIC lexer with keyword groups
+    HTML,       // .html, .htm — HTML lexer
+    Properties, // .ini, old fbide config files
+    Text,       // .txt and anything else — no lexer
 };
 
 /// Determine document type from file path extension.

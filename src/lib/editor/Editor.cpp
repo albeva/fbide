@@ -185,6 +185,9 @@ void Editor::applyTheme() {
         case DocumentType::HTML:
             applyHtmlTheme();
             break;
+        case DocumentType::Properties:
+            applyPropertiesTheme();
+            break;
         case DocumentType::Text:
             applyTextTheme();
             break;
@@ -242,6 +245,17 @@ void Editor::applyHtmlTheme() {
     applyStyle(wxSTC_H_COMMENT, theme.get(ThemeCategory::Comment), theme);
     applyStyle(wxSTC_H_ENTITY, theme.get(ThemeCategory::Keyword3), theme);
     applyStyle(wxSTC_H_OTHER, theme.get(ThemeCategory::Keyword4), theme);
+}
+
+void Editor::applyPropertiesTheme() {
+    const auto& theme = m_ctx.getTheme();
+    SetLexer(wxSTC_LEX_PROPERTIES);
+    applyStyle(wxSTC_PROPS_DEFAULT, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_PROPS_COMMENT, theme.get(ThemeCategory::Comment), theme);
+    applyStyle(wxSTC_PROPS_SECTION, theme.get(ThemeCategory::Preprocessor), theme);
+    applyStyle(wxSTC_PROPS_ASSIGNMENT, theme.get(ThemeCategory::Operator), theme);
+    applyStyle(wxSTC_PROPS_DEFVAL, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_PROPS_KEY, theme.get(ThemeCategory::Keyword1), theme);
 }
 
 void Editor::applyTextTheme() {

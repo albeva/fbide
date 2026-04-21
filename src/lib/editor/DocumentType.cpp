@@ -16,6 +16,9 @@ auto documentTypeFromPath(const wxString& path) -> DocumentType {
     if (ext == "html" || ext == "htm") {
         return DocumentType::HTML;
     }
+    if (ext == "ini" || ext == "fbt" || ext == "lng" || ext == "fbl") {
+        return DocumentType::Properties;
+    }
     return DocumentType::Text;
 }
 
