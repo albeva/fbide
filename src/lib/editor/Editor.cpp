@@ -30,10 +30,10 @@ auto isBrace(const int ch) -> bool {
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
-    EVT_STC_MARGINCLICK (wxID_ANY,  Editor::onMarginClick)
-    EVT_STC_MODIFIED(wxID_ANY,      Editor::onModified)
-    EVT_STC_UPDATEUI(wxID_ANY,      Editor::onUpdateUI)
-    EVT_STC_ZOOM(wxID_ANY,          Editor::onZoom)
+    EVT_STC_MARGINCLICK (wxID_ANY,       Editor::onMarginClick)
+    EVT_STC_MODIFIED(wxID_ANY,           Editor::onModified)
+    EVT_STC_UPDATEUI(wxID_ANY,           Editor::onUpdateUI)
+    EVT_STC_ZOOM(wxID_ANY,               Editor::onZoom)
     EVT_SET_FOCUS(Editor::onFocus)
 wxEND_EVENT_TABLE()
 // clang-format on
@@ -58,6 +58,7 @@ void Editor::applyEditorSettings() {
     const auto& editor = m_ctx.getConfigManager().config().at("editor");
     const auto tabSize = editor.get_or("tabSize", 4);
 
+    UsePopUp(wxSTC_POPUP_TEXT);
     SetTabWidth(tabSize);
     SetUseTabs(false);
     SetTabIndents(true);
