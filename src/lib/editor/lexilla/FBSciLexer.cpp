@@ -568,7 +568,7 @@ void FBSciLexer::lexPreprocessor() noexcept {
         if (m_wordLists[pp].InList(m_identBuffer.data())) {
             m_sc->ChangeState(+kThemeKeywordCategories[pp]);
         }
-        m_sc->SetState(+ThemeCategory::Preprocessor);
+        m_sc->SetState(m_sc->atLineEnd ? +ThemeCategory::Default : +ThemeCategory::Preprocessor);
     }
 }
 
@@ -665,7 +665,7 @@ auto foldableMultilineCommentOpener(Lexilla::LexAccessor& styler, const Sci_Posi
 auto computeFoldIndent(Lexilla::LexAccessor& styler, const Sci_Position line) -> int {
     bool blank = false;
     const int indent = computeLineIndent(styler, line, blank);
-    int level = SC_FOLDLEVELBASE + indent;
+    const int level = SC_FOLDLEVELBASE + indent;
     if (blank) {
         return level | SC_FOLDLEVELWHITEFLAG;
     }

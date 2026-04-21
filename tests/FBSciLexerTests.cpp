@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "editor/lexilla/FBSciLexer.hpp"
+#include "Scintilla.h"
 #include "TestDocument.h"
 #include <gtest/gtest.h>
 
@@ -132,6 +133,31 @@ protected:
         auto expected = expect(pattern);
         EXPECT_EQ(format(actual), pattern)
             << "Source: \"" << source << "\"";
+    }
+
+    /// Lex and fold the source, returning a per-line fold summary joined by '|'.
+    /// Each line is rendered as "<level>[H][W]" where level is indent columns
+    /// relative to SC_FOLDLEVELBASE, H = SC_FOLDLEVELHEADERFLAG, W = SC_FOLDLEVELWHITEFLAG.
+    auto fold(const std::string& source) -> std::string {
+        m_doc.Set(source);
+        m_lexer->Lex(0, m_doc.Length(), +S::Default, &m_doc);
+        m_lexer->Fold(0, m_doc.Length(), +S::Default, &m_doc);
+
+        std::string result;
+        for (Sci_Position line = 0; line < m_doc.MaxLine(); line++) {
+            const int level = m_doc.GetLevel(line);
+            if (!result.empty()) {
+                result += '|';
+            }
+            result += std::to_string((level & SC_FOLDLEVELNUMBERMASK) - SC_FOLDLEVELBASE);
+            if (level & SC_FOLDLEVELHEADERFLAG) {
+                result += 'H';
+            }
+            if (level & SC_FOLDLEVELWHITEFLAG) {
+                result += 'W';
+            }
+        }
+        return result;
     }
 
     Scintilla::ILexer5* m_lexer = nullptr;
@@ -398,6 +424,77 @@ TEST_F(FBSciLexerTests, LineContinuation) {
     expectStyles(
         "dim _\nx as integer ",
         "111 C I 11 2222222 "
+    );
+}
+
+// endregion
+
+// region ---------- Folding ----------
+
+TEST_F(FBSciLexerTests, FoldFlatNoHeader) {
+    EXPECT_EQ(fold("dim x\ndim y\n"), "0|0");
+}
+
+TEST_F(FBSciLexerTests, FoldIndentOpensFold) {
+    EXPECT_EQ(
+        fold("sub foo()\n    dim x\nend sub\n"),
+        "0H|4|0"
+    );
+}
+
+TEST_F(FBSciLexerTests, FoldNestedBlocks) {
+    EXPECT_EQ(
+        fold("sub foo()\n    if x then\n        dim y\n    end if\nend sub\n"),
+        "0H|4H|8|4|0"
+    );
+}
+
+TEST_F(FBSciLexerTests, FoldBlankLineInheritsAndPermitsHeader) {
+    // Blank line gets WHITEFLAG; header detection looks past it to line 2.
+    EXPECT_EQ(
+        fold("sub foo()\n\n    dim x\nend sub\n"),
+        "0H|0W|4|0"
+    );
+}
+
+TEST_F(FBSciLexerTests, FoldTabIndentRoundsToEight) {
+    // Single leading tab rounds to column 8.
+    EXPECT_EQ(
+        fold("sub foo()\n\tdim x\nend sub\n"),
+        "0H|8|0"
+    );
+}
+
+TEST_F(FBSciLexerTests, FoldMultilineCommentBlockFoldsWhenPure) {
+    // Opener on its own line, body all comment, closer alone -> one fold.
+    EXPECT_EQ(
+        fold("/' comment\n   inside\n   '/\ndim x\n"),
+        "0H|1|1|0"
+    );
+}
+
+TEST_F(FBSciLexerTests, FoldMultilineCommentOpenerAfterCodeDoesNotFold) {
+    // Opener line has code before `/'` so the block must not fold.
+    EXPECT_EQ(
+        fold("x = 1 /' comment\ninside '/ dim y\n"),
+        "0|0"
+    );
+}
+
+TEST_F(FBSciLexerTests, FoldSingleLineMultilineCommentNoFold) {
+    // `/' ... '/` on a single line: pure ML but no continuation, so no fold.
+    EXPECT_EQ(
+        fold("/' inline '/\ndim x\n"),
+        "0|0"
+    );
+}
+
+TEST_F(FBSciLexerTests, FoldIndentedMultilineCommentBlock) {
+    // Opener indented; continuation line has zero indent. Fold level for
+    // continuation must still exceed the opener so the fold is valid.
+    EXPECT_EQ(
+        fold("    /' start\ncontinuation\n    '/\n"),
+        "4H|5|5"
     );
 }
 
