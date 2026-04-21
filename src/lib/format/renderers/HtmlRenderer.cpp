@@ -64,10 +64,13 @@ auto escapeHtml(std::string_view text) -> std::string {
 } // namespace
 
 auto HtmlRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxString {
-    const auto& defaultColors = m_theme.get(ThemeCategory::Default).colors;
+    const auto& defaultBg = m_theme.background({});
+    const auto& defaultFg = m_theme.foreground({});
     std::string output;
     output.reserve(getSizeHint() + tokens.size() * 50); // html needs lot of markup
-    output += "<pre>";
+
+    output += "<pre style=\"background:" + hexColour(defaultBg)
+           + ";color:" + hexColour(defaultFg) + "\">";
 
     for (const auto& tok : tokens) {
         const auto escaped = escapeHtml(tok.text);
@@ -78,9 +81,8 @@ auto HtmlRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxSt
         }
 
         const auto& style = m_theme.get(tokenToCategory(tok.kind));
-        const auto colour = hexColour(style.colors.foreground.IsOk() ? style.colors.foreground : defaultColors.foreground);
-
-        std::string css = "color:" + colour;
+        std::string css = "color:" + hexColour(m_theme.foreground(style.colors.foreground))
+                        + ";background:" + hexColour(m_theme.background(style.colors.background));
         if (style.bold) {
             css += ";font-weight:bold";
         }
@@ -98,7 +100,7 @@ auto HtmlRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxSt
     return wxString::FromUTF8(output);
 }
 
-auto HtmlRenderer::decorate(const wxString& rendered)-> wxString {
+auto HtmlRenderer::decorate(const wxString& rendered) -> wxString {
     wxString output;
     output += "<!DOCTYPE html>\n<html>\n<head>\n";
     output += "<meta charset=\"utf-8\">\n";
