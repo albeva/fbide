@@ -47,6 +47,7 @@ Editor::Editor(wxWindow* parent, Context& ctx, const DocumentType type, const bo
 }
 
 void Editor::applySettings() {
+    StyleClearAll();
     applyEditorSettings();
     defineFoldMargins();
     applyTheme();
@@ -84,7 +85,7 @@ void Editor::applyEditorSettings() {
 
     SetEdgeColumn(editor.get_or("edgeColumn", 80));
     SetViewEOL(editor.get_or("displayEOL", false));
-    SetIndentationGuides(editor.get_or("indentGuide", false));
+    SetIndentationGuides(editor.get_or("indentGuide", false) ? wxSTC_IV_LOOKFORWARD : wxSTC_IV_NONE);
     SetEdgeMode(editor.get_or("longLine", false) ? wxSTC_EDGE_LINE : wxSTC_EDGE_NONE);
     SetViewWhiteSpace(editor.get_or("whiteSpace", false) ? wxSTC_WS_VISIBLEALWAYS : wxSTC_WS_INVISIBLE);
 
@@ -106,33 +107,32 @@ void Editor::selectLine() {
 
 void Editor::defineFoldMargins() {
     const auto& editor = m_ctx.getConfigManager().config().at("editor");
-
-    // Fold margin
-    if (editor.get_or("folderMargin", false)) {
-        SetMarginType(+Margins::Fold, wxSTC_MARGIN_SYMBOL);
-        SetMarginMask(+Margins::Fold, static_cast<int>(wxSTC_MASK_FOLDERS));
-        SetMarginWidth(+Margins::Fold, 16);
-        SetMarginSensitive(+Margins::Fold, true);
-
-        const auto& theme = m_ctx.getTheme();
-        const auto foldFg = theme.foreground(theme.getFoldMargin().foreground);
-        const auto foldBg = theme.foreground(theme.getFoldMargin().background);
-
-        SetFoldFlags(wxSTC_FOLDFLAG_LINEAFTER_CONTRACTED);
-        MarkerDefine(wxSTC_MARKNUM_FOLDER, wxSTC_MARK_BOXPLUS, foldBg, foldFg);
-        MarkerDefine(wxSTC_MARKNUM_FOLDEREND, wxSTC_MARK_BOXPLUSCONNECTED, foldBg, foldFg);
-        MarkerDefine(wxSTC_MARKNUM_FOLDERMIDTAIL, wxSTC_MARK_TCORNER, foldBg, foldFg);
-        MarkerDefine(wxSTC_MARKNUM_FOLDEROPEN, wxSTC_MARK_BOXMINUS, foldBg, foldFg);
-        MarkerDefine(wxSTC_MARKNUM_FOLDEROPENMID, wxSTC_MARK_BOXMINUSCONNECTED, foldBg, foldFg);
-        MarkerDefine(wxSTC_MARKNUM_FOLDERSUB, wxSTC_MARK_VLINE, foldBg, foldFg);
-        MarkerDefine(wxSTC_MARKNUM_FOLDERTAIL, wxSTC_MARK_LCORNER, foldBg, foldFg);
-
-        SetMarginBackground(+Margins::Fold, foldBg);
-        SetFoldMarginColour(true, foldBg);
-        SetFoldMarginHiColour(true, foldBg);
-
-        StyleSetForeground(wxSTC_STYLE_INDENTGUIDE, wxColour(80, 80, 80));
+    if (not editor.get_or("folderMargin", false)) {
+        return;
     }
+
+    SetMarginType(+Margins::Fold, wxSTC_MARGIN_SYMBOL);
+    SetMarginMask(+Margins::Fold, static_cast<int>(wxSTC_MASK_FOLDERS));
+    SetMarginWidth(+Margins::Fold, 16);
+    SetMarginSensitive(+Margins::Fold, true);
+
+    const auto& theme = m_ctx.getTheme();
+    const auto foldFg = theme.foreground(theme.getFoldMargin().foreground);
+    const auto foldBg = theme.foreground(theme.getFoldMargin().background);
+
+    SetFoldFlags(wxSTC_FOLDFLAG_LINEAFTER_CONTRACTED);
+    MarkerDefine(wxSTC_MARKNUM_FOLDER, wxSTC_MARK_BOXPLUS, foldBg, foldFg);
+    MarkerDefine(wxSTC_MARKNUM_FOLDEREND, wxSTC_MARK_BOXPLUSCONNECTED, foldBg, foldFg);
+    MarkerDefine(wxSTC_MARKNUM_FOLDERMIDTAIL, wxSTC_MARK_TCORNER, foldBg, foldFg);
+    MarkerDefine(wxSTC_MARKNUM_FOLDEROPEN, wxSTC_MARK_BOXMINUS, foldBg, foldFg);
+    MarkerDefine(wxSTC_MARKNUM_FOLDEROPENMID, wxSTC_MARK_BOXMINUSCONNECTED, foldBg, foldFg);
+    MarkerDefine(wxSTC_MARKNUM_FOLDERSUB, wxSTC_MARK_VLINE, foldBg, foldFg);
+    MarkerDefine(wxSTC_MARKNUM_FOLDERTAIL, wxSTC_MARK_LCORNER, foldBg, foldFg);
+
+    SetMarginBackground(+Margins::Fold, foldBg);
+    SetFoldMarginColour(true, foldBg);
+    SetFoldMarginHiColour(true, foldBg);
+    SetProperty("fold", "1");
 }
 
 void Editor::applyTheme() {
@@ -152,9 +152,8 @@ void Editor::applyTheme() {
     StyleSetForeground(wxSTC_STYLE_DEFAULT, defaultColors.foreground);
     StyleSetBackground(wxSTC_STYLE_DEFAULT, defaultColors.background);
     StyleSetFont(wxSTC_STYLE_DEFAULT, defaultFont);
-
-    // Propagate default style to all styles before applying overrides
-    StyleClearAll();
+    StyleSetBackground(wxSTC_STYLE_INDENTGUIDE, defaultColors.background);
+    StyleSetForeground(wxSTC_STYLE_INDENTGUIDE, theme.getSeparator());
 
     // Line numbers
     const auto& lineNum = theme.getLineNumber();
@@ -171,19 +170,11 @@ void Editor::applyTheme() {
     SetSelBackground(true, theme.background(sel.background));
 
     // Brace matching
-    const auto& brace = theme.getBrace();
-    StyleSetForeground(wxSTC_STYLE_BRACELIGHT, theme.foreground(brace.colors.foreground));
-    StyleSetBackground(wxSTC_STYLE_BRACELIGHT, theme.background(brace.colors.background));
-    StyleSetBold(wxSTC_STYLE_BRACELIGHT, brace.bold);
-    StyleSetItalic(wxSTC_STYLE_BRACELIGHT, brace.italic);
-    StyleSetUnderline(wxSTC_STYLE_BRACELIGHT, brace.underlined);
+    applyStyle(wxSTC_STYLE_BRACELIGHT, theme.getBrace(), theme);
+    applyStyle(wxSTC_STYLE_BRACEBAD, theme.getBadBrace(), theme);
 
-    const auto& badBrace = theme.getBadBrace();
-    StyleSetForeground(wxSTC_STYLE_BRACEBAD, theme.foreground(badBrace.colors.foreground));
-    StyleSetBackground(wxSTC_STYLE_BRACEBAD, theme.background(badBrace.colors.background));
-    StyleSetBold(wxSTC_STYLE_BRACEBAD, badBrace.bold);
-    StyleSetItalic(wxSTC_STYLE_BRACEBAD, badBrace.italic);
-    StyleSetUnderline(wxSTC_STYLE_BRACEBAD, badBrace.underlined);
+    // separator lines
+    SetEdgeColour(theme.foreground(theme.getSeparator()));
 
     if (m_ctx.getConfigManager().config().get_or("editor.syntaxHighlight", true)) {
         switch (m_docType) {

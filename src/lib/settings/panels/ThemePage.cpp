@@ -90,6 +90,7 @@ wxBEGIN_EVENT_TABLE(ThemePage, Panel)
     EVT_CHECKBOX(ThemePage::ID_CHK_INHERIT_BG,  ThemePage::onInheritBgToggle)
     EVT_BUTTON  (ThemePage::ID_BTN_FG,          ThemePage::onFgClick)
     EVT_BUTTON  (ThemePage::ID_BTN_BG,          ThemePage::onBgClick)
+    EVT_BUTTON  (ThemePage::ID_BTN_SEPARATOR,   ThemePage::onSeparatorClick)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -170,34 +171,16 @@ void ThemePage::createTopRow() {
 }
 
 void ThemePage::createCategoryList() {
-    struct Row {
-        SettingsCategory cat;
-        wxString label;
-    };
-    std::array<Row, kSettingsCategoryCount - 1> rows;
     wxArrayString displayNames;
     displayNames.reserve(kSettingsCategoryCount);
 
-    std::size_t index = 0;
     for (const auto cat : kSettingsCategories) {
         const auto key = "categories." + lowerFirst(getSettingsCategoryName(cat));
         auto label = tr(key);
         if (label.empty()) {
             label = getSettingsCategoryName(cat);
         }
-        if (cat == SettingsCategory::Default) {
-            displayNames.Add(std::move(label));
-            m_categoryOrder[0] = cat;
-        } else {
-            rows[index].cat = cat;
-            rows[index].label = std::move(label);
-            index++;
-        }
-    }
-
-    for (std::size_t i = 1; i < rows.size(); i++) {
-        displayNames.Add(rows[i].label);
-        m_categoryOrder[i] = rows[i].cat;
+        displayNames.Add(label);
     }
 
     m_typeList = make_unowned<wxListBox>(currentParent(), ID_CATEGORY_LIST, wxDefaultPosition, wxSize(160, 240), displayNames);
@@ -229,6 +212,12 @@ void ThemePage::createLeftPanel() {
             m_btnBg = button(wxString {}, { .proportion = 1, .space = false }, ID_BTN_BG);
         });
         connect(m_lblBg, m_btnBg);
+
+        spacer();
+
+        m_lblSeparator = text(tr("separator"), {});
+        m_separatorBtn = button(wxString {}, {}, ID_BTN_SEPARATOR);
+        connect(m_lblSeparator, m_separatorBtn);
 
         spacer();
 
@@ -284,7 +273,7 @@ void ThemePage::onInheritFgToggle(wxCommandEvent&) {
     if (m_chkInheritFg->GetValue()) {
         m_btnFg->SetBackgroundColour(m_theme.get(ThemeCategory::Default).colors.foreground);
     } else {
-        const auto cat = m_categoryOrder[static_cast<std::size_t>(m_selectedRow)];
+        const auto cat = static_cast<SettingsCategory>(m_selectedRow);
         const auto view = readCategory(m_theme, cat);
         m_btnFg->SetBackgroundColour(view.colors.foreground);
     }
@@ -296,7 +285,7 @@ void ThemePage::onInheritBgToggle(wxCommandEvent&) {
     if (m_chkInheritBg->GetValue()) {
         m_btnBg->SetBackgroundColour(m_theme.get(ThemeCategory::Default).colors.background);
     } else {
-        const auto cat = m_categoryOrder[static_cast<std::size_t>(m_selectedRow)];
+        const auto cat = static_cast<SettingsCategory>(m_selectedRow);
         const auto view = readCategory(m_theme, cat);
         m_btnBg->SetBackgroundColour(view.colors.background);
     }
@@ -309,6 +298,10 @@ void ThemePage::onFgClick(wxCommandEvent&) {
 
 void ThemePage::onBgClick(wxCommandEvent&) {
     onColorButton(m_btnBg);
+}
+
+void ThemePage::onSeparatorClick(wxCommandEvent&) {
+    onColorButton(m_separatorBtn);
 }
 
 void ThemePage::onSelectTheme(wxCommandEvent&) {
@@ -383,7 +376,7 @@ void ThemePage::onSelectCategory(wxCommandEvent& event) {
 }
 
 void ThemePage::loadCategory() {
-    const auto cat = m_categoryOrder[static_cast<std::size_t>(m_selectedRow)];
+    const auto cat = static_cast<SettingsCategory>(m_selectedRow);
     const auto cap = capabilityOf(cat);
     const auto view = readCategory(m_theme, cat);
     const auto& defaultColors = m_theme.get(ThemeCategory::Default).colors;
@@ -425,12 +418,15 @@ void ThemePage::loadCategory() {
     if (cap.fontSize) {
         m_spinFontSize->SetValue(m_theme.getFontSize() > 0 ? m_theme.getFontSize() : 12);
     }
+    if (cap.separator) {
+        m_separatorBtn->SetBackgroundColour(m_theme.getSeparator());
+    }
 
     GetSizer()->Layout();
 }
 
 void ThemePage::saveCategory() {
-    const auto cat = m_categoryOrder[static_cast<std::size_t>(m_selectedRow)];
+    const auto cat = static_cast<SettingsCategory>(m_selectedRow);
     const auto cap = capabilityOf(cat);
     const bool isDefault = cat == SettingsCategory::Default;
 
@@ -459,10 +455,13 @@ void ThemePage::saveCategory() {
     if (cap.fontSize) {
         m_theme.setFontSize(m_spinFontSize->GetValue());
     }
+    if (cap.separator) {
+        m_theme.setSeparator(m_separatorBtn->GetBackgroundColour());
+    }
 }
 
 void ThemePage::applyCapability() {
-    const auto cat = m_categoryOrder[static_cast<std::size_t>(m_selectedRow)];
+    const auto cat = static_cast<SettingsCategory>(m_selectedRow);
     const auto cap = capabilityOf(cat);
     const bool inheritable = cat != SettingsCategory::Default;
 
@@ -484,6 +483,9 @@ void ThemePage::applyCapability() {
     m_fontChoice->Show(cap.font);
     m_lblFontSize->Show(cap.fontSize);
     m_spinFontSize->Show(cap.fontSize);
+
+    m_separatorBtn->Show(cap.separator);
+    m_lblSeparator->Show(cap.separator);
 
     Layout();
 }

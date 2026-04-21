@@ -25,6 +25,7 @@ namespace fbide {
 #define DEFINE_THEME_PROPERTY(_)           \
     /* name        member      type     */ \
     _( Version,    version,    Version   ) \
+    _( Separator,  separator,  wxColour  ) \
     _( Font,       font,       wxString  ) \
     _( FontSize,   fontSize,   int       ) \
     DEFINE_THEME_EXTRA_PROPERTY(_)

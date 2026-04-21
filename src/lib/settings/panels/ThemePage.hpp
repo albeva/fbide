@@ -42,6 +42,7 @@ private:
         ID_CHK_INHERIT_BG,
         ID_BTN_FG,
         ID_BTN_BG,
+        ID_BTN_SEPARATOR
     };
 
     void onSelectCategory(wxCommandEvent& event);
@@ -51,6 +52,7 @@ private:
     void onInheritBgToggle(wxCommandEvent& event);
     void onFgClick(wxCommandEvent& event);
     void onBgClick(wxCommandEvent& event);
+    void onSeparatorClick(wxCommandEvent& event);
 
     void saveNewTheme(bool setActive);
     void onColorButton(wxButton* btn);
@@ -66,6 +68,7 @@ private:
     Unowned<wxCheckBox>   m_chkInheritBg;
     Unowned<wxButton>     m_btnFg;
     Unowned<wxButton>     m_btnBg;
+    Unowned<wxButton>     m_separatorBtn;
     Unowned<wxChoice>     m_fontChoice;
     Unowned<wxStaticText> m_fontOptionsLabel;
     Unowned<wxCheckBox>   m_chkBold;
@@ -76,15 +79,13 @@ private:
     Unowned<wxStaticText> m_lblBg;
     Unowned<wxStaticText> m_lblFont;
     Unowned<wxStaticText> m_lblFontSize;
+    Unowned<wxStaticText> m_lblSeparator;
 
     wxStaticBoxSizer* m_themeBox = nullptr;
 
     wxString m_activeTheme;
     Theme    m_theme {};
 
-    /// List-index → SettingsCategory. Default at index 0, rest sorted
-    /// alphabetically by translated label.
-    std::array<SettingsCategory, kSettingsCategoryCount> m_categoryOrder {};
     int m_selectedRow = 0;
     const Value& m_tr;
 

@@ -69,6 +69,7 @@ struct SettingsCapability final {
     bool style      : 1; // bold / italic / underlined
     bool font       : 1; // font face
     bool fontSize   : 1; // font size
+    bool separator  : 1; // separator line colour
 };
 
 /// Capability per settings category. Default syntax style carries the
@@ -76,14 +77,14 @@ struct SettingsCapability final {
 constexpr auto capabilityOf(const SettingsCategory category) -> SettingsCapability {
     switch (category) {
     case SettingsCategory::Default:
-        return { .foreground = true, .background = true, .style = true, .font = true, .fontSize = true };
+        return { .foreground = true, .background = true, .style = true, .font = true, .fontSize = true, .separator = true };
     case SettingsCategory::LineNumber:
     case SettingsCategory::Selection:
     case SettingsCategory::FoldMargin:
-        return { .foreground = true, .background = true, .style = false, .font = false, .fontSize = false };
+        return { .foreground = true, .background = true, .style = false, .font = false, .fontSize = false, .separator = false };
     default:
         // syntax styles (except Default) + Brace/BadBrace: colours + style
-        return { .foreground = true, .background = true, .style = true, .font = false, .fontSize = false };
+        return { .foreground = true, .background = true, .style = true, .font = false, .fontSize = false, .separator = false };
     }
 }
 
