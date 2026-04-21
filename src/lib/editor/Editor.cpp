@@ -235,16 +235,17 @@ void Editor::applyHtmlTheme() {
     const auto& theme = m_ctx.getTheme();
     SetLexer(wxSTC_LEX_HTML);
 
+    applyStyle(wxSTC_H_DEFAULT, theme.get(ThemeCategory::Default), theme);
     applyStyle(wxSTC_H_TAG, theme.get(ThemeCategory::Keyword1), theme);
     applyStyle(wxSTC_H_TAGUNKNOWN, theme.get(ThemeCategory::Keyword1), theme);
     applyStyle(wxSTC_H_ATTRIBUTE, theme.get(ThemeCategory::Keyword2), theme);
     applyStyle(wxSTC_H_ATTRIBUTEUNKNOWN, theme.get(ThemeCategory::Keyword2), theme);
     applyStyle(wxSTC_H_NUMBER, theme.get(ThemeCategory::Number), theme);
     applyStyle(wxSTC_H_SINGLESTRING, theme.get(ThemeCategory::String), theme);
-    applyStyle(wxSTC_H_DOUBLESTRING, theme.get(ThemeCategory::StringOpen), theme);
+    applyStyle(wxSTC_H_DOUBLESTRING, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_H_OTHER, theme.get(ThemeCategory::Keyword4), theme);
     applyStyle(wxSTC_H_COMMENT, theme.get(ThemeCategory::Comment), theme);
     applyStyle(wxSTC_H_ENTITY, theme.get(ThemeCategory::Keyword3), theme);
-    applyStyle(wxSTC_H_OTHER, theme.get(ThemeCategory::Keyword4), theme);
 }
 
 void Editor::applyPropertiesTheme() {
