@@ -72,6 +72,23 @@ struct SettingsCapability final {
     bool separator  : 1; // separator line colour
 };
 
+/// Read the theme entry backing a settings category, regardless of whether
+/// it lives in the syntax-category array or is stored as an extra property.
+inline auto readCategory(const Theme& theme, const SettingsCategory cat) -> Theme::Entry {
+    if (isSyntaxCategory(cat)) {
+        return theme.get(static_cast<ThemeCategory>(+cat));
+    }
+    switch (cat) {
+        // clang-format off
+        #define EXTRA_CASE(NAME, ...) case SettingsCategory::NAME: return { theme.get##NAME() };
+            DEFINE_THEME_EXTRA_PROPERTY(EXTRA_CASE)
+        #undef EXTRA_CASE
+        // clang-format on
+    default:
+        std::unreachable();
+    }
+}
+
 /// Capability per settings category. Default syntax style carries the
 /// editor-wide font + size; all other categories hide those controls.
 constexpr auto capabilityOf(const SettingsCategory category) -> SettingsCapability {

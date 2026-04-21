@@ -28,22 +28,6 @@ auto lowerFirst(const std::string_view name) -> wxString {
 // Theme category helpers
 // ---------------------------------------------------------------------------
 
-auto readCategory(const Theme& theme, const SettingsCategory cat) -> Theme::Entry {
-    if (isSyntaxCategory(cat)) {
-        return theme.get(static_cast<ThemeCategory>(+cat));
-    }
-    switch (cat) {
-        // clang-format off
-        // extra properties
-        #define EXTRA_CASE(NAME, ...) case SettingsCategory::NAME: return { theme.get##NAME() };
-            DEFINE_THEME_EXTRA_PROPERTY(EXTRA_CASE)
-        #undef EXTRA_CASE
-        // clang-format on
-    default:
-        std::unreachable();
-    }
-}
-
 template<typename T>
 auto getThemeValue(const Theme::Entry& entry) -> const T& {
     if constexpr (std::is_same_v<T, Theme::Entry>) {
@@ -188,7 +172,7 @@ void ThemePage::createLeftPanel() {
     const auto inheritTip = tr("inheritColor");
 
     auto addPicker = [&](const wxString& labelText, const wxString& tooltip = {}) -> Unowned<ColorPicker> {
-        auto picker = make_unowned<ColorPicker>(currentParent(), labelText, tooltip);
+        auto picker = make_unowned<ColorPicker>(currentParent(), m_theme, m_tr, labelText, tooltip);
         picker->create();
         add(picker);
         return picker;

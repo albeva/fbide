@@ -9,15 +9,18 @@
 #include "Layout.hpp"
 
 namespace fbide {
+class Theme;
+class Value;
 
 /// Color picker control — label, optional "inherit" checkbox, color-swatch button.
-/// Self-contained: opens wxColourDialog on click, toggles enabled state when
-/// inheriting. Read via getColor(); write via setColors().
+/// Clicking the button pops a menu: "Choose color..." opens the color dialog;
+/// "Copy from" lists every settings category with foreground/background preview.
 class ColorPicker final : public Layout<wxPanel> {
 public:
     NO_COPY_AND_MOVE(ColorPicker)
 
-    ColorPicker(wxWindow* parent, wxString label, wxString inheritTooltip = {});
+    ColorPicker(wxWindow* parent, const Theme& theme, const Value& tr,
+                wxString label, wxString inheritTooltip = {});
 
     /// Build the sizer, child controls, and event bindings.
     void create();
@@ -39,6 +42,11 @@ private:
     void onInheritToggle(wxCommandEvent& event);
     void onButtonClick(wxCommandEvent& event);
 
+    void applyColor(const wxColour& c);
+    void openColourDialog();
+
+    const Theme&          m_theme;
+    const Value&          m_tr;
     wxString              m_labelText;
     wxString              m_inheritTooltip;
     wxColour              m_defaultColor;
