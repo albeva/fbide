@@ -117,6 +117,7 @@ auto DocumentManager::saveFile(Document& doc) const -> bool {
     doc.setModified(false);
     doc.updateModTime();
     updateTabTitle(doc);
+    reloadConfigIfMatches(doc.getFilePath());
     return true;
 }
 
@@ -146,7 +147,15 @@ auto DocumentManager::saveFileAs(Document& doc) const -> bool {
     doc.setModified(false);
     doc.updateModTime();
     updateTabTitle(doc);
+    reloadConfigIfMatches(newPath);
     return true;
+}
+
+void DocumentManager::reloadConfigIfMatches(const wxString& path) const {
+    if (m_ctx.getConfigManager().reloadIfKnown(path)) {
+        m_ctx.getUIManager().refreshUi();
+        m_ctx.getUIManager().updateEditorSettigs();
+    }
 }
 
 auto DocumentManager::saveAllFiles() const -> bool {

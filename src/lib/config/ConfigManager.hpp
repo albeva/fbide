@@ -75,6 +75,11 @@ public:
     /// Save the category's Value tree to its backing file.
     void save(Category category);
 
+    /// Reload any loaded config category or the active theme whose backing
+    /// file matches `path`. Returns true when a reload occurred. Use to
+    /// hot-refresh IDE state after the user edits a config file in-place.
+    auto reloadIfKnown(const wxString& path) -> bool;
+
     // -----------------------------------------------------------------------
     // Path management
     // -----------------------------------------------------------------------

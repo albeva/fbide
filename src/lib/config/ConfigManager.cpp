@@ -5,7 +5,28 @@
 // https://github.com/albeva/fbide
 //
 #include "ConfigManager.hpp"
+#include <filesystem>
 using namespace fbide;
+
+namespace {
+/// True when `a` and `b` refer to the same filesystem entry. Follows
+/// symlinks on both sides via std::filesystem::equivalent, so editing a
+/// config file through a symlink still matches the loaded canonical path.
+auto samePath(const wxString& a, const wxString& b) -> bool {
+    if (a.empty() || b.empty()) {
+        return false;
+    }
+    std::error_code ec;
+#ifdef __WXMSW__
+    const std::filesystem::path fa(a.ToStdWstring());
+    const std::filesystem::path fb(b.ToStdWstring());
+#else
+    const std::filesystem::path fa(a.ToStdString(wxConvUTF8));
+    const std::filesystem::path fb(b.ToStdString(wxConvUTF8));
+#endif
+    return std::filesystem::equivalent(fa, fb, ec);
+}
+} // namespace
 
 // ---------------------------------------------------------------------------
 // INI <-> Value tree
@@ -247,6 +268,34 @@ void ConfigManager::save(const Category category) {
 
     exportGroup(entry.root, "", cfg);
     cfg.Save(outStream, wxConvUTF8);
+}
+
+auto ConfigManager::reloadIfKnown(const wxString& path) -> bool {
+    for (std::size_t index = 0; index < CAT_COUNT; index++) {
+        const auto& entry = m_categories[index];
+        if (samePath(path, entry.path)) {
+            load(entry.category);
+            // if this was config, then reload all other files as well.
+            if (entry.category == Category::Config) {
+                for (std::size_t sub = 1; sub < CAT_COUNT; sub++) {
+                    load(m_categories[sub].category);
+                }
+                if (const auto themeRel = config().get_or("theme", ""); not themeRel.empty()) {
+                    m_theme.load(absolute(themeRel));
+                }
+            }
+            return true;
+        }
+    }
+
+    // Theme reload requires a copied path — Theme::load(path) resets the
+    // object and then assigns the incoming path back into m_themePath.
+    if (const auto themePath = m_theme.getPath(); samePath(path, themePath)) {
+        m_theme.load(themePath);
+        return true;
+    }
+
+    return false;
 }
 
 auto ConfigManager::get(Category category) -> Value& {

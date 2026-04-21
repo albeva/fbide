@@ -107,6 +107,10 @@ private:
     /// Open find or replace dialog.
     void showFindDialog(bool replace);
 
+    /// If the saved file is a loaded IDE config, reload it and refresh
+    /// editor settings (same chain as SettingsDialog::applyChanges).
+    void reloadConfigIfMatches(const wxString& path) const;
+
     // Find/Replace dialog events
     void onFindDialog(wxFindDialogEvent& event);
     void onFindDialogNext(wxFindDialogEvent& event);
