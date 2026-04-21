@@ -70,7 +70,7 @@
 - [x] Implement new FB scintilla lexer
 - [ ] Make editor fully utf-8 compatible (config/langauge files, the editor, save/load, etc.)
 - [ ] Review all themes, update them for new settings.
-- [ ] Implement code folding
+- [x] Implement code folding
 
 # General
 
