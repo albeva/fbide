@@ -8,6 +8,7 @@
 #include "ThemePage.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
+#include "config/Theme.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
@@ -23,58 +24,62 @@ auto lowerFirst(const std::string_view name) -> wxString {
     return out;
 }
 
+// ---------------------------------------------------------------------------
+// Theme category helpers
+// ---------------------------------------------------------------------------
+
 auto readCategory(const Theme& theme, const SettingsCategory cat) -> Theme::Entry {
     if (isSyntaxCategory(cat)) {
-        const auto& e = theme.get(static_cast<ThemeCategory>(+cat));
-        return { e.colors, e.bold, e.italic, e.underlined };
+        return theme.get(static_cast<ThemeCategory>(+cat));
     }
     switch (cat) {
-    case SettingsCategory::LineNumber:
-        return { theme.getLineNumber() };
-    case SettingsCategory::Selection:
-        return { theme.getSelection() };
-    case SettingsCategory::Brace: {
-        const auto& e = theme.getBrace();
-        return { e.colors, e.bold, e.italic, e.underlined };
-    }
-    case SettingsCategory::BadBrace: {
-        const auto& e = theme.getBadBrace();
-        return { e.colors, e.bold, e.italic, e.underlined };
-    }
+        // clang-format off
+        // extra properties
+        #define EXTRA_CASE(NAME, ...) case SettingsCategory::NAME: return { theme.get##NAME() };
+            DEFINE_THEME_EXTRA_PROPERTY(EXTRA_CASE)
+        #undef EXTRA_CASE
+        // clang-format on
     default:
-        return {};
+        std::unreachable();
     }
 }
 
+template<typename T>
+auto getThemeValue(const Theme::Entry& entry) -> const T& {
+    if constexpr (std::is_same_v<T, Theme::Entry>) {
+        return entry;
+    } else if constexpr (std::is_same_v<T, Theme::Colors>) {
+        return entry.colors;
+    } else {
+        std::unreachable();
+    }
+};
+
 void writeCategory(Theme& theme, const SettingsCategory cat, const Theme::Entry& v) {
     if (isSyntaxCategory(cat)) {
-        theme.set(static_cast<ThemeCategory>(+cat), Theme::Entry {
-            .colors = v.colors,
-            .bold = v.bold,
-            .italic = v.italic,
-            .underlined = v.underlined,
-        });
+        theme.set(static_cast<ThemeCategory>(+cat), v);
         return;
     }
+
     switch (cat) {
-    case SettingsCategory::LineNumber:
-        theme.setLineNumber(v.colors);
-        break;
-    case SettingsCategory::Selection:
-        theme.setSelection(v.colors);
-        break;
-    case SettingsCategory::Brace:
-        theme.setBrace({ .colors = v.colors, .bold = v.bold, .italic = v.italic, .underlined = v.underlined });
-        break;
-    case SettingsCategory::BadBrace:
-        theme.setBadBrace({ .colors = v.colors, .bold = v.bold, .italic = v.italic, .underlined = v.underlined });
-        break;
+        // clang-format off
+        // extra properties
+        #define EXTRA_CASE(NAME, unused, TYPE) \
+            case SettingsCategory::NAME: \
+                theme.set##NAME(getThemeValue<Theme::TYPE>(v)); break;
+            DEFINE_THEME_EXTRA_PROPERTY(EXTRA_CASE)
+        #undef EXTRA_CASE
+        // clang-format on
     default:
-        break;
+        std::unreachable();
     }
 }
 
 } // namespace
+
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(ThemePage, Panel)
@@ -167,7 +172,7 @@ void ThemePage::createTopRow() {
 void ThemePage::createCategoryList() {
     struct Row {
         SettingsCategory cat;
-        wxString         label;
+        wxString label;
     };
     std::array<Row, kSettingsCategoryCount - 1> rows;
     wxArrayString displayNames;
@@ -432,13 +437,13 @@ void ThemePage::saveCategory() {
     Theme::Entry view;
     if (cap.foreground) {
         view.colors.foreground = (not isDefault && m_chkInheritFg->GetValue())
-            ? wxNullColour
-            : m_btnFg->GetBackgroundColour();
+                                   ? wxNullColour
+                                   : m_btnFg->GetBackgroundColour();
     }
     if (cap.background) {
         view.colors.background = (not isDefault && m_chkInheritBg->GetValue())
-            ? wxNullColour
-            : m_btnBg->GetBackgroundColour();
+                                   ? wxNullColour
+                                   : m_btnBg->GetBackgroundColour();
     }
     if (cap.style) {
         view.bold = m_chkBold->GetValue();

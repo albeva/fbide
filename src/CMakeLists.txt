@@ -15,7 +15,7 @@ elseif (APPLE)
     set_target_properties(fbide PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${PROJECT_SOURCE_DIR}/src/lib/rc/Info.plist)
     # copy resources/ide to the Bundle
     file(GLOB_RECURSE IDE_RESOURCES ${PROJECT_SOURCE_DIR}/resources/ide/*)
-    foreach(FILE ${IDE_RESOURCES})
+    foreach (FILE ${IDE_RESOURCES})
         file(RELATIVE_PATH REL_PATH
             ${PROJECT_SOURCE_DIR}/resources/ide
             ${FILE}
@@ -24,9 +24,9 @@ elseif (APPLE)
         set_source_files_properties(${FILE}
             PROPERTIES MACOSX_PACKAGE_LOCATION Resources/ide/${REL_DIR}
         )
-    endforeach()
+    endforeach ()
     target_sources(fbide PRIVATE ${IDE_RESOURCES})
-else()
+else ()
     add_executable(fbide)
 endif ()
 

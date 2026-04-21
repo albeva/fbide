@@ -14,11 +14,26 @@
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
+namespace {
+enum class Margins : int {
+    LineNumbers = 0,
+    Fold = 1
+};
+constexpr auto operator+(const Margins& rhs) -> int {
+    return static_cast<int>(rhs);
+}
+
+auto isBrace(const int ch) -> bool {
+    return ch == '(' || ch == ')' || ch == '[' || ch == ']' || ch == '{' || ch == '}';
+}
+} // namespace
+
 // clang-format off
 wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
-    EVT_STC_MODIFIED(wxID_ANY,  Editor::onModified)
-    EVT_STC_UPDATEUI(wxID_ANY,  Editor::onUpdateUI)
-    EVT_STC_ZOOM(wxID_ANY,      Editor::onZoom)
+    EVT_STC_MARGINCLICK (wxID_ANY,  Editor::onMarginClick)
+    EVT_STC_MODIFIED(wxID_ANY,      Editor::onModified)
+    EVT_STC_UPDATEUI(wxID_ANY,      Editor::onUpdateUI)
+    EVT_STC_ZOOM(wxID_ANY,          Editor::onZoom)
     EVT_SET_FOCUS(Editor::onFocus)
 wxEND_EVENT_TABLE()
 // clang-format on
@@ -33,6 +48,7 @@ Editor::Editor(wxWindow* parent, Context& ctx, const DocumentType type, const bo
 
 void Editor::applySettings() {
     applyEditorSettings();
+    defineFoldMargins();
     applyTheme();
     updateLineNumberMarginWidth();
 }
@@ -53,9 +69,9 @@ void Editor::applyEditorSettings() {
 
     if (m_preview) {
         // Preview mode: hide all margins and decorations
-        SetMarginWidth(0, 0);
-        SetMarginWidth(1, 0);
-        SetMarginWidth(2, 0);
+        SetMarginWidth(+Margins::LineNumbers, 0);
+        SetMarginWidth(+Margins::Fold, 0);
+        // SetMarginWidth(2, 0);
         SetEdgeMode(wxSTC_EDGE_NONE);
         SetViewEOL(false);
         SetIndentationGuides(false);
@@ -73,32 +89,9 @@ void Editor::applyEditorSettings() {
     SetViewWhiteSpace(editor.get_or("whiteSpace", false) ? wxSTC_WS_VISIBLEALWAYS : wxSTC_WS_INVISIBLE);
 
     // Line number margin
-    SetMarginWidth(1, 0);
-
-    // Fold margin
-    if (editor.get_or("folderMargin", false)) {
-        SetMarginType(2, wxSTC_MARGIN_SYMBOL);
-        SetMarginMask(2, static_cast<int>(wxSTC_MASK_FOLDERS));
-        SetMarginWidth(2, 14);
-        SetMarginSensitive(2, true);
-
-        SetFoldFlags(wxSTC_FOLDFLAG_LINEAFTER_CONTRACTED);
-        MarkerDefine(wxSTC_MARKNUM_FOLDER, wxSTC_MARK_BOXPLUS, "white", "gray");
-        MarkerDefine(wxSTC_MARKNUM_FOLDEREND, wxSTC_MARK_BOXPLUSCONNECTED, "white", "gray");
-        MarkerDefine(wxSTC_MARKNUM_FOLDERMIDTAIL, wxSTC_MARK_TCORNER, "white", "gray");
-        MarkerDefine(wxSTC_MARKNUM_FOLDEROPEN, wxSTC_MARK_BOXMINUS, "white", "gray");
-        MarkerDefine(wxSTC_MARKNUM_FOLDEROPENMID, wxSTC_MARK_BOXMINUSCONNECTED, "white", "gray");
-        MarkerDefine(wxSTC_MARKNUM_FOLDERSUB, wxSTC_MARK_VLINE, "white", "gray");
-        MarkerDefine(wxSTC_MARKNUM_FOLDERTAIL, wxSTC_MARK_LCORNER, "white", "gray");
-
-        SetProperty("fold", "1");
-        SetProperty("fold.comment", "1");
-        SetProperty("fold.compact", "1");
-        SetProperty("fold.preprocessor", "1");
-    } else {
-        SetMarginWidth(2, 0);
-        SetMarginSensitive(2, false);
-    }
+    SetMarginCount(2);
+    SetMarginWidth(+Margins::LineNumbers, 0);
+    SetMarginWidth(+Margins::Fold, 0);
 }
 
 void Editor::setDocType(const DocumentType type) {
@@ -111,11 +104,36 @@ void Editor::selectLine() {
     SetSelection(PositionFromLine(line), PositionFromLine(line + 1));
 }
 
-namespace {
-auto resolve(const wxColour& c, const wxColour& fallback) -> wxColour {
-    return c.IsOk() ? c : fallback;
+void Editor::defineFoldMargins() {
+    const auto& editor = m_ctx.getConfigManager().config().at("editor");
+
+    // Fold margin
+    if (editor.get_or("folderMargin", false)) {
+        SetMarginType(+Margins::Fold, wxSTC_MARGIN_SYMBOL);
+        SetMarginMask(+Margins::Fold, static_cast<int>(wxSTC_MASK_FOLDERS));
+        SetMarginWidth(+Margins::Fold, 16);
+        SetMarginSensitive(+Margins::Fold, true);
+
+        const auto& theme = m_ctx.getTheme();
+        const auto foldFg = theme.foreground(theme.getFoldMargin().foreground);
+        const auto foldBg = theme.foreground(theme.getFoldMargin().background);
+
+        SetFoldFlags(wxSTC_FOLDFLAG_LINEAFTER_CONTRACTED);
+        MarkerDefine(wxSTC_MARKNUM_FOLDER, wxSTC_MARK_BOXPLUS, foldBg, foldFg);
+        MarkerDefine(wxSTC_MARKNUM_FOLDEREND, wxSTC_MARK_BOXPLUSCONNECTED, foldBg, foldFg);
+        MarkerDefine(wxSTC_MARKNUM_FOLDERMIDTAIL, wxSTC_MARK_TCORNER, foldBg, foldFg);
+        MarkerDefine(wxSTC_MARKNUM_FOLDEROPEN, wxSTC_MARK_BOXMINUS, foldBg, foldFg);
+        MarkerDefine(wxSTC_MARKNUM_FOLDEROPENMID, wxSTC_MARK_BOXMINUSCONNECTED, foldBg, foldFg);
+        MarkerDefine(wxSTC_MARKNUM_FOLDERSUB, wxSTC_MARK_VLINE, foldBg, foldFg);
+        MarkerDefine(wxSTC_MARKNUM_FOLDERTAIL, wxSTC_MARK_LCORNER, foldBg, foldFg);
+
+        SetMarginBackground(+Margins::Fold, foldBg);
+        SetFoldMarginColour(true, foldBg);
+        SetFoldMarginHiColour(true, foldBg);
+
+        StyleSetForeground(wxSTC_STYLE_INDENTGUIDE, wxColour(80, 80, 80));
+    }
 }
-} // namespace
 
 void Editor::applyTheme() {
     const auto& theme = m_ctx.getTheme();
@@ -140,8 +158,8 @@ void Editor::applyTheme() {
 
     // Line numbers
     const auto& lineNum = theme.getLineNumber();
-    StyleSetForeground(wxSTC_STYLE_LINENUMBER, resolve(lineNum.foreground, defaultColors.foreground));
-    StyleSetBackground(wxSTC_STYLE_LINENUMBER, resolve(lineNum.background, defaultColors.background));
+    StyleSetForeground(wxSTC_STYLE_LINENUMBER, theme.foreground(lineNum.foreground));
+    StyleSetBackground(wxSTC_STYLE_LINENUMBER, theme.background(lineNum.background));
     StyleSetFont(wxSTC_STYLE_LINENUMBER, defaultFont);
 
     // Caret — no dedicated field, use default foreground.
@@ -149,20 +167,20 @@ void Editor::applyTheme() {
 
     // Selection
     const auto& sel = theme.getSelection();
-    SetSelBackground(true, resolve(sel.background, defaultColors.background));
-    SetSelForeground(true, resolve(sel.foreground, defaultColors.foreground));
+    SetSelForeground(true, theme.foreground(sel.foreground));
+    SetSelBackground(true, theme.background(sel.background));
 
     // Brace matching
     const auto& brace = theme.getBrace();
-    StyleSetForeground(wxSTC_STYLE_BRACELIGHT, resolve(brace.colors.foreground, defaultColors.foreground));
-    StyleSetBackground(wxSTC_STYLE_BRACELIGHT, resolve(brace.colors.background, defaultColors.background));
+    StyleSetForeground(wxSTC_STYLE_BRACELIGHT, theme.foreground(brace.colors.foreground));
+    StyleSetBackground(wxSTC_STYLE_BRACELIGHT, theme.background(brace.colors.background));
     StyleSetBold(wxSTC_STYLE_BRACELIGHT, brace.bold);
     StyleSetItalic(wxSTC_STYLE_BRACELIGHT, brace.italic);
     StyleSetUnderline(wxSTC_STYLE_BRACELIGHT, brace.underlined);
 
     const auto& badBrace = theme.getBadBrace();
-    StyleSetForeground(wxSTC_STYLE_BRACEBAD, resolve(badBrace.colors.foreground, defaultColors.foreground));
-    StyleSetBackground(wxSTC_STYLE_BRACEBAD, resolve(badBrace.colors.background, defaultColors.background));
+    StyleSetForeground(wxSTC_STYLE_BRACEBAD, theme.foreground(badBrace.colors.foreground));
+    StyleSetBackground(wxSTC_STYLE_BRACEBAD, theme.background(badBrace.colors.background));
     StyleSetBold(wxSTC_STYLE_BRACEBAD, badBrace.bold);
     StyleSetItalic(wxSTC_STYLE_BRACEBAD, badBrace.italic);
     StyleSetUnderline(wxSTC_STYLE_BRACEBAD, badBrace.underlined);
@@ -200,9 +218,8 @@ void Editor::applyFreebasicTheme() {
 }
 
 void Editor::applyStyle(const int stcId, const Theme::Entry& style, const Theme& theme) {
-    const auto& defaultColors = theme.get(ThemeCategory::Default).colors;
-    StyleSetForeground(stcId, resolve(style.colors.foreground, defaultColors.foreground));
-    StyleSetBackground(stcId, resolve(style.colors.background, defaultColors.background));
+    StyleSetForeground(stcId, theme.foreground(style.colors.foreground));
+    StyleSetBackground(stcId, theme.background(style.colors.background));
 
     const auto font = wxFont(
         theme.getFontSize(),
@@ -242,9 +259,9 @@ void Editor::applyTextTheme() {
 void Editor::updateLineNumberMarginWidth() {
     if (m_ctx.getConfigManager().config().get_or("editor.lineNumbers", true)) {
         const auto lineNrWidth = TextWidth(wxSTC_STYLE_LINENUMBER, "00001");
-        SetMarginWidth(0, lineNrWidth);
+        SetMarginWidth(+Margins::LineNumbers, lineNrWidth);
     } else {
-        SetMarginWidth(0, 0);
+        SetMarginWidth(+Margins::LineNumbers, 0);
     }
 }
 
@@ -450,12 +467,6 @@ void Editor::uncommentSelection() {
     SetSelection(PositionFromLine(lineStart), GetLineEndPosition(lineEnd));
 }
 
-namespace {
-auto isBrace(const int ch) -> bool {
-    return ch == '(' || ch == ')' || ch == '[' || ch == ']' || ch == '{' || ch == '}';
-}
-} // namespace
-
 void Editor::onUpdateUI(wxStyledTextEvent& event) {
     event.Skip();
     updateStatusBar();
@@ -500,6 +511,16 @@ void Editor::onFocus(wxFocusEvent& event) {
                          ? UIState::FocusedValidSourceFile
                          : UIState::FocusedUnknownFile;
     m_ctx.getUIManager().setDocumentState(state);
+}
+
+void Editor::onMarginClick(wxStyledTextEvent& event) {
+    if (event.GetMargin() == +Margins::Fold) {
+        const auto lineClick = LineFromPosition(event.GetPosition());
+        const auto levelClick = GetFoldLevel(lineClick);
+        if ((levelClick & wxSTC_FOLDLEVELHEADERFLAG) > 0) {
+            ToggleFold(lineClick);
+        }
+    }
 }
 
 void Editor::onModified(wxStyledTextEvent& event) {

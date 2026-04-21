@@ -11,17 +11,18 @@
 
 namespace fbide {
 
+#define DEFINE_SETTINGS_CATEGORY(_) \
+    DEFINE_THEME_CATEGORY(_)        \
+    DEFINE_THEME_EXTRA_PROPERTY(_)
+
 /// Settings-UI category enum: all syntax styles, plus the extra Theme
 /// properties (line number, selection, brace matching) — populated by
 /// reusing the same x-macros that define Theme internals.
 enum class SettingsCategory : int {
 // clang-format off
-    #define SYN_ENUM(NAME)                  NAME,
-    #define EXTRA_ENUM(ignore, NAME, ...)   NAME,
-        DEFINE_THEME_CATEGORY(SYN_ENUM)
-        DEFINE_THEME_EXTRA_PROPERTY(EXTRA_ENUM)
+    #define SYN_ENUM(NAME, ...) NAME,
+        DEFINE_SETTINGS_CATEGORY(SYN_ENUM)
     #undef SYN_ENUM
-    #undef EXTRA_ENUM
     // clang-format on
 };
 
@@ -32,12 +33,9 @@ constexpr auto operator+(const SettingsCategory& rhs) -> int {
 /// All settings categories (syntax + extras) enumerated
 inline constexpr std::array kSettingsCategories {
 // clang-format off
-    #define SYN_ARR(NAME)                SettingsCategory::NAME,
-    #define EXTRA_ARR(ignore, NAME, ...) SettingsCategory::NAME,
-        DEFINE_THEME_CATEGORY(SYN_ARR)
-        DEFINE_THEME_EXTRA_PROPERTY(EXTRA_ARR)
+    #define SYN_ARR(NAME, ...) SettingsCategory::NAME,
+        DEFINE_SETTINGS_CATEGORY(SYN_ARR)
     #undef SYN_ARR
-    #undef EXTRA_ARR
     // clang-format on
 };
 
@@ -47,8 +45,8 @@ inline constexpr std::size_t kSettingsCategoryCount = kSettingsCategories.size()
 constexpr auto getSettingsCategoryName(const SettingsCategory category) -> std::string_view {
     switch (category) {
         // clang-format off
-        #define SYN_CASE(NAME)                case SettingsCategory::NAME:
-        #define EXTRA_CASE(ignore, NAME, ...) case SettingsCategory::NAME: return #NAME;
+        #define SYN_CASE(NAME)        case SettingsCategory::NAME:
+        #define EXTRA_CASE(NAME, ...) case SettingsCategory::NAME: return #NAME;
             DEFINE_THEME_CATEGORY(SYN_CASE)
                 return getThemeCategoryName(static_cast<ThemeCategory>(+category));
             DEFINE_THEME_EXTRA_PROPERTY(EXTRA_CASE)
@@ -81,6 +79,7 @@ constexpr auto capabilityOf(const SettingsCategory category) -> SettingsCapabili
         return { .foreground = true, .background = true, .style = true, .font = true, .fontSize = true };
     case SettingsCategory::LineNumber:
     case SettingsCategory::Selection:
+    case SettingsCategory::FoldMargin:
         return { .foreground = true, .background = true, .style = false, .font = false, .fontSize = false };
     default:
         // syntax styles (except Default) + Brace/BadBrace: colours + style

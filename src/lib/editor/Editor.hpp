@@ -61,12 +61,14 @@ public:
     void updateStatusBar() const;
 
 private:
+    void onMarginClick(wxStyledTextEvent& event);
     void onModified(wxStyledTextEvent& event);
     void onUpdateUI(wxStyledTextEvent& event);
     void onZoom(wxStyledTextEvent& event);
     void onFocus(wxFocusEvent& event);
     void updateBraceMatch();
     void applyEditorSettings();
+    void defineFoldMargins();
     void applyTheme();
     void applyStyle(int stcId, const Theme::Entry& style, const Theme& theme);
     void applyFreebasicTheme();

@@ -15,17 +15,18 @@ namespace fbide {
 // Kept here (not in ThemeCategory.hpp) because it references the
 // nested Theme::Colors / Theme::Entry types.
 #define DEFINE_THEME_EXTRA_PROPERTY(_)     \
-    /* name        getter      type     */ \
-    _( lineNumber, LineNumber, Colors    ) \
-    _( selection,  Selection,  Colors    ) \
-    _( brace,      Brace,      Entry     ) \
-    _( badBrace,   BadBrace,   Entry     )
+    /* name        member      type     */ \
+    _( LineNumber, lineNumber, Colors    ) \
+    _( Selection,  selection,  Colors    ) \
+    _( FoldMargin, foldMargin, Colors    ) \
+    _( Brace,      brace,      Entry     ) \
+    _( BadBrace,   badBrace,   Entry     )
 
 #define DEFINE_THEME_PROPERTY(_)           \
-    /* name        getter      type     */ \
-    _( version,    Version,    Version   ) \
-    _( font,       Font,       wxString  ) \
-    _( fontSize,   FontSize,   int       ) \
+    /* name        member      type     */ \
+    _( Version,    version,    Version   ) \
+    _( Font,       font,       wxString  ) \
+    _( FontSize,   fontSize,   int       ) \
     DEFINE_THEME_EXTRA_PROPERTY(_)
 
 class Theme final {
@@ -83,11 +84,19 @@ public:
     // -----------------------------------------------------------------------
     // Style property getters and setters
     // -----------------------------------------------------------------------
-    #define FUNCS(NAME, GETTER, TYPE)                                                \
-        [[nodiscard]] auto get## GETTER() const -> const TYPE& { return m_## NAME; } \
-        void set## GETTER(const TYPE& NAME) { m_## NAME = NAME; }
+    #define FUNCS(GETTER, MEMBER, TYPE)                                                \
+        [[nodiscard]] auto get## GETTER() const -> const TYPE& { return m_## MEMBER; } \
+        void set## GETTER(const TYPE& MEMBER) { m_## MEMBER = MEMBER; }
         DEFINE_THEME_PROPERTY(FUNCS)
     #undef FUNCS
+
+    // -----------------------------------------------------------------------
+    // Utility methods
+    // -----------------------------------------------------------------------
+
+    /// Return current colour if valid, or default color
+    [[nodiscard]] auto foreground(const wxColour& color) const -> const wxColour&;
+    [[nodiscard]] auto background(const wxColour& color) const -> const wxColour&;
 
 private:
     void load(const wxString& themePath, bool reset);
@@ -98,7 +107,7 @@ private:
     // -----------------------------------------------------------------------
     // Style properties
     // -----------------------------------------------------------------------
-    #define MEMBERS(NAME, GETTER, TYPE) TYPE m_## NAME {};
+    #define MEMBERS(GETTER, MEMBER, TYPE) TYPE m_## MEMBER {};
         DEFINE_THEME_PROPERTY(MEMBERS)
     #undef MEMBERS
 };

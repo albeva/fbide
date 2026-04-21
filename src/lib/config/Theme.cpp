@@ -204,6 +204,20 @@ Theme::Theme(const wxString& themePath)
     load(wxEmptyString, false);
 }
 
+auto Theme::foreground(const wxColour& color) const -> const wxColour& {
+    if (color.IsOk()) {
+        return color;
+    }
+    return m_categories[+ThemeCategory::Default].colors.foreground;
+}
+
+auto Theme::background(const wxColour& color) const -> const wxColour& {
+    if (color.IsOk()) {
+        return color;
+    }
+    return m_categories[+ThemeCategory::Default].colors.background;
+}
+
 void Theme::load(const wxString& themePath, const bool reset) {
     if (reset) {
         *this = {};
@@ -248,7 +262,7 @@ void Theme::load(const wxString& themePath, const bool reset) {
     // Load properties
 
     // clang-format off
-    #define LOAD(NAME, GETTER, TYPE) m_## NAME = read<TYPE>(ini, #NAME);
+    #define LOAD(GETTER, MEMBER, TYPE) m_## MEMBER = read<TYPE>(ini, #MEMBER);
         DEFINE_THEME_PROPERTY(LOAD)
     #undef LOAD
     // clang-format on
@@ -377,7 +391,7 @@ void Theme::save(const wxString& newThemePath) {
     }
 
     // clang-format off
-    #define STORE(NAME, GETTER, TYPE) write(ini, #NAME, m_## NAME);
+    #define STORE(GETTER, MEMBER, TYPE) write(ini, #MEMBER, m_## MEMBER);
         DEFINE_THEME_PROPERTY(STORE)
     #undef STORE
     // clang-format on
