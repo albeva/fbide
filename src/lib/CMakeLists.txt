@@ -43,6 +43,7 @@ target_sources(fbide_lib
     ui/OutputConsole.cpp
     ui/UIManager.cpp
     ui/controls/BBCodeText.cpp
+    ui/controls/ColorPicker.cpp
     ui/controls/Panel.cpp
 
     PUBLIC FILE_SET HEADERS FILES
@@ -96,6 +97,7 @@ target_sources(fbide_lib
     ui/UIManager.hpp
     ui/UIState.hpp
     ui/controls/BBCodeText.hpp
+    ui/controls/ColorPicker.hpp
     ui/controls/Layout.hpp
     ui/controls/Panel.hpp
     utils/DeferHandler.hpp

@@ -86,11 +86,6 @@ wxBEGIN_EVENT_TABLE(ThemePage, Panel)
     EVT_CHOICE  (ThemePage::ID_THEME_CHOICE,    ThemePage::onSelectTheme)
     EVT_BUTTON  (ThemePage::ID_SAVE_THEME,      ThemePage::onSaveTheme)
     EVT_LISTBOX (ThemePage::ID_CATEGORY_LIST,   ThemePage::onSelectCategory)
-    EVT_CHECKBOX(ThemePage::ID_CHK_INHERIT_FG,  ThemePage::onInheritFgToggle)
-    EVT_CHECKBOX(ThemePage::ID_CHK_INHERIT_BG,  ThemePage::onInheritBgToggle)
-    EVT_BUTTON  (ThemePage::ID_BTN_FG,          ThemePage::onFgClick)
-    EVT_BUTTON  (ThemePage::ID_BTN_BG,          ThemePage::onBgClick)
-    EVT_BUTTON  (ThemePage::ID_BTN_SEPARATOR,   ThemePage::onSeparatorClick)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -192,33 +187,19 @@ void ThemePage::createCategoryList() {
 void ThemePage::createLeftPanel() {
     const auto inheritTip = tr("inheritColor");
 
+    auto addPicker = [&](const wxString& labelText, const wxString& tooltip = {}) -> Unowned<ColorPicker> {
+        auto picker = make_unowned<ColorPicker>(currentParent(), labelText, tooltip);
+        picker->create();
+        add(picker);
+        return picker;
+    };
+
     vbox({ .proportion = 2, .border = 0 }, [&] {
-        m_lblFg = text(tr("foreground"), {});
-        hbox({ .center = true, .border = 0 }, [&] {
-            m_chkInheritFg = make_unowned<wxCheckBox>(currentParent(), ID_CHK_INHERIT_FG, wxEmptyString);
-            currentSizer()->Add(m_chkInheritFg, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder());
-            m_chkInheritFg->SetToolTip(inheritTip);
-            m_btnFg = button(wxString {}, { .proportion = 1, .space = false }, ID_BTN_FG);
-        });
-        connect(m_lblFg, m_btnFg);
-
+        m_fgPicker = addPicker(tr("foreground"), inheritTip);
         spacer();
-
-        m_lblBg = text(tr("background"), {});
-        hbox({ .center = true, .border = 0 }, [&] {
-            m_chkInheritBg = make_unowned<wxCheckBox>(currentParent(), ID_CHK_INHERIT_BG, wxEmptyString);
-            currentSizer()->Add(m_chkInheritBg, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder());
-            m_chkInheritBg->SetToolTip(inheritTip);
-            m_btnBg = button(wxString {}, { .proportion = 1, .space = false }, ID_BTN_BG);
-        });
-        connect(m_lblBg, m_btnBg);
-
+        m_bgPicker = addPicker(tr("background"), inheritTip);
         spacer();
-
-        m_lblSeparator = text(tr("separator"), {});
-        m_separatorBtn = button(wxString {}, {}, ID_BTN_SEPARATOR);
-        connect(m_lblSeparator, m_separatorBtn);
-
+        m_separatorPicker = addPicker(tr("separator"));
         spacer();
 
         m_lblFont = text(tr("font"), {});
@@ -255,54 +236,9 @@ void ThemePage::createRightPanel() {
     });
 }
 
-void ThemePage::onColorButton(wxButton* btn) {
-    wxColourData data;
-    data.SetColour(btn->GetBackgroundColour());
-    if (wxColourDialog dlg(this, &data); dlg.ShowModal() == wxID_OK) {
-        btn->SetBackgroundColour(dlg.GetColourData().GetColour());
-        btn->Refresh();
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Theme selection
 // ---------------------------------------------------------------------------
-
-void ThemePage::onInheritFgToggle(wxCommandEvent&) {
-    m_btnFg->Enable(not m_chkInheritFg->GetValue());
-    if (m_chkInheritFg->GetValue()) {
-        m_btnFg->SetBackgroundColour(m_theme.get(ThemeCategory::Default).colors.foreground);
-    } else {
-        const auto cat = static_cast<SettingsCategory>(m_selectedRow);
-        const auto view = readCategory(m_theme, cat);
-        m_btnFg->SetBackgroundColour(view.colors.foreground);
-    }
-    m_btnFg->Update();
-}
-
-void ThemePage::onInheritBgToggle(wxCommandEvent&) {
-    m_btnBg->Enable(not m_chkInheritBg->GetValue());
-    if (m_chkInheritBg->GetValue()) {
-        m_btnBg->SetBackgroundColour(m_theme.get(ThemeCategory::Default).colors.background);
-    } else {
-        const auto cat = static_cast<SettingsCategory>(m_selectedRow);
-        const auto view = readCategory(m_theme, cat);
-        m_btnBg->SetBackgroundColour(view.colors.background);
-    }
-    m_btnBg->Update();
-}
-
-void ThemePage::onFgClick(wxCommandEvent&) {
-    onColorButton(m_btnFg);
-}
-
-void ThemePage::onBgClick(wxCommandEvent&) {
-    onColorButton(m_btnBg);
-}
-
-void ThemePage::onSeparatorClick(wxCommandEvent&) {
-    onColorButton(m_separatorBtn);
-}
 
 void ThemePage::onSelectTheme(wxCommandEvent&) {
     m_activeTheme = m_themeChoice->GetStringSelection();
@@ -380,32 +316,12 @@ void ThemePage::loadCategory() {
     const auto cap = capabilityOf(cat);
     const auto view = readCategory(m_theme, cat);
     const auto& defaultColors = m_theme.get(ThemeCategory::Default).colors;
+    const bool isDefault = cat == SettingsCategory::Default;
 
     applyCapability();
 
-    // Foreground — inherit tick reflects wxNullColour stored in theme.
-    const bool fgInherit = cat != SettingsCategory::Default && not view.colors.foreground.IsOk();
-    m_chkInheritFg->SetValue(fgInherit);
-    m_btnFg->Enable(not fgInherit);
-    {
-        const auto effective = view.colors.foreground.IsOk() ? view.colors.foreground : defaultColors.foreground;
-        if (effective.IsOk()) {
-            m_btnFg->SetBackgroundColour(effective);
-            m_btnFg->Refresh();
-        }
-    }
-
-    // Background — same pattern.
-    const bool bgInherit = cat != SettingsCategory::Default && not view.colors.background.IsOk();
-    m_chkInheritBg->SetValue(bgInherit);
-    m_btnBg->Enable(not bgInherit);
-    {
-        const auto effective = view.colors.background.IsOk() ? view.colors.background : defaultColors.background;
-        if (effective.IsOk()) {
-            m_btnBg->SetBackgroundColour(effective);
-            m_btnBg->Refresh();
-        }
-    }
+    m_fgPicker->setColors(view.colors.foreground, isDefault ? wxNullColour : defaultColors.foreground);
+    m_bgPicker->setColors(view.colors.background, isDefault ? wxNullColour : defaultColors.background);
 
     m_chkBold->SetValue(view.bold);
     m_chkItalic->SetValue(view.italic);
@@ -419,7 +335,7 @@ void ThemePage::loadCategory() {
         m_spinFontSize->SetValue(m_theme.getFontSize() > 0 ? m_theme.getFontSize() : 12);
     }
     if (cap.separator) {
-        m_separatorBtn->SetBackgroundColour(m_theme.getSeparator());
+        m_separatorPicker->setColors(m_theme.getSeparator());
     }
 
     GetSizer()->Layout();
@@ -428,18 +344,13 @@ void ThemePage::loadCategory() {
 void ThemePage::saveCategory() {
     const auto cat = static_cast<SettingsCategory>(m_selectedRow);
     const auto cap = capabilityOf(cat);
-    const bool isDefault = cat == SettingsCategory::Default;
 
     Theme::Entry view;
     if (cap.foreground) {
-        view.colors.foreground = (not isDefault && m_chkInheritFg->GetValue())
-                                   ? wxNullColour
-                                   : m_btnFg->GetBackgroundColour();
+        view.colors.foreground = m_fgPicker->getColor();
     }
     if (cap.background) {
-        view.colors.background = (not isDefault && m_chkInheritBg->GetValue())
-                                   ? wxNullColour
-                                   : m_btnBg->GetBackgroundColour();
+        view.colors.background = m_bgPicker->getColor();
     }
     if (cap.style) {
         view.bold = m_chkBold->GetValue();
@@ -456,21 +367,17 @@ void ThemePage::saveCategory() {
         m_theme.setFontSize(m_spinFontSize->GetValue());
     }
     if (cap.separator) {
-        m_theme.setSeparator(m_separatorBtn->GetBackgroundColour());
+        m_theme.setSeparator(m_separatorPicker->getColor());
     }
 }
 
 void ThemePage::applyCapability() {
     const auto cat = static_cast<SettingsCategory>(m_selectedRow);
     const auto cap = capabilityOf(cat);
-    const bool inheritable = cat != SettingsCategory::Default;
 
-    m_lblFg->Show(cap.foreground);
-    m_chkInheritFg->Show(cap.foreground && inheritable);
-    m_btnFg->Show(cap.foreground);
-    m_lblBg->Show(cap.background);
-    m_chkInheritBg->Show(cap.background && inheritable);
-    m_btnBg->Show(cap.background);
+    m_fgPicker->Show(cap.foreground);
+    m_bgPicker->Show(cap.background);
+    m_separatorPicker->Show(cap.separator);
 
     m_chkBold->Show(cap.style);
     m_chkItalic->Show(cap.style);
@@ -483,9 +390,6 @@ void ThemePage::applyCapability() {
     m_fontChoice->Show(cap.font);
     m_lblFontSize->Show(cap.fontSize);
     m_spinFontSize->Show(cap.fontSize);
-
-    m_separatorBtn->Show(cap.separator);
-    m_lblSeparator->Show(cap.separator);
 
     Layout();
 }

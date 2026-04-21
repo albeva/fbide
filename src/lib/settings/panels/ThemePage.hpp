@@ -7,6 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "ui/controls/Panel.hpp"
+#include "ui/controls/ColorPicker.hpp"
 #include "SettingsCategory.hpp"
 #include "config/Theme.hpp"
 #include "config/Value.hpp"
@@ -37,25 +38,14 @@ private:
     enum ControlId : int {
         ID_THEME_CHOICE = wxID_HIGHEST + 1,
         ID_SAVE_THEME,
-        ID_CATEGORY_LIST,
-        ID_CHK_INHERIT_FG,
-        ID_CHK_INHERIT_BG,
-        ID_BTN_FG,
-        ID_BTN_BG,
-        ID_BTN_SEPARATOR
+        ID_CATEGORY_LIST
     };
 
     void onSelectCategory(wxCommandEvent& event);
     void onSelectTheme(wxCommandEvent& event);
     void onSaveTheme(wxCommandEvent& event);
-    void onInheritFgToggle(wxCommandEvent& event);
-    void onInheritBgToggle(wxCommandEvent& event);
-    void onFgClick(wxCommandEvent& event);
-    void onBgClick(wxCommandEvent& event);
-    void onSeparatorClick(wxCommandEvent& event);
 
     void saveNewTheme(bool setActive);
-    void onColorButton(wxButton* btn);
     void loadCategory();
     void saveCategory();
     void updateTitle();
@@ -64,22 +54,17 @@ private:
 
     Unowned<wxListBox>    m_typeList;
     Unowned<wxChoice>     m_themeChoice;
-    Unowned<wxCheckBox>   m_chkInheritFg;
-    Unowned<wxCheckBox>   m_chkInheritBg;
-    Unowned<wxButton>     m_btnFg;
-    Unowned<wxButton>     m_btnBg;
-    Unowned<wxButton>     m_separatorBtn;
+    Unowned<ColorPicker>  m_fgPicker;
+    Unowned<ColorPicker>  m_bgPicker;
+    Unowned<ColorPicker>  m_separatorPicker;
     Unowned<wxChoice>     m_fontChoice;
     Unowned<wxStaticText> m_fontOptionsLabel;
     Unowned<wxCheckBox>   m_chkBold;
     Unowned<wxCheckBox>   m_chkItalic;
     Unowned<wxCheckBox>   m_chkUnderline;
     Unowned<wxSpinCtrl>   m_spinFontSize;
-    Unowned<wxStaticText> m_lblFg;
-    Unowned<wxStaticText> m_lblBg;
     Unowned<wxStaticText> m_lblFont;
     Unowned<wxStaticText> m_lblFontSize;
-    Unowned<wxStaticText> m_lblSeparator;
 
     wxStaticBoxSizer* m_themeBox = nullptr;
 
