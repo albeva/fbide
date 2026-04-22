@@ -14,6 +14,7 @@ add_executable(tests
     main.cpp
     BasicTests.cpp
     CompileCommandTests.cpp
+    DocumentIOTests.cpp
     EncodingDetectorTests.cpp
     FBSciLexerTests.cpp
     LexerTests.cpp

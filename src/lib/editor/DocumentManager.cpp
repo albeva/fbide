@@ -6,6 +6,7 @@
 //
 #include "DocumentManager.hpp"
 #include "Document.hpp"
+#include "DocumentIO.hpp"
 #include "Editor.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
@@ -89,12 +90,21 @@ auto DocumentManager::openFile(const wxString& filePath) -> Document* {
     const auto thaw = m_ctx.getUIManager().freeze();
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(getNotebook(), m_ctx, type));
 
-    // Load file into editor
-    if (!doc.getEditor()->LoadFile(filePath)) {
+    // Load with encoding + EOL detection. The Document ctor already seeded
+    // the per-doc defaults from config — use them as fallbacks.
+    const auto loaded = DocumentIO::load(filePath, doc.getEncoding(), doc.getEolMode());
+    if (!loaded.has_value()) {
         m_documents.pop_back();
         return nullptr;
     }
 
+    auto* editor = doc.getEditor();
+    editor->SetText(loaded->text);
+    editor->SetEOLMode(loaded->eolMode.toStc());
+    editor->ConvertEOLs(loaded->eolMode.toStc());
+    editor->EmptyUndoBuffer();
+    doc.setEncoding(loaded->encoding);
+    doc.setEolMode(loaded->eolMode);
     doc.setFilePath(filePath);
     doc.setModified(false);
 
@@ -110,7 +120,7 @@ auto DocumentManager::saveFile(Document& doc) const -> bool {
         return saveFileAs(doc);
     }
 
-    if (!doc.getEditor()->SaveFile(doc.getFilePath())) {
+    if (!DocumentIO::save(doc.getFilePath(), doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode())) {
         return false;
     }
 
@@ -139,7 +149,7 @@ auto DocumentManager::saveFileAs(Document& doc) const -> bool {
     }
 
     const auto newPath = dlg.GetPath();
-    if (!doc.getEditor()->SaveFile(newPath)) {
+    if (!DocumentIO::save(newPath, doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode())) {
         return false;
     }
 
@@ -323,13 +333,13 @@ auto DocumentManager::getNotebook() const -> wxAuiNotebook* {
 }
 
 void DocumentManager::updateActiveTabTitle() const {
-    if (auto* doc = getActive()) {
+    if (const auto* doc = getActive()) {
         updateTabTitle(*doc);
     }
 }
 
 void DocumentManager::updateTabTitle(const Document& doc) const {
-    auto idx = findPageIndex(doc);
+    const auto idx = findPageIndex(doc);
     if (idx != wxNOT_FOUND) {
         getNotebook()->SetPageText(static_cast<size_t>(idx), doc.getTitle());
     }

@@ -20,6 +20,7 @@ target_sources(fbide_lib
     config/Value.cpp
     config/Version.cpp
     editor/Document.cpp
+    editor/DocumentIO.cpp
     editor/DocumentManager.cpp
     editor/DocumentType.cpp
     editor/Editor.cpp

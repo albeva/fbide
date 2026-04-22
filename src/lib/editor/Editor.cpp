@@ -67,7 +67,7 @@ void Editor::applyEditorSettings() {
 
     SetScrollWidth(1);
     SetScrollWidthTracking(true);
-    SetEOLMode(wxSTC_EOL_LF);
+    // EOL mode is applied per-document — see Document ctor + setEolMode.
 
     if (m_preview) {
         // Preview mode: hide all margins and decorations

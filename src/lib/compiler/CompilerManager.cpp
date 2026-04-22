@@ -9,6 +9,7 @@
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "editor/Document.hpp"
+#include "editor/DocumentIO.hpp"
 #include "editor/DocumentManager.hpp"
 #include "editor/Editor.hpp"
 #include "ui/CompilerLog.hpp"
@@ -79,9 +80,12 @@ void CompilerManager::quickRun() {
                               ? wxPathOnly(m_ctx.getConfigManager().getAppDir()) + "/"
                               : wxPathOnly(filePath) + "/";
 
-    // Save content to temp file
+    // Save content to temp file — preserve doc encoding so the compiler
+    // sees bytes matching what the user sees.
     const auto tempFile = tempFolder + BuildTask::TEMPNAME;
-    doc->getEditor()->SaveFile(tempFile);
+    if (!DocumentIO::save(tempFile, doc->getEditor()->GetText(), doc->getEncoding(), doc->getEolMode())) {
+        return;
+    }
 
     m_task = std::make_unique<BuildTask>(m_ctx, doc);
     m_task->compileAndRun(tempFile, true);
