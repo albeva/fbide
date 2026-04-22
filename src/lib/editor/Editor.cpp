@@ -47,12 +47,11 @@ Editor::Editor(wxWindow* parent, Context& ctx, const DocumentType type, const bo
 }
 
 void Editor::applySettings() {
-    StyleResetDefault();
-    StyleClearAll();
     applyEditorSettings();
     defineFoldMargins();
     applyTheme();
     updateLineNumberMarginWidth();
+    Refresh();
 }
 
 void Editor::applyEditorSettings() {

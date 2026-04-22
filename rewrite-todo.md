@@ -57,7 +57,7 @@
 - [x] When opening a file and then forwarding it via single instance, relative file path is not resolved.
 - [ ] On linux, the wxStaticBoxSizer does not pad its content (wxGTK issue?)
 - [ ] Saving new or old .fbt theme is broken.
-- [ ] When changing font size from large to small, seems editor line-height remains old size.
+- [x] When changing font size from large to small, seems editor line-height remains old size.
 
 ## Formatter
 
