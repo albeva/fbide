@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "TextEncoding.hpp"
 #include "Document.hpp"
 #include "DocumentType.hpp"
 
@@ -48,6 +49,11 @@ public:
     /// If user chooses to save, saves all then returns true.
     /// If user cancels, returns false.
     auto prepareToQuit() -> bool;
+
+    /// Reload a document from disk forcing the given encoding. Prompts to
+    /// discard unsaved changes. On success the document's encoding is set
+    /// to `encoding` (not re-detected).
+    void reloadWithEncoding(Document& doc, TextEncoding encoding);
 
     /// Get currently active document (selected tab), or nullptr if none.
     [[nodiscard]] auto getActive() const -> Document*;

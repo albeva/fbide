@@ -6,12 +6,14 @@
 //
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "UIManager.hpp"
+#include "EncodingMenu.hpp"
 #include "app/Context.hpp"
 #include "CompilerLog.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
+#include "editor/Document.hpp"
 #include "editor/DocumentManager.hpp"
 #include "editor/Editor.hpp"
 #include "rc/icons.hpp"
@@ -347,8 +349,58 @@ void UIManager::configureToolBar() {
 }
 
 void UIManager::createStatusBar() const {
-    m_frame->CreateStatusBar(2);
+    auto* bar = m_frame->CreateStatusBar(4);
+    // Field 0 = welcome / status message (stretch)
+    // Field 1 = line : column
+    // Field 2 = EOL mode
+    // Field 3 = encoding
+    const int widths[] = { -1, 90, 90, 140 };
+    bar->SetStatusWidths(4, widths);
     m_frame->SetStatusText(m_ctx.tr("common.welcome"));
+    bar->Bind(wxEVT_LEFT_DOWN, &UIManager::onStatusBarClick, const_cast<UIManager*>(this));
+}
+
+void UIManager::onStatusBarClick(wxMouseEvent& event) {
+    event.Skip();
+    auto* bar = m_frame->GetStatusBar();
+    if (bar == nullptr) {
+        return;
+    }
+    auto* doc = m_ctx.getDocumentManager().getActive();
+    if (doc == nullptr) {
+        return;
+    }
+
+    const auto pos = event.GetPosition();
+    wxRect rect;
+
+    if (bar->GetFieldRect(2, rect) && rect.Contains(pos)) {
+        auto menu = EncodingMenu::buildEolMenu(doc->getEolMode());
+        menu->Bind(wxEVT_MENU, [doc](const wxCommandEvent& evt) {
+            if (const auto mode = EncodingMenu::eolFromId(evt.GetId())) {
+                doc->setEolMode(*mode);
+                doc->getEditor()->updateStatusBar();
+            }
+        });
+        bar->PopupMenu(menu.get());
+        return;
+    }
+
+    if (bar->GetFieldRect(3, rect) && rect.Contains(pos)) {
+        auto menu = EncodingMenu::buildEncodingMenu(doc->getEncoding());
+        menu->Bind(wxEVT_MENU, [this, doc](const wxCommandEvent& evt) {
+            if (const auto enc = EncodingMenu::encodingSaveFromId(evt.GetId())) {
+                doc->setEncoding(*enc);
+                m_ctx.getDocumentManager().updateActiveTabTitle();
+                doc->getEditor()->updateStatusBar();
+                return;
+            }
+            if (const auto enc = EncodingMenu::encodingReloadFromId(evt.GetId())) {
+                m_ctx.getDocumentManager().reloadWithEncoding(*doc, *enc);
+            }
+        });
+        bar->PopupMenu(menu.get());
+    }
 }
 
 void UIManager::createLayout() {

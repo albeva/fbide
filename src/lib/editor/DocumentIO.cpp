@@ -87,6 +87,42 @@ auto DocumentIO::load(
     };
 }
 
+auto DocumentIO::loadWithEncoding(
+    const wxString& path,
+    const TextEncoding encoding,
+    const EolMode defaultEol
+) -> std::optional<LoadResult> {
+    wxFile file(path, wxFile::read);
+    if (!file.IsOpened()) {
+        return std::nullopt;
+    }
+
+    const auto fileLen = static_cast<std::size_t>(file.Length());
+    std::vector<unsigned char> bytes(fileLen);
+    if (fileLen > 0) {
+        if (file.Read(bytes.data(), fileLen) != static_cast<ssize_t>(fileLen)) {
+            return std::nullopt;
+        }
+    }
+
+    // Strip BOM if the forced encoding mandates one and the file starts with it.
+    const auto bomLen = encoding.bomLength();
+    const std::size_t skip = (bomLen > 0 && fileLen >= bomLen) ? bomLen : 0;
+
+    auto decoded = encoding.decode(bytes.data() + skip, fileLen - skip);
+    if (!decoded.has_value()) {
+        return std::nullopt;
+    }
+
+    const auto detectedEol = EncodingDetector::detectEol(*decoded).value_or(defaultEol);
+
+    return LoadResult {
+        std::move(*decoded),
+        encoding,
+        detectedEol,
+    };
+}
+
 auto DocumentIO::save(const wxString& path,
     const wxString& text,
     const TextEncoding encoding,

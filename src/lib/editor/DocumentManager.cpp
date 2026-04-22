@@ -115,6 +115,42 @@ auto DocumentManager::openFile(const wxString& filePath) -> Document* {
     return &doc;
 }
 
+void DocumentManager::reloadWithEncoding(Document& doc, const TextEncoding encoding) {
+    if (doc.isNew()) {
+        return;
+    }
+
+    if (doc.isModified()) {
+        const auto result = wxMessageBox(
+            m_ctx.tr("messages.reloadDiscardChanges"),
+            m_ctx.tr("messages.reloadTitle"),
+            wxYES_NO | wxICON_QUESTION,
+            m_ctx.getUIManager().getMainFrame()
+        );
+        if (result != wxYES) {
+            return;
+        }
+    }
+
+    const auto loaded = DocumentIO::loadWithEncoding(doc.getFilePath(), encoding, doc.getEolMode());
+    if (!loaded.has_value()) {
+        wxLogError("%s", m_ctx.tr("messages.reloadFailed"));
+        return;
+    }
+
+    auto* editor = doc.getEditor();
+    editor->SetText(loaded->text);
+    editor->SetEOLMode(loaded->eolMode.toStc());
+    editor->ConvertEOLs(loaded->eolMode.toStc());
+    editor->EmptyUndoBuffer();
+    doc.setEncoding(encoding);
+    doc.setEolMode(loaded->eolMode);
+    doc.setModified(false);
+    doc.updateModTime();
+    updateTabTitle(doc);
+    editor->updateStatusBar();
+}
+
 auto DocumentManager::saveFile(Document& doc) const -> bool {
     if (doc.isNew()) {
         return saveFileAs(doc);
@@ -207,7 +243,10 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
     // Update UI state when no documents remain
     if (m_documents.empty()) {
         m_ctx.getUIManager().setDocumentState(UIState::None);
-        m_ctx.getUIManager().getMainFrame()->SetStatusText("", 1);
+        auto* frame = m_ctx.getUIManager().getMainFrame();
+        frame->SetStatusText("", 1);
+        frame->SetStatusText("", 2);
+        frame->SetStatusText("", 3);
     }
 
     return true;

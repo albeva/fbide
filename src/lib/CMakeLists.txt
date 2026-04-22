@@ -43,6 +43,7 @@ target_sources(fbide_lib
     settings/panels/ThemePage.cpp
     ui/ArtiProvider.cpp
     ui/CompilerLog.cpp
+    ui/EncodingMenu.cpp
     ui/OutputConsole.cpp
     ui/UIManager.cpp
     ui/controls/BBCodeText.cpp
@@ -98,6 +99,7 @@ target_sources(fbide_lib
     settings/panels/ThemePage.hpp
     ui/ArtiProvider.hpp
     ui/CompilerLog.hpp
+    ui/EncodingMenu.hpp
     ui/OutputConsole.hpp
     ui/UIManager.hpp
     ui/UIState.hpp

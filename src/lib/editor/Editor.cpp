@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "Editor.hpp"
+#include "Document.hpp"
 #include "DocumentManager.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
@@ -500,7 +501,16 @@ void Editor::updateStatusBar() const {
     const auto pos = GetCurrentPos();
     const auto line = LineFromPosition(pos) + 1;
     const auto col = GetColumn(pos) + 1;
-    m_ctx.getUIManager().getMainFrame()->SetStatusText(wxString::Format("%d : %d", line, col), 1);
+    auto* frame = m_ctx.getUIManager().getMainFrame();
+    frame->SetStatusText(wxString::Format("%d : %d", line, col), 1);
+
+    if (const auto* doc = m_ctx.getDocumentManager().findByEditor(this)) {
+        frame->SetStatusText(wxString::FromUTF8(doc->getEolMode().toString()), 2);
+        frame->SetStatusText(wxString::FromUTF8(doc->getEncoding().toString()), 3);
+    } else {
+        frame->SetStatusText("", 2);
+        frame->SetStatusText("", 3);
+    }
 }
 
 void Editor::onFocus(wxFocusEvent& event) {

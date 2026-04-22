@@ -34,6 +34,17 @@ public:
         EolMode defaultEol
     ) -> std::optional<LoadResult>;
 
+    /// Load file forcing the given encoding — bypasses encoding detection.
+    /// Used for "Reload with Encoding ..." where the user explicitly
+    /// overrides auto-detection (e.g. the file was mis-detected). BOM
+    /// bytes are still stripped when the chosen encoding expects one.
+    /// EOL is detected from the decoded text (falls back to `defaultEol`).
+    [[nodiscard]] static auto loadWithEncoding(
+        const wxString& path,
+        TextEncoding encoding,
+        EolMode defaultEol
+    ) -> std::optional<LoadResult>;
+
     /// Save text to disk in the given encoding. Pipeline:
     ///   1. Convert EOLs in `text` to match `eolMode`
     ///   2. Encode via TextEncoding::encode

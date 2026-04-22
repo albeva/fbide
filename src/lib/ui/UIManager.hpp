@@ -92,6 +92,7 @@ private:
     void onPageClose(wxAuiNotebookEvent& event);
     void onPageChanged(wxAuiNotebookEvent& event);
     void onNotebookDblClick(wxAuiNotebookEvent& event);
+    void onStatusBarClick(wxMouseEvent& event);
 
     void configureMenuBar();
     void configureMenuItems(wxMenu* menu, const wxString& id, bool addSeparators);
