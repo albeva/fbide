@@ -33,7 +33,7 @@ auto EncodingMenu::buildEolMenu(const EolMode current) -> std::unique_ptr<wxMenu
     return menu;
 }
 
-auto EncodingMenu::buildEncodingMenu(const TextEncoding current) -> std::unique_ptr<wxMenu> {
+auto EncodingMenu::buildEncodingMenu(const TextEncoding current, const wxString& reloadLabel) -> std::unique_ptr<wxMenu> {
     auto menu = std::make_unique<wxMenu>();
 
     for (std::size_t i = 0; i < TextEncoding::all.size(); i++) {
@@ -53,7 +53,7 @@ auto EncodingMenu::buildEncodingMenu(const TextEncoding current) -> std::unique_
         const int id = kEncodingReloadIdBase + static_cast<int>(i);
         reload->Append(id, wxString::FromUTF8(enc.toString()));
     }
-    menu->AppendSubMenu(reload, "Reload with Encoding");
+    menu->AppendSubMenu(reload, reloadLabel);
 
     return menu;
 }

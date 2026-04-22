@@ -32,8 +32,8 @@ public:
     /// Build encoding popup menu with:
     ///   - Save-with-encoding radio items (current checked)
     ///   - Separator
-    ///   - Reload-with-encoding submenu
-    [[nodiscard]] static auto buildEncodingMenu(TextEncoding current) -> std::unique_ptr<wxMenu>;
+    ///   - Reload-with-encoding submenu (labelled with `reloadLabel`)
+    [[nodiscard]] static auto buildEncodingMenu(TextEncoding current, const wxString& reloadLabel) -> std::unique_ptr<wxMenu>;
 
     /// Decode selection event id back to an EolMode.
     /// Returns nullopt if the id is not in the EOL range.

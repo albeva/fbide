@@ -115,6 +115,18 @@ auto DocumentManager::openFile(const wxString& filePath) -> Document* {
     return &doc;
 }
 
+void DocumentManager::warnEncodingCannotSave(const Document& doc) const {
+    wxMessageBox(
+        wxString::Format(
+            m_ctx.tr("messages.saveLossyFormat"),
+            wxString::FromUTF8(doc.getEncoding().toString())
+        ),
+        m_ctx.tr("messages.saveLossyTitle"),
+        wxOK | wxICON_WARNING,
+        m_ctx.getUIManager().getMainFrame()
+    );
+}
+
 void DocumentManager::reloadWithEncoding(Document& doc, const TextEncoding encoding) {
     if (doc.isNew()) {
         return;
@@ -157,6 +169,7 @@ auto DocumentManager::saveFile(Document& doc) const -> bool {
     }
 
     if (!DocumentIO::save(doc.getFilePath(), doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode())) {
+        warnEncodingCannotSave(doc);
         return false;
     }
 
@@ -186,6 +199,7 @@ auto DocumentManager::saveFileAs(Document& doc) const -> bool {
 
     const auto newPath = dlg.GetPath();
     if (!DocumentIO::save(newPath, doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode())) {
+        warnEncodingCannotSave(doc);
         return false;
     }
 

@@ -252,6 +252,26 @@ TEST_F(DocumentIOTests, SaveWindows1252EncodesNonAscii) {
     wxRemoveFile(path);
 }
 
+TEST_F(DocumentIOTests, SaveFailsWhenEncodingCannotRepresentChars) {
+    // Japanese chars are not in Windows-1252 — wxCSConv is strict so
+    // encode returns nullopt and save reports failure.
+    const auto path = wxFileName::CreateTempFileName("fbide_save");
+    const wxString text = wxString::FromUTF8("hello \xE6\x97\xA5\xE6\x9C\xAC"); // "日本"
+    const bool ok = DocumentIO::save(path, text, kWin1252, kLf);
+    EXPECT_FALSE(ok);
+
+    wxRemoveFile(path);
+}
+
+TEST_F(DocumentIOTests, SaveUtf8HandlesUnicode) {
+    const auto path = wxFileName::CreateTempFileName("fbide_save");
+    const wxString text = wxString::FromUTF8("hello \xE6\x97\xA5\xE6\x9C\xAC");
+    const bool ok = DocumentIO::save(path, text, kUtf8, kLf);
+    ASSERT_TRUE(ok);
+
+    wxRemoveFile(path);
+}
+
 // ---------------------------------------------------------------------------
 // Round-trip
 // ---------------------------------------------------------------------------

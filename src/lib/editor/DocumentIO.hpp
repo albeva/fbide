@@ -50,7 +50,9 @@ public:
     ///   2. Encode via TextEncoding::encode
     ///   3. Prefix BOM if encoding requires it
     ///   4. Write bytes to `path` (truncating)
-    /// Returns true on success.
+    /// Returns false if encoding rejects characters unrepresentable in
+    /// the target codepage (callers should surface this — e.g. suggest
+    /// UTF-8) or if the file could not be opened/written.
     [[nodiscard]] static auto save(const wxString& path,
         const wxString& text,
         TextEncoding encoding,
