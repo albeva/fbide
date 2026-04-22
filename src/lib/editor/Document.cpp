@@ -15,13 +15,13 @@ namespace {
 auto defaultEncodingFromConfig(Context& ctx) -> TextEncoding {
     const auto& editor = ctx.getConfigManager().config().at("editor");
     const auto key = editor.get_or("encoding", "UTF-8");
-    return TextEncoding::parse(key.ToStdString()).value_or(TextEncoding { TextEncoding::UTF8 });
+    return TextEncoding::parse(key.ToStdString()).value_or(TextEncoding::UTF8);
 }
 
 auto defaultEolModeFromConfig(Context& ctx) -> EolMode {
     const auto& editor = ctx.getConfigManager().config().at("editor");
     const auto key = editor.get_or("eolMode", "LF");
-    return EolMode::parse(key.ToStdString()).value_or(EolMode { EolMode::LF });
+    return EolMode::parse(key.ToStdString()).value_or(EolMode::LF);
 }
 
 } // namespace

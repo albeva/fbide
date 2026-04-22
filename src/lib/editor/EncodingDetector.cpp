@@ -22,6 +22,20 @@ auto EncodingDetector::detect(const void* bytes, const std::size_t len, const Te
     if (isLikelyUtf8(bytes, len)) {
         return { TextEncoding { TextEncoding::UTF8 }, false };
     }
+    // Bytes are not valid UTF-8 but the caller's fallback is UTF-*.
+    // Decoding would fail; substitute the system default so legacy files
+    // (e.g. Windows-1252 .fbl, CP437 DOS sources) still load.
+    if (!isValidUtf8(bytes, len)) {
+        switch (fallback.value()) {
+        case TextEncoding::UTF8:
+        case TextEncoding::UTF8_BOM:
+        case TextEncoding::UTF16_LE:
+        case TextEncoding::UTF16_BE:
+            return { TextEncoding { TextEncoding::System }, false };
+        default:
+            break;
+        }
+    }
     return { fallback, false };
 }
 

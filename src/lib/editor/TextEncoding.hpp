@@ -35,7 +35,8 @@ public:
         System,
     };
 
-    constexpr TextEncoding(const Value v) noexcept : m_encoding(v) {}
+    constexpr TextEncoding(const Value v) noexcept
+    : m_encoding(v) {}
 
     constexpr operator Value() const noexcept { return m_encoding; }
     [[nodiscard]] constexpr auto value() const noexcept -> Value { return m_encoding; }
@@ -99,7 +100,8 @@ public:
         CR,
     };
 
-    constexpr EolMode(const Value v) noexcept : m_mode(v) {}
+    constexpr EolMode(const Value v) noexcept
+    : m_mode(v) {}
 
     constexpr operator Value() const noexcept { return m_mode; }
     [[nodiscard]] constexpr auto value() const noexcept -> Value { return m_mode; }

@@ -201,3 +201,18 @@ TEST_F(EncodingDetectorTests, DetectEmptyUsesFallback) {
     EXPECT_EQ(result.encoding, TextEncoding::UTF8);
     EXPECT_FALSE(result.hadBom);
 }
+
+TEST_F(EncodingDetectorTests, DetectUpgradesUtf8FallbackToSystemWhenNotUtf8) {
+    // Invalid UTF-8 but fallback is UTF-8 — detection must substitute
+    // a byte-clean encoding so decode doesn't fail. System is the choice.
+    const unsigned char bytes[] = { 'h', 0xC3, 0xFF };
+    const auto result = EncodingDetector::detect(bytes, sizeof(bytes), TextEncoding { TextEncoding::UTF8 });
+    EXPECT_EQ(result.encoding, TextEncoding::System);
+    EXPECT_FALSE(result.hadBom);
+}
+
+TEST_F(EncodingDetectorTests, DetectUpgradesUtf16FallbackToSystemWhenNotUtf8) {
+    const unsigned char bytes[] = { 'h', 0xC3, 0xFF };
+    const auto result = EncodingDetector::detect(bytes, sizeof(bytes), TextEncoding { TextEncoding::UTF16_LE });
+    EXPECT_EQ(result.encoding, TextEncoding::System);
+}

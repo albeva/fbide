@@ -58,6 +58,7 @@
 - [ ] On linux, the wxStaticBoxSizer does not pad its content (wxGTK issue?)
 - [ ] Saving new or old .fbt theme is broken.
 - [x] When changing font size from large to small, seems editor line-height remains old size.
+- [ ] When file fails to load, Document creates Editor, which leaves hanging editor.
 
 ## Formatter
 

@@ -5,8 +5,8 @@
 // https://github.com/albeva/fbide
 //
 #include "DocumentIO.hpp"
-#include "EncodingDetector.hpp"
 #include <wx/file.h>
+#include "EncodingDetector.hpp"
 using namespace fbide;
 
 namespace {
@@ -16,11 +16,19 @@ auto normalizeEols(const wxString& text, const EolMode mode) -> wxString {
     wxString out;
     out.reserve(text.length());
     const char* eol = nullptr;
+
     switch (mode.value()) {
-    case EolMode::LF:   eol = "\n";   break;
-    case EolMode::CRLF: eol = "\r\n"; break;
-    case EolMode::CR:   eol = "\r";   break;
+    case EolMode::LF:
+        eol = "\n";
+        break;
+    case EolMode::CRLF:
+        eol = "\r\n";
+        break;
+    case EolMode::CR:
+        eol = "\r";
+        break;
     }
+
     for (std::size_t i = 0; i < text.length(); i++) {
         const auto ch = text[i];
         if (ch == '\r') {
@@ -39,9 +47,11 @@ auto normalizeEols(const wxString& text, const EolMode mode) -> wxString {
 
 } // namespace
 
-auto DocumentIO::load(const wxString& path,
+auto DocumentIO::load(
+    const wxString& path,
     const TextEncoding defaultEncoding,
-    const EolMode defaultEol) -> std::optional<LoadResult> {
+    const EolMode defaultEol
+) -> std::optional<LoadResult> {
     wxFile file(path, wxFile::read);
     if (!file.IsOpened()) {
         return std::nullopt;

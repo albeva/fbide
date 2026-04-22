@@ -28,9 +28,11 @@ public:
     ///   4. Decode payload to wxString
     ///   5. Detect EOL mode from first 8KB; fall back to `defaultEol`
     /// Returns nullopt if the file can't be opened or decoding fails.
-    [[nodiscard]] static auto load(const wxString& path,
+    [[nodiscard]] static auto load(
+        const wxString& path,
         TextEncoding defaultEncoding,
-        EolMode defaultEol) -> std::optional<LoadResult>;
+        EolMode defaultEol
+    ) -> std::optional<LoadResult>;
 
     /// Save text to disk in the given encoding. Pipeline:
     ///   1. Convert EOLs in `text` to match `eolMode`
