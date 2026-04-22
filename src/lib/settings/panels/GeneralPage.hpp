@@ -43,6 +43,8 @@ private:
     // Bottom row
     int m_edgeColumn;
     int m_tabSize;
+    wxString m_encoding; // TextEncoding config key (e.g. "UTF-8")
+    wxString m_eolMode;  // EolMode config key ("LF" / "CRLF" / "CR")
     wxString m_language;
 };
 

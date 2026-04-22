@@ -8,12 +8,29 @@
 #include "GeneralPage.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
+#include "editor/TextEncoding.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
 namespace {
 auto currentLocaleFileName(const Value& cfg) -> wxString {
     return wxFileName(cfg.get_or("locale", "")).GetFullName();
+}
+
+auto encodingChoices() -> wxArrayString {
+    wxArrayString names;
+    for (const auto value : TextEncoding::all) {
+        names.Add(wxString::FromUTF8(TextEncoding { value }.toString()));
+    }
+    return names;
+}
+
+auto eolModeChoices() -> wxArrayString {
+    wxArrayString names;
+    for (const auto value : EolMode::all) {
+        names.Add(wxString::FromUTF8(EolMode { value }.toString()));
+    }
+    return names;
 }
 } // namespace
 
@@ -32,6 +49,8 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
     m_foldMargin      = editor.get_or("folderMargin",    false);
     m_edgeColumn      = editor.get_or("edgeColumn",      80);
     m_tabSize         = editor.get_or("tabSize",         4);
+    m_encoding        = editor.get_or("encoding",        "UTF-8");
+    m_eolMode         = editor.get_or("eolMode",         "LF");
     m_splashScreen    = cfg.get_or("general.splashScreen", true);
     m_language        = currentLocaleFileName(cfg);
 }
@@ -45,6 +64,10 @@ void GeneralPage::create() {
             checkBox(m_showLineEndings, tr("dialogs.settings.general.lineEndings"));
             checkBox(m_braceHighlight,  tr("dialogs.settings.general.braceHighlight"));
             spinCtrl(m_edgeColumn, tr("dialogs.settings.general.rightMarginWidth"), 1, 200, {});
+            hbox({ .center = true, .border = 0 }, [&] {
+                text(tr("dialogs.settings.general.encoding"), { .expand = false });
+                choice(m_encoding, encodingChoices(), { .expand = false })->SetMinSize(wxSize(160, -1));
+            });
         });
 
         separator({ .space = false });
@@ -56,6 +79,10 @@ void GeneralPage::create() {
             checkBox(m_foldMargin,      tr("dialogs.settings.general.foldMargin"));
             checkBox(m_splashScreen,    tr("dialogs.settings.general.splashScreen"));
             spinCtrl(m_tabSize, tr("dialogs.settings.general.tabSize"), 1, 16, {});
+            hbox({ .center = true, .border = 0 }, [&] {
+                text(tr("dialogs.settings.general.eolMode"), { .expand = false });
+                choice(m_eolMode, eolModeChoices(), { .expand = false })->SetMinSize(wxSize(160, -1));
+            });
         });
     });
 
@@ -89,6 +116,8 @@ void GeneralPage::apply() {
     editor["folderMargin"]    = m_foldMargin;
     editor["edgeColumn"]      = m_edgeColumn;
     editor["tabSize"]         = m_tabSize;
+    editor["encoding"]        = m_encoding;
+    editor["eolMode"]         = m_eolMode;
     cfg["general"]["splashScreen"] = m_splashScreen;
 
     // Swap locale file if the user picked a different language.

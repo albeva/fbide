@@ -7,12 +7,35 @@
 #include "Document.hpp"
 #include "Editor.hpp"
 #include "app/Context.hpp"
+#include "config/ConfigManager.hpp"
 using namespace fbide;
+
+namespace {
+
+auto defaultEncodingFromConfig(Context& ctx) -> TextEncoding {
+    const auto& editor = ctx.getConfigManager().config().at("editor");
+    const auto key = editor.get_or("encoding", "UTF-8");
+    return TextEncoding::parse(key.ToStdString()).value_or(TextEncoding { TextEncoding::UTF8 });
+}
+
+auto defaultEolModeFromConfig(Context& ctx) -> EolMode {
+    const auto& editor = ctx.getConfigManager().config().at("editor");
+    const auto key = editor.get_or("eolMode", "LF");
+    return EolMode::parse(key.ToStdString()).value_or(EolMode { EolMode::LF });
+}
+
+} // namespace
 
 Document::Document(wxWindow* parent, Context& ctx, const DocumentType type)
 : m_ctx(ctx)
 , m_type(type)
-, m_editor(make_unowned<Editor>(parent, ctx, type)) {}
+, m_editor(make_unowned<Editor>(parent, ctx, type))
+, m_encoding(defaultEncodingFromConfig(ctx))
+, m_eolMode(defaultEolModeFromConfig(ctx)) {
+    if (m_editor) {
+        m_editor->SetEOLMode(m_eolMode.toStc());
+    }
+}
 
 void Document::setFilePath(const wxString& path) {
     m_filePath = path;
@@ -35,10 +58,10 @@ auto Document::getTitle() const -> wxString {
 }
 
 auto Document::isModified() const -> bool {
-    return m_editor && m_editor->GetModify();
+    return m_metaModified || (m_editor && m_editor->GetModify());
 }
 
-void Document::setModified(const bool modified) const {
+void Document::setModified(const bool modified) {
     if (m_editor) {
         if (modified) {
             // Can't force STC to modified state directly, but this
@@ -46,6 +69,28 @@ void Document::setModified(const bool modified) const {
         } else {
             m_editor->SetSavePoint();
         }
+    }
+    if (!modified) {
+        m_metaModified = false;
+    }
+}
+
+void Document::setEncoding(const TextEncoding encoding) {
+    if (m_encoding == encoding) {
+        return;
+    }
+    m_encoding = encoding;
+    m_metaModified = true;
+}
+
+void Document::setEolMode(const EolMode mode) {
+    if (m_eolMode == mode) {
+        return;
+    }
+    m_eolMode = mode;
+    if (m_editor) {
+        m_editor->ConvertEOLs(mode.toStc());
+        m_editor->SetEOLMode(mode.toStc());
     }
 }
 

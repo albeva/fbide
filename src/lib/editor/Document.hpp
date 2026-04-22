@@ -7,6 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "DocumentType.hpp"
+#include "TextEncoding.hpp"
 
 namespace fbide {
 class Context;
@@ -50,11 +51,26 @@ public:
     /// Is this a new (never saved) document?
     [[nodiscard]] auto isNew() const -> bool { return m_filePath.empty(); }
 
+    /// Get the text encoding used on save.
+    [[nodiscard]] auto getEncoding() const -> TextEncoding { return m_encoding; }
+
+    /// Change encoding. Does not mutate buffer contents — only affects
+    /// bytes written on next save. Marks document dirty.
+    void setEncoding(TextEncoding encoding);
+
+    /// Get the line-ending mode.
+    [[nodiscard]] auto getEolMode() const -> EolMode { return m_eolMode; }
+
+    /// Change EOL mode. Rewrites buffer line endings via ConvertEOLs and
+    /// applies to wxSTC for future inserts. Marks document dirty.
+    void setEolMode(EolMode mode);
+
     /// Is the document modified?
     [[nodiscard]] auto isModified() const -> bool;
 
-    /// Set modified state.
-    void setModified(bool modified) const;
+    /// Set modified state. Also clears the encoding-change dirty flag
+    /// when called with `false` (e.g. after successful save).
+    void setModified(bool modified);
 
     /// Check if file was modified externally since last load/save.
     [[nodiscard]] auto checkExternalChange() const -> bool;
@@ -69,6 +85,11 @@ private:
     DocumentType m_type;
     Unowned<Editor> m_editor;
     wxDateTime m_modTime;
+    TextEncoding m_encoding;
+    EolMode m_eolMode;
+    /// Set when encoding is changed; cleared on save. OR'd with editor's
+    /// modify flag in isModified() so encoding-only edits still show as dirty.
+    bool m_metaModified = false;
 };
 
 } // namespace fbide

@@ -153,6 +153,7 @@ auto TextEncoding::bomBytes() const -> std::span<const std::byte> {
     }
     size_t count = 0;
     const char* ptr = wxConvAuto::GetBOMChars(bom, &count);
+    // ReSharper disable once CppDFALocalValueEscapesFunction
     return { reinterpret_cast<const std::byte*>(ptr), count };
 }
 
