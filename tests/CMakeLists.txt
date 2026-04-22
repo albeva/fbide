@@ -14,10 +14,12 @@ add_executable(tests
     main.cpp
     BasicTests.cpp
     CompileCommandTests.cpp
+    EncodingDetectorTests.cpp
     FBSciLexerTests.cpp
     LexerTests.cpp
     ReFormatterTests.cpp
     RunCommandTests.cpp
+    TextEncodingTests.cpp
     ThemeTests.cpp
     ${CMAKE_SOURCE_DIR}/third_party/lexilla/test/TestDocument.cxx
 )
