@@ -389,7 +389,7 @@ void UIManager::onStatusBarClick(wxMouseEvent& event) {
     if (bar->GetFieldRect(3, rect) && rect.Contains(pos)) {
         auto menu = EncodingMenu::buildEncodingMenu(
             doc->getEncoding(),
-            m_ctx.tr("menus.reloadWithEncoding")
+            m_ctx.tr("statusbar.encoding.reloadWithEncoding")
         );
         menu->Bind(wxEVT_MENU, [this, doc](const wxCommandEvent& evt) {
             if (const auto enc = EncodingMenu::encodingSaveFromId(evt.GetId())) {
