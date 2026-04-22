@@ -71,6 +71,7 @@ private:
     void defineFoldMargins();
     void applyTheme();
     void applyStyle(int stcId, const Theme::Entry& style, const Theme& theme);
+    void applyColors(int stcId, const Theme::Colors& colors, const Theme& theme);
     void applyFreebasicTheme();
     void applyHtmlTheme();
     void applyPropertiesTheme();
@@ -79,6 +80,7 @@ private:
 
     Context& m_ctx;
     DocumentType m_docType;
+    wxFont m_font;
     bool m_preview;
 
     wxDECLARE_EVENT_TABLE();

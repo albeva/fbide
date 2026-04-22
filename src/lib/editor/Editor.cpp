@@ -47,6 +47,7 @@ Editor::Editor(wxWindow* parent, Context& ctx, const DocumentType type, const bo
 }
 
 void Editor::applySettings() {
+    StyleResetDefault();
     StyleClearAll();
     applyEditorSettings();
     defineFoldMargins();
@@ -96,16 +97,6 @@ void Editor::applyEditorSettings() {
     SetMarginWidth(+Margins::Fold, 0);
 }
 
-void Editor::setDocType(const DocumentType type) {
-    m_docType = type;
-    applySettings();
-}
-
-void Editor::selectLine() {
-    const auto line = GetCurrentLine();
-    SetSelection(PositionFromLine(line), PositionFromLine(line + 1));
-}
-
 void Editor::defineFoldMargins() {
     const auto& editor = m_ctx.getConfigManager().config().at("editor");
     if (not editor.get_or("folderMargin", false)) {
@@ -141,7 +132,7 @@ void Editor::applyTheme() {
     const auto& defaultEntry = theme.get(ThemeCategory::Default);
     const auto& defaultColors = defaultEntry.colors;
 
-    const auto defaultFont = wxFont(
+    m_font = wxFont(
         theme.getFontSize(),
         wxFONTFAMILY_MODERN,
         wxFONTSTYLE_NORMAL,
@@ -152,15 +143,13 @@ void Editor::applyTheme() {
 
     StyleSetForeground(wxSTC_STYLE_DEFAULT, defaultColors.foreground);
     StyleSetBackground(wxSTC_STYLE_DEFAULT, defaultColors.background);
-    StyleSetFont(wxSTC_STYLE_DEFAULT, defaultFont);
+    StyleSetFont(wxSTC_STYLE_DEFAULT, m_font);
     StyleSetBackground(wxSTC_STYLE_INDENTGUIDE, defaultColors.background);
     StyleSetForeground(wxSTC_STYLE_INDENTGUIDE, theme.getSeparator());
 
     // Line numbers
-    const auto& lineNum = theme.getLineNumber();
-    StyleSetForeground(wxSTC_STYLE_LINENUMBER, theme.foreground(lineNum.foreground));
-    StyleSetBackground(wxSTC_STYLE_LINENUMBER, theme.background(lineNum.background));
-    StyleSetFont(wxSTC_STYLE_LINENUMBER, defaultFont);
+    applyColors(wxSTC_STYLE_LINENUMBER, theme.getLineNumber(), theme);
+    StyleSetFont(wxSTC_STYLE_LINENUMBER, m_font);
 
     // Caret — no dedicated field, use default foreground.
     SetCaretForeground(defaultColors.foreground);
@@ -213,22 +202,16 @@ void Editor::applyFreebasicTheme() {
 }
 
 void Editor::applyStyle(const int stcId, const Theme::Entry& style, const Theme& theme) {
-    StyleSetForeground(stcId, theme.foreground(style.colors.foreground));
-    StyleSetBackground(stcId, theme.background(style.colors.background));
-
-    const auto font = wxFont(
-        theme.getFontSize(),
-        wxFONTFAMILY_MODERN,
-        wxFONTSTYLE_NORMAL,
-        wxFONTWEIGHT_NORMAL,
-        false,
-        theme.getFont()
-    );
-    StyleSetFont(stcId, font);
-
+    applyColors(stcId, style.colors, theme);
+    StyleSetFont(stcId, m_font);
     StyleSetBold(stcId, style.bold);
     StyleSetItalic(stcId, style.italic);
     StyleSetUnderline(stcId, style.underlined);
+}
+
+void Editor::applyColors(const int stcId, const Theme::Colors& colors, const Theme& theme) {
+    StyleSetForeground(stcId, theme.foreground(colors.foreground));
+    StyleSetBackground(stcId, theme.background(colors.background));
 }
 
 void Editor::applyHtmlTheme() {
@@ -270,6 +253,16 @@ void Editor::updateLineNumberMarginWidth() {
     } else {
         SetMarginWidth(+Margins::LineNumbers, 0);
     }
+}
+
+void Editor::setDocType(const DocumentType type) {
+    m_docType = type;
+    applySettings();
+}
+
+void Editor::selectLine() {
+    const auto line = GetCurrentLine();
+    SetSelection(PositionFromLine(line), PositionFromLine(line + 1));
 }
 
 auto Editor::getWordAtCursor() -> wxString {
