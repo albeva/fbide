@@ -6,6 +6,8 @@
 //
 #pragma once
 #include "pch.hpp"
+#include <span>
+#include <string_view>
 
 namespace fbide::indent {
 
@@ -23,11 +25,13 @@ struct Decision {
     /// level relative to its current indent before placing the new line.
     bool dedentPrev = false;
 
-    /// Canonical closing keyword to auto-insert below when `prevLine` opens
-    /// a block (e.g. `End If`, `Loop`, `Next`, `End Sub`). Populated for
-    /// every detected opener regardless of the caller's autoClose setting —
-    /// the Editor glue decides whether to use it based on config.
-    std::optional<wxString> insertCloser;
+    /// Canonical closing keyword(s) to auto-insert below when `prevLine`
+    /// opens a block. Each element is a single keyword, lowercase, joined
+    /// with single spaces by the renderer. Empty span = no closer.
+    /// Examples: { "loop" }, { "next" }, { "end", "if" }, { "end", "sub" }.
+    /// Storage lives in static `constexpr` arrays — caller must not retain
+    /// the span past the lifetime of the program.
+    std::span<const std::string_view> closerKeywords;
 };
 
 /// Compute the indent decision triggered by pressing Enter at the end of

@@ -15,7 +15,7 @@ class Editor;
 class Renderer;
 class Transform;
 class Document;
-enum class CaseMode;
+class CaseMode;
 
 /// Format dialog — keyword case conversion and code export.
 class FormatDialog final : public Layout<wxDialog> {

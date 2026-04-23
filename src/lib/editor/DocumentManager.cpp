@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "DocumentManager.hpp"
+#include "CodeTransformer.hpp"
 #include "Document.hpp"
 #include "DocumentIO.hpp"
 #include "Editor.hpp"
@@ -30,7 +31,10 @@ wxEND_EVENT_TABLE()
 // clang-format on
 
 DocumentManager::DocumentManager(Context& ctx)
-: m_ctx(ctx) {}
+: m_ctx(ctx)
+, m_codeTransformer(std::make_unique<CodeTransformer>(ctx)) {}
+
+DocumentManager::~DocumentManager() = default;
 
 auto DocumentManager::defaultEncoding() const -> TextEncoding {
     const auto& editor = m_ctx.getConfigManager().config().at("editor");
@@ -110,7 +114,10 @@ auto DocumentManager::openFile(const wxString& filePath) -> Document* {
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(getNotebook(), m_ctx, type));
 
     auto* editor = doc.getEditor();
-    editor->SetText(loaded->text);
+    {
+        const CodeTransformer::Suspend suspend(*m_codeTransformer);
+        editor->SetText(loaded->text);
+    }
     editor->SetEOLMode(loaded->eolMode.toStc());
     editor->ConvertEOLs(loaded->eolMode.toStc());
     editor->EmptyUndoBuffer();
@@ -162,7 +169,10 @@ void DocumentManager::reloadWithEncoding(Document& doc, const TextEncoding encod
     }
 
     auto* editor = doc.getEditor();
-    editor->SetText(loaded->text);
+    {
+        const CodeTransformer::Suspend suspend(*m_codeTransformer);
+        editor->SetText(loaded->text);
+    }
     editor->SetEOLMode(loaded->eolMode.toStc());
     editor->ConvertEOLs(loaded->eolMode.toStc());
     editor->EmptyUndoBuffer();

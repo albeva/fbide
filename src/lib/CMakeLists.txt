@@ -20,6 +20,7 @@ target_sources(fbide_lib
     config/Value.cpp
     config/Version.cpp
     editor/AutoIndent.cpp
+    editor/CodeTransformer.cpp
     editor/Document.cpp
     editor/DocumentIO.cpp
     editor/DocumentManager.cpp
@@ -75,6 +76,7 @@ target_sources(fbide_lib
     config/Value.hpp
     config/Version.hpp
     editor/AutoIndent.hpp
+    editor/CodeTransformer.hpp
     editor/Document.hpp
     editor/DocumentManager.hpp
     editor/DocumentType.hpp

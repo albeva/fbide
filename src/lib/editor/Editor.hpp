@@ -11,6 +11,7 @@
 
 namespace fbide {
 class Context;
+class CodeTransformer;
 
 /// Scintilla-based code editor.
 class Editor final : public wxStyledTextCtrl {
@@ -18,8 +19,11 @@ public:
     NO_COPY_AND_MOVE(Editor)
 
     /// Create editor as child of parent window for given document type.
+    /// `transformer` may be nullptr (preview editors). When non-null, it
+    /// receives EVT_STC_CHARADDED and applySettings calls.
     /// If preview is true, hides all margins and decorations.
-    Editor(wxWindow* parent, Context& ctx, DocumentType type = DocumentType::FreeBASIC, bool preview = false);
+    Editor(wxWindow* parent, Context& ctx, CodeTransformer* transformer,
+        DocumentType type = DocumentType::FreeBASIC, bool preview = false);
 
     /// Apply theme and settings from context.
     void applySettings();
@@ -80,10 +84,11 @@ private:
     void updateLineNumberMarginWidth();
 
     Context& m_ctx;
+    CodeTransformer* m_transformer;
     DocumentType m_docType;
     wxFont m_font;
     bool m_preview;
-    bool m_autoIndentEnabled = true;
+    int m_lastCaretPos = 0;
 
     wxDECLARE_EVENT_TABLE();
 };

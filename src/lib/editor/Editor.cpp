@@ -5,9 +5,10 @@
 // https://github.com/albeva/fbide
 //
 #include "Editor.hpp"
-#include "AutoIndent.hpp"
+#include "CodeTransformer.hpp"
 #include "Document.hpp"
 #include "DocumentManager.hpp"
+// fwd decl already included via DocumentManager.hpp
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/Theme.hpp"
@@ -41,9 +42,11 @@ wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
 wxEND_EVENT_TABLE()
 // clang-format on
 
-Editor::Editor(wxWindow* parent, Context& ctx, const DocumentType type, const bool preview)
+Editor::Editor(wxWindow* parent, Context& ctx, CodeTransformer* transformer,
+    const DocumentType type, const bool preview)
 : wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize)
 , m_ctx(ctx)
+, m_transformer(transformer)
 , m_docType(type)
 , m_preview(preview) {
     applySettings();
@@ -60,7 +63,9 @@ void Editor::applySettings() {
 void Editor::applyEditorSettings() {
     const auto& editor = m_ctx.getConfigManager().config().at("editor");
     const auto tabSize = editor.get_or("tabSize", 4);
-    m_autoIndentEnabled = editor.get_or("autoIndent", true);
+    if (m_transformer != nullptr) {
+        m_transformer->applySettings();
+    }
 
     UsePopUp(wxSTC_POPUP_TEXT);
     SetTabWidth(tabSize);
@@ -478,42 +483,18 @@ void Editor::onUpdateUI(wxStyledTextEvent& event) {
     event.Skip();
     updateStatusBar();
     updateBraceMatch();
+
+    const int curr = GetCurrentPos();
+    if (m_transformer != nullptr && curr != m_lastCaretPos) {
+        m_transformer->onCaretMoved(*this, m_lastCaretPos, curr);
+    }
+    m_lastCaretPos = curr;
 }
 
 void Editor::onCharAdded(wxStyledTextEvent& event) {
-    if (!m_autoIndentEnabled) {
-        return;
+    if (m_transformer != nullptr) {
+        m_transformer->onCharAdded(*this, event.GetKey());
     }
-    if (event.GetKey() != '\n') {
-        return;
-    }
-
-    const int currLine = GetCurrentLine();
-    if (currLine == 0) {
-        return;
-    }
-    const int prevLine = currLine - 1;
-
-    const auto decision = indent::decide(GetLine(prevLine));
-    const int tabSize = GetIndent();
-
-    BeginUndoAction();
-    int prevIndent = GetLineIndentation(prevLine);
-    if (decision.dedentPrev) {
-        prevIndent = std::max(0, prevIndent - tabSize);
-        SetLineIndentation(prevLine, prevIndent);
-    }
-    const int newIndent = std::max(0, prevIndent + decision.deltaLevels * tabSize);
-    SetLineIndentation(currLine, newIndent);
-    GotoPos(GetLineEndPosition(currLine));
-
-    if (decision.insertCloser.has_value()) {
-        const int caretPos = GetLineEndPosition(currLine);
-        InsertText(caretPos, "\n" + *decision.insertCloser);
-        SetLineIndentation(currLine + 1, prevIndent);
-        GotoPos(GetLineEndPosition(currLine));
-    }
-    EndUndoAction();
 }
 
 void Editor::onZoom(wxStyledTextEvent&) {
@@ -582,4 +563,24 @@ void Editor::onModified(wxStyledTextEvent& event) {
         return;
     }
     m_ctx.getDocumentManager().updateActiveTabTitle();
+
+    // Bulk insert (paste, drop, ...) → run keyword case over the inserted
+    // range. Single-char inserts come from typing and are handled by
+    // EVT_STC_CHARADDED instead. The transformer's own re-entry guard
+    // prevents recursion on our own ReplaceTarget / InsertText calls.
+    //
+    // Modifications inside SCN_MODIFIED notification are not allowed by
+    // Scintilla — silently dropped. Defer via CallAfter so the transform
+    // runs in a fresh event loop iteration after the paste settles.
+    if (m_transformer != nullptr
+        && (mod & wxSTC_MOD_INSERTTEXT) != 0
+        && event.GetLength() > 1) {
+        const int pos = event.GetPosition();
+        const int length = event.GetLength();
+        CallAfter([this, pos, length] {
+            if (m_transformer != nullptr) {
+                m_transformer->onTextInserted(*this, pos, length);
+            }
+        });
+    }
 }

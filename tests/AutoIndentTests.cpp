@@ -190,44 +190,53 @@ TEST_F(AutoIndentTests, ElseDedentsAndReindents) {
 }
 
 // ---------------------------------------------------------------------------
-// Auto-close — opener line populates insertCloser with canonical closer
+// Auto-close — opener line populates closerKeywords with lowercase words
 // ---------------------------------------------------------------------------
 
+namespace {
+
+auto closerWords(const wxString& line) -> std::vector<std::string_view> {
+    const auto d = decide(line);
+    return { d.closerKeywords.begin(), d.closerKeywords.end() };
+}
+
+} // namespace
+
 TEST_F(AutoIndentTests, AutoCloseIfThen) {
-    EXPECT_EQ(decide("If x Then").insertCloser.value_or(""), "End If");
+    EXPECT_EQ(closerWords("If x Then"), (std::vector<std::string_view> { "end", "if" }));
 }
 
 TEST_F(AutoIndentTests, AutoCloseControlFlow) {
-    EXPECT_EQ(decide("Do").insertCloser.value_or(""), "Loop");
-    EXPECT_EQ(decide("For i = 1 To 10").insertCloser.value_or(""), "Next");
-    EXPECT_EQ(decide("While x > 0").insertCloser.value_or(""), "Wend");
+    EXPECT_EQ(closerWords("Do"), (std::vector<std::string_view> { "loop" }));
+    EXPECT_EQ(closerWords("For i = 1 To 10"), (std::vector<std::string_view> { "next" }));
+    EXPECT_EQ(closerWords("While x > 0"), (std::vector<std::string_view> { "wend" }));
 }
 
 TEST_F(AutoIndentTests, AutoCloseCallables) {
-    EXPECT_EQ(decide("Sub Main").insertCloser.value_or(""), "End Sub");
-    EXPECT_EQ(decide("Function Add(a As Integer) As Integer").insertCloser.value_or(""), "End Function");
-    EXPECT_EQ(decide("Constructor MyType()").insertCloser.value_or(""), "End Constructor");
-    EXPECT_EQ(decide("Destructor MyType()").insertCloser.value_or(""), "End Destructor");
-    EXPECT_EQ(decide("Operator Cast() As Integer").insertCloser.value_or(""), "End Operator");
+    EXPECT_EQ(closerWords("Sub Main"), (std::vector<std::string_view> { "end", "sub" }));
+    EXPECT_EQ(closerWords("Function Add(a As Integer) As Integer"), (std::vector<std::string_view> { "end", "function" }));
+    EXPECT_EQ(closerWords("Constructor MyType()"), (std::vector<std::string_view> { "end", "constructor" }));
+    EXPECT_EQ(closerWords("Destructor MyType()"), (std::vector<std::string_view> { "end", "destructor" }));
+    EXPECT_EQ(closerWords("Operator Cast() As Integer"), (std::vector<std::string_view> { "end", "operator" }));
 }
 
 TEST_F(AutoIndentTests, AutoCloseAggregates) {
-    EXPECT_EQ(decide("Type Foo").insertCloser.value_or(""), "End Type");
-    EXPECT_EQ(decide("Enum Color").insertCloser.value_or(""), "End Enum");
-    EXPECT_EQ(decide("Union U").insertCloser.value_or(""), "End Union");
-    EXPECT_EQ(decide("Select Case x").insertCloser.value_or(""), "End Select");
-    EXPECT_EQ(decide("With foo").insertCloser.value_or(""), "End With");
-    EXPECT_EQ(decide("Namespace N").insertCloser.value_or(""), "End Namespace");
-    EXPECT_EQ(decide("Scope").insertCloser.value_or(""), "End Scope");
-    EXPECT_EQ(decide("Asm").insertCloser.value_or(""), "End Asm");
+    EXPECT_EQ(closerWords("Type Foo"), (std::vector<std::string_view> { "end", "type" }));
+    EXPECT_EQ(closerWords("Enum Color"), (std::vector<std::string_view> { "end", "enum" }));
+    EXPECT_EQ(closerWords("Union U"), (std::vector<std::string_view> { "end", "union" }));
+    EXPECT_EQ(closerWords("Select Case x"), (std::vector<std::string_view> { "end", "select" }));
+    EXPECT_EQ(closerWords("With foo"), (std::vector<std::string_view> { "end", "with" }));
+    EXPECT_EQ(closerWords("Namespace N"), (std::vector<std::string_view> { "end", "namespace" }));
+    EXPECT_EQ(closerWords("Scope"), (std::vector<std::string_view> { "end", "scope" }));
+    EXPECT_EQ(closerWords("Asm"), (std::vector<std::string_view> { "end", "asm" }));
 }
 
 TEST_F(AutoIndentTests, NoCloserForNonOpeners) {
-    EXPECT_FALSE(decide("If x Then Print x").insertCloser.has_value());
-    EXPECT_FALSE(decide("If x Then : Print x :").insertCloser.has_value());
-    EXPECT_FALSE(decide("Declare Sub Foo()").insertCloser.has_value());
-    EXPECT_FALSE(decide("Type X As Integer").insertCloser.has_value());
-    EXPECT_FALSE(decide("Exit Sub").insertCloser.has_value());
-    EXPECT_FALSE(decide("End If").insertCloser.has_value());
-    EXPECT_FALSE(decide("Print x").insertCloser.has_value());
+    EXPECT_TRUE(closerWords("If x Then Print x").empty());
+    EXPECT_TRUE(closerWords("If x Then : Print x :").empty());
+    EXPECT_TRUE(closerWords("Declare Sub Foo()").empty());
+    EXPECT_TRUE(closerWords("Type X As Integer").empty());
+    EXPECT_TRUE(closerWords("Exit Sub").empty());
+    EXPECT_TRUE(closerWords("End If").empty());
+    EXPECT_TRUE(closerWords("Print x").empty());
 }

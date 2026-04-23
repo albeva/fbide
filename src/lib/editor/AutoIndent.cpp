@@ -154,28 +154,46 @@ auto isOpener(const std::vector<Token>& tokens) -> bool {
     }
 }
 
-/// Canonical closing keyword for a given opener kind. Returns nullopt for
-/// keywords that don't open a block (caller filters via isOpener first).
-auto closerFor(const KeywordKind k) -> std::optional<wxString> {
+// Closer keyword arrays — words stored lowercase; the renderer applies
+// case rule. constexpr so spans remain valid forever.
+constexpr std::array<std::string_view, 1> kLoop        { "loop" };
+constexpr std::array<std::string_view, 1> kNext        { "next" };
+constexpr std::array<std::string_view, 1> kWend        { "wend" };
+constexpr std::array<std::string_view, 2> kEndIf       { "end", "if" };
+constexpr std::array<std::string_view, 2> kEndSub      { "end", "sub" };
+constexpr std::array<std::string_view, 2> kEndFunction { "end", "function" };
+constexpr std::array<std::string_view, 2> kEndCtor     { "end", "constructor" };
+constexpr std::array<std::string_view, 2> kEndDtor     { "end", "destructor" };
+constexpr std::array<std::string_view, 2> kEndOperator { "end", "operator" };
+constexpr std::array<std::string_view, 2> kEndSelect   { "end", "select" };
+constexpr std::array<std::string_view, 2> kEndType     { "end", "type" };
+constexpr std::array<std::string_view, 2> kEndEnum     { "end", "enum" };
+constexpr std::array<std::string_view, 2> kEndUnion    { "end", "union" };
+constexpr std::array<std::string_view, 2> kEndWith     { "end", "with" };
+constexpr std::array<std::string_view, 2> kEndNS       { "end", "namespace" };
+constexpr std::array<std::string_view, 2> kEndScope    { "end", "scope" };
+constexpr std::array<std::string_view, 2> kEndAsm      { "end", "asm" };
+
+auto closerFor(const KeywordKind k) -> std::span<const std::string_view> {
     switch (k) {
-    case KeywordKind::If:          return wxString { "End If" };
-    case KeywordKind::Do:          return wxString { "Loop" };
-    case KeywordKind::For:         return wxString { "Next" };
-    case KeywordKind::While:       return wxString { "Wend" };
-    case KeywordKind::Sub:         return wxString { "End Sub" };
-    case KeywordKind::Function:    return wxString { "End Function" };
-    case KeywordKind::Constructor: return wxString { "End Constructor" };
-    case KeywordKind::Destructor:  return wxString { "End Destructor" };
-    case KeywordKind::Operator:    return wxString { "End Operator" };
-    case KeywordKind::Select:      return wxString { "End Select" };
-    case KeywordKind::Type:        return wxString { "End Type" };
-    case KeywordKind::Enum:        return wxString { "End Enum" };
-    case KeywordKind::Union:       return wxString { "End Union" };
-    case KeywordKind::With:        return wxString { "End With" };
-    case KeywordKind::Namespace:   return wxString { "End Namespace" };
-    case KeywordKind::Scope:       return wxString { "End Scope" };
-    case KeywordKind::Asm:         return wxString { "End Asm" };
-    default:                       return std::nullopt;
+    case KeywordKind::If:          return kEndIf;
+    case KeywordKind::Do:          return kLoop;
+    case KeywordKind::For:         return kNext;
+    case KeywordKind::While:       return kWend;
+    case KeywordKind::Sub:         return kEndSub;
+    case KeywordKind::Function:    return kEndFunction;
+    case KeywordKind::Constructor: return kEndCtor;
+    case KeywordKind::Destructor:  return kEndDtor;
+    case KeywordKind::Operator:    return kEndOperator;
+    case KeywordKind::Select:      return kEndSelect;
+    case KeywordKind::Type:        return kEndType;
+    case KeywordKind::Enum:        return kEndEnum;
+    case KeywordKind::Union:       return kEndUnion;
+    case KeywordKind::With:        return kEndWith;
+    case KeywordKind::Namespace:   return kEndNS;
+    case KeywordKind::Scope:       return kEndScope;
+    case KeywordKind::Asm:         return kEndAsm;
+    default:                       return {};
     }
 }
 
@@ -188,13 +206,13 @@ auto indent::decide(const wxString& prevLine) -> Decision {
 
     const auto first = firstKeyword(tokens);
     if (isCloser(first)) {
-        return { 0, true, std::nullopt };
+        return { 0, true, {} };
     }
     if (isMid(first)) {
-        return { 1, true, std::nullopt };
+        return { 1, true, {} };
     }
     if (isOpener(tokens)) {
         return { 1, false, closerFor(first) };
     }
-    return { 0, false, std::nullopt };
+    return { 0, false, {} };
 }

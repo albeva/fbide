@@ -22,6 +22,8 @@ Changes from fbide 0.4.5.
 - Added support for different file encodings and line endings
 - Updated session files to store some file properties like encoding and line endings
 - Chnaged session to store relative paths when possible
+- Added support for case transform of keywords
+- Improved auto indent by automatically adding closer keywords. after DO, add LOOP automatically.
 
 ## Removed options
 - `ActivePath` option has been removed. FBIde now always sets the working directory to the source file location when compiling or running.

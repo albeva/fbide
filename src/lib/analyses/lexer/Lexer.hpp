@@ -80,6 +80,10 @@ public:
     /// Tokenise the given null-terminated UTF-8 source.
     [[nodiscard]] auto tokenise(const char* source) -> std::vector<Token>;
 
+    /// Tokenise into an existing buffer. Clears `tokens` first then fills
+    /// it. Use this on hot paths (per-keystroke lex) to avoid reallocation.
+    void tokeniseInto(const char* source, std::vector<Token>& tokens);
+
 private:
     // String lexing modes
     enum class StringMode { Normal,

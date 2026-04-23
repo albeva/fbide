@@ -157,13 +157,19 @@ Lexer::Lexer(std::span<const KeywordGroup> keywordGroups) {
 // ---------------------------------------------------------------------------
 
 auto Lexer::tokenise(const char* source) -> std::vector<Token> {
+    std::vector<Token> tokens;
+    tokeniseInto(source, tokens);
+    return tokens;
+}
+
+void Lexer::tokeniseInto(const char* source, std::vector<Token>& tokens) {
     m_pos = source;
     m_start = source;
     m_atLineStart = true;
     m_canBeUnary = true;
     m_inAsmBlock = false;
 
-    std::vector<Token> tokens;
+    tokens.clear();
     // Estimate: one token per ~5 chars
     tokens.reserve(std::strlen(source) / 5);
 
@@ -172,7 +178,6 @@ auto Lexer::tokenise(const char* source) -> std::vector<Token> {
     }
 
     annotateVerbatim(tokens);
-    return tokens;
 }
 
 // ---------------------------------------------------------------------------

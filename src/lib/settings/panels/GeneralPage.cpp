@@ -9,6 +9,7 @@
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "editor/TextEncoding.hpp"
+#include "format/transformers/case/CaseTransform.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
@@ -32,6 +33,14 @@ auto eolModeChoices() -> wxArrayString {
     }
     return names;
 }
+
+auto caseModeChoices() -> wxArrayString {
+    wxArrayString names;
+    for (const auto value : CaseMode::all) {
+        names.Add(wxString::FromUTF8(CaseMode { value }.toString()));
+    }
+    return names;
+}
 } // namespace
 
 GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
@@ -39,6 +48,7 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
     auto& cfg = getContext().getConfigManager().config();
     const auto& editor = cfg.at("editor");
     m_autoIndent = editor.get_or("autoIndent", true);
+    m_keywordCase = editor.get_or("keywordCase", "Lower");
     m_indentGuide = editor.get_or("indentGuide", false);
     m_showWhiteSpaces = editor.get_or("whiteSpace", false);
     m_showLineEndings = editor.get_or("displayEOL", false);
@@ -59,6 +69,10 @@ void GeneralPage::create() {
     hbox(tr("dialogs.settings.general.editorSettings"), { .border = 0 }, [&] {
         vbox({ .proportion = 1 }, [&] {
             checkBox(m_autoIndent, tr("dialogs.settings.general.autoIndent"));
+            hbox({ .center = true, .border = 0 }, [&] {
+                text(tr("dialogs.settings.general.keywordCase"), { .expand = false });
+                choice(m_keywordCase, caseModeChoices(), { .expand = false })->SetMinSize(wxSize(160, -1));
+            });
             checkBox(m_indentGuide, tr("dialogs.settings.general.indentGuides"));
             checkBox(m_showWhiteSpaces, tr("dialogs.settings.general.whitespace"));
             checkBox(m_showLineEndings, tr("dialogs.settings.general.lineEndings"));
@@ -106,6 +120,7 @@ void GeneralPage::apply() {
     auto& cfg = cfgManager.config();
     auto& editor = cfg["editor"];
     editor["autoIndent"] = m_autoIndent;
+    editor["keywordCase"] = m_keywordCase;
     editor["indentGuide"] = m_indentGuide;
     editor["whiteSpace"] = m_showWhiteSpaces;
     editor["displayEOL"] = m_showLineEndings;

@@ -12,6 +12,7 @@
 
 namespace fbide {
 class Context;
+class CodeTransformer;
 
 /// Manages open documents and their notebook tabs.
 /// Extends wxEvtHandler to receive find/replace dialog events.
@@ -20,6 +21,12 @@ public:
     NO_COPY_AND_MOVE(DocumentManager)
 
     explicit DocumentManager(Context& ctx);
+    ~DocumentManager() override;
+
+    /// Shared on-type transformer (auto-indent + keyword case). Single
+    /// instance reused across all editors — only the active editor drives
+    /// it at any given moment, so a shared token buffer is safe.
+    [[nodiscard]] auto getCodeTransformer() -> CodeTransformer& { return *m_codeTransformer; }
 
     /// Create a new empty document and add it as a tab.
     auto newFile(DocumentType type = DocumentType::FreeBASIC) -> Document&;
@@ -127,6 +134,7 @@ private:
     Context& m_ctx;
     wxFindReplaceData m_findData { wxFR_DOWN };
     std::vector<std::unique_ptr<Document>> m_documents;
+    std::unique_ptr<CodeTransformer> m_codeTransformer;
 
     wxDECLARE_EVENT_TABLE();
 };
