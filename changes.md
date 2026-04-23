@@ -20,6 +20,8 @@ Changes from fbide 0.4.5.
 - Added useful linkes in the Help menu
 - Added support for INI (and other fbide config files) files
 - Added support for different file encodings and line endings
+- Updated session files to store some file properties like encoding and line endings
+- Chnaged session to store relative paths when possible
 
 ## Removed options
 - `ActivePath` option has been removed. FBIde now always sets the working directory to the source file location when compiling or running.
