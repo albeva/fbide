@@ -164,8 +164,8 @@ TEST_F(DocumentIOTests, LoadFallsBackToDefaultEolWhenNoLineBreaks) {
 
 TEST_F(DocumentIOTests, SaveUtf8NoBom) {
     const auto path = wxFileName::CreateTempFileName("fbide_save");
-    const bool ok = DocumentIO::save(path, wxString("hello\n"), kUtf8, kLf);
-    ASSERT_TRUE(ok);
+    const auto ok = DocumentIO::save(path, wxString("hello\n"), kUtf8, kLf);
+    ASSERT_EQ(ok, DocumentIO::SaveResult::Success);
 
     const auto bytes = readAllBytes(path);
     ASSERT_EQ(bytes.size(), 6u);
@@ -177,8 +177,8 @@ TEST_F(DocumentIOTests, SaveUtf8NoBom) {
 
 TEST_F(DocumentIOTests, SaveUtf8BomPrependsBom) {
     const auto path = wxFileName::CreateTempFileName("fbide_save");
-    const bool ok = DocumentIO::save(path, wxString("hi"), TextEncoding { TextEncoding::UTF8_BOM }, kLf);
-    ASSERT_TRUE(ok);
+    const auto ok = DocumentIO::save(path, wxString("hi"), TextEncoding { TextEncoding::UTF8_BOM }, kLf);
+    ASSERT_EQ(ok, DocumentIO::SaveResult::Success);
 
     const auto bytes = readAllBytes(path);
     ASSERT_EQ(bytes.size(), 5u);
@@ -193,8 +193,8 @@ TEST_F(DocumentIOTests, SaveUtf8BomPrependsBom) {
 
 TEST_F(DocumentIOTests, SaveUtf16LePrependsBom) {
     const auto path = wxFileName::CreateTempFileName("fbide_save");
-    const bool ok = DocumentIO::save(path, wxString("hi"), TextEncoding { TextEncoding::UTF16_LE }, kLf);
-    ASSERT_TRUE(ok);
+    const auto ok = DocumentIO::save(path, wxString("hi"), TextEncoding { TextEncoding::UTF16_LE }, kLf);
+    ASSERT_EQ(ok, DocumentIO::SaveResult::Success);
 
     const auto bytes = readAllBytes(path);
     // BOM (2) + "hi" in UTF-16 LE (4) = 6 bytes
@@ -211,8 +211,8 @@ TEST_F(DocumentIOTests, SaveUtf16LePrependsBom) {
 
 TEST_F(DocumentIOTests, SaveConvertsLfToCrlf) {
     const auto path = wxFileName::CreateTempFileName("fbide_save");
-    const bool ok = DocumentIO::save(path, wxString("a\nb\nc"), kUtf8, kCrlf);
-    ASSERT_TRUE(ok);
+    const auto ok = DocumentIO::save(path, wxString("a\nb\nc"), kUtf8, kCrlf);
+    ASSERT_EQ(ok, DocumentIO::SaveResult::Success);
 
     const auto bytes = readAllBytes(path);
     // Expect: "a\r\nb\r\nc" = 7 bytes
@@ -227,8 +227,8 @@ TEST_F(DocumentIOTests, SaveConvertsLfToCrlf) {
 
 TEST_F(DocumentIOTests, SaveConvertsCrlfToLf) {
     const auto path = wxFileName::CreateTempFileName("fbide_save");
-    const bool ok = DocumentIO::save(path, wxString("a\r\nb\r\nc"), kUtf8, kLf);
-    ASSERT_TRUE(ok);
+    const auto ok = DocumentIO::save(path, wxString("a\r\nb\r\nc"), kUtf8, kLf);
+    ASSERT_EQ(ok, DocumentIO::SaveResult::Success);
 
     const auto bytes = readAllBytes(path);
     // Expect: "a\nb\nc" = 5 bytes
@@ -242,8 +242,8 @@ TEST_F(DocumentIOTests, SaveConvertsCrlfToLf) {
 TEST_F(DocumentIOTests, SaveWindows1252EncodesNonAscii) {
     const auto path = wxFileName::CreateTempFileName("fbide_save");
     const wxString text = wxString::FromUTF8("caf\xC3\xA9");
-    const bool ok = DocumentIO::save(path, text, kWin1252, kLf);
-    ASSERT_TRUE(ok);
+    const auto ok = DocumentIO::save(path, text, kWin1252, kLf);
+    ASSERT_EQ(ok, DocumentIO::SaveResult::Success);
 
     const auto bytes = readAllBytes(path);
     ASSERT_EQ(bytes.size(), 4u);
@@ -252,13 +252,14 @@ TEST_F(DocumentIOTests, SaveWindows1252EncodesNonAscii) {
     wxRemoveFile(path);
 }
 
-TEST_F(DocumentIOTests, SaveFailsWhenEncodingCannotRepresentChars) {
+TEST_F(DocumentIOTests, SaveReportsEncodingErrorWhenCharsUnrepresentable) {
     // Japanese chars are not in Windows-1252 — wxCSConv is strict so
-    // encode returns nullopt and save reports failure.
+    // encode returns nullopt and save reports EncodingError without
+    // touching the file.
     const auto path = wxFileName::CreateTempFileName("fbide_save");
     const wxString text = wxString::FromUTF8("hello \xE6\x97\xA5\xE6\x9C\xAC"); // "日本"
-    const bool ok = DocumentIO::save(path, text, kWin1252, kLf);
-    EXPECT_FALSE(ok);
+    const auto ok = DocumentIO::save(path, text, kWin1252, kLf);
+    EXPECT_EQ(ok, DocumentIO::SaveResult::EncodingError);
 
     wxRemoveFile(path);
 }
@@ -266,8 +267,8 @@ TEST_F(DocumentIOTests, SaveFailsWhenEncodingCannotRepresentChars) {
 TEST_F(DocumentIOTests, SaveUtf8HandlesUnicode) {
     const auto path = wxFileName::CreateTempFileName("fbide_save");
     const wxString text = wxString::FromUTF8("hello \xE6\x97\xA5\xE6\x9C\xAC");
-    const bool ok = DocumentIO::save(path, text, kUtf8, kLf);
-    ASSERT_TRUE(ok);
+    const auto ok = DocumentIO::save(path, text, kUtf8, kLf);
+    ASSERT_EQ(ok, DocumentIO::SaveResult::Success);
 
     wxRemoveFile(path);
 }
@@ -282,7 +283,7 @@ TEST_F(DocumentIOTests, RoundTripUtf8BomAndCrlf) {
     const auto enc = TextEncoding { TextEncoding::UTF8_BOM };
     const auto eol = kCrlf;
 
-    ASSERT_TRUE(DocumentIO::save(path, text, enc, eol));
+    ASSERT_EQ(DocumentIO::save(path, text, enc, eol), DocumentIO::SaveResult::Success);
 
     const auto result = DocumentIO::load(path, kUtf8, kLf);
     ASSERT_TRUE(result.has_value());
@@ -298,7 +299,7 @@ TEST_F(DocumentIOTests, RoundTripWindows1252) {
     const auto path = wxFileName::CreateTempFileName("fbide_rt");
     const wxString text = wxString::FromUTF8("caf\xC3\xA9 na\xC3\xAFve\n");
 
-    ASSERT_TRUE(DocumentIO::save(path, text, kWin1252, kLf));
+    ASSERT_EQ(DocumentIO::save(path, text, kWin1252, kLf), DocumentIO::SaveResult::Success);
 
     const auto result = DocumentIO::load(path, kWin1252, kLf);
     ASSERT_TRUE(result.has_value());

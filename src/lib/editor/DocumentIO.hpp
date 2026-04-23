@@ -21,13 +21,16 @@ public:
         EolMode eolMode;
     };
 
-    /// Load file into memory. Pipeline:
-    ///   1. Read raw bytes
-    ///   2. Detect encoding via EncodingDetector::detect (BOM -> UTF-8 validate -> fallback)
-    ///   3. Strip BOM if present
-    ///   4. Decode payload to wxString
-    ///   5. Detect EOL mode from first 8KB; fall back to `defaultEol`
-    /// Returns nullopt if the file can't be opened or decoding fails.
+    enum class SaveResult : std::uint8_t {
+        Success,
+        IOError,
+        EncodingError,
+    };
+
+    /// Load file into memory. Returns nullopt only when the file cannot
+    /// be opened or read. Decoding never fails — if the chosen codec
+    /// rejects the bytes, the payload is reloaded as ISO-8859-1 so the
+    /// user always sees something.
     [[nodiscard]] static auto load(
         const wxString& path,
         TextEncoding defaultEncoding,
@@ -36,27 +39,26 @@ public:
 
     /// Load file forcing the given encoding — bypasses encoding detection.
     /// Used for "Reload with Encoding ..." where the user explicitly
-    /// overrides auto-detection (e.g. the file was mis-detected). BOM
-    /// bytes are still stripped when the chosen encoding expects one.
-    /// EOL is detected from the decoded text (falls back to `defaultEol`).
+    /// overrides auto-detection. Returns nullopt only on I/O failure;
+    /// decode falls back to ISO-8859-1 if the forced encoding rejects
+    /// the bytes.
     [[nodiscard]] static auto loadWithEncoding(
         const wxString& path,
         TextEncoding encoding,
         EolMode defaultEol
     ) -> std::optional<LoadResult>;
 
-    /// Save text to disk in the given encoding. Pipeline:
-    ///   1. Convert EOLs in `text` to match `eolMode`
-    ///   2. Encode via TextEncoding::encode
-    ///   3. Prefix BOM if encoding requires it
-    ///   4. Write bytes to `path` (truncating)
-    /// Returns false if encoding rejects characters unrepresentable in
-    /// the target codepage (callers should surface this — e.g. suggest
-    /// UTF-8) or if the file could not be opened/written.
+    /// Save text to disk in the given encoding.
+    /// Returns:
+    ///   Success       — file written.
+    ///   IOError       — could not open/write the file (disk full, permissions).
+    ///   EncodingError — chosen encoding cannot represent some characters;
+    ///                   nothing was written, caller should surface the
+    ///                   failure and leave the document dirty.
     [[nodiscard]] static auto save(const wxString& path,
         const wxString& text,
         TextEncoding encoding,
-        EolMode eolMode) -> bool;
+        EolMode eolMode) -> SaveResult;
 };
 
 } // namespace fbide

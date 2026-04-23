@@ -83,7 +83,7 @@ void CompilerManager::quickRun() {
     // Save content to temp file — preserve doc encoding so the compiler
     // sees bytes matching what the user sees.
     const auto tempFile = tempFolder + BuildTask::TEMPNAME;
-    if (!DocumentIO::save(tempFile, doc->getEditor()->GetText(), doc->getEncoding(), doc->getEolMode())) {
+    if (DocumentIO::save(tempFile, doc->getEditor()->GetText(), doc->getEncoding(), doc->getEolMode()) != DocumentIO::SaveResult::Success) {
         return;
     }
 

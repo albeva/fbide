@@ -31,6 +31,18 @@ wxEND_EVENT_TABLE()
 DocumentManager::DocumentManager(Context& ctx)
 : m_ctx(ctx) {}
 
+auto DocumentManager::defaultEncoding() const -> TextEncoding {
+    const auto& editor = m_ctx.getConfigManager().config().at("editor");
+    const auto key = editor.get_or("encoding", "UTF-8");
+    return TextEncoding::parse(key.ToStdString()).value_or(TextEncoding::UTF8);
+}
+
+auto DocumentManager::defaultEolMode() const -> EolMode {
+    const auto& editor = m_ctx.getConfigManager().config().at("editor");
+    const auto key = editor.get_or("eolMode", "LF");
+    return EolMode::parse(key.ToStdString()).value_or(EolMode::LF);
+}
+
 // ---------------------------------------------------------------------------
 // File andling
 // ---------------------------------------------------------------------------
@@ -84,19 +96,17 @@ auto DocumentManager::openFile(const wxString& filePath) -> Document* {
         return existing;
     }
 
-    // Determine type and create document
-    auto type = documentTypeFromPath(filePath);
-
-    const auto thaw = m_ctx.getUIManager().freeze();
-    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(getNotebook(), m_ctx, type));
-
-    // Load with encoding + EOL detection. The Document ctor already seeded
-    // the per-doc defaults from config — use them as fallbacks.
-    const auto loaded = DocumentIO::load(filePath, doc.getEncoding(), doc.getEolMode());
+    // Read file first — if it fails, don't create an Editor (dangling
+    // child of the notebook). Config-derived defaults seed detection.
+    const auto loaded = DocumentIO::load(filePath, defaultEncoding(), defaultEolMode());
     if (!loaded.has_value()) {
-        m_documents.pop_back();
+        wxLogError(m_ctx.tr("messages.loadFailed"), filePath);
         return nullptr;
     }
+
+    const auto thaw = m_ctx.getUIManager().freeze();
+    const auto type = documentTypeFromPath(filePath);
+    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(getNotebook(), m_ctx, type));
 
     auto* editor = doc.getEditor();
     editor->SetText(loaded->text);
@@ -115,17 +125,17 @@ auto DocumentManager::openFile(const wxString& filePath) -> Document* {
     return &doc;
 }
 
-void DocumentManager::warnEncodingCannotSave(const Document& doc) const {
-    wxMessageBox(
-        wxString::Format(
-            m_ctx.tr("messages.saveLossyFormat"),
-            wxString::FromUTF8(doc.getEncoding().toString())
-        ),
-        m_ctx.tr("messages.saveLossyTitle"),
-        wxOK | wxICON_WARNING,
-        m_ctx.getUIManager().getMainFrame()
-    );
+namespace {
+
+void reportSaveFailure(const DocumentIO::SaveResult result, Context& ctx, const TextEncoding encoding) {
+    if (result == DocumentIO::SaveResult::EncodingError) {
+        wxLogError(ctx.tr("messages.saveEncodingError"), encoding.toString().data());
+    } else if (result == DocumentIO::SaveResult::IOError) {
+        wxLogError("%s", ctx.tr("messages.saveIoError"));
+    }
 }
+
+} // namespace
 
 void DocumentManager::reloadWithEncoding(Document& doc, const TextEncoding encoding) {
     if (doc.isNew()) {
@@ -168,8 +178,9 @@ auto DocumentManager::saveFile(Document& doc) const -> bool {
         return saveFileAs(doc);
     }
 
-    if (!DocumentIO::save(doc.getFilePath(), doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode())) {
-        warnEncodingCannotSave(doc);
+    const auto result = DocumentIO::save(doc.getFilePath(), doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode());
+    if (result != DocumentIO::SaveResult::Success) {
+        reportSaveFailure(result, m_ctx, doc.getEncoding());
         return false;
     }
 
@@ -198,8 +209,9 @@ auto DocumentManager::saveFileAs(Document& doc) const -> bool {
     }
 
     const auto newPath = dlg.GetPath();
-    if (!DocumentIO::save(newPath, doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode())) {
-        warnEncodingCannotSave(doc);
+    const auto result = DocumentIO::save(newPath, doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode());
+    if (result != DocumentIO::SaveResult::Success) {
+        reportSaveFailure(result, m_ctx, doc.getEncoding());
         return false;
     }
 

@@ -55,10 +55,6 @@ public:
     /// to `encoding` (not re-detected).
     void reloadWithEncoding(Document& doc, TextEncoding encoding);
 
-    /// Warn the user that save failed because the document's encoding
-    /// cannot represent some characters in the buffer. Suggest UTF-8.
-    void warnEncodingCannotSave(const Document& doc) const;
-
     /// Get currently active document (selected tab), or nullptr if none.
     [[nodiscard]] auto getActive() const -> Document*;
 
@@ -105,6 +101,11 @@ public:
     void gotoLine();
 
 private:
+    /// Config-derived defaults used to seed encoding/EOL detection for
+    /// freshly opened files before a Document exists.
+    [[nodiscard]] auto defaultEncoding() const -> TextEncoding;
+    [[nodiscard]] auto defaultEolMode() const -> EolMode;
+
     /// Find notebook page index for a document.
     [[nodiscard]] auto findPageIndex(const Document& doc) const -> int;
 
