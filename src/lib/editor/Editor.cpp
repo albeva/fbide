@@ -98,6 +98,10 @@ void Editor::applyEditorSettings() {
 }
 
 void Editor::defineFoldMargins() {
+    if (m_preview) {
+        return;
+    }
+
     const auto& editor = m_ctx.getConfigManager().config().at("editor");
     if (not editor.get_or("folderMargin", false)) {
         return;
