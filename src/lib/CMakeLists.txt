@@ -25,6 +25,7 @@ target_sources(fbide_lib
     editor/DocumentType.cpp
     editor/Editor.cpp
     editor/EncodingDetector.cpp
+    editor/FileSession.cpp
     editor/TextEncoding.cpp
     editor/lexilla/FBSciLexer.cpp
     format/FormatDialog.cpp
@@ -77,6 +78,7 @@ target_sources(fbide_lib
     editor/DocumentType.hpp
     editor/Editor.hpp
     editor/EncodingDetector.hpp
+    editor/FileSession.hpp
     editor/TextEncoding.hpp
     editor/lexilla/CharCategory.hpp
     editor/lexilla/FBSciLexer.hpp

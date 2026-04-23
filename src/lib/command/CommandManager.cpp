@@ -18,6 +18,7 @@
 #include "editor/Document.hpp"
 #include "editor/DocumentManager.hpp"
 #include "editor/Editor.hpp"
+#include "editor/FileSession.hpp"
 #include "format/FormatDialog.hpp"
 #include "help/HelpManager.hpp"
 #include "settings/SettingsDialog.hpp"
@@ -218,11 +219,11 @@ void CommandManager::onQuit(wxCommandEvent&) {
 }
 
 void CommandManager::onSessionLoad(wxCommandEvent&) {
-    m_ctx.getDocumentManager().loadSession();
+    m_ctx.getFileSession().showLoadDialog();
 }
 
 void CommandManager::onSessionSave(wxCommandEvent&) {
-    m_ctx.getDocumentManager().saveSession();
+    m_ctx.getFileSession().showSaveDialog();
 }
 
 void CommandManager::onFileHistory(wxCommandEvent& event) {

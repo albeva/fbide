@@ -64,7 +64,7 @@
 
 - [ ] Indent initializer lists { ... } when spread over multiple lines with line continuations
 - [x] Add support for `' format off` and `' format on` regions to disale/enable formatting (or with `rem format`)
-- [ ] Support `EndIf` as a closing keyword, same as `end if`
+- [x] Support `EndIf` as a closing keyword, same as `end if`
 
 # Editor
 

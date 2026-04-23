@@ -8,6 +8,7 @@
 #include "Document.hpp"
 #include "DocumentIO.hpp"
 #include "Editor.hpp"
+#include "FileSession.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
@@ -83,7 +84,7 @@ auto DocumentManager::openFile(const wxString& filePath) -> Document* {
 
     // Session files are loaded separately
     if (wxFileName(filePath).GetExt() == SESSION_EXT) {
-        loadSession(filePath);
+        m_ctx.getFileSession().load(filePath);
         return nullptr;
     }
 
@@ -408,135 +409,6 @@ void DocumentManager::updateTabTitle(const Document& doc) const {
     if (idx != wxNOT_FOUND) {
         getNotebook()->SetPageText(static_cast<size_t>(idx), doc.getTitle());
     }
-}
-
-// ---------------------------------------------------------------------------
-// Sessions
-// ---------------------------------------------------------------------------
-
-namespace {
-constexpr auto sessionHeader = "<fbide:session:version = \"0.2\"/>";
-} // namespace
-
-void DocumentManager::loadSession(const wxString& path) {
-    wxTextFile file(path);
-    if (!file.Open() || file.GetLineCount() == 0) {
-        return;
-    }
-
-    // freeze UI while loading files.
-    const auto thaw = m_ctx.getUIManager().freeze();
-
-    // Check version header
-    const bool isV2 = wxString(file[0]).Trim().Trim(false).Lower() == sessionHeader;
-    const size_t startLine = isV2 ? 2 : 1;
-
-    // Read selected tab index
-    unsigned long selectedTab = 0;
-    file[isV2 ? 1 : 0].ToULong(&selectedTab);
-
-    // Open files
-    for (size_t i = startLine; i < file.GetLineCount(); i++) {
-        const auto filePath = file[i];
-        if (filePath.empty() || !wxFileExists(filePath)) {
-            if (isV2) {
-                i += 2; // skip scroll-line and caret-pos
-            }
-            continue;
-        }
-
-        auto* doc = openFile(filePath);
-        if (doc && isV2 && i + 2 < file.GetLineCount()) {
-            unsigned long scrollLine = 0;
-            unsigned long caretPos = 0;
-            file[i + 1].ToULong(&scrollLine);
-            file[i + 2].ToULong(&caretPos);
-
-            auto* editor = doc->getEditor();
-            editor->ScrollToLine(static_cast<int>(scrollLine));
-            editor->SetCurrentPos(static_cast<int>(caretPos));
-            editor->SetSelectionStart(static_cast<int>(caretPos));
-            editor->SetSelectionEnd(static_cast<int>(caretPos));
-        }
-
-        if (isV2) {
-            i += 2; // skip scroll-line and caret-pos
-        }
-    }
-
-    // Restore selected tab
-    auto* notebook = getNotebook();
-    if (selectedTab < notebook->GetPageCount()) {
-        notebook->SetSelection(selectedTab);
-    }
-}
-
-void DocumentManager::loadSession() {
-    wxFileDialog dlg(
-        m_ctx.getUIManager().getMainFrame(),
-        m_ctx.tr("files.loadTitle"),
-        "", wxString(".") + SESSION_EXT,
-        m_ctx.getConfigManager().filePattern("session"),
-        wxFD_FILE_MUST_EXIST
-    );
-    if (dlg.ShowModal() == wxID_OK) {
-        loadSession(dlg.GetPath());
-    }
-}
-
-void DocumentManager::saveSession() {
-    if (m_documents.empty()) {
-        return;
-    }
-
-    wxFileDialog dlg(
-        m_ctx.getUIManager().getMainFrame(),
-        m_ctx.tr("files.sessionSaveTitle"),
-        "", wxString(".") + SESSION_EXT,
-        m_ctx.getConfigManager().filePattern("session"),
-        wxFD_SAVE | wxFD_OVERWRITE_PROMPT
-    );
-    if (dlg.ShowModal() != wxID_OK) {
-        return;
-    }
-
-    // Prompt to save modified files first
-    for (auto& doc : m_documents) {
-        if (doc->isModified() && !doc->isNew()) {
-            if (!saveFile(*doc)) {
-                return;
-            }
-        }
-    }
-
-    wxTextFile file(dlg.GetPath());
-    if (file.Exists()) {
-        file.Open();
-        file.Clear();
-    } else {
-        file.Create();
-    }
-
-    // Header
-    file.AddLine(sessionHeader);
-
-    // Selected tab index
-    const auto* notebook = getNotebook();
-    file.AddLine(wxString::Format("%d", notebook->GetSelection()));
-
-    // File entries (skip untitled)
-    for (const auto& doc : m_documents) {
-        if (doc->isNew()) {
-            continue;
-        }
-        const auto* editor = doc->getEditor();
-        file.AddLine(doc->getFilePath());
-        file.AddLine(wxString::Format("%d", editor->GetFirstVisibleLine()));
-        file.AddLine(wxString::Format("%d", editor->GetCurrentPos()));
-    }
-
-    file.Write();
-    file.Close();
 }
 
 // ---------------------------------------------------------------------------

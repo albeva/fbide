@@ -8,10 +8,10 @@ Changes from fbide 0.4.5.
 - Relicenced under MIT
 
 ## General
-- Added option to start the editor with a custom config file via `--config` option.
-- Line numbers margin now zooms with font size changes.
+- Added option to start the editor with a custom config file via `--config` option
+- Line numbers margin now zooms with font size changes
 - FBIde validates chm files, if they are locked, show a dialog with instructions and a link for more info
-- If no local CHM file found, or when on non Windows platform, open freebasic wiki page instead.
+- If no local CHM file found, or when on non Windows platform, open freebasic wiki page instead
 - Added More keyword groups in settings
 - Added ASM syntax highlighting
 - Simplified Theme settings
@@ -19,6 +19,7 @@ Changes from fbide 0.4.5.
 - Added Config file for menu and toolbar layouts
 - Added useful linkes in the Help menu
 - Added support for INI (and other fbide config files) files
+- Added support for different file encodings and line endings
 
 ## Removed options
 - `ActivePath` option has been removed. FBIde now always sets the working directory to the source file location when compiling or running.

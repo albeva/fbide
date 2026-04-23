@@ -13,6 +13,7 @@ class CommandManager;
 class CompilerManager;
 class DocumentManager;
 class FileHistory;
+class FileSession;
 class HelpManager;
 class UIManager;
 
@@ -49,6 +50,10 @@ public:
     [[nodiscard]] auto getDocumentManager() -> DocumentManager& { return *m_documentManager; }
     [[nodiscard]] auto getDocumentManager() const -> const DocumentManager& { return *m_documentManager; }
 
+    /// Get session manager (handles .fbs load/save).
+    [[nodiscard]] auto getFileSession() -> FileSession& { return *m_fileSession; }
+    [[nodiscard]] auto getFileSession() const -> const FileSession& { return *m_fileSession; }
+
     /// Get command manager.
     [[nodiscard]] auto getCommandManager() -> CommandManager& { return *m_commandManager; }
     [[nodiscard]] auto getCommandManager() const -> const CommandManager& { return *m_commandManager; }
@@ -66,6 +71,7 @@ private:
     std::unique_ptr<FileHistory> m_fileHistory;
     std::unique_ptr<UIManager> m_uiManager;
     std::unique_ptr<DocumentManager> m_documentManager;
+    std::unique_ptr<FileSession> m_fileSession;
     std::unique_ptr<CompilerManager> m_compilerManager;
     std::unique_ptr<HelpManager> m_helpManager;
     std::unique_ptr<CommandManager> m_commandManager;
