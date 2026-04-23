@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "Editor.hpp"
+#include "AutoIndent.hpp"
 #include "Document.hpp"
 #include "DocumentManager.hpp"
 #include "app/Context.hpp"
@@ -35,6 +36,7 @@ wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
     EVT_STC_MODIFIED(wxID_ANY,           Editor::onModified)
     EVT_STC_UPDATEUI(wxID_ANY,           Editor::onUpdateUI)
     EVT_STC_ZOOM(wxID_ANY,               Editor::onZoom)
+    EVT_STC_CHARADDED(wxID_ANY,          Editor::onCharAdded)
     EVT_SET_FOCUS(Editor::onFocus)
 wxEND_EVENT_TABLE()
 // clang-format on
@@ -58,6 +60,7 @@ void Editor::applySettings() {
 void Editor::applyEditorSettings() {
     const auto& editor = m_ctx.getConfigManager().config().at("editor");
     const auto tabSize = editor.get_or("tabSize", 4);
+    m_autoIndentEnabled = editor.get_or("autoIndent", true);
 
     UsePopUp(wxSTC_POPUP_TEXT);
     SetTabWidth(tabSize);
@@ -475,6 +478,42 @@ void Editor::onUpdateUI(wxStyledTextEvent& event) {
     event.Skip();
     updateStatusBar();
     updateBraceMatch();
+}
+
+void Editor::onCharAdded(wxStyledTextEvent& event) {
+    if (!m_autoIndentEnabled) {
+        return;
+    }
+    if (event.GetKey() != '\n') {
+        return;
+    }
+
+    const int currLine = GetCurrentLine();
+    if (currLine == 0) {
+        return;
+    }
+    const int prevLine = currLine - 1;
+
+    const auto decision = indent::decide(GetLine(prevLine));
+    const int tabSize = GetIndent();
+
+    BeginUndoAction();
+    int prevIndent = GetLineIndentation(prevLine);
+    if (decision.dedentPrev) {
+        prevIndent = std::max(0, prevIndent - tabSize);
+        SetLineIndentation(prevLine, prevIndent);
+    }
+    const int newIndent = std::max(0, prevIndent + decision.deltaLevels * tabSize);
+    SetLineIndentation(currLine, newIndent);
+    GotoPos(GetLineEndPosition(currLine));
+
+    if (decision.insertCloser.has_value()) {
+        const int caretPos = GetLineEndPosition(currLine);
+        InsertText(caretPos, "\n" + *decision.insertCloser);
+        SetLineIndentation(currLine + 1, prevIndent);
+        GotoPos(GetLineEndPosition(currLine));
+    }
+    EndUndoAction();
 }
 
 void Editor::onZoom(wxStyledTextEvent&) {

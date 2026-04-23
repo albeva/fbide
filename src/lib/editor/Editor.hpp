@@ -65,6 +65,7 @@ private:
     void onModified(wxStyledTextEvent& event);
     void onUpdateUI(wxStyledTextEvent& event);
     void onZoom(wxStyledTextEvent& event);
+    void onCharAdded(wxStyledTextEvent& event);
     void onFocus(wxFocusEvent& event);
     void updateBraceMatch();
     void applyEditorSettings();
@@ -82,6 +83,7 @@ private:
     DocumentType m_docType;
     wxFont m_font;
     bool m_preview;
+    bool m_autoIndentEnabled = true;
 
     wxDECLARE_EVENT_TABLE();
 };

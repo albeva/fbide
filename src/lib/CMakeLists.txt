@@ -19,6 +19,7 @@ target_sources(fbide_lib
     config/Theme.cpp
     config/Value.cpp
     config/Version.cpp
+    editor/AutoIndent.cpp
     editor/Document.cpp
     editor/DocumentIO.cpp
     editor/DocumentManager.cpp
@@ -73,6 +74,7 @@ target_sources(fbide_lib
     config/ThemeCategory.hpp
     config/Value.hpp
     config/Version.hpp
+    editor/AutoIndent.hpp
     editor/Document.hpp
     editor/DocumentManager.hpp
     editor/DocumentType.hpp

@@ -61,6 +61,7 @@ const std::unordered_map<std::string, KeywordKind> structuralKeywords = {
     { "union", KeywordKind::Union },
     { "select", KeywordKind::Select },
     { "asm", KeywordKind::Asm },
+    { "namespace", KeywordKind::Namespace },
     // Block closers
     { "end", KeywordKind::End },
     { "endif", KeywordKind::End },
