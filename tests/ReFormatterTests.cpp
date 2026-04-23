@@ -276,6 +276,36 @@ TEST_F(ReFormatterTests, SingleLineIfDoesNotOpenBlock) {
     );
 }
 
+TEST_F(ReFormatterTests, EndIfSingleWordClosesIfBlock) {
+    // `EndIf` (one word) is the combined form of `End If` — closes the
+    // if-block the same way.
+    EXPECT_EQ(format(
+        "If x > 0 Then\n"
+        "Print x\n"
+        "EndIf\n"
+    ),
+        "If x > 0 Then\n"
+        "    Print x\n"
+        "EndIf\n"
+    );
+}
+
+TEST_F(ReFormatterTests, EndIfClosesNestedIfInsideSub) {
+    EXPECT_EQ(format(
+        "Sub Main\n"
+        "If x Then\n"
+        "Print x\n"
+        "endif\n"
+        "End Sub\n"
+    ),
+        "Sub Main\n"
+        "    If x Then\n"
+        "        Print x\n"
+        "    endif\n"
+        "End Sub\n"
+    );
+}
+
 TEST_F(ReFormatterTests, IfWithTrailingCommentStillOpensBlock) {
     // Last significant keyword is Then; the comment after Then is ignored
     // for block detection but preserved verbatim.

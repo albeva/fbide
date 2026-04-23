@@ -63,6 +63,7 @@ const std::unordered_map<std::string, KeywordKind> structuralKeywords = {
     { "asm", KeywordKind::Asm },
     // Block closers
     { "end", KeywordKind::End },
+    { "endif", KeywordKind::End },
     { "loop", KeywordKind::Loop },
     { "next", KeywordKind::Next },
     { "wend", KeywordKind::Wend },
@@ -585,6 +586,14 @@ auto Lexer::identifier(const bool firstOnLine) -> Token {
     } else {
         if (const auto it = m_codeKeywords.find(lower); it != m_codeKeywords.end()) {
             info = it->second;
+        }
+        // Fallback structural classification: FB syntax words like `endif`
+        // may not live in the user's keyword list but still need to drive
+        // block dispatch in the formatter. Token kind stays Identifier.
+        if (info.keywordKind == KeywordKind::None) {
+            if (const auto it = structuralKeywords.find(lower); it != structuralKeywords.end()) {
+                info.keywordKind = it->second;
+            }
         }
         // `asm` at line start opens an asm block. Inline `asm "..."` forms
         // (where `asm` is not first) do not open a block — matching FBSciLexer.
