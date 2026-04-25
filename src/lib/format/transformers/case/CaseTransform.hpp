@@ -52,16 +52,24 @@ private:
     Value m_mode;
 };
 
-/// Transforms keyword token text to the selected case.
+} // namespace fbide
+
+#include "config/ThemeCategory.hpp"
+
+namespace fbide {
+
+/// Transforms keyword token text to the per-group case rule. Each entry is
+/// indexed by `indexOfKeywordGroup(category)`. None entries are no-ops. PP
+/// tokens get their directive word transformed (the body is left alone).
 class CaseTransform final : public Transform {
 public:
-    explicit CaseTransform(const CaseMode mode)
-    : m_mode(mode) {}
+    explicit CaseTransform(const std::array<CaseMode, kThemeKeywordGroupsCount>& cases)
+    : m_cases(cases) {}
 
     [[nodiscard]] auto apply(const std::vector<lexer::Token>& tokens) -> std::vector<lexer::Token> override;
 
 private:
-    CaseMode m_mode;
+    std::array<CaseMode, kThemeKeywordGroupsCount> m_cases;
 };
 
 } // namespace fbide

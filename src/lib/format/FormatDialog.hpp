@@ -39,7 +39,6 @@ private:
     void rebuildTransforms();
 
     [[nodiscard]] auto isTransforming() const -> bool;
-    [[nodiscard]] auto getKeywordCase() const -> std::optional<CaseMode>;
 
     Context& m_ctx;
     Document* m_doc;
@@ -51,10 +50,7 @@ private:
     Unowned<wxCheckBox> m_reindentCheck = nullptr;
     Unowned<wxCheckBox> m_reformatCheck = nullptr;
     Unowned<wxCheckBox> m_alignPPCheck = nullptr;
-    Unowned<wxRadioButton> m_caseUnchanged = nullptr;
-    Unowned<wxRadioButton> m_caseKeyWord = nullptr;
-    Unowned<wxRadioButton> m_caseKEYWORD = nullptr;
-    Unowned<wxRadioButton> m_casekeyword = nullptr;
+    Unowned<wxCheckBox> m_applyCaseCheck = nullptr;
     Unowned<Editor> m_preview = nullptr;
     Unowned<wxButton> m_actionBtn = nullptr;
     Unowned<wxButton> m_browserBtn = nullptr;

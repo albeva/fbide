@@ -1238,7 +1238,9 @@ TEST_F(ReFormatterTests, FormatOff_CaseTransformSkipsVerbatimKeywords) {
         "dim z = 3\n"
     );
 
-    CaseTransform upper { CaseMode::Upper };
+    std::array<CaseMode, kThemeKeywordGroupsCount> cases {};
+    cases.fill(CaseMode::Upper);
+    CaseTransform upper { cases };
     const auto transformed = upper.apply(tokens);
 
     // Find the three `dim` identifier/keyword tokens. First and third should

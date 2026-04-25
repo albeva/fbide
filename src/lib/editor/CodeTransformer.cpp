@@ -240,21 +240,46 @@ void CodeTransformer::transformRange(Editor& editor, const int rangeStart, const
 
     const int caretBefore = editor.GetCurrentPos();
     editor.BeginUndoAction();
+    const auto isAlpha = [](const char ch) {
+        return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
+    };
     Sci_PositionU pos = 0;
     for (const auto& t : tokens) {
         const auto len = static_cast<int>(t.text.size());
         const int absStart = static_cast<int>(pos);
         const int absEnd = absStart + len;
-        if (lexer::isKeywordToken(t.kind) && absEnd > rangeStart && absStart < rangeEnd) {
+        const bool inRange = absEnd > rangeStart && absStart < rangeEnd;
+        if (inRange && lexer::isKeywordToken(t.kind)) {
             const auto caseMode = m_keywordCases[indexOfKeywordGroup(t.style)];
-            if (caseMode == CaseMode::None) {
-                pos += t.text.size();
-                continue;
+            if (caseMode != CaseMode::None) {
+                auto cased = caseMode.apply(std::string { t.text });
+                if (cased != t.text) {
+                    editor.SetTargetRange(absStart, absEnd);
+                    editor.ReplaceTarget(wxString::FromUTF8(cased.c_str(), cased.size()));
+                }
             }
-            auto cased = caseMode.apply(std::string { t.text });
-            if (cased != t.text) {
-                editor.SetTargetRange(absStart, absEnd);
-                editor.ReplaceTarget(wxString::FromUTF8(cased.c_str(), cased.size()));
+        } else if (inRange && t.kind == lexer::TokenKind::Preprocessor) {
+            // PP token text: "#<dirword>[ <body>]". Apply KeywordPP case to
+            // the directive word only.
+            const auto caseMode = m_keywordCases[indexOfKeywordGroup(ThemeCategory::KeywordPP)];
+            if (caseMode != CaseMode::None) {
+                std::size_t i = 0;
+                while (i < t.text.size() && (t.text[i] == '#' || t.text[i] == ' ' || t.text[i] == '\t')) {
+                    i++;
+                }
+                std::size_t end = i;
+                while (end < t.text.size() && isAlpha(t.text[end])) {
+                    end++;
+                }
+                if (end > i) {
+                    auto cased = caseMode.apply(std::string { t.text.substr(i, end - i) });
+                    if (cased != t.text.substr(i, end - i)) {
+                        const int dirAbsStart = absStart + static_cast<int>(i);
+                        const int dirAbsEnd = absStart + static_cast<int>(end);
+                        editor.SetTargetRange(dirAbsStart, dirAbsEnd);
+                        editor.ReplaceTarget(wxString::FromUTF8(cased.c_str(), cased.size()));
+                    }
+                }
             }
         }
         pos += t.text.size();

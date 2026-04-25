@@ -79,17 +79,54 @@ auto CaseMode::apply(std::string text) const -> std::string {
     return text;
 }
 
+namespace {
+
+auto isAlpha(const char ch) -> bool {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
+}
+
+/// For a Preprocessor token like "#ifdef FOO", apply `mode` to the directive
+/// word only ("ifdef") and leave `#`, whitespace, and the body unchanged.
+auto applyToPpDirective(std::string text, const CaseMode mode) -> std::string {
+    std::size_t i = 0;
+    while (i < text.size() && (text[i] == '#' || text[i] == ' ' || text[i] == '\t')) {
+        i++;
+    }
+    std::size_t end = i;
+    while (end < text.size() && isAlpha(text[end])) {
+        end++;
+    }
+    if (end == i) {
+        return text;
+    }
+    auto cased = mode.apply(text.substr(i, end - i));
+    text.replace(i, end - i, cased);
+    return text;
+}
+
+} // namespace
+
 auto CaseTransform::apply(const std::vector<lexer::Token>& tokens) -> std::vector<lexer::Token> {
     std::vector result { tokens };
-    if (m_mode == CaseMode::None) {
-        return result;
-    }
-
     for (auto& tok : result) {
-        if (tok.verbatim || not isKeyword(tok)) {
+        if (tok.verbatim) {
             continue;
         }
-        tok.text = m_mode.apply(std::move(tok.text));
+        if (isKeyword(tok)) {
+            const auto mode = m_cases[indexOfKeywordGroup(tok.style)];
+            if (mode == CaseMode::None) {
+                continue;
+            }
+            tok.text = mode.apply(std::move(tok.text));
+        } else if (tok.kind == lexer::TokenKind::Preprocessor) {
+            // PP token text is "#<dirword>[ <body>]". Use KeywordPP's case for
+            // the directive word, body stays as-is.
+            const auto mode = m_cases[indexOfKeywordGroup(ThemeCategory::KeywordPP)];
+            if (mode == CaseMode::None) {
+                continue;
+            }
+            tok.text = applyToPpDirective(std::move(tok.text), mode);
+        }
     }
     return result;
 }

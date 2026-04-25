@@ -27,10 +27,7 @@ enum ControlId {
     ID_REINDENT = wxID_HIGHEST + 1,
     ID_REFORMAT,
     ID_ALIGN_PP,
-    ID_CASE_UNCHANGED,
-    ID_CASE_KEYWORD,
-    ID_CASE_KEYWORD_UPPER,
-    ID_CASE_KEYWORD_LOWER,
+    ID_APPLY_CASE,
     ID_RENDER_CODE,
     ID_RENDER_HTML,
     ID_BROWSER,
@@ -43,10 +40,7 @@ wxBEGIN_EVENT_TABLE(FormatDialog, Layout<wxDialog>)
     EVT_CHECKBOX(ID_REINDENT,               FormatDialog::onTransformChanged)
     EVT_CHECKBOX(ID_REFORMAT,               FormatDialog::onTransformChanged)
     EVT_CHECKBOX(ID_ALIGN_PP,               FormatDialog::onTransformChanged)
-    EVT_RADIOBUTTON(ID_CASE_UNCHANGED,      FormatDialog::onTransformChanged)
-    EVT_RADIOBUTTON(ID_CASE_KEYWORD,        FormatDialog::onTransformChanged)
-    EVT_RADIOBUTTON(ID_CASE_KEYWORD_UPPER,  FormatDialog::onTransformChanged)
-    EVT_RADIOBUTTON(ID_CASE_KEYWORD_LOWER,  FormatDialog::onTransformChanged)
+    EVT_CHECKBOX(ID_APPLY_CASE,             FormatDialog::onTransformChanged)
     EVT_RADIOBUTTON(ID_RENDER_CODE,         FormatDialog::renderCode)
     EVT_RADIOBUTTON(ID_RENDER_HTML,         FormatDialog::renderHtml)
     EVT_BUTTON(wxID_OK,                     FormatDialog::onApply)
@@ -86,11 +80,11 @@ void FormatDialog::create() {
 
         separator({ .space = false });
 
-        m_caseUnchanged = radio("Unchanged", { .expand = false }, ID_CASE_UNCHANGED, wxRB_GROUP);
-        m_caseKeyWord = radio("KeyWord", { .expand = false }, ID_CASE_KEYWORD);
-        m_caseKEYWORD = radio("KEYWORD", { .expand = false }, ID_CASE_KEYWORD_UPPER);
-        m_casekeyword = radio("keyword", { .expand = false }, ID_CASE_KEYWORD_LOWER);
-        m_caseUnchanged->SetValue(true);
+        m_applyCaseCheck = checkBox("Apply keyword case", { .expand = false }, ID_APPLY_CASE);
+        m_applyCaseCheck->SetToolTip(
+            "Re-case keyword tokens using the per-group rules configured in\n"
+            "Settings → Keywords (None / Lower / Upper / Mixed per group)."
+        );
 
         separator({ .space = false });
 
@@ -196,8 +190,15 @@ void FormatDialog::onBrowser(wxCommandEvent&) {
 void FormatDialog::rebuildTransforms() {
     m_transforms.clear();
 
-    if (const auto mode = getKeywordCase()) {
-        m_transforms.push_back(std::make_unique<CaseTransform>(*mode));
+    if (m_applyCaseCheck->IsChecked()) {
+        std::array<CaseMode, kThemeKeywordGroupsCount> cases {};
+        const auto& cfg = m_ctx.getConfigManager().keywords().at("cases");
+        for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
+            const auto key = wxString(getThemeCategoryName(kThemeKeywordCategories[idx]));
+            cases[idx] = CaseMode::parse(cfg.get_or(key, "None").ToStdString())
+                             .value_or(CaseMode::None);
+        }
+        m_transforms.push_back(std::make_unique<CaseTransform>(cases));
     }
 
     const bool reIndent = m_reindentCheck->IsChecked();
@@ -210,16 +211,6 @@ void FormatDialog::rebuildTransforms() {
             .reFormat = reFormat,
         }));
     }
-}
-
-auto FormatDialog::getKeywordCase() const -> std::optional<CaseMode> {
-    if (m_caseKeyWord->GetValue())
-        return CaseMode::Mixed;
-    if (m_caseKEYWORD->GetValue())
-        return CaseMode::Upper;
-    if (m_casekeyword->GetValue())
-        return CaseMode::Lower;
-    return std::nullopt;
 }
 
 auto FormatDialog::isTransforming() const -> bool {
