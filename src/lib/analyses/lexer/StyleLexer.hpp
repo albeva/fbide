@@ -27,7 +27,6 @@ namespace fbide::lexer {
 /// Keywords are lowercased so FBSciLexer's case-insensitive lookup matches.
 void configureFbWordlists(Scintilla::ILexer5& lex, const Value& kw);
 
-
 /// One coalesced run of bytes carrying the same FBSciLexer style.
 struct StyleRange {
     ThemeCategory style;
@@ -43,10 +42,12 @@ class StyleLexer final {
 public:
     NO_COPY_AND_MOVE(StyleLexer)
 
+    using Range = std::pair<Sci_PositionU, Sci_PositionU>;
+
     explicit StyleLexer(IStyledSource& src);
     ~StyleLexer() = default;
 
-    [[nodiscard]] auto tokenise() -> std::vector<Token>;
+    [[nodiscard]] auto tokenise(const Range& range = {}) -> std::vector<Token>;
 
 private:
     [[nodiscard]] auto nextStyle() -> std::optional<StyleRange>;
@@ -65,6 +66,7 @@ private:
     bool m_canBeUnary = true;
     bool m_inPpLine = false;
     std::size_t m_ppTokenIdx = 0;
+    std::pair<Sci_PositionU, Sci_PositionU> m_range {};
 };
 
 } // namespace fbide::lexer

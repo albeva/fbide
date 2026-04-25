@@ -39,64 +39,27 @@ public:
     /// Called from Editor's EVT_STC_UPDATEUI handler when the caret
     /// changes position. If the caret left an unfinished word (a word
     /// char run ending at `oldPos`), case-normalise that word.
-    void onCaretMoved(Editor& editor, int oldPos, int newPos);
+    void onCaretMoved(Editor& editor, int oldPos);
 
     /// Called from Editor's EVT_STC_MODIFIED handler when a bulk insert
     /// happens (paste, drop, ...). Runs case normalisation across the
     /// pasted range — does NOT touch indentation.
     void onTextInserted(Editor& editor, int pos, int length);
 
-    /// True while the transformer is processing one of its own modifications
-    /// (ReplaceTarget / InsertText). Editor uses this to suppress forwarding
-    /// the resulting MODIFIED event back into onTextInserted via CallAfter —
-    /// otherwise file load → transformRange → ReplaceTarget → CallAfter →
-    /// transformRange → ... loops forever once the action guard releases.
-    [[nodiscard]] auto isInAction() const -> bool { return m_inAction; }
-
-    /// Suppress paste handling for the duration of a programmatic bulk
-    /// insert (e.g. file load via SetText). Use the RAII helper below.
-    class Suspend {
-    public:
-        explicit Suspend(CodeTransformer& t)
-        : m_t(t)
-        , m_prev(t.m_inAction) { t.m_inAction = true; }
-        ~Suspend() { m_t.m_inAction = m_prev; }
-        Suspend(const Suspend&) = delete;
-        Suspend& operator=(const Suspend&) = delete;
-
-    private:
-        CodeTransformer& m_t;
-        bool m_prev;
-    };
+    /// Enable / disable code transformer
+    void enable(bool state);
 
 private:
     void applyIndentAndCloser(Editor& editor);
-    void applyWordCase(Editor& editor, int ch);
-    /// Transform the word at `[wordStart, wordEnd)` if it's a keyword.
-    /// Assumes the current caret sits outside that range — callers must
-    /// uphold this to keep the cursor in place after ReplaceTarget.
+    void applyWordCase(Editor& editor);
     void transformWordInRange(Editor& editor, int wordStart, int wordEnd);
-    /// Re-case every keyword token whose range intersects
-    /// `[rangeStart, rangeEnd)`. Used for paste / drop.
     void transformRange(Editor& editor, int rangeStart, int rangeEnd);
     [[nodiscard]] auto renderCloser(std::span<const std::string_view> words) const -> wxString;
 
     Context& m_ctx;
     bool m_autoIndent = true;
-    bool m_inAction = false; // re-entry guard for STC modification events
-    /// Set by onTextInserted when external text is added; consumed by the
-    /// next onCaretMoved. Distinguishes "caret moved because user typed a
-    /// char" (handled by onCharAdded) from genuine navigation (arrow keys,
-    /// mouse). Without this, every keystroke looks like a navigation away
-    /// from a partial word and triggers premature case transforms.
-    bool m_pendingTextChange = false;
-    /// Master on/off for the per-keyword-group case transform.
     bool m_transformKeywords = true;
-    /// Per keyword group case rule (None = leave alone). Indexed by
-    /// `indexOfKeywordGroup(category)`.
     std::array<CaseMode, kThemeKeywordGroupsCount> m_keywordCases {};
-
-    friend struct ActionGuard;
 };
 
 } // namespace fbide

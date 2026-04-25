@@ -27,24 +27,6 @@ auto isWordChar(const wxUniChar ch) -> bool {
 
 } // namespace
 
-namespace fbide {
-
-struct ActionGuard final {
-    NO_COPY_AND_MOVE(ActionGuard)
-
-    explicit ActionGuard(CodeTransformer& s)
-    : self(s)
-    , prev(s.m_inAction) { self.m_inAction = true; }
-
-    ~ActionGuard() { self.m_inAction = prev; }
-
-private:
-    CodeTransformer& self;
-    bool prev;
-};
-
-} // namespace fbide
-
 CodeTransformer::CodeTransformer(Context& ctx)
 : m_ctx(ctx) {
     applySettings();
@@ -53,10 +35,7 @@ CodeTransformer::CodeTransformer(Context& ctx)
 CodeTransformer::~CodeTransformer() = default;
 
 void CodeTransformer::applySettings() {
-    const auto& editor = m_ctx.getConfigManager().config().at("editor");
-    m_autoIndent = editor.get_or("autoIndent", true);
-    m_transformKeywords = editor.get_or("transformKeywords", true);
-
+    enable(true);
     const auto& cases = m_ctx.getConfigManager().keywords().at("cases");
     for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
         const auto key = wxString(getThemeCategoryName(kThemeKeywordCategories[idx]));
@@ -73,38 +52,20 @@ void CodeTransformer::onCharAdded(Editor& editor, const int ch) {
     if (not m_transformKeywords || isWordChar(ch)) {
         return;
     }
-    ActionGuard guard(*this);
 
-    editor.BeginUndoAction();
-    applyWordCase(editor, ch);
+    editor.SetUndoCollection(false);
+    applyWordCase(editor);
     if (ch == '\n' && m_autoIndent) {
         applyIndentAndCloser(editor);
     }
-    editor.EndUndoAction();
+    editor.SetUndoCollection(true);
 }
 
-void CodeTransformer::onCaretMoved(Editor& editor, const int oldPos, const int newPos) {
-    if (m_inAction) {
+void CodeTransformer::onCaretMoved(Editor& editor, const int oldPos) {
+    if (!m_transformKeywords || oldPos <= 0) {
         return;
     }
-    // Caret moved because the user just typed a char — let onCharAdded
-    // handle word boundaries when (and if) the typed char is one. Skip
-    // here so partial words don't get prematurely transformed.
-    if (m_pendingTextChange) {
-        m_pendingTextChange = false;
-        return;
-    }
-    if (!m_transformKeywords) {
-        return;
-    }
-    if (oldPos <= 0) {
-        return;
-    }
-    ActionGuard guard(*this);
 
-    // Walk back from oldPos over word chars to find the run that the
-    // caret was attached to. If oldPos didn't sit at the end of a word
-    // run there is nothing to transform.
     int wordStart = oldPos;
     while (wordStart > 0 && isWordChar(editor.GetCharAt(wordStart - 1))) {
         wordStart--;
@@ -114,33 +75,27 @@ void CodeTransformer::onCaretMoved(Editor& editor, const int oldPos, const int n
         return;
     }
 
-    // Caret still sits inside the same word — user is editing it. Don't
-    // transform yet; wait until they leave.
-    if (newPos > wordStart && newPos < wordEnd) {
-        return;
-    }
-    if (newPos == wordEnd) {
-        // Caret didn't actually leave the word's trailing edge.
-        return;
-    }
+    editor.SetUndoCollection(false);
     transformWordInRange(editor, wordStart, wordEnd);
+    editor.SetUndoCollection(true);
 }
 
 void CodeTransformer::onTextInserted(Editor& editor, const int pos, const int length) {
-    if (m_inAction) {
-        return;
-    }
-    // External text change — flag for the upcoming onCaretMoved so it
-    // doesn't mistake a typing-induced caret bump for a navigation away.
-    m_pendingTextChange = true;
     if (!m_transformKeywords) {
         return;
     }
-    if (length <= 1) {
-        // Single-char insert is normal typing, handled by onCharAdded.
-        return;
-    }
     transformRange(editor, pos, pos + length);
+}
+
+void CodeTransformer::enable(const bool state) {
+    if (state) {
+        const auto& editor = m_ctx.getConfigManager().config().at("editor");
+        m_autoIndent = editor.get_or("autoIndent", true);
+        m_transformKeywords = editor.get_or("transformKeywords", true);
+    } else {
+        m_autoIndent = false;
+        m_transformKeywords = false;
+    }
 }
 
 // ===========================================================================
@@ -154,7 +109,7 @@ void CodeTransformer::applyIndentAndCloser(Editor& editor) {
     }
     const int prevLine = currLine - 1;
 
-    const auto decision = indent::decide(editor.GetLine(prevLine));
+    const auto decision = indent::Decision::decide(editor, prevLine);
     const int tabSize = editor.GetIndent();
 
     int prevIndent = editor.GetLineIndentation(prevLine);
@@ -174,7 +129,7 @@ void CodeTransformer::applyIndentAndCloser(Editor& editor) {
     }
 }
 
-void CodeTransformer::applyWordCase(Editor& editor, int /*ch*/) {
+void CodeTransformer::applyWordCase(Editor& editor) {
     const int caretPos = editor.GetCurrentPos();
     if (caretPos < 2) {
         return;
@@ -212,66 +167,42 @@ void CodeTransformer::transformWordInRange(Editor& editor, const int wordStart, 
 
     editor.SetTargetRange(wordStart, wordEnd);
     editor.ReplaceTarget(replace);
+    editor.StartStyling(wordStart);
+    editor.SetStyling(wordEnd - wordStart, +style);
 }
 
 void CodeTransformer::transformRange(Editor& editor, const int rangeStart, const int rangeEnd) {
-    ActionGuard guard(*this);
-
-    // Force STC to style up to rangeEnd so StyleLexer reads accurate styles.
+    // Force STC to re-style
     editor.Colourise(0, rangeEnd);
 
+    // Tokenize the inserted range
     lexer::WxStcStyledSource src(editor);
     lexer::StyleLexer adapter(src);
-    const auto tokens = adapter.tokenise();
+    const auto tokens = adapter.tokenise({ rangeStart, rangeEnd });
 
-    const int caretBefore = editor.GetCurrentPos();
-    editor.BeginUndoAction();
-    const auto isAlpha = [](const char ch) {
-        return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
-    };
-    Sci_PositionU pos = 0;
-    for (const auto& t : tokens) {
-        const auto len = static_cast<int>(t.text.size());
-        const int absStart = static_cast<int>(pos);
-        const int absEnd = absStart + len;
-        const bool inRange = absEnd > rangeStart && absStart < rangeEnd;
-        if (inRange && lexer::isKeywordToken(t.kind)) {
-            const auto caseMode = m_keywordCases[indexOfKeywordGroup(t.style)];
+    editor.SetUndoCollection(false);
+
+    Sci_PositionU pos = static_cast<Sci_PositionU>(rangeStart);
+    for (const auto& tkn : tokens) {
+        const auto len = static_cast<int>(tkn.text.size());
+        const int start = static_cast<int>(pos);
+        const int end = start + len;
+
+        if (lexer::isKeywordToken(tkn.kind)) {
+            const auto caseMode = m_keywordCases[indexOfKeywordGroup(tkn.style)];
             if (caseMode != CaseMode::None) {
-                auto cased = caseMode.apply(std::string { t.text });
-                if (cased != t.text) {
-                    editor.SetTargetRange(absStart, absEnd);
-                    editor.ReplaceTarget(wxString::FromUTF8(cased.c_str(), cased.size()));
-                }
-            }
-        } else if (inRange && t.kind == lexer::TokenKind::Preprocessor) {
-            // PP token text: "#<dirword>[ <body>]". Apply KeywordPP case to
-            // the directive word only.
-            const auto caseMode = m_keywordCases[indexOfKeywordGroup(ThemeCategory::KeywordPP)];
-            if (caseMode != CaseMode::None) {
-                std::size_t i = 0;
-                while (i < t.text.size() && (t.text[i] == '#' || t.text[i] == ' ' || t.text[i] == '\t')) {
-                    i++;
-                }
-                std::size_t end = i;
-                while (end < t.text.size() && isAlpha(t.text[end])) {
-                    end++;
-                }
-                if (end > i) {
-                    auto cased = caseMode.apply(std::string { t.text.substr(i, end - i) });
-                    if (cased != t.text.substr(i, end - i)) {
-                        const int dirAbsStart = absStart + static_cast<int>(i);
-                        const int dirAbsEnd = absStart + static_cast<int>(end);
-                        editor.SetTargetRange(dirAbsStart, dirAbsEnd);
-                        editor.ReplaceTarget(wxString::FromUTF8(cased.c_str(), cased.size()));
-                    }
+                auto cased = caseMode.apply(tkn.text);
+                if (cased != tkn.text) {
+                    editor.SetTargetRange(start, end);
+                    editor.ReplaceTarget(wxString::FromUTF8(cased));
+                    editor.StartStyling(start);
+                    editor.SetStyling(end - start, +tkn.style);
                 }
             }
         }
-        pos += t.text.size();
+        pos += tkn.text.size();
     }
-    editor.GotoPos(caretBefore);
-    editor.EndUndoAction();
+    editor.SetUndoCollection(true);
 }
 
 auto CodeTransformer::renderCloser(const std::span<const std::string_view> words) const -> wxString {

@@ -6,8 +6,9 @@
 //
 #pragma once
 #include "pch.hpp"
-#include <span>
-#include <string_view>
+namespace fbide {
+class Editor;
+}
 
 namespace fbide::indent {
 
@@ -32,13 +33,14 @@ struct Decision {
     /// Storage lives in static `constexpr` arrays — caller must not retain
     /// the span past the lifetime of the program.
     std::span<const std::string_view> closerKeywords;
+
+    /// Compute the indent decision triggered by pressing Enter at the end of
+    /// `prevLine`. Pure function — no Editor / Context dependency. Drives a
+    /// per-call FBSciLexer + StyleLexer pipeline against a headless
+    /// MemoryDocument, seeded with the structural-keywords wordlist so block
+    /// keywords (if/then/sub/end/...) are styled and classified correctly.
+    [[nodiscard]] static auto decide(Editor& editor, int prevLine) -> Decision;
 };
 
-/// Compute the indent decision triggered by pressing Enter at the end of
-/// `prevLine`. Pure function — no Editor / Context dependency. Drives a
-/// per-call FBSciLexer + StyleLexer pipeline against a headless
-/// MemoryDocument, seeded with the structural-keywords wordlist so block
-/// keywords (if/then/sub/end/...) are styled and classified correctly.
-[[nodiscard]] auto decide(const wxString& prevLine) -> Decision;
 
 } // namespace fbide::indent

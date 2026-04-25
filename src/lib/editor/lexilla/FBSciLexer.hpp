@@ -23,9 +23,8 @@ namespace fbide {
 
 /// Custom Scintilla lexer for FreeBASIC.
 class FBSciLexer final : public Lexilla::DefaultLexer {
-    FBSciLexer();
-
 public:
+    FBSciLexer();
     const char* SCI_METHOD DescribeWordListSets() override;
     Sci_Position SCI_METHOD WordListSet(int n, const char* wl) override;
 

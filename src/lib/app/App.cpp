@@ -38,9 +38,14 @@ void App::initAppearance() {
 
 auto App::OnInit() -> bool {
     const auto fbidePath = getFbidePath();
-    wxLog::SetActiveTarget(new wxLogStream(new std::ofstream((fbidePath / "app.log").ToStdString(), std::ios::app)));
+
 #if FBIDE_DEBUG_BUILD
     wxLog::SetVerbose(true);
+    wxLogWindow* logWindow = make_unowned<wxLogWindow>(nullptr, "Debug Log", false, false);
+    wxLog::SetActiveTarget(logWindow);
+    logWindow->Show();
+#else
+    wxLog::SetActiveTarget(new wxLogStream(new std::ofstream((fbidePath / "app.log").ToStdString(), std::ios::app)));
 #endif
 
     // Create context and parse arguments early (before IPC check)

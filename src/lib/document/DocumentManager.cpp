@@ -113,11 +113,11 @@ auto DocumentManager::openFile(const wxString& filePath) -> Document* {
     const auto type = documentTypeFromPath(filePath);
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(getNotebook(), m_ctx, type));
 
+    // don't reformat code on file load
     auto* editor = doc.getEditor();
-    {
-        const CodeTransformer::Suspend suspend(*m_codeTransformer);
-        editor->SetText(loaded->text);
-    }
+    editor->disableTransforms(true);
+    editor->SetText(loaded->text);
+    editor->disableTransforms(false);
     editor->SetEOLMode(loaded->eolMode.toStc());
     editor->ConvertEOLs(loaded->eolMode.toStc());
     editor->EmptyUndoBuffer();
@@ -169,10 +169,9 @@ void DocumentManager::reloadWithEncoding(Document& doc, const TextEncoding encod
     }
 
     auto* editor = doc.getEditor();
-    {
-        const CodeTransformer::Suspend suspend(*m_codeTransformer);
-        editor->SetText(loaded->text);
-    }
+    editor->disableTransforms(true);
+    editor->SetText(loaded->text);
+    editor->disableTransforms(false);
     editor->SetEOLMode(loaded->eolMode.toStc());
     editor->ConvertEOLs(loaded->eolMode.toStc());
     editor->EmptyUndoBuffer();

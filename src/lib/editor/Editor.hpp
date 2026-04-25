@@ -22,8 +22,13 @@ public:
     /// `transformer` may be nullptr (preview editors). When non-null, it
     /// receives EVT_STC_CHARADDED and applySettings calls.
     /// If preview is true, hides all margins and decorations.
-    Editor(wxWindow* parent, Context& ctx, CodeTransformer* transformer,
-        DocumentType type = DocumentType::FreeBASIC, bool preview = false);
+    Editor(
+        wxWindow* parent,
+        Context& ctx,
+        CodeTransformer* transformer,
+        DocumentType type = DocumentType::FreeBASIC,
+        bool preview = false
+    );
 
     /// Apply theme and settings from context.
     void applySettings();
@@ -64,6 +69,9 @@ public:
     /// Update the statusbar with current cursor position.
     void updateStatusBar() const;
 
+    /// Enable / disable code transforms (e.g. during loading)
+    void disableTransforms(bool state);
+
 private:
     void onMarginClick(wxStyledTextEvent& event);
     void onModified(wxStyledTextEvent& event);
@@ -88,6 +96,8 @@ private:
     DocumentType m_docType;
     wxFont m_font;
     bool m_preview;
+    bool m_insertHandled = false;
+    bool m_editorLocked = false;
     int m_lastCaretPos = 0;
 
     wxDECLARE_EVENT_TABLE();

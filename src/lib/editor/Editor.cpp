@@ -482,17 +482,28 @@ void Editor::onUpdateUI(wxStyledTextEvent& event) {
     event.Skip();
     updateStatusBar();
     updateBraceMatch();
-    //
-    // const int curr = GetCurrentPos();
-    // if (m_transformer != nullptr && curr != m_lastCaretPos) {
-    //     m_transformer->onCaretMoved(*this, m_lastCaretPos, curr);
-    // }
-    // m_lastCaretPos = curr;
+
+    if (m_editorLocked) {
+        return;
+    }
+
+    const int curr = GetCurrentPos();
+    if (event.GetUpdated() & wxSTC_UPDATE_SELECTION) {
+        if (m_transformer != nullptr && curr != m_lastCaretPos) {
+            m_editorLocked = true;
+            m_transformer->onCaretMoved(*this, m_lastCaretPos);
+            m_editorLocked = false;
+        }
+    }
+    m_lastCaretPos = curr;
 }
 
 void Editor::onCharAdded(wxStyledTextEvent& event) {
-    if (m_transformer != nullptr) {
+    if (not m_editorLocked && m_transformer != nullptr) {
+        m_editorLocked = true;
         m_transformer->onCharAdded(*this, event.GetKey());
+        m_editorLocked = false;
+        m_insertHandled = true;
     }
 }
 
@@ -536,6 +547,10 @@ void Editor::updateStatusBar() const {
     }
 }
 
+void Editor::disableTransforms(const bool state) {
+    m_editorLocked = state;
+}
+
 void Editor::onFocus(wxFocusEvent& event) {
     event.Skip();
     updateStatusBar();
@@ -562,17 +577,25 @@ void Editor::onModified(wxStyledTextEvent& event) {
         return;
     }
     m_ctx.getDocumentManager().updateActiveTabTitle();
-    //
-    // // Forward every insert (any length) so the transformer can mark a
-    // // "caret moved due to typing" flag — needed to suppress on-caret case
-    // // transforms during keystrokes. Bulk inserts (>1 char) ALSO trigger the
-    // // paste path; single-char inserts only set the flag.
-    // //
-    // // Modifications inside SCN_MODIFIED notification are not allowed by
-    // // Scintilla — silently dropped. Defer the heavyweight bulk handler via
-    // // CallAfter; the lightweight flag-set on single chars must happen
-    // // synchronously before the upcoming UPDATEUI fires.
-    // if (m_transformer != nullptr && (mod & wxSTC_MOD_INSERTTEXT) != 0
+
+    if (m_editorLocked) {
+        return;
+    }
+
+    // We need to filter out genuine text insert that is not handled
+    // by char add.
+    if (m_transformer != nullptr && mod & wxSTC_MOD_INSERTTEXT) {
+        m_insertHandled = false;
+        const int pos = event.GetPosition();
+        const int length = event.GetLength();
+        CallAfter([this, pos, length] {
+            if (m_insertHandled) {
+                return;
+            }
+            m_editorLocked = true;
+            m_transformer->onTextInserted(*this, pos, length);
+            m_editorLocked = false;
+        });
     //     && !m_transformer->isInAction()) {
     //     const int pos = event.GetPosition();
     //     const int length = event.GetLength();
@@ -585,5 +608,5 @@ void Editor::onModified(wxStyledTextEvent& event) {
     //     } else {
     //         m_transformer->onTextInserted(*this, pos, length);
     //     }
-    // }
+    }
 }

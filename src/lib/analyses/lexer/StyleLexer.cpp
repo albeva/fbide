@@ -53,64 +53,93 @@ auto matchOperator(const std::string_view slice) -> std::pair<OperatorKind, std:
     };
     switch (slice[0]) {
     case '-':
-        if (peek(1) == '>') return { Arrow, 2 };
-        if (peek(1) == '=') return { Other, 2 }; // -=
+        if (peek(1) == '>')
+            return { Arrow, 2 };
+        if (peek(1) == '=')
+            return { Other, 2 }; // -=
         return { Subtract, 1 };
     case '+':
-        if (peek(1) == '=') return { Other, 2 }; // +=
+        if (peek(1) == '=')
+            return { Other, 2 }; // +=
         return { Add, 1 };
     case '*':
-        if (peek(1) == '=') return { Other, 2 }; // *=
+        if (peek(1) == '=')
+            return { Other, 2 }; // *=
         return { Multiply, 1 };
     case '/':
-        if (peek(1) == '=') return { Other, 2 }; // /=
+        if (peek(1) == '=')
+            return { Other, 2 }; // /=
         return { Other, 1 };
     case '\\':
-        if (peek(1) == '=') return { Other, 2 }; // \=
+        if (peek(1) == '=')
+            return { Other, 2 }; // \=
         return { Other, 1 };
     case '^':
-        if (peek(1) == '=') return { Other, 2 }; // ^=
+        if (peek(1) == '=')
+            return { Other, 2 }; // ^=
         return { Other, 1 };
     case '&':
-        if (peek(1) == '=') return { Other, 2 }; // &=
+        if (peek(1) == '=')
+            return { Other, 2 }; // &=
         return { Other, 1 };
     case '<':
-        if (slice.starts_with("<=")) return { Other, 2 };
-        if (slice.starts_with("<>")) return { Other, 2 };
+        if (slice.starts_with("<="))
+            return { Other, 2 };
+        if (slice.starts_with("<>"))
+            return { Other, 2 };
         return { Other, 1 };
     case '>':
-        if (slice.starts_with(">=")) return { Other, 2 };
+        if (slice.starts_with(">="))
+            return { Other, 2 };
         return { Other, 1 };
     case '=':
         return { Assign, 1 };
     case '.':
-        if (slice.starts_with("...")) return { Ellipsis3, 3 };
+        if (slice.starts_with("..."))
+            return { Ellipsis3, 3 };
         return { Dot, 1 };
-    case ',': return { Comma, 1 };
-    case ';': return { Semicolon, 1 };
-    case ':': return { Colon, 1 };
-    case '?': return { Question, 1 };
-    case '(': return { ParenOpen, 1 };
-    case ')': return { ParenClose, 1 };
-    case '[': return { BracketOpen, 1 };
-    case ']': return { BracketClose, 1 };
-    case '{': return { BraceOpen, 1 };
-    case '}': return { BraceClose, 1 };
-    case '@': return { AddressOf, 1 };
-    default:  return { Other, 1 };
+    case ',':
+        return { Comma, 1 };
+    case ';':
+        return { Semicolon, 1 };
+    case ':':
+        return { Colon, 1 };
+    case '?':
+        return { Question, 1 };
+    case '(':
+        return { ParenOpen, 1 };
+    case ')':
+        return { ParenClose, 1 };
+    case '[':
+        return { BracketOpen, 1 };
+    case ']':
+        return { BracketClose, 1 };
+    case '{':
+        return { BraceOpen, 1 };
+    case '}':
+        return { BraceClose, 1 };
+    case '@':
+        return { AddressOf, 1 };
+    default:
+        return { Other, 1 };
     }
 }
 
 } // namespace
 
 StyleLexer::StyleLexer(IStyledSource& src)
-: m_src(src) {}
+: m_src(src)
+, m_range(0, src.length()) {}
 
-auto StyleLexer::tokenise() -> std::vector<Token> {
+auto StyleLexer::tokenise(const Range& range) -> std::vector<Token> {
+    const auto restore = ValueRestorer { m_range };
+    m_range.first = range.first == 0 ? m_range.first : range.first;
+    m_range.second = range.second == 0 ? m_range.second : range.second;
+
     std::vector<Token> out;
     out.reserve(m_src.length() / 5);
 
-    m_pos = 0;
+    m_pos = m_range.first;
     m_canBeUnary = true;
     m_inPpLine = false;
     m_ppTokenIdx = 0;
@@ -124,7 +153,7 @@ auto StyleLexer::tokenise() -> std::vector<Token> {
 }
 
 auto StyleLexer::nextStyle() -> std::optional<StyleRange> {
-    if (m_pos >= m_src.length()) {
+    if (m_pos >= m_range.second) {
         return std::nullopt;
     }
     const auto style = m_src.styleAt(m_pos);
@@ -147,26 +176,66 @@ auto StyleLexer::stringFromRange(const Sci_PositionU start, const Sci_PositionU 
 void StyleLexer::emitFromRange(const StyleRange& r, std::vector<Token>& out) {
     using enum ThemeCategory;
     switch (r.style) {
-    case Default:           emitDefault(r, out); break;
-    case Operator:          emitOperator(r, out); break;
-    case Identifier:        emitIdentifier(r, out); break;
-    case Keywords:          emitKeyword(r, TokenKind::Keywords, out); break;
-    case KeywordTypes:      emitKeyword(r, TokenKind::KeywordTypes, out); break;
-    case KeywordOperators:  emitKeyword(r, TokenKind::KeywordOperators, out); break;
-    case KeywordConstants:  emitKeyword(r, TokenKind::KeywordConstants, out); break;
-    case KeywordLibrary:    emitKeyword(r, TokenKind::KeywordLibrary, out); break;
-    case KeywordCustom:    emitKeyword(r, TokenKind::KeywordCustom, out); break;
-    case KeywordAsm1:       emitKeyword(r, TokenKind::KeywordAsm1, out); break;
-    case KeywordAsm2:       emitKeyword(r, TokenKind::KeywordAsm2, out); break;
-    case KeywordPP:         emitPreprocessor(r, out); break;
-    case Preprocessor:      emitPreprocessor(r, out); break;
-    case Number:            emitSimple(r, TokenKind::Number, out); break;
-    case String:            emitSimple(r, TokenKind::String, out); break;
-    case StringOpen:        emitSimple(r, TokenKind::UnterminatedString, out); break;
-    case Comment:           emitSimple(r, TokenKind::Comment, out); break;
-    case MultilineComment:  emitSimple(r, TokenKind::CommentBlock, out); break;
-    case Label:             emitSimple(r, TokenKind::Identifier, out); break;
-    case Error:             emitSimple(r, TokenKind::Invalid, out); break;
+    case Default:
+        emitDefault(r, out);
+        break;
+    case Operator:
+        emitOperator(r, out);
+        break;
+    case Identifier:
+        emitIdentifier(r, out);
+        break;
+    case Keywords:
+        emitKeyword(r, TokenKind::Keywords, out);
+        break;
+    case KeywordTypes:
+        emitKeyword(r, TokenKind::KeywordTypes, out);
+        break;
+    case KeywordOperators:
+        emitKeyword(r, TokenKind::KeywordOperators, out);
+        break;
+    case KeywordConstants:
+        emitKeyword(r, TokenKind::KeywordConstants, out);
+        break;
+    case KeywordLibrary:
+        emitKeyword(r, TokenKind::KeywordLibrary, out);
+        break;
+    case KeywordCustom:
+        emitKeyword(r, TokenKind::KeywordCustom, out);
+        break;
+    case KeywordAsm1:
+        emitKeyword(r, TokenKind::KeywordAsm1, out);
+        break;
+    case KeywordAsm2:
+        emitKeyword(r, TokenKind::KeywordAsm2, out);
+        break;
+    case KeywordPP:
+        emitPreprocessor(r, out);
+        break;
+    case Preprocessor:
+        emitPreprocessor(r, out);
+        break;
+    case Number:
+        emitSimple(r, TokenKind::Number, out);
+        break;
+    case String:
+        emitSimple(r, TokenKind::String, out);
+        break;
+    case StringOpen:
+        emitSimple(r, TokenKind::UnterminatedString, out);
+        break;
+    case Comment:
+        emitSimple(r, TokenKind::Comment, out);
+        break;
+    case MultilineComment:
+        emitSimple(r, TokenKind::CommentBlock, out);
+        break;
+    case Label:
+        emitSimple(r, TokenKind::Identifier, out);
+        break;
+    case Error:
+        emitSimple(r, TokenKind::Invalid, out);
+        break;
     }
 }
 
@@ -196,7 +265,7 @@ void StyleLexer::emitDefault(const StyleRange& r, std::vector<Token>& out) {
             const auto lineEndPos = r.start + static_cast<Sci_PositionU>(i);
             const auto line = m_src.lineFromPosition(lineEndPos);
             const auto continuation = m_src.lineState(line).continueLine;
-            out.push_back(Token{
+            out.push_back(Token {
                 TokenKind::Newline,
                 KeywordKind::None,
                 OperatorKind::None,
@@ -213,7 +282,7 @@ void StyleLexer::emitDefault(const StyleRange& r, std::vector<Token>& out) {
             while (end < text.size() && (text[end] == ' ' || text[end] == '\t')) {
                 end++;
             }
-            out.push_back(Token{
+            out.push_back(Token {
                 TokenKind::Whitespace,
                 KeywordKind::None,
                 OperatorKind::None,
@@ -225,7 +294,7 @@ void StyleLexer::emitDefault(const StyleRange& r, std::vector<Token>& out) {
             i = end;
         } else {
             // Unexpected non-whitespace under Default style — treat as Invalid.
-            out.push_back(Token{
+            out.push_back(Token {
                 TokenKind::Invalid,
                 KeywordKind::None,
                 OperatorKind::None,
@@ -241,7 +310,7 @@ void StyleLexer::emitDefault(const StyleRange& r, std::vector<Token>& out) {
 
 void StyleLexer::emitOperator(const StyleRange& r, std::vector<Token>& out) {
     const auto text = stringFromRange(r.start, r.end);
-    std::string_view sv { text };
+    const std::string_view sv { text };
     std::size_t i = 0;
     while (i < sv.size()) {
         auto [op, len] = matchOperator(sv.substr(i));
@@ -255,14 +324,14 @@ void StyleLexer::emitOperator(const StyleRange& r, std::vector<Token>& out) {
                 op = OperatorKind::Dereference;
             }
         }
-        out.push_back(Token{
+        out.push_back(Token {
             TokenKind::Operator,
             KeywordKind::None,
             op,
             ThemeCategory::Operator,
             false,
             false,
-            std::string{ sv.substr(i, len) },
+            std::string { sv.substr(i, len) },
         });
         // Update unary context
         switch (op) {
@@ -280,7 +349,7 @@ void StyleLexer::emitOperator(const StyleRange& r, std::vector<Token>& out) {
 }
 
 void StyleLexer::emitIdentifier(const StyleRange& r, std::vector<Token>& out) {
-    out.push_back(Token{
+    out.push_back(Token {
         TokenKind::Identifier,
         KeywordKind::None,
         OperatorKind::None,
@@ -297,10 +366,10 @@ void StyleLexer::emitKeyword(const StyleRange& r, TokenKind kind, std::vector<To
     const auto lower = toLower(text);
     auto kwKind = KeywordKind::Other;
     const auto& kw = structuralKeywords();
-    if (auto it = kw.find(lower); it != kw.end()) {
+    if (const auto it = kw.find(lower); it != kw.end()) {
         kwKind = it->second;
     }
-    out.push_back(Token{
+    out.push_back(Token {
         kind,
         kwKind,
         OperatorKind::None,
@@ -318,7 +387,7 @@ void StyleLexer::emitPreprocessor(const StyleRange& r, std::vector<Token>& out) 
         // Start a new PP token spanning this run.
         m_inPpLine = true;
         m_ppTokenIdx = out.size();
-        out.push_back(Token{
+        out.push_back(Token {
             TokenKind::Preprocessor,
             KeywordKind::PpOther,
             OperatorKind::None,
@@ -338,7 +407,7 @@ void StyleLexer::emitPreprocessor(const StyleRange& r, std::vector<Token>& out) 
     if (r.style == ThemeCategory::KeywordPP) {
         const auto& pp = ppKeywords();
         const auto runLower = toLower(stringFromRange(r.start, r.end));
-        if (auto it = pp.find(runLower); it != pp.end()) {
+        if (const auto it = pp.find(runLower); it != pp.end()) {
             out[m_ppTokenIdx].keywordKind = it->second;
         }
         out[m_ppTokenIdx].style = ThemeCategory::KeywordPP;
@@ -347,7 +416,7 @@ void StyleLexer::emitPreprocessor(const StyleRange& r, std::vector<Token>& out) 
 }
 
 void StyleLexer::emitSimple(const StyleRange& r, TokenKind kind, std::vector<Token>& out) {
-    out.push_back(Token{
+    out.push_back(Token {
         kind,
         KeywordKind::None,
         OperatorKind::None,
