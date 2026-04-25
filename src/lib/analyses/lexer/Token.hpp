@@ -137,7 +137,6 @@ enum class OperatorKind : std::uint8_t {
     Semicolon,    // ;
     Colon,        // :
     Dot,          // .
-    Ellipsis2,    // ..
     Ellipsis3,    // ...
     Arrow,        // ->
     Question,     // ?

@@ -75,22 +75,16 @@ auto matchOperator(std::string_view slice) -> std::pair<OperatorKind, std::size_
         if (peek(1) == '=') return { Other, 2 }; // &=
         return { Other, 1 };
     case '<':
-        if (slice.starts_with("<<=")) return { Other, 3 };
-        if (slice.starts_with("<<"))  return { Other, 2 };
-        if (slice.starts_with("<="))  return { Other, 2 };
-        if (slice.starts_with("<>"))  return { Other, 2 };
+        if (slice.starts_with("<=")) return { Other, 2 };
+        if (slice.starts_with("<>")) return { Other, 2 };
         return { Other, 1 };
     case '>':
-        if (slice.starts_with(">>=")) return { Other, 3 };
-        if (slice.starts_with(">>"))  return { Other, 2 };
-        if (slice.starts_with(">="))  return { Other, 2 };
+        if (slice.starts_with(">=")) return { Other, 2 };
         return { Other, 1 };
     case '=':
-        if (peek(1) == '=') return { Other, 2 }; // ==
         return { Assign, 1 };
     case '.':
         if (slice.starts_with("...")) return { Ellipsis3, 3 };
-        if (slice.starts_with(".."))  return { Ellipsis2, 2 };
         return { Dot, 1 };
     case ',': return { Comma, 1 };
     case ';': return { Semicolon, 1 };

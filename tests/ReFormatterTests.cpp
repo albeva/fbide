@@ -748,16 +748,17 @@ TEST_F(ReFormatterTests, ExistingBlankLineNotDuplicated) {
 // ---------------------------------------------------------------------------
 
 TEST_F(ReFormatterTests, SpacingNormalizesBinaryOperators) {
-    // Arithmetic / comparison / shift / compound-assign all get single-space padding.
+    // Arithmetic / comparison / compound-assign all get single-space padding.
+    // FB shift uses keyword form (Shl/Shr), not C-style << / >>.
     EXPECT_EQ(format(
         "x=a+b*c-d\n"
         "y=x>=0\n"
-        "z=y<<2\n"
+        "z=y Shl 2\n"
         "x+=1\n"
     ),
         "x = a + b * c - d\n"
         "y = x >= 0\n"
-        "z = y << 2\n"
+        "z = y Shl 2\n"
         "x += 1\n"
     );
 }

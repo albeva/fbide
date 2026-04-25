@@ -200,14 +200,10 @@ TEST_F(StyleLexerTests, UnaryAfterIdentifier) {
     EXPECT_EQ(t[1].operatorKind, OperatorKind::Add); // binary, after Identifier
 }
 
-TEST_F(StyleLexerTests, EllipsisOperators) {
-    auto t = strip(lex("a .. b"));
+TEST_F(StyleLexerTests, EllipsisOperator) {
+    auto t = strip(lex("a ... b"));
     ASSERT_EQ(t.size(), 3u);
-    EXPECT_EQ(t[1].operatorKind, OperatorKind::Ellipsis2);
-
-    auto t2 = strip(lex("a ... b"));
-    ASSERT_EQ(t2.size(), 3u);
-    EXPECT_EQ(t2[1].operatorKind, OperatorKind::Ellipsis3);
+    EXPECT_EQ(t[1].operatorKind, OperatorKind::Ellipsis3);
 }
 
 // endregion
