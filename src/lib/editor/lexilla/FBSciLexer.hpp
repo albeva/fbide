@@ -39,9 +39,9 @@ public:
     /// Factory method for Scintilla.
     static auto Create() -> Scintilla::ILexer5*;
 
-private:
     /// Per-line state stored via IDocument::SetLineState / GetLineState.
     /// Packed into a single int for Scintilla compatibility.
+    /// Public so the analyses/lexer adapter can read it via IStyledSource.
     struct alignas(int) LineState final {
         bool continueLine : 1 = false;
         bool isFirst      : 1 = false;
@@ -64,6 +64,8 @@ private:
         }
     };
     static_assert(sizeof(LineState) == sizeof(int) && alignof(LineState) == alignof(int));
+
+private:
 
     /// Form of the number being lexed
     enum class NumberForm : std::uint8_t {
