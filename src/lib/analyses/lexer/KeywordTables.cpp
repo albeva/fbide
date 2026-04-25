@@ -46,8 +46,6 @@ auto fbide::lexer::structuralKeywords() -> const std::unordered_map<std::string,
         // Early-exit (keeps following block keyword from opening a scope)
         { "exit", KeywordKind::Exit },
         { "continue", KeywordKind::Continue },
-        // Comment keyword
-        { "rem", KeywordKind::Rem },
     };
     return map;
 }

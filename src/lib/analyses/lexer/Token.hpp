@@ -97,8 +97,6 @@ enum class KeywordKind {
     // Early-exit statements (prevent following block keyword from opening a scope)
     Exit,
     Continue,
-    // Comment keyword
-    Rem,
     // Preprocessor block openers
     PpIf,
     PpIfDef,
@@ -119,8 +117,12 @@ enum class KeywordKind {
 };
 
 /// Classification of symbol operators for formatting.
-/// Keyword operators (And, Or, Mod, Shl, etc.) are identified by TokenKind::Keyword3
-/// and don't need OperatorKind — they always get binary spacing.
+/// Only kinds the formatter actually branches on are enumerated; everything
+/// else (compound assigns, shifts, comparisons, sigils) collapses to `Other`
+/// and the formatter reads `Token::text` to recover the literal.
+/// Keyword operators (And, Or, Mod, Shl, etc.) are identified by
+/// TokenKind::Keyword3 and don't need OperatorKind — they always get binary
+/// spacing.
 enum class OperatorKind : std::uint8_t {
     None, // not a symbol operator
 
@@ -142,29 +144,11 @@ enum class OperatorKind : std::uint8_t {
 
     // Assignment
     Assign,       // =
-    AddAssign,    // +=
-    SubAssign,    // -=
-    MulAssign,    // *=
-    DivAssign,    // /=
-    IntDivAssign, // \=
-    ExpAssign,    // ^=
-    ConcatAssign, // &=
-
-    // Comparison
-    NotEqual,     // <>
-    Less,         // <
-    Greater,      // >
-    LessEqual,    // <=
-    GreaterEqual, // >=
 
     // Arithmetic (binary)
     Add,          // + (binary)
     Subtract,     // - (binary)
     Multiply,     // * (binary)
-    Divide,       // /
-    IntDivide,    // backslash
-    Exponentiate, // ^
-    Concatenate,  // &
 
     // Arithmetic (unary)
     Negate,      // - (unary)
@@ -172,21 +156,10 @@ enum class OperatorKind : std::uint8_t {
     AddressOf,   // @ (unary)
     Dereference, // * (unary)
 
-    // Shift (symbol forms)
-    ShiftLeft,  // <<
-    ShiftRight, // >>
-    ShlAssign,  // <<=
-    ShrAssign,  // >>=
-
-    // Type suffix sigils
-    Hash,        // #
-    Dollar,      // $
-    Percent,     // %
-    Exclamation, // !
-
     /// Catch-all for operators the formatter does not branch on
     /// (`<`, `<=`, `<<`, `<<=`, `==`, `<>`, `>>`, `>>=`, `^`, `\`, `&`,
-    /// compound assignments, etc.). Token text carries the literal.
+    /// compound assignments, type suffixes, etc.). Token text carries the
+    /// literal.
     Other,
 };
 
