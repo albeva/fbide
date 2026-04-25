@@ -92,18 +92,18 @@ Sci_Position SCI_METHOD MemoryDocument::Length() const {
     return static_cast<Sci_Position>(m_text.length());
 }
 
-void SCI_METHOD MemoryDocument::GetCharRange(char* buffer, Sci_Position position, Sci_Position lengthRetrieve) const {
+void SCI_METHOD MemoryDocument::GetCharRange(char* buffer, const Sci_Position position, const Sci_Position lengthRetrieve) const {
     m_text.copy(buffer, static_cast<std::size_t>(lengthRetrieve), static_cast<std::size_t>(position));
 }
 
-char SCI_METHOD MemoryDocument::StyleAt(Sci_Position position) const {
+char SCI_METHOD MemoryDocument::StyleAt(const Sci_Position position) const {
     if (position < 0) {
         return 0;
     }
     return m_textStyles.at(static_cast<std::size_t>(position));
 }
 
-Sci_Position SCI_METHOD MemoryDocument::LineFromPosition(Sci_Position position) const {
+Sci_Position SCI_METHOD MemoryDocument::LineFromPosition(const Sci_Position position) const {
     if (position >= Length()) {
         return MaxLine();
     }
@@ -115,7 +115,7 @@ Sci_Position SCI_METHOD MemoryDocument::LineFromPosition(Sci_Position position) 
     return line;
 }
 
-Sci_Position SCI_METHOD MemoryDocument::LineStart(Sci_Position line) const {
+Sci_Position SCI_METHOD MemoryDocument::LineStart(const Sci_Position line) const {
     if (line < 0) {
         return 0;
     }
@@ -125,30 +125,30 @@ Sci_Position SCI_METHOD MemoryDocument::LineStart(Sci_Position line) const {
     return m_lineStarts.at(static_cast<std::size_t>(line));
 }
 
-int SCI_METHOD MemoryDocument::GetLevel(Sci_Position line) const {
+int SCI_METHOD MemoryDocument::GetLevel(const Sci_Position line) const {
     return m_lineLevels.at(static_cast<std::size_t>(line));
 }
 
-int SCI_METHOD MemoryDocument::SetLevel(Sci_Position line, int level) {
+int SCI_METHOD MemoryDocument::SetLevel(const Sci_Position line, const int level) {
     if (line == static_cast<Sci_Position>(m_lineLevels.size())) {
         return 0x400;
     }
     return m_lineLevels.at(static_cast<std::size_t>(line)) = level;
 }
 
-int SCI_METHOD MemoryDocument::GetLineState(Sci_Position line) const {
+int SCI_METHOD MemoryDocument::GetLineState(const Sci_Position line) const {
     return m_lineStates.at(static_cast<std::size_t>(line));
 }
 
-int SCI_METHOD MemoryDocument::SetLineState(Sci_Position line, int state) {
+int SCI_METHOD MemoryDocument::SetLineState(const Sci_Position line, const int state) {
     return m_lineStates.at(static_cast<std::size_t>(line)) = state;
 }
 
-void SCI_METHOD MemoryDocument::StartStyling(Sci_Position position) {
+void SCI_METHOD MemoryDocument::StartStyling(const Sci_Position position) {
     m_endStyled = position;
 }
 
-bool SCI_METHOD MemoryDocument::SetStyleFor(Sci_Position length, char style) {
+bool SCI_METHOD MemoryDocument::SetStyleFor(const Sci_Position length, const char style) {
     for (Sci_Position i = 0; i < length; i++) {
         m_textStyles.at(static_cast<std::size_t>(m_endStyled)) = style;
         m_endStyled++;
@@ -156,7 +156,7 @@ bool SCI_METHOD MemoryDocument::SetStyleFor(Sci_Position length, char style) {
     return true;
 }
 
-bool SCI_METHOD MemoryDocument::SetStyles(Sci_Position length, const char* styles) {
+bool SCI_METHOD MemoryDocument::SetStyles(const Sci_Position length, const char* styles) {
     assert(styles);
     for (Sci_Position i = 0; i < length; i++) {
         m_textStyles.at(static_cast<std::size_t>(m_endStyled)) = static_cast<char>(styles[i]);
@@ -194,7 +194,7 @@ int SCI_METHOD MemoryDocument::GetLineIndentation(Sci_Position) {
     return 0;
 }
 
-Sci_Position SCI_METHOD MemoryDocument::LineEnd(Sci_Position line) const {
+Sci_Position SCI_METHOD MemoryDocument::LineEnd(const Sci_Position line) const {
     const auto maxLine = MaxLine();
     if (line == maxLine || line == maxLine + 1) {
         return static_cast<Sci_Position>(m_text.length());
@@ -208,7 +208,7 @@ Sci_Position SCI_METHOD MemoryDocument::LineEnd(Sci_Position line) const {
     return position;
 }
 
-Sci_Position SCI_METHOD MemoryDocument::GetRelativePosition(Sci_Position positionStart, Sci_Position characterOffset) const {
+Sci_Position SCI_METHOD MemoryDocument::GetRelativePosition(const Sci_Position positionStart, Sci_Position characterOffset) const {
     auto pos = positionStart;
     if (characterOffset < 0) {
         while (characterOffset < 0) {
@@ -240,7 +240,7 @@ Sci_Position SCI_METHOD MemoryDocument::GetRelativePosition(Sci_Position positio
     return pos;
 }
 
-int SCI_METHOD MemoryDocument::GetCharacterAndWidth(Sci_Position position, Sci_Position* pWidth) const {
+int SCI_METHOD MemoryDocument::GetCharacterAndWidth(const Sci_Position position, Sci_Position* pWidth) const {
     if (position < 0 || position >= Length()) {
         if (pWidth != nullptr) {
             *pWidth = 1;

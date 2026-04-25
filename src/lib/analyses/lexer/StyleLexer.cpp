@@ -43,12 +43,12 @@ auto toLower(const std::string_view sv) -> std::string {
 /// Operators outside the table collapse to `OperatorKind::Other`, one byte
 /// consumed. Multi-char operators not enumerated split into N×Other tokens —
 /// downstream consumers only branch on the kinds enumerated here.
-auto matchOperator(std::string_view slice) -> std::pair<OperatorKind, std::size_t> {
+auto matchOperator(const std::string_view slice) -> std::pair<OperatorKind, std::size_t> {
     using enum OperatorKind;
     if (slice.empty()) {
         return { Other, 0 };
     }
-    const auto peek = [&](std::size_t i) -> char {
+    const auto peek = [&](const std::size_t i) -> char {
         return i < slice.size() ? slice[i] : '\0';
     };
     switch (slice[0]) {
@@ -135,7 +135,7 @@ auto StyleLexer::nextStyle() -> std::optional<StyleRange> {
     return StyleRange { style, start, m_pos };
 }
 
-auto StyleLexer::stringFromRange(Sci_PositionU start, Sci_PositionU end) const -> std::string {
+auto StyleLexer::stringFromRange(const Sci_PositionU start, const Sci_PositionU end) const -> std::string {
     if (end <= start) {
         return {};
     }
@@ -144,7 +144,7 @@ auto StyleLexer::stringFromRange(Sci_PositionU start, Sci_PositionU end) const -
     return s;
 }
 
-void StyleLexer::emitFromRange(StyleRange r, std::vector<Token>& out) {
+void StyleLexer::emitFromRange(const StyleRange& r, std::vector<Token>& out) {
     using enum ThemeCategory;
     switch (r.style) {
     case Default:           emitDefault(r, out); break;
@@ -170,7 +170,7 @@ void StyleLexer::emitFromRange(StyleRange r, std::vector<Token>& out) {
     }
 }
 
-void StyleLexer::emitDefault(StyleRange r, std::vector<Token>& out) {
+void StyleLexer::emitDefault(const StyleRange& r, std::vector<Token>& out) {
     const auto text = stringFromRange(r.start, r.end);
     std::size_t i = 0;
     while (i < text.size()) {
@@ -230,7 +230,7 @@ void StyleLexer::emitDefault(StyleRange r, std::vector<Token>& out) {
     }
 }
 
-void StyleLexer::emitOperator(StyleRange r, std::vector<Token>& out) {
+void StyleLexer::emitOperator(const StyleRange& r, std::vector<Token>& out) {
     const auto text = stringFromRange(r.start, r.end);
     std::string_view sv { text };
     std::size_t i = 0;
@@ -270,7 +270,7 @@ void StyleLexer::emitOperator(StyleRange r, std::vector<Token>& out) {
     }
 }
 
-void StyleLexer::emitIdentifier(StyleRange r, std::vector<Token>& out) {
+void StyleLexer::emitIdentifier(const StyleRange& r, std::vector<Token>& out) {
     out.push_back(Token{
         TokenKind::Identifier,
         KeywordKind::None,
@@ -283,7 +283,7 @@ void StyleLexer::emitIdentifier(StyleRange r, std::vector<Token>& out) {
     m_canBeUnary = false;
 }
 
-void StyleLexer::emitKeyword(StyleRange r, TokenKind kind, std::vector<Token>& out) {
+void StyleLexer::emitKeyword(const StyleRange& r, TokenKind kind, std::vector<Token>& out) {
     auto text = stringFromRange(r.start, r.end);
     const auto lower = toLower(text);
     auto kwKind = KeywordKind::Other;
@@ -303,7 +303,7 @@ void StyleLexer::emitKeyword(StyleRange r, TokenKind kind, std::vector<Token>& o
     m_canBeUnary = true; // after a keyword (And, Not, If, ...) next operator is unary
 }
 
-void StyleLexer::emitPreprocessor(StyleRange r, std::vector<Token>& out) {
+void StyleLexer::emitPreprocessor(const StyleRange& r, std::vector<Token>& out) {
     auto text = stringFromRange(r.start, r.end);
     if (!m_inPpLine) {
         // Start a new PP token spanning this run.
@@ -337,7 +337,7 @@ void StyleLexer::emitPreprocessor(StyleRange r, std::vector<Token>& out) {
     m_canBeUnary = true;
 }
 
-void StyleLexer::emitSimple(StyleRange r, TokenKind kind, std::vector<Token>& out) {
+void StyleLexer::emitSimple(const StyleRange& r, TokenKind kind, std::vector<Token>& out) {
     out.push_back(Token{
         kind,
         KeywordKind::None,

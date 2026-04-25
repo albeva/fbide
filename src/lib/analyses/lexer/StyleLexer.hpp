@@ -52,13 +52,13 @@ private:
     [[nodiscard]] auto nextStyle() -> std::optional<StyleRange>;
     [[nodiscard]] auto stringFromRange(Sci_PositionU start, Sci_PositionU end) const -> std::string;
 
-    void emitFromRange(StyleRange range, std::vector<Token>& out);
-    void emitDefault(StyleRange range, std::vector<Token>& out);
-    void emitOperator(StyleRange range, std::vector<Token>& out);
-    void emitIdentifier(StyleRange range, std::vector<Token>& out);
-    void emitKeyword(StyleRange range, TokenKind kind, std::vector<Token>& out);
-    void emitPreprocessor(StyleRange range, std::vector<Token>& out);
-    void emitSimple(StyleRange range, TokenKind kind, std::vector<Token>& out);
+    void emitFromRange(const StyleRange& range, std::vector<Token>& out);
+    void emitDefault(const StyleRange& range, std::vector<Token>& out);
+    void emitOperator(const StyleRange& range, std::vector<Token>& out);
+    void emitIdentifier(const StyleRange& range, std::vector<Token>& out);
+    void emitKeyword(const StyleRange& range, TokenKind kind, std::vector<Token>& out);
+    void emitPreprocessor(const StyleRange& range, std::vector<Token>& out);
+    void emitSimple(const StyleRange& range, TokenKind kind, std::vector<Token>& out);
 
     IStyledSource& m_src;
     Sci_PositionU m_pos = 0;

@@ -44,16 +44,16 @@ public:
     [[nodiscard]] auto length() const -> Sci_PositionU override {
         return static_cast<Sci_PositionU>(m_doc.Length());
     }
-    [[nodiscard]] auto styleAt(Sci_PositionU pos) const -> ThemeCategory override {
+    [[nodiscard]] auto styleAt(const Sci_PositionU pos) const -> ThemeCategory override {
         return static_cast<ThemeCategory>(m_doc.StyleAt(static_cast<Sci_Position>(pos)));
     }
-    void getCharRange(char* buffer, Sci_PositionU pos, Sci_PositionU len) const override {
+    void getCharRange(char* buffer, const Sci_PositionU pos, const Sci_PositionU len) const override {
         m_doc.GetCharRange(buffer, static_cast<Sci_Position>(pos), static_cast<Sci_Position>(len));
     }
-    [[nodiscard]] auto lineFromPosition(Sci_PositionU pos) const -> Sci_Position override {
+    [[nodiscard]] auto lineFromPosition(const Sci_PositionU pos) const -> Sci_Position override {
         return m_doc.LineFromPosition(static_cast<Sci_Position>(pos));
     }
-    [[nodiscard]] auto lineState(Sci_Position line) const -> FBSciLexer::LineState override {
+    [[nodiscard]] auto lineState(const Sci_Position line) const -> FBSciLexer::LineState override {
         return FBSciLexer::LineState::fromInt(m_doc.GetLineState(line));
     }
 };
