@@ -6,7 +6,10 @@
 //
 #include "FormatDialog.hpp"
 #include <wx/clipbrd.h>
-#include "analyses/lexer/Lexer.hpp"
+#include "analyses/lexer/MemoryDocument.hpp"
+#include "analyses/lexer/StyledSource.hpp"
+#include "analyses/lexer/StyleLexer.hpp"
+#include "editor/lexilla/FBSciLexer.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "editor/Document.hpp"
@@ -117,21 +120,19 @@ void FormatDialog::create() {
     SetSizerAndFit(currentSizer());
     Centre();
 
-    // Tokenise source once (convert to UTF-8 for the lexer)
+    // Tokenise source once via FBSciLexer + StyleLexer over a headless
+    // MemoryDocument. Same colouring rules as the editor — single source
+    // of truth for FB lexing.
     if (m_buffer.length() > 0) {
-        const auto& keywords = m_ctx.getConfigManager().keywords();
-        std::vector<lexer::KeywordGroup> groups;
-        groups.reserve(kThemeKeywordCategories.size());
-        for (const auto cat : kThemeKeywordCategories) {
-            const auto key = getThemeCategoryName(cat);
-            groups.push_back({
-                keywords.get_or(wxString(key), ""),
-                lexer::tokenKindFor(cat),
-                lexer::scopeFor(cat),
-            });
-        }
-        lexer::Lexer lexer(groups);
-        m_tokens = lexer.tokenise(m_buffer.data());
+        MemoryDocument doc;
+        doc.Set(std::string_view { m_buffer.data(), m_buffer.length() });
+        auto* fb = FBSciLexer::Create();
+        lexer::configureFbWordlists(*fb, m_ctx.getConfigManager().keywords());
+        fb->Lex(0, doc.Length(), +ThemeCategory::Default, &doc);
+        lexer::MemoryDocStyledSource src(doc);
+        lexer::StyleLexer adapter(src);
+        m_tokens = adapter.tokenise();
+        fb->Release();
     }
 
     m_renderer = std::make_unique<PlainTextRenderer>(m_buffer.length());
