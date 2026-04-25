@@ -144,18 +144,7 @@ void StyleLexer::emitFromRange(StyleRange r, std::vector<Token>& out) {
     case StringOpen:        emitSimple(r, TokenKind::UnterminatedString, out); break;
     case Comment:           emitSimple(r, TokenKind::Comment, out); break;
     case MultilineComment:  emitSimple(r, TokenKind::CommentBlock, out); break;
-    case Label: {
-        // FBSciLexer styles `name:` (with trailing colon) as one Label run.
-        // Split into Identifier + Operator(Colon) for parity with the legacy
-        // lexer and so the ReFormatter's Colon dispatch keeps working.
-        if (r.end > r.start) {
-            const StyleRange ident { r.style, r.start, r.end - 1 };
-            const StyleRange colon { ThemeCategory::Operator, r.end - 1, r.end };
-            emitSimple(ident, TokenKind::Identifier, out);
-            emitOperator(colon, out);
-        }
-        break;
-    }
+    case Label:             emitSimple(r, TokenKind::Identifier, out); break;
     case Error:             emitSimple(r, TokenKind::Invalid, out); break;
     }
 }

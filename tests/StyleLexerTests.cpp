@@ -276,14 +276,13 @@ TEST_F(StyleLexerTests, PreprocessorOnePerLine) {
 
 // region ---------- Edge cases ----------
 
-TEST_F(StyleLexerTests, LabelSplitsIntoIdentifierAndColon) {
+TEST_F(StyleLexerTests, LabelKeepsTrailingColon) {
+    // FBSciLexer styles `name:` as one Label run including the colon — emit
+    // a single Identifier token covering the whole thing. Labels are atomic.
     auto t = strip(lex("myLabel:\n"));
-    ASSERT_EQ(t.size(), 2u);
+    ASSERT_EQ(t.size(), 1u);
     EXPECT_EQ(t[0].kind, TokenKind::Identifier);
-    EXPECT_EQ(t[0].text, "myLabel");
-    EXPECT_EQ(t[1].kind, TokenKind::Operator);
-    EXPECT_EQ(t[1].operatorKind, OperatorKind::Colon);
-    EXPECT_EQ(t[1].text, ":");
+    EXPECT_EQ(t[0].text, "myLabel:");
 }
 
 TEST_F(StyleLexerTests, NumberUnderscoreSeparatorNotSupported) {
