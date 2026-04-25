@@ -106,10 +106,12 @@ void ReFormatter::processLine() {
             continue;
         }
 
-        // Line continuation: standalone `_` at end of line. FBSciLexer styles
-        // it as Comment and sets the continueLine line state. No identifier is
-        // ever a single underscore, so Comment-with-text-"_" is unambiguous.
-        if (tkn.kind == TokenKind::Comment && tkn.text == "_" && isContinuation()) {
+        // Line continuation: `_` at line end. FBSciLexer styles the `_` plus
+        // any trailing chars on the same line as one Comment token (regular
+        // comments always start with `'` or `rem`, so a Comment whose text
+        // starts with `_` is unambiguously the continuation marker).
+        if (tkn.kind == TokenKind::Comment && !tkn.text.empty() && tkn.text[0] == '_'
+            && isContinuation()) {
             // Include _ and trailing tokens (comments etc.) for preservation
             m_segment.push_back(tkn);
             advance();
