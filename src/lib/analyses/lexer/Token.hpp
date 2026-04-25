@@ -174,6 +174,10 @@ struct Token final {
     /// Reserved for debugging and future features. No consumer reads it today.
     ThemeCategory style = ThemeCategory::Default;
     bool verbatim = false;
+    /// Set on Newline tokens whose preceding line ends with `_` line-continuation
+    /// (FBSciLexer's `LineState::continueLine` bit). The formatter uses this to
+    /// keep a logical statement intact across the physical newline.
+    bool continuation = false;
     std::string text;
 };
 

@@ -37,7 +37,6 @@ private:
 
     void step();
     void processLine();
-    [[nodiscard]] auto isContinuation() const -> bool;
 
     void dispatch();
     void openBlockOrStatement();

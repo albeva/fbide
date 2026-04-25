@@ -91,8 +91,16 @@ void ReFormatter::processLine() {
     while (hasMore()) {
         const auto& tkn = current();
 
-        // Newline ends the physical line
+        // Newline normally ends the physical line. Continuation newlines
+        // (preceding line ended with `_`, FBSciLexer set continueLine state)
+        // keep the logical statement open across the break — the lexer marks
+        // these via Token::continuation, no text heuristics needed.
         if (tkn.kind == TokenKind::Newline) {
+            if (tkn.continuation) {
+                m_segment.push_back(tkn);
+                advance();
+                continue;
+            }
             break;
         }
 
@@ -106,47 +114,11 @@ void ReFormatter::processLine() {
             continue;
         }
 
-        // Line continuation: `_` at line end. FBSciLexer styles the `_` plus
-        // any trailing chars on the same line as one Comment token (regular
-        // comments always start with `'` or `rem`, so a Comment whose text
-        // starts with `_` is unambiguously the continuation marker).
-        if (tkn.kind == TokenKind::Comment && !tkn.text.empty() && tkn.text[0] == '_'
-            && isContinuation()) {
-            // Include _ and trailing tokens (comments etc.) for preservation
-            m_segment.push_back(tkn);
-            advance();
-            while (hasMore() && current().kind != TokenKind::Newline) {
-                m_segment.push_back(current());
-                advance();
-            }
-            // Capture the continuation newline so verbatim rendering can echo
-            // the original line break. Renderer filters it out in reFormat=true.
-            if (hasMore()) {
-                m_segment.push_back(current());
-                advance();
-            }
-            continue;
-        }
-
         m_segment.push_back(tkn);
         advance();
     }
 
     dispatch();
-}
-
-auto ReFormatter::isContinuation() const -> bool {
-    for (auto j = m_index + 1; j < m_tokens->size(); j++) {
-        const auto k = (*m_tokens)[j].kind;
-        if (k == TokenKind::Newline) {
-            return true;
-        }
-        if (k == TokenKind::Whitespace || k == TokenKind::Comment || k == TokenKind::CommentBlock) {
-            continue;
-        }
-        return false;
-    }
-    return true; // end of input
 }
 
 // endregion

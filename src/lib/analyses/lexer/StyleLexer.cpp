@@ -180,12 +180,20 @@ void StyleLexer::emitDefault(StyleRange r, std::vector<Token>& out) {
             if (c == '\r' && end < text.size() && text[end] == '\n') {
                 end++;
             }
+            // Mark continuation: query FBSciLexer's per-line state for the line
+            // that this newline ends. continueLine=true means a `_` marker on
+            // the source line — the formatter must keep the logical statement
+            // open across this newline.
+            const auto lineEndPos = static_cast<Sci_PositionU>(r.start + i);
+            const auto line = m_src.lineFromPosition(lineEndPos);
+            const auto continuation = m_src.lineState(line).continueLine;
             out.push_back(Token{
                 TokenKind::Newline,
                 KeywordKind::None,
                 OperatorKind::None,
                 ThemeCategory::Default,
                 false,
+                continuation,
                 text.substr(i, end - i),
             });
             m_canBeUnary = true;
@@ -202,6 +210,7 @@ void StyleLexer::emitDefault(StyleRange r, std::vector<Token>& out) {
                 OperatorKind::None,
                 ThemeCategory::Default,
                 false,
+                false,
                 text.substr(i, end - i),
             });
             i = end;
@@ -212,6 +221,7 @@ void StyleLexer::emitDefault(StyleRange r, std::vector<Token>& out) {
                 KeywordKind::None,
                 OperatorKind::None,
                 ThemeCategory::Default,
+                false,
                 false,
                 std::string(1, c),
             });
@@ -242,6 +252,7 @@ void StyleLexer::emitOperator(StyleRange r, std::vector<Token>& out) {
             op,
             ThemeCategory::Operator,
             false,
+            false,
             std::string{ sv.substr(i, len) },
         });
         // Update unary context
@@ -266,6 +277,7 @@ void StyleLexer::emitIdentifier(StyleRange r, std::vector<Token>& out) {
         OperatorKind::None,
         r.style,
         false,
+        false,
         stringFromRange(r.start, r.end),
     });
     m_canBeUnary = false;
@@ -285,6 +297,7 @@ void StyleLexer::emitKeyword(StyleRange r, TokenKind kind, std::vector<Token>& o
         OperatorKind::None,
         r.style,
         false,
+        false,
         std::move(text),
     });
     m_canBeUnary = true; // after a keyword (And, Not, If, ...) next operator is unary
@@ -301,6 +314,7 @@ void StyleLexer::emitPreprocessor(StyleRange r, std::vector<Token>& out) {
             KeywordKind::PpOther,
             OperatorKind::None,
             ThemeCategory::Preprocessor,
+            false,
             false,
             std::move(text),
         });
@@ -329,6 +343,7 @@ void StyleLexer::emitSimple(StyleRange r, TokenKind kind, std::vector<Token>& ou
         KeywordKind::None,
         OperatorKind::None,
         r.style,
+        false,
         false,
         stringFromRange(r.start, r.end),
     });
