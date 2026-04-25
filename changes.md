@@ -24,6 +24,7 @@ Changes from fbide 0.4.5.
 - Chnaged session to store relative paths when possible
 - Added support for case transform of keywords
 - Improved auto indent by automatically adding closer keywords. after DO, add LOOP automatically.
+- Reorganized keyword groups.
 
 ## Removed options
 - `ActivePath` option has been removed. FBIde now always sets the working directory to the source file location when compiling or running.
