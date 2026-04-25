@@ -4,11 +4,11 @@ Indexed task list derived from `LEXER_UNIFICATION_PLAN.md`. Implement iterativel
 
 ## Phase 0 — Preparation
 
-- [ ] **T1** — Lift `third_party/lexilla/test/TestDocument.{h,cxx}` into `src/lib/analyses/lexer/MemoryDocument.{hpp,cpp}`. Add to `fbide_lib`. Drop from `tests/CMakeLists.txt`.
-- [ ] **T2** — Make `FBSciLexer::LineState` public. Move out of `private:` (or hoist to `editor/lexilla/FBLineState.hpp`). Verify `bit_cast` round-trip preserved.
-- [ ] **T3** — Move `structuralKeywords` and `ppKeywords` maps from `Lexer.cpp` to new `analyses/lexer/KeywordTables.{hpp,cpp}`. Old Lexer keeps using them.
-- [ ] **T4** — Move `annotateVerbatim`, `classifyCommentPragma`, `matchWordIgnoreCase`, `skipSpaces` from `Lexer.cpp` to new `analyses/lexer/VerbatimAnnotator.{hpp,cpp}`.
-- [ ] **T5** — Add `ThemeCategory style = ThemeCategory::Default` field to `Token` in `analyses/lexer/Token.hpp`. No consumer updates.
+- [x] **T1** — Lift `third_party/lexilla/test/TestDocument.{h,cxx}` into `src/lib/analyses/lexer/MemoryDocument.{hpp,cpp}`. Add to `fbide_lib`. Drop from `tests/CMakeLists.txt`.
+- [x] **T2** — Make `FBSciLexer::LineState` public. Move out of `private:` (or hoist to `editor/lexilla/FBLineState.hpp`). Verify `bit_cast` round-trip preserved.
+- [x] **T3** — Move `structuralKeywords` and `ppKeywords` maps from `Lexer.cpp` to new `analyses/lexer/KeywordTables.{hpp,cpp}`. Old Lexer keeps using them.
+- [x] **T4** — Move `annotateVerbatim`, `classifyCommentPragma`, `matchWordIgnoreCase`, `skipSpaces` from `Lexer.cpp` to new `analyses/lexer/VerbatimAnnotator.{hpp,cpp}`.
+- [x] **T5** — Add `ThemeCategory style = ThemeCategory::Default` field to `Token` in `analyses/lexer/Token.hpp`. No consumer updates.
 
 ## Phase 1 — New Lexer
 
