@@ -47,6 +47,7 @@ public:
     /// unchanged. `Mixed` uppercases the first byte and lowercases the
     /// rest. ASCII only.
     [[nodiscard]] auto apply(std::string text) const -> std::string;
+    [[nodiscard]] auto apply(wxString text) const -> wxString;
 
 private:
     Value m_mode;

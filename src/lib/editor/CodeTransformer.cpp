@@ -29,15 +29,18 @@ auto isWordChar(const wxUniChar ch) -> bool {
 
 namespace fbide {
 
-struct ActionGuard {
-    CodeTransformer& self;
-    bool prev;
+struct ActionGuard final {
+    NO_COPY_AND_MOVE(ActionGuard)
+
     explicit ActionGuard(CodeTransformer& s)
     : self(s)
     , prev(s.m_inAction) { self.m_inAction = true; }
+
     ~ActionGuard() { self.m_inAction = prev; }
-    ActionGuard(const ActionGuard&) = delete;
-    ActionGuard& operator=(const ActionGuard&) = delete;
+
+private:
+    CodeTransformer& self;
+    bool prev;
 };
 
 } // namespace fbide
@@ -62,68 +65,22 @@ void CodeTransformer::applySettings() {
     }
 }
 
-void CodeTransformer::onCharAdded(Editor& editor, const int ch) {
-    ActionGuard guard(*this);
-    editor.BeginUndoAction();
-    // Word-boundary trigger for case normalisation: anything that is NOT
-    // a word character ends the previous identifier. Run this first so
-    // the boundary char (including newline) finalises the previous word
-    // before we touch indentation.
-    if (!isWordChar(ch) && m_transformKeywords) {
-        applyWordCase(editor, ch);
-    }
+// ===========================================================================
+// Action handlers
+// ===========================================================================
 
+void CodeTransformer::onCharAdded(Editor& editor, const int ch) {
+    if (not m_transformKeywords || isWordChar(ch)) {
+        return;
+    }
+    ActionGuard guard(*this);
+
+    editor.BeginUndoAction();
+    applyWordCase(editor, ch);
     if (ch == '\n' && m_autoIndent) {
         applyIndentAndCloser(editor);
     }
     editor.EndUndoAction();
-}
-
-void CodeTransformer::applyIndentAndCloser(Editor& editor) {
-    const int currLine = editor.GetCurrentLine();
-    if (currLine == 0) {
-        return;
-    }
-    const int prevLine = currLine - 1;
-
-    const auto decision = indent::decide(editor.GetLine(prevLine));
-    const int tabSize = editor.GetIndent();
-
-    int prevIndent = editor.GetLineIndentation(prevLine);
-    if (decision.dedentPrev) {
-        prevIndent = std::max(0, prevIndent - tabSize);
-        editor.SetLineIndentation(prevLine, prevIndent);
-    }
-    const int newIndent = std::max(0, prevIndent + decision.deltaLevels * tabSize);
-    editor.SetLineIndentation(currLine, newIndent);
-    editor.GotoPos(editor.GetLineEndPosition(currLine));
-
-    if (!decision.closerKeywords.empty()) {
-        const int caretPos = editor.GetLineEndPosition(currLine);
-        editor.InsertText(caretPos, "\n" + renderCloser(decision.closerKeywords));
-        editor.SetLineIndentation(currLine + 1, prevIndent);
-        editor.GotoPos(editor.GetLineEndPosition(currLine));
-    }
-}
-
-void CodeTransformer::applyWordCase(Editor& editor, int /*ch*/) {
-    const int caretPos = editor.GetCurrentPos();
-    if (caretPos < 2) {
-        // Need at least the boundary char + one word char behind.
-        return;
-    }
-
-    // The boundary char sits at caretPos - 1; the word ends just before it.
-    const int wordEnd = caretPos - 1;
-
-    int wordStart = wordEnd;
-    while (wordStart > 0 && isWordChar(editor.GetCharAt(wordStart - 1))) {
-        wordStart--;
-    }
-    if (wordStart == wordEnd) {
-        return;
-    }
-    transformWordInRange(editor, wordStart, wordEnd);
 }
 
 void CodeTransformer::onCaretMoved(Editor& editor, const int oldPos, const int newPos) {
@@ -169,48 +126,6 @@ void CodeTransformer::onCaretMoved(Editor& editor, const int oldPos, const int n
     transformWordInRange(editor, wordStart, wordEnd);
 }
 
-void CodeTransformer::transformWordInRange(Editor& editor, const int wordStart, const int wordEnd) {
-    // Hot path: just read the style FBSciLexer already published. No re-lex.
-    // FBSciLexer's field-access state (across `_` continuation), asm scoping,
-    // string/comment context all come for free — anything not styled as a
-    // keyword group is left alone.
-    const int line = editor.LineFromPosition(wordStart);
-    const int lineStart = editor.PositionFromLine(line);
-    // Force STC to lex past the boundary char (which sits at caretPos-1) so
-    // FBSciLexer commits the keyword style for the just-finished word.
-    // GetCurrentPos is one past the boundary so it's safely included whether
-    // Colourise's end is inclusive or exclusive.
-    editor.Colourise(lineStart, editor.GetCurrentPos());
-    const auto style = static_cast<ThemeCategory>(editor.GetStyleAt(wordStart));
-    if (!isKeywordCategory(style)) {
-        return;
-    }
-
-    const auto caseMode = m_keywordCases[indexOfKeywordGroup(style)];
-    if (caseMode == CaseMode::None) {
-        return;
-    }
-
-    const auto wxOriginal = editor.GetTextRange(wordStart, wordEnd);
-    const auto utf8 = wxOriginal.utf8_str();
-    const std::string original { utf8.data(), utf8.length() };
-    const auto transformed = caseMode.apply(original);
-    if (transformed == original) {
-        return;
-    }
-
-    const int caretBefore = editor.GetCurrentPos();
-    editor.BeginUndoAction();
-    editor.SetTargetRange(wordStart, wordEnd);
-    editor.ReplaceTarget(wxString::FromUTF8(transformed.c_str(), transformed.size()));
-    editor.GotoPos(caretBefore);
-    editor.EndUndoAction();
-
-    // Force synchronous restyle of the changed line so the keyword colour
-    // re-applies immediately.
-    editor.Colourise(lineStart, editor.GetLineEndPosition(line));
-}
-
 void CodeTransformer::onTextInserted(Editor& editor, const int pos, const int length) {
     if (m_inAction) {
         return;
@@ -226,6 +141,77 @@ void CodeTransformer::onTextInserted(Editor& editor, const int pos, const int le
         return;
     }
     transformRange(editor, pos, pos + length);
+}
+
+// ===========================================================================
+// Internal transform handlers
+// ===========================================================================
+
+void CodeTransformer::applyIndentAndCloser(Editor& editor) {
+    const int currLine = editor.GetCurrentLine();
+    if (currLine == 0) {
+        return;
+    }
+    const int prevLine = currLine - 1;
+
+    const auto decision = indent::decide(editor.GetLine(prevLine));
+    const int tabSize = editor.GetIndent();
+
+    int prevIndent = editor.GetLineIndentation(prevLine);
+    if (decision.dedentPrev) {
+        prevIndent = std::max(0, prevIndent - tabSize);
+        editor.SetLineIndentation(prevLine, prevIndent);
+    }
+    const int newIndent = std::max(0, prevIndent + decision.deltaLevels * tabSize);
+    editor.SetLineIndentation(currLine, newIndent);
+    editor.GotoPos(editor.GetLineEndPosition(currLine));
+
+    if (!decision.closerKeywords.empty()) {
+        const int caretPos = editor.GetLineEndPosition(currLine);
+        editor.InsertText(caretPos, "\n" + renderCloser(decision.closerKeywords));
+        editor.SetLineIndentation(currLine + 1, prevIndent);
+        editor.GotoPos(editor.GetLineEndPosition(currLine));
+    }
+}
+
+void CodeTransformer::applyWordCase(Editor& editor, int /*ch*/) {
+    const int caretPos = editor.GetCurrentPos();
+    if (caretPos < 2) {
+        return;
+    }
+
+    const int wordEnd = caretPos - 1;
+    int wordStart = wordEnd;
+    while (wordStart > 0 && isWordChar(editor.GetCharAt(wordStart - 1))) {
+        wordStart--;
+    }
+
+    if (wordStart == wordEnd) {
+        return;
+    }
+
+    transformWordInRange(editor, wordStart, wordEnd);
+}
+
+void CodeTransformer::transformWordInRange(Editor& editor, const int wordStart, const int wordEnd) {
+    const auto style = static_cast<ThemeCategory>(editor.GetStyleAt(wordStart));
+    if (!isKeywordCategory(style)) {
+        return;
+    }
+
+    const auto caseMode = m_keywordCases[indexOfKeywordGroup(style)];
+    if (caseMode == CaseMode::None) {
+        return;
+    }
+
+    const auto original = editor.GetTextRange(wordStart, wordEnd);
+    const auto replace = caseMode.apply(original);
+    if (original == replace) {
+        return;
+    }
+
+    editor.SetTargetRange(wordStart, wordEnd);
+    editor.ReplaceTarget(replace);
 }
 
 void CodeTransformer::transformRange(Editor& editor, const int rangeStart, const int rangeEnd) {

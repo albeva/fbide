@@ -91,7 +91,7 @@ static constexpr auto indexOfKeywordGroup(const ThemeCategory cat) -> std::size_
 /// True when `cat` is one of the keyword-group categories
 /// (Keyword1..Keyword4, KeywordLibrary/2, KeywordPP, KeywordAsm1/2).
 constexpr auto isKeywordCategory(const ThemeCategory cat) -> bool {
-    return std::ranges::find(kThemeKeywordCategories, cat) != kThemeKeywordCategories.end();
+    return std::ranges::contains(kThemeKeywordCategories, cat);
 }
 
 

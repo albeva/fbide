@@ -79,6 +79,24 @@ auto CaseMode::apply(std::string text) const -> std::string {
     return text;
 }
 
+auto CaseMode::apply(wxString text) const -> wxString {
+    switch (m_mode) {
+    case None:
+        break;
+    case Lower:
+        text.MakeLower();
+        break;
+    case Upper:
+        text.MakeUpper();
+        break;
+    case Mixed:
+        text.MakeLower();
+        text[0] = wxTolower(text[0]);
+        break;
+    }
+    return text;
+}
+
 namespace {
 
 auto isAlpha(const char ch) -> bool {

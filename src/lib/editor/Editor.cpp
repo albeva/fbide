@@ -8,7 +8,6 @@
 #include "CodeTransformer.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
-// fwd decl already included via DocumentManager.hpp
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/Theme.hpp"
@@ -483,12 +482,12 @@ void Editor::onUpdateUI(wxStyledTextEvent& event) {
     event.Skip();
     updateStatusBar();
     updateBraceMatch();
-
-    const int curr = GetCurrentPos();
-    if (m_transformer != nullptr && curr != m_lastCaretPos) {
-        m_transformer->onCaretMoved(*this, m_lastCaretPos, curr);
-    }
-    m_lastCaretPos = curr;
+    //
+    // const int curr = GetCurrentPos();
+    // if (m_transformer != nullptr && curr != m_lastCaretPos) {
+    //     m_transformer->onCaretMoved(*this, m_lastCaretPos, curr);
+    // }
+    // m_lastCaretPos = curr;
 }
 
 void Editor::onCharAdded(wxStyledTextEvent& event) {
@@ -563,28 +562,28 @@ void Editor::onModified(wxStyledTextEvent& event) {
         return;
     }
     m_ctx.getDocumentManager().updateActiveTabTitle();
-
-    // Forward every insert (any length) so the transformer can mark a
-    // "caret moved due to typing" flag — needed to suppress on-caret case
-    // transforms during keystrokes. Bulk inserts (>1 char) ALSO trigger the
-    // paste path; single-char inserts only set the flag.
     //
-    // Modifications inside SCN_MODIFIED notification are not allowed by
-    // Scintilla — silently dropped. Defer the heavyweight bulk handler via
-    // CallAfter; the lightweight flag-set on single chars must happen
-    // synchronously before the upcoming UPDATEUI fires.
-    if (m_transformer != nullptr && (mod & wxSTC_MOD_INSERTTEXT) != 0
-        && !m_transformer->isInAction()) {
-        const int pos = event.GetPosition();
-        const int length = event.GetLength();
-        if (length > 1) {
-            CallAfter([this, pos, length] {
-                if (m_transformer != nullptr) {
-                    m_transformer->onTextInserted(*this, pos, length);
-                }
-            });
-        } else {
-            m_transformer->onTextInserted(*this, pos, length);
-        }
-    }
+    // // Forward every insert (any length) so the transformer can mark a
+    // // "caret moved due to typing" flag — needed to suppress on-caret case
+    // // transforms during keystrokes. Bulk inserts (>1 char) ALSO trigger the
+    // // paste path; single-char inserts only set the flag.
+    // //
+    // // Modifications inside SCN_MODIFIED notification are not allowed by
+    // // Scintilla — silently dropped. Defer the heavyweight bulk handler via
+    // // CallAfter; the lightweight flag-set on single chars must happen
+    // // synchronously before the upcoming UPDATEUI fires.
+    // if (m_transformer != nullptr && (mod & wxSTC_MOD_INSERTTEXT) != 0
+    //     && !m_transformer->isInAction()) {
+    //     const int pos = event.GetPosition();
+    //     const int length = event.GetLength();
+    //     if (length > 1) {
+    //         CallAfter([this, pos, length] {
+    //             if (m_transformer != nullptr) {
+    //                 m_transformer->onTextInserted(*this, pos, length);
+    //             }
+    //         });
+    //     } else {
+    //         m_transformer->onTextInserted(*this, pos, length);
+    //     }
+    // }
 }
