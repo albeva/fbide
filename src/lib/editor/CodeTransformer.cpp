@@ -163,9 +163,11 @@ void CodeTransformer::transformWordInRange(Editor& editor, const int wordStart, 
     // keyword group is left alone.
     const int line = editor.LineFromPosition(wordStart);
     const int lineStart = editor.PositionFromLine(line);
-    // Force STC to lex up to wordEnd so the style at `wordStart` reflects
-    // the just-typed boundary character.
-    editor.Colourise(lineStart, wordEnd);
+    // Force STC to lex through the end of the line. Stopping at wordEnd would
+    // leave FBSciLexer mid-identifier (it commits the keyword style only when
+    // it sees the boundary char), so GetStyleAt(wordStart) would still report
+    // the pre-keyword style.
+    editor.Colourise(lineStart, editor.GetLineEndPosition(line));
     const auto style = static_cast<ThemeCategory>(editor.GetStyleAt(wordStart));
     if (!isKeywordCategory(style)) {
         return;
