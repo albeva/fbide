@@ -53,7 +53,15 @@ auto secondStructuralKeyword(const std::vector<Token>& tokens) -> KeywordKind {
 
 auto lastSignificantKeyword(const std::vector<Token>& tokens) -> KeywordKind {
     for (auto it = tokens.rbegin(); it != tokens.rend(); ++it) {
-        if (it->kind == TokenKind::Comment || it->kind == TokenKind::CommentBlock || isLayout(it->kind)) {
+        switch (it->kind) {
+        case TokenKind::Comment:
+        case TokenKind::CommentBlock:
+        case TokenKind::Invalid:
+            continue;
+        default:
+            break;
+        }
+        if (isLayout(it->kind)) {
             continue;
         }
         return it->keywordKind;
@@ -223,14 +231,7 @@ auto closerFor(const KeywordKind k) -> std::span<const std::string_view> {
 
 } // namespace
 
-auto Decision::decide(Editor& editor, const int prevLine) -> Decision {
-    const auto start = editor.PositionFromLine(prevLine);
-    const auto end = editor.GetLineEndPosition(prevLine);
-
-    WxStcStyledSource src { editor };
-    StyleLexer adapter(src);
-    const auto tokens = adapter.tokenise({ start, end });
-
+auto Decision::decide(const std::vector<Token>& tokens) -> Decision {
     const auto first = firstKeyword(tokens);
     if (isCloser(first)) {
         return { 0, true, {} };
@@ -242,4 +243,13 @@ auto Decision::decide(Editor& editor, const int prevLine) -> Decision {
         return { 1, false, closerFor(first) };
     }
     return { 0, false, {} };
+}
+
+auto Decision::decide(Editor& editor, const int prevLine) -> Decision {
+    const auto start = editor.PositionFromLine(prevLine);
+    const auto end = editor.GetLineEndPosition(prevLine);
+
+    WxStcStyledSource src { editor };
+    StyleLexer adapter(src);
+    return decide(adapter.tokenise({ start, end }));
 }

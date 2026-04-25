@@ -4,53 +4,74 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/geobide
 //
-#include <gtest/gtest.h>
+#include "TestHelpers.hpp"
 #include "editor/AutoIndent.hpp"
+#include <gtest/gtest.h>
 
 using namespace fbide;
 using namespace fbide::indent;
 
-namespace {
+class AutoIndentTests : public testing::Test {
+protected:
+    static inline const wxString testDataPath = FBIDE_TEST_DATA_DIR;
 
-auto opener(const wxString& line) -> testing::AssertionResult {
-    const auto d = decide(line);
-    if (d.deltaLevels == 1 && !d.dedentPrev) {
-        return testing::AssertionSuccess();
+    void SetUp() override {
+        m_lexer = tests::createFbLexer(testDataPath + "fbfull.lng");
     }
-    return testing::AssertionFailure()
-        << "expected opener {+1, false} got {" << d.deltaLevels << ", " << d.dedentPrev << "} for: " << line;
-}
 
-auto neutral(const wxString& line) -> testing::AssertionResult {
-    const auto d = decide(line);
-    if (d.deltaLevels == 0 && !d.dedentPrev) {
-        return testing::AssertionSuccess();
+    void TearDown() override {
+        m_lexer->Release();
+        m_lexer = nullptr;
     }
-    return testing::AssertionFailure()
-        << "expected neutral {0, false} got {" << d.deltaLevels << ", " << d.dedentPrev << "} for: " << line;
-}
 
-auto closer(const wxString& line) -> testing::AssertionResult {
-    const auto d = decide(line);
-    if (d.deltaLevels == 0 && d.dedentPrev) {
-        return testing::AssertionSuccess();
+    auto decide(const wxString& line) const -> Decision {
+        const auto tokens = tests::tokenise(*m_lexer, line.utf8_string());
+        return Decision::decide(tokens);
     }
-    return testing::AssertionFailure()
-        << "expected closer {0, true} got {" << d.deltaLevels << ", " << d.dedentPrev << "} for: " << line;
-}
 
-auto mid(const wxString& line) -> testing::AssertionResult {
-    const auto d = decide(line);
-    if (d.deltaLevels == 1 && d.dedentPrev) {
-        return testing::AssertionSuccess();
+    auto opener(const wxString& line) const -> testing::AssertionResult {
+        const auto d = decide(line);
+        if (d.deltaLevels == 1 && !d.dedentPrev) {
+            return testing::AssertionSuccess();
+        }
+        return testing::AssertionFailure()
+            << "expected opener {+1, false} got {" << d.deltaLevels << ", " << d.dedentPrev << "} for: " << line;
     }
-    return testing::AssertionFailure()
-        << "expected mid {+1, true} got {" << d.deltaLevels << ", " << d.dedentPrev << "} for: " << line;
-}
 
-} // namespace
+    auto neutral(const wxString& line) const -> testing::AssertionResult {
+        const auto d = decide(line);
+        if (d.deltaLevels == 0 && !d.dedentPrev) {
+            return testing::AssertionSuccess();
+        }
+        return testing::AssertionFailure()
+            << "expected neutral {0, false} got {" << d.deltaLevels << ", " << d.dedentPrev << "} for: " << line;
+    }
 
-class AutoIndentTests : public testing::Test {};
+    auto closer(const wxString& line) const -> testing::AssertionResult {
+        const auto d = decide(line);
+        if (d.deltaLevels == 0 && d.dedentPrev) {
+            return testing::AssertionSuccess();
+        }
+        return testing::AssertionFailure()
+            << "expected closer {0, true} got {" << d.deltaLevels << ", " << d.dedentPrev << "} for: " << line;
+    }
+
+    auto mid(const wxString& line) const -> testing::AssertionResult {
+        const auto d = decide(line);
+        if (d.deltaLevels == 1 && d.dedentPrev) {
+            return testing::AssertionSuccess();
+        }
+        return testing::AssertionFailure()
+            << "expected mid {+1, true} got {" << d.deltaLevels << ", " << d.dedentPrev << "} for: " << line;
+    }
+
+    auto closerWords(const wxString& line) const -> std::vector<std::string_view> {
+        const auto d = decide(line);
+        return { d.closerKeywords.begin(), d.closerKeywords.end() };
+    }
+
+    Scintilla::ILexer5* m_lexer { nullptr };
+};
 
 // ---------------------------------------------------------------------------
 // Block openers
@@ -192,15 +213,6 @@ TEST_F(AutoIndentTests, ElseDedentsAndReindents) {
 // ---------------------------------------------------------------------------
 // Auto-close — opener line populates closerKeywords with lowercase words
 // ---------------------------------------------------------------------------
-
-namespace {
-
-auto closerWords(const wxString& line) -> std::vector<std::string_view> {
-    const auto d = decide(line);
-    return { d.closerKeywords.begin(), d.closerKeywords.end() };
-}
-
-} // namespace
 
 TEST_F(AutoIndentTests, AutoCloseIfThen) {
     EXPECT_EQ(closerWords("If x Then"), (std::vector<std::string_view> { "end", "if" }));

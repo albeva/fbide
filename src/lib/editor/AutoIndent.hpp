@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "analyses/lexer/Token.hpp"
 namespace fbide {
 class Editor;
 }
@@ -35,11 +36,15 @@ struct Decision {
     std::span<const std::string_view> closerKeywords;
 
     /// Compute the indent decision triggered by pressing Enter at the end of
-    /// `prevLine`. Pure function — no Editor / Context dependency. Drives a
-    /// per-call FBSciLexer + StyleLexer pipeline against a headless
-    /// MemoryDocument, seeded with the structural-keywords wordlist so block
-    /// keywords (if/then/sub/end/...) are styled and classified correctly.
+    /// `prevLine` in `editor`. Reads existing FBSciLexer style runs via
+    /// `WxStcStyledSource`, tokenises the line with `StyleLexer`, and
+    /// delegates classification to the token-based overload.
     [[nodiscard]] static auto decide(Editor& editor, int prevLine) -> Decision;
+
+    /// Token-based overload — pure classification, no Editor dependency.
+    /// Tokens must be the run for a single source line (Whitespace / Newline
+    /// / Comment tokens are tolerated and skipped).
+    [[nodiscard]] static auto decide(const std::vector<lexer::Token>& tokens) -> Decision;
 };
 
 
