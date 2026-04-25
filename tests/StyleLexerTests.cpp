@@ -42,16 +42,6 @@ protected:
         return adapter.tokenise();
     }
 
-    auto styles(const std::string& src) -> std::string {
-        m_doc.Set(src);
-        m_lexer->Lex(0, m_doc.Length(), +ThemeCategory::Default, &m_doc);
-        std::string s;
-        for (Sci_Position i = 0; i < m_doc.Length(); i++) {
-            s += std::to_string(static_cast<int>(m_doc.StyleAt(i))) + " ";
-        }
-        return s;
-    }
-
     /// Drop Whitespace and Newline tokens to simplify assertions.
     static auto strip(std::vector<Token> tokens) -> std::vector<Token> {
         std::erase_if(tokens, [](const Token& t) {
@@ -280,6 +270,70 @@ TEST_F(StyleLexerTests, PreprocessorOnePerLine) {
         if (tok.kind == TokenKind::Preprocessor) ppCount++;
     }
     EXPECT_EQ(ppCount, 2u);
+}
+
+// endregion
+
+// region ---------- Edge cases ----------
+
+TEST_F(StyleLexerTests, LabelSplitsIntoIdentifierAndColon) {
+    auto t = strip(lex("myLabel:\n"));
+    ASSERT_EQ(t.size(), 2u);
+    EXPECT_EQ(t[0].kind, TokenKind::Identifier);
+    EXPECT_EQ(t[0].text, "myLabel");
+    EXPECT_EQ(t[1].kind, TokenKind::Operator);
+    EXPECT_EQ(t[1].operatorKind, OperatorKind::Colon);
+    EXPECT_EQ(t[1].text, ":");
+}
+
+TEST_F(StyleLexerTests, NumberUnderscoreSeparatorNotSupported) {
+    // The legacy `analyses/lexer/Lexer` over-permissively accepted `_`
+    // inside numeric literals. FBSciLexer does not — `1_000` styles as
+    // Error. StyleLexer just reflects what FBSciLexer produces. The editor
+    // already shows this as an error today; no behaviour change for users.
+    auto t = strip(lex("1_000 "));
+    EXPECT_FALSE(t.empty());
+    EXPECT_EQ(t[0].kind, TokenKind::Invalid);
+}
+
+TEST_F(StyleLexerTests, AsmBlockEndAsm) {
+    auto t = strip(lex("asm\nmov eax, 1\nend asm\n"));
+    // Expect: Keyword1(asm), KeywordAsm1(mov), KeywordAsm2(eax), Operator(,), Number(1),
+    //         Keyword1(end), Keyword1(asm)
+    bool sawAsmKeyword1 = false, sawAsmAsm1Mov = false, sawAsmAsm2Eax = false;
+    for (const auto& tok : t) {
+        if (tok.kind == TokenKind::Keyword1 && tok.text == "asm") sawAsmKeyword1 = true;
+        if (tok.kind == TokenKind::KeywordAsm1 && tok.text == "mov") sawAsmAsm1Mov = true;
+        if (tok.kind == TokenKind::KeywordAsm2 && tok.text == "eax") sawAsmAsm2Eax = true;
+    }
+    EXPECT_TRUE(sawAsmKeyword1);
+    EXPECT_TRUE(sawAsmAsm1Mov);
+    EXPECT_TRUE(sawAsmAsm2Eax);
+}
+
+TEST_F(StyleLexerTests, RemAsComment) {
+    auto t = strip(lex("rem hello\n"));
+    ASSERT_EQ(t.size(), 1u);
+    EXPECT_EQ(t[0].kind, TokenKind::Comment);
+}
+
+TEST_F(StyleLexerTests, NestedMultilineComment) {
+    auto t = strip(lex("/' a /' b '/ c '/"));
+    ASSERT_EQ(t.size(), 1u);
+    EXPECT_EQ(t[0].kind, TokenKind::CommentBlock);
+}
+
+TEST_F(StyleLexerTests, CRLFLineEndings) {
+    // \r\n must stay one Newline token, not two.
+    auto t = lex("a\r\nb\r\n");
+    std::size_t newlineCount = 0;
+    for (const auto& tok : t) {
+        if (tok.kind == TokenKind::Newline) {
+            EXPECT_EQ(tok.text, "\r\n");
+            newlineCount++;
+        }
+    }
+    EXPECT_EQ(newlineCount, 2u);
 }
 
 // endregion
