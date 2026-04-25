@@ -15,19 +15,19 @@ Indexed task list derived from `LEXER_UNIFICATION_PLAN.md`. Implement iterativel
 - [ ] **T6** — Add `IStyledSource` abstract interface in `analyses/lexer/StyledSource.hpp`. Methods: `length`, `styleAt`, `getCharRange`, `lineFromPosition`, `lineState`.
 - [ ] **T7** — Implement `MemoryDocStyledSource` adapter wrapping `MemoryDocument&`. Forwards to `IDocument::*`.
 - [ ] **T8** — Implement `WxStcStyledSource` adapter wrapping `wxStyledTextCtrl&`. Use `GetTextRangeRaw` for UTF-8 char extraction (no conversion alloc) — see also T34.
-- [ ] **T9** — Rename existing `analyses/lexer/Lexer` class to `LegacyLexer` (file rename + symbol rename). All consumers stay green.
-- [ ] **T10** — Add new `Lexer` class skeleton in `analyses/lexer/Lexer.{hpp,cpp}`. Constructor takes `IStyledSource&`. `tokenise() -> std::vector<Token>` body just calls `nextStyle()` loop.
-- [ ] **T11** — Implement `nextStyle()` style-run coalescer. Returns `std::optional<StyleRange>`.
-- [ ] **T12** — Add `OperatorKind::Other` enum value to `Token.hpp`. No usages yet.
-- [ ] **T13** — Implement `emitDefault` (whitespace/newline splitter). Handle `\r`, `\n`, `\r\n`. Reset `m_canBeUnary = true` on newline.
-- [ ] **T14** — Implement `emitOperator` first-char switch. `+`/`-`/`*`/`@` unary disambig via `m_canBeUnary`. Closing brackets → `m_canBeUnary = false`.
-- [ ] **T15** — Implement `emitIdentifier` (no `structuralKeywords` fallback; KeywordKind::None always).
-- [ ] **T16** — Implement `emitKeyword` with `structuralKeywords` text lookup → `KeywordKind`.
-- [ ] **T17** — Implement 1:1 emitters: Number, String, StringOpen, Comment, MultilineComment, Label, Error.
-- [ ] **T18** — Implement `emitPreprocessor` within-line coalescer (KeywordPP starts; subsequent Preprocessor runs append; newline ends).
-- [ ] **T19** — Wire `Token::style` assignment in every emitter per the plan's per-style table.
-- [ ] **T20** — Run `annotateVerbatim` (T4) post-pass at end of `tokenise()`.
-- [ ] **T21** — Add `LexerAdapterTests.cpp` — per-emitter unit tests (Default split, Operator split, Identifier no-fallback, Keyword with fallback, PP coalesce, 1:1 emits).
+- [x] **T9** — ~~Rename old Lexer~~. Deviation: introduce new lexer as `StyleLexer` alongside old `Lexer`. Avoids 1024-line LexerTests rename diff. Old class stays named `Lexer` until T37 cleanup.
+- [x] **T10** — Add new `StyleLexer` class skeleton in `analyses/lexer/StyleLexer.{hpp,cpp}`. Constructor takes `IStyledSource&`. `tokenise() -> std::vector<Token>` body just calls `nextStyle()` loop.
+- [x] **T11** — Implement `nextStyle()` style-run coalescer. Returns `std::optional<StyleRange>`.
+- [x] **T12** — Add `OperatorKind::Other` enum value to `Token.hpp`. No usages yet.
+- [x] **T13** — Implement `emitDefault` (whitespace/newline splitter). Handle `\r`, `\n`, `\r\n`. Reset `m_canBeUnary = true` on newline.
+- [x] **T14** — Implement `emitOperator` first-char switch. `+`/`-`/`*`/`@` unary disambig via `m_canBeUnary`. Closing brackets → `m_canBeUnary = false`.
+- [x] **T15** — Implement `emitIdentifier` (no `structuralKeywords` fallback; KeywordKind::None always).
+- [x] **T16** — Implement `emitKeyword` with `structuralKeywords` text lookup → `KeywordKind`.
+- [x] **T17** — Implement 1:1 emitters: Number, String, StringOpen, Comment, MultilineComment, Label, Error.
+- [x] **T18** — Implement `emitPreprocessor` within-line coalescer (KeywordPP starts; subsequent Preprocessor runs append; newline ends).
+- [x] **T19** — Wire `Token::style` assignment in every emitter per the plan's per-style table.
+- [x] **T20** — Run `annotateVerbatim` (T4) post-pass at end of `tokenise()`.
+- [x] **T21** — Added `tests/StyleLexerTests.cpp`. 23 tests covering Default/Operator splitters, Identifier (no fallback), Keyword (with fallback), PP coalescing, 1:1 emits, field-access (the motivating bug), arrow-access, line-continuation propagation, verbatim annotation. 372 total tests green.
 
 ## Phase 2 — Parity
 
