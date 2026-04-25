@@ -6,6 +6,7 @@ target_sources(fbide_lib
     analyses/lexer/KeywordTables.cpp
     analyses/lexer/Lexer.cpp
     analyses/lexer/MemoryDocument.cpp
+    analyses/lexer/StyledSource.cpp
     analyses/lexer/VerbatimAnnotator.cpp
     app/App.cpp
     app/Context.cpp
@@ -61,6 +62,7 @@ target_sources(fbide_lib
     analyses/lexer/KeywordTables.hpp
     analyses/lexer/Lexer.hpp
     analyses/lexer/MemoryDocument.hpp
+    analyses/lexer/StyledSource.hpp
     analyses/lexer/Token.hpp
     analyses/lexer/VerbatimAnnotator.hpp
     app/App.hpp
