@@ -52,10 +52,9 @@ Indexed task list derived from `LEXER_UNIFICATION_PLAN.md`. Implement iterativel
 
 ## Phase 4 — Cleanup
 
-- [ ] **T37** — Delete `LegacyLexer` (`analyses/lexer/Lexer.cpp/hpp` old impl after T9 rename).
-- [ ] **T38** — Delete `KeywordGroup`, `KeywordScope`, `tokenKindFor`, `scopeFor` from old `Lexer.hpp`.
-- [ ] **T39** — Delete obsolete tests in `LexerTests.cpp` whose coverage moved to `FBSciLexerTests.cpp`. Keep adapter-specific cases.
-- [ ] **T40** — Drop `third_party/lexilla/test/TestDocument.cxx` from `tests/CMakeLists.txt` (now lifted via T1).
+- [x] **T37/T38** — Deleted `analyses/lexer/Lexer.{hpp,cpp}` and all of `KeywordGroup`/`KeywordScope`/`tokenKindFor`/`scopeFor`. Also pruned `KeywordKind::Rem` and 26 dead `OperatorKind` values (compound assigns, comparisons, shifts, type-suffix sigils, etc.).
+- [x] **T39** — Deleted `LexerTests.cpp` (1024 lines, 106 tests). Coverage moved to `FBSciLexerTests` + `StyleLexerTests`. `ReFormatterTests` migrated to FBSciLexer + StyleLexer pipeline via `TestHelpers::createFbLexer` / `tokenise`. `tests/data/fbfull.lng` updated (added `endif` to kw1).
+- [x] **T40** — Done in T1 (`third_party/lexilla/test/TestDocument.cxx` dropped from `tests/CMakeLists.txt`).
 
 ## Out of scope / follow-up
 
