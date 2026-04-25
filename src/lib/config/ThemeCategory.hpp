@@ -88,5 +88,11 @@ static constexpr auto indexOfKeywordGroup(const ThemeCategory cat) -> std::size_
     return static_cast<std::size_t>(std::ranges::distance(kThemeKeywordCategories.begin(), it));
 };
 
+/// True when `cat` is one of the keyword-group categories
+/// (Keyword1..Keyword4, KeywordCustom1/2, KeywordPP, KeywordAsm1/2).
+constexpr auto isKeywordCategory(const ThemeCategory cat) -> bool {
+    return std::ranges::find(kThemeKeywordCategories, cat) != kThemeKeywordCategories.end();
+}
+
 
 } // namespace fbide

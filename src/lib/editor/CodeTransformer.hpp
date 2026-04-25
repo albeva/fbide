@@ -8,22 +8,21 @@
 #include "pch.hpp"
 #include <span>
 #include <string_view>
-#include "analyses/lexer/Token.hpp"
 #include "format/transformers/case/CaseTransform.hpp"
 
 namespace fbide {
 class Context;
 class Editor;
 
-namespace lexer { class Lexer; }
-
 /// Per-Editor driver for on-type code transforms:
 ///   - Auto-indent on Enter (wraps indent::decide).
 ///   - Keyword case normalisation on word boundary.
 ///   - Auto-insert matching closing keyword for block openers.
 ///
-/// Owns a Lexer instance built from the current keyword groups and a
-/// reused token buffer so per-keystroke work allocates nothing.
+/// Reads style bytes that FBSciLexer already published into the editor's
+/// document — never runs its own lex of the editor content. Field-access
+/// suppression (words after `.` or `->`, including across `_` line
+/// continuation) and asm/comment/string contexts are inherited for free.
 class CodeTransformer final {
 public:
     NO_COPY_AND_MOVE(CodeTransformer)
@@ -79,8 +78,6 @@ private:
     bool m_autoIndent = true;
     bool m_inAction = false; // re-entry guard for STC modification events
     CaseMode m_keywordCase = CaseMode::Lower;
-    std::unique_ptr<lexer::Lexer> m_lexer;
-    std::vector<lexer::Token> m_tokenBuffer;
 
     friend struct ActionGuard;
 };

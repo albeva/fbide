@@ -7,7 +7,9 @@
 #include "CodeTransformer.hpp"
 #include "AutoIndent.hpp"
 #include "Editor.hpp"
-#include "analyses/lexer/Lexer.hpp"
+#include "analyses/lexer/StyledSource.hpp"
+#include "analyses/lexer/StyleLexer.hpp"
+#include "analyses/lexer/Token.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/ThemeCategory.hpp"
@@ -21,20 +23,6 @@ auto isWordChar(const wxUniChar ch) -> bool {
         || (c >= 'A' && c <= 'Z')
         || (c >= 'a' && c <= 'z')
         || c == '_';
-}
-
-auto buildKeywordGroups(Context& ctx) -> std::vector<lexer::KeywordGroup> {
-    const auto& keywords = ctx.getConfigManager().keywords();
-    std::vector<lexer::KeywordGroup> groups;
-    groups.reserve(kThemeKeywordCategories.size());
-    for (const auto cat : kThemeKeywordCategories) {
-        groups.push_back({
-            keywords.get_or(wxString(getThemeCategoryName(cat)), ""),
-            lexer::tokenKindFor(cat),
-            lexer::scopeFor(cat),
-        });
-    }
-    return groups;
 }
 
 } // namespace
@@ -66,9 +54,6 @@ void CodeTransformer::applySettings() {
     m_autoIndent = editor.get_or("autoIndent", true);
     m_keywordCase = CaseMode::parse(editor.get_or("keywordCase", "Lower").ToStdString())
                         .value_or(CaseMode::Lower);
-
-    const auto groups = buildKeywordGroups(m_ctx);
-    m_lexer = std::make_unique<lexer::Lexer>(groups);
 }
 
 void CodeTransformer::onCharAdded(Editor& editor, const int ch) {
@@ -172,38 +157,23 @@ void CodeTransformer::onCaretMoved(Editor& editor, const int oldPos, const int n
 }
 
 void CodeTransformer::transformWordInRange(Editor& editor, const int wordStart, const int wordEnd) {
-    // Lex the current line up to wordEnd so the last token corresponds
-    // to the word in question. This lets the lexer tell us if the word
-    // sits inside a string / comment — token kind won't be a keyword
-    // group and we leave it alone.
+    // Hot path: just read the style FBSciLexer already published. No re-lex.
+    // FBSciLexer's field-access state (across `_` continuation), asm scoping,
+    // string/comment context all come for free — anything not styled as a
+    // keyword group is left alone.
     const int line = editor.LineFromPosition(wordStart);
     const int lineStart = editor.PositionFromLine(line);
-    const auto prefix = editor.GetTextRange(lineStart, wordEnd);
-    const auto utf8 = prefix.utf8_str();
-    m_lexer->tokeniseInto(utf8.data(), m_tokenBuffer);
-
-    if (m_tokenBuffer.empty()) {
+    // Force STC to lex up to wordEnd so the style at `wordStart` reflects
+    // the just-typed boundary character.
+    editor.Colourise(lineStart, wordEnd);
+    const auto style = static_cast<ThemeCategory>(editor.GetStyleAt(wordStart));
+    if (!isKeywordCategory(style)) {
         return;
     }
 
-    const auto targetOffset = static_cast<std::size_t>(wordStart - lineStart);
-    std::size_t offset = 0;
-    const lexer::Token* match = nullptr;
-    for (const auto& t : m_tokenBuffer) {
-        if (offset == targetOffset && !t.text.empty()) {
-            match = &t;
-            break;
-        }
-        if (offset > targetOffset) {
-            break;
-        }
-        offset += t.text.size();
-    }
-    if (match == nullptr || !lexer::isKeywordToken(match->kind)) {
-        return;
-    }
-
-    const auto original = std::string { match->text };
+    const auto wxOriginal = editor.GetTextRange(wordStart, wordEnd);
+    const auto utf8 = wxOriginal.utf8_str();
+    const std::string original { utf8.data(), utf8.length() };
     const auto transformed = m_keywordCase.apply(original);
     if (transformed == original) {
         return;
@@ -213,14 +183,11 @@ void CodeTransformer::transformWordInRange(Editor& editor, const int wordStart, 
     editor.BeginUndoAction();
     editor.SetTargetRange(wordStart, wordEnd);
     editor.ReplaceTarget(wxString::FromUTF8(transformed.c_str(), transformed.size()));
-    // Length is preserved for ASCII case transforms, but pin the cursor
-    // back where it was for safety.
     editor.GotoPos(caretBefore);
     editor.EndUndoAction();
 
     // Force synchronous restyle of the changed line so the keyword colour
-    // re-applies immediately — without this the buffer briefly shows the
-    // word as plain text until Scintilla's deferred lex runs.
+    // re-applies immediately.
     editor.Colourise(lineStart, editor.GetLineEndPosition(line));
 }
 
@@ -241,34 +208,28 @@ void CodeTransformer::onTextInserted(Editor& editor, const int pos, const int le
 void CodeTransformer::transformRange(Editor& editor, const int rangeStart, const int rangeEnd) {
     ActionGuard guard(*this);
 
-    const int firstLine = editor.LineFromPosition(rangeStart);
-    const int lastLine = editor.LineFromPosition(rangeEnd);
+    // Force STC to style up to rangeEnd so StyleLexer reads accurate styles.
+    editor.Colourise(0, rangeEnd);
+
+    lexer::WxStcStyledSource src(editor);
+    lexer::StyleLexer adapter(src);
+    const auto tokens = adapter.tokenise();
+
     const int caretBefore = editor.GetCurrentPos();
-
     editor.BeginUndoAction();
-    for (int line = firstLine; line <= lastLine; line++) {
-        const int lineStart = editor.PositionFromLine(line);
-        const int lineEnd = editor.GetLineEndPosition(line);
-        const auto text = editor.GetTextRange(lineStart, lineEnd);
-        const auto utf8 = text.utf8_str();
-        m_lexer->tokeniseInto(utf8.data(), m_tokenBuffer);
-
-        std::size_t offset = 0;
-        for (const auto& t : m_tokenBuffer) {
-            const auto len = t.text.size();
-            if (lexer::isKeywordToken(t.kind)) {
-                const int absStart = lineStart + static_cast<int>(offset);
-                const int absEnd = absStart + static_cast<int>(len);
-                if (absEnd > rangeStart && absStart < rangeEnd) {
-                    auto cased = m_keywordCase.apply(std::string { t.text });
-                    if (cased != t.text) {
-                        editor.SetTargetRange(absStart, absEnd);
-                        editor.ReplaceTarget(wxString::FromUTF8(cased.c_str(), cased.size()));
-                    }
-                }
+    Sci_PositionU pos = 0;
+    for (const auto& t : tokens) {
+        const auto len = static_cast<int>(t.text.size());
+        const int absStart = static_cast<int>(pos);
+        const int absEnd = absStart + len;
+        if (lexer::isKeywordToken(t.kind) && absEnd > rangeStart && absStart < rangeEnd) {
+            auto cased = m_keywordCase.apply(std::string { t.text });
+            if (cased != t.text) {
+                editor.SetTargetRange(absStart, absEnd);
+                editor.ReplaceTarget(wxString::FromUTF8(cased.c_str(), cased.size()));
             }
-            offset += len;
         }
+        pos += t.text.size();
     }
     editor.GotoPos(caretBefore);
     editor.EndUndoAction();
