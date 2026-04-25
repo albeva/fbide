@@ -23,7 +23,6 @@ add_executable(tests
     RunCommandTests.cpp
     TextEncodingTests.cpp
     ThemeTests.cpp
-    ${CMAKE_SOURCE_DIR}/third_party/lexilla/test/TestDocument.cxx
 )
 
 # Test data path
@@ -39,7 +38,6 @@ target_include_directories(tests SYSTEM PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/scintilla/include
     ${CMAKE_SOURCE_DIR}/third_party/lexilla/include
     ${CMAKE_SOURCE_DIR}/third_party/lexilla/lexlib
-    ${CMAKE_SOURCE_DIR}/third_party/lexilla/test
 )
 target_include_directories(tests PRIVATE "${CMAKE_BINARY_DIR}/configured_files/include")
 target_precompile_headers(tests REUSE_FROM fbide_lib)

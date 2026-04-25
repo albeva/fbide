@@ -6,7 +6,7 @@
 //
 #include "editor/lexilla/FBSciLexer.hpp"
 #include "Scintilla.h"
-#include "TestDocument.h"
+#include "analyses/lexer/MemoryDocument.hpp"
 #include <gtest/gtest.h>
 
 using namespace fbide;
@@ -161,7 +161,7 @@ protected:
     }
 
     Scintilla::ILexer5* m_lexer = nullptr;
-    TestDocument m_doc;
+    MemoryDocument m_doc;
 };
 
 // region ---------- Comments ----------
