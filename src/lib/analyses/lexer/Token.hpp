@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "config/ThemeCategory.hpp"
 
 namespace fbide::lexer {
 
@@ -192,6 +193,9 @@ struct Token final {
     TokenKind kind {};
     KeywordKind keywordKind = KeywordKind::None;
     OperatorKind operatorKind = OperatorKind::None;
+    /// Original FBSciLexer style class for the source range this token came from.
+    /// Reserved for debugging and future features. No consumer reads it today.
+    ThemeCategory style = ThemeCategory::Default;
     bool verbatim = false;
     std::string text;
 };
