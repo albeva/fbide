@@ -7,7 +7,9 @@
 #pragma once
 
 // STL
+#include <algorithm>
 #include <array>
+#include <cassert>
 #include <concepts>
 #include <cstddef>
 #include <filesystem>

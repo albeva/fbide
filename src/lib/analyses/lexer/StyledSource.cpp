@@ -5,7 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "StyledSource.hpp"
-#include <wx/stc/stc.h>
 using namespace fbide::lexer;
 
 auto WxStcStyledSource::length() const -> Sci_PositionU {

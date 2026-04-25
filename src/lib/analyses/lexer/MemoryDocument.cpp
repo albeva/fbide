@@ -9,8 +9,6 @@
 // are easy to merge.
 //
 #include "MemoryDocument.hpp"
-#include <algorithm>
-#include <cassert>
 using namespace fbide;
 
 namespace {
@@ -59,7 +57,7 @@ constexpr auto UTF8IsTrailByte(unsigned char ch) noexcept -> bool {
 #pragma warning(disable: 26440)
 #endif
 
-void MemoryDocument::Set(std::string_view sv) {
+void MemoryDocument::Set(const std::string_view sv) {
     m_text = sv;
     m_textStyles.assign(m_text.size() + 1, '\0');
     m_lineStarts.clear();
@@ -107,7 +105,7 @@ Sci_Position SCI_METHOD MemoryDocument::LineFromPosition(const Sci_Position posi
     if (position >= Length()) {
         return MaxLine();
     }
-    const auto it = std::lower_bound(m_lineStarts.begin(), m_lineStarts.end(), position);
+    const auto it = std::ranges::lower_bound(m_lineStarts, position);
     auto line = it - m_lineStarts.begin();
     if (*it > position) {
         line--;
