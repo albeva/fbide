@@ -52,6 +52,18 @@ auto fbide::lexer::structuralKeywords() -> const std::unordered_map<std::string,
     return map;
 }
 
+auto fbide::lexer::structuralKeywordsList() -> const std::string& {
+    static const std::string list = [] {
+        std::string out;
+        for (const auto& [text, _] : structuralKeywords()) {
+            if (!out.empty()) out += ' ';
+            out += text;
+        }
+        return out;
+    }();
+    return list;
+}
+
 auto fbide::lexer::ppKeywords() -> const std::unordered_map<std::string, KeywordKind>& {
     static const std::unordered_map<std::string, KeywordKind> map = {
         // Block openers

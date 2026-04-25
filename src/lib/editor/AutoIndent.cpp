@@ -6,8 +6,13 @@
 //
 #include "AutoIndent.hpp"
 #include <span>
-#include "analyses/lexer/Lexer.hpp"
+#include "analyses/lexer/KeywordTables.hpp"
+#include "analyses/lexer/MemoryDocument.hpp"
+#include "analyses/lexer/StyledSource.hpp"
+#include "analyses/lexer/StyleLexer.hpp"
 #include "analyses/lexer/Token.hpp"
+#include "config/ThemeCategory.hpp"
+#include "editor/lexilla/FBSciLexer.hpp"
 using namespace fbide;
 using namespace fbide::lexer;
 
@@ -200,9 +205,25 @@ auto closerFor(const KeywordKind k) -> std::span<const std::string_view> {
 } // namespace
 
 auto indent::decide(const wxString& prevLine) -> Decision {
-    Lexer lex(std::span<const KeywordGroup> {});
-    const auto utf8 = prevLine.utf8_str();
-    const auto tokens = lex.tokenise(utf8.data());
+    // Run FBSciLexer over the line, then walk style runs via StyleLexer.
+    // Use the structural-keyword wordlist so block words (if/then/sub/end
+    // /etc.) are styled as Keyword1 — only category that matters for block
+    // detection. User's editor wordlist config is irrelevant here.
+    MemoryDocument doc;
+    // Append newline so FBSciLexer commits trailing comments/strings as the
+    // intended style instead of resetting the last char to Default at EOF
+    // (its way of preparing the next line). Without this, `If x Then ' c`
+    // would mis-classify the trailing `c`.
+    const auto withNewline = prevLine + "\n";
+    const auto utf8 = withNewline.utf8_str();
+    doc.Set(std::string_view { utf8.data(), utf8.length() });
+    auto* fb = FBSciLexer::Create();
+    fb->WordListSet(0, structuralKeywordsList().c_str());
+    fb->Lex(0, doc.Length(), +ThemeCategory::Default, &doc);
+    MemoryDocStyledSource src(doc);
+    StyleLexer adapter(src);
+    const auto tokens = adapter.tokenise();
+    fb->Release();
 
     const auto first = firstKeyword(tokens);
     if (isCloser(first)) {

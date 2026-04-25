@@ -12,7 +12,21 @@
 #include "Token.hpp"
 #include "config/ThemeCategory.hpp"
 
+namespace Scintilla {
+class ILexer5;
+}
+
+namespace fbide {
+class Value;
+}
+
 namespace fbide::lexer {
+
+/// Apply each keyword group from `kw` (a config `Value` map keyed by
+/// `ThemeCategory` name) to the corresponding FBSciLexer wordlist slot.
+/// Keywords are lowercased so FBSciLexer's case-insensitive lookup matches.
+void configureFbWordlists(Scintilla::ILexer5& lex, const Value& kw);
+
 
 /// One coalesced run of bytes carrying the same FBSciLexer style.
 struct StyleRange {

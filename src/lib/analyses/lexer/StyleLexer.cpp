@@ -7,9 +7,23 @@
 #include "StyleLexer.hpp"
 #include <string_view>
 #include <utility>
+// clang-format off
+#include "ILexer.h"
+// clang-format on
 #include "KeywordTables.hpp"
 #include "VerbatimAnnotator.hpp"
+#include "config/ThemeCategory.hpp"
+#include "config/Value.hpp"
+using namespace fbide;
 using namespace fbide::lexer;
+
+void fbide::lexer::configureFbWordlists(Scintilla::ILexer5& lex, const Value& kw) {
+    for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
+        const auto key = getThemeCategoryName(kThemeKeywordCategories[idx]);
+        const auto words = kw.get_or(wxString(key), "").Lower();
+        lex.WordListSet(static_cast<int>(idx), words.utf8_str());
+    }
+}
 
 namespace {
 
