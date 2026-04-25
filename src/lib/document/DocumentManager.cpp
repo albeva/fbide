@@ -5,14 +5,14 @@
 // https://github.com/albeva/fbide
 //
 #include "DocumentManager.hpp"
-#include "CodeTransformer.hpp"
 #include "Document.hpp"
 #include "DocumentIO.hpp"
-#include "Editor.hpp"
 #include "FileSession.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
+#include "editor/CodeTransformer.hpp"
+#include "editor/Editor.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 

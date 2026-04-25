@@ -26,7 +26,6 @@ class FBSciLexer final : public Lexilla::DefaultLexer {
     FBSciLexer();
 
 public:
-
     const char* SCI_METHOD DescribeWordListSets() override;
     Sci_Position SCI_METHOD WordListSet(int n, const char* wl) override;
 
@@ -66,7 +65,6 @@ public:
     static_assert(sizeof(LineState) == sizeof(int) && alignof(LineState) == alignof(int));
 
 private:
-
     /// Form of the number being lexed
     enum class NumberForm : std::uint8_t {
         Decimal,

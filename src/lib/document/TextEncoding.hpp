@@ -8,9 +8,6 @@
 // ReSharper disable CppNonExplicitConversionOperator
 #pragma once
 #include "pch.hpp"
-#include <span>
-#include <string_view>
-#include <wx/convauto.h>
 
 namespace fbide {
 

@@ -7,7 +7,7 @@
 #include <wx/file.h>
 #include <wx/filename.h>
 #include <gtest/gtest.h>
-#include "editor/DocumentIO.hpp"
+#include "../src/lib/document/DocumentIO.hpp"
 
 using namespace fbide;
 

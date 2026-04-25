@@ -96,11 +96,11 @@ public:
 
     [[nodiscard]] auto get(Category category) -> Value&;
 
-    [[nodiscard]] auto config()    -> Value& { return get(Category::Config); }
-    [[nodiscard]] auto locale()    -> Value& { return get(Category::Locale); }
+    [[nodiscard]] auto config() -> Value& { return get(Category::Config); }
+    [[nodiscard]] auto locale() -> Value& { return get(Category::Locale); }
     [[nodiscard]] auto shortcuts() -> Value& { return get(Category::Shortcuts); }
-    [[nodiscard]] auto keywords()  -> Value& { return get(Category::Keywords); }
-    [[nodiscard]] auto layout()    -> Value& { return get(Category::Layout); }
+    [[nodiscard]] auto keywords() -> Value& { return get(Category::Keywords); }
+    [[nodiscard]] auto layout() -> Value& { return get(Category::Layout); }
 
     // -----------------------------------------------------------------------
     // File dialog wildcard patterns
@@ -131,14 +131,14 @@ private:
     struct Entry final {
         Category category;
         wxString path;
-        Value    root;
+        Value root;
     };
     static constexpr std::size_t CAT_COUNT = 5;
 
     wxString m_appDir;
     wxString m_ideDir {};
     std::array<Entry, CAT_COUNT> m_categories {};
-    Theme    m_theme {};
+    Theme m_theme {};
 };
 
 } // namespace fbide

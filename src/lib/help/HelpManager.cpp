@@ -5,12 +5,12 @@
 // https://github.com/albeva/fbide
 //
 #include "help/HelpManager.hpp"
-#include "ui/controls/Layout.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "editor/Document.hpp"
-#include "editor/DocumentManager.hpp"
+#include "document/Document.hpp"
+#include "document/DocumentManager.hpp"
 #include "ui/UIManager.hpp"
+#include "ui/controls/Layout.hpp"
 using namespace fbide;
 
 namespace {

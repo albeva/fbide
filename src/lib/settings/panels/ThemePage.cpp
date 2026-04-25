@@ -50,7 +50,7 @@ void writeCategory(Theme& theme, const SettingsCategory cat, const Theme::Entry&
         // extra properties
         #define EXTRA_CASE(NAME, unused, TYPE) \
             case SettingsCategory::NAME: \
-                theme.set##NAME(getThemeValue<Theme::TYPE>(v)); break;
+                theme.set## NAME(getThemeValue<Theme::TYPE>(v)); break;
             DEFINE_THEME_EXTRA_PROPERTY(EXTRA_CASE)
         #undef EXTRA_CASE
         // clang-format on

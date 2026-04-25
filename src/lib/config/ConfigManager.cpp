@@ -5,7 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "ConfigManager.hpp"
-#include <filesystem>
 using namespace fbide;
 
 namespace {

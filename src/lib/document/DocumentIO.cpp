@@ -5,7 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "DocumentIO.hpp"
-#include <wx/file.h>
 #include "EncodingDetector.hpp"
 using namespace fbide;
 

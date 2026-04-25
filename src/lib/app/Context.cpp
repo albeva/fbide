@@ -9,8 +9,8 @@
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
-#include "editor/DocumentManager.hpp"
-#include "editor/FileSession.hpp"
+#include "document/DocumentManager.hpp"
+#include "document/FileSession.hpp"
 #include "help/HelpManager.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;

@@ -5,7 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "EncodingDetector.hpp"
-#include <wx/convauto.h>
 using namespace fbide;
 
 namespace {

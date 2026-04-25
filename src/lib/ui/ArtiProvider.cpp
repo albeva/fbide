@@ -10,23 +10,23 @@
 using namespace fbide;
 
 ArtiProvider::ArtiProvider()
-: m_icons{
-    { CommandId::New,           XPM::new_xpm      },
-    { CommandId::Open,          XPM::open_xpm     },
-    { CommandId::Save,          XPM::save_xpm     },
-    { CommandId::SaveAll,       XPM::saveall_xpm  },
-    { CommandId::Close,         XPM::close_xpm    },
-    { CommandId::Cut,           XPM::cut_xpm      },
-    { CommandId::Copy,          XPM::copy_xpm     },
-    { CommandId::Paste,         XPM::paste_xpm    },
-    { CommandId::Undo,          XPM::undo_xpm     },
-    { CommandId::Redo,          XPM::redo_xpm     },
-    { CommandId::Compile,       XPM::compile_xpm  },
-    { CommandId::Run,           XPM::run_xpm      },
+: m_icons {
+    { CommandId::New, XPM::new_xpm },
+    { CommandId::Open, XPM::open_xpm },
+    { CommandId::Save, XPM::save_xpm },
+    { CommandId::SaveAll, XPM::saveall_xpm },
+    { CommandId::Close, XPM::close_xpm },
+    { CommandId::Cut, XPM::cut_xpm },
+    { CommandId::Copy, XPM::copy_xpm },
+    { CommandId::Paste, XPM::paste_xpm },
+    { CommandId::Undo, XPM::undo_xpm },
+    { CommandId::Redo, XPM::redo_xpm },
+    { CommandId::Compile, XPM::compile_xpm },
+    { CommandId::Run, XPM::run_xpm },
     { CommandId::CompileAndRun, XPM::compnrun_xpm },
-    { CommandId::QuickRun,      XPM::qrun_xpm     },
-    { CommandId::KillProcess,   XPM::compresx_xpm },
-    { CommandId::Result,        XPM::output_xpm   },
+    { CommandId::QuickRun, XPM::qrun_xpm },
+    { CommandId::KillProcess, XPM::compresx_xpm },
+    { CommandId::Result, XPM::output_xpm },
 } {}
 
 auto ArtiProvider::getBitmap(const CommandId id) const -> wxBitmap {

@@ -5,11 +5,10 @@
 // https://github.com/albeva/fbide
 //
 #include "AutoIndent.hpp"
-#include <span>
 #include "analyses/lexer/KeywordTables.hpp"
 #include "analyses/lexer/MemoryDocument.hpp"
-#include "analyses/lexer/StyledSource.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
+#include "analyses/lexer/StyledSource.hpp"
 #include "analyses/lexer/Token.hpp"
 #include "config/ThemeCategory.hpp"
 #include "editor/lexilla/FBSciLexer.hpp"
@@ -161,44 +160,62 @@ auto isOpener(const std::vector<Token>& tokens) -> bool {
 
 // Closer keyword arrays — words stored lowercase; the renderer applies
 // case rule. constexpr so spans remain valid forever.
-constexpr std::array<std::string_view, 1> kLoop        { "loop" };
-constexpr std::array<std::string_view, 1> kNext        { "next" };
-constexpr std::array<std::string_view, 1> kWend        { "wend" };
-constexpr std::array<std::string_view, 2> kEndIf       { "end", "if" };
-constexpr std::array<std::string_view, 2> kEndSub      { "end", "sub" };
+constexpr std::array<std::string_view, 1> kLoop { "loop" };
+constexpr std::array<std::string_view, 1> kNext { "next" };
+constexpr std::array<std::string_view, 1> kWend { "wend" };
+constexpr std::array<std::string_view, 2> kEndIf { "end", "if" };
+constexpr std::array<std::string_view, 2> kEndSub { "end", "sub" };
 constexpr std::array<std::string_view, 2> kEndFunction { "end", "function" };
-constexpr std::array<std::string_view, 2> kEndCtor     { "end", "constructor" };
-constexpr std::array<std::string_view, 2> kEndDtor     { "end", "destructor" };
+constexpr std::array<std::string_view, 2> kEndCtor { "end", "constructor" };
+constexpr std::array<std::string_view, 2> kEndDtor { "end", "destructor" };
 constexpr std::array<std::string_view, 2> kEndOperator { "end", "operator" };
-constexpr std::array<std::string_view, 2> kEndSelect   { "end", "select" };
-constexpr std::array<std::string_view, 2> kEndType     { "end", "type" };
-constexpr std::array<std::string_view, 2> kEndEnum     { "end", "enum" };
-constexpr std::array<std::string_view, 2> kEndUnion    { "end", "union" };
-constexpr std::array<std::string_view, 2> kEndWith     { "end", "with" };
-constexpr std::array<std::string_view, 2> kEndNS       { "end", "namespace" };
-constexpr std::array<std::string_view, 2> kEndScope    { "end", "scope" };
-constexpr std::array<std::string_view, 2> kEndAsm      { "end", "asm" };
+constexpr std::array<std::string_view, 2> kEndSelect { "end", "select" };
+constexpr std::array<std::string_view, 2> kEndType { "end", "type" };
+constexpr std::array<std::string_view, 2> kEndEnum { "end", "enum" };
+constexpr std::array<std::string_view, 2> kEndUnion { "end", "union" };
+constexpr std::array<std::string_view, 2> kEndWith { "end", "with" };
+constexpr std::array<std::string_view, 2> kEndNS { "end", "namespace" };
+constexpr std::array<std::string_view, 2> kEndScope { "end", "scope" };
+constexpr std::array<std::string_view, 2> kEndAsm { "end", "asm" };
 
 auto closerFor(const KeywordKind k) -> std::span<const std::string_view> {
     switch (k) {
-    case KeywordKind::If:          return kEndIf;
-    case KeywordKind::Do:          return kLoop;
-    case KeywordKind::For:         return kNext;
-    case KeywordKind::While:       return kWend;
-    case KeywordKind::Sub:         return kEndSub;
-    case KeywordKind::Function:    return kEndFunction;
-    case KeywordKind::Constructor: return kEndCtor;
-    case KeywordKind::Destructor:  return kEndDtor;
-    case KeywordKind::Operator:    return kEndOperator;
-    case KeywordKind::Select:      return kEndSelect;
-    case KeywordKind::Type:        return kEndType;
-    case KeywordKind::Enum:        return kEndEnum;
-    case KeywordKind::Union:       return kEndUnion;
-    case KeywordKind::With:        return kEndWith;
-    case KeywordKind::Namespace:   return kEndNS;
-    case KeywordKind::Scope:       return kEndScope;
-    case KeywordKind::Asm:         return kEndAsm;
-    default:                       return {};
+    case KeywordKind::If:
+        return kEndIf;
+    case KeywordKind::Do:
+        return kLoop;
+    case KeywordKind::For:
+        return kNext;
+    case KeywordKind::While:
+        return kWend;
+    case KeywordKind::Sub:
+        return kEndSub;
+    case KeywordKind::Function:
+        return kEndFunction;
+    case KeywordKind::Constructor:
+        return kEndCtor;
+    case KeywordKind::Destructor:
+        return kEndDtor;
+    case KeywordKind::Operator:
+        return kEndOperator;
+    case KeywordKind::Select:
+        return kEndSelect;
+    case KeywordKind::Type:
+        return kEndType;
+    case KeywordKind::Enum:
+        return kEndEnum;
+    case KeywordKind::Union:
+        return kEndUnion;
+    case KeywordKind::With:
+        return kEndWith;
+    case KeywordKind::Namespace:
+        return kEndNS;
+    case KeywordKind::Scope:
+        return kEndScope;
+    case KeywordKind::Asm:
+        return kEndAsm;
+    default:
+        return {};
     }
 }
 

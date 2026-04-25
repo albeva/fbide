@@ -7,8 +7,8 @@
 #pragma once
 #include "pch.hpp"
 #include "analyses/lexer/Token.hpp"
+#include "document/DocumentType.hpp"
 #include "format/transformers/Transform.hpp"
-#include "editor/DocumentType.hpp"
 
 namespace fbide {
 
@@ -16,7 +16,8 @@ namespace fbide {
 class Renderer {
 public:
     NO_COPY_AND_MOVE(Renderer)
-    explicit Renderer(const std::size_t sizeHint) : m_sizeHint(sizeHint) {}
+    explicit Renderer(const std::size_t sizeHint)
+    : m_sizeHint(sizeHint) {}
     virtual ~Renderer() = default;
 
     /// If the renderer produces a new document, return its type.
@@ -28,6 +29,7 @@ public:
 
     /// Get input size hint
     [[nodiscard]] auto getSizeHint() const -> std::size_t { return m_sizeHint; }
+
 private:
     std::size_t m_sizeHint;
 };

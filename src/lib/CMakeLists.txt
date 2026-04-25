@@ -5,8 +5,8 @@ target_sources(fbide_lib
     about/AboutDialog.cpp
     analyses/lexer/KeywordTables.cpp
     analyses/lexer/MemoryDocument.cpp
-    analyses/lexer/StyledSource.cpp
     analyses/lexer/StyleLexer.cpp
+    analyses/lexer/StyledSource.cpp
     analyses/lexer/VerbatimAnnotator.cpp
     app/App.cpp
     app/Context.cpp
@@ -23,16 +23,16 @@ target_sources(fbide_lib
     config/Theme.cpp
     config/Value.cpp
     config/Version.cpp
+    document/Document.cpp
+    document/DocumentIO.cpp
+    document/DocumentManager.cpp
+    document/DocumentType.cpp
+    document/EncodingDetector.cpp
+    document/FileSession.cpp
+    document/TextEncoding.cpp
     editor/AutoIndent.cpp
     editor/CodeTransformer.cpp
-    editor/Document.cpp
-    editor/DocumentIO.cpp
-    editor/DocumentManager.cpp
-    editor/DocumentType.cpp
     editor/Editor.cpp
-    editor/EncodingDetector.cpp
-    editor/FileSession.cpp
-    editor/TextEncoding.cpp
     editor/lexilla/FBSciLexer.cpp
     format/FormatDialog.cpp
     format/renderers/HtmlRenderer.cpp
@@ -61,8 +61,8 @@ target_sources(fbide_lib
     about/AboutDialog.hpp
     analyses/lexer/KeywordTables.hpp
     analyses/lexer/MemoryDocument.hpp
-    analyses/lexer/StyledSource.hpp
     analyses/lexer/StyleLexer.hpp
+    analyses/lexer/StyledSource.hpp
     analyses/lexer/Token.hpp
     analyses/lexer/VerbatimAnnotator.hpp
     app/App.hpp
@@ -83,15 +83,15 @@ target_sources(fbide_lib
     config/ThemeCategory.hpp
     config/Value.hpp
     config/Version.hpp
+    document/Document.hpp
+    document/DocumentManager.hpp
+    document/DocumentType.hpp
+    document/EncodingDetector.hpp
+    document/FileSession.hpp
+    document/TextEncoding.hpp
     editor/AutoIndent.hpp
     editor/CodeTransformer.hpp
-    editor/Document.hpp
-    editor/DocumentManager.hpp
-    editor/DocumentType.hpp
     editor/Editor.hpp
-    editor/EncodingDetector.hpp
-    editor/FileSession.hpp
-    editor/TextEncoding.hpp
     editor/lexilla/CharCategory.hpp
     editor/lexilla/FBSciLexer.hpp
     format/FormatDialog.hpp

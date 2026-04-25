@@ -7,9 +7,9 @@
 #pragma once
 #include "pch.hpp"
 #include "ArtiProvider.hpp"
-#include "command/CommandId.hpp"
 #include "OutputConsole.hpp"
 #include "UIState.hpp"
+#include "command/CommandId.hpp"
 
 namespace fbide {
 class CompilerLog;

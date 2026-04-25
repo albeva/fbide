@@ -6,15 +6,15 @@
 //
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "UIManager.hpp"
+#include "CompilerLog.hpp"
 #include "EncodingMenu.hpp"
 #include "app/Context.hpp"
-#include "CompilerLog.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
-#include "editor/Document.hpp"
-#include "editor/DocumentManager.hpp"
+#include "document/Document.hpp"
+#include "document/DocumentManager.hpp"
 #include "editor/Editor.hpp"
 #include "rc/icons.hpp"
 #ifndef __WXMSW__

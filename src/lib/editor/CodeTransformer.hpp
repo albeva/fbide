@@ -6,8 +6,6 @@
 //
 #pragma once
 #include "pch.hpp"
-#include <span>
-#include <string_view>
 #include "format/transformers/case/CaseTransform.hpp"
 
 namespace fbide {
@@ -57,6 +55,7 @@ public:
         ~Suspend() { m_t.m_inAction = m_prev; }
         Suspend(const Suspend&) = delete;
         Suspend& operator=(const Suspend&) = delete;
+
     private:
         CodeTransformer& m_t;
         bool m_prev;

@@ -6,8 +6,6 @@
 //
 #pragma once
 #include "pch.hpp"
-#include <wx/ipc.h>
-#include <wx/snglinst.h>
 
 namespace fbide {
 class Context;

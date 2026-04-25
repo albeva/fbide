@@ -27,7 +27,7 @@ struct CaseModeInfo {
 };
 
 constexpr std::array kCaseModeInfo {
-    CaseModeInfo { CaseMode::None,  "None"  },
+    CaseModeInfo { CaseMode::None, "None" },
     CaseModeInfo { CaseMode::Lower, "Lower" },
     CaseModeInfo { CaseMode::Upper, "Upper" },
     CaseModeInfo { CaseMode::Mixed, "Mixed" },

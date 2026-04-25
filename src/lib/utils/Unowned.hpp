@@ -5,8 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #pragma once
-#include <cstddef>
-#include <utility>
 #include "Macros.hpp"
 
 namespace fbide {

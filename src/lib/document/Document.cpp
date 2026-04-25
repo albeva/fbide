@@ -6,9 +6,9 @@
 //
 #include "Document.hpp"
 #include "DocumentManager.hpp"
-#include "Editor.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
+#include "editor/Editor.hpp"
 using namespace fbide;
 
 namespace {

@@ -60,4 +60,4 @@ struct CommandEntry final {
     std::vector<Bind> binds = {};
 };
 
-} // fbide
+} // namespace fbide

@@ -64,7 +64,7 @@ void CommandEntry::update() {
             }
         }
     };
-    for (const auto& bind: binds) {
+    for (const auto& bind : binds) {
         std::visit(visitor, bind);
     }
 }

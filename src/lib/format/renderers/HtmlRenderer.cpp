@@ -19,23 +19,40 @@ auto hexColour(const wxColour& colour) -> std::string {
 
 auto tokenToCategory(const lexer::TokenKind kind) -> ThemeCategory {
     switch (kind) {
-        case lexer::TokenKind::Keyword1:           return ThemeCategory::Keyword1;
-        case lexer::TokenKind::Keyword2:           return ThemeCategory::Keyword2;
-        case lexer::TokenKind::Keyword3:           return ThemeCategory::Keyword3;
-        case lexer::TokenKind::Keyword4:           return ThemeCategory::Keyword4;
-        case lexer::TokenKind::KeywordCustom1:     return ThemeCategory::KeywordCustom1;
-        case lexer::TokenKind::KeywordCustom2:     return ThemeCategory::KeywordCustom2;
-        case lexer::TokenKind::KeywordPP:          return ThemeCategory::KeywordPP;
-        case lexer::TokenKind::KeywordAsm1:        return ThemeCategory::KeywordAsm1;
-        case lexer::TokenKind::KeywordAsm2:        return ThemeCategory::KeywordAsm2;
-        case lexer::TokenKind::Comment:            return ThemeCategory::Comment;
-        case lexer::TokenKind::CommentBlock:       return ThemeCategory::MultilineComment;
-        case lexer::TokenKind::String:             return ThemeCategory::String;
-        case lexer::TokenKind::UnterminatedString: return ThemeCategory::StringOpen;
-        case lexer::TokenKind::Number:             return ThemeCategory::Number;
-        case lexer::TokenKind::Preprocessor:       return ThemeCategory::Preprocessor;
-        case lexer::TokenKind::Operator:           return ThemeCategory::Operator;
-        default:                                   return ThemeCategory::Default;
+    case lexer::TokenKind::Keyword1:
+        return ThemeCategory::Keyword1;
+    case lexer::TokenKind::Keyword2:
+        return ThemeCategory::Keyword2;
+    case lexer::TokenKind::Keyword3:
+        return ThemeCategory::Keyword3;
+    case lexer::TokenKind::Keyword4:
+        return ThemeCategory::Keyword4;
+    case lexer::TokenKind::KeywordCustom1:
+        return ThemeCategory::KeywordCustom1;
+    case lexer::TokenKind::KeywordCustom2:
+        return ThemeCategory::KeywordCustom2;
+    case lexer::TokenKind::KeywordPP:
+        return ThemeCategory::KeywordPP;
+    case lexer::TokenKind::KeywordAsm1:
+        return ThemeCategory::KeywordAsm1;
+    case lexer::TokenKind::KeywordAsm2:
+        return ThemeCategory::KeywordAsm2;
+    case lexer::TokenKind::Comment:
+        return ThemeCategory::Comment;
+    case lexer::TokenKind::CommentBlock:
+        return ThemeCategory::MultilineComment;
+    case lexer::TokenKind::String:
+        return ThemeCategory::String;
+    case lexer::TokenKind::UnterminatedString:
+        return ThemeCategory::StringOpen;
+    case lexer::TokenKind::Number:
+        return ThemeCategory::Number;
+    case lexer::TokenKind::Preprocessor:
+        return ThemeCategory::Preprocessor;
+    case lexer::TokenKind::Operator:
+        return ThemeCategory::Operator;
+    default:
+        return ThemeCategory::Default;
     }
 }
 
@@ -51,11 +68,21 @@ auto escapeHtml(std::string_view text) -> std::string {
     escaped.reserve(text.size());
     for (const auto ch : text) {
         switch (ch) {
-            case '&': escaped += "&amp;"; break;
-            case '<': escaped += "&lt;"; break;
-            case '>': escaped += "&gt;"; break;
-            case '"': escaped += "&quot;"; break;
-            default: escaped += ch; break;
+        case '&':
+            escaped += "&amp;";
+            break;
+        case '<':
+            escaped += "&lt;";
+            break;
+        case '>':
+            escaped += "&gt;";
+            break;
+        case '"':
+            escaped += "&quot;";
+            break;
+        default:
+            escaped += ch;
+            break;
         }
     }
     return escaped;
@@ -70,7 +97,7 @@ auto HtmlRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxSt
     output.reserve(getSizeHint() + tokens.size() * 50); // html needs lot of markup
 
     output += "<pre style=\"background:" + hexColour(defaultBg)
-           + ";color:" + hexColour(defaultFg) + "\">";
+            + ";color:" + hexColour(defaultFg) + "\">";
 
     for (const auto& tok : tokens) {
         const auto escaped = escapeHtml(tok.text);

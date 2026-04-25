@@ -6,9 +6,9 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "../../ui/controls/Panel.hpp"
 #include "app/Context.hpp"
 #include "config/ThemeCategory.hpp"
+#include "ui/controls/Panel.hpp"
 
 namespace fbide {
 

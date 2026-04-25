@@ -6,8 +6,8 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "../../ui/controls/Panel.hpp"
 #include "app/Context.hpp"
+#include "ui/controls/Panel.hpp"
 
 namespace fbide {
 class Context;

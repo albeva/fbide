@@ -6,8 +6,8 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "../../ui/controls/Panel.hpp"
 #include "app/Context.hpp"
+#include "ui/controls/Panel.hpp"
 
 namespace fbide {
 
@@ -21,7 +21,6 @@ public:
     void apply() override;
 
 private:
-
     auto tr(const wxString& path) const -> wxString {
         return getContext().getConfigManager().locale().get_or(path, "");
     }

@@ -20,7 +20,7 @@ public:
     NO_COPY_AND_MOVE(ColorPicker)
 
     ColorPicker(wxWindow* parent, const Theme& theme, const Value& tr,
-                wxString label, wxString inheritTooltip = {});
+        wxString label, wxString inheritTooltip = {});
 
     /// Build the sizer, child controls, and event bindings.
     void create();
@@ -45,14 +45,14 @@ private:
     void applyColor(const wxColour& c);
     void openColourDialog();
 
-    const Theme&          m_theme;
-    const Value&          m_tr;
-    wxString              m_labelText;
-    wxString              m_inheritTooltip;
-    wxColour              m_defaultColor;
+    const Theme& m_theme;
+    const Value& m_tr;
+    wxString m_labelText;
+    wxString m_inheritTooltip;
+    wxColour m_defaultColor;
     Unowned<wxStaticText> m_lbl;
-    Unowned<wxCheckBox>   m_chkInherit;
-    Unowned<wxButton>     m_btn;
+    Unowned<wxCheckBox> m_chkInherit;
+    Unowned<wxButton> m_btn;
 
     wxDECLARE_EVENT_TABLE();
 };

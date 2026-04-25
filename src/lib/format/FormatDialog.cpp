@@ -5,16 +5,15 @@
 // https://github.com/albeva/fbide
 //
 #include "FormatDialog.hpp"
-#include <wx/clipbrd.h>
 #include "analyses/lexer/MemoryDocument.hpp"
-#include "analyses/lexer/StyledSource.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
-#include "editor/lexilla/FBSciLexer.hpp"
+#include "analyses/lexer/StyledSource.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "editor/Document.hpp"
-#include "editor/DocumentManager.hpp"
+#include "document/Document.hpp"
+#include "document/DocumentManager.hpp"
 #include "editor/Editor.hpp"
+#include "editor/lexilla/FBSciLexer.hpp"
 #include "renderers/HtmlRenderer.hpp"
 #include "renderers/PlainTextRenderer.hpp"
 #include "transformers/case/CaseTransform.hpp"

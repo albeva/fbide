@@ -6,9 +6,8 @@
 //
 #include "InstanceHandler.hpp"
 #include <cmake/config.hpp>
-#include <wx/ipc.h>
 #include "Context.hpp"
-#include "editor/DocumentManager.hpp"
+#include "document/DocumentManager.hpp"
 #include "ui/UIManager.hpp"
 
 using namespace fbide;

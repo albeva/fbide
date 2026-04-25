@@ -5,7 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "AsyncProcess.hpp"
-#include <wx/txtstrm.h>
 using namespace fbide;
 
 auto AsyncProcess::exec(const wxString& command, const wxString& workingDir, const bool redirect, Callback&& callback) -> AsyncProcess* {

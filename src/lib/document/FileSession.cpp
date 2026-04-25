@@ -5,14 +5,12 @@
 // https://github.com/albeva/fbide
 //
 #include "FileSession.hpp"
-#include <wx/fileconf.h>
-#include <wx/textfile.h>
 #include "Document.hpp"
 #include "DocumentManager.hpp"
-#include "Editor.hpp"
 #include "TextEncoding.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
+#include "editor/Editor.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 

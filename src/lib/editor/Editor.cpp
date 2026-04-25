@@ -6,8 +6,8 @@
 //
 #include "Editor.hpp"
 #include "CodeTransformer.hpp"
-#include "Document.hpp"
-#include "DocumentManager.hpp"
+#include "document/Document.hpp"
+#include "document/DocumentManager.hpp"
 // fwd decl already included via DocumentManager.hpp
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"

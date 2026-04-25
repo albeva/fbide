@@ -7,18 +7,15 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 // ReSharper disable CppMemberFunctionMayBeStatic
 #include "CommandManager.hpp"
-
-#include <ranges>
-
 #include "about/AboutDialog.hpp"
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
-#include "editor/Document.hpp"
-#include "editor/DocumentManager.hpp"
+#include "document/Document.hpp"
+#include "document/DocumentManager.hpp"
+#include "document/FileSession.hpp"
 #include "editor/Editor.hpp"
-#include "editor/FileSession.hpp"
 #include "format/FormatDialog.hpp"
 #include "help/HelpManager.hpp"
 #include "settings/SettingsDialog.hpp"
@@ -145,7 +142,7 @@ CommandManager::CommandManager(Context& ctx)
     // clang-format on
 }
 
-void CommandManager::initializeCommands(){
+void CommandManager::initializeCommands() {
     auto& commands = m_ctx.getConfigManager().config()["commands"];
     for (auto& entry : m_namedCommands | std::views::values) {
         if (entry.kind == wxITEM_CHECK) {
@@ -436,7 +433,7 @@ void CommandManager::addCommands(const std::initializer_list<CommandEntry>& comm
     }
 }
 
-auto CommandManager::find(const wxString& name)-> CommandEntry* {
+auto CommandManager::find(const wxString& name) -> CommandEntry* {
     const auto iter = m_namedCommands.find(name);
     if (iter != m_namedCommands.end()) {
         return &iter->second;
@@ -444,7 +441,7 @@ auto CommandManager::find(const wxString& name)-> CommandEntry* {
     return nullptr;
 }
 
-auto CommandManager::find(const wxString& name) const-> const CommandEntry* {
+auto CommandManager::find(const wxString& name) const -> const CommandEntry* {
     const auto iter = m_namedCommands.find(name);
     if (iter != m_namedCommands.end()) {
         return &iter->second;
@@ -452,7 +449,7 @@ auto CommandManager::find(const wxString& name) const-> const CommandEntry* {
     return nullptr;
 }
 
-auto CommandManager::find(const wxWindowID id)-> CommandEntry* {
+auto CommandManager::find(const wxWindowID id) -> CommandEntry* {
     const auto iter = m_idNames.find(id);
     if (iter != m_idNames.end()) {
         return find(iter->second);
@@ -460,7 +457,7 @@ auto CommandManager::find(const wxWindowID id)-> CommandEntry* {
     return nullptr;
 }
 
-auto CommandManager::find(const wxWindowID id) const-> const CommandEntry* {
+auto CommandManager::find(const wxWindowID id) const -> const CommandEntry* {
     const auto iter = m_idNames.find(id);
     if (iter != m_idNames.end()) {
         return find(iter->second);

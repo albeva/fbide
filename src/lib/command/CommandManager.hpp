@@ -54,7 +54,6 @@ public:
     void initializeCommands();
 
 private:
-
     // File
     void onAnyEvent(wxCommandEvent& event);
     void onNew(wxCommandEvent& event);

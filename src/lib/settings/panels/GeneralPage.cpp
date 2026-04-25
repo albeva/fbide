@@ -8,7 +8,7 @@
 #include "GeneralPage.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "editor/TextEncoding.hpp"
+#include "document/TextEncoding.hpp"
 #include "format/transformers/case/CaseTransform.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;

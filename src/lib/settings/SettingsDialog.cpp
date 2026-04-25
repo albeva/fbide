@@ -7,11 +7,11 @@
 #include "SettingsDialog.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "ui/UIManager.hpp"
 #include "panels/CompilerPage.hpp"
 #include "panels/GeneralPage.hpp"
 #include "panels/KeywordsPage.hpp"
 #include "panels/ThemePage.hpp"
+#include "ui/UIManager.hpp"
 using namespace fbide;
 
 SettingsDialog::SettingsDialog(wxWindow* parent, Context& ctx)

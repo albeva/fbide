@@ -6,11 +6,11 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "ui/controls/Panel.hpp"
-#include "ui/controls/ColorPicker.hpp"
 #include "SettingsCategory.hpp"
 #include "config/Theme.hpp"
 #include "config/Value.hpp"
+#include "ui/controls/ColorPicker.hpp"
+#include "ui/controls/Panel.hpp"
 
 namespace fbide {
 
@@ -52,24 +52,24 @@ private:
     void applyCapability();
     void syncActiveThemeConfig();
 
-    Unowned<wxListBox>    m_typeList;
-    Unowned<wxChoice>     m_themeChoice;
-    Unowned<ColorPicker>  m_fgPicker;
-    Unowned<ColorPicker>  m_bgPicker;
-    Unowned<ColorPicker>  m_separatorPicker;
-    Unowned<wxChoice>     m_fontChoice;
+    Unowned<wxListBox> m_typeList;
+    Unowned<wxChoice> m_themeChoice;
+    Unowned<ColorPicker> m_fgPicker;
+    Unowned<ColorPicker> m_bgPicker;
+    Unowned<ColorPicker> m_separatorPicker;
+    Unowned<wxChoice> m_fontChoice;
     Unowned<wxStaticText> m_fontOptionsLabel;
-    Unowned<wxCheckBox>   m_chkBold;
-    Unowned<wxCheckBox>   m_chkItalic;
-    Unowned<wxCheckBox>   m_chkUnderline;
-    Unowned<wxSpinCtrl>   m_spinFontSize;
+    Unowned<wxCheckBox> m_chkBold;
+    Unowned<wxCheckBox> m_chkItalic;
+    Unowned<wxCheckBox> m_chkUnderline;
+    Unowned<wxSpinCtrl> m_spinFontSize;
     Unowned<wxStaticText> m_lblFont;
     Unowned<wxStaticText> m_lblFontSize;
 
     wxStaticBoxSizer* m_themeBox = nullptr;
 
     wxString m_activeTheme;
-    Theme    m_theme {};
+    Theme m_theme {};
 
     int m_selectedRow = 0;
     const Value& m_tr;

@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "editor/TextEncoding.hpp"
+#include "document/TextEncoding.hpp"
 
 namespace fbide {
 

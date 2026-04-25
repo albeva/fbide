@@ -6,8 +6,8 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "DocumentType.hpp"
 #include "config/Theme.hpp"
+#include "document/DocumentType.hpp"
 
 namespace fbide {
 class Context;

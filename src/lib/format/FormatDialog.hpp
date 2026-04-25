@@ -6,8 +6,8 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "ui/controls/Layout.hpp"
 #include "analyses/lexer/Token.hpp"
+#include "ui/controls/Layout.hpp"
 
 namespace fbide {
 class Context;

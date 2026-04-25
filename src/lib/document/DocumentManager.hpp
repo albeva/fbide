@@ -6,9 +6,9 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "TextEncoding.hpp"
 #include "Document.hpp"
 #include "DocumentType.hpp"
+#include "TextEncoding.hpp"
 
 namespace fbide {
 class Context;

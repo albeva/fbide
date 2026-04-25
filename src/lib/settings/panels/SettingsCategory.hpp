@@ -80,7 +80,7 @@ inline auto readCategory(const Theme& theme, const SettingsCategory cat) -> Them
     }
     switch (cat) {
         // clang-format off
-        #define EXTRA_CASE(NAME, ...) case SettingsCategory::NAME: return { theme.get##NAME() };
+        #define EXTRA_CASE(NAME, ...) case SettingsCategory::NAME: return { theme.get## NAME() };
             DEFINE_THEME_EXTRA_PROPERTY(EXTRA_CASE)
         #undef EXTRA_CASE
         // clang-format on
