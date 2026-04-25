@@ -41,14 +41,14 @@ Indexed task list derived from `LEXER_UNIFICATION_PLAN.md`. Implement iterativel
 
 ## Phase 3 — Switch consumers
 
-- [ ] **T29** — Add `configureFbWordlists(FBSciLexer&, const Keywords&)` helper. Used by AutoIndent, FormatDialog, anywhere else needing a configured headless lexer.
-- [ ] **T30** — Change `indent::decide` signature to `decide(const wxString& prevLine, const Keywords& kw)`. Drop empty-wordlist hack. Update single caller `CodeTransformer::applyIndentAndCloser`. Update `AutoIndentTests` to pass real keywords.
-- [ ] **T31** — Switch AutoIndent internals to use new `Lexer` via `MemoryDocument` + `FBSciLexer` + `MemoryDocStyledSource`.
-- [ ] **T32** — Switch `FormatDialog` / `ReFormatter` / `TreeBuilder` token construction site to new `Lexer`.
-- [ ] **T33** — Switch `CaseTransform` callers (formatter pipeline) to new `Lexer`. CaseTransform itself unchanged (consumes `vector<Token>`).
-- [ ] **T34** — `WxStcStyledSource::getCharRange` uses `wxStyledTextCtrl::GetTextRangeRaw` (returns UTF-8 `wxCharBuffer` without conversion alloc).
-- [ ] **T35** — `CodeTransformer::applyWordCase` fast path: drop full lex, use `editor.Colourise(lineStart, wordEnd)` + `GetStyleAt(wordStart)`. Skip transform if not a keyword style. **Closes the field-access bug.**
-- [ ] **T36** — `CodeTransformer::transformRange` paste path: use new `Lexer` via `WxStcStyledSource`. Drop `m_lexer`, `m_tokenBuffer`, `buildKeywordGroups`.
+- [x] **T29** — Add `configureFbWordlists(FBSciLexer&, const Keywords&)` helper. Used by AutoIndent, FormatDialog, anywhere else needing a configured headless lexer.
+- [x] **T30** — Deviation: kept `decide(prevLine)` signature; AutoIndent uses `structuralKeywordsList()` (hard-coded structural words) instead of user wordlist. AutoIndent doesn't need user keyword config — only block detection.
+- [x] **T31** — AutoIndent runs FBSciLexer + StyleLexer over a per-call MemoryDocument. Appends `\n` to input to dodge FBSciLexer's at-EOF Default reset.
+- [x] **T32** — FormatDialog uses StyleLexer pipeline. TreeBuilder/ReFormatter/renderers unchanged (consume `vector<Token>`).
+- [x] **T33** — No-op: CaseTransform consumes Tokens; FormatDialog feeds it the new pipeline output (T32).
+- [x] **T34** — Done in T8 (WxStcStyledSource uses GetTextRangeRaw).
+- [x] **T35** — CodeTransformer hot path: Colourise + GetStyleAt(wordStart). If style is in `kThemeKeywordCategories`, apply case transform. **Field-access bug closed.**
+- [x] **T36** — CodeTransformer paste path: WxStcStyledSource + StyleLexer. Drops m_lexer / m_tokenBuffer / buildKeywordGroups / `lexer::Lexer` dep entirely.
 
 ## Phase 4 — Cleanup
 
