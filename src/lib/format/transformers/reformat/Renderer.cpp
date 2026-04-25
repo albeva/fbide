@@ -220,6 +220,14 @@ auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
         return true;
     }
 
+    // Keyword operators (And, Or, Not, Mod, Xor, Shl, Shr) are styled as
+    // KeywordOperators by FBSciLexer. They need whitespace on both sides:
+    // `x AND (y)` not `x AND(y)`.
+    if (prev.kind == TokenKind::KeywordOperators
+        || curr.kind == TokenKind::KeywordOperators) {
+        return true;
+    }
+
     // After ( or [ → no space
     if (prevOp == ParenOpen || prevOp == BracketOpen) {
         return false;
