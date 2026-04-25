@@ -564,23 +564,26 @@ void Editor::onModified(wxStyledTextEvent& event) {
     }
     m_ctx.getDocumentManager().updateActiveTabTitle();
 
-    // Bulk insert (paste, drop, ...) → run keyword case over the inserted
-    // range. Single-char inserts come from typing and are handled by
-    // EVT_STC_CHARADDED instead. The transformer's own re-entry guard
-    // prevents recursion on our own ReplaceTarget / InsertText calls.
+    // Forward every insert (any length) so the transformer can mark a
+    // "caret moved due to typing" flag — needed to suppress on-caret case
+    // transforms during keystrokes. Bulk inserts (>1 char) ALSO trigger the
+    // paste path; single-char inserts only set the flag.
     //
     // Modifications inside SCN_MODIFIED notification are not allowed by
-    // Scintilla — silently dropped. Defer via CallAfter so the transform
-    // runs in a fresh event loop iteration after the paste settles.
-    if (m_transformer != nullptr
-        && (mod & wxSTC_MOD_INSERTTEXT) != 0
-        && event.GetLength() > 1) {
+    // Scintilla — silently dropped. Defer the heavyweight bulk handler via
+    // CallAfter; the lightweight flag-set on single chars must happen
+    // synchronously before the upcoming UPDATEUI fires.
+    if (m_transformer != nullptr && (mod & wxSTC_MOD_INSERTTEXT) != 0) {
         const int pos = event.GetPosition();
         const int length = event.GetLength();
-        CallAfter([this, pos, length] {
-            if (m_transformer != nullptr) {
-                m_transformer->onTextInserted(*this, pos, length);
-            }
-        });
+        if (length > 1) {
+            CallAfter([this, pos, length] {
+                if (m_transformer != nullptr) {
+                    m_transformer->onTextInserted(*this, pos, length);
+                }
+            });
+        } else {
+            m_transformer->onTextInserted(*this, pos, length);
+        }
     }
 }
