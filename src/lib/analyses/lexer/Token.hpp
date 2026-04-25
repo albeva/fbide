@@ -183,6 +183,11 @@ enum class OperatorKind : std::uint8_t {
     Dollar,      // $
     Percent,     // %
     Exclamation, // !
+
+    /// Catch-all for operators the formatter does not branch on
+    /// (`<`, `<=`, `<<`, `<<=`, `==`, `<>`, `>>`, `>>=`, `^`, `\`, `&`,
+    /// compound assignments, etc.). Token text carries the literal.
+    Other,
 };
 
 /// A single token from the lexer.
