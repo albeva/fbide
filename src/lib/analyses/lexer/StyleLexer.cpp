@@ -184,7 +184,7 @@ void StyleLexer::emitDefault(StyleRange r, std::vector<Token>& out) {
             // that this newline ends. continueLine=true means a `_` marker on
             // the source line — the formatter must keep the logical statement
             // open across this newline.
-            const auto lineEndPos = static_cast<Sci_PositionU>(r.start + i);
+            const auto lineEndPos = r.start + static_cast<Sci_PositionU>(i);
             const auto line = m_src.lineFromPosition(lineEndPos);
             const auto continuation = m_src.lineState(line).continueLine;
             out.push_back(Token{

@@ -93,14 +93,14 @@ Sci_Position SCI_METHOD MemoryDocument::Length() const {
 }
 
 void SCI_METHOD MemoryDocument::GetCharRange(char* buffer, Sci_Position position, Sci_Position lengthRetrieve) const {
-    m_text.copy(buffer, lengthRetrieve, position);
+    m_text.copy(buffer, static_cast<std::size_t>(lengthRetrieve), static_cast<std::size_t>(position));
 }
 
 char SCI_METHOD MemoryDocument::StyleAt(Sci_Position position) const {
     if (position < 0) {
         return 0;
     }
-    return m_textStyles.at(position);
+    return m_textStyles.at(static_cast<std::size_t>(position));
 }
 
 Sci_Position SCI_METHOD MemoryDocument::LineFromPosition(Sci_Position position) const {
@@ -108,7 +108,7 @@ Sci_Position SCI_METHOD MemoryDocument::LineFromPosition(Sci_Position position) 
         return MaxLine();
     }
     const auto it = std::lower_bound(m_lineStarts.begin(), m_lineStarts.end(), position);
-    auto line = static_cast<Sci_Position>(it - m_lineStarts.begin());
+    auto line = it - m_lineStarts.begin();
     if (*it > position) {
         line--;
     }
@@ -122,26 +122,26 @@ Sci_Position SCI_METHOD MemoryDocument::LineStart(Sci_Position line) const {
     if (line >= static_cast<Sci_Position>(m_lineStarts.size())) {
         return Length();
     }
-    return m_lineStarts.at(line);
+    return m_lineStarts.at(static_cast<std::size_t>(line));
 }
 
 int SCI_METHOD MemoryDocument::GetLevel(Sci_Position line) const {
-    return m_lineLevels.at(line);
+    return m_lineLevels.at(static_cast<std::size_t>(line));
 }
 
 int SCI_METHOD MemoryDocument::SetLevel(Sci_Position line, int level) {
     if (line == static_cast<Sci_Position>(m_lineLevels.size())) {
         return 0x400;
     }
-    return m_lineLevels.at(line) = level;
+    return m_lineLevels.at(static_cast<std::size_t>(line)) = level;
 }
 
 int SCI_METHOD MemoryDocument::GetLineState(Sci_Position line) const {
-    return m_lineStates.at(line);
+    return m_lineStates.at(static_cast<std::size_t>(line));
 }
 
 int SCI_METHOD MemoryDocument::SetLineState(Sci_Position line, int state) {
-    return m_lineStates.at(line) = state;
+    return m_lineStates.at(static_cast<std::size_t>(line)) = state;
 }
 
 void SCI_METHOD MemoryDocument::StartStyling(Sci_Position position) {
@@ -150,7 +150,7 @@ void SCI_METHOD MemoryDocument::StartStyling(Sci_Position position) {
 
 bool SCI_METHOD MemoryDocument::SetStyleFor(Sci_Position length, char style) {
     for (Sci_Position i = 0; i < length; i++) {
-        m_textStyles.at(m_endStyled) = style;
+        m_textStyles.at(static_cast<std::size_t>(m_endStyled)) = style;
         m_endStyled++;
     }
     return true;
@@ -159,7 +159,7 @@ bool SCI_METHOD MemoryDocument::SetStyleFor(Sci_Position length, char style) {
 bool SCI_METHOD MemoryDocument::SetStyles(Sci_Position length, const char* styles) {
     assert(styles);
     for (Sci_Position i = 0; i < length; i++) {
-        m_textStyles.at(m_endStyled) = styles[i];
+        m_textStyles.at(static_cast<std::size_t>(m_endStyled)) = static_cast<char>(styles[i]);
         m_endStyled++;
     }
     return true;
@@ -202,7 +202,7 @@ Sci_Position SCI_METHOD MemoryDocument::LineEnd(Sci_Position line) const {
     assert(line < maxLine);
     auto position = LineStart(line + 1);
     position--; // Back over CR or LF
-    if (position > LineStart(line) && m_text.at(position - 1) == '\r') {
+    if (position > LineStart(line) && m_text.at(static_cast<std::size_t>(position - 1)) == '\r') {
         position--;
     }
     return position;
@@ -215,14 +215,14 @@ Sci_Position SCI_METHOD MemoryDocument::GetRelativePosition(Sci_Position positio
             if (pos <= 0) {
                 return -1;
             }
-            unsigned char previousByte = m_text.at(pos - 1);
+            auto previousByte = static_cast<unsigned char>(m_text.at(static_cast<std::size_t>(pos - 1)));
             if (previousByte < 0x80) {
                 pos--;
                 characterOffset++;
             } else {
                 while (pos > 1 && UTF8IsTrailByte(previousByte)) {
                     pos--;
-                    previousByte = m_text.at(pos - 1);
+                    previousByte = static_cast<unsigned char>(m_text.at(static_cast<std::size_t>(pos - 1)));
                 }
                 pos--;
                 characterOffset++;
@@ -247,7 +247,7 @@ int SCI_METHOD MemoryDocument::GetCharacterAndWidth(Sci_Position position, Sci_P
         }
         return '\0';
     }
-    const auto leadByte = static_cast<unsigned char>(m_text.at(position));
+    const auto leadByte = static_cast<unsigned char>(m_text.at(static_cast<std::size_t>(position)));
     if (leadByte < 0x80) {
         if (pWidth != nullptr) {
             *pWidth = 1;
@@ -257,7 +257,7 @@ int SCI_METHOD MemoryDocument::GetCharacterAndWidth(Sci_Position position, Sci_P
     const auto widthCharBytes = static_cast<int>(UTF8BytesOfLead[leadByte]);
     unsigned char charBytes[] = { leadByte, 0, 0, 0 };
     for (int b = 1; b < widthCharBytes; b++) {
-        charBytes[b] = m_text.at(position + b);
+        charBytes[b] = static_cast<unsigned char>(m_text.at(static_cast<std::size_t>(position + b)));
     }
     if (pWidth != nullptr) {
         *pWidth = widthCharBytes;

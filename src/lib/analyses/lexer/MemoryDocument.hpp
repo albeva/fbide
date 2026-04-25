@@ -19,6 +19,14 @@
 
 namespace fbide {
 
+// Scintilla's IDocument has virtual functions but no virtual destructor.
+// Patching the vendored header would change vtable ABI vs the prebuilt
+// Lexilla in static-wxWidgets builds, so suppress the warning here.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
+#endif
+
 /// In-memory implementation of `Scintilla::IDocument`. Holds text, per-byte
 /// style bytes, line starts, and per-line state/level. UTF-8 only.
 class MemoryDocument final : public Scintilla::IDocument {
@@ -67,5 +75,9 @@ public:
     Sci_Position SCI_METHOD GetRelativePosition(Sci_Position positionStart, Sci_Position characterOffset) const override;
     int SCI_METHOD GetCharacterAndWidth(Sci_Position position, Sci_Position* pWidth) const override;
 };
+
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 } // namespace fbide
