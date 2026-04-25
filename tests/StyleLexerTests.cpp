@@ -247,13 +247,28 @@ TEST_F(StyleLexerTests, CommentTokenExcludesTrailingNewline) {
 
 TEST_F(StyleLexerTests, CommentTokenExcludesTrailingCarriageReturnOnCRLF) {
     // FBSciLexer ends comments at the \n of CRLF, leaving \r inside the
-    // Comment style range. StyleLexer trims it so HTML output doesn't wrap
-    // the \r inside a styled <span>.
+    // Comment style range. StyleLexer moves it onto the following Newline
+    // so HTML output doesn't wrap the \r inside a styled <span>.
     auto t = lex("' foo\r\n");
     for (const auto& tok : t) {
         if (tok.kind == TokenKind::Comment) {
             EXPECT_EQ(tok.text, "' foo");
+        }
+        if (tok.kind == TokenKind::Newline) {
+            EXPECT_EQ(tok.text, "\r\n");
+        }
+    }
+}
+
+TEST_F(StyleLexerTests, PreprocessorTokenExcludesTrailingCarriageReturnOnCRLF) {
+    // Same trim applies to #directive lines under CRLF.
+    auto t = lex("#ifdef FOO\r\n");
+    for (const auto& tok : t) {
+        if (tok.kind == TokenKind::Preprocessor) {
             EXPECT_EQ(tok.text.find('\r'), std::string::npos);
+        }
+        if (tok.kind == TokenKind::Newline) {
+            EXPECT_EQ(tok.text, "\r\n");
         }
     }
 }

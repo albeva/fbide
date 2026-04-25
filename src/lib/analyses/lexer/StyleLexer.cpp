@@ -180,6 +180,15 @@ void StyleLexer::emitDefault(const StyleRange& r, std::vector<Token>& out) {
             if (c == '\r' && end < text.size() && text[end] == '\n') {
                 end++;
             }
+            // FBSciLexer keeps a `\r` (of CRLF) inside the previous styled run
+            // (Comment / Preprocessor / etc.). Move it onto the Newline token
+            // so HTML / formatter output doesn't wrap it inside a styled span.
+            std::string newlineText = text.substr(i, end - i);
+            if (c == '\n' && !out.empty() && !out.back().text.empty()
+                && out.back().text.back() == '\r') {
+                out.back().text.pop_back();
+                newlineText = "\r" + newlineText;
+            }
             // Mark continuation: query FBSciLexer's per-line state for the line
             // that this newline ends. continueLine=true means a `_` marker on
             // the source line — the formatter must keep the logical statement
@@ -194,7 +203,7 @@ void StyleLexer::emitDefault(const StyleRange& r, std::vector<Token>& out) {
                 ThemeCategory::Default,
                 false,
                 continuation,
-                text.substr(i, end - i),
+                std::move(newlineText),
             });
             m_canBeUnary = true;
             m_inPpLine = false;
@@ -338,16 +347,6 @@ void StyleLexer::emitPreprocessor(const StyleRange& r, std::vector<Token>& out) 
 }
 
 void StyleLexer::emitSimple(const StyleRange& r, TokenKind kind, std::vector<Token>& out) {
-    auto text = stringFromRange(r.start, r.end);
-    // FBSciLexer ends single-line comments at the `\n` of a CRLF pair, so the
-    // `\r` lands inside the Comment range. Trim it off so HTML / formatter
-    // output doesn't wrap the carriage return inside a styled span — emit it
-    // as a Whitespace token instead so round-tripping preserves the byte.
-    std::string trailingCr;
-    if (kind == TokenKind::Comment && !text.empty() && text.back() == '\r') {
-        trailingCr.assign(1, '\r');
-        text.pop_back();
-    }
     out.push_back(Token{
         kind,
         KeywordKind::None,
@@ -355,19 +354,8 @@ void StyleLexer::emitSimple(const StyleRange& r, TokenKind kind, std::vector<Tok
         r.style,
         false,
         false,
-        std::move(text),
+        stringFromRange(r.start, r.end),
     });
-    if (!trailingCr.empty()) {
-        out.push_back(Token{
-            TokenKind::Whitespace,
-            KeywordKind::None,
-            OperatorKind::None,
-            ThemeCategory::Default,
-            false,
-            false,
-            std::move(trailingCr),
-        });
-    }
     // After a value-producing token (number/string/identifier/label) next
     // operator is binary. After a comment the surrounding state is unchanged
     // — but we conservatively treat CommentBlock as unary-eligible since the
