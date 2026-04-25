@@ -28,7 +28,7 @@ constexpr std::array lexicalClasses {
     Lexilla::LexicalClass { +ThemeCategory::KeywordTypes, "state.keyword.types", "keyword", "Types" },
     Lexilla::LexicalClass { +ThemeCategory::KeywordOperators, "state.keyword.operators", "keyword", "Operators" },
     Lexilla::LexicalClass { +ThemeCategory::KeywordConstants, "state.keyword.constants", "keyword", "Defines" },
-    Lexilla::LexicalClass { +ThemeCategory::KeywordLibrary, "state.custom1", "keyword", "User keywords 1" },
+    Lexilla::LexicalClass { +ThemeCategory::KeywordLibrary, "state.library", "keyword", "FreeBASIC runtime library" },
     Lexilla::LexicalClass { +ThemeCategory::KeywordCustom, "state.custom2", "keyword", "User keywords 2" },
     Lexilla::LexicalClass { +ThemeCategory::KeywordPP, "state.keyword.preprocessor", "keyword", "Preprocessor keyword" },
     Lexilla::LexicalClass { +ThemeCategory::KeywordAsm1, "state.keyword.asm1", "keyword", "Asm keywords 1" },
