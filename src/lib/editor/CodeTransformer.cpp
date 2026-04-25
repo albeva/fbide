@@ -52,8 +52,14 @@ CodeTransformer::~CodeTransformer() = default;
 void CodeTransformer::applySettings() {
     const auto& editor = m_ctx.getConfigManager().config().at("editor");
     m_autoIndent = editor.get_or("autoIndent", true);
-    m_keywordCase = CaseMode::parse(editor.get_or("keywordCase", "Lower").ToStdString())
-                        .value_or(CaseMode::Lower);
+    m_transformKeywords = editor.get_or("transformKeywords", true);
+
+    const auto& cases = m_ctx.getConfigManager().keywords().at("cases");
+    for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
+        const auto key = wxString(getThemeCategoryName(kThemeKeywordCategories[idx]));
+        m_keywordCases[idx] = CaseMode::parse(cases.get_or(key, "None").ToStdString())
+                                  .value_or(CaseMode::None);
+    }
 }
 
 void CodeTransformer::onCharAdded(Editor& editor, const int ch) {
@@ -63,7 +69,7 @@ void CodeTransformer::onCharAdded(Editor& editor, const int ch) {
     // a word character ends the previous identifier. Run this first so
     // the boundary char (including newline) finalises the previous word
     // before we touch indentation.
-    if (!isWordChar(ch) && m_keywordCase != CaseMode::None) {
+    if (!isWordChar(ch) && m_transformKeywords) {
         applyWordCase(editor, ch);
     }
 
@@ -131,7 +137,7 @@ void CodeTransformer::onCaretMoved(Editor& editor, const int oldPos, const int n
         m_pendingTextChange = false;
         return;
     }
-    if (m_keywordCase == CaseMode::None) {
+    if (!m_transformKeywords) {
         return;
     }
     if (oldPos <= 0) {
@@ -180,10 +186,15 @@ void CodeTransformer::transformWordInRange(Editor& editor, const int wordStart, 
         return;
     }
 
+    const auto caseMode = m_keywordCases[indexOfKeywordGroup(style)];
+    if (caseMode == CaseMode::None) {
+        return;
+    }
+
     const auto wxOriginal = editor.GetTextRange(wordStart, wordEnd);
     const auto utf8 = wxOriginal.utf8_str();
     const std::string original { utf8.data(), utf8.length() };
-    const auto transformed = m_keywordCase.apply(original);
+    const auto transformed = caseMode.apply(original);
     if (transformed == original) {
         return;
     }
@@ -207,7 +218,7 @@ void CodeTransformer::onTextInserted(Editor& editor, const int pos, const int le
     // External text change — flag for the upcoming onCaretMoved so it
     // doesn't mistake a typing-induced caret bump for a navigation away.
     m_pendingTextChange = true;
-    if (m_keywordCase == CaseMode::None) {
+    if (!m_transformKeywords) {
         return;
     }
     if (length <= 1) {
@@ -235,7 +246,12 @@ void CodeTransformer::transformRange(Editor& editor, const int rangeStart, const
         const int absStart = static_cast<int>(pos);
         const int absEnd = absStart + len;
         if (lexer::isKeywordToken(t.kind) && absEnd > rangeStart && absStart < rangeEnd) {
-            auto cased = m_keywordCase.apply(std::string { t.text });
+            const auto caseMode = m_keywordCases[indexOfKeywordGroup(t.style)];
+            if (caseMode == CaseMode::None) {
+                pos += t.text.size();
+                continue;
+            }
+            auto cased = caseMode.apply(std::string { t.text });
             if (cased != t.text) {
                 editor.SetTargetRange(absStart, absEnd);
                 editor.ReplaceTarget(wxString::FromUTF8(cased.c_str(), cased.size()));
@@ -248,10 +264,11 @@ void CodeTransformer::transformRange(Editor& editor, const int rangeStart, const
 }
 
 auto CodeTransformer::renderCloser(const std::span<const std::string_view> words) const -> wxString {
-    // `None` is a no-op for user-typed keywords, but closers still need a
-    // concrete case — default to lowercase so the output is at least
-    // consistent rather than raw placeholder.
-    const auto rule = m_keywordCase == CaseMode::None ? CaseMode { CaseMode::Lower } : m_keywordCase;
+    // Closers are Keyword1 words (`end`, `if`, `sub`, ...). Use that group's
+    // configured case rule. `None` falls back to lowercase so output is at
+    // least consistent rather than raw placeholder.
+    const auto kw1Mode = m_keywordCases[indexOfKeywordGroup(ThemeCategory::Keyword1)];
+    const auto rule = kw1Mode == CaseMode::None ? CaseMode { CaseMode::Lower } : kw1Mode;
 
     wxString out;
     for (std::size_t i = 0; i < words.size(); i++) {

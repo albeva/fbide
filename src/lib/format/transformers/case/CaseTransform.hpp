@@ -22,6 +22,9 @@ public:
         Mixed, ///< Capitalised — first char upper, rest lower
     };
 
+    constexpr CaseMode() noexcept
+    : m_mode(None) {}
+
     constexpr CaseMode(const Value v) noexcept
     : m_mode(v) {}
 

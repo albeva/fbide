@@ -8,11 +8,12 @@
 #include "pch.hpp"
 #include "app/Context.hpp"
 #include "config/ThemeCategory.hpp"
+#include "format/transformers/case/CaseTransform.hpp"
 #include "ui/controls/Panel.hpp"
 
 namespace fbide {
 
-/// Keywords settings tab — keyword group editor.
+/// Keywords settings tab — keyword group editor with per-group case dropdown.
 class KeywordsPage final : public Panel {
 public:
     NO_COPY_AND_MOVE(KeywordsPage)
@@ -27,11 +28,15 @@ private:
     }
 
     void onGroupChanged(const wxCommandEvent& event);
+    void onCaseChanged(const wxCommandEvent& event);
+    void stashCurrent();
 
     Unowned<wxChoice> m_groupChoice;
+    Unowned<wxChoice> m_caseChoice;
     Unowned<wxTextCtrl> m_textKeywords;
     std::size_t m_selectedGroup = 0;
     std::array<wxString, kThemeKeywordGroupsCount> m_groups {};
+    std::array<CaseMode, kThemeKeywordGroupsCount> m_cases { CaseMode::None };
 };
 
 } // namespace fbide

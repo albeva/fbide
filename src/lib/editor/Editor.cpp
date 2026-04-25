@@ -202,10 +202,10 @@ void Editor::applyFreebasicTheme() {
     SetILexer(FBSciLexer::Create());
 
     // Apply keywords
-    const auto& keywords = m_ctx.getConfigManager().keywords();
+    const auto& groups = m_ctx.getConfigManager().keywords().at("groups");
     for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
         const auto key = getThemeCategoryName(kThemeKeywordCategories[idx]);
-        SetKeyWords(static_cast<int>(idx), keywords.get_or(wxString(key), "").Lower());
+        SetKeyWords(static_cast<int>(idx), groups.get_or(wxString(key), "").Lower());
     }
 
     for (const auto cat : kThemeCategories) {

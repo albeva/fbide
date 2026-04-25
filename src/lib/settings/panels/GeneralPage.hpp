@@ -28,7 +28,7 @@ private:
 
     // Left column
     bool m_autoIndent;
-    wxString m_keywordCase; // CaseMode key (None / Lower / Upper / Mixed)
+    bool m_transformKeywords; // master on/off for the per-group case transform
     bool m_indentGuide;
     bool m_showWhiteSpaces;
     bool m_showLineEndings;

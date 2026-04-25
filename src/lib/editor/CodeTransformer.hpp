@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "config/ThemeCategory.hpp"
 #include "format/transformers/case/CaseTransform.hpp"
 
 namespace fbide {
@@ -82,7 +83,11 @@ private:
     /// mouse). Without this, every keystroke looks like a navigation away
     /// from a partial word and triggers premature case transforms.
     bool m_pendingTextChange = false;
-    CaseMode m_keywordCase = CaseMode::Lower;
+    /// Master on/off for the per-keyword-group case transform.
+    bool m_transformKeywords = true;
+    /// Per keyword group case rule (None = leave alone). Indexed by
+    /// `indexOfKeywordGroup(category)`.
+    std::array<CaseMode, kThemeKeywordGroupsCount> m_keywordCases {};
 
     friend struct ActionGuard;
 };
