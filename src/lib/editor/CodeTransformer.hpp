@@ -46,6 +46,13 @@ public:
     /// pasted range — does NOT touch indentation.
     void onTextInserted(Editor& editor, int pos, int length);
 
+    /// True while the transformer is processing one of its own modifications
+    /// (ReplaceTarget / InsertText). Editor uses this to suppress forwarding
+    /// the resulting MODIFIED event back into onTextInserted via CallAfter —
+    /// otherwise file load → transformRange → ReplaceTarget → CallAfter →
+    /// transformRange → ... loops forever once the action guard releases.
+    [[nodiscard]] auto isInAction() const -> bool { return m_inAction; }
+
     /// Suppress paste handling for the duration of a programmatic bulk
     /// insert (e.g. file load via SetText). Use the RAII helper below.
     class Suspend {

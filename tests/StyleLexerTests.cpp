@@ -106,7 +106,7 @@ TEST_F(StyleLexerTests, Keyword1ClassifiedAsIf) {
     ASSERT_EQ(t.size(), 1u);
     EXPECT_EQ(t[0].kind, TokenKind::Keywords);
     EXPECT_EQ(t[0].keywordKind, KeywordKind::If);
-    EXPECT_EQ(t[0].style, ThemeCategory::Keyword1);
+    EXPECT_EQ(t[0].style, ThemeCategory::Keywords);
 }
 
 TEST_F(StyleLexerTests, Keyword2NonStructural) {

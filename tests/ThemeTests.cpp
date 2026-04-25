@@ -24,7 +24,7 @@ TEST_F(ThemeTests, LoadV4Classic) {
     EXPECT_EQ(theme.get(ThemeCategory::Default).colors.background, *wxWHITE);
     EXPECT_EQ(theme.get(ThemeCategory::Default).colors.foreground, *wxBLACK);
     EXPECT_EQ(theme.getFontSize(), 12);
-    EXPECT_TRUE(theme.get(ThemeCategory::Keyword1).bold);
+    EXPECT_TRUE(theme.get(ThemeCategory::Keywords).bold);
     EXPECT_EQ(theme.getVersion(), Version::oldFbide());
 }
 
@@ -41,7 +41,7 @@ TEST_F(ThemeTests, LoadDispatchDetectsFbt) {
 
     // Dispatching via extension populates the same fields as loadV4.
     EXPECT_EQ(theme.getFontSize(), 12);
-    EXPECT_TRUE(theme.get(ThemeCategory::Keyword1).bold);
+    EXPECT_TRUE(theme.get(ThemeCategory::Keywords).bold);
     EXPECT_EQ(theme.getVersion(), Version::oldFbide());
 }
 
@@ -57,7 +57,7 @@ TEST_F(ThemeTests, SaveAndReload) {
     EXPECT_EQ(reloaded.get(ThemeCategory::Default).colors.background, *wxWHITE);
     EXPECT_EQ(reloaded.get(ThemeCategory::Default).colors.foreground, *wxBLACK);
     EXPECT_EQ(reloaded.getFontSize(), 12);
-    EXPECT_TRUE(reloaded.get(ThemeCategory::Keyword1).bold);
+    EXPECT_TRUE(reloaded.get(ThemeCategory::Keywords).bold);
     // Save stamps current version on write.
     EXPECT_EQ(reloaded.getVersion(), Version::fbide());
 

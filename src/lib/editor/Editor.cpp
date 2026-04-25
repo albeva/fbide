@@ -573,7 +573,8 @@ void Editor::onModified(wxStyledTextEvent& event) {
     // Scintilla — silently dropped. Defer the heavyweight bulk handler via
     // CallAfter; the lightweight flag-set on single chars must happen
     // synchronously before the upcoming UPDATEUI fires.
-    if (m_transformer != nullptr && (mod & wxSTC_MOD_INSERTTEXT) != 0) {
+    if (m_transformer != nullptr && (mod & wxSTC_MOD_INSERTTEXT) != 0
+        && !m_transformer->isInAction()) {
         const int pos = event.GetPosition();
         const int length = event.GetLength();
         if (length > 1) {
