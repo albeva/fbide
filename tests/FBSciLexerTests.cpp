@@ -22,8 +22,8 @@ protected:
         m_lexer->WordListSet(1, "integer string single double long byte");        // Keyword2
         m_lexer->WordListSet(2, "and or not mod xor");                            // Keyword3
         m_lexer->WordListSet(3, "__fb_version__");                                // Keyword4
-        m_lexer->WordListSet(4, "");                                              // KeywordCustom1
-        m_lexer->WordListSet(5, "");                                              // KeywordCustom2
+        m_lexer->WordListSet(4, "");                                              // KeywordCustom
+        m_lexer->WordListSet(5, "");                                              // KeywordCustom
         m_lexer->WordListSet(6, "if ifdef ifndef else elseif endif macro endmacro"); // KeywordPP
         m_lexer->WordListSet(7, "mov push pop ret jmp");                          // KeywordAsm1
         m_lexer->WordListSet(8, "eax ebx ecx edx");                               // KeywordAsm2
@@ -51,8 +51,8 @@ protected:
     /// Legend:
     ///   ' ' = Default    'C' = Comment          'M' = MultilineComment
     ///   'N' = Number     'S' = String            'O' = StringOpen
-    ///   'I' = Identifier '1'..'4' = Keyword1..4  '5' = KeywordCustom1
-    ///   '6' = KeywordCustom2 '7' = KeywordAsm1  '8' = KeywordAsm2
+    ///   'I' = Identifier '1'..'4' = Keyword1..4  '5' = KeywordCustom
+    ///   '6' = KeywordCustom '7' = KeywordAsm1  '8' = KeywordAsm2
     ///   'P' = Operator   'L' = Label             'V' = Constant
     ///   '#' = Preprocessor  'E' = Error
     static auto expect(const std::string& pattern) -> std::vector<S> {
@@ -69,8 +69,8 @@ protected:
             table['2'] = S::KeywordTypes;
             table['3'] = S::KeywordOperators;
             table['4'] = S::KeywordConstants;
-            table['5'] = S::KeywordCustom1;
-            table['6'] = S::KeywordCustom2;
+            table['5'] = S::KeywordLibrary;
+            table['6'] = S::KeywordCustom;
             table['7'] = S::KeywordAsm1;
             table['8'] = S::KeywordAsm2;
             table['P'] = S::Operator;
@@ -103,8 +103,8 @@ protected:
             table[+S::KeywordTypes] = '2';
             table[+S::KeywordOperators] = '3';
             table[+S::KeywordConstants] = '4';
-            table[+S::KeywordCustom1] = '5';
-            table[+S::KeywordCustom2] = '6';
+            table[+S::KeywordLibrary] = '5';
+            table[+S::KeywordCustom] = '6';
             table[+S::KeywordAsm1] = '7';
             table[+S::KeywordAsm2] = '8';
             table[+S::Operator] = 'P';
@@ -308,7 +308,7 @@ TEST_F(FBSciLexerTests, DimStatement) {
 // Newlines in source take the Default style, which format() renders as
 // space — so expected patterns use a space at every line-break position.
 TEST_F(FBSciLexerTests, AsmBlockEnterExit) {
-    // Regular keyword lists (Keyword1-4, KeywordCustom1-2) are suppressed
+    // Regular keyword lists (Keyword1-4, KeywordCustom-2) are suppressed
     // inside asm blocks; asm-only lists (KeywordAsm1='7', KeywordAsm2='8')
     // kick in instead. "end asm" closes the block and restores normal
     // keyword lookup.

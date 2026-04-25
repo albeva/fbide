@@ -28,21 +28,25 @@ inline auto createFbLexer(const wxString& kwIniPath) -> Scintilla::ILexer5* {
     }
     wxFileConfig ini(stream);
     ini.SetPath("/keywords");
-    for (std::size_t i = 0; i < 4; i++) {
+    // kw1..kw6 map to Keywords / KeywordTypes / KeywordOperators /
+    // KeywordConstants / KeywordLibrary / KeywordCustom in ThemeCategory order.
+    for (std::size_t i = 0; i < 6; i++) {
         wxString key;
         key.Printf("kw%zu", i + 1);
         const auto value = ini.Read(key, "").Lower();
         lex->WordListSet(static_cast<int>(i), value.utf8_str());
     }
-    // KeywordPP slot — seed from ppKeywords() so #ifdef/#endif/etc. style
-    // as KeywordPP, letting StyleLexer fill kwKind=PpIfDef etc.
-    std::string pp;
-    for (const auto& [text, _] : lexer::ppKeywords()) {
-        if (!pp.empty()) pp += ' ';
-        pp += text;
+    // KeywordPP slot — prefer kwPP from the .lng, fall back to canonical
+    // ppKeywords() table. Either way #ifdef/#endif/etc. style as KeywordPP.
+    auto pp = ini.Read("kwPP", "").Lower();
+    if (pp.IsEmpty()) {
+        for (const auto& [text, _] : lexer::ppKeywords()) {
+            if (!pp.IsEmpty()) pp += ' ';
+            pp += wxString::FromUTF8(text);
+        }
     }
     constexpr std::size_t ppSlot = indexOfKeywordGroup(ThemeCategory::KeywordPP);
-    lex->WordListSet(static_cast<int>(ppSlot), pp.c_str());
+    lex->WordListSet(static_cast<int>(ppSlot), pp.utf8_str());
     return lex;
 }
 

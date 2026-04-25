@@ -18,7 +18,7 @@ Target categories: `Keywords`, `KeywordTypes`, `KeywordOperators`,
 - [x] `Fbarray (Array Descriptor Structure And Access)` — (KeyPgFBArray.html) → `KeywordTypes`
 - [x] `LBound` — (KeyPgLbound.html) → `KeywordLibrary`
 - [x] `ReDim` — (KeyPgRedim.html) → `Keywords`
-- [x] `Preserve` — (KeyPgPreserve.html) → `Keywords`
+- [x] `Preserve` — (KeyPgPreserve.html) → `KeywordLibrary`
 - [x] `UBound` — (KeyPgUbound.html) → `KeywordLibrary`
 
 ## Bit manipulation [7]
@@ -45,16 +45,16 @@ Target categories: `Keywords`, `KeywordTypes`, `KeywordOperators`,
 - [x] `DefUInt` — (KeyPgDefuint.html) → `Keywords`
 - [x] `Defulongint` — (KeyPgDefulongint.html) → `Keywords`
 - [x] `DefUShort` — (KeyPgDefushort.html) → `Keywords`
-- [x] `Option Base` — (KeyPgOptionbase.html) → `Keywords`
-- [x] `Option ByVal` — (KeyPgOptionbyval.html) → `Keywords`
-- [x] `Option Dynamic` — (KeyPgOptiondynamic.html) → `Keywords`
-- [x] `Option Escape` — (KeyPgOptionescape.html) → `Keywords`
-- [x] `Option Explicit` — (KeyPgOptionexplicit.html) → `Keywords`
-- [x] `Option Gosub` — (KeyPgOptiongosub.html) → `Keywords`
-- [x] `Option Nogosub` — (KeyPgOptionnogosub.html) → `Keywords`
-- [x] `Option NoKeyword` — (KeyPgOptionnokeyword.html) → `Keywords`
-- [x] `Option Private` — (KeyPgOptionprivate.html) → `Keywords`
-- [x] `Option Static` — (KeyPgOptionstatic.html) → `Keywords`
+- [x] `Option Base` — (KeyPgOptionbase.html) → `KeywordLibrary`
+- [x] `Option ByVal` — (KeyPgOptionbyval.html) → `KeywordLibrary`
+- [x] `Option Dynamic` — (KeyPgOptiondynamic.html) → `KeywordLibrary`
+- [x] `Option Escape` — (KeyPgOptionescape.html) → `KeywordLibrary`
+- [x] `Option Explicit` — (KeyPgOptionexplicit.html) → `KeywordLibrary`
+- [x] `Option Gosub` — (KeyPgOptiongosub.html) → `KeywordLibrary`
+- [x] `Option Nogosub` — (KeyPgOptionnogosub.html) → `KeywordLibrary`
+- [x] `Option NoKeyword` — (KeyPgOptionnokeyword.html) → `KeywordLibrary`
+- [x] `Option Private` — (KeyPgOptionprivate.html) → `KeywordLibrary`
+- [x] `Option Static` — (KeyPgOptionstatic.html) → `KeywordLibrary`
 
 ## Console [20]
 
@@ -162,7 +162,7 @@ Target categories: `Keywords`, `KeywordTypes`, `KeywordOperators`,
 - [x] `Ermn` — (KeyPgErmn.html) → `KeywordLibrary`
 - [x] `Err` — (KeyPgErr.html) → `KeywordLibrary`
 - [x] `Error` — (KeyPgError.html) → `KeywordLibrary`
-- [x] `Local` — (KeyPgLocal.html) → `Keywords`
+- [x] `Local` — (KeyPgLocal.html) → `KeywordLibrary`
 - [x] `On Error` — (KeyPgOnerror.html) → `Keywords`
 - [x] `Resume` — (KeyPgResume.html) → `Keywords`
 - [x] `Resume Next` — (KeyPgResumenext.html) → `Keywords`
@@ -170,35 +170,35 @@ Target categories: `Keywords`, `KeywordTypes`, `KeywordOperators`,
 ## Files [30]
 
 - [x] `? # (Shortcut For 'Print #')` — (KeyPgPrintPp.html) → `-`
-- [x] `Access` — (KeyPgAccess.html) → `Keywords`
-- [x] `Append` — (KeyPgAppend.html) → `Keywords`
-- [x] `Binary` — (KeyPgBinary.html) → `Keywords`
+- [x] `Access` — (KeyPgAccess.html) → `KeywordLibrary`
+- [x] `Append` — (KeyPgAppend.html) → `KeywordLibrary`
+- [x] `Binary` — (KeyPgBinary.html) → `KeywordLibrary`
 - [x] `BLoad` — (KeyPgBload.html) → `KeywordLibrary`
 - [x] `BSave` — (KeyPgBsave.html) → `KeywordLibrary`
 - [x] `Close` — (KeyPgClose.html) → `KeywordLibrary`
-- [x] `Encoding` — (KeyPgEncoding.html) → `Keywords`
+- [x] `Encoding` — (KeyPgEncoding.html) → `KeywordLibrary`
 - [x] `EOF` — (KeyPgEof.html) → `KeywordLibrary`
 - [x] `FreeFile` — (KeyPgFreefile.html) → `KeywordLibrary`
 - [x] `Get # (File I/O)` — (KeyPgGetfileio.html) → `KeywordLibrary`
-- [x] `Input (File I/O)` — (KeyPgInputfilemode.html) → `Keywords`
+- [x] `Input (File I/O)` — (KeyPgInputfilemode.html) → `KeywordLibrary`
 - [x] `Input #` — (KeyPgInputPp.html) → `KeywordLibrary`
 - [x] `Line Input #` — (KeyPgLineinputPp.html) → `KeywordLibrary`
 - [x] `LOC` — (KeyPgLoc.html) → `KeywordLibrary`
 - [x] `Lock` — (KeyPgLock.html) → `KeywordLibrary`
 - [x] `LOF` — (KeyPgLof.html) → `KeywordLibrary`
 - [x] `Open` — (KeyPgOpen.html) → `KeywordLibrary`
-- [x] `Output` — (KeyPgOutput.html) → `Keywords`
+- [x] `Output` — (KeyPgOutput.html) → `KeywordLibrary`
 - [x] `Print #` — (KeyPgPrintPp.html) → `KeywordLibrary`
 - [x] `Put # (File I/O)` — (KeyPgPutfileio.html) → `KeywordLibrary`
-- [x] `Random` — (KeyPgRandom.html) → `Keywords`
-- [x] `Read (File Access)` — (KeyPgReadFile.html) → `Keywords`
-- [x] `Read Write (File Access)` — (KeyPgReadWriteFile.html) → `Keywords`
+- [x] `Random` — (KeyPgRandom.html) → `KeywordLibrary`
+- [x] `Read (File Access)` — (KeyPgReadFile.html) → `KeywordLibrary`
+- [x] `Read Write (File Access)` — (KeyPgReadWriteFile.html) → `KeywordLibrary`
 - [x] `Reset` — (KeyPgReset.html) → `KeywordLibrary`
 - [x] `Seek (Statement)` — (KeyPgSeekset.html) → `KeywordLibrary`
 - [x] `Seek (Function)` — (KeyPgSeekreturn.html) → `KeywordLibrary`
 - [x] `Unlock` — (KeyPgUnlock.html) → `KeywordLibrary`
 - [x] `Write #` — (KeyPgWritePp.html) → `KeywordLibrary`
-- [x] `Write (File Access)` — (KeyPgWriteFile.html) → `Keywords`
+- [x] `Write (File Access)` — (KeyPgWriteFile.html) → `KeywordLibrary`
 
 ## Graphics [47]
 
@@ -334,13 +334,13 @@ Target categories: `Keywords`, `KeywordTypes`, `KeywordOperators`,
 - [x] `CAllocate` — (KeyPgCallocate.html) → `KeywordLibrary`
 - [x] `Clear` — (KeyPgClear.html) → `KeywordLibrary`
 - [x] `Deallocate` — (KeyPgDeallocate.html) → `KeywordLibrary`
-- [x] `Delete` — (KeyPgOpDelete.html) → `Keywords`
+- [x] `Delete` — (KeyPgOpDelete.html) → `KeywordOperators`
 - [x] `Fb_Memcopy` — (KeyPgFBMemcopy.html) → `KeywordLibrary`
 - [x] `fb_MemCopyClear` — (KeyPgFBMemcopyclear.html) → `KeywordLibrary`
 - [x] `Fb_Memmove` — (KeyPgFBMemmove.html) → `KeywordLibrary`
 - [x] `Field` — (KeyPgField.html) → `KeywordLibrary`
 - [x] `Fre` — (KeyPgFre.html) → `KeywordLibrary`
-- [x] `New` — (KeyPgOpNew.html) → `Keywords`
+- [x] `New` — (KeyPgOpNew.html) → `KeywordOperators`
 - [x] `Peek` — (KeyPgPeek.html) → `KeywordLibrary`
 - [x] `Poke` — (KeyPgPoke.html) → `KeywordLibrary`
 - [x] `Reallocate` — (KeyPgReallocate.html) → `KeywordLibrary`
@@ -357,17 +357,17 @@ Target categories: `Keywords`, `KeywordTypes`, `KeywordOperators`,
 - [x] `Asm` — (KeyPgAsm.html) → `Keywords`
 - [x] `Data` — (KeyPgData.html) → `Keywords`
 - [x] `End (Block)` — (KeyPgEndblock.html) → `Keywords`
-- [x] `Is (Run-Time Type Information Operator)` — (KeyPgOpIs.html) → `Keywords`
+- [x] `Is (Run-Time Type Information Operator)` — (KeyPgOpIs.html) → `KeywordOperators`
 - [x] `Let` — (KeyPgLet.html) → `Keywords`
-- [x] `OffsetOf` — (KeyPgOffsetof.html) → `Keywords`
+- [x] `OffsetOf` — (KeyPgOffsetof.html) → `KeywordOperators`
 - [x] `Option()` — (KeyPgOption.html) → `Keywords`
 - [x] `To` — (KeyPgTo.html) → `Keywords`
 - [x] `Read` — (KeyPgRead.html) → `Keywords`
 - [x] `Rem` — (KeyPgRem.html) → `Keywords`
 - [x] `Restore` — (KeyPgRestore.html) → `Keywords`
-- [x] `SizeOf` — (KeyPgSizeof.html) → `Keywords`
-- [x] `Swap` — (KeyPgSwap.html) → `Keywords`
-- [x] `TypeOf` — (KeyPgTypeof.html) → `Keywords`
+- [x] `SizeOf` — (KeyPgSizeof.html) → `KeywordOperators`
+- [x] `Swap` — (KeyPgSwap.html) → `KeywordLibrary`
+- [x] `TypeOf` — (KeyPgTypeof.html) → `KeywordOperators`
 
 ## Modularizing [12]
 
@@ -432,12 +432,12 @@ Target categories: `Keywords`, `KeywordTypes`, `KeywordOperators`,
 
 ## Pointers [6]
 
-- [x] `Pointer` — (KeyPgPtr.html) → `KeywordLibrary`
-- [x] `ProcPtr` — (KeyPgOpProcptr.html) → `Keywords`
-- [x] `Ptr (Shortcut For 'Pointer')` — (KeyPgPtr.html) → `KeywordLibrary`
-- [x] `SAdd` — (KeyPgSadd.html) → `Keywords`
-- [x] `StrPtr` — (KeyPgOpStrptr.html) → `Keywords`
-- [x] `VarPtr` — (KeyPgOpVarptr.html) → `Keywords`
+- [x] `Pointer` — (KeyPgPtr.html) → `KeywordTypes`
+- [x] `ProcPtr` — (KeyPgOpProcptr.html) → `KeywordOperators`
+- [x] `Ptr (Shortcut For 'Pointer')` — (KeyPgPtr.html) → `KeywordTypes`
+- [x] `SAdd` — (KeyPgSadd.html) → `KeywordOperators`
+- [x] `StrPtr` — (KeyPgOpStrptr.html) → `KeywordOperators`
+- [x] `VarPtr` — (KeyPgOpVarptr.html) → `KeywordOperators`
 
 ## Predefined symbols [75]
 
