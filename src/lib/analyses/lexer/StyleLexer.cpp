@@ -259,29 +259,31 @@ void StyleLexer::emitPreprocessor(StyleRange r, std::vector<Token>& out) {
     auto text = stringFromRange(r.start, r.end);
     if (!m_inPpLine) {
         // Start a new PP token spanning this run.
-        auto kwKind = KeywordKind::PpOther;
-        ThemeCategory tokenStyle = ThemeCategory::Preprocessor;
-        if (r.style == ThemeCategory::KeywordPP) {
-            const auto& pp = ppKeywords();
-            const auto lower = toLower(text);
-            if (auto it = pp.find(lower); it != pp.end()) {
-                kwKind = it->second;
-            }
-            tokenStyle = ThemeCategory::KeywordPP;
-        }
         m_inPpLine = true;
         m_ppTokenIdx = out.size();
         out.push_back(Token{
             TokenKind::Preprocessor,
-            kwKind,
+            KeywordKind::PpOther,
             OperatorKind::None,
-            tokenStyle,
+            ThemeCategory::Preprocessor,
             false,
             std::move(text),
         });
     } else {
         // Append to the in-progress PP token.
         out[m_ppTokenIdx].text += text;
+    }
+    // KeywordPP carries the directive word — fill kwKind and tag style.
+    // FBSciLexer styles `#` first as Preprocessor, then re-enters and styles
+    // the directive word as KeywordPP, so this branch can fire even after
+    // a Preprocessor run already started the token.
+    if (r.style == ThemeCategory::KeywordPP) {
+        const auto& pp = ppKeywords();
+        const auto runLower = toLower(stringFromRange(r.start, r.end));
+        if (auto it = pp.find(runLower); it != pp.end()) {
+            out[m_ppTokenIdx].keywordKind = it->second;
+        }
+        out[m_ppTokenIdx].style = ThemeCategory::KeywordPP;
     }
     m_canBeUnary = true;
 }

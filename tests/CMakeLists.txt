@@ -20,6 +20,7 @@ add_executable(tests
     FBSciLexerTests.cpp
     LexerTests.cpp
     ReFormatterTests.cpp
+    StyleLexerTests.cpp
     RunCommandTests.cpp
     TextEncodingTests.cpp
     ThemeTests.cpp
