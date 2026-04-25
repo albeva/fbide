@@ -77,6 +77,12 @@ private:
     Context& m_ctx;
     bool m_autoIndent = true;
     bool m_inAction = false; // re-entry guard for STC modification events
+    /// Set by onTextInserted when external text is added; consumed by the
+    /// next onCaretMoved. Distinguishes "caret moved because user typed a
+    /// char" (handled by onCharAdded) from genuine navigation (arrow keys,
+    /// mouse). Without this, every keystroke looks like a navigation away
+    /// from a partial word and triggers premature case transforms.
+    bool m_pendingTextChange = false;
     CaseMode m_keywordCase = CaseMode::Lower;
 
     friend struct ActionGuard;

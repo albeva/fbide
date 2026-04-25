@@ -124,6 +124,13 @@ void CodeTransformer::onCaretMoved(Editor& editor, const int oldPos, const int n
     if (m_inAction) {
         return;
     }
+    // Caret moved because the user just typed a char — let onCharAdded
+    // handle word boundaries when (and if) the typed char is one. Skip
+    // here so partial words don't get prematurely transformed.
+    if (m_pendingTextChange) {
+        m_pendingTextChange = false;
+        return;
+    }
     if (m_keywordCase == CaseMode::None) {
         return;
     }
@@ -197,6 +204,9 @@ void CodeTransformer::onTextInserted(Editor& editor, const int pos, const int le
     if (m_inAction) {
         return;
     }
+    // External text change — flag for the upcoming onCaretMoved so it
+    // doesn't mistake a typing-induced caret bump for a navigation away.
+    m_pendingTextChange = true;
     if (m_keywordCase == CaseMode::None) {
         return;
     }
