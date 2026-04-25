@@ -942,6 +942,22 @@ TEST_F(ReFormatterTests, PreserveFormat_QuirkySpacing) {
     );
 }
 
+TEST_F(ReFormatterTests, ReFormat_ContinuationStaysMultiLine) {
+    // reFormat=true rebuilds spacing, but `_` line continuations must still
+    // produce multi-physical-line output (squashing them into one line would
+    // produce invalid FB).
+    EXPECT_EQ(formatWith(
+        "this _\n"
+        "    . _\n"
+        "    foo()\n",
+        { .tabSize = tabSize, .reIndent = true, .reFormat = true }
+    ),
+        "this _\n"
+        "    . _\n"
+        "    foo()\n"
+    );
+}
+
 TEST_F(ReFormatterTests, PreserveFormat_ContinuationPreserved) {
     EXPECT_EQ(formatWith(
         "Dim x = 1 _\n"

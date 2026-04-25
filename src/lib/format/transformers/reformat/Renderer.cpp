@@ -108,15 +108,27 @@ void Renderer::renderStatement(const StatementNode& stmt, const std::size_t inde
 
     if (m_options.reFormat) {
         const Token* prev = &stmt.tokens[first];
+        bool justBrokeLine = false;
         for (std::size_t i = first + 1; i < stmt.tokens.size(); i++) {
+            // Preserve `_` line continuations: emit the newline and re-indent
+            // so the logical statement spans multiple physical lines like the
+            // original. The `_` Comment marker is already in the segment and
+            // gets emitted by the regular path on the previous iteration.
+            if (stmt.tokens[i].kind == TokenKind::Newline && stmt.tokens[i].continuation) {
+                emitNewline();
+                emitIndent(indent + 1);
+                justBrokeLine = true;
+                continue;
+            }
             if (isLayout(stmt.tokens[i])) {
                 continue;
             }
-            if (needsSpaceBefore(*prev, stmt.tokens[i])) {
+            if (!justBrokeLine && needsSpaceBefore(*prev, stmt.tokens[i])) {
                 emitSpace();
             }
             emit(stmt.tokens[i]);
             prev = &stmt.tokens[i];
+            justBrokeLine = false;
         }
         emitNewline();
     } else {
@@ -200,6 +212,13 @@ auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
     using enum OperatorKind;
     const auto prevOp = prev.operatorKind;
     const auto currOp = curr.operatorKind;
+
+    // Comments always have a leading space. The `_` continuation marker is
+    // a Comment under FBSciLexer styling and FB syntax requires whitespace
+    // before it (`obj._` would parse as a member access on `_`).
+    if (curr.kind == TokenKind::Comment) {
+        return true;
+    }
 
     // After ( or [ → no space
     if (prevOp == ParenOpen || prevOp == BracketOpen) {
