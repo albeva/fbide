@@ -230,6 +230,34 @@ TEST_F(StyleLexerTests, UnterminatedString) {
     EXPECT_EQ(t[0].kind, TokenKind::UnterminatedString);
 }
 
+TEST_F(StyleLexerTests, CommentTokenExcludesTrailingNewline) {
+    // Reproduces an HTML renderer bug where </span> ended up after the
+    // newline. If the lexer's Comment token includes \n, the renderer would
+    // wrap the newline in the <span>.
+    auto t = lex("' foo\n");
+    bool sawComment = false;
+    for (const auto& tok : t) {
+        if (tok.kind == TokenKind::Comment) {
+            EXPECT_EQ(tok.text, "' foo");
+            sawComment = true;
+        }
+    }
+    EXPECT_TRUE(sawComment);
+}
+
+TEST_F(StyleLexerTests, CommentTokenExcludesTrailingCarriageReturnOnCRLF) {
+    // FBSciLexer ends comments at the \n of CRLF, leaving \r inside the
+    // Comment style range. StyleLexer trims it so HTML output doesn't wrap
+    // the \r inside a styled <span>.
+    auto t = lex("' foo\r\n");
+    for (const auto& tok : t) {
+        if (tok.kind == TokenKind::Comment) {
+            EXPECT_EQ(tok.text, "' foo");
+            EXPECT_EQ(tok.text.find('\r'), std::string::npos);
+        }
+    }
+}
+
 TEST_F(StyleLexerTests, SingleLineComment) {
     auto t = strip(lex("' hello\n"));
     ASSERT_EQ(t.size(), 1u);
