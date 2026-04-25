@@ -267,7 +267,7 @@ auto CodeTransformer::renderCloser(const std::span<const std::string_view> words
     // Closers are Keyword1 words (`end`, `if`, `sub`, ...). Use that group's
     // configured case rule. `None` falls back to lowercase so output is at
     // least consistent rather than raw placeholder.
-    const auto kw1Mode = m_keywordCases[indexOfKeywordGroup(ThemeCategory::Keyword1)];
+    const auto kw1Mode = m_keywordCases[indexOfKeywordGroup(ThemeCategory::Keywords)];
     const auto rule = kw1Mode == CaseMode::None ? CaseMode { CaseMode::Lower } : kw1Mode;
 
     wxString out;

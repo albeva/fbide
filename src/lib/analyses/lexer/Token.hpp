@@ -13,15 +13,9 @@ namespace fbide::lexer {
 /// Token types produced by the FreeBASIC lexer.
 /// Keyword* kinds mirror the keyword-group categories in ThemeCategory.
 enum class TokenKind {
-    Keyword1,           // keyword group 1 (code scope)
-    Keyword2,           // keyword group 2 (code scope)
-    Keyword3,           // keyword group 3 (code scope)
-    Keyword4,           // keyword group 4 (code scope)
-    KeywordCustom1,     // user-defined keywords (code scope)
-    KeywordCustom2,     // user-defined keywords (code scope)
-    KeywordPP,          // preprocessor-scoped keyword group
-    KeywordAsm1,        // asm-block-scoped keyword group 1
-    KeywordAsm2,        // asm-block-scoped keyword group 2
+#define CAT(NAME) NAME,
+    DEFINE_THEME_KEYWORD_GROUPS(CAT)
+#undef CAT
     Comment,            // ' single-line comment
     CommentBlock,       // /' nested multi-line comment '/
     String,             // "double-quoted string"
@@ -38,10 +32,10 @@ enum class TokenKind {
 /// True when `kind` is any of the keyword-group token kinds (excludes Identifier).
 constexpr auto isKeywordToken(const TokenKind kind) noexcept -> bool {
     switch (kind) {
-    case TokenKind::Keyword1:
-    case TokenKind::Keyword2:
-    case TokenKind::Keyword3:
-    case TokenKind::Keyword4:
+    case TokenKind::Keywords:
+    case TokenKind::KeywordTypes:
+    case TokenKind::KeywordOperators:
+    case TokenKind::KeywordConstants:
     case TokenKind::KeywordCustom1:
     case TokenKind::KeywordCustom2:
     case TokenKind::KeywordPP:

@@ -104,7 +104,7 @@ TEST_F(StyleLexerTests, PlainIdentifier) {
 TEST_F(StyleLexerTests, Keyword1ClassifiedAsIf) {
     auto t = strip(lex("if"));
     ASSERT_EQ(t.size(), 1u);
-    EXPECT_EQ(t[0].kind, TokenKind::Keyword1);
+    EXPECT_EQ(t[0].kind, TokenKind::Keywords);
     EXPECT_EQ(t[0].keywordKind, KeywordKind::If);
     EXPECT_EQ(t[0].style, ThemeCategory::Keyword1);
 }
@@ -112,7 +112,7 @@ TEST_F(StyleLexerTests, Keyword1ClassifiedAsIf) {
 TEST_F(StyleLexerTests, Keyword2NonStructural) {
     auto t = strip(lex("integer"));
     ASSERT_EQ(t.size(), 1u);
-    EXPECT_EQ(t[0].kind, TokenKind::Keyword2);
+    EXPECT_EQ(t[0].kind, TokenKind::KeywordTypes);
     EXPECT_EQ(t[0].keywordKind, KeywordKind::Other); // not a structural keyword
 }
 
@@ -297,7 +297,7 @@ TEST_F(StyleLexerTests, AsmBlockEndAsm) {
     //         Keyword1(end), Keyword1(asm)
     bool sawAsmKeyword1 = false, sawAsmAsm1Mov = false, sawAsmAsm2Eax = false;
     for (const auto& tok : t) {
-        if (tok.kind == TokenKind::Keyword1 && tok.text == "asm") sawAsmKeyword1 = true;
+        if (tok.kind == TokenKind::Keywords && tok.text == "asm") sawAsmKeyword1 = true;
         if (tok.kind == TokenKind::KeywordAsm1 && tok.text == "mov") sawAsmAsm1Mov = true;
         if (tok.kind == TokenKind::KeywordAsm2 && tok.text == "eax") sawAsmAsm2Eax = true;
     }

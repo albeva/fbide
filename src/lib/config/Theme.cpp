@@ -334,10 +334,10 @@ void Theme::loadV4(const wxString& themePath) {
     mapCategory(ThemeCategory::String, "/string");
     mapCategory(ThemeCategory::StringOpen, "/stringeol");
     mapCategory(ThemeCategory::Identifier, "/identifier");
-    mapCategory(ThemeCategory::Keyword1, "/keyword");
-    mapCategory(ThemeCategory::Keyword2, "/keyword2");
-    mapCategory(ThemeCategory::Keyword3, "/keyword3");
-    mapCategory(ThemeCategory::Keyword4, "/keyword4");
+    mapCategory(ThemeCategory::Keywords, "/keyword");
+    mapCategory(ThemeCategory::KeywordTypes, "/keyword2");
+    mapCategory(ThemeCategory::KeywordOperators, "/keyword3");
+    mapCategory(ThemeCategory::KeywordConstants, "/keyword4");
     mapCategory(ThemeCategory::KeywordCustom1, "/keyword");
     mapCategory(ThemeCategory::KeywordCustom2, "/keyword");
     mapCategory(ThemeCategory::KeywordAsm1, "/keyword");

@@ -19,14 +19,14 @@ auto hexColour(const wxColour& colour) -> std::string {
 
 auto tokenToCategory(const lexer::TokenKind kind) -> ThemeCategory {
     switch (kind) {
-    case lexer::TokenKind::Keyword1:
-        return ThemeCategory::Keyword1;
-    case lexer::TokenKind::Keyword2:
-        return ThemeCategory::Keyword2;
-    case lexer::TokenKind::Keyword3:
-        return ThemeCategory::Keyword3;
-    case lexer::TokenKind::Keyword4:
-        return ThemeCategory::Keyword4;
+    case lexer::TokenKind::Keywords:
+        return ThemeCategory::Keywords;
+    case lexer::TokenKind::KeywordTypes:
+        return ThemeCategory::KeywordTypes;
+    case lexer::TokenKind::KeywordOperators:
+        return ThemeCategory::KeywordOperators;
+    case lexer::TokenKind::KeywordConstants:
+        return ThemeCategory::KeywordConstants;
     case lexer::TokenKind::KeywordCustom1:
         return ThemeCategory::KeywordCustom1;
     case lexer::TokenKind::KeywordCustom2:

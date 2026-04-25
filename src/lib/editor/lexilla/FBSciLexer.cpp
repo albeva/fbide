@@ -24,10 +24,10 @@ constexpr std::array lexicalClasses {
     Lexilla::LexicalClass { +ThemeCategory::String, "state.string", "literal string", "String literal" },
     Lexilla::LexicalClass { +ThemeCategory::StringOpen, "state.string.unclosed", "literal string unclosed", "Unclosed string" },
     Lexilla::LexicalClass { +ThemeCategory::Identifier, "state.identifier", "identifier", "Identifier" },
-    Lexilla::LexicalClass { +ThemeCategory::Keyword1, "state.keyword", "keyword", "Keywords" },
-    Lexilla::LexicalClass { +ThemeCategory::Keyword2, "state.keyword2", "keyword", "Types" },
-    Lexilla::LexicalClass { +ThemeCategory::Keyword3, "state.keyword3", "keyword", "Operators" },
-    Lexilla::LexicalClass { +ThemeCategory::Keyword4, "state.keyword4", "keyword", "Defines" },
+    Lexilla::LexicalClass { +ThemeCategory::Keywords, "state.keyword", "keyword", "Keywords" },
+    Lexilla::LexicalClass { +ThemeCategory::KeywordTypes, "state.keyword.types", "keyword", "Types" },
+    Lexilla::LexicalClass { +ThemeCategory::KeywordOperators, "state.keyword.operators", "keyword", "Operators" },
+    Lexilla::LexicalClass { +ThemeCategory::KeywordConstants, "state.keyword.constants", "keyword", "Defines" },
     Lexilla::LexicalClass { +ThemeCategory::KeywordCustom1, "state.custom1", "keyword", "User keywords 1" },
     Lexilla::LexicalClass { +ThemeCategory::KeywordCustom2, "state.custom2", "keyword", "User keywords 2" },
     Lexilla::LexicalClass { +ThemeCategory::KeywordPP, "state.keyword.preprocessor", "keyword", "Preprocessor keyword" },
@@ -519,7 +519,7 @@ auto FBSciLexer::identifyKeyword() noexcept -> bool {
             }
         } else if (strcmp("asm", m_identBuffer.data()) == 0) {
             m_asmBlock = true;
-            m_sc->ChangeState(+ThemeCategory::Keyword1);
+            m_sc->ChangeState(+ThemeCategory::Keywords);
             return true;
         }
     }

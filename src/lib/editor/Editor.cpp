@@ -231,16 +231,16 @@ void Editor::applyHtmlTheme() {
     SetLexer(wxSTC_LEX_HTML);
 
     applyStyle(wxSTC_H_DEFAULT, theme.get(ThemeCategory::Default), theme);
-    applyStyle(wxSTC_H_TAG, theme.get(ThemeCategory::Keyword1), theme);
-    applyStyle(wxSTC_H_TAGUNKNOWN, theme.get(ThemeCategory::Keyword1), theme);
-    applyStyle(wxSTC_H_ATTRIBUTE, theme.get(ThemeCategory::Keyword2), theme);
-    applyStyle(wxSTC_H_ATTRIBUTEUNKNOWN, theme.get(ThemeCategory::Keyword2), theme);
+    applyStyle(wxSTC_H_TAG, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_H_TAGUNKNOWN, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_H_ATTRIBUTE, theme.get(ThemeCategory::KeywordTypes), theme);
+    applyStyle(wxSTC_H_ATTRIBUTEUNKNOWN, theme.get(ThemeCategory::KeywordTypes), theme);
     applyStyle(wxSTC_H_NUMBER, theme.get(ThemeCategory::Number), theme);
     applyStyle(wxSTC_H_SINGLESTRING, theme.get(ThemeCategory::String), theme);
     applyStyle(wxSTC_H_DOUBLESTRING, theme.get(ThemeCategory::String), theme);
-    applyStyle(wxSTC_H_OTHER, theme.get(ThemeCategory::Keyword4), theme);
+    applyStyle(wxSTC_H_OTHER, theme.get(ThemeCategory::KeywordConstants), theme);
     applyStyle(wxSTC_H_COMMENT, theme.get(ThemeCategory::Comment), theme);
-    applyStyle(wxSTC_H_ENTITY, theme.get(ThemeCategory::Keyword3), theme);
+    applyStyle(wxSTC_H_ENTITY, theme.get(ThemeCategory::KeywordOperators), theme);
 }
 
 void Editor::applyPropertiesTheme() {
@@ -251,7 +251,7 @@ void Editor::applyPropertiesTheme() {
     applyStyle(wxSTC_PROPS_SECTION, theme.get(ThemeCategory::Preprocessor), theme);
     applyStyle(wxSTC_PROPS_ASSIGNMENT, theme.get(ThemeCategory::Operator), theme);
     applyStyle(wxSTC_PROPS_DEFVAL, theme.get(ThemeCategory::String), theme);
-    applyStyle(wxSTC_PROPS_KEY, theme.get(ThemeCategory::Keyword1), theme);
+    applyStyle(wxSTC_PROPS_KEY, theme.get(ThemeCategory::Keywords), theme);
 }
 
 void Editor::applyTextTheme() {

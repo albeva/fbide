@@ -1245,7 +1245,7 @@ TEST_F(ReFormatterTests, FormatOff_CaseTransformSkipsVerbatimKeywords) {
     // be upper-cased; the middle one (inside the region) stays lowercase.
     std::vector<std::string> dimTexts;
     for (const auto& tok : transformed) {
-        if (tok.kind == lexer::TokenKind::Keyword1
+        if (tok.kind == lexer::TokenKind::Keywords
             && (tok.text == "dim" || tok.text == "DIM")) {
             dimTexts.push_back(tok.text);
         }
