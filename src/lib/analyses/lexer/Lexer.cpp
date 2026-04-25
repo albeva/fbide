@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "Lexer.hpp"
+#include "KeywordTables.hpp"
 using namespace fbide::lexer;
 
 namespace {
@@ -43,66 +44,6 @@ auto asciiUpper(const char ch) -> char {
 auto asciiLower(const char ch) -> char {
     return (ch >= 'A' && ch <= 'Z') ? static_cast<char>(ch + ('a' - 'A')) : ch;
 }
-
-/// Map of structurally significant keywords to their KeywordKind.
-const std::unordered_map<std::string, KeywordKind> structuralKeywords = {
-    // Block openers
-    { "sub", KeywordKind::Sub },
-    { "function", KeywordKind::Function },
-    { "constructor", KeywordKind::Constructor },
-    { "destructor", KeywordKind::Destructor },
-    { "operator", KeywordKind::Operator },
-    { "do", KeywordKind::Do },
-    { "while", KeywordKind::While },
-    { "for", KeywordKind::For },
-    { "with", KeywordKind::With },
-    { "scope", KeywordKind::Scope },
-    { "enum", KeywordKind::Enum },
-    { "union", KeywordKind::Union },
-    { "select", KeywordKind::Select },
-    { "asm", KeywordKind::Asm },
-    { "namespace", KeywordKind::Namespace },
-    // Block closers
-    { "end", KeywordKind::End },
-    { "endif", KeywordKind::End },
-    { "loop", KeywordKind::Loop },
-    { "next", KeywordKind::Next },
-    { "wend", KeywordKind::Wend },
-    // Mid-block
-    { "else", KeywordKind::Else },
-    { "elseif", KeywordKind::ElseIf },
-    { "case", KeywordKind::Case },
-    // Conditional
-    { "if", KeywordKind::If },
-    { "then", KeywordKind::Then },
-    // Type
-    { "type", KeywordKind::Type },
-    { "as", KeywordKind::As },
-    // Declaration
-    { "declare", KeywordKind::Declare },
-    // Early-exit (keeps following block keyword from opening a scope)
-    { "exit", KeywordKind::Exit },
-    { "continue", KeywordKind::Continue },
-    // Comment keyword
-    { "rem", KeywordKind::Rem },
-};
-
-/// Preprocessor directive keywords mapped to their KeywordKind.
-const std::unordered_map<std::string, KeywordKind> ppKeywords = {
-    // Block openers
-    { "if", KeywordKind::PpIf },
-    { "ifdef", KeywordKind::PpIfDef },
-    { "ifndef", KeywordKind::PpIfNDef },
-    { "macro", KeywordKind::PpMacro },
-    // Block closers
-    { "endif", KeywordKind::PpEndIf },
-    { "endmacro", KeywordKind::PpEndMacro },
-    // Mid-block
-    { "else", KeywordKind::PpElse },
-    { "elseif", KeywordKind::PpElseIf },
-    { "elseifdef", KeywordKind::PpElseIfDef },
-    { "elseifndef", KeywordKind::PpElseIfNDef },
-};
 
 /// Lowercase an ASCII string_view into a std::string.
 auto toLower(const std::string_view sv) -> std::string {
@@ -143,7 +84,8 @@ Lexer::Lexer(std::span<const KeywordGroup> keywordGroups) {
             // table consulted by preprocessor()).
             auto kwKind = KeywordKind::Other;
             if (group.scope == KeywordScope::Code) {
-                if (const auto it = structuralKeywords.find(lower); it != structuralKeywords.end()) {
+                const auto& kw = structuralKeywords();
+                if (const auto it = kw.find(lower); it != kw.end()) {
                     kwKind = it->second;
                 }
             }
@@ -525,7 +467,8 @@ auto Lexer::preprocessor() -> Token {
     // Classify directive
     const auto directive = toLower({ dirStart, static_cast<std::size_t>(m_pos - dirStart) });
     auto kwKind = KeywordKind::PpOther;
-    if (const auto it = ppKeywords.find(directive); it != ppKeywords.end()) {
+    const auto& pp = ppKeywords();
+    if (const auto it = pp.find(directive); it != pp.end()) {
         kwKind = it->second;
     }
     // Consume rest of line
@@ -597,7 +540,8 @@ auto Lexer::identifier(const bool firstOnLine) -> Token {
         // may not live in the user's keyword list but still need to drive
         // block dispatch in the formatter. Token kind stays Identifier.
         if (info.keywordKind == KeywordKind::None) {
-            if (const auto it = structuralKeywords.find(lower); it != structuralKeywords.end()) {
+            const auto& kw = structuralKeywords();
+            if (const auto it = kw.find(lower); it != kw.end()) {
                 info.keywordKind = it->second;
             }
         }
