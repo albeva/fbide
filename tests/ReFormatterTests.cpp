@@ -18,8 +18,12 @@ protected:
     static constexpr std::size_t tabSize = 4;
 
     void SetUp() override {
-        const auto groups = tests::loadKeywordGroups(testDataPath + "fbfull.lng");
-        m_lexer = std::make_unique<lexer::Lexer>(groups);
+        m_lexer = tests::createFbLexer(testDataPath + "fbfull.lng");
+    }
+
+    void TearDown() override {
+        m_lexer->Release();
+        m_lexer = nullptr;
     }
 
     auto format(const char* source, const bool anchoredPP = false) -> std::string {
@@ -27,7 +31,7 @@ protected:
     }
 
     auto formatWith(const char* source, const FormatOptions& options) -> std::string {
-        const auto tokens = m_lexer->tokenise(source);
+        const auto tokens = tests::tokenise(*m_lexer, source);
         ReFormatter formatter(options);
         return joinText(formatter.apply(tokens));
     }
@@ -45,7 +49,7 @@ protected:
         return out;
     }
 
-    std::unique_ptr<lexer::Lexer> m_lexer;
+    Scintilla::ILexer5* m_lexer { nullptr };
 };
 
 // ---------------------------------------------------------------------------
@@ -1209,7 +1213,7 @@ TEST_F(ReFormatterTests, FormatOff_RoundTripStable) {
 TEST_F(ReFormatterTests, FormatOff_CaseTransformSkipsVerbatimKeywords) {
     // Tokens inside a verbatim region keep their original casing even under
     // Upper case conversion.
-    auto tokens = m_lexer->tokenise(
+    auto tokens = tests::tokenise(*m_lexer,
         "dim x = 1\n"
         "' format off\n"
         "dim y = 2\n"

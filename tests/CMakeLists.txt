@@ -18,7 +18,6 @@ add_executable(tests
     DocumentIOTests.cpp
     EncodingDetectorTests.cpp
     FBSciLexerTests.cpp
-    LexerTests.cpp
     ReFormatterTests.cpp
     StyleLexerTests.cpp
     RunCommandTests.cpp

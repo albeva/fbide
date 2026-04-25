@@ -5,33 +5,56 @@
 // https://github.com/albeva/fbide
 //
 #pragma once
-#include "analyses/lexer/Lexer.hpp"
+#include "analyses/lexer/KeywordTables.hpp"
+#include "analyses/lexer/MemoryDocument.hpp"
+#include "analyses/lexer/StyledSource.hpp"
+#include "analyses/lexer/StyleLexer.hpp"
+#include "analyses/lexer/Token.hpp"
+#include "config/ThemeCategory.hpp"
+#include "editor/lexilla/FBSciLexer.hpp"
 
 namespace fbide::tests {
 
-/// Load keyword groups from an INI `.lng` file's `[keywords]` section (kw1..kw4).
-/// Each non-empty group is returned as a Code-scoped KeywordGroup.
-inline auto loadKeywordGroups(const wxString& path) -> std::vector<lexer::KeywordGroup> {
-    std::vector<lexer::KeywordGroup> groups;
-    wxFFileInputStream stream(path);
+/// Read a `.lng` file's `[keywords]` section (kw1..kw4) into a configured
+/// FBSciLexer, ready to lex source. Returned ILexer5 must be Released by the
+/// caller. Slot 6 (KeywordPP) is seeded from the canonical ppKeywords() table
+/// so PP block detection (`#ifdef`/`#endif`) works without depending on the
+/// .lng file shipping a KeywordPP group.
+inline auto createFbLexer(const wxString& kwIniPath) -> Scintilla::ILexer5* {
+    auto* lex = FBSciLexer::Create();
+    wxFFileInputStream stream(kwIniPath);
     if (!stream.IsOk()) {
-        return groups;
+        return lex;
     }
     wxFileConfig ini(stream);
     ini.SetPath("/keywords");
-    constexpr std::array tokenKinds {
-        lexer::TokenKind::Keyword1, lexer::TokenKind::Keyword2,
-        lexer::TokenKind::Keyword3, lexer::TokenKind::Keyword4
-    };
-    for (std::size_t i = 0; i < tokenKinds.size(); i++) {
+    for (std::size_t i = 0; i < 4; i++) {
         wxString key;
         key.Printf("kw%zu", i + 1);
-        auto value = ini.Read(key, "");
-        if (!value.IsEmpty()) {
-            groups.push_back({ std::move(value), tokenKinds[i], lexer::KeywordScope::Code });
-        }
+        const auto value = ini.Read(key, "").Lower();
+        lex->WordListSet(static_cast<int>(i), value.utf8_str());
     }
-    return groups;
+    // KeywordPP slot — seed from ppKeywords() so #ifdef/#endif/etc. style
+    // as KeywordPP, letting StyleLexer fill kwKind=PpIfDef etc.
+    std::string pp;
+    for (const auto& [text, _] : lexer::ppKeywords()) {
+        if (!pp.empty()) pp += ' ';
+        pp += text;
+    }
+    constexpr std::size_t ppSlot = indexOfKeywordGroup(ThemeCategory::KeywordPP);
+    lex->WordListSet(static_cast<int>(ppSlot), pp.c_str());
+    return lex;
 }
 
-} // namespace fbide::testing
+/// Tokenise `source` via FBSciLexer + StyleLexer through a headless
+/// MemoryDocument. The lexer instance is owned by the caller.
+inline auto tokenise(Scintilla::ILexer5& lex, std::string_view source) -> std::vector<lexer::Token> {
+    MemoryDocument doc;
+    doc.Set(source);
+    lex.Lex(0, doc.Length(), +ThemeCategory::Default, &doc);
+    lexer::MemoryDocStyledSource src(doc);
+    lexer::StyleLexer adapter(src);
+    return adapter.tokenise();
+}
+
+} // namespace fbide::tests

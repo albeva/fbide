@@ -106,8 +106,12 @@ void ReFormatter::processLine() {
             continue;
         }
 
-        // Line continuation: standalone _ at end of line
-        if (tkn.kind == TokenKind::Identifier && tkn.text == "_" && isContinuation()) {
+        // Line continuation: standalone _ at end of line.
+        // FBSciLexer styles `_` at line end as Comment (it sets continueLine
+        // line state); the legacy lexer treated it as Identifier. Accept both
+        // shapes.
+        if ((tkn.kind == TokenKind::Identifier || tkn.kind == TokenKind::Comment)
+            && tkn.text == "_" && isContinuation()) {
             // Include _ and trailing tokens (comments etc.) for preservation
             m_segment.push_back(tkn);
             advance();
