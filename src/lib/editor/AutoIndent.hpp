@@ -35,10 +35,10 @@ struct Decision {
 };
 
 /// Compute the indent decision triggered by pressing Enter at the end of
-/// `prevLine`. Pure function — no Editor / Context dependency. Tokenises
-/// `prevLine` via the existing `fbide::lexer::Lexer` (with empty keyword
-/// groups; structural classification works through the lexer's hardcoded
-/// fallback table).
+/// `prevLine`. Pure function — no Editor / Context dependency. Drives a
+/// per-call FBSciLexer + StyleLexer pipeline against a headless
+/// MemoryDocument, seeded with the structural-keywords wordlist so block
+/// keywords (if/then/sub/end/...) are styled and classified correctly.
 [[nodiscard]] auto decide(const wxString& prevLine) -> Decision;
 
 } // namespace fbide::indent

@@ -4,7 +4,6 @@ target_sources(fbide_lib
     PRIVATE
     about/AboutDialog.cpp
     analyses/lexer/KeywordTables.cpp
-    analyses/lexer/Lexer.cpp
     analyses/lexer/MemoryDocument.cpp
     analyses/lexer/StyledSource.cpp
     analyses/lexer/StyleLexer.cpp
@@ -61,7 +60,6 @@ target_sources(fbide_lib
     PUBLIC FILE_SET HEADERS FILES
     about/AboutDialog.hpp
     analyses/lexer/KeywordTables.hpp
-    analyses/lexer/Lexer.hpp
     analyses/lexer/MemoryDocument.hpp
     analyses/lexer/StyledSource.hpp
     analyses/lexer/StyleLexer.hpp
