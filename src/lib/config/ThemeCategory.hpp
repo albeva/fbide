@@ -18,8 +18,8 @@ namespace fbide {
     _( KeywordTypes     ) \
     _( KeywordOperators ) \
     _( KeywordConstants ) \
-    _( KeywordCustom1   ) \
-    _( KeywordCustom2   ) \
+    _( KeywordLibrary   ) \
+    _( KeywordCustom    ) \
     _( KeywordPP        ) \
     _( KeywordAsm1      ) \
     _( KeywordAsm2      ) \
@@ -89,7 +89,7 @@ static constexpr auto indexOfKeywordGroup(const ThemeCategory cat) -> std::size_
 };
 
 /// True when `cat` is one of the keyword-group categories
-/// (Keyword1..Keyword4, KeywordCustom1/2, KeywordPP, KeywordAsm1/2).
+/// (Keyword1..Keyword4, KeywordLibrary/2, KeywordPP, KeywordAsm1/2).
 constexpr auto isKeywordCategory(const ThemeCategory cat) -> bool {
     return std::ranges::find(kThemeKeywordCategories, cat) != kThemeKeywordCategories.end();
 }

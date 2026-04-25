@@ -154,8 +154,8 @@ void StyleLexer::emitFromRange(const StyleRange& r, std::vector<Token>& out) {
     case KeywordTypes:      emitKeyword(r, TokenKind::KeywordTypes, out); break;
     case KeywordOperators:  emitKeyword(r, TokenKind::KeywordOperators, out); break;
     case KeywordConstants:  emitKeyword(r, TokenKind::KeywordConstants, out); break;
-    case KeywordCustom1:    emitKeyword(r, TokenKind::KeywordCustom1, out); break;
-    case KeywordCustom2:    emitKeyword(r, TokenKind::KeywordCustom2, out); break;
+    case KeywordLibrary:    emitKeyword(r, TokenKind::KeywordLibrary, out); break;
+    case KeywordCustom:    emitKeyword(r, TokenKind::KeywordCustom, out); break;
     case KeywordAsm1:       emitKeyword(r, TokenKind::KeywordAsm1, out); break;
     case KeywordAsm2:       emitKeyword(r, TokenKind::KeywordAsm2, out); break;
     case KeywordPP:         emitPreprocessor(r, out); break;

@@ -338,8 +338,8 @@ void Theme::loadV4(const wxString& themePath) {
     mapCategory(ThemeCategory::KeywordTypes, "/keyword2");
     mapCategory(ThemeCategory::KeywordOperators, "/keyword3");
     mapCategory(ThemeCategory::KeywordConstants, "/keyword4");
-    mapCategory(ThemeCategory::KeywordCustom1, "/keyword");
-    mapCategory(ThemeCategory::KeywordCustom2, "/keyword");
+    mapCategory(ThemeCategory::KeywordLibrary, "/keyword");
+    mapCategory(ThemeCategory::KeywordCustom, "/keyword");
     mapCategory(ThemeCategory::KeywordAsm1, "/keyword");
     mapCategory(ThemeCategory::KeywordAsm2, "/keyword2");
     mapCategory(ThemeCategory::Operator, "/operator");

@@ -27,10 +27,10 @@ auto tokenToCategory(const lexer::TokenKind kind) -> ThemeCategory {
         return ThemeCategory::KeywordOperators;
     case lexer::TokenKind::KeywordConstants:
         return ThemeCategory::KeywordConstants;
-    case lexer::TokenKind::KeywordCustom1:
-        return ThemeCategory::KeywordCustom1;
-    case lexer::TokenKind::KeywordCustom2:
-        return ThemeCategory::KeywordCustom2;
+    case lexer::TokenKind::KeywordLibrary:
+        return ThemeCategory::KeywordLibrary;
+    case lexer::TokenKind::KeywordCustom:
+        return ThemeCategory::KeywordCustom;
     case lexer::TokenKind::KeywordPP:
         return ThemeCategory::KeywordPP;
     case lexer::TokenKind::KeywordAsm1:

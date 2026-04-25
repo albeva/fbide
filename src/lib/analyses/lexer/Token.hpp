@@ -36,8 +36,8 @@ constexpr auto isKeywordToken(const TokenKind kind) noexcept -> bool {
     case TokenKind::KeywordTypes:
     case TokenKind::KeywordOperators:
     case TokenKind::KeywordConstants:
-    case TokenKind::KeywordCustom1:
-    case TokenKind::KeywordCustom2:
+    case TokenKind::KeywordLibrary:
+    case TokenKind::KeywordCustom:
     case TokenKind::KeywordPP:
     case TokenKind::KeywordAsm1:
     case TokenKind::KeywordAsm2:
