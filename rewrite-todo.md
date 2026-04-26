@@ -56,7 +56,7 @@
 - [x] Opening non-existing file seems to break document loading, leaving with unattached editor hanging.
 - [x] When opening a file and then forwarding it via single instance, relative file path is not resolved.
 - [ ] On linux, the wxStaticBoxSizer does not pad its content (wxGTK issue?)
-- [ ] Saving new or old .fbt theme is broken.
+- [x] Saving new or old .fbt theme is broken.
 - [x] When changing font size from large to small, seems editor line-height remains old size.
 - [x] When file fails to load, Document creates Editor, which leaves hanging editor.
 
@@ -72,7 +72,7 @@
 - [ ] Open #include directives
 - [x] Implement new FB scintilla lexer
 - [x] Make editor fully utf-8 compatible (config/langauge files, the editor, save/load, etc.)
-- [ ] Review all themes, update them for new settings.
+- [x] Review all themes, update them for new settings.
 - [x] Implement code folding
 
 # General
