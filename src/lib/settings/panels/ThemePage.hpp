@@ -68,8 +68,10 @@ private:
 
     wxStaticBoxSizer* m_themeBox = nullptr;
 
-    wxString m_activeTheme;
+    static constexpr int FILE_OFFSET = 1;
     Theme m_theme {};
+    wxString m_activeTheme;
+    std::vector<wxString> m_themeFiles;
 
     int m_selectedRow = 0;
     const Value& m_tr;

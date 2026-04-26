@@ -352,13 +352,14 @@ void Theme::save(const wxString& newThemePath) {
     if (not newThemePath.IsEmpty()) {
         m_themePath = newThemePath;
     }
+
     if (m_themePath.IsEmpty()) {
         wxLogError("Missing filename when saving theme");
         return;
     }
 
     // Migrate legacy (.fbt) paths to .ini on first save.
-    if (m_version < Version::fbide()) {
+    if (m_version == Version::oldFbide()) {
         wxFileName fn(m_themePath);
         if (fn.GetExt().Lower() == "fbt") {
             fn.SetExt("ini");
@@ -366,24 +367,17 @@ void Theme::save(const wxString& newThemePath) {
             m_themePath = fn.GetFullPath();
         }
     }
-    m_version = Version::fbide();
 
-    // Seed from the existing file first so wxFileConfig retains comments
-    // and ordering across the round-trip. wxFileInputStream must be
-    // constructed before wxFileOutputStream — otherwise the output stream
-    // truncates the file before parsing completes. If the file does not
-    // yet exist (new theme), start from an empty config instead.
-    std::unique_ptr<wxFileConfig> iniPtr;
-    if (wxFileExists(m_themePath)) {
-        wxFileInputStream existingStream(m_themePath);
-        if (existingStream.IsOk()) {
-            iniPtr = std::make_unique<wxFileConfig>(existingStream, wxConvUTF8);
+    // Load existing config file, if file exists, otherwise a blank new config
+    wxFileConfig config = [&] {
+        if (wxFileExists(m_themePath)) {
+            wxFileInputStream existingStream(m_themePath);
+            if (existingStream.IsOk()) {
+                return wxFileConfig { existingStream, wxConvUTF8 };
+            }
         }
-    }
-    if (!iniPtr) {
-        iniPtr = std::make_unique<wxFileConfig>("", "", "", "", wxCONFIG_USE_LOCAL_FILE);
-    }
-    auto& ini = *iniPtr;
+        return wxFileConfig { "", "", "", "", wxCONFIG_USE_LOCAL_FILE };
+    }();
 
     // patch version
     if (not m_version.isValid() || m_version == Version::oldFbide()) {
@@ -391,17 +385,17 @@ void Theme::save(const wxString& newThemePath) {
     }
 
     // clang-format off
-    #define STORE(GETTER, MEMBER, TYPE) write(ini, #MEMBER, m_## MEMBER);
+    #define STORE(GETTER, MEMBER, TYPE) write(config, #MEMBER, m_## MEMBER);
         DEFINE_THEME_PROPERTY(STORE)
     #undef STORE
     // clang-format on
 
     for (const auto& cat : kThemeCategories) {
-        ini.SetPath("/" + wxString(getThemeCategoryName(cat)));
-        write(ini, wxEmptyString, m_categories[static_cast<std::size_t>(cat)]);
+        config.SetPath("/" + wxString(getThemeCategoryName(cat)));
+        write(config, wxEmptyString, m_categories[static_cast<std::size_t>(cat)]);
     }
 
     // save
     wxFileOutputStream outStream(m_themePath);
-    ini.Save(outStream, wxConvUTF8);
+    config.Save(outStream, wxConvUTF8);
 }

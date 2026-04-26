@@ -79,8 +79,8 @@ wxEND_EVENT_TABLE()
 
 ThemePage::ThemePage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent)
-, m_activeTheme(wxFileName(ctx.getTheme().getPath()).GetName())
 , m_theme(getContext().getTheme())
+, m_activeTheme(m_theme.getPath())
 , m_tr(getContext().getConfigManager().locale().at("dialogs.settings.themes")) {}
 
 auto ThemePage::getAllFixedWidthFonts() -> std::vector<wxString> {
@@ -131,19 +131,31 @@ void ThemePage::create() {
 
 void ThemePage::createTopRow() {
     hbox(tr("name"), { .center = true, .border = 0 }, [&] {
-        const auto themes = getContext().getConfigManager().getAllThemes();
+        m_themeFiles = getContext().getConfigManager().getAllThemes();
         wxArrayString names;
+        names.reserve(m_themeFiles.size() + 1);
+
         names.Add(tr("createNew"));
-        for (const auto& path : themes) {
-            names.Add(wxFileName(path).GetName());
+        for (const auto& path : m_themeFiles) {
+            auto name = wxFileName(path).GetName();
+            if (path.EndsWith(".fbt")) {
+                name += " (fbide " + Version::oldFbide().asString() + ")";
+            }
+            names.Add(name);
         }
 
-        // Use the non-ref choice overload — Layout's value-bound overload
-        // installs its own EVT_CHOICE lambda that consumes the event and
-        // blocks our event-table handler (onSelectTheme) from firing.
         m_themeChoice = choice(names, { .proportion = 1, .expand = false }, ID_THEME_CHOICE);
-        const auto sel = m_themeChoice->FindString(m_activeTheme);
-        m_themeChoice->SetSelection(sel != wxNOT_FOUND ? sel : 0);
+
+        // find currently active theme selection
+        const auto index = [&] -> int {
+            const auto iter = std::ranges::find(m_themeFiles, m_activeTheme);
+            if (iter == m_themeFiles.end()) {
+                m_activeTheme = "";
+                return 0;
+            }
+            return static_cast<int>(std::ranges::distance(m_themeFiles.begin(), iter)) + FILE_OFFSET;
+        }();
+        m_themeChoice->SetSelection(index);
 
         button(tr("save"), { .expand = false }, ID_SAVE_THEME);
     });
@@ -224,12 +236,18 @@ void ThemePage::createRightPanel() {
 // Theme selection
 // ---------------------------------------------------------------------------
 
-void ThemePage::onSelectTheme(wxCommandEvent&) {
-    m_activeTheme = m_themeChoice->GetStringSelection();
+void ThemePage::onSelectTheme(wxCommandEvent& event) {
+    const auto index = static_cast<std::size_t>(event.GetSelection());
+    if (index > 0) {
+        m_activeTheme = m_themeFiles[index - FILE_OFFSET];
+    } else {
+        m_activeTheme = "";
+    }
+
     updateTitle();
     if (not isUnsavedNewTheme()) {
         m_theme = {};
-        m_theme.load(getContext().getConfigManager().absolute("themes/" + m_activeTheme + ".ini"));
+        m_theme.load(m_activeTheme);
         loadCategory();
     }
 }
@@ -244,7 +262,7 @@ void ThemePage::onSaveTheme(wxCommandEvent&) {
 
     m_theme.save();
 
-    const auto currentThemeName = wxFileName(getContext().getTheme().getPath()).GetName();
+    const auto currentThemeName = getContext().getTheme().getPath();
     if (m_activeTheme == currentThemeName) {
         getContext().getTheme() = m_theme;
         syncActiveThemeConfig();
@@ -267,17 +285,21 @@ void ThemePage::saveNewTheme(const bool setActive) {
         return;
     }
 
-    const wxFileName path(getContext().getConfigManager().getIdeDir() + "themes/" + name + ".ini");
-    if (not path.IsOk() or path.Exists()) {
-        wxLogWarning("Unable to save theme as %s", path.GetAbsolutePath());
+    const wxFileName path(getContext().getConfigManager().getIdeDir() / "themes" / name + ".ini");
+    if (not path.IsOk()) {
+        wxMessageBox(wxString::Format("Invalid filename %s", path.GetFullPath())); // TODO: use locale string
+        return;
+    }
+
+    if (path.Exists()) {
+        wxMessageBox(wxString::Format("File %s already exists", path.GetFullPath())); // TODO: use locale string
         return;
     }
 
     m_theme.save(path.GetAbsolutePath());
-
     m_themeChoice->Append(name);
     m_themeChoice->SetStringSelection(name);
-    m_activeTheme = name;
+    m_activeTheme = m_theme.getPath();
 
     if (setActive) {
         getContext().getTheme() = m_theme;
@@ -385,5 +407,5 @@ void ThemePage::syncActiveThemeConfig() {
 }
 
 void ThemePage::updateTitle() {
-    m_themeBox->GetStaticBox()->SetLabel(m_activeTheme.Capitalize());
+    m_themeBox->GetStaticBox()->SetLabel(m_themeChoice->GetStringSelection());
 }

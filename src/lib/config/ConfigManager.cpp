@@ -79,18 +79,21 @@ void exportGroup(const Value& node, const wxString& path, wxFileConfig& cfg) {
 // Get info
 // ---------------------------------------------------------------------------
 
-static auto enumerate(const wxString& base) -> std::vector<wxString> {
+static auto enumerate(const wxString& base, const std::initializer_list<wxString> specs = { "*.ini" }) -> std::vector<wxString> {
     std::vector<wxString> files;
-    if (const wxDir dir(base); dir.IsOpened()) {
-        wxString name;
-        if (dir.GetFirst(&name, "*.ini", wxDIR_FILES)) {
-            do {
-                wxFileName path { name };
-                path.MakeAbsolute(base);
-                files.emplace_back(path.GetFullPath());
-            } while (dir.GetNext(&name));
+    for (const auto& spec : specs) {
+        if (const wxDir dir(base); dir.IsOpened()) {
+            wxString name;
+            if (dir.GetFirst(&name, spec, wxDIR_FILES)) {
+                do {
+                    wxFileName path { name };
+                    path.MakeAbsolute(base);
+                    files.emplace_back(path.GetFullPath());
+                } while (dir.GetNext(&name));
+            }
         }
     }
+    std::ranges::sort(files);
     return files;
 }
 
@@ -99,7 +102,7 @@ auto ConfigManager::getAllLanguages() const -> std::vector<wxString> {
 }
 
 auto ConfigManager::getAllThemes() const -> std::vector<wxString> {
-    return enumerate(m_ideDir / "themes");
+    return enumerate(m_ideDir / "themes", { "*.ini", "*.fbt" });
 }
 
 auto ConfigManager::getPlatformConfigFileName() -> wxString {
