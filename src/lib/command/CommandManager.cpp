@@ -19,6 +19,7 @@
 #include "format/FormatDialog.hpp"
 #include "help/HelpManager.hpp"
 #include "settings/SettingsDialog.hpp"
+#include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
@@ -340,7 +341,7 @@ void CommandManager::onFormat(wxCommandEvent&) {
 }
 
 void CommandManager::onSubs(wxCommandEvent&) {
-    // TODO: implement sub/function browser
+    m_ctx.getSideBarManager().showSymbolBrowser();
 }
 
 void CommandManager::onCompilerLog(wxCommandEvent&) {

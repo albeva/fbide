@@ -9,6 +9,7 @@
 #include "DocumentIO.hpp"
 #include "FileSession.hpp"
 #include "analyses/intellisense/IntellisenseService.hpp"
+#include "analyses/symbols/SymbolTable.hpp"
 #include "app/Context.hpp"
 #include "command/CommandEntry.hpp"
 #include "command/CommandId.hpp"
@@ -362,14 +363,12 @@ void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
     }
 
     doc->setSymbolTable(result.symbols);
-    wxLogDebug("intellisense: doc=%p hash=%zx subs=%zu funcs=%zu types=%zu unions=%zu enums=%zu",
-        static_cast<const void*>(result.owner),
-        result.symbols ? result.symbols->getHash() : 0,
-        result.symbols ? result.symbols->getSubs().size() : 0,
-        result.symbols ? result.symbols->getFunctions().size() : 0,
-        result.symbols ? result.symbols->getTypes().size() : 0,
-        result.symbols ? result.symbols->getUnions().size() : 0,
-        result.symbols ? result.symbols->getEnums().size() : 0);
+
+    // Push to the sidebar only when this document is the active one — the
+    // tree always reflects the focused editor.
+    if (doc == getActive()) {
+        m_ctx.getSideBarManager().showSymbolsFor(doc);
+    }
 }
 
 void DocumentManager::syncEditCommands() {

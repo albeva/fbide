@@ -139,9 +139,13 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
     event.Skip();
     const auto sel = event.GetSelection();
     if (sel == wxNOT_FOUND) {
+        m_ctx.getSideBarManager().showSymbolsFor(nullptr);
         return;
     }
-    m_notebook->GetPage(static_cast<size_t>(sel))->SetFocus();
+    auto* page = m_notebook->GetPage(static_cast<size_t>(sel));
+    page->SetFocus();
+    auto* doc = m_ctx.getDocumentManager().findByEditor(page);
+    m_ctx.getSideBarManager().showSymbolsFor(doc);
 }
 
 void UIManager::onNotebookDblClick(wxAuiNotebookEvent& event) {
