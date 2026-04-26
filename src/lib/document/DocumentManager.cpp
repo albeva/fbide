@@ -292,6 +292,11 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
 
     std::erase_if(m_documents, [&doc](const auto& ptr) { return ptr.get() == &doc; });
 
+    // Sidebar: reflect post-close state. PAGE_CHANGED isn't always fired
+    // by AUI when the active page is removed, so push explicitly here.
+    // showSymbolsFor handles nullptr (clears) and dedups by shared_ptr.
+    m_ctx.getSideBarManager().showSymbolsFor(getActive());
+
     // Update UI state when no documents remain
     if (m_documents.empty()) {
         m_ctx.getUIManager().setDocumentState(UIState::None);
