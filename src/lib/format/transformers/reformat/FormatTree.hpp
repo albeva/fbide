@@ -16,6 +16,11 @@ struct FormatOptions {
     bool anchoredPP = false;
     bool reIndent = true;
     bool reFormat = true;
+    /// Build a lean tree: drop Whitespace, Comment, CommentBlock tokens and
+    /// collapse runs of Newlines into a single separator. Intended for
+    /// non-rendering consumers (sub/function browser, future analyses).
+    /// Tokens inside `' format off` (verbatim) regions pass through untouched.
+    bool lean = false;
 };
 
 /// Blank line preserved from source.

@@ -5,8 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "StyleLexer.hpp"
-#include <string_view>
-#include <utility>
 // clang-format off
 #include "ILexer.h"
 // clang-format on
@@ -17,7 +15,7 @@
 using namespace fbide;
 using namespace fbide::lexer;
 
-void fbide::lexer::configureFbWordlists(Scintilla::ILexer5& lex, const Value& kw) {
+void lexer::configureFbWordlists(Scintilla::ILexer5& lex, const Value& kw) {
     for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
         const auto key = getThemeCategoryName(kThemeKeywordCategories[idx]);
         const auto words = kw.get_or(wxString(key), "").Lower();
@@ -173,68 +171,68 @@ auto StyleLexer::stringFromRange(const Sci_PositionU start, const Sci_PositionU 
     return s;
 }
 
-void StyleLexer::emitFromRange(const StyleRange& r, std::vector<Token>& out) {
+void StyleLexer::emitFromRange(const StyleRange& range, std::vector<Token>& out) {
     using enum ThemeCategory;
-    switch (r.style) {
+    switch (range.style) {
     case Default:
-        emitDefault(r, out);
+        emitDefault(range, out);
         break;
     case Operator:
-        emitOperator(r, out);
+        emitOperator(range, out);
         break;
     case Identifier:
-        emitIdentifier(r, out);
+        emitIdentifier(range, out);
         break;
     case Keywords:
-        emitKeyword(r, TokenKind::Keywords, out);
+        emitKeyword(range, TokenKind::Keywords, out);
         break;
     case KeywordTypes:
-        emitKeyword(r, TokenKind::KeywordTypes, out);
+        emitKeyword(range, TokenKind::KeywordTypes, out);
         break;
     case KeywordOperators:
-        emitKeyword(r, TokenKind::KeywordOperators, out);
+        emitKeyword(range, TokenKind::KeywordOperators, out);
         break;
     case KeywordConstants:
-        emitKeyword(r, TokenKind::KeywordConstants, out);
+        emitKeyword(range, TokenKind::KeywordConstants, out);
         break;
     case KeywordLibrary:
-        emitKeyword(r, TokenKind::KeywordLibrary, out);
+        emitKeyword(range, TokenKind::KeywordLibrary, out);
         break;
     case KeywordCustom:
-        emitKeyword(r, TokenKind::KeywordCustom, out);
+        emitKeyword(range, TokenKind::KeywordCustom, out);
         break;
     case KeywordAsm1:
-        emitKeyword(r, TokenKind::KeywordAsm1, out);
+        emitKeyword(range, TokenKind::KeywordAsm1, out);
         break;
     case KeywordAsm2:
-        emitKeyword(r, TokenKind::KeywordAsm2, out);
+        emitKeyword(range, TokenKind::KeywordAsm2, out);
         break;
     case KeywordPP:
-        emitPreprocessor(r, out);
+        emitPreprocessor(range, out);
         break;
     case Preprocessor:
-        emitPreprocessor(r, out);
+        emitPreprocessor(range, out);
         break;
     case Number:
-        emitSimple(r, TokenKind::Number, out);
+        emitSimple(range, TokenKind::Number, out);
         break;
     case String:
-        emitSimple(r, TokenKind::String, out);
+        emitSimple(range, TokenKind::String, out);
         break;
     case StringOpen:
-        emitSimple(r, TokenKind::UnterminatedString, out);
+        emitSimple(range, TokenKind::UnterminatedString, out);
         break;
     case Comment:
-        emitSimple(r, TokenKind::Comment, out);
+        emitSimple(range, TokenKind::Comment, out);
         break;
     case MultilineComment:
-        emitSimple(r, TokenKind::CommentBlock, out);
+        emitSimple(range, TokenKind::CommentBlock, out);
         break;
     case Label:
-        emitSimple(r, TokenKind::Identifier, out);
+        emitSimple(range, TokenKind::Identifier, out);
         break;
     case Error:
-        emitSimple(r, TokenKind::Invalid, out);
+        emitSimple(range, TokenKind::Invalid, out);
         break;
     }
 }
@@ -308,8 +306,8 @@ void StyleLexer::emitDefault(const StyleRange& r, std::vector<Token>& out) {
     }
 }
 
-void StyleLexer::emitOperator(const StyleRange& r, std::vector<Token>& out) {
-    const auto text = stringFromRange(r.start, r.end);
+void StyleLexer::emitOperator(const StyleRange& range, std::vector<Token>& out) {
+    const auto text = stringFromRange(range.start, range.end);
     const std::string_view sv { text };
     std::size_t i = 0;
     while (i < sv.size()) {
@@ -381,8 +379,8 @@ void StyleLexer::emitKeyword(const StyleRange& r, TokenKind kind, std::vector<To
     m_canBeUnary = true; // after a keyword (And, Not, If, ...) next operator is unary
 }
 
-void StyleLexer::emitPreprocessor(const StyleRange& r, std::vector<Token>& out) {
-    auto text = stringFromRange(r.start, r.end);
+void StyleLexer::emitPreprocessor(const StyleRange& range, std::vector<Token>& out) {
+    auto text = stringFromRange(range.start, range.end);
     if (!m_inPpLine) {
         // Start a new PP token spanning this run.
         m_inPpLine = true;
@@ -404,9 +402,9 @@ void StyleLexer::emitPreprocessor(const StyleRange& r, std::vector<Token>& out) 
     // FBSciLexer styles `#` first as Preprocessor, then re-enters and styles
     // the directive word as KeywordPP, so this branch can fire even after
     // a Preprocessor run already started the token.
-    if (r.style == ThemeCategory::KeywordPP) {
+    if (range.style == ThemeCategory::KeywordPP) {
         const auto& pp = ppKeywords();
-        const auto runLower = toLower(stringFromRange(r.start, r.end));
+        const auto runLower = toLower(stringFromRange(range.start, range.end));
         if (const auto it = pp.find(runLower); it != pp.end()) {
             out[m_ppTokenIdx].keywordKind = it->second;
         }
@@ -415,15 +413,15 @@ void StyleLexer::emitPreprocessor(const StyleRange& r, std::vector<Token>& out) 
     m_canBeUnary = true;
 }
 
-void StyleLexer::emitSimple(const StyleRange& r, TokenKind kind, std::vector<Token>& out) {
+void StyleLexer::emitSimple(const StyleRange& range, const TokenKind kind, std::vector<Token>& out) {
     out.push_back(Token {
         kind,
         KeywordKind::None,
         OperatorKind::None,
-        r.style,
+        range.style,
         false,
         false,
-        stringFromRange(r.start, r.end),
+        stringFromRange(range.start, range.end),
     });
     // After a value-producing token (number/string/identifier/label) next
     // operator is binary. After a comment the surrounding state is unchanged

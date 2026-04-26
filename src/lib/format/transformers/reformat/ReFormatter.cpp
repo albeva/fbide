@@ -9,6 +9,43 @@
 using namespace fbide::reformat;
 using namespace fbide::lexer;
 
+namespace {
+
+/// Drop layout/comment noise; collapse blank-line runs to one Newline.
+/// Verbatim regions pass through unchanged so `' format off` content stays
+/// as it was.
+auto leanFilter(const std::vector<Token>& tokens) -> std::vector<Token> {
+    std::vector<Token> result;
+    result.reserve(tokens.size());
+    bool prevNewline = true; // treat start as if a newline preceded
+    for (const auto& tkn : tokens) {
+        if (tkn.verbatim) {
+            result.push_back(tkn);
+            prevNewline = (tkn.kind == TokenKind::Newline);
+            continue;
+        }
+        switch (tkn.kind) {
+        case TokenKind::Whitespace:
+        case TokenKind::Comment:
+        case TokenKind::CommentBlock:
+            continue;
+        case TokenKind::Newline:
+            if (prevNewline) {
+                continue;
+            }
+            prevNewline = true;
+            result.push_back(tkn);
+            continue;
+        default:
+            prevNewline = false;
+            result.push_back(tkn);
+        }
+    }
+    return result;
+}
+
+} // namespace
+
 auto ReFormatter::apply(const std::vector<Token>& tokens) -> std::vector<Token> {
     const auto tree = buildTree(tokens);
     Renderer renderer(m_options);
@@ -17,7 +54,13 @@ auto ReFormatter::apply(const std::vector<Token>& tokens) -> std::vector<Token> 
 
 auto ReFormatter::buildTree(const std::vector<Token>& tokens) -> ProgramTree {
     // Reset per-invocation state
-    m_tokens = &tokens;
+    std::vector<Token> filtered;
+    if (m_options.lean) {
+        filtered = leanFilter(tokens);
+        m_tokens = &filtered;
+    } else {
+        m_tokens = &tokens;
+    }
     m_index = 0;
     m_prevWasNewline = true;
     m_builder = TreeBuilder {};

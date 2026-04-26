@@ -1257,3 +1257,109 @@ TEST_F(ReFormatterTests, FormatOff_CaseTransformSkipsVerbatimKeywords) {
     EXPECT_EQ(dimTexts[1], "dim"); // inside region — untouched
     EXPECT_EQ(dimTexts[2], "DIM");
 }
+
+// ---------------------------------------------------------------------------
+// Lean mode — strips Whitespace/Comment/CommentBlock tokens and collapses
+// runs of Newlines. Used by non-rendering consumers (sub/function browser).
+// ---------------------------------------------------------------------------
+
+TEST_F(ReFormatterTests, LeanFilterDropsLayoutAndCollapsesBlankLines) {
+    const auto tokens = tests::tokenise(*m_lexer,
+        "  Sub Foo  ' inline comment\n"
+        "\n"
+        "\n"
+        "    /' multi\n"
+        "       line '/\n"
+        "    Print 1\n"
+        "End Sub\n"
+    );
+    ReFormatter formatter({ .tabSize = tabSize, .lean = true });
+    const auto tree = formatter.buildTree(tokens);
+
+    // Walk every token in the tree and verify no layout/comment tokens remain.
+    const auto countByKind = [&](lexer::TokenKind kind) {
+        int n = 0;
+        const std::function<void(const Node&)> walk = [&](const Node& node) {
+            std::visit(overloaded {
+                [](const BlankLineNode&) {},
+                [&](const StatementNode& st) {
+                    for (const auto& t : st.tokens) {
+                        if (t.kind == kind) {
+                            n++;
+                        }
+                    }
+                },
+                [&](const VerbatimNode&) {},
+                [&](const std::unique_ptr<BlockNode>& block) {
+                    if (block->opener) {
+                        for (const auto& t : block->opener->tokens) {
+                            if (t.kind == kind) {
+                                n++;
+                            }
+                        }
+                    }
+                    for (const auto& child : block->body) {
+                        walk(child);
+                    }
+                    if (block->closer) {
+                        for (const auto& t : block->closer->tokens) {
+                            if (t.kind == kind) {
+                                n++;
+                            }
+                        }
+                    }
+                }
+            }, node);
+        };
+        for (const auto& node : tree.nodes) {
+            walk(node);
+        }
+        return n;
+    };
+
+    EXPECT_EQ(countByKind(lexer::TokenKind::Whitespace), 0);
+    EXPECT_EQ(countByKind(lexer::TokenKind::Comment), 0);
+    EXPECT_EQ(countByKind(lexer::TokenKind::CommentBlock), 0);
+}
+
+TEST_F(ReFormatterTests, LeanModeProducesSubBlock) {
+    const auto tokens = tests::tokenise(*m_lexer,
+        "Sub Foo\n"
+        "Print 1\n"
+        "End Sub\n"
+    );
+    ReFormatter formatter({ .tabSize = tabSize, .lean = true });
+    const auto tree = formatter.buildTree(tokens);
+
+    ASSERT_EQ(tree.nodes.size(), 1u);
+    const auto* block = std::get_if<std::unique_ptr<BlockNode>>(&tree.nodes[0]);
+    ASSERT_NE(block, nullptr);
+    ASSERT_TRUE((*block)->opener.has_value());
+    ASSERT_TRUE((*block)->closer.has_value());
+
+    // First significant token in opener is the Sub keyword.
+    const auto& openerTokens = (*block)->opener->tokens;
+    ASSERT_FALSE(openerTokens.empty());
+    EXPECT_EQ(openerTokens[0].keywordKind, lexer::KeywordKind::Sub);
+}
+
+TEST_F(ReFormatterTests, LeanModePreservesVerbatimRegion) {
+    const auto tokens = tests::tokenise(*m_lexer,
+        "' format off\n"
+        "  X   =   1\n"
+        "' format on\n"
+        "Sub Foo\n"
+        "End Sub\n"
+    );
+    ReFormatter formatter({ .tabSize = tabSize, .lean = true });
+    const auto tree = formatter.buildTree(tokens);
+
+    bool sawVerbatim = false;
+    for (const auto& node : tree.nodes) {
+        if (std::holds_alternative<VerbatimNode>(node)) {
+            sawVerbatim = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(sawVerbatim);
+}
