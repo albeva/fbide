@@ -56,6 +56,7 @@ public:
 private:
     // File
     void onAnyEvent(wxCommandEvent& event);
+    void onAuiPaneClose(wxAuiManagerEvent& event);
     void onNew(wxCommandEvent& event);
     void onOpen(wxCommandEvent& event);
     void onSave(wxCommandEvent& event);

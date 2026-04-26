@@ -5,10 +5,14 @@
 // https://github.com/albeva/fbide
 //
 #include "SideBarManager.hpp"
+#include <wx/dirctrl.h>
 #include "app/Context.hpp"
 #include "document/DocumentManager.hpp"
-#include <wx/dirctrl.h>
 using namespace fbide;
+
+namespace {
+const int BrowserTabsId = wxNewId();
+}
 
 SideBarManager::SideBarManager(Context& ctx)
 : m_ctx(ctx) {}
@@ -24,7 +28,7 @@ void SideBarManager::attach(wxAuiNotebook* notebook) {
 
     m_dirCtrl = make_unowned<wxGenericDirCtrl>(
         m_notebook,
-        wxID_ANY,
+        BrowserTabsId,
         wxDirDialogDefaultFolderStr,
         wxDefaultPosition,
         wxDefaultSize,

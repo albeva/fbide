@@ -25,6 +25,7 @@ using namespace fbide;
 // clang-format off
 wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     EVT_MENU(wxID_ANY, CommandManager::onAnyEvent)
+    EVT_AUI_PANE_CLOSE(CommandManager::onAuiPaneClose)
     // File
     EVT_MENU(+CommandId::New,          CommandManager::onNew)
     EVT_MENU(+CommandId::Open,         CommandManager::onOpen)
@@ -153,6 +154,7 @@ void CommandManager::initializeCommands() {
             } else {
                 node = entry.checked;
             }
+            entry.binds.push_back(&m_ctx.getConfigManager());
             entry.update();
         }
     }
@@ -166,8 +168,18 @@ void CommandManager::onAnyEvent(wxCommandEvent& event) {
         if (entry->kind != wxITEM_CHECK || entry->checked == event.IsChecked()) {
             return;
         }
-        m_ctx.getConfigManager().config()["commands"][entry->name] = event.IsChecked();
         entry->setChecked(event.IsChecked());
+    }
+}
+
+void CommandManager::onAuiPaneClose(wxAuiManagerEvent& event) {
+    for (auto& entry : m_namedCommands | std::views::values) {
+        if (entry.kind != wxITEM_CHECK || entry.get<wxAuiManager>() == nullptr || entry.name != event.GetPane()->name) {
+            continue;
+        }
+        entry.setChecked(false);
+        entry.update();
+        break;
     }
 }
 

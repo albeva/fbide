@@ -13,10 +13,6 @@ class wxTreeEvent;
 namespace fbide {
 class Context;
 
-/// AUI pane name for the Browser sidebar. Must match the CommandEntry name
-/// for `CommandId::Browser` so toggling shows/hides the pane.
-inline constexpr auto kBrowserPaneName = "viewBrowser";
-
 /// Manages the sidebar (Browser) pane content. The pane and its notebook are
 /// owned by `UIManager`; SideBarManager populates the notebook with tabs and
 /// drives their behaviour.
@@ -26,6 +22,10 @@ inline constexpr auto kBrowserPaneName = "viewBrowser";
 class SideBarManager final : public wxEvtHandler {
 public:
     NO_COPY_AND_MOVE(SideBarManager)
+
+    /// AUI pane name for the Browser sidebar. Must match the CommandEntry name
+    /// for `CommandId::Browser` so toggling shows/hides the pane.
+    static constexpr auto kBrowserPaneName = "viewBrowser";
 
     explicit SideBarManager(Context& ctx);
     ~SideBarManager() override;

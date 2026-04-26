@@ -8,6 +8,7 @@
 #include "pch.hpp"
 
 namespace fbide {
+class ConfigManager;
 
 /**
  * Command entries are used to generate and manage toolbar / menu entries.
@@ -18,7 +19,7 @@ namespace fbide {
 struct CommandEntry final {
 
     /// Possible controls that can bind to command entry
-    using Bind = std::variant<wxMenu*, wxMenuItem*, wxToolBarToolBase*, wxAuiManager*>;
+    using Bind = std::variant<wxMenu*, wxMenuItem*, wxToolBarToolBase*, wxAuiManager*, ConfigManager*>;
 
     /// Get control from binds for a given type
     template<typename T>

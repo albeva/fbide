@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "CommandEntry.hpp"
+#include "config/ConfigManager.hpp"
 using namespace fbide;
 
 void CommandEntry::setEnabled(const bool state) {
@@ -62,6 +63,9 @@ void CommandEntry::update() {
                 pane.Show(checked);
                 aui->Update();
             }
+        },
+        [this](ConfigManager* configManager) {
+            configManager->config()["commands"][name] = checked;
         }
     };
     for (const auto& bind : binds) {

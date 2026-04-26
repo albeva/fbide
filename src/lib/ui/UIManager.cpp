@@ -25,13 +25,17 @@ namespace XPM {
 #endif
 using namespace fbide;
 
+namespace {
+const int DocumentTabsId = wxNewId();
+}
+
 // clang-format off
 wxBEGIN_EVENT_TABLE(UIManager, wxEvtHandler)
     EVT_CLOSE(UIManager::onClose)
-    EVT_AUINOTEBOOK_PAGE_CLOSE(wxID_ANY, UIManager::onPageClose)
-    EVT_AUINOTEBOOK_PAGE_CHANGED(wxID_ANY, UIManager::onPageChanged)
-    EVT_AUINOTEBOOK_BG_DCLICK(wxID_ANY, UIManager::onNotebookDblClick)
-    EVT_AUINOTEBOOK_TAB_RIGHT_DOWN(wxID_ANY, UIManager::onTabRightDown)
+    EVT_AUINOTEBOOK_PAGE_CLOSE(DocumentTabsId,     UIManager::onPageClose)
+    EVT_AUINOTEBOOK_PAGE_CHANGED(DocumentTabsId,   UIManager::onPageChanged)
+    EVT_AUINOTEBOOK_BG_DCLICK(DocumentTabsId,      UIManager::onNotebookDblClick)
+    EVT_AUINOTEBOOK_TAB_RIGHT_DOWN(DocumentTabsId, UIManager::onTabRightDown)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -155,7 +159,7 @@ void UIManager::onTabRightDown(wxAuiNotebookEvent& event) {
         return;
     }
     const auto* page = m_notebook->GetPage(static_cast<size_t>(pageIdx));
-    auto* doc = m_ctx.getDocumentManager().findByEditor(page);
+    const auto* doc = m_ctx.getDocumentManager().findByEditor(page);
     if (doc == nullptr || doc->isNew()) {
         return;
     }
@@ -383,7 +387,7 @@ void UIManager::createStatusBar() const {
     // Field 1 = line : column
     // Field 2 = EOL mode
     // Field 3 = encoding
-    const int widths[] = { -1, 90, 90, 140 };
+    constexpr int widths[] = { -1, 90, 90, 140 };
     bar->SetStatusWidths(4, widths);
     m_frame->SetStatusText(m_ctx.tr("common.welcome"));
     bar->Bind(wxEVT_LEFT_DOWN, &UIManager::onStatusBarClick, const_cast<UIManager*>(this));
@@ -438,7 +442,7 @@ void UIManager::onStatusBarClick(wxMouseEvent& event) {
 void UIManager::createLayout() {
     // Document notebook (center)
     m_notebook = make_unowned<wxAuiNotebook>(
-        m_frame, wxID_ANY,
+        m_frame, DocumentTabsId,
         wxDefaultPosition, wxDefaultSize,
         wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_CLOSE_ON_ALL_TABS | wxAUI_NB_MIDDLE_CLICK_CLOSE
     );
@@ -488,7 +492,7 @@ void UIManager::createLayout() {
     m_aui.AddPane(
         m_sideBar.get(),
         wxAuiPaneInfo()
-            .Name(kBrowserPaneName)
+            .Name(SideBarManager::kBrowserPaneName)
             .Caption(m_ctx.tr("sidebar.title"))
             .Left()
             .BestSize(220, -1)
