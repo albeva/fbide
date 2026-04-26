@@ -11,9 +11,11 @@
 
 // NOLINTBEGIN(*-avoid-c-arrays)
 namespace XPM {
+#include "icons/browse.xpm"
 #include "icons/close.xpm"
 #include "icons/compile.xpm"
 #include "icons/compnrun.xpm"
+#include "icons/compresx.xpm"
 #include "icons/copy.xpm"
 #include "icons/cut.xpm"
 #include "icons/new.xpm"
@@ -26,6 +28,5 @@ namespace XPM {
 #include "icons/save.xpm"
 #include "icons/saveall.xpm"
 #include "icons/undo.xpm"
-#include "icons/compresx.xpm"
 }; // namespace XPM
 // NOLINTEND(*-avoid-c-arrays)
