@@ -47,16 +47,26 @@ struct CommandEntry final {
     /// Set enabled state and update bound controls
     void setEnabled(bool state);
 
+    /// Set forced-disabled override and update bound controls. When true the
+    /// command is shown disabled regardless of `enabled` (used for fine-
+    /// grained per-editor state like CanUndo/CanPaste while `enabled` tracks
+    /// the broader UI state from UIManager::applyState).
+    void setForceDisabled(bool state);
+
     /// Set checked state and update bound controls
     void setChecked(bool state);
 
     /// update bound controls
     void update();
 
+    /// Effective enabled state — `enabled` masked by `forceDisabled`.
+    [[nodiscard]] auto isEnabled() const -> bool { return !forceDisabled && enabled; }
+
     wxWindowID id = wxID_ANY;
     wxString name;
     wxItemKind kind = wxITEM_NORMAL;
     bool enabled = true;
+    bool forceDisabled = false;
     bool checked = false;
     std::vector<Bind> binds = {};
 };

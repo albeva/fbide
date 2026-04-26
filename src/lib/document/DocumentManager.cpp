@@ -9,15 +9,21 @@
 #include "DocumentIO.hpp"
 #include "FileSession.hpp"
 #include "app/Context.hpp"
+#include "command/CommandEntry.hpp"
+#include "command/CommandId.hpp"
+#include "command/CommandManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "editor/CodeTransformer.hpp"
 #include "editor/Editor.hpp"
+#include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
 namespace {
 constexpr auto SESSION_EXT = "fbs";
+const wxWindowID kTabCloseOthersId = wxNewId();
+const wxWindowID kTabShowInBrowserId = wxNewId();
 } // namespace
 
 // clang-format off
@@ -295,6 +301,125 @@ auto DocumentManager::closeAllFiles() -> bool {
         }
     }
     return true;
+}
+
+auto DocumentManager::closeOtherFiles(const Document& keep) -> bool {
+    // Snapshot first — closeFile mutates m_documents.
+    std::vector<Document*> targets;
+    targets.reserve(m_documents.size());
+    for (const auto& doc : m_documents) {
+        if (doc.get() != &keep) {
+            targets.push_back(doc.get());
+        }
+    }
+    for (auto* doc : targets) {
+        if (!closeFile(*doc)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void DocumentManager::attachNotebook() {
+    auto* notebook = getNotebook();
+    notebook->Bind(wxEVT_AUINOTEBOOK_TAB_RIGHT_DOWN, &DocumentManager::onTabRightDown, this);
+}
+
+void DocumentManager::syncEditCommands() {
+    auto& cmd = m_ctx.getCommandManager();
+    const auto setForceDisabled = [&cmd](const CommandId id, const bool state) {
+        if (auto* entry = cmd.find(+id)) {
+            entry->setForceDisabled(state);
+        }
+    };
+
+    auto* doc = getActive();
+    const auto* editor = (doc != nullptr) ? doc->getEditor() : nullptr;
+    if (editor == nullptr) {
+        // No editor — leave broad `enabled` to applyState; clear our mask.
+        setForceDisabled(CommandId::Undo, false);
+        setForceDisabled(CommandId::Redo, false);
+        setForceDisabled(CommandId::Cut, false);
+        setForceDisabled(CommandId::Copy, false);
+        setForceDisabled(CommandId::Paste, false);
+        setForceDisabled(CommandId::SelectAll, false);
+        return;
+    }
+
+    const bool hasSelection = editor->GetSelectionEnd() > editor->GetSelectionStart();
+    const bool hasText = editor->GetTextLength() > 0;
+    const bool readOnly = editor->GetReadOnly();
+
+    setForceDisabled(CommandId::Undo, !editor->CanUndo());
+    setForceDisabled(CommandId::Redo, !editor->CanRedo());
+    setForceDisabled(CommandId::Cut, !(hasSelection && !readOnly));
+    setForceDisabled(CommandId::Copy, !hasSelection);
+    setForceDisabled(CommandId::Paste, !editor->CanPaste());
+    setForceDisabled(CommandId::SelectAll, !hasText);
+}
+
+void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
+    event.Skip();
+    auto* notebook = getNotebook();
+    const auto pageIdx = event.GetSelection();
+    if (pageIdx == wxNOT_FOUND) {
+        return;
+    }
+    const auto* page = notebook->GetPage(static_cast<size_t>(pageIdx));
+    auto* doc = findByEditor(page);
+    if (doc == nullptr) {
+        return;
+    }
+
+    // Activate the right-clicked tab so commands dispatched via CommandIds
+    // act on it (Undo/Cut/etc target the active editor).
+    notebook->SetSelection(static_cast<size_t>(pageIdx));
+    syncEditCommands();
+
+    auto& cmd = m_ctx.getCommandManager();
+    const auto entryEnabled = [&cmd](const CommandId id) -> bool {
+        const auto* entry = cmd.find(+id);
+        return entry != nullptr && entry->isEnabled();
+    };
+
+    const bool hasOthers = m_documents.size() > 1;
+    const bool hasPath = !doc->isNew();
+    const auto path = doc->getFilePath();
+    Document* docPtr = doc;
+
+    wxMenu menu;
+    menu.Append(+CommandId::Close, m_ctx.tr("commands.close.name"));
+    menu.Append(kTabCloseOthersId, m_ctx.tr("tabContext.closeOthers"))
+        ->Enable(hasOthers);
+    menu.AppendSeparator();
+    menu.Append(kTabShowInBrowserId, m_ctx.tr("tabContext.showInBrowser"))
+        ->Enable(hasPath);
+    menu.AppendSeparator();
+    menu.Append(+CommandId::Undo, m_ctx.tr("commands.undo.name"))
+        ->Enable(entryEnabled(CommandId::Undo));
+    menu.Append(+CommandId::Redo, m_ctx.tr("commands.redo.name"))
+        ->Enable(entryEnabled(CommandId::Redo));
+    menu.AppendSeparator();
+    menu.Append(+CommandId::Cut, m_ctx.tr("commands.cut.name"))
+        ->Enable(entryEnabled(CommandId::Cut));
+    menu.Append(+CommandId::Copy, m_ctx.tr("commands.copy.name"))
+        ->Enable(entryEnabled(CommandId::Copy));
+    menu.Append(+CommandId::Paste, m_ctx.tr("commands.paste.name"))
+        ->Enable(entryEnabled(CommandId::Paste));
+    menu.Append(+CommandId::SelectAll, m_ctx.tr("commands.selectAll.name"))
+        ->Enable(entryEnabled(CommandId::SelectAll));
+
+    menu.Bind(wxEVT_MENU, [this, docPtr](const wxCommandEvent&) {
+        closeOtherFiles(*docPtr);
+    }, kTabCloseOthersId);
+    menu.Bind(wxEVT_MENU, [this, path](const wxCommandEvent&) {
+        if (auto* entry = m_ctx.getCommandManager().find(+CommandId::Browser)) {
+            entry->setChecked(true);
+        }
+        m_ctx.getSideBarManager().locateFile(path);
+    }, kTabShowInBrowserId);
+
+    notebook->PopupMenu(&menu);
 }
 
 // ---------------------------------------------------------------------------

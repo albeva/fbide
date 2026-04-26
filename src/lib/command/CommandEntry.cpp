@@ -17,6 +17,15 @@ void CommandEntry::setEnabled(const bool state) {
     update();
 }
 
+void CommandEntry::setForceDisabled(const bool state) {
+    if (kind == wxITEM_DROPDOWN) {
+        wxLogWarning("Trying to set forceDisabled on menu '%s'", name);
+        return;
+    }
+    forceDisabled = state;
+    update();
+}
+
 void CommandEntry::setChecked(const bool state) {
     if (kind != wxITEM_CHECK) {
         wxLogWarning("Trying to set checked state on '%s'", name);
@@ -27,12 +36,13 @@ void CommandEntry::setChecked(const bool state) {
 }
 
 void CommandEntry::update() {
+    const bool effectiveEnabled = isEnabled();
     const auto visitor = Visitor {
         [](wxMenu* /*menu*/) {},
-        [this](wxMenuItem* item) {
+        [this, effectiveEnabled](wxMenuItem* item) {
             bool refresh = false;
-            if (item->IsEnabled() != enabled) {
-                item->Enable(enabled);
+            if (item->IsEnabled() != effectiveEnabled) {
+                item->Enable(effectiveEnabled);
                 refresh = true;
             }
             if (item->IsCheckable() && item->IsChecked() != checked) {
@@ -43,10 +53,10 @@ void CommandEntry::update() {
                 item->GetMenu()->UpdateUI();
             }
         },
-        [this](wxToolBarToolBase* tool) {
+        [this, effectiveEnabled](wxToolBarToolBase* tool) {
             bool refresh = false;
-            if (tool->IsEnabled() != enabled) {
-                tool->Enable(enabled);
+            if (tool->IsEnabled() != effectiveEnabled) {
+                tool->Enable(effectiveEnabled);
                 refresh = true;
             }
             if (tool->CanBeToggled() && tool->IsToggled() != checked) {

@@ -32,10 +32,9 @@ const int DocumentTabsId = wxNewId();
 // clang-format off
 wxBEGIN_EVENT_TABLE(UIManager, wxEvtHandler)
     EVT_CLOSE(UIManager::onClose)
-    EVT_AUINOTEBOOK_PAGE_CLOSE(DocumentTabsId,     UIManager::onPageClose)
-    EVT_AUINOTEBOOK_PAGE_CHANGED(DocumentTabsId,   UIManager::onPageChanged)
-    EVT_AUINOTEBOOK_BG_DCLICK(DocumentTabsId,      UIManager::onNotebookDblClick)
-    EVT_AUINOTEBOOK_TAB_RIGHT_DOWN(DocumentTabsId, UIManager::onTabRightDown)
+    EVT_AUINOTEBOOK_PAGE_CLOSE(DocumentTabsId,   UIManager::onPageClose)
+    EVT_AUINOTEBOOK_PAGE_CHANGED(DocumentTabsId, UIManager::onPageChanged)
+    EVT_AUINOTEBOOK_BG_DCLICK(DocumentTabsId,    UIManager::onNotebookDblClick)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -112,6 +111,7 @@ void UIManager::createMainFrame() {
     configureToolBar();
     createStatusBar();
     createLayout();
+    m_ctx.getDocumentManager().attachNotebook();
     m_ctx.getCommandManager().initializeCommands();
 
     applyState(UIState::None);
@@ -147,33 +147,6 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
 void UIManager::onNotebookDblClick(wxAuiNotebookEvent& event) {
     event.Skip();
     m_ctx.getDocumentManager().newFile();
-}
-
-void UIManager::onTabRightDown(wxAuiNotebookEvent& event) {
-    event.Skip();
-    if (event.GetEventObject() != m_notebook.get()) {
-        return;
-    }
-    const auto pageIdx = event.GetSelection();
-    if (pageIdx == wxNOT_FOUND) {
-        return;
-    }
-    const auto* page = m_notebook->GetPage(static_cast<size_t>(pageIdx));
-    const auto* doc = m_ctx.getDocumentManager().findByEditor(page);
-    if (doc == nullptr || doc->isNew()) {
-        return;
-    }
-    const auto path = doc->getFilePath();
-
-    wxMenu menu;
-    menu.Append(wxID_ANY, m_ctx.tr("tabContext.locateInBrowser"));
-    menu.Bind(wxEVT_MENU, [this, path](const wxCommandEvent&) {
-        if (auto* entry = m_ctx.getCommandManager().find(+CommandId::Browser)) {
-            entry->setChecked(true);
-        }
-        m_ctx.getSideBarManager().locateFile(path);
-    });
-    m_notebook->PopupMenu(&menu);
 }
 
 void UIManager::configureMenuBar() {
@@ -505,11 +478,13 @@ void UIManager::createLayout() {
 void UIManager::setDocumentState(const UIState state) {
     m_documentState = state;
     applyState(m_compilerState != UIState::None ? m_compilerState : m_documentState);
+    m_ctx.getDocumentManager().syncEditCommands();
 }
 
 void UIManager::setCompilerState(const UIState state) {
     m_compilerState = state;
     applyState(m_compilerState != UIState::None ? m_compilerState : m_documentState);
+    m_ctx.getDocumentManager().syncEditCommands();
 }
 
 void UIManager::applyState(const UIState state) const {

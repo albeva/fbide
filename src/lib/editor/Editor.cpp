@@ -482,6 +482,7 @@ void Editor::onUpdateUI(wxStyledTextEvent& event) {
     event.Skip();
     updateStatusBar();
     updateBraceMatch();
+    m_ctx.getDocumentManager().syncEditCommands();
 
     if (m_editorLocked) {
         return;

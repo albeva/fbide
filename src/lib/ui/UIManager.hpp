@@ -92,7 +92,6 @@ private:
     void onPageClose(wxAuiNotebookEvent& event);
     void onPageChanged(wxAuiNotebookEvent& event);
     void onNotebookDblClick(wxAuiNotebookEvent& event);
-    void onTabRightDown(wxAuiNotebookEvent& event);
     void onStatusBarClick(wxMouseEvent& event);
 
     void configureMenuBar();
@@ -118,6 +117,11 @@ private:
     Unowned<wxAuiNotebook> m_sideBar;
     std::vector<wxMenuItem*> m_externalLinkItems;
 
+    // Document-level commands toggled by `applyState`. Edit commands here
+    // (Undo, Redo, Cut, Copy, Paste, SelectAll) get their broad "is there
+    // an editor" gate from applyState; DocumentManager::syncEditCommands
+    // applies the fine-grained mask (CanUndo, has selection, clipboard,
+    // etc.) via CommandEntry::setForceDisabled.
     static constexpr std::array mutableIds = {
         CommandId::Save,
         CommandId::SaveAs,

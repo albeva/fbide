@@ -52,6 +52,18 @@ public:
     /// Close all documents. Returns false if user cancelled.
     auto closeAllFiles() -> bool;
 
+    /// Close every document except `keep`. Returns false if user cancelled.
+    auto closeOtherFiles(const Document& keep) -> bool;
+
+    /// Bind tab-strip events on the document notebook. Call from UIManager
+    /// once the notebook exists.
+    void attachNotebook();
+
+    /// Refresh enable/disable state of edit commands (Undo, Redo, Cut, Copy,
+    /// Paste, SelectAll) from the active editor. Called whenever the editor
+    /// state may have changed (focus, modification, selection).
+    void syncEditCommands();
+
     /// Handle quit request. Prompts for unsaved docs. Returns true if safe to quit.
     /// If user chooses to save, saves all then returns true.
     /// If user cancels, returns false.
@@ -130,6 +142,9 @@ private:
     void onReplaceDialog(wxFindDialogEvent& event);
     void onReplaceAllDialog(wxFindDialogEvent& event);
     void onFindDialogClose(wxFindDialogEvent& event);
+
+    // Tab-strip context menu
+    void onTabRightDown(wxAuiNotebookEvent& event);
 
     Context& m_ctx;
     wxFindReplaceData m_findData { wxFR_DOWN };
