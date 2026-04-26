@@ -19,7 +19,7 @@ auto Renderer::render(const ProgramTree& tree) -> std::vector<Token> {
 void Renderer::renderNodes(const std::vector<Node>& nodes, const std::size_t indent) {
     for (const auto& node : nodes) {
         std::visit(
-            overloaded {
+            Visitor {
                 [&](const BlankLineNode&) {
                     // reFormat=true collapses runs of blank lines to one.
                     // reFormat=false emits each blank line to preserve the

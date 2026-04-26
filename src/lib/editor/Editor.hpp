@@ -79,6 +79,7 @@ private:
     void onZoom(wxStyledTextEvent& event);
     void onCharAdded(wxStyledTextEvent& event);
     void onFocus(wxFocusEvent& event);
+    void onIntellisenseTimer(wxTimerEvent& event);
     void updateBraceMatch();
     void applyEditorSettings();
     void defineFoldMargins();
@@ -99,6 +100,9 @@ private:
     bool m_insertHandled = false;
     bool m_editorLocked = false;
     int m_lastCaretPos = 0;
+    /// Restart on each text-changing modify event; on fire submits a
+    /// snapshot to DocumentManager::submitIntellisense.
+    wxTimer m_intellisenseTimer;
 
     wxDECLARE_EVENT_TABLE();
 };

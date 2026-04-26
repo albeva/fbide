@@ -28,6 +28,10 @@ constexpr auto operator+(const Margins& rhs) -> int {
 auto isBrace(const int ch) -> bool {
     return ch == '(' || ch == ')' || ch == '[' || ch == ']' || ch == '{' || ch == '}';
 }
+
+/// Idle delay before submitting a snapshot to IntellisenseService after the
+/// last text-changing edit. Initial loads bypass this entirely.
+constexpr int kIntellisenseThrottleMs = 500;
 } // namespace
 
 // clang-format off
@@ -49,6 +53,8 @@ Editor::Editor(wxWindow* parent, Context& ctx, CodeTransformer* transformer,
 , m_docType(type)
 , m_preview(preview) {
     applySettings();
+    m_intellisenseTimer.SetOwner(this);
+    Bind(wxEVT_TIMER, &Editor::onIntellisenseTimer, this);
 }
 
 void Editor::applySettings() {
@@ -561,6 +567,14 @@ void Editor::onFocus(wxFocusEvent& event) {
     m_ctx.getUIManager().setDocumentState(state);
 }
 
+void Editor::onIntellisenseTimer(wxTimerEvent&) {
+    auto* doc = m_ctx.getDocumentManager().findByEditor(this);
+    if (doc == nullptr) {
+        return;
+    }
+    m_ctx.getDocumentManager().submitIntellisense(doc, GetText());
+}
+
 void Editor::onMarginClick(wxStyledTextEvent& event) {
     if (event.GetMargin() == +Margins::Fold) {
         const auto lineClick = LineFromPosition(event.GetPosition());
@@ -582,6 +596,10 @@ void Editor::onModified(wxStyledTextEvent& event) {
     if (m_editorLocked) {
         return;
     }
+
+    // Throttle a background re-parse: restart the one-shot timer; if the
+    // user keeps typing, only the final pause triggers a submit.
+    m_intellisenseTimer.StartOnce(kIntellisenseThrottleMs);
 
     // We need to filter out genuine text insert that is not handled
     // by char add.

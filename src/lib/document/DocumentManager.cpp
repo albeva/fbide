@@ -8,6 +8,7 @@
 #include "Document.hpp"
 #include "DocumentIO.hpp"
 #include "FileSession.hpp"
+#include "analyses/intellisense/IntellisenseService.hpp"
 #include "app/Context.hpp"
 #include "command/CommandEntry.hpp"
 #include "command/CommandId.hpp"
@@ -38,7 +39,10 @@ wxEND_EVENT_TABLE()
 
 DocumentManager::DocumentManager(Context& ctx)
 : m_ctx(ctx)
-, m_codeTransformer(std::make_unique<CodeTransformer>(ctx)) {}
+, m_codeTransformer(std::make_unique<CodeTransformer>(ctx))
+, m_intellisense(std::make_unique<IntellisenseService>(ctx, this)) {
+    Bind(EVT_INTELLISENSE_RESULT, &DocumentManager::onIntellisenseResult, this);
+}
 
 DocumentManager::~DocumentManager() = default;
 
@@ -136,6 +140,9 @@ auto DocumentManager::openFile(const wxString& filePath) -> Document* {
     notebook->AddPage(doc.getEditor(), doc.getTitle(), true);
 
     m_ctx.getFileHistory().addFile(filePath);
+
+    // Initial parse: bypass throttle, submit immediately.
+    submitIntellisense(&doc, loaded->text);
     return &doc;
 }
 
@@ -258,6 +265,8 @@ auto DocumentManager::saveAllFiles() const -> bool {
 }
 
 auto DocumentManager::closeFile(Document& doc) -> bool {
+    cancelIntellisense(&doc);
+
     if (doc.isModified()) {
         const auto result = wxMessageBox(
             wxString::Format(m_ctx.tr("messages.fileModifiedFormat"), doc.getTitle()),
@@ -323,6 +332,32 @@ auto DocumentManager::closeOtherFiles(const Document& keep) -> bool {
 void DocumentManager::attachNotebook() {
     auto* notebook = getNotebook();
     notebook->Bind(wxEVT_AUINOTEBOOK_TAB_RIGHT_DOWN, &DocumentManager::onTabRightDown, this);
+}
+
+void DocumentManager::submitIntellisense(Document* doc, wxString content) {
+    if (m_intellisense != nullptr) {
+        m_intellisense->submit(doc, std::move(content));
+    }
+}
+
+void DocumentManager::cancelIntellisense(const Document* doc) {
+    if (m_intellisense != nullptr) {
+        m_intellisense->cancel(doc);
+    }
+}
+
+void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
+    auto result = event.GetPayload<IntellisenseResult>();
+    // Validate the document is still alive — race against close.
+    if (!contains(result.owner)) {
+        return;
+    }
+    // contains() takes const Document*; cast away to call setter.
+    auto* doc = const_cast<Document*>(result.owner); // NOLINT(cppcoreguidelines-pro-type-const-cast)
+    doc->setProgramTree(result.tree);
+    wxLogDebug("intellisense: doc=%p nodes=%zu",
+        static_cast<const void*>(result.owner),
+        result.tree ? result.tree->nodes.size() : 0);
 }
 
 void DocumentManager::syncEditCommands() {

@@ -9,6 +9,7 @@
 // STL
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <concepts>
 #include <cstddef>
@@ -56,6 +57,7 @@
 #include <wx/stc/stc.h>
 #include <wx/stdpaths.h>
 #include <wx/textfile.h>
+#include <wx/thread.h>
 #include <wx/tokenzr.h>
 #include <wx/txtstrm.h>
 #include <wx/wfstream.h>

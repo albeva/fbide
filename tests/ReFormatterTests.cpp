@@ -1278,43 +1278,33 @@ TEST_F(ReFormatterTests, LeanFilterDropsLayoutAndCollapsesBlankLines) {
 
     // Walk every token in the tree and verify no layout/comment tokens remain.
     const auto countByKind = [&](lexer::TokenKind kind) {
-        int n = 0;
-        const std::function<void(const Node&)> walk = [&](const Node& node) {
-            std::visit(overloaded {
-                [](const BlankLineNode&) {},
-                [&](const StatementNode& st) {
-                    for (const auto& t : st.tokens) {
-                        if (t.kind == kind) {
-                            n++;
-                        }
-                    }
-                },
-                [&](const VerbatimNode&) {},
-                [&](const std::unique_ptr<BlockNode>& block) {
-                    if (block->opener) {
-                        for (const auto& t : block->opener->tokens) {
-                            if (t.kind == kind) {
-                                n++;
-                            }
-                        }
-                    }
-                    for (const auto& child : block->body) {
-                        walk(child);
-                    }
-                    if (block->closer) {
-                        for (const auto& t : block->closer->tokens) {
-                            if (t.kind == kind) {
-                                n++;
-                            }
-                        }
-                    }
+        int count = 0;
+        const auto countInTokens = [&](const std::vector<lexer::Token>& tokens) {
+            for (const auto& tkn : tokens) {
+                if (tkn.kind == kind) {
+                    count++;
                 }
-            }, node);
+            }
+        };
+        const std::function<void(const Node&)> walk = [&](const Node& node) {
+            if (const auto* st = std::get_if<StatementNode>(&node)) {
+                countInTokens(st->tokens);
+            } else if (const auto* block = std::get_if<std::unique_ptr<BlockNode>>(&node)) {
+                if ((*block)->opener) {
+                    countInTokens((*block)->opener->tokens);
+                }
+                for (const auto& child : (*block)->body) {
+                    walk(child);
+                }
+                if ((*block)->closer) {
+                    countInTokens((*block)->closer->tokens);
+                }
+            }
         };
         for (const auto& node : tree.nodes) {
             walk(node);
         }
-        return n;
+        return count;
     };
 
     EXPECT_EQ(countByKind(lexer::TokenKind::Whitespace), 0);

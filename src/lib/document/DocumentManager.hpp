@@ -13,6 +13,7 @@
 namespace fbide {
 class Context;
 class CodeTransformer;
+class IntellisenseService;
 
 /// Manages open documents and their notebook tabs.
 /// Extends wxEvtHandler to receive find/replace dialog events.
@@ -63,6 +64,15 @@ public:
     /// Paste, SelectAll) from the active editor. Called whenever the editor
     /// state may have changed (focus, modification, selection).
     void syncEditCommands();
+
+    /// Submit a snapshot for background intellisense parsing. Latest-wins:
+    /// any pending submission for any document is replaced. Result lands
+    /// asynchronously via EVT_INTELLISENSE_RESULT.
+    void submitIntellisense(Document* doc, wxString content);
+
+    /// Cancel any pending or in-flight intellisense work for `doc`. Called
+    /// from `closeFile` before erasing the document.
+    void cancelIntellisense(const Document* doc);
 
     /// Handle quit request. Prompts for unsaved docs. Returns true if safe to quit.
     /// If user chooses to save, saves all then returns true.
@@ -146,10 +156,16 @@ private:
     // Tab-strip context menu
     void onTabRightDown(wxAuiNotebookEvent& event);
 
+    // Intellisense result delivery (worker thread → UI thread).
+    void onIntellisenseResult(wxThreadEvent& event);
+
     Context& m_ctx;
     wxFindReplaceData m_findData { wxFR_DOWN };
     std::vector<std::unique_ptr<Document>> m_documents;
     std::unique_ptr<CodeTransformer> m_codeTransformer;
+    /// Declared last so destruction runs first — worker thread stops and
+    /// joins before the documents and transformer it might race with go away.
+    std::unique_ptr<IntellisenseService> m_intellisense;
 
     wxDECLARE_EVENT_TABLE();
 };

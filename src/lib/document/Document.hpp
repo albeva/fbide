@@ -8,6 +8,7 @@
 #include "pch.hpp"
 #include "DocumentType.hpp"
 #include "TextEncoding.hpp"
+#include "format/transformers/reformat/FormatTree.hpp"
 
 namespace fbide {
 class Context;
@@ -78,6 +79,17 @@ public:
     /// Update stored modification time from file on disk.
     void updateModTime();
 
+    /// Latest parse tree produced by IntellisenseService for this document.
+    /// May be null until the first parse completes.
+    [[nodiscard]] auto getProgramTree() const
+        -> std::shared_ptr<const reformat::ProgramTree> { return m_programTree; }
+
+    /// Set the latest parse tree. Called by DocumentManager from the
+    /// IntellisenseService result handler on the UI thread.
+    void setProgramTree(std::shared_ptr<const reformat::ProgramTree> tree) {
+        m_programTree = std::move(tree);
+    }
+
 private:
     Context& m_ctx;
     wxString m_compiledFile;
@@ -90,6 +102,7 @@ private:
     /// Set when encoding is changed; cleared on save. OR'd with editor's
     /// modify flag in isModified() so encoding-only edits still show as dirty.
     bool m_metaModified = false;
+    std::shared_ptr<const reformat::ProgramTree> m_programTree;
 };
 
 } // namespace fbide
