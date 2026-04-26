@@ -359,7 +359,7 @@ void Theme::save(const wxString& newThemePath) {
                 return wxFileConfig { existingStream, wxConvUTF8 };
             }
         }
-        return wxFileConfig { "", "", "", "", wxCONFIG_USE_LOCAL_FILE };
+        return wxFileConfig { wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0 };
     }();
 
     // patch version

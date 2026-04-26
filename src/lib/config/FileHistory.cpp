@@ -21,7 +21,7 @@ void FileHistory::save() {
     if (m_path.empty()) {
         return;
     }
-    wxFileConfig ini;
+    wxFileConfig ini(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
     m_history.Save(ini);
     wxFileOutputStream stream(m_path);
     ini.Save(stream);

@@ -109,14 +109,7 @@ void FileSession::save(const wxString& path) {
         }
     }
 
-    // wxFileConfig associated with `path` via the localFilename ctor arg —
-    // loads existing content (if any), Flush() writes back.
-    wxFileConfig cfg(
-        wxEmptyString, wxEmptyString,
-        path, wxEmptyString,
-        wxCONFIG_USE_LOCAL_FILE
-    );
-    cfg.DeleteAll();
+    wxFileConfig cfg(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
 
     const auto sessionDir = wxFileName(path).GetPath();
     const auto* notebook = m_ctx.getUIManager().getNotebook();
@@ -138,7 +131,12 @@ void FileSession::save(const wxString& path) {
         idx++;
     }
 
-    cfg.Flush();
+    wxFFileOutputStream outStream(path);
+    if (!outStream.IsOk()) {
+        wxLogError("Failed to open '%s' for writing", path);
+        return;
+    }
+    cfg.Save(outStream, wxConvUTF8);
 }
 
 void FileSession::showLoadDialog() {
@@ -173,11 +171,12 @@ void FileSession::showSaveDialog() {
 }
 
 void FileSession::loadV3(const wxString& path) {
-    wxFileConfig cfg(
-        wxEmptyString, wxEmptyString,
-        path, wxEmptyString,
-        wxCONFIG_USE_LOCAL_FILE
-    );
+    wxFFileInputStream stream(path);
+    if (!stream.IsOk()) {
+        wxLogError("Failed to open session '%s' for reading", path);
+        return;
+    }
+    wxFileConfig cfg(stream, wxConvUTF8);
 
     const auto thaw = m_ctx.getUIManager().freeze();
     auto& dm = m_ctx.getDocumentManager();
