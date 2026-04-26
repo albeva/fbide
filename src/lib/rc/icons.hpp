@@ -27,6 +27,11 @@ namespace XPM {
 #include "icons/run.xpm"
 #include "icons/save.xpm"
 #include "icons/saveall.xpm"
+#include "icons/sym_enum.xpm"
+#include "icons/sym_function.xpm"
+#include "icons/sym_sub.xpm"
+#include "icons/sym_type.xpm"
+#include "icons/sym_union.xpm"
 #include "icons/undo.xpm"
 }; // namespace XPM
 // NOLINTEND(*-avoid-c-arrays)

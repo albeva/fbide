@@ -8,13 +8,12 @@
 #include "pch.hpp"
 
 class wxGenericDirCtrl;
-class wxTreeCtrl;
 class wxTreeEvent;
 
 namespace fbide {
 class Context;
 class Document;
-class SymbolTable;
+class SymbolBrowser;
 
 /// Manages the sidebar (Browser) pane content. The pane and its notebook are
 /// owned by `UIManager`; SideBarManager populates the notebook with tabs and
@@ -31,7 +30,7 @@ public:
     static constexpr auto kBrowserPaneName = "viewBrowser";
 
     explicit SideBarManager(Context& ctx);
-    ~SideBarManager() override;
+    ~SideBarManager() override; // out-of-line for unique_ptr<SymbolBrowser>
 
     /// Two-phase init: called from `UIManager::createLayout` once the sidebar
     /// notebook exists. Builds the tabs.
@@ -56,19 +55,13 @@ public:
 
 private:
     void onFileActivated(wxTreeEvent& event);
-    void onSymbolItemActivated(wxTreeEvent& event);
-    void rebuildSymbolTree(const SymbolTable& table);
-    void clearSymbolTree();
 
     Context& m_ctx;
     wxAuiNotebook* m_notebook = nullptr;
     Unowned<wxGenericDirCtrl> m_dirCtrl;
-    Unowned<wxTreeCtrl> m_symbolTree;
+    Unowned<SymbolBrowser> m_symbolBrowser;
     int m_subFunctionPage = wxNOT_FOUND;
     int m_browseFilesPage = wxNOT_FOUND;
-    /// Last SymbolTable rendered into the tree. Used as a cheap dedup check —
-    /// repeated showSymbolsFor calls with the same shared_ptr are no-ops.
-    std::shared_ptr<const SymbolTable> m_currentTable;
 };
 
 } // namespace fbide

@@ -1,0 +1,33 @@
+/* XPM */
+static const char* const sym_type_xpm[] = {
+/* columns rows colors chars-per-pixel */
+"16 15 12 1 ",
+"  c #C0C0C0",
+". c gray42",
+"X c gray16",
+"o c black",
+"O c white",
+"+ c gray97",
+"@ c gray87",
+"# c gray74",
+"$ c gray84",
+"% c #800080",
+"& c #CECECE",
+"* c gray58",
+/* pixels */
+"  .XXXXXXXoooo  ",
+"  oO++++++++@X  ",
+"  o+@@@@@@@@#X  ",
+"  o+@@@@@@@$#X  ",
+"  o+@%%%%%%$#X  ",
+"  o+@@@%%$$$#X  ",
+"  o+@@@%%$$$#X  ",
+"  o+@@@%%$$$#X  ",
+"  o+@@@%%$$$#X  ",
+"  o+@@@%%$$$#X  ",
+"  o+@@$%%$$&#X  ",
+"  o+@$$%%$&&#X  ",
+"  o+$$$$$&&&#X  ",
+"  o$########*X  ",
+"  oXXXXXXXXXXX  "
+};
