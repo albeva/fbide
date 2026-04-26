@@ -227,21 +227,6 @@ void Theme::load(const wxString& themePath, const bool reset) {
         m_themePath = themePath;
     }
 
-    // If the requested file doesn't exist, try swapping the extension
-    // between .ini and .fbt — keeps callers unaware of format versions.
-    if (not wxFileExists(m_themePath)) {
-        wxFileName fn(m_themePath);
-        const auto ext = fn.GetExt().Lower();
-        if (ext == "ini") {
-            fn.SetExt("fbt");
-        } else if (ext == "fbt") {
-            fn.SetExt("ini");
-        }
-        if (wxFileExists(fn.GetFullPath())) {
-            m_themePath = fn.GetFullPath();
-        }
-    }
-
     // Legacy v4 format — .fbt extension. loadV4 resets the object, so
     // stash the path and restore it after so getPath() still returns the
     // file we actually loaded.
