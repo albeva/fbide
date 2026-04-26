@@ -387,7 +387,7 @@ static auto makeRelative(const wxString& path, const wxString& to) -> std::optio
     if (to.StartsWith(path)) {
         wxFileName result(to);
         result.MakeRelativeTo(path);
-        return result.GetFullPath();
+        return result.GetFullPath(wxPATH_UNIX);
     }
     return {};
 }
