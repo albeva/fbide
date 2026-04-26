@@ -173,6 +173,11 @@ struct Token final {
     /// keep a logical statement intact across the physical newline.
     bool continuation = false;
     std::string text;
+    /// 0-based line number where the token starts in the original source.
+    /// Populated by `StyleLexer::tokenise` via a single post-pass that walks
+    /// the emitted tokens and increments on Newline. Default 0 for callers
+    /// that construct tokens by hand (tests).
+    int line = 0;
 };
 
 } // namespace fbide::lexer

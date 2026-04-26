@@ -121,7 +121,14 @@ void IntellisenseService::process(Task task) {
     }
 
     reformat::ReFormatter parser({ .lean = true });
-    auto tree = std::make_shared<reformat::ProgramTree>(parser.buildTree(tokens));
+    const auto tree = parser.buildTree(tokens);
+
+    if (thread != nullptr && thread->TestDestroy()) {
+        m_inFlight.store(nullptr);
+        return;
+    }
+
+    auto symbols = std::make_shared<SymbolTable>(tree);
 
     // Atomic check + clear: only deliver if no cancel hit between dispatch
     // and now. Don't post for documents the UI has since dropped.
@@ -133,7 +140,7 @@ void IntellisenseService::process(Task task) {
     wxThreadEvent* event = make_unowned<wxThreadEvent>(EVT_INTELLISENSE_RESULT);
     event->SetPayload(IntellisenseResult {
         .owner = task.owner,
-        .tree = std::move(tree),
+        .symbols = std::move(symbols),
     });
     wxQueueEvent(m_sink, event);
 }

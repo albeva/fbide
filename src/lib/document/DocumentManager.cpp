@@ -354,10 +354,22 @@ void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
     }
     // contains() takes const Document*; cast away to call setter.
     auto* doc = const_cast<Document*>(result.owner); // NOLINT(cppcoreguidelines-pro-type-const-cast)
-    doc->setProgramTree(result.tree);
-    wxLogDebug("intellisense: doc=%p nodes=%zu",
+
+    // Skip the assign + (future) notify if nothing changed since last parse.
+    if (const auto& prev = doc->getSymbolTable();
+        prev != nullptr && result.symbols != nullptr && prev->getHash() == result.symbols->getHash()) {
+        return;
+    }
+
+    doc->setSymbolTable(result.symbols);
+    wxLogDebug("intellisense: doc=%p hash=%zx subs=%zu funcs=%zu types=%zu unions=%zu enums=%zu",
         static_cast<const void*>(result.owner),
-        result.tree ? result.tree->nodes.size() : 0);
+        result.symbols ? result.symbols->getHash() : 0,
+        result.symbols ? result.symbols->getSubs().size() : 0,
+        result.symbols ? result.symbols->getFunctions().size() : 0,
+        result.symbols ? result.symbols->getTypes().size() : 0,
+        result.symbols ? result.symbols->getUnions().size() : 0,
+        result.symbols ? result.symbols->getEnums().size() : 0);
 }
 
 void DocumentManager::syncEditCommands() {

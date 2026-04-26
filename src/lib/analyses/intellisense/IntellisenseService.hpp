@@ -7,7 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "analyses/lexer/MemoryDocument.hpp"
-#include "format/transformers/reformat/FormatTree.hpp"
+#include "analyses/symbols/SymbolTable.hpp"
 
 namespace fbide {
 class Context;
@@ -17,7 +17,7 @@ class FBSciLexer;
 /// Result delivered to the sink wxEvtHandler when a parse finishes.
 struct IntellisenseResult {
     const Document* owner;
-    std::shared_ptr<const reformat::ProgramTree> tree;
+    std::shared_ptr<const SymbolTable> symbols;
 };
 
 wxDECLARE_EVENT(EVT_INTELLISENSE_RESULT, wxThreadEvent);

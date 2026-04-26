@@ -9,6 +9,7 @@ target_sources(fbide_lib
     analyses/lexer/StyleLexer.cpp
     analyses/lexer/StyledSource.cpp
     analyses/lexer/VerbatimAnnotator.cpp
+    analyses/symbols/SymbolTable.cpp
     app/App.cpp
     app/Context.cpp
     app/InstanceHandler.cpp
@@ -68,6 +69,7 @@ target_sources(fbide_lib
     analyses/lexer/StyledSource.hpp
     analyses/lexer/Token.hpp
     analyses/lexer/VerbatimAnnotator.hpp
+    analyses/symbols/SymbolTable.hpp
     app/App.hpp
     app/Context.hpp
     app/InstanceHandler.hpp

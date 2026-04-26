@@ -21,6 +21,7 @@ add_executable(tests
     ReFormatterTests.cpp
     StyleLexerTests.cpp
     RunCommandTests.cpp
+    SymbolTableTests.cpp
     TextEncodingTests.cpp
     ThemeTests.cpp
 )

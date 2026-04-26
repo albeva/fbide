@@ -61,6 +61,11 @@ private:
     void emitPreprocessor(const StyleRange& range, std::vector<Token>& out);
     void emitSimple(const StyleRange& range, TokenKind kind, std::vector<Token>& out);
 
+    /// Walks `tokens` once and assigns `Token::line` to each, incrementing
+    /// on every Newline. Tokens come out in source order so a single pass
+    /// is enough — no per-emit-site instrumentation needed.
+    static void stampLines(std::vector<Token>& tokens);
+
     IStyledSource& m_src;
     Sci_PositionU m_pos = 0;
     bool m_canBeUnary = true;

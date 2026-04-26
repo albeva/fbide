@@ -147,7 +147,18 @@ auto StyleLexer::tokenise(const Range& range) -> std::vector<Token> {
     }
 
     annotateVerbatim(out);
+    stampLines(out);
     return out;
+}
+
+void StyleLexer::stampLines(std::vector<Token>& tokens) {
+    int line = 0;
+    for (auto& tkn : tokens) {
+        tkn.line = line;
+        if (tkn.kind == TokenKind::Newline) {
+            line++;
+        }
+    }
 }
 
 auto StyleLexer::nextStyle() -> std::optional<StyleRange> {
