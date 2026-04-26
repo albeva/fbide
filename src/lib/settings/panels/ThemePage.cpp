@@ -105,8 +105,8 @@ void ThemePage::apply() {
     }
 }
 
-auto ThemePage::tr(const wxString& path) const -> wxString {
-    return m_tr.get_or(path, path);
+auto ThemePage::tr(const wxString& path, const wxString& def) const -> wxString {
+    return m_tr.get_or(path, def.IsEmpty() ? path : def);
 }
 
 // ---------------------------------------------------------------------------

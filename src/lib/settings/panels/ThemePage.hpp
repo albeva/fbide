@@ -28,7 +28,7 @@ public:
     [[nodiscard]] static auto getAllFixedWidthFonts() -> std::vector<wxString>;
 
 private:
-    auto tr(const wxString& path) const -> wxString;
+    auto tr(const wxString& path, const wxString& def = wxEmptyString) const -> wxString;
 
     void createTopRow();
     void createCategoryList();
