@@ -50,6 +50,7 @@ enum class CommandId : wxWindowID {
     GotoLine,
     Format,
     Result,
+    Browser,
     CompilerLog,
     Subs,
     Compile,

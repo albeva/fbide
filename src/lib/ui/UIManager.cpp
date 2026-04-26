@@ -17,6 +17,7 @@
 #include "document/DocumentManager.hpp"
 #include "editor/Editor.hpp"
 #include "rc/icons.hpp"
+#include "sidebar/SideBarManager.hpp"
 #ifndef __WXMSW__
 namespace XPM {
 #include "rc/appicon.xpm"
@@ -30,6 +31,7 @@ wxBEGIN_EVENT_TABLE(UIManager, wxEvtHandler)
     EVT_AUINOTEBOOK_PAGE_CLOSE(wxID_ANY, UIManager::onPageClose)
     EVT_AUINOTEBOOK_PAGE_CHANGED(wxID_ANY, UIManager::onPageChanged)
     EVT_AUINOTEBOOK_BG_DCLICK(wxID_ANY, UIManager::onNotebookDblClick)
+    EVT_AUINOTEBOOK_TAB_RIGHT_DOWN(wxID_ANY, UIManager::onTabRightDown)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -141,6 +143,33 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
 void UIManager::onNotebookDblClick(wxAuiNotebookEvent& event) {
     event.Skip();
     m_ctx.getDocumentManager().newFile();
+}
+
+void UIManager::onTabRightDown(wxAuiNotebookEvent& event) {
+    event.Skip();
+    if (event.GetEventObject() != m_notebook.get()) {
+        return;
+    }
+    const auto pageIdx = event.GetSelection();
+    if (pageIdx == wxNOT_FOUND) {
+        return;
+    }
+    const auto* page = m_notebook->GetPage(static_cast<size_t>(pageIdx));
+    auto* doc = m_ctx.getDocumentManager().findByEditor(page);
+    if (doc == nullptr || doc->isNew()) {
+        return;
+    }
+    const auto path = doc->getFilePath();
+
+    wxMenu menu;
+    menu.Append(wxID_ANY, m_ctx.tr("tabContext.locateInBrowser"));
+    menu.Bind(wxEVT_MENU, [this, path](const wxCommandEvent&) {
+        if (auto* entry = m_ctx.getCommandManager().find(+CommandId::Browser)) {
+            entry->setChecked(true);
+        }
+        m_ctx.getSideBarManager().locateFile(path);
+    });
+    m_notebook->PopupMenu(&menu);
 }
 
 void UIManager::configureMenuBar() {
@@ -443,6 +472,30 @@ void UIManager::createLayout() {
 
     // This is safe, wx stores panes as heap allocated objects.
     entry->binds.push_back(&m_aui);
+
+    // Sidebar (Browser) pane (left, hidden by default)
+    m_sideBar = make_unowned<wxAuiNotebook>(
+        m_frame, wxID_ANY,
+        wxDefaultPosition, wxDefaultSize,
+        wxAUI_NB_TOP | wxAUI_NB_SCROLL_BUTTONS
+    );
+
+    auto* browserEntry = m_ctx.getCommandManager().find(+CommandId::Browser);
+    if (browserEntry == nullptr) {
+        wxLogError("Entry is missing for the browser sidebar");
+        return;
+    }
+    m_aui.AddPane(
+        m_sideBar.get(),
+        wxAuiPaneInfo()
+            .Name(kBrowserPaneName)
+            .Caption(m_ctx.tr("sidebar.title"))
+            .Left()
+            .BestSize(220, -1)
+            .Hide()
+    );
+    browserEntry->binds.push_back(&m_aui);
+    m_ctx.getSideBarManager().attach(m_sideBar.get());
 }
 
 void UIManager::setDocumentState(const UIState state) {

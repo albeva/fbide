@@ -92,6 +92,7 @@ private:
     void onPageClose(wxAuiNotebookEvent& event);
     void onPageChanged(wxAuiNotebookEvent& event);
     void onNotebookDblClick(wxAuiNotebookEvent& event);
+    void onTabRightDown(wxAuiNotebookEvent& event);
     void onStatusBarClick(wxMouseEvent& event);
 
     void configureMenuBar();
@@ -114,6 +115,7 @@ private:
     Unowned<wxFrame> m_frame;
     Unowned<wxToolBar> m_toolbar;
     Unowned<wxAuiNotebook> m_notebook;
+    Unowned<wxAuiNotebook> m_sideBar;
     std::vector<wxMenuItem*> m_externalLinkItems;
 
     static constexpr std::array mutableIds = {

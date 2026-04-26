@@ -15,6 +15,7 @@ class DocumentManager;
 class FileHistory;
 class FileSession;
 class HelpManager;
+class SideBarManager;
 class UIManager;
 
 /// Central access point for editor service objects.
@@ -46,6 +47,10 @@ public:
     [[nodiscard]] auto getUIManager() -> UIManager& { return *m_uiManager; }
     [[nodiscard]] auto getUIManager() const -> const UIManager& { return *m_uiManager; }
 
+    /// Get sidebar (Browser) manager.
+    [[nodiscard]] auto getSideBarManager() -> SideBarManager& { return *m_sideBarManager; }
+    [[nodiscard]] auto getSideBarManager() const -> const SideBarManager& { return *m_sideBarManager; }
+
     /// Get document manager.
     [[nodiscard]] auto getDocumentManager() -> DocumentManager& { return *m_documentManager; }
     [[nodiscard]] auto getDocumentManager() const -> const DocumentManager& { return *m_documentManager; }
@@ -70,6 +75,10 @@ private:
     std::unique_ptr<ConfigManager> m_configManager;
     std::unique_ptr<FileHistory> m_fileHistory;
     std::unique_ptr<UIManager> m_uiManager;
+    // SideBarManager is declared after UIManager so its destructor runs first
+    // (members destroyed in reverse declaration order). It holds a non-owning
+    // pointer to a wxAuiNotebook owned by the frame which UIManager destroys.
+    std::unique_ptr<SideBarManager> m_sideBarManager;
     std::unique_ptr<DocumentManager> m_documentManager;
     std::unique_ptr<FileSession> m_fileSession;
     std::unique_ptr<CompilerManager> m_compilerManager;

@@ -126,6 +126,7 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .id = +CommandId::Redo,             .name="redo" },
         CommandEntry { .id = +CommandId::Replace,          .name="replace" },
         CommandEntry { .id = +CommandId::Result,           .name="viewResult", .kind = wxITEM_CHECK },
+        CommandEntry { .id = +CommandId::Browser,          .name="viewBrowser", .kind = wxITEM_CHECK },
         CommandEntry { .id = +CommandId::Run,              .name="run" },
         CommandEntry { .id = +CommandId::Save,             .name="save" },
         CommandEntry { .id = +CommandId::SaveAll,          .name="saveAll" },

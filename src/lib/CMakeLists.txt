@@ -48,6 +48,7 @@ target_sources(fbide_lib
     settings/panels/GeneralPage.cpp
     settings/panels/KeywordsPage.cpp
     settings/panels/ThemePage.cpp
+    sidebar/SideBarManager.cpp
     ui/ArtiProvider.cpp
     ui/CompilerLog.cpp
     ui/EncodingMenu.cpp
@@ -111,6 +112,7 @@ target_sources(fbide_lib
     settings/panels/KeywordsPage.hpp
     settings/panels/SettingsCategory.hpp
     settings/panels/ThemePage.hpp
+    sidebar/SideBarManager.hpp
     ui/ArtiProvider.hpp
     ui/CompilerLog.hpp
     ui/EncodingMenu.hpp
