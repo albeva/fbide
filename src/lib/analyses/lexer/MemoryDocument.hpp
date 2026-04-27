@@ -43,7 +43,7 @@ public:
     MemoryDocument(MemoryDocument&&) = delete;
     MemoryDocument& operator=(const MemoryDocument&) = delete;
     MemoryDocument& operator=(MemoryDocument&&) = delete;
-    virtual ~MemoryDocument() = default;
+    ~MemoryDocument() = default;
 
     /// Replace text and reset styles, line starts, line states, line levels.
     void Set(std::string_view sv);
