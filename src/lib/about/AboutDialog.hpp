@@ -11,6 +11,7 @@
 namespace fbide {
 class Context;
 
+/// Modal dialog showing the FBIde version, license, and embedded readme.
 class AboutDialog final : public Layout<wxDialog> {
 public:
     NO_COPY_AND_MOVE(AboutDialog)

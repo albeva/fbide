@@ -15,6 +15,8 @@ namespace fbide {
 class CompilerLog;
 class Context;
 
+/// RAII guard around `wxWindow::Freeze` / `Thaw`. Suppresses repaint
+/// thrash during bulk UI updates; thaws on scope exit.
 class [[nodiscard]] FreezeLock final {
 public:
     NO_COPY_AND_MOVE(FreezeLock)

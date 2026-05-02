@@ -9,6 +9,9 @@
 
 namespace fbide {
 
+/// RAII guard that runs `callback` on scope exit. Use the `DEFER(stmt)`
+/// macro for the common case where you want a Go-style deferred
+/// statement bound to the enclosing block.
 template<std::invocable Callback>
 class DeferHandler {
 public:

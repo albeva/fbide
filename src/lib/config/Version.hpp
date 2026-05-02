@@ -10,6 +10,9 @@
 
 namespace fbide {
 
+/// Semantic version triple (major, minor, patch). Comparable, parsable
+/// from strings, and stamped at compile-time for the FBIde and
+/// wxWidgets build versions via the static factories.
 class [[nodiscard]] Version final {
 public:
     // plumbing
