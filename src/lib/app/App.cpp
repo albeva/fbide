@@ -449,14 +449,21 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
             wxEXEC_ASYNC
         );
 
-        // Trigger the normal close path. Mark documents not-modified
-        // so `prepareToQuit` doesn't re-prompt — FileSession already
-        // covered them. `UIManager::onClose` persists window
-        // geometry / config / file history on its way out.
+        // Run the close handler explicitly to persist window
+        // geometry / config / file history (mark documents
+        // not-modified so `prepareToQuit` doesn't re-prompt —
+        // FileSession already covered them), then `wxExit` to make
+        // sure the process actually terminates. `Close()` alone
+        // wasn't enough on debug builds where the floating
+        // `wxLogWindow` is a second top-level frame and prevents the
+        // wxApp main loop from exiting on main-frame destruction.
+        // `--wait-for-pid` on the spawned instance means it blocks
+        // until we're gone, so a hard exit here is the right call.
         for (const auto& doc : m_context->getDocumentManager().getDocuments()) {
             doc->setModified(false);
         }
         m_context->getUIManager().getMainFrame()->Close(true);
+        wxExit();
     });
 }
 
