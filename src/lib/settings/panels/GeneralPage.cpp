@@ -8,7 +8,6 @@
 #include "GeneralPage.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "config/FileHistory.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/FileSession.hpp"
@@ -155,7 +154,6 @@ void GeneralPage::apply() {
         // through. If the user cancels a "save changes?" dialog mid-way,
         // we abort the restart and the language stays as it was.
         wxTheApp->CallAfter([&ctx = getContext(), language = m_language]() {
-            auto& uiMgr = ctx.getUIManager();
             auto& cfgMgr = ctx.getConfigManager();
 
             // Persist the open documents to a temp session. If any
@@ -166,11 +164,12 @@ void GeneralPage::apply() {
                 return;
             }
 
-            // Commit the locale swap and persist state.
+            // Commit the locale swap. Window geometry / config /
+            // history persistence happens via `UIManager::onClose`
+            // when the frame closes — the new instance only loads
+            // config after this process has exited (`--wait-for-pid`),
+            // so we don't need to flush them up-front any more.
             cfgMgr.setCategoryPath(ConfigManager::Category::Locale, "locales/" + language);
-            uiMgr.saveWindowGeometry();
-            cfgMgr.save(ConfigManager::Category::Config);
-            ctx.getFileHistory().save();
 
             // Spawn the replacement asynchronously and pass our PID
             // via `--wait-for-pid`. The new instance polls until this
@@ -186,11 +185,8 @@ void GeneralPage::apply() {
             );
 
             // Trigger the normal close path. Mark documents
-            // not-modified so `prepareToQuit` doesn't re-prompt
-            // (FileSession already covered them); `UIManager::onClose`
-            // handles window geometry / config / history persistence
-            // again on its way out, which is fine — the writes are
-            // idempotent.
+            // not-modified so `prepareToQuit` doesn't re-prompt —
+            // FileSession already covered them.
             for (const auto& doc : ctx.getDocumentManager().getDocuments()) {
                 doc->setModified(false);
             }

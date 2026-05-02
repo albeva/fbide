@@ -87,11 +87,6 @@ public:
     /// Force editors to update settings.
     void updateEditorSettigs();
 
-    /// Capture the current frame size + position back into the config
-    /// tree (`config["window"]`). Caller is responsible for persisting
-    /// the config to disk afterwards.
-    void saveWindowGeometry();
-
     /// Toggle the output console pane's visibility.
     void showConsole(bool show);
 
@@ -141,6 +136,8 @@ private:
     void syncConsoleState(bool visible) const;
     /// Apply broad enable/disable for `mutableIds[]` based on `state`.
     void applyState(UIState state) const;
+    /// Capture the current frame size + position into `config["window"]`.
+    void saveWindowGeometry();
 
     Context& m_ctx;                                     ///< Application context.
     UIState m_documentState = UIState::None;            ///< Document-side state slot.
