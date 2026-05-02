@@ -75,7 +75,7 @@ public:
 private:
     void onMarginClick(wxStyledTextEvent& event);
     void onModified(wxStyledTextEvent& event);
-    void onUpdateUI(wxStyledTextEvent& event);
+    void onUpdateUI(wxStyledTextEvent& event);void postUpdateUI();
     void onZoom(wxStyledTextEvent& event);
     void onCharAdded(wxStyledTextEvent& event);
     void onFocus(wxFocusEvent& event);
@@ -100,6 +100,7 @@ private:
     bool m_insertHandled = false;
     bool m_editorLocked = false;
     int m_lastCaretPos = 0;
+    bool m_callPostUpdate = false;
     /// Restart on each text-changing modify event; on fire submits a
     /// snapshot to DocumentManager::submitIntellisense.
     wxTimer m_intellisenseTimer;

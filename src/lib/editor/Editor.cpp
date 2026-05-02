@@ -17,7 +17,7 @@
 using namespace fbide;
 
 namespace {
-enum class Margins : int {
+enum class Margins : std::uint8_t {
     LineNumbers = 0,
     Fold = 1
 };
@@ -25,13 +25,15 @@ constexpr auto operator+(const Margins& rhs) -> int {
     return static_cast<int>(rhs);
 }
 
+struct Constants final {
+    static constexpr int edgeColumn = 80;
+    static constexpr int foldMarginWidth = 16;
+    static constexpr int analysesThrottle = 500;
+};
+
 auto isBrace(const int ch) -> bool {
     return ch == '(' || ch == ')' || ch == '[' || ch == ']' || ch == '{' || ch == '}';
 }
-
-/// Idle delay before submitting a snapshot to IntellisenseService after the
-/// last text-changing edit. Initial loads bypass this entirely.
-constexpr int kIntellisenseThrottleMs = 500;
 } // namespace
 
 // clang-format off
@@ -90,15 +92,14 @@ void Editor::applyEditorSettings() {
         // SetMarginWidth(2, 0);
         SetEdgeMode(wxSTC_EDGE_NONE);
         SetViewEOL(false);
-        SetIndentationGuides(false);
+        SetIndentationGuides(wxSTC_IV_NONE);
         SetViewWhiteSpace(wxSTC_WS_INVISIBLE);
         // Prevent horizontal scrollbar flashing on content changes
         SetScrollWidthTracking(false);
-        SetScrollWidth(10000);
         return;
     }
 
-    SetEdgeColumn(editor.get_or("edgeColumn", 80));
+    SetEdgeColumn(editor.get_or("edgeColumn", Constants::edgeColumn));
     SetViewEOL(editor.get_or("displayEOL", false));
     SetIndentationGuides(editor.get_or("indentGuide", false) ? wxSTC_IV_LOOKFORWARD : wxSTC_IV_NONE);
     SetEdgeMode(editor.get_or("longLine", false) ? wxSTC_EDGE_LINE : wxSTC_EDGE_NONE);
@@ -122,7 +123,7 @@ void Editor::defineFoldMargins() {
 
     SetMarginType(+Margins::Fold, wxSTC_MARGIN_SYMBOL);
     SetMarginMask(+Margins::Fold, static_cast<int>(wxSTC_MASK_FOLDERS));
-    SetMarginWidth(+Margins::Fold, 16);
+    SetMarginWidth(+Margins::Fold, Constants::foldMarginWidth);
     SetMarginSensitive(+Margins::Fold, true);
 
     const auto& theme = m_ctx.getTheme();
@@ -209,7 +210,7 @@ void Editor::applyFreebasicTheme() {
     // Apply keywords
     const auto& groups = m_ctx.getConfigManager().keywords().at("groups");
     for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
-        const auto key = getThemeCategoryName(kThemeKeywordCategories[idx]);
+        const auto key = getThemeCategoryName(kThemeKeywordCategories.at(idx));
         SetKeyWords(static_cast<int>(idx), groups.get_or(wxString(key), "").Lower());
     }
 
@@ -302,10 +303,10 @@ auto Editor::findNext(const wxString& text, const int flags, const bool forward)
 
     // Convert wxFindReplaceDialog flags to wxSTC search flags
     int stcFlags = 0;
-    if (flags & wxFR_WHOLEWORD) {
+    if ((flags & wxFR_WHOLEWORD) != 0) {
         stcFlags |= wxSTC_FIND_WHOLEWORD;
     }
-    if (flags & wxFR_MATCHCASE) {
+    if ((flags & wxFR_MATCHCASE) != 0) {
         stcFlags |= wxSTC_FIND_MATCHCASE;
     }
 
@@ -371,10 +372,10 @@ auto Editor::replaceAll(const wxString& findText, const wxString& replaceText, c
     }
 
     int stcFlags = 0;
-    if (flags & wxFR_WHOLEWORD) {
+    if ((flags & wxFR_WHOLEWORD) != 0) {
         stcFlags |= wxSTC_FIND_WHOLEWORD;
     }
-    if (flags & wxFR_MATCHCASE) {
+    if ((flags & wxFR_MATCHCASE) != 0) {
         stcFlags |= wxSTC_FIND_MATCHCASE;
     }
 
@@ -439,7 +440,7 @@ void Editor::gotoLine(const wxString& input) {
 void Editor::navigateToLine(const int line) {
     const int target = line - 1;
     if (GetCurrentLine() != target) {
-        ScrollToLine(target - LinesOnScreen() / 2);
+        ScrollToLine(target - (LinesOnScreen() / 2));
         GotoLine(target);
     }
     SetFocus();
@@ -486,16 +487,18 @@ void Editor::uncommentSelection() {
 
 void Editor::onUpdateUI(wxStyledTextEvent& event) {
     event.Skip();
-    updateStatusBar();
-    updateBraceMatch();
-    m_ctx.getDocumentManager().syncEditCommands();
 
     if (m_editorLocked) {
         return;
     }
 
+    if (not m_callPostUpdate) {
+        m_callPostUpdate = true;
+        CallAfter(&Editor::postUpdateUI);
+    }
+
     const int curr = GetCurrentPos();
-    if (event.GetUpdated() & wxSTC_UPDATE_SELECTION) {
+    if ((event.GetUpdated() & wxSTC_UPDATE_SELECTION) != 0) {
         if (m_transformer != nullptr && curr != m_lastCaretPos) {
             m_editorLocked = true;
             m_transformer->onCaretMoved(*this, m_lastCaretPos);
@@ -503,6 +506,13 @@ void Editor::onUpdateUI(wxStyledTextEvent& event) {
         }
     }
     m_lastCaretPos = curr;
+}
+
+void Editor::postUpdateUI() {
+    updateStatusBar();
+    updateBraceMatch();
+    m_ctx.getDocumentManager().syncEditCommands();
+    m_callPostUpdate = false;
 }
 
 void Editor::onCharAdded(wxStyledTextEvent& event) {
@@ -567,7 +577,7 @@ void Editor::onFocus(wxFocusEvent& event) {
     m_ctx.getUIManager().setDocumentState(state);
 }
 
-void Editor::onIntellisenseTimer(wxTimerEvent&) {
+void Editor::onIntellisenseTimer(wxTimerEvent& /*event*/) {
     auto* doc = m_ctx.getDocumentManager().findByEditor(this);
     if (doc == nullptr) {
         return;
@@ -599,7 +609,7 @@ void Editor::onModified(wxStyledTextEvent& event) {
 
     // Throttle a background re-parse: restart the one-shot timer; if the
     // user keeps typing, only the final pause triggers a submit.
-    m_intellisenseTimer.StartOnce(kIntellisenseThrottleMs);
+    m_intellisenseTimer.StartOnce(Constants::analysesThrottle);
 
     // We need to filter out genuine text insert that is not handled
     // by char add.
@@ -615,17 +625,5 @@ void Editor::onModified(wxStyledTextEvent& event) {
             m_transformer->onTextInserted(*this, pos, length);
             m_editorLocked = false;
         });
-    //     && !m_transformer->isInAction()) {
-    //     const int pos = event.GetPosition();
-    //     const int length = event.GetLength();
-    //     if (length > 1) {
-    //         CallAfter([this, pos, length] {
-    //             if (m_transformer != nullptr) {
-    //                 m_transformer->onTextInserted(*this, pos, length);
-    //             }
-    //         });
-    //     } else {
-    //         m_transformer->onTextInserted(*this, pos, length);
-    //     }
     }
 }

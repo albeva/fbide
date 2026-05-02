@@ -13,6 +13,7 @@
 #include <cassert>
 #include <concepts>
 #include <cstddef>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <functional>
