@@ -64,9 +64,9 @@ private:
         wxString configPath;           ///< `--config <path>`.
         wxString idePath;              ///< `--ide <path>`.
         wxString cfgKey;               ///< `--cfg=[<category>:]<key>` (non-empty → print + exit).
-        wxString loadSession;          ///< `--load-session <path>` (load + delete the file on success).
+        wxString loadSession;          ///< `--load-session <path>`.
         wxArrayString files;           ///< Positional file paths.
-        int waitForPid = 0;           ///< `--wait-for-pid <pid>` (0 = no wait).
+        int waitForPid = 0;            ///< `--wait-for-pid <pid>` (0 = no wait).
         bool newWindow = false;        ///< `--new-window`.
         bool verbose = false;          ///< `--verbose`.
         bool helpRequested = false;    ///< `--help`.

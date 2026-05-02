@@ -41,12 +41,9 @@ Options:
                         --cfg=*                # all keys in config
                         --cfg=editor/          # all keys under editor
                         --cfg=locale:dialogs.*
-  --load-session <p>  Load the .fbs session at <p> on startup, then delete it.
-                      Used internally for the language-change restart flow.
+  --load-session <p>  Load the .fbs session at <p> on startup.
   --wait-for-pid <id> Block startup (before any config is loaded) until the
-                      process with id <id> has exited. Used internally so the
-                      replacement process spawned by a language-change
-                      restart only opens after the previous one is gone.
+                      process with id <id> has exited.
   --new-window        Open a new window even if another instance is running.
   --verbose           Enable verbose logging.
   --version           Print fbide and wxWidgets version and exit.
