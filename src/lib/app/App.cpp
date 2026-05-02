@@ -9,6 +9,7 @@
 #include "InstanceHandler.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
+#include "config/Value.hpp"
 #include "config/Version.hpp"
 #include "document/DocumentManager.hpp"
 #include "ui/UIManager.hpp"
@@ -26,11 +27,17 @@ Options:
   --ide <path>        Override the IDE resources directory
                       (default: <fbide-binary-dir>/ide).
   --cfg=<spec>        Print a config value to stdout and exit.
-                      <spec> is `[category:]dotted.key`. Categories:
-                      config (default), locale, shortcuts, keywords, layout.
+                      <spec> is `[category:]path[.*|/|/*]`.
+                      Categories: config (default), locale, shortcuts,
+                      keywords, layout. `.` and `/` are interchangeable
+                      path separators. A trailing `*` or `/` enumerates
+                      every leaf key under the path (one per line).
                       Examples:
                         --cfg=compiler.path
                         --cfg=locale:dialogs.find.title
+                        --cfg=*                # all keys in config
+                        --cfg=editor/          # all keys under editor
+                        --cfg=locale:dialogs.*
   --new-window        Open a new window even if another instance is running.
   --verbose           Enable verbose logging.
   --version           Print fbide and wxWidgets version and exit.
@@ -95,6 +102,22 @@ void writeLineTo(const wxString& text, bool toStderr) {
 
 void writeLine(const wxString& text) { writeLineTo(text, /*toStderr=*/false); }
 void writeErrLine(const wxString& text) { writeLineTo(text, /*toStderr=*/true); }
+
+/// Recursively collect every leaf under `node`, prefixing with `prefix`
+/// (dot-separated). Each emitted entry is formatted `path=value` — sorted
+/// later so the path prefix orders the listing.
+void collectLeafEntries(const Value& node, const wxString& prefix, std::vector<wxString>& out) {
+    if (!node.isTable()) {
+        if (!prefix.IsEmpty()) {
+            out.push_back(prefix + "=" + node.value_or(wxString {}));
+        }
+        return;
+    }
+    for (const auto& [key, child] : node.entries()) {
+        const wxString sub = prefix.IsEmpty() ? key : (prefix + "." + key);
+        collectLeafEntries(*child, sub, out);
+    }
+}
 
 } // namespace
 
@@ -293,7 +316,41 @@ auto App::resolveCfg(const wxString& spec) const -> wxString {
         }
     }
 
-    return m_context->getConfigManager().get(cat).get_or(key, wxString {});
+    // Detect enumeration markers: bare `*`, trailing `*`, or trailing `/`.
+    // Strip the marker; what remains is the (possibly empty) prefix path.
+    bool enumerate = false;
+    if (key == "*") {
+        key.clear();
+        enumerate = true;
+    } else if (key.EndsWith("/*") || key.EndsWith(".*")) {
+        key = key.Mid(0, key.length() - 2);
+        enumerate = true;
+    } else if (key.EndsWith("/") || key.EndsWith(".")) {
+        key = key.Mid(0, key.length() - 1);
+        enumerate = true;
+    }
+    // Accept `/` as a path separator alongside `.` for ergonomics.
+    key.Replace("/", ".");
+
+    auto& root = m_context->getConfigManager().get(cat);
+    const auto& node = key.IsEmpty() ? root : root.at(key);
+
+    if (!enumerate) {
+        return node.value_or(wxString {});
+    }
+
+    std::vector<wxString> entries;
+    collectLeafEntries(node, key, entries);
+    std::ranges::sort(entries);
+
+    wxString out;
+    for (const auto& entry : entries) {
+        if (!out.IsEmpty()) {
+            out += '\n';
+        }
+        out += entry;
+    }
+    return out;
 }
 
 auto App::getFbidePath() -> wxString {
