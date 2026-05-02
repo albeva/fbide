@@ -9,6 +9,8 @@
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
+#include "document/Document.hpp"
+#include "document/DocumentManager.hpp"
 #include "document/FileSession.hpp"
 #include "document/TextEncoding.hpp"
 #include "ui/UIManager.hpp"
@@ -145,43 +147,62 @@ void GeneralPage::apply() {
             m_language = currentLocaleFileName(cfg);
             return;
         }
-        cfgManager.setCategoryPath(ConfigManager::Category::Locale, "locales/" + m_language);
 
-        // Defer the relaunch until after the Settings dialog has closed
-        // and `SettingsDialog::applyChanges` has saved the config. The
-        // close event chain (`prepareToQuit`, EVT_CLOSE) is bypassed
-        // intentionally: FileSession already saved every named file,
-        // untitled buffers are dropped per the confirm prompt, and the
-        // EVT_CLOSE veto path was previously preventing the process
-        // from actually terminating.
-        wxTheApp->CallAfter([&ctx = getContext()]() {
+        // Defer the restart until after the Settings dialog has closed
+        // and `SettingsDialog::applyChanges` has saved the config. We
+        // intentionally do NOT swap the locale path here — that happens
+        // inside the lambda, only after we know the session save went
+        // through. If the user cancels a "save changes?" dialog mid-way,
+        // we abort the restart and the language stays as it was.
+        wxTheApp->CallAfter([&ctx = getContext(), language = m_language]() {
             auto& uiMgr = ctx.getUIManager();
             auto& cfgMgr = ctx.getConfigManager();
 
-            // Persist the open documents to a temp session that the
-            // replacement process will load via `--load-session`.
+            // Persist the open documents to a temp session. If any
+            // in-flight save dialog is cancelled, FileSession returns
+            // false — abort the restart entirely.
             const auto sessionPath = cfgMgr.getIdeDir() / "restart-session.fbs";
-            ctx.getFileSession().save(sessionPath);
+            if (!ctx.getFileSession().save(sessionPath)) {
+                return;
+            }
 
-            // Mirror the state-save side of `UIManager::onClose` —
-            // window geometry, config tree, file history.
+            // Commit the locale swap and persist state.
+            cfgMgr.setCategoryPath(ConfigManager::Category::Locale, "locales/" + language);
             uiMgr.saveWindowGeometry();
             cfgMgr.save(ConfigManager::Category::Config);
             ctx.getFileHistory().save();
 
-            // Spawn the replacement and force-exit. `wxExit` calls
-            // `wxApp::OnExit` (clipboard flush, etc.) and then `exit()`
-            // — `ExitMainLoop` alone wasn't enough because residual
-            // top-level wx windows (the debug `wxLogWindow`, AUI panes
-            // released asynchronously) kept the process alive long
-            // enough for the new instance to appear alongside the old
-            // one.
+            // Spawn the replacement through a shell wrapper that waits
+            // briefly before launching FBIde. The delay gives this
+            // process time to fully exit so the new window doesn't
+            // appear alongside the old one.
             const auto exe = wxStandardPaths::Get().GetExecutablePath();
-            wxExecute(wxString::Format(
-                R"("%s" --new-window --load-session "%s")",
+#ifdef __WXMSW__
+            // `ping -n 2 127.0.0.1` waits ~1s and works on every
+            // Windows from XP up (Vista's `timeout` doesn't).
+            // `start "" ...` detaches the new fbide from cmd.
+            const auto cmd = wxString::Format(
+                R"(cmd.exe /c "ping -n 2 127.0.0.1 >nul & start "" "%s" --new-window --load-session "%s"")",
                 exe, sessionPath
-            ));
-            wxExit();
+            );
+#else
+            const auto cmd = wxString::Format(
+                R"(sh -c 'sleep 1 && "%s" --new-window --load-session "%s" &')",
+                exe, sessionPath
+            );
+#endif
+            wxExecute(cmd);
+
+            // Trigger the normal close path. Mark documents
+            // not-modified so `prepareToQuit` doesn't re-prompt
+            // (FileSession already covered them); `UIManager::onClose`
+            // handles window geometry / config / history persistence
+            // again on its way out, which is fine — the writes are
+            // idempotent.
+            for (const auto& doc : ctx.getDocumentManager().getDocuments()) {
+                doc->setModified(false);
+            }
+            ctx.getUIManager().getMainFrame()->Close(true);
         });
     }
 }

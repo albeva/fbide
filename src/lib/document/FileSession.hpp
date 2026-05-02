@@ -50,7 +50,11 @@ public:
     void load(const wxString& path);
 
     /// Save currently open documents as a v3 session.
-    void save(const wxString& path);
+    /// Returns `false` when the user cancels an in-flight "save changes?"
+    /// prompt for a modified named file — the session file is not
+    /// written in that case, so callers can use the result to abort
+    /// any quit/restart flow they were about to trigger.
+    [[nodiscard]] auto save(const wxString& path) -> bool;
 
     /// File dialog → load selected session.
     void showLoadDialog();

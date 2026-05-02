@@ -96,15 +96,16 @@ void FileSession::load(const wxString& path) {
     }
 }
 
-void FileSession::save(const wxString& path) {
+auto FileSession::save(const wxString& path) -> bool {
     const auto& dm = m_ctx.getDocumentManager();
 
     // Prompt to save modified files first — session records paths, not
-    // unsaved buffer contents.
+    // unsaved buffer contents. Bail out (without writing the session)
+    // if any save is cancelled by the user.
     for (const auto& doc : dm.getDocuments()) {
         if (doc->isModified() && !doc->isNew()) {
             if (!dm.saveFile(*doc)) {
-                return;
+                return false;
             }
         }
     }
@@ -134,9 +135,10 @@ void FileSession::save(const wxString& path) {
     wxFFileOutputStream outStream(path);
     if (!outStream.IsOk()) {
         wxLogError("Failed to open '%s' for writing", path);
-        return;
+        return false;
     }
     cfg.Save(outStream, wxConvUTF8);
+    return true;
 }
 
 void FileSession::showLoadDialog() {
@@ -166,7 +168,7 @@ void FileSession::showSaveDialog() {
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
     );
     if (dlg.ShowModal() == wxID_OK) {
-        save(dlg.GetPath());
+        (void)save(dlg.GetPath());
     }
 }
 
