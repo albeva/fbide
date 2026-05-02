@@ -61,10 +61,10 @@ public:
 private:
     struct Task {
         Document* owner = nullptr;
-        wxString content;
+        std::string content;
     };
 
-    void process(Task task);
+    void process(const Task& task);
 
     /// Acquire a SymbolTable slot from the pool: scan for an entry whose
     /// `use_count` is 1 (held only by the pool — i.e. no Document or event

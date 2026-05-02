@@ -53,7 +53,7 @@ void IntellisenseService::submit(Document* owner, const wxString& content) {
     // wxString uses non-atomic copy-on-write refcounting and isn't safe to
     // share across threads. Round-trip through UTF-8 so the wxString placed
     // in the Task shares no buffer with any UI-thread wxString.
-    wxString isolated = wxString::FromUTF8(content.utf8_string());
+    std::string isolated = content.utf8_string();
     wxMutexLocker lock(m_mtx);
     if (m_stopRequested) {
         return;
@@ -101,7 +101,6 @@ auto IntellisenseService::acquireSymbolTable() -> std::shared_ptr<SymbolTable> {
 }
 
 auto IntellisenseService::Entry() -> wxThread::ExitCode {
-    auto* thread = GetThread();
     while (true) {
         Task task;
         {
@@ -116,43 +115,21 @@ auto IntellisenseService::Entry() -> wxThread::ExitCode {
             m_pending.reset();
         }
 
-        if (thread != nullptr && thread->TestDestroy()) {
-            return nullptr;
-        }
-
         m_inFlight.store(task.owner);
-        process(std::move(task));
+        process(task);
     }
 }
 
-void IntellisenseService::process(Task task) {
-    auto* thread = GetThread();
-
-    const auto utf8 = task.content.utf8_string();
-    m_memDoc.Set(std::string_view { utf8.data(), utf8.size() });
+void IntellisenseService::process(const Task& task) {
+    m_memDoc.Set(std::string_view { task.content.data(), task.content.size() });
     m_lexer->Lex(0, m_memDoc.Length(), +ThemeCategory::Default, &m_memDoc);
-
-    if (thread != nullptr && thread->TestDestroy()) {
-        m_inFlight.store(nullptr);
-        return;
-    }
 
     lexer::MemoryDocStyledSource src(m_memDoc);
     lexer::StyleLexer adapter(src);
-    auto tokens = adapter.tokenise();
-
-    if (thread != nullptr && thread->TestDestroy()) {
-        m_inFlight.store(nullptr);
-        return;
-    }
+    const auto tokens = adapter.tokenise();
 
     reformat::ReFormatter parser({ .lean = true });
     const auto tree = parser.buildTree(tokens);
-
-    if (thread != nullptr && thread->TestDestroy()) {
-        m_inFlight.store(nullptr);
-        return;
-    }
 
     // Reuse a pooled SymbolTable when one is idle (no Document holds it),
     // otherwise grow the pool. Repopulate runs in place — vector capacity
