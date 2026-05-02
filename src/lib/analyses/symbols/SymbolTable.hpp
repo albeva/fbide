@@ -116,14 +116,14 @@ private:
     /// Recompute `m_hash` from the captured (kind, name) pairs.
     void computeHash();
 
-    std::vector<Symbol> m_subs;       ///< `Sub` declarations.
-    std::vector<Symbol> m_functions;  ///< `Function` declarations.
-    std::vector<Symbol> m_types;      ///< `Type` declarations.
-    std::vector<Symbol> m_unions;     ///< `Union` declarations.
-    std::vector<Symbol> m_enums;      ///< `Enum` declarations.
-    std::vector<Symbol> m_macros;     ///< `#macro` definitions.
-    std::vector<Include> m_includes;  ///< `#include` directives.
-    std::size_t m_hash = 0;           ///< Stable hash over (kind, name) pairs.
+    std::vector<Symbol> m_subs;      ///< `Sub` declarations.
+    std::vector<Symbol> m_functions; ///< `Function` declarations.
+    std::vector<Symbol> m_types;     ///< `Type` declarations.
+    std::vector<Symbol> m_unions;    ///< `Union` declarations.
+    std::vector<Symbol> m_enums;     ///< `Enum` declarations.
+    std::vector<Symbol> m_macros;    ///< `#macro` definitions.
+    std::vector<Include> m_includes; ///< `#include` directives.
+    std::size_t m_hash = 0;          ///< Stable hash over (kind, name) pairs.
 };
 
 } // namespace fbide

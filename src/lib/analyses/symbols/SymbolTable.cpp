@@ -75,7 +75,7 @@ auto detectInclude(const std::vector<Token>& tokens) -> std::optional<IncludeMat
     }
 
     return IncludeMatch {
-        .path = wxString::FromUTF8(std::string(text.substr(open + 1, close - open - 1))),
+        .path = wxString::FromUTF8(text.substr(open + 1, close - open - 1)),
         .line = pp->line,
     };
 }
@@ -137,7 +137,7 @@ auto detectMacroName(const Token& pp) -> wxString {
     if (i == nameStart) {
         return {};
     }
-    return wxString::FromUTF8(std::string(text.substr(nameStart, i - nameStart)));
+    return wxString::FromUTF8(text.substr(nameStart, i - nameStart));
 }
 
 } // namespace
