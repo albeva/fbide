@@ -32,6 +32,7 @@ namespace XPM {
 #include "icons/sym_sub.xpm"
 #include "icons/sym_type.xpm"
 #include "icons/sym_union.xpm"
+#include "icons/sym_include.xpm"
 #include "icons/undo.xpm"
 }; // namespace XPM
 // NOLINTEND(*-avoid-c-arrays)

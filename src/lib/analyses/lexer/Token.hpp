@@ -105,6 +105,7 @@ enum class KeywordKind {
     PpElseIfDef,
     PpElseIfNDef,
     // Preprocessor non-block
+    PpInclude,
     PpOther,
     // A keyword not structurally significant
     Other,

@@ -13,7 +13,7 @@ using namespace fbide::lexer;
 namespace {
 
 /// Boost-style 64-bit hash combiner.
-auto hashCombine(std::size_t seed, std::size_t value) -> std::size_t {
+auto hashCombine(const std::size_t seed, const std::size_t value) -> std::size_t {
     constexpr std::size_t kMix = 0x9e3779b97f4a7c15ULL;
     return seed ^ (value + kMix + (seed << 6) + (seed >> 2));
 }
@@ -26,6 +26,58 @@ auto hashVector(std::size_t seed, const std::vector<Symbol>& vec) -> std::size_t
         seed = hashCombine(seed, std::hash<int> {}(sym.line));
     }
     return seed;
+}
+
+auto hashIncludes(std::size_t seed, const std::vector<Include>& vec) -> std::size_t {
+    seed = hashCombine(seed, std::hash<std::size_t> {}(vec.size()));
+    for (const auto& inc : vec) {
+        seed = hashCombine(seed, std::hash<std::string> {}(inc.path.utf8_string()));
+        seed = hashCombine(seed, std::hash<int> {}(inc.line));
+    }
+    return seed;
+}
+
+/// Detect `#include [once] "path"` from a statement's tokens.
+/// `KeywordKind::PpInclude` is set on the merged Preprocessor token at lex
+/// time (FBSciLexer keeps the whole directive line — including the quoted
+/// path — styled under PP states, and `StyleLexer::emitPreprocessor` folds
+/// those runs into a single token). Identification is a single field check
+/// and the path is the first quoted span inside the token text.
+struct IncludeMatch {
+    wxString path;
+    int      line = 0;
+};
+
+auto detectInclude(const std::vector<Token>& tokens) -> std::optional<IncludeMatch> {
+    const Token* pp = nullptr;
+    for (const auto& tkn : tokens) {
+        if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
+            continue;
+        }
+        if (tkn.kind == TokenKind::Preprocessor && tkn.keywordKind == KeywordKind::PpInclude) {
+            pp = &tkn;
+        }
+        break;
+    }
+    if (pp == nullptr) {
+        return std::nullopt;
+    }
+
+    const std::string_view text { pp->text };
+    const auto open = text.find_first_of("\"'");
+    if (open == std::string_view::npos) {
+        return std::nullopt;
+    }
+    const char quote = text[open];
+    const auto close = text.find(quote, open + 1);
+    if (close == std::string_view::npos) {
+        return std::nullopt;
+    }
+
+    return IncludeMatch {
+        .path = wxString::FromUTF8(std::string(text.substr(open + 1, close - open - 1))),
+        .line = pp->line,
+    };
 }
 
 /// First significant token's `KeywordKind` and its index inside `tokens`.
@@ -61,7 +113,39 @@ auto findWordlikeAfter(const std::vector<Token>& tokens, std::size_t start) -> c
 
 SymbolTable::SymbolTable(const ProgramTree& tree) {
     walkNodes(tree.nodes);
+    collectIncludes(tree.nodes);
     computeHash();
+}
+
+auto SymbolTable::findIncludeAt(const int line) const -> const Include* {
+    for (const auto& inc : m_includes) {
+        if (inc.line == line) {
+            return &inc;
+        }
+    }
+    return nullptr;
+}
+
+void SymbolTable::collectIncludes(const std::vector<Node>& nodes) {
+    for (const auto& node : nodes) {
+        if (const auto* stmt = std::get_if<StatementNode>(&node)) {
+            tryAddInclude(stmt->tokens);
+        } else if (const auto* block = std::get_if<std::unique_ptr<BlockNode>>(&node)) {
+            if ((*block)->opener.has_value()) {
+                tryAddInclude((*block)->opener->tokens);
+            }
+            collectIncludes((*block)->body);
+        }
+    }
+}
+
+void SymbolTable::tryAddInclude(const std::vector<Token>& tokens) {
+    if (auto match = detectInclude(tokens)) {
+        m_includes.push_back(Include {
+            .path = std::move(match->path),
+            .line = match->line,
+        });
+    }
 }
 
 void SymbolTable::walkNodes(const std::vector<Node>& nodes) {
@@ -126,6 +210,7 @@ void SymbolTable::emit(SymbolKind kind,
     case SymbolKind::Type:     m_types.push_back(std::move(sym)); break;
     case SymbolKind::Union:    m_unions.push_back(std::move(sym)); break;
     case SymbolKind::Enum:     m_enums.push_back(std::move(sym)); break;
+    case SymbolKind::Include:  break; // includes go through tryAddInclude
     }
 }
 
@@ -136,5 +221,6 @@ void SymbolTable::computeHash() {
     hash = hashVector(hash, m_types);
     hash = hashVector(hash, m_unions);
     hash = hashVector(hash, m_enums);
+    hash = hashIncludes(hash, m_includes);
     m_hash = hash;
 }

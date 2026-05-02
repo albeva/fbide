@@ -518,15 +518,12 @@ void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
     menu.Append(+CommandId::SelectAll, m_ctx.tr("commands.selectAll.name"))
         ->Enable(entryEnabled(CommandId::SelectAll));
 
-    menu.Bind(wxEVT_MENU, [this, docPtr](const wxCommandEvent&) {
-        closeOtherFiles(*docPtr);
-    }, kTabCloseOthersId);
+    menu.Bind(wxEVT_MENU, [this, docPtr](const wxCommandEvent&) { closeOtherFiles(*docPtr); }, kTabCloseOthersId);
     menu.Bind(wxEVT_MENU, [this, path](const wxCommandEvent&) {
         if (auto* entry = m_ctx.getCommandManager().find(+CommandId::Browser)) {
             entry->setChecked(true);
         }
-        m_ctx.getSideBarManager().locateFile(path);
-    }, kTabShowInBrowserId);
+        m_ctx.getSideBarManager().locateFile(path); }, kTabShowInBrowserId);
 
     notebook->PopupMenu(&menu);
 }

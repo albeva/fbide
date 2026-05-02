@@ -19,6 +19,7 @@ enum class SymbolKind : std::uint8_t {
     Type,
     Union,
     Enum,
+    Include,
 };
 
 /// One captured declaration. `line` is 0-based and refers to the opener
@@ -27,6 +28,15 @@ struct Symbol {
     SymbolKind kind;
     wxString   name;
     int        line = 0;
+};
+
+/// One captured `#include` (or `#include once`) directive. `path` is the
+/// literal quoted text with quotes stripped — no resolution (the caller
+/// resolves it against source dir / compiler `inc/` / cwd at navigation
+/// time). Found anywhere in the source, including inside conditional blocks.
+struct Include {
+    wxString path;
+    int      line = 0;
 };
 
 /// Per-document table of captured declarations. Vectors are filled in source
@@ -48,24 +58,33 @@ public:
     [[nodiscard]] auto getTypes() const -> const std::vector<Symbol>& { return m_types; }
     [[nodiscard]] auto getUnions() const -> const std::vector<Symbol>& { return m_unions; }
     [[nodiscard]] auto getEnums() const -> const std::vector<Symbol>& { return m_enums; }
+    [[nodiscard]] auto getIncludes() const -> const std::vector<Include>& { return m_includes; }
 
-    /// Stable hash over (kind, name, line) of every symbol in canonical
-    /// (subs, functions, types, unions, enums) order. Set during construction.
+    /// Lookup an `#include` directive by its source line (0-based).
+    /// Returns nullptr when the line carries no recognised include.
+    [[nodiscard]] auto findIncludeAt(int line) const -> const Include*;
+
+    /// Stable hash over (kind, name, line) of every symbol and include in
+    /// canonical (subs, functions, types, unions, enums, includes) order.
+    /// Drives browser UI dedup.
     [[nodiscard]] auto getHash() const -> std::size_t { return m_hash; }
 
 private:
     void walkNodes(const std::vector<reformat::Node>& nodes);
     void walkBlock(const reformat::BlockNode& block);
+    void collectIncludes(const std::vector<reformat::Node>& nodes);
+    void tryAddInclude(const std::vector<lexer::Token>& tokens);
     void emit(SymbolKind kind,
         const std::vector<lexer::Token>& opener,
         std::size_t keywordIdx);
     void computeHash();
 
-    std::vector<Symbol> m_subs;
-    std::vector<Symbol> m_functions;
-    std::vector<Symbol> m_types;
-    std::vector<Symbol> m_unions;
-    std::vector<Symbol> m_enums;
+    std::vector<Symbol>  m_subs;
+    std::vector<Symbol>  m_functions;
+    std::vector<Symbol>  m_types;
+    std::vector<Symbol>  m_unions;
+    std::vector<Symbol>  m_enums;
+    std::vector<Include> m_includes;
     std::size_t m_hash = 0;
 };
 

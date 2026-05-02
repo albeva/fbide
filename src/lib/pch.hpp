@@ -45,6 +45,7 @@
 #include <wx/filename.h>
 #include <wx/fontenum.h>
 #include <wx/hyperlink.h>
+#include <wx/imaglist.h>
 #include <wx/ipc.h>
 #include <wx/listctrl.h>
 #include <wx/log.h>
@@ -60,6 +61,7 @@
 #include <wx/textfile.h>
 #include <wx/thread.h>
 #include <wx/tokenzr.h>
+#include <wx/treectrl.h>
 #include <wx/txtstrm.h>
 #include <wx/wfstream.h>
 #include <wx/wupdlock.h>

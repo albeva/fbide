@@ -85,12 +85,7 @@ private:
     void onKeyDown(wxKeyEvent& event);
     void onKeyUp(wxKeyEvent& event);
     void onKillFocus(wxFocusEvent& event);
-    /// Toggle hotspot affordance on preprocessor styles. Called when Ctrl
-    /// is pressed/released so `#include` directives become Ctrl+clickable.
     void setIncludeHotspots(bool active);
-    /// Parse `#include [once] "path"` (or single-quoted) from a line.
-    /// Returns empty string if the line is not an include directive.
-    [[nodiscard]] static auto parseIncludeDirective(const wxString& line) -> wxString;
     void updateBraceMatch();
     void applyEditorSettings();
     void defineFoldMargins();

@@ -34,6 +34,20 @@ protected:
     Scintilla::ILexer5* m_lexer { nullptr };
 };
 
+TEST_F(SymbolTableTests, IncludeBasic) {
+    const auto table = extract(
+        "#include \"foo.bi\"\n"
+        "#include once \"bar.bi\"\n"
+        "Sub S\n"
+        "End Sub\n"
+    );
+    ASSERT_EQ(table.getIncludes().size(), 2U);
+    EXPECT_EQ(table.getIncludes()[0].path, "foo.bi");
+    EXPECT_EQ(table.getIncludes()[0].line, 0);
+    EXPECT_EQ(table.getIncludes()[1].path, "bar.bi");
+    EXPECT_EQ(table.getIncludes()[1].line, 1);
+}
+
 TEST_F(SymbolTableTests, EmptySource) {
     const auto table = extract("");
     EXPECT_TRUE(table.getSubs().empty());

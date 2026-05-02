@@ -35,7 +35,8 @@ ArtiProvider::ArtiProvider()
     { SymbolKind::Function, XPM::sym_function_xpm },
     { SymbolKind::Type, XPM::sym_type_xpm },
     { SymbolKind::Union, XPM::sym_union_xpm },
-    { SymbolKind::Enum, XPM::sym_enum_xpm }
+    { SymbolKind::Enum, XPM::sym_enum_xpm },
+    { SymbolKind::Include, XPM::sym_include_xpm }
 } {}
 
 auto ArtiProvider::getBitmap(const CommandId id) const -> wxBitmap {

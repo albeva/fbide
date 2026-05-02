@@ -6,13 +6,14 @@
 //
 #include "Editor.hpp"
 #include "CodeTransformer.hpp"
-#include "document/Document.hpp"
-#include "document/DocumentManager.hpp"
-#include "document/DocumentType.hpp"
+#include "analyses/symbols/SymbolTable.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/Theme.hpp"
 #include "config/ThemeCategory.hpp"
+#include "document/Document.hpp"
+#include "document/DocumentManager.hpp"
+#include "document/DocumentType.hpp"
 #include "lexilla/FBSciLexer.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
@@ -626,65 +627,25 @@ void Editor::onHotSpotClick(wxStyledTextEvent& event) {
     if (m_docType != DocumentType::FreeBASIC) {
         return;
     }
-    const auto line = LineFromPosition(event.GetPosition());
-    const auto includePath = parseIncludeDirective(GetLine(line));
-    if (includePath.empty()) {
-        return;
-    }
+
     auto& docMgr = m_ctx.getDocumentManager();
-    auto* doc = docMgr.findByEditor(this);
+    const auto* doc = docMgr.findByEditor(this);
     if (doc == nullptr) {
         return;
     }
-    docMgr.openInclude(*doc, includePath);
-}
 
-auto Editor::parseIncludeDirective(const wxString& line) -> wxString {
-    auto text = line;
-    text.Trim(false);
-    if (text.IsEmpty() || text[0] != '#') {
-        return {};
-    }
-    text = text.Mid(1);
-    text.Trim(false);
-
-    constexpr std::size_t kIncludeLen = 7; // "include"
-    if (text.Length() < kIncludeLen) {
-        return {};
-    }
-    if (!text.Mid(0, kIncludeLen).IsSameAs("include", /*case-sensitive*/ false)) {
-        return {};
-    }
-    text = text.Mid(kIncludeLen);
-    if (text.IsEmpty() || (text[0] != ' ' && text[0] != '\t')) {
-        return {};
-    }
-    text.Trim(false);
-
-    constexpr std::size_t kOnceLen = 4;
-    if (text.Length() > kOnceLen
-        && text.Mid(0, kOnceLen).IsSameAs("once", false)
-        && (text[kOnceLen] == ' ' || text[kOnceLen] == '\t')) {
-        text = text.Mid(kOnceLen);
-        text.Trim(false);
+    const auto symbols = doc->getSymbolTable();
+    if (symbols == nullptr) {
+        return;
     }
 
-    if (text.IsEmpty()) {
-        return {};
+    const auto line = LineFromPosition(event.GetPosition());
+    const auto* inc = symbols->findIncludeAt(line);
+    if (inc == nullptr) {
+        return;
     }
-    const wxUniChar quote = text.GetChar(0);
-    if (quote != '"' && quote != '\'') {
-        return {};
-    }
-    if (text.Length() < 2) {
-        return {};
-    }
-    text = text.Mid(1);
-    const auto end = text.Find(quote);
-    if (end == wxNOT_FOUND) {
-        return {};
-    }
-    return text.Mid(0, static_cast<std::size_t>(end));
+
+    docMgr.openInclude(*doc, inc->path);
 }
 
 void Editor::onMarginClick(wxStyledTextEvent& event) {

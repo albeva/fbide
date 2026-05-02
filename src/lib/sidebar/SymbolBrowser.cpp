@@ -5,7 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "SymbolBrowser.hpp"
-#include <wx/imaglist.h>
 #include "analyses/symbols/SymbolTable.hpp"
 #include "app/Context.hpp"
 #include "document/Document.hpp"
@@ -15,45 +14,50 @@
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
-namespace {
-
-/// Item data tag for symbol leaves. Folder items carry no data.
-class SymbolItemData final : public wxTreeItemData {
-public:
-    explicit SymbolItemData(const int line)
-    : m_line(line) {}
-
-    [[nodiscard]] auto getLine() const -> int { return m_line; }
-
-private:
-    int m_line;
-};
-
-/// Append a folder + its symbols to the tree, but only if the bucket is
-/// non-empty. Folder is rendered bold to separate categories from leaves.
-/// Folder and leaf items share the per-kind icon from the image list
-/// (index == static_cast<int>(kind)).
-void appendBucket(wxTreeCtrl& tree, const wxTreeItemId& root,
-    SymbolKind kind, const wxString& label, const std::vector<Symbol>& bucket) {
-    if (bucket.empty()) {
-        return;
-    }
-    const auto image = static_cast<int>(kind);
-    const auto folder = tree.AppendItem(root, label, image, image);
-    tree.SetItemBold(folder, true);
-    for (const auto& sym : bucket) {
-        tree.AppendItem(folder, sym.name, image, image, new SymbolItemData(sym.line));
-    }
-    tree.Expand(folder);
-}
-
-} // namespace
-
 // clang-format off
 wxBEGIN_EVENT_TABLE(SymbolBrowser, wxTreeCtrl)
     EVT_TREE_ITEM_ACTIVATED(wxID_ANY, SymbolBrowser::onItemActivated)
 wxEND_EVENT_TABLE()
 // clang-format on
+
+void SymbolBrowser::appendBucket(
+    SymbolKind kind,
+    const wxString& label,
+    const std::vector<Symbol>& bucket
+) {
+    if (bucket.empty()) {
+        return;
+    }
+
+    const auto image = static_cast<int>(kind);
+    const auto folder = AppendItem(GetRootItem(), label, image, image);
+    SetItemBold(folder, true);
+    for (std::size_t idx = 0; idx < bucket.size(); idx++) {
+        const auto& sym = bucket[idx];
+        const auto id = AppendItem(folder, sym.name, image, image, nullptr);
+        m_entries[id.GetID()] = { .kind = kind, .index = idx };
+    }
+    Expand(folder);
+}
+
+void SymbolBrowser::appendIncludes(
+    const wxString& label,
+    const std::vector<Include>& includes
+) {
+    if (includes.empty()) {
+        return;
+    }
+
+    constexpr auto image = static_cast<int>(SymbolKind::Include);
+    const auto folder = AppendItem(GetRootItem(), label, image, image);
+    SetItemBold(folder, true);
+    for (std::size_t idx = 0; idx < includes.size(); idx++) {
+        const auto& inc = includes[idx];
+        const auto id = AppendItem(folder, inc.path, image, image, nullptr);
+        m_entries[id.GetID()] = { .kind = SymbolKind::Include, .index = idx };
+    }
+    Expand(folder);
+}
 
 SymbolBrowser::SymbolBrowser(Context& ctx, wxWindow* parent)
 : wxTreeCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
@@ -70,6 +74,7 @@ SymbolBrowser::SymbolBrowser(Context& ctx, wxWindow* parent)
         SymbolKind::Type,
         SymbolKind::Union,
         SymbolKind::Enum,
+        SymbolKind::Include,
     };
     const auto& art = m_ctx.getUIManager().getArtProvider();
     const auto sample = art.getBitmap(SymbolKind::Sub);
@@ -97,49 +102,89 @@ void SymbolBrowser::setSymbols(const Document* doc) {
 }
 
 void SymbolBrowser::clearTree() {
+    m_entries.clear();
     DeleteAllItems();
     AddRoot(wxEmptyString);
 }
 
 void SymbolBrowser::rebuild(const SymbolTable& table) {
-    Freeze();
+    const auto thaw = FreezeLock(this);
+
+    m_entries.clear();
     DeleteAllItems();
-    const auto root = AddRoot(wxEmptyString);
-    appendBucket(*this, root, SymbolKind::Sub,
-        m_ctx.tr("sidebar.symbols.subs"), table.getSubs());
-    appendBucket(*this, root, SymbolKind::Function,
-        m_ctx.tr("sidebar.symbols.functions"), table.getFunctions());
-    appendBucket(*this, root, SymbolKind::Type,
-        m_ctx.tr("sidebar.symbols.types"), table.getTypes());
-    appendBucket(*this, root, SymbolKind::Union,
-        m_ctx.tr("sidebar.symbols.unions"), table.getUnions());
-    appendBucket(*this, root, SymbolKind::Enum,
-        m_ctx.tr("sidebar.symbols.enums"), table.getEnums());
-    Thaw();
+    AddRoot(wxEmptyString);
+
+    appendIncludes(m_ctx.tr("sidebar.symbols.includes"), table.getIncludes());
+    appendBucket(SymbolKind::Sub, m_ctx.tr("sidebar.symbols.subs"), table.getSubs());
+    appendBucket(SymbolKind::Function, m_ctx.tr("sidebar.symbols.functions"), table.getFunctions());
+    appendBucket(SymbolKind::Type, m_ctx.tr("sidebar.symbols.types"), table.getTypes());
+    appendBucket(SymbolKind::Union, m_ctx.tr("sidebar.symbols.unions"), table.getUnions());
+    appendBucket(SymbolKind::Enum, m_ctx.tr("sidebar.symbols.enums"), table.getEnums());
 }
 
 void SymbolBrowser::onItemActivated(wxTreeEvent& event) {
-    const auto* data = dynamic_cast<SymbolItemData*>(GetItemData(event.GetItem()));
-    if (data == nullptr) {
-        return; // folder, not a symbol
+    const auto item = event.GetItem();
+    if (!item.IsOk() || m_currentTable == nullptr) {
+        return;
     }
-    const int line = data->getLine();
-    // Defer focus + navigation via CallAfter: the tree reclaims focus once
-    // its own ITEM_ACTIVATED processing finishes, so SetFocus mid-handler
-    // gets stomped. Running after the event unwinds settles focus on the
-    // editor as intended.
-    CallAfter([this, line]() {
-        auto* doc = m_ctx.getDocumentManager().getActive();
-        if (doc == nullptr) {
-            return;
-        }
-        auto* editor = doc->getEditor();
-        if (editor == nullptr) {
-            return;
-        }
-        editor->EnsureVisible(line);
-        editor->GotoLine(line);
-        editor->SetFirstVisibleLine(editor->VisibleFromDocLine(line));
-        editor->SetFocus();
-    });
+
+    const auto iter = m_entries.find(item.GetID());
+    if (iter == m_entries.end()) {
+        return;
+    }
+
+    dispatch(iter->second);
+}
+
+void SymbolBrowser::dispatch(const Entry& entry) {
+    const auto& table = *m_currentTable;
+
+    const auto gotoSymbol = [this](const std::vector<Symbol>& vec, const std::size_t idx) {
+        const int line = vec.at(idx).line;
+        CallAfter([this, line]() {
+            auto* doc = m_ctx.getDocumentManager().getActive();
+            if (doc == nullptr) {
+                return;
+            }
+            auto* editor = doc->getEditor();
+            if (editor == nullptr) {
+                return;
+            }
+            editor->EnsureVisible(line);
+            editor->GotoLine(line);
+            editor->SetFirstVisibleLine(editor->VisibleFromDocLine(line));
+            editor->SetFocus();
+        });
+    };
+
+    switch (entry.kind) {
+    case SymbolKind::Include: {
+        const auto& vec = table.getIncludes();
+        const wxString path = vec[entry.index].path;
+        CallAfter([this, path]() {
+            auto& docMgr = m_ctx.getDocumentManager();
+            const auto* origin = docMgr.getActive();
+            if (origin == nullptr) {
+                return;
+            }
+            docMgr.openInclude(*origin, path);
+        });
+        return;
+    }
+    case SymbolKind::Sub:
+        gotoSymbol(table.getSubs(), entry.index);
+        break;
+    case SymbolKind::Function:
+        gotoSymbol(table.getFunctions(), entry.index);
+        break;
+    case SymbolKind::Type:
+        gotoSymbol(table.getTypes(), entry.index);
+        break;
+    case SymbolKind::Union:
+        gotoSymbol(table.getUnions(), entry.index);
+        break;
+    case SymbolKind::Enum:
+        gotoSymbol(table.getEnums(), entry.index);
+        break;
+    }
 }

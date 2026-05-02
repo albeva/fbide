@@ -6,12 +6,11 @@
 //
 #pragma once
 #include "pch.hpp"
-#include <wx/treectrl.h>
+#include "analyses/symbols/SymbolTable.hpp"
 
 namespace fbide {
 class Context;
 class Document;
-class SymbolTable;
 
 /// Sub/Function tree tab. A wxTreeCtrl subclass parented to the sidebar
 /// notebook, so the static event table dispatches directly without any
@@ -31,12 +30,36 @@ public:
     void setSymbols(const Document* doc);
 
 private:
+    /// Per-leaf lookup payload. `kind` selects which `SymbolTable` vector
+    /// to read, `index` is the offset into that vector.
+    struct Entry {
+        SymbolKind  kind;
+        std::size_t index;
+    };
+
     void onItemActivated(wxTreeEvent& event);
     void rebuild(const SymbolTable& table);
     void clearTree();
 
+    /// Append a folder + leaves under the tree root when the bucket is
+    /// non-empty. Each leaf registers an `Entry` in `m_entries` keyed by
+    /// its tree id, so activation skips any tree-walking.
+    void appendBucket(SymbolKind kind, const wxString& label, const std::vector<Symbol>& bucket);
+
+    /// Append the Includes folder under the tree root when non-empty.
+    /// Each leaf registers an `Entry` in `m_entries`.
+    void appendIncludes(const wxString& label, const std::vector<Include>& includes);
+
+    /// Resolve a leaf entry to its action: navigate the active editor to
+    /// the symbol's line, or open the included file.
+    void dispatch(const Entry& entry);
+
     Context& m_ctx;
     std::shared_ptr<const SymbolTable> m_currentTable;
+
+    /// Tree id → entry payload. Rebuilt in `rebuild`, cleared in `clearTree`.
+    /// `wxTreeItemId::Type` is the underlying void* the control hands out.
+    std::unordered_map<wxTreeItemId::Type, Entry> m_entries;
 
     wxDECLARE_EVENT_TABLE();
 };

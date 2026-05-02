@@ -77,6 +77,8 @@ auto fbide::lexer::ppKeywords() -> const std::unordered_map<std::string, Keyword
         { "elseif", KeywordKind::PpElseIf },
         { "elseifdef", KeywordKind::PpElseIfDef },
         { "elseifndef", KeywordKind::PpElseIfNDef },
+        // Non-block directives we care to classify
+        { "include", KeywordKind::PpInclude },
     };
     return map;
 }
