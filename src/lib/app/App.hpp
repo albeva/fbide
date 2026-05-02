@@ -29,11 +29,36 @@ public:
     [[nodiscard]] auto getContext() const -> const Context& { return *m_context; }
 
 private:
+    /// Parsed command-line state. Filled by `parseCli` once at startup so the
+    /// rest of `OnInit` can branch on it without re-parsing.
+    struct CliOptions {
+        wxString configPath;     // --config <path>
+        wxString idePath;        // --ide <path>
+        wxString cfgKey;         // --cfg=[<category>:]<key> (non-empty → print + exit)
+        wxArrayString files;     // positional file paths
+        bool newWindow = false;  // --new-window
+        bool verbose = false;    // --verbose
+        bool helpRequested = false; // --help
+        bool versionRequested = false; // --version
+        bool parseFailed = false;
+    };
+
     /// Get the directory of the fbide binary.
     [[nodiscard]] auto getFbidePath() -> wxString;
 
-    /// Parse command line arguments into config file and files to open.
-    void parseArgs(wxString& configFile, wxArrayString& filesToOpen);
+    /// Parse command-line arguments. Pure: doesn't touch app state.
+    [[nodiscard]] auto parseCli() const -> CliOptions;
+
+    /// Print usage to stdout (attaching the parent console on Windows so
+    /// the text reaches the launching shell).
+    void showHelp() const;
+
+    /// Print fbide + wxWidgets version to stdout.
+    void showVersion() const;
+
+    /// Resolve `--cfg=<spec>` (where `<spec>` is `[category:]dotted.key`).
+    /// Returns the value as a string, or empty if missing.
+    [[nodiscard]] auto resolveCfg(const wxString& spec) const -> wxString;
 
     /// Show splash screen if enabled.
     void showSplash();

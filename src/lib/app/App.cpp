@@ -9,9 +9,94 @@
 #include "InstanceHandler.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
+#include "config/Version.hpp"
 #include "document/DocumentManager.hpp"
 #include "ui/UIManager.hpp"
+#ifdef __WXMSW__
+#include <windows.h>
+#endif
 using namespace fbide;
+
+namespace {
+
+constexpr auto kHelpText = R"(Usage: fbide [options] [files...]
+
+Options:
+  --config <path>     Use the specified config file.
+  --ide <path>        Override the IDE resources directory
+                      (default: <fbide-binary-dir>/ide).
+  --cfg=<spec>        Print a config value to stdout and exit.
+                      <spec> is `[category:]dotted.key`. Categories:
+                      config (default), locale, shortcuts, keywords, layout.
+                      Examples:
+                        --cfg=compiler.path
+                        --cfg=locale:dialogs.find.title
+  --new-window        Open a new window even if another instance is running.
+  --verbose           Enable verbose logging.
+  --version           Print fbide and wxWidgets version and exit.
+  --help              Show this help and exit.
+)";
+
+#ifdef __WXMSW__
+/// Inject a synthetic Enter into the parent console's input queue. Workaround
+/// for the `/SUBSYSTEM:WINDOWS` UX wart: the shell doesn't wait for a GUI
+/// child, so it prints its next prompt immediately and our AttachConsole +
+/// WriteFile output prints on top of it. Posting Enter makes the shell consume
+/// the (empty) line and redraw a fresh prompt below our text. Skipped when
+/// stdin isn't a console (e.g. piped/redirected).
+void pokeParentConsole() {
+    const HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+    if (hIn == nullptr || hIn == INVALID_HANDLE_VALUE) {
+        return;
+    }
+    if (GetFileType(hIn) != FILE_TYPE_CHAR) {
+        return;
+    }
+    INPUT_RECORD events[2] = {};
+    events[0].EventType = KEY_EVENT;
+    events[0].Event.KeyEvent.bKeyDown = TRUE;
+    events[0].Event.KeyEvent.wRepeatCount = 1;
+    events[0].Event.KeyEvent.wVirtualKeyCode = VK_RETURN;
+    events[0].Event.KeyEvent.uChar.AsciiChar = '\r';
+    events[1] = events[0];
+    events[1].Event.KeyEvent.bKeyDown = FALSE;
+    DWORD written = 0;
+    WriteConsoleInput(hIn, events, 2, &written);
+}
+#endif
+
+/// Write `text` followed by a newline to the host's stdout/stderr. Goes
+/// through the raw OS handle on Windows because `/SUBSYSTEM:WINDOWS` builds
+/// don't have CRT-bound streams even when the shell redirects. If no handle
+/// is attached (Explorer launch with no parent console), attach to the
+/// parent and retry, then poke an Enter so the shell redraws its prompt.
+void writeLineTo(const wxString& text, bool toStderr) {
+    const auto utf8 = text.ToStdString(wxConvUTF8) + '\n';
+#ifdef __WXMSW__
+    const DWORD stdHandle = toStderr ? STD_ERROR_HANDLE : STD_OUTPUT_HANDLE;
+    auto write = [&](const HANDLE h) {
+        DWORD written = 0;
+        return h != nullptr && h != INVALID_HANDLE_VALUE
+            && WriteFile(h, utf8.data(), static_cast<DWORD>(utf8.size()), &written, nullptr) != 0;
+    };
+    if (write(GetStdHandle(stdHandle))) {
+        return;
+    }
+    if (AttachConsole(ATTACH_PARENT_PROCESS) != 0) {
+        write(GetStdHandle(stdHandle));
+        pokeParentConsole();
+    }
+#else
+    auto& stream = toStderr ? std::cerr : std::cout;
+    stream << utf8;
+    stream.flush();
+#endif
+}
+
+void writeLine(const wxString& text) { writeLineTo(text, /*toStderr=*/false); }
+void writeErrLine(const wxString& text) { writeLineTo(text, /*toStderr=*/true); }
+
+} // namespace
 
 auto App::OnExit() -> int {
     // Flush clipboard so text copied from fbide (e.g. Format dialog "Copy"
@@ -37,29 +122,55 @@ void App::initAppearance() {
 }
 
 auto App::OnInit() -> bool {
+    auto cli = parseCli();
+    if (cli.parseFailed) {
+        std::exit(EXIT_FAILURE);
+    }
+
+    if (cli.helpRequested) {
+        showHelp();
+        std::exit(EXIT_SUCCESS);
+    }
+
+    if (cli.versionRequested) {
+        showVersion();
+        std::exit(EXIT_SUCCESS);
+    }
+
+    m_newWindow = cli.newWindow;
+    if (cli.verbose) {
+        wxLog::SetVerbose(true);
+    }
+
     const auto fbidePath = getFbidePath();
 
 #if FBIDE_DEBUG_BUILD
     wxLog::SetVerbose(true);
     wxLogWindow* logWindow = make_unowned<wxLogWindow>(nullptr, "Debug Log", false, false);
     wxLog::SetActiveTarget(logWindow);
-    logWindow->Show();
+    if (cli.cfgKey.IsEmpty()) {
+        logWindow->Show();
+    }
 #else
     wxLog::SetActiveTarget(new wxLogStream(new std::ofstream((fbidePath / "app.log").ToStdString(), std::ios::app)));
 #endif
 
-    // Create context and parse arguments early (before IPC check)
-    m_context = std::make_unique<Context>(fbidePath);
+    // Construct context with parsed CLI overrides — `--ide` flows into
+    // ConfigManager so subsequent config/locale/theme lookups resolve
+    // against the overridden resource directory by default.
+    m_context = std::make_unique<Context>(fbidePath, cli.idePath, cli.configPath);
 
-    wxString configFile;
-    wxArrayString filesToOpen;
-    parseArgs(configFile, filesToOpen);
+    // --cfg=<spec>: print value, exit. No window, no IPC, no splash.
+    if (!cli.cfgKey.IsEmpty()) {
+        writeLine(resolveCfg(cli.cfgKey));
+        std::exit(EXIT_SUCCESS);
+    }
 
     // Single instance: if another FBIde is running, forward files and exit
     if (!m_newWindow) {
         m_instanceHandler = std::make_unique<InstanceHandler>(*m_context);
         if (m_instanceHandler->isAnotherRunning()) {
-            m_instanceHandler->sendFiles(filesToOpen);
+            m_instanceHandler->sendFiles(cli.files);
             return false;
         }
     }
@@ -67,42 +178,122 @@ auto App::OnInit() -> bool {
     showSplash();
     initAppearance();
 
-    // If --config was supplied, reload ConfigManager from that file.
-    auto& configManager = m_context->getConfigManager();
-    if (not configFile.IsEmpty()) {
-        configManager.reloadConfig(configFile);
-    }
-
+    const auto& configManager = m_context->getConfigManager();
     m_context->getFileHistory().load(configManager.getIdeDir() / "history.ini");
 
     m_context->getUIManager().createMainFrame();
-    openFiles(filesToOpen);
+    openFiles(cli.files);
     return true;
 }
 
-void App::parseArgs(wxString& configFile, wxArrayString& filesToOpen) {
-    const auto& configManager = m_context->getConfigManager();
+auto App::parseCli() const -> CliOptions {
+    CliOptions opts;
     auto args = argv.GetArguments();
 
-    for (size_t index = 1; index < args.GetCount(); index++) {
-        if (const auto& arg = args[index]; arg == "--config") {
+    for (std::size_t index = 1; index < args.GetCount(); index++) {
+        const auto& arg = args[index];
+
+        if (arg == "--help") {
+            opts.helpRequested = true;
+            return opts;
+        }
+        if (arg == "--version") {
+            opts.versionRequested = true;
+            return opts;
+        }
+        if (arg == "--new-window") {
+            opts.newWindow = true;
+            continue;
+        }
+        if (arg == "--verbose") {
+            opts.verbose = true;
+            continue;
+        }
+        if (arg == "--config") {
             index += 1;
             if (index >= args.GetCount()) {
-                wxLogError("--config requires a path argument");
-                continue;
+                writeErrLine("fbide: --config requires a path argument");
+                opts.parseFailed = true;
+                return opts;
             }
-            configFile = configManager.absolute(args[index]);
-        } else if (arg == "--new-window") {
-            m_newWindow = true;
-        } else if (arg == "--verbose") {
-            wxLog::SetVerbose(true);
-        } else if (!arg.StartsWith("-")) {
-            wxFileName fn(arg);
-            fn.Normalize(wxPATH_NORM_ENV_VARS | wxPATH_NORM_DOTS | wxPATH_NORM_TILDE | wxPATH_NORM_ABSOLUTE);
-            wxMessageBox(fn.GetAbsolutePath());
-            filesToOpen.Add(fn.GetAbsolutePath());
+            opts.configPath = args[index];
+            continue;
+        }
+        if (arg == "--ide") {
+            index += 1;
+            if (index >= args.GetCount()) {
+                writeErrLine("fbide: --ide requires a path argument");
+                opts.parseFailed = true;
+                return opts;
+            }
+            opts.idePath = args[index];
+            continue;
+        }
+        if (arg.StartsWith("--cfg=")) {
+            opts.cfgKey = arg.Mid(6);
+            if (opts.cfgKey.IsEmpty()) {
+                writeErrLine("fbide: --cfg= requires a key");
+                opts.parseFailed = true;
+                return opts;
+            }
+            continue;
+        }
+        if (arg.StartsWith("-")) {
+            writeErrLine(wxString::Format("fbide: unknown option: %s", arg));
+            opts.parseFailed = true;
+            return opts;
+        }
+
+        wxFileName fileName(arg);
+        fileName.Normalize(wxPATH_NORM_ENV_VARS | wxPATH_NORM_DOTS | wxPATH_NORM_TILDE | wxPATH_NORM_ABSOLUTE);
+        opts.files.Add(fileName.GetAbsolutePath());
+    }
+    return opts;
+}
+
+void App::showHelp() const {
+    writeLine(kHelpText);
+}
+
+void App::showVersion() const {
+    writeLine(wxString::Format(
+        "fbide %s (wxWidgets %s)",
+        Version::fbide().asString(),
+        Version::wxWidgets().asString()
+    ));
+}
+
+auto App::resolveCfg(const wxString& spec) const -> wxString {
+    using Cat = ConfigManager::Category;
+
+    wxString prefix;
+    wxString key;
+    if (const auto colon = spec.Find(':'); colon != wxNOT_FOUND) {
+        prefix = spec.Mid(0, static_cast<std::size_t>(colon)).Lower();
+        key = spec.Mid(static_cast<std::size_t>(colon) + 1);
+    } else {
+        key = spec;
+    }
+
+    auto cat = Cat::Config;
+    if (!prefix.IsEmpty()) {
+        if (prefix == "config") {
+            cat = Cat::Config;
+        } else if (prefix == "locale") {
+            cat = Cat::Locale;
+        } else if (prefix == "shortcuts") {
+            cat = Cat::Shortcuts;
+        } else if (prefix == "keywords") {
+            cat = Cat::Keywords;
+        } else if (prefix == "layout") {
+            cat = Cat::Layout;
+        } else {
+            writeErrLine(wxString::Format("fbide: unknown --cfg category: %s", prefix));
+            return {};
         }
     }
+
+    return m_context->getConfigManager().get(cat).get_or(key, wxString {});
 }
 
 auto App::getFbidePath() -> wxString {

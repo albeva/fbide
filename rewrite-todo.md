@@ -69,7 +69,7 @@
 # Editor
 
 - [x] Auto indent code as user types
-- [ ] Open #include directives
+- [x] Open #include directives
 - [x] Implement new FB scintilla lexer
 - [x] Make editor fully utf-8 compatible (config/langauge files, the editor, save/load, etc.)
 - [x] Review all themes, update them for new settings.

@@ -25,8 +25,11 @@ class Context final {
 public:
     NO_COPY_AND_MOVE(Context)
 
-    /// Initialize context with resolved binary path.
-    explicit Context(const wxString& binaryPath);
+    /// Initialize context with resolved binary path. Optional `idePath`
+    /// overrides the default `<binary>/ide` resource directory; optional
+    /// `configPath` overrides the platform default config file (resolved
+    /// relative to the IDE dir when not absolute).
+    explicit Context(const wxString& binaryPath, const wxString& idePath = {}, const wxString& configPath = {});
     ~Context();
 
     [[nodiscard]] auto getConfigManager() -> ConfigManager& { return *m_configManager; }
