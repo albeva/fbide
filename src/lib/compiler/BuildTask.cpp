@@ -67,7 +67,7 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     // Validate compiler — getFbcVersion() checks path and caches the result
     const auto& fbcVersion = m_ctx.getCompilerManager().getFbcVersion();
     if (fbcVersion.empty()) {
-        wxMessageBox(m_ctx.tr("dialogs.settings.compiler.compilerPathError"), "FBC", wxICON_ERROR);
+        m_ctx.getCompilerManager().promptMissingCompiler();
         return;
     }
 

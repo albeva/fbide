@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "CompilerManager.hpp"
+#include <wx/richmsgdlg.h>
 #include "BuildTask.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
@@ -12,6 +13,7 @@
 #include "document/DocumentIO.hpp"
 #include "document/DocumentManager.hpp"
 #include "editor/Editor.hpp"
+#include "settings/SettingsDialog.hpp"
 #include "ui/CompilerLog.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
@@ -120,16 +122,27 @@ void CompilerManager::refreshCompilerLog() {
 // Compiler version
 // ---------------------------------------------------------------------------
 
+auto CompilerManager::resolveCompilerBinary() const -> wxString {
+    const wxString configured = m_ctx.getConfigManager().config().get_or("compiler.path", "");
+    if (configured.IsEmpty()) {
+        return {};
+    }
+    wxFileName path(configured);
+    path.MakeAbsolute(m_ctx.getConfigManager().getAppDir());
+    auto resolved = path.GetFullPath();
+    if (resolved.IsEmpty() || !wxIsExecutable(resolved)) {
+        return {};
+    }
+    return resolved;
+}
+
 auto CompilerManager::getFbcVersion() -> const wxString& {
     if (not m_fbcVersion.empty()) {
         return m_fbcVersion;
     }
 
-    const wxString compilerPath = m_ctx.getConfigManager().config().get_or("compiler.path", "");
-    wxFileName path(compilerPath);
-    path.MakeAbsolute(m_ctx.getConfigManager().getAppDir());
-    const auto compiler = path.GetFullPath();
-    if (compiler.empty() || !wxIsExecutable(compiler)) {
+    const auto compiler = resolveCompilerBinary();
+    if (compiler.IsEmpty()) {
         return m_fbcVersion;
     }
 
@@ -139,6 +152,66 @@ auto CompilerManager::getFbcVersion() -> const wxString& {
         m_fbcVersion = output[0];
     }
     return m_fbcVersion;
+}
+
+namespace {
+/// Open the Settings dialog focused on the Compiler tab.
+void openCompilerSettings(Context& ctx) {
+    SettingsDialog settings(ctx.getUIManager().getMainFrame(), ctx);
+    settings.create(SettingsDialog::Page::Compiler);
+    settings.ShowModal();
+}
+} // namespace
+
+void CompilerManager::checkCompilerOnStartup() {
+    auto& configManager = m_ctx.getConfigManager();
+    auto& config = configManager.config();
+
+    if (config.get_or("alerts.ignore.missingCompilerBinary", false)) {
+        return;
+    }
+    if (!resolveCompilerBinary().IsEmpty()) {
+        return;
+    }
+
+    wxRichMessageDialog dlg(
+        m_ctx.getUIManager().getMainFrame(),
+        m_ctx.tr("messages.missingCompilerMessage"),
+        m_ctx.tr("messages.missingCompilerTitle"),
+        wxYES_NO | wxICON_WARNING
+    );
+    dlg.SetYesNoLabels(
+        m_ctx.tr("messages.missingCompilerOpen"),
+        m_ctx.tr("messages.missingCompilerSkip")
+    );
+    dlg.ShowCheckBox(m_ctx.tr("messages.dontShowAgain"));
+
+    const auto answer = dlg.ShowModal();
+
+    if (dlg.IsCheckBoxChecked()) {
+        config["alerts"]["ignore"]["missingCompilerBinary"] = true;
+        configManager.save(ConfigManager::Category::Config);
+    }
+
+    if (answer == wxID_YES) {
+        openCompilerSettings(m_ctx);
+    }
+}
+
+void CompilerManager::promptMissingCompiler() {
+    wxRichMessageDialog dlg(
+        m_ctx.getUIManager().getMainFrame(),
+        m_ctx.tr("messages.missingCompilerMessage"),
+        m_ctx.tr("messages.missingCompilerTitle"),
+        wxYES_NO | wxICON_WARNING
+    );
+    dlg.SetYesNoLabels(
+        m_ctx.tr("messages.missingCompilerOpen"),
+        m_ctx.tr("messages.missingCompilerSkip")
+    );
+    if (dlg.ShowModal() == wxID_YES) {
+        openCompilerSettings(m_ctx);
+    }
 }
 
 // ---------------------------------------------------------------------------

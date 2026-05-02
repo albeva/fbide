@@ -49,6 +49,25 @@ public:
     /// and caches the result. Returns empty string if compiler is not accessible.
     [[nodiscard]] auto getFbcVersion() -> const wxString&;
 
+    /// Resolve `compiler.path` against the IDE's appDir and verify the
+    /// binary exists/is executable. Returns the resolved absolute path,
+    /// or empty when the path is unset or missing.
+    [[nodiscard]] auto resolveCompilerBinary() const -> wxString;
+
+    /// Startup probe: when the configured compiler binary is missing,
+    /// surface a wxRichMessageDialog with a "Don't show again" checkbox.
+    /// "Yes" opens the Settings dialog focused on the Compiler tab; the
+    /// checkbox toggles `alerts.ignore.missingCompilerBinary` so future
+    /// launches stay silent. No-op when the binary is reachable or the
+    /// ignore flag is set. Call once after the main frame is created.
+    void checkCompilerOnStartup();
+
+    /// Show the "compiler not found" prompt without the silence checkbox
+    /// (used by the build flow when the user explicitly invokes compile/
+    /// run): the alert is always relevant because the user just asked for
+    /// the compiler. "Yes" opens the Settings dialog on the Compiler tab.
+    void promptMissingCompiler();
+
     /// Reset the cached fbc version. Call when compiler path may have changed.
     void resetFbcVersion() { m_fbcVersion.clear(); }
 

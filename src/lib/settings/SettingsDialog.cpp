@@ -24,7 +24,7 @@ SettingsDialog::SettingsDialog(wxWindow* parent, Context& ctx)
 
 SettingsDialog::~SettingsDialog() = default;
 
-void SettingsDialog::create() {
+void SettingsDialog::create(const Page initial) {
     const auto notebook = make_unowned<wxNotebook>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
 
     m_generalPage = make_unowned<GeneralPage>(m_ctx, notebook);
@@ -41,6 +41,13 @@ void SettingsDialog::create() {
     notebook->AddPage(m_themePage, m_ctx.tr("dialogs.settings.themes.title"));
     notebook->AddPage(m_keywordsPage, m_ctx.tr("dialogs.settings.keywords.title"));
     notebook->AddPage(m_compilerPage, m_ctx.tr("dialogs.settings.compiler.title"));
+    notebook->SetSelection(static_cast<std::size_t>(initial));
+
+    // Defer initial-page focus until the dialog is shown — calling
+    // SetFocus on a not-yet-realised control is a no-op on Windows.
+    if (initial == Page::Compiler) {
+        CallAfter([this]() { m_compilerPage->focusCompilerPath(); });
+    }
 
     auto* btnSizer = CreateStdDialogButtonSizer(wxOK | wxCANCEL);
 

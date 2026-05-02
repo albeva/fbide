@@ -20,6 +20,11 @@ public:
     void create() override;
     void apply() override;
 
+    /// Move keyboard focus to the compiler path entry. Used when the
+    /// dialog is opened from the startup compiler-missing prompt so the
+    /// user can start typing the path immediately.
+    void focusCompilerPath();
+
 private:
     auto tr(const wxString& path) const -> wxString {
         return getContext().getConfigManager().locale().get_or(path, "");
@@ -41,6 +46,7 @@ private:
 #ifdef __WXMSW__
     wxString m_helpFile;
 #endif
+    Unowned<wxTextCtrl> m_compilerPathField {};
 };
 
 } // namespace fbide

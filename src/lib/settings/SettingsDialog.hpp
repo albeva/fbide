@@ -19,11 +19,20 @@ class CompilerPage;
 /// Applies changes only on OK.
 class SettingsDialog : public wxDialog {
 public:
+    /// Tab order on the dialog notebook. Used by `create()` to pick the
+    /// initially-selected page.
+    enum class Page : std::uint8_t {
+        General = 0,
+        Theme = 1,
+        Keywords = 2,
+        Compiler = 3,
+    };
+
     NO_COPY_AND_MOVE(SettingsDialog)
 
     SettingsDialog(wxWindow* parent, Context& ctx);
     ~SettingsDialog() override;
-    void create();
+    void create(Page initial = Page::General);
 
 private:
     void applyChanges() const;

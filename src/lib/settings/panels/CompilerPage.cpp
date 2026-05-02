@@ -55,6 +55,7 @@ void CompilerPage::apply() {
 
 void CompilerPage::compilerPath() {
     const auto [tf, btn] = makeFileEntry(m_compilerPath, tr("dialogs.settings.compiler.compilerPath"));
+    m_compilerPathField = tf;
     btn->Bind(wxEVT_BUTTON, [&, tf](wxCommandEvent&) {
         wxFileDialog dlg(
             this, "Select compiler", "", "",
@@ -66,6 +67,13 @@ void CompilerPage::compilerPath() {
         }
         tf->SetValue(m_compilerPath);
     });
+}
+
+void CompilerPage::focusCompilerPath() {
+    if (m_compilerPathField != nullptr) {
+        m_compilerPathField->SetFocus();
+        m_compilerPathField->SelectAll();
+    }
 }
 
 void CompilerPage::compilerCommand() {

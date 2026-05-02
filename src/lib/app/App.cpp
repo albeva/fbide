@@ -7,6 +7,7 @@
 #include "App.hpp"
 #include "Context.hpp"
 #include "InstanceHandler.hpp"
+#include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "config/Value.hpp"
@@ -206,6 +207,7 @@ auto App::OnInit() -> bool {
 
     m_context->getUIManager().createMainFrame();
     openFiles(cli.files);
+    m_context->getCompilerManager().checkCompilerOnStartup();
     return true;
 }
 
