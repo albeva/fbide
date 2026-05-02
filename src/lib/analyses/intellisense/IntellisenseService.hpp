@@ -17,8 +17,8 @@ class FBSciLexer;
 
 /// Result delivered to the sink wxEvtHandler when a parse finishes.
 struct IntellisenseResult {
-    const Document* owner;
-    std::shared_ptr<const SymbolTable> symbols;
+    const Document* owner;                       ///< Tag the worker received with the task.
+    std::shared_ptr<const SymbolTable> symbols;  ///< Pooled symbol table, freshly populated.
 };
 
 wxDECLARE_EVENT(EVT_INTELLISENSE_RESULT, wxThreadEvent);
@@ -60,11 +60,13 @@ public:
     auto Entry() -> wxThread::ExitCode override;
 
 private:
+    /// Pending parse task. `content` is a deep-copied UTF-8 snapshot.
     struct Task {
-        Document* owner = nullptr;
-        std::string content;
+        Document* owner = nullptr; ///< Tag (the worker never dereferences it).
+        std::string content;       ///< Source text snapshot.
     };
 
+    /// Run the lex + tree + symbolize pipeline on the worker thread.
     void process(const Task& task);
 
     /// Acquire a SymbolTable slot from the pool: scan for an entry whose
@@ -74,22 +76,26 @@ private:
     /// table before publishing it.
     auto acquireSymbolTable() -> std::shared_ptr<SymbolTable>;
 
-    Context& m_ctx;
-    wxEvtHandler* m_sink;
+    Context& m_ctx;         ///< Application context.
+    wxEvtHandler* m_sink;   ///< UI-thread event sink for `EVT_INTELLISENSE_RESULT`.
 
     /// Lexer owned by the worker. Configured once at ctor with current
     /// keywords from ConfigManager. Worker is the only thread that touches it.
     FBSciLexer* m_lexer = nullptr;
     /// Reused buffer for the worker's text snapshot.
     MemoryDocument m_memDoc;
+    /// Reused token vector — `StyleLexer::tokenise` clears + appends.
     std::vector<lexer::Token> m_tokens;
 
     /// Slot + signalling for the latest-wins single-task queue.
     /// `m_mtx` guards `m_pending` and `m_stopRequested`. The worker waits
     /// on `m_cv` for either a new task or shutdown.
     wxMutex m_mtx;
+    /// Condition variable signalling new task / shutdown to the worker.
     wxCondition m_cv { m_mtx };
+    /// Pending task slot — overwritten by `submit`, consumed by the worker.
     std::optional<Task> m_pending;
+    /// Shutdown flag — set by the destructor; the worker exits its loop.
     bool m_stopRequested = false;
 
     /// Set by the worker right before processing; cleared on completion or

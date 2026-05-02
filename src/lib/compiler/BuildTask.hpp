@@ -20,6 +20,7 @@ class BuildTask final {
 public:
     NO_COPY_AND_MOVE(BuildTask)
 
+    /// Canonical filename for the QuickRun temp source.
     static constexpr auto TEMPNAME = "FBIDETEMP.BAS";
 
     /// Create a compile process.
@@ -82,16 +83,16 @@ private:
     /// Set status bar text from a locale path (empty for none).
     void setStatus(const wxString& path) const;
 
-    Context& m_ctx;
-    Document* m_doc;
-    bool m_running = false;
-    bool m_shouldRun = false;
-    bool m_isQuickRun = false;
-    wxString m_sourceFile;
-    wxString m_buildDir;
-    wxString m_compiledFile;
-    wxArrayString m_compilerLog;
-    AsyncProcess* m_process = nullptr;
+    Context& m_ctx;                       ///< Application context.
+    Document* m_doc;                      ///< Document this task is bound to (nullable).
+    bool m_running = false;               ///< True while a process is in flight.
+    bool m_shouldRun = false;             ///< True when a successful compile should chain into run.
+    bool m_isQuickRun = false;            ///< True for QuickRun (compile to temp file + run).
+    wxString m_sourceFile;                ///< Source file currently being compiled.
+    wxString m_buildDir;                  ///< Working directory for the compile/run process.
+    wxString m_compiledFile;              ///< Path of the produced executable (set on success).
+    wxArrayString m_compilerLog;          ///< Captured compiler output (for the log dialog).
+    AsyncProcess* m_process = nullptr;    ///< In-flight async process (self-deleting).
 };
 
 } // namespace fbide

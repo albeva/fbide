@@ -32,7 +32,9 @@ class CompilerManager final {
 public:
     NO_COPY_AND_MOVE(CompilerManager)
 
+    /// Construct without probing the compiler.
     explicit CompilerManager(Context& ctx);
+    /// Out-of-line so the destructor sees the full `BuildTask` definition.
     ~CompilerManager();
 
     /// Compile the active document.
@@ -101,10 +103,10 @@ private:
     /// Set status bar text from locale path (empty for none).
     void setStatus(const wxString& path) const;
 
-    Context& m_ctx;
-    std::unique_ptr<BuildTask> m_task;
-    wxString m_parameters;
-    wxString m_fbcVersion;
+    Context& m_ctx;                    ///< Application context.
+    std::unique_ptr<BuildTask> m_task; ///< In-flight task (`nullptr` when idle).
+    wxString m_parameters;             ///< Runtime parameters set via the Parameters dialog.
+    wxString m_fbcVersion;             ///< Cached `fbc --version` output (empty until probed).
 };
 
 } // namespace fbide

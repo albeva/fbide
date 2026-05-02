@@ -18,10 +18,10 @@ class ConfigManager;
  */
 struct CommandEntry final {
 
-    /// Possible controls that can bind to command entry
+    /// Possible controls that can bind to a command entry.
     using Bind = std::variant<wxMenu*, wxMenuItem*, wxToolBarToolBase*, wxAuiManager*, ConfigManager*>;
 
-    /// Get control from binds for a given type
+    /// Get the bound control of type `T*`, or `nullptr` if none exists.
     template<typename T>
     [[nodiscard]] auto get() const -> T* {
         for (const auto& bind : binds) {
@@ -32,7 +32,7 @@ struct CommandEntry final {
         return nullptr;
     }
 
-    /// Get control from binds for a given type
+    /// Remove the first bind of type `T*` (no-op if not present).
     template<typename T>
     void remove() {
         auto it = std::ranges::find_if(binds, [](const T& x) {
@@ -44,7 +44,7 @@ struct CommandEntry final {
         }
     }
 
-    /// Set enabled state and update bound controls
+    /// Set the broad enabled state and refresh every bound control.
     void setEnabled(bool state);
 
     /// Set forced-disabled override and update bound controls. When true the
@@ -53,22 +53,22 @@ struct CommandEntry final {
     /// the broader UI state from UIManager::applyState).
     void setForceDisabled(bool state);
 
-    /// Set checked state and update bound controls
+    /// Set the checked state and refresh every bound control.
     void setChecked(bool state);
 
-    /// update bound controls
+    /// Push the current state onto every bound control.
     void update();
 
     /// Effective enabled state — `enabled` masked by `forceDisabled`.
     [[nodiscard]] auto isEnabled() const -> bool { return !forceDisabled && enabled; }
 
-    wxWindowID id = wxID_ANY;
-    wxString name;
-    wxItemKind kind = wxITEM_NORMAL;
-    bool enabled = true;
-    bool forceDisabled = false;
-    bool checked = false;
-    std::vector<Bind> binds = {};
+    wxWindowID id = wxID_ANY;          ///< wx event id (zero/`wxID_ANY` triggers `wxNewId()`).
+    wxString name;                     ///< Stable internal name (matches layout/locale/shortcuts keys).
+    wxItemKind kind = wxITEM_NORMAL;   ///< Item kind (Normal, Check, Dropdown).
+    bool enabled = true;               ///< Broad enabled gate (set by `UIManager::applyState`).
+    bool forceDisabled = false;        ///< Per-editor mask (set by `DocumentManager::syncEditCommands`).
+    bool checked = false;              ///< Checked state for `wxITEM_CHECK` entries.
+    std::vector<Bind> binds = {};      ///< Bound UI controls.
 };
 
 } // namespace fbide

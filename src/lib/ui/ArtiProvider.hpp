@@ -19,15 +19,17 @@ public:
 
     ArtiProvider();
 
-    /// Get bitmap for the given command ID. Returns wxNullBitmap if unknown.
+    /// Bitmap for the given command ID. Returns `wxNullBitmap` if unknown.
     [[nodiscard]] auto getBitmap(CommandId id) const -> wxBitmap;
+    /// Bitmap for the given symbol kind. Returns `wxNullBitmap` if unknown.
     [[nodiscard]] auto getBitmap(SymbolKind kind) const -> wxBitmap;
 
 private:
+    /// Build a `wxBitmap` from raw XPM data.
     [[nodiscard]] auto make(const char* const* xpm) const -> wxBitmap;
 
-    std::unordered_map<CommandId, const char* const*> m_commandIcons;
-    std::unordered_map<SymbolKind, const char* const*> m_symbolIcons;
+    std::unordered_map<CommandId, const char* const*> m_commandIcons;  ///< CommandId → XPM mapping.
+    std::unordered_map<SymbolKind, const char* const*> m_symbolIcons;  ///< SymbolKind → XPM mapping.
 };
 
 } // namespace fbide

@@ -15,7 +15,7 @@ namespace fbide {
 /// wxWidgets build versions via the static factories.
 class [[nodiscard]] Version final {
 public:
-    // plumbing
+    /// Default-constructed `0.0.0`.
     constexpr Version() noexcept = default;
 
     /// Get current fbide version
@@ -50,16 +50,20 @@ public:
         return m_major > 0 && m_minor > 0 && m_patch > 0;
     }
 
-    /// Get version bits
+    /// Major component.
     [[nodiscard]] constexpr auto getMajor() const noexcept -> int { return m_major; }
+    /// Minor component.
     [[nodiscard]] constexpr auto getMinor() const noexcept -> int { return m_minor; }
+    /// Patch component.
     [[nodiscard]] constexpr auto getPatch() const noexcept -> int { return m_patch; }
 
     /// Compare versions
     [[nodiscard]] constexpr auto operator<=>(const Version& other) const noexcept -> auto = default;
 
 private:
-    int m_major = 0, m_minor = 0, m_patch = 0;
+    int m_major = 0, ///< Major component.
+        m_minor = 0, ///< Minor component.
+        m_patch = 0; ///< Patch component.
 };
 
 } // namespace fbide

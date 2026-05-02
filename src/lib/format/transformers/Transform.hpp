@@ -15,6 +15,7 @@ namespace fbide {
 class Transform {
 public:
     virtual ~Transform() = default;
+    /// Apply the transform — input tokens to transformed tokens.
     [[nodiscard]] virtual auto apply(const std::vector<lexer::Token>& tokens) -> std::vector<lexer::Token> = 0;
 };
 

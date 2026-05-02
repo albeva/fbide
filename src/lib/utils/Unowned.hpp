@@ -77,7 +77,7 @@ public:
     constexpr FBIDE_INLINE auto toUniquePtr() const -> std::unique_ptr<T> { return std::unique_ptr<T>(m_ptr); }
 
 private:
-    T* m_ptr = nullptr;
+    T* m_ptr = nullptr; ///< Held pointer (not owned).
 };
 
 /// Create an Unowned<T> by constructing T with the given arguments.

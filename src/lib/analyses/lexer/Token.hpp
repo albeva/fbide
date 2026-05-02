@@ -162,18 +162,18 @@ enum class OperatorKind : std::uint8_t {
 /// `verbatim` marks the token as residing inside a `' format off` region;
 /// downstream transforms must preserve its original text unchanged.
 struct Token final {
-    TokenKind kind {};
-    KeywordKind keywordKind = KeywordKind::None;
-    OperatorKind operatorKind = OperatorKind::None;
+    TokenKind kind {};                            ///< Token category.
+    KeywordKind keywordKind = KeywordKind::None;  ///< Structural keyword classification (None for non-keywords).
+    OperatorKind operatorKind = OperatorKind::None; ///< Operator classification (None for non-operators).
     /// Original FBSciLexer style class for the source range this token came from.
     /// Reserved for debugging and future features. No consumer reads it today.
     ThemeCategory style = ThemeCategory::Default;
-    bool verbatim = false;
+    bool verbatim = false;                        ///< True when this token resides in a `' format off` region.
     /// Set on Newline tokens whose preceding line ends with `_` line-continuation
     /// (FBSciLexer's `LineState::continueLine` bit). The formatter uses this to
     /// keep a logical statement intact across the physical newline.
     bool continuation = false;
-    std::string text;
+    std::string text;                             ///< UTF-8 token text (owned).
     /// 0-based line number where the token starts in the original source.
     /// Populated by `StyleLexer::tokenise` via a single post-pass that walks
     /// the emitted tokens and increments on Newline. Default 0 for callers

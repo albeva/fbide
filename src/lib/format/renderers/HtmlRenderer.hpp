@@ -20,12 +20,15 @@ public:
     : Renderer(sizeHint)
     , m_theme(theme) {}
 
+    /// @copydoc Renderer::render
     [[nodiscard]] auto render(const std::vector<lexer::Token>& tokens) const -> wxString override;
+    /// @copydoc Renderer::getType
     [[nodiscard]] auto getType() const -> DocumentType override { return DocumentType::HTML; }
+    /// Wrap an inline render in a complete HTML document (head, style, body).
     static auto decorate(const wxString& rendered) -> wxString;
 
 private:
-    const Theme& m_theme;
+    const Theme& m_theme; ///< Active theme — drives style colour mapping.
 };
 
 } // namespace fbide

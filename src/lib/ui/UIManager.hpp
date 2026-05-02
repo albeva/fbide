@@ -91,7 +91,7 @@ public:
     /// changes so labels, shortcuts and command entries refresh in place.
     void refreshUi();
 
-    // /// Show the console pane if not already visible.
+    /// Toggle the output console pane's visibility.
     void showConsole(bool show);
 
     /// Get the output console.
@@ -99,6 +99,7 @@ public:
 
     /// Get the icon/bitmap provider.
     [[nodiscard]] auto getArtProvider() -> ArtiProvider& { return *m_artProvider; }
+    /// Const overload of `getArtProvider`.
     [[nodiscard]] auto getArtProvider() const -> const ArtiProvider& { return *m_artProvider; }
 
     /// Get the compiler log dialog, creating it lazily if needed.
@@ -158,6 +159,8 @@ private:
     // an editor" gate from applyState; DocumentManager::syncEditCommands
     // applies the fine-grained mask (CanUndo, has selection, clipboard,
     // etc.) via CommandEntry::setForceDisabled.
+    /// Commands toggled by `applyState`. Edit commands here pick up their
+    /// fine-grained mask separately via `DocumentManager::syncEditCommands`.
     static constexpr std::array mutableIds = {
         CommandId::Save,
         CommandId::SaveAs,

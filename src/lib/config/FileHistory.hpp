@@ -31,8 +31,8 @@ public:
     [[nodiscard]] auto getHistory() -> wxFileHistory& { return m_history; }
 
 private:
-    wxString m_path;
-    wxFileHistory m_history { 9, wxID_FILE1 };
+    wxString m_path;                            ///< Path to the backing INI file.
+    wxFileHistory m_history { 9, wxID_FILE1 };  ///< Underlying wx history (9 slots from `wxID_FILE1`).
 };
 
 } // namespace fbide

@@ -34,7 +34,7 @@ public:
     [[nodiscard]] static auto makeDefault(const wxString& executablePath) -> RunCommand;
 
 private:
-    wxString m_executable;
+    wxString m_executable; ///< Executable path to run.
 };
 
 } // namespace fbide

@@ -16,13 +16,16 @@ class AboutDialog final : public Layout<wxDialog> {
 public:
     NO_COPY_AND_MOVE(AboutDialog)
 
+    /// Construct without populating widgets; `create()` builds the UI.
     AboutDialog(wxWindow* parent, Context& ctx);
+    /// Build the dialog widgets.
     void create();
 
 private:
+    /// Load the bundled `readme.txt` from the IDE resources directory.
     [[nodiscard]] auto loadReadme() const -> wxString;
 
-    Context& m_ctx;
+    Context& m_ctx; ///< Application context.
 };
 
 } // namespace fbide

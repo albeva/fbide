@@ -29,7 +29,9 @@ class SymbolBrowser final : public wxTreeCtrl {
 public:
     NO_COPY_AND_MOVE(SymbolBrowser)
 
+    /// Construct, parented to the sidebar notebook.
     SymbolBrowser(Context& ctx, wxWindow* parent);
+    /// Trivial destructor.
     ~SymbolBrowser() override = default;
 
     /// Repopulate from `doc`'s current SymbolTable. `nullptr` (or a doc
@@ -42,12 +44,15 @@ private:
     /// Per-leaf lookup payload. `kind` selects which `SymbolTable` vector
     /// to read, `index` is the offset into that vector.
     struct Entry {
-        SymbolKind kind;
-        std::size_t index;
+        SymbolKind kind;    ///< Which `SymbolTable` bucket the leaf came from.
+        std::size_t index;  ///< Offset into that bucket's vector.
     };
 
+    /// Tree-leaf activation — dispatch to navigation or include open.
     void onItemActivated(wxTreeEvent& event);
+    /// Rebuild the tree from `m_currentTable`.
     void rebuild();
+    /// Clear the tree and `m_entries`.
     void clearTree();
 
     /// Append a folder + leaves under the tree root when the bucket is
@@ -63,8 +68,8 @@ private:
     /// the symbol's line, or open the included file.
     void dispatch(const Entry& entry);
 
-    Context& m_ctx;
-    std::shared_ptr<const SymbolTable> m_currentTable;
+    Context& m_ctx;                                    ///< Application context.
+    std::shared_ptr<const SymbolTable> m_currentTable; ///< Currently rendered symbol table.
 
     /// Tree id → entry payload. Rebuilt in `rebuild`, cleared in `clearTree`.
     /// `wxTreeItemId::Type` is the underlying void* the control hands out.

@@ -15,6 +15,7 @@ class OutputConsole final : public wxListCtrl {
 public:
     NO_COPY_AND_MOVE(OutputConsole)
 
+    /// Construct without populating columns; `create()` does that later.
     OutputConsole(wxWindow* parent, Context& ctx);
 
     /// Set up columns and event handlers. Call after construction.
@@ -28,9 +29,10 @@ public:
     void clear() { DeleteAllItems(); }
 
 private:
+    /// List row activated — jump to the error's source location.
     void onItemActivated(wxListEvent& event);
 
-    Context& m_ctx;
+    Context& m_ctx; ///< Application context.
 
     wxDECLARE_EVENT_TABLE();
 };

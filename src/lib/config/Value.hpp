@@ -43,10 +43,13 @@ public:
     /// ordering on save. unique_ptr breaks the recursive type.
     using Table = std::unordered_map<wxString, std::unique_ptr<Value>>;
 
+    /// Default-constructed invalid node (`monostate`).
     Value() = default;
     Value(const Value&) = delete;
     Value& operator=(const Value&) = delete;
+    /// Move-construct, leaving the source in a valid-but-empty state.
     Value(Value&&) noexcept = default;
+    /// Move-assign, leaving the source in a valid-but-empty state.
     Value& operator=(Value&&) noexcept = default;
 
     /// True if this node holds a value (leaf or group), false for invalid.
@@ -55,10 +58,15 @@ public:
     // -------------------------------------------------------------------
     // Type probes
     // -------------------------------------------------------------------
+    /// True when this node is a group of children.
     [[nodiscard]] auto isTable() const noexcept -> bool;
+    /// True when this leaf parses as a string (always true for any leaf — sugar for `bool(*this) && !isTable()`).
     [[nodiscard]] auto isString() const noexcept -> bool;
+    /// True when this leaf parses as an integer.
     [[nodiscard]] auto isInt() const noexcept -> bool;
+    /// True when this leaf parses as a boolean (`true`/`false`/`yes`/`no`/`0`/`1`).
     [[nodiscard]] auto isBool() const noexcept -> bool;
+    /// True when this leaf parses as a floating-point number.
     [[nodiscard]] auto isFloat() const noexcept -> bool;
 
     // -------------------------------------------------------------------
@@ -83,13 +91,18 @@ public:
     template<typename T>
     [[nodiscard]] auto as() const -> std::optional<T>;
 
-    /// Read leaf as T, falling back to `def` on any failure.
+    /// Read leaf as `bool`, falling back to `def` on any failure.
     [[nodiscard]] auto value_or(bool def) const -> bool;
+    /// Read leaf as `int`, falling back to `def` on any failure.
     [[nodiscard]] auto value_or(int def) const -> int;
+    /// Read leaf as `int64_t`, falling back to `def` on any failure.
     [[nodiscard]] auto value_or(std::int64_t def) const -> std::int64_t;
+    /// Read leaf as `double`, falling back to `def` on any failure.
     [[nodiscard]] auto value_or(double def) const -> double;
+    /// Read leaf as `wxString`, falling back to `def` on any failure.
     [[nodiscard]] auto value_or(const wxString& def) const -> wxString;
 
+    /// Read leaf as `wxString` with a string-literal default — implicit cast.
     template<std::size_t N>
     [[nodiscard]] auto value_or(const char (&def)[N]) const -> wxString {
         return value_or(wxString { def, N > 0 ? N - 1 : 0 });
@@ -102,6 +115,7 @@ public:
         return at(path).value_or(def);
     }
 
+    /// `get_or` overload that accepts a string-literal default.
     template<typename P, std::size_t N>
     [[nodiscard]] auto get_or(const P& path, const char (&def)[N]) const -> wxString {
         return at(path).value_or(def);
@@ -117,11 +131,17 @@ public:
     // -------------------------------------------------------------------
     // Writes — replace this node's contents with a leaf
     // -------------------------------------------------------------------
+    /// Assign a `bool` leaf.
     auto operator=(bool v) -> Value&;
+    /// Assign an `int` leaf.
     auto operator=(int v) -> Value&;
+    /// Assign an `int64_t` leaf.
     auto operator=(std::int64_t v) -> Value&;
+    /// Assign a `double` leaf.
     auto operator=(double v) -> Value&;
+    /// Assign a `wxString` leaf.
     auto operator=(const wxString& v) -> Value&;
+    /// Assign a C-string leaf.
     auto operator=(const char* v) -> Value&;
 
     /// Shared invalid sentinel returned by `at()` on a miss.
@@ -136,6 +156,7 @@ private:
     /// group, it is converted to one (losing any existing leaf value).
     [[nodiscard]] auto findOrCreateChild(const wxString& key) -> Value*;
 
+    /// Storage variant — invalid (`monostate`), leaf (`wxString`), or group (`Table`).
     std::variant<std::monostate, wxString, Table> m_data;
 };
 

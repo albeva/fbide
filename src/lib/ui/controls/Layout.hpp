@@ -9,6 +9,7 @@
 
 namespace fbide {
 
+/// Concept matching any wx-window-like type that accepts a `wxSizer*` via `SetSizer`.
 template<typename T>
 concept SizerAware = requires(T& parent, wxSizer* sizer) {
     { parent.SetSizer(sizer) } -> std::same_as<void>;
@@ -47,7 +48,9 @@ struct LayoutItemOptions final {
     bool padding = true;
 };
 
+/// Default item options — equivalent to `LayoutItemOptions{}`.
 constexpr LayoutItemOptions defaultItemOptions = {};
+/// Item options for separator lines — drops parent-container padding.
 constexpr LayoutItemOptions defaultSeparatorOptions = { .padding = false };
 
 /// Templated layout helper that can extend any wxWindow-derived class.
@@ -61,16 +64,19 @@ class Layout : public Base {
 public:
     NO_COPY_AND_MOVE(Layout)
 
+    /// Forward-construct the wx base, then install a vertical box sizer.
     template<typename... Args>
     explicit Layout(Args&&... args)
     : Base(std::forward<Args>(args)...) {
         m_currentSizer = make_unowned<wxBoxSizer>(wxVERTICAL);
     }
 
+    /// Platform default border — at least 5 px.
     static auto defaultBorder() -> int {
         return std::max(5, wxSizerFlags::GetDefaultBorder());
     }
 
+    /// Resolve `DEFAULT_PADDING` to the platform default; pass other values through.
     static auto resolveBorder(const int border) -> int {
         return border == DEFAULT_PADDING ? defaultBorder() : border;
     }
@@ -131,6 +137,7 @@ public:
         return ctrl;
     }
 
+    /// Add a stand-alone checkbox without a bound variable.
     auto checkBox(const wxString& str, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxCheckBox> {
         const auto ctrl = make_unowned<wxCheckBox>(m_currentParent, id, str, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
@@ -260,13 +267,15 @@ public:
     [[nodiscard]] auto currentOptions() -> LayoutContainerOptions& { return m_currentOptions; }
 
 private:
+    /// Resolved sizer flags and spacing for a single `add` call.
     struct CalculatedOptions final {
-        int space;
-        int proportion;
-        int flags;
-        int border;
+        int space;      ///< Leading spacer in pixels (0 = none).
+        int proportion; ///< wxSizer proportion.
+        int flags;      ///< Combined `wxSizerFlags` bits.
+        int border;     ///< Border width in pixels.
     };
 
+    /// Resolve `LayoutItemOptions` against the active container options.
     auto calculate(const LayoutItemOptions opts) -> CalculatedOptions {
         const bool isFirst = m_currentSizer->GetItemCount() == 0;
         const bool vertical = m_currentSizer->IsVertical();
@@ -284,6 +293,7 @@ private:
         return { .space = space, .proportion = opts.proportion, .flags = flags, .border = border };
     }
 
+    /// Push a new sizer (optionally inside a static box), call `func`, pop.
     template<std::invocable Func>
     void makeBox(const wxString& title, const int direction, const LayoutContainerOptions opts, Func&& func) {
         const ValueRestorer restoreSizer { m_currentSizer, m_currentOptions, m_currentParent };
@@ -302,6 +312,7 @@ private:
         closeContainer();
     }
 
+    /// Append a trailing spacer to round off the container.
     void closeContainer() {
         if (m_currentSizer->IsEmpty()) {
             return;
@@ -309,9 +320,9 @@ private:
         m_currentSizer->AddSpacer(resolveBorder(m_currentOptions.border));
     }
 
-    wxBoxSizer* m_currentSizer = nullptr;
-    wxWindow* m_currentParent = this;
-    LayoutContainerOptions m_currentOptions = {};
+    wxBoxSizer* m_currentSizer = nullptr;          ///< Active sizer (top of the implicit stack).
+    wxWindow* m_currentParent = this;              ///< Active wx parent for new controls.
+    LayoutContainerOptions m_currentOptions = {};  ///< Active container options.
 };
 
 } // namespace fbide

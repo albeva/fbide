@@ -20,9 +20,10 @@ namespace fbide {
  */
 class EncodingDetector {
 public:
+    /// Outcome of the detection pipeline.
     struct DetectionResult {
-        TextEncoding encoding;
-        bool hadBom;
+        TextEncoding encoding; ///< Detected (or fallback) encoding.
+        bool hadBom;           ///< True when a BOM was sniffed at the start.
     };
 
     /// Full detection pipeline: BOM sniff → UTF-8 validate → fallback.

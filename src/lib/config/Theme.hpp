@@ -49,33 +49,40 @@ namespace fbide {
  */
 class Theme final {
 public:
-    // Default plumbing
+    /// Default-constructed theme — every entry zero-initialised.
     Theme() = default;
+    /// Copy-constructible.
     Theme(const Theme&) noexcept = default;
+    /// Move-constructible.
     Theme(Theme&&) noexcept = default;
+    /// Copy-assignable.
     auto operator=(const Theme&) -> Theme& = default;
+    /// Move-assignable.
     auto operator=(Theme&&) -> Theme& = default;
+    /// Defaulted equality (every member compared).
     auto operator==(const Theme&) const noexcept -> bool = default;
 
-    /// Load from given theme file
+    /// Construct and load from `themePath` (`.ini` or legacy `.fbt`).
     explicit Theme(const wxString& themePath);
 
-    /// Reload theme from file, will reset all content
+    /// Reload from `themePath`, replacing every member. Empty argument
+    /// reloads from the current `m_themePath`.
     void load(const wxString& themePath = wxEmptyString) { load(themePath, true); }
 
-    /// Load legacy v4 .fbt theme (read-only migration; does not store path)
+    /// Load a legacy v4 `.fbt` theme (read-only migration; does not store path).
     void loadV4(const wxString& themePath);
 
-    /// Save theme, Optionally to a new path
+    /// Save theme to disk. Empty argument saves to the current `m_themePath`.
     void save(const wxString& newThemePath = wxEmptyString);
 
-    /// Current backing file path
+    /// Current backing file path.
     [[nodiscard]] auto getPath() const -> const wxString& { return m_themePath; }
 
-    /// Background and foreground colour combo
+    /// Background + foreground colour pair for a category.
     struct Colors final {
-        wxColour foreground;
-        wxColour background;
+        wxColour foreground; ///< Text colour.
+        wxColour background; ///< Background colour.
+        /// Defaulted equality.
         auto operator==(const Colors& other) const noexcept -> bool = default;
     };
 
@@ -83,18 +90,22 @@ public:
     // Category entries
     // -----------------------------------------------------------------------
 
+    /// Per-`ThemeCategory` styling: colours plus typeface flags.
     struct Entry final {
-        Colors colors;
-        bool bold = false;
-        bool italic = false;
-        bool underlined = false;
+        Colors colors;          ///< Foreground + background colours.
+        bool bold = false;      ///< Bold typeface.
+        bool italic = false;    ///< Italic typeface.
+        bool underlined = false;///< Underlined.
+        /// Defaulted equality.
         auto operator==(const Entry& other) const noexcept -> bool = default;
     };
 
+    /// Read the entry for a category.
     [[nodiscard]] auto get(const ThemeCategory category) const -> const Entry& {
         return m_categories[static_cast<std::size_t>(category)];
     }
 
+    /// Replace the entry for a category.
     void set(const ThemeCategory category, const Entry& entry) {
         m_categories[static_cast<std::size_t>(category)] = entry;
     }
@@ -112,15 +123,17 @@ public:
     // Utility methods
     // -----------------------------------------------------------------------
 
-    /// Return current colour if valid, or default color
+    /// Return `color` if valid, otherwise the default-category foreground.
     [[nodiscard]] auto foreground(const wxColour& color) const -> const wxColour&;
+    /// Return `color` if valid, otherwise the default-category background.
     [[nodiscard]] auto background(const wxColour& color) const -> const wxColour&;
 
 private:
+    /// Internal load entry — `reset` controls whether existing fields clear first.
     void load(const wxString& themePath, bool reset);
 
-    wxString m_themePath;
-    std::array<Entry, kThemeCategoryCount> m_categories {};
+    wxString m_themePath;                                ///< Current backing file path.
+    std::array<Entry, kThemeCategoryCount> m_categories {}; ///< Per-`ThemeCategory` style entries.
 
     // -----------------------------------------------------------------------
     // Style properties

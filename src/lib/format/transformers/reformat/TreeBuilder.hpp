@@ -58,20 +58,25 @@ public:
     void closeToDepth(std::size_t depth);
 
 private:
+    /// Append a node to the current block's body (or to the root).
     void addNode(Node node);
+    /// Pop the current branch off the stack (if any).
     void closeBranch();
+    /// Pop the top block off the stack and attach it to its parent.
     void popBlock();
+    /// Flush `m_collected` into a fresh `StatementNode`, clearing the buffer.
     [[nodiscard]] auto flushTokens() -> StatementNode;
 
+    /// One frame in the open-block stack.
     struct StackEntry {
-        std::unique_ptr<BlockNode> node;
-        bool isBranch = false;
-        bool isPP = false;
+        std::unique_ptr<BlockNode> node; ///< Block being assembled.
+        bool isBranch = false;           ///< True when this frame is a branch (Else/Case/`#else`).
+        bool isPP = false;               ///< True when this frame is a preprocessor block.
     };
 
-    std::vector<lexer::Token> m_collected;
-    std::vector<StackEntry> m_stack;
-    std::vector<Node> m_root;
+    std::vector<lexer::Token> m_collected; ///< Token collection buffer for the current line.
+    std::vector<StackEntry> m_stack;       ///< Open-block stack.
+    std::vector<Node> m_root;              ///< Final root nodes once the stack drains.
 };
 
 } // namespace fbide::reformat

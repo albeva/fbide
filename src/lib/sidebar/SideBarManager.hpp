@@ -39,8 +39,10 @@ public:
     /// for `CommandId::Browser` so toggling shows/hides the pane.
     static constexpr auto kBrowserPaneName = "viewBrowser";
 
+    /// Construct without populating tabs; `attach()` does that later.
     explicit SideBarManager(Context& ctx);
-    ~SideBarManager() override; // out-of-line for unique_ptr<SymbolBrowser>
+    /// Out-of-line so the destructor sees the full `SymbolBrowser` definition.
+    ~SideBarManager() override;
 
     /// Two-phase init: called from `UIManager::createLayout` once the sidebar
     /// notebook exists. Builds the tabs.
@@ -64,14 +66,15 @@ public:
     void showSymbolBrowser();
 
 private:
+    /// Browse Files tree leaf activated — open the file in a new editor tab.
     void onFileActivated(wxTreeEvent& event);
 
-    Context& m_ctx;
-    wxAuiNotebook* m_notebook = nullptr;
-    Unowned<wxGenericDirCtrl> m_dirCtrl;
-    Unowned<SymbolBrowser> m_symbolBrowser;
-    int m_subFunctionPage = wxNOT_FOUND;
-    int m_browseFilesPage = wxNOT_FOUND;
+    Context& m_ctx;                          ///< Application context.
+    wxAuiNotebook* m_notebook = nullptr;     ///< Non-owning pointer into the sidebar notebook (owned by the frame).
+    Unowned<wxGenericDirCtrl> m_dirCtrl;     ///< Browse Files control.
+    Unowned<SymbolBrowser> m_symbolBrowser;  ///< Sub/Function tree control.
+    int m_subFunctionPage = wxNOT_FOUND;     ///< Cached page index of the Sub/Function tab.
+    int m_browseFilesPage = wxNOT_FOUND;     ///< Cached page index of the Browse Files tab.
 };
 
 } // namespace fbide

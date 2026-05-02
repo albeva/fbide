@@ -40,9 +40,9 @@ public:
     [[nodiscard]] static auto getServicePath() -> wxString;
 
 private:
-    Context& m_ctx;
-    wxSingleInstanceChecker m_checker;
-    std::unique_ptr<wxServer> m_server;
+    Context& m_ctx;                      ///< Application context.
+    wxSingleInstanceChecker m_checker;   ///< Lock used to detect prior running instances.
+    std::unique_ptr<wxServer> m_server;  ///< IPC server when this is the canonical instance.
 };
 
 } // namespace fbide

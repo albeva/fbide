@@ -68,9 +68,9 @@ public:
         return nullptr;
     }
 
-    /// Read every `wxITEM_CHECK` entry's initial state from
-    /// `config.commands.<name>` and propagate it through the bound
-    /// controls.
+    /// Read every `wxITEM_CHECK` entry's initial state from the
+    /// `config.commands` subtree (keyed by command name) and propagate
+    /// it through the bound controls.
     void initializeCommands();
 
 private:

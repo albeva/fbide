@@ -25,6 +25,7 @@ namespace fbide {
 class App final : public wxApp {
 public:
     NO_COPY_AND_MOVE(App)
+    /// Default constructor — no work; `OnInit` does the heavy lifting.
     App() = default;
 
     /// Initialize the application, create main window.
@@ -32,25 +33,27 @@ public:
 
     /// Cleanup on exit — flush clipboard so copied content persists after app closes.
     auto OnExit() -> int override;
+    /// Apply `appearance=` config (light/dark/system) to the wx appearance API.
     void initAppearance();
 
     /// Get the application context.
     [[nodiscard]] auto getContext() -> Context& { return *m_context; }
+    /// Const overload of `getContext`.
     [[nodiscard]] auto getContext() const -> const Context& { return *m_context; }
 
 private:
     /// Parsed command-line state. Filled by `parseCli` once at startup so the
     /// rest of `OnInit` can branch on it without re-parsing.
     struct CliOptions {
-        wxString configPath;           // --config <path>
-        wxString idePath;              // --ide <path>
-        wxString cfgKey;               // --cfg=[<category>:]<key> (non-empty → print + exit)
-        wxArrayString files;           // positional file paths
-        bool newWindow = false;        // --new-window
-        bool verbose = false;          // --verbose
-        bool helpRequested = false;    // --help
-        bool versionRequested = false; // --version
-        bool parseFailed = false;
+        wxString configPath;           ///< `--config <path>`.
+        wxString idePath;              ///< `--ide <path>`.
+        wxString cfgKey;               ///< `--cfg=[<category>:]<key>` (non-empty → print + exit).
+        wxArrayString files;           ///< Positional file paths.
+        bool newWindow = false;        ///< `--new-window`.
+        bool verbose = false;          ///< `--verbose`.
+        bool helpRequested = false;    ///< `--help`.
+        bool versionRequested = false; ///< `--version`.
+        bool parseFailed = false;      ///< Set when CLI parsing reported an error to stderr.
     };
 
     /// Get the directory of the fbide binary.
@@ -76,9 +79,9 @@ private:
     /// Open files passed on the command line or via OS events.
     void openFiles(const wxArrayString& files);
 
-    std::unique_ptr<Context> m_context;
-    std::unique_ptr<InstanceHandler> m_instanceHandler;
-    bool m_newWindow = false;
+    std::unique_ptr<Context> m_context;                 ///< Application service locator.
+    std::unique_ptr<InstanceHandler> m_instanceHandler; ///< Single-instance gate (skipped under `--new-window`).
+    bool m_newWindow = false;                           ///< Effective value of `--new-window`.
 };
 
 } // namespace fbide

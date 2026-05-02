@@ -8,6 +8,7 @@ INPUT                  = @CMAKE_SOURCE_DIR@/src \
 RECURSIVE              = YES
 FILE_PATTERNS          = *.hpp *.cpp *.md
 EXCLUDE_PATTERNS       = */build/* */tests/* */pch.hpp
+EXCLUDE_SYMBOLS        = wxDECLARE_EVENT_TABLE
 USE_MDFILE_AS_MAINPAGE = @CMAKE_SOURCE_DIR@/doxygen/mainpage.md
 
 EXTRACT_ALL            = NO

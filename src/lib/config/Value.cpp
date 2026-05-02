@@ -153,6 +153,7 @@ auto Value::operator[](const wxString& path) -> Value& {
 // -------------------------------------------------------------------------
 // Typed reads
 // -------------------------------------------------------------------------
+/// Parse leaf as bool — accepts `true`/`false`/`yes`/`no`/`0`/`1`.
 template<>
 auto Value::as<bool>() const -> std::optional<bool> {
     if (const auto* leaf = std::get_if<wxString>(&m_data)) {
@@ -161,6 +162,7 @@ auto Value::as<bool>() const -> std::optional<bool> {
     return std::nullopt;
 }
 
+/// Parse leaf as int via `wxString::ToLong`.
 template<>
 auto Value::as<int>() const -> std::optional<int> {
     if (const auto* leaf = std::get_if<wxString>(&m_data)) {
@@ -172,6 +174,7 @@ auto Value::as<int>() const -> std::optional<int> {
     return std::nullopt;
 }
 
+/// Parse leaf as int64_t via `wxString::ToLongLong`.
 template<>
 auto Value::as<std::int64_t>() const -> std::optional<std::int64_t> {
     if (const auto* leaf = std::get_if<wxString>(&m_data)) {
@@ -183,6 +186,7 @@ auto Value::as<std::int64_t>() const -> std::optional<std::int64_t> {
     return std::nullopt;
 }
 
+/// Parse leaf as double via `wxString::ToDouble`.
 template<>
 auto Value::as<double>() const -> std::optional<double> {
     if (const auto* leaf = std::get_if<wxString>(&m_data)) {
@@ -194,6 +198,7 @@ auto Value::as<double>() const -> std::optional<double> {
     return std::nullopt;
 }
 
+/// Pull the raw `wxString` leaf value through unchanged.
 template<>
 auto Value::as<wxString>() const -> std::optional<wxString> {
     if (const auto* leaf = std::get_if<wxString>(&m_data)) {

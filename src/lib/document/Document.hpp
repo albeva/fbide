@@ -51,12 +51,13 @@ public:
 
     /// Get the editor widget.
     [[nodiscard]] auto getEditor() -> Editor* { return m_editor; }
+    /// Const overload of `getEditor`.
     [[nodiscard]] auto getEditor() const -> const Editor* { return m_editor; }
 
-    /// Get compiled file path
+    /// Path of the most recently compiled executable.
     [[nodiscard]] auto getCompiledFile() const -> wxString { return m_compiledFile; }
 
-    /// Set compiled file path
+    /// Record the path of the freshly compiled executable.
     void setCompiledPath(const wxString& path) { m_compiledFile = path; }
 
     /// Get the keyword at the cursor position.
@@ -106,18 +107,18 @@ public:
     }
 
 private:
-    Context& m_ctx;
-    wxString m_compiledFile;
-    wxString m_filePath;
-    DocumentType m_type;
-    Unowned<Editor> m_editor;
-    wxDateTime m_modTime;
-    TextEncoding m_encoding;
-    EolMode m_eolMode;
+    Context& m_ctx;                                ///< Application context.
+    wxString m_compiledFile;                       ///< Path of the most recently compiled executable.
+    wxString m_filePath;                           ///< Absolute path on disk; empty for new documents.
+    DocumentType m_type;                           ///< Document type — drives lexer + theme dispatch.
+    Unowned<Editor> m_editor;                      ///< wx-parented editor widget.
+    wxDateTime m_modTime;                          ///< Last on-disk mtime — backs `checkExternalChange`.
+    TextEncoding m_encoding;                       ///< Bytes-to-text codec used on save.
+    EolMode m_eolMode;                             ///< Line-ending convention applied on save.
     /// Set when encoding is changed; cleared on save. OR'd with editor's
     /// modify flag in isModified() so encoding-only edits still show as dirty.
     bool m_metaModified = false;
-    std::shared_ptr<const SymbolTable> m_symbolTable;
+    std::shared_ptr<const SymbolTable> m_symbolTable; ///< Latest intellisense result for this document.
 };
 
 } // namespace fbide

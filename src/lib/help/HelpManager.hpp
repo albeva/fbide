@@ -25,6 +25,7 @@ class HelpManager final {
 public:
     NO_COPY_AND_MOVE(HelpManager)
 
+    /// Construct without loading any help file.
     explicit HelpManager(Context& ctx);
 
     /// Open help for keyword at cursor. Tries CHM on Windows, falls back to wiki.
@@ -43,10 +44,10 @@ private:
     /// Open CHM help file. Returns false if CHM is unavailable.
     auto openChm(const wxString& query) -> bool;
 
-    std::unique_ptr<wxCHMHelpController> m_help;
+    std::unique_ptr<wxCHMHelpController> m_help; ///< Lazy CHM controller (Windows only).
 #endif
 
-    Context& m_ctx;
+    Context& m_ctx; ///< Application context.
 };
 
 } // namespace fbide

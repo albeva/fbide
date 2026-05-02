@@ -36,7 +36,9 @@ class DocumentManager final : public wxEvtHandler {
 public:
     NO_COPY_AND_MOVE(DocumentManager)
 
+    /// Construct without populating any documents.
     explicit DocumentManager(Context& ctx);
+    /// Stop the intellisense worker (declared first so destruction runs first).
     ~DocumentManager() override;
 
     /// Shared on-type transformer (auto-indent + keyword case). Single
@@ -151,9 +153,9 @@ public:
     void gotoLine();
 
 private:
-    /// Config-derived defaults used to seed encoding/EOL detection for
-    /// freshly opened files before a Document exists.
+    /// Config-derived default encoding used for freshly opened files.
     [[nodiscard]] auto defaultEncoding() const -> TextEncoding;
+    /// Config-derived default EOL mode used for freshly opened files.
     [[nodiscard]] auto defaultEolMode() const -> EolMode;
 
     /// Find notebook page index for a document.
@@ -172,23 +174,27 @@ private:
     /// editor settings (same chain as SettingsDialog::applyChanges).
     void reloadConfigIfMatches(const wxString& path) const;
 
-    // Find/Replace dialog events
+    /// Find dialog: kick off a find with the latest entered text.
     void onFindDialog(wxFindDialogEvent& event);
+    /// Find dialog: repeat the last find from the current caret.
     void onFindDialogNext(wxFindDialogEvent& event);
+    /// Replace dialog: replace the current selection then find next.
     void onReplaceDialog(wxFindDialogEvent& event);
+    /// Replace dialog: replace every match across the active document.
     void onReplaceAllDialog(wxFindDialogEvent& event);
+    /// Find/replace dialog closing — clear the modal pointer.
     void onFindDialogClose(wxFindDialogEvent& event);
 
-    // Tab-strip context menu
+    /// Tab-strip context menu — show actions for the right-clicked tab.
     void onTabRightDown(wxAuiNotebookEvent& event);
 
-    // Intellisense result delivery (worker thread → UI thread).
+    /// Intellisense result delivery (worker thread → UI thread).
     void onIntellisenseResult(wxThreadEvent& event);
 
-    Context& m_ctx;
-    wxFindReplaceData m_findData { wxFR_DOWN };
-    std::vector<std::unique_ptr<Document>> m_documents;
-    std::unique_ptr<CodeTransformer> m_codeTransformer;
+    Context& m_ctx;                                       ///< Application context.
+    wxFindReplaceData m_findData { wxFR_DOWN };           ///< Find/replace dialog state.
+    std::vector<std::unique_ptr<Document>> m_documents;   ///< Open documents in tab order.
+    std::unique_ptr<CodeTransformer> m_codeTransformer;   ///< Shared on-type transformer.
     /// Declared last so destruction runs first — worker thread stops and
     /// joins before the documents and transformer it might race with go away.
     std::unique_ptr<IntellisenseService> m_intellisense;

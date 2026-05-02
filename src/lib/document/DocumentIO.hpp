@@ -15,16 +15,18 @@ namespace fbide {
 /// save path strips/adds BOM and converts EOLs before encoding.
 class DocumentIO {
 public:
+    /// Successful load result — text plus the detected encoding/EOL.
     struct LoadResult {
-        wxString text;
-        TextEncoding encoding;
-        EolMode eolMode;
+        wxString text;          ///< Decoded text.
+        TextEncoding encoding;  ///< Encoding the bytes were decoded with.
+        EolMode eolMode;        ///< Detected (or fallback) EOL mode.
     };
 
+    /// Save outcome.
     enum class SaveResult : std::uint8_t {
-        Success,
-        IOError,
-        EncodingError,
+        Success,        ///< File written.
+        IOError,        ///< Could not open or write the file.
+        EncodingError,  ///< Codec rejected text — nothing written.
     };
 
     /// Load file into memory. Returns nullopt only when the file cannot

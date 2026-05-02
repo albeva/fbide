@@ -26,7 +26,9 @@ class CodeTransformer final {
 public:
     NO_COPY_AND_MOVE(CodeTransformer)
 
+    /// Construct and seed from `editor.*` config keys.
     explicit CodeTransformer(Context& ctx);
+    /// Destroy, releasing the internal Lexer.
     ~CodeTransformer();
 
     /// Reload from config (`editor.autoIndent`, `editor.keywordCase`) and
@@ -50,16 +52,21 @@ public:
     void enable(bool state);
 
 private:
+    /// Auto-indent the new line and (if appropriate) emit a matching closer.
     void applyIndentAndCloser(Editor& editor);
+    /// Run the keyword-case transform on the word the caret just left.
     void applyWordCase(Editor& editor);
+    /// Transform a single word range to its configured case.
     void transformWordInRange(Editor& editor, int wordStart, int wordEnd);
+    /// Transform every word in `[rangeStart, rangeEnd)` to its configured case.
     void transformRange(Editor& editor, int rangeStart, int rangeEnd);
+    /// Render `words` to the canonical closer text using the active editor's case rules.
     [[nodiscard]] auto renderCloser(std::span<const std::string_view> words) const -> wxString;
 
-    Context& m_ctx;
-    bool m_autoIndent = true;
-    bool m_transformKeywords = true;
-    std::array<CaseMode, kThemeKeywordGroupsCount> m_keywordCases {};
+    Context& m_ctx;                  ///< Application context.
+    bool m_autoIndent = true;        ///< Master toggle for auto-indent.
+    bool m_transformKeywords = true; ///< Master toggle for keyword case transform.
+    std::array<CaseMode, kThemeKeywordGroupsCount> m_keywordCases {}; ///< Per-keyword-group case mode.
 };
 
 } // namespace fbide

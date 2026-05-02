@@ -64,12 +64,12 @@ constexpr auto isSyntaxCategory(const SettingsCategory category) -> bool {
 
 /// Capability descriptor — which UI controls apply to this category.
 struct SettingsCapability final {
-    bool foreground : 1;
-    bool background : 1;
-    bool style      : 1; // bold / italic / underlined
-    bool font       : 1; // font face
-    bool fontSize   : 1; // font size
-    bool separator  : 1; // separator line colour
+    bool foreground : 1; ///< Show the foreground colour picker.
+    bool background : 1; ///< Show the background colour picker.
+    bool style      : 1; ///< Show bold / italic / underlined toggles.
+    bool font       : 1; ///< Show the font-face picker.
+    bool fontSize   : 1; ///< Show the font-size spinner.
+    bool separator  : 1; ///< Show the separator-line colour picker.
 };
 
 /// Read the theme entry backing a settings category, regardless of whether

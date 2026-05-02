@@ -43,6 +43,7 @@ public:
     /// Current session format version.
     static constexpr int Version = 3;
 
+    /// Construct without loading anything.
     explicit FileSession(Context& ctx);
 
     /// Load a session file, dispatching on detected format.
@@ -58,10 +59,12 @@ public:
     void showSaveDialog();
 
 private:
+    /// Load the v3 INI format.
     void loadV3(const wxString& path);
+    /// Load the v0.1/v0.2 legacy text format.
     void loadLegacy(const wxString& path);
 
-    Context& m_ctx;
+    Context& m_ctx; ///< Application context.
 };
 
 } // namespace fbide

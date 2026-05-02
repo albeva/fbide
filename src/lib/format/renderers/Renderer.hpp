@@ -16,22 +16,22 @@ namespace fbide {
 class Renderer {
 public:
     NO_COPY_AND_MOVE(Renderer)
+    /// Construct with a size hint to pre-reserve the output buffer.
     explicit Renderer(const std::size_t sizeHint)
     : m_sizeHint(sizeHint) {}
     virtual ~Renderer() = default;
 
-    /// If the renderer produces a new document, return its type.
-    /// std::nullopt means in-place edit of the active document.
+    /// Document type the renderer produces.
     [[nodiscard]] virtual auto getType() const -> DocumentType = 0;
 
-    /// Subclasses implement this to render the (already transformed) tokens.
+    /// Render the (already transformed) tokens to a `wxString`.
     [[nodiscard]] virtual auto render(const std::vector<lexer::Token>& tokens) const -> wxString = 0;
 
-    /// Get input size hint
+    /// Original input size — used by subclasses to pre-reserve buffers.
     [[nodiscard]] auto getSizeHint() const -> std::size_t { return m_sizeHint; }
 
 private:
-    std::size_t m_sizeHint;
+    std::size_t m_sizeHint; ///< Cached size hint passed at construction.
 };
 
 } // namespace fbide

@@ -17,15 +17,17 @@ class DeferHandler {
 public:
     NO_COPY_AND_MOVE(DeferHandler)
 
+    /// Move-construct from a callable. The callable runs on destruction.
     explicit DeferHandler(Callback&& callback) noexcept
     : m_callback(std::forward<Callback>(callback)) {}
 
+    /// Run the captured callable.
     ~DeferHandler() noexcept {
         m_callback();
     }
 
 private:
-    Callback m_callback;
+    Callback m_callback; ///< Captured callable invoked on scope exit.
 };
 
 template<typename F>

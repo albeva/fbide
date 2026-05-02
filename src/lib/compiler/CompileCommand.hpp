@@ -30,7 +30,7 @@ public:
     [[nodiscard]] static auto makeDefault(const wxString& sourceFile) -> CompileCommand;
 
 private:
-    wxString m_sourceFile;
+    wxString m_sourceFile; ///< Source file to compile.
 };
 
 } // namespace fbide

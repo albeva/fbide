@@ -16,6 +16,7 @@ class CompilerLog final : public wxDialog {
 public:
     NO_COPY_AND_MOVE(CompilerLog)
 
+    /// Construct without populating widgets; `create()` builds them.
     CompilerLog(wxWindow* parent, const wxString& title);
 
     /// Set up the layout. Call after construction.
@@ -31,7 +32,7 @@ public:
     void log(const wxArrayString& lines);
 
 private:
-    Unowned<BBCodeText> m_output;
+    Unowned<BBCodeText> m_output; ///< Read-only text control with BBCode markup support.
 };
 
 } // namespace fbide

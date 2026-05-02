@@ -19,6 +19,7 @@ class ColorPicker final : public Layout<wxPanel> {
 public:
     NO_COPY_AND_MOVE(ColorPicker)
 
+    /// Construct without populating widgets; `create()` builds the UI.
     ColorPicker(wxWindow* parent, const Theme& theme, const Value& tr,
         wxString label, wxString inheritTooltip = {});
 
@@ -30,29 +31,34 @@ public:
     /// When color is not OK but defaultColor is, inherit starts ticked.
     void setColors(const wxColour& color, const wxColour& defaultColor = wxNullColour);
 
-    /// Selected color, or wxNullColour when "inherit" is ticked.
+    /// Selected color, or `wxNullColour` when "inherit" is ticked.
     [[nodiscard]] auto getColor() const -> wxColour;
 
 private:
+    /// Stable wx IDs for this picker's interactive controls.
     enum ControlId : int {
-        ID_CHK_INHERIT = wxID_HIGHEST + 1,
-        ID_BTN_COLOR
+        ID_CHK_INHERIT = wxID_HIGHEST + 1, ///< Inherit-from-default checkbox.
+        ID_BTN_COLOR                       ///< Color swatch button.
     };
 
+    /// Inherit checkbox toggled — switch between custom/default colour.
     void onInheritToggle(wxCommandEvent& event);
+    /// Swatch button clicked — open the popup menu.
     void onButtonClick(wxCommandEvent& event);
 
+    /// Update the swatch button to display `c`.
     void applyColor(const wxColour& c);
+    /// Open the platform colour dialog and apply the chosen colour.
     void openColourDialog();
 
-    const Theme& m_theme;
-    const Value& m_tr;
-    wxString m_labelText;
-    wxString m_inheritTooltip;
-    wxColour m_defaultColor;
-    Unowned<wxStaticText> m_lbl;
-    Unowned<wxCheckBox> m_chkInherit;
-    Unowned<wxButton> m_btn;
+    const Theme& m_theme;             ///< Active theme — source for "Copy from" entries.
+    const Value& m_tr;                ///< Locale subtree for translations.
+    wxString m_labelText;             ///< Label text shown next to the swatch.
+    wxString m_inheritTooltip;        ///< Tooltip on the inherit checkbox.
+    wxColour m_defaultColor;          ///< Fallback colour used when "inherit" is ticked.
+    Unowned<wxStaticText> m_lbl;      ///< Label widget.
+    Unowned<wxCheckBox> m_chkInherit; ///< Inherit checkbox.
+    Unowned<wxButton> m_btn;          ///< Swatch button.
 
     wxDECLARE_EVENT_TABLE();
 };

@@ -11,8 +11,8 @@ namespace fbide {
 
 /// Result of an async process execution.
 struct ProcessResult final {
-    int exitCode = -1;
-    wxArrayString output;
+    int exitCode = -1;        ///< Process exit code (`-1` when launch failed).
+    wxArrayString output;     ///< Captured stdout/stderr lines (when redirected).
 
     /// True if the process was launched successfully and terminated.
     /// False if wxExecute failed to start the process.
@@ -34,6 +34,7 @@ class AsyncProcess final : wxProcess {
 public:
     NO_COPY_AND_MOVE(AsyncProcess)
 
+    /// Termination callback signature.
     using Callback = std::function<void(ProcessResult)>;
 
     /// Launch the command asynchronously.
@@ -66,12 +67,15 @@ private:
         bool redirect
     );
 
+    /// wxProcess hook — invoked when the child process exits. Calls `m_callback`
+    /// then deletes `this`.
     // ReSharper disable once CppOverrideWithDifferentVisibility
     void OnTerminate(int pid, int status) override;
 
+    /// Drain `stream` line-by-line into `output`.
     static void readStream(wxInputStream* stream, wxArrayString& output);
 
-    Callback m_callback;
+    Callback m_callback; ///< User-supplied termination callback.
 };
 
 } // namespace fbide

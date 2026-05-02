@@ -127,7 +127,7 @@ Group 2.8 — App
 
 ## Phase 5 — Polish & format
 
-- [ ] Flip `WARN_IF_UNDOCUMENTED = YES`, build docs, fix every gap. Trial run with the flag on surfaced 795 warnings — mostly trivial getters/setters/fields and `wxDECLARE_EVENT_TABLE()` macros. Defer to a focused gap-fix sprint; reverted to NO for now.
+- [x] Flip `WARN_IF_UNDOCUMENTED = YES`, build docs, fix every gap. Down from 791 to 1 — the residual is the Doxygen 1.16.1 `Renderer::render` ambiguity (known limitation). `EXCLUDE_SYMBOLS = wxDECLARE_EVENT_TABLE` keeps wx event-table macros out of the doc surface.
 - [ ] Optional: flip `WARN_AS_ERROR = YES` in CI for the docs target.
 - [x] Single clang-format pass over `src/` + `tests/` using repo `.clang-format`. Build clean; 290 tests pass.
 - [x] Final docs build — 1 remaining warning (Renderer::render ambiguity across 4 namespaces — Doxygen 1.16.1 quirk; benign). Was 11 — fixed `<$tag>` HTML interpretation in CompileCommand/RunCommand and `#else`/`#endif` link refs in FormatTree/TreeBuilder.
