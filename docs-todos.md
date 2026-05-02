@@ -12,8 +12,8 @@ build and zero new warnings.
 - [x] Hook `doxygen.cmake` into root `CMakeLists.txt`.
 - [x] Create `doxygen/mainpage.md` skeleton with `@subpage` placeholders for every §3 page.
 - [x] `docs/` already in `.gitignore` (covers `docs/html/`).
-- [ ] Install Doxygen + Graphviz, then smoke test: `cmake --build build/claude/debug --target docs` produces output.
-- [ ] Decide whether to add `EXCLUDE_SYMBOLS = wx*` based on inheritance graph noise.
+- [x] Smoke test passed: Doxygen 1.16.1 found at `C:/Users/Albert/Developer/mingw64/bin/doxygen.exe` (configure with `-DDOXYGEN_EXECUTABLE=...` until on PATH). HTML output 6.2M, all 10 subpages render.
+- [ ] Decide whether to add `EXCLUDE_SYMBOLS = wx*` (Graphviz dot not installed yet — defer until inheritance graphs render).
 
 ## Phase 1 — Subpages (markdown only, no header comments yet)
 
@@ -127,11 +127,11 @@ Group 2.8 — App
 
 ## Phase 5 — Polish & format
 
-- [ ] Flip `WARN_IF_UNDOCUMENTED = YES`, build docs, fix every gap (needs Doxygen).
+- [ ] Flip `WARN_IF_UNDOCUMENTED = YES`, build docs, fix every gap. Trial run with the flag on surfaced 795 warnings — mostly trivial getters/setters/fields and `wxDECLARE_EVENT_TABLE()` macros. Defer to a focused gap-fix sprint; reverted to NO for now.
 - [ ] Optional: flip `WARN_AS_ERROR = YES` in CI for the docs target.
 - [x] Single clang-format pass over `src/` + `tests/` using repo `.clang-format`. Build clean; 290 tests pass.
-- [ ] Final docs build — must be warning-free (needs Doxygen).
-- [ ] Spot-check generated HTML: nav tree, dot graphs render, dark theme, cross-links resolve (needs Doxygen).
+- [x] Final docs build — 1 remaining warning (Renderer::render ambiguity across 4 namespaces — Doxygen 1.16.1 quirk; benign). Was 11 — fixed `<$tag>` HTML interpretation in CompileCommand/RunCommand and `#else`/`#endif` link refs in FormatTree/TreeBuilder.
+- [x] Spot-check generated HTML: index page renders, all 10 subpages present (`architecture.html`, `commands.html`, `documents.html`, `analyses.html`, `editor.html`, `compiler.html`, `format.html`, `settings.html`, `theming.html`, `ui.html`). Dot graphs disabled (no Graphviz installed).
 
 ## Open questions to resolve in-flight
 

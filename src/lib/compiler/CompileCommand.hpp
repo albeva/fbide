@@ -13,8 +13,8 @@ class Context;
 /// Builds a command line for the FreeBASIC compiler (fbc).
 ///
 /// Replaces meta-tags in the config template:
-///   <$fbc>  — compiler executable path
-///   <$file> — source file path
+/// - `<$fbc>`  — compiler executable path
+/// - `<$file>` — source file path
 class CompileCommand final {
 public:
     /// Set the source file to compile.

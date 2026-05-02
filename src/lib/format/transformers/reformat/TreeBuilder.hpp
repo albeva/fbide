@@ -36,7 +36,7 @@ public:
     /// Code closers won't close PP blocks — emits as statement instead.
     void closeBlock();
 
-    /// Like closeBlock but will close PP blocks. Used by PP closers (#endif).
+    /// Like closeBlock but will close PP blocks. Used by PP closers (`#endif`).
     void closePPBlock();
 
     /// Add a BlankLineNode to the current block's body.

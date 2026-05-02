@@ -45,7 +45,7 @@ struct BlockNode;
 using Node = std::variant<BlankLineNode, StatementNode, VerbatimNode, std::unique_ptr<BlockNode>>;
 
 /// A block: optional opener, body of child nodes, optional closer.
-/// Branches (Else, Case, #else) are child BlockNodes with an opener but no closer.
+/// Branches (Else, Case, `#else`) are child BlockNodes with an opener but no closer.
 struct BlockNode {
     std::optional<StatementNode> opener;
     std::vector<Node> body;

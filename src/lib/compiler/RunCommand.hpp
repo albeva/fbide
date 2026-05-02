@@ -13,12 +13,12 @@ class Context;
 /// Builds a run command line from a config template and an executable path.
 ///
 /// Replaces meta-tags in the template:
-///   <$file>      — full executable path (quoted)
-///   <$file_path> — directory containing the executable
-///   <$file_name> — executable name without extension
-///   <$file_ext>  — executable extension
-///   <$param>     — user-supplied parameters
-///   <$terminal>  — terminal emulator command
+/// - `<$file>`      — full executable path (quoted)
+/// - `<$file_path>` — directory containing the executable
+/// - `<$file_name>` — executable name without extension
+/// - `<$file_ext>`  — executable extension
+/// - `<$param>`     — user-supplied parameters
+/// - `<$terminal>`  — terminal emulator command
 class RunCommand final {
 public:
     /// Set the executable path.
