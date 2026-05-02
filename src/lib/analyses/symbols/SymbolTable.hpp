@@ -14,20 +14,20 @@ namespace fbide {
 /// the categories the old fbide Sub/Function browser showed; namespaces are
 /// recursed into but don't appear as a kind themselves.
 enum class SymbolKind : std::uint8_t {
-    Sub,
-    Function,
-    Type,
-    Union,
-    Enum,
-    Include,
+    Sub,      ///< `Sub` declaration.
+    Function, ///< `Function` declaration.
+    Type,     ///< `Type` declaration.
+    Union,    ///< `Union` declaration.
+    Enum,     ///< `Enum` declaration.
+    Include,  ///< `#include` directive.
 };
 
 /// One captured declaration. `line` is 0-based and refers to the opener
 /// (e.g., the `Sub` keyword line), suitable for `wxStyledTextCtrl::GotoLine`.
 struct Symbol {
-    SymbolKind kind;
-    wxString name;
-    int line = 0;
+    SymbolKind kind; ///< Declaration kind.
+    wxString name;   ///< Declared identifier.
+    int line = 0;    ///< 0-based source line of the opener.
 };
 
 /// One captured `#include` (or `#include once`) directive. `path` is the
@@ -35,8 +35,8 @@ struct Symbol {
 /// resolves it against source dir / compiler `inc/` / cwd at navigation
 /// time). Found anywhere in the source, including inside conditional blocks.
 struct Include {
-    wxString path;
-    int line = 0;
+    wxString path; ///< Quoted include target (quotes stripped, unresolved).
+    int line = 0;  ///< 0-based source line of the directive.
 };
 
 /**
@@ -63,7 +63,9 @@ struct Include {
  */
 class SymbolTable final {
 public:
+    /// Default-constructed empty table.
     SymbolTable() = default;
+    /// Build by walking `tree` once.
     explicit SymbolTable(const reformat::ProgramTree& tree);
 
     /// Clear all vectors (keeping their capacity) and rewalk `tree`. Used by
@@ -71,41 +73,53 @@ public:
     /// allocating a fresh one on every parse.
     void populate(const reformat::ProgramTree& tree);
 
+    /// `Sub` declarations in source order.
     [[nodiscard]] auto getSubs() const -> const std::vector<Symbol>& { return m_subs; }
+    /// `Function` declarations in source order.
     [[nodiscard]] auto getFunctions() const -> const std::vector<Symbol>& { return m_functions; }
+    /// `Type` declarations in source order.
     [[nodiscard]] auto getTypes() const -> const std::vector<Symbol>& { return m_types; }
+    /// `Union` declarations in source order.
     [[nodiscard]] auto getUnions() const -> const std::vector<Symbol>& { return m_unions; }
+    /// `Enum` declarations in source order.
     [[nodiscard]] auto getEnums() const -> const std::vector<Symbol>& { return m_enums; }
+    /// `#include` directives in source order.
     [[nodiscard]] auto getIncludes() const -> const std::vector<Include>& { return m_includes; }
 
     /// Lookup an `#include` directive by its source line (0-based).
-    /// Returns nullptr when the line carries no recognised include.
+    /// Returns `nullptr` when the line carries no recognised include.
     [[nodiscard]] auto findIncludeAt(int line) const -> const Include*;
 
     /// Stable hash over (kind, name) of visible symbol names and kinds.
     /// Hash does not include individual line numbers, etc.
     [[nodiscard]] auto getHash() const -> std::size_t { return m_hash; }
 
-    /// Reset the table, while preserving allocated memory
+    /// Reset the table while preserving allocated memory.
     void reset();
 
 private:
+    /// Recursively walk a node list at any depth.
     void walkNodes(const std::vector<reformat::Node>& nodes);
+    /// Process a single block — emit its opener, then recurse into the body.
     void walkBlock(const reformat::BlockNode& block);
+    /// Collect every `#include` directive in `nodes` (recurses into blocks).
     void collectIncludes(const std::vector<reformat::Node>& nodes);
+    /// If `tokens` is a recognised `#include`, push it onto `m_includes`.
     void tryAddInclude(const std::vector<lexer::Token>& tokens);
+    /// Push one symbol drawn from an opener's tokens at `keywordIdx`.
     void emit(SymbolKind kind,
         const std::vector<lexer::Token>& opener,
         std::size_t keywordIdx);
+    /// Recompute `m_hash` from the captured (kind, name) pairs.
     void computeHash();
 
-    std::vector<Symbol> m_subs;
-    std::vector<Symbol> m_functions;
-    std::vector<Symbol> m_types;
-    std::vector<Symbol> m_unions;
-    std::vector<Symbol> m_enums;
-    std::vector<Include> m_includes;
-    std::size_t m_hash = 0;
+    std::vector<Symbol> m_subs;       ///< `Sub` declarations.
+    std::vector<Symbol> m_functions;  ///< `Function` declarations.
+    std::vector<Symbol> m_types;      ///< `Type` declarations.
+    std::vector<Symbol> m_unions;     ///< `Union` declarations.
+    std::vector<Symbol> m_enums;      ///< `Enum` declarations.
+    std::vector<Include> m_includes;  ///< `#include` directives.
+    std::size_t m_hash = 0;           ///< Stable hash over (kind, name) pairs.
 };
 
 } // namespace fbide

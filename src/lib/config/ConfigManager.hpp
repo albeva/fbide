@@ -39,14 +39,16 @@ public:
     // Config categories
     // -----------------------------------------------------------------------
 
+    /// Logical config category — one per backing INI file.
     enum class Category : std::uint8_t {
-        Config,
-        Locale,
-        Shortcuts,
-        Keywords,
-        Layout,
+        Config,    ///< Top-level user settings (`config_<plat>.ini`).
+        Locale,    ///< Display strings (`locales/<lang>.ini`).
+        Shortcuts, ///< Keyboard accelerators (`shortcuts_<plat>.ini`).
+        Keywords,  ///< FreeBASIC keyword groups (`keywords.ini`).
+        Layout,    ///< Menu / toolbar wiring (`layout.ini`).
     };
 
+    /// Stable string name for a category — matches `--cfg=<prefix>:`.
     [[nodiscard]] static constexpr auto getCategoryName(const Category category) -> std::string_view {
         switch (category) {
         case Category::Config:
@@ -83,6 +85,11 @@ public:
     // Init
     // -----------------------------------------------------------------------
 
+    /// Construct and load every category from disk.
+    /// @param appPath    Directory of the running fbide binary.
+    /// @param idePath    Override for the `<binary>/ide` resource directory.
+    /// @param configPath Override for the platform default config file
+    ///                   (resolved relative to `idePath` when not absolute).
     explicit ConfigManager(const wxString& appPath, const wxString& idePath = "", const wxString& configPath = "");
 
     /// Point a category to a new file and reload it.
@@ -103,22 +110,32 @@ public:
     // Path management
     // -----------------------------------------------------------------------
 
+    /// Resolve `pathName` to an absolute path against `appDir`.
     [[nodiscard]] auto absolute(const wxString& pathName) const -> wxString;
+    /// Make `path` relative to `appDir` if possible.
     [[nodiscard]] auto relative(const wxString& path) const -> wxString;
 
+    /// Application directory (resolved from `appPath` argument).
     [[nodiscard]] auto getAppDir() const -> const wxString& { return m_appDir; }
+    /// IDE resources directory (e.g. `<appDir>/ide` by default).
     [[nodiscard]] auto getIdeDir() const -> const wxString& { return m_ideDir; }
 
     // -----------------------------------------------------------------------
     // Category accessors — return a reference to the category root Value.
     // -----------------------------------------------------------------------
 
+    /// Look up the root `Value` for a category.
     [[nodiscard]] auto get(Category category) -> Value&;
 
+    /// Shortcut for `get(Category::Config)`.
     [[nodiscard]] auto config() -> Value& { return get(Category::Config); }
+    /// Shortcut for `get(Category::Locale)`.
     [[nodiscard]] auto locale() -> Value& { return get(Category::Locale); }
+    /// Shortcut for `get(Category::Shortcuts)`.
     [[nodiscard]] auto shortcuts() -> Value& { return get(Category::Shortcuts); }
+    /// Shortcut for `get(Category::Keywords)`.
     [[nodiscard]] auto keywords() -> Value& { return get(Category::Keywords); }
+    /// Shortcut for `get(Category::Layout)`.
     [[nodiscard]] auto layout() -> Value& { return get(Category::Layout); }
 
     // -----------------------------------------------------------------------
@@ -140,24 +157,28 @@ public:
     // Theme (owned directly, not part of Value tree)
     // -----------------------------------------------------------------------
 
+    /// Active editor theme.
     [[nodiscard]] auto getTheme() -> Theme& { return m_theme; }
+    /// Const overload of `getTheme`.
     [[nodiscard]] auto getTheme() const -> const Theme& { return m_theme; }
 
 private:
     /// Load the category file from disk and rebuild its Value tree.
     void load(Category category);
 
+    /// Per-category bookkeeping: which file backs it and its parsed root.
     struct Entry final {
-        Category category;
-        wxString path;
-        Value root;
+        Category category; ///< Category identifier.
+        wxString path;     ///< Absolute path to the backing INI file.
+        Value root;        ///< Parsed root `Value` for the category.
     };
+    /// Number of categories — one slot per `Category` enum value.
     static constexpr std::size_t CAT_COUNT = 5;
 
-    wxString m_appDir;
-    wxString m_ideDir {};
-    std::array<Entry, CAT_COUNT> m_categories {};
-    Theme m_theme {};
+    wxString m_appDir;                            ///< App directory (binary location).
+    wxString m_ideDir {};                         ///< IDE resources directory.
+    std::array<Entry, CAT_COUNT> m_categories {}; ///< Per-category state.
+    Theme m_theme {};                             ///< Active editor theme.
 };
 
 } // namespace fbide

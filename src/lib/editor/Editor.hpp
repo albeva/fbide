@@ -93,41 +93,65 @@ public:
     void disableTransforms(bool state);
 
 private:
+    /// Margin click — toggle folds on the fold margin.
     void onMarginClick(wxStyledTextEvent& event);
+    /// Buffer modified — restart intellisense timer; route bulk inserts.
     void onModified(wxStyledTextEvent& event);
+    /// Coalesced "something changed" — status bar, brace match, sync edit cmds.
     void onUpdateUI(wxStyledTextEvent& event);
+    /// Deferred follow-up after `onUpdateUI` — runs once per UI tick.
     void postUpdateUI();
+    /// Zoom event — bump the line-number margin width.
     void onZoom(wxStyledTextEvent& event);
+    /// Single-char insert — drives `CodeTransformer` on-type pipeline.
     void onCharAdded(wxStyledTextEvent& event);
+    /// Editor gained focus — refresh edit-command masks.
     void onFocus(wxFocusEvent& event);
+    /// Intellisense timer fire — submit current text to the worker.
     void onIntellisenseTimer(wxTimerEvent& event);
+    /// Hotspot click — Ctrl+click on `#include` jumps to the included file.
     void onHotSpotClick(wxStyledTextEvent& event);
+    /// Key down — toggle hotspot styling when Ctrl is pressed.
     void onKeyDown(wxKeyEvent& event);
+    /// Key up — toggle hotspot styling off when Ctrl is released.
     void onKeyUp(wxKeyEvent& event);
+    /// Editor lost focus — clear hotspot styling so it doesn't linger.
     void onKillFocus(wxFocusEvent& event);
+    /// Toggle Scintilla hotspot style on Preprocessor styles.
     void setIncludeHotspots(bool active);
+    /// Recompute brace match for the current caret position.
     void updateBraceMatch();
+    /// Reapply editor settings (tab size, EOL visibility, etc.) from config.
     void applyEditorSettings();
+    /// Configure fold margins + marker colors from the active theme.
     void defineFoldMargins();
+    /// Apply theme via the per-`DocumentType` dispatch.
     void applyTheme();
+    /// Apply a single theme `Entry` to the given Scintilla style id.
     void applyStyle(int stcId, const Theme::Entry& style, const Theme& theme);
+    /// Apply foreground/background colors to the given Scintilla style id.
     void applyColors(int stcId, const Theme::Colors& colors, const Theme& theme);
+    /// Theme dispatch for FreeBASIC documents (custom lexer + every category).
     void applyFreebasicTheme();
+    /// Theme dispatch for HTML documents (built-in wxSTC HTML lexer).
     void applyHtmlTheme();
+    /// Theme dispatch for properties / `.ini` documents.
     void applyPropertiesTheme();
+    /// Theme dispatch for plain-text documents (no lexer).
     void applyTextTheme();
+    /// Resize the line-number margin to fit the current line count + zoom.
     void updateLineNumberMarginWidth();
 
-    Context& m_ctx;
-    CodeTransformer* m_transformer;
-    DocumentType m_docType;
-    wxFont m_font;
-    bool m_preview;
-    bool m_insertHandled = false;
-    bool m_editorLocked = false;
-    bool m_includeHotspotsActive = false;
-    int m_lastCaretPos = 0;
-    bool m_callPostUpdate = false;
+    Context& m_ctx;                  ///< Application context.
+    CodeTransformer* m_transformer;  ///< Shared on-type transformer (nullable in preview).
+    DocumentType m_docType;          ///< Current document type — drives theme dispatch.
+    wxFont m_font;                   ///< Editor font.
+    bool m_preview;                  ///< True when this is a Format-dialog preview pane.
+    bool m_insertHandled = false;    ///< Latch to dedupe single-char vs multi-char insert paths.
+    bool m_editorLocked = false;     ///< Set during load/reload to suppress on-type transforms.
+    bool m_includeHotspotsActive = false; ///< True when Ctrl is held and PP styles show hotspot cursor.
+    int m_lastCaretPos = 0;          ///< Caret position from previous `onUpdateUI` — backs `onCaretMoved`.
+    bool m_callPostUpdate = false;   ///< Latch — triggers `postUpdateUI` on the next tick.
     /// Restart on each text-changing modify event; on fire submits a
     /// snapshot to DocumentManager::submitIntellisense.
     wxTimer m_intellisenseTimer;

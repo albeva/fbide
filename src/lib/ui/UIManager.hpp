@@ -21,6 +21,7 @@ class [[nodiscard]] FreezeLock final {
 public:
     NO_COPY_AND_MOVE(FreezeLock)
 
+    /// Freeze `window` immediately if non-null. Thaws on destruction.
     explicit FreezeLock(wxWindow* window)
     : m_wnd(window) {
         if (window != nullptr) {
@@ -28,6 +29,7 @@ public:
         }
     }
 
+    /// Thaw the held window if non-null.
     ~FreezeLock() {
         if (m_wnd != nullptr) {
             m_wnd->Thaw();
@@ -35,7 +37,7 @@ public:
     }
 
 private:
-    wxWindow* m_wnd;
+    wxWindow* m_wnd; ///< Window to thaw on scope exit (nullable).
 };
 
 /**
@@ -60,7 +62,9 @@ class UIManager final : public wxEvtHandler {
 public:
     NO_COPY_AND_MOVE(UIManager)
 
+    /// Construct without building any UI; `createMainFrame` does that later.
     explicit UIManager(Context& ctx);
+    /// Destroy any lazily created chrome (compiler log dialog, etc.).
     ~UIManager() override;
 
     /// Build the main application frame with all UI elements.
@@ -104,36 +108,50 @@ public:
     [[nodiscard]] auto freeze() -> FreezeLock;
 
 private:
+    /// Set every command in `range` to disabled — helper for `applyState`.
     void disable(const std::ranges::range auto& range) const;
 
+    /// Frame close — defers to `DocumentManager::prepareToQuit`.
     void onClose(wxCloseEvent& event);
+    /// Notebook page close — route to `DocumentManager::closeFile`.
     void onPageClose(wxAuiNotebookEvent& event);
+    /// Notebook page changed — refresh active document state.
     void onPageChanged(wxAuiNotebookEvent& event);
+    /// Notebook double-click — open file dialog when clicking blank tab area.
     void onNotebookDblClick(wxAuiNotebookEvent& event);
+    /// Status-bar click — open EOL/encoding pickers on the relevant fields.
     void onStatusBarClick(wxMouseEvent& event);
 
+    /// Build the main menu bar from `layout.ini` + locale.
     void configureMenuBar();
+    /// Recursively populate a single menu by id from layout.
     void configureMenuItems(wxMenu* menu, const wxString& id, bool addSeparators);
+    /// Build the toolbar from `layout.ini`.
     void configureToolBar();
+    /// Append the external-links submenu under Help.
     void generateExternalLinks(wxMenu* menu);
 
+    /// Create the multi-field status bar.
     void createStatusBar() const;
+    /// Create AUI panes, document notebook, sidebar notebook, output console.
     void createLayout();
+    /// Sync the output-console pane's visibility with the `viewResult` command.
     void syncConsoleState(bool visible) const;
+    /// Apply broad enable/disable for `mutableIds[]` based on `state`.
     void applyState(UIState state) const;
 
-    Context& m_ctx;
-    UIState m_documentState = UIState::None;
-    UIState m_compilerState = UIState::None;
-    wxAuiManager m_aui;
-    std::unique_ptr<ArtiProvider> m_artProvider;
-    CompilerLog* m_compilerLog = nullptr;
-    Unowned<OutputConsole> m_console;
-    Unowned<wxFrame> m_frame;
-    Unowned<wxToolBar> m_toolbar;
-    Unowned<wxAuiNotebook> m_notebook;
-    Unowned<wxAuiNotebook> m_sideBar;
-    std::vector<wxMenuItem*> m_externalLinkItems;
+    Context& m_ctx;                                     ///< Application context.
+    UIState m_documentState = UIState::None;            ///< Document-side state slot.
+    UIState m_compilerState = UIState::None;            ///< Compiler-side state slot (overrides document).
+    wxAuiManager m_aui;                                 ///< AUI dock manager for the frame.
+    std::unique_ptr<ArtiProvider> m_artProvider;        ///< Icon/bitmap dispatch for menus + toolbar.
+    CompilerLog* m_compilerLog = nullptr;               ///< Lazy compiler-log dialog (wx-parented).
+    Unowned<OutputConsole> m_console;                   ///< Build/run output pane.
+    Unowned<wxFrame> m_frame;                           ///< Top-level frame.
+    Unowned<wxToolBar> m_toolbar;                       ///< Main toolbar.
+    Unowned<wxAuiNotebook> m_notebook;                  ///< Document tabs.
+    Unowned<wxAuiNotebook> m_sideBar;                   ///< Sidebar (Browser/Subs) notebook.
+    std::vector<wxMenuItem*> m_externalLinkItems;       ///< Live menu items in the dynamic external-links submenu.
 
     // Document-level commands toggled by `applyState`. Edit commands here
     // (Undo, Redo, Cut, Copy, Paste, SelectAll) get their broad "is there

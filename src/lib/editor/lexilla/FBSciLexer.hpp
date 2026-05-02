@@ -40,13 +40,18 @@ namespace fbide {
  */
 class FBSciLexer final : public Lexilla::DefaultLexer {
 public:
+    /// Default-constructed lexer. Wordlists are populated via `WordListSet`.
     FBSciLexer();
+    /// Scintilla hook — describe each keyword wordlist slot.
     const char* SCI_METHOD DescribeWordListSets() override;
+    /// Scintilla hook — install wordlist `n` from a space-separated string.
     Sci_Position SCI_METHOD WordListSet(int n, const char* wl) override;
 
+    /// Scintilla hook — colorize the document range starting at `startPos`.
     void SCI_METHOD Lex(Sci_PositionU startPos, Sci_Position lengthDoc,
         int initStyle, Scintilla::IDocument* pAccess) override;
 
+    /// Scintilla hook — compute fold levels over the document range.
     void SCI_METHOD Fold(Sci_PositionU startPos, Sci_Position lengthDoc,
         int initStyle, Scintilla::IDocument* pAccess) override;
 
@@ -57,15 +62,15 @@ public:
     /// Packed into a single int for Scintilla compatibility.
     /// Public so the analyses/lexer adapter can read it via IStyledSource.
     struct alignas(int) LineState final {
-        bool continueLine : 1 = false;
-        bool isFirst      : 1 = false;
-        bool continuePP   : 1 = false;
-        bool fieldAccess  : 1 = false;
-        bool asmBlock     : 1 = false;
+        bool continueLine : 1 = false; ///< Line ends in `_` continuation.
+        bool isFirst      : 1 = false; ///< This is the first significant line of the source.
+        bool continuePP   : 1 = false; ///< Inside a continued preprocessor directive.
+        bool fieldAccess  : 1 = false; ///< Last token was `.` or `->` — next ident is a field.
+        bool asmBlock     : 1 = false; ///< Inside an `asm` block.
 
-        std::uint8_t commentNestLevel = 0;
-        std::uint8_t reserved1 = 0;
-        std::uint8_t reserved2 = 0;
+        std::uint8_t commentNestLevel = 0; ///< Open `/'` block-comment nesting level.
+        std::uint8_t reserved1 = 0;        ///< Reserved for future use.
+        std::uint8_t reserved2 = 0;        ///< Reserved for future use.
 
         /// Convert from Scintilla line state int
         static constexpr auto fromInt(const int value) noexcept -> LineState {
@@ -82,44 +87,58 @@ public:
 private:
     /// Form of the number being lexed
     enum class NumberForm : std::uint8_t {
-        Decimal,
-        Fraction,
-        Exponent,
-        Hexadecimal,
-        Octal,
-        Binary
+        Decimal,     ///< Plain decimal integer / float without prefix.
+        Fraction,    ///< Decimal point seen — accumulating fractional digits.
+        Exponent,    ///< `e` / `E` seen — accumulating exponent digits.
+        Hexadecimal, ///< `&H` prefix.
+        Octal,       ///< `&O` prefix.
+        Binary       ///< `&B` prefix.
     };
 
+    /// Per-line setup at the start of styling.
     FBIDE_INLINE void lexLineStart() noexcept;
+    /// Persist line state at end-of-line.
     FBIDE_INLINE void lexLineEnd() noexcept;
+    /// Drop back to the Default state machine for the next char.
     FBIDE_INLINE void resetToDefault() noexcept;
+    /// True when the current position can resolve as a member access target.
     FBIDE_INLINE bool canAccessMember() noexcept;
+    /// State: Default — dispatch to the right lexer for the next char.
     FBIDE_INLINE void lexDefault() noexcept;
+    /// State: single-line comment (`'`).
     FBIDE_INLINE void lexComment() noexcept;
+    /// State: nested block comment (`/'`).
     FBIDE_INLINE void lexMultilineComment() noexcept;
+    /// State: numeric literal.
     FBIDE_INLINE void lexNumber() noexcept;
+    /// State: string literal (open quote seen).
     FBIDE_INLINE void lexStringOpen() noexcept;
+    /// State: identifier — accumulate, then dispatch to keyword classification.
     FBIDE_INLINE void lexIdentifier() noexcept;
+    /// Try to classify the current identifier as a keyword. Returns true on hit.
     FBIDE_INLINE auto identifyKeyword() noexcept -> bool;
+    /// State: operator / punctuation.
     FBIDE_INLINE void lexOperator() noexcept;
+    /// State: preprocessor directive line (entire line styled as PP).
     FBIDE_INLINE void lexPreprocessor() noexcept;
 
-    /// Invalid line marker
+    /// Sentinel "no current line" value.
     static constexpr Sci_Position INVALID_LINE = std::numeric_limits<Sci_Position>::max() - 1;
+    /// Identifier-buffer capacity.
     static constexpr std::size_t MAX_IDENT_LEN = 128;
 
-    std::array<Lexilla::WordList, kThemeKeywordGroupsCount> m_wordLists;
-    Lexilla::StyleContext* m_sc = nullptr;
-    Lexilla::LexAccessor* m_styler = nullptr;
-    Sci_Position m_line = 0;
-    LineState m_previousLineState;
-    LineState m_lineState;
-    NumberForm m_numberForm = NumberForm::Decimal;
-    bool m_isFirst = true;
-    bool m_fieldAccess = false;
-    bool m_slashEscapableString = false;
-    bool m_asmBlock = false;
-    std::array<char, MAX_IDENT_LEN> m_identBuffer {};
+    std::array<Lexilla::WordList, kThemeKeywordGroupsCount> m_wordLists; ///< Per-keyword-group wordlists.
+    Lexilla::StyleContext* m_sc = nullptr;     ///< Active Scintilla styling context (per Lex call).
+    Lexilla::LexAccessor* m_styler = nullptr;  ///< Accessor for line/state queries (per Lex call).
+    Sci_Position m_line = 0;                   ///< Current source line being styled.
+    LineState m_previousLineState;             ///< State at the start of the current line.
+    LineState m_lineState;                     ///< Live state for the current line.
+    NumberForm m_numberForm = NumberForm::Decimal; ///< Current numeric literal sub-state.
+    bool m_isFirst = true;                     ///< True until we see the first significant char on the line.
+    bool m_fieldAccess = false;                ///< Set after `.`/`->` — suppress keyword classification next.
+    bool m_slashEscapableString = false;       ///< Inside a string with `$` escape sequences enabled.
+    bool m_asmBlock = false;                   ///< Inside an `asm` block — alternate keyword categorisation.
+    std::array<char, MAX_IDENT_LEN> m_identBuffer {}; ///< Reusable identifier-spelling buffer.
 };
 
 } // namespace fbide
