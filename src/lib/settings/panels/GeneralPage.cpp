@@ -169,15 +169,19 @@ void GeneralPage::apply() {
             cfgMgr.save(ConfigManager::Category::Config);
             ctx.getFileHistory().save();
 
-            // Spawn the replacement and exit the main loop. Async
-            // wxExecute returns immediately on Windows + POSIX, so the
-            // new process begins startup while we tear ours down.
+            // Spawn the replacement and force-exit. `wxExit` calls
+            // `wxApp::OnExit` (clipboard flush, etc.) and then `exit()`
+            // — `ExitMainLoop` alone wasn't enough because residual
+            // top-level wx windows (the debug `wxLogWindow`, AUI panes
+            // released asynchronously) kept the process alive long
+            // enough for the new instance to appear alongside the old
+            // one.
             const auto exe = wxStandardPaths::Get().GetExecutablePath();
             wxExecute(wxString::Format(
                 R"("%s" --new-window --load-session "%s")",
                 exe, sessionPath
             ));
-            wxTheApp->ExitMainLoop();
+            wxExit();
         });
     }
 }
