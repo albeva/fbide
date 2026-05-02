@@ -8,6 +8,7 @@
 #include "pch.hpp"
 #include "analyses/lexer/MemoryDocument.hpp"
 #include "analyses/symbols/SymbolTable.hpp"
+#include "analyses/lexer/Token.hpp"
 
 namespace fbide {
 class Context;
@@ -81,6 +82,7 @@ private:
     FBSciLexer* m_lexer = nullptr;
     /// Reused buffer for the worker's text snapshot.
     MemoryDocument m_memDoc;
+    std::vector<lexer::Token> m_tokens;
 
     /// Slot + signalling for the latest-wins single-task queue.
     /// `m_mtx` guards `m_pending` and `m_stopRequested`. The worker waits

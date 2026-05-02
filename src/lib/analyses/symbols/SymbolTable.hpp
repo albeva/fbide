@@ -69,9 +69,8 @@ public:
     /// Returns nullptr when the line carries no recognised include.
     [[nodiscard]] auto findIncludeAt(int line) const -> const Include*;
 
-    /// Stable hash over (kind, name, line) of every symbol and include in
-    /// canonical (subs, functions, types, unions, enums, includes) order.
-    /// Drives browser UI dedup.
+    /// Stable hash over (kind, name) of visible symbol names and kinds.
+    /// Hash does not include individual line numbers, etc.
     [[nodiscard]] auto getHash() const -> std::size_t { return m_hash; }
 
     /// Reset the table, while preserving allocated memory

@@ -488,12 +488,6 @@ void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
     // contains() takes const Document*; cast away to call setter.
     auto* doc = const_cast<Document*>(result.owner); // NOLINT(cppcoreguidelines-pro-type-const-cast)
 
-    // Skip the assign + (future) notify if nothing changed since last parse.
-    if (const auto& prev = doc->getSymbolTable();
-        prev != nullptr && result.symbols != nullptr && prev->getHash() == result.symbols->getHash()) {
-        return;
-    }
-
     doc->setSymbolTable(result.symbols);
 
     // Push to the sidebar only when this document is the active one — the

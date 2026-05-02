@@ -126,10 +126,10 @@ void IntellisenseService::process(const Task& task) {
 
     lexer::MemoryDocStyledSource src(m_memDoc);
     lexer::StyleLexer adapter(src);
-    const auto tokens = adapter.tokenise();
+    adapter.tokenise(m_tokens);
 
     reformat::ReFormatter parser({ .lean = true });
-    const auto tree = parser.buildTree(tokens);
+    const auto tree = parser.buildTree(m_tokens);
 
     // Reuse a pooled SymbolTable when one is idle (no Document holds it),
     // otherwise grow the pool. Repopulate runs in place — vector capacity

@@ -88,15 +88,17 @@ SymbolBrowser::SymbolBrowser(Context& ctx, wxWindow* parent)
 }
 
 void SymbolBrowser::setSymbols(const Document* doc) {
-    const auto table = (doc != nullptr) ? doc->getSymbolTable() : std::shared_ptr<const SymbolTable> {};
+    const auto table = doc != nullptr ? doc->getSymbolTable() : nullptr;
     if (table == m_currentTable) {
         return;
     }
+    const auto* old = m_currentTable.get();
     m_currentTable = table;
+
     if (table == nullptr) {
         clearTree();
-    } else {
-        rebuild(*table);
+    } else if (old == nullptr || old->getHash() != table->getHash()) {
+        rebuild();
     }
 }
 
@@ -106,19 +108,16 @@ void SymbolBrowser::clearTree() {
     AddRoot(wxEmptyString);
 }
 
-void SymbolBrowser::rebuild(const SymbolTable& table) {
+void SymbolBrowser::rebuild() {
     const auto thaw = FreezeLock(this);
 
-    m_entries.clear();
-    DeleteAllItems();
-    AddRoot(wxEmptyString);
-
-    appendIncludes(m_ctx.tr("sidebar.symbols.includes"), table.getIncludes());
-    appendBucket(SymbolKind::Sub, m_ctx.tr("sidebar.symbols.subs"), table.getSubs());
-    appendBucket(SymbolKind::Function, m_ctx.tr("sidebar.symbols.functions"), table.getFunctions());
-    appendBucket(SymbolKind::Type, m_ctx.tr("sidebar.symbols.types"), table.getTypes());
-    appendBucket(SymbolKind::Union, m_ctx.tr("sidebar.symbols.unions"), table.getUnions());
-    appendBucket(SymbolKind::Enum, m_ctx.tr("sidebar.symbols.enums"), table.getEnums());
+    clearTree();
+    appendIncludes(m_ctx.tr("sidebar.symbols.includes"), m_currentTable->getIncludes());
+    appendBucket(SymbolKind::Sub, m_ctx.tr("sidebar.symbols.subs"), m_currentTable->getSubs());
+    appendBucket(SymbolKind::Function, m_ctx.tr("sidebar.symbols.functions"), m_currentTable->getFunctions());
+    appendBucket(SymbolKind::Type, m_ctx.tr("sidebar.symbols.types"), m_currentTable->getTypes());
+    appendBucket(SymbolKind::Union, m_ctx.tr("sidebar.symbols.unions"), m_currentTable->getUnions());
+    appendBucket(SymbolKind::Enum, m_ctx.tr("sidebar.symbols.enums"), m_currentTable->getEnums());
 }
 
 void SymbolBrowser::onItemActivated(wxTreeEvent& event) {

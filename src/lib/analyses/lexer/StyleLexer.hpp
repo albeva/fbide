@@ -47,7 +47,13 @@ public:
     explicit StyleLexer(IStyledSource& src);
     ~StyleLexer() = default;
 
-    [[nodiscard]] auto tokenise(const Range& range = {}) -> std::vector<Token>;
+    [[nodiscard]] auto tokenise(const Range& range = {}) -> std::vector<Token> {
+        std::vector<Token> tokens;
+        tokenise(tokens, range);
+        return tokens;
+    }
+
+    void tokenise(std::vector<Token>& tokens, const Range& range = {});
 
 private:
     [[nodiscard]] auto nextStyle() -> std::optional<StyleRange>;

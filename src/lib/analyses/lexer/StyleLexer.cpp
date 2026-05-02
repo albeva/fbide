@@ -129,13 +129,13 @@ StyleLexer::StyleLexer(IStyledSource& src)
 : m_src(src)
 , m_range(0, src.length()) {}
 
-auto StyleLexer::tokenise(const Range& range) -> std::vector<Token> {
+void StyleLexer::tokenise(std::vector<Token>& tokens, const Range& range) {
     const auto restore = ValueRestorer { m_range };
     m_range.first = range.first == 0 ? m_range.first : range.first;
     m_range.second = range.second == 0 ? m_range.second : range.second;
 
-    std::vector<Token> out;
-    out.reserve(m_src.length() / 5);
+    tokens.clear();
+    tokens.reserve(m_src.length() / 5);
 
     m_pos = m_range.first;
     m_canBeUnary = true;
@@ -143,12 +143,11 @@ auto StyleLexer::tokenise(const Range& range) -> std::vector<Token> {
     m_ppTokenIdx = 0;
 
     while (auto r = nextStyle()) {
-        emitFromRange(*r, out);
+        emitFromRange(*r, tokens);
     }
 
-    annotateVerbatim(out);
-    stampLines(out);
-    return out;
+    annotateVerbatim(tokens);
+    stampLines(tokens);
 }
 
 void StyleLexer::stampLines(std::vector<Token>& tokens) {

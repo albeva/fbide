@@ -18,21 +18,20 @@ auto hashCombine(const std::size_t seed, const std::size_t value) -> std::size_t
     return seed ^ (value + kMix + (seed << 6) + (seed >> 2));
 }
 
-auto hashVector(std::size_t seed, const std::vector<Symbol>& vec) -> std::size_t {
+auto hashVector(std::size_t seed, const SymbolKind kind, const std::vector<Symbol>& vec) -> std::size_t {
     seed = hashCombine(seed, std::hash<std::size_t> {}(vec.size()));
+    seed = hashCombine(seed, std::hash<SymbolKind> {}(kind));
     for (const auto& sym : vec) {
-        seed = hashCombine(seed, std::hash<std::uint8_t> {}(static_cast<std::uint8_t>(sym.kind)));
-        seed = hashCombine(seed, std::hash<std::string> {}(sym.name.utf8_string()));
-        seed = hashCombine(seed, std::hash<int> {}(sym.line));
+        seed = hashCombine(seed, std::hash<wxString> {}(sym.name));
     }
     return seed;
 }
 
 auto hashIncludes(std::size_t seed, const std::vector<Include>& vec) -> std::size_t {
     seed = hashCombine(seed, std::hash<std::size_t> {}(vec.size()));
+    seed = hashCombine(seed, std::hash<SymbolKind> {}(SymbolKind::Include));
     for (const auto& inc : vec) {
-        seed = hashCombine(seed, std::hash<std::string> {}(inc.path.utf8_string()));
-        seed = hashCombine(seed, std::hash<int> {}(inc.line));
+        seed = hashCombine(seed, std::hash<wxString> {}(inc.path));
     }
     return seed;
 }
@@ -238,11 +237,11 @@ void SymbolTable::emit(
 
 void SymbolTable::computeHash() {
     std::size_t hash = 0;
-    hash = hashVector(hash, m_subs);
-    hash = hashVector(hash, m_functions);
-    hash = hashVector(hash, m_types);
-    hash = hashVector(hash, m_unions);
-    hash = hashVector(hash, m_enums);
+    hash = hashVector(hash, SymbolKind::Sub, m_subs);
+    hash = hashVector(hash, SymbolKind::Function, m_functions);
+    hash = hashVector(hash, SymbolKind::Type, m_types);
+    hash = hashVector(hash, SymbolKind::Union, m_unions);
+    hash = hashVector(hash, SymbolKind::Enum, m_enums);
     hash = hashIncludes(hash, m_includes);
     m_hash = hash;
 }

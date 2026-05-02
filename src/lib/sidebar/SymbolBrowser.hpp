@@ -25,8 +25,9 @@ public:
     ~SymbolBrowser() override = default;
 
     /// Repopulate from `doc`'s current SymbolTable. `nullptr` (or a doc
-    /// with no parsed table yet) clears it. Same `shared_ptr` in a row is
-    /// a no-op.
+    /// with no parsed table yet) clears it. Skips the tree rebuild when
+    /// the new table is the same `shared_ptr` as the current one OR its
+    /// hash matches — line-only edits don't visually change the listing.
     void setSymbols(const Document* doc);
 
 private:
@@ -38,7 +39,7 @@ private:
     };
 
     void onItemActivated(wxTreeEvent& event);
-    void rebuild(const SymbolTable& table);
+    void rebuild();
     void clearTree();
 
     /// Append a folder + leaves under the tree root when the bucket is

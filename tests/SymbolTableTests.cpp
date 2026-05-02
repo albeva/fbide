@@ -191,8 +191,10 @@ TEST_F(SymbolTableTests, HashStableForSameInput) {
     EXPECT_EQ(a.getHash(), b.getHash());
 }
 
-TEST_F(SymbolTableTests, HashChangesOnLineShift) {
-    // Same symbols, different lines → hash differs (line is part of identity).
+TEST_F(SymbolTableTests, HashStableOnLineShift) {
+    // Same symbol set, just shifted to a different line — hash is invariant
+    // because it covers (kind, name) only, not line numbers. This lets the
+    // sub/function browser skip rebuilds when typing whitespace.
     const auto a = extract(
         "Sub Foo\n"
         "End Sub\n"
@@ -202,5 +204,5 @@ TEST_F(SymbolTableTests, HashChangesOnLineShift) {
         "Sub Foo\n"
         "End Sub\n"
     );
-    EXPECT_NE(a.getHash(), b.getHash());
+    EXPECT_EQ(a.getHash(), b.getHash());
 }
