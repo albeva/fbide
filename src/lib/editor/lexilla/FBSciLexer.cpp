@@ -191,7 +191,11 @@ void FBSciLexer::lexLineStart() noexcept {
     m_asmBlock = m_previousLineState.asmBlock;
 
     if (m_previousLineState.continuePP) {
-        m_sc->SetState(+ThemeCategory::Preprocessor);
+        if (m_lineState.commentNestLevel == 0) {
+            m_sc->SetState(+ThemeCategory::Preprocessor);
+        } else {
+            m_lineState.continuePP = true;
+        }
     }
 }
 
@@ -339,7 +343,12 @@ void FBSciLexer::lexMultilineComment() noexcept {
             m_sc->Forward();
             m_lineState.commentNestLevel--;
             if (m_lineState.commentNestLevel == 0) {
-                m_sc->ForwardSetState(+ThemeCategory::Default); // no reset!
+                if (m_lineState.continuePP) {
+                    m_sc->ForwardSetState(+ThemeCategory::Preprocessor);
+                    m_lineState.continuePP = false;
+                } else {
+                    m_sc->ForwardSetState(+ThemeCategory::Default); // no reset!
+                }
             }
         }
         break;
@@ -549,12 +558,28 @@ void FBSciLexer::lexPreprocessor() noexcept {
         return;
     }
 
+    // continuation
     if (m_sc->ch == '_') {
         if (not isIdentifier(m_sc->chPrev) and not isIdentifier(m_sc->chNext)) {
             m_lineState.continuePP = true;
             m_sc->SetState(+ThemeCategory::Comment);
             return;
         }
+    }
+
+    // single line comment
+    if (m_sc->ch == '\'') {
+        m_sc->SetState(+ThemeCategory::Comment);
+        return;
+    }
+
+    // multi line commment
+    if (m_sc->ch == '/' && m_sc->chNext == '\'') {
+        m_lineState.continuePP = true;
+        m_sc->SetState(+ThemeCategory::MultilineComment);
+        m_sc->Forward();
+        m_lineState.commentNestLevel++;
+        return;
     }
 
     if (isIdentifier(m_sc->ch)) {
@@ -564,6 +589,12 @@ void FBSciLexer::lexPreprocessor() noexcept {
         }
 
         m_sc->GetCurrentLowered(m_identBuffer.data(), m_identBuffer.size());
+
+        if (strcmp("rem", m_identBuffer.data()) == 0) {
+            m_sc->ChangeState(+ThemeCategory::Comment);
+            return;
+        }
+
         constexpr std::size_t pp = indexOfKeywordGroup(ThemeCategory::KeywordPP);
         if (m_wordLists[pp].InList(m_identBuffer.data())) {
             m_sc->ChangeState(+kThemeKeywordCategories[pp]);
