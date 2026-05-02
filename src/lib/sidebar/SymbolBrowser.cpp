@@ -14,11 +14,9 @@
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
-// clang-format off
 wxBEGIN_EVENT_TABLE(SymbolBrowser, wxTreeCtrl)
     EVT_TREE_ITEM_ACTIVATED(wxID_ANY, SymbolBrowser::onItemActivated)
 wxEND_EVENT_TABLE()
-// clang-format on
 
 void SymbolBrowser::appendBucket(
     SymbolKind kind,
@@ -60,8 +58,10 @@ void SymbolBrowser::appendIncludes(
 }
 
 SymbolBrowser::SymbolBrowser(Context& ctx, wxWindow* parent)
-: wxTreeCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-      wxTR_HAS_BUTTONS | wxTR_HIDE_ROOT | wxTR_SINGLE | wxTR_LINES_AT_ROOT)
+: wxTreeCtrl(
+      parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+      wxTR_HAS_BUTTONS | wxTR_HIDE_ROOT | wxTR_SINGLE | wxTR_LINES_AT_ROOT
+  )
 , m_ctx(ctx) {
     wxTreeCtrl::AddRoot(wxEmptyString);
 
@@ -80,8 +80,7 @@ SymbolBrowser::SymbolBrowser(Context& ctx, wxWindow* parent)
     const auto sample = art.getBitmap(SymbolKind::Sub);
     const int iconW = sample.IsOk() ? sample.GetWidth() : 16;
     const int iconH = sample.IsOk() ? sample.GetHeight() : 16;
-    const auto images = make_unowned<wxImageList>(iconW, iconH, true,
-        static_cast<int>(kIconKinds.size()));
+    const auto images = make_unowned<wxImageList>(iconW, iconH, true, static_cast<int>(kIconKinds.size()));
     for (const auto kind : kIconKinds) {
         images->Add(art.getBitmap(kind));
     }
