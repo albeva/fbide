@@ -35,6 +35,12 @@ public:
     /// Open a file. Returns existing document if already open, or nullptr on failure.
     auto openFile(const wxString& filePath) -> Document*;
 
+    /// Resolve and open an `#include` path requested from `origin`.
+    /// Search order: relative to `origin` file's directory, then the
+    /// compiler's `inc/` folder, then the current working directory.
+    /// Returns the opened document, or nullptr if the file cannot be found.
+    auto openInclude(const Document& origin, const wxString& includePath) -> Document*;
+
     /// Show open file dialog and open selected files.
     void openFile();
 

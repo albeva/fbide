@@ -92,6 +92,64 @@ void DocumentManager::openFile() {
     }
 }
 
+auto DocumentManager::openInclude(const Document& origin, const wxString& includePath) -> Document* {
+    if (includePath.empty()) {
+        return nullptr;
+    }
+
+    const auto tryOpen = [this](const wxString& candidate) -> Document* {
+        if (candidate.empty()) {
+            return nullptr;
+        }
+        wxFileName fn(candidate);
+        fn.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS);
+        const auto full = fn.GetFullPath();
+        if (!wxFileExists(full)) {
+            return nullptr;
+        }
+        return openFile(full);
+    };
+
+    const wxFileName req(includePath);
+    if (req.IsAbsolute()) {
+        return tryOpen(includePath);
+    }
+
+    // 1. Relative to source file
+    if (!origin.isNew()) {
+        wxFileName combined(includePath);
+        combined.MakeAbsolute(wxFileName(origin.getFilePath()).GetPath());
+        if (auto* doc = tryOpen(combined.GetFullPath())) {
+            return doc;
+        }
+    }
+
+    // 2. Compiler `inc/` folder: <dir-of-fbc>/inc/<path>
+    const auto compilerPath = m_ctx.getConfigManager().config().get_or("compiler.path", "");
+    if (!compilerPath.empty()) {
+        wxFileName fbc(compilerPath);
+        fbc.MakeAbsolute(m_ctx.getConfigManager().getAppDir());
+        wxFileName inc(fbc.GetPath(), wxEmptyString);
+        inc.AppendDir("inc");
+        wxFileName combined(includePath);
+        combined.MakeAbsolute(inc.GetPath());
+        if (auto* doc = tryOpen(combined.GetFullPath())) {
+            return doc;
+        }
+    }
+
+    // 3. Current working directory
+    {
+        wxFileName combined(includePath);
+        combined.MakeAbsolute();
+        if (auto* doc = tryOpen(combined.GetFullPath())) {
+            return doc;
+        }
+    }
+
+    return nullptr;
+}
+
 auto DocumentManager::openFile(const wxString& filePath) -> Document* {
     if (not wxFileExists(filePath)) {
         return nullptr;

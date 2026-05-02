@@ -81,6 +81,16 @@ private:
     void onCharAdded(wxStyledTextEvent& event);
     void onFocus(wxFocusEvent& event);
     void onIntellisenseTimer(wxTimerEvent& event);
+    void onHotSpotClick(wxStyledTextEvent& event);
+    void onKeyDown(wxKeyEvent& event);
+    void onKeyUp(wxKeyEvent& event);
+    void onKillFocus(wxFocusEvent& event);
+    /// Toggle hotspot affordance on preprocessor styles. Called when Ctrl
+    /// is pressed/released so `#include` directives become Ctrl+clickable.
+    void setIncludeHotspots(bool active);
+    /// Parse `#include [once] "path"` (or single-quoted) from a line.
+    /// Returns empty string if the line is not an include directive.
+    [[nodiscard]] static auto parseIncludeDirective(const wxString& line) -> wxString;
     void updateBraceMatch();
     void applyEditorSettings();
     void defineFoldMargins();
@@ -100,6 +110,7 @@ private:
     bool m_preview;
     bool m_insertHandled = false;
     bool m_editorLocked = false;
+    bool m_includeHotspotsActive = false;
     int m_lastCaretPos = 0;
     bool m_callPostUpdate = false;
     /// Restart on each text-changing modify event; on fire submits a

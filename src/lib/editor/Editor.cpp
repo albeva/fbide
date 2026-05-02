@@ -8,6 +8,7 @@
 #include "CodeTransformer.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentType.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/Theme.hpp"
@@ -43,6 +44,10 @@ wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
     EVT_STC_UPDATEUI(wxID_ANY,           Editor::onUpdateUI)
     EVT_STC_ZOOM(wxID_ANY,               Editor::onZoom)
     EVT_STC_CHARADDED(wxID_ANY,          Editor::onCharAdded)
+    EVT_STC_HOTSPOT_CLICK(wxID_ANY,      Editor::onHotSpotClick)
+    EVT_KEY_DOWN(Editor::onKeyDown)
+    EVT_KEY_UP(Editor::onKeyUp)
+    EVT_KILL_FOCUS(Editor::onKillFocus)
     EVT_SET_FOCUS(Editor::onFocus)
 wxEND_EVENT_TABLE()
 // clang-format on
@@ -586,6 +591,100 @@ void Editor::onIntellisenseTimer(wxTimerEvent& /*event*/) {
         return;
     }
     m_ctx.getDocumentManager().submitIntellisense(doc, GetText());
+}
+
+void Editor::onKeyDown(wxKeyEvent& event) {
+    event.Skip();
+    if (m_docType == DocumentType::FreeBASIC && event.GetKeyCode() == WXK_CONTROL) {
+        setIncludeHotspots(true);
+    }
+}
+
+void Editor::onKeyUp(wxKeyEvent& event) {
+    event.Skip();
+    if (event.GetKeyCode() == WXK_CONTROL) {
+        setIncludeHotspots(false);
+    }
+}
+
+void Editor::onKillFocus(wxFocusEvent& event) {
+    event.Skip();
+    setIncludeHotspots(false);
+}
+
+void Editor::setIncludeHotspots(const bool active) {
+    if (m_includeHotspotsActive == active) {
+        return;
+    }
+    m_includeHotspotsActive = active;
+    SetMouseDownCaptures(!active);
+    StyleSetHotSpot(+ThemeCategory::Preprocessor, active);
+    StyleSetHotSpot(+ThemeCategory::KeywordPP, active);
+}
+
+void Editor::onHotSpotClick(wxStyledTextEvent& event) {
+    if (m_docType != DocumentType::FreeBASIC) {
+        return;
+    }
+    const auto line = LineFromPosition(event.GetPosition());
+    const auto includePath = parseIncludeDirective(GetLine(line));
+    if (includePath.empty()) {
+        return;
+    }
+    auto& docMgr = m_ctx.getDocumentManager();
+    auto* doc = docMgr.findByEditor(this);
+    if (doc == nullptr) {
+        return;
+    }
+    docMgr.openInclude(*doc, includePath);
+}
+
+auto Editor::parseIncludeDirective(const wxString& line) -> wxString {
+    auto text = line;
+    text.Trim(false);
+    if (text.IsEmpty() || text[0] != '#') {
+        return {};
+    }
+    text = text.Mid(1);
+    text.Trim(false);
+
+    constexpr std::size_t kIncludeLen = 7; // "include"
+    if (text.Length() < kIncludeLen) {
+        return {};
+    }
+    if (!text.Mid(0, kIncludeLen).IsSameAs("include", /*case-sensitive*/ false)) {
+        return {};
+    }
+    text = text.Mid(kIncludeLen);
+    if (text.IsEmpty() || (text[0] != ' ' && text[0] != '\t')) {
+        return {};
+    }
+    text.Trim(false);
+
+    constexpr std::size_t kOnceLen = 4;
+    if (text.Length() > kOnceLen
+        && text.Mid(0, kOnceLen).IsSameAs("once", false)
+        && (text[kOnceLen] == ' ' || text[kOnceLen] == '\t')) {
+        text = text.Mid(kOnceLen);
+        text.Trim(false);
+    }
+
+    if (text.IsEmpty()) {
+        return {};
+    }
+    const wxUniChar quote = text.GetChar(0);
+    if (quote != '"' && quote != '\'') {
+        return {};
+    }
+    if (text.Length() < 2) {
+        return {};
+    }
+    text = text.Mid(1);
+    const auto end = text.Find(quote);
+    if (end == wxNOT_FOUND) {
+        return {};
+    }
+    return text.Mid(0, static_cast<std::size_t>(end));
 }
 
 void Editor::onMarginClick(wxStyledTextEvent& event) {
