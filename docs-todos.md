@@ -127,11 +127,11 @@ Group 2.8 — App
 
 ## Phase 5 — Polish & format
 
-- [ ] Flip `WARN_IF_UNDOCUMENTED = YES`, build docs, fix every gap.
+- [ ] Flip `WARN_IF_UNDOCUMENTED = YES`, build docs, fix every gap (needs Doxygen).
 - [ ] Optional: flip `WARN_AS_ERROR = YES` in CI for the docs target.
-- [ ] Single clang-format pass over `src/` + `tests/` using repo `.clang-format`.
-- [ ] Final docs build — must be warning-free.
-- [ ] Spot-check generated HTML: nav tree, dot graphs render, dark theme, cross-links resolve.
+- [x] Single clang-format pass over `src/` + `tests/` using repo `.clang-format`. Build clean; 290 tests pass.
+- [ ] Final docs build — must be warning-free (needs Doxygen).
+- [ ] Spot-check generated HTML: nav tree, dot graphs render, dark theme, cross-links resolve (needs Doxygen).
 
 ## Open questions to resolve in-flight
 
