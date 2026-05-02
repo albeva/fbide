@@ -15,6 +15,14 @@ void FileHistory::load(const wxString& path) {
     wxFFileInputStream stream(path);
     const wxFileConfig ini(stream);
     m_history.Load(ini);
+
+    // Prune entries whose files no longer exist on disk. Walk back-to-front
+    // so removals don't shift indices we haven't visited yet.
+    for (std::size_t idx = m_history.GetCount(); idx > 0; idx--) {
+        if (!wxFileExists(m_history.GetHistoryFile(idx - 1))) {
+            m_history.RemoveFileFromHistory(idx - 1);
+        }
+    }
 }
 
 void FileHistory::save() {
