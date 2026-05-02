@@ -9,6 +9,7 @@
 #include "config/ConfigManager.hpp"
 
 namespace fbide {
+class App;
 class CommandManager;
 class CompilerManager;
 class DocumentManager;
@@ -41,6 +42,8 @@ public:
     /**
      * Initialise the context tree.
      *
+     * @param app        Owning application — pinned by reference so any
+     *                   manager can call back into App via `getApp()`.
      * @param binaryPath Resolved directory of the running fbide binary
      *                   (where resources are located by default).
      * @param idePath    Override for the `<binary>/ide` resource directory
@@ -49,8 +52,13 @@ public:
      *                   (`--config` CLI flag); relative paths resolve
      *                   against the IDE dir.
      */
-    explicit Context(const wxString& binaryPath, const wxString& idePath = {}, const wxString& configPath = {});
+    explicit Context(App& app, const wxString& binaryPath, const wxString& idePath = {}, const wxString& configPath = {});
     ~Context();
+
+    /// Owning application.
+    [[nodiscard]] auto getApp() -> App& { return m_app; }
+    /// Const overload of `getApp`.
+    [[nodiscard]] auto getApp() const -> const App& { return m_app; }
 
     /// Access the configuration manager.
     [[nodiscard]] auto getConfigManager() -> ConfigManager& { return *m_configManager; }
@@ -108,6 +116,7 @@ public:
     [[nodiscard]] auto getHelpManager() const -> const HelpManager& { return *m_helpManager; }
 
 private:
+    App& m_app;                                      ///< Owning application.
     std::unique_ptr<ConfigManager> m_configManager;  ///< INI store + path resolver.
     std::unique_ptr<FileHistory> m_fileHistory;      ///< Recent-files list.
     std::unique_ptr<UIManager> m_uiManager;          ///< Main frame + chrome.

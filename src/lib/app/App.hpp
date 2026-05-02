@@ -41,6 +41,22 @@ public:
     /// Const overload of `getContext`.
     [[nodiscard]] auto getContext() const -> const Context& { return *m_context; }
 
+    /// Schedule a deferred relaunch of FBIde. The lambda runs on the
+    /// next event-loop tick: the open documents are saved to a temp
+    /// session file, `commitConfig` (if any) is invoked once that
+    /// save succeeds, and a replacement process is spawned with
+    /// `--wait-for-pid` so it blocks until this one has exited. The
+    /// current frame is then closed via the normal EVT_CLOSE chain,
+    /// which persists window geometry / config / file history on its
+    /// way out.
+    ///
+    /// `commitConfig` is the place to apply any in-memory config
+    /// changes that should only land when the restart actually goes
+    /// through (e.g. swapping the locale path for a language change):
+    /// if the user cancels an in-flight save dialog, FileSession
+    /// returns false and `commitConfig` is never called.
+    void scheduleRestart(std::function<void()> commitConfig = {});
+
 private:
     /// Parsed command-line state. Filled by `parseCli` once at startup so the
     /// rest of `OnInit` can branch on it without re-parsing.

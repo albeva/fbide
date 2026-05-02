@@ -6,13 +6,10 @@
 //
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "GeneralPage.hpp"
+#include "app/App.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "document/Document.hpp"
-#include "document/DocumentManager.hpp"
-#include "document/FileSession.hpp"
 #include "document/TextEncoding.hpp"
-#include "ui/UIManager.hpp"
 using namespace fbide;
 
 namespace {
@@ -147,50 +144,15 @@ void GeneralPage::apply() {
             return;
         }
 
-        // Defer the restart until after the Settings dialog has closed
-        // and `SettingsDialog::applyChanges` has saved the config. We
-        // intentionally do NOT swap the locale path here — that happens
-        // inside the lambda, only after we know the session save went
-        // through. If the user cancels a "save changes?" dialog mid-way,
-        // we abort the restart and the language stays as it was.
-        wxTheApp->CallAfter([&ctx = getContext(), language = m_language]() {
-            auto& cfgMgr = ctx.getConfigManager();
-
-            // Persist the open documents to a temp session. If any
-            // in-flight save dialog is cancelled, FileSession returns
-            // false — abort the restart entirely.
-            const auto sessionPath = cfgMgr.getIdeDir() / "restart-session.fbs";
-            if (!ctx.getFileSession().save(sessionPath)) {
-                return;
-            }
-
-            // Commit the locale swap. Window geometry / config /
-            // history persistence happens via `UIManager::onClose`
-            // when the frame closes — the new instance only loads
-            // config after this process has exited (`--wait-for-pid`),
-            // so we don't need to flush them up-front any more.
-            cfgMgr.setCategoryPath(ConfigManager::Category::Locale, "locales/" + language);
-
-            // Spawn the replacement asynchronously and pass our PID
-            // via `--wait-for-pid`. The new instance polls until this
-            // process has exited before it loads any config — keeps
-            // the handoff precise without resorting to a sleep.
-            const auto exe = wxStandardPaths::Get().GetExecutablePath();
-            wxExecute(
-                wxString::Format(
-                    R"("%s" --new-window --wait-for-pid %lu --load-session "%s")",
-                    exe, wxGetProcessId(), sessionPath
-                ),
-                wxEXEC_ASYNC
+        // Hand the restart over to App. The locale-path swap is
+        // committed inside the callback, which only fires after the
+        // session save succeeds — so a cancelled in-flight save
+        // leaves the language unchanged.
+        getContext().getApp().scheduleRestart([&ctx = getContext(), language = m_language]() {
+            ctx.getConfigManager().setCategoryPath(
+                ConfigManager::Category::Locale,
+                "locales/" + language
             );
-
-            // Trigger the normal close path. Mark documents
-            // not-modified so `prepareToQuit` doesn't re-prompt —
-            // FileSession already covered them.
-            for (const auto& doc : ctx.getDocumentManager().getDocuments()) {
-                doc->setModified(false);
-            }
-            ctx.getUIManager().getMainFrame()->Close(true);
         });
     }
 }

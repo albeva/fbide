@@ -12,6 +12,7 @@
 #include "config/FileHistory.hpp"
 #include "config/Value.hpp"
 #include "config/Version.hpp"
+#include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/FileSession.hpp"
 #include "ui/UIManager.hpp"
@@ -204,7 +205,7 @@ auto App::OnInit() -> bool {
     // Construct context with parsed CLI overrides — `--ide` flows into
     // ConfigManager so subsequent config/locale/theme lookups resolve
     // against the overridden resource directory by default.
-    m_context = std::make_unique<Context>(fbidePath, cli.idePath, cli.configPath);
+    m_context = std::make_unique<Context>(*this, fbidePath, cli.idePath, cli.configPath);
 
     // --cfg=<spec>: print value, exit. No window, no IPC, no splash.
     if (!cli.cfgKey.IsEmpty()) {
@@ -415,6 +416,48 @@ void App::openFiles(const wxArrayString& files) {
     for (const auto& file : files) {
         docManager.openFile(file);
     }
+}
+
+void App::scheduleRestart(std::function<void()> commitConfig) {
+    CallAfter([this, commit = std::move(commitConfig)]() {
+        // Save the open documents to a temp session that the
+        // replacement process will load via `--load-session`. If the
+        // user cancels an in-flight save dialog, FileSession returns
+        // false and we abort — locale (or any other deferred config
+        // change) stays unchanged.
+        const auto sessionPath = m_context->getConfigManager().getIdeDir() / "restart-session.fbs";
+        if (!m_context->getFileSession().save(sessionPath)) {
+            return;
+        }
+
+        // Apply any in-memory config changes the caller wanted to
+        // commit only on a confirmed restart.
+        if (commit) {
+            commit();
+        }
+
+        // Spawn the replacement asynchronously. `--wait-for-pid`
+        // makes the new instance block before any config / locale
+        // load until this process has actually exited — keeps the
+        // handoff precise without resorting to a sleep.
+        const auto exe = wxStandardPaths::Get().GetExecutablePath();
+        wxExecute(
+            wxString::Format(
+                R"("%s" --new-window --wait-for-pid %lu --load-session "%s")",
+                exe, wxGetProcessId(), sessionPath
+            ),
+            wxEXEC_ASYNC
+        );
+
+        // Trigger the normal close path. Mark documents not-modified
+        // so `prepareToQuit` doesn't re-prompt — FileSession already
+        // covered them. `UIManager::onClose` persists window
+        // geometry / config / file history on its way out.
+        for (const auto& doc : m_context->getDocumentManager().getDocuments()) {
+            doc->setModified(false);
+        }
+        m_context->getUIManager().getMainFrame()->Close(true);
+    });
 }
 
 void App::showSplash() {

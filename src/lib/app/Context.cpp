@@ -16,8 +16,9 @@
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
-Context::Context(const wxString& binaryPath, const wxString& idePath, const wxString& configPath)
-: m_configManager(std::make_unique<ConfigManager>(binaryPath, idePath, configPath))
+Context::Context(App& app, const wxString& binaryPath, const wxString& idePath, const wxString& configPath)
+: m_app(app)
+, m_configManager(std::make_unique<ConfigManager>(binaryPath, idePath, configPath))
 , m_fileHistory(std::make_unique<FileHistory>())
 , m_uiManager(std::make_unique<UIManager>(*this))
 , m_sideBarManager(std::make_unique<SideBarManager>(*this))
