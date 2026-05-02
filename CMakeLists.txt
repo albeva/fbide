@@ -22,6 +22,7 @@ include(cmake/warnings.cmake)
 include(cmake/options.cmake)
 include(cmake/wxwidgets.cmake)
 include(cmake/lexilla.cmake)
+include(cmake/doxygen.cmake)
 
 # Sources
 add_subdirectory(configured_files)
