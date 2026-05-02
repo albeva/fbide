@@ -42,6 +42,10 @@ Options:
                         --cfg=locale:dialogs.*
   --load-session <p>  Load the .fbs session at <p> on startup, then delete it.
                       Used internally for the language-change restart flow.
+  --wait-for-pid <id> Block startup (before any config is loaded) until the
+                      process with id <id> has exited. Used internally so the
+                      replacement process spawned by a language-change
+                      restart only opens after the previous one is gone.
   --new-window        Open a new window even if another instance is running.
   --verbose           Enable verbose logging.
   --version           Print fbide and wxWidgets version and exit.
@@ -169,6 +173,21 @@ auto App::OnInit() -> bool {
         wxLog::SetVerbose(true);
     }
 
+    // If asked, block until the predecessor process has exited. The
+    // language-change restart flow uses this so the new instance only
+    // touches config/locale files after the previous one has fully
+    // released them. Polling via wxProcess::Exists is portable; cap
+    // the wait so a misbehaving caller can't hang us indefinitely.
+    if (cli.waitForPid > 0) {
+        constexpr int maxWaitMs = 5000;
+        constexpr int pollMs = 25;
+        for (int waited = 0;
+             waited < maxWaitMs && wxProcess::Exists(static_cast<int>(cli.waitForPid));
+             waited += pollMs) {
+            wxMilliSleep(pollMs);
+        }
+    }
+
     const auto fbidePath = getFbidePath();
 
 #if FBIDE_DEBUG_BUILD
@@ -278,6 +297,20 @@ auto App::parseCli() const -> CliOptions {
                 return opts;
             }
             opts.loadSession = args[index];
+            continue;
+        }
+        if (arg == "--wait-for-pid") {
+            index += 1;
+            if (index >= args.GetCount()) {
+                writeErrLine("fbide: --wait-for-pid requires a numeric pid argument");
+                opts.parseFailed = true;
+                return opts;
+            }
+            if (!args[index].ToLong(&opts.waitForPid) || opts.waitForPid <= 0) {
+                writeErrLine(wxString::Format("fbide: --wait-for-pid expected a positive integer, got '%s'", args[index]));
+                opts.parseFailed = true;
+                return opts;
+            }
             continue;
         }
         if (arg.StartsWith("-")) {

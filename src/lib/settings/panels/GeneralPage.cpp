@@ -172,26 +172,18 @@ void GeneralPage::apply() {
             cfgMgr.save(ConfigManager::Category::Config);
             ctx.getFileHistory().save();
 
-            // Spawn the replacement through a shell wrapper that waits
-            // briefly before launching FBIde. The delay gives this
-            // process time to fully exit so the new window doesn't
-            // appear alongside the old one.
+            // Spawn the replacement asynchronously and pass our PID
+            // via `--wait-for-pid`. The new instance polls until this
+            // process has exited before it loads any config — keeps
+            // the handoff precise without resorting to a sleep.
             const auto exe = wxStandardPaths::Get().GetExecutablePath();
-#ifdef __WXMSW__
-            // `ping -n 2 127.0.0.1` waits ~1s and works on every
-            // Windows from XP up (Vista's `timeout` doesn't).
-            // `start "" ...` detaches the new fbide from cmd.
-            const auto cmd = wxString::Format(
-                R"(cmd.exe /c "ping -n 2 127.0.0.1 >nul & start "" "%s" --new-window --load-session "%s"")",
-                exe, sessionPath
+            wxExecute(
+                wxString::Format(
+                    R"("%s" --new-window --wait-for-pid %lu --load-session "%s")",
+                    exe, wxGetProcessId(), sessionPath
+                ),
+                wxEXEC_ASYNC
             );
-#else
-            const auto cmd = wxString::Format(
-                R"(sh -c 'sleep 1 && "%s" --new-window --load-session "%s" &')",
-                exe, sessionPath
-            );
-#endif
-            wxExecute(cmd);
 
             // Trigger the normal close path. Mark documents
             // not-modified so `prepareToQuit` doesn't re-prompt
