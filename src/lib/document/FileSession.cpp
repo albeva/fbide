@@ -99,16 +99,11 @@ void FileSession::load(const wxString& path) {
 auto FileSession::save(const wxString& path) -> bool {
     const auto& dm = m_ctx.getDocumentManager();
 
-    // Prompt to save modified files first — session records paths, not
-    // unsaved buffer contents. Bail out (without writing the session)
-    // if any save is cancelled by the user.
-    for (const auto& doc : dm.getDocuments()) {
-        if (doc->isModified() && !doc->isNew()) {
-            if (!dm.saveFile(*doc)) {
-                return false;
-            }
-        }
-    }
+    // Pure path snapshot — modified buffers are NOT auto-saved here.
+    // Callers that need to flush dirty state (Save Session menu, the
+    // restart flow) must drive the user-facing save/close prompts
+    // through `DocumentManager::closeAllFiles` (or equivalent) before
+    // writing the session.
 
     wxFileConfig cfg(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
 

@@ -49,11 +49,13 @@ public:
     /// Load a session file, dispatching on detected format.
     void load(const wxString& path);
 
-    /// Save currently open documents as a v3 session.
-    /// Returns `false` when the user cancels an in-flight "save changes?"
-    /// prompt for a modified named file — the session file is not
-    /// written in that case, so callers can use the result to abort
-    /// any quit/restart flow they were about to trigger.
+    /// Snapshot the currently open documents as a v3 session file.
+    ///
+    /// Records paths + caret state only — modified buffers are NOT
+    /// auto-saved here. Callers that want unsaved changes flushed to
+    /// disk first should drive a user-facing save / close flow (e.g.
+    /// `DocumentManager::closeAllFiles`) before calling this. Returns
+    /// `false` only on I/O failure when writing the session file.
     [[nodiscard]] auto save(const wxString& path) -> bool;
 
     /// File dialog → load selected session.
