@@ -369,8 +369,10 @@ void DocumentManager::reloadFromDisk(Document& doc) {
 }
 
 void DocumentManager::reloadConfigIfMatches(const wxString& path) const {
+    // Reload the config tree only — menu/toolbar/sidebar text is not
+    // refreshed in place. Layout / locale tweaks land on the next FBIde
+    // launch (matches the language-change restart flow).
     if (m_ctx.getConfigManager().reloadIfKnown(path)) {
-        m_ctx.getUIManager().refreshUi();
         m_ctx.getUIManager().updateEditorSettigs();
     }
 }

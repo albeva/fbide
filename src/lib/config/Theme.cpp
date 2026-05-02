@@ -256,15 +256,19 @@ void Theme::load(const wxString& themePath, const bool reset) {
 }
 
 void Theme::loadV4(const wxString& themePath) {
+    // Copy the argument by value first — `*this = {}` clears every
+    // member, and callers may pass a reference to `m_themePath` itself.
+    const wxString path = themePath;
+
     *this = {};
-    m_themePath = themePath;
+    m_themePath = path;
 
     // set explicitly old version
     m_version = Version::oldFbide();
 
-    wxFFileInputStream stream(themePath);
+    wxFFileInputStream stream(path);
     if (!stream.IsOk()) {
-        wxLogError("Failed to load legacy theme from '%s'", themePath);
+        wxLogError("Failed to load legacy theme from '%s'", path);
         return;
     }
     wxFileConfig ini(stream);

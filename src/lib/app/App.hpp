@@ -48,6 +48,7 @@ private:
         wxString configPath;           ///< `--config <path>`.
         wxString idePath;              ///< `--ide <path>`.
         wxString cfgKey;               ///< `--cfg=[<category>:]<key>` (non-empty → print + exit).
+        wxString loadSession;          ///< `--load-session <path>` (load + delete the file on success).
         wxArrayString files;           ///< Positional file paths.
         bool newWindow = false;        ///< `--new-window`.
         bool verbose = false;          ///< `--verbose`.

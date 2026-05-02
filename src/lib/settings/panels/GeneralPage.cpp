@@ -8,6 +8,7 @@
 #include "GeneralPage.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
+#include "document/FileSession.hpp"
 #include "document/TextEncoding.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
@@ -124,9 +125,39 @@ void GeneralPage::apply() {
     editor["eolMode"] = m_eolMode;
     cfg["general"]["splashScreen"] = m_splashScreen;
 
-    // Swap locale file if the user picked a different language.
+    // Swap locale file if the user picked a different language. Live
+    // refresh would have to update every menu/dialog/sidebar string in
+    // place — too many small touch points to keep correct. Instead we
+    // confirm with the user, save the open documents to a temp session,
+    // and relaunch FBIde with `--load-session` so the new locale loads
+    // cleanly. Some editor undo state is lost; the trade-off is worth it
+    // for a rarely-changed setting.
     if (!m_language.empty() && m_language != currentLocaleFileName(cfg)) {
+        const auto answer = wxMessageBox(
+            tr("dialogs.settings.general.languageRestart"),
+            tr("dialogs.settings.general.languageRestartTitle"),
+            wxYES_NO | wxICON_QUESTION,
+            this
+        );
+        if (answer != wxYES) {
+            // Revert the in-memory selection — config stays unchanged.
+            m_language = currentLocaleFileName(cfg);
+            return;
+        }
         cfgManager.setCategoryPath(ConfigManager::Category::Locale, "locales/" + m_language);
-        getContext().getUIManager().refreshUi();
+
+        // Defer the relaunch until after the Settings dialog has closed
+        // and `SettingsDialog::applyChanges` has saved the config.
+        wxTheApp->CallAfter([&ctx = getContext()]() {
+            const auto sessionPath = ctx.getConfigManager().getIdeDir() / "restart-session.fbs";
+            ctx.getFileSession().save(sessionPath);
+
+            const auto exe = wxStandardPaths::Get().GetExecutablePath();
+            wxExecute(wxString::Format(
+                R"("%s" --new-window --load-session "%s")",
+                exe, sessionPath
+            ));
+            ctx.getUIManager().getMainFrame()->Close();
+        });
     }
 }

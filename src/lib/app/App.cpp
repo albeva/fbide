@@ -13,6 +13,7 @@
 #include "config/Value.hpp"
 #include "config/Version.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/FileSession.hpp"
 #include "ui/UIManager.hpp"
 #ifdef __WXMSW__
 #include <windows.h>
@@ -39,6 +40,8 @@ Options:
                         --cfg=*                # all keys in config
                         --cfg=editor/          # all keys under editor
                         --cfg=locale:dialogs.*
+  --load-session <p>  Load the .fbs session at <p> on startup, then delete it.
+                      Used internally for the language-change restart flow.
   --new-window        Open a new window even if another instance is running.
   --verbose           Enable verbose logging.
   --version           Print fbide and wxWidgets version and exit.
@@ -207,6 +210,10 @@ auto App::OnInit() -> bool {
 
     m_context->getUIManager().createMainFrame();
     openFiles(cli.files);
+    if (!cli.loadSession.IsEmpty()) {
+        m_context->getFileSession().load(cli.loadSession);
+        wxRemoveFile(cli.loadSession);
+    }
     m_context->getCompilerManager().checkCompilerOnStartup();
     return true;
 }
@@ -261,6 +268,16 @@ auto App::parseCli() const -> CliOptions {
                 opts.parseFailed = true;
                 return opts;
             }
+            continue;
+        }
+        if (arg == "--load-session") {
+            index += 1;
+            if (index >= args.GetCount()) {
+                writeErrLine("fbide: --load-session requires a path argument");
+                opts.parseFailed = true;
+                return opts;
+            }
+            opts.loadSession = args[index];
             continue;
         }
         if (arg.StartsWith("-")) {

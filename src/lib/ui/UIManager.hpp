@@ -87,10 +87,6 @@ public:
     /// Force editors to update settings.
     void updateEditorSettigs();
 
-    /// Re-run menu and toolbar configuration. Call after locale or layout
-    /// changes so labels, shortcuts and command entries refresh in place.
-    void refreshUi();
-
     /// Toggle the output console pane's visibility.
     void showConsole(bool show);
 
