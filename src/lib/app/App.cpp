@@ -112,6 +112,26 @@ void writeLineTo(const wxString& text, bool toStderr) {
 void writeLine(const wxString& text) { writeLineTo(text, /*toStderr=*/false); }
 void writeErrLine(const wxString& text) { writeLineTo(text, /*toStderr=*/true); }
 
+/// True when `path` lives anywhere under the platform's temp directory.
+/// Used by the `--load-session` cleanup branch so we only delete files
+/// FBIde itself dropped into temp space (the language-restart flow);
+/// user-supplied `.fbs` files passed on the command line stay put.
+auto isInsideTempDir(const wxString& path) -> bool {
+    wxFileName session(path);
+    session.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_LONG);
+
+    wxFileName tempDir(wxStandardPaths::Get().GetTempDir(), wxEmptyString);
+    tempDir.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_LONG);
+
+    auto sessionPath = session.GetPath();
+    auto tempPath = tempDir.GetPath();
+#ifdef __WXMSW__
+    sessionPath.MakeLower();
+    tempPath.MakeLower();
+#endif
+    return !tempPath.IsEmpty() && sessionPath.StartsWith(tempPath);
+}
+
 /// Recursively collect every leaf under `node`, prefixing with `prefix`
 /// (dot-separated). Each emitted entry is formatted `path=value` — sorted
 /// later so the path prefix orders the listing.
@@ -233,7 +253,12 @@ auto App::OnInit() -> bool {
     openFiles(cli.files);
     if (!cli.loadSession.IsEmpty()) {
         m_context->getFileSession().load(cli.loadSession);
-        wxRemoveFile(cli.loadSession);
+        // Only clean up files FBIde itself parked in the OS temp dir
+        // (the language-restart handoff). User-supplied paths stay
+        // on disk.
+        if (isInsideTempDir(cli.loadSession)) {
+            wxRemoveFile(cli.loadSession);
+        }
     }
     m_context->getCompilerManager().checkCompilerOnStartup();
     return true;
