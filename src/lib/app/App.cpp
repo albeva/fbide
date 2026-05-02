@@ -170,6 +170,9 @@ auto App::OnInit() -> bool {
     }
 
     m_newWindow = cli.newWindow;
+    m_verbose = cli.verbose;
+    m_configPath = cli.configPath;
+    m_idePath = cli.idePath;
     if (cli.verbose) {
         wxLog::SetVerbose(true);
     }
@@ -449,15 +452,25 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
         // Spawn the replacement asynchronously. `--wait-for-pid`
         // makes the new instance block before any config / locale
         // load until this process has actually exited — keeps the
-        // handoff precise without resorting to a sleep.
+        // handoff precise without resorting to a sleep. Replay any
+        // path overrides the original launch carried so the new
+        // instance lands on the same config / IDE dir (and inherits
+        // verbose logging if it was on).
         const auto exe = wxStandardPaths::Get().GetExecutablePath();
-        wxExecute(
-            wxString::Format(
-                R"("%s" --new-window --wait-for-pid %d --load-session "%s")",
-                exe, static_cast<int>(wxGetProcessId()), sessionPath
-            ),
-            wxEXEC_ASYNC
+        wxString cmd = wxString::Format(
+            R"("%s" --new-window --wait-for-pid %d --load-session "%s")",
+            exe, static_cast<int>(wxGetProcessId()), sessionPath
         );
+        if (!m_configPath.IsEmpty()) {
+            cmd += wxString::Format(R"( --config "%s")", m_configPath);
+        }
+        if (!m_idePath.IsEmpty()) {
+            cmd += wxString::Format(R"( --ide "%s")", m_idePath);
+        }
+        if (m_verbose) {
+            cmd += " --verbose";
+        }
+        wxExecute(cmd, wxEXEC_ASYNC);
 
         auto* frame = m_context->getUIManager().getMainFrame();
         frame->Close(true);

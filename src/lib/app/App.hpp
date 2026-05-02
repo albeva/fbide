@@ -100,6 +100,9 @@ private:
     std::unique_ptr<Context> m_context;                 ///< Application service locator.
     std::unique_ptr<InstanceHandler> m_instanceHandler; ///< Single-instance gate (skipped under `--new-window`).
     bool m_newWindow = false;                           ///< Effective value of `--new-window`.
+    bool m_verbose = false;                             ///< Effective value of `--verbose` — replayed on relaunch.
+    wxString m_configPath;                              ///< `--config <path>` value, if any — replayed on relaunch.
+    wxString m_idePath;                                 ///< `--ide <path>` value, if any — replayed on relaunch.
 };
 
 } // namespace fbide
