@@ -287,12 +287,12 @@ void ThemePage::saveNewTheme(const bool setActive) {
 
     const wxFileName path(getContext().getConfigManager().getIdeDir() / "themes" / name + ".ini");
     if (not path.IsOk()) {
-        wxMessageBox(wxString::Format("Invalid filename %s", path.GetFullPath())); // TODO: use locale string
+        wxMessageBox(wxString::Format(tr("invalidFilename"), path.GetFullPath()));
         return;
     }
 
     if (path.Exists()) {
-        wxMessageBox(wxString::Format("File %s already exists", path.GetFullPath())); // TODO: use locale string
+        wxMessageBox(wxString::Format(tr("fileExists"), path.GetFullPath()));
         return;
     }
 

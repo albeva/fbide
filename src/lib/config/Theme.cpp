@@ -231,7 +231,9 @@ void Theme::load(const wxString& themePath, const bool reset) {
     // stash the path and restore it after so getPath() still returns the
     // file we actually loaded.
     if (m_themePath.Lower().EndsWith(".fbt")) {
-        loadV4(m_themePath);
+        const auto path = m_themePath;
+        loadV4(path);
+        m_themePath = path;
         return;
     }
 

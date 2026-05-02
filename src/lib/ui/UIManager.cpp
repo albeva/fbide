@@ -445,7 +445,7 @@ void UIManager::createLayout() {
         m_console,
         wxAuiPaneInfo()
             .Name(entry->name)
-            .Caption("Output") // TODO: grab from locale
+            .Caption(m_ctx.tr("panels.results.title"))
             .Bottom()
             .BestSize(-1, 150)
             .Hide()
