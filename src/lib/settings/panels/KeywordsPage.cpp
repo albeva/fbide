@@ -12,10 +12,16 @@ using namespace fbide;
 
 namespace {
 
-auto caseModeChoices() -> wxArrayString {
+/// Build the localized labels for the case-transform dropdown.
+/// Falls back to the stable INI key when the locale has no entry,
+/// so a missing translation is still readable.
+auto caseModeChoices(Context& ctx) -> wxArrayString {
+    const auto& tr = ctx.getConfigManager().locale().at("dialogs.settings.keywords.case");
     wxArrayString names;
     for (const auto value : CaseMode::all) {
-        names.Add(wxString::FromUTF8(CaseMode { value }.toString()));
+        wxString key = wxString::FromUTF8(CaseMode { value }.toString());
+        key[0] = wxTolower(key[0]);
+        names.Add(tr.get_or(key, key));
     }
     return names;
 }
@@ -51,7 +57,7 @@ void KeywordsPage::create() {
         m_groupChoice->SetSelection(static_cast<int>(m_selectedGroup));
         m_groupChoice->Bind(wxEVT_CHOICE, &KeywordsPage::onGroupChanged, this);
 
-        m_caseChoice = choice(caseModeChoices(), { .expand = false });
+        m_caseChoice = choice(caseModeChoices(getContext()), { .expand = false });
         m_caseChoice->SetSelection(static_cast<int>(m_cases[m_selectedGroup].value()));
         m_caseChoice->SetMinSize(wxSize(120, -1));
         m_caseChoice->Bind(wxEVT_CHOICE, &KeywordsPage::onCaseChanged, this);
