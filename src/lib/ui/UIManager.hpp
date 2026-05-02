@@ -87,6 +87,11 @@ public:
     /// Force editors to update settings.
     void updateEditorSettigs();
 
+    /// Capture the current frame size + position back into the config
+    /// tree (`config["window"]`). Caller is responsible for persisting
+    /// the config to disk afterwards.
+    void saveWindowGeometry();
+
     /// Toggle the output console pane's visibility.
     void showConsole(bool show);
 

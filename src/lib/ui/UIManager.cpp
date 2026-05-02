@@ -55,23 +55,7 @@ void UIManager::onClose(wxCloseEvent& event) {
         return;
     }
 
-    // Save window state to config
-    auto& window = m_ctx.getConfigManager().config()["window"];
-    if (m_frame->IsMaximized() || m_frame->IsIconized()) {
-        window["width"] = -1;
-        window["height"] = -1;
-    } else {
-        int posX = 0;
-        int posY = 0;
-        int sizeW = 0;
-        int sizeH = 0;
-        m_frame->GetPosition(&posX, &posY);
-        m_frame->GetSize(&sizeW, &sizeH);
-        window["x"] = posX;
-        window["y"] = posY;
-        window["width"] = sizeW;
-        window["height"] = sizeH;
-    }
+    saveWindowGeometry();
     m_ctx.getConfigManager().save(ConfigManager::Category::Config);
     m_ctx.getFileHistory().save();
 
@@ -79,6 +63,25 @@ void UIManager::onClose(wxCloseEvent& event) {
     m_frame->RemoveEventHandler(this);
     m_frame->RemoveEventHandler(&m_ctx.getCommandManager());
     m_frame->Close();
+}
+
+void UIManager::saveWindowGeometry() {
+    auto& window = m_ctx.getConfigManager().config()["window"];
+    if (m_frame->IsMaximized() || m_frame->IsIconized()) {
+        window["width"] = -1;
+        window["height"] = -1;
+        return;
+    }
+    int posX = 0;
+    int posY = 0;
+    int sizeW = 0;
+    int sizeH = 0;
+    m_frame->GetPosition(&posX, &posY);
+    m_frame->GetSize(&sizeW, &sizeH);
+    window["x"] = posX;
+    window["y"] = posY;
+    window["width"] = sizeW;
+    window["height"] = sizeH;
 }
 
 void UIManager::createMainFrame() {

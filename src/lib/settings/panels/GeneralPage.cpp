@@ -8,8 +8,7 @@
 #include "GeneralPage.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "document/Document.hpp"
-#include "document/DocumentManager.hpp"
+#include "config/FileHistory.hpp"
 #include "document/FileSession.hpp"
 #include "document/TextEncoding.hpp"
 #include "ui/UIManager.hpp"
@@ -149,36 +148,35 @@ void GeneralPage::apply() {
         cfgManager.setCategoryPath(ConfigManager::Category::Locale, "locales/" + m_language);
 
         // Defer the relaunch until after the Settings dialog has closed
-        // and `SettingsDialog::applyChanges` has saved the config.
+        // and `SettingsDialog::applyChanges` has saved the config. The
+        // close event chain (`prepareToQuit`, EVT_CLOSE) is bypassed
+        // intentionally: FileSession already saved every named file,
+        // untitled buffers are dropped per the confirm prompt, and the
+        // EVT_CLOSE veto path was previously preventing the process
+        // from actually terminating.
         wxTheApp->CallAfter([&ctx = getContext()]() {
-            // Save what we can carry across processes: only documents
-            // that already have an on-disk path. Modified-but-named
-            // files get saved by FileSession::save itself; untitled
-            // buffers are dropped (the user accepted the trade-off in
-            // the confirm prompt).
-            const auto sessionPath = ctx.getConfigManager().getIdeDir() / "restart-session.fbs";
+            auto& uiMgr = ctx.getUIManager();
+            auto& cfgMgr = ctx.getConfigManager();
+
+            // Persist the open documents to a temp session that the
+            // replacement process will load via `--load-session`.
+            const auto sessionPath = cfgMgr.getIdeDir() / "restart-session.fbs";
             ctx.getFileSession().save(sessionPath);
 
-            // Spawn the replacement process before we tear down so the
-            // new window opens promptly even on slower machines.
+            // Mirror the state-save side of `UIManager::onClose` —
+            // window geometry, config tree, file history.
+            uiMgr.saveWindowGeometry();
+            cfgMgr.save(ConfigManager::Category::Config);
+            ctx.getFileHistory().save();
+
+            // Spawn the replacement and exit the main loop. Async
+            // wxExecute returns immediately on Windows + POSIX, so the
+            // new process begins startup while we tear ours down.
             const auto exe = wxStandardPaths::Get().GetExecutablePath();
             wxExecute(wxString::Format(
                 R"("%s" --new-window --load-session "%s")",
                 exe, sessionPath
             ));
-
-            // Force-quit the current process. Clearing dirty flags
-            // sidesteps the second "save changes?" prompt that
-            // `prepareToQuit` would otherwise raise — FileSession
-            // already covered the named files, and untitled buffers
-            // are intentionally dropped per the user's confirmation.
-            // ExitMainLoop after Close ensures the loop exits even if
-            // some queued event would otherwise keep us spinning.
-            for (const auto& doc : ctx.getDocumentManager().getDocuments()) {
-                doc->setModified(false);
-            }
-            auto* frame = ctx.getUIManager().getMainFrame();
-            frame->Close(true);
             wxTheApp->ExitMainLoop();
         });
     }
