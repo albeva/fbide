@@ -8,6 +8,8 @@
 #include "GeneralPage.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
+#include "document/Document.hpp"
+#include "document/DocumentManager.hpp"
 #include "document/FileSession.hpp"
 #include "document/TextEncoding.hpp"
 #include "ui/UIManager.hpp"
@@ -149,15 +151,35 @@ void GeneralPage::apply() {
         // Defer the relaunch until after the Settings dialog has closed
         // and `SettingsDialog::applyChanges` has saved the config.
         wxTheApp->CallAfter([&ctx = getContext()]() {
+            // Save what we can carry across processes: only documents
+            // that already have an on-disk path. Modified-but-named
+            // files get saved by FileSession::save itself; untitled
+            // buffers are dropped (the user accepted the trade-off in
+            // the confirm prompt).
             const auto sessionPath = ctx.getConfigManager().getIdeDir() / "restart-session.fbs";
             ctx.getFileSession().save(sessionPath);
 
+            // Spawn the replacement process before we tear down so the
+            // new window opens promptly even on slower machines.
             const auto exe = wxStandardPaths::Get().GetExecutablePath();
             wxExecute(wxString::Format(
                 R"("%s" --new-window --load-session "%s")",
                 exe, sessionPath
             ));
-            ctx.getUIManager().getMainFrame()->Close();
+
+            // Force-quit the current process. Clearing dirty flags
+            // sidesteps the second "save changes?" prompt that
+            // `prepareToQuit` would otherwise raise — FileSession
+            // already covered the named files, and untitled buffers
+            // are intentionally dropped per the user's confirmation.
+            // ExitMainLoop after Close ensures the loop exits even if
+            // some queued event would otherwise keep us spinning.
+            for (const auto& doc : ctx.getDocumentManager().getDocuments()) {
+                doc->setModified(false);
+            }
+            auto* frame = ctx.getUIManager().getMainFrame();
+            frame->Close(true);
+            wxTheApp->ExitMainLoop();
         });
     }
 }
