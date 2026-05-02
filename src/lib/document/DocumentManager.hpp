@@ -90,6 +90,11 @@ public:
     /// to `encoding` (not re-detected).
     void reloadWithEncoding(Document& doc, TextEncoding encoding);
 
+    /// Reload a document from disk with auto-detected encoding/EOL — same
+    /// pipeline as initial open. Prompts the user when the document has
+    /// unsaved changes (cancel preserves the buffer).
+    void reloadFromDisk(Document& doc);
+
     /// Get currently active document (selected tab), or nullptr if none.
     [[nodiscard]] auto getActive() const -> Document*;
 

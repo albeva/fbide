@@ -26,6 +26,7 @@ namespace {
 constexpr auto SESSION_EXT = "fbs";
 const wxWindowID kTabCloseOthersId = wxNewId();
 const wxWindowID kTabShowInBrowserId = wxNewId();
+const wxWindowID kTabReloadFromDiskId = wxNewId();
 } // namespace
 
 // clang-format off
@@ -260,6 +261,20 @@ auto DocumentManager::saveFile(Document& doc) const -> bool {
         return saveFileAs(doc);
     }
 
+    // Detect external modification: file changed on disk since we loaded
+    // (or last saved) it. Prompt before clobbering the on-disk version.
+    if (doc.checkExternalChange()) {
+        const auto result = wxMessageBox(
+            m_ctx.tr("messages.externalChangeOverwrite"),
+            m_ctx.tr("messages.externalChangeTitle"),
+            wxYES_NO | wxICON_EXCLAMATION,
+            m_ctx.getUIManager().getMainFrame()
+        );
+        if (result != wxYES) {
+            return false;
+        }
+    }
+
     const auto result = DocumentIO::save(doc.getFilePath(), doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode());
     if (result != DocumentIO::SaveResult::Success) {
         reportSaveFailure(result, m_ctx, doc.getEncoding());
@@ -303,6 +318,54 @@ auto DocumentManager::saveFileAs(Document& doc) const -> bool {
     updateTabTitle(doc);
     reloadConfigIfMatches(newPath);
     return true;
+}
+
+void DocumentManager::reloadFromDisk(Document& doc) {
+    if (doc.isNew()) {
+        return;
+    }
+    if (!wxFileExists(doc.getFilePath())) {
+        wxLogError("%s", m_ctx.tr("messages.reloadFailed"));
+        return;
+    }
+
+    if (doc.isModified()) {
+        const auto result = wxMessageBox(
+            m_ctx.tr("messages.reloadDiscardChanges"),
+            m_ctx.tr("messages.reloadTitle"),
+            wxYES_NO | wxICON_QUESTION,
+            m_ctx.getUIManager().getMainFrame()
+        );
+        if (result != wxYES) {
+            return;
+        }
+    }
+
+    // Reload using the document's currently-active encoding + EOL — the
+    // user already chose them (or they were detected at first load), so a
+    // re-detection on reload would reset their choice unexpectedly.
+    const auto loaded = DocumentIO::loadWithEncoding(doc.getFilePath(), doc.getEncoding(), doc.getEolMode());
+    if (!loaded.has_value()) {
+        wxLogError("%s", m_ctx.tr("messages.reloadFailed"));
+        return;
+    }
+
+    // Keep the document's existing EOL — convert the loaded text to match
+    // it so the editor stays in the user-chosen line-ending mode.
+    auto* editor = doc.getEditor();
+    const auto eol = doc.getEolMode().toStc();
+    editor->disableTransforms(true);
+    editor->SetText(loaded->text);
+    editor->disableTransforms(false);
+    editor->SetEOLMode(eol);
+    editor->ConvertEOLs(eol);
+    editor->EmptyUndoBuffer();
+    doc.setModified(false);
+    doc.updateModTime();
+    updateTabTitle(doc);
+    editor->updateStatusBar();
+
+    submitIntellisense(&doc, loaded->text);
 }
 
 void DocumentManager::reloadConfigIfMatches(const wxString& path) const {
@@ -502,6 +565,8 @@ void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
     const auto path = doc->getFilePath();
     Document* docPtr = doc;
 
+    const bool fileOnDisk = hasPath && wxFileExists(path);
+
     wxMenu menu;
     menu.Append(+CommandId::Close, m_ctx.tr("commands.close.name"));
     menu.Append(kTabCloseOthersId, m_ctx.tr("tabContext.closeOthers"))
@@ -509,6 +574,8 @@ void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
     menu.AppendSeparator();
     menu.Append(kTabShowInBrowserId, m_ctx.tr("tabContext.showInBrowser"))
         ->Enable(hasPath);
+    menu.Append(kTabReloadFromDiskId, m_ctx.tr("tabContext.reloadFromDisk"))
+        ->Enable(fileOnDisk);
     menu.AppendSeparator();
     menu.Append(+CommandId::Undo, m_ctx.tr("commands.undo.name"))
         ->Enable(entryEnabled(CommandId::Undo));
@@ -530,6 +597,11 @@ void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
             entry->setChecked(true);
         }
         m_ctx.getSideBarManager().locateFile(path); }, kTabShowInBrowserId);
+    menu.Bind(wxEVT_MENU, [this, docPtr](const wxCommandEvent&) {
+        if (contains(docPtr)) {
+            reloadFromDisk(*docPtr);
+        }
+    }, kTabReloadFromDiskId);
 
     notebook->PopupMenu(&menu);
 }
