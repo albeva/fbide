@@ -19,6 +19,7 @@ enum class SymbolKind : std::uint8_t {
     Type,     ///< `Type` declaration.
     Union,    ///< `Union` declaration.
     Enum,     ///< `Enum` declaration.
+    Macro,    ///< `#macro` definition.
     Include,  ///< `#include` directive.
 };
 
@@ -83,6 +84,8 @@ public:
     [[nodiscard]] auto getUnions() const -> const std::vector<Symbol>& { return m_unions; }
     /// `Enum` declarations in source order.
     [[nodiscard]] auto getEnums() const -> const std::vector<Symbol>& { return m_enums; }
+    /// `#macro` definitions in source order.
+    [[nodiscard]] auto getMacros() const -> const std::vector<Symbol>& { return m_macros; }
     /// `#include` directives in source order.
     [[nodiscard]] auto getIncludes() const -> const std::vector<Include>& { return m_includes; }
 
@@ -118,6 +121,7 @@ private:
     std::vector<Symbol> m_types;      ///< `Type` declarations.
     std::vector<Symbol> m_unions;     ///< `Union` declarations.
     std::vector<Symbol> m_enums;      ///< `Enum` declarations.
+    std::vector<Symbol> m_macros;     ///< `#macro` definitions.
     std::vector<Include> m_includes;  ///< `#include` directives.
     std::size_t m_hash = 0;           ///< Stable hash over (kind, name) pairs.
 };

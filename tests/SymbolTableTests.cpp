@@ -55,6 +55,58 @@ TEST_F(SymbolTableTests, EmptySource) {
     EXPECT_TRUE(table.getTypes().empty());
     EXPECT_TRUE(table.getUnions().empty());
     EXPECT_TRUE(table.getEnums().empty());
+    EXPECT_TRUE(table.getMacros().empty());
+}
+
+TEST_F(SymbolTableTests, MacroBasic) {
+    const auto table = extract(
+        "#macro DOUBLE(x)\n"
+        "    (x) * 2\n"
+        "#endmacro\n"
+        "#macro NO_ARGS\n"
+        "    Print \"hi\"\n"
+        "#endmacro\n"
+    );
+    ASSERT_EQ(table.getMacros().size(), 2U);
+    EXPECT_EQ(table.getMacros()[0].name, "DOUBLE");
+    EXPECT_EQ(table.getMacros()[0].line, 0);
+    EXPECT_EQ(table.getMacros()[1].name, "NO_ARGS");
+    EXPECT_EQ(table.getMacros()[1].line, 3);
+}
+
+TEST_F(SymbolTableTests, MacroAlongsideSubs) {
+    const auto table = extract(
+        "#macro M(a)\n"
+        "    a + a\n"
+        "#endmacro\n"
+        "Sub Foo\n"
+        "End Sub\n"
+    );
+    ASSERT_EQ(table.getMacros().size(), 1U);
+    EXPECT_EQ(table.getMacros()[0].name, "M");
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Foo");
+}
+
+TEST_F(SymbolTableTests, AnonymousMacroSkipped) {
+    // `#macro` with no identifier is invalid input — the walker drops it.
+    const auto table = extract(
+        "#macro\n"
+        "#endmacro\n"
+    );
+    EXPECT_TRUE(table.getMacros().empty());
+}
+
+TEST_F(SymbolTableTests, MacroParticipatesInHash) {
+    const auto a = extract(
+        "#macro A\n"
+        "#endmacro\n"
+    );
+    const auto b = extract(
+        "#macro B\n"
+        "#endmacro\n"
+    );
+    EXPECT_NE(a.getHash(), b.getHash());
 }
 
 TEST_F(SymbolTableTests, SubFunctionType) {

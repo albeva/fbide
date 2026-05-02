@@ -109,6 +109,37 @@ auto findWordlikeAfter(const std::vector<Token>& tokens, std::size_t start) -> c
     return nullptr;
 }
 
+/// Pull the macro name out of a merged `#macro NAME[(args)]` Preprocessor
+/// token. The lexer folds the entire directive line into one token, so the
+/// name is extracted by skipping the directive keyword and the whitespace
+/// that follows. Returns empty `wxString` when the line has no identifier.
+auto detectMacroName(const Token& pp) -> wxString {
+    const std::string_view text { pp.text };
+    std::size_t i = 0;
+    if (i < text.size() && text[i] == '#') {
+        i++;
+    }
+    while (i < text.size() && (text[i] == ' ' || text[i] == '\t')) {
+        i++;
+    }
+    // Skip the directive word (`macro`).
+    while (i < text.size() && (std::isalnum(static_cast<unsigned char>(text[i])) || text[i] == '_')) {
+        i++;
+    }
+    // Skip whitespace between the directive and the name.
+    while (i < text.size() && (text[i] == ' ' || text[i] == '\t')) {
+        i++;
+    }
+    const std::size_t nameStart = i;
+    while (i < text.size() && (std::isalnum(static_cast<unsigned char>(text[i])) || text[i] == '_')) {
+        i++;
+    }
+    if (i == nameStart) {
+        return {};
+    }
+    return wxString::FromUTF8(std::string(text.substr(nameStart, i - nameStart)));
+}
+
 } // namespace
 
 SymbolTable::SymbolTable(const ProgramTree& tree) {
@@ -158,6 +189,7 @@ void SymbolTable::reset() {
     m_types.clear();
     m_unions.clear();
     m_enums.clear();
+    m_macros.clear();
     m_includes.clear();
 }
 
@@ -192,6 +224,19 @@ void SymbolTable::walkBlock(const BlockNode& block) {
     case KeywordKind::Enum:
         emit(SymbolKind::Enum, openerTokens, first.index);
         break;
+    case KeywordKind::PpMacro: {
+        // The merged Preprocessor token holds the whole `#macro NAME(...)`
+        // line; pull the name out of its text directly.
+        wxString name = detectMacroName(openerTokens[first.index]);
+        if (!name.empty()) {
+            m_macros.push_back(Symbol {
+                .kind = SymbolKind::Macro,
+                .name = std::move(name),
+                .line = openerTokens[first.index].line,
+            });
+        }
+        break;
+    }
     case KeywordKind::Namespace:
         walkNodes(block.body);
         break;
@@ -230,6 +275,9 @@ void SymbolTable::emit(
     case SymbolKind::Enum:
         m_enums.push_back(std::move(sym));
         break;
+    case SymbolKind::Macro:
+        m_macros.push_back(std::move(sym));
+        break;
     case SymbolKind::Include:
         break; // includes go through tryAddInclude
     }
@@ -242,6 +290,7 @@ void SymbolTable::computeHash() {
     hash = hashVector(hash, SymbolKind::Type, m_types);
     hash = hashVector(hash, SymbolKind::Union, m_unions);
     hash = hashVector(hash, SymbolKind::Enum, m_enums);
+    hash = hashVector(hash, SymbolKind::Macro, m_macros);
     hash = hashIncludes(hash, m_includes);
     m_hash = hash;
 }

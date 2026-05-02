@@ -74,6 +74,7 @@ SymbolBrowser::SymbolBrowser(Context& ctx, wxWindow* parent)
         SymbolKind::Type,
         SymbolKind::Union,
         SymbolKind::Enum,
+        SymbolKind::Macro,
         SymbolKind::Include,
     };
     const auto& art = m_ctx.getUIManager().getArtProvider();
@@ -118,6 +119,7 @@ void SymbolBrowser::rebuild() {
     appendBucket(SymbolKind::Type, m_ctx.tr("sidebar.symbols.types"), m_currentTable->getTypes());
     appendBucket(SymbolKind::Union, m_ctx.tr("sidebar.symbols.unions"), m_currentTable->getUnions());
     appendBucket(SymbolKind::Enum, m_ctx.tr("sidebar.symbols.enums"), m_currentTable->getEnums());
+    appendBucket(SymbolKind::Macro, m_ctx.tr("sidebar.symbols.macros"), m_currentTable->getMacros());
 }
 
 void SymbolBrowser::onItemActivated(wxTreeEvent& event) {
@@ -183,6 +185,9 @@ void SymbolBrowser::dispatch(const Entry& entry) {
         break;
     case SymbolKind::Enum:
         gotoSymbol(table.getEnums(), entry.index);
+        break;
+    case SymbolKind::Macro:
+        gotoSymbol(table.getMacros(), entry.index);
         break;
     }
 }

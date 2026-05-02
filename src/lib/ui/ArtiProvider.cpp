@@ -36,6 +36,7 @@ ArtiProvider::ArtiProvider()
     { SymbolKind::Type, XPM::sym_type_xpm },
     { SymbolKind::Union, XPM::sym_union_xpm },
     { SymbolKind::Enum, XPM::sym_enum_xpm },
+    { SymbolKind::Macro, XPM::sym_macro_xpm },
     { SymbolKind::Include, XPM::sym_include_xpm }
 } {}
 

@@ -120,9 +120,11 @@ token text. Don't expect a separate string token — there isn't one.
 
 `SymbolTable` (`src/lib/analyses/symbols/SymbolTable.hpp`) holds flat
 vectors per `SymbolKind`: Subs, Functions, Types, Unions, Enums,
-plus a separate `Includes` vector. The walk:
+Macros, plus a separate `Includes` vector. The walk:
 
 - Visits top-level Sub / Function / Type / Union / Enum.
+- Captures `#macro NAME` definitions; the macro name is parsed out
+  of the merged Preprocessor token text (just like `#include`).
 - Recurses into Namespace bodies (flat list — no qualified names
   yet).
 - Skips anonymous declarations.
