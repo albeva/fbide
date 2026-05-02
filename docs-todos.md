@@ -114,16 +114,16 @@ Group 2.8 — App
 
 ## Phase 4 — Enums, helpers, internals
 
-- [ ] `DocumentType` enum.
-- [ ] `EolMode` enum.
-- [ ] `KeywordKind` enum.
-- [ ] `OperatorKind` enum.
-- [ ] `ThemeCategory` enum.
-- [ ] `SymbolKind` enum.
-- [ ] `UIState` enum.
-- [ ] Pass over anonymous-namespace helpers in `.cpp` files; document only non-obvious algorithms.
+- [x] `DocumentType` enum (already documented with inline value comments).
+- [x] `EolMode` enum (in `TextEncoding.hpp` — adequate).
+- [x] `KeywordKind` enum (`Token.hpp` — adequate).
+- [x] `OperatorKind` enum (`Token.hpp` — adequate).
+- [x] `ThemeCategory` enum (X-macro driven — already documented).
+- [x] `SymbolKind` enum (already documented).
+- [x] `UIState` enum (already documented with inline value comments).
+- [ ] Pass over anonymous-namespace helpers in `.cpp` files; document only non-obvious algorithms (defer until Doxygen install + first pass reveals gaps).
 
-- [ ] After Phase 4: rebuild docs target.
+- [ ] After Phase 4: rebuild docs target (deferred until Doxygen install).
 
 ## Phase 5 — Polish & format
 
