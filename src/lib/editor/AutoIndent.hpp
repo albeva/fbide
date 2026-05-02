@@ -47,5 +47,4 @@ struct Decision {
     [[nodiscard]] static auto decide(const std::vector<lexer::Token>& tokens) -> Decision;
 };
 
-
 } // namespace fbide::indent

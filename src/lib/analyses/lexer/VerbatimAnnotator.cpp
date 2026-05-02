@@ -15,13 +15,18 @@ auto asciiLower(const char ch) -> char {
 }
 
 auto isWordChar(const char ch) -> bool {
-    if (ch >= 'a' && ch <= 'z') return true;
-    if (ch >= 'A' && ch <= 'Z') return true;
-    if (ch >= '0' && ch <= '9') return true;
+    if (ch >= 'a' && ch <= 'z')
+        return true;
+    if (ch >= 'A' && ch <= 'Z')
+        return true;
+    if (ch >= '0' && ch <= '9')
+        return true;
     return ch == '_' || ch == '$';
 }
 
-enum class PragmaKind { None, Off, On };
+enum class PragmaKind { None,
+    Off,
+    On };
 
 void skipSpaces(const std::string_view text, std::size_t& pos) {
     while (pos < text.size() && (text[pos] == ' ' || text[pos] == '\t')) {

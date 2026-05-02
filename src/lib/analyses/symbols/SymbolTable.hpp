@@ -26,8 +26,8 @@ enum class SymbolKind : std::uint8_t {
 /// (e.g., the `Sub` keyword line), suitable for `wxStyledTextCtrl::GotoLine`.
 struct Symbol {
     SymbolKind kind;
-    wxString   name;
-    int        line = 0;
+    wxString name;
+    int line = 0;
 };
 
 /// One captured `#include` (or `#include once`) directive. `path` is the
@@ -36,7 +36,7 @@ struct Symbol {
 /// time). Found anywhere in the source, including inside conditional blocks.
 struct Include {
     wxString path;
-    int      line = 0;
+    int line = 0;
 };
 
 /**
@@ -99,11 +99,11 @@ private:
         std::size_t keywordIdx);
     void computeHash();
 
-    std::vector<Symbol>  m_subs;
-    std::vector<Symbol>  m_functions;
-    std::vector<Symbol>  m_types;
-    std::vector<Symbol>  m_unions;
-    std::vector<Symbol>  m_enums;
+    std::vector<Symbol> m_subs;
+    std::vector<Symbol> m_functions;
+    std::vector<Symbol> m_types;
+    std::vector<Symbol> m_unions;
+    std::vector<Symbol> m_enums;
     std::vector<Include> m_includes;
     std::size_t m_hash = 0;
 };

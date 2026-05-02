@@ -4,8 +4,8 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include <gtest/gtest.h>
 #include <wx/app.h>
+#include <gtest/gtest.h>
 
 namespace {
 class TestApp final : public wxAppConsole {

@@ -594,8 +594,7 @@ void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
     menu.Bind(wxEVT_MENU, [this, docPtr](const wxCommandEvent&) {
         if (contains(docPtr)) {
             reloadFromDisk(*docPtr);
-        }
-    }, kTabReloadFromDiskId);
+        } }, kTabReloadFromDiskId);
 
     notebook->PopupMenu(&menu);
 }

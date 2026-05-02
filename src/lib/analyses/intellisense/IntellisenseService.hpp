@@ -7,8 +7,8 @@
 #pragma once
 #include "pch.hpp"
 #include "analyses/lexer/MemoryDocument.hpp"
-#include "analyses/symbols/SymbolTable.hpp"
 #include "analyses/lexer/Token.hpp"
+#include "analyses/symbols/SymbolTable.hpp"
 
 namespace fbide {
 class Context;

@@ -4,9 +4,9 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/geobide
 //
+#include <gtest/gtest.h>
 #include "TestHelpers.hpp"
 #include "editor/AutoIndent.hpp"
-#include <gtest/gtest.h>
 
 using namespace fbide;
 using namespace fbide::indent;

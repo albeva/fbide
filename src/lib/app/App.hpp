@@ -42,13 +42,13 @@ private:
     /// Parsed command-line state. Filled by `parseCli` once at startup so the
     /// rest of `OnInit` can branch on it without re-parsing.
     struct CliOptions {
-        wxString configPath;     // --config <path>
-        wxString idePath;        // --ide <path>
-        wxString cfgKey;         // --cfg=[<category>:]<key> (non-empty → print + exit)
-        wxArrayString files;     // positional file paths
-        bool newWindow = false;  // --new-window
-        bool verbose = false;    // --verbose
-        bool helpRequested = false; // --help
+        wxString configPath;           // --config <path>
+        wxString idePath;              // --ide <path>
+        wxString cfgKey;               // --cfg=[<category>:]<key> (non-empty → print + exit)
+        wxArrayString files;           // positional file paths
+        bool newWindow = false;        // --new-window
+        bool verbose = false;          // --verbose
+        bool helpRequested = false;    // --help
         bool versionRequested = false; // --version
         bool parseFailed = false;
     };

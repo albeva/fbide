@@ -1,7 +1,7 @@
-#include "compiler/RunCommand.hpp"
-#include "compiler/QuoteUtils.hpp"
-#include <gtest/gtest.h>
 #include <wx/filename.h>
+#include <gtest/gtest.h>
+#include "compiler/QuoteUtils.hpp"
+#include "compiler/RunCommand.hpp"
 using namespace fbide;
 
 // RunCommand uses wxFileName internally, which normalizes path separators

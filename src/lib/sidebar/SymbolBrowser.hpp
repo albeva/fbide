@@ -42,7 +42,7 @@ private:
     /// Per-leaf lookup payload. `kind` selects which `SymbolTable` vector
     /// to read, `index` is the offset into that vector.
     struct Entry {
-        SymbolKind  kind;
+        SymbolKind kind;
         std::size_t index;
     };
 

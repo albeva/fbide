@@ -1,5 +1,5 @@
-#include "compiler/CompileCommand.hpp"
 #include <gtest/gtest.h>
+#include "compiler/CompileCommand.hpp"
 using namespace fbide;
 
 class CompileCommandTests : public testing::Test {};

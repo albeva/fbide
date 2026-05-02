@@ -4,10 +4,10 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "editor/lexilla/FBSciLexer.hpp"
+#include <gtest/gtest.h>
 #include "Scintilla.h"
 #include "analyses/lexer/MemoryDocument.hpp"
-#include <gtest/gtest.h>
+#include "editor/lexilla/FBSciLexer.hpp"
 
 using namespace fbide;
 using S = ThemeCategory;
@@ -18,15 +18,15 @@ protected:
         m_lexer = FBSciLexer::Create();
         // Set up keyword lists matching fbfull.lng groups
         // Indices map 1:1 to DEFINE_THEME_KEYWORD_GROUPS order.
-        m_lexer->WordListSet(0, "dim as if then else end sub function type asm"); // Keyword1
-        m_lexer->WordListSet(1, "integer string single double long byte");        // Keyword2
-        m_lexer->WordListSet(2, "and or not mod xor");                            // Keyword3
-        m_lexer->WordListSet(3, "__fb_version__");                                // Keyword4
-        m_lexer->WordListSet(4, "");                                              // KeywordCustom
-        m_lexer->WordListSet(5, "");                                              // KeywordCustom
+        m_lexer->WordListSet(0, "dim as if then else end sub function type asm");    // Keyword1
+        m_lexer->WordListSet(1, "integer string single double long byte");           // Keyword2
+        m_lexer->WordListSet(2, "and or not mod xor");                               // Keyword3
+        m_lexer->WordListSet(3, "__fb_version__");                                   // Keyword4
+        m_lexer->WordListSet(4, "");                                                 // KeywordCustom
+        m_lexer->WordListSet(5, "");                                                 // KeywordCustom
         m_lexer->WordListSet(6, "if ifdef ifndef else elseif endif macro endmacro"); // KeywordPP
-        m_lexer->WordListSet(7, "mov push pop ret jmp");                          // KeywordAsm1
-        m_lexer->WordListSet(8, "eax ebx ecx edx");                               // KeywordAsm2
+        m_lexer->WordListSet(7, "mov push pop ret jmp");                             // KeywordAsm1
+        m_lexer->WordListSet(8, "eax ebx ecx edx");                                  // KeywordAsm2
     }
 
     void TearDown() override {

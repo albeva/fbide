@@ -4,10 +4,10 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "TestHelpers.hpp"
+#include <gtest/gtest.h>
 #include "../src/lib/analyses/symbols/SymbolTable.hpp"
 #include "../src/lib/format/transformers/reformat/ReFormatter.hpp"
-#include <gtest/gtest.h>
+#include "TestHelpers.hpp"
 
 using namespace fbide;
 using namespace fbide::reformat;

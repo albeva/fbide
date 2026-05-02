@@ -54,7 +54,8 @@ auto fbide::lexer::structuralKeywordsList() -> const std::string& {
     static const std::string list = [] {
         std::string out;
         for (const auto& text : structuralKeywords() | std::views::keys) {
-            if (!out.empty()) out += ' ';
+            if (!out.empty())
+                out += ' ';
             out += text;
         }
         return out;

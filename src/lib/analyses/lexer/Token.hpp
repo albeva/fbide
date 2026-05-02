@@ -16,7 +16,7 @@ enum class TokenKind {
 #define CAT(NAME) NAME,
     DEFINE_THEME_KEYWORD_GROUPS(CAT)
 #undef CAT
-    Comment,            // ' single-line comment
+        Comment,        // ' single-line comment
     CommentBlock,       // /' nested multi-line comment '/
     String,             // "double-quoted string"
     UnterminatedString, // string missing closing quote
@@ -137,12 +137,12 @@ enum class OperatorKind : std::uint8_t {
     Question,     // ?
 
     // Assignment
-    Assign,       // =
+    Assign, // =
 
     // Arithmetic (binary)
-    Add,          // + (binary)
-    Subtract,     // - (binary)
-    Multiply,     // * (binary)
+    Add,      // + (binary)
+    Subtract, // - (binary)
+    Multiply, // * (binary)
 
     // Arithmetic (unary)
     Negate,      // - (unary)

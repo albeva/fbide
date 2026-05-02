@@ -4,11 +4,11 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "analyses/lexer/MemoryDocument.hpp"
-#include "analyses/lexer/StyledSource.hpp"
-#include "analyses/lexer/StyleLexer.hpp"
-#include "editor/lexilla/FBSciLexer.hpp"
 #include <gtest/gtest.h>
+#include "analyses/lexer/MemoryDocument.hpp"
+#include "analyses/lexer/StyleLexer.hpp"
+#include "analyses/lexer/StyledSource.hpp"
+#include "editor/lexilla/FBSciLexer.hpp"
 
 using namespace fbide;
 using namespace fbide::lexer;
@@ -166,23 +166,23 @@ TEST_F(StyleLexerTests, OperatorDispatchTable) {
         kinds.push_back(tok.operatorKind);
     }
     EXPECT_EQ(kinds, (std::vector<OperatorKind> {
-        OperatorKind::ParenOpen,
-        OperatorKind::ParenClose,
-        OperatorKind::Comma,
-        OperatorKind::Semicolon,
-        OperatorKind::Colon,
-        OperatorKind::Dot,
-        OperatorKind::Question,
-        OperatorKind::BracketOpen,
-        OperatorKind::BracketClose,
-        OperatorKind::BraceOpen,
-        OperatorKind::BraceClose,
-        OperatorKind::Assign,
-        OperatorKind::UnaryPlus,    // line-start → unary
-        OperatorKind::Negate,       // after UnaryPlus → unary
-        OperatorKind::Dereference,  // after Negate → unary
-        OperatorKind::AddressOf,    // always unary
-    }));
+                         OperatorKind::ParenOpen,
+                         OperatorKind::ParenClose,
+                         OperatorKind::Comma,
+                         OperatorKind::Semicolon,
+                         OperatorKind::Colon,
+                         OperatorKind::Dot,
+                         OperatorKind::Question,
+                         OperatorKind::BracketOpen,
+                         OperatorKind::BracketClose,
+                         OperatorKind::BraceOpen,
+                         OperatorKind::BraceClose,
+                         OperatorKind::Assign,
+                         OperatorKind::UnaryPlus,   // line-start → unary
+                         OperatorKind::Negate,      // after UnaryPlus → unary
+                         OperatorKind::Dereference, // after Negate → unary
+                         OperatorKind::AddressOf,   // always unary
+                     }));
 }
 
 TEST_F(StyleLexerTests, OperatorOtherFallback) {
@@ -306,7 +306,8 @@ TEST_F(StyleLexerTests, PreprocessorOnePerLine) {
     // Two PP tokens separated by Newline.
     std::size_t ppCount = 0;
     for (const auto& tok : t) {
-        if (tok.kind == TokenKind::Preprocessor) ppCount++;
+        if (tok.kind == TokenKind::Preprocessor)
+            ppCount++;
     }
     EXPECT_EQ(ppCount, 2u);
 }
@@ -340,9 +341,12 @@ TEST_F(StyleLexerTests, AsmBlockEndAsm) {
     //         Keyword1(end), Keyword1(asm)
     bool sawAsmKeyword1 = false, sawAsmAsm1Mov = false, sawAsmAsm2Eax = false;
     for (const auto& tok : t) {
-        if (tok.kind == TokenKind::Keywords && tok.text == "asm") sawAsmKeyword1 = true;
-        if (tok.kind == TokenKind::KeywordAsm1 && tok.text == "mov") sawAsmAsm1Mov = true;
-        if (tok.kind == TokenKind::KeywordAsm2 && tok.text == "eax") sawAsmAsm2Eax = true;
+        if (tok.kind == TokenKind::Keywords && tok.text == "asm")
+            sawAsmKeyword1 = true;
+        if (tok.kind == TokenKind::KeywordAsm1 && tok.text == "mov")
+            sawAsmAsm1Mov = true;
+        if (tok.kind == TokenKind::KeywordAsm2 && tok.text == "eax")
+            sawAsmAsm2Eax = true;
     }
     EXPECT_TRUE(sawAsmKeyword1);
     EXPECT_TRUE(sawAsmAsm1Mov);

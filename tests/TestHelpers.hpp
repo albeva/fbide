@@ -7,8 +7,8 @@
 #pragma once
 #include "analyses/lexer/KeywordTables.hpp"
 #include "analyses/lexer/MemoryDocument.hpp"
-#include "analyses/lexer/StyledSource.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
+#include "analyses/lexer/StyledSource.hpp"
 #include "analyses/lexer/Token.hpp"
 #include "config/ThemeCategory.hpp"
 #include "editor/lexilla/FBSciLexer.hpp"
@@ -41,7 +41,8 @@ inline auto createFbLexer(const wxString& kwIniPath) -> Scintilla::ILexer5* {
     auto pp = ini.Read("kwPP", "").Lower();
     if (pp.IsEmpty()) {
         for (const auto& [text, _] : lexer::ppKeywords()) {
-            if (!pp.IsEmpty()) pp += ' ';
+            if (!pp.IsEmpty())
+                pp += ' ';
             pp += wxString::FromUTF8(text);
         }
     }
