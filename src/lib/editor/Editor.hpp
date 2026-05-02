@@ -75,7 +75,8 @@ public:
 private:
     void onMarginClick(wxStyledTextEvent& event);
     void onModified(wxStyledTextEvent& event);
-    void onUpdateUI(wxStyledTextEvent& event);void postUpdateUI();
+    void onUpdateUI(wxStyledTextEvent& event);
+    void postUpdateUI();
     void onZoom(wxStyledTextEvent& event);
     void onCharAdded(wxStyledTextEvent& event);
     void onFocus(wxFocusEvent& event);

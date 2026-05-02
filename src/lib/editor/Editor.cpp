@@ -492,13 +492,16 @@ void Editor::onUpdateUI(wxStyledTextEvent& event) {
         return;
     }
 
-    if (not m_callPostUpdate) {
+    const bool selection = (event.GetUpdated() & wxSTC_UPDATE_SELECTION) != 0;
+    const bool content = (event.GetUpdated() & wxSTC_UPDATE_CONTENT) != 0;
+
+    if (not m_callPostUpdate && (selection || content)) {
         m_callPostUpdate = true;
         CallAfter(&Editor::postUpdateUI);
     }
 
     const int curr = GetCurrentPos();
-    if ((event.GetUpdated() & wxSTC_UPDATE_SELECTION) != 0) {
+    if (selection) {
         if (m_transformer != nullptr && curr != m_lastCaretPos) {
             m_editorLocked = true;
             m_transformer->onCaretMoved(*this, m_lastCaretPos);

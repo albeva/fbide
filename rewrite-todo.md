@@ -28,7 +28,7 @@
 
 - [x] Format dialog. Keyword case conversion tool.
 - [x] About dialog. Version and license info.
-- [ ] Sub/Function browser. Parse SUB/FUNCTION declarations, list with jump-to-definition.
+- [x] Sub/Function browser. Parse SUB/FUNCTION declarations, list with jump-to-definition.
 
 ## Help
 
