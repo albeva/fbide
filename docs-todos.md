@@ -17,17 +17,17 @@ build and zero new warnings.
 
 ## Phase 1 — Subpages (markdown only, no header comments yet)
 
-- [ ] `doxygen/architecture.md` — Context-as-locator, ownership graph, construction/destruction order, threading map.
-- [ ] `doxygen/commands.md` — command model, resolution chain table, `compile` worked example, enabled/forceDisabled state, dynamic ranges, recipe.
-- [ ] `doxygen/documents.md` — Document shape, DocumentManager pipelines, DocumentIO, FileSession, external-change + reload, recipe.
-- [ ] `doxygen/analyses.md` — pipeline ASCII diagram, threading & cancellation, wxString CoW pitfall, token+SymbolTable recycling, lexer stack, `#include` token shape, SymbolBrowser dispatch, recipe.
-- [ ] `doxygen/editor.md` — wxSTC subclass, theme/lexer wiring, on-type pipeline (`CodeTransformer`), AutoIndent, keyword case, folding, Ctrl+click `#include`, find/replace/goto, status-bar updates, recipe.
-- [ ] `doxygen/compiler.md` — players, single in-flight invariant, compile flow, QuickRun temp file, command-template variables, working-dir rule, error nav, fbc probe, log dialog markup, recipe.
-- [ ] `doxygen/format.md` — pipeline, lean mode, verbatim regions, AnchoredPP, renderer responsibilities, recipe (lexer/tree side cross-links to `analyses.md`).
-- [ ] `doxygen/settings.md` — tabs, `Page` enum + `create(initial)`, apply/save chain, ConfigManager categories, hot-reload, `--cfg` link, recipe.
-- [ ] `doxygen/theming.md` — Theme structure, ThemeCategory + DEFINE_THEME_* X-macros, ini/fbt loading, save round-trip, per-DocumentType apply, recipe.
-- [ ] `doxygen/ui.md` — UIManager build, freeze() RAII, SideBarManager, applyState, status bar field ownership.
-- [ ] Cross-link pass: every subpage references its sibling pages with `@ref`.
+- [x] `doxygen/architecture.md` — Context-as-locator, ownership graph, construction/destruction order, threading map.
+- [x] `doxygen/commands.md` — command model, resolution chain table, `compile` worked example, enabled/forceDisabled state, dynamic ranges, recipe.
+- [x] `doxygen/documents.md` — Document shape, DocumentManager pipelines, DocumentIO, FileSession, external-change + reload, recipe.
+- [x] `doxygen/analyses.md` — pipeline ASCII diagram, threading & cancellation, wxString CoW pitfall, token+SymbolTable recycling, lexer stack, `#include` token shape, SymbolBrowser dispatch, recipe.
+- [x] `doxygen/editor.md` — wxSTC subclass, theme/lexer wiring, on-type pipeline (`CodeTransformer`), AutoIndent, keyword case, folding, Ctrl+click `#include`, find/replace/goto, status-bar updates, recipe.
+- [x] `doxygen/compiler.md` — players, single in-flight invariant, compile flow, QuickRun temp file, command-template variables, working-dir rule, error nav, fbc probe, log dialog markup, recipe.
+- [x] `doxygen/format.md` — pipeline, lean mode, verbatim regions, AnchoredPP, renderer responsibilities, recipe (lexer/tree side cross-links to `analyses.md`).
+- [x] `doxygen/settings.md` — tabs, `Page` enum + `create(initial)`, apply/save chain, ConfigManager categories, hot-reload, `--cfg` link, recipe.
+- [x] `doxygen/theming.md` — Theme structure, ThemeCategory + DEFINE_THEME_* X-macros, ini/fbt loading, save round-trip, per-DocumentType apply, recipe.
+- [x] `doxygen/ui.md` — UIManager build, freeze() RAII, SideBarManager, applyState, status bar field ownership.
+- [x] Cross-link pass: every subpage references its sibling pages with `@ref`.
 
 ## Phase 2 — Manager headers (dependency order)
 
