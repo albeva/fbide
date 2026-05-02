@@ -182,25 +182,23 @@ auto App::OnInit() -> bool {
     if (cli.waitForPid > 0) {
         constexpr int maxWaitMs = 5000;
         constexpr int pollMs = 25;
-        for (int waited = 0;
-             waited < maxWaitMs && wxProcess::Exists(static_cast<int>(cli.waitForPid));
-             waited += pollMs) {
+        for (int waited = 0; waited < maxWaitMs && wxProcess::Exists(cli.waitForPid); waited += pollMs) {
             wxMilliSleep(pollMs);
         }
     }
 
     const auto fbidePath = getFbidePath();
 
-#if FBIDE_DEBUG_BUILD
-    wxLog::SetVerbose(true);
-    wxLogWindow* logWindow = make_unowned<wxLogWindow>(nullptr, "Debug Log", false, false);
-    wxLog::SetActiveTarget(logWindow);
-    if (cli.cfgKey.IsEmpty()) {
-        logWindow->Show();
-    }
-#else
+// #if FBIDE_DEBUG_BUILD
+    // wxLog::SetVerbose(true);
+    // wxLogWindow* logWindow = make_unowned<wxLogWindow>(nullptr, "Debug Log", false, false);
+    // wxLog::SetActiveTarget(logWindow);
+    // if (cli.cfgKey.IsEmpty()) {
+        // logWindow->Show();
+    // }
+// #else
     wxLog::SetActiveTarget(new wxLogStream(new std::ofstream((fbidePath / "app.log").ToStdString(), std::ios::app)));
-#endif
+// #endif
 
     // Construct context with parsed CLI overrides — `--ide` flows into
     // ConfigManager so subsequent config/locale/theme lookups resolve
@@ -307,7 +305,7 @@ auto App::parseCli() const -> CliOptions {
                 opts.parseFailed = true;
                 return opts;
             }
-            if (!args[index].ToLong(&opts.waitForPid) || opts.waitForPid <= 0) {
+            if (!args[index].ToInt(&opts.waitForPid) || opts.waitForPid <= 0) {
                 writeErrLine(wxString::Format("fbide: --wait-for-pid expected a positive integer, got '%s'", args[index]));
                 opts.parseFailed = true;
                 return opts;
@@ -449,21 +447,15 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
             wxEXEC_ASYNC
         );
 
-        // Run the close handler explicitly to persist window
-        // geometry / config / file history (mark documents
-        // not-modified so `prepareToQuit` doesn't re-prompt —
-        // FileSession already covered them), then `wxExit` to make
-        // sure the process actually terminates. `Close()` alone
-        // wasn't enough on debug builds where the floating
-        // `wxLogWindow` is a second top-level frame and prevents the
-        // wxApp main loop from exiting on main-frame destruction.
-        // `--wait-for-pid` on the spawned instance means it blocks
-        // until we're gone, so a hard exit here is the right call.
+        // TODO: this is bug. does not confirm if user actually saves the files
         for (const auto& doc : m_context->getDocumentManager().getDocuments()) {
             doc->setModified(false);
         }
-        m_context->getUIManager().getMainFrame()->Close(true);
-        wxExit();
+
+        auto* frame = m_context->getUIManager().getMainFrame();
+        frame->Close(true);
+        frame->Destroy();
+        Exit();
     });
 }
 

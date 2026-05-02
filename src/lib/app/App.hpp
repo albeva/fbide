@@ -66,7 +66,7 @@ private:
         wxString cfgKey;               ///< `--cfg=[<category>:]<key>` (non-empty → print + exit).
         wxString loadSession;          ///< `--load-session <path>` (load + delete the file on success).
         wxArrayString files;           ///< Positional file paths.
-        long waitForPid = 0;           ///< `--wait-for-pid <pid>` (0 = no wait).
+        int waitForPid = 0;           ///< `--wait-for-pid <pid>` (0 = no wait).
         bool newWindow = false;        ///< `--new-window`.
         bool verbose = false;          ///< `--verbose`.
         bool helpRequested = false;    ///< `--help`.
