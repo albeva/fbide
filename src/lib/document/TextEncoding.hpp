@@ -11,11 +11,15 @@
 
 namespace fbide {
 
-/// Text file encodings supported by the editor.
-/// Thin wrapper around the nested `Value` enum — holds a single `m_encoding`
-/// and provides codec/BOM/mapping helpers as instance methods. Implicit
-/// conversion from/to `Value` makes it interchangeable with plain enum
-/// constants (`TextEncoding enc = TextEncoding::UTF8`).
+/**
+ * Text file encodings supported by the editor.
+ *
+ * Thin wrapper around the nested `Value` enum — holds a single
+ * `m_encoding` and provides codec / BOM / mapping helpers as
+ * instance methods. Implicit conversion from/to `Value` makes it
+ * interchangeable with plain enum constants
+ * (`TextEncoding enc = TextEncoding::UTF8`).
+ */
 class TextEncoding {
 public:
     enum Value : int {

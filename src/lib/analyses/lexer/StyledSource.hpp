@@ -17,10 +17,15 @@ class wxStyledTextCtrl;
 
 namespace fbide::lexer {
 
-/// Read-only view over a styled source: bytes + per-byte style + per-line state.
-/// The new style-walking Lexer talks to this interface so it works against
-/// both a headless `MemoryDocument` (formatter / AutoIndent / tests) and a
-/// live `wxStyledTextCtrl` (in-editor on-type transforms).
+/**
+ * Read-only view over a styled source: bytes + per-byte style +
+ * per-line state.
+ *
+ * The style-walking `Lexer` talks to this interface so it works
+ * against both a headless `MemoryDocument` (formatter, AutoIndent,
+ * tests) and a live `wxStyledTextCtrl` (in-editor on-type
+ * transforms).
+ */
 class IStyledSource {
 public:
     virtual ~IStyledSource() = default;

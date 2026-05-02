@@ -21,7 +21,23 @@ class StyleContext;
 
 namespace fbide {
 
-/// Custom Scintilla lexer for FreeBASIC.
+/**
+ * Custom Scintilla lexer for FreeBASIC. Produces style runs over a
+ * `Scintilla::IDocument` (live editor or `MemoryDocument`) and folds
+ * blocks for the editor's fold margin.
+ *
+ * Per-line state (`LineState`) is packed into a single `int` and
+ * round-tripped through `IDocument::SetLineState` /
+ * `GetLineState` — Scintilla persists it per line, the lexer reads
+ * it on resume. `LineState` is exposed publicly so the analyses
+ * `IStyledSource` adapter can read it.
+ *
+ * The same lexer instance is reused across `Editor` (UI thread) and
+ * `IntellisenseService::m_lexer` (worker thread) — but never
+ * concurrently: each owner has its own instance.
+ *
+ * See @ref editor and @ref analyses.
+ */
 class FBSciLexer final : public Lexilla::DefaultLexer {
 public:
     FBSciLexer();

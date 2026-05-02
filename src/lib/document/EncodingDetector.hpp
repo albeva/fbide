@@ -10,10 +10,14 @@
 
 namespace fbide {
 
-/// Detects text encoding and line-ending style from raw byte buffers.
-/// Stateless — all entry points are static. Wraps wxWidgets BOM and
-/// UTF-8 validation primitives in a project-specific result shape that
-/// makes detection transparent to the caller (unlike wxConvAuto).
+/**
+ * Detects text encoding and line-ending style from raw byte buffers.
+ *
+ * Stateless — every entry point is static. Wraps wxWidgets BOM and
+ * UTF-8 validation primitives in a project-specific result shape
+ * that makes detection transparent to the caller (unlike
+ * `wxConvAuto`).
+ */
 class EncodingDetector {
 public:
     struct DetectionResult {

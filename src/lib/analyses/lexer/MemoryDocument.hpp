@@ -27,8 +27,17 @@ namespace fbide {
 #pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
 #endif
 
-/// In-memory implementation of `Scintilla::IDocument`. Holds text, per-byte
-/// style bytes, line starts, and per-line state/level. UTF-8 only.
+/**
+ * In-memory implementation of `Scintilla::IDocument`. Holds text,
+ * per-byte style bytes, line starts, and per-line state / level.
+ * UTF-8 only.
+ *
+ * Used to drive `FBSciLexer` outside the editor (formatter,
+ * AutoIndent, parity tests, intellisense worker).
+ *
+ * Lifted from Lexilla's `TestDocument` (Neil Hodgson, Scintilla
+ * license) and renamed/namespaced for fbide use.
+ */
 class MemoryDocument final : public Scintilla::IDocument {
     std::string m_text;
     std::string m_textStyles;

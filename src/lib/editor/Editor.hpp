@@ -13,15 +13,35 @@ namespace fbide {
 class Context;
 class CodeTransformer;
 
-/// Scintilla-based code editor.
+/**
+ * The text-editing widget — a `wxStyledTextCtrl` (Scintilla) subclass.
+ * One instance per `Document` plus one per Format-dialog preview pane.
+ *
+ * **Owns:** internal Scintilla state. `Editor` itself is wx-parented
+ * (notebook page or preview pane).
+ * **Threading:** UI thread only.
+ * **Per-DocumentType behaviour:** `applyTheme()` dispatches to a
+ * per-type method (`applyFreebasicTheme`, `applyHtmlTheme`, ...) which
+ * configures the lexer and style ids.
+ *
+ * See @ref editor.
+ */
 class Editor final : public wxStyledTextCtrl {
 public:
     NO_COPY_AND_MOVE(Editor)
 
-    /// Create editor as child of parent window for given document type.
-    /// `transformer` may be nullptr (preview editors). When non-null, it
-    /// receives EVT_STC_CHARADDED and applySettings calls.
-    /// If preview is true, hides all margins and decorations.
+    /**
+     * Construct an Editor as a child of `parent`.
+     *
+     * @param parent      wx-owning parent (notebook page or preview pane).
+     * @param ctx         Application context.
+     * @param transformer Shared on-type transformer. May be `nullptr`
+     *                    for preview editors — when non-null, `Editor`
+     *                    routes `EVT_STC_CHARADDED` and `applySettings`
+     *                    into it.
+     * @param type        Initial `DocumentType` (drives lexer + theme dispatch).
+     * @param preview     When true, hides every margin and decoration.
+     */
     Editor(
         wxWindow* parent,
         Context& ctx,

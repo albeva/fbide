@@ -85,32 +85,32 @@ Group 2.8 — App
 
 ## Phase 3 — Peripheral classes
 
-- [ ] `Editor.hpp`
-- [ ] `CodeTransformer.hpp`
-- [ ] `AutoIndent.hpp`
-- [ ] `EncodingDetector.hpp`
-- [ ] `TextEncoding.hpp`
-- [ ] `FBSciLexer.hpp`
-- [ ] `MemoryDocument.hpp`
-- [ ] `StyledSource.hpp`
-- [ ] `ui/controls/Panel.hpp`
-- [ ] `ui/controls/Layout.hpp`
-- [ ] Other `ui/controls/*.hpp` headers.
-- [ ] `settings/GeneralPage.hpp`
-- [ ] `settings/ThemePage.hpp`
-- [ ] `settings/KeywordsPage.hpp`
-- [ ] `settings/CompilerPage.hpp`
-- [ ] `analyses/lexer/Token.hpp`
-- [ ] `analyses/lexer/KeywordTables.hpp`
-- [ ] `analyses/lexer/VerbatimAnnotator.hpp`
-- [ ] `format/transformers/reformat/FormatTree.hpp`
-- [ ] `format/transformers/reformat/ReFormatter.hpp`
-- [ ] `format/transformers/reformat/TreeBuilder.hpp`
-- [ ] `format/transformers/reformat/Renderer.hpp`
-- [ ] `format/renderers/HtmlRenderer.hpp`
-- [ ] `format/transformers/case/CaseTransform.hpp`
+- [x] `Editor.hpp` — promoted to /** */ template.
+- [x] `CodeTransformer.hpp` (already /** */ — left as-is).
+- [x] `AutoIndent.hpp` (already /** */ on Decision struct — left as-is).
+- [x] `EncodingDetector.hpp` — promoted multi-line block.
+- [x] `TextEncoding.hpp` — promoted multi-line block.
+- [x] `FBSciLexer.hpp` — expanded class block.
+- [x] `MemoryDocument.hpp` — promoted multi-line block.
+- [x] `StyledSource.hpp` — promoted multi-line block.
+- [x] `ui/controls/Panel.hpp` (one-line brief — adequate).
+- [x] `ui/controls/Layout.hpp` (template helpers — adequate).
+- [x] Other `ui/controls/*.hpp` (adequate).
+- [x] `settings/GeneralPage.hpp` (one-line brief — adequate).
+- [x] `settings/ThemePage.hpp` (one-line brief — adequate).
+- [x] `settings/KeywordsPage.hpp` (one-line brief — adequate).
+- [x] `settings/CompilerPage.hpp` (one-line brief — adequate).
+- [x] `analyses/lexer/Token.hpp` (already well-documented).
+- [x] `analyses/lexer/KeywordTables.hpp` (data tables — adequate).
+- [x] `analyses/lexer/VerbatimAnnotator.hpp` (adequate).
+- [x] `format/transformers/reformat/FormatTree.hpp` (adequate).
+- [x] `format/transformers/reformat/ReFormatter.hpp` (already /** */).
+- [x] `format/transformers/reformat/TreeBuilder.hpp` (adequate).
+- [x] `format/transformers/reformat/Renderer.hpp` (adequate).
+- [x] `format/renderers/HtmlRenderer.hpp` (one-line brief — adequate).
+- [x] `format/transformers/case/CaseTransform.hpp` (adequate).
 
-- [ ] After Phase 3: rebuild docs target, fix warnings.
+- [ ] After Phase 3: rebuild docs target, fix warnings (deferred until Doxygen install).
 
 ## Phase 4 — Enums, helpers, internals
 
