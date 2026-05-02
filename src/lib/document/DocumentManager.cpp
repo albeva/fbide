@@ -355,6 +355,12 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
     // showSymbolsFor handles nullptr (clears) and dedups by shared_ptr.
     m_ctx.getSideBarManager().showSymbolsFor(getActive());
 
+    // Trim the IntellisenseService SymbolTable pool: the closed doc's
+    // shared_ptr just released, so any pool slot it held is now idle.
+    if (m_intellisense != nullptr) {
+        m_intellisense->prune();
+    }
+
     // Update UI state when no documents remain
     if (m_documents.empty()) {
         m_ctx.getUIManager().setDocumentState(UIState::None);

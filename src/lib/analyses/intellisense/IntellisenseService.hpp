@@ -49,6 +49,12 @@ public:
     /// must validate via DocumentManager::contains).
     void cancel(const Document* doc);
 
+    /// Drop excess idle entries from the SymbolTable pool. Keeps at most
+    /// one slot whose `use_count` is 1 (held only by the pool); evicts the
+    /// rest so capacity stays bounded after document closes. Slots still
+    /// referenced by a Document are untouched.
+    void prune();
+
     /// wxThreadHelper entry point. Runs on the worker thread.
     auto Entry() -> wxThread::ExitCode override;
 
@@ -59,6 +65,13 @@ private:
     };
 
     void process(Task task);
+
+    /// Acquire a SymbolTable slot from the pool: scan for an entry whose
+    /// `use_count` is 1 (held only by the pool — i.e. no Document or event
+    /// payload still references it) and return it. If none, allocate a new
+    /// slot and return that. Caller calls `repopulate()` on the returned
+    /// table before publishing it.
+    auto acquireSymbolTable() -> std::shared_ptr<SymbolTable>;
 
     Context& m_ctx;
     wxEvtHandler* m_sink;
@@ -80,6 +93,13 @@ private:
     /// Set by the worker right before processing; cleared on completion or
     /// by `cancel`. When cleared mid-parse the worker drops the result.
     std::atomic<const Document*> m_inFlight { nullptr };
+
+    /// Pool of recyclable SymbolTable instances. Guarded by `m_mtx`.
+    /// A slot's `use_count` doubles as a liveness flag: 1 means only the
+    /// pool holds it (idle, reusable); >1 means a Document or in-flight
+    /// event payload still reads it. Pool grows as needed and is trimmed
+    /// by `prune()` on document close.
+    std::vector<std::shared_ptr<SymbolTable>> m_pool;
 };
 
 } // namespace fbide

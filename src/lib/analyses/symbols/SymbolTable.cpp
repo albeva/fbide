@@ -45,7 +45,7 @@ auto hashIncludes(std::size_t seed, const std::vector<Include>& vec) -> std::siz
 /// and the path is the first quoted span inside the token text.
 struct IncludeMatch {
     wxString path;
-    int      line = 0;
+    int line = 0;
 };
 
 auto detectInclude(const std::vector<Token>& tokens) -> std::optional<IncludeMatch> {
@@ -68,6 +68,7 @@ auto detectInclude(const std::vector<Token>& tokens) -> std::optional<IncludeMat
     if (open == std::string_view::npos) {
         return std::nullopt;
     }
+
     const char quote = text[open];
     const auto close = text.find(quote, open + 1);
     if (close == std::string_view::npos) {
@@ -112,6 +113,10 @@ auto findWordlikeAfter(const std::vector<Token>& tokens, std::size_t start) -> c
 } // namespace
 
 SymbolTable::SymbolTable(const ProgramTree& tree) {
+    populate(tree);
+}
+
+void SymbolTable::populate(const ProgramTree& tree) {
     walkNodes(tree.nodes);
     collectIncludes(tree.nodes);
     computeHash();
@@ -148,12 +153,20 @@ void SymbolTable::tryAddInclude(const std::vector<Token>& tokens) {
     }
 }
 
+void SymbolTable::reset() {
+    m_subs.clear();
+    m_functions.clear();
+    m_types.clear();
+    m_unions.clear();
+    m_enums.clear();
+    m_includes.clear();
+}
+
 void SymbolTable::walkNodes(const std::vector<Node>& nodes) {
     for (const auto& node : nodes) {
         if (const auto* block = std::get_if<std::unique_ptr<BlockNode>>(&node)) {
             walkBlock(**block);
         }
-        // BlankLineNode, StatementNode, VerbatimNode are not declaration sites.
     }
 }
 
@@ -181,20 +194,18 @@ void SymbolTable::walkBlock(const BlockNode& block) {
         emit(SymbolKind::Enum, openerTokens, first.index);
         break;
     case KeywordKind::Namespace:
-        // Recurse: namespaced declarations surface as flat entries for now.
         walkNodes(block.body);
         break;
     default:
-        // Control-flow scopes (Do/For/While/If/Scope/Asm/Constructor/...)
-        // don't contribute to the table. Body is also not walked: nested
-        // declarations only matter inside Namespace.
         break;
     }
 }
 
-void SymbolTable::emit(SymbolKind kind,
+void SymbolTable::emit(
+    const SymbolKind kind,
     const std::vector<Token>& opener,
-    std::size_t keywordIdx) {
+    const std::size_t keywordIdx
+) {
     const Token* name = findWordlikeAfter(opener, keywordIdx + 1);
     if (name == nullptr) {
         return; // anonymous — skip
@@ -205,12 +216,23 @@ void SymbolTable::emit(SymbolKind kind,
         .line = opener.empty() ? 0 : opener.front().line,
     };
     switch (kind) {
-    case SymbolKind::Sub:      m_subs.push_back(std::move(sym)); break;
-    case SymbolKind::Function: m_functions.push_back(std::move(sym)); break;
-    case SymbolKind::Type:     m_types.push_back(std::move(sym)); break;
-    case SymbolKind::Union:    m_unions.push_back(std::move(sym)); break;
-    case SymbolKind::Enum:     m_enums.push_back(std::move(sym)); break;
-    case SymbolKind::Include:  break; // includes go through tryAddInclude
+    case SymbolKind::Sub:
+        m_subs.push_back(std::move(sym));
+        break;
+    case SymbolKind::Function:
+        m_functions.push_back(std::move(sym));
+        break;
+    case SymbolKind::Type:
+        m_types.push_back(std::move(sym));
+        break;
+    case SymbolKind::Union:
+        m_unions.push_back(std::move(sym));
+        break;
+    case SymbolKind::Enum:
+        m_enums.push_back(std::move(sym));
+        break;
+    case SymbolKind::Include:
+        break; // includes go through tryAddInclude
     }
 }
 

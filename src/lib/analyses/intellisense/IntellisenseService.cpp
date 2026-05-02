@@ -74,6 +74,32 @@ void IntellisenseService::cancel(const Document* doc) {
     m_inFlight.compare_exchange_strong(expected, nullptr);
 }
 
+void IntellisenseService::prune() {
+    wxMutexLocker lock(m_mtx);
+    bool keptIdle = false;
+    std::erase_if(m_pool, [&keptIdle](const std::shared_ptr<SymbolTable>& slot) {
+        if (slot.use_count() > 1) {
+            return false; // still referenced — keep
+        }
+        if (!keptIdle) {
+            keptIdle = true;
+            return false; // keep one idle slot ready for next parse
+        }
+        return true;
+    });
+}
+
+auto IntellisenseService::acquireSymbolTable() -> std::shared_ptr<SymbolTable> {
+    wxMutexLocker lock(m_mtx);
+    for (auto& slot : m_pool) {
+        if (slot.use_count() == 1) {
+            slot->reset();
+            return slot;
+        }
+    }
+    return m_pool.emplace_back(std::make_shared<SymbolTable>());
+}
+
 auto IntellisenseService::Entry() -> wxThread::ExitCode {
     auto* thread = GetThread();
     while (true) {
@@ -128,7 +154,11 @@ void IntellisenseService::process(Task task) {
         return;
     }
 
-    auto symbols = std::make_shared<SymbolTable>(tree);
+    // Reuse a pooled SymbolTable when one is idle (no Document holds it),
+    // otherwise grow the pool. Repopulate runs in place — vector capacity
+    // is preserved across parses, cutting per-keystroke allocations.
+    auto symbols = acquireSymbolTable();
+    symbols->populate(tree);
 
     // Atomic check + clear: only deliver if no cancel hit between dispatch
     // and now. Don't post for documents the UI has since dropped.

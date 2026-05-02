@@ -53,6 +53,11 @@ public:
     SymbolTable() = default;
     explicit SymbolTable(const reformat::ProgramTree& tree);
 
+    /// Clear all vectors (keeping their capacity) and rewalk `tree`. Used by
+    /// `IntellisenseService` to recycle a pooled instance instead of
+    /// allocating a fresh one on every parse.
+    void populate(const reformat::ProgramTree& tree);
+
     [[nodiscard]] auto getSubs() const -> const std::vector<Symbol>& { return m_subs; }
     [[nodiscard]] auto getFunctions() const -> const std::vector<Symbol>& { return m_functions; }
     [[nodiscard]] auto getTypes() const -> const std::vector<Symbol>& { return m_types; }
@@ -68,6 +73,9 @@ public:
     /// canonical (subs, functions, types, unions, enums, includes) order.
     /// Drives browser UI dedup.
     [[nodiscard]] auto getHash() const -> std::size_t { return m_hash; }
+
+    /// Reset the table, while preserving allocated memory
+    void reset();
 
 private:
     void walkNodes(const std::vector<reformat::Node>& nodes);
