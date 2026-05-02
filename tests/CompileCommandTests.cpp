@@ -21,10 +21,10 @@ TEST_F(CompileCommandTests, PreserveAlreadyEscapedQuotes) {
     EXPECT_EQ(cmd.build(R"("<$fbc>" "<$file>")", "/usr/bin/fbc"), R"("/usr/bin/fbc" "say \"hello\".bas")");
 }
 
-TEST_F(CompileCommandTests, WindowsPaths) {
-    const auto cmd = CompileCommand::makeDefault(R"(D:\My Projects\main.bas)");
-    EXPECT_EQ(cmd.build(R"("<$fbc>" "<$file>")", R"(C:\FreeBASIC\fbc.exe)"),
-        R"("C:\FreeBASIC\fbc.exe" "D:\My Projects\main.bas")");
+TEST_F(CompileCommandTests, PathsWithSpaces) {
+    const auto cmd = CompileCommand::makeDefault("/home/user/My Projects/main.bas");
+    EXPECT_EQ(cmd.build(R"("<$fbc>" "<$file>")", "/usr/local/bin/fbc"),
+        R"("/usr/local/bin/fbc" "/home/user/My Projects/main.bas")");
 }
 
 TEST_F(CompileCommandTests, CustomTemplate) {

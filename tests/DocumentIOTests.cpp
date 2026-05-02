@@ -107,7 +107,7 @@ TEST_F(DocumentIOTests, LoadAsciiFallsBackToDefault) {
 }
 
 TEST_F(DocumentIOTests, LoadReturnsNulloptOnMissingFile) {
-    const auto result = DocumentIO::load("C:/this/file/does/not/exist.bas", kUtf8, kLf);
+    const auto result = DocumentIO::load("does/not/exist.bas", kUtf8, kLf);
     EXPECT_FALSE(result.has_value());
 }
 

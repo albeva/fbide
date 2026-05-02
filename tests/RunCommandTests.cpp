@@ -40,9 +40,11 @@ TEST_F(RunCommandTests, EmptyParameters) {
         wxString::Format(R"(xterm "%s")", expected));
 }
 
-TEST_F(RunCommandTests, WindowsPath) {
-    const auto cmd = RunCommand::makeDefault(R"(C:\Projects\hello.exe)");
-    EXPECT_EQ(cmd.build(R"("<$file>" <$param>)", "", "-arg1"), R"("C:\Projects\hello.exe" -arg1)");
+TEST_F(RunCommandTests, PathWithSpaces) {
+    const auto expected = nativePath("/home/user/My Projects/hello.exe");
+    const auto cmd = RunCommand::makeDefault("/home/user/My Projects/hello.exe");
+    EXPECT_EQ(cmd.build(R"("<$file>" <$param>)", "", "-arg1"),
+        wxString::Format(R"("%s" -arg1)", expected));
 }
 
 TEST_F(RunCommandTests, EscapeInnerQuotes) {
