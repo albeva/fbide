@@ -418,18 +418,30 @@ void App::openFiles(const wxArrayString& files) {
 
 void App::scheduleRestart(std::function<void()> commitConfig) {
     CallAfter([this, commit = std::move(commitConfig)]() {
-        // Save the open documents to a temp session that the
-        // replacement process will load via `--load-session`. If the
-        // user cancels an in-flight save dialog, FileSession returns
-        // false and we abort — locale (or any other deferred config
-        // change) stays unchanged.
-        const auto sessionPath = m_context->getConfigManager().getIdeDir() / "restart-session.fbs";
+        // Snapshot the open documents to an OS temp file. The new
+        // instance picks it up via `--load-session` and removes it on
+        // success. Using the platform temp dir (instead of the IDE
+        // resources dir) keeps the spec-compliant session lifecycle
+        // local to OS scratch space.
+        const auto sessionPath = wxFileName::CreateTempFileName("fbide_session");
         if (!m_context->getFileSession().save(sessionPath)) {
+            // FileSession's own modified-file save loop was cancelled.
+            wxRemoveFile(sessionPath);
+            return;
+        }
+
+        // Now ask the user to close every document. This raises the
+        // standard "Save / Don't Save / Cancel" prompt for any still-
+        // modified buffer (notably untitled ones, which FileSession
+        // skipped). A Cancel here aborts the restart entirely so the
+        // user keeps editing — drop the session file we just wrote.
+        if (!m_context->getDocumentManager().closeAllFiles()) {
+            wxRemoveFile(sessionPath);
             return;
         }
 
         // Apply any in-memory config changes the caller wanted to
-        // commit only on a confirmed restart.
+        // commit only on a confirmed restart (e.g. locale path swap).
         if (commit) {
             commit();
         }
@@ -441,16 +453,11 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
         const auto exe = wxStandardPaths::Get().GetExecutablePath();
         wxExecute(
             wxString::Format(
-                R"("%s" --new-window --wait-for-pid %lu --load-session "%s")",
-                exe, wxGetProcessId(), sessionPath
+                R"("%s" --new-window --wait-for-pid %d --load-session "%s")",
+                exe, static_cast<int>(wxGetProcessId()), sessionPath
             ),
             wxEXEC_ASYNC
         );
-
-        // TODO: this is bug. does not confirm if user actually saves the files
-        for (const auto& doc : m_context->getDocumentManager().getDocuments()) {
-            doc->setModified(false);
-        }
 
         auto* frame = m_context->getUIManager().getMainFrame();
         frame->Close(true);
