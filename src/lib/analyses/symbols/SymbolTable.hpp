@@ -39,15 +39,28 @@ struct Include {
     int      line = 0;
 };
 
-/// Per-document table of captured declarations. Vectors are filled in source
-/// order. `hash` lets consumers (UI) skip work when nothing meaningful changed
-/// between two parses.
-///
-/// Construct directly from a (lean) `ProgramTree`. The walk captures
-/// top-level Sub / Function / Type / Union / Enum, recurses into Namespace
-/// bodies (flat list — no qualified names for now), skips anonymous
-/// declarations, and intentionally ignores Constructor / Destructor /
-/// Operator at this stage.
+/**
+ * Per-document table of captured declarations.
+ *
+ * Vectors are filled in source order; `m_hash` is a stable hash over
+ * (kind, name) pairs only (line numbers do not participate) so
+ * consumers can skip rebuilds when nothing meaningful changed between
+ * two parses.
+ *
+ * Constructed directly from a (lean) `ProgramTree`. The walk:
+ *
+ * - Captures top-level Sub / Function / Type / Union / Enum.
+ * - Recurses into Namespace bodies (flat list — no qualified names
+ *   for now).
+ * - Skips anonymous declarations.
+ * - Intentionally ignores Constructor / Destructor / Operator at
+ *   this stage.
+ *
+ * Pooled by `IntellisenseService` — `populate` rewalks while keeping
+ * vector capacities, and `reset` clears without freeing.
+ *
+ * See @ref analyses.
+ */
 class SymbolTable final {
 public:
     SymbolTable() = default;

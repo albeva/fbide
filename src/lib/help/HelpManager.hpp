@@ -13,7 +13,14 @@
 namespace fbide {
 class Context;
 
-/// Manages help system — CHM viewer on Windows, web browser fallback elsewhere.
+/**
+ * Help dispatcher: opens the FreeBASIC manual via CHM on Windows or
+ * the web wiki on other platforms.
+ *
+ * **Owns:** the lazy `wxCHMHelpController` (Windows only).
+ * **Owned by:** `Context`.
+ * **Threading:** UI thread only.
+ */
 class HelpManager final {
 public:
     NO_COPY_AND_MOVE(HelpManager)

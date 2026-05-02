@@ -12,11 +12,19 @@ namespace fbide {
 class Context;
 class Document;
 
-/// Sub/Function tree tab. A wxTreeCtrl subclass parented to the sidebar
-/// notebook, so the static event table dispatches directly without any
-/// PushEventHandler dance — no teardown-order races during frame close.
-/// Renders a `Document`'s `SymbolTable`; activating a leaf jumps the active
-/// editor to that line and scrolls it to the top of the viewport.
+/**
+ * Sub/Function tree tab — a `wxTreeCtrl` subclass parented to the
+ * sidebar notebook. Renders a `Document`'s `SymbolTable`; activating
+ * a leaf jumps the active editor to that line and scrolls it to the
+ * top of the viewport.
+ *
+ * Subclassing the control directly (rather than `PushEventHandler`)
+ * means the static event table dispatches without an extra handler
+ * pushed onto the wx stack — no teardown-order races during frame
+ * close.
+ *
+ * See @ref analyses.
+ */
 class SymbolBrowser final : public wxTreeCtrl {
 public:
     NO_COPY_AND_MOVE(SymbolBrowser)

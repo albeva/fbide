@@ -12,8 +12,22 @@
 namespace fbide {
 class Context;
 
-/// Routes menu and toolbar commands to the appropriate managers.
-/// Thin handler — no logic, just dispatch.
+/**
+ * Owns the application-wide command table and routes `wxEVT_MENU`
+ * events to per-command handlers. Each `CommandEntry` carries a
+ * stable internal name, a `CommandId` enum value, and zero or more
+ * UI bindings (menu item, toolbar tool, AUI pane, config toggle).
+ *
+ * **Owns:** `m_namedCommands` (string-keyed) + `m_idNames`
+ * (id-keyed) + the dynamic external-link id mapping.
+ * **Owned by:** `Context` — declared *last* so handlers can call
+ * into any other manager.
+ * **Threading:** UI thread only.
+ * **Logic:** intentionally thin — every handler dispatches into
+ * the appropriate manager via `m_ctx`.
+ *
+ * See @ref commands.
+ */
 class CommandManager final : public wxEvtHandler {
 public:
     NO_COPY_AND_MOVE(CommandManager)

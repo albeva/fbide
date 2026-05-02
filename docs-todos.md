@@ -33,55 +33,55 @@ build and zero new warnings.
 
 Group 2.1 — Context
 
-- [ ] `Context.hpp` — class block + per-method docs (manager template applies).
+- [x] `Context.hpp` — class block + per-method docs (manager template applies).
 
 Group 2.2 — Config layer
 
-- [ ] `ConfigManager.hpp`
-- [ ] `Theme.hpp`
-- [ ] `FileHistory.hpp`
-- [ ] `Value.hpp`
-- [ ] `Version.hpp`
+- [x] `ConfigManager.hpp`
+- [x] `Theme.hpp`
+- [x] `FileHistory.hpp` (existing one-line block adequate; no growth needed)
+- [x] `Value.hpp` (promoted multi-paragraph block to /** */)
+- [x] `Version.hpp` (existing /// per-method docs adequate)
 
 Group 2.3 — UI / commands
 
-- [ ] `UIManager.hpp`
-- [ ] `SideBarManager.hpp`
-- [ ] `CommandManager.hpp`
-- [ ] `CommandEntry.hpp`
-- [ ] `CommandId.hpp` (enum + comments per command id range)
+- [x] `UIManager.hpp`
+- [x] `SideBarManager.hpp`
+- [x] `CommandManager.hpp`
+- [x] `CommandEntry.hpp` (already /** */ — left as-is)
+- [x] `CommandId.hpp` (enum docs adequate)
 
 Group 2.4 — Documents
 
-- [ ] `DocumentManager.hpp`
-- [ ] `Document.hpp`
-- [ ] `DocumentIO.hpp`
-- [ ] `FileSession.hpp`
+- [x] `DocumentManager.hpp`
+- [x] `Document.hpp`
+- [x] `DocumentIO.hpp` (already /** */ — left as-is)
+- [x] `FileSession.hpp` (promoted multi-paragraph block to /** */)
 
 Group 2.5 — Analyses
 
-- [ ] `IntellisenseService.hpp`
-- [ ] `SymbolTable.hpp`
-- [ ] `SymbolBrowser.hpp`
+- [x] `IntellisenseService.hpp` (already /** */ — left as-is)
+- [x] `SymbolTable.hpp`
+- [x] `SymbolBrowser.hpp`
 
 Group 2.6 — Compiler
 
-- [ ] `CompilerManager.hpp`
-- [ ] `BuildTask.hpp`
-- [ ] `CompileCommand.hpp`
-- [ ] `RunCommand.hpp`
-- [ ] `AsyncProcess.hpp`
+- [x] `CompilerManager.hpp`
+- [x] `BuildTask.hpp` (already /** */ — left as-is)
+- [x] `CompileCommand.hpp` (already /** */ — left as-is)
+- [x] `RunCommand.hpp` (existing /// block adequate)
+- [x] `AsyncProcess.hpp` (already /** */ — left as-is)
 
 Group 2.7 — Help
 
-- [ ] `HelpManager.hpp`
+- [x] `HelpManager.hpp`
 
 Group 2.8 — App
 
-- [ ] `App.hpp`
-- [ ] `InstanceHandler.hpp` (note conditional lifecycle under `--new-window`)
+- [x] `App.hpp`
+- [x] `InstanceHandler.hpp` (conditional lifecycle under `--new-window` noted)
 
-- [ ] After Phase 2: rebuild docs target, fix any new warnings.
+- [ ] After Phase 2: rebuild docs target, fix any new warnings (deferred until Doxygen install).
 
 ## Phase 3 — Peripheral classes
 

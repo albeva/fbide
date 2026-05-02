@@ -10,10 +10,17 @@
 namespace fbide {
 class Context;
 
-/// Ensures only one instance of FBIde runs at a time.
-/// If another instance is already running, sends file paths
-/// to it via IPC and exits. Otherwise, starts an IPC server
-/// to receive file paths from future launch attempts.
+/**
+ * Single-instance gate. On startup the handler checks whether another
+ * FBIde is already running; if so it forwards the CLI file list over
+ * IPC and the new process exits. Otherwise it starts an IPC server
+ * so future launches can forward to *this* process.
+ *
+ * **Owned by:** `App` (not `Context`) — conditional state.
+ *   Skipped entirely when the user passes `--new-window`.
+ * **Threading:** UI thread only; IPC callbacks are dispatched onto
+ * the UI thread by wx.
+ */
 class InstanceHandler final {
 public:
     NO_COPY_AND_MOVE(InstanceHandler)

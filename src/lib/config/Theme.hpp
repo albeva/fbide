@@ -30,6 +30,23 @@ namespace fbide {
     _( FontSize,   fontSize,   int       ) \
     DEFINE_THEME_EXTRA_PROPERTY(_)
 
+/**
+ * Editor color theme — per-`ThemeCategory` styling plus top-level
+ * properties (font, separator, line numbers, selection, fold margin,
+ * brace match).
+ *
+ * Schema is fixed; `ThemeCategory` and the X-macros at the top of this
+ * header generate the enum, accessors, and load/save in lock-step. To
+ * add a new style slot, add one line to `DEFINE_THEME_CATEGORY` (or
+ * one line to `DEFINE_THEME_PROPERTY` for a new top-level field).
+ *
+ * **Owned by:** `ConfigManager` (outside the `Value` tree because of
+ * the typed schema).
+ * **Files:** canonical `.ini` (v5+); legacy `.fbt` (v4) is read-only
+ * and migrated through a v5 save.
+ *
+ * See @ref theming.
+ */
 class Theme final {
 public:
     // Default plumbing

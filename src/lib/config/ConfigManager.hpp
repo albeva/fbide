@@ -12,6 +12,25 @@
 
 namespace fbide {
 
+/**
+ * Multi-file INI store + path resolver.
+ *
+ * Five categories (`config`, `locale`, `shortcuts`, `keywords`,
+ * `layout`) each back a separate file but share one Value tree shape.
+ * Reads are typed via `Value::value_or` / `get_or`; writes mutate the
+ * tree and `save(category)` flushes one category to disk. The active
+ * editor `Theme` is held directly (typed schema, not `Value`).
+ *
+ * **Owns:** the five `Value` trees + the active `Theme`.
+ * **Owned by:** `Context` (constructed first, destroyed last).
+ * **Threading:** UI thread only.
+ * **Lifecycle:** `App::OnInit` builds it with the resolved binary,
+ * IDE, and config paths; `reloadConfig` / `setCategoryPath` rotate
+ * a single file at runtime.
+ *
+ * See @ref settings for the user-facing edit chain and hot-reload
+ * cascade.
+ */
 class ConfigManager final {
 public:
     NO_COPY_AND_MOVE(ConfigManager)

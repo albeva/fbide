@@ -9,30 +9,34 @@
 
 namespace fbide {
 
-/// A configuration node.
-///
-/// Value owns its subtree. Move-only — always capture by reference from
-/// a `ConfigManager` accessor.
-///
-/// State (std::variant):
-///   - monostate   — invalid / empty
-///   - wxString    — leaf value
-///   - Group       — ordered children
-///
-/// Path syntax: dot-separated keys, e.g. "editor.tabSize". Empty path =
-/// current node.
-///
-/// Typical usage:
-///
-///     auto& cfg = ctx.getConfigManager().config();
-///     const auto& editor = cfg.at("editor");
-///     const auto tabSize = editor.get_or("tabSize", 4);
-///     const auto name    = editor.get_or("title", "Editor");
-///
-/// Writes auto-create intermediate groups:
-///
-///     cfg["window"]["x"] = 100;
-///     cfg["compiler"]["path"] = wxString{"fbc.exe"};
+/**
+ * A configuration node.
+ *
+ * `Value` owns its subtree. Move-only — always capture by reference
+ * from a `ConfigManager` accessor.
+ *
+ * State (`std::variant`):
+ *   - `monostate` — invalid / empty
+ *   - `wxString`  — leaf value
+ *   - `Table`     — ordered children
+ *
+ * Path syntax: dot-separated keys, e.g. `"editor.tabSize"`. Empty
+ * path = current node.
+ *
+ * @code{.cpp}
+ * auto& cfg = ctx.getConfigManager().config();
+ * const auto& editor = cfg.at("editor");
+ * const auto tabSize = editor.get_or("tabSize", 4);
+ * const auto name    = editor.get_or("title", "Editor");
+ * @endcode
+ *
+ * Writes auto-create intermediate groups:
+ *
+ * @code{.cpp}
+ * cfg["window"]["x"] = 100;
+ * cfg["compiler"]["path"] = wxString{"fbc.exe"};
+ * @endcode
+ */
 class Value final {
 public:
     /// Child nodes. Unordered lookup — wxFileConfig handles output

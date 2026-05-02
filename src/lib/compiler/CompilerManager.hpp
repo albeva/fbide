@@ -12,8 +12,22 @@ class BuildTask;
 class Document;
 class Context;
 
-/// Manages compiler interaction: validates documents, resolves
-/// the compiler, and delegates to BuildTask for execution.
+/**
+ * Owns FBIde's relationship with `fbc`: the compile / run / quickrun
+ * commands, the compiler probe, the runtime parameters, and the
+ * single in-flight `BuildTask`.
+ *
+ * **Owns:** the current `m_task` (`unique_ptr<BuildTask>`), cached
+ * `m_fbcVersion`, and runtime `m_parameters`.
+ * **Owned by:** `Context`.
+ * **Threading:** UI thread only. `BuildTask` spawns `AsyncProcess`,
+ * which is async with a UI-thread callback — there is no
+ * compiler-side worker.
+ * **Single in-flight:** replacing `m_task` deletes the previous task
+ * and aborts any process it had spawned. Two builds cannot race.
+ *
+ * See @ref compiler.
+ */
 class CompilerManager final {
 public:
     NO_COPY_AND_MOVE(CompilerManager)

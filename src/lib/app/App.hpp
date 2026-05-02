@@ -11,7 +11,17 @@
 
 namespace fbide {
 
-/// Main application class. Manages the application lifecycle.
+/**
+ * Application entry point. Drives the startup pipeline: parse CLI,
+ * configure logging, build `Context`, handle `--cfg` / single-instance
+ * forwarding, then create the main frame and open positional files.
+ *
+ * **Owns:** the singular `Context` and the conditional
+ * `InstanceHandler` (skipped under `--new-window`).
+ * **Threading:** UI thread only.
+ *
+ * See @ref architecture for the full lifecycle.
+ */
 class App final : public wxApp {
 public:
     NO_COPY_AND_MOVE(App)

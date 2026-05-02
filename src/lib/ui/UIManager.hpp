@@ -36,8 +36,24 @@ private:
     wxWindow* m_wnd;
 };
 
-/// Manages the main application UI: frame, menus, toolbar, statusbar, layout.
-/// Does not handle command logic — that is CommandManager's responsibility.
+/**
+ * Builds and owns the main application chrome: frame, menus, toolbar,
+ * status bar, AUI dock, document notebook, sidebar notebook, and the
+ * output console. Does not implement any command logic — handlers
+ * live on `CommandManager`.
+ *
+ * **Owns:** every wx control attached to the main frame plus the
+ * `ArtiProvider` and the lazy `CompilerLog` dialog.
+ * **Owned by:** `Context`.
+ * **Threading:** UI thread only.
+ * **State model:** carries two `UIState` slots — `m_documentState`
+ * (set by DocumentManager from tab focus) and `m_compilerState`
+ * (set by CompilerManager from build lifecycle). Compiler state
+ * takes precedence; `applyState` translates the effective state into
+ * `enabled` flags on `mutableIds[]`. See @ref commands.
+ *
+ * See @ref ui.
+ */
 class UIManager final : public wxEvtHandler {
 public:
     NO_COPY_AND_MOVE(UIManager)

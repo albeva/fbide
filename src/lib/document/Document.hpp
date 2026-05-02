@@ -14,7 +14,22 @@ namespace fbide {
 class Context;
 class Editor;
 
-/// Represents a single open document with its editor widget.
+/**
+ * One open file (or untitled buffer): editor widget plus the metadata
+ * that lets us round-trip to disk — path, type, encoding, EOL,
+ * mod-time, latest symbol table.
+ *
+ * **Owns:** the wx-parented `Editor` widget (`Unowned<Editor>`) plus
+ * the `shared_ptr<const SymbolTable>` published by intellisense.
+ * **Owned by:** `DocumentManager` via `unique_ptr<Document>`.
+ * **Lifetime:** matches the notebook tab.
+ *
+ * `m_metaModified` tracks encoding/EOL changes separately from the
+ * editor's own dirty bit so metadata-only edits round-trip through
+ * "modified" → "saved" the same way text edits do.
+ *
+ * See @ref documents.
+ */
 class Document final {
 public:
     NO_COPY_AND_MOVE(Document)

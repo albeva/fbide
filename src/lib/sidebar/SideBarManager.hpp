@@ -15,12 +15,22 @@ class Context;
 class Document;
 class SymbolBrowser;
 
-/// Manages the sidebar (Browser) pane content. The pane and its notebook are
-/// owned by `UIManager`; SideBarManager populates the notebook with tabs and
-/// drives their behaviour.
-///
-/// First cut: a single "Browse Files" tab wrapping wxGenericDirCtrl. The
-/// notebook is ready for additional tabs (Sub/Function tree, list) later.
+/**
+ * Populates the Browser sidebar notebook with tabs (Browse Files,
+ * Sub/Function tree) and drives their behaviour.
+ *
+ * **Owns:** the tab content (wx-parented to the notebook) plus the
+ * cached `wxGenericDirCtrl*` and `SymbolBrowser*`.
+ * **Owned by:** `Context`. Declared *after* `UIManager` so destruction
+ * runs first — its non-owning pointer to the sidebar `wxAuiNotebook`
+ * (owned by the frame UIManager destroys) cannot dangle.
+ * **Threading:** UI thread only.
+ * **Init:** two-phase. Constructor runs early during Context build;
+ * `attach(notebook)` lands later from `UIManager::createLayout`
+ * once the notebook exists.
+ *
+ * See @ref ui and @ref architecture.
+ */
 class SideBarManager final : public wxEvtHandler {
 public:
     NO_COPY_AND_MOVE(SideBarManager)

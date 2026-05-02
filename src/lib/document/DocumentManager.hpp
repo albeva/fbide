@@ -15,8 +15,23 @@ class Context;
 class CodeTransformer;
 class IntellisenseService;
 
-/// Manages open documents and their notebook tabs.
-/// Extends wxEvtHandler to receive find/replace dialog events.
+/**
+ * Owns every open `Document`, drives the open / save / close
+ * pipelines, and brokers cross-cutting state — the find / replace
+ * dialog, the shared on-type `CodeTransformer`, and the background
+ * `IntellisenseService`.
+ *
+ * **Owns:** `m_documents` (vector of `unique_ptr<Document>`),
+ * `m_codeTransformer`, `m_intellisense`, `m_findData`.
+ * **Owned by:** `Context`.
+ * **Threading:** UI thread only. The intellisense worker is owned
+ * here but lives on its own thread (see @ref analyses).
+ * **Field order:** `m_intellisense` is declared *last* so its
+ * destructor (which joins the worker) runs *first* — before the
+ * documents and transformer it might race with go away.
+ *
+ * See @ref documents.
+ */
 class DocumentManager final : public wxEvtHandler {
 public:
     NO_COPY_AND_MOVE(DocumentManager)

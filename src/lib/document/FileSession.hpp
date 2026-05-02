@@ -10,23 +10,32 @@
 namespace fbide {
 class Context;
 
-/// Loads and saves FBIde `.fbs` session files.
-///
-/// Session v3 is INI-based:
-///
-///     [session]
-///     version=3
-///     selectedTab=0
-///
-///     [file_000]
-///     path=C:/path/to/foo.bas
-///     scroll=10
-///     cursor=250
-///     encoding=UTF-8
-///     eolMode=LF
-///
-/// Legacy text formats (v0.1 unversioned, v0.2 with XML-ish header) still
-/// load for backwards compatibility. Every save writes v3.
+/**
+ * Loads and saves FBIde `.fbs` session files (which files are open,
+ * caret position, encoding/EOL choices).
+ *
+ * Session v3 is INI-based:
+ *
+ * @code
+ * [session]
+ * version=3
+ * selectedTab=0
+ *
+ * [file_000]
+ * path=C:/path/to/foo.bas
+ * scroll=10
+ * cursor=250
+ * encoding=UTF-8
+ * eolMode=LF
+ * @endcode
+ *
+ * Legacy text formats (v0.1 unversioned, v0.2 XML-ish header) still
+ * load for backwards compatibility. Every save writes v3.
+ *
+ * **Owned by:** `Context`.
+ *
+ * See @ref documents.
+ */
 class FileSession final {
 public:
     NO_COPY_AND_MOVE(FileSession)
