@@ -33,6 +33,45 @@ auto eolModeChoices() -> wxArrayString {
     return names;
 }
 
+/// One entry in the language dropdown: the file we persist back to
+/// config (`locales/<file>`) plus the human-readable display name we
+/// pull from the file's `name=` header (falling back to the filename
+/// when the file is unreadable or the key is missing).
+struct LanguageOption {
+    wxString fileName;
+    wxString displayName;
+};
+
+/// Read the `name=` field from a locale `.ini` file. Returns empty
+/// when the file can't be opened or has no `name`.
+auto readLocaleName(const wxString& path) -> wxString {
+    wxFFileInputStream stream(path);
+    if (!stream.IsOk()) {
+        return {};
+    }
+    wxFileConfig cfg(stream, wxConvUTF8);
+    wxString name;
+    cfg.Read("name", &name);
+    return name;
+}
+
+/// Build the sorted list of locale options for the dropdown.
+auto loadLanguageOptions(const Context& ctx) -> std::vector<LanguageOption> {
+    std::vector<LanguageOption> result;
+    for (const auto& path : ctx.getConfigManager().getAllLanguages()) {
+        const auto fileName = wxFileName(path).GetFullName();
+        auto displayName = readLocaleName(path);
+        if (displayName.IsEmpty()) {
+            displayName = fileName;
+        }
+        result.push_back({ .fileName = fileName, .displayName = displayName });
+    }
+    std::ranges::sort(result, [](const auto& a, const auto& b) {
+        return a.displayName.CmpNoCase(b.displayName) < 0;
+    });
+    return result;
+}
+
 } // namespace
 
 GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
@@ -89,15 +128,37 @@ void GeneralPage::create() {
         });
     });
 
-    // Language section
+    // Language section. The dropdown shows each locale's `name=`
+    // header (falling back to the filename) sorted alphabetically;
+    // `m_language` keeps storing the filename so the on-disk config
+    // shape doesn't change.
     vbox(tr("dialogs.settings.general.language"), {}, [&] {
         hbox({ .center = true, .border = 0 }, [&] {
             text(tr("dialogs.settings.general.languageSelect"), { .proportion = 1, .expand = false });
-            wxArrayString names;
-            for (const auto& path : getContext().getConfigManager().getAllLanguages()) {
-                names.Add(wxFileName(path).GetFullName());
+            const auto languages = loadLanguageOptions(getContext());
+
+            wxArrayString displayNames;
+            int selected = wxNOT_FOUND;
+            for (std::size_t i = 0; i < languages.size(); i++) {
+                displayNames.Add(languages[i].displayName);
+                if (languages[i].fileName == m_language) {
+                    selected = static_cast<int>(i);
+                }
             }
-            choice(m_language, names, { .expand = false })->SetMinSize(wxSize(200, -1));
+
+            const auto ctrl = choice(displayNames, { .expand = false });
+            ctrl->SetMinSize(wxSize(200, -1));
+            if (selected != wxNOT_FOUND) {
+                ctrl->SetSelection(selected);
+            } else if (!displayNames.IsEmpty()) {
+                ctrl->SetSelection(0);
+            }
+            ctrl->Bind(wxEVT_CHOICE, [this, languages](const wxCommandEvent& evt) {
+                const auto idx = evt.GetSelection();
+                if (idx >= 0 && static_cast<std::size_t>(idx) < languages.size()) {
+                    m_language = languages[static_cast<std::size_t>(idx)].fileName;
+                }
+            });
         });
     });
 
