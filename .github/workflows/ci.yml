@@ -58,8 +58,10 @@ env:
 
 jobs:
   # Resolve the configured FBIde version once per workflow run and decide
-  # whether this run is going to publish a release. Runs on Ubuntu — no
-  # MSVC needed, just CMake script mode.
+  # whether this run is going to publish a release. Uses the real
+  # CMakeLists.txt with -DFBIDE_VERSION_ONLY=ON, which short-circuits
+  # before any compiler detection or wxWidgets lookup — so this runs on
+  # Ubuntu without MSVC.
   version:
     name: version
     runs-on: ubuntu-latest
@@ -77,12 +79,18 @@ jobs:
           fetch-tags: true
           fetch-depth: 0
 
+      # Hosted Ubuntu runner ships an older CMake; FBIde requires 4.0+.
+      - name: Set up CMake
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: latest
+
       - name: Resolve version (and verify it is unreleased)
         id: resolve
         shell: bash
         run: |
-          cmake -DVERSION_OUT="${GITHUB_WORKSPACE}/version.txt" -P cmake/print-version.cmake
-          version="$(cat "${GITHUB_WORKSPACE}/version.txt")"
+          cmake -B build/version-probe -S . -DFBIDE_VERSION_ONLY=ON
+          version="$(cat build/version-probe/version.txt)"
           tag="v${version}"
           echo "value=${version}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"

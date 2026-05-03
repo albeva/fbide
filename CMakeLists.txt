@@ -9,6 +9,17 @@ set(CMAKE_CXX_STANDARD 23)
 include(cmake/version.cmake)
 fbide_version(0.5.0 Beta 1)
 
+# Version probe: CI runs `cmake -B <dir> -DFBIDE_VERSION_ONLY=ON .` to
+# resolve the configured version without the full configure (no compiler
+# detection, no wxWidgets, no subdirectories). The version stamp is
+# written on this fast path; the matrix build also writes it later from
+# configured_files/CMakeLists.txt for the regular configure path.
+if (FBIDE_VERSION_ONLY)
+    project(fbide LANGUAGES NONE)
+    file(WRITE "${CMAKE_BINARY_DIR}/version.txt" "${FBIDE_FULL_VERSION}")
+    return()
+endif()
+
 # The Project
 project(
     fbide
