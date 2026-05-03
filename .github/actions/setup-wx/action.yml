@@ -11,6 +11,13 @@ inputs:
     description: wxWidgets git tag or branch to build (e.g. v3.3.2).
     required: false
     default: v3.3.2
+  build-type:
+    description: >
+      CMake build type for wxWidgets — must match the build type the
+      downstream FBIde configure step uses, otherwise the wx static libs
+      won't satisfy FBIde's link.
+    required: false
+    default: Release
 
 outputs:
   wx-root:
@@ -30,15 +37,17 @@ runs:
         WORK="${{ github.workspace }}/wxwidgets"
         echo "wx-work=${WORK}" >> "$GITHUB_OUTPUT"
         echo "wx-src=${WORK}/src" >> "$GITHUB_OUTPUT"
-        echo "wx-build=${WORK}/build/msvc/Release" >> "$GITHUB_OUTPUT"
+        echo "wx-build=${WORK}/build/msvc/${{ inputs.build-type }}" >> "$GITHUB_OUTPUT"
         echo "wx-root=${WORK}/dist" >> "$GITHUB_OUTPUT"
 
+    # Cache key includes build-type so a Debug run doesn't pollute the
+    # Release cache (and vice versa).
     - name: Restore wxWidgets cache
       id: cache
       uses: actions/cache/restore@v4
       with:
         path: ${{ steps.paths.outputs.wx-root }}
-        key: wx-${{ runner.os }}-${{ inputs.wx-ref }}-${{ hashFiles('.github/actions/setup-wx/action.yml', '.github/actions/setup-wx/build-wx.bat') }}
+        key: wx-${{ runner.os }}-${{ inputs.wx-ref }}-${{ inputs.build-type }}-${{ hashFiles('.github/actions/setup-wx/action.yml', '.github/actions/setup-wx/build-wx.bat') }}
 
     - name: Clone wxWidgets
       if: steps.cache.outputs.cache-hit != 'true'
@@ -54,6 +63,7 @@ runs:
         WX_SRC_DIR: ${{ steps.paths.outputs.wx-src }}
         WX_BUILD_DIR: ${{ steps.paths.outputs.wx-build }}
         WX_DIST_DIR: ${{ steps.paths.outputs.wx-root }}
+        WX_BUILD_TYPE: ${{ inputs.build-type }}
       run: ${{ github.action_path }}\build-wx.bat
 
     - name: Save wxWidgets cache

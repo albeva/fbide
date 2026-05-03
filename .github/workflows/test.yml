@@ -82,6 +82,7 @@ jobs:
         uses: ./.github/actions/setup-wx
         with:
           wx-ref: v3.3.2
+          build-type: ${{ env.BUILD_TYPE }}
 
       # WXWIN switches cmake/wxwidgets.cmake to CONFIG mode, which finds
       # wxWidgetsConfig.cmake under <dist>/lib/cmake/wxWidgets/. The
