@@ -1,22 +1,46 @@
 # Integration plan: FBIde CI/CD
 
-## Phase 0 — preflight decisions
+This document tracks the state of FBIde's GitHub Actions pipeline and the
+decisions behind it. Sections marked **DONE** are merged on `main`;
+**PENDING** sections are the next deliveries.
 
-- **VS 2026 availability.** `windows-latest` runner currently ships VS 2022. VS 2026 community released late 2025 — not yet on hosted runners as default toolchain. Options: (a) install at job start via `choco install visualstudio2026community --package-parameters "..."` (~5 min added per cold run, defeats some CI speed), (b) start with VS 2022, swap to 2026 once GitHub adds it. Recommend **(b)** — VS 2022 produces identical FBIde, no behaviour delta.
-- **Pristine resources.** `resources/pristine/` mirrors `resources/ide/` minus dev state — neutral defaults for `config_*.ini`, empty `history.ini`, `changelog.md` (release notes), no CHM. Packaging copies straight from there, no sanitizer script needed.
-- **Drift between `ide/` and `pristine/`.** Two parallel copies of `keywords.ini`, `layout.ini`, `shortcuts_*.ini`, locales, themes. User accepts manual sync at release time — no automated CI guard.
-- **Drop `ide/changelog.txt`.** Old format, superseded by `pristine/changelog.md`. Remove from repo.
-- **No CHM ship.** `FB-manual-1.10.1.chm` is FreeBASIC content, not editor. Pristine `helpFile=` empty. App falls back to wiki on missing CHM (already handled).
-- **Bundle FreeBASIC compiler?** Initial release ships FBIde-only — simpler, no FBC version-pinning headache. FBC bundle (with CHM help file) deferred to later phase, see Phase 9.
+## Phase 0 — preflight decisions (DONE)
 
-## Phase 1 — branch + protection
+- **Target platforms.** Windows 10 / 11 (64-bit, MSVC) and Linux. Earlier
+  XP+ goal was dropped because MSVC-built binaries do not run on Win7 or
+  earlier. No 32-bit Windows variant ships — keep code portable enough
+  that 32-bit Linux still compiles, but no dedicated 32-bit artefact.
+- **VS toolchain.** `windows-latest` runner provides VS 2022. VS 2026 not
+  yet on hosted runners; not worth the install time. FBIde produces the
+  same binary either way.
+- **Pristine resources.** `resources/pristine/` mirrors `resources/ide/`
+  minus dev state — neutral defaults for `config_*.ini`, empty
+  `history.ini`, `changelog.md` (release notes), no CHM. Packaging copies
+  straight from there, no sanitiser script needed.
+- **Drift between `ide/` and `pristine/`.** Two parallel copies of
+  `keywords.ini`, `layout.ini`, `shortcuts_*.ini`, locales, themes.
+  Manual sync at release time; no automated CI guard.
+- **Drop `ide/changelog.txt` and `ide/FB-manual-*.chm`** from the repo.
+- **No CHM ship.** `FB-manual-1.10.1.chm` is FreeBASIC content, not
+  editor. Pristine `helpFile=` empty. App falls back to wiki on missing
+  CHM (already handled).
+- **Bundle FreeBASIC compiler?** Initial release ships FBIde-only. FBC
+  bundle deferred to Phase 9.
+- **MSVC runtime.** `/MD` (dynamic CRT) for now — matches dev workstation
+  build. `/MT` static CRT considered for installer simplicity but
+  deferred; if installer ships, decide between `/MT` and bundling
+  `vcredist`.
 
-- Create `develop` branch from current `main`.
-- Push `main` protection rule: PRs only, requires `test.yml` green, no force-push, no direct commit.
-- Default branch on GitHub repo: `develop`.
-- Daily work targets `develop`. Releases are PR `develop → main` then tag.
+## Phase 1 — branch + protection (PARTIAL)
 
-## Phase 2 — wx prebuilt as cached composite action
+- `develop` branch created from `main`. **DONE**.
+- Default branch on GitHub repo: `develop`. **DONE**.
+- `main` protection rule (PRs only, requires `test` green, no force
+  push): **deferred**. Direct pushes to `main` are currently used while
+  iterating on the workflow itself; reintroduce protection once the
+  pipeline is stable.
+
+## Phase 2 — wx prebuilt as cached composite action (DONE)
 
 Layout:
 
@@ -24,184 +48,250 @@ Layout:
 .github/
   actions/
     setup-wx/
-      action.yml         (composite action)
-      build-wx.bat       (vendored copy of build-msvc.bat, parametrised)
+      action.yml      composite action
+      build-wx.bat    vendored copy of build-githuhb.bat
 ```
 
-Source script: `C:\Users\Albert\Developer\wxwidgets\build-msvc.bat`. Vendor verbatim into the action so CI build matches local dev build exactly. Keep `.bat` (no PowerShell port) — script is short and already works under MSVC dev cmd.
+- **Action inputs:** `wx-ref` (default `v3.3.2`), `build-type` (default
+  `Release`).
+- **Outputs:** `wx-root` — absolute path to install prefix.
+- **Cache:** key =
+  `wx-${runner.os}-${wx-ref}-${build-type}-${hashFiles(action.yml,build-wx.bat)}`.
+  Only the install prefix (`wxwidgets/dist`) is cached; sources and
+  intermediate build trees are recreated on cold runs.
+- **Build script.** Vendored from `build-githuhb.bat` — trim flags
+  disable XRC, PROPGRID, RIBBON, MEDIACTRL, GLCANVAS, WEBP, TIFF, JPEG,
+  XML, REGEX, NANOSVG. Keeps GRID, WEBVIEW off and HTML on. IPO toggled
+  off for Debug (incompatible with Debug codegen on MSVC). Single-config
+  build per cache entry — Debug and Release live in separate cache slots.
+- **Line endings.** `.bat` / `.cmd` files are pinned to CRLF via
+  `.gitattributes` so cmd.exe parses them correctly on Windows runners.
 
-Current flags (from `build-msvc.bat`):
+## Phase 3 — `test.yml` test gate (DONE)
 
-```
--DwxBUILD_SHARED=OFF
--DwxBUILD_MONOLITHIC=OFF
--DwxBUILD_SAMPLES=OFF
--DwxBUILD_TESTS=OFF
--DwxUSE_GRID=OFF
--DwxUSE_WEBVIEW=OFF
--DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON
-```
+- **Triggers:** `pull_request` to `main`, `push` to `main`, and
+  `workflow_dispatch` (manual; honours a `build_type` input — default
+  `Release`, choices `Release` / `Debug` / `RelWithDebInfo`).
+- **Path filter:** `src/**`, `tests/**`, `resources/**`, `cmake/**`,
+  `CMakeLists.txt`, `configured_files/**`, the workflow file, the
+  `setup-wx` action.
+- **Concurrency:** older runs on the same ref are cancelled when a new
+  one starts.
+- **Node runtime:** `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` at workflow
+  scope keeps any straggler actions on Node 24 ahead of GitHub's June
+  2026 default switch.
+- **Action versions:**
+  - `actions/checkout@v5` (Node 24)
+  - `actions/cache/{restore,save}@v5` (Node 24)
+  - `lukka/get-cmake@latest` (Node 24) — installs CMake AND Ninja, so
+    `seanmiddleditch/gha-setup-ninja` is no longer needed (archived May
+    2025 anyway).
+  - `ilammy/msvc-dev-cmd@v1.13.0` — still Node 20, only one left riding
+    the env-var override. Replace with inline `vcvars64.bat` invocation
+    if upstream stays silent through 2026.
+- **Single job** `build-and-test`:
+  1. Checkout
+  2. MSVC dev environment (`x64`)
+  3. CMake + Ninja via `lukka/get-cmake@latest`, `cmakeVersion: latest`
+     (hosted runner ships 3.31; FBIde requires 4.0+).
+  4. `setup-wx` composite (cached).
+  5. Configure: `cmake -G Ninja -B build/ci -DCMAKE_BUILD_TYPE=$BUILD_TYPE
+     -DWXWIN=$WX_ROOT`. `WXWIN` switches `cmake/wxwidgets.cmake` to
+     CONFIG mode (the `cmake --install` layout we ship); the alternate
+     `wxWidgets_ROOT_DIR` legacy path expects the prebuilt-binaries
+     layout we don't ship.
+  6. Build the default target (fbide.exe + tests). `fbide_lib` has IPO
+     enabled for Release, so the link goes through LTCG once — paying
+     that cost lets the upcoming packaging step reuse `fbide.exe` from
+     the same build instead of configuring + linking the project a
+     second time on tag push.
+  7. `ctest --output-on-failure`. `enable_testing()` at top-level
+     `CMakeLists.txt` is what makes `gtest_discover_tests` registrations
+     visible to ctest — without it, ctest reports "No tests were found".
 
-Possible further trimming (already disabled in old `build-githuhb.bat`): XRC, PROPGRID, RIBBON, MEDIACTRL, GLCANVAS, LIBWEBP, LIBTIFF, LIBJPEG, XML, REGEX, NANOSVG. Verify FBIde doesn't pull these before disabling. Defer trim until Phase 2 stable — current flags work.
+## Phase 4 — packaging on tag push (PENDING, integrated into `test.yml`)
 
-`setup-wx` does:
+Same workflow run that ran the test gate also performs the packaging
+when the trigger is a tag push matching `v*`. No artifact passing
+between jobs; reuses the build from step 6 above.
 
-1. Compute cache key = `wx-${{ runner.os }}-${{ inputs.wx-ref }}-${{ hashFiles('action.yml','build-wx.bat') }}`
-2. `actions/cache/restore` keyed on it, target `${{ github.workspace }}/wxwidgets/dist`
-3. On miss: `git clone --depth=1 --branch <wx-ref> https://github.com/wxWidgets/wxWidgets.git wxwidgets/src`, run `build-wx.bat` from `wxwidgets/`, `actions/cache/save`
-4. Output dist path → set `wxWidgets_ROOT_DIR` env for downstream CMake calls (matches `CLAUDE.md` invocation)
+Steps added at the bottom of the job, gated by
+`if: startsWith(github.ref, 'refs/tags/v')`:
 
-Pin wx ref (e.g. `v3.3.0`) as input. Bumping wx = changing input = new cache key, no manual eviction.
+1. Verify the tag matches the configured version. The build emits
+   `<build>/version.txt` containing `${FBIDE_FULL_VERSION}` (see
+   Phase 7); CI compares `v$(cat version.txt)` to `${{ github.ref_name }}`
+   and fails on mismatch.
+2. `cmake --install build/ci --prefix package`.
+3. Zip the staged `package/` tree to
+   `fbide-${VERSION}-win64.zip` (uses the full version including any
+   `.alpha-1` suffix).
+4. `softprops/action-gh-release@v2` publishes the GitHub Release. The
+   `prerelease` flag is auto-set when the tag contains a `-` (i.e. has
+   any `.alpha-N`/`.beta-N`/`.rc-N` suffix).
 
-Cache survives 7 days idle. If evicted, one cold rebuild (~5 min for trimmed wx config) — user already accepts this.
-
-## Phase 3 — `test.yml` (PR + push gate)
-
-Triggers: PR to `develop` or `main`, push to `develop`.
-
-Path filter:
-```yaml
-paths:
-  - 'src/**'
-  - 'tests/**'
-  - 'resources/**'
-  - 'cmake/**'
-  - 'CMakeLists.txt'
-  - '.github/workflows/test.yml'
-  - '.github/actions/setup-wx/**'
-```
-
-Steps:
-1. `actions/checkout`
-2. `setup-wx` composite (cached)
-3. CMake configure Debug, `-DwxWidgets_ROOT_DIR=$WX_ROOT`
-4. Ninja build
-5. `ctest --output-on-failure`
-
-Single job, ~3 min warm cache. Status check name `test` becomes required for PR merge.
-
-## Phase 4 — `package.yml` (main → artifact)
-
-Trigger: push to `main` (after merge).
-
-Depends on `test.yml`: use `workflow_run: workflows: [test]; types: [completed]` and gate on `conclusion == success`. Or simpler: re-run tests inside `package.yml` first job. Recommend the latter — fewer moving parts.
-
-Jobs:
-
-1. **test** (same as `test.yml` body, Debug + ctest) — gates rest
-2. **build-release** — needs test, uses `setup-wx`, builds Release
-3. **package** — needs build-release:
-   - Copy `bin/fbide.exe` + runtime DLLs (none currently — wx static, MSVC runtime: decide `/MT` static CRT or ship `vcredist`)
-   - Copy `resources/pristine/*` → `package/ide/` (recursive)
-   - Zip → `fbide-${{ version }}-win64.zip`
-   - `actions/upload-artifact` with 30-day retention
-
-CMake `install(DIRECTORY)` rule should use `resources/pristine/` as source (Phase 6). Lets `cmake --install` produce same layout locally for testing.
-
-Artifact is sanity check / nightly download. Not a release.
-
-## Phase 5 — `release.yml` (tag → installer)
-
-Trigger: tag matching `v*` push.
-
-Reuses test + build-release jobs. Adds:
-
-- **installer** job after package:
-  - Install Inno Setup: `choco install innosetup -y` (or pre-installed on `windows-latest` — verify)
-  - Update `installer.iss` (see Phase 6)
-  - `iscc installer.iss` produces `FBIde-${VERSION}-Setup.exe`
-  - `softprops/action-gh-release` uploads zip + installer to GitHub Release page
-  - Auto-extract release notes from `CHANGELOG.md` between tag headers (or manual via release page edit)
-
-Tag = release. No tag = no installer published.
-
-## Phase 6 — Inno Setup script refresh + CMake install target
-
-### CMake install rules
-
-Add to `CMakeLists.txt`:
+CMake install rules (added to top-level `CMakeLists.txt`):
 
 ```cmake
 install(TARGETS fbide RUNTIME DESTINATION .)
 install(DIRECTORY resources/pristine/ DESTINATION ide)
 ```
 
-`cmake --install build/claude/release --prefix package` produces same layout as CI packaging step. Lets developers reproduce installer payload locally without CI.
+Same command (`cmake --install build/<dir> --prefix <somewhere>`)
+reproduces the installer payload locally for sanity checking.
 
-### Inno Setup script
+There is no separate `package.yml` artifact-on-push workflow — added
+later if useful.
 
-Source `installer.iss` from `C:\Users\Albert\public_html\installer.iss`. Move into repo at `installer/installer.iss`. Updates needed:
+## Phase 5 — installer (.exe via Inno Setup) (DEFERRED)
 
-- `AppName=FBIde`, `AppVerName=FBIde {#FBIDE_VERSION}` — version injected via `iscc /DFBIDE_VERSION=0.5.0`
-- `DefaultDirName={autopf}\FBIde` — modern Program Files default, not bare `\FreeBasic`
-- Drop FreeBASIC component + tasks (per Phase 0 decision)
-- `OutputBaseFilename=FBIde-{#FBIDE_VERSION}-Setup`
-- `OutputDir=.` then upload from there
-- File associations (.bas / .bi / .fbs) — keep, they were correct
-- `LicenseFile=LICENSE` (top-level repo file, not buried in FreeBASIC subdir)
-- Add `[Setup] WizardStyle=modern`, `PrivilegesRequired=lowest` (per-user install option)
-- `Source: "package\*"` where `package\` is staged directory from Phase 4
+Out of scope for the first release pipeline. Plain zip + GitHub
+Release is the v1 deliverable. When the installer phase lands, it
+reuses the staged `package/` tree from Phase 4 as input to
+`installer.iss`:
 
-Sign later — not blocking.
+- `AppName=FBIde`, version injected via `iscc /DFBIDE_VERSION=...`.
+- `DefaultDirName={autopf}\FBIde`, drop FreeBASIC component.
+- `LicenseFile=LICENSE`, `WizardStyle=modern`,
+  `PrivilegesRequired=lowest`.
+- File associations `.bas` / `.bi` / `.fbs` retained from old script.
+- Sign later — not blocking.
 
-## Phase 7 — version source of truth
+## Phase 6 — CMake install rules (PENDING — small)
 
-Pick one location. Candidates:
+See Phase 4. Two `install(...)` calls in `CMakeLists.txt`. No further
+infrastructure. `cmake --install` handles everything.
 
-- `CMakeLists.txt` `project(fbide VERSION 0.5.0)` — natural for CMake
-- Git tag — `git describe --tags --abbrev=0` injected at configure
+## Phase 7 — versioning (PENDING — implementing)
 
-Recommend **CMake project version** as canonical, tag must match. CI verifies on release: extract CMake version, compare to `${{ github.ref_name }}`, fail if mismatch. Prevents shipping `v0.6.0` tag with `0.5.0` binary.
+### Source of truth
+
+`CMakeLists.txt` `project(fbide VERSION 0.5.0 ...)` is canonical for the
+numeric triple. CMake only accepts numeric `MAJOR.MINOR.PATCH[.TWEAK]`
+in `project(VERSION ...)`, so the pre-release marker is held in two
+extra cache vars:
+
+```cmake
+set(FBIDE_VERSION_TAG "" CACHE STRING "Pre-release tag (alpha|beta|rc)")
+set(FBIDE_VERSION_TWEAK 1 CACHE STRING "Pre-release iteration number")
+```
+
+`FBIDE_FULL_VERSION` is composed from these:
+
+- empty tag → `${PROJECT_VERSION}` (e.g. `0.5.0`)
+- non-empty → `${PROJECT_VERSION}.${TAG}-${TWEAK}` (e.g. `0.5.0.alpha-1`)
+
+A small CMake mapping converts the lowercase tag string to its enum
+case name; unknown tag values are passed through verbatim so a typo
+(e.g. `foo`) becomes `Version::Tag::foo` and fails at compile time —
+no allowlist to maintain.
+
+### `Version` class
+
+`enum class Tag : uint8_t { None, Alpha, Beta, ReleaseCandidate }` lives
+nested inside `Version` (`Version::Tag`). The class:
+
+- Constructor takes `int major, int minor, int patch, Tag tag = None,
+  int tweak = 0`.
+- `asString()` formats `MAJOR.MINOR.PATCH[.TAG-TWEAK]`.
+- String parser accepts the same shape (`0.5.0`, `0.5.0.alpha`,
+  `0.5.0.alpha-1`, `0.5.0.rc-2`). Unknown tags silently fall back to
+  `Tag::None` — only strings the project itself generates are parsed,
+  so the existing tolerant-parser style is preserved.
+- `operator<=>`: compare numeric triple first, then tag rank with
+  `None` highest (final > rc > beta > alpha), then tweak.
+
+`Version.hpp` does not include `config.hpp`. The `static fbide()`
+factory body moves to `Version.cpp` (loses `constexpr`). All current
+call sites are runtime — checked: `BuildTask.cpp`, `App.cpp`,
+`AboutDialog.cpp`. No dependents demand `constexpr`.
+
+### Configured files
+
+`config.hpp.in`:
+
+```cpp
+#include "config/Version.hpp"
+
+namespace fbide::cmake {
+    struct Project final {
+        const char* name;
+        const char* description;
+        const char* version;
+        int major, minor, patch;
+        Version::Tag tag;
+        int tweak;
+    };
+    static constexpr Project project {
+        .name        = "@PROJECT_NAME@",
+        .description = "@PROJECT_DESCRIPTION@",
+        .version     = "@PROJECT_VERSION@",
+        .major       = @PROJECT_VERSION_MAJOR@,
+        .minor       = @PROJECT_VERSION_MINOR@,
+        .patch       = @PROJECT_VERSION_PATCH@,
+        .tag         = Version::Tag::@FBIDE_VERSION_TAG_ENUM@,
+        .tweak       = @FBIDE_VERSION_TWEAK_OR_ZERO@,
+    };
+}
+```
+
+`version.rc.in` gains a full-version literal for the Windows resource
+table.
+
+`configured_files/CMakeLists.txt` also writes `${CMAKE_BINARY_DIR}/version.txt`
+containing `${FBIDE_FULL_VERSION}` — read by CI for tag-matching.
+
+### Consumers
+
+- `App::showVersion()` — emits the full version (with tag/tweak when
+  set).
+- `AboutDialog` — same.
+- `BuildTask` compiler-log preamble — same.
+
+### Tag verification
+
+CI reads `<build>/version.txt`, prefixes with `v`, compares to
+`github.ref_name`. Mismatch fails the release. Albert bumps
+`PROJECT_VERSION` / `FBIDE_VERSION_TAG` / `FBIDE_VERSION_TWEAK` in
+`CMakeLists.txt` per release, commits, then tags `v<full-version>`.
 
 ## Phase 8 — sequencing
 
-Implement in this order — each step shippable, reversible:
+Revised from the original plan; reflects what has shipped and what is
+next.
 
-1. Branch model + protection (Phase 1) — no code, GitHub UI only
-2. Drop `ide/changelog.txt` from repo (Phase 0). Optionally drop `ide/FB-manual-1.10.1.chm` from repo if too bulky for source tree (dev keeps local copy)
-3. `setup-wx` composite action + `test.yml` (Phases 2 + 3) — biggest win, exercised on every PR
-4. CMake install rules using `resources/pristine/` (Phase 6 first half) — verifiable locally with `cmake --install`
-5. `package.yml` zipping (Phase 4) — verify packaging logic before installer
-6. `installer.iss` refresh + manual local Inno Setup test (Phase 6 second half)
-7. `release.yml` automating installer on tag (Phase 5)
-8. CMake version + tag-matching guard (Phase 7)
-
-Each phase reviewable as separate PR.
+1. Branch model + protection (Phase 1) — partial; protection deferred.
+2. Drop `ide/changelog.txt` + `ide/FB-manual-*.chm` — DONE.
+3. `setup-wx` composite + `test.yml` — DONE.
+4. Versioning (Phase 7) — IN PROGRESS, current PR.
+5. CMake install rules + tag-trigger packaging block in `test.yml`
+   (Phases 4 + 6) — same PR or follow-up.
+6. Re-add `main` protection once the pipeline is stable.
+7. Installer (`installer.iss`) — Phase 5, future PR.
+8. FBC bundle — Phase 9, future PR after 2–3 release cycles.
 
 ## Phase 9 — FBC bundle installer (later)
 
-After initial FBIde-only releases ship cleanly, add second installer variant bundling FreeBASIC + CHM. Out of scope for v0.5; planning sketch only.
-
-### Approach
-
-- Keep FBIde-only installer as primary. Bundle is separate output.
-- Pin FBC version (e.g. `1.10.1`) per FBIde release. Document mapping in `installer/README.md`.
-- New workflow `release-bundle.yml` triggered by separate tag pattern (e.g. `v*-bundle`) or matrix job alongside main release.
-- Steps:
-  - Download FBC Windows zip from GitHub releases (`FreeBASIC-X.Y.Z-win64.zip`) via `gh release download` against `freebasic-dev/fbc` repo
-  - Download FB-manual CHM from FBC release assets
-  - Extract into staging dir alongside FBIde payload
-  - Second Inno Setup script `installer-bundle.iss` (or shared script with `[Components]` enabled): components `fbide` + `fbc` + `chm`, all `Types: std`
-  - On install, set `[fbc] path={app}\FreeBASIC\fbc.exe` and `helpFile=FB-manual-X.Y.Z.chm` in user config — Inno Setup `[INI]` section writes to `{userappdata}\fbide\config_win.ini` post-install
-  - Output `FBIde-X.Y.Z-with-FreeBASIC-A.B.C-Setup.exe`
-
-### Risks
-
-- FBC release URL stability — `freebasic-dev/fbc` GitHub releases reliable, but pin asset name explicitly
-- License bundling: FreeBASIC is GPL, FBIde is MIT. Bundle installer must include FBC license alongside FBIde license. Inno `[Components]`-conditional `LicenseFile` not supported — show combined license file
-- Size: FBC + CHM ~70 MB extra. Bundle installer ~80–100 MB total
-- FBC version drift: when FBC ships new release, CI matrix should rebuild bundle automatically (cron trigger or manual workflow_dispatch)
-
-Defer until FBIde-only path is solid through 2–3 release cycles.
+Unchanged from original plan. Bundle FreeBASIC + CHM with FBIde in a
+second installer variant (separate `release-bundle.yml`, separate tag
+pattern e.g. `v*-bundle`). Out of scope for v1 of the pipeline.
 
 ## Risks / open questions
 
-- **wxWidgets static link size.** Current dev `dist/` is ~600 MB because it has Debug + Release + headers + samples. Trimmed Release-only with current flags should be ~80–120 MB cached. Verify on first cache run before declaring victory.
-- **MSVC runtime distribution.** wx static doesn't bundle MSVC CRT. Either compile with `/MT` (static CRT, larger binary, no dep) or ship `vcredist_x64.exe` in installer `[Run]` section. Old installer didn't deal with this — VC6/older MSVC. Recommend `/MT` for simplicity.
-- **MSVC version drift.** Hosted runner upgrades VS in place. Pin via `microsoft/setup-msbuild@v2` with explicit version when reproducibility matters.
-- **Code signing.** Unsigned `.exe` triggers SmartScreen warning. Plan to acquire cert (Sectigo / DigiCert ~$200/yr) or use `signtool` with self-signed for now. Out of scope for v1 of pipeline.
-- **macOS / Linux.** Not in this plan. Add as separate matrix entries to `test.yml` first (smoke), then packaging (`.AppImage` / `.dmg`) later.
+- **wxWidgets static link size.** Cache currently around 100 MB with
+  trimmed config (Release-only). Verified on first cache run.
+- **MSVC runtime distribution.** `/MD` for now. `/MT` switch deferred to
+  installer phase.
+- **MSVC version drift.** Hosted runner upgrades VS in place.
+  `ilammy/msvc-dev-cmd@v1.13.0` pins the action; the underlying VS
+  install is whatever GitHub ships.
+- **Code signing.** Unsigned `.exe` triggers SmartScreen warning.
+  Acquire cert (~$200/yr) or self-signed when installer phase lands.
+  Out of scope for the zip pipeline.
+- **macOS / Linux.** Not in this plan. Add as separate matrix entries
+  to `test.yml` first (smoke), then packaging later.
 
 ## Cost
 
-Public repo = unlimited free Actions minutes on GitHub-hosted runners. No infra to buy until you go private or self-host.
+Public repo = unlimited free Actions minutes on GitHub-hosted runners.
+No infra to buy until private repo or self-hosted runners.
