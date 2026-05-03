@@ -69,9 +69,11 @@ jobs:
       # Hosted runners ship with CMake 3.31, but FBIde requires 4.0+
       # (CMakeLists.txt:1 cmake_minimum_required). lukka/get-cmake also
       # provides Ninja, so a separate gha-setup-ninja step isn't needed
-      # (gha-setup-ninja is archived as of May 2025).
+      # (gha-setup-ninja is archived as of May 2025). Track @latest on
+      # both the action and the CMake release — pin only if a future
+      # CMake release breaks the build.
       - name: Set up CMake + Ninja
-        uses: lukka/get-cmake@v4.3.2
+        uses: lukka/get-cmake@latest
         with:
           cmakeVersion: latest
 
