@@ -16,6 +16,7 @@ REM   WX_SRC_DIR     — wxWidgets source checkout
 REM   WX_BUILD_DIR   — intermediate build tree (not cached)
 REM   WX_DIST_DIR    — install prefix (cached as the only artefact)
 REM   WX_BUILD_TYPE  — Debug / Release / RelWithDebInfo / MinSizeRel
+REM   WX_ARCH        — x64 / x86 (selects -A x64 / -A Win32 for the VS gen)
 
 REM IPO is incompatible with Debug codegen on MSVC — only enable for the
 REM optimised configurations.
@@ -24,10 +25,18 @@ if /I "%WX_BUILD_TYPE%"=="Release" set WX_IPO=ON
 if /I "%WX_BUILD_TYPE%"=="RelWithDebInfo" set WX_IPO=ON
 if /I "%WX_BUILD_TYPE%"=="MinSizeRel" set WX_IPO=ON
 
+REM Visual Studio generator (the wx default on Windows) selects target arch
+REM via -A. Ninja, by contrast, infers it from the active vcvars env. We
+REM keep the VS generator for cache compatibility, so map WX_ARCH to the
+REM corresponding -A value.
+set WX_PLATFORM=x64
+if /I "%WX_ARCH%"=="x86" set WX_PLATFORM=Win32
+
 if not exist "%WX_BUILD_DIR%" mkdir "%WX_BUILD_DIR%"
 if not exist "%WX_DIST_DIR%" mkdir "%WX_DIST_DIR%"
 
 cmake -S "%WX_SRC_DIR%" -B "%WX_BUILD_DIR%" ^
+    -A %WX_PLATFORM% ^
     -DCMAKE_BUILD_TYPE=%WX_BUILD_TYPE% ^
     -DCMAKE_INSTALL_PREFIX="%WX_DIST_DIR%" ^
     -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=%WX_IPO% ^

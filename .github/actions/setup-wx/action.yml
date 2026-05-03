@@ -74,6 +74,7 @@ runs:
         WX_BUILD_DIR: ${{ steps.paths.outputs.wx-build }}
         WX_DIST_DIR: ${{ steps.paths.outputs.wx-root }}
         WX_BUILD_TYPE: ${{ inputs.build-type }}
+        WX_ARCH: ${{ inputs.arch }}
       run: ${{ github.action_path }}\build-wx.bat
 
     - name: Save wxWidgets cache
