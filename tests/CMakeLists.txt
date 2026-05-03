@@ -7,6 +7,9 @@ FetchContent_Declare(
 if (MSVC)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 endif ()
+# Keep GoogleTest's headers and libs out of `cmake --install` — it's a
+# test-only dependency, not part of the FBIde release payload.
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 # Tests

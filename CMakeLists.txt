@@ -40,3 +40,17 @@ include(cmake/doxygen.cmake)
 add_subdirectory(configured_files)
 add_subdirectory(src)
 add_subdirectory(tests)
+
+# ----------------------------------------------------------------------------
+# Install layout (consumed by `cmake --install <build> --prefix <staging>`)
+#
+#   <prefix>/
+#     fbide.exe
+#     ide/
+#       config_*.ini, themes/, locales/, ...   (verbatim from resources/pristine)
+#
+# The release workflow zips the staging directory directly; no sanitiser
+# script. Run locally to reproduce the installer payload.
+# ----------------------------------------------------------------------------
+install(TARGETS fbide RUNTIME DESTINATION .)
+install(DIRECTORY resources/pristine/ DESTINATION ide)

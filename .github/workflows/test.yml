@@ -26,6 +26,11 @@ on:
       - 'configured_files/**'
       - '.github/workflows/test.yml'
       - '.github/actions/setup-wx/**'
+    # Tag pushes drive a release: same job runs the full test gate, then
+    # packages and uploads to GitHub Releases. Tag must be a SemVer-ish
+    # `v<full-version>` matching the configured FBIDE_FULL_VERSION
+    # (e.g. v0.5.0, v0.5.0.beta-1, v0.5.0.rc-2).
+    tags: ['v*']
   # Manual trigger lets the workflow run on any branch and pick a build
   # type — useful for one-off Debug repros without changing the script.
   workflow_dispatch:
@@ -53,6 +58,10 @@ jobs:
   build-and-test:
     runs-on: windows-latest
     timeout-minutes: 30
+    # `contents: write` is needed for the release-publish step on tag
+    # pushes; harmless on non-tag runs (the step is gated by `if`).
+    permissions:
+      contents: write
     # Manual runs honour the chosen build type; PR / push runs default to
     # Release (matches what the wxWidgets dist is built for).
     env:
@@ -103,3 +112,48 @@ jobs:
       - name: Test
         working-directory: build/ci
         run: ctest --output-on-failure
+
+      # ---------- Release (tag push only) ----------
+      # Everything below runs only when the trigger is a `v*` tag push.
+      # The fbide.exe + fbide_lib already built above are reused — no
+      # second configure / build pass.
+
+      # Verify the git tag matches the version configured by
+      # fbide_version() in CMakeLists.txt. Mismatches would publish a
+      # zip whose filename / binary metadata disagrees with the GitHub
+      # Release; fail fast instead.
+      - name: Verify tag matches configured version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          configured="$(cat build/ci/version.txt)"
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$configured" != "$tag" ]; then
+            echo "::error::Tag '$GITHUB_REF_NAME' (= $tag) does not match configured version '$configured' from CMakeLists.txt"
+            exit 1
+          fi
+          echo "FBIDE_VERSION=$configured" >> "$GITHUB_ENV"
+
+      - name: Stage install payload
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: cmake --install build/ci --prefix package
+
+      - name: Zip release artefact
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $zip = "fbide-$env:FBIDE_VERSION-win64.zip"
+          Compress-Archive -Path package\* -DestinationPath $zip -Force
+          "RELEASE_ZIP=$zip" | Out-File -Append $env:GITHUB_ENV
+
+      # Pre-release flag is auto-derived: any tag containing '-' (i.e.
+      # has an .alpha-N / .beta-N / .rc-N suffix) is published as a
+      # pre-release on GitHub.
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: FBIde ${{ env.FBIDE_VERSION }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          files: ${{ env.RELEASE_ZIP }}
