@@ -136,6 +136,11 @@ private:
     void syncConsoleState(bool visible) const;
     /// Apply broad enable/disable for `mutableIds[]` based on `state`.
     void applyState(UIState state) const;
+    /// Re-read system colours into every wxAUI art provider (dock,
+    /// notebook tabs, toolbar). Called once after the layout is
+    /// built; SetAppearance only re-paints native widgets, AUI's
+    /// cached palette has to be refreshed explicitly.
+    void refreshAuiArt() const;
     /// Capture the current frame size + position into `config["window"]`.
     void saveWindowGeometry();
 
@@ -147,7 +152,8 @@ private:
     CompilerLog* m_compilerLog = nullptr;               ///< Lazy compiler-log dialog (wx-parented).
     Unowned<OutputConsole> m_console;                   ///< Build/run output pane.
     Unowned<wxFrame> m_frame;                           ///< Top-level frame.
-    Unowned<wxToolBar> m_toolbar;                       ///< Main toolbar.
+    Unowned<wxToolBar> m_toolbar;                       ///< Classic frame toolbar (set when `toolbar.useAui=0`).
+    Unowned<wxAuiToolBar> m_auiToolbar;                 ///< AUI-managed toolbar pane (set when `toolbar.useAui=1`).
     Unowned<wxAuiNotebook> m_notebook;                  ///< Document tabs.
     Unowned<wxAuiNotebook> m_sideBar;                   ///< Sidebar (Browser/Subs) notebook.
     std::vector<wxMenuItem*> m_externalLinkItems;       ///< Live menu items in the dynamic external-links submenu.

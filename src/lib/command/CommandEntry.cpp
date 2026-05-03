@@ -67,6 +67,29 @@ void CommandEntry::update() {
                 tool->GetToolBar()->Realize();
             }
         },
+        [this, effectiveEnabled](wxAuiToolBar* tb) {
+            // wxAuiToolBar enable / toggle / state queries are id-keyed
+            // on the parent toolbar; the per-tool wxAuiToolBarItem has
+            // no public mutators of its own. Refresh() is enough — no
+            // Realize() needed for state changes (only when adding /
+            // removing tools).
+            auto* item = tb->FindTool(id);
+            if (item == nullptr) {
+                return;
+            }
+            bool refresh = false;
+            if (tb->GetToolEnabled(id) != effectiveEnabled) {
+                tb->EnableTool(id, effectiveEnabled);
+                refresh = true;
+            }
+            if (kind == wxITEM_CHECK && tb->GetToolToggled(id) != checked) {
+                tb->ToggleTool(id, checked);
+                refresh = true;
+            }
+            if (refresh) {
+                tb->Refresh(false);
+            }
+        },
         [this](wxAuiManager* aui) {
             auto& pane = aui->GetPane(name);
             if (pane.IsShown() != checked) {
