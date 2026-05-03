@@ -5,6 +5,7 @@
 - Use wxAUI based toolbar system
 - Remember configured layout between fbide restarts
 - Encode correct platform values in Windows manifest files
+- Theme: fall back to the system default monospace font when the configured face isn't installed (#12)
 
 # Changes since fbide 0.4.5.
 

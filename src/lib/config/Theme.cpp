@@ -253,6 +253,45 @@ void Theme::load(const wxString& themePath, const bool reset) {
         ini.SetPath("/" + wxString(getThemeCategoryName(cat)));
         m_categories[static_cast<std::size_t>(cat)] = read<Entry>(ini, wxEmptyString);
     }
+    // Qualified to disambiguate from the `reset` bool parameter.
+    this->reset();
+}
+
+auto Theme::getResolvedFont(const bool bold, const bool italic, const bool underlined) const -> wxFont {
+    if (!m_resolvedFont.IsOk()) {
+        resolveFontFace();
+    }
+    wxFont font = m_resolvedFont;
+    if (bold) {
+        font.MakeBold();
+    }
+    if (italic) {
+        font.MakeItalic();
+    }
+    if (underlined) {
+        font.MakeUnderlined();
+    }
+    return font;
+}
+
+void Theme::reset() {
+    m_resolvedFont = wxFont {};
+}
+
+void Theme::resolveFontFace() const {
+    const int size = m_fontSize > 0 ? m_fontSize : 12;
+    auto info = wxFontInfo(size).Family(wxFONTFAMILY_MODERN);
+
+    if (!m_font.IsEmpty() && wxFontEnumerator::IsValidFacename(m_font)) {
+        info.FaceName(m_font);
+    } else {
+        if (!m_font.IsEmpty()) {
+            wxLogWarning("Theme font '%s' is not installed; using system default monospace.", m_font);
+        }
+        // Empty face + TELETYPE → wx picks the platform default monospace.
+        info.Family(wxFONTFAMILY_TELETYPE);
+    }
+    m_resolvedFont = wxFont(info);
 }
 
 void Theme::loadV4(const wxString& themePath) {
@@ -294,9 +333,7 @@ void Theme::loadV4(const wxString& themePath) {
             }
         }
     }
-    if (m_font.IsEmpty()) {
-        m_font = "Courier New";
-    }
+    // Final validation handled by resolveFontFace() at the end.
 
     // Editor-wide entries
     m_lineNumber = readLegacyColors(ini, "/linenumber", *wxWHITE, wxColour(0xC0, 0xC0, 0xC0));
@@ -332,6 +369,7 @@ void Theme::loadV4(const wxString& themePath) {
     mapCategory(ThemeCategory::Label, "/identifier");
     mapCategory(ThemeCategory::Preprocessor, "/preprocessor");
     mapCategory(ThemeCategory::Error, "/identifier");
+    reset();
 }
 
 void Theme::save(const wxString& newThemePath) {
