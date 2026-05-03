@@ -33,6 +33,21 @@ if (MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 endif()
 
+# Map the build's pointer width to the win32 manifest's
+# processorArchitecture value. CMAKE_SIZEOF_VOID_P is CMake's canonical
+# way to detect bitness — set by project() based on the active compiler
+# / -A platform, and works for every toolchain (MSVC, MinGW, Clang).
+# Substituted into configured_files/app.manifest.in.
+if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(FBIDE_MANIFEST_ARCH "amd64")
+elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set(FBIDE_MANIFEST_ARCH "x86")
+else()
+    message(FATAL_ERROR
+        "Unexpected CMAKE_SIZEOF_VOID_P=${CMAKE_SIZEOF_VOID_P}; "
+        "manifest arch needs a mapping for this pointer width.")
+endif()
+
 # Enable CTest at the top level so gtest_discover_tests() registrations in
 # tests/CMakeLists.txt populate CTestTestfile.cmake — without this, ctest
 # reports "No tests were found" even though the tests binary builds and runs.
