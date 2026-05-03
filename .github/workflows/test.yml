@@ -49,6 +49,14 @@ jobs:
       - name: Set up Ninja
         uses: seanmiddleditch/gha-setup-ninja@v6
 
+      # Hosted runners ship with CMake 3.31, but FBIde requires 4.0+
+      # (CMakeLists.txt:1 cmake_minimum_required). Install a recent release
+      # before setup-wx so the wxWidgets build uses the same toolchain.
+      - name: Set up CMake
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: latest
+
       - name: Set up wxWidgets
         id: wx
         uses: ./.github/actions/setup-wx
