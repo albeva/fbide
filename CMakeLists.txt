@@ -2,10 +2,17 @@ cmake_minimum_required(VERSION 4.0.0)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 23)
 
+# Single source of truth for the FBIde version. Bump this per release.
+#   fbide_version(0.5.0)            -> final
+#   fbide_version(0.5.0 RC 1)       -> 0.5.0.rc-1
+#   fbide_version(0.5.0 Beta 2)     -> 0.5.0.beta-2
+include(cmake/version.cmake)
+fbide_version(0.5.0)
+
 # The Project
 project(
     fbide
-    VERSION 0.5.0
+    VERSION ${FBIDE_VERSION_NUMERIC}
     DESCRIPTION "An open-source IDE for the FreeBASIC compiler"
     HOMEPAGE_URL "https://github.com/albeva/fbide"
     LANGUAGES CXX

@@ -24,6 +24,7 @@ add_executable(tests
     SymbolTableTests.cpp
     TextEncodingTests.cpp
     ThemeTests.cpp
+    VersionTests.cpp
 )
 
 # Test data path

@@ -3,20 +3,43 @@
 //
 
 #pragma once
+#include <cstdint>
 
-namespace @PROJECT_NAME@::cmake {
+namespace @PROJECT_NAME@ {
+
+/// Pre-release marker for the FBIde version.
+/// Defined in this generated header (not in Version.hpp) so that the
+/// configured `cmake::project` literal below can reference it without
+/// pulling in a circular include. The Version class re-exposes this
+/// type via `Version::Tag` for ergonomic call-site syntax.
+enum class VersionTag : std::uint8_t {
+    None,             ///< Final release, no pre-release suffix.
+    Alpha,            ///< Earliest pre-release.
+    Beta,             ///< Mid-cycle pre-release.
+    ReleaseCandidate, ///< Last pre-release before final.
+};
+
+namespace cmake {
     struct Project final {
         const char* name;
         const char* description;
-        const char* version;
+        const char* version;     ///< Numeric MAJOR.MINOR.PATCH only.
+        const char* fullVersion; ///< MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH.tag-tweak.
         int major, minor, patch;
+        VersionTag tag;
+        int tweak;               ///< Pre-release iteration; 0 when tag == None.
     };
     static constexpr Project project {
         .name        = "@PROJECT_NAME@",
         .description = "@PROJECT_DESCRIPTION@",
         .version     = "@PROJECT_VERSION@",
+        .fullVersion = "@FBIDE_FULL_VERSION@",
         .major       = @PROJECT_VERSION_MAJOR@,
         .minor       = @PROJECT_VERSION_MINOR@,
-        .patch       = @PROJECT_VERSION_PATCH@
+        .patch       = @PROJECT_VERSION_PATCH@,
+        .tag         = VersionTag::@FBIDE_VERSION_TAG_ENUM@,
+        .tweak       = @FBIDE_VERSION_TWEAK@
     };
-} // namespace @PROJECT_NAME@::cmake
+} // namespace cmake
+
+} // namespace @PROJECT_NAME@

@@ -7,8 +7,8 @@
 appicon ICON "fbide.ico"
 
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION     FBIDE_VERSION_MAJOR,FBIDE_VERSION_MINOR,FBIDE_VERSION_PATCH,0
-PRODUCTVERSION  FBIDE_VERSION_MAJOR,FBIDE_VERSION_MINOR,FBIDE_VERSION_PATCH,0
+FILEVERSION     FBIDE_VERSION_MAJOR,FBIDE_VERSION_MINOR,FBIDE_VERSION_PATCH,FBIDE_VERSION_TWEAK
+PRODUCTVERSION  FBIDE_VERSION_MAJOR,FBIDE_VERSION_MINOR,FBIDE_VERSION_PATCH,FBIDE_VERSION_TWEAK
 FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
 #ifdef FBIDE_DEBUG_BUILD
 FILEFLAGS       VS_FF_DEBUG
@@ -23,12 +23,12 @@ BEGIN
         BLOCK "040904B0"
         BEGIN
             VALUE "FileDescription",  "IDE for the FreeBASIC compiler"
-            VALUE "FileVersion",      FBIDE_VERSION_STR
+            VALUE "FileVersion",      FBIDE_FULL_VERSION_STR
             VALUE "InternalName",     "fbide"
             VALUE "LegalCopyright",   "Copyright (c) 2026 Albert Varaksin. MIT License."
             VALUE "OriginalFilename", "fbide.exe"
             VALUE "ProductName",      "FBIde"
-            VALUE "ProductVersion",   FBIDE_VERSION_STR
+            VALUE "ProductVersion",   FBIDE_FULL_VERSION_STR
         END
     END
     BLOCK "VarFileInfo"
