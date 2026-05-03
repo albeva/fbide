@@ -41,14 +41,15 @@ runs:
         echo "wx-root=${WORK}/dist" >> "$GITHUB_OUTPUT"
 
     # Cache key includes build-type so a Debug run doesn't pollute the
-    # Release cache (and vice versa). Bump CACHE_VERSION below to force a
-    # rebuild without touching action.yml / build-wx.bat content hashes.
+    # Release cache (and vice versa). hashFiles() perturbs the key
+    # whenever the action or the build script changes, so manual
+    # invalidation is rarely needed.
     - name: Restore wxWidgets cache
       id: cache
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v5
       with:
         path: ${{ steps.paths.outputs.wx-root }}
-        key: wx-v2-${{ runner.os }}-${{ inputs.wx-ref }}-${{ inputs.build-type }}-${{ hashFiles('.github/actions/setup-wx/action.yml', '.github/actions/setup-wx/build-wx.bat') }}
+        key: wx-${{ runner.os }}-${{ inputs.wx-ref }}-${{ inputs.build-type }}-${{ hashFiles('.github/actions/setup-wx/action.yml', '.github/actions/setup-wx/build-wx.bat') }}
 
     - name: Clone wxWidgets
       if: steps.cache.outputs.cache-hit != 'true'
@@ -69,7 +70,7 @@ runs:
 
     - name: Save wxWidgets cache
       if: steps.cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v5
       with:
         path: ${{ steps.paths.outputs.wx-root }}
         key: ${{ steps.cache.outputs.cache-primary-key }}
