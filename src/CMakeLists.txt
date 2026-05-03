@@ -9,7 +9,12 @@ if (WIN32)
     if (CMAKE_BUILD_TYPE STREQUAL "Release")
         if (MINGW)
             target_link_options(fbide PRIVATE -Wl,--gc-sections -Wl,--strip-all)
-        elseif (MSVC)
+        elseif (MSVC AND FBIDE_ENABLE_IPO)
+            # IPO/LTCG drops a couple of hundred KB and gives a tiny speed
+            # bump on shipped binaries, but it forces every consumer of
+            # fbide_lib (notably the test binary) through link-time
+            # codegen — minutes added to a CI run. Off by default in CI;
+            # release packaging turns it back on via FBIDE_ENABLE_IPO=ON.
             set_property(TARGET fbide_lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
             set_property(TARGET fbide PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
         endif ()

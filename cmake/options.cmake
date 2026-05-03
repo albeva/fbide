@@ -1,3 +1,9 @@
+# Build options
+option(FBIDE_ENABLE_IPO
+    "Enable interprocedural optimisation (LTCG on MSVC) for Release builds of fbide."
+    OFF
+)
+
 # Compiler options configuration
 add_library(compiler_options INTERFACE)
 if(MSVC AND NOT CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
