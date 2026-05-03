@@ -4,3 +4,8 @@
 *.hpp text
 *.bas text
 *.sh text
+
+# Windows batch / cmd files must keep CRLF — cmd.exe parses LF-only scripts
+# incorrectly (REM lines bleed into commands, line continuations break).
+*.bat text eol=crlf
+*.cmd text eol=crlf
