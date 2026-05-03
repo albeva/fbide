@@ -2,10 +2,9 @@
 
 [![CI](https://github.com/albeva/fbide/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/albeva/fbide/actions/workflows/ci.yml)
 
-An open-source IDE for the [FreeBASIC](https://freebasic.net) compiler.
-Lightweight, native, cross-platform — built on wxWidgets and the Scintilla
-editor component. This is a clean-room rewrite of the original FBIde
-(0.4.6) in modern C++23, replicating the feature set with a maintainable
+An open-source IDE for the [FreeBASIC](https://freebasic.net).
+Lightweight, native, cross-platform — built on wxWidgets. This is a clean-room rewrite of the original FBIde
+(0.4.5) in modern C++23, replicating the feature set with a maintainable
 codebase.
 
 ![FBIde](docs/fbide_screenshot.png)
@@ -15,11 +14,10 @@ codebase.
 - Native FreeBASIC source editor with syntax highlighting, code folding,
   and auto-indent.
 - One-key compile, run, and quick-run with parsed compiler errors.
-- Themable editor (Borland, Modern, Obsidian, Ocean, Twilight, …).
+- Themable editor.
 - Sub / Function browser, code formatter with case conversion, find /
   replace, recent-files history, multi-document tabs.
-- Localised UI (English plus a dozen translations); `.fbl` keyword files
-  let you adapt highlighting to FreeBASIC dialects.
+- Localised UI (English plus a dozen translations)
 - Per-file context-sensitive help (CHM on Windows, online wiki fallback).
 
 ## Requirements
