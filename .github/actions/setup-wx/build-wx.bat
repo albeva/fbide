@@ -7,38 +7,23 @@ REM wxWidgets module FBIde does not link against to keep the cached install
 REM compact and shave cold-build time. When local trim flags change, update
 REM this file in the same commit.
 REM
-REM wxWidgets' build is per-config, so we configure + build TWICE:
-REM   - Release into <build-dir>/Release with IPO on
-REM   - Debug   into <build-dir>/Debug   with IPO off
-REM Both passes install to the same DIST prefix; static libs land side-by-side
-REM in lib/ (e.g. wxmsw33u_core.lib + wxmsw33ud_core.lib) and per-config
-REM headers under mswu/wx/setup.h and mswud/wx/setup.h.
+REM Release-only. CI tests run against Release wx — Debug coverage in CI was
+REM dropped to halve cold-build time and cache size. If a Debug-only failure
+REM ever needs CI repro, add a parallel matrix entry with its own build dir
+REM and dist prefix.
 REM
 REM Paths are passed in by action.yml via env vars (single source of truth):
-REM   WX_SRC_DIR    — wxWidgets source checkout (shared)
-REM   WX_BUILD_DIR  — intermediate build root (per-config subdir, not cached)
+REM   WX_SRC_DIR    — wxWidgets source checkout
+REM   WX_BUILD_DIR  — intermediate build tree (not cached)
 REM   WX_DIST_DIR   — install prefix (cached as the only artefact)
 
 if not exist "%WX_BUILD_DIR%" mkdir "%WX_BUILD_DIR%"
 if not exist "%WX_DIST_DIR%" mkdir "%WX_DIST_DIR%"
 
-call :build Release ON || exit /b 1
-call :build Debug OFF || exit /b 1
-exit /b 0
-
-
-:build
-setlocal
-set BUILD_TYPE=%~1
-set IPO=%~2
-set CFG_BUILD_DIR=%WX_BUILD_DIR%\%BUILD_TYPE%
-
-if not exist "%CFG_BUILD_DIR%" mkdir "%CFG_BUILD_DIR%"
-
-cmake -S "%WX_SRC_DIR%" -B "%CFG_BUILD_DIR%" ^
-    -DCMAKE_BUILD_TYPE=%BUILD_TYPE% ^
+cmake -S "%WX_SRC_DIR%" -B "%WX_BUILD_DIR%" ^
+    -DCMAKE_BUILD_TYPE=Release ^
     -DCMAKE_INSTALL_PREFIX="%WX_DIST_DIR%" ^
-    -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=%IPO% ^
+    -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON ^
     -DwxBUILD_SHARED=OFF ^
     -DwxBUILD_MONOLITHIC=OFF ^
     -DwxBUILD_SAMPLES=OFF ^
@@ -59,7 +44,5 @@ cmake -S "%WX_SRC_DIR%" -B "%CFG_BUILD_DIR%" ^
     -DwxUSE_NANOSVG=OFF
 if errorlevel 1 exit /b 1
 
-cmake --build "%CFG_BUILD_DIR%" --config %BUILD_TYPE% --target install
+cmake --build "%WX_BUILD_DIR%" --config Release --target install
 if errorlevel 1 exit /b 1
-
-endlocal & exit /b 0

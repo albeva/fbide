@@ -15,6 +15,11 @@ if (MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 endif()
 
+# Enable CTest at the top level so gtest_discover_tests() registrations in
+# tests/CMakeLists.txt populate CTestTestfile.cmake — without this, ctest
+# reports "No tests were found" even though the tests binary builds and runs.
+enable_testing()
+
 # CMake modules
 include(FetchContent)
 include(cmake/dependencies.cmake)
