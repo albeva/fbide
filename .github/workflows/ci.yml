@@ -127,7 +127,7 @@ jobs:
       # that does not yet exist. PRs, manual dispatches and re-pushes of
       # already-released versions skip these steps silently.
 
-      - name: Decide whether to release
+      - name: Resolve release version
         id: release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: bash
@@ -137,18 +137,16 @@ jobs:
           echo "FBIDE_VERSION=${version}" >> "$GITHUB_ENV"
           echo "FBIDE_TAG=${tag}" >> "$GITHUB_ENV"
           if git rev-parse "refs/tags/${tag}" >/dev/null 2>&1; then
-            echo "Tag ${tag} already exists — bump fbide_version() to ship a new release. Skipping."
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "::error::Release ${tag} already exists. Bump fbide_version() in CMakeLists.txt before pushing to main."
+            exit 1
           fi
 
       - name: Stage install payload
-        if: steps.release.outputs.publish == 'true'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: cmake --install build/ci --prefix package
 
       - name: Zip release artefact
-        if: steps.release.outputs.publish == 'true'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: pwsh
         run: |
           $zip = "fbide-$env:FBIDE_VERSION-win64.zip"
@@ -160,7 +158,7 @@ jobs:
       # auto-derived: any version containing '-' (i.e. has an
       # .alpha-N / .beta-N / .rc-N suffix) is marked pre-release.
       - name: Publish GitHub Release
-        if: steps.release.outputs.publish == 'true'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           name: FBIde ${{ env.FBIDE_VERSION }}
