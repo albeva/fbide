@@ -1,0 +1,143 @@
+name: Mirror to SourceForge
+
+# Mirrors GitHub release artefacts (the Win64 + Win32 zips) to the
+# legacy SourceForge project page so old inbound links keep working.
+#
+# Triggers automatically when a GitHub Release is published (which is
+# what ci.yml -> softprops/action-gh-release does on every version
+# bump). Also exposes workflow_dispatch for back-filling old releases
+# or retrying after a SourceForge outage.
+#
+# Required repository secrets (Settings -> Secrets and variables ->
+# Actions):
+#   SOURCEFORGE_USERNAME  SF account user (e.g. 'albeva')
+#   SOURCEFORGE_SSH_KEY   Private SSH key registered against that account.
+#                         Generate a dedicated ed25519 key, register the
+#                         .pub at sourceforge.net/auth/shell_services,
+#                         and store the private key here.
+#   SOURCEFORGE_API_KEY   API key from SF account preferences. Used to
+#                         flip the "default download" pointer on final
+#                         (non pre-release) builds.
+#
+# Optional repo *variable*:
+#   SOURCEFORGE_PROJECT   SF project unix-name; defaults to 'fbide'.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to mirror (e.g. v0.5.0.beta-1).
+        required: true
+        type: string
+      prerelease:
+        description: Skip the 'mark as default download' step.
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  mirror:
+    name: Mirror release to SourceForge
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # ----------------------------------------------------------------
+      # Resolve the tag + prerelease flag from whichever trigger fired.
+      # `release` event payload carries both; workflow_dispatch supplies
+      # them as inputs.
+      # ----------------------------------------------------------------
+      - name: Resolve release info
+        id: info
+        shell: bash
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "release" ]; then
+            tag="${{ github.event.release.tag_name }}"
+            prerelease="${{ github.event.release.prerelease }}"
+          else
+            tag="${{ inputs.tag }}"
+            prerelease="${{ inputs.prerelease }}"
+          fi
+          version="${tag#v}"
+          echo "tag=${tag}"               >> "$GITHUB_OUTPUT"
+          echo "version=${version}"       >> "$GITHUB_OUTPUT"
+          echo "prerelease=${prerelease}" >> "$GITHUB_OUTPUT"
+          echo "Mirroring ${tag} (prerelease=${prerelease})"
+
+      - name: Checkout (for gh CLI auth context)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      # ----------------------------------------------------------------
+      # Pull the release zips back from the GitHub release page. The
+      # ci.yml release job uploads them under the matching tag, so this
+      # is just a re-download.
+      # ----------------------------------------------------------------
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          mkdir -p artefacts
+          gh release download "${{ steps.info.outputs.tag }}" \
+              --repo "${{ github.repository }}" \
+              --dir artefacts \
+              --pattern '*.zip'
+          ls -la artefacts
+
+      # ----------------------------------------------------------------
+      # Configure SSH for the rsync step. Drops the private key, locks
+      # permissions, and pre-populates known_hosts so rsync doesn't
+      # prompt.
+      # ----------------------------------------------------------------
+      - name: Configure SSH for SourceForge
+        shell: bash
+        env:
+          SF_SSH_KEY: ${{ secrets.SOURCEFORGE_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SF_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H frs.sourceforge.net >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Upload to SourceForge FRS
+        shell: bash
+        env:
+          SF_USERNAME: ${{ secrets.SOURCEFORGE_USERNAME }}
+          SF_PROJECT: ${{ vars.SOURCEFORGE_PROJECT || 'fbide' }}
+        run: |
+          remote="${SF_USERNAME}@frs.sourceforge.net:/home/frs/project/${SF_PROJECT}/${{ steps.info.outputs.version }}/"
+          echo "Uploading to: ${remote}"
+          rsync -avz --progress \
+              -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new" \
+              artefacts/*.zip \
+              "${remote}"
+
+      # ----------------------------------------------------------------
+      # Flip the SF "default download" pointer to the new Win64 zip,
+      # but only for final releases — pre-releases stay off the front
+      # page. SF's REST endpoint accepts a PUT with `default=<platform>`
+      # form data on the file's URL.
+      # ----------------------------------------------------------------
+      - name: Mark Win64 as default download (final releases only)
+        if: steps.info.outputs.prerelease == 'false'
+        shell: bash
+        env:
+          SF_API_KEY: ${{ secrets.SOURCEFORGE_API_KEY }}
+          SF_PROJECT: ${{ vars.SOURCEFORGE_PROJECT || 'fbide' }}
+        run: |
+          version="${{ steps.info.outputs.version }}"
+          file="${version}/fbide-${version}-win64.zip"
+          curl -fSL -X PUT \
+              -d "default=windows" \
+              -d "api_key=${SF_API_KEY}" \
+              "https://sourceforge.net/projects/${SF_PROJECT}/files/${file}"
