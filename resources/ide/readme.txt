@@ -19,12 +19,19 @@ Features:
    - Tabbed editing
 
 Credits:
+   - paul doe - cleaned old splash image and made it re-usable
+
+Betatesters:
+   - MySoft
+   - ImortisInglorian
+
+Credits (legacy fbide):
    - dumbledore - code exporting and formatting routines
    - Madedog - internationalization (i18n) modules
    - Mecki - splash screen logo
    - MySoft - many patches to fix FBIde
 
-Betatesters:
+Betatesters (legacy fbide):
    - Shadowolf
    - AetherFox
    - Z!re
