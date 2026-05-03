@@ -1,0 +1,69 @@
+name: test
+
+# Pipeline gates `main` only — `develop` is the working branch where in-flight
+# work lives without CI cost. Tests run on every PR targeting `main` (i.e.
+# `develop -> main` release PRs) and on direct pushes to `main`.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'resources/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - 'configured_files/**'
+      - '.github/workflows/test.yml'
+      - '.github/actions/setup-wx/**'
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'resources/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - 'configured_files/**'
+      - '.github/workflows/test.yml'
+      - '.github/actions/setup-wx/**'
+
+# Cancel an older run on the same ref/PR when a new one starts — saves runner
+# minutes when commits land in quick succession.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up MSVC dev environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Set up Ninja
+        uses: seanmiddleditch/gha-setup-ninja@v6
+
+      - name: Set up wxWidgets
+        id: wx
+        uses: ./.github/actions/setup-wx
+        with:
+          wx-ref: v3.3.2
+
+      - name: Configure (Debug)
+        run: >
+          cmake -G Ninja -B build/ci/debug
+          -DCMAKE_BUILD_TYPE=Debug
+          -DwxWidgets_ROOT_DIR=${{ steps.wx.outputs.wx-root }}
+
+      - name: Build
+        run: cmake --build build/ci/debug
+
+      - name: Test
+        working-directory: build/ci/debug
+        run: ctest --output-on-failure

@@ -1,0 +1,64 @@
+name: Set up wxWidgets
+description: >
+  Build (or restore from cache) a static wxWidgets dist matching FBIde's
+  expected layout. Outputs `wx-root` pointing at the install prefix that can
+  be passed straight to FBIde's CMake configure as `-DwxWidgets_ROOT_DIR=...`.
+  Only the install prefix (`dist/`) is cached — sources and intermediate
+  build trees are recreated on each cold run.
+
+inputs:
+  wx-ref:
+    description: wxWidgets git tag or branch to build (e.g. v3.3.2).
+    required: false
+    default: v3.3.2
+
+outputs:
+  wx-root:
+    description: Absolute path to the wxWidgets install prefix (cached).
+    value: ${{ steps.paths.outputs.wx-root }}
+
+runs:
+  using: composite
+  steps:
+    # Single source of truth for every directory the build touches. Both this
+    # action and the vendored build-wx.bat read the same paths via env vars
+    # below, so renaming a directory only requires editing this step.
+    - name: Compute paths
+      id: paths
+      shell: bash
+      run: |
+        WORK="${{ github.workspace }}/wxwidgets"
+        echo "wx-work=${WORK}" >> "$GITHUB_OUTPUT"
+        echo "wx-src=${WORK}/src" >> "$GITHUB_OUTPUT"
+        echo "wx-build=${WORK}/build/msvc/Release" >> "$GITHUB_OUTPUT"
+        echo "wx-root=${WORK}/dist" >> "$GITHUB_OUTPUT"
+
+    - name: Restore wxWidgets cache
+      id: cache
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.paths.outputs.wx-root }}
+        key: wx-${{ runner.os }}-${{ inputs.wx-ref }}-${{ hashFiles('.github/actions/setup-wx/action.yml', '.github/actions/setup-wx/build-wx.bat') }}
+
+    - name: Clone wxWidgets
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        git clone --depth=1 --branch "${{ inputs.wx-ref }}" --recurse-submodules \
+          https://github.com/wxWidgets/wxWidgets.git "${{ steps.paths.outputs.wx-src }}"
+
+    - name: Build wxWidgets
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: cmd
+      env:
+        WX_SRC_DIR: ${{ steps.paths.outputs.wx-src }}
+        WX_BUILD_DIR: ${{ steps.paths.outputs.wx-build }}
+        WX_DIST_DIR: ${{ steps.paths.outputs.wx-root }}
+      run: ${{ github.action_path }}\build-wx.bat
+
+    - name: Save wxWidgets cache
+      if: steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ steps.paths.outputs.wx-root }}
+        key: ${{ steps.cache.outputs.cache-primary-key }}
