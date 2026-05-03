@@ -34,5 +34,6 @@ CTestTestfile.cmake
 CMakeSettings.json
 
 # Custom files
+.clangd
 resources/ide/history.ini
-resources/ide/*.chm
+*.chm
