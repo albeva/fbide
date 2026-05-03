@@ -37,3 +37,4 @@ CMakeSettings.json
 .clangd
 resources/ide/history.ini
 *.chm
+tests/cmake_test_*
