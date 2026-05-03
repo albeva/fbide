@@ -1,5 +1,7 @@
 # FBIde
 
+[![CI](https://github.com/albeva/fbide/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/albeva/fbide/actions/workflows/ci.yml)
+
 An open-source IDE for the [FreeBASIC](https://freebasic.net) compiler.
 Lightweight, native, cross-platform — built on wxWidgets and the Scintilla
 editor component. This is a clean-room rewrite of the original FBIde
