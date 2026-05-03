@@ -1,8 +1,10 @@
-name: test
+name: CI
 
 # Pipeline gates `main` only — `develop` is the working branch where in-flight
-# work lives without CI cost. Tests run on every PR targeting `main` (i.e.
-# `develop -> main` release PRs) and on direct pushes to `main`.
+# work lives without CI cost. Build + test runs on every PR targeting `main`
+# (i.e. `develop -> main` release PRs) and on direct pushes to `main`. A
+# `v*` tag push additionally packages and publishes a GitHub Release using
+# the artefacts from the same build.
 on:
   pull_request:
     branches: [main]
@@ -13,7 +15,7 @@ on:
       - 'cmake/**'
       - 'CMakeLists.txt'
       - 'configured_files/**'
-      - '.github/workflows/test.yml'
+      - '.github/workflows/ci.yml'
       - '.github/actions/setup-wx/**'
   push:
     branches: [main]
@@ -24,7 +26,7 @@ on:
       - 'cmake/**'
       - 'CMakeLists.txt'
       - 'configured_files/**'
-      - '.github/workflows/test.yml'
+      - '.github/workflows/ci.yml'
       - '.github/actions/setup-wx/**'
     # Tag pushes drive a release: same job runs the full test gate, then
     # packages and uploads to GitHub Releases. Tag must be a SemVer-ish
@@ -45,7 +47,7 @@ on:
 # Cancel an older run on the same ref/PR when a new one starts — saves runner
 # minutes when commits land in quick succession.
 concurrency:
-  group: test-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 # Opt every JS-based action into Node 24 ahead of GitHub's June 2026
