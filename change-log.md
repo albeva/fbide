@@ -1,13 +1,21 @@
-Changes from fbide 0.4.5.
+# Change since 0.5.0-beta.1
 
-## Project changes
+### General
+- Improved dark mode support on windows. Can be enabled manually by editing config file
+- Use wxAUI based toolbar system
+- Remember configured layout between fbide restarts
+- Encode correct platform values in Windows manifest files
+
+# Changes since fbide 0.4.5.
+
+### Project changes
 - FBIde is completely rewritten from scratch, to match the feature set of fbide 0.4.6.
 - Updated to wxWidgets 3.3.
 - Adopted C++23 as baseline.
 - Adopted the CMake build system.
 - Relicensed under MIT
 
-## General
+### General
 - Added option to start the editor with a custom config file via `--config` option, or setting ide path with `--ide`
 - Line numbers margin now zooms with font size changes
 - FBIde validates chm files, if they are locked, show a dialogue with instructions and a link for more info
@@ -29,14 +37,14 @@ Changes from fbide 0.4.5.
 - Sub/Function browser now also shows macros
 - Added dropdown menu option for reloading file from disk
 
-## Removed options
+### Removed options
 - `ActivePath` option has been removed. FBIde now always sets the working directory to the source file location when compiling or running.
 - `floatbars` option has been removed. FBIde now always uses wxAUI for layout.
 
-## Layout
+### Layout
 - FBIde uses wxAUI layout for tabs and panels. They can be moved around, docked in various positions, etc.
 
-## Compiler
+### Compiler
 - Compilation is now asynchronous in a separate process.
 - Compiler log is now a single persistent window that updates automatically after each compilation.
 - Compile command paths are quoted by default: `"<$fbc>" "<$file>"`.

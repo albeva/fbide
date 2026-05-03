@@ -49,7 +49,7 @@ auto readLocaleName(const wxString& path) -> wxString {
     if (!stream.IsOk()) {
         return {};
     }
-    wxFileConfig cfg(stream, wxConvUTF8);
+    const wxFileConfig cfg(stream, wxConvUTF8);
     wxString name;
     cfg.Read("name", &name);
     return name;
