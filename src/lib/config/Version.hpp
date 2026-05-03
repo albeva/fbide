@@ -82,10 +82,10 @@ public:
     /// `tagRank()` makes `Tag::None` the greatest so a final release
     /// outranks every pre-release at the same numeric triple.
     [[nodiscard]] friend constexpr auto operator<=>(const Version& a, const Version& b) noexcept -> std::strong_ordering {
-        if (auto c = a.m_major <=> b.m_major; c != 0) return c;
-        if (auto c = a.m_minor <=> b.m_minor; c != 0) return c;
-        if (auto c = a.m_patch <=> b.m_patch; c != 0) return c;
-        if (auto c = tagRank(a.m_tag) <=> tagRank(b.m_tag); c != 0) return c;
+        if (const auto c = a.m_major <=> b.m_major; c != 0) return c;
+        if (const auto c = a.m_minor <=> b.m_minor; c != 0) return c;
+        if (const auto c = a.m_patch <=> b.m_patch; c != 0) return c;
+        if (const auto c = tagRank(a.m_tag) <=> tagRank(b.m_tag); c != 0) return c;
         return a.m_tweak <=> b.m_tweak;
     }
 

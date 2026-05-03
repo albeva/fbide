@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 23)
 #   fbide_version(0.5.0 RC 1)       -> 0.5.0.rc-1
 #   fbide_version(0.5.0 Beta 2)     -> 0.5.0.beta-2
 include(cmake/version.cmake)
-fbide_version(0.5.0)
+fbide_version(0.5.0 Beta 1)
 
 # The Project
 project(

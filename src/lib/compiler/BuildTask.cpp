@@ -257,7 +257,7 @@ auto BuildTask::buildRunCommand(const wxString& executablePath) const -> wxStrin
 void BuildTask::appendSystemInfo() {
     m_compilerLog.Add("");
     m_compilerLog.Add("[bold]System:[/bold]");
-    m_compilerLog.Add("FBIde: " + wxString(cmake::project.fullVersion));
+    m_compilerLog.Add("FBIde: " + wxString(cmake::project.version));
     const auto& fbcVersion = m_ctx.getCompilerManager().getFbcVersion();
     if (!fbcVersion.empty()) {
         m_compilerLog.Add("fbc:   " + fbcVersion);

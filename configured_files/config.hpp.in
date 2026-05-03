@@ -23,17 +23,15 @@ namespace cmake {
     struct Project final {
         const char* name;
         const char* description;
-        const char* version;     ///< Numeric MAJOR.MINOR.PATCH only.
-        const char* fullVersion; ///< MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH.tag-tweak.
+        const char* version;        ///< MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH.tag-tweak.
         int major, minor, patch;
         VersionTag tag;
-        int tweak;               ///< Pre-release iteration; 0 when tag == None.
+        int tweak;                  ///< Pre-release iteration; 0 when tag == None.
     };
     static constexpr Project project {
         .name        = "@PROJECT_NAME@",
         .description = "@PROJECT_DESCRIPTION@",
-        .version     = "@PROJECT_VERSION@",
-        .fullVersion = "@FBIDE_FULL_VERSION@",
+        .version     = "@FBIDE_FULL_VERSION@",
         .major       = @PROJECT_VERSION_MAJOR@,
         .minor       = @PROJECT_VERSION_MINOR@,
         .patch       = @PROJECT_VERSION_PATCH@,

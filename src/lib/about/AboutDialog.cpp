@@ -37,7 +37,7 @@ void AboutDialog::create() {
                 "Version:       %s\n"
                 "Build date:    %s\n"
                 "wxWidgets:     %d.%d.%d",
-                cmake::project.fullVersion,
+                cmake::project.version,
                 __DATE__,
                 wxMAJOR_VERSION, wxMINOR_VERSION, wxRELEASE_NUMBER
             ),
