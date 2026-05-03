@@ -22,12 +22,6 @@ public:
     /// Set up the layout. Call after construction.
     void create(const Context& ctx);
 
-    /// Clear all log content.
-    void clear();
-
-    /// Append a line to the log. Supports [bold]...[/bold] markup.
-    void log(const wxString& line);
-
     /// Append multiple lines to the log.
     void log(const wxArrayString& lines);
 

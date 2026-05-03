@@ -105,17 +105,16 @@ void CompilerManager::killProcess() {
 
 void CompilerManager::showCompilerLog() {
     auto& log = m_ctx.getUIManager().getCompilerLog();
-    refreshCompilerLog();
     log.Show();
     log.Raise();
 }
 
 void CompilerManager::refreshCompilerLog() {
-    auto& log = m_ctx.getUIManager().getCompilerLog();
-    log.clear();
-    if (m_task) {
-        log.log(m_task->getCompilerLog());
+    if (m_task == nullptr) {
+        return;
     }
+    auto& log = m_ctx.getUIManager().getCompilerLog();
+    log.log(m_task->getCompilerLog());
 }
 
 // ---------------------------------------------------------------------------
