@@ -33,6 +33,12 @@ concurrency:
   group: test-${{ github.ref }}
   cancel-in-progress: true
 
+# Opt every JS-based action into Node 24 ahead of GitHub's June 2026
+# default switch. Lets us stay on stable major tags (actions/checkout@v4,
+# ilammy/msvc-dev-cmd@v1, etc.) without waiting for upstream re-tags.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   build-and-test:
     runs-on: windows-latest
