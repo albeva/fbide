@@ -56,6 +56,10 @@ void UIManager::onClose(wxCloseEvent& event) {
     }
 
     saveWindowGeometry();
+    // Document tabs are gone at this point — the AUI perspective we
+    // capture now reflects only persistent chrome (toolbars, sidebar,
+    // output console) without any transient document state baked in.
+    saveAuiPerspective();
     m_ctx.getConfigManager().save(ConfigManager::Category::Config);
     m_ctx.getFileHistory().save();
 
@@ -128,9 +132,34 @@ void UIManager::createMainFrame() {
 
     refreshAuiArt();
 
+    // Restore the dock layout the user left the IDE in last session.
+    // Must happen AFTER every pane has been added (toolbar, notebook,
+    // sidebar, console) so pane lookup by name succeeds.
+    loadAuiPerspective();
+
     applyState(UIState::None);
     m_aui.Update();
     m_frame->Show();
+}
+
+void UIManager::saveAuiPerspective() {
+    // Called on close, after DocumentManager::prepareToQuit has closed
+    // every editor tab — the perspective at this point describes only
+    // the persistent chrome (toolbars, sidebar, output console) with
+    // no transient document state baked in.
+    auto& aui = m_ctx.getConfigManager().config()["aui"];
+    aui["perspective"] = m_aui.SavePerspective();
+}
+
+void UIManager::loadAuiPerspective() {
+    const auto perspective = m_ctx.getConfigManager().config().get_or("aui.perspective", "");
+    if (perspective.IsEmpty()) {
+        return;
+    }
+    // update=false: defer the visual refresh — the createMainFrame
+    // caller invokes m_aui.Update() once for both the restored layout
+    // and any state changes that happened earlier.
+    m_aui.LoadPerspective(perspective, false);
 }
 
 void UIManager::refreshAuiArt() const {
@@ -473,7 +502,7 @@ void UIManager::onStatusBarClick(wxMouseEvent& event) {
     wxRect rect;
 
     if (bar->GetFieldRect(2, rect) && rect.Contains(pos)) {
-        auto menu = EncodingMenu::buildEolMenu(doc->getEolMode());
+        const auto menu = EncodingMenu::buildEolMenu(doc->getEolMode());
         menu->Bind(wxEVT_MENU, [doc](const wxCommandEvent& evt) {
             if (const auto mode = EncodingMenu::eolFromId(evt.GetId())) {
                 doc->setEolMode(*mode);

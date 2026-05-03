@@ -143,6 +143,15 @@ private:
     void refreshAuiArt() const;
     /// Capture the current frame size + position into `config["window"]`.
     void saveWindowGeometry();
+    /// Serialise the current wxAUI pane layout into `config["aui"]["perspective"]`.
+    /// Called on close after every document tab has been disposed of, so the
+    /// stored layout reflects only the chrome (toolbars, sidebar, output) and
+    /// no transient document state.
+    void saveAuiPerspective();
+    /// Apply a previously saved perspective string back onto `m_aui`. No-op if
+    /// the config key is missing. Must run after every pane has been added so
+    /// pane lookup by name succeeds.
+    void loadAuiPerspective();
 
     Context& m_ctx;                                     ///< Application context.
     UIState m_documentState = UIState::None;            ///< Document-side state slot.
