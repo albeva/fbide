@@ -1,6 +1,6 @@
 # FBIde
 
-[![CI](https://github.com/albeva/fbide/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/albeva/fbide/actions/workflows/ci.yml)
+[![CI](https://github.com/albeva/fbide/actions/workflows/ci.yml/badge.svg)](https://github.com/albeva/fbide/actions/workflows/ci.yml)
 
 An open-source IDE for the [FreeBASIC](https://freebasic.net).
 Lightweight, native, cross-platform — built on wxWidgets. This is a clean-room rewrite of the original FBIde
