@@ -110,12 +110,11 @@ public:
         m_categories[static_cast<std::size_t>(category)] = entry;
     }
 
-    // -----------------------------------------------------------------------
-    // Style property getters and setters
-    // -----------------------------------------------------------------------
+    // Style property getters and setters. Every setter calls reset()
+    // to invalidate the cached runtime font.
     #define FUNCS(GETTER, MEMBER, TYPE)                                                \
         [[nodiscard]] auto get## GETTER() const -> const TYPE& { return m_## MEMBER; } \
-        void set## GETTER(const TYPE& MEMBER) { m_## MEMBER = MEMBER; }
+        void set## GETTER(const TYPE& MEMBER) { m_## MEMBER = MEMBER; reset(); }
         DEFINE_THEME_PROPERTY(FUNCS)
     #undef FUNCS
 
@@ -128,9 +127,25 @@ public:
     /// Return `color` if valid, otherwise the default-category background.
     [[nodiscard]] auto background(const wxColour& color) const -> const wxColour&;
 
+    /// Runtime wxFont built from the theme's font + size. Falls back
+    /// to the platform default monospace face when the configured
+    /// face isn't installed. `m_font` itself is never mutated.
+    [[nodiscard]] auto getResolvedFont(
+        bool bold = false,
+        bool italic = false,
+        bool underlined = false
+    ) const -> wxFont;
+
 private:
     /// Internal load entry — `reset` controls whether existing fields clear first.
     void load(const wxString& themePath, bool reset);
+    /// Invalidate the cached runtime font.
+    void reset();
+    /// Build the runtime wxFont, substituting the system monospace face
+    /// when the configured one isn't installed.
+    void resolveFontFace() const;
+
+    mutable wxFont m_resolvedFont;       ///< Lazy runtime cache; never persisted.
 
     wxString m_themePath;                                ///< Current backing file path.
     std::array<Entry, kThemeCategoryCount> m_categories {}; ///< Per-`ThemeCategory` style entries.

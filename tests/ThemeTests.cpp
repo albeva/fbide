@@ -64,6 +64,56 @@ TEST_F(ThemeTests, SaveAndReload) {
     wxRemoveFile(tmpFile);
 }
 
+// Regression for #12 — when the theme references a font that's not
+// installed, getResolvedFont() returns a wxFont with a face wx
+// recognises on this system, while getFont() preserves the original
+// (bogus) name as written in the file so save / load round-trips
+// don't mutate user content.
+TEST_F(ThemeTests, MissingFontFallsBackToSystemMonospace) {
+    const wxString tmpFile = wxFileName::CreateTempFileName("fbide_theme") + ".ini";
+    constexpr auto kBogusFont = "Definitely Not An Installed Face XYZQ";
+    {
+        wxFFile out(tmpFile, "w");
+        ASSERT_TRUE(out.IsOpened());
+        out.Write(wxString::Format(
+            "version=0.5.0\n"
+            "font=%s\n"
+            "fontSize=11\n",
+            kBogusFont
+        ));
+    }
+
+    Theme theme;
+    theme.load(tmpFile);
+
+    // Original face name preserved on disk (no mutation).
+    EXPECT_EQ(theme.getFont(), kBogusFont);
+
+    // Resolved font is a usable wxFont on this system.
+    const auto resolved = theme.getResolvedFont();
+    EXPECT_TRUE(resolved.IsOk());
+    EXPECT_NE(resolved.GetFaceName(), kBogusFont);
+    EXPECT_FALSE(resolved.GetFaceName().IsEmpty());
+    EXPECT_TRUE(wxFontEnumerator::IsValidFacename(resolved.GetFaceName()))
+        << "Resolved face '" << resolved.GetFaceName().ToStdString()
+        << "' was not registered as a valid face on this system.";
+
+    // Style variants flow through the same base.
+    const auto bold = theme.getResolvedFont(/*bold=*/true);
+    EXPECT_TRUE(bold.GetWeight() == wxFONTWEIGHT_BOLD);
+
+    // Mutating font / fontSize via setters re-runs the resolver — no
+    // explicit invalidation step required by callers (theme editor,
+    // settings dialog).
+    theme.setFont("Courier New");
+    EXPECT_EQ(theme.getResolvedFont().GetFaceName(), "Courier New");
+
+    theme.setFontSize(20);
+    EXPECT_EQ(theme.getResolvedFont().GetPointSize(), 20);
+
+    wxRemoveFile(tmpFile);
+}
+
 TEST_F(ThemeTests, SaveMigratesFbtToIni) {
     // Copy classic.fbt somewhere writable so we can save it.
     const wxString srcFbt = testDataPath + "classic.fbt";

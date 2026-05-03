@@ -156,14 +156,7 @@ void Editor::applyTheme() {
     const auto& defaultEntry = theme.get(ThemeCategory::Default);
     const auto& defaultColors = defaultEntry.colors;
 
-    m_font = wxFont(
-        theme.getFontSize(),
-        wxFONTFAMILY_MODERN,
-        wxFONTSTYLE_NORMAL,
-        wxFONTWEIGHT_NORMAL,
-        false,
-        theme.getFont()
-    );
+    m_font = theme.getResolvedFont();
 
     StyleSetForeground(wxSTC_STYLE_DEFAULT, defaultColors.foreground);
     StyleSetBackground(wxSTC_STYLE_DEFAULT, defaultColors.background);
