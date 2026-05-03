@@ -63,11 +63,15 @@ jobs:
         with:
           wx-ref: v3.3.2
 
+      # WXWIN switches cmake/wxwidgets.cmake to CONFIG mode, which finds
+      # wxWidgetsConfig.cmake under <dist>/lib/cmake/wxWidgets/. The
+      # alternate path (wxWidgets_ROOT_DIR + legacy FindwxWidgets) expects
+      # the prebuilt-binaries layout we don't ship from `cmake --install`.
       - name: Configure (Debug)
         run: >
           cmake -G Ninja -B build/ci/debug
           -DCMAKE_BUILD_TYPE=Debug
-          -DwxWidgets_ROOT_DIR=${{ steps.wx.outputs.wx-root }}
+          -DWXWIN=${{ steps.wx.outputs.wx-root }}
 
       - name: Build
         run: cmake --build build/ci/debug
