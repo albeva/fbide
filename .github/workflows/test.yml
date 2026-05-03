@@ -94,8 +94,11 @@ jobs:
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
           -DWXWIN=${{ steps.wx.outputs.wx-root }}
 
-      - name: Build
-        run: cmake --build build/ci
+      # Build only what the test gate needs — fbide_lib (transitively) and
+      # the tests binary. Skipping the fbide.exe target shaves a link step
+      # the workflow does not actually exercise.
+      - name: Build tests
+        run: cmake --build build/ci --target tests
 
       - name: Test
         working-directory: build/ci
