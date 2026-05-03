@@ -272,6 +272,12 @@ void ReFormatter::dispatch() {
             if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
                 continue;
             }
+            // Access modifiers (`Public Type Foo As Integer`) are transparent —
+            // skip so `Type` registers as the first structural keyword and the
+            // following `As` registers as the second.
+            if (tkn.keywordKind == KeywordKind::AccessModifier) {
+                continue;
+            }
             if (tkn.keywordKind != KeywordKind::None && tkn.keywordKind != KeywordKind::Other) {
                 if (foundFirst) {
                     second = tkn.keywordKind;
@@ -316,13 +322,26 @@ void ReFormatter::dispatch() {
 }
 
 auto ReFormatter::firstKeyword() const -> KeywordKind {
+    // FB reuses keywords inside other statements (e.g. `Open ... For Input As #f`).
+    // Block dispatch must look only at the first word-like token of the line —
+    // not scan past it for a structural keyword somewhere later. Access
+    // modifiers (`Private` / `Public` / `Protected`) are transparent prefixes
+    // of Sub / Function / Type / ... and are skipped so the next word-like
+    // token decides. A non-word-like token at the head of the line means there
+    // is no leading keyword — return None and the dispatch falls through to a
+    // plain statement.
     for (const auto& tkn : m_segment) {
-        if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
+        if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline
+            || tkn.kind == TokenKind::Comment || tkn.kind == TokenKind::CommentBlock) {
             continue;
         }
-        if (tkn.keywordKind != KeywordKind::None && tkn.keywordKind != KeywordKind::Other) {
-            return tkn.keywordKind;
+        if (!isWordLike(tkn.kind)) {
+            return KeywordKind::None;
         }
+        if (tkn.keywordKind == KeywordKind::AccessModifier) {
+            continue;
+        }
+        return tkn.keywordKind;
     }
     return KeywordKind::None;
 }

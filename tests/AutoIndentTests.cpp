@@ -174,6 +174,47 @@ TEST_F(AutoIndentTests, EmptyAndCommentOnlyLines) {
 }
 
 // ---------------------------------------------------------------------------
+// Keyword reuse — only the first keyword of the statement decides whether
+// a block opens. Reused keywords inside other statements (e.g. `For` in
+// `Open ... For Input`) must not push a block.
+// ---------------------------------------------------------------------------
+
+TEST_F(AutoIndentTests, OpenForInputDoesNotOpenForBlock) {
+    EXPECT_TRUE(neutral("Open \"file\" For Input As #f"));
+    EXPECT_TRUE(neutral("Open \"file\" For Output As #1"));
+    EXPECT_TRUE(neutral("Open \"file\" For Append As #fileNum"));
+}
+
+// ---------------------------------------------------------------------------
+// Access modifiers (Private/Public/Protected) are transparent prefixes —
+// the keyword that follows decides the block.
+// ---------------------------------------------------------------------------
+
+TEST_F(AutoIndentTests, AccessModifiersTransparentForBlockOpeners) {
+    EXPECT_TRUE(opener("Private Sub Foo()"));
+    EXPECT_TRUE(opener("Public Sub Foo()"));
+    EXPECT_TRUE(opener("Protected Sub Foo()"));
+    EXPECT_TRUE(opener("Public Function Bar() As Integer"));
+    EXPECT_TRUE(opener("Private Operator MyType.Cast() As Integer"));
+    EXPECT_TRUE(opener("Public Type MyType"));
+    EXPECT_TRUE(opener("Public Enum Color"));
+}
+
+TEST_F(AutoIndentTests, PublicTypeAliasDoesNotOpen) {
+    // `Public Type X As Integer` is an alias declaration — modifier transparent
+    // but the Type-As form must still resolve to a statement.
+    EXPECT_TRUE(neutral("Public Type X As Integer"));
+}
+
+TEST_F(AutoIndentTests, PublicLabelInsideTypeBodyDoesNotOpen) {
+    // `public:` (with trailing colon) is a C++-style visibility label inside
+    // a Type body, not a Sub/Function modifier — must not open a block.
+    EXPECT_TRUE(neutral("public:"));
+    EXPECT_TRUE(neutral("private:"));
+    EXPECT_TRUE(neutral("protected:"));
+}
+
+// ---------------------------------------------------------------------------
 // Block closers
 // ---------------------------------------------------------------------------
 

@@ -88,6 +88,13 @@ enum class KeywordKind {
     As,
     // Declaration
     Declare,
+    // Access modifier — `Private` / `Public` / `Protected` preceding a Sub /
+    // Function / Type / etc. The block-dispatch code skips these so the
+    // following keyword decides the structure (e.g. `Private Sub Foo` opens a
+    // sub block). `Public:` (followed by a colon) is a label inside a Type
+    // body and does not open a block; the colon-split / non-word-after-modifier
+    // checks handle that case.
+    AccessModifier,
     // Early-exit statements (prevent following block keyword from opening a scope)
     Exit,
     Continue,

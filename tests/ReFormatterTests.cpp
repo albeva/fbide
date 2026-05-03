@@ -192,6 +192,74 @@ TEST_F(ReFormatterTests, ExitLoopKeywordsDoNotOpenBlock) {
 }
 
 // ---------------------------------------------------------------------------
+// Keyword reuse — only the FIRST word-like token of a statement decides
+// whether a block opens. Subsequent reused keywords (e.g. `For` inside
+// `Open ... For Input`) must not push a block onto the stack.
+// ---------------------------------------------------------------------------
+
+TEST_F(ReFormatterTests, OpenForInputDoesNotOpenForBlock) {
+    EXPECT_EQ(format(
+                  "Open \"somefile\" For Input As #f\n"
+                  "Print \"this is not a FOR loop and should not indent\"\n"
+              ),
+        "Open \"somefile\" For Input As # f\n"
+        "Print \"this is not a FOR loop and should not indent\"\n");
+}
+
+// ---------------------------------------------------------------------------
+// Access modifiers (Private/Public/Protected) are transparent prefixes —
+// the keyword that follows decides the block.
+// ---------------------------------------------------------------------------
+
+TEST_F(ReFormatterTests, PrivateSubOpensBlock) {
+    EXPECT_EQ(format(
+                  "Private Sub Foo()\n"
+                  "Print \"hi\"\n"
+                  "End Sub\n"
+              ),
+        "Private Sub Foo()\n"
+        "    Print \"hi\"\n"
+        "End Sub\n");
+}
+
+TEST_F(ReFormatterTests, PublicTypeOpensBlock) {
+    EXPECT_EQ(format(
+                  "Public Type Foo\n"
+                  "x As Integer\n"
+                  "End Type\n"
+              ),
+        "Public Type Foo\n"
+        "    x As Integer\n"
+        "End Type\n");
+}
+
+TEST_F(ReFormatterTests, PublicTypeAliasDoesNotOpenBlock) {
+    // `Public Type X As Integer` is an alias — modifier is transparent but
+    // the Type-As form must still resolve to a statement.
+    EXPECT_EQ(format(
+                  "Public Type X As Integer\n"
+                  "Print x\n"
+              ),
+        "Public Type X As Integer\n"
+        "Print x\n");
+}
+
+TEST_F(ReFormatterTests, PublicLabelInsideTypeBody) {
+    // `public:` is a C++-style visibility label inside a Type body — does
+    // not open a block, body content stays at Type's indent level.
+    EXPECT_EQ(format(
+                  "Type myudt\n"
+                  "public:\n"
+                  "Declare Sub some_public()\n"
+                  "End Type\n"
+              ),
+        "Type myudt\n"
+        "    public:\n"
+        "    Declare Sub some_public()\n"
+        "End Type\n");
+}
+
+// ---------------------------------------------------------------------------
 // Nested blocks
 // ---------------------------------------------------------------------------
 

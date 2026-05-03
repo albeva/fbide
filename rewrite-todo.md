@@ -6,7 +6,7 @@
 - [x] Remove lexilla git submodule, instead copy only the headers we need directly into the project
 - [x] Remove all unused langauge keys from both FBIde as well as language files
 - [x] Add all new string literals in FBIde to Trans and language files
-- [ ] Update translations
+- [x] Update translations
 
 ## Compiler Integration
 

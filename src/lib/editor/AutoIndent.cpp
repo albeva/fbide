@@ -24,13 +24,25 @@ auto isLayout(const TokenKind k) -> bool {
 }
 
 auto firstKeyword(const std::vector<Token>& tokens) -> KeywordKind {
+    // FB reuses keywords inside other statements (e.g. `Open ... For Input As #f`).
+    // Indent dispatch must look only at the first word-like token of the line —
+    // not scan past it for a structural keyword somewhere later. Access
+    // modifiers (`Private` / `Public` / `Protected`) are transparent prefixes
+    // of Sub / Function / Type / ... and are skipped so the next word-like
+    // token decides. A non-word-like token at the head of the line means there
+    // is no leading keyword — return None and the dispatch falls through to a
+    // plain statement (no indent change).
     for (const auto& t : tokens) {
-        if (isLayout(t.kind)) {
+        if (isLayout(t.kind) || t.kind == TokenKind::Comment || t.kind == TokenKind::CommentBlock) {
             continue;
         }
-        if (t.keywordKind != KeywordKind::None && t.keywordKind != KeywordKind::Other) {
-            return t.keywordKind;
+        if (!isWordLike(t.kind)) {
+            return KeywordKind::None;
         }
+        if (t.keywordKind == KeywordKind::AccessModifier) {
+            continue;
+        }
+        return t.keywordKind;
     }
     return KeywordKind::None;
 }
@@ -39,6 +51,11 @@ auto secondStructuralKeyword(const std::vector<Token>& tokens) -> KeywordKind {
     bool seenFirst = false;
     for (const auto& t : tokens) {
         if (isLayout(t.kind)) {
+            continue;
+        }
+        // Access modifiers (`Public Type Foo As Integer`) are transparent —
+        // skip so `Type` registers as the first structural keyword.
+        if (t.keywordKind == KeywordKind::AccessModifier) {
             continue;
         }
         if (t.keywordKind != KeywordKind::None && t.keywordKind != KeywordKind::Other) {
