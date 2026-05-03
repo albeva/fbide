@@ -6,9 +6,9 @@ name: CI
 #
 # Releases are fully automatic: a push to `main` reads the version from
 # fbide_version() in CMakeLists.txt and, if no `v<version>` tag exists yet,
-# the workflow creates the tag, packages the build, and publishes a GitHub
-# Release. To ship a release, bump fbide_version() and merge to main — no
-# manual `git tag` step.
+# the workflow creates the tag, packages the win64 + win32 builds, and
+# publishes a single GitHub Release with both zips attached. Existing
+# version on push fails the workflow.
 on:
   pull_request:
     branches: [main]
@@ -58,30 +58,35 @@ env:
 
 jobs:
   build-and-test:
+    name: build-and-test (${{ matrix.arch }})
     runs-on: windows-latest
     timeout-minutes: 30
-    # `contents: write` is needed by softprops/action-gh-release to create
-    # the tag and publish the release. Harmless on PR / dispatch runs —
-    # those steps are gated below.
+    strategy:
+      # Run both archs to completion even if one fails — easier to see
+      # which platform broke.
+      fail-fast: false
+      matrix:
+        arch: [x64, x86]
     permissions:
-      contents: write
+      contents: read
     # Manual runs honour the chosen build type; PR / push runs default to
     # Release (matches what the wxWidgets dist is built for).
     env:
       BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
+    outputs:
+      version: ${{ steps.read-version.outputs.value }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          # Need full tag list to detect whether the configured version
-          # has already been released.
+          # Need full tag list so the existing-tag check has the truth.
           fetch-tags: true
           fetch-depth: 0
 
-      - name: Set up MSVC dev environment
+      - name: Set up MSVC dev environment (${{ matrix.arch }})
         uses: ilammy/msvc-dev-cmd@v1.13.0
         with:
-          arch: x64
+          arch: ${{ matrix.arch }}
 
       # Hosted runners ship with CMake 3.31, but FBIde requires 4.0+
       # (CMakeLists.txt:1 cmake_minimum_required). lukka/get-cmake also
@@ -100,6 +105,7 @@ jobs:
         with:
           wx-ref: v3.3.2
           build-type: ${{ env.BUILD_TYPE }}
+          arch: ${{ matrix.arch }}
 
       # WXWIN switches cmake/wxwidgets.cmake to CONFIG mode, which finds
       # wxWidgetsConfig.cmake under <dist>/lib/cmake/wxWidgets/. The
@@ -121,21 +127,24 @@ jobs:
         working-directory: build/ci
         run: ctest --output-on-failure
 
-      # ---------- Release (push to main, only if version is new) ----------
-      # All subsequent steps are gated on a release-eligible run: a push
-      # event to main, where the configured fbide_version() yields a tag
-      # that does not yet exist. PRs, manual dispatches and re-pushes of
-      # already-released versions skip these steps silently.
+      # Expose the configured version once per matrix instance. All
+      # instances emit the same value, so the job-level output (which
+      # collapses to the last completed instance) is fine.
+      - name: Read version
+        id: read-version
+        shell: bash
+        run: echo "value=$(cat build/ci/version.txt)" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve release version
-        id: release
+      # ---------- Release prep (push to main, all matrix archs) ----------
+      # Each matrix instance independently fails the build if the version
+      # is already released, so a forgotten version bump is caught before
+      # the release job runs.
+      - name: Verify version is unreleased
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: bash
         run: |
           version="$(cat build/ci/version.txt)"
           tag="v${version}"
-          echo "FBIDE_VERSION=${version}" >> "$GITHUB_ENV"
-          echo "FBIDE_TAG=${tag}" >> "$GITHUB_ENV"
           if git rev-parse "refs/tags/${tag}" >/dev/null 2>&1; then
             echo "::error::Release ${tag} already exists. Bump fbide_version() in CMakeLists.txt before pushing to main."
             exit 1
@@ -149,21 +158,46 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: pwsh
         run: |
-          $zip = "fbide-$env:FBIDE_VERSION-win64.zip"
+          $version = Get-Content build/ci/version.txt -Raw
+          $version = $version.Trim()
+          $zip = "fbide-$version-win${{ matrix.arch == 'x64' && '64' || '32' }}.zip"
           Compress-Archive -Path package\* -DestinationPath $zip -Force
           "RELEASE_ZIP=$zip" | Out-File -Append $env:GITHUB_ENV
+
+      - name: Upload release artefact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.arch }}
+          path: ${{ env.RELEASE_ZIP }}
+          retention-days: 1
+          if-no-files-found: error
+
+  release:
+    name: release
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release artefacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artefacts
+          pattern: release-*
+          merge-multiple: true
 
       # softprops/action-gh-release creates the tag (on the run's commit
       # SHA) and the matching release in one step. Pre-release flag is
       # auto-derived: any version containing '-' (i.e. has an
       # .alpha-N / .beta-N / .rc-N suffix) is marked pre-release.
       - name: Publish GitHub Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          name: FBIde ${{ env.FBIDE_VERSION }}
-          tag_name: ${{ env.FBIDE_TAG }}
+          name: FBIde ${{ needs.build-and-test.outputs.version }}
+          tag_name: v${{ needs.build-and-test.outputs.version }}
           target_commitish: ${{ github.sha }}
-          prerelease: ${{ contains(env.FBIDE_VERSION, '-') }}
+          prerelease: ${{ contains(needs.build-and-test.outputs.version, '-') }}
           generate_release_notes: true
-          files: ${{ env.RELEASE_ZIP }}
+          files: artefacts/*.zip
