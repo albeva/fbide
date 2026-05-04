@@ -171,7 +171,7 @@ void FileSession::showLoadDialog() {
 }
 
 void FileSession::showSaveDialog() {
-    auto& dm = m_ctx.getDocumentManager();
+    const auto& dm = m_ctx.getDocumentManager();
     if (dm.getCount() == 0) {
         return;
     }
