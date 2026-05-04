@@ -1,8 +1,11 @@
 name: CI
 
 # Pipeline gates `main` only — `develop` is the working branch where in-flight
-# work lives without CI cost. Build + test runs on every PR targeting `main`
-# (i.e. `develop -> main` release PRs) and on direct pushes to `main`.
+# work lives without CI cost. Build + test runs on direct pushes to `main`
+# (which includes the squash-merge of a `develop -> main` release PR).
+# PR runs are intentionally not wired up: the post-merge push covers the
+# same code and avoids a duplicate release attempt where one of the two
+# would fail the version-already-exists check.
 #
 # Releases are fully automatic on push to main: the version is read once
 # from fbide_version() in CMakeLists.txt; the build matrix builds and
@@ -10,23 +13,11 @@ name: CI
 # GitHub Release is published with both arch zips attached. Existing
 # version on push fails the workflow.
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'resources/**'
-      - 'cmake/**'
-      - 'CMakeLists.txt'
-      - 'configured_files/**'
-      - '.github/workflows/ci.yml'
-      - '.github/actions/setup-wx/**'
   push:
     branches: [main]
     paths:
       - 'src/**'
-      - 'tests/**'
-      - 'resources/**'
+      - 'resources/pristine/**'
       - 'cmake/**'
       - 'CMakeLists.txt'
       - 'configured_files/**'
@@ -95,8 +86,8 @@ jobs:
           echo "value=${version}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
-          # Only push-to-main runs publish releases; PR + workflow_dispatch
-          # are build-and-test only.
+          # Only push-to-main runs publish releases; workflow_dispatch is
+          # build-and-test only.
           if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
             if git rev-parse "refs/tags/${tag}" >/dev/null 2>&1; then
               echo "::error::Release ${tag} already exists. Bump fbide_version() in CMakeLists.txt before pushing to main."
@@ -120,7 +111,7 @@ jobs:
         arch: [x64, x86]
     permissions:
       contents: read
-    # Manual runs honour the chosen build type; PR / push runs default to
+    # Manual runs honour the chosen build type; push-to-main defaults to
     # Release (matches what the wxWidgets dist is built for).
     env:
       BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
