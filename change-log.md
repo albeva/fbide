@@ -1,3 +1,7 @@
+# Change since 0.5.0-beta.2
+
+- Fixed issue with auto indent not working when keyword case transform was disabled (#24)
+
 # Change since 0.5.0-beta.1
 
 - Improved dark mode support on Windows. Can be enabled manually by editing the config file
@@ -13,7 +17,6 @@
 - Right-clicking on the console now opens the compile log (#5)
 - Fixed issue with default background colour for margins, and fixed classic theme (#4)
 - Support drag & drop files, only files supported by fbide are opened (#21)
-- Auto-indent and inserted block closers now work independently of the keyword case transform; the closer also respects the case toggle (#24)
 
 # Changes since fbide 0.4.5.
 
