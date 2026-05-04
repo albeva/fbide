@@ -139,6 +139,17 @@ void UIManager::createMainFrame() {
 
     applyState(UIState::None);
     m_aui.Update();
+
+    // Create the compiler log dialog up-front, hidden. BuildTask
+    // populates it as soon as compilation starts, so showing the
+    // dialog later only flips visibility — content is already there.
+    m_compilerLog = make_unowned<CompilerLog>(m_frame, m_ctx.tr("dialogs.log.title"));
+    m_compilerLog->create(m_ctx);
+    m_compilerLog->Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& event) {
+        event.Veto();
+        m_compilerLog->Hide();
+    });
+
     m_frame->Show();
 }
 
@@ -660,13 +671,6 @@ void UIManager::syncConsoleState(const bool visible) const {
 }
 
 auto UIManager::getCompilerLog() -> CompilerLog& {
-    if (m_compilerLog == nullptr) {
-        m_compilerLog = make_unowned<CompilerLog>(m_frame, m_ctx.tr("dialogs.log.title"));
-        m_compilerLog->create(m_ctx);
-        m_compilerLog->Bind(wxEVT_CLOSE_WINDOW, [&](wxCloseEvent& event) {
-            event.Skip();
-        });
-    }
     return *m_compilerLog;
 }
 

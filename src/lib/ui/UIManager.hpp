@@ -47,7 +47,7 @@ private:
  * live on `CommandManager`.
  *
  * **Owns:** every wx control attached to the main frame plus the
- * `ArtiProvider` and the lazy `CompilerLog` dialog.
+ * `ArtiProvider` and the `CompilerLog` dialog.
  * **Owned by:** `Context`.
  * **Threading:** UI thread only.
  * **State model:** carries two `UIState` slots — `m_documentState`
@@ -158,7 +158,7 @@ private:
     UIState m_compilerState = UIState::None;            ///< Compiler-side state slot (overrides document).
     wxAuiManager m_aui;                                 ///< AUI dock manager for the frame.
     std::unique_ptr<ArtiProvider> m_artProvider;        ///< Icon/bitmap dispatch for menus + toolbar.
-    CompilerLog* m_compilerLog = nullptr;               ///< Lazy compiler-log dialog (wx-parented).
+    Unowned<CompilerLog> m_compilerLog;                 ///< Compiler-log dialog (wx-parented, hidden until shown).
     Unowned<OutputConsole> m_console;                   ///< Build/run output pane.
     Unowned<wxFrame> m_frame;                           ///< Top-level frame.
     Unowned<wxToolBar> m_toolbar;                       ///< Classic frame toolbar (set when `toolbar.useAui=0`).
