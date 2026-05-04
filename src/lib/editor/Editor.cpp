@@ -134,7 +134,7 @@ void Editor::defineFoldMargins() {
 
     const auto& theme = m_ctx.getTheme();
     const auto foldFg = theme.foreground(theme.getFoldMargin().foreground);
-    const auto foldBg = theme.foreground(theme.getFoldMargin().background);
+    const auto foldBg =  theme.background(theme.getFoldMargin().background);
 
     SetFoldFlags(wxSTC_FOLDFLAG_LINEAFTER_CONTRACTED);
     MarkerDefine(wxSTC_MARKNUM_FOLDER, wxSTC_MARK_BOXPLUS, foldBg, foldFg);
