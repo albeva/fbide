@@ -20,12 +20,8 @@ CompilerLog::CompilerLog(wxWindow* parent, const wxString& title)
   ) {}
 
 void CompilerLog::create(const Context& /*ctx*/) {
-    const auto font = wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
-
     m_output = make_unowned<BBCodeText>(this, wxID_ANY);
-    m_output->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW));
-    m_output->SetForegroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT));
-    m_output->SetFont(font);
+    m_output->SetFont(wxFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
 
     const auto sizer = make_unowned<wxBoxSizer>(wxVERTICAL);
     sizer->Add(m_output, 1, wxEXPAND);

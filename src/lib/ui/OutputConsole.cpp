@@ -16,8 +16,10 @@ wxEND_EVENT_TABLE()
 // clang-format on
 
 OutputConsole::OutputConsole(wxWindow* parent, Context& ctx)
-: wxListCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-      wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_HRULES | wxLC_VRULES)
+: wxListCtrl(
+      parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+      wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_HRULES | wxLC_VRULES
+  )
 , m_ctx(ctx) {}
 
 void OutputConsole::create() {
