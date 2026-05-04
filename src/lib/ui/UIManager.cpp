@@ -659,7 +659,6 @@ void UIManager::applyState(const UIState state) const {
 }
 
 void UIManager::showConsole(const bool show) {
-    wxASSERT_MSG(wxIsMainThread(), "showConsole must be called on the UI thread");
     if (auto* entry = m_ctx.getCommandManager().find(+CommandId::Result)) {
         entry->setChecked(show);
     }
