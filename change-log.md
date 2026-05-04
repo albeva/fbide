@@ -1,16 +1,16 @@
 # Change since 0.5.0-beta.1
 
-- Improved dark mode support on windows. Can be enabled manually by editing config file
-- Toolbar now uses new method to render, allowing it to be moved around, docked to the sides, etc. (#11)
-- Remember configured layout between fbide restarts
+- Improved dark mode support on Windows. Can be enabled manually by editing the config file
+- Toolbar now uses a new method to render, allowing it to be moved around, docked to the sides, etc. (#11)
+- Remember the configured layout between FBIDE restarts
 - Encode correct platform values in Windows manifest files
-- Them font now falls back to the system default monospace when the configured face isn't installed (#12)
+- The font now falls back to the system default monospace when the configured face isn't installed (#12)
 - Pressing `F2` now toggles the Browser pane; `Shift+F2` opens the Sub/Function browser (#9)
 - Removed old version from splash image (pauldoe)
-- Session files are now persisted in "Recent Files" menu, allowing quick access. (#16)
+- Session files are now persisted in the "Recent Files" menu, allowing quick access. (#16)
 - Sessions now persist code folding state (#10)
 - Fix issue with compile log not populating properly (#6, #7)
-- Right clicking on console now opens compile log (#5)
+- Right-clicking on the console now opens the compile log (#5)
 - Fixed issue with default background colour for margins, and fixed classic theme (#4)
 - Support drag & drop files, only files supported by fbide are opened (#21)
 
