@@ -32,6 +32,9 @@ private:
     /// List row activated — jump to the error's source location.
     void onItemActivated(wxListEvent& event);
 
+    /// When user right clicks on the console, open compile log
+    void onRightClick(wxListEvent&);
+
     Context& m_ctx; ///< Application context.
 
     wxDECLARE_EVENT_TABLE();

@@ -11,7 +11,9 @@ using namespace fbide;
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(OutputConsole, wxListCtrl)
-    EVT_LIST_ITEM_ACTIVATED(wxID_ANY, OutputConsole::onItemActivated)
+    EVT_LIST_ITEM_ACTIVATED(wxID_ANY,   OutputConsole::onItemActivated)
+    EVT_LIST_ITEM_RIGHT_CLICK(wxID_ANY, OutputConsole::onRightClick)
+    EVT_LIST_COL_RIGHT_CLICK(wxID_ANY,  OutputConsole::onRightClick)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -57,6 +59,10 @@ void OutputConsole::onItemActivated(wxListEvent& event) {
         GetItem(item);
         m_ctx.getCompilerManager().goToError(static_cast<int>(lineNr), item.GetText());
     }
+}
+
+void OutputConsole::onRightClick(wxListEvent& /*event*/) {
+    m_ctx.getCompilerManager().showCompilerLog();
 }
 
 void OutputConsole::addItem(const int lineNr, const int errorNr, const wxString& fileName, const wxString& message) {
