@@ -34,7 +34,11 @@ void CompilerLog::log(const wxArrayString& lines) {
     for (const auto& line : lines) {
         m_output->AppendText(line + "\n");
     }
-    m_output->SetScrollPos(wxVERTICAL, 0);
-    m_output->SetScrollPos(wxHORIZONTAL, 0);
+    if (m_output->CanScroll(wxVERTICAL)) {
+        m_output->SetScrollPos(wxVERTICAL, 0);
+    }
+    if (m_output->CanScroll(wxHORIZONTAL)) {
+        m_output->SetScrollPos(wxHORIZONTAL, 0);
+    }
     m_output->SetSelection(0, 0);
 }
