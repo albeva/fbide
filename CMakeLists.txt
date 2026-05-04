@@ -48,10 +48,11 @@ else()
         "manifest arch needs a mapping for this pointer width.")
 endif()
 
-# Enable CTest at the top level so gtest_discover_tests() registrations in
-# tests/CMakeLists.txt populate CTestTestfile.cmake — without this, ctest
-# reports "No tests were found" even though the tests binary builds and runs.
-enable_testing()
+# Tests are opt-in. Use the CMake-standard `BUILD_TESTING` name so the
+# variable is recognised by tooling (CTest module, IDEs, package
+# managers). Default OFF keeps the local + release builds lean — CI
+# enables it explicitly via `-DBUILD_TESTING=ON`.
+option(BUILD_TESTING "Build the FBIde test suite" OFF)
 
 # CMake modules
 include(FetchContent)
@@ -65,7 +66,14 @@ include(cmake/doxygen.cmake)
 # Sources
 add_subdirectory(configured_files)
 add_subdirectory(src)
-add_subdirectory(tests)
+
+if (BUILD_TESTING)
+    # Enable CTest at the top level so gtest_discover_tests() registrations in
+    # tests/CMakeLists.txt populate CTestTestfile.cmake — without this, ctest
+    # reports "No tests were found" even though the tests binary builds and runs.
+    enable_testing()
+    add_subdirectory(tests)
+endif ()
 
 # ----------------------------------------------------------------------------
 # Install layout (consumed by `cmake --install <build> --prefix <staging>`)
