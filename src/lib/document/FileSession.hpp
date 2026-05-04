@@ -47,7 +47,7 @@ public:
     explicit FileSession(Context& ctx);
 
     /// Load a session file, dispatching on detected format.
-    void load(const wxString& path);
+    void load(const wxString& path, bool addToHistory = true);
 
     /// Snapshot the currently open documents as a v3 session file.
     ///

@@ -10,6 +10,7 @@
 #include "TextEncoding.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
+#include "config/FileHistory.hpp"
 #include "editor/Editor.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
@@ -85,7 +86,7 @@ auto resolveStoredPath(const wxString& storedPath, const wxString& sessionDir) -
 FileSession::FileSession(Context& ctx)
 : m_ctx(ctx) {}
 
-void FileSession::load(const wxString& path) {
+void FileSession::load(const wxString& path, const bool addToHistory) {
     if (!wxFileExists(path)) {
         return;
     }
@@ -93,6 +94,10 @@ void FileSession::load(const wxString& path) {
         loadV3(path);
     } else {
         loadLegacy(path);
+    }
+
+    if (addToHistory) {
+        m_ctx.getFileHistory().addFile(path);
     }
 }
 

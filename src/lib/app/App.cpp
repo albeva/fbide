@@ -259,11 +259,9 @@ auto App::OnInit() -> bool {
     m_context->getUIManager().createMainFrame();
     openFiles(cli.files);
     if (!cli.loadSession.IsEmpty()) {
-        m_context->getFileSession().load(cli.loadSession);
-        // Only clean up files FBIde itself parked in the OS temp dir
-        // (the language-restart handoff). User-supplied paths stay
-        // on disk.
-        if (isInsideTempDir(cli.loadSession)) {
+        const auto isTemp = isInsideTempDir(cli.loadSession);
+        m_context->getFileSession().load(cli.loadSession, not isTemp);
+        if (isTemp) {
             wxRemoveFile(cli.loadSession);
         }
     }
