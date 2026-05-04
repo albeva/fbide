@@ -1,3 +1,7 @@
+# Change since 0.5.0-beta.2
+
+- Fixed issue with auto indent not working when keyword case transform was disabled (#24)
+
 # Change since 0.5.0-beta.1
 
 - Improved dark mode support on Windows. Can be enabled manually by editing the config file
