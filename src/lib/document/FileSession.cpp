@@ -136,7 +136,7 @@ auto FileSession::save(const wxString& path) -> bool {
             editor->Colourise(editor->GetEndStyled(), -1);
             wxString folds;
             const auto lines = editor->GetLineCount();
-            folds.reserve(static_cast<std::size_t>(std::min(0, lines / 5)));
+            folds.reserve(static_cast<std::size_t>(std::min(1, lines / 5)));
             for (int line = 0; line < lines; line++) {
                 if (not editor->GetFoldExpanded(line)) {
                     if (not folds.empty()) {
