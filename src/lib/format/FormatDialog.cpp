@@ -62,38 +62,29 @@ FormatDialog::~FormatDialog() = default;
 
 void FormatDialog::create() {
     // Options bar
-    hbox("Format options", { .center = true }, [&] {
-        m_reindentCheck = checkBox("Re-indent", { .expand = false }, ID_REINDENT);
-        m_reindentCheck->SetToolTip("Rebuild indentation from code structure (overrides any existing indent).");
+    hbox(m_ctx.tr("dialogs.format.options"), { .center = true }, [&] {
+        m_reindentCheck = checkBox(m_ctx.tr("dialogs.format.reindent.label"), { .expand = false }, ID_REINDENT);
+        m_reindentCheck->SetToolTip(m_ctx.tr("dialogs.format.reindent.tooltip"));
 
-        m_alignPPCheck = checkBox("Align PP", { .expand = false }, ID_ALIGN_PP);
-        m_alignPPCheck->SetToolTip(
-            "Pin '#' of preprocessor directives to column 0 and indent the directive name.\n"
-            "Requires Re-indent."
-        );
+        m_alignPPCheck = checkBox(m_ctx.tr("dialogs.format.alignPP.label"), { .expand = false }, ID_ALIGN_PP);
+        m_alignPPCheck->SetToolTip(m_ctx.tr("dialogs.format.alignPP.tooltip"));
 
-        m_reformatCheck = checkBox("Re-format", { .expand = false }, ID_REFORMAT);
-        m_reformatCheck->SetToolTip(
-            "Normalise spacing between tokens (one space around binary ops, no space inside parens, etc.).\n"
-            "Off = preserve the original inter-token whitespace."
-        );
+        m_reformatCheck = checkBox(m_ctx.tr("dialogs.format.reformat.label"), { .expand = false }, ID_REFORMAT);
+        m_reformatCheck->SetToolTip(m_ctx.tr("dialogs.format.reformat.tooltip"));
 
         separator({ .space = false });
 
-        m_applyCaseCheck = checkBox("Apply keyword case", { .expand = false }, ID_APPLY_CASE);
-        m_applyCaseCheck->SetToolTip(
-            "Re-case keyword tokens using the per-group rules configured in\n"
-            "Settings → Keywords (None / Lower / Upper / Mixed per group)."
-        );
+        m_applyCaseCheck = checkBox(m_ctx.tr("dialogs.format.applyCase.label"), { .expand = false }, ID_APPLY_CASE);
+        m_applyCaseCheck->SetToolTip(m_ctx.tr("dialogs.format.applyCase.tooltip"));
 
         separator({ .space = false });
 
-        radio("Format", { .expand = false }, ID_RENDER_CODE, wxRB_GROUP)->SetValue(true);
-        radio("As HTML", { .expand = false }, ID_RENDER_HTML);
+        radio(m_ctx.tr("dialogs.format.output.format"), { .expand = false }, ID_RENDER_CODE, wxRB_GROUP)->SetValue(true);
+        radio(m_ctx.tr("dialogs.format.output.html"), { .expand = false }, ID_RENDER_HTML);
     });
 
     // Preview editor
-    vbox("Previw", { .proportion = 1, .border = 0 }, [&] {
+    vbox(m_ctx.tr("dialogs.format.preview"), { .proportion = 1, .border = 0 }, [&] {
         m_preview = make_unowned<Editor>(currentParent(), m_ctx, nullptr, DocumentType::FreeBASIC, true);
         m_preview->SetReadOnly(true);
         m_preview->SetMinSize(wxSize(-1, 200));
@@ -102,12 +93,12 @@ void FormatDialog::create() {
 
     // Buttons
     hbox({ .border = 0 }, [&] {
-        m_browserBtn = button("Open in Browser", { .expand = false }, ID_BROWSER);
+        m_browserBtn = button(m_ctx.tr("dialogs.format.openInBrowser"), { .expand = false }, ID_BROWSER);
 
         currentSizer()->AddStretchSpacer();
 
-        m_actionBtn = button("Apply", { .expand = false }, wxID_OK);
-        button("Cancel", { .expand = false }, wxID_CANCEL);
+        m_actionBtn = button(m_ctx.tr("dialogs.format.apply"), { .expand = false }, wxID_OK);
+        button(m_ctx.tr("dialogs.format.cancel"), { .expand = false }, wxID_CANCEL);
     });
     spacer();
     SetSizerAndFit(currentSizer());
@@ -220,9 +211,9 @@ auto FormatDialog::isTransforming() const -> bool {
 void FormatDialog::updateButtons() {
     const auto docTy = m_renderer->getType();
     if (docTy != DocumentType::FreeBASIC) {
-        m_actionBtn->SetLabel("Copy");
+        m_actionBtn->SetLabel(m_ctx.tr("dialogs.format.copy"));
     } else {
-        m_actionBtn->SetLabel("Apply");
+        m_actionBtn->SetLabel(m_ctx.tr("dialogs.format.apply"));
     }
     m_actionBtn->Enable(isTransforming());
 
