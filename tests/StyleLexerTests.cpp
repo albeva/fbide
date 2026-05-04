@@ -312,6 +312,28 @@ TEST_F(StyleLexerTests, PreprocessorOnePerLine) {
     EXPECT_EQ(ppCount, 2u);
 }
 
+TEST_F(StyleLexerTests, PreprocessorDefineBodyKeywordDoesNotReclassifyDirective) {
+    // `If` inside a `#define` body would be styled KeywordPP by FBSciLexer
+    // (because `if` is in the wordlist for `#if`). The merged Preprocessor
+    // token must keep its `PpOther` classification — not flip to `PpIf`
+    // because of a body keyword. Without the directive-position guard the
+    // formatter would treat the macro line as a block opener.
+    auto t = strip(lex("#define VT_GUARD If x = 0 Then Exit Sub"));
+    ASSERT_EQ(t.size(), 1u);
+    EXPECT_EQ(t[0].kind, TokenKind::Preprocessor);
+    EXPECT_EQ(t[0].keywordKind, KeywordKind::PpOther);
+}
+
+TEST_F(StyleLexerTests, PreprocessorMacroBodyKeywordDoesNotReclassifyDirective) {
+    // Same rule for `#macro` bodies — `else` / `endif` words inside the
+    // body are KeywordPP-styled by the lexer but must not change the
+    // line's directive from `PpMacro` to `PpElse` / `PpEndIf`.
+    auto t = strip(lex("#macro FOO else endif"));
+    ASSERT_EQ(t.size(), 1u);
+    EXPECT_EQ(t[0].kind, TokenKind::Preprocessor);
+    EXPECT_EQ(t[0].keywordKind, KeywordKind::PpMacro);
+}
+
 // endregion
 
 // region ---------- Edge cases ----------

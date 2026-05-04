@@ -391,6 +391,10 @@ void StyleLexer::emitKeyword(const StyleRange& r, TokenKind kind, std::vector<To
 
 void StyleLexer::emitPreprocessor(const StyleRange& range, std::vector<Token>& out) {
     auto text = stringFromRange(range.start, range.end);
+    // Snapshot the token text length *before* appending this run so we can
+    // tell directive-position runs apart from body runs below.
+    const std::size_t prevLen = m_inPpLine ? out[m_ppTokenIdx].text.size() : 0;
+
     if (!m_inPpLine) {
         // Start a new PP token spanning this run.
         m_inPpLine = true;
@@ -410,11 +414,25 @@ void StyleLexer::emitPreprocessor(const StyleRange& range, std::vector<Token>& o
     }
     // KeywordPP carries the directive word — fill kwKind and tag style.
     // FBSciLexer styles `#` first as Preprocessor, then re-enters and styles
-    // the directive word as KeywordPP, so this branch can fire even after
-    // a Preprocessor run already started the token.
-    if (range.style == ThemeCategory::KeywordPP) {
+    // the directive word as KeywordPP, so this branch can fire either as the
+    // first range of the PP token (rare — would mean `#directive` was a
+    // single KeywordPP run) or as the second range right after a bare `#`
+    // Preprocessor run.
+    //
+    // Only the directive position counts. FBSciLexer also paints body words
+    // that happen to match the KeywordPP wordlist (e.g. `If`, `else`,
+    // `endif`) as KeywordPP, so without this guard `#define VT_GUARD If x
+    // Then ...` would be re-classified as a `PpIf` block opener and confuse
+    // the formatter / scope tracker.
+    if (range.style == ThemeCategory::KeywordPP && prevLen <= 1) {
+        std::string runText = stringFromRange(range.start, range.end);
+        // Strip a leading `#` for the lookup — happens only when the entire
+        // `#directive` is one KeywordPP run (no preceding bare `#` range).
+        if (!runText.empty() && runText.front() == '#') {
+            runText.erase(0, 1);
+        }
+        const auto runLower = toLower(runText);
         const auto& pp = ppKeywords();
-        const auto runLower = toLower(stringFromRange(range.start, range.end));
         if (const auto it = pp.find(runLower); it != pp.end()) {
             out[m_ppTokenIdx].keywordKind = it->second;
         }
