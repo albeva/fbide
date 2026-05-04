@@ -63,7 +63,6 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     // View
     EVT_MENU(+CommandId::Preferences, CommandManager::onSettings)
     EVT_MENU(+CommandId::Format,      CommandManager::onFormat)
-    // EVT_MENU(+CommandId::Result,      CommandManager::onResult)
     EVT_MENU(+CommandId::Subs,        CommandManager::onSubs)
     EVT_MENU(+CommandId::CompilerLog, CommandManager::onCompilerLog)
 

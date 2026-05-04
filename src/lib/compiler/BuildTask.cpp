@@ -92,14 +92,11 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
 }
 
 void BuildTask::onCompileFinished(const ProcessResult& result) {
-    auto& ui = m_ctx.getUIManager();
-
-    // Log and show errors
+    // Log and show errors. Show the console pane *before* populating it
     if (!result.output.empty()) {
         m_compilerLog.Add("");
         m_compilerLog.Add("[bold]Compiler output:[/bold]");
         showErrors(result.output);
-        ui.showConsole(true);
     }
 
     m_compilerLog.Add("");
@@ -159,6 +156,11 @@ void BuildTask::onRunFinished(const ProcessResult& result) {
 
 auto BuildTask::showErrors(const wxArrayString& output) -> bool {
     auto& console = m_ctx.getUIManager().getOutputConsole();
+
+    // show console first, then populate it, otherwise glitches happen
+    m_ctx.getUIManager().showConsole(true);
+    const auto thaw = FreezeLock(&console);
+
     bool foundError = false;
     bool navigated = false;
 
