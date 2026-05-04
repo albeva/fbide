@@ -4,6 +4,7 @@
 - Fixed issue with REM comment followed by newline, which caused next line to be a comment (#28)
 - Fixed various spelling errors (#26)
 - Fixed bug with console not being properly updated after compile generated output (#32)
+- Fixed bug with indenting #defines containing IF keyword, which was counted as ppIF (#34)
 
 # Change since 0.5.0-beta.1
 
