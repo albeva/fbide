@@ -112,19 +112,40 @@ auto FileSession::save(const wxString& path) -> bool {
     cfg.Write("/session/version", Version);
     cfg.Write("/session/selectedTab", notebook->GetSelection());
 
-    size_t idx = 0;
+    size_t fileIndex = 0;
     for (const auto& doc : dm.getDocuments()) {
         if (doc->isNew()) {
             continue;
         }
-        const auto* editor = doc->getEditor();
-        const auto group = wxString::Format("/%s%03zu", FILE_GROUP_PREFIX, idx);
-        cfg.Write(group + "/path", pathForSession(doc->getFilePath(), sessionDir));
-        cfg.Write(group + "/scroll", editor->GetFirstVisibleLine());
-        cfg.Write(group + "/cursor", editor->GetCurrentPos());
-        cfg.Write(group + "/encoding", wxString(doc->getEncoding().toString()));
-        cfg.Write(group + "/eolMode", wxString(doc->getEolMode().toString()));
-        idx++;
+        auto* editor = doc->getEditor();
+        const auto group = wxString::Format("/%s%03zu", FILE_GROUP_PREFIX, fileIndex);
+        cfg.SetPath(group);
+        cfg.Write("path", pathForSession(doc->getFilePath(), sessionDir));
+        cfg.Write("scroll", editor->GetFirstVisibleLine());
+        cfg.Write("cursor", editor->GetCurrentPos());
+        cfg.Write("encoding", wxString(doc->getEncoding().toString()));
+        cfg.Write("eolMode", wxString(doc->getEolMode().toString()));
+
+        // Store code folds
+        if (m_ctx.getConfigManager().config().get_or("editor.folderMargin", false)) {
+            editor->Colourise(editor->GetEndStyled(), -1);
+            wxString folds;
+            const auto lines = editor->GetLineCount();
+            folds.reserve(std::min(0, lines / 4));
+            for (int line = 0; line < lines; line++) {
+                if (not editor->GetFoldExpanded(line)) {
+                    if (not folds.empty()) {
+                        folds += ",";
+                    }
+                    folds += std::to_string(line);
+                }
+            }
+            if (not folds.empty()) {
+                cfg.Write("folds", folds);
+            }
+        }
+
+        fileIndex++;
     }
 
     wxFFileOutputStream outStream(path);
@@ -209,6 +230,7 @@ void FileSession::loadV3(const wxString& path) {
         if (doc == nullptr) {
             continue;
         }
+        auto* editor = doc->getEditor();
 
         // Optional metadata — overrides auto-detected values.
         wxString encKey;
@@ -230,7 +252,24 @@ void FileSession::loadV3(const wxString& path) {
         long cursor = 0;
         cfg.Read("scroll", &scroll, 0L);
         cfg.Read("cursor", &cursor, 0L);
-        applyScrollAndCursor(doc->getEditor(), scroll, cursor);
+        applyScrollAndCursor(editor, scroll, cursor);
+
+        if (m_ctx.getConfigManager().config().get_or("editor.folderMargin", false)) {
+            wxString folds;
+            if (cfg.Read("folds", &folds)) {
+                editor->Colourise(editor->GetEndStyled(), -1);
+                for (const auto& str : wxSplit(folds, ',')) {
+                    int line;
+                    if (str.ToInt(&line)) {
+                        const auto last = editor->GetLastChild(line, -1);
+                        if (last > line) {
+                            editor->SetFoldExpanded(line, false);
+                            editor->HideLines(line + 1, last);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Restore selected tab
