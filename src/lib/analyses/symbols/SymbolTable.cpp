@@ -17,9 +17,7 @@ namespace {
 /// the 64-bit constant overflows a 32-bit `size_t`, so pick the matching
 /// width at compile time.
 auto hashCombine(const std::size_t seed, const std::size_t value) -> std::size_t {
-    constexpr std::size_t kMix = sizeof(std::size_t) >= 8
-        ? static_cast<std::size_t>(0x9e3779b97f4a7c15ULL)
-        : static_cast<std::size_t>(0x9e3779b9UL);
+    constexpr std::size_t kMix = sizeof(std::size_t) >= 8 ? 0x9e3779b97f4a7c15ULL : 0x9e3779b9UL;
     return seed ^ (value + kMix + (seed << 6) + (seed >> 2));
 }
 
