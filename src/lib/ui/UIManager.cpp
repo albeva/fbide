@@ -18,6 +18,7 @@
 #include "editor/Editor.hpp"
 #include "rc/icons.hpp"
 #include "sidebar/SideBarManager.hpp"
+#include "utilities/FileDropTarget.hpp"
 #ifndef __WXMSW__
 namespace XPM {
 #include "rc/appicon.xpm"
@@ -95,6 +96,8 @@ void UIManager::createMainFrame() {
 #endif
     m_frame->PushEventHandler(this);
     m_frame->PushEventHandler(&m_ctx.getCommandManager());
+    // wxWindow::SetDropTarget takes ownership and deletes on frame teardown.
+    m_frame->SetDropTarget(make_unowned<FileDropTarget>(m_ctx).get());
 
     // Position and size from config
     const auto& window = m_ctx.getConfigManager().config().at("window");

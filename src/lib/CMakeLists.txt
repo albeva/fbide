@@ -60,6 +60,7 @@ target_sources(fbide_lib
     ui/controls/BBCodeText.cpp
     ui/controls/ColorPicker.cpp
     ui/controls/Panel.cpp
+    ui/utilities/FileDropTarget.cpp
 
     PUBLIC FILE_SET HEADERS FILES
     about/AboutDialog.hpp
@@ -129,6 +130,7 @@ target_sources(fbide_lib
     ui/controls/ColorPicker.hpp
     ui/controls/Layout.hpp
     ui/controls/Panel.hpp
+    ui/utilities/FileDropTarget.hpp
     utils/DeferHandler.hpp
     utils/Macros.hpp
     utils/NoCopy.hpp

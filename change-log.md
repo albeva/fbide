@@ -12,6 +12,7 @@
 - Fix issue with compile log not populating properly (#6, #7)
 - Right clicking on console now opens compile log (#5)
 - Fixed issue with default background colour for margins, and fixed classic theme (#4)
+- Support drag & drop files, only files supported by fbide are opened (#21)
 
 # Changes since fbide 0.4.5.
 
