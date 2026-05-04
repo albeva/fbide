@@ -47,7 +47,7 @@ private:
  * live on `CommandManager`.
  *
  * **Owns:** every wx control attached to the main frame plus the
- * `ArtiProvider` and the lazy `CompilerLog` dialog.
+ * `ArtiProvider` and the `CompilerLog` dialog.
  * **Owned by:** `Context`.
  * **Threading:** UI thread only.
  * **State model:** carries two `UIState` slots — `m_documentState`
@@ -136,18 +136,33 @@ private:
     void syncConsoleState(bool visible) const;
     /// Apply broad enable/disable for `mutableIds[]` based on `state`.
     void applyState(UIState state) const;
+    /// Re-read system colours into every wxAUI art provider (dock,
+    /// notebook tabs, toolbar). Called once after the layout is
+    /// built; SetAppearance only re-paints native widgets, AUI's
+    /// cached palette has to be refreshed explicitly.
+    void refreshAuiArt() const;
     /// Capture the current frame size + position into `config["window"]`.
     void saveWindowGeometry();
+    /// Serialise the current wxAUI pane layout into `config["aui"]["perspective"]`.
+    /// Called on close after every document tab has been disposed of, so the
+    /// stored layout reflects only the chrome (toolbars, sidebar, output) and
+    /// no transient document state.
+    void saveAuiPerspective();
+    /// Apply a previously saved perspective string back onto `m_aui`. No-op if
+    /// the config key is missing. Must run after every pane has been added so
+    /// pane lookup by name succeeds.
+    void loadAuiPerspective();
 
     Context& m_ctx;                                     ///< Application context.
     UIState m_documentState = UIState::None;            ///< Document-side state slot.
     UIState m_compilerState = UIState::None;            ///< Compiler-side state slot (overrides document).
     wxAuiManager m_aui;                                 ///< AUI dock manager for the frame.
     std::unique_ptr<ArtiProvider> m_artProvider;        ///< Icon/bitmap dispatch for menus + toolbar.
-    CompilerLog* m_compilerLog = nullptr;               ///< Lazy compiler-log dialog (wx-parented).
+    Unowned<CompilerLog> m_compilerLog;                 ///< Compiler-log dialog (wx-parented, hidden until shown).
     Unowned<OutputConsole> m_console;                   ///< Build/run output pane.
     Unowned<wxFrame> m_frame;                           ///< Top-level frame.
-    Unowned<wxToolBar> m_toolbar;                       ///< Main toolbar.
+    Unowned<wxToolBar> m_toolbar;                       ///< Classic frame toolbar (set when `toolbar.useAui=0`).
+    Unowned<wxAuiToolBar> m_auiToolbar;                 ///< AUI-managed toolbar pane (set when `toolbar.useAui=1`).
     Unowned<wxAuiNotebook> m_notebook;                  ///< Document tabs.
     Unowned<wxAuiNotebook> m_sideBar;                   ///< Sidebar (Browser/Subs) notebook.
     std::vector<wxMenuItem*> m_externalLinkItems;       ///< Live menu items in the dynamic external-links submenu.

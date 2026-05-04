@@ -158,15 +158,34 @@ auto App::OnExit() -> int {
 }
 
 void App::initAppearance() {
-    // Enable light/dark mode appearance
-    // EXTREMELY buggy on windows, not reccomended enabling this
+    // Enable light/dark mode appearance.
+    // wxWidgets 3.3.x dark mode on Windows is partial — some controls
+    // never repaint. SetAppearance(Dark) returns AppearanceResult; log
+    // when it fails so misbehaving installs leave a breadcrumb in the
+    // log.
     const auto appearance = m_context->getConfigManager().config().get_or("appearance", "").Lower();
+    if (appearance.IsEmpty()) {
+        return;
+    }
+
+    auto target = Appearance::System;
     if (appearance == "dark") {
-        SetAppearance(Appearance::Dark);
+        target = Appearance::Dark;
     } else if (appearance == "light") {
-        SetAppearance(Appearance::Light);
+        target = Appearance::Light;
     } else if (appearance == "system") {
-        SetAppearance(Appearance::System);
+        target = Appearance::System;
+    } else {
+        wxLogWarning("Unknown 'appearance' value '%s' — expected light/dark/system", appearance);
+        return;
+    }
+
+    const auto result = SetAppearance(target);
+    if (result != AppearanceResult::Ok) {
+        const wxString reason = (result == AppearanceResult::CannotChange)
+            ? "appearance can no longer be changed (already shown windows)"
+            : "wx returned Failure";
+        wxLogWarning("SetAppearance('%s') did not apply: %s", appearance, reason);
     }
 }
 
@@ -209,16 +228,7 @@ auto App::OnInit() -> bool {
 
     const auto fbidePath = getFbidePath();
 
-// #if FBIDE_DEBUG_BUILD
-    // wxLog::SetVerbose(true);
-    // wxLogWindow* logWindow = make_unowned<wxLogWindow>(nullptr, "Debug Log", false, false);
-    // wxLog::SetActiveTarget(logWindow);
-    // if (cli.cfgKey.IsEmpty()) {
-        // logWindow->Show();
-    // }
-// #else
     wxLog::SetActiveTarget(new wxLogStream(new std::ofstream((fbidePath / "app.log").ToStdString(), std::ios::app)));
-// #endif
 
     // Construct context with parsed CLI overrides — `--ide` flows into
     // ConfigManager so subsequent config/locale/theme lookups resolve
@@ -240,8 +250,8 @@ auto App::OnInit() -> bool {
         }
     }
 
-    showSplash();
     initAppearance();
+    showSplash();
 
     const auto& configManager = m_context->getConfigManager();
     m_context->getFileHistory().load(configManager.getIdeDir() / "history.ini");
@@ -249,11 +259,9 @@ auto App::OnInit() -> bool {
     m_context->getUIManager().createMainFrame();
     openFiles(cli.files);
     if (!cli.loadSession.IsEmpty()) {
-        m_context->getFileSession().load(cli.loadSession);
-        // Only clean up files FBIde itself parked in the OS temp dir
-        // (the language-restart handoff). User-supplied paths stay
-        // on disk.
-        if (isInsideTempDir(cli.loadSession)) {
+        const auto isTemp = isInsideTempDir(cli.loadSession);
+        m_context->getFileSession().load(cli.loadSession, not isTemp);
+        if (isTemp) {
             wxRemoveFile(cli.loadSession);
         }
     }

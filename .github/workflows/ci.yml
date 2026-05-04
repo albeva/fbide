@@ -160,6 +160,7 @@ jobs:
         run: >
           cmake -G Ninja -B build/ci
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DBUILD_TESTING=ON
           -DWXWIN=${{ steps.wx.outputs.wx-root }}
 
       # Build everything (fbide.exe + tests). The release packaging step

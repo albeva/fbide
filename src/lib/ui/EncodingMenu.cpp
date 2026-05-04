@@ -10,7 +10,7 @@ using namespace fbide;
 namespace {
 
 template<typename Array>
-auto decodeFromId(int id, int base, const Array& all) -> std::optional<typename Array::value_type> {
+auto decodeFromId(const int id, const int base, const Array& all) -> std::optional<typename Array::value_type> {
     const auto offset = id - base;
     if (offset < 0 || offset >= static_cast<int>(all.size())) {
         return std::nullopt;
@@ -47,7 +47,7 @@ auto EncodingMenu::buildEncodingMenu(const TextEncoding current, const wxString&
 
     menu->AppendSeparator();
 
-    auto* reload = new wxMenu();
+    const auto reload = make_unowned<wxMenu>();
     for (std::size_t i = 0; i < TextEncoding::all.size(); i++) {
         const TextEncoding enc { TextEncoding::all[i] };
         const int id = kEncodingReloadIdBase + static_cast<int>(i);

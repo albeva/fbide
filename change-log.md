@@ -1,13 +1,29 @@
-Changes from fbide 0.4.5.
+# Change since 0.5.0-beta.1
 
-## Project changes
+- Improved dark mode support on Windows. Can be enabled manually by editing the config file
+- Toolbar now uses a new method to render, allowing it to be moved around, docked to the sides, etc. (#11)
+- Remember the configured layout between FBIDE restarts
+- Encode correct platform values in Windows manifest files
+- The font now falls back to the system default monospace when the configured face isn't installed (#12)
+- Pressing `F2` now toggles the Browser pane; `Shift+F2` opens the Sub/Function browser (#9)
+- Removed old version from splash image (pauldoe)
+- Session files are now persisted in the "Recent Files" menu, allowing quick access. (#16)
+- Sessions now persist code folding state (#10)
+- Fix issue with compile log not populating properly (#6, #7)
+- Right-clicking on the console now opens the compile log (#5)
+- Fixed issue with default background colour for margins, and fixed classic theme (#4)
+- Support drag & drop files, only files supported by fbide are opened (#21)
+
+# Changes since fbide 0.4.5.
+
+### Project changes
 - FBIde is completely rewritten from scratch, to match the feature set of fbide 0.4.6.
 - Updated to wxWidgets 3.3.
 - Adopted C++23 as baseline.
 - Adopted the CMake build system.
 - Relicensed under MIT
 
-## General
+### General
 - Added option to start the editor with a custom config file via `--config` option, or setting ide path with `--ide`
 - Line numbers margin now zooms with font size changes
 - FBIde validates chm files, if they are locked, show a dialogue with instructions and a link for more info
@@ -29,14 +45,14 @@ Changes from fbide 0.4.5.
 - Sub/Function browser now also shows macros
 - Added dropdown menu option for reloading file from disk
 
-## Removed options
+### Removed options
 - `ActivePath` option has been removed. FBIde now always sets the working directory to the source file location when compiling or running.
 - `floatbars` option has been removed. FBIde now always uses wxAUI for layout.
 
-## Layout
+### Layout
 - FBIde uses wxAUI layout for tabs and panels. They can be moved around, docked in various positions, etc.
 
-## Compiler
+### Compiler
 - Compilation is now asynchronous in a separate process.
 - Compiler log is now a single persistent window that updates automatically after each compilation.
 - Compile command paths are quoted by default: `"<$fbc>" "<$file>"`.

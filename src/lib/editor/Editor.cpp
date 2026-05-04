@@ -134,7 +134,7 @@ void Editor::defineFoldMargins() {
 
     const auto& theme = m_ctx.getTheme();
     const auto foldFg = theme.foreground(theme.getFoldMargin().foreground);
-    const auto foldBg = theme.foreground(theme.getFoldMargin().background);
+    const auto foldBg =  theme.background(theme.getFoldMargin().background);
 
     SetFoldFlags(wxSTC_FOLDFLAG_LINEAFTER_CONTRACTED);
     MarkerDefine(wxSTC_MARKNUM_FOLDER, wxSTC_MARK_BOXPLUS, foldBg, foldFg);
@@ -156,14 +156,7 @@ void Editor::applyTheme() {
     const auto& defaultEntry = theme.get(ThemeCategory::Default);
     const auto& defaultColors = defaultEntry.colors;
 
-    m_font = wxFont(
-        theme.getFontSize(),
-        wxFONTFAMILY_MODERN,
-        wxFONTSTYLE_NORMAL,
-        wxFONTWEIGHT_NORMAL,
-        false,
-        theme.getFont()
-    );
+    m_font = theme.getResolvedFont();
 
     StyleSetForeground(wxSTC_STYLE_DEFAULT, defaultColors.foreground);
     StyleSetBackground(wxSTC_STYLE_DEFAULT, defaultColors.background);

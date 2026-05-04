@@ -33,10 +33,26 @@ if (MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 endif()
 
-# Enable CTest at the top level so gtest_discover_tests() registrations in
-# tests/CMakeLists.txt populate CTestTestfile.cmake — without this, ctest
-# reports "No tests were found" even though the tests binary builds and runs.
-enable_testing()
+# Map the build's pointer width to the win32 manifest's
+# processorArchitecture value. CMAKE_SIZEOF_VOID_P is CMake's canonical
+# way to detect bitness — set by project() based on the active compiler
+# / -A platform, and works for every toolchain (MSVC, MinGW, Clang).
+# Substituted into configured_files/app.manifest.in.
+if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(FBIDE_MANIFEST_ARCH "amd64")
+elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set(FBIDE_MANIFEST_ARCH "x86")
+else()
+    message(FATAL_ERROR
+        "Unexpected CMAKE_SIZEOF_VOID_P=${CMAKE_SIZEOF_VOID_P}; "
+        "manifest arch needs a mapping for this pointer width.")
+endif()
+
+# Tests are opt-in. Use the CMake-standard `BUILD_TESTING` name so the
+# variable is recognised by tooling (CTest module, IDEs, package
+# managers). Default OFF keeps the local + release builds lean — CI
+# enables it explicitly via `-DBUILD_TESTING=ON`.
+option(BUILD_TESTING "Build the FBIde test suite" OFF)
 
 # CMake modules
 include(FetchContent)
@@ -50,7 +66,14 @@ include(cmake/doxygen.cmake)
 # Sources
 add_subdirectory(configured_files)
 add_subdirectory(src)
-add_subdirectory(tests)
+
+if (BUILD_TESTING)
+    # Enable CTest at the top level so gtest_discover_tests() registrations in
+    # tests/CMakeLists.txt populate CTestTestfile.cmake — without this, ctest
+    # reports "No tests were found" even though the tests binary builds and runs.
+    enable_testing()
+    add_subdirectory(tests)
+endif ()
 
 # ----------------------------------------------------------------------------
 # Install layout (consumed by `cmake --install <build> --prefix <staging>`)

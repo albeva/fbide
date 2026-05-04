@@ -18,6 +18,7 @@
 #include "editor/Editor.hpp"
 #include "rc/icons.hpp"
 #include "sidebar/SideBarManager.hpp"
+#include "utilities/FileDropTarget.hpp"
 #ifndef __WXMSW__
 namespace XPM {
 #include "rc/appicon.xpm"
@@ -56,6 +57,10 @@ void UIManager::onClose(wxCloseEvent& event) {
     }
 
     saveWindowGeometry();
+    // Document tabs are gone at this point — the AUI perspective we
+    // capture now reflects only persistent chrome (toolbars, sidebar,
+    // output console) without any transient document state baked in.
+    saveAuiPerspective();
     m_ctx.getConfigManager().save(ConfigManager::Category::Config);
     m_ctx.getFileHistory().save();
 
@@ -91,6 +96,8 @@ void UIManager::createMainFrame() {
 #endif
     m_frame->PushEventHandler(this);
     m_frame->PushEventHandler(&m_ctx.getCommandManager());
+    // wxWindow::SetDropTarget takes ownership and deletes on frame teardown.
+    m_frame->SetDropTarget(make_unowned<FileDropTarget>(m_ctx).get());
 
     // Position and size from config
     const auto& window = m_ctx.getConfigManager().config().at("window");
@@ -106,9 +113,18 @@ void UIManager::createMainFrame() {
         m_frame->SetSize(winW, winH);
     }
 
-    // Initialize AUI manager
+    // Initialize AUI manager. wxAuiManager's default art provider was
+    // constructed when this UIManager was instantiated — well before
+    // App::initAppearance had a chance to set the dark/light mode —
+    // so its cached wxSystemSettings palette is stale. Refresh it
+    // here, after appearance has been applied. The same applies to
+    // any wxAuiNotebook / wxAuiToolBar art created later;
+    // refreshAuiArt() walks them all once the layout is built.
     m_aui.SetFlags(wxAUI_MGR_LIVE_RESIZE | wxAUI_MGR_DEFAULT);
     m_aui.SetManagedWindow(m_frame);
+    if (auto* art = m_aui.GetArtProvider()) {
+        art->UpdateColoursFromSystem();
+    }
 
     configureMenuBar();
     configureToolBar();
@@ -117,9 +133,71 @@ void UIManager::createMainFrame() {
     m_ctx.getDocumentManager().attachNotebook();
     m_ctx.getCommandManager().initializeCommands();
 
+    refreshAuiArt();
+
+    // Restore the dock layout the user left the IDE in last session.
+    // Must happen AFTER every pane has been added (toolbar, notebook,
+    // sidebar, console) so pane lookup by name succeeds.
+    loadAuiPerspective();
+
     applyState(UIState::None);
     m_aui.Update();
+
+    // Create the compiler log dialog up-front, hidden. BuildTask
+    // populates it as soon as compilation starts, so showing the
+    // dialog later only flips visibility — content is already there.
+    m_compilerLog = make_unowned<CompilerLog>(m_frame, m_ctx.tr("dialogs.log.title"));
+    m_compilerLog->create(m_ctx);
+    m_compilerLog->Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& event) {
+        event.Veto();
+        m_compilerLog->Hide();
+    });
+
     m_frame->Show();
+}
+
+void UIManager::saveAuiPerspective() {
+    // Called on close, after DocumentManager::prepareToQuit has closed
+    // every editor tab — the perspective at this point describes only
+    // the persistent chrome (toolbars, sidebar, output console) with
+    // no transient document state baked in.
+    auto& aui = m_ctx.getConfigManager().config()["aui"];
+    aui["perspective"] = m_aui.SavePerspective();
+}
+
+void UIManager::loadAuiPerspective() {
+    const auto perspective = m_ctx.getConfigManager().config().get_or("aui.perspective", "");
+    if (perspective.IsEmpty()) {
+        return;
+    }
+    // update=false: defer the visual refresh — the createMainFrame
+    // caller invokes m_aui.Update() once for both the restored layout
+    // and any state changes that happened earlier.
+    m_aui.LoadPerspective(perspective, false);
+}
+
+void UIManager::refreshAuiArt() const {
+    // Walk every AUI-managed widget that has a colour-cached art
+    // provider and ask it to re-read wxSystemSettings. Keeps light /
+    // dark mode in sync across panes after a SetAppearance call.
+    if (auto* art = m_aui.GetArtProvider()) {
+        art->UpdateColoursFromSystem();
+    }
+    if (m_notebook != nullptr) {
+        if (auto* art = m_notebook->GetArtProvider()) {
+            art->UpdateColoursFromSystem();
+        }
+    }
+    if (m_sideBar != nullptr) {
+        if (auto* art = m_sideBar->GetArtProvider()) {
+            art->UpdateColoursFromSystem();
+        }
+    }
+    if (m_auiToolbar != nullptr) {
+        if (auto* art = m_auiToolbar->GetArtProvider()) {
+            art->UpdateColoursFromSystem();
+        }
+    }
 }
 
 void UIManager::onPageClose(wxAuiNotebookEvent& event) {
@@ -147,7 +225,7 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
     }
     auto* page = m_notebook->GetPage(static_cast<size_t>(sel));
     page->SetFocus();
-    auto* doc = m_ctx.getDocumentManager().findByEditor(page);
+    const auto* doc = m_ctx.getDocumentManager().findByEditor(page);
     m_ctx.getSideBarManager().showSymbolsFor(doc);
 }
 
@@ -314,15 +392,31 @@ void UIManager::configureToolBar() {
         const auto& items = cfg.layout().at("toolbar");
         const auto& commands = cfg.locale().at("commands");
 
-        const bool createTools = m_toolbar == nullptr;
+        // Experimental: route the toolbar through wxAUI when
+        // `toolbar.useAui=1` in config. Off by default; not yet exposed
+        // in the Settings dialog. See GitHub issue #11.
+        const bool useAui = cfg.config().get_or("toolbar.useAui", false);
+        const bool createTools = (m_toolbar == nullptr && m_auiToolbar == nullptr);
+
         if (createTools) {
-            m_toolbar = m_frame->CreateToolBar(wxNO_BORDER | wxTB_HORIZONTAL | wxTB_FLAT);
+            if (useAui) {
+                m_auiToolbar = make_unowned<wxAuiToolBar>(
+                    m_frame, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                    wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_GRIPPER | wxAUI_TB_OVERFLOW
+                );
+            } else {
+                m_toolbar = m_frame->CreateToolBar(wxNO_BORDER | wxTB_HORIZONTAL | wxTB_FLAT);
+            }
         }
 
         for (const auto& key : items.asArray()) {
             if (key == "-") {
                 if (createTools) {
-                    m_toolbar->AddSeparator();
+                    if (m_auiToolbar != nullptr) {
+                        m_auiToolbar->AddSeparator();
+                    } else {
+                        m_toolbar->AddSeparator();
+                    }
                 }
                 continue;
             }
@@ -337,7 +431,17 @@ void UIManager::configureToolBar() {
             const auto name = locale.get_or("name", "");
             const auto help = locale.get_or("help", "");
 
-            if (entry->get<wxToolBarToolBase>() != nullptr) {
+            // Reconfigure path (locale change etc.) — refresh tooltips,
+            // skip re-add.
+            if (m_auiToolbar != nullptr && entry->get<wxAuiToolBar>() != nullptr) {
+                if (auto* item = m_auiToolbar->FindTool(entry->id)) {
+                    item->SetLabel(name);
+                    item->SetShortHelp(name);
+                    item->SetLongHelp(help);
+                }
+                continue;
+            }
+            if (m_toolbar != nullptr && entry->get<wxToolBarToolBase>() != nullptr) {
                 m_toolbar->SetToolShortHelp(entry->id, name);
                 m_toolbar->SetToolLongHelp(entry->id, help);
                 continue;
@@ -349,12 +453,35 @@ void UIManager::configureToolBar() {
                 continue;
             }
 
-            auto* tool = m_toolbar->AddTool(entry->id, name, bitmap, help, entry->kind);
-            entry->binds.push_back(tool);
+            if (m_auiToolbar != nullptr) {
+                m_auiToolbar->AddTool(entry->id, name, bitmap, help, entry->kind);
+                m_auiToolbar->SetToolShortHelp(entry->id, name);
+                m_auiToolbar->SetToolLongHelp(entry->id, help);
+                entry->binds.push_back(m_auiToolbar.get());
+            } else {
+                auto* tool = m_toolbar->AddTool(entry->id, name, bitmap, help, entry->kind);
+                entry->binds.push_back(tool);
+            }
         }
 
         if (createTools) {
-            m_toolbar->Realize();
+            if (m_auiToolbar != nullptr) {
+                m_auiToolbar->Realize();
+                m_aui.AddPane(
+                    m_auiToolbar.get(),
+                    wxAuiPaneInfo()
+                        .Name("toolbar")
+                        .ToolbarPane()
+                        .Top()
+                        .Gripper(false)
+                        .CaptionVisible(false)
+                        .DockFixed(true)
+                        .CloseButton(false)
+                        .PaneBorder(false)
+                );
+            } else {
+                m_toolbar->Realize();
+            }
         }
     } catch (const std::exception& ex) {
         wxLogError("Invalid layout config for toolbar: %s", ex.what());
@@ -370,6 +497,7 @@ void UIManager::createStatusBar() const {
     constexpr int widths[] = { -1, 90, 90, 140 };
     bar->SetStatusWidths(4, widths);
     m_frame->SetStatusText(m_ctx.tr("common.welcome"));
+
     bar->Bind(wxEVT_LEFT_DOWN, &UIManager::onStatusBarClick, const_cast<UIManager*>(this));
 }
 
@@ -388,7 +516,7 @@ void UIManager::onStatusBarClick(wxMouseEvent& event) {
     wxRect rect;
 
     if (bar->GetFieldRect(2, rect) && rect.Contains(pos)) {
-        auto menu = EncodingMenu::buildEolMenu(doc->getEolMode());
+        const auto menu = EncodingMenu::buildEolMenu(doc->getEolMode());
         menu->Bind(wxEVT_MENU, [doc](const wxCommandEvent& evt) {
             if (const auto mode = EncodingMenu::eolFromId(evt.GetId())) {
                 doc->setEolMode(*mode);
@@ -538,19 +666,14 @@ void UIManager::showConsole(const bool show) {
 
 void UIManager::syncConsoleState(const bool visible) const {
     if (auto* item = m_ctx.getCommandManager().find(+CommandId::Result)) {
+        // CommandEntry::setChecked walks every bound control (menu,
+        // toolbar tool, AUI toolbar tool) — no toolbar-specific
+        // Realize / Refresh poke needed here any more.
         item->setChecked(visible);
-        m_toolbar->Realize();
     }
 }
 
 auto UIManager::getCompilerLog() -> CompilerLog& {
-    if (m_compilerLog == nullptr) {
-        m_compilerLog = make_unowned<CompilerLog>(m_frame, m_ctx.tr("dialogs.log.title"));
-        m_compilerLog->create(m_ctx);
-        m_compilerLog->Bind(wxEVT_CLOSE_WINDOW, [&](wxCloseEvent& event) {
-            event.Skip();
-        });
-    }
     return *m_compilerLog;
 }
 
@@ -559,15 +682,21 @@ auto UIManager::freeze() -> FreezeLock {
 }
 
 void UIManager::disable(const std::ranges::range auto& range) const {
-    auto* menuBar = m_frame->GetMenuBar();
+    // Route every state change through CommandEntry. The entry's
+    // visitor handles each bound control type (menu item, classic
+    // wxToolBar tool, wxAuiToolBar tool), so this loop doesn't care
+    // which toolbar flavour is active.
+    //
+    // Semantics (preserved from the previous direct-poke version):
+    // commands listed in `range` get disabled, every other mutable id
+    // is left enabled.
+    auto& cmd = m_ctx.getCommandManager();
     for (const auto menuId : mutableIds) {
-        const bool disabled = not std::ranges::contains(range, menuId);
-        if (m_toolbar->FindById(+menuId) != nullptr) {
-            m_toolbar->EnableTool(+menuId, disabled);
+        auto* entry = cmd.find(+menuId);
+        if (entry == nullptr) {
+            continue;
         }
-        if (menuBar->FindItem(+menuId) != nullptr) {
-            menuBar->Enable(+menuId, disabled);
-        }
+        entry->setEnabled(!std::ranges::contains(range, menuId));
     }
 }
 

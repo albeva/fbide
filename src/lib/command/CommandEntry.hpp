@@ -19,7 +19,10 @@ class ConfigManager;
 struct CommandEntry final {
 
     /// Possible controls that can bind to a command entry.
-    using Bind = std::variant<wxMenu*, wxMenuItem*, wxToolBarToolBase*, wxAuiManager*, ConfigManager*>;
+    /// `wxAuiToolBar*` carries the parent toolbar — wxAuiToolBarItem
+    /// has no enable / toggle of its own, those go through the parent
+    /// keyed by entry id.
+    using Bind = std::variant<wxMenu*, wxMenuItem*, wxToolBarToolBase*, wxAuiToolBar*, wxAuiManager*, ConfigManager*>;
 
     /// Get the bound control of type `T*`, or `nullptr` if none exists.
     template<typename T>

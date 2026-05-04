@@ -2,7 +2,7 @@
 #include "cmake/version.rc"
 
 #ifdef __MINGW32__
-1 24 "app.manifest"
+1 24 "cmake/app.manifest"
 #endif
 appicon ICON "fbide.ico"
 
