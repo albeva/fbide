@@ -501,7 +501,7 @@ auto FBSciLexer::identifyKeyword() noexcept -> bool {
     m_sc->GetCurrentLowered(m_identBuffer.data(), m_identBuffer.size());
     if (strcmp("rem", m_identBuffer.data()) == 0) {
         m_sc->ChangeState(+ThemeCategory::Comment);
-        return false;
+        return m_sc->atLineEnd;
     }
 
     if (m_isFirst) {
@@ -592,6 +592,9 @@ void FBSciLexer::lexPreprocessor() noexcept {
 
         if (strcmp("rem", m_identBuffer.data()) == 0) {
             m_sc->ChangeState(+ThemeCategory::Comment);
+            if (m_sc->atLineEnd) {
+                resetToDefault();
+            }
             return;
         }
 
