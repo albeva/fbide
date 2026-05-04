@@ -8,6 +8,7 @@
 - Theme: fall back to the system default monospace font when the configured face isn't installed (#12)
 - Shortcuts: `F2` now toggles the Browser pane; `Shift+F2` opens the Sub/Function browser (#9)
 - Fix issue with compile log not populating properly (#6, #7)
+- Removed old version from splash image (pauldoe)
 
 # Changes since fbide 0.4.5.
 
