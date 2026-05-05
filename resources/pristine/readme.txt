@@ -44,6 +44,7 @@ Betatesters (legacy fbide):
    - Nexinarus
 
 Language files by:
+   - Joseba Epalza   - Spanish
    - v!ct0r          - Portuguese
    - Mecki           - German
    - MystikShadows   - French

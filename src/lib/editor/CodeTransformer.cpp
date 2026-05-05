@@ -49,16 +49,18 @@ void CodeTransformer::applySettings() {
 // ===========================================================================
 
 void CodeTransformer::onCharAdded(Editor& editor, const int ch) {
-    if (not m_transformKeywords || isWordChar(ch)) {
+    if (isWordChar(ch)) {
         return;
     }
+    const bool doIndent = ch == '\n' && m_autoIndent;
 
-    editor.SetUndoCollection(false);
-    applyWordCase(editor);
-    if (ch == '\n' && m_autoIndent) {
+    if (m_transformKeywords) {
+        applyWordCase(editor);
+    }
+
+    if (doIndent) {
         applyIndentAndCloser(editor);
     }
-    editor.SetUndoCollection(true);
 }
 
 void CodeTransformer::onCaretMoved(Editor& editor, const int oldPos) {
@@ -66,17 +68,31 @@ void CodeTransformer::onCaretMoved(Editor& editor, const int oldPos) {
         return;
     }
 
+    if (editor.GetSelectionStart() != editor.GetSelectionEnd()) {
+        return;
+    }
+
+    // find start
     int wordStart = oldPos;
     while (wordStart > 0 && isWordChar(editor.GetCharAt(wordStart - 1))) {
         wordStart--;
     }
-    const int wordEnd = oldPos;
+
+    // find end
+    int wordEnd = oldPos;
+    while (isWordChar(editor.GetCharAt(wordEnd))) {
+        wordEnd++;
+    }
+
+    // empty?
     if (wordStart == wordEnd) {
         return;
     }
 
     editor.SetUndoCollection(false);
+    const int caretPos = editor.GetCurrentPos();
     transformWordInRange(editor, wordStart, wordEnd);
+    editor.SetEmptySelection(caretPos);
     editor.SetUndoCollection(true);
 }
 
@@ -206,11 +222,14 @@ void CodeTransformer::transformRange(Editor& editor, const int rangeStart, const
 }
 
 auto CodeTransformer::renderCloser(const std::span<const std::string_view> words) const -> wxString {
-    // Closers are Keyword1 words (`end`, `if`, `sub`, ...). Use that group's
-    // configured case rule. `None` falls back to lowercase so output is at
-    // least consistent rather than raw placeholder.
+    // Closers are Keyword1 words (`end`, `if`, `sub`, ...). Honour the
+    // per-group case rule only when the master keyword-case toggle is on;
+    // otherwise keep the lowercase form supplied by AutoIndent so the
+    // closer matches the user's "no transformation" preference.
     const auto kw1Mode = m_keywordCases[indexOfKeywordGroup(ThemeCategory::Keywords)];
-    const auto rule = kw1Mode == CaseMode::None ? CaseMode { CaseMode::Lower } : kw1Mode;
+    const auto rule = (m_transformKeywords && kw1Mode != CaseMode::None)
+        ? kw1Mode
+        : CaseMode { CaseMode::Lower };
 
     wxString out;
     for (std::size_t i = 0; i < words.size(); i++) {

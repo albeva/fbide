@@ -73,7 +73,7 @@ void CommandEntry::update() {
             // no public mutators of its own. Refresh() is enough — no
             // Realize() needed for state changes (only when adding /
             // removing tools).
-            auto* item = tb->FindTool(id);
+            const auto* item = tb->FindTool(id);
             if (item == nullptr) {
                 return;
             }
@@ -95,6 +95,7 @@ void CommandEntry::update() {
             if (pane.IsShown() != checked) {
                 pane.Show(checked);
                 aui->Update();
+                pane.window->Update();
             }
         },
         [this](ConfigManager* configManager) {

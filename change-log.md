@@ -1,3 +1,17 @@
+# Change since 0.5.0-beta.2
+
+- Fixed issue with auto-indent not working when keyword case transform was disabled (#24)
+- Fixed issue with REM comment followed by newline, which caused next line to be a comment (#28)
+- Fixed various spelling errors (#26)
+- Fixed bug with console not being properly updated after compile-generated output (#32)
+- Fixed bug with indenting #defines containing IF keyword, which was counted as ppIF (#34)
+- Fixed toolbar tooltip to show long help string (#36)
+- Fixed case transform behaviour when moving cursor
+- Changed auto indenter actions are now undoable (#37)
+- Added show current document path in the title bar (#38)
+- Renamed "Sub/Function browser" to "Symbol browser" across all locales
+- Added Spanish translation (Joseba Epalza)
+
 # Change since 0.5.0-beta.1
 
 - Improved dark mode support on Windows. Can be enabled manually by editing the config file

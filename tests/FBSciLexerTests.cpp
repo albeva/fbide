@@ -201,6 +201,25 @@ TEST_F(FBSciLexerTests, NestedMultilineCommentWithLineBreaks) {
     );
 }
 
+TEST_F(FBSciLexerTests, RemAtLineEndDoesNotContinueToNextLine) {
+    // `rem` at the very end of a line is a comment for that line only — the
+    // next line must lex normally. Regression for #28.
+    expectStyles(
+        "foobar rem\nfoobar",
+        "IIIIII CCC IIIIII"
+    );
+}
+
+TEST_F(FBSciLexerTests, PreprocessorRemAtLineEndDoesNotContinueToNextLine) {
+    // Same rule applies inside a preprocessor line: `REM` at the end of the
+    // `#define` line is a trailing comment, not a state that bleeds into the
+    // following identifier. Regression for #28.
+    expectStyles(
+        "#define foo 1 REM\nfoobar",
+        "##############CCC IIIIII"
+    );
+}
+
 // endregion
 
 // region ---------- Numbers ----------
