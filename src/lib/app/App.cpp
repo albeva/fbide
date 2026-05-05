@@ -83,7 +83,7 @@ void pokeParentConsole() {
 /// don't have CRT-bound streams even when the shell redirects. If no handle
 /// is attached (Explorer launch with no parent console), attach to the
 /// parent and retry, then poke an Enter so the shell redraws its prompt.
-void writeLineTo(const wxString& text, bool toStderr) {
+void writeLineTo(const wxString& text, const bool toStderr) {
     const auto utf8 = text.ToStdString(wxConvUTF8) + '\n';
 #ifdef __WXMSW__
     const DWORD stdHandle = toStderr ? STD_ERROR_HANDLE : STD_OUTPUT_HANDLE;
