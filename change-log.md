@@ -1,4 +1,4 @@
-# Change since 0.5.0-beta.2
+# Changes since 0.5.0-beta.2
 
 - Fixed issue with auto-indent not working when keyword case transform was disabled (#24)
 - Fixed issue with REM comment followed by newline, which caused next line to be a comment (#28)
