@@ -429,6 +429,7 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
     // Update UI state when no documents remain
     if (m_documents.empty()) {
         m_ctx.getUIManager().setDocumentState(UIState::None);
+        m_ctx.getUIManager().setTitle(wxEmptyString);
         auto* frame = m_ctx.getUIManager().getMainFrame();
         frame->SetStatusText("", 1);
         frame->SetStatusText("", 2);
@@ -721,6 +722,7 @@ void DocumentManager::updateTabTitle(const Document& doc) const {
     const auto idx = findPageIndex(doc);
     if (idx != wxNOT_FOUND) {
         getNotebook()->SetPageText(static_cast<size_t>(idx), doc.getTitle());
+        m_ctx.getUIManager().setTitle(doc.isNew() ? doc.getTitle() : doc.getFilePath());
     }
 }
 

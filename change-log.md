@@ -8,6 +8,7 @@
 - Fixed toolbar tooltip to shohw long help string (#36)
 - Fixed case transform behaviour when moving cursor
 - Changed auto indenter actions are now undoable (#37)
+- Added show current document path in the title bar (#38)
 
 # Change since 0.5.0-beta.1
 

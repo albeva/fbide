@@ -104,6 +104,9 @@ public:
     /// Freeze main window, returning object which will thaw when it goes out of scope
     [[nodiscard]] auto freeze() -> FreezeLock;
 
+    /// Set window title. This is prefixed with "FBIde - ", when non empty.
+    void setTitle(const wxString& title);
+
 private:
     /// Set every command in `range` to disabled — helper for `applyState`.
     void disable(const std::ranges::range auto& range) const;
