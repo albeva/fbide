@@ -86,5 +86,7 @@ endif ()
 # The release workflow zips the staging directory directly; no sanitiser
 # script. Run locally to reproduce the installer payload.
 # ----------------------------------------------------------------------------
-install(TARGETS fbide RUNTIME DESTINATION .)
-install(DIRECTORY resources/pristine/ DESTINATION ide)
+if (NOT APPLE)
+    install(TARGETS fbide RUNTIME DESTINATION .)
+    install(DIRECTORY resources/pristine/ DESTINATION ide)
+endif()
