@@ -6,6 +6,8 @@
 - Fixed bug with console not being properly updated after compile generated output (#32)
 - Fixed bug with indenting #defines containing IF keyword, which was counted as ppIF (#34)
 - Fixed toolbar tooltip to shohw long help string (#36)
+- Fixed case transform behaviour when moving cursor
+- Changed auto indenter actions are now undoable (#37)
 
 # Change since 0.5.0-beta.1
 
