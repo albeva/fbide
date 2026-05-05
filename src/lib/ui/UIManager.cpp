@@ -428,7 +428,8 @@ void UIManager::configureToolBar() {
             }
 
             const auto& locale = commands.at(key);
-            const auto name = locale.get_or("name", "");
+            auto name = locale.get_or("name", "");
+            name.Replace("&", "");
             const auto help = locale.get_or("help", "");
 
             // Reconfigure path (locale change etc.) — refresh tooltips,
@@ -436,13 +437,13 @@ void UIManager::configureToolBar() {
             if (m_auiToolbar != nullptr && entry->get<wxAuiToolBar>() != nullptr) {
                 if (auto* item = m_auiToolbar->FindTool(entry->id)) {
                     item->SetLabel(name);
-                    item->SetShortHelp(name);
+                    item->SetShortHelp(help);
                     item->SetLongHelp(help);
                 }
                 continue;
             }
             if (m_toolbar != nullptr && entry->get<wxToolBarToolBase>() != nullptr) {
-                m_toolbar->SetToolShortHelp(entry->id, name);
+                m_toolbar->SetToolShortHelp(entry->id, help);
                 m_toolbar->SetToolLongHelp(entry->id, help);
                 continue;
             }
@@ -455,7 +456,6 @@ void UIManager::configureToolBar() {
 
             if (m_auiToolbar != nullptr) {
                 m_auiToolbar->AddTool(entry->id, name, bitmap, help, entry->kind);
-                m_auiToolbar->SetToolShortHelp(entry->id, name);
                 m_auiToolbar->SetToolLongHelp(entry->id, help);
                 entry->binds.push_back(m_auiToolbar.get());
             } else {
