@@ -53,18 +53,14 @@ void CodeTransformer::onCharAdded(Editor& editor, const int ch) {
         return;
     }
     const bool doIndent = ch == '\n' && m_autoIndent;
-    if (!m_transformKeywords && !doIndent) {
-        return;
-    }
 
-    editor.SetUndoCollection(false);
     if (m_transformKeywords) {
         applyWordCase(editor);
     }
+
     if (doIndent) {
         applyIndentAndCloser(editor);
     }
-    editor.SetUndoCollection(true);
 }
 
 void CodeTransformer::onCaretMoved(Editor& editor, const int oldPos) {
@@ -72,17 +68,31 @@ void CodeTransformer::onCaretMoved(Editor& editor, const int oldPos) {
         return;
     }
 
+    if (editor.GetSelectionStart() != editor.GetSelectionEnd()) {
+        return;
+    }
+
+    // find start
     int wordStart = oldPos;
     while (wordStart > 0 && isWordChar(editor.GetCharAt(wordStart - 1))) {
         wordStart--;
     }
-    const int wordEnd = oldPos;
+
+    // find end
+    int wordEnd = oldPos;
+    while (isWordChar(editor.GetCharAt(wordEnd))) {
+        wordEnd++;
+    }
+
+    // empty?
     if (wordStart == wordEnd) {
         return;
     }
 
     editor.SetUndoCollection(false);
+    const int caretPos = editor.GetCurrentPos();
     transformWordInRange(editor, wordStart, wordEnd);
+    editor.SetEmptySelection(caretPos);
     editor.SetUndoCollection(true);
 }
 
