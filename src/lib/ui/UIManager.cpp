@@ -27,6 +27,7 @@ namespace XPM {
 using namespace fbide;
 
 namespace {
+constexpr auto appName = "FBIde";
 const int DocumentTabsId = wxNewId();
 }
 
@@ -90,7 +91,7 @@ void UIManager::saveWindowGeometry() {
 }
 
 void UIManager::createMainFrame() {
-    m_frame = make_unowned<wxFrame>(nullptr, wxID_ANY, "FBIde");
+    m_frame = make_unowned<wxFrame>(nullptr, wxID_ANY, appName);
 #ifndef __WXMSW__
     m_frame->SetIcon(wxICON(XPM::appicon));
 #endif
@@ -221,12 +222,14 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
     const auto sel = event.GetSelection();
     if (sel == wxNOT_FOUND) {
         m_ctx.getSideBarManager().showSymbolsFor(nullptr);
+        setTitle(wxEmptyString);
         return;
     }
     auto* page = m_notebook->GetPage(static_cast<size_t>(sel));
     page->SetFocus();
     const auto* doc = m_ctx.getDocumentManager().findByEditor(page);
     m_ctx.getSideBarManager().showSymbolsFor(doc);
+    setTitle(doc->isNew() ? doc->getTitle() : doc->getFilePath());
 }
 
 void UIManager::onNotebookDblClick(wxAuiNotebookEvent& event) {
@@ -679,6 +682,14 @@ auto UIManager::getCompilerLog() -> CompilerLog& {
 
 auto UIManager::freeze() -> FreezeLock {
     return FreezeLock { m_frame };
+}
+
+void UIManager::setTitle(const wxString& title) {
+    if (title.empty()) {
+        m_frame->SetTitle(appName);
+    } else {
+        m_frame->SetTitle(wxString::Format("%s - %s", appName, title));
+    }
 }
 
 void UIManager::disable(const std::ranges::range auto& range) const {
