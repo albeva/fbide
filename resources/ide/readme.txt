@@ -20,6 +20,7 @@ Features:
 
 Credits:
    - paul doe - cleaned old splash image and made it re-usable
+   - Gothon - created new cobalt theme
 
 Betatesters:
    - MySoft

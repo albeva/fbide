@@ -1,3 +1,7 @@
+# Changes since 0.5.0-beta.3
+
+- Added new cobalt theme (Gothon)
+
 # Changes since 0.5.0-beta.2
 
 - Fixed issue with auto-indent not working when keyword case transform was disabled (#24)
