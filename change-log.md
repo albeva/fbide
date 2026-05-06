@@ -1,6 +1,7 @@
 # Changes since 0.5.0-beta.3
 
 - Added new cobalt theme (Gothon)
+- Fixed wstring and zstring classification, moved them to type keywords (#47)
 
 # Changes since 0.5.0-beta.2
 
