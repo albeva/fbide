@@ -130,19 +130,81 @@ void CodeTransformer::applyIndentAndCloser(Editor& editor) {
 
     int prevIndent = editor.GetLineIndentation(prevLine);
     if (decision.dedentPrev) {
-        prevIndent = std::max(0, prevIndent - tabSize);
-        editor.SetLineIndentation(prevLine, prevIndent);
+        const int target = dedentTarget(editor, prevLine);
+        if (target >= 0 && target < prevIndent) {
+            prevIndent = target;
+            editor.SetLineIndentation(prevLine, prevIndent);
+        }
     }
     const int newIndent = std::max(0, prevIndent + decision.deltaLevels * tabSize);
     editor.SetLineIndentation(currLine, newIndent);
     editor.GotoPos(editor.GetLineEndPosition(currLine));
 
-    if (!decision.closerKeywords.empty()) {
+    if (!decision.closerKeywords.empty() && !blockAlreadyClosed(editor, prevLine)) {
         const int caretPos = editor.GetLineEndPosition(currLine);
         editor.InsertText(caretPos, "\n" + renderCloser(decision.closerKeywords));
         editor.SetLineIndentation(currLine + 1, prevIndent);
         editor.GotoPos(editor.GetLineEndPosition(currLine));
     }
+}
+
+auto CodeTransformer::blockAlreadyClosed(Editor& editor, const int prevLine) -> bool {
+    // Two cheap signals, no doc scan:
+    //   1. Fold header flag on prev — body sits below at deeper indent, so
+    //      a closer presumably exists too. Fast path.
+    //   2. Empty-body case — fold flag won't fire when opener and existing
+    //      closer are at the same indent. Walk down past blanks to the
+    //      first non-blank line; if it's at <= prev's indent and a
+    //      first-keyword closer match, treat the block as already closed.
+    if ((editor.GetFoldLevel(prevLine) & wxSTC_FOLDLEVELHEADERFLAG) != 0) {
+        return true;
+    }
+    const int prevIndent = editor.GetLineIndentation(prevLine);
+    const int totalLines = editor.GetLineCount();
+    for (int probe = prevLine + 1; probe < totalLines; probe++) {
+        if ((editor.GetFoldLevel(probe) & wxSTC_FOLDLEVELWHITEFLAG) != 0) {
+            continue;
+        }
+        if (editor.GetLineIndentation(probe) > prevIndent) {
+            return true;
+        }
+        const auto d = indent::Decision::decide(editor, probe);
+        return d.dedentPrev && d.deltaLevels == 0;
+    }
+    return false;
+}
+
+auto CodeTransformer::dedentTarget(Editor& editor, const int prevLine) -> int {
+    // Walk up looking for the matching opener line. For each non-blank
+    // candidate at indent <= prev, run a single-line first-keyword check
+    // (indent::Decision::decide) — opener? then snap prev to its indent.
+    // Body line at strictly lesser indent without an opener match means
+    // we walked out of a deeper scope; dedent to that line's indent.
+    // Same-indent body line means prev sits among sibling statements —
+    // keep walking. Bounded so a pathological input cannot scan forever.
+    constexpr int kMaxScan = 200;
+    const int prevIndent = editor.GetLineIndentation(prevLine);
+    for (int i = 1; i <= kMaxScan; i++) {
+        const int probe = prevLine - i;
+        if (probe < 0) {
+            break;
+        }
+        if ((editor.GetFoldLevel(probe) & wxSTC_FOLDLEVELWHITEFLAG) != 0) {
+            continue;
+        }
+        const int probeIndent = editor.GetLineIndentation(probe);
+        if (probeIndent > prevIndent) {
+            continue;
+        }
+        const auto d = indent::Decision::decide(editor, probe);
+        if (d.deltaLevels > 0) {
+            return probeIndent < prevIndent ? probeIndent : -1;
+        }
+        if (probeIndent < prevIndent) {
+            return probeIndent;
+        }
+    }
+    return -1;
 }
 
 void CodeTransformer::applyWordCase(Editor& editor) {

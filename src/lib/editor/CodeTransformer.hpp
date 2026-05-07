@@ -54,6 +54,14 @@ public:
 private:
     /// Auto-indent the new line and (if appropriate) emit a matching closer.
     void applyIndentAndCloser(Editor& editor);
+    /// True when `prevLine` already has a body below it (fold header flag),
+    /// implying its closer also exists — suppress auto-emitting another.
+    [[nodiscard]] static auto blockAlreadyClosed(Editor& editor, int prevLine) -> bool;
+    /// Target indent for `prevLine` when it carries a closer/mid keyword.
+    /// Walks up to the nearest fold header (opener) and snaps to its indent;
+    /// returns -1 to leave `prevLine` alone (no opener found, or already
+    /// aligned with an opener at the same indent).
+    [[nodiscard]] static auto dedentTarget(Editor& editor, int prevLine) -> int;
     /// Run the keyword-case transform on the word the caret just left.
     void applyWordCase(Editor& editor);
     /// Transform a single word range to its configured case.
