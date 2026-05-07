@@ -2,6 +2,8 @@
 
 - Added new cobalt theme (Gothon)
 - Fixed wstring and zstring classification, moved them to type keywords (#47)
+- Fixed detect when compound statement closer is not needed (#50)
+- Fixed avoid de-indenting compound statement closers beyond opener level (#48)
 
 # Changes since 0.5.0-beta.2
 
