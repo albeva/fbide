@@ -7,6 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include <wx/app.h>
+#include <wx/uiaction.h>
 #include "config/ConfigManager.hpp"
 #include "document/DocumentType.hpp"
 #include "editor/CodeTransformer.hpp"
@@ -24,13 +25,16 @@ namespace fbide::tests {
 /// `ide/config_test.ini` plus its referenced theme / keywords / locale.
 /// Tests run against this isolated tree and do not depend on the
 /// production `resources/` directory.
-class EditorTestShim final {
+class EditorTestShim final : wxFrame {
 public:
+    NO_COPY_AND_MOVE(EditorTestShim)
+
     EditorTestShim()
-    : m_configManager(FBIDE_TEST_RESOURCES_DIR, /*idePath=*/ {}, /*configPath=*/"ide/config_test.ini")
+    : wxFrame(nullptr, wxID_ANY, "test")
+    , m_configManager(FBIDE_TEST_RESOURCES_DIR, /*idePath=*/ {}, /*configPath=*/"ide/config_test.ini")
     , m_transformer(m_configManager)
     , m_editor(new Editor(
-          wxTheApp->GetTopWindow(),
+          this,
           m_configManager,
           m_configManager.getTheme(),
           /*documentManager=*/nullptr,
@@ -38,17 +42,46 @@ public:
           &m_transformer,
           DocumentType::FreeBASIC,
           /*preview=*/false
-      )) {}
+      )) {
+        const auto sizer = make_unowned<wxBoxSizer>(wxVERTICAL);
+        sizer->Add(m_editor, 1, wxEXPAND);
+        SetSizer(sizer);
+        wxFrame::Show();
+        wxFrame::Update();
+    }
 
-    ~EditorTestShim() { m_editor->Destroy(); }
-
-    EditorTestShim(const EditorTestShim&) = delete;
-    EditorTestShim(EditorTestShim&&) = delete;
-    auto operator=(const EditorTestShim&) -> EditorTestShim& = delete;
-    auto operator=(EditorTestShim&&) -> EditorTestShim& = delete;
+    template<typename T>
+    void callAfter(const T& fn) {
+        CallAfter(fn);
+    }
 
     /// Editor under test.
     [[nodiscard]] auto editor() -> Editor& { return *m_editor; }
+
+    /*
+    /// On-type transformer (keyword case + auto-indent + closer).
+    [[nodiscard]] auto transformer() -> CodeTransformer& { return m_transformer; }*/
+
+    void typeText(const wxString& text) {
+        m_editor->SetFocus();
+        EXPECT_TRUE(m_editor->HasFocus());
+
+        wxUIActionSimulator sim;
+        for (const auto ch : text) {
+            wxMilliSleep(100);
+            wxYield();
+            sim.Char(ch);
+        }
+        wxYield();
+        // for (const char c : text) {
+        // m_editor->AddText(wxString::FromUTF8(&c, 1));
+        // m_editor->Colourise(0, -1);
+        // wxStyledTextEvent ev(wxEVT_STC_CHARADDED, m_editor->GetId());
+        // ev.SetEventObject(m_editor);
+        // ev.SetKey(c);
+        // m_editor->GetEventHandler()->ProcessEvent(ev);
+        // }
+    }
 
     /// Replace the entire buffer.
     void setText(const wxString& s) { m_editor->SetText(s); }

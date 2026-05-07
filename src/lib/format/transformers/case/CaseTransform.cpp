@@ -91,7 +91,9 @@ auto CaseMode::apply(wxString text) const -> wxString {
         break;
     case Mixed:
         text.MakeLower();
-        text[0] = wxTolower(text[0]);
+        if (!text.empty()) {
+            text[0] = wxToupper(text[0]);
+        }
         break;
     }
     return text;

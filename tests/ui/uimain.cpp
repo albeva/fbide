@@ -16,9 +16,6 @@ namespace {
 class UiTestApp final : public wxApp {
 public:
     auto OnInit() -> bool override {
-        m_frame = new wxFrame(nullptr, wxID_ANY, "fbide-ui-tests");
-        // Frame stays hidden — never call Show().
-        SetTopWindow(m_frame);
         return true;
     }
 
@@ -26,17 +23,39 @@ private:
     wxFrame* m_frame = nullptr;
 };
 } // namespace
+wxIMPLEMENT_APP_NO_MAIN(UiTestApp);
+
+class WxTestEnvironment : public ::testing::Environment {
+public:
+    void SetUp() override {
+        int argc = 0;
+        wxEntryStart(argc, static_cast<char**>(nullptr));
+        wxYield();
+        if (!wxTheApp || !wxTheApp->CallOnInit()) {
+            throw std::runtime_error("wxWidgets init failed");
+        }
+    }
+
+    void TearDown() override {
+        wxTheApp->OnExit();
+        wxEntryCleanup();
+        wxYield();
+    }
+};
 
 auto main(int argc, char** argv) -> int {
-    const auto app = fbide::make_unowned<UiTestApp>();
-    wxApp::SetInstance(app);
-    wxEntryStart(argc, argv);
-    app->CallOnInit();
-
-    testing::InitGoogleTest(&argc, argv);
-    const int result = RUN_ALL_TESTS();
-
-    app->OnExit();
-    wxEntryCleanup();
-    return result;
+    // const auto app = fbide::make_unowned<UiTestApp>();
+    // wxApp::SetInstance(app);
+    // wxEntryStart(argc, argv);
+    // app->CallOnInit();
+    //
+    // testing::InitGoogleTest(&argc, argv);
+    // const int result = RUN_ALL_TESTS();
+    //
+    // app->OnExit();
+    // wxEntryCleanup();
+    // return result;
+    ::testing::InitGoogleTest(&argc, argv);
+    ::testing::AddGlobalTestEnvironment(new WxTestEnvironment);
+    return RUN_ALL_TESTS();
 }

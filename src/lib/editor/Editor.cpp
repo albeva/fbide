@@ -52,9 +52,16 @@ wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
 wxEND_EVENT_TABLE()
 // clang-format on
 
-Editor::Editor(wxWindow* parent, ConfigManager& configManager, Theme& theme,
-    DocumentManager* documentManager, UIManager* uiManager, CodeTransformer* transformer,
-    const DocumentType type, const bool preview)
+Editor::Editor(
+    wxWindow* parent,
+    ConfigManager& configManager,
+    Theme& theme,
+    DocumentManager* documentManager,
+    UIManager* uiManager,
+    CodeTransformer* transformer,
+    const DocumentType type,
+    const bool preview
+)
 : wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize)
 , m_configManager(configManager)
 , m_theme(theme)
@@ -137,7 +144,7 @@ void Editor::defineFoldMargins() {
 
     const auto& theme = m_theme;
     const auto foldFg = theme.foreground(theme.getFoldMargin().foreground);
-    const auto foldBg =  theme.background(theme.getFoldMargin().background);
+    const auto foldBg = theme.background(theme.getFoldMargin().background);
 
     SetFoldFlags(wxSTC_FOLDFLAG_LINEAFTER_CONTRACTED);
     MarkerDefine(wxSTC_MARKNUM_FOLDER, wxSTC_MARK_BOXPLUS, foldBg, foldFg);
@@ -566,8 +573,8 @@ void Editor::updateStatusBar() const {
     frame->SetStatusText(wxString::Format("%d : %d", line, col), 1);
 
     const Document* doc = m_documentManager != nullptr
-        ? m_documentManager->findByEditor(this)
-        : nullptr;
+                            ? m_documentManager->findByEditor(this)
+                            : nullptr;
     if (doc != nullptr) {
         frame->SetStatusText(wxString::FromUTF8(doc->getEolMode().toString()), 2);
         frame->SetStatusText(wxString::FromUTF8(doc->getEncoding().toString()), 3);
