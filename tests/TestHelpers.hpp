@@ -52,8 +52,18 @@ inline auto createFbLexer(const wxString& kwIniPath) -> Scintilla::ILexer5* {
 }
 
 /// Tokenise `source` via FBSciLexer + StyleLexer through a headless
-/// MemoryDocument. The lexer instance is owned by the caller.
+/// MemoryDocument. The lexer instance is owned by the caller. A trailing
+/// newline is appended when missing so per-line resolution (LineState
+/// transitions, e.g. AsmState Undetermined → Block) finalizes — single-line
+/// inputs without a terminator would otherwise leave the last identifier
+/// un-classified.
 inline auto tokenise(Scintilla::ILexer5& lex, std::string_view source) -> std::vector<lexer::Token> {
+    std::string buf;
+    if (source.empty() || source.back() != '\n') {
+        buf.assign(source);
+        buf.push_back('\n');
+        source = buf;
+    }
     MemoryDocument doc;
     doc.Set(source);
     lex.Lex(0, doc.Length(), +ThemeCategory::Default, &doc);

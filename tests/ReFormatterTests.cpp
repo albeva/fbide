@@ -67,6 +67,37 @@ TEST_F(ReFormatterTests, SubBlock) {
         "End Sub\n");
 }
 
+TEST_F(ReFormatterTests, AsmBlock) {
+    // Multi-line `asm … end asm` — opens a block, body is indented.
+    EXPECT_EQ(format(
+                  "Sub Foo\n"
+                  "Asm\n"
+                  "mov eax, 0\n"
+                  "End Asm\n"
+                  "End Sub\n"
+              ),
+        "Sub Foo\n"
+        "    Asm\n"
+        "        mov eax, 0\n"
+        "    End Asm\n"
+        "End Sub\n");
+}
+
+TEST_F(ReFormatterTests, SingleLineAsmDoesNotOpenBlock) {
+    // FB single-line `asm <stmt>` is one statement — must not be treated
+    // as a compound-statement opener; the next line's indent is unchanged.
+    EXPECT_EQ(format(
+                  "Sub Foo\n"
+                  "Asm mov eax, 10\n"
+                  "Print x\n"
+                  "End Sub\n"
+              ),
+        "Sub Foo\n"
+        "    Asm mov eax, 10\n"
+        "    Print x\n"
+        "End Sub\n");
+}
+
 TEST_F(ReFormatterTests, FunctionBlock) {
     EXPECT_EQ(format(
                   "Function Add(a As Integer, b As Integer) As Integer\n"

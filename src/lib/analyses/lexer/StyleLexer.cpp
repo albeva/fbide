@@ -377,6 +377,28 @@ void StyleLexer::emitKeyword(const StyleRange& r, TokenKind kind, std::vector<To
     if (const auto it = kw.find(lower); it != kw.end()) {
         kwKind = it->second;
     }
+    // The structural classifier maps every `asm` to `KeywordKind::Asm`, but
+    // the lexer's per-line AsmState distinguishes a block opener (Block)
+    // from a single-line statement (Stmt → resolved to None at logical EOL).
+    // Downgrade non-block asm to `Other` so neither AutoIndent nor the
+    // formatter treat it as a compound-statement opener. Walk forward through
+    // continuation / mid-comment lines (Undetermined) to find resolution.
+    if (kwKind == KeywordKind::Asm) {
+        auto line = m_src.lineFromPosition(r.start);
+        const auto lastLine = m_src.lineFromPosition(m_src.length());
+        constexpr int kMaxScan = 100;
+        auto resolved = FBSciLexer::AsmState::Undetermined;
+        for (int i = 0; i < kMaxScan && line <= lastLine; i++, line++) {
+            const auto state = m_src.lineState(line).asmState;
+            if (state != FBSciLexer::AsmState::Undetermined) {
+                resolved = state;
+                break;
+            }
+        }
+        if (resolved != FBSciLexer::AsmState::Block) {
+            kwKind = KeywordKind::Other;
+        }
+    }
     out.push_back(Token {
         kind,
         kwKind,
