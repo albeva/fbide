@@ -10,7 +10,7 @@
 #include "format/transformers/case/CaseTransform.hpp"
 
 namespace fbide {
-class Context;
+class ConfigManager;
 class Editor;
 
 /// Per-Editor driver for on-type code transforms:
@@ -27,7 +27,7 @@ public:
     NO_COPY_AND_MOVE(CodeTransformer)
 
     /// Construct and seed from `editor.*` config keys.
-    explicit CodeTransformer(Context& ctx);
+    explicit CodeTransformer(ConfigManager& configManager);
     /// Destroy, releasing the internal Lexer.
     ~CodeTransformer();
 
@@ -71,7 +71,7 @@ private:
     /// Render `words` to the canonical closer text using the active editor's case rules.
     [[nodiscard]] auto renderCloser(std::span<const std::string_view> words) const -> wxString;
 
-    Context& m_ctx;                  ///< Application context.
+    ConfigManager& m_configManager;  ///< Config source — drives settings/keyword reload.
     bool m_autoIndent = true;        ///< Master toggle for auto-indent.
     bool m_transformKeywords = true; ///< Master toggle for keyword case transform.
     std::array<CaseMode, kThemeKeywordGroupsCount> m_keywordCases {}; ///< Per-keyword-group case mode.

@@ -7,7 +7,6 @@
 #include "Editor.hpp"
 #include "CodeTransformer.hpp"
 #include "analyses/symbols/SymbolTable.hpp"
-#include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/Theme.hpp"
 #include "config/ThemeCategory.hpp"
@@ -53,10 +52,14 @@ wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
 wxEND_EVENT_TABLE()
 // clang-format on
 
-Editor::Editor(wxWindow* parent, Context& ctx, CodeTransformer* transformer,
+Editor::Editor(wxWindow* parent, ConfigManager& configManager, Theme& theme,
+    DocumentManager* documentManager, UIManager* uiManager, CodeTransformer* transformer,
     const DocumentType type, const bool preview)
 : wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize)
-, m_ctx(ctx)
+, m_configManager(configManager)
+, m_theme(theme)
+, m_documentManager(documentManager)
+, m_uiManager(uiManager)
 , m_transformer(transformer)
 , m_docType(type)
 , m_preview(preview) {
@@ -74,7 +77,7 @@ void Editor::applySettings() {
 }
 
 void Editor::applyEditorSettings() {
-    const auto& editor = m_ctx.getConfigManager().config().at("editor");
+    const auto& editor = m_configManager.config().at("editor");
     const auto tabSize = editor.get_or("tabSize", 4);
     if (m_transformer != nullptr) {
         m_transformer->applySettings();
@@ -122,7 +125,7 @@ void Editor::defineFoldMargins() {
         return;
     }
 
-    const auto& editor = m_ctx.getConfigManager().config().at("editor");
+    const auto& editor = m_configManager.config().at("editor");
     if (not editor.get_or("folderMargin", false)) {
         return;
     }
@@ -132,7 +135,7 @@ void Editor::defineFoldMargins() {
     SetMarginWidth(+Margins::Fold, Constants::foldMarginWidth);
     SetMarginSensitive(+Margins::Fold, true);
 
-    const auto& theme = m_ctx.getTheme();
+    const auto& theme = m_theme;
     const auto foldFg = theme.foreground(theme.getFoldMargin().foreground);
     const auto foldBg =  theme.background(theme.getFoldMargin().background);
 
@@ -152,7 +155,7 @@ void Editor::defineFoldMargins() {
 }
 
 void Editor::applyTheme() {
-    const auto& theme = m_ctx.getTheme();
+    const auto& theme = m_theme;
     const auto& defaultEntry = theme.get(ThemeCategory::Default);
     const auto& defaultColors = defaultEntry.colors;
 
@@ -183,7 +186,7 @@ void Editor::applyTheme() {
     // separator lines
     SetEdgeColour(theme.foreground(theme.getSeparator()));
 
-    if (m_ctx.getConfigManager().config().get_or("editor.syntaxHighlight", true)) {
+    if (m_configManager.config().get_or("editor.syntaxHighlight", true)) {
         switch (m_docType) {
         case DocumentType::FreeBASIC:
             applyFreebasicTheme();
@@ -202,12 +205,12 @@ void Editor::applyTheme() {
 }
 
 void Editor::applyFreebasicTheme() {
-    const auto& theme = m_ctx.getTheme();
+    const auto& theme = m_theme;
 
     SetILexer(FBSciLexer::Create());
 
     // Apply keywords
-    const auto& groups = m_ctx.getConfigManager().keywords().at("groups");
+    const auto& groups = m_configManager.keywords().at("groups");
     for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
         const auto key = getThemeCategoryName(kThemeKeywordCategories.at(idx));
         SetKeyWords(static_cast<int>(idx), groups.get_or(wxString(key), "").Lower());
@@ -232,7 +235,7 @@ void Editor::applyColors(const int stcId, const Theme::Colors& colors, const The
 }
 
 void Editor::applyHtmlTheme() {
-    const auto& theme = m_ctx.getTheme();
+    const auto& theme = m_theme;
     SetLexer(wxSTC_LEX_HTML);
 
     applyStyle(wxSTC_H_DEFAULT, theme.get(ThemeCategory::Default), theme);
@@ -249,7 +252,7 @@ void Editor::applyHtmlTheme() {
 }
 
 void Editor::applyPropertiesTheme() {
-    const auto& theme = m_ctx.getTheme();
+    const auto& theme = m_theme;
     SetLexer(wxSTC_LEX_PROPERTIES);
     applyStyle(wxSTC_PROPS_DEFAULT, theme.get(ThemeCategory::Default), theme);
     applyStyle(wxSTC_PROPS_COMMENT, theme.get(ThemeCategory::Comment), theme);
@@ -264,7 +267,7 @@ void Editor::applyTextTheme() {
 }
 
 void Editor::updateLineNumberMarginWidth() {
-    if (m_ctx.getConfigManager().config().get_or("editor.lineNumbers", true)) {
+    if (m_configManager.config().get_or("editor.lineNumbers", true)) {
         const auto lineNrWidth = TextWidth(wxSTC_STYLE_LINENUMBER, "00001");
         SetMarginWidth(+Margins::LineNumbers, lineNrWidth);
     } else {
@@ -513,7 +516,9 @@ void Editor::onUpdateUI(wxStyledTextEvent& event) {
 void Editor::postUpdateUI() {
     updateStatusBar();
     updateBraceMatch();
-    m_ctx.getDocumentManager().syncEditCommands();
+    if (m_documentManager != nullptr) {
+        m_documentManager->syncEditCommands();
+    }
     m_callPostUpdate = false;
 }
 
@@ -531,7 +536,7 @@ void Editor::onZoom(wxStyledTextEvent&) {
 }
 
 void Editor::updateBraceMatch() {
-    if (!m_ctx.getConfigManager().config().get_or("editor.braceHighlight", true)) {
+    if (!m_configManager.config().get_or("editor.braceHighlight", true)) {
         return;
     }
 
@@ -551,13 +556,19 @@ void Editor::updateBraceMatch() {
 }
 
 void Editor::updateStatusBar() const {
+    if (m_uiManager == nullptr) {
+        return;
+    }
     const auto pos = GetCurrentPos();
     const auto line = LineFromPosition(pos) + 1;
     const auto col = GetColumn(pos) + 1;
-    auto* frame = m_ctx.getUIManager().getMainFrame();
+    auto* frame = m_uiManager->getMainFrame();
     frame->SetStatusText(wxString::Format("%d : %d", line, col), 1);
 
-    if (const auto* doc = m_ctx.getDocumentManager().findByEditor(this)) {
+    const Document* doc = m_documentManager != nullptr
+        ? m_documentManager->findByEditor(this)
+        : nullptr;
+    if (doc != nullptr) {
         frame->SetStatusText(wxString::FromUTF8(doc->getEolMode().toString()), 2);
         frame->SetStatusText(wxString::FromUTF8(doc->getEncoding().toString()), 3);
     } else {
@@ -573,18 +584,23 @@ void Editor::disableTransforms(const bool state) {
 void Editor::onFocus(wxFocusEvent& event) {
     event.Skip();
     updateStatusBar();
-    const auto state = m_docType == DocumentType::FreeBASIC
-                         ? UIState::FocusedValidSourceFile
-                         : UIState::FocusedUnknownFile;
-    m_ctx.getUIManager().setDocumentState(state);
+    if (m_uiManager != nullptr) {
+        const auto state = m_docType == DocumentType::FreeBASIC
+                             ? UIState::FocusedValidSourceFile
+                             : UIState::FocusedUnknownFile;
+        m_uiManager->setDocumentState(state);
+    }
 }
 
 void Editor::onIntellisenseTimer(wxTimerEvent& /*event*/) {
-    auto* doc = m_ctx.getDocumentManager().findByEditor(this);
+    if (m_documentManager == nullptr) {
+        return;
+    }
+    auto* doc = m_documentManager->findByEditor(this);
     if (doc == nullptr) {
         return;
     }
-    m_ctx.getDocumentManager().submitIntellisense(doc, GetText());
+    m_documentManager->submitIntellisense(doc, GetText());
 }
 
 void Editor::onKeyDown(wxKeyEvent& event) {
@@ -621,7 +637,10 @@ void Editor::onHotSpotClick(wxStyledTextEvent& event) {
         return;
     }
 
-    auto& docMgr = m_ctx.getDocumentManager();
+    if (m_documentManager == nullptr) {
+        return;
+    }
+    auto& docMgr = *m_documentManager;
     const auto* doc = docMgr.findByEditor(this);
     if (doc == nullptr) {
         return;
@@ -657,7 +676,9 @@ void Editor::onModified(wxStyledTextEvent& event) {
     if ((mod & (wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT | wxSTC_PERFORMED_UNDO | wxSTC_PERFORMED_REDO)) == 0) {
         return;
     }
-    m_ctx.getDocumentManager().updateActiveTabTitle();
+    if (m_documentManager != nullptr) {
+        m_documentManager->updateActiveTabTitle();
+    }
 
     if (m_editorLocked) {
         return;

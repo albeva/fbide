@@ -10,7 +10,6 @@
 #include "analyses/lexer/StyleLexer.hpp"
 #include "analyses/lexer/StyledSource.hpp"
 #include "analyses/lexer/Token.hpp"
-#include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/ThemeCategory.hpp"
 using namespace fbide;
@@ -27,8 +26,8 @@ auto isWordChar(const wxUniChar ch) -> bool {
 
 } // namespace
 
-CodeTransformer::CodeTransformer(Context& ctx)
-: m_ctx(ctx) {
+CodeTransformer::CodeTransformer(ConfigManager& configManager)
+: m_configManager(configManager) {
     applySettings();
 }
 
@@ -36,7 +35,7 @@ CodeTransformer::~CodeTransformer() = default;
 
 void CodeTransformer::applySettings() {
     enable(true);
-    const auto& cases = m_ctx.getConfigManager().keywords().at("cases");
+    const auto& cases = m_configManager.keywords().at("cases");
     for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
         const auto key = wxString(getThemeCategoryName(kThemeKeywordCategories[idx]));
         m_keywordCases[idx] = CaseMode::parse(cases.get_or(key, "None").ToStdString())
@@ -105,7 +104,7 @@ void CodeTransformer::onTextInserted(Editor& editor, const int pos, const int le
 
 void CodeTransformer::enable(const bool state) {
     if (state) {
-        const auto& editor = m_ctx.getConfigManager().config().at("editor");
+        const auto& editor = m_configManager.config().at("editor");
         m_autoIndent = editor.get_or("autoIndent", true);
         m_transformKeywords = editor.get_or("transformKeywords", true);
     } else {

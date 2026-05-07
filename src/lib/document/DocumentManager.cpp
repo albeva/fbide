@@ -41,7 +41,7 @@ wxEND_EVENT_TABLE()
 
 DocumentManager::DocumentManager(Context& ctx)
 : m_ctx(ctx)
-, m_codeTransformer(std::make_unique<CodeTransformer>(ctx))
+, m_codeTransformer(std::make_unique<CodeTransformer>(ctx.getConfigManager()))
 , m_intellisense(std::make_unique<IntellisenseService>(ctx, this)) {
     Bind(EVT_INTELLISENSE_RESULT, &DocumentManager::onIntellisenseResult, this);
 }

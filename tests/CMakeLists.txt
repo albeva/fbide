@@ -53,3 +53,33 @@ gtest_discover_tests(tests
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     DISCOVERY_MODE PRE_TEST
 )
+
+# UI tests — separate executable that runs under a real wxApp (with a hidden
+# top-level frame) so wx GUI controls (wxStyledTextCtrl, ...) can be
+# instantiated. Pure unit tests stay in `tests` (wxAppConsole, faster, no
+# GUI dependency).
+add_executable(ui-tests
+    uimain.cpp
+    EditorTests.cpp
+)
+
+target_compile_definitions(ui-tests PRIVATE
+    FBIDE_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/"
+    FBIDE_TEST_RESOURCES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/resources/"
+)
+
+target_link_libraries(ui-tests PRIVATE fbide_lib compiler_options gtest)
+target_include_directories(ui-tests SYSTEM PRIVATE
+    ${gtest_SOURCE_DIR}/include
+    ${gtest_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/third_party/scintilla/include
+    ${CMAKE_SOURCE_DIR}/third_party/lexilla/include
+    ${CMAKE_SOURCE_DIR}/third_party/lexilla/lexlib
+)
+target_include_directories(ui-tests PRIVATE "${CMAKE_BINARY_DIR}/configured_files/include")
+target_precompile_headers(ui-tests REUSE_FROM fbide_lib)
+
+gtest_discover_tests(ui-tests
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    DISCOVERY_MODE PRE_TEST
+)
