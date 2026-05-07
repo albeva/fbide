@@ -5,7 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include <gtest/gtest.h>
-#include "../src/lib/document/TextEncoding.hpp"
+#include "document/TextEncoding.hpp"
 
 using namespace fbide;
 

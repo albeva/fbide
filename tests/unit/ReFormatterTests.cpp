@@ -5,8 +5,8 @@
 // https://github.com/albeva/fbide
 //
 #include <gtest/gtest.h>
-#include "../src/lib/format/transformers/case/CaseTransform.hpp"
-#include "../src/lib/format/transformers/reformat/ReFormatter.hpp"
+#include "format/transformers/case/CaseTransform.hpp"
+#include "format/transformers/reformat/ReFormatter.hpp"
 #include "TestHelpers.hpp"
 
 using namespace fbide;
