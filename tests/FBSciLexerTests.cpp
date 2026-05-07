@@ -378,6 +378,53 @@ TEST_F(FBSciLexerTests, AsmRegistersInKeywordAsm2) {
     );
 }
 
+// Single-line asm: `asm <stmt>` on one line. No `end asm` required.
+// Following statements must lex with normal (non-asm) classification.
+TEST_F(FBSciLexerTests, AsmSingleLineNoContinuation) {
+    expectStyles(
+        "asm mov eax\ndim x\n",
+        "111 777 888 111 I "
+    );
+}
+
+// Single-line asm spanning physical lines via `_` continuation.
+// Both halves classify with asm wordlists; next logical line is normal.
+TEST_F(FBSciLexerTests, AsmSingleLineWithContinuation) {
+    expectStyles(
+        "asm _\n   mov eax\ndim x\n",
+        "111 C    777 888 111 I "
+    );
+}
+
+// `asm` followed by a multi-line block comment then `_` — still a
+// single-liner, content arrives on the continued physical line.
+// Following logical line lexes with normal classification.
+TEST_F(FBSciLexerTests, AsmSingleLineMLCommentThenContinuation) {
+    expectStyles(
+        "asm /' x '/ _\n   mov eax\ndim x\n",
+        "111 MMMMMMM C    777 888 111 I "
+    );
+}
+
+// `asm` followed by a block comment but NO `_` — logical line ends
+// without significant content, so it opens a multi-line asm block.
+// Body lexes with asm wordlists; `end asm` closes.
+TEST_F(FBSciLexerTests, AsmBlockOpenerWithMLCommentNoContinuation) {
+    expectStyles(
+        "asm /' x '/\nmov eax\nend asm\n",
+        "111 MMMMMMM 777 888 111 111 "
+    );
+}
+
+// `asm` followed by a single-line `'` comment is treated as opening a
+// block (no significant content on the logical line).
+TEST_F(FBSciLexerTests, AsmBlockOpenerWithLineCommentOnly) {
+    expectStyles(
+        "asm ' note\nmov\nend asm\n",
+        "111 CCCCCC 777 111 111 "
+    );
+}
+
 // endregion
 
 // region ---------- Operators ----------

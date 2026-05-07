@@ -58,15 +58,24 @@ public:
     /// Factory method for Scintilla.
     static auto Create() -> Scintilla::ILexer5*;
 
+    /// Per-line asm parsing state. Drives keyword-wordlist selection and
+    /// the single-line-vs-block-opener resolution at logical EOL.
+    enum class AsmState : std::uint8_t {
+        None = 0,         ///< Not inside any asm context.
+        Undetermined = 1, ///< Saw `asm` keyword; no significant content yet — block-vs-stmt undecided.
+        Block = 2,        ///< Confirmed multi-line `asm … end asm` block.
+        Stmt = 3,         ///< Confirmed single-line `asm <stmt>` statement.
+    };
+
     /// Per-line state stored via IDocument::SetLineState / GetLineState.
     /// Packed into a single int for Scintilla compatibility.
     /// Public so the analyses/lexer adapter can read it via IStyledSource.
     struct alignas(int) LineState final {
-        bool continueLine : 1 = false; ///< Line ends in `_` continuation.
-        bool isFirst      : 1 = false; ///< This is the first significant line of the source.
-        bool continuePP   : 1 = false; ///< Inside a continued preprocessor directive.
-        bool fieldAccess  : 1 = false; ///< Last token was `.` or `->` — next ident is a field.
-        bool asmBlock     : 1 = false; ///< Inside an `asm` block.
+        bool continueLine : 1 = false;          ///< Line ends in `_` continuation.
+        bool isFirst      : 1 = false;          ///< This is the first significant line of the source.
+        bool continuePP   : 1 = false;          ///< Inside a continued preprocessor directive.
+        bool fieldAccess  : 1 = false;          ///< Last token was `.` or `->` — next ident is a field.
+        AsmState asmState : 3 = AsmState::None; ///< Asm context tracker (None/Undetermined/Block/Stmt).
 
         std::uint8_t commentNestLevel = 0; ///< Open `/'` block-comment nesting level.
         std::uint8_t reserved1 = 0;        ///< Reserved for future use.
@@ -128,17 +137,17 @@ private:
     static constexpr std::size_t MAX_IDENT_LEN = 128;
 
     std::array<Lexilla::WordList, kThemeKeywordGroupsCount> m_wordLists; ///< Per-keyword-group wordlists.
-    Lexilla::StyleContext* m_sc = nullptr;     ///< Active Scintilla styling context (per Lex call).
-    Lexilla::LexAccessor* m_styler = nullptr;  ///< Accessor for line/state queries (per Lex call).
-    Sci_Position m_line = 0;                   ///< Current source line being styled.
-    LineState m_previousLineState;             ///< State at the start of the current line.
-    LineState m_lineState;                     ///< Live state for the current line.
-    NumberForm m_numberForm = NumberForm::Decimal; ///< Current numeric literal sub-state.
-    bool m_isFirst = true;                     ///< True until we see the first significant char on the line.
-    bool m_fieldAccess = false;                ///< Set after `.`/`->` — suppress keyword classification next.
-    bool m_slashEscapableString = false;       ///< Inside a string with `$` escape sequences enabled.
-    bool m_asmBlock = false;                   ///< Inside an `asm` block — alternate keyword categorisation.
-    std::array<char, MAX_IDENT_LEN> m_identBuffer {}; ///< Reusable identifier-spelling buffer.
+    Lexilla::StyleContext* m_sc = nullptr;                               ///< Active Scintilla styling context (per Lex call).
+    Lexilla::LexAccessor* m_styler = nullptr;                            ///< Accessor for line/state queries (per Lex call).
+    Sci_Position m_line = 0;                                             ///< Current source line being styled.
+    LineState m_previousLineState;                                       ///< State at the start of the current line.
+    LineState m_lineState;                                               ///< Live state for the current line.
+    NumberForm m_numberForm = NumberForm::Decimal;                       ///< Current numeric literal sub-state.
+    bool m_isFirst = true;                                               ///< True until we see the first significant char on the line.
+    bool m_fieldAccess = false;                                          ///< Set after `.`/`->` — suppress keyword classification next.
+    bool m_slashEscapableString = false;                                 ///< Inside a string with `$` escape sequences enabled.
+    AsmState m_asmState = AsmState::None;                                ///< Active asm context (drives wordlist selection and EOL resolution).
+    std::array<char, MAX_IDENT_LEN> m_identBuffer {};                    ///< Reusable identifier-spelling buffer.
 };
 
 } // namespace fbide

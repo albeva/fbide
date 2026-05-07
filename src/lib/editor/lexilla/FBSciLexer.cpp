@@ -183,12 +183,23 @@ void FBSciLexer::lexLineStart() noexcept {
     if (m_previousLineState.continueLine) {
         m_isFirst = m_previousLineState.isFirst;
         m_fieldAccess = m_previousLineState.fieldAccess;
+        m_asmState = m_previousLineState.asmState;
     } else {
         m_isFirst = true;
         m_fieldAccess = false;
+        // Block persists across non-continued lines. Undetermined persists
+        // while we're still inside a multi-line block comment (the logical
+        // line hasn't actually ended). Stmt and None reset.
+        if (m_previousLineState.asmState == AsmState::Block) {
+            m_asmState = AsmState::Block;
+        } else if (m_previousLineState.asmState == AsmState::Undetermined
+                   && m_previousLineState.commentNestLevel > 0) {
+            m_asmState = AsmState::Undetermined;
+        } else {
+            m_asmState = AsmState::None;
+        }
     }
     m_lineState.commentNestLevel = m_previousLineState.commentNestLevel;
-    m_asmBlock = m_previousLineState.asmBlock;
 
     if (m_previousLineState.continuePP) {
         if (m_lineState.commentNestLevel == 0) {
@@ -200,9 +211,26 @@ void FBSciLexer::lexLineStart() noexcept {
 }
 
 void FBSciLexer::lexLineEnd() noexcept {
+    // Resolve any pending asm-statement state at the end of the logical
+    // line. The logical line is genuinely over only when there's no `_`
+    // continuation AND we're not currently inside a multi-line comment
+    // (which transparently spans physical lines without breaking the
+    // statement). Resolution:
+    //   Undetermined → Block (no significant content was found).
+    //   Stmt         → None  (single-line statement is done).
+    // Block persists; the `end asm` peek in identifyKeyword clears it.
+    const bool logicalEol = !m_lineState.continueLine && m_lineState.commentNestLevel == 0;
+    if (logicalEol) {
+        if (m_asmState == AsmState::Undetermined) {
+            m_asmState = AsmState::Block;
+        } else if (m_asmState == AsmState::Stmt) {
+            m_asmState = AsmState::None;
+        }
+    }
+
     m_lineState.isFirst = m_isFirst;
     m_lineState.fieldAccess = m_fieldAccess;
-    m_lineState.asmBlock = m_asmBlock;
+    m_lineState.asmState = m_asmState;
     m_styler->SetLineState(m_line, m_lineState.toInt());
 }
 
@@ -327,6 +355,24 @@ void FBSciLexer::lexDefault() noexcept {
 
     if (m_fieldAccess && !canAccessMember()) {
         m_fieldAccess = false;
+    }
+
+    // First significant token after `asm` keyword promotes to a single-line
+    // statement; logical EOL while still Undetermined promotes to Block
+    // (handled in lexLineEnd). Comments / continuation / whitespace do not
+    // promote — they leave m_asmState alone.
+    if (m_asmState == AsmState::Undetermined) {
+        using enum ThemeCategory;
+        switch (m_sc->state) {
+        case +Identifier:
+        case +Number:
+        case +StringOpen:
+        case +Operator:
+            m_asmState = AsmState::Stmt;
+            break;
+        default:
+            break;
+        }
     }
 }
 
@@ -505,7 +551,7 @@ auto FBSciLexer::identifyKeyword() noexcept -> bool {
     }
 
     if (m_isFirst) {
-        if (m_asmBlock) {
+        if (m_asmState == AsmState::Block) {
             // "end asm" terminates the block. Peek past the trailing
             // whitespace to confirm "asm" follows as a separate token, so
             // bare "end" (not a valid FB statement in asm, but guard anyway)
@@ -523,19 +569,24 @@ auto FBSciLexer::identifyKeyword() noexcept -> bool {
                     && fastUnsafeLowerCase(m_styler->SafeGetCharAt(pos + 1, '\0')) == 's'
                     && fastUnsafeLowerCase(m_styler->SafeGetCharAt(pos + 2, '\0')) == 'm'
                     && !isIdentifier(static_cast<unsigned char>(m_styler->SafeGetCharAt(pos + 3, '\0')))) {
-                    m_asmBlock = false;
+                    m_asmState = AsmState::None;
                 }
             }
-        } else if (strcmp("asm", m_identBuffer.data()) == 0) {
-            m_asmBlock = true;
+        } else if (m_asmState == AsmState::None && strcmp("asm", m_identBuffer.data()) == 0) {
+            // Defer the block-vs-single-line decision until logical EOL.
+            // Undetermined steers wordlist selection until then; lexLineEnd
+            // promotes to Block when no significant content follows, or the
+            // first content token below promotes to Stmt.
+            m_asmState = AsmState::Undetermined;
             m_sc->ChangeState(+ThemeCategory::Keywords);
             return true;
         }
     }
 
+    const bool asmContext = m_asmState != AsmState::None;
     constexpr std::size_t pp = indexOfKeywordGroup(ThemeCategory::KeywordPP);
-    const std::size_t first = m_asmBlock ? pp + 1 : 0;
-    const std::size_t last = m_asmBlock ? kThemeKeywordGroupsCount : pp;
+    const std::size_t first = asmContext ? pp + 1 : 0;
+    const std::size_t last = asmContext ? kThemeKeywordGroupsCount : pp;
 
     for (std::size_t index = first; index < last; index++) {
         if (m_wordLists[index].InList(m_identBuffer.data())) {
