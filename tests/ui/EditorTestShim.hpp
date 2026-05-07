@@ -7,11 +7,15 @@
 #pragma once
 #include "pch.hpp"
 #include <wx/app.h>
+#include <wx/evtloop.h>
 #include <wx/uiaction.h>
 #include "config/ConfigManager.hpp"
 #include "document/DocumentType.hpp"
 #include "editor/CodeTransformer.hpp"
 #include "editor/Editor.hpp"
+#ifdef __WXMSW__
+#    include <wx/msw/private.h>
+#endif
 
 namespace fbide::tests {
 
@@ -43,11 +47,34 @@ public:
           DocumentType::FreeBASIC,
           /*preview=*/false
       )) {
+        // EOL is normally configured by Document; the shim doesn't use one,
+        // so set LF directly to keep test assertions platform-stable.
+        m_editor->SetEOLMode(wxSTC_EOL_LF);
         const auto sizer = make_unowned<wxBoxSizer>(wxVERTICAL);
         sizer->Add(m_editor, 1, wxEXPAND);
         SetSizer(sizer);
         wxFrame::Show();
+        wxFrame::Raise();
         wxFrame::Update();
+#ifdef __WXMSW__
+        // Foreground claim. Console-spawned processes don't get this for
+        // free; without it wxUIActionSimulator's SendInput delivers to
+        // whichever window the OS thinks is foreground (usually the
+        // console), not our test frame. AttachThreadInput trick lets us
+        // legitimately call SetForegroundWindow.
+        const auto hwnd = static_cast<HWND>(wxWindow::GetHandle());
+        const auto fg = ::GetForegroundWindow();
+        const auto fgThread = ::GetWindowThreadProcessId(fg, nullptr);
+        const auto myThread = ::GetCurrentThreadId();
+        if (fgThread != myThread) {
+            ::AttachThreadInput(myThread, fgThread, TRUE);
+            ::BringWindowToTop(hwnd);
+            ::SetForegroundWindow(hwnd);
+            ::AttachThreadInput(myThread, fgThread, FALSE);
+        }
+#endif
+        m_editor->SetFocus();
+        EXPECT_TRUE(m_editor->HasFocus());
     }
 
     template<typename T>
@@ -55,32 +82,37 @@ public:
         CallAfter(fn);
     }
 
+    /// Run `body` inside a real wxEventLoop. The lambda is queued via
+    /// CallAfter so it runs only after Run() has entered the loop and
+    /// the OS message pump is active. ScheduleExit ends the loop after
+    /// the body returns, falling back through to the calling test for
+    /// assertions. Without this, wxUIActionSimulator's keystrokes never
+    /// dispatch — we have no MainLoop in the test harness.
+    template<typename F>
+    static void run(F body) {
+        wxEventLoop loop;
+        bool ran = false;
+        wxTheApp->CallAfter([&] {
+            body();
+            ran = true;
+            loop.ScheduleExit();
+        });
+        loop.Run();
+        if (!ran) {
+            FAIL() << "wxEventLoop exited before the test body ran";
+        }
+    }
+
     /// Editor under test.
     [[nodiscard]] auto editor() -> Editor& { return *m_editor; }
 
-    /*
-    /// On-type transformer (keyword case + auto-indent + closer).
-    [[nodiscard]] auto transformer() -> CodeTransformer& { return m_transformer; }*/
-
     void typeText(const wxString& text) {
-        m_editor->SetFocus();
-        EXPECT_TRUE(m_editor->HasFocus());
-
         wxUIActionSimulator sim;
         for (const auto ch : text) {
-            wxMilliSleep(100);
-            wxYield();
             sim.Char(ch);
+            wxYield();
+            wxMilliSleep(10);
         }
-        wxYield();
-        // for (const char c : text) {
-        // m_editor->AddText(wxString::FromUTF8(&c, 1));
-        // m_editor->Colourise(0, -1);
-        // wxStyledTextEvent ev(wxEVT_STC_CHARADDED, m_editor->GetId());
-        // ev.SetEventObject(m_editor);
-        // ev.SetKey(c);
-        // m_editor->GetEventHandler()->ProcessEvent(ev);
-        // }
     }
 
     /// Replace the entire buffer.

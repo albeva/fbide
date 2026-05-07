@@ -30,7 +30,6 @@ public:
     void SetUp() override {
         int argc = 0;
         wxEntryStart(argc, static_cast<char**>(nullptr));
-        wxYield();
         if (!wxTheApp || !wxTheApp->CallOnInit()) {
             throw std::runtime_error("wxWidgets init failed");
         }
@@ -39,22 +38,10 @@ public:
     void TearDown() override {
         wxTheApp->OnExit();
         wxEntryCleanup();
-        wxYield();
     }
 };
 
 auto main(int argc, char** argv) -> int {
-    // const auto app = fbide::make_unowned<UiTestApp>();
-    // wxApp::SetInstance(app);
-    // wxEntryStart(argc, argv);
-    // app->CallOnInit();
-    //
-    // testing::InitGoogleTest(&argc, argv);
-    // const int result = RUN_ALL_TESTS();
-    //
-    // app->OnExit();
-    // wxEntryCleanup();
-    // return result;
     ::testing::InitGoogleTest(&argc, argv);
     ::testing::AddGlobalTestEnvironment(new WxTestEnvironment);
     return RUN_ALL_TESTS();
