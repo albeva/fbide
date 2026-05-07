@@ -149,21 +149,17 @@ void CodeTransformer::applyIndentAndCloser(Editor& editor) {
 }
 
 auto CodeTransformer::blockAlreadyClosed(Editor& editor, const int prevLine) -> bool {
-    // Two cheap signals, no doc scan:
-    //   1. Fold header flag on prev — body sits below at deeper indent, so
-    //      a closer presumably exists too. Fast path.
-    //   2. Empty-body case — fold flag won't fire when opener and existing
-    //      closer are at the same indent. Walk down past blanks to the
-    //      first non-blank line; if it's at <= prev's indent and a
-    //      first-keyword closer match, treat the block as already closed.
-    if ((editor.GetFoldLevel(prevLine) & wxSTC_FOLDLEVELHEADERFLAG) != 0) {
-        return true;
-    }
+    // Walk down from prevLine looking for the first content-bearing line.
+    // Don't trust SC_FOLDLEVELHEADERFLAG / SC_FOLDLEVELWHITEFLAG: at this
+    // point (called from EVT_STC_CHARADDED) Scintilla's incremental fold
+    // run has not necessarily caught up with the just-inserted newline +
+    // auto-indent whitespace, so the flags can mis-fire. Use a direct
+    // whitespace-only check via indent positions instead.
     const int prevIndent = editor.GetLineIndentation(prevLine);
     const int totalLines = editor.GetLineCount();
     for (int probe = prevLine + 1; probe < totalLines; probe++) {
-        if ((editor.GetFoldLevel(probe) & wxSTC_FOLDLEVELWHITEFLAG) != 0) {
-            continue;
+        if (editor.GetLineIndentPosition(probe) >= editor.GetLineEndPosition(probe)) {
+            continue; // whitespace-only line
         }
         const int probeIndent = editor.GetLineIndentation(probe);
         // Body present below at deeper indent → block presumed closed.
@@ -199,8 +195,8 @@ auto CodeTransformer::dedentTarget(Editor& editor, const int prevLine) -> int {
         if (probe < 0) {
             break;
         }
-        if ((editor.GetFoldLevel(probe) & wxSTC_FOLDLEVELWHITEFLAG) != 0) {
-            continue;
+        if (editor.GetLineIndentPosition(probe) >= editor.GetLineEndPosition(probe)) {
+            continue; // whitespace-only line
         }
         const int probeIndent = editor.GetLineIndentation(probe);
         if (probeIndent > prevIndent) {
