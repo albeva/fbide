@@ -4,6 +4,7 @@
 - Fixed wstring and zstring classification, moved them to type keywords (#47)
 - Fixed detect when compound statement closer is not needed (#50)
 - Fixed avoid de-indenting compound statement closers beyond opener level (#48)
+- Fixed single-line `asm` statements no longer treated as multi-line block openers (#46)
 
 # Changes since 0.5.0-beta.2
 
