@@ -27,7 +27,7 @@ namespace fbide::tests {
 class EditorTestShim final {
 public:
     EditorTestShim()
-    : m_configManager(FBIDE_TEST_RESOURCES_DIR, /*idePath=*/{}, /*configPath=*/"ide/config_test.ini")
+    : m_configManager(FBIDE_TEST_RESOURCES_DIR, /*idePath=*/ {}, /*configPath=*/"ide/config_test.ini")
     , m_transformer(m_configManager)
     , m_editor(new Editor(
           wxTheApp->GetTopWindow(),
@@ -37,7 +37,8 @@ public:
           /*uiManager=*/nullptr,
           &m_transformer,
           DocumentType::FreeBASIC,
-          /*preview=*/false)) {}
+          /*preview=*/false
+      )) {}
 
     ~EditorTestShim() { m_editor->Destroy(); }
 
