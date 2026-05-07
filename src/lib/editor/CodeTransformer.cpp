@@ -165,9 +165,19 @@ auto CodeTransformer::blockAlreadyClosed(Editor& editor, const int prevLine) -> 
         if ((editor.GetFoldLevel(probe) & wxSTC_FOLDLEVELWHITEFLAG) != 0) {
             continue;
         }
-        if (editor.GetLineIndentation(probe) > prevIndent) {
+        const int probeIndent = editor.GetLineIndentation(probe);
+        // Body present below at deeper indent → block presumed closed.
+        if (probeIndent > prevIndent) {
             return true;
         }
+        // Outer-scope line (lesser indent) means our block has no body and
+        // no matching closer yet — we still need to emit it.
+        if (probeIndent < prevIndent) {
+            return false;
+        }
+        // Same indent: only counts as "already closed" when the line is
+        // itself a closer (matching opener-aligned closer). A sibling body
+        // statement at our level falls through to "not closed".
         const auto d = indent::Decision::decide(editor, probe);
         return d.dedentPrev && d.deltaLevels == 0;
     }
