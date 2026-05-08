@@ -253,8 +253,50 @@ void Theme::load(const wxString& themePath, const bool reset) {
         ini.SetPath("/" + wxString(getThemeCategoryName(cat)));
         m_categories[static_cast<std::size_t>(cat)] = read<Entry>(ini, wxEmptyString);
     }
+
+    fillPpDerived();
+
     // Qualified to disambiguate from the `reset` bool parameter.
     this->reset();
+}
+
+void Theme::fillPpDerived() {
+    // PP-context categories inherit from a base style when not explicitly
+    // themed; in either case the background falls back to Preprocessor's
+    // background so PP-body tokens visually blend with the directive line.
+    //
+    //   * Missing fg (no explicit theme entry): clone fg + bold/italic/
+    //     underlined from the base style; bg = Preprocessor.bg.
+    //   * Present fg (explicit theme entry): keep the theme's fg + flags,
+    //     but if bg is also missing, swap in Preprocessor.bg so it doesn't
+    //     fall through to Default.bg via Theme::background()'s null fallback.
+    //
+    // KeywordPP gets the same bg fallback even though it lives in the
+    // keyword-groups array — when a theme defines `[KeywordPP]` with only
+    // a foreground, the directive word otherwise renders on the editor's
+    // default background, which clashes visually with body PP tokens that
+    // sit on Preprocessor.bg.
+    const auto& ppBg = m_categories[+ThemeCategory::Preprocessor].colors.background;
+
+    for (const auto& [pp, base] : kPpDerivedCategories) {
+        auto& entry = m_categories[+pp];
+        if (!entry.colors.foreground.IsOk()) {
+            const auto& src = m_categories[+base];
+            entry = {
+                .colors = { .foreground = src.colors.foreground, .background = ppBg },
+                .bold = src.bold,
+                .italic = src.italic,
+                .underlined = src.underlined,
+            };
+        } else if (!entry.colors.background.IsOk()) {
+            entry.colors.background = ppBg;
+        }
+    }
+
+    auto& kwPp = m_categories[+ThemeCategory::KeywordPP];
+    if (kwPp.colors.foreground.IsOk() && !kwPp.colors.background.IsOk()) {
+        kwPp.colors.background = ppBg;
+    }
 }
 
 auto Theme::getResolvedFont(const bool bold, const bool italic, const bool underlined) const -> wxFont {
@@ -369,6 +411,13 @@ void Theme::loadV4(const wxString& themePath) {
     mapCategory(ThemeCategory::Label, "/identifier");
     mapCategory(ThemeCategory::Preprocessor, "/preprocessor");
     mapCategory(ThemeCategory::Error, "/identifier");
+
+    // Legacy v4 themes never carried PP-context entries. Derive from base.
+    for (const auto& [pp, base] : kPpDerivedCategories) {
+        m_categories[+pp] = {};
+    }
+    fillPpDerived();
+
     reset();
 }
 

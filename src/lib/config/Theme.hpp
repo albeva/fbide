@@ -139,6 +139,9 @@ public:
 private:
     /// Internal load entry — `reset` controls whether existing fields clear first.
     void load(const wxString& themePath, bool reset);
+    /// Fill PP-context entries (StringPP/NumberPP/...) that lack explicit
+    /// theming with `{ base.fg + font flags, Preprocessor.bg }`.
+    void fillPpDerived();
     /// Invalidate the cached runtime font.
     void reset();
     /// Build the runtime wxFont, substituting the system monospace face

@@ -38,6 +38,10 @@ namespace fbide {
     _(Operator)                    \
     _(Label)                       \
     _(Preprocessor)                \
+    _(NumberPP)                    \
+    _(StringPP)                    \
+    _(OperatorPP)                  \
+    _(IdentifierPP)                \
     _(Error)
 
 enum class ThemeCategory : int {
@@ -92,6 +96,31 @@ static constexpr auto indexOfKeywordGroup(const ThemeCategory cat) -> std::size_
 /// (Keyword1..Keyword4, KeywordLibrary/2, KeywordPP, KeywordAsm1/2).
 constexpr auto isKeywordCategory(const ThemeCategory cat) -> bool {
     return std::ranges::contains(kThemeKeywordCategories, cat);
+}
+
+/// PP-context syntax styles — body tokens inside `#`-directive lines.
+/// Theme load fills missing entries by deriving from a base style:
+///   * fg + bold/italic/underlined from the base style
+///   * background always from Preprocessor
+/// `IdentifierPP` derives from `Preprocessor` itself so PP-body identifiers
+/// blend visually with the directive line — fg / font / bg all match the
+/// preprocessor style. The other *PP entries borrow the matching code style
+/// (string / number / operator) for their fg+font and only swap the bg.
+inline constexpr std::array<std::pair<ThemeCategory, ThemeCategory>, 4> kPpDerivedCategories {
+    std::pair { ThemeCategory::NumberPP,     ThemeCategory::Number       },
+    std::pair { ThemeCategory::StringPP,     ThemeCategory::String       },
+    std::pair { ThemeCategory::OperatorPP,   ThemeCategory::Operator     },
+    std::pair { ThemeCategory::IdentifierPP, ThemeCategory::Preprocessor },
+};
+
+/// True when `cat` is a PP-context style derived from a base style.
+constexpr auto isPpDerivedCategory(const ThemeCategory cat) -> bool {
+    for (const auto& pp : kPpDerivedCategories | std::views::keys) {
+        if (pp == cat) {
+            return true;
+        }
+    }
+    return false;
 }
 
 

@@ -160,7 +160,7 @@ void Renderer::renderAnchoredPP(const StatementNode& stmt, const std::size_t ind
     const auto& original = stmt.tokens[first];
     const auto& text = original.text;
 
-    // Build a rewritten Preprocessor token with '#' at column 0, then padding
+    // Build a rewritten directive token with '#' at column 0, then padding
     // and the directive word. Keeps kind/keywordKind so downstream renderers
     // (HTML) can still style it.
     std::string rewritten;
@@ -179,7 +179,27 @@ void Renderer::renderAnchoredPP(const StatementNode& stmt, const std::size_t ind
     }
     rewritten.append(text, pos);
 
-    m_output.push_back(Token { .kind = TokenKind::Preprocessor, .keywordKind = original.keywordKind, .text = std::move(rewritten) });
+    m_output.push_back(Token {
+        .kind = TokenKind::Preprocessor,
+        .keywordKind = original.keywordKind,
+        .style = original.style,
+        .text = std::move(rewritten),
+    });
+
+    // Emit body tokens (identifiers, strings, numbers, operators, modifier
+    // keywords) with the same spacing rules as a normal statement so the
+    // line preserves `#define LOG(x) Print x`-style content.
+    const Token* prev = &stmt.tokens[first];
+    for (std::size_t i = first + 1; i < stmt.tokens.size(); i++) {
+        if (isLayout(stmt.tokens[i])) {
+            continue;
+        }
+        if (needsSpaceBefore(*prev, stmt.tokens[i])) {
+            emitSpace();
+        }
+        emit(stmt.tokens[i]);
+        prev = &stmt.tokens[i];
+    }
     emitNewline();
 }
 

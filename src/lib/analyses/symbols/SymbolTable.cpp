@@ -40,46 +40,71 @@ auto hashIncludes(std::size_t seed, const std::vector<Include>& vec) -> std::siz
 }
 
 /// Detect `#include [once] "path"` from a statement's tokens.
-/// `KeywordKind::PpInclude` is set on the merged Preprocessor token at lex
-/// time (FBSciLexer keeps the whole directive line — including the quoted
-/// path — styled under PP states, and `StyleLexer::emitPreprocessor` folds
-/// those runs into a single token). Identification is a single field check
-/// and the path is the first quoted span inside the token text.
+/// PP body tokens are emitted individually (FBSciLexer paints strings,
+/// numbers, operators inside `#`-directive lines as their *PP variants;
+/// `StyleLexer` routes them to standard `TokenKind`s with the source
+/// `style` preserved). Detection is a structured walk:
+///   PpInclude → optional `KeywordPP` "once" → String/UnterminatedString.
 struct IncludeMatch {
     wxString path;
     int line = 0;
 };
 
+auto isLayoutToken(const Token& t) -> bool {
+    return t.kind == TokenKind::Whitespace || t.kind == TokenKind::Newline;
+}
+
 auto detectInclude(const std::vector<Token>& tokens) -> std::optional<IncludeMatch> {
-    const Token* pp = nullptr;
-    for (const auto& tkn : tokens) {
-        if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
-            continue;
+    std::size_t i = 0;
+    while (i < tokens.size() && isLayoutToken(tokens[i])) {
+        i++;
+    }
+    if (i == tokens.size()
+        || tokens[i].kind != TokenKind::Preprocessor
+        || tokens[i].keywordKind != KeywordKind::PpInclude) {
+        return std::nullopt;
+    }
+    const int line = tokens[i].line;
+    i++;
+
+    while (i < tokens.size() && isLayoutToken(tokens[i])) {
+        i++;
+    }
+
+    // Optional `once` modifier — only the directive identifier is KeywordPP;
+    // `once` is a regular body identifier styled IdentifierPP.
+    if (i < tokens.size()
+        && tokens[i].kind == TokenKind::Identifier
+        && tokens[i].style == ThemeCategory::IdentifierPP) {
+        std::string lower = tokens[i].text;
+        std::ranges::transform(lower, lower.begin(),
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        if (lower == "once") {
+            i++;
+            while (i < tokens.size() && isLayoutToken(tokens[i])) {
+                i++;
+            }
         }
-        if (tkn.kind == TokenKind::Preprocessor && tkn.keywordKind == KeywordKind::PpInclude) {
-            pp = &tkn;
-        }
-        break;
     }
-    if (pp == nullptr) {
+
+    if (i == tokens.size()) {
+        return std::nullopt;
+    }
+    if (tokens[i].kind != TokenKind::String
+        && tokens[i].kind != TokenKind::UnterminatedString) {
         return std::nullopt;
     }
 
-    const std::string_view text { pp->text };
-    const auto open = text.find_first_of("\"'");
-    if (open == std::string_view::npos) {
+    const std::string_view text { tokens[i].text };
+    if (text.size() < 2 || (text.front() != '"' && text.front() != '\'')) {
         return std::nullopt;
     }
-
-    const char quote = text[open];
-    const auto close = text.find(quote, open + 1);
-    if (close == std::string_view::npos) {
-        return std::nullopt;
-    }
-
+    const std::size_t end = (text.back() == text.front() && text.size() > 1)
+        ? text.size() - 1
+        : text.size();
     return IncludeMatch {
-        .path = wxString::FromUTF8(text.substr(open + 1, close - open - 1)),
-        .line = pp->line,
+        .path = wxString::FromUTF8(text.substr(1, end - 1)),
+        .line = line,
     };
 }
 
@@ -110,37 +135,6 @@ auto findWordlikeAfter(const std::vector<Token>& tokens, std::size_t start) -> c
         }
     }
     return nullptr;
-}
-
-/// Pull the macro name out of a merged `#macro NAME[(args)]` Preprocessor
-/// token. The lexer folds the entire directive line into one token, so the
-/// name is extracted by skipping the directive keyword and the whitespace
-/// that follows. Returns empty `wxString` when the line has no identifier.
-auto detectMacroName(const Token& pp) -> wxString {
-    const std::string_view text { pp.text };
-    std::size_t i = 0;
-    if (i < text.size() && text[i] == '#') {
-        i++;
-    }
-    while (i < text.size() && (text[i] == ' ' || text[i] == '\t')) {
-        i++;
-    }
-    // Skip the directive word (`macro`).
-    while (i < text.size() && (std::isalnum(static_cast<unsigned char>(text[i])) || text[i] == '_')) {
-        i++;
-    }
-    // Skip whitespace between the directive and the name.
-    while (i < text.size() && (text[i] == ' ' || text[i] == '\t')) {
-        i++;
-    }
-    const std::size_t nameStart = i;
-    while (i < text.size() && (std::isalnum(static_cast<unsigned char>(text[i])) || text[i] == '_')) {
-        i++;
-    }
-    if (i == nameStart) {
-        return {};
-    }
-    return wxString::FromUTF8(text.substr(nameStart, i - nameStart));
 }
 
 } // namespace
@@ -228,13 +222,12 @@ void SymbolTable::walkBlock(const BlockNode& block) {
         emit(SymbolKind::Enum, openerTokens, first.index);
         break;
     case KeywordKind::PpMacro: {
-        // The merged Preprocessor token holds the whole `#macro NAME(...)`
-        // line; pull the name out of its text directly.
-        wxString name = detectMacroName(openerTokens[first.index]);
-        if (!name.empty()) {
+        // PP body tokens are emitted individually — the macro name is the
+        // first word-like token after the `#macro` directive.
+        if (const Token* name = findWordlikeAfter(openerTokens, first.index + 1)) {
             m_macros.push_back(Symbol {
                 .kind = SymbolKind::Macro,
-                .name = std::move(name),
+                .name = wxString::FromUTF8(name->text),
                 .line = openerTokens[first.index].line,
             });
         }
