@@ -6,6 +6,8 @@
 - Fixed avoid de-indenting compound statement closers beyond opener level (#48)
 - Fixed single-line `asm` statements no longer treated as multi-line block openers (#46)
 - Fixed auto-indent and code formatter no longer add `End Asm` closer / indent body for single-line `asm` (#46)
+- Fixed preprocessor lexing of `"_"` which would cause to treat `_` as a line continuation (#54)
+- Added mew styles for preprocessir identifier, number, operator and strings
 
 # Changes since 0.5.0-beta.2
 

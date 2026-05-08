@@ -80,6 +80,14 @@ void write<wxColour>(wxFileConfig& ini, const wxString& key, const wxColour& val
     if (not value.IsOk()) {
         if (value != wxNullColour) {
             wxLogError("Invalid color '%s' for key '%s' in '%s'", value.GetAsString(), key, ini.GetPath());
+            return;
+        }
+        // Inherit-from-default: erase any prior entry so the saved file
+        // matches the user's intent. Without this, an existing colour key
+        // from a previous save would silently survive and re-load as a
+        // concrete colour next time.
+        if (ini.HasEntry(key)) {
+            ini.DeleteEntry(key);
         }
         return;
     }
@@ -248,13 +256,55 @@ void Theme::load(const wxString& themePath, const bool reset) {
     #undef LOAD
     // clang-format on
 
-    // Load categories
+    // Load categories. For PP-context categories (StringPP/NumberPP/
+    // OperatorPP/IdentifierPP), an entry is auto-derived ONLY when the
+    // section is missing from the file entirely. If the user added the
+    // section — even with empty colour fields — load it verbatim and let
+    // the editor's runtime fallback (theme.foreground/.background) handle
+    // missing colours. This way explicit `inherit-from-default` choices
+    // are preserved.
     for (const auto& cat : kThemeCategories) {
-        ini.SetPath("/" + wxString(getThemeCategoryName(cat)));
+        const wxString name = wxString(getThemeCategoryName(cat));
+        ini.SetPath("/");
+        const bool hasGroup = ini.HasGroup(name);
+        if (isPpDerivedCategory(cat) && !hasGroup) {
+            continue; // derive after the loop
+        }
+        ini.SetPath("/" + name);
         m_categories[static_cast<std::size_t>(cat)] = read<Entry>(ini, wxEmptyString);
     }
+
+    derivePpEntriesFromBase();
+
     // Qualified to disambiguate from the `reset` bool parameter.
     this->reset();
+}
+
+void Theme::derivePpEntriesFromBase() {
+    // For PP-context categories (StringPP/NumberPP/OperatorPP/IdentifierPP)
+    // whose entries are still default-constructed (the loader skipped them
+    // because the section was absent in the file), clone the matching base
+    // style for fg + font flags and use Preprocessor's bg so the body of a
+    // `#`-directive line visually blends with the directive itself.
+    //
+    // Detection here uses the entry's default-constructed state — both
+    // colours invalid AND no flags set. Themes that explicitly defined a
+    // section, even with empty colour fields, won't match because the
+    // loader populated those entries (with wxNullColour fields) above.
+    const auto& ppBg = m_categories[+ThemeCategory::Preprocessor].colors.background;
+    for (const auto& [pp, base] : kPpDerivedCategories) {
+        auto& entry = m_categories[+pp];
+        if (entry != Entry {}) {
+            continue;
+        }
+        const auto& src = m_categories[+base];
+        entry = {
+            .colors = { .foreground = src.colors.foreground, .background = ppBg },
+            .bold = src.bold,
+            .italic = src.italic,
+            .underlined = src.underlined,
+        };
+    }
 }
 
 auto Theme::getResolvedFont(const bool bold, const bool italic, const bool underlined) const -> wxFont {
@@ -369,6 +419,13 @@ void Theme::loadV4(const wxString& themePath) {
     mapCategory(ThemeCategory::Label, "/identifier");
     mapCategory(ThemeCategory::Preprocessor, "/preprocessor");
     mapCategory(ThemeCategory::Error, "/identifier");
+
+    // Legacy v4 themes never carried PP-context entries. Reset and derive.
+    for (const auto& pp : kPpDerivedCategories | std::views::keys) {
+        m_categories[+pp] = {};
+    }
+    derivePpEntriesFromBase();
+
     reset();
 }
 

@@ -24,7 +24,7 @@ protected:
         m_lexer->WordListSet(3, "__fb_version__");
         m_lexer->WordListSet(4, "");
         m_lexer->WordListSet(5, "");
-        m_lexer->WordListSet(6, "if ifdef ifndef else elseif endif macro endmacro");
+        m_lexer->WordListSet(6, "if ifdef ifndef else elseif endif macro endmacro define include");
         m_lexer->WordListSet(7, "mov push pop ret jmp");
         m_lexer->WordListSet(8, "eax ebx ecx edx");
     }
@@ -261,16 +261,20 @@ TEST_F(StyleLexerTests, CommentTokenExcludesTrailingCarriageReturnOnCRLF) {
 }
 
 TEST_F(StyleLexerTests, PreprocessorTokenExcludesTrailingCarriageReturnOnCRLF) {
-    // Same trim applies to #directive lines under CRLF.
+    // PP body tokens (the directive + body identifiers/strings) must not
+    // leak the trailing `\r` of CRLF — the Newline token claims it.
     auto t = lex("#ifdef FOO\r\n");
+    bool sawNewline = false;
     for (const auto& tok : t) {
-        if (tok.kind == TokenKind::Preprocessor) {
+        if (tok.kind == TokenKind::Preprocessor || tok.kind == TokenKind::Identifier) {
             EXPECT_EQ(tok.text.find('\r'), std::string::npos);
         }
         if (tok.kind == TokenKind::Newline) {
             EXPECT_EQ(tok.text, "\r\n");
+            sawNewline = true;
         }
     }
+    EXPECT_TRUE(sawNewline);
 }
 
 TEST_F(StyleLexerTests, SingleLineComment) {
@@ -292,13 +296,15 @@ TEST_F(StyleLexerTests, BlockComment) {
 
 TEST_F(StyleLexerTests, PreprocessorIfDef) {
     auto t = strip(lex("#ifdef FOO"));
-    ASSERT_EQ(t.size(), 1u);
+    // Directive + body identifier — two tokens after stripping layout.
+    ASSERT_EQ(t.size(), 2u);
     EXPECT_EQ(t[0].kind, TokenKind::Preprocessor);
     EXPECT_EQ(t[0].keywordKind, KeywordKind::PpIfDef);
     EXPECT_EQ(t[0].style, ThemeCategory::KeywordPP);
-    // PP token coalesces the directive + body.
-    EXPECT_NE(t[0].text.find("ifdef"), std::string::npos);
-    EXPECT_NE(t[0].text.find("FOO"), std::string::npos);
+    EXPECT_EQ(t[0].text, "#ifdef");
+    EXPECT_EQ(t[1].kind, TokenKind::Identifier);
+    EXPECT_EQ(t[1].style, ThemeCategory::IdentifierPP);
+    EXPECT_EQ(t[1].text, "FOO");
 }
 
 TEST_F(StyleLexerTests, PreprocessorOnePerLine) {
@@ -314,24 +320,25 @@ TEST_F(StyleLexerTests, PreprocessorOnePerLine) {
 
 TEST_F(StyleLexerTests, PreprocessorDefineBodyKeywordDoesNotReclassifyDirective) {
     // `If` inside a `#define` body would be styled KeywordPP by FBSciLexer
-    // (because `if` is in the wordlist for `#if`). The merged Preprocessor
-    // token must keep its `PpOther` classification — not flip to `PpIf`
-    // because of a body keyword. Without the directive-position guard the
-    // formatter would treat the macro line as a block opener.
+    // (because `if` is in the wordlist for `#if`). Body KeywordPP runs emit
+    // as standalone Preprocessor tokens — they must NOT mutate the directive
+    // token's `keywordKind`. Without that guard the formatter would treat
+    // the macro line as a block opener.
     auto t = strip(lex("#define VT_GUARD If x = 0 Then Exit Sub"));
-    ASSERT_EQ(t.size(), 1u);
+    ASSERT_FALSE(t.empty());
     EXPECT_EQ(t[0].kind, TokenKind::Preprocessor);
     EXPECT_EQ(t[0].keywordKind, KeywordKind::PpOther);
+    EXPECT_EQ(t[0].text, "#define");
 }
 
 TEST_F(StyleLexerTests, PreprocessorMacroBodyKeywordDoesNotReclassifyDirective) {
     // Same rule for `#macro` bodies — `else` / `endif` words inside the
-    // body are KeywordPP-styled by the lexer but must not change the
-    // line's directive from `PpMacro` to `PpElse` / `PpEndIf`.
+    // body must not change the directive token's `keywordKind`.
     auto t = strip(lex("#macro FOO else endif"));
-    ASSERT_EQ(t.size(), 1u);
+    ASSERT_FALSE(t.empty());
     EXPECT_EQ(t[0].kind, TokenKind::Preprocessor);
     EXPECT_EQ(t[0].keywordKind, KeywordKind::PpMacro);
+    EXPECT_EQ(t[0].text, "#macro");
 }
 
 // endregion

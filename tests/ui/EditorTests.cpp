@@ -6,7 +6,9 @@
 //
 #include <gtest/gtest.h>
 #include "EditorTestShim.hpp"
+#include "config/ThemeCategory.hpp"
 
+using namespace fbide;
 using namespace fbide::tests;
 
 TEST(EditorTests, InsertAndReadBack) {
@@ -189,6 +191,76 @@ TEST(EditorTests, AutoIndentEnterMidLineLeavesCaretBeforeMovedContent) {
     EXPECT_EQ(shim.editor().GetCurrentPos(), 5);
     EXPECT_EQ(shim.editor().GetCurrentLine(), 1);
     EXPECT_EQ(shim.editor().GetColumn(shim.editor().GetCurrentPos()), 0);
+}
+
+// ---------------------------------------------------------------------------
+// Ctrl+click hotspots on `#include "path"`. The full openInclude flow needs
+// a DocumentManager + SymbolTable; the shim runs without those, so these
+// tests assert the prerequisite state instead — that the editor has the
+// PP-context styles marked clickable when Ctrl is held, AND that the lexer
+// has actually painted the path bytes with one of those styles.
+// ---------------------------------------------------------------------------
+
+TEST(EditorTests, CtrlEnablesHotspotsOnIncludePathStyles) {
+    EditorTestShim shim;
+    shim.editor().SetText("#include \"foo.bi\"\n");
+    shim.run([&] {
+        wxUIActionSimulator sim;
+        sim.KeyDown(WXK_CONTROL);
+        wxYield();
+    });
+    // Pressing Ctrl flips hotspot styling on for every PP-context style so
+    // Ctrl+click anywhere on a `#include` line fires `EVT_STC_HOTSPOT_CLICK`.
+    EXPECT_TRUE(shim.editor().StyleGetHotSpot(+ThemeCategory::Preprocessor));
+    EXPECT_TRUE(shim.editor().StyleGetHotSpot(+ThemeCategory::KeywordPP));
+    EXPECT_TRUE(shim.editor().StyleGetHotSpot(+ThemeCategory::StringPP));
+    EXPECT_TRUE(shim.editor().StyleGetHotSpot(+ThemeCategory::IdentifierPP));
+    // Regular-code styles stay non-clickable — Ctrl+click on plain code
+    // must not be hijacked by the include handler.
+    EXPECT_FALSE(shim.editor().StyleGetHotSpot(+ThemeCategory::Default));
+    EXPECT_FALSE(shim.editor().StyleGetHotSpot(+ThemeCategory::Keywords));
+    EXPECT_FALSE(shim.editor().StyleGetHotSpot(+ThemeCategory::String));
+}
+
+TEST(EditorTests, IncludePathBytesHaveClickableStyle) {
+    // Regression for production bug: Ctrl+click on the quoted path was
+    // inactive because StringPP wasn't on the hotspot list. The lexer
+    // paints the path as StringPP, so once Ctrl enables the hotspot the
+    // path bytes must report `StyleGetHotSpot == true`.
+    EditorTestShim shim;
+    const wxString src = "#include \"foo.bi\"\n";
+    shim.editor().SetText(src);
+    shim.run([&] {
+        wxUIActionSimulator sim;
+        sim.KeyDown(WXK_CONTROL);
+        wxYield();
+    });
+    // Path span: bytes 9..16 covering `"foo.bi"`.
+    for (int i = 9; i <= 16; i++) {
+        const int style = shim.editor().GetStyleAt(i);
+        EXPECT_EQ(style, +ThemeCategory::StringPP)
+            << "byte " << i << " (`" << static_cast<char>(src[i]) << "`)";
+        EXPECT_TRUE(shim.editor().StyleGetHotSpot(style))
+            << "byte " << i << " style not clickable";
+    }
+}
+
+TEST(EditorTests, ReleasingCtrlDeactivatesHotspots) {
+    // Counterpart: releasing Ctrl must clear hotspot styling so plain
+    // mouse clicks land in the editor as caret moves, not include jumps.
+    EditorTestShim shim;
+    shim.editor().SetText("#include \"foo.bi\"\n");
+    shim.run([&] {
+        wxUIActionSimulator sim;
+        sim.KeyDown(WXK_CONTROL);
+        wxYield();
+        sim.KeyUp(WXK_CONTROL);
+        wxYield();
+    });
+    EXPECT_FALSE(shim.editor().StyleGetHotSpot(+ThemeCategory::Preprocessor));
+    EXPECT_FALSE(shim.editor().StyleGetHotSpot(+ThemeCategory::KeywordPP));
+    EXPECT_FALSE(shim.editor().StyleGetHotSpot(+ThemeCategory::StringPP));
+    EXPECT_FALSE(shim.editor().StyleGetHotSpot(+ThemeCategory::IdentifierPP));
 }
 
 TEST(EditorTests, AutoIndentDedentsOverIndentedCloser) {

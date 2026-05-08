@@ -71,11 +71,12 @@ public:
     /// Packed into a single int for Scintilla compatibility.
     /// Public so the analyses/lexer adapter can read it via IStyledSource.
     struct alignas(int) LineState final {
-        bool continueLine : 1 = false;          ///< Line ends in `_` continuation.
-        bool isFirst      : 1 = false;          ///< This is the first significant line of the source.
-        bool continuePP   : 1 = false;          ///< Inside a continued preprocessor directive.
-        bool fieldAccess  : 1 = false;          ///< Last token was `.` or `->` — next ident is a field.
-        AsmState asmState : 3 = AsmState::None; ///< Asm context tracker (None/Undetermined/Block/Stmt).
+        bool continueLine     : 1 = false;          ///< Line ends in `_` continuation.
+        bool isFirst          : 1 = false;          ///< This is the first significant line of the source.
+        bool continuePP       : 1 = false;          ///< Inside a continued preprocessor directive.
+        bool fieldAccess      : 1 = false;          ///< Last token was `.` or `->` — next ident is a field.
+        bool ppDirectiveSeen  : 1 = false;          ///< In PP body, the directive identifier (first ident after `#`) was already classified.
+        AsmState asmState     : 3 = AsmState::None; ///< Asm context tracker (None/Undetermined/Block/Stmt).
 
         std::uint8_t commentNestLevel = 0; ///< Open `/'` block-comment nesting level.
         std::uint8_t reserved1 = 0;        ///< Reserved for future use.
@@ -146,6 +147,8 @@ private:
     bool m_isFirst = true;                                               ///< True until we see the first significant char on the line.
     bool m_fieldAccess = false;                                          ///< Set after `.`/`->` — suppress keyword classification next.
     bool m_slashEscapableString = false;                                 ///< Inside a string with `$` escape sequences enabled.
+    bool m_inPpBody = false;                                             ///< Inside a `#`-directive line — drives *PP style retro-painting and Preprocessor return state.
+    bool m_ppDirectiveSeen = false;                                      ///< In PP body, the directive identifier (first ident after `#`) was already classified — survives `_` continuation + nested block comments.
     AsmState m_asmState = AsmState::None;                                ///< Active asm context (drives wordlist selection and EOL resolution).
     std::array<char, MAX_IDENT_LEN> m_identBuffer {};                    ///< Reusable identifier-spelling buffer.
 };

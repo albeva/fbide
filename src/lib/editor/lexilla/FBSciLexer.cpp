@@ -36,6 +36,10 @@ constexpr std::array lexicalClasses {
     Lexilla::LexicalClass { +ThemeCategory::Operator, "state.operator", "operator", "Operator" },
     Lexilla::LexicalClass { +ThemeCategory::Label, "state.label", "label", "Label" },
     Lexilla::LexicalClass { +ThemeCategory::Preprocessor, "state.preprocessor", "preprocessor", "Preprocessor" },
+    Lexilla::LexicalClass { +ThemeCategory::NumberPP, "state.number.preprocessor", "literal numeric", "Number in preprocessor" },
+    Lexilla::LexicalClass { +ThemeCategory::StringPP, "state.string.preprocessor", "literal string", "String in preprocessor" },
+    Lexilla::LexicalClass { +ThemeCategory::OperatorPP, "state.operator.preprocessor", "operator", "Operator in preprocessor" },
+    Lexilla::LexicalClass { +ThemeCategory::IdentifierPP, "state.identifier.preprocessor", "identifier", "Identifier in preprocessor" },
     Lexilla::LexicalClass { +ThemeCategory::Error, "state.error", "errpr", "Syntax error" },
 };
 static_assert(lexicalClasses.size() == kThemeCategoryCount);
@@ -137,6 +141,11 @@ void SCI_METHOD FBSciLexer::Lex(
             lexOperator();
             break;
         case +Preprocessor:
+            // Run PP first so its atLineEnd branch transitions state back to
+            // Default before the bottom-of-body atLineEnd handler picks up
+            // the line. Without this, `\n` (or `\r\n`) at the end of a `#`
+            // directive line stays styled Preprocessor and m_inPpBody bleeds
+            // into the next line's bottom-of-body re-dispatch.
             lexPreprocessor();
             break;
         case +Error:
@@ -148,11 +157,18 @@ void SCI_METHOD FBSciLexer::Lex(
             break;
         }
 
-        // we in default?
+        // Bottom-of-body re-dispatch: when the switch handler transitions
+        // state to Default or Preprocessor mid-iteration, run that state's
+        // handler in the SAME iteration so the current char gets processed
+        // by the new state machine. Without this, the for-loop's Forward
+        // would advance past the current char with only a state-change
+        // recorded, never invoking the new handler on it.
         if (sc.atLineEnd) {
             lexLineEnd();
         } else if (sc.state == +Default) {
             lexDefault();
+        } else if (sc.state == +Preprocessor) {
+            lexPreprocessor();
         }
     }
 
@@ -202,11 +218,22 @@ void FBSciLexer::lexLineStart() noexcept {
     m_lineState.commentNestLevel = m_previousLineState.commentNestLevel;
 
     if (m_previousLineState.continuePP) {
+        // Carry the directive-seen flag across `_` continuation and through
+        // multi-line block comments so the first identifier rule survives:
+        //   #  _
+        //   /' comment '/  _
+        //   include "x"
+        // Here `include` is still the first identifier after `#`.
+        m_ppDirectiveSeen = m_previousLineState.ppDirectiveSeen;
         if (m_lineState.commentNestLevel == 0) {
+            m_inPpBody = true;
             m_sc->SetState(+ThemeCategory::Preprocessor);
         } else {
             m_lineState.continuePP = true;
         }
+    } else {
+        m_inPpBody = false;
+        m_ppDirectiveSeen = false;
     }
 }
 
@@ -231,11 +258,26 @@ void FBSciLexer::lexLineEnd() noexcept {
     m_lineState.isFirst = m_isFirst;
     m_lineState.fieldAccess = m_fieldAccess;
     m_lineState.asmState = m_asmState;
+    m_lineState.ppDirectiveSeen = m_ppDirectiveSeen;
     m_styler->SetLineState(m_line, m_lineState.toInt());
 }
 
 void FBSciLexer::resetToDefault() noexcept {
-    m_sc->SetState(+ThemeCategory::Default);
+    // Inside a `#`-directive body, the "default" return state is Preprocessor
+    // so trailing whitespace and inter-token gaps stay PP-styled. At end of
+    // the directive line the base state flips back to Default and the body
+    // flag clears — the trailing newline must paint as Default so it doesn't
+    // bleed PP styling into the next line.
+    if (m_inPpBody) {
+        if (m_sc->atLineEnd) {
+            m_inPpBody = false;
+            m_sc->SetState(+ThemeCategory::Default);
+        } else {
+            m_sc->SetState(+ThemeCategory::Preprocessor);
+        }
+    } else {
+        m_sc->SetState(+ThemeCategory::Default);
+    }
     m_isFirst = false;
 }
 
@@ -412,6 +454,9 @@ void FBSciLexer::lexMultilineComment() noexcept {
 void FBSciLexer::lexNumber() noexcept {
     const auto finish = [&] {
         if (isValidAfterNumOrWord(m_sc->ch)) {
+            if (m_inPpBody) {
+                m_sc->ChangeState(+ThemeCategory::NumberPP);
+            }
             resetToDefault();
         } else {
             m_sc->ChangeState(+ThemeCategory::Error);
@@ -516,7 +561,7 @@ void FBSciLexer::lexStringOpen() noexcept {
         if (m_sc->ch == '\"') {
             return;
         }
-        m_sc->ChangeState(+ThemeCategory::String);
+        m_sc->ChangeState(m_inPpBody ? +ThemeCategory::StringPP : +ThemeCategory::String);
         resetToDefault();
         m_slashEscapableString = false;
     } else if (m_sc->ch == '\\' && m_sc->chNext == '\"' && m_slashEscapableString) {
@@ -599,42 +644,81 @@ auto FBSciLexer::identifyKeyword() noexcept -> bool {
 
 void FBSciLexer::lexOperator() noexcept {
     if (!isOperator(m_sc->ch)) {
+        if (m_inPpBody) {
+            m_sc->ChangeState(+ThemeCategory::OperatorPP);
+        }
         resetToDefault();
     }
 }
 
 void FBSciLexer::lexPreprocessor() noexcept {
+    using enum ThemeCategory;
+
+    m_inPpBody = true;
+
     if (m_sc->atLineEnd) {
-        m_sc->SetState(+ThemeCategory::Default); // no reset
+        m_inPpBody = false;
+        m_sc->SetState(+Default); // no reset
         return;
     }
 
-    // continuation
-    if (m_sc->ch == '_') {
-        if (not isIdentifier(m_sc->chPrev) and not isIdentifier(m_sc->chNext)) {
-            m_lineState.continuePP = true;
-            m_sc->SetState(+ThemeCategory::Comment);
-            return;
-        }
+    // continuation `_`
+    if (m_sc->ch == '_'
+        && not isIdentifier(m_sc->chPrev)
+        && not isIdentifier(m_sc->chNext)) {
+        m_lineState.continuePP = true;
+        m_sc->SetState(+Comment);
+        return;
     }
 
-    // single line comment
+    // single-line comment `'`
     if (m_sc->ch == '\'') {
-        m_sc->SetState(+ThemeCategory::Comment);
+        m_sc->SetState(+Comment);
         return;
     }
 
-    // multi line commment
+    // nested block comment `/'`
     if (m_sc->ch == '/' && m_sc->chNext == '\'') {
         m_lineState.continuePP = true;
-        m_sc->SetState(+ThemeCategory::MultilineComment);
+        m_sc->SetState(+MultilineComment);
         m_sc->Forward();
         m_lineState.commentNestLevel++;
         return;
     }
 
+    // whitespace stays Preprocessor
+    if (isSpace(m_sc->ch)) {
+        if (m_sc->state != +Preprocessor) {
+            m_sc->SetState(+Preprocessor);
+        }
+        return;
+    }
+
+    // numeric literal (decimal start) — must precede the identifier check,
+    // since `isIdentifier` also accepts digits.
+    if (isDigit(m_sc->ch)) {
+        m_numberForm = NumberForm::Decimal;
+        m_sc->SetState(+Number);
+        return;
+    }
+
+    // `.` followed by digit → fractional number
+    if (m_sc->ch == '.' && isDigit(m_sc->chNext)) {
+        m_numberForm = NumberForm::Fraction;
+        m_sc->SetState(+Number);
+        return;
+    }
+
+    // identifier — accumulate, then classify against KeywordPP wordlist;
+    // matched directives / modifiers paint as KeywordPP, everything else
+    // paints as IdentifierPP. The internal Forward loop leaves `sc` on the
+    // first non-identifier char of the body, which must still be dispatched
+    // by the same iteration (the main loop will only advance past it once);
+    // fall through to the digit / operator / string / etc. branches below
+    // instead of returning, so chars like `(` after `LOG` are routed to
+    // their proper state machine.
     if (isIdentifier(m_sc->ch)) {
-        m_sc->SetState(+ThemeCategory::Preprocessor);
+        m_sc->SetState(+Preprocessor);
         while (isIdentifier(m_sc->ch) && m_sc->More()) {
             m_sc->Forward();
         }
@@ -642,18 +726,103 @@ void FBSciLexer::lexPreprocessor() noexcept {
         m_sc->GetCurrentLowered(m_identBuffer.data(), m_identBuffer.size());
 
         if (strcmp("rem", m_identBuffer.data()) == 0) {
-            m_sc->ChangeState(+ThemeCategory::Comment);
+            m_sc->ChangeState(+Comment);
             if (m_sc->atLineEnd) {
-                resetToDefault();
+                m_inPpBody = false;
+                m_sc->SetState(+Default);
             }
             return;
         }
 
-        constexpr std::size_t pp = indexOfKeywordGroup(ThemeCategory::KeywordPP);
-        if (m_wordLists[pp].InList(m_identBuffer.data())) {
-            m_sc->ChangeState(+kThemeKeywordCategories[pp]);
+        // Only the first identifier after `#` is a directive — classify
+        // against the KeywordPP wordlist. Every subsequent identifier in
+        // the directive's body is an IdentifierPP regardless of wordlist
+        // match, so things like `#define X if`, `#define foo include`,
+        // `#include once "x"` paint correctly. The `directive seen` flag
+        // is preserved across `_` continuation + nested block comments
+        // via LineState.
+        if (!m_ppDirectiveSeen) {
+            constexpr std::size_t pp = indexOfKeywordGroup(KeywordPP);
+            if (m_wordLists[pp].InList(m_identBuffer.data())) {
+                m_sc->ChangeState(+KeywordPP);
+            } else {
+                m_sc->ChangeState(+IdentifierPP);
+            }
+            m_ppDirectiveSeen = true;
+        } else {
+            m_sc->ChangeState(+IdentifierPP);
         }
-        m_sc->SetState(m_sc->atLineEnd ? +ThemeCategory::Default : +ThemeCategory::Preprocessor);
+        if (m_sc->atLineEnd) {
+            m_inPpBody = false;
+            m_sc->SetState(+Default);
+            return;
+        }
+        m_sc->SetState(+Preprocessor);
+        // fall through — current char is a non-identifier body char.
+    }
+
+    // No further work for whitespace / comments — they were already
+    // handled above. Re-handle from the end of the identifier branch.
+    if (m_sc->atLineEnd) {
+        m_inPpBody = false;
+        m_sc->SetState(+Default);
+        return;
+    }
+    if (isSpace(m_sc->ch)) {
+        if (m_sc->state != +Preprocessor) {
+            m_sc->SetState(+Preprocessor);
+        }
+        return;
+    }
+
+    // `&H/&O/&B` numeric prefixes
+    if (m_sc->ch == '&') {
+        const auto lcn = fastUnsafeLowerCase(m_sc->chNext);
+        if (lcn == 'h') {
+            m_numberForm = NumberForm::Hexadecimal;
+            m_sc->SetState(+Number);
+            m_sc->Forward();
+            return;
+        }
+        if (lcn == 'o') {
+            m_numberForm = NumberForm::Octal;
+            m_sc->SetState(+Number);
+            m_sc->Forward();
+            return;
+        }
+        if (lcn == 'b') {
+            m_numberForm = NumberForm::Binary;
+            m_sc->SetState(+Number);
+            m_sc->Forward();
+            return;
+        }
+        m_sc->SetState(+Operator);
+        return;
+    }
+
+    // `!"..."` / `$"..."` — escapable / interpolated string forms
+    if (m_sc->ch == '!' && m_sc->chNext == '"') {
+        m_slashEscapableString = true;
+        m_sc->SetState(+StringOpen);
+        m_sc->Forward();
+        return;
+    }
+    if (m_sc->ch == '$' && m_sc->chNext == '"') {
+        m_sc->SetState(+StringOpen);
+        m_sc->Forward();
+        return;
+    }
+
+    // plain string
+    if (m_sc->ch == '"') {
+        m_sc->SetState(+StringOpen);
+        return;
+    }
+
+    // operator / punctuation
+    if (isOperator(m_sc->ch)) {
+        m_sc->SetState(+Operator);
+        return;
     }
 }
 

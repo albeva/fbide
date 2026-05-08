@@ -637,6 +637,11 @@ void Editor::setIncludeHotspots(const bool active) {
     SetMouseDownCaptures(!active);
     StyleSetHotSpot(+ThemeCategory::Preprocessor, active);
     StyleSetHotSpot(+ThemeCategory::KeywordPP, active);
+    // PP body tokens — `include "path"` paints the path as StringPP and the
+    // optional `once` modifier as IdentifierPP; both must be clickable so
+    // Ctrl+click anywhere on the directive line opens the include.
+    StyleSetHotSpot(+ThemeCategory::StringPP, active);
+    StyleSetHotSpot(+ThemeCategory::IdentifierPP, active);
 }
 
 void Editor::onHotSpotClick(wxStyledTextEvent& event) {
