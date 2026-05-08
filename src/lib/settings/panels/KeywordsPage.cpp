@@ -26,6 +26,33 @@ auto caseModeChoices(Context& ctx) -> wxArrayString {
     return names;
 }
 
+/// Labels in the keyword-group dropdown mirror the Themes-page tree:
+/// keyword categories that live under the implicit Default top-level
+/// drop the prefix; categories under Asm or Preprocessor combine the
+/// top-level label with their leaf label, e.g. `Asm Instructions`,
+/// `Preprocessor Directives`. Returned keys index `categories.*` in
+/// the locale; an empty `topKey` means "no prefix".
+struct GroupLabel {
+    wxString topKey;
+    wxString leafKey;
+};
+
+auto groupLabelKeys(const ThemeCategory cat) -> GroupLabel {
+    using TC = ThemeCategory;
+    switch (cat) {
+    case TC::Keywords:         return { "", "core" };
+    case TC::KeywordTypes:     return { "", "types" };
+    case TC::KeywordOperators: return { "", "operators" };
+    case TC::KeywordConstants: return { "", "defines" };
+    case TC::KeywordLibrary:   return { "", "library" };
+    case TC::KeywordCustom:    return { "", "custom" };
+    case TC::KeywordAsm1:      return { "asm",          "instructions" };
+    case TC::KeywordAsm2:      return { "asm",          "registers"    };
+    case TC::KeywordPP:        return { "preprocessor", "directives"   };
+    default:                   return { "", "" };
+    }
+}
+
 } // namespace
 
 KeywordsPage::KeywordsPage(Context& ctx, wxWindow* parent)
@@ -48,9 +75,14 @@ void KeywordsPage::create() {
         options.reserve(kThemeKeywordGroupsCount);
         const auto& group = getContext().getConfigManager().locale().at("dialogs.settings.themes.categories");
         for (const auto& cat : kThemeKeywordCategories) {
-            wxString key { getThemeCategoryName(cat) };
-            key[0] = wxTolower(key[0]);
-            options.Add(group.get_or(key, key));
+            const auto labels = groupLabelKeys(cat);
+            const wxString leaf = group.get_or(labels.leafKey, labels.leafKey);
+            if (labels.topKey.IsEmpty()) {
+                options.Add(leaf);
+            } else {
+                const wxString top = group.get_or(labels.topKey, labels.topKey);
+                options.Add(top + " " + leaf);
+            }
         }
 
         m_groupChoice = choice(options, { .expand = false });

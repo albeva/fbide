@@ -50,11 +50,13 @@ private:
     enum ControlId : int {
         ID_THEME_CHOICE = wxID_HIGHEST + 1, ///< Theme dropdown.
         ID_SAVE_THEME,                      ///< Save-as-new-theme button.
-        ID_CATEGORY_LIST                    ///< Category list box.
+        ID_CATEGORY_TREE                    ///< Category tree control.
     };
 
-    /// Category list selection changed — refresh editor on the right.
-    void onSelectCategory(wxCommandEvent& event);
+    /// Category tree selection changing — veto when target is a folder.
+    void onCategorySelChanging(wxTreeEvent& event);
+    /// Category tree selection changed — refresh editor on the right.
+    void onCategorySelChanged(wxTreeEvent& event);
     /// Theme dropdown selection changed — load the new theme.
     void onSelectTheme(wxCommandEvent& event);
     /// Save button clicked — prompt for a name and save the working theme.
@@ -73,7 +75,11 @@ private:
     /// Persist the active theme path back to config.
     void syncActiveThemeConfig();
 
-    Unowned<wxListBox> m_typeList;             ///< Theme category list.
+    Unowned<wxTreeCtrl> m_typeTree;            ///< Theme category tree.
+    /// Maps each selectable tree-item id to its `SettingsCategory`. Folder
+    /// nodes (Keywords / Margins / Brace / Asm) have no entry — absence
+    /// signals "non-selectable" without paying for a per-item heap object.
+    std::unordered_map<wxTreeItemIdValue, SettingsCategory> m_treeCategories;
     Unowned<wxChoice> m_themeChoice;           ///< Theme picker dropdown.
     Unowned<ColorPicker> m_fgPicker;           ///< Foreground color picker.
     Unowned<ColorPicker> m_bgPicker;           ///< Background color picker.

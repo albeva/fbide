@@ -59,6 +59,62 @@ void writeCategory(Theme& theme, const SettingsCategory cat, const Theme::Entry&
     }
 }
 
+/// Static layout descriptor for the category tree.
+struct TreeNode {
+    wxString labelKey;                        ///< Locale key under `categories.`
+    wxString fallbackLabel;                   ///< Used if locale key missing.
+    std::optional<SettingsCategory> category; ///< Empty for folder nodes.
+    std::vector<TreeNode> children;
+};
+
+auto categoryTreeLayout() -> std::vector<TreeNode> {
+    using SC = SettingsCategory;
+    // clang-format off
+    return {
+        { "default", "Default", SC::Default, {
+            { "comments",          "Comments",           SC::Comment,          {} },
+            { "multilineComments", "Multiline comments", SC::MultilineComment, {} },
+            { "identifier",        "Identifier",         SC::Identifier,       {} },
+            { "number",            "Number",             SC::Number,           {} },
+            { "string",            "String",             SC::String, {
+                { "unterminated", "Unterminated", SC::StringOpen, {} },
+            } },
+            { "operator",          "Operator",           SC::Operator,         {} },
+            { "label",             "Label",              SC::Label,            {} },
+            { "error",             "Error",              SC::Error,            {} },
+            { "keywords", "Keywords", std::nullopt, {
+                { "core",              "Core",      SC::Keywords,         {} },
+                { "types",             "Types",     SC::KeywordTypes,     {} },
+                { "operators",         "Operators", SC::KeywordOperators, {} },
+                { "defines",           "Defines",   SC::KeywordConstants, {} },
+                { "library",           "Library",   SC::KeywordLibrary,   {} },
+                { "custom",            "Custom",    SC::KeywordCustom,    {} },
+            } },
+            { "margins", "Margins", std::nullopt, {
+                { "lineNumbers", "Line numbers", SC::LineNumber, {} },
+                { "fold",        "Fold",         SC::FoldMargin, {} },
+            } },
+            { "selection", "Selection", SC::Selection, {} },
+            { "brace", "Brace", std::nullopt, {
+                { "match",    "Match",    SC::Brace,    {} },
+                { "mismatch", "Mismatch", SC::BadBrace, {} },
+            } },
+        } },
+        { "asm", "Asm", std::nullopt, {
+            { "instructions", "Instructions", SC::KeywordAsm1, {} },
+            { "registers",    "Registers",    SC::KeywordAsm2, {} },
+        } },
+        { "preprocessor", "Preprocessor", SC::Preprocessor, {
+            { "directives",   "Directives", SC::KeywordPP,    {} },
+            { "ppIdentifier", "Identifier", SC::IdentifierPP, {} },
+            { "ppNumber",     "Number",     SC::NumberPP,     {} },
+            { "ppString",     "String",     SC::StringPP,     {} },
+            { "ppOperator",   "Operator",   SC::OperatorPP,   {} },
+        } },
+    };
+    // clang-format on
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -67,9 +123,10 @@ void writeCategory(Theme& theme, const SettingsCategory cat, const Theme::Entry&
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(ThemePage, Panel)
-    EVT_CHOICE  (ThemePage::ID_THEME_CHOICE,    ThemePage::onSelectTheme)
-    EVT_BUTTON  (ThemePage::ID_SAVE_THEME,      ThemePage::onSaveTheme)
-    EVT_LISTBOX (ThemePage::ID_CATEGORY_LIST,   ThemePage::onSelectCategory)
+    EVT_CHOICE             (ThemePage::ID_THEME_CHOICE,   ThemePage::onSelectTheme)
+    EVT_BUTTON             (ThemePage::ID_SAVE_THEME,     ThemePage::onSaveTheme)
+    EVT_TREE_SEL_CHANGING  (ThemePage::ID_CATEGORY_TREE,  ThemePage::onCategorySelChanging)
+    EVT_TREE_SEL_CHANGED   (ThemePage::ID_CATEGORY_TREE,  ThemePage::onCategorySelChanged)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -126,7 +183,19 @@ void ThemePage::create() {
     SetSizerAndFit(currentSizer());
 
     updateTitle();
+
+    // Pre-load the Default row before triggering the tree's selection
+    // event. SelectItem fires SEL_CHANGED → saveCategory() → loadCategory()
+    // — saveCategory reads from the picker widgets, so they need to hold
+    // Default's colours first; otherwise it clobbers Default with the
+    // picker's null/empty initial state. Layout guarantees the first
+    // top-level child of the (hidden) root is the Default node.
+    m_selectedRow = +SettingsCategory::Default;
     loadCategory();
+    wxTreeItemIdValue cookie;
+    if (const auto first = m_typeTree->GetFirstChild(m_typeTree->GetRootItem(), cookie); first.IsOk()) {
+        m_typeTree->SelectItem(first);
+    }
 }
 
 void ThemePage::createTopRow() {
@@ -162,22 +231,42 @@ void ThemePage::createTopRow() {
 }
 
 void ThemePage::createCategoryList() {
-    wxArrayString displayNames;
-    displayNames.reserve(kSettingsCategoryCount);
+    m_typeTree = make_unowned<wxTreeCtrl>(
+        currentParent(), ID_CATEGORY_TREE,
+        wxDefaultPosition, wxSize(180, 320),
+        wxTR_HAS_BUTTONS | wxTR_HIDE_ROOT | wxTR_LINES_AT_ROOT | wxTR_FULL_ROW_HIGHLIGHT
+    );
 
-    for (const auto cat : kSettingsCategories) {
-        const auto key = "categories." + lowerFirst(getSettingsCategoryName(cat));
-        auto label = tr(key);
-        if (label.empty()) {
-            label = getSettingsCategoryName(cat);
+    const auto root = m_typeTree->AddRoot("(root)");
+
+    // Recursively materialise the layout into wx tree items. Selectable
+    // nodes are tracked in `m_treeCategories` keyed by item id; folder
+    // nodes are absent from the map so the SEL_CHANGING handler can veto
+    // selection on them without a per-item heap allocation.
+    auto addNodes = [&](this auto& self, const wxTreeItemId parent, const std::vector<TreeNode>& nodes) -> void {
+        for (const auto& node : nodes) {
+            const auto label = tr("categories." + node.labelKey, node.fallbackLabel);
+            const auto id = m_typeTree->AppendItem(parent, label);
+            if (node.category) {
+                m_treeCategories.emplace(id.GetID(), *node.category);
+                m_typeTree->SetItemBold(id, true);
+            }
+            if (!node.children.empty()) {
+                self(id, node.children);
+            }
         }
-        displayNames.Add(label);
-    }
+    };
 
-    m_typeList = make_unowned<wxListBox>(currentParent(), ID_CATEGORY_LIST, wxDefaultPosition, wxSize(160, 240), displayNames);
-    m_selectedRow = 0;
-    m_typeList->SetSelection(m_selectedRow);
-    add(m_typeList, {});
+    addNodes(root, categoryTreeLayout());
+    m_typeTree->ExpandAll();
+
+    // Default selection — picks the first selectable leaf. The actual
+    // SelectItem call happens at the end of `create()`, after the right-
+    // hand widgets exist, because SelectItem fires SEL_CHANGED which
+    // hits saveCategory()/loadCategory() (both touch the picker widgets).
+    m_selectedRow = +SettingsCategory::Default;
+
+    add(m_typeTree, {});
 }
 
 void ThemePage::createLeftPanel() {
@@ -311,9 +400,31 @@ void ThemePage::saveNewTheme(const bool setActive) {
 // Category handling
 // ---------------------------------------------------------------------------
 
-void ThemePage::onSelectCategory(wxCommandEvent& event) {
+void ThemePage::onCategorySelChanging(wxTreeEvent& event) {
+    // Veto selection of folder nodes (Keywords / Margins / Brace / Asm).
+    // wx fires SEL_CHANGED only when the new selection sticks, so vetoing
+    // here prevents flicker and keeps `m_selectedRow` aligned with the
+    // last real (selectable) category.
+    const auto newItem = event.GetItem();
+    if (!newItem.IsOk()) {
+        return;
+    }
+    if (!m_treeCategories.contains(newItem.GetID())) {
+        event.Veto();
+    }
+}
+
+void ThemePage::onCategorySelChanged(wxTreeEvent& event) {
+    const auto item = event.GetItem();
+    if (!item.IsOk()) {
+        return;
+    }
+    const auto it = m_treeCategories.find(item.GetID());
+    if (it == m_treeCategories.end()) {
+        return;
+    }
     saveCategory();
-    m_selectedRow = event.GetSelection();
+    m_selectedRow = +it->second;
     loadCategory();
 }
 
