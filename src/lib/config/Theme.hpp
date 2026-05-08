@@ -72,6 +72,12 @@ public:
     /// Load a legacy v4 `.fbt` theme (read-only migration; does not store path).
     void loadV4(const wxString& themePath);
 
+    /// Populate a minimal built-in fallback theme — used when the configured
+    /// theme file is missing so the editor still launches with a usable
+    /// scheme. Default category gets a black foreground on a dark grey
+    /// background; *PP entries derive via `derivePpEntriesFromBase`.
+    void loadDefaults();
+
     /// Save theme to disk. Empty argument saves to the current `m_themePath`.
     void save(const wxString& newThemePath = wxEmptyString);
 
