@@ -114,6 +114,19 @@ TEST_F(ThemeTests, MissingFontFallsBackToSystemMonospace) {
     wxRemoveFile(tmpFile);
 }
 
+TEST_F(ThemeTests, LoadDefaultsAppliesFallbackColors) {
+    Theme theme;
+    theme.loadDefaults();
+    // Built-in fallback used when the configured theme file is missing —
+    // plain black-on-white so the editor stays readable until the user
+    // fixes their config. Margins use light grey for separation.
+    EXPECT_EQ(theme.get(ThemeCategory::Default).colors.foreground, *wxBLACK);
+    EXPECT_EQ(theme.get(ThemeCategory::Default).colors.background, *wxWHITE);
+    EXPECT_EQ(theme.getLineNumber().background, *wxLIGHT_GREY);
+    EXPECT_EQ(theme.getFoldMargin().background, *wxLIGHT_GREY);
+    EXPECT_EQ(theme.getVersion(), Version::fbide());
+}
+
 TEST_F(ThemeTests, SaveMigratesFbtToIni) {
     // Copy classic.fbt somewhere writable so we can save it.
     const wxString srcFbt = testDataPath + "classic.fbt";

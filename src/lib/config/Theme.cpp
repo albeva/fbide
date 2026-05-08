@@ -280,6 +280,26 @@ void Theme::load(const wxString& themePath, const bool reset) {
     this->reset();
 }
 
+void Theme::loadDefaults() {
+    *this = {};
+    m_themePath = wxEmptyString;
+    m_version = Version::fbide();
+    // Minimal fallback colours. Foreground is plain black, background a
+    // dark grey — enough contrast that the editor remains readable when
+    // the user's configured theme file is missing entirely.
+    m_categories[+ThemeCategory::Default] = {
+        .colors = { .foreground = *wxBLACK, .background = *wxWHITE },
+    };
+    m_lineNumber = {
+        .foreground = *wxBLACK, .background = *wxLIGHT_GREY
+    };
+    m_foldMargin = {
+        .foreground = *wxBLACK, .background = *wxLIGHT_GREY
+    };
+    derivePpEntriesFromBase();
+    reset();
+}
+
 void Theme::derivePpEntriesFromBase() {
     // For PP-context categories (StringPP/NumberPP/OperatorPP/IdentifierPP)
     // whose entries are still default-constructed (the loader skipped them

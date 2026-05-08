@@ -8,6 +8,31 @@
 using namespace fbide;
 
 namespace {
+void dismissSplash() {
+    auto node = wxTopLevelWindows.GetFirst();
+    while (node) {
+        const auto next = node->GetNext();
+        if (auto* splash = wxDynamicCast(node->GetData(), wxSplashScreen)) {
+            splash->Hide();
+            splash->Destroy();
+        }
+        node = next;
+    }
+    wxYield();
+}
+
+/// Show a fatal-error dialog in plain English and terminate. Used for
+/// missing files we cannot meaningfully run without (config / layout /
+/// locale) — locale strings aren't available at this point, so the
+/// message is hard-coded.
+[[noreturn]] void fatalAndExit(const wxString& message) {
+    dismissSplash();
+    wxMessageBox(message, "FBIde - fatal error", wxOK | wxICON_ERROR);
+    std::exit(1);
+}
+} // namespace
+
+namespace {
 /// True when `a` and `b` refer to the same filesystem entry. Follows
 /// symlinks on both sides via std::filesystem::equivalent, so editing a
 /// config file through a symlink still matches the loaded canonical path.
@@ -176,11 +201,25 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
     entry.path = absolute(configPath.empty() ? getPlatformConfigFileName() : configPath);
     load(Category::Config);
 
-    // Resolve + load theme immediately after config is available.
+    // Load all configs
+    for (const auto cat : { Category::Locale, Category::Shortcuts, Category::Keywords, Category::Layout }) {
+        load(cat);
+    }
+
+    // Resolve + load theme immediately after config is available. If the
+    // configured theme file is missing or absent, fall back to a built-in
+    // minimal theme so the editor still launches with a usable scheme.
     if (const auto themeRel = config().get_or("theme", wxString {}); not themeRel.empty()) {
-        m_theme.load(absolute(themeRel));
+        const auto themeAbs = absolute(themeRel);
+        if (wxFileExists(themeAbs)) {
+            m_theme.load(themeAbs);
+        } else {
+            wxLogError("Theme file '%s' not found — using built-in default", themeAbs);
+            m_theme.loadDefaults();
+        }
     } else {
-        wxLogWarning("No 'theme' entry found in config '%s'", entry.path);
+        wxLogWarning("No 'theme' entry found in config '%s' — using built-in default", entry.path);
+        m_theme.loadDefaults();
     }
 }
 
@@ -202,7 +241,15 @@ void ConfigManager::reloadConfig(const wxString& configPath) {
     load(Category::Config);
 
     if (const auto themeRel = config().get_or("theme", wxString {}); not themeRel.empty()) {
-        m_theme.load(absolute(themeRel));
+        const auto themeAbs = absolute(themeRel);
+        if (wxFileExists(themeAbs)) {
+            m_theme.load(themeAbs);
+        } else {
+            wxLogError("Theme file '%s' not found — using built-in default", themeAbs);
+            m_theme.loadDefaults();
+        }
+    } else {
+        m_theme.loadDefaults();
     }
 }
 
@@ -228,7 +275,54 @@ void ConfigManager::load(const Category category) {
     }
 
     if (!wxFileExists(file)) {
-        wxLogError("Config file '%s' for '%s' category not found", file, getCategoryName(category).data());
+        // Per-category recovery for missing files. Config + Layout are
+        // load-bearing for the rest of the IDE, so a miss is fatal —
+        // every other path falls back to a workable empty / default
+        // state and lets the app keep going.
+        const auto catName = getCategoryName(category);
+        wxLogError(
+            "Config file '%s' for '%s' category not found",
+            file, catName.data()
+        );
+        switch (category) {
+        case Category::Config:
+            fatalAndExit(
+                wxString::Format(
+                    "FBIde could not start: the main configuration file was not found.\n\n"
+                    "Expected at:\n%s\n\n"
+                    "Reinstall FBIde or supply --config=<path>.",
+                    file
+                )
+            );
+        case Category::Layout:
+            fatalAndExit(
+                wxString::Format(
+                    "FBIde could not start: the layout file was not found.\n\n"
+                    "Expected at:\n%s\n\n"
+                    "Reinstall FBIde or restore the layout.ini next to the IDE resources.",
+                    file
+                )
+            );
+        case Category::Locale:
+            // Locale is also load-bearing — every dialog string flows
+            // through it. Without a locale file we'd render a broken UI
+            // with no translations available; treat as fatal and surface
+            // a hard-coded English message.
+            fatalAndExit(
+                wxString::Format(
+                    "FBIde could not start: the locale file was not found.\n\n"
+                    "Expected at:\n%s\n\n"
+                    "Reinstall FBIde or restore the locales directory next to the IDE resources.",
+                    file
+                )
+            );
+        case Category::Keywords:
+        case Category::Shortcuts:
+            entry.category = category;
+            entry.path = file;
+            entry.root = Value {};
+            return;
+        }
         return;
     }
 
