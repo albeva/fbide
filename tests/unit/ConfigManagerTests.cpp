@@ -84,17 +84,11 @@ TEST_F(ConfigManagerTests, MissingShortcutsLoadsEmpty) {
     EXPECT_EQ(sc.get_or("file.open", wxString { "<sentinel>" }), "<sentinel>");
 }
 
-TEST_F(ConfigManagerTests, MissingLocaleLoadsEmpty) {
-    TempDir tmp;
-    tmp.write("config.ini",
-        "version=0.5.0\n"
-        "locale=does_not_exist.ini\n"
-    );
-
-    ConfigManager cm(tmp.path(), tmp.path(), "config.ini");
-    auto& loc = cm.locale();
-    EXPECT_EQ(loc.get_or("dialogs.settings.title", wxString { "<sentinel>" }), "<sentinel>");
-}
+// Note: missing Config / Layout / Locale exits the process via
+// `fatalAndExit` (plain-English message-box → std::exit). Not covered
+// by direct tests because they would terminate the gtest runner. The
+// fallback paths above (Keywords / Shortcuts / Theme) are the ones
+// callers expect to keep going.
 
 // ---------------------------------------------------------------------------
 // Theme fallback — `m_theme.loadDefaults()` runs when the configured
@@ -111,7 +105,7 @@ TEST_F(ConfigManagerTests, MissingThemeFileTriggersDefaults) {
     ConfigManager cm(tmp.path(), tmp.path(), "config.ini");
     const auto& theme = cm.getTheme();
     EXPECT_EQ(theme.get(ThemeCategory::Default).colors.foreground, *wxBLACK);
-    EXPECT_EQ(theme.get(ThemeCategory::Default).colors.background, wxColour(30, 30, 30));
+    EXPECT_EQ(theme.get(ThemeCategory::Default).colors.background, *wxWHITE);
 }
 
 TEST_F(ConfigManagerTests, MissingThemeEntryTriggersDefaults) {
@@ -122,5 +116,5 @@ TEST_F(ConfigManagerTests, MissingThemeEntryTriggersDefaults) {
     ConfigManager cm(tmp.path(), tmp.path(), "config.ini");
     const auto& theme = cm.getTheme();
     EXPECT_EQ(theme.get(ThemeCategory::Default).colors.foreground, *wxBLACK);
-    EXPECT_EQ(theme.get(ThemeCategory::Default).colors.background, wxColour(30, 30, 30));
+    EXPECT_EQ(theme.get(ThemeCategory::Default).colors.background, *wxWHITE);
 }

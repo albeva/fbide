@@ -8,12 +8,26 @@
 using namespace fbide;
 
 namespace {
+void dismissSplash() {
+    auto node = wxTopLevelWindows.GetFirst();
+    while (node) {
+        const auto next = node->GetNext();
+        if (auto* splash = wxDynamicCast(node->GetData(), wxSplashScreen)) {
+            splash->Hide();
+            splash->Destroy();
+        }
+        node = next;
+    }
+    wxYield();
+}
+
 /// Show a fatal-error dialog in plain English and terminate. Used for
-/// missing files we cannot meaningfully run without (the main config
-/// itself or the layout file) — locale strings aren't available at this
-/// point, so the message is hard-coded.
+/// missing files we cannot meaningfully run without (config / layout /
+/// locale) — locale strings aren't available at this point, so the
+/// message is hard-coded.
 [[noreturn]] void fatalAndExit(const wxString& message) {
-    wxMessageBox(message, "FBIde — fatal error", wxOK | wxICON_ERROR);
+    dismissSplash();
+    wxMessageBox(message, "FBIde - fatal error", wxOK | wxICON_ERROR);
     std::exit(1);
 }
 } // namespace
@@ -187,6 +201,11 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
     entry.path = absolute(configPath.empty() ? getPlatformConfigFileName() : configPath);
     load(Category::Config);
 
+    // Load all configs
+    for (const auto cat : { Category::Locale, Category::Shortcuts, Category::Keywords, Category::Layout }) {
+        load(cat);
+    }
+
     // Resolve + load theme immediately after config is available. If the
     // configured theme file is missing or absent, fall back to a built-in
     // minimal theme so the editor still launches with a usable scheme.
@@ -261,6 +280,10 @@ void ConfigManager::load(const Category category) {
         // every other path falls back to a workable empty / default
         // state and lets the app keep going.
         const auto catName = getCategoryName(category);
+        wxLogError(
+            "Config file '%s' for '%s' category not found",
+            file, catName.data()
+        );
         switch (category) {
         case Category::Config:
             fatalAndExit(
@@ -280,19 +303,26 @@ void ConfigManager::load(const Category category) {
                     file
                 )
             );
+        case Category::Locale:
+            // Locale is also load-bearing — every dialog string flows
+            // through it. Without a locale file we'd render a broken UI
+            // with no translations available; treat as fatal and surface
+            // a hard-coded English message.
+            fatalAndExit(
+                wxString::Format(
+                    "FBIde could not start: the locale file was not found.\n\n"
+                    "Expected at:\n%s\n\n"
+                    "Reinstall FBIde or restore the locales directory next to the IDE resources.",
+                    file
+                )
+            );
         case Category::Keywords:
         case Category::Shortcuts:
-        case Category::Locale:
-            wxLogError(
-                "Config file '%s' for '%s' category not found — using empty defaults",
-                file, catName.data()
-            );
             entry.category = category;
             entry.path = file;
             entry.root = Value {};
             return;
         }
-        wxLogError("Config file '%s' for '%s' category not found", file, catName.data());
         return;
     }
 
