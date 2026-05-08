@@ -137,13 +137,16 @@ void CodeTransformer::applyIndentAndCloser(Editor& editor) {
     }
     const int newIndent = std::max(0, prevIndent + decision.deltaLevels * tabSize);
     editor.SetLineIndentation(currLine, newIndent);
-    editor.GotoPos(editor.GetLineEndPosition(currLine));
+    // Use indent position (after leading whitespace, before content) — when
+    // Enter splits a line mid-content (`foo |bar` -> `foo \nbar`), end-of-line
+    // would jump the caret past the moved content.
+    editor.GotoPos(editor.GetLineIndentPosition(currLine));
 
     if (!decision.closerKeywords.empty() && !blockAlreadyClosed(editor, prevLine)) {
         const int caretPos = editor.GetLineEndPosition(currLine);
         editor.InsertText(caretPos, "\n" + renderCloser(decision.closerKeywords));
         editor.SetLineIndentation(currLine + 1, prevIndent);
-        editor.GotoPos(editor.GetLineEndPosition(currLine));
+        editor.GotoPos(editor.GetLineIndentPosition(currLine));
     }
 }
 

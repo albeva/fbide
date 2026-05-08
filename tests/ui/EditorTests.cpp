@@ -173,6 +173,24 @@ TEST(EditorTests, AutoIndentDoesNotDedentCloserAlreadyAtOpenerIndent) {
         "    ");
 }
 
+TEST(EditorTests, AutoIndentEnterMidLineLeavesCaretBeforeMovedContent) {
+    // Repro: caret between "foo " and "bar"; pressing Enter must leave the
+    // caret at the start of the moved content on the new line, not jump it
+    // past the content to the line end. Non-opener line, no indent change.
+    EditorTestShim shim;
+    shim.editor().SetText("foo bar");
+    shim.editor().GotoPos(4); // between "foo " and "bar"
+    shim.run([&] {
+        shim.typeText("\n");
+    });
+    EXPECT_EQ(shim.getText(), "foo \nbar");
+    // Caret must land at start of "bar" (position 5: "foo \n" = 5 chars, then b),
+    // not at end of "bar" (position 8).
+    EXPECT_EQ(shim.editor().GetCurrentPos(), 5);
+    EXPECT_EQ(shim.editor().GetCurrentLine(), 1);
+    EXPECT_EQ(shim.editor().GetColumn(shim.editor().GetCurrentPos()), 0);
+}
+
 TEST(EditorTests, AutoIndentDedentsOverIndentedCloser) {
     // Counterpart to above: when the closer is one level too deep, Enter
     // dedents it back to the opener's indent.
