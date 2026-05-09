@@ -1,7 +1,7 @@
 # Changes since 0.5.0-beta.3
 
 - Added new cobalt theme (Gothon)
-- New styles for preprocessir identifier, number, operator and strings
+- New styles for preprocessor identifier, number, operator and strings
 - Changed theme settings to use a tree layout, for easier overview
 - Fixed wstring and zstring classification, moved them to type keywords (#47)
 - Fixed detect when compound statement closer is not needed (#50)
@@ -10,10 +10,10 @@
 - Fixed auto-indent and code formatter no longer add `End Asm` closer / indent body for single-line `asm` (#46)
 - Fixed preprocessor lexing of `"_"` which would cause to treat `_` as a line continuation (#54)
 - Chnaged IDE resource directory carrying a `READONLY` sentinel file is now mirrored to `<user-data-dir>/ide` on launch and loaded/saved from there. (#39)
-- Removed classic `wxToolBar` code path; the wxAUI toolbar is now the only implementation on every platform (#11)
 - Added Linux AppImage to the release pipeline; `-DBUILD_APPIMAGE=ON` switches the install layout to FHS and points the resource resolver at `share/fbide/ide/` (#66)
 - Changed log now writes to the per-user data directory by default and flushes after each record so crash diagnostics survive; added `--log-path` to override the location
-- Changed `<$terminal>` placeholder is now read from `compiler.terminal` config and is a launcher prefix that runs the program in a new terminal (Win: `cmd /C start "" cmd /K`, Linux: `x-terminal-emulator -e`); added a click-to-insert placeholder reference table to the Compiler settings tab (#45)
+- Changed `<$terminal>` placeholder is now read from `compiler.terminal` config(#45)
+- Added run and compile command placeholder table.
 
 # Changes since 0.5.0-beta.2
 
