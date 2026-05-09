@@ -29,6 +29,8 @@ Options:
   --config <path>     Use the specified config file.
   --ide <path>        Override the IDE resources directory
                       (default: <fbide-binary-dir>/ide).
+  --log-path <path>   Write the application log to <path>
+                      (default: <user-data-dir>/logs/fbide_<version>.log).
   --cfg=<spec>        Print a config value to stdout and exit.
                       <spec> is `[category:]path[.*|/|/*]`.
                       Categories: config (default), locale, shortcuts,
@@ -108,6 +110,25 @@ void writeLineTo(const wxString& text, const bool toStderr) {
 
 void writeLine(const wxString& text) { writeLineTo(text, /*toStderr=*/false); }
 void writeErrLine(const wxString& text) { writeLineTo(text, /*toStderr=*/true); }
+
+/// Resolve the application log file path. Honours `--log-path` when set,
+/// otherwise falls back to `<user-data-dir>/logs/fbide_<version>.log` so
+/// packaged builds (AppImage, .app bundles, signed Windows installers)
+/// don't try to write next to a read-only executable, and so different
+/// installed versions write to distinct files. Creates the parent dir.
+auto resolveLogPath(const wxString& cliLogPath) -> wxString {
+    wxFileName logFile;
+    if (!cliLogPath.IsEmpty()) {
+        logFile.Assign(cliLogPath);
+    } else {
+        logFile.AssignDir(wxStandardPaths::Get().GetUserDataDir());
+        logFile.AppendDir("logs");
+        logFile.SetFullName(wxString::Format("fbide_%s.log", Version::fbide().asString()));
+    }
+    logFile.Normalize(wxPATH_NORM_ENV_VARS | wxPATH_NORM_DOTS | wxPATH_NORM_TILDE | wxPATH_NORM_ABSOLUTE);
+    wxFileName::Mkdir(logFile.GetPath(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+    return logFile.GetFullPath();
+}
 
 /// True when `path` lives anywhere under the platform's temp directory.
 /// Used by the `--load-session` cleanup branch so we only delete files
@@ -209,6 +230,7 @@ auto App::OnInit() -> bool {
     m_verbose = cli.verbose;
     m_configPath = cli.configPath;
     m_idePath = cli.idePath;
+    m_logPath = cli.logPath;
     if (cli.verbose) {
         wxLog::SetVerbose(true);
     }
@@ -228,7 +250,16 @@ auto App::OnInit() -> bool {
 
     const auto fbidePath = getFbidePath();
 
-    wxLog::SetActiveTarget(new wxLogStream(new std::ofstream((fbidePath / "app.log").ToStdString(), std::ios::app)));
+    // Open the log file unbuffered (`std::unitbuf` flushes after each
+    // `<<`, so `wxLogStream` lands every record on disk before returning)
+    // and disable wxLog's repetition counter so duplicate messages don't
+    // sit in memory waiting to be coalesced. Together these ensure the
+    // last few records survive a crash.
+    const auto logPath = resolveLogPath(cli.logPath);
+    auto* logStream = new std::ofstream(logPath.ToStdString(), std::ios::app);
+    *logStream << std::unitbuf;
+    wxLog::SetRepetitionCounting(false);
+    wxLog::SetActiveTarget(new wxLogStream(logStream));
 
     // Construct context with parsed CLI overrides — `--ide` flows into
     // ConfigManager so subsequent config/locale/theme lookups resolve
@@ -310,6 +341,16 @@ auto App::parseCli() const -> CliOptions {
                 return opts;
             }
             opts.idePath = args[index];
+            continue;
+        }
+        if (arg == "--log-path") {
+            index += 1;
+            if (index >= args.GetCount()) {
+                writeErrLine("fbide: --log-path requires a path argument");
+                opts.parseFailed = true;
+                return opts;
+            }
+            opts.logPath = args[index];
             continue;
         }
         if (arg.StartsWith("--cfg=")) {
@@ -496,6 +537,9 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
         }
         if (!m_idePath.IsEmpty()) {
             cmd += wxString::Format(R"( --ide "%s")", m_idePath);
+        }
+        if (!m_logPath.IsEmpty()) {
+            cmd += wxString::Format(R"( --log-path "%s")", m_logPath);
         }
         if (m_verbose) {
             cmd += " --verbose";

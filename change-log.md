@@ -1,5 +1,6 @@
 # Changes since 0.5.0-beta.3
 
+- Application log now writes to the per-user data directory by default and flushes after each record so crash diagnostics survive; added `--log-path` to override the location
 - Added new cobalt theme (Gothon)
 - New styles for preprocessir identifier, number, operator and strings
 - Changed theme settings to use a tree layout, for easier overview
