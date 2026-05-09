@@ -53,6 +53,11 @@ on:
         required: false
         default: true
         type: boolean
+      publish_release:
+        description: Publish a GitHub Release with the built artefacts
+        required: false
+        default: false
+        type: boolean
 
 # Cancel an older run on the same ref/PR when a new one starts — saves runner
 # minutes when commits land in quick succession.
@@ -109,9 +114,21 @@ jobs:
 
           # Only push-to-main runs publish releases; workflow_dispatch is
           # build-and-test only.
+          # Push-to-main always publishes; workflow_dispatch can opt in
+          # via the publish_release checkbox so manual runs from any
+          # branch can produce a tagged release when the operator wants
+          # one. Either way, the tag-doesn't-exist guard runs first to
+          # keep us from clobbering a published version.
+          publish=false
           if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            publish=true
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "${{ inputs.publish_release }}" = "true" ]; then
+            publish=true
+          fi
+
+          if [ "${publish}" = "true" ]; then
             if git rev-parse "refs/tags/${tag}" >/dev/null 2>&1; then
-              echo "::error::Release ${tag} already exists. Bump fbide_version() in CMakeLists.txt before pushing to main."
+              echo "::error::Release ${tag} already exists. Bump fbide_version() in CMakeLists.txt before publishing."
               exit 1
             fi
             echo "release=true" >> "$GITHUB_OUTPUT"
@@ -362,7 +379,15 @@ jobs:
   release:
     name: release
     needs: [version, build-and-test, build-linux-appimage]
-    if: needs.version.outputs.release == 'true'
+    # `always()` runs the gate regardless of whether upstream jobs were
+    # skipped (selective targets via workflow_dispatch) or not. Then we
+    # require a publishable run AND at least one upstream success — a
+    # full skip / failure across both build jobs leaves nothing to
+    # release.
+    if: |
+      always()
+      && needs.version.outputs.release == 'true'
+      && (needs.build-and-test.result == 'success' || needs.build-linux-appimage.result == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: write
