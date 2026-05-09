@@ -21,6 +21,7 @@ on:
       - 'cmake/**'
       - 'CMakeLists.txt'
       - 'configured_files/**'
+      - 'packaging/**'
       - '.github/workflows/ci.yml'
       - '.github/actions/setup-wx/**'
   # Manual trigger lets the workflow run on any branch and pick a build
@@ -34,6 +35,29 @@ on:
         default: Release
         type: choice
         options: [Release, Debug, RelWithDebInfo]
+      # Per-target gates for manual runs. Defaults match push-to-main
+      # (everything builds). Push events don't expose `inputs.*`, so the
+      # job-level guards fall through to true for those.
+      build_win64:
+        description: Build Windows x64
+        required: false
+        default: true
+        type: boolean
+      build_win32:
+        description: Build Windows x86
+        required: false
+        default: true
+        type: boolean
+      build_linux_appimage:
+        description: Build Linux AppImage
+        required: false
+        default: true
+        type: boolean
+      publish_release:
+        description: Publish a GitHub Release with the built artefacts
+        required: false
+        default: false
+        type: boolean
 
 # Cancel an older run on the same ref/PR when a new one starts — saves runner
 # minutes when commits land in quick succession.
@@ -62,6 +86,8 @@ jobs:
       version: ${{ steps.resolve.outputs.value }}
       tag: ${{ steps.resolve.outputs.tag }}
       release: ${{ steps.resolve.outputs.release }}
+      win-archs: ${{ steps.targets.outputs.win-archs }}
+      build-linux-appimage: ${{ steps.targets.outputs.build-linux-appimage }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -88,9 +114,21 @@ jobs:
 
           # Only push-to-main runs publish releases; workflow_dispatch is
           # build-and-test only.
+          # Push-to-main always publishes; workflow_dispatch can opt in
+          # via the publish_release checkbox so manual runs from any
+          # branch can produce a tagged release when the operator wants
+          # one. Either way, the tag-doesn't-exist guard runs first to
+          # keep us from clobbering a published version.
+          publish=false
           if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            publish=true
+          elif [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "${{ inputs.publish_release }}" = "true" ]; then
+            publish=true
+          fi
+
+          if [ "${publish}" = "true" ]; then
             if git rev-parse "refs/tags/${tag}" >/dev/null 2>&1; then
-              echo "::error::Release ${tag} already exists. Bump fbide_version() in CMakeLists.txt before pushing to main."
+              echo "::error::Release ${tag} already exists. Bump fbide_version() in CMakeLists.txt before publishing."
               exit 1
             fi
             echo "release=true" >> "$GITHUB_OUTPUT"
@@ -98,9 +136,34 @@ jobs:
             echo "release=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Resolve which targets to build into a JSON arch list (consumed by
+      # build-and-test's matrix) plus a boolean for the AppImage job.
+      # Push events build everything; workflow_dispatch honours the
+      # per-target checkboxes from the run dialog.
+      - name: Resolve build targets
+        id: targets
+        shell: bash
+        env:
+          BUILD_WIN64: ${{ inputs.build_win64 }}
+          BUILD_WIN32: ${{ inputs.build_win32 }}
+          BUILD_LINUX: ${{ inputs.build_linux_appimage }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            echo 'win-archs=["x64","x86"]' >> "$GITHUB_OUTPUT"
+            echo 'build-linux-appimage=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          archs=()
+          [ "$BUILD_WIN64" = "true" ] && archs+=('"x64"')
+          [ "$BUILD_WIN32" = "true" ] && archs+=('"x86"')
+          IFS=,
+          echo "win-archs=[${archs[*]}]" >> "$GITHUB_OUTPUT"
+          echo "build-linux-appimage=${BUILD_LINUX:-true}" >> "$GITHUB_OUTPUT"
+
   build-and-test:
     name: build-and-test (${{ matrix.arch }})
     needs: version
+    if: needs.version.outputs.win-archs != '[]'
     runs-on: windows-latest
     timeout-minutes: 30
     strategy:
@@ -108,7 +171,7 @@ jobs:
       # which platform broke.
       fail-fast: false
       matrix:
-        arch: [x64, x86]
+        arch: ${{ fromJSON(needs.version.outputs.win-archs) }}
     permissions:
       contents: read
     # Manual runs honour the chosen build type; push-to-main defaults to
@@ -191,10 +254,140 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+  # ----------------------------------------------------------------------------
+  # Linux AppImage. Release-only — gated on the same `version.release` flag as
+  # the Windows zips. Builds wxGTK3 via the shared setup-wx action (Linux
+  # branch), compiles FBIde with -DBUILD_APPIMAGE=ON so the install layout
+  # follows FHS, then assembles an AppDir and runs linuxdeploy to produce a
+  # self-contained AppImage. Built on the latest Ubuntu LTS — glibc on the
+  # runner sets the lower-bound for systems the AppImage will run on.
+  # ----------------------------------------------------------------------------
+  build-linux-appimage:
+    name: build-linux-appimage
+    needs: version
+    if: needs.version.outputs.build-linux-appimage == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up CMake + Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: latest
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libgtk-3-dev libglib2.0-dev libsecret-1-dev libnotify-dev \
+            imagemagick file fuse libfuse2
+
+      - name: Set up wxWidgets (GTK3)
+        id: wx
+        uses: ./.github/actions/setup-wx
+        with:
+          wx-ref: v3.3.2
+          build-type: ${{ env.BUILD_TYPE }}
+
+      # WXWIN switches cmake/wxwidgets.cmake to CONFIG mode (matches the
+      # Windows path) and finds wxWidgetsConfig.cmake under the cached
+      # dist's lib/cmake/wxWidgets/. wxWidgets_ROOT_DIR + the legacy
+      # FindwxWidgets module expects the prebuilt-binaries layout we don't
+      # produce from `cmake --install`.
+      - name: Configure
+        run: >
+          cmake -G Ninja -B build/ci
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DBUILD_TESTING=ON
+          -DBUILD_APPIMAGE=ON
+          -DWXWIN=${{ steps.wx.outputs.wx-root }}
+
+      - name: Build
+        run: cmake --build build/ci
+
+      # CTest exists for parity with the Windows job; skip GUI tests because
+      # the runner has no display (xvfb would mask real failures).
+      - name: Test (non-GUI)
+        working-directory: build/ci
+        run: ctest --output-on-failure -E "EditorTests"
+
+      - name: Stage AppDir
+        run: |
+          set -eux
+          APPDIR="${GITHUB_WORKSPACE}/AppDir"
+          rm -rf "${APPDIR}"
+          cmake --install build/ci --prefix "${APPDIR}/usr"
+
+          # Convert the Windows .ico to PNG for the desktop icon. Pick the
+          # largest frame the .ico contains so HiDPI scaling has source
+          # data; ImageMagick chooses by area.
+          mkdir -p "${APPDIR}/usr/share/icons/hicolor/256x256/apps"
+          convert "src/lib/rc/fbide.ico[0]" -resize 256x256 \
+            "${APPDIR}/usr/share/icons/hicolor/256x256/apps/fbide.png"
+
+          # Top-level icon + .desktop are what AppRun grep's against and
+          # what AppImage tooling expects at the AppDir root.
+          cp "${APPDIR}/usr/share/icons/hicolor/256x256/apps/fbide.png" "${APPDIR}/fbide.png"
+
+          install -Dm644 packaging/linux/fbide.desktop \
+            "${APPDIR}/usr/share/applications/fbide.desktop"
+          cp packaging/linux/fbide.desktop "${APPDIR}/fbide.desktop"
+
+          # AppStream MetaInfo. The component id (reverse-DNS) doubles as
+          # the file's basename — software centres key off the path, so
+          # the leaf must match the <id> inside the XML.
+          install -Dm644 packaging/linux/fbide.metainfo.xml \
+            "${APPDIR}/usr/share/metainfo/io.github.albeva.fbide.metainfo.xml"
+
+          install -Dm755 packaging/linux/AppRun "${APPDIR}/AppRun"
+
+      - name: Download linuxdeploy
+        run: |
+          set -eux
+          curl -fL -o linuxdeploy \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -fL -o linuxdeploy-plugin-gtk \
+            https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh
+          chmod +x linuxdeploy linuxdeploy-plugin-gtk
+
+      - name: Build AppImage
+        env:
+          LDAI_OUTPUT: fbide-${{ needs.version.outputs.version }}-x86_64.AppImage
+        run: |
+          set -eux
+          export PATH="${GITHUB_WORKSPACE}:${PATH}"
+          ./linuxdeploy --appdir AppDir --plugin gtk --output appimage
+          test -f "${LDAI_OUTPUT}"
+          echo "RELEASE_APPIMAGE=${LDAI_OUTPUT}" >> "$GITHUB_ENV"
+
+      - name: Upload release artefact
+        if: needs.version.outputs.release == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-linux-appimage
+          path: ${{ env.RELEASE_APPIMAGE }}
+          retention-days: 1
+          if-no-files-found: error
+
   release:
     name: release
-    needs: [version, build-and-test]
-    if: needs.version.outputs.release == 'true'
+    needs: [version, build-and-test, build-linux-appimage]
+    # `always()` runs the gate regardless of whether upstream jobs were
+    # skipped (selective targets via workflow_dispatch) or not. Then we
+    # require a publishable run AND at least one upstream success — a
+    # full skip / failure across both build jobs leaves nothing to
+    # release.
+    if: |
+      always()
+      && needs.version.outputs.release == 'true'
+      && (needs.build-and-test.result == 'success' || needs.build-linux-appimage.result == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -218,4 +411,6 @@ jobs:
           target_commitish: ${{ github.sha }}
           prerelease: ${{ contains(needs.version.outputs.version, '-') }}
           generate_release_notes: true
-          files: artefacts/*.zip
+          files: |
+            artefacts/*.zip
+            artefacts/*.AppImage

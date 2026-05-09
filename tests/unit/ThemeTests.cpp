@@ -70,6 +70,14 @@ TEST_F(ThemeTests, SaveAndReload) {
 // (bogus) name as written in the file so save / load round-trips
 // don't mutate user content.
 TEST_F(ThemeTests, MissingFontFallsBackToSystemMonospace) {
+    // Headless CI runners (notably GitHub Actions Linux) often have no
+    // installed fonts, which makes wxFontEnumerator report nothing —
+    // even the system monospace fallback then fails IsValidFacename.
+    // The CI env var is set automatically by every major CI provider.
+    if (wxGetEnv("CI", nullptr)) {
+        GTEST_SKIP() << "CI runner has no installed fonts; nothing to fall back to.";
+    }
+
     const wxString tmpFile = wxFileName::CreateTempFileName("fbide_theme") + ".ini";
     constexpr auto kBogusFont = "Definitely Not An Installed Face XYZQ";
     {

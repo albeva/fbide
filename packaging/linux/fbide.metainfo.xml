@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.albeva.fbide</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>FBIde</name>
+  <summary>An open-source IDE for the FreeBASIC compiler</summary>
+  <description>
+    <p>
+      FBIde is an integrated development environment for the FreeBASIC
+      compiler. Features syntax highlighting, code formatting, multiple
+      editor tabs, project sessions, and built-in compilation.
+    </p>
+  </description>
+  <launchable type="desktop-id">fbide.desktop</launchable>
+  <url type="homepage">https://github.com/albeva/fbide</url>
+  <url type="bugtracker">https://github.com/albeva/fbide/issues</url>
+  <developer id="io.github.albeva">
+    <name>Albert Varaksin</name>
+  </developer>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://fbide.freebasic.net/images/screenshots/integrated-file-browser.png</image>
+      <caption>FBIde main window with the integrated file browser</caption>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1"/>
+</component>

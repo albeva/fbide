@@ -242,16 +242,15 @@ void ThemePage::createCategoryList() {
 }
 
 void ThemePage::createLeftPanel() {
-    const auto inheritTip = tr("inheritColor");
+    vbox({ .proportion = 2, .border = 0 }, [this] {
+        const auto addPicker = [&](const wxString& labelText, const wxString& tooltip = {}) -> Unowned<ColorPicker> {
+            auto picker = make_unowned<ColorPicker>(currentParent(), m_theme, m_tr, labelText, tooltip);
+            picker->create();
+            add(picker);
+            return picker;
+        };
 
-    auto addPicker = [&](const wxString& labelText, const wxString& tooltip = {}) -> Unowned<ColorPicker> {
-        auto picker = make_unowned<ColorPicker>(currentParent(), m_theme, m_tr, labelText, tooltip);
-        picker->create();
-        add(picker);
-        return picker;
-    };
-
-    vbox({ .proportion = 2, .border = 0 }, [&] {
+        const auto inheritTip = tr("inheritColor");
         m_fgPicker = addPicker(tr("foreground"), inheritTip);
         spacer();
         m_bgPicker = addPicker(tr("background"), inheritTip);
@@ -261,13 +260,7 @@ void ThemePage::createLeftPanel() {
 
         m_lblFont = text(tr("font"), {});
         m_fontChoice = make_unowned<wxChoice>(currentParent(), wxID_ANY);
-        auto fonts = getAllFixedWidthFonts();
-        fonts.insert(fonts.begin(), "");
-        wxArrayString fontArr;
-        for (const auto& f : fonts) {
-            fontArr.Add(f);
-        }
-        m_fontChoice->Append(fontArr);
+        m_fontChoice->Append(getAllFixedWidthFonts());
         add(m_fontChoice);
         connect(m_lblFont, m_fontChoice);
     });
