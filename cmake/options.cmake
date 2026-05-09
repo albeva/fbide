@@ -6,4 +6,5 @@ endif()
 
 target_compile_definitions(compiler_options INTERFACE
     $<$<CONFIG:Debug>:FBIDE_DEBUG_BUILD>
+    $<$<BOOL:${BUILD_APPIMAGE}>:FBIDE_APPIMAGE_BUILD>
 )

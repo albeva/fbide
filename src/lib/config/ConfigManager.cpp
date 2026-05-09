@@ -237,6 +237,27 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
             // Not in a bundle (e.g., running from build dir)
             m_ideDir = m_appDir / "ide";
         }
+#elif defined(FBIDE_APPIMAGE_BUILD)
+        // FHS layout used by AppImage / future deb / rpm packages: the
+        // binary lives at <prefix>/bin/fbide and resources at
+        // <prefix>/share/fbide/ide. Walk one directory up from the
+        // binary location and look for share/fbide/ide; fall back to
+        // the portable side-by-side layout if that directory is absent
+        // (e.g. running from a build tree before `cmake --install`).
+        wxFileName appPathFn(m_appDir, "");
+        const auto& dirs = appPathFn.GetDirs();
+        if (!dirs.empty() && dirs.back() == "bin") {
+            appPathFn.RemoveLastDir();
+            const wxString prefix = appPathFn.GetPath();
+            const wxString fhsIde = prefix + "/share/fbide/ide";
+            if (wxDirExists(fhsIde)) {
+                m_ideDir = fhsIde;
+            } else {
+                m_ideDir = m_appDir / "ide";
+            }
+        } else {
+            m_ideDir = m_appDir / "ide";
+        }
 #else
         m_ideDir = m_appDir / "ide";
 #endif

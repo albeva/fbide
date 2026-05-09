@@ -21,6 +21,7 @@ on:
       - 'cmake/**'
       - 'CMakeLists.txt'
       - 'configured_files/**'
+      - 'packaging/**'
       - '.github/workflows/ci.yml'
       - '.github/actions/setup-wx/**'
   # Manual trigger lets the workflow run on any branch and pick a build
@@ -191,9 +192,120 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+  # ----------------------------------------------------------------------------
+  # Linux AppImage. Release-only — gated on the same `version.release` flag as
+  # the Windows zips. Builds wxGTK3 via the shared setup-wx action (Linux
+  # branch), compiles FBIde with -DBUILD_APPIMAGE=ON so the install layout
+  # follows FHS, then assembles an AppDir and runs linuxdeploy to produce a
+  # self-contained AppImage. Built on the latest Ubuntu LTS — glibc on the
+  # runner sets the lower-bound for systems the AppImage will run on.
+  # ----------------------------------------------------------------------------
+  build-linux-appimage:
+    name: build-linux-appimage
+    needs: version
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      BUILD_TYPE: Release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up CMake + Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: latest
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libgtk-3-dev libglib2.0-dev libsecret-1-dev libnotify-dev \
+            imagemagick file fuse libfuse2
+
+      - name: Set up wxWidgets (GTK3)
+        id: wx
+        uses: ./.github/actions/setup-wx
+        with:
+          wx-ref: v3.3.2
+          build-type: ${{ env.BUILD_TYPE }}
+
+      - name: Configure
+        run: >
+          cmake -G Ninja -B build/ci
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DBUILD_TESTING=ON
+          -DBUILD_APPIMAGE=ON
+          -DwxWidgets_ROOT_DIR=${{ steps.wx.outputs.wx-root }}
+
+      - name: Build
+        run: cmake --build build/ci
+
+      # CTest exists for parity with the Windows job; skip GUI tests because
+      # the runner has no display (xvfb would mask real failures).
+      - name: Test (non-GUI)
+        working-directory: build/ci
+        run: ctest --output-on-failure -E "EditorTests"
+
+      - name: Stage AppDir
+        run: |
+          set -eux
+          APPDIR="${GITHUB_WORKSPACE}/AppDir"
+          rm -rf "${APPDIR}"
+          cmake --install build/ci --prefix "${APPDIR}/usr"
+
+          # Convert the Windows .ico to PNG for the desktop icon. Pick the
+          # largest frame the .ico contains so HiDPI scaling has source
+          # data; ImageMagick chooses by area.
+          mkdir -p "${APPDIR}/usr/share/icons/hicolor/256x256/apps"
+          convert "src/lib/rc/fbide.ico[0]" -resize 256x256 \
+            "${APPDIR}/usr/share/icons/hicolor/256x256/apps/fbide.png"
+
+          # Top-level icon + .desktop are what AppRun grep's against and
+          # what AppImage tooling expects at the AppDir root.
+          cp "${APPDIR}/usr/share/icons/hicolor/256x256/apps/fbide.png" "${APPDIR}/fbide.png"
+
+          install -Dm644 packaging/linux/fbide.desktop \
+            "${APPDIR}/usr/share/applications/fbide.desktop"
+          cp packaging/linux/fbide.desktop "${APPDIR}/fbide.desktop"
+
+          install -Dm755 packaging/linux/AppRun "${APPDIR}/AppRun"
+
+      - name: Download linuxdeploy
+        run: |
+          set -eux
+          curl -fL -o linuxdeploy \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -fL -o linuxdeploy-plugin-gtk \
+            https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh
+          chmod +x linuxdeploy linuxdeploy-plugin-gtk
+
+      - name: Build AppImage
+        env:
+          OUTPUT: fbide-${{ needs.version.outputs.version }}-x86_64.AppImage
+        run: |
+          set -eux
+          export PATH="${GITHUB_WORKSPACE}:${PATH}"
+          ./linuxdeploy --appdir AppDir --plugin gtk --output appimage
+          # linuxdeploy emits FBIde-<arch>.AppImage; rename to include the version.
+          mv FBIde-*.AppImage "${OUTPUT}"
+          echo "RELEASE_APPIMAGE=${OUTPUT}" >> "$GITHUB_ENV"
+
+      - name: Upload release artefact
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-linux-appimage
+          path: ${{ env.RELEASE_APPIMAGE }}
+          retention-days: 1
+          if-no-files-found: error
+
   release:
     name: release
-    needs: [version, build-and-test]
+    needs: [version, build-and-test, build-linux-appimage]
     if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -218,4 +330,6 @@ jobs:
           target_commitish: ${{ github.sha }}
           prerelease: ${{ contains(needs.version.outputs.version, '-') }}
           generate_release_notes: true
-          files: artefacts/*.zip
+          files: |
+            artefacts/*.zip
+            artefacts/*.AppImage

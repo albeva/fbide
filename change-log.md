@@ -11,6 +11,7 @@
 - Fixed preprocessor lexing of `"_"` which would cause to treat `_` as a line continuation (#54)
 - Chnaged IDE resource directory carrying a `READONLY` sentinel file is now mirrored to `<user-data-dir>/ide` on launch and loaded/saved from there. (#39)
 - Removed classic `wxToolBar` code path; the wxAUI toolbar is now the only implementation on every platform (#11)
+- Added Linux AppImage to the release pipeline; `-DBUILD_APPIMAGE=ON` switches the install layout to FHS and points the resource resolver at `share/fbide/ide/` (#66)
 - Changed log now writes to the per-user data directory by default and flushes after each record so crash diagnostics survive; added `--log-path` to override the location
 
 # Changes since 0.5.0-beta.2
