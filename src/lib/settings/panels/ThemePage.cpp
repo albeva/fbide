@@ -236,11 +236,6 @@ void ThemePage::createCategoryList() {
     const auto root = m_typeTree->AddRoot("(root)");
     addTreeNode(root, categoryTreeLayout());
     m_typeTree->ExpandAll();
-
-    // Default selection — picks the first selectable leaf. The actual
-    // SelectItem call happens at the end of `create()`, after the right-
-    // hand widgets exist, because SelectItem fires SEL_CHANGED which
-    // hits saveCategory()/loadCategory() (both touch the picker widgets).
     m_selectedRow = +SettingsCategory::Default;
 
     add(m_typeTree, {});
