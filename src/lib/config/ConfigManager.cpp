@@ -199,6 +199,31 @@ auto ConfigManager::getTerminal() -> wxString {
 #endif
 }
 
+auto ConfigManager::getTerminalLauncher() -> wxString {
+    return config().get_or("compiler.terminal", getDefaultTerminalLauncher());
+}
+
+auto ConfigManager::getDefaultTerminalLauncher() -> wxString {
+#ifdef __WXMSW__
+    // `cmd /C` runs the program in a new console window allocated by
+    // Windows. Console closes when the program exits — add `& pause` or
+    // a SLEEP at the end of your program if you need to inspect output.
+    // Keeping cmd in the foreground (no `start`) means kill / Stop
+    // cascades through cmd's process group to the child program.
+    return "cmd /C";
+#elif defined(__WXOSX__)
+    // TODO: Terminal.app does not accept the program as a CLI argument;
+    // launching requires AppleScript via `osascript` or a temp `.command`
+    // script. Cannot be expressed as a single-line template prefix.
+    return "";
+#else
+    // `-e` is the de facto flag accepted by the Debian/Ubuntu alternatives
+    // symlink. Distro-specific terminals (gnome-terminal `--`, konsole `-e`)
+    // may need a custom run-command template.
+    return "x-terminal-emulator -e";
+#endif
+}
+
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------

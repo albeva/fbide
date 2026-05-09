@@ -18,7 +18,7 @@ auto RunCommand::build(Context& ctx) const -> wxString {
     );
     return build(
         runTemplate,
-        ConfigManager::getTerminal(),
+        ctx.getConfigManager().getTerminalLauncher(),
         ctx.getCompilerManager().getParameters()
     );
 }

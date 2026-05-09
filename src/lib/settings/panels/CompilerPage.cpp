@@ -8,6 +8,8 @@
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
+#include "document/Document.hpp"
+#include "document/DocumentManager.hpp"
 #include "help/HelpManager.hpp"
 using namespace fbide;
 
@@ -24,7 +26,7 @@ CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 }
 
 void CompilerPage::create() {
-    vbox(tr("dialogs.settings.compiler.compilerAndPaths"), { .border = 0 }, [&] {
+    vbox(tr("dialogs.settings.compiler.compilerAndPaths"), { .proportion = 1, .border = 0 }, [&] {
         compilerPath();
         spacer();
         compilerCommand();
@@ -34,6 +36,8 @@ void CompilerPage::create() {
         spacer();
         helpFile();
 #endif
+        spacer();
+        placeholderTable();
     });
     SetSizerAndFit(currentSizer());
 }
@@ -56,6 +60,10 @@ void CompilerPage::apply() {
 void CompilerPage::compilerPath() {
     const auto [tf, btn] = makeFileEntry(m_compilerPath, tr("dialogs.settings.compiler.compilerPath"));
     m_compilerPathField = tf;
+    tf->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& evt) {
+        setPlaceholderVisible(false);
+        evt.Skip();
+    });
     btn->Bind(wxEVT_BUTTON, [&, tf](wxCommandEvent&) {
         wxFileDialog dlg(
             this, "Select compiler", "", "",
@@ -77,16 +85,32 @@ void CompilerPage::focusCompilerPath() {
 }
 
 void CompilerPage::compilerCommand() {
-    makeEntryField(m_compileCommand, tr("dialogs.settings.compiler.compilerCommand"));
+    m_compileCommandField = makeEntryField(m_compileCommand, tr("dialogs.settings.compiler.compilerCommand"));
+    m_compileCommandField->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& evt) {
+        m_lastFocused = m_compileCommandField;
+        setPlaceholderVisible(true);
+        refreshPlaceholders();
+        evt.Skip();
+    });
 }
 
 void CompilerPage::runCommand() {
-    makeEntryField(m_runCommand, tr("dialogs.settings.compiler.runCommand"));
+    m_runCommandField = makeEntryField(m_runCommand, tr("dialogs.settings.compiler.runCommand"));
+    m_runCommandField->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& evt) {
+        m_lastFocused = m_runCommandField;
+        setPlaceholderVisible(true);
+        refreshPlaceholders();
+        evt.Skip();
+    });
 }
 
 #ifdef __WXMSW__
 void CompilerPage::helpFile() {
     const auto [tf, btn] = makeFileEntry(m_helpFile, tr("dialogs.settings.compiler.helpFile"));
+    tf->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& evt) {
+        setPlaceholderVisible(false);
+        evt.Skip();
+    });
     btn->Bind(wxEVT_BUTTON, [&, tf](wxCommandEvent&) {
         wxFileDialog dlg(
             this, "Select help file", "", "",
@@ -101,6 +125,135 @@ void CompilerPage::helpFile() {
     });
 }
 #endif
+
+void CompilerPage::placeholderTable() {
+    const auto trOr = [this](const wxString& key, const wxString& fallback) {
+        const auto val = tr(key);
+        return val.empty() ? fallback : val;
+    };
+
+    m_placeholderTitle = text(trOr("dialogs.settings.compiler.placeholders.title", "Placeholders (click to insert)"), {});
+    const auto list = make_unowned<wxListCtrl>(
+        currentParent(), wxID_ANY,
+        wxDefaultPosition, wxDefaultSize,
+        wxLC_REPORT | wxLC_SINGLE_SEL
+    );
+    list->AppendColumn(trOr("dialogs.settings.compiler.placeholders.placeholder", "Placeholder"), wxLIST_FORMAT_LEFT, 120);
+    list->AppendColumn(trOr("dialogs.settings.compiler.placeholders.expansion", "Expansion"), wxLIST_FORMAT_LEFT, 400);
+    list->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& evt) {
+        int flags = 0;
+        const long item = m_placeholderList->HitTest(evt.GetPosition(), flags);
+        if (item != wxNOT_FOUND && (flags & wxLIST_HITTEST_ONITEM) != 0) {
+            wxListItem info;
+            info.SetId(item);
+            info.SetColumn(0);
+            info.SetMask(wxLIST_MASK_TEXT);
+            m_placeholderList->GetItem(info);
+            insertPlaceholder(info.GetText());
+            return; // do not Skip — default handler would steal focus to the list
+        }
+        evt.Skip();
+    });
+    list->Bind(wxEVT_SIZE, [list](wxSizeEvent& evt) {
+        const int total = list->GetClientSize().GetWidth();
+        const int col0 = list->GetColumnWidth(0);
+        constexpr int padding = 4;
+        const int col1 = std::max(100, total - col0 - padding);
+        list->SetColumnWidth(1, col1);
+        evt.Skip();
+    });
+    add(list, { .proportion = 1 });
+    m_placeholderList = list;
+    m_lastFocused = m_runCommandField;
+    refreshPlaceholders();
+}
+
+void CompilerPage::setPlaceholderVisible(const bool visible) {
+    if (m_placeholderList == nullptr || m_placeholderTitle == nullptr) {
+        return;
+    }
+    if (m_placeholderList->IsShown() == visible) {
+        return;
+    }
+    m_placeholderTitle->Show(visible);
+    m_placeholderList->Show(visible);
+    Layout();
+}
+
+void CompilerPage::refreshPlaceholders() {
+    if (m_placeholderList == nullptr) {
+        return;
+    }
+    m_placeholderList->DeleteAllItems();
+
+    auto append = [this](const wxString& key, const wxString& value) {
+        const auto idx = m_placeholderList->InsertItem(m_placeholderList->GetItemCount(), key);
+        m_placeholderList->SetItem(idx, 1, value);
+    };
+
+    const wxString source = getSampleSourcePath();
+    const bool isRunContext = (m_lastFocused == m_runCommandField);
+
+    if (isRunContext) {
+        wxFileName exe(source);
+        const auto ext = exe.GetExt().Lower();
+        if (ext == "bas" || ext == "bi") {
+#ifdef __WXMSW__
+            exe.SetExt("exe");
+#else
+            exe.SetExt("");
+#endif
+        }
+        append("<$file>", exe.GetFullPath());
+        append("<$file_path>", exe.GetPath());
+        append("<$file_name>", exe.GetName());
+        append("<$file_ext>", exe.GetExt());
+        append("<$param>", getContext().getCompilerManager().getParameters());
+        append("<$terminal>", getContext().getConfigManager().getTerminalLauncher());
+    } else {
+        wxString fbc = m_compilerPath;
+        if (fbc.empty()) {
+#ifdef __WXMSW__
+            fbc = "C:\\path\\to\\fbc.exe";
+#else
+            fbc = "/path/to/fbc";
+#endif
+        }
+        append("<$fbc>", fbc);
+        append("<$file>", source);
+    }
+}
+
+void CompilerPage::insertPlaceholder(const wxString& placeholder) {
+    if (m_lastFocused == nullptr) {
+        return;
+    }
+    m_lastFocused->WriteText(placeholder);
+    // Defer focus restore: native mouse-down on the list may set focus to
+    // the list after our handler returns, so re-focus the text field on
+    // the next event-loop tick to win the race.
+    auto* target = m_lastFocused;
+    CallAfter([target] {
+        if (target != nullptr) {
+            target->SetFocus();
+        }
+    });
+}
+
+auto CompilerPage::getSampleSourcePath() const -> wxString {
+    if (auto* doc = getContext().getDocumentManager().getActive(); doc != nullptr && !doc->isNew()) {
+        const auto& path = doc->getFilePath();
+        const auto ext = wxFileName(path).GetExt().Lower();
+        if (ext == "bas" || ext == "bi") {
+            return path;
+        }
+    }
+#ifdef __WXMSW__
+    return R"(C:\path\to\example.bas)";
+#else
+    return "/path/to/example.bas";
+#endif
+}
 
 auto CompilerPage::makeEntryField(wxString& value, const wxString& labelText) -> Unowned<wxTextCtrl> {
     const auto lbl = text(labelText, {});

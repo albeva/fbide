@@ -78,8 +78,19 @@ public:
     /// Platform default config file name.
     [[nodiscard]] static auto getPlatformConfigFileName() -> wxString;
 
-    /// Platform default terminal command (for running programs).
+    /// Platform default terminal command — opens a bare terminal window
+    /// with no program inside (used by the "Open command prompt" action).
     [[nodiscard]] static auto getTerminal() -> wxString;
+
+    /// Terminal launcher prefix for `<$terminal>` substitution in the run
+    /// command. Reads `compiler.terminal` from config; falls back to a
+    /// platform default. Empty on platforms where the launcher cannot be
+    /// expressed as a command-line prefix (currently macOS).
+    [[nodiscard]] auto getTerminalLauncher() -> wxString;
+
+    /// Platform default for `compiler.terminal` — used when the config
+    /// key is missing or empty.
+    [[nodiscard]] static auto getDefaultTerminalLauncher() -> wxString;
 
     // -----------------------------------------------------------------------
     // Init
