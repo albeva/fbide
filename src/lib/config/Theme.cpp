@@ -313,11 +313,11 @@ void Theme::derivePpEntriesFromBase() {
     // loader populated those entries (with wxNullColour fields) above.
     const auto& ppBg = m_categories[+ThemeCategory::Preprocessor].colors.background;
     for (const auto& [pp, base] : kPpDerivedCategories) {
-        auto& entry = m_categories[+pp];
+        auto& entry = m_categories[static_cast<std::size_t>(+pp)];
         if (entry != Entry {}) {
             continue;
         }
-        const auto& src = m_categories[+base];
+        const auto& src = m_categories[static_cast<std::size_t>(+base)];
         entry = {
             .colors = { .foreground = src.colors.foreground, .background = ppBg },
             .bold = src.bold,
@@ -442,7 +442,7 @@ void Theme::loadV4(const wxString& themePath) {
 
     // Legacy v4 themes never carried PP-context entries. Reset and derive.
     for (const auto& pp : kPpDerivedCategories | std::views::keys) {
-        m_categories[+pp] = {};
+        m_categories[static_cast<std::size_t>(+pp)] = {};
     }
     derivePpEntriesFromBase();
 

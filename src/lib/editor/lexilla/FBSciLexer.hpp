@@ -71,6 +71,7 @@ public:
     /// Packed into a single int for Scintilla compatibility.
     /// Public so the analyses/lexer adapter can read it via IStyledSource.
     struct alignas(int) LineState final {
+        constexpr LineState() = default;
         bool continueLine     : 1 = false;          ///< Line ends in `_` continuation.
         bool isFirst          : 1 = false;          ///< This is the first significant line of the source.
         bool continuePP       : 1 = false;          ///< Inside a continued preprocessor directive.

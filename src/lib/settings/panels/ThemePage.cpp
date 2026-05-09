@@ -14,16 +14,6 @@ using namespace fbide;
 
 namespace {
 
-/// Lowercase the first character — used for locale key lookup
-/// ("LineNumber" → "lineNumber").
-auto lowerFirst(const std::string_view name) -> wxString {
-    wxString out = wxString::FromAscii(name.data(), name.size());
-    if (not out.empty()) {
-        out[0] = wxTolower(out[0]);
-    }
-    return out;
-}
-
 // ---------------------------------------------------------------------------
 // Theme category helpers
 // ---------------------------------------------------------------------------
@@ -59,15 +49,7 @@ void writeCategory(Theme& theme, const SettingsCategory cat, const Theme::Entry&
     }
 }
 
-/// Static layout descriptor for the category tree.
-struct TreeNode {
-    wxString labelKey;                        ///< Locale key under `categories.`
-    wxString fallbackLabel;                   ///< Used if locale key missing.
-    std::optional<SettingsCategory> category; ///< Empty for folder nodes.
-    std::vector<TreeNode> children;
-};
-
-auto categoryTreeLayout() -> std::vector<TreeNode> {
+auto categoryTreeLayout() -> std::vector<ThemePage::TreeNode> {
     using SC = SettingsCategory;
     // clang-format off
     return {
@@ -230,6 +212,20 @@ void ThemePage::createTopRow() {
     });
 }
 
+void ThemePage::addTreeNode(const wxTreeItemId parent, const std::vector<TreeNode>& nodes) {
+    for (const auto& node : nodes) {
+        const auto label = tr("categories." + node.labelKey, node.fallbackLabel);
+        const auto id = m_typeTree->AppendItem(parent, label);
+        if (node.category) {
+            m_treeCategories.emplace(id.GetID(), *node.category);
+            m_typeTree->SetItemBold(id, true);
+        }
+        if (!node.children.empty()) {
+            addTreeNode(id, node.children);
+        }
+    }
+}
+
 void ThemePage::createCategoryList() {
     m_typeTree = make_unowned<wxTreeCtrl>(
         currentParent(), ID_CATEGORY_TREE,
@@ -238,26 +234,7 @@ void ThemePage::createCategoryList() {
     );
 
     const auto root = m_typeTree->AddRoot("(root)");
-
-    // Recursively materialise the layout into wx tree items. Selectable
-    // nodes are tracked in `m_treeCategories` keyed by item id; folder
-    // nodes are absent from the map so the SEL_CHANGING handler can veto
-    // selection on them without a per-item heap allocation.
-    auto addNodes = [&](this auto& self, const wxTreeItemId parent, const std::vector<TreeNode>& nodes) -> void {
-        for (const auto& node : nodes) {
-            const auto label = tr("categories." + node.labelKey, node.fallbackLabel);
-            const auto id = m_typeTree->AppendItem(parent, label);
-            if (node.category) {
-                m_treeCategories.emplace(id.GetID(), *node.category);
-                m_typeTree->SetItemBold(id, true);
-            }
-            if (!node.children.empty()) {
-                self(id, node.children);
-            }
-        }
-    };
-
-    addNodes(root, categoryTreeLayout());
+    addTreeNode(root, categoryTreeLayout());
     m_typeTree->ExpandAll();
 
     // Default selection — picks the first selectable leaf. The actual
