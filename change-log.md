@@ -1,6 +1,5 @@
 # Changes since 0.5.0-beta.3
 
-- Application log now writes to the per-user data directory by default and flushes after each record so crash diagnostics survive; added `--log-path` to override the location
 - Added new cobalt theme (Gothon)
 - New styles for preprocessir identifier, number, operator and strings
 - Changed theme settings to use a tree layout, for easier overview
@@ -10,6 +9,8 @@
 - Fixed single-line `asm` statements no longer treated as multi-line block openers (#46)
 - Fixed auto-indent and code formatter no longer add `End Asm` closer / indent body for single-line `asm` (#46)
 - Fixed preprocessor lexing of `"_"` which would cause to treat `_` as a line continuation (#54)
+- Chnaged IDE resource directory carrying a `READONLY` sentinel file is now mirrored to `<user-data-dir>/ide` on launch and loaded/saved from there. (#39)
+- Changed log now writes to the per-user data directory by default and flushes after each record so crash diagnostics survive; added `--log-path` to override the location
 
 # Changes since 0.5.0-beta.2
 

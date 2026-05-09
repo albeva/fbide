@@ -33,6 +33,55 @@ void dismissSplash() {
 } // namespace
 
 namespace {
+/// Sentinel filename. When present in the IDE resources directory, that
+/// directory is treated as read-only (e.g. inside a macOS .app bundle,
+/// AppImage, or signed Windows install) and the resources are mirrored
+/// to a writable per-user copy on first launch.
+constexpr auto kReadOnlySentinel = "READONLY";
+
+/// True when the IDE resources directory carries the read-only sentinel.
+auto hasReadOnlySentinel(const wxString& dir) -> bool {
+    wxFileName marker(dir, kReadOnlySentinel);
+    return marker.FileExists();
+}
+
+/// Recursively copy every file under `src` to `dst`, skipping any file
+/// that already exists at the destination. Returns the number of files
+/// copied. The sentinel itself is never propagated. Missing directories
+/// at the destination are created on demand.
+auto copyMissingResources(const wxString& src, const wxString& dst) -> std::size_t {
+    std::size_t copied = 0;
+    if (!wxFileName::Mkdir(dst, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL)) {
+        wxLogWarning("Failed to create user resources directory '%s'", dst);
+        return 0;
+    }
+
+    wxDir dir(src);
+    if (!dir.IsOpened()) {
+        return 0;
+    }
+
+    wxString name;
+    bool more = dir.GetFirst(&name, wxEmptyString, wxDIR_FILES | wxDIR_DIRS);
+    while (more) {
+        const wxString srcPath = src + wxFILE_SEP_PATH + name;
+        const wxString dstPath = dst + wxFILE_SEP_PATH + name;
+        if (wxDirExists(srcPath)) {
+            copied += copyMissingResources(srcPath, dstPath);
+        } else if (name != kReadOnlySentinel && !wxFileExists(dstPath)) {
+            if (wxCopyFile(srcPath, dstPath, /*overwrite=*/false)) {
+                ++copied;
+            } else {
+                wxLogWarning("Failed to copy '%s' to '%s'", srcPath, dstPath);
+            }
+        }
+        more = dir.GetNext(&name);
+    }
+    return copied;
+}
+} // namespace
+
+namespace {
 /// True when `a` and `b` refer to the same filesystem entry. Follows
 /// symlinks on both sides via std::filesystem::equivalent, so editing a
 /// config file through a symlink still matches the loaded canonical path.
@@ -197,8 +246,32 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
         return;
     }
 
+    // Read-only IDE directory sentinel. When present and the user has
+    // not asked for an explicit override, mirror the resources to a
+    // writable per-user copy under wxStandardPaths::GetUserDataDir() and
+    // load/save from there. Lets bundles, AppImages, and signed
+    // installers ship truly immutable resource trees while still letting
+    // FBIde edit themes, layouts, etc. CLI overrides bypass the mirror
+    // (the user knows where they pointed FBIde) — warn so the bypass
+    // isn't silent.
+    const bool cliOverride = !idePath.empty() || !configPath.empty();
+    const bool readOnlyIde = hasReadOnlySentinel(m_ideDir);
+    if (cliOverride && readOnlyIde) {
+        wxLogWarning(
+            "READONLY sentinel found in '%s' but ignored — --ide / --config override is in effect",
+            m_ideDir
+        );
+    } else if (readOnlyIde) {
+        const wxString userIdeDir = wxStandardPaths::Get().GetUserDataDir() + wxFILE_SEP_PATH + "ide";
+        wxLogMessage("READONLY ide directory '%s' detected; mirroring to '%s'", m_ideDir, userIdeDir);
+        const auto copied = copyMissingResources(m_ideDir, userIdeDir);
+        wxLogMessage("Copied %zu missing resource file(s) into '%s'", copied, userIdeDir);
+        m_ideDir = userIdeDir;
+    }
+
     auto& entry = m_categories[static_cast<std::size_t>(Category::Config)];
     entry.path = absolute(configPath.empty() ? getPlatformConfigFileName() : configPath);
+    wxLogMessage("ide directory: %s", m_ideDir);
     load(Category::Config);
 
     // Load all configs
@@ -213,6 +286,7 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
         const auto themeAbs = absolute(themeRel);
         if (wxFileExists(themeAbs)) {
             m_theme.load(themeAbs);
+            wxLogMessage("Loaded theme from %s", themeAbs);
         } else {
             wxLogError("Theme file '%s' not found — using built-in default", themeAbs);
             m_theme.loadDefaults();
@@ -341,6 +415,7 @@ void ConfigManager::load(const Category category) {
     entry.category = category;
     entry.path = file;
     entry.root = std::move(root);
+    wxLogMessage("Loaded %s from %s", getCategoryName(category).data(), file);
 }
 
 void ConfigManager::save(const Category category) {
