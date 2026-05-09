@@ -6,6 +6,7 @@
 //
 #include <wx/app.h>
 #include <wx/frame.h>
+#include <wx/log.h>
 #include <gtest/gtest.h>
 
 namespace {
@@ -33,6 +34,10 @@ public:
         if (!wxTheApp || !wxTheApp->CallOnInit()) {
             throw std::runtime_error("wxWidgets init failed");
         }
+        // Replace wxLogGui (the default for wxApp builds) with stderr so
+        // log records emitted during tests don't surface as modal dialogs
+        // that block the wxUIActionSimulator input pump.
+        delete wxLog::SetActiveTarget(new wxLogStderr());
     }
 
     void TearDown() override {
