@@ -260,13 +260,7 @@ void ThemePage::createLeftPanel() {
 
         m_lblFont = text(tr("font"), {});
         m_fontChoice = make_unowned<wxChoice>(currentParent(), wxID_ANY);
-        auto fonts = getAllFixedWidthFonts();
-        fonts.insert(fonts.begin(), "");
-        wxArrayString fontArr;
-        for (const auto& f : fonts) {
-            fontArr.Add(f);
-        }
-        m_fontChoice->Append(fontArr);
+        m_fontChoice->Append(getAllFixedWidthFonts());
         add(m_fontChoice);
         connect(m_lblFont, m_fontChoice);
     });
