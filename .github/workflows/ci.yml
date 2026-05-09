@@ -208,7 +208,7 @@ jobs:
     permissions:
       contents: read
     env:
-      BUILD_TYPE: Release
+      BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
