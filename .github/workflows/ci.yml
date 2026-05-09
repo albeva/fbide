@@ -336,14 +336,13 @@ jobs:
 
       - name: Build AppImage
         env:
-          OUTPUT: fbide-${{ needs.version.outputs.version }}-x86_64.AppImage
+          LDAI_OUTPUT: fbide-${{ needs.version.outputs.version }}-x86_64.AppImage
         run: |
           set -eux
           export PATH="${GITHUB_WORKSPACE}:${PATH}"
           ./linuxdeploy --appdir AppDir --plugin gtk --output appimage
-          # linuxdeploy emits FBIde-<arch>.AppImage; rename to include the version.
-          mv FBIde-*.AppImage "${OUTPUT}"
-          echo "RELEASE_APPIMAGE=${OUTPUT}" >> "$GITHUB_ENV"
+          test -f "${LDAI_OUTPUT}"
+          echo "RELEASE_APPIMAGE=${LDAI_OUTPUT}" >> "$GITHUB_ENV"
 
       - name: Upload release artefact
         if: needs.version.outputs.release == 'true'
