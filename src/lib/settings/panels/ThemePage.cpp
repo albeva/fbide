@@ -242,16 +242,15 @@ void ThemePage::createCategoryList() {
 }
 
 void ThemePage::createLeftPanel() {
-    const auto inheritTip = tr("inheritColor");
+    vbox({ .proportion = 2, .border = 0 }, [this] {
+        const auto addPicker = [&](const wxString& labelText, const wxString& tooltip = {}) -> Unowned<ColorPicker> {
+            auto picker = make_unowned<ColorPicker>(currentParent(), m_theme, m_tr, labelText, tooltip);
+            picker->create();
+            add(picker);
+            return picker;
+        };
 
-    auto addPicker = [&](const wxString& labelText, const wxString& tooltip = {}) -> Unowned<ColorPicker> {
-        auto picker = make_unowned<ColorPicker>(currentParent(), m_theme, m_tr, labelText, tooltip);
-        picker->create();
-        add(picker);
-        return picker;
-    };
-
-    vbox({ .proportion = 2, .border = 0 }, [&] {
+        const auto inheritTip = tr("inheritColor");
         m_fgPicker = addPicker(tr("foreground"), inheritTip);
         spacer();
         m_bgPicker = addPicker(tr("background"), inheritTip);
