@@ -35,6 +35,24 @@ on:
         default: Release
         type: choice
         options: [Release, Debug, RelWithDebInfo]
+      # Per-target gates for manual runs. Defaults match push-to-main
+      # (everything builds). Push events don't expose `inputs.*`, so the
+      # job-level guards fall through to true for those.
+      build_win64:
+        description: Build Windows x64
+        required: false
+        default: true
+        type: boolean
+      build_win32:
+        description: Build Windows x86
+        required: false
+        default: true
+        type: boolean
+      build_linux_appimage:
+        description: Build Linux AppImage
+        required: false
+        default: true
+        type: boolean
 
 # Cancel an older run on the same ref/PR when a new one starts — saves runner
 # minutes when commits land in quick succession.
@@ -63,6 +81,8 @@ jobs:
       version: ${{ steps.resolve.outputs.value }}
       tag: ${{ steps.resolve.outputs.tag }}
       release: ${{ steps.resolve.outputs.release }}
+      win-archs: ${{ steps.targets.outputs.win-archs }}
+      build-linux-appimage: ${{ steps.targets.outputs.build-linux-appimage }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -99,9 +119,34 @@ jobs:
             echo "release=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Resolve which targets to build into a JSON arch list (consumed by
+      # build-and-test's matrix) plus a boolean for the AppImage job.
+      # Push events build everything; workflow_dispatch honours the
+      # per-target checkboxes from the run dialog.
+      - name: Resolve build targets
+        id: targets
+        shell: bash
+        env:
+          BUILD_WIN64: ${{ inputs.build_win64 }}
+          BUILD_WIN32: ${{ inputs.build_win32 }}
+          BUILD_LINUX: ${{ inputs.build_linux_appimage }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            echo 'win-archs=["x64","x86"]' >> "$GITHUB_OUTPUT"
+            echo 'build-linux-appimage=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          archs=()
+          [ "$BUILD_WIN64" = "true" ] && archs+=('"x64"')
+          [ "$BUILD_WIN32" = "true" ] && archs+=('"x86"')
+          IFS=,
+          echo "win-archs=[${archs[*]}]" >> "$GITHUB_OUTPUT"
+          echo "build-linux-appimage=${BUILD_LINUX:-true}" >> "$GITHUB_OUTPUT"
+
   build-and-test:
     name: build-and-test (${{ matrix.arch }})
     needs: version
+    if: needs.version.outputs.win-archs != '[]'
     runs-on: windows-latest
     timeout-minutes: 30
     strategy:
@@ -109,7 +154,7 @@ jobs:
       # which platform broke.
       fail-fast: false
       matrix:
-        arch: [x64, x86]
+        arch: ${{ fromJSON(needs.version.outputs.win-archs) }}
     permissions:
       contents: read
     # Manual runs honour the chosen build type; push-to-main defaults to
@@ -203,6 +248,7 @@ jobs:
   build-linux-appimage:
     name: build-linux-appimage
     needs: version
+    if: needs.version.outputs.build-linux-appimage == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -233,13 +279,18 @@ jobs:
           wx-ref: v3.3.2
           build-type: ${{ env.BUILD_TYPE }}
 
+      # WXWIN switches cmake/wxwidgets.cmake to CONFIG mode (matches the
+      # Windows path) and finds wxWidgetsConfig.cmake under the cached
+      # dist's lib/cmake/wxWidgets/. wxWidgets_ROOT_DIR + the legacy
+      # FindwxWidgets module expects the prebuilt-binaries layout we don't
+      # produce from `cmake --install`.
       - name: Configure
         run: >
           cmake -G Ninja -B build/ci
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
           -DBUILD_TESTING=ON
           -DBUILD_APPIMAGE=ON
-          -DwxWidgets_ROOT_DIR=${{ steps.wx.outputs.wx-root }}
+          -DWXWIN=${{ steps.wx.outputs.wx-root }}
 
       - name: Build
         run: cmake --build build/ci
