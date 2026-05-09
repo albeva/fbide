@@ -13,6 +13,7 @@
 - Removed classic `wxToolBar` code path; the wxAUI toolbar is now the only implementation on every platform (#11)
 - Added Linux AppImage to the release pipeline; `-DBUILD_APPIMAGE=ON` switches the install layout to FHS and points the resource resolver at `share/fbide/ide/` (#66)
 - Changed log now writes to the per-user data directory by default and flushes after each record so crash diagnostics survive; added `--log-path` to override the location
+- Changed `<$terminal>` placeholder is now read from `compiler.terminal` config and is a launcher prefix that runs the program in a new terminal (Win: `cmd /C start "" cmd /K`, Linux: `x-terminal-emulator -e`); added a click-to-insert placeholder reference table to the Compiler settings tab (#45)
 
 # Changes since 0.5.0-beta.2
 

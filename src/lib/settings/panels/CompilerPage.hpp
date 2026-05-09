@@ -44,6 +44,16 @@ private:
     /// Build the CHM help-file path picker row (Windows only).
     void helpFile();
 #endif
+    /// Build the placeholder reference list (click-to-insert).
+    void placeholderTable();
+    /// Repopulate the placeholder list for the currently-focused command field.
+    void refreshPlaceholders();
+    /// Insert `placeholder` at the cursor of the most recently focused command field.
+    void insertPlaceholder(const wxString& placeholder);
+    /// Show or hide the placeholder list + its title in unison.
+    void setPlaceholderVisible(bool visible);
+    /// Path used as `<$file>` example — active FB document if any, otherwise a fixed sample.
+    [[nodiscard]] auto getSampleSourcePath() const -> wxString;
 
     /// Create a labelled text-entry field bound to `value`.
     auto makeEntryField(wxString& value, const wxString& labelText) -> Unowned<wxTextCtrl>;
@@ -56,7 +66,12 @@ private:
 #ifdef __WXMSW__
     wxString m_helpFile;         ///< CHM help-file path (Windows only).
 #endif
-    Unowned<wxTextCtrl> m_compilerPathField {}; ///< Cached compiler-path entry for `focusCompilerPath`.
+    Unowned<wxTextCtrl> m_compilerPathField {};   ///< Cached compiler-path entry for `focusCompilerPath`.
+    Unowned<wxTextCtrl> m_compileCommandField {}; ///< Cached compile-command entry (target of placeholder inserts).
+    Unowned<wxTextCtrl> m_runCommandField {};     ///< Cached run-command entry (target of placeholder inserts).
+    Unowned<wxStaticText> m_placeholderTitle {};  ///< Heading shown above `m_placeholderList`; hidden together.
+    Unowned<wxListCtrl> m_placeholderList {};     ///< Click-to-insert placeholder reference table.
+    wxTextCtrl* m_lastFocused = nullptr;          ///< Most recently focused command field (insert target).
 };
 
 } // namespace fbide
