@@ -36,20 +36,13 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL
         -Wnon-virtual-dtor
         -Wold-style-cast
         -Woverloaded-virtual
+        -Wnull-dereference
         -Wformat=2
         -Wimplicit-fallthrough
         -Wcast-align
         -Wunused
         -Wdouble-promotion
     )
-
-    # Clang-only — GCC's -Wnull-dereference fires false positives through
-    # wx header inlining (e.g. wxString::ConvertedBuffer in vector growth)
-    # because GCC charges the diagnostic to our call site even when the
-    # potential null is in third-party code we already mark as -isystem.
-    if(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang")
-        target_compile_options(compiler_warnings INTERFACE -Wnull-dereference)
-    endif()
 
     # GCC-specific warnings
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
