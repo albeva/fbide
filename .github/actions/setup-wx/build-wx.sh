@@ -14,10 +14,9 @@
 # in YAML where Dependabot can see it.
 set -euo pipefail
 
-WX_IPO=OFF
-case "${WX_BUILD_TYPE}" in
-    Release|RelWithDebInfo|MinSizeRel) WX_IPO=ON ;;
-esac
+# IPO is always off for the Linux/GCC wx build — known wx + GCC LTO
+# failure (link-time codegen errors out of static wx libs) and the
+# Windows/MSVC build is the one that benefits from it anyway.
 
 mkdir -p "${WX_BUILD_DIR}" "${WX_DIST_DIR}"
 
@@ -25,7 +24,7 @@ cmake -S "${WX_SRC_DIR}" -B "${WX_BUILD_DIR}" \
     -G Ninja \
     -DCMAKE_BUILD_TYPE="${WX_BUILD_TYPE}" \
     -DCMAKE_INSTALL_PREFIX="${WX_DIST_DIR}" \
-    -DCMAKE_INTERPROCEDURAL_OPTIMIZATION="${WX_IPO}" \
+    -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF \
     -DwxBUILD_TOOLKIT=gtk3 \
     -DwxBUILD_SHARED=OFF \
     -DwxBUILD_MONOLITHIC=OFF \
