@@ -395,31 +395,19 @@ void UIManager::configureToolBar() {
         const auto& items = cfg.layout().at("toolbar");
         const auto& commands = cfg.locale().at("commands");
 
-        // Experimental: route the toolbar through wxAUI when
-        // `toolbar.useAui=1` in config. Off by default; not yet exposed
-        // in the Settings dialog. See GitHub issue #11.
-        const bool useAui = cfg.config().get_or("toolbar.useAui", false);
-        const bool createTools = (m_toolbar == nullptr && m_auiToolbar == nullptr);
+        const bool createTools = (m_auiToolbar == nullptr);
 
         if (createTools) {
-            if (useAui) {
-                m_auiToolbar = make_unowned<wxAuiToolBar>(
-                    m_frame, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                    wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_GRIPPER | wxAUI_TB_OVERFLOW
-                );
-            } else {
-                m_toolbar = m_frame->CreateToolBar(wxNO_BORDER | wxTB_HORIZONTAL | wxTB_FLAT);
-            }
+            m_auiToolbar = make_unowned<wxAuiToolBar>(
+                m_frame, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_GRIPPER | wxAUI_TB_OVERFLOW
+            );
         }
 
         for (const auto& key : items.asArray()) {
             if (key == "-") {
                 if (createTools) {
-                    if (m_auiToolbar != nullptr) {
-                        m_auiToolbar->AddSeparator();
-                    } else {
-                        m_toolbar->AddSeparator();
-                    }
+                    m_auiToolbar->AddSeparator();
                 }
                 continue;
             }
@@ -437,17 +425,12 @@ void UIManager::configureToolBar() {
 
             // Reconfigure path (locale change etc.) — refresh tooltips,
             // skip re-add.
-            if (m_auiToolbar != nullptr && entry->get<wxAuiToolBar>() != nullptr) {
+            if (entry->get<wxAuiToolBar>() != nullptr) {
                 if (auto* item = m_auiToolbar->FindTool(entry->id)) {
                     item->SetLabel(name);
                     item->SetShortHelp(help);
                     item->SetLongHelp(help);
                 }
-                continue;
-            }
-            if (m_toolbar != nullptr && entry->get<wxToolBarToolBase>() != nullptr) {
-                m_toolbar->SetToolShortHelp(entry->id, help);
-                m_toolbar->SetToolLongHelp(entry->id, help);
                 continue;
             }
 
@@ -457,34 +440,25 @@ void UIManager::configureToolBar() {
                 continue;
             }
 
-            if (m_auiToolbar != nullptr) {
-                m_auiToolbar->AddTool(entry->id, name, bitmap, help, entry->kind);
-                m_auiToolbar->SetToolLongHelp(entry->id, help);
-                entry->binds.push_back(m_auiToolbar.get());
-            } else {
-                auto* tool = m_toolbar->AddTool(entry->id, name, bitmap, help, entry->kind);
-                entry->binds.push_back(tool);
-            }
+            m_auiToolbar->AddTool(entry->id, name, bitmap, help, entry->kind);
+            m_auiToolbar->SetToolLongHelp(entry->id, help);
+            entry->binds.push_back(m_auiToolbar.get());
         }
 
         if (createTools) {
-            if (m_auiToolbar != nullptr) {
-                m_auiToolbar->Realize();
-                m_aui.AddPane(
-                    m_auiToolbar.get(),
-                    wxAuiPaneInfo()
-                        .Name("toolbar")
-                        .ToolbarPane()
-                        .Top()
-                        .Gripper(false)
-                        .CaptionVisible(false)
-                        .DockFixed(true)
-                        .CloseButton(false)
-                        .PaneBorder(false)
-                );
-            } else {
-                m_toolbar->Realize();
-            }
+            m_auiToolbar->Realize();
+            m_aui.AddPane(
+                m_auiToolbar.get(),
+                wxAuiPaneInfo()
+                    .Name("toolbar")
+                    .ToolbarPane()
+                    .Top()
+                    .Gripper(false)
+                    .CaptionVisible(false)
+                    .DockFixed(true)
+                    .CloseButton(false)
+                    .PaneBorder(false)
+            );
         }
     } catch (const std::exception& ex) {
         wxLogError("Invalid layout config for toolbar: %s", ex.what());
@@ -694,9 +668,8 @@ void UIManager::setTitle(const wxString& title) {
 
 void UIManager::disable(const std::ranges::range auto& range) const {
     // Route every state change through CommandEntry. The entry's
-    // visitor handles each bound control type (menu item, classic
-    // wxToolBar tool, wxAuiToolBar tool), so this loop doesn't care
-    // which toolbar flavour is active.
+    // visitor handles each bound control type (menu item, AUI toolbar
+    // tool), so this loop stays control-agnostic.
     //
     // Semantics (preserved from the previous direct-poke version):
     // commands listed in `range` get disabled, every other mutable id

@@ -18,7 +18,7 @@ construction.
 | Member               | Wrapper             | Notes                                       |
 |----------------------|---------------------|---------------------------------------------|
 | `m_frame`            | `Unowned<wxFrame>`  | Top-level frame; wx parent of all chrome.   |
-| `m_toolbar`          | `Unowned<wxToolBar>`| Built from `layout.ini`'s `toolbar=` line.  |
+| `m_auiToolbar`       | `Unowned<wxAuiToolBar>` | Built from `layout.ini`'s `toolbar=` line, docked via `m_aui`. |
 | `m_notebook`         | `Unowned<wxAuiNotebook>` | Document tabs.                         |
 | `m_sideBar`          | `Unowned<wxAuiNotebook>` | Browser / Subs sidebar notebook.       |
 | `m_console`          | `Unowned<OutputConsole>` | Build / error output.                  |
@@ -43,7 +43,7 @@ createMainFrame()
     ├─ configureMenuBar()   ← walks layout.ini [menu] sections,
     │                          calls CommandManager::find(name)
     │                          to attach wxMenuItem* binds.
-    ├─ configureToolBar()   ← same model, wxToolBarToolBase* binds.
+    ├─ configureToolBar()   ← same model, wxAuiToolBar* binds.
     ├─ generateExternalLinks() ← Help-menu external-links submenu
     │                            via CommandManager::registerExternalLink.
     ├─ DocumentManager::attachNotebook()  ← bind tab-strip events
