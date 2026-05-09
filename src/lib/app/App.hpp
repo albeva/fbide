@@ -63,6 +63,7 @@ private:
     struct CliOptions {
         wxString configPath;           ///< `--config <path>`.
         wxString idePath;              ///< `--ide <path>`.
+        wxString logPath;              ///< `--log-path <path>` (empty → user data dir default).
         wxString cfgKey;               ///< `--cfg=[<category>:]<key>` (non-empty → print + exit).
         wxString loadSession;          ///< `--load-session <path>`.
         wxArrayString files;           ///< Positional file paths.
@@ -103,6 +104,7 @@ private:
     bool m_verbose = false;                             ///< Effective value of `--verbose` — replayed on relaunch.
     wxString m_configPath;                              ///< `--config <path>` value, if any — replayed on relaunch.
     wxString m_idePath;                                 ///< `--ide <path>` value, if any — replayed on relaunch.
+    wxString m_logPath;                                 ///< `--log-path <path>` value, if any — replayed on relaunch.
 };
 
 } // namespace fbide

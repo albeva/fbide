@@ -10,7 +10,7 @@
 #include "format/transformers/case/CaseTransform.hpp"
 
 namespace fbide {
-class Context;
+class ConfigManager;
 class Editor;
 
 /// Per-Editor driver for on-type code transforms:
@@ -27,7 +27,7 @@ public:
     NO_COPY_AND_MOVE(CodeTransformer)
 
     /// Construct and seed from `editor.*` config keys.
-    explicit CodeTransformer(Context& ctx);
+    explicit CodeTransformer(ConfigManager& configManager);
     /// Destroy, releasing the internal Lexer.
     ~CodeTransformer();
 
@@ -54,6 +54,14 @@ public:
 private:
     /// Auto-indent the new line and (if appropriate) emit a matching closer.
     void applyIndentAndCloser(Editor& editor);
+    /// True when `prevLine` already has a body below it (fold header flag),
+    /// implying its closer also exists — suppress auto-emitting another.
+    [[nodiscard]] static auto blockAlreadyClosed(Editor& editor, int prevLine) -> bool;
+    /// Target indent for `prevLine` when it carries a closer/mid keyword.
+    /// Walks up to the nearest fold header (opener) and snaps to its indent;
+    /// returns -1 to leave `prevLine` alone (no opener found, or already
+    /// aligned with an opener at the same indent).
+    [[nodiscard]] static auto dedentTarget(Editor& editor, int prevLine) -> int;
     /// Run the keyword-case transform on the word the caret just left.
     void applyWordCase(Editor& editor);
     /// Transform a single word range to its configured case.
@@ -63,7 +71,7 @@ private:
     /// Render `words` to the canonical closer text using the active editor's case rules.
     [[nodiscard]] auto renderCloser(std::span<const std::string_view> words) const -> wxString;
 
-    Context& m_ctx;                  ///< Application context.
+    ConfigManager& m_configManager;  ///< Config source — drives settings/keyword reload.
     bool m_autoIndent = true;        ///< Master toggle for auto-indent.
     bool m_transformKeywords = true; ///< Master toggle for keyword case transform.
     std::array<CaseMode, kThemeKeywordGroupsCount> m_keywordCases {}; ///< Per-keyword-group case mode.

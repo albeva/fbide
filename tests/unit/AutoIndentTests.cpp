@@ -166,6 +166,17 @@ TEST_F(AutoIndentTests, InlineForLoopWithNextDoesNotOpen) {
     EXPECT_TRUE(neutral("For i = 1 To 10 : Print i : Next"));
 }
 
+TEST_F(AutoIndentTests, SingleLineAsmDoesNotOpen) {
+    // FB single-line `asm <stmt>` is a one-shot statement — no block.
+    EXPECT_TRUE(neutral("Asm mov eax, 10"));
+    EXPECT_TRUE(neutral("Asm nop"));
+    EXPECT_TRUE(neutral("    Asm mov eax, 10"));
+}
+
+TEST_F(AutoIndentTests, SingleLineAsmEmitsNoCloser) {
+    EXPECT_TRUE(closerWords("Asm mov eax, 10").empty());
+}
+
 TEST_F(AutoIndentTests, EmptyAndCommentOnlyLines) {
     EXPECT_TRUE(neutral(""));
     EXPECT_TRUE(neutral("    "));

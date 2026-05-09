@@ -1,4 +1,21 @@
-# Change since 0.5.0-beta.2
+# Changes since 0.5.0-beta.3
+
+- Added new cobalt theme (Gothon)
+- New styles for preprocessor identifier, number, operator and strings
+- Changed theme settings to use a tree layout for an easier overview
+- Fixed wstring and zstring classification, moved them to type keywords (#47)
+- Fixed detection when a compound statement closer is not needed (#50)
+- Fixed avoid de-indenting compound statement closers beyond opener level (#48)
+- Fixed single-line `asm` statements no longer treated as multi-line block openers (#46)
+- Fixed auto-indent and code formatter no longer add `End Asm` closer / indent body for single-line `asm` (#46)
+- Fixed preprocessor lexing of `"_"` which would cause `_` to be treated as a line continuation (#54)
+- Changed IDE resource directory carrying a `READONLY` sentinel file is now mirrored to `<user-data-dir>/ide` on launch and loaded/saved from there. (#39)
+- Added Linux AppImage to the release pipeline; `-DBUILD_APPIMAGE=ON` switches the install layout to FHS and points the resource resolver at `share/fbide/ide/` (#66)
+- Changed log now writes to the per-user data directory by default and flushes after each record, so crash diagnostics survive; added `--log-path` to override the location
+- Changed `<$terminal>` placeholder is now read from `compiler.terminal` config(#45)
+- Added run and compile command placeholder table.
+
+# Changes since 0.5.0-beta.2
 
 - Fixed issue with auto-indent not working when keyword case transform was disabled (#24)
 - Fixed issue with REM comment followed by newline, which caused next line to be a comment (#28)

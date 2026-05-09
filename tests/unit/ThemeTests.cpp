@@ -70,6 +70,14 @@ TEST_F(ThemeTests, SaveAndReload) {
 // (bogus) name as written in the file so save / load round-trips
 // don't mutate user content.
 TEST_F(ThemeTests, MissingFontFallsBackToSystemMonospace) {
+    // Headless CI runners (notably GitHub Actions Linux) often have no
+    // installed fonts, which makes wxFontEnumerator report nothing —
+    // even the system monospace fallback then fails IsValidFacename.
+    // The CI env var is set automatically by every major CI provider.
+    if (wxGetEnv("CI", nullptr)) {
+        GTEST_SKIP() << "CI runner has no installed fonts; nothing to fall back to.";
+    }
+
     const wxString tmpFile = wxFileName::CreateTempFileName("fbide_theme") + ".ini";
     constexpr auto kBogusFont = "Definitely Not An Installed Face XYZQ";
     {
@@ -112,6 +120,19 @@ TEST_F(ThemeTests, MissingFontFallsBackToSystemMonospace) {
     EXPECT_EQ(theme.getResolvedFont().GetPointSize(), 20);
 
     wxRemoveFile(tmpFile);
+}
+
+TEST_F(ThemeTests, LoadDefaultsAppliesFallbackColors) {
+    Theme theme;
+    theme.loadDefaults();
+    // Built-in fallback used when the configured theme file is missing —
+    // plain black-on-white so the editor stays readable until the user
+    // fixes their config. Margins use light grey for separation.
+    EXPECT_EQ(theme.get(ThemeCategory::Default).colors.foreground, *wxBLACK);
+    EXPECT_EQ(theme.get(ThemeCategory::Default).colors.background, *wxWHITE);
+    EXPECT_EQ(theme.getLineNumber().background, *wxLIGHT_GREY);
+    EXPECT_EQ(theme.getFoldMargin().background, *wxLIGHT_GREY);
+    EXPECT_EQ(theme.getVersion(), Version::fbide());
 }
 
 TEST_F(ThemeTests, SaveMigratesFbtToIni) {

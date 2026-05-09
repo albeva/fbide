@@ -10,8 +10,11 @@
 #include "document/DocumentType.hpp"
 
 namespace fbide {
-class Context;
 class CodeTransformer;
+class ConfigManager;
+class DocumentManager;
+class Theme;
+class UIManager;
 
 /**
  * The text-editing widget — a `wxStyledTextCtrl` (Scintilla) subclass.
@@ -44,7 +47,10 @@ public:
      */
     Editor(
         wxWindow* parent,
-        Context& ctx,
+        ConfigManager& configManager,
+        Theme& theme,
+        DocumentManager* documentManager,
+        UIManager* uiManager,
         CodeTransformer* transformer,
         DocumentType type = DocumentType::FreeBASIC,
         bool preview = false
@@ -142,8 +148,11 @@ private:
     /// Resize the line-number margin to fit the current line count + zoom.
     void updateLineNumberMarginWidth();
 
-    Context& m_ctx;                  ///< Application context.
-    CodeTransformer* m_transformer;  ///< Shared on-type transformer (nullable in preview).
+    ConfigManager& m_configManager;   ///< Config source — settings, keywords, theme entries.
+    Theme& m_theme;                   ///< Active editor theme.
+    DocumentManager* m_documentManager; ///< Optional — null in standalone/test contexts.
+    UIManager* m_uiManager;           ///< Optional — null in standalone/test contexts.
+    CodeTransformer* m_transformer;   ///< Shared on-type transformer (nullable in preview).
     DocumentType m_docType;          ///< Current document type — drives theme dispatch.
     wxFont m_font;                   ///< Editor font.
     bool m_preview;                  ///< True when this is a Format-dialog preview pane.

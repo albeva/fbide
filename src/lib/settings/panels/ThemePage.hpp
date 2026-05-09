@@ -33,7 +33,16 @@ public:
     /// Enumerate every fixed-width system font — used only by this panel.
     [[nodiscard]] static auto getAllFixedWidthFonts() -> std::vector<wxString>;
 
+    /// Static layout descriptor for the category tree.
+    struct TreeNode {
+        wxString labelKey;                        ///< Locale key under `categories.`
+        wxString fallbackLabel;                   ///< Used if locale key missing.
+        std::optional<SettingsCategory> category; ///< Empty for folder nodes.
+        std::vector<TreeNode> children;
+    };
+
 private:
+
     /// Locale lookup with optional default — wraps `m_tr.get_or`.
     auto tr(const wxString& path, const wxString& def = wxEmptyString) const -> wxString;
 
@@ -41,6 +50,8 @@ private:
     void createTopRow();
     /// Build the category list (left half).
     void createCategoryList();
+    /// Add node to the tree
+    void addTreeNode(const wxTreeItemId parent, const std::vector<TreeNode>& nodes);
     /// Build the left half of the page.
     void createLeftPanel();
     /// Build the right half (style editor).
@@ -50,11 +61,13 @@ private:
     enum ControlId : int {
         ID_THEME_CHOICE = wxID_HIGHEST + 1, ///< Theme dropdown.
         ID_SAVE_THEME,                      ///< Save-as-new-theme button.
-        ID_CATEGORY_LIST                    ///< Category list box.
+        ID_CATEGORY_TREE                    ///< Category tree control.
     };
 
-    /// Category list selection changed — refresh editor on the right.
-    void onSelectCategory(wxCommandEvent& event);
+    /// Category tree selection changing — veto when target is a folder.
+    void onCategorySelChanging(wxTreeEvent& event);
+    /// Category tree selection changed — refresh editor on the right.
+    void onCategorySelChanged(wxTreeEvent& event);
     /// Theme dropdown selection changed — load the new theme.
     void onSelectTheme(wxCommandEvent& event);
     /// Save button clicked — prompt for a name and save the working theme.
@@ -73,31 +86,35 @@ private:
     /// Persist the active theme path back to config.
     void syncActiveThemeConfig();
 
-    Unowned<wxListBox> m_typeList;             ///< Theme category list.
-    Unowned<wxChoice> m_themeChoice;           ///< Theme picker dropdown.
-    Unowned<ColorPicker> m_fgPicker;           ///< Foreground color picker.
-    Unowned<ColorPicker> m_bgPicker;           ///< Background color picker.
-    Unowned<ColorPicker> m_separatorPicker;    ///< Separator color picker.
-    Unowned<wxChoice> m_fontChoice;            ///< Editor font dropdown.
-    Unowned<wxStaticText> m_fontOptionsLabel;  ///< Bold/italic/underline label.
-    Unowned<wxCheckBox> m_chkBold;             ///< Bold toggle.
-    Unowned<wxCheckBox> m_chkItalic;           ///< Italic toggle.
-    Unowned<wxCheckBox> m_chkUnderline;        ///< Underline toggle.
-    Unowned<wxSpinCtrl> m_spinFontSize;        ///< Font size spinner.
-    Unowned<wxStaticText> m_lblFont;           ///< Font label.
-    Unowned<wxStaticText> m_lblFontSize;       ///< Font-size label.
+    Unowned<wxTreeCtrl> m_typeTree; ///< Theme category tree.
+    /// Maps each selectable tree-item id to its `SettingsCategory`. Folder
+    /// nodes (Keywords / Margins / Brace / Asm) have no entry — absence
+    /// signals "non-selectable" without paying for a per-item heap object.
+    std::unordered_map<wxTreeItemIdValue, SettingsCategory> m_treeCategories;
+    Unowned<wxChoice> m_themeChoice;          ///< Theme picker dropdown.
+    Unowned<ColorPicker> m_fgPicker;          ///< Foreground color picker.
+    Unowned<ColorPicker> m_bgPicker;          ///< Background color picker.
+    Unowned<ColorPicker> m_separatorPicker;   ///< Separator color picker.
+    Unowned<wxChoice> m_fontChoice;           ///< Editor font dropdown.
+    Unowned<wxStaticText> m_fontOptionsLabel; ///< Bold/italic/underline label.
+    Unowned<wxCheckBox> m_chkBold;            ///< Bold toggle.
+    Unowned<wxCheckBox> m_chkItalic;          ///< Italic toggle.
+    Unowned<wxCheckBox> m_chkUnderline;       ///< Underline toggle.
+    Unowned<wxSpinCtrl> m_spinFontSize;       ///< Font size spinner.
+    Unowned<wxStaticText> m_lblFont;          ///< Font label.
+    Unowned<wxStaticText> m_lblFontSize;      ///< Font-size label.
 
-    wxStaticBoxSizer* m_themeBox = nullptr;    ///< Right-pane group box.
+    wxStaticBoxSizer* m_themeBox = nullptr; ///< Right-pane group box.
 
     /// Index offset between the theme dropdown selection and `m_themeFiles`
     /// (slot 0 is the synthetic "New theme..." entry).
     static constexpr int FILE_OFFSET = 1;
-    Theme m_theme {};                          ///< Working copy of the theme.
-    wxString m_activeTheme;                    ///< Path to the active theme on load.
-    std::vector<wxString> m_themeFiles;        ///< Paths of every available theme.
+    Theme m_theme {};                   ///< Working copy of the theme.
+    wxString m_activeTheme;             ///< Path to the active theme on load.
+    std::vector<wxString> m_themeFiles; ///< Paths of every available theme.
 
-    int m_selectedRow = 0;                     ///< Currently edited category row.
-    const Value& m_tr;                         ///< Locale subtree for translations.
+    int m_selectedRow = 0; ///< Currently edited category row.
+    const Value& m_tr;     ///< Locale subtree for translations.
 
     wxDECLARE_EVENT_TABLE();
 };

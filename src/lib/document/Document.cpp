@@ -30,7 +30,9 @@ auto defaultEolModeFromConfig(Context& ctx) -> EolMode {
 Document::Document(wxWindow* parent, Context& ctx, const DocumentType type)
 : m_ctx(ctx)
 , m_type(type)
-, m_editor(make_unowned<Editor>(parent, ctx, &ctx.getDocumentManager().getCodeTransformer(), type))
+, m_editor(make_unowned<Editor>(parent, ctx.getConfigManager(), ctx.getTheme(),
+      &ctx.getDocumentManager(), &ctx.getUIManager(),
+      &ctx.getDocumentManager().getCodeTransformer(), type))
 , m_encoding(defaultEncodingFromConfig(ctx))
 , m_eolMode(defaultEolModeFromConfig(ctx)) {
     if (m_editor) {

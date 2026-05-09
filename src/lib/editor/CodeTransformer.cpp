@@ -10,7 +10,6 @@
 #include "analyses/lexer/StyleLexer.hpp"
 #include "analyses/lexer/StyledSource.hpp"
 #include "analyses/lexer/Token.hpp"
-#include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/ThemeCategory.hpp"
 using namespace fbide;
@@ -27,8 +26,8 @@ auto isWordChar(const wxUniChar ch) -> bool {
 
 } // namespace
 
-CodeTransformer::CodeTransformer(Context& ctx)
-: m_ctx(ctx) {
+CodeTransformer::CodeTransformer(ConfigManager& configManager)
+: m_configManager(configManager) {
     applySettings();
 }
 
@@ -36,7 +35,7 @@ CodeTransformer::~CodeTransformer() = default;
 
 void CodeTransformer::applySettings() {
     enable(true);
-    const auto& cases = m_ctx.getConfigManager().keywords().at("cases");
+    const auto& cases = m_configManager.keywords().at("cases");
     for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
         const auto key = wxString(getThemeCategoryName(kThemeKeywordCategories[idx]));
         m_keywordCases[idx] = CaseMode::parse(cases.get_or(key, "None").ToStdString())
@@ -105,7 +104,7 @@ void CodeTransformer::onTextInserted(Editor& editor, const int pos, const int le
 
 void CodeTransformer::enable(const bool state) {
     if (state) {
-        const auto& editor = m_ctx.getConfigManager().config().at("editor");
+        const auto& editor = m_configManager.config().at("editor");
         m_autoIndent = editor.get_or("autoIndent", true);
         m_transformKeywords = editor.get_or("transformKeywords", true);
     } else {
@@ -130,19 +129,90 @@ void CodeTransformer::applyIndentAndCloser(Editor& editor) {
 
     int prevIndent = editor.GetLineIndentation(prevLine);
     if (decision.dedentPrev) {
-        prevIndent = std::max(0, prevIndent - tabSize);
-        editor.SetLineIndentation(prevLine, prevIndent);
+        const int target = dedentTarget(editor, prevLine);
+        if (target >= 0 && target < prevIndent) {
+            prevIndent = target;
+            editor.SetLineIndentation(prevLine, prevIndent);
+        }
     }
     const int newIndent = std::max(0, prevIndent + decision.deltaLevels * tabSize);
     editor.SetLineIndentation(currLine, newIndent);
-    editor.GotoPos(editor.GetLineEndPosition(currLine));
+    // Use indent position (after leading whitespace, before content) — when
+    // Enter splits a line mid-content (`foo |bar` -> `foo \nbar`), end-of-line
+    // would jump the caret past the moved content.
+    editor.GotoPos(editor.GetLineIndentPosition(currLine));
 
-    if (!decision.closerKeywords.empty()) {
+    if (!decision.closerKeywords.empty() && !blockAlreadyClosed(editor, prevLine)) {
         const int caretPos = editor.GetLineEndPosition(currLine);
         editor.InsertText(caretPos, "\n" + renderCloser(decision.closerKeywords));
         editor.SetLineIndentation(currLine + 1, prevIndent);
-        editor.GotoPos(editor.GetLineEndPosition(currLine));
+        editor.GotoPos(editor.GetLineIndentPosition(currLine));
     }
+}
+
+auto CodeTransformer::blockAlreadyClosed(Editor& editor, const int prevLine) -> bool {
+    // Walk down from prevLine looking for the first content-bearing line.
+    // Don't trust SC_FOLDLEVELHEADERFLAG / SC_FOLDLEVELWHITEFLAG: at this
+    // point (called from EVT_STC_CHARADDED) Scintilla's incremental fold
+    // run has not necessarily caught up with the just-inserted newline +
+    // auto-indent whitespace, so the flags can mis-fire. Use a direct
+    // whitespace-only check via indent positions instead.
+    const int prevIndent = editor.GetLineIndentation(prevLine);
+    const int totalLines = editor.GetLineCount();
+    for (int probe = prevLine + 1; probe < totalLines; probe++) {
+        if (editor.GetLineIndentPosition(probe) >= editor.GetLineEndPosition(probe)) {
+            continue; // whitespace-only line
+        }
+        const int probeIndent = editor.GetLineIndentation(probe);
+        // Body present below at deeper indent → block presumed closed.
+        if (probeIndent > prevIndent) {
+            return true;
+        }
+        // Outer-scope line (lesser indent) means our block has no body and
+        // no matching closer yet — we still need to emit it.
+        if (probeIndent < prevIndent) {
+            return false;
+        }
+        // Same indent: only counts as "already closed" when the line is
+        // itself a closer (matching opener-aligned closer). A sibling body
+        // statement at our level falls through to "not closed".
+        const auto d = indent::Decision::decide(editor, probe);
+        return d.dedentPrev && d.deltaLevels == 0;
+    }
+    return false;
+}
+
+auto CodeTransformer::dedentTarget(Editor& editor, const int prevLine) -> int {
+    // Walk up looking for the matching opener line. For each non-blank
+    // candidate at indent <= prev, run a single-line first-keyword check
+    // (indent::Decision::decide) — opener? then snap prev to its indent.
+    // Body line at strictly lesser indent without an opener match means
+    // we walked out of a deeper scope; dedent to that line's indent.
+    // Same-indent body line means prev sits among sibling statements —
+    // keep walking. Bounded so a pathological input cannot scan forever.
+    constexpr int kMaxScan = 200;
+    const int prevIndent = editor.GetLineIndentation(prevLine);
+    for (int i = 1; i <= kMaxScan; i++) {
+        const int probe = prevLine - i;
+        if (probe < 0) {
+            break;
+        }
+        if (editor.GetLineIndentPosition(probe) >= editor.GetLineEndPosition(probe)) {
+            continue; // whitespace-only line
+        }
+        const int probeIndent = editor.GetLineIndentation(probe);
+        if (probeIndent > prevIndent) {
+            continue;
+        }
+        const auto d = indent::Decision::decide(editor, probe);
+        if (d.deltaLevels > 0) {
+            return probeIndent < prevIndent ? probeIndent : -1;
+        }
+        if (probeIndent < prevIndent) {
+            return probeIndent;
+        }
+    }
+    return -1;
 }
 
 void CodeTransformer::applyWordCase(Editor& editor) {

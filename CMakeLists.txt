@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 23)
 #   fbide_version(0.5.0 RC 1)       -> 0.5.0.rc-1
 #   fbide_version(0.5.0 Beta 2)     -> 0.5.0.beta-2
 include(cmake/version.cmake)
-fbide_version(0.5.0 Beta 3)
+fbide_version(0.5.0 RC 1)
 
 # Version probe: CI runs `cmake -B <dir> -DFBIDE_VERSION_ONLY=ON .` to
 # resolve the configured version without the full configure (no compiler
@@ -54,6 +54,12 @@ endif()
 # enables it explicitly via `-DBUILD_TESTING=ON`.
 option(BUILD_TESTING "Build the FBIde test suite" OFF)
 
+# AppImage packaging mode. When ON the install layout follows FHS
+# (`bin/fbide`, `share/fbide/ide/`) so linuxdeploy can drop the result
+# straight into an AppDir, and FBIde's resource resolver looks for the
+# bundled `ide/` next to `bin/` instead of side-by-side with the binary.
+option(BUILD_APPIMAGE "Configure install layout + resource lookup for AppImage packaging" OFF)
+
 # CMake modules
 include(FetchContent)
 include(cmake/dependencies.cmake)
@@ -78,15 +84,25 @@ endif ()
 # ----------------------------------------------------------------------------
 # Install layout (consumed by `cmake --install <build> --prefix <staging>`)
 #
+# Default (Windows, portable Linux):
 #   <prefix>/
-#     fbide.exe
+#     fbide(.exe)
 #     ide/
 #       config_*.ini, themes/, locales/, ...   (verbatim from resources/pristine)
 #
-# The release workflow zips the staging directory directly; no sanitiser
-# script. Run locally to reproduce the installer payload.
+# `-DBUILD_APPIMAGE=ON` switches to FHS for AppDir staging:
+#   <prefix>/
+#     bin/fbide
+#     share/fbide/ide/
+#       config_*.ini, themes/, locales/, ...
+#
+# The release workflow zips / packages the staging directory directly; no
+# sanitiser script. Run locally to reproduce the installer payload.
 # ----------------------------------------------------------------------------
-if (NOT APPLE)
+if (BUILD_APPIMAGE)
+    install(TARGETS fbide RUNTIME DESTINATION bin)
+    install(DIRECTORY resources/pristine/ DESTINATION share/fbide/ide)
+elseif (NOT APPLE)
     install(TARGETS fbide RUNTIME DESTINATION .)
     install(DIRECTORY resources/pristine/ DESTINATION ide)
 endif()

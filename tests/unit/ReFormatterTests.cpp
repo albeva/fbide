@@ -5,8 +5,8 @@
 // https://github.com/albeva/fbide
 //
 #include <gtest/gtest.h>
-#include "../src/lib/format/transformers/case/CaseTransform.hpp"
-#include "../src/lib/format/transformers/reformat/ReFormatter.hpp"
+#include "format/transformers/case/CaseTransform.hpp"
+#include "format/transformers/reformat/ReFormatter.hpp"
 #include "TestHelpers.hpp"
 
 using namespace fbide;
@@ -64,6 +64,37 @@ TEST_F(ReFormatterTests, SubBlock) {
               ),
         "Sub Main\n"
         "    Print \"hello\"\n"
+        "End Sub\n");
+}
+
+TEST_F(ReFormatterTests, AsmBlock) {
+    // Multi-line `asm … end asm` — opens a block, body is indented.
+    EXPECT_EQ(format(
+                  "Sub Foo\n"
+                  "Asm\n"
+                  "mov eax, 0\n"
+                  "End Asm\n"
+                  "End Sub\n"
+              ),
+        "Sub Foo\n"
+        "    Asm\n"
+        "        mov eax, 0\n"
+        "    End Asm\n"
+        "End Sub\n");
+}
+
+TEST_F(ReFormatterTests, SingleLineAsmDoesNotOpenBlock) {
+    // FB single-line `asm <stmt>` is one statement — must not be treated
+    // as a compound-statement opener; the next line's indent is unchanged.
+    EXPECT_EQ(format(
+                  "Sub Foo\n"
+                  "Asm mov eax, 10\n"
+                  "Print x\n"
+                  "End Sub\n"
+              ),
+        "Sub Foo\n"
+        "    Asm mov eax, 10\n"
+        "    Print x\n"
         "End Sub\n");
 }
 

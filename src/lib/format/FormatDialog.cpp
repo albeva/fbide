@@ -85,7 +85,8 @@ void FormatDialog::create() {
 
     // Preview editor
     vbox(m_ctx.tr("dialogs.format.preview"), { .proportion = 1, .border = 0 }, [&] {
-        m_preview = make_unowned<Editor>(currentParent(), m_ctx, nullptr, DocumentType::FreeBASIC, true);
+        m_preview = make_unowned<Editor>(currentParent(), m_ctx.getConfigManager(), m_ctx.getTheme(),
+            &m_ctx.getDocumentManager(), &m_ctx.getUIManager(), nullptr, DocumentType::FreeBASIC, true);
         m_preview->SetReadOnly(true);
         m_preview->SetMinSize(wxSize(-1, 200));
         add(m_preview, { .proportion = 1 });

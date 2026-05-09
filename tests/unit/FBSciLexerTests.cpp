@@ -24,7 +24,7 @@ protected:
         m_lexer->WordListSet(3, "__fb_version__");                                   // Keyword4
         m_lexer->WordListSet(4, "");                                                 // KeywordCustom
         m_lexer->WordListSet(5, "");                                                 // KeywordCustom
-        m_lexer->WordListSet(6, "if ifdef ifndef else elseif endif macro endmacro"); // KeywordPP
+        m_lexer->WordListSet(6, "if ifdef ifndef else elseif endif macro endmacro define include"); // KeywordPP
         m_lexer->WordListSet(7, "mov push pop ret jmp");                             // KeywordAsm1
         m_lexer->WordListSet(8, "eax ebx ecx edx");                                  // KeywordAsm2
     }
@@ -54,7 +54,8 @@ protected:
     ///   'I' = Identifier '1'..'4' = Keyword1..4  '5' = KeywordCustom
     ///   '6' = KeywordCustom '7' = KeywordAsm1  '8' = KeywordAsm2
     ///   'P' = Operator   'L' = Label             'V' = Constant
-    ///   '#' = Preprocessor  'E' = Error
+    ///   '#' = Preprocessor  'E' = Error  'k' = KeywordPP
+    ///   'n' = NumberPP   's' = StringPP   'p' = OperatorPP   'i' = IdentifierPP
     static auto expect(const std::string& pattern) -> std::vector<S> {
         static constexpr auto map = [] consteval {
             std::array<S, 128> table {};
@@ -76,6 +77,11 @@ protected:
             table['P'] = S::Operator;
             table['L'] = S::Label;
             table['#'] = S::Preprocessor;
+            table['k'] = S::KeywordPP;
+            table['n'] = S::NumberPP;
+            table['s'] = S::StringPP;
+            table['p'] = S::OperatorPP;
+            table['i'] = S::IdentifierPP;
             table['E'] = S::Error;
             return table;
         }();
@@ -110,6 +116,11 @@ protected:
             table[+S::Operator] = 'P';
             table[+S::Label] = 'L';
             table[+S::Preprocessor] = '#';
+            table[+S::KeywordPP] = 'k';
+            table[+S::NumberPP] = 'n';
+            table[+S::StringPP] = 's';
+            table[+S::OperatorPP] = 'p';
+            table[+S::IdentifierPP] = 'i';
             table[+S::Error] = 'E';
             return table;
         }();
@@ -216,7 +227,7 @@ TEST_F(FBSciLexerTests, PreprocessorRemAtLineEndDoesNotContinueToNextLine) {
     // following identifier. Regression for #28.
     expectStyles(
         "#define foo 1 REM\nfoobar",
-        "##############CCC IIIIII"
+        "#kkkkkk#iii#n#CCC IIIIII"
     );
 }
 
@@ -378,6 +389,53 @@ TEST_F(FBSciLexerTests, AsmRegistersInKeywordAsm2) {
     );
 }
 
+// Single-line asm: `asm <stmt>` on one line. No `end asm` required.
+// Following statements must lex with normal (non-asm) classification.
+TEST_F(FBSciLexerTests, AsmSingleLineNoContinuation) {
+    expectStyles(
+        "asm mov eax\ndim x\n",
+        "111 777 888 111 I "
+    );
+}
+
+// Single-line asm spanning physical lines via `_` continuation.
+// Both halves classify with asm wordlists; next logical line is normal.
+TEST_F(FBSciLexerTests, AsmSingleLineWithContinuation) {
+    expectStyles(
+        "asm _\n   mov eax\ndim x\n",
+        "111 C    777 888 111 I "
+    );
+}
+
+// `asm` followed by a multi-line block comment then `_` — still a
+// single-liner, content arrives on the continued physical line.
+// Following logical line lexes with normal classification.
+TEST_F(FBSciLexerTests, AsmSingleLineMLCommentThenContinuation) {
+    expectStyles(
+        "asm /' x '/ _\n   mov eax\ndim x\n",
+        "111 MMMMMMM C    777 888 111 I "
+    );
+}
+
+// `asm` followed by a block comment but NO `_` — logical line ends
+// without significant content, so it opens a multi-line asm block.
+// Body lexes with asm wordlists; `end asm` closes.
+TEST_F(FBSciLexerTests, AsmBlockOpenerWithMLCommentNoContinuation) {
+    expectStyles(
+        "asm /' x '/\nmov eax\nend asm\n",
+        "111 MMMMMMM 777 888 111 111 "
+    );
+}
+
+// `asm` followed by a single-line `'` comment is treated as opening a
+// block (no significant content on the logical line).
+TEST_F(FBSciLexerTests, AsmBlockOpenerWithLineCommentOnly) {
+    expectStyles(
+        "asm ' note\nmov\nend asm\n",
+        "111 CCCCCC 777 111 111 "
+    );
+}
+
 // endregion
 
 // region ---------- Operators ----------
@@ -413,9 +471,124 @@ TEST_F(FBSciLexerTests, Label) {
 TEST_F(FBSciLexerTests, Preprocessor) {
     expectStyles(
         "#define FOO\n",
-        "########### "
+        "#kkkkkk#iii "
     );
 }
+
+TEST_F(FBSciLexerTests, PreprocessorIncludeWithStringPath) {
+    // #include "path" — quoted path body styles as StringPP, returning to
+    // Preprocessor at end of line. Whitespace stays Preprocessor.
+    expectStyles(
+        "#include \"foo.bi\"\n",
+        "#kkkkkkk#ssssssss "
+    );
+}
+
+TEST_F(FBSciLexerTests, PreprocessorIncludeOnceWithStringPath) {
+    // Only the directive (`include`) is KeywordPP. `once` is a body
+    // identifier — IdentifierPP — even though it's part of the include
+    // syntax. Quoted path is StringPP.
+    expectStyles(
+        "#include once \"foo.bi\"\n",
+        "#kkkkkkk#iiii#ssssssss "
+    );
+}
+
+TEST_F(FBSciLexerTests, PreprocessorDefineWithNumber) {
+    // #define X 42 — `42` styles as NumberPP.
+    expectStyles(
+        "#define X 42\n",
+        "#kkkkkk#i#nn "
+    );
+}
+
+TEST_F(FBSciLexerTests, PreprocessorDefineWithOperatorAndNumber) {
+    // Operator inside PP body styles as OperatorPP; subsequent number
+    // returns to NumberPP, then back to Preprocessor at line end.
+    expectStyles(
+        "#define X = 42\n",
+        "#kkkkkk#i#p#nn "
+    );
+}
+
+TEST_F(FBSciLexerTests, PreprocessorIfWithExpression) {
+    // #if A and B — only `if` is the directive (KeywordPP); body identifiers
+    // (including `and`, even though it's a wordlist match outside PP body)
+    // are IdentifierPP.
+    expectStyles(
+        "#if A and B\n",
+        "#kk#i#iii#i "
+    );
+}
+
+TEST_F(FBSciLexerTests, PreprocessorBodyKeywordIsIdentifierPP) {
+    // `define` is a directive when first; here it's a body identifier after
+    // the `#include` directive — must paint IdentifierPP, not KeywordPP.
+    expectStyles(
+        "#include define\n",
+        "#kkkkkkk#iiiiii "
+    );
+}
+
+TEST_F(FBSciLexerTests, PreprocessorDirectiveSurvivesContinuationAndComment) {
+    // The first-identifier-is-directive rule survives `_` continuation and
+    // multi-line block comments. `include` here is the FIRST identifier
+    // after `#`, even though it's separated by continuation + comment.
+    expectStyles(
+        "# _\n/' c '/ _\ninclude \"x\"\n",
+        "##C MMMMMMM#C kkkkkkk#sss "
+    );
+}
+
+TEST_F(FBSciLexerTests, PreprocessorStringWithLiteral) {
+    // Standard string rules apply inside PP — closing quote ends the literal.
+    expectStyles(
+        "#define X \"hi\"\n",
+        "#kkkkkk#i#ssss "
+    );
+}
+
+TEST_F(FBSciLexerTests, PreprocessorHexNumber) {
+    expectStyles(
+        "#define X &HFF\n",
+        "#kkkkkk#i#nnnn "
+    );
+}
+
+TEST_F(FBSciLexerTests, PreprocessorDoesNotBleedToNextLine) {
+    // After a directive line ends, the next line must lex as regular code.
+    // `dim` is in the Keywords wordlist — without proper PP-state reset
+    // it would lex as IdentifierPP and the user's keyword highlighting
+    // would silently disappear on every line after a `#if`.
+    expectStyles(
+        "#if\n    dim\n",
+        "#kk     111 "
+    );
+}
+
+TEST_F(FBSciLexerTests, PreprocessorCrlfDoesNotBleed) {
+    // Regression: with CRLF line endings the `\r` styles as Preprocessor
+    // (whitespace inside PP body) but `\n` MUST flip state back to Default
+    // so the next line lexes as regular code. Without that flip, every line
+    // after a `#` directive keeps lexing in PP mode and main-wordlist
+    // keywords (Dim/Sub/Declare/...) silently mis-style as IdentifierPP.
+    expectStyles(
+        "#if x\r\n\tdim\r\n#endif\r\n",
+        "#kk#i#  111  #kkkkk# "
+    );
+}
+
+TEST_F(FBSciLexerTests, PreprocessorBlockBodyKeywordsHighlight) {
+    // Code inside a `#if`/`#endif` block must lex normally — the directive
+    // line is over and the body is regular code, not a continuation.
+    // Reproduces user-reported regression: "#IF\n    declare\n#ENDIF\n"
+    // shows `declare` as Identifier, not Keywords.
+    expectStyles(
+        "#if\n    dim\n#endif\n",
+        "#kk     111 #kkkkk "
+    );
+}
+
 
 // endregion
 

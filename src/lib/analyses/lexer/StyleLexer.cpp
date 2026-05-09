@@ -139,8 +139,7 @@ void StyleLexer::tokenise(std::vector<Token>& tokens, const Range& range) {
 
     m_pos = m_range.first;
     m_canBeUnary = true;
-    m_inPpLine = false;
-    m_ppTokenIdx = 0;
+    m_ppDirectiveIdx = std::numeric_limits<std::size_t>::max();
 
     while (auto r = nextStyle()) {
         emitFromRange(*r, tokens);
@@ -188,9 +187,11 @@ void StyleLexer::emitFromRange(const StyleRange& range, std::vector<Token>& out)
         emitDefault(range, out);
         break;
     case Operator:
+    case OperatorPP:
         emitOperator(range, out);
         break;
     case Identifier:
+    case IdentifierPP:
         emitIdentifier(range, out);
         break;
     case Keywords:
@@ -218,7 +219,7 @@ void StyleLexer::emitFromRange(const StyleRange& range, std::vector<Token>& out)
         emitKeyword(range, TokenKind::KeywordAsm2, out);
         break;
     case KeywordPP:
-        emitPreprocessor(range, out);
+        emitKeywordPP(range, out);
         break;
     case Preprocessor:
         emitPreprocessor(range, out);
@@ -226,7 +227,13 @@ void StyleLexer::emitFromRange(const StyleRange& range, std::vector<Token>& out)
     case Number:
         emitSimple(range, TokenKind::Number, out);
         break;
+    case NumberPP:
+        emitSimple(range, TokenKind::Number, out);
+        break;
     case String:
+        emitSimple(range, TokenKind::String, out);
+        break;
+    case StringPP:
         emitSimple(range, TokenKind::String, out);
         break;
     case StringOpen:
@@ -265,6 +272,11 @@ void StyleLexer::emitDefault(const StyleRange& r, std::vector<Token>& out) {
                 && out.back().text.back() == '\r') {
                 out.back().text.pop_back();
                 newlineText = "\r" + newlineText;
+                // CR transferred — drop the now-empty Whitespace token so
+                // the merged Newline cleanly replaces the bare-`\r` artifact.
+                if (out.back().text.empty() && out.back().kind == TokenKind::Whitespace) {
+                    out.pop_back();
+                }
             }
             // Mark continuation: query FBSciLexer's per-line state for the line
             // that this newline ends. continueLine=true means a `_` marker on
@@ -283,7 +295,13 @@ void StyleLexer::emitDefault(const StyleRange& r, std::vector<Token>& out) {
                 std::move(newlineText),
             });
             m_canBeUnary = true;
-            m_inPpLine = false;
+            // PP line ends — clear the open-directive marker so the next
+            // line's `#` opens a fresh directive token. Continuation lines
+            // are handled by the lexer continuing in Preprocessor state, so
+            // we still get a fresh Preprocessor run for the next physical
+            // line; resetting here is safe because that run is also bare-`#`
+            // -free (whitespace only).
+            m_ppDirectiveIdx = std::numeric_limits<std::size_t>::max();
             i = end;
         } else if (c == ' ' || c == '\t') {
             std::size_t end = i + 1;
@@ -336,7 +354,7 @@ void StyleLexer::emitOperator(const StyleRange& range, std::vector<Token>& out) 
             TokenKind::Operator,
             KeywordKind::None,
             op,
-            ThemeCategory::Operator,
+            range.style,
             false,
             false,
             std::string { sv.substr(i, len) },
@@ -377,6 +395,28 @@ void StyleLexer::emitKeyword(const StyleRange& r, TokenKind kind, std::vector<To
     if (const auto it = kw.find(lower); it != kw.end()) {
         kwKind = it->second;
     }
+    // The structural classifier maps every `asm` to `KeywordKind::Asm`, but
+    // the lexer's per-line AsmState distinguishes a block opener (Block)
+    // from a single-line statement (Stmt → resolved to None at logical EOL).
+    // Downgrade non-block asm to `Other` so neither AutoIndent nor the
+    // formatter treat it as a compound-statement opener. Walk forward through
+    // continuation / mid-comment lines (Undetermined) to find resolution.
+    if (kwKind == KeywordKind::Asm) {
+        auto line = m_src.lineFromPosition(r.start);
+        const auto lastLine = m_src.lineFromPosition(m_src.length());
+        constexpr int kMaxScan = 100;
+        auto resolved = FBSciLexer::AsmState::Undetermined;
+        for (int i = 0; i < kMaxScan && line <= lastLine; i++, line++) {
+            const auto state = m_src.lineState(line).asmState;
+            if (state != FBSciLexer::AsmState::Undetermined) {
+                resolved = state;
+                break;
+            }
+        }
+        if (resolved != FBSciLexer::AsmState::Block) {
+            kwKind = KeywordKind::Other;
+        }
+    }
     out.push_back(Token {
         kind,
         kwKind,
@@ -389,16 +429,60 @@ void StyleLexer::emitKeyword(const StyleRange& r, TokenKind kind, std::vector<To
     m_canBeUnary = true; // after a keyword (And, Not, If, ...) next operator is unary
 }
 
+void StyleLexer::emitWhitespaceRun(const std::string& text, const Sci_PositionU rangeStart, std::vector<Token>& out) {
+    std::size_t i = 0;
+    while (i < text.size()) {
+        const char c = text[i];
+        if (c == '\n' || (c == '\r' && i + 1 < text.size() && text[i + 1] == '\n')) {
+            std::size_t end = i + (c == '\r' ? 2 : 1);
+            const auto lineEndPos = rangeStart + static_cast<Sci_PositionU>(i);
+            const auto line = m_src.lineFromPosition(lineEndPos);
+            const auto continuation = m_src.lineState(line).continueLine;
+            out.push_back(Token {
+                TokenKind::Newline,
+                KeywordKind::None,
+                OperatorKind::None,
+                ThemeCategory::Default,
+                false,
+                continuation,
+                text.substr(i, end - i),
+            });
+            m_ppDirectiveIdx = std::numeric_limits<std::size_t>::max();
+            i = end;
+        } else {
+            // Bare `\r` (no trailing `\n` in this run) folds into a following
+            // Newline token via emitDefault's CR-transfer logic — emit as
+            // Whitespace so the byte survives until the merge happens.
+            std::size_t end = i + 1;
+            while (end < text.size()
+                   && (text[end] == ' ' || text[end] == '\t' || text[end] == '\r')
+                   && !(text[end] == '\r' && end + 1 < text.size() && text[end + 1] == '\n')) {
+                end++;
+            }
+            out.push_back(Token {
+                TokenKind::Whitespace,
+                KeywordKind::None,
+                OperatorKind::None,
+                ThemeCategory::Default,
+                false,
+                false,
+                text.substr(i, end - i),
+            });
+            i = end;
+        }
+    }
+}
+
 void StyleLexer::emitPreprocessor(const StyleRange& range, std::vector<Token>& out) {
     auto text = stringFromRange(range.start, range.end);
-    // Snapshot the token text length *before* appending this run so we can
-    // tell directive-position runs apart from body runs below.
-    const std::size_t prevLen = m_inPpLine ? out[m_ppTokenIdx].text.size() : 0;
+    if (text.empty()) {
+        return;
+    }
 
-    if (!m_inPpLine) {
-        // Start a new PP token spanning this run.
-        m_inPpLine = true;
-        m_ppTokenIdx = out.size();
+    // Run starting with `#` opens a new directive token. Anything else (pure
+    // whitespace inter-token gap inside a PP body) emits as Whitespace tokens.
+    if (text.front() == '#') {
+        m_ppDirectiveIdx = out.size();
         out.push_back(Token {
             TokenKind::Preprocessor,
             KeywordKind::PpOther,
@@ -406,37 +490,50 @@ void StyleLexer::emitPreprocessor(const StyleRange& range, std::vector<Token>& o
             ThemeCategory::Preprocessor,
             false,
             false,
+            std::string { text.substr(0, 1) },
+        });
+        // Trailing whitespace within this run (rare — usually the lexer
+        // emits a fresh run for whitespace) — split into Whitespace tokens.
+        if (text.size() > 1) {
+            emitWhitespaceRun(text.substr(1), range.start + 1, out);
+        }
+    } else {
+        emitWhitespaceRun(text, range.start, out);
+    }
+    m_canBeUnary = true;
+}
+
+void StyleLexer::emitKeywordPP(const StyleRange& range, std::vector<Token>& out) {
+    auto text = stringFromRange(range.start, range.end);
+    const auto lower = toLower(text);
+    KeywordKind kwKind = KeywordKind::PpOther;
+    const auto& pp = ppKeywords();
+    if (const auto it = pp.find(lower); it != pp.end()) {
+        kwKind = it->second;
+    }
+
+    // Append to the in-progress directive token only when it's still the
+    // bare `#` AND no intervening tokens have been emitted on the same line
+    // — that's the directive-position slot. Otherwise emit as a standalone
+    // Preprocessor token (e.g. `once` after `include`, or PP wordlist
+    // matches in macro bodies that must not reclassify the directive).
+    const bool atDirectivePos = m_ppDirectiveIdx < out.size()
+        && m_ppDirectiveIdx == out.size() - 1
+        && out[m_ppDirectiveIdx].text == "#";
+    if (atDirectivePos) {
+        out[m_ppDirectiveIdx].text += text;
+        out[m_ppDirectiveIdx].keywordKind = kwKind;
+        out[m_ppDirectiveIdx].style = ThemeCategory::KeywordPP;
+    } else {
+        out.push_back(Token {
+            TokenKind::Preprocessor,
+            kwKind,
+            OperatorKind::None,
+            ThemeCategory::KeywordPP,
+            false,
+            false,
             std::move(text),
         });
-    } else {
-        // Append to the in-progress PP token.
-        out[m_ppTokenIdx].text += text;
-    }
-    // KeywordPP carries the directive word — fill kwKind and tag style.
-    // FBSciLexer styles `#` first as Preprocessor, then re-enters and styles
-    // the directive word as KeywordPP, so this branch can fire either as the
-    // first range of the PP token (rare — would mean `#directive` was a
-    // single KeywordPP run) or as the second range right after a bare `#`
-    // Preprocessor run.
-    //
-    // Only the directive position counts. FBSciLexer also paints body words
-    // that happen to match the KeywordPP wordlist (e.g. `If`, `else`,
-    // `endif`) as KeywordPP, so without this guard `#define VT_GUARD If x
-    // Then ...` would be re-classified as a `PpIf` block opener and confuse
-    // the formatter / scope tracker.
-    if (range.style == ThemeCategory::KeywordPP && prevLen <= 1) {
-        std::string runText = stringFromRange(range.start, range.end);
-        // Strip a leading `#` for the lookup — happens only when the entire
-        // `#directive` is one KeywordPP run (no preceding bare `#` range).
-        if (!runText.empty() && runText.front() == '#') {
-            runText.erase(0, 1);
-        }
-        const auto runLower = toLower(runText);
-        const auto& pp = ppKeywords();
-        if (const auto it = pp.find(runLower); it != pp.end()) {
-            out[m_ppTokenIdx].keywordKind = it->second;
-        }
-        out[m_ppTokenIdx].style = ThemeCategory::KeywordPP;
     }
     m_canBeUnary = true;
 }

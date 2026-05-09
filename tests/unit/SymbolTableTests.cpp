@@ -5,8 +5,8 @@
 // https://github.com/albeva/fbide
 //
 #include <gtest/gtest.h>
-#include "../src/lib/analyses/symbols/SymbolTable.hpp"
-#include "../src/lib/format/transformers/reformat/ReFormatter.hpp"
+#include "analyses/symbols/SymbolTable.hpp"
+#include "format/transformers/reformat/ReFormatter.hpp"
 #include "TestHelpers.hpp"
 
 using namespace fbide;

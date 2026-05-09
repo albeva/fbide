@@ -72,6 +72,12 @@ public:
     /// Load a legacy v4 `.fbt` theme (read-only migration; does not store path).
     void loadV4(const wxString& themePath);
 
+    /// Populate a minimal built-in fallback theme — used when the configured
+    /// theme file is missing so the editor still launches with a usable
+    /// scheme. Default category gets a black foreground on a dark grey
+    /// background; *PP entries derive via `derivePpEntriesFromBase`.
+    void loadDefaults();
+
     /// Save theme to disk. Empty argument saves to the current `m_themePath`.
     void save(const wxString& newThemePath = wxEmptyString);
 
@@ -139,6 +145,12 @@ public:
 private:
     /// Internal load entry — `reset` controls whether existing fields clear first.
     void load(const wxString& themePath, bool reset);
+    /// Derive PP-context entries (StringPP/NumberPP/...) from their base
+    /// style + Preprocessor background — but only for entries left in
+    /// default-constructed state (i.e. the theme file had no section for
+    /// them). Themes that explicitly include a section, even with empty
+    /// colour fields, are loaded as-is.
+    void derivePpEntriesFromBase();
     /// Invalidate the cached runtime font.
     void reset();
     /// Build the runtime wxFont, substituting the system monospace face

@@ -70,16 +70,24 @@ private:
     void emitFromRange(const StyleRange& range, std::vector<Token>& out);
     /// Emit whitespace / newline tokens from a `Default` style run.
     void emitDefault(const StyleRange& range, std::vector<Token>& out);
-    /// Emit operator tokens from an `Operator` style run.
+    /// Emit operator tokens from an `Operator` / `OperatorPP` style run.
     void emitOperator(const StyleRange& range, std::vector<Token>& out);
-    /// Emit an `Identifier` token.
+    /// Emit an `Identifier` token (with `style` carrying the source style —
+    /// `Identifier` for code, `IdentifierPP` for preprocessor body words).
     void emitIdentifier(const StyleRange& range, std::vector<Token>& out);
     /// Emit a keyword token of the given kind.
     void emitKeyword(const StyleRange& range, TokenKind kind, std::vector<Token>& out);
-    /// Fold a preprocessor run (entire directive line) into one token.
+    /// Emit the leading `#` of a preprocessor directive (Preprocessor style
+    /// run). Whitespace runs inside a PP body emit as Whitespace tokens.
     void emitPreprocessor(const StyleRange& range, std::vector<Token>& out);
+    /// Emit a `KeywordPP`-styled run. The first KeywordPP after the bare
+    /// `#` directive token merges into it (setting the directive's
+    /// `keywordKind`); subsequent runs emit standalone Preprocessor tokens.
+    void emitKeywordPP(const StyleRange& range, std::vector<Token>& out);
     /// Emit a single simple token (Comment, String, Number, etc.).
     void emitSimple(const StyleRange& range, TokenKind kind, std::vector<Token>& out);
+    /// Split a whitespace-only byte range into Whitespace / Newline tokens.
+    void emitWhitespaceRun(const std::string& text, Sci_PositionU rangeStart, std::vector<Token>& out);
 
     /// Walks `tokens` once and assigns `Token::line` to each, incrementing
     /// on every Newline. Tokens come out in source order so a single pass
@@ -89,8 +97,11 @@ private:
     IStyledSource& m_src;            ///< Source view we read from.
     Sci_PositionU m_pos = 0;         ///< Current scan position.
     bool m_canBeUnary = true;        ///< Operator unary/binary disambiguation context.
-    bool m_inPpLine = false;         ///< True while folding a preprocessor line.
-    std::size_t m_ppTokenIdx = 0;    ///< Index of the in-progress PP token in `out`.
+    /// Index of the open directive token in `out`. SIZE_MAX when no directive
+    /// is open (between PP lines / inside non-PP code). The first KeywordPP
+    /// run on a line appends to this token; subsequent KeywordPP runs emit
+    /// standalone tokens.
+    std::size_t m_ppDirectiveIdx = std::numeric_limits<std::size_t>::max();
     std::pair<Sci_PositionU, Sci_PositionU> m_range {}; ///< Active scan range.
 };
 

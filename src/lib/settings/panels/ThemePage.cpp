@@ -14,16 +14,6 @@ using namespace fbide;
 
 namespace {
 
-/// Lowercase the first character — used for locale key lookup
-/// ("LineNumber" → "lineNumber").
-auto lowerFirst(const std::string_view name) -> wxString {
-    wxString out = wxString::FromAscii(name.data(), name.size());
-    if (not out.empty()) {
-        out[0] = wxTolower(out[0]);
-    }
-    return out;
-}
-
 // ---------------------------------------------------------------------------
 // Theme category helpers
 // ---------------------------------------------------------------------------
@@ -59,6 +49,54 @@ void writeCategory(Theme& theme, const SettingsCategory cat, const Theme::Entry&
     }
 }
 
+auto categoryTreeLayout() -> std::vector<ThemePage::TreeNode> {
+    using SC = SettingsCategory;
+    // clang-format off
+    return {
+        { "default", "Default", SC::Default, {
+            { "comments",          "Comments",           SC::Comment,          {} },
+            { "multilineComments", "Multiline comments", SC::MultilineComment, {} },
+            { "identifier",        "Identifier",         SC::Identifier,       {} },
+            { "number",            "Number",             SC::Number,           {} },
+            { "string",            "String",             SC::String, {
+                { "unterminated", "Unterminated", SC::StringOpen, {} },
+            } },
+            { "operator",          "Operator",           SC::Operator,         {} },
+            { "label",             "Label",              SC::Label,            {} },
+            { "error",             "Error",              SC::Error,            {} },
+            { "keywords", "Keywords", std::nullopt, {
+                { "core",              "Core",      SC::Keywords,         {} },
+                { "types",             "Types",     SC::KeywordTypes,     {} },
+                { "operators",         "Operators", SC::KeywordOperators, {} },
+                { "defines",           "Defines",   SC::KeywordConstants, {} },
+                { "library",           "Library",   SC::KeywordLibrary,   {} },
+                { "custom",            "Custom",    SC::KeywordCustom,    {} },
+            } },
+            { "margins", "Margins", std::nullopt, {
+                { "lineNumbers", "Line numbers", SC::LineNumber, {} },
+                { "fold",        "Fold",         SC::FoldMargin, {} },
+            } },
+            { "selection", "Selection", SC::Selection, {} },
+            { "brace", "Brace", std::nullopt, {
+                { "match",    "Match",    SC::Brace,    {} },
+                { "mismatch", "Mismatch", SC::BadBrace, {} },
+            } },
+        } },
+        { "asm", "Asm", std::nullopt, {
+            { "instructions", "Instructions", SC::KeywordAsm1, {} },
+            { "registers",    "Registers",    SC::KeywordAsm2, {} },
+        } },
+        { "preprocessor", "Preprocessor", SC::Preprocessor, {
+            { "directives",   "Directives", SC::KeywordPP,    {} },
+            { "ppIdentifier", "Identifier", SC::IdentifierPP, {} },
+            { "ppNumber",     "Number",     SC::NumberPP,     {} },
+            { "ppString",     "String",     SC::StringPP,     {} },
+            { "ppOperator",   "Operator",   SC::OperatorPP,   {} },
+        } },
+    };
+    // clang-format on
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -67,9 +105,10 @@ void writeCategory(Theme& theme, const SettingsCategory cat, const Theme::Entry&
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(ThemePage, Panel)
-    EVT_CHOICE  (ThemePage::ID_THEME_CHOICE,    ThemePage::onSelectTheme)
-    EVT_BUTTON  (ThemePage::ID_SAVE_THEME,      ThemePage::onSaveTheme)
-    EVT_LISTBOX (ThemePage::ID_CATEGORY_LIST,   ThemePage::onSelectCategory)
+    EVT_CHOICE             (ThemePage::ID_THEME_CHOICE,   ThemePage::onSelectTheme)
+    EVT_BUTTON             (ThemePage::ID_SAVE_THEME,     ThemePage::onSaveTheme)
+    EVT_TREE_SEL_CHANGING  (ThemePage::ID_CATEGORY_TREE,  ThemePage::onCategorySelChanging)
+    EVT_TREE_SEL_CHANGED   (ThemePage::ID_CATEGORY_TREE,  ThemePage::onCategorySelChanged)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -126,7 +165,19 @@ void ThemePage::create() {
     SetSizerAndFit(currentSizer());
 
     updateTitle();
+
+    // Pre-load the Default row before triggering the tree's selection
+    // event. SelectItem fires SEL_CHANGED → saveCategory() → loadCategory()
+    // — saveCategory reads from the picker widgets, so they need to hold
+    // Default's colours first; otherwise it clobbers Default with the
+    // picker's null/empty initial state. Layout guarantees the first
+    // top-level child of the (hidden) root is the Default node.
+    m_selectedRow = +SettingsCategory::Default;
     loadCategory();
+    wxTreeItemIdValue cookie;
+    if (const auto first = m_typeTree->GetFirstChild(m_typeTree->GetRootItem(), cookie); first.IsOk()) {
+        m_typeTree->SelectItem(first);
+    }
 }
 
 void ThemePage::createTopRow() {
@@ -161,36 +212,45 @@ void ThemePage::createTopRow() {
     });
 }
 
-void ThemePage::createCategoryList() {
-    wxArrayString displayNames;
-    displayNames.reserve(kSettingsCategoryCount);
-
-    for (const auto cat : kSettingsCategories) {
-        const auto key = "categories." + lowerFirst(getSettingsCategoryName(cat));
-        auto label = tr(key);
-        if (label.empty()) {
-            label = getSettingsCategoryName(cat);
+void ThemePage::addTreeNode(const wxTreeItemId parent, const std::vector<TreeNode>& nodes) {
+    for (const auto& node : nodes) {
+        const auto label = tr("categories." + node.labelKey, node.fallbackLabel);
+        const auto id = m_typeTree->AppendItem(parent, label);
+        if (node.category) {
+            m_treeCategories.emplace(id.GetID(), *node.category);
+            m_typeTree->SetItemBold(id, true);
         }
-        displayNames.Add(label);
+        if (!node.children.empty()) {
+            addTreeNode(id, node.children);
+        }
     }
+}
 
-    m_typeList = make_unowned<wxListBox>(currentParent(), ID_CATEGORY_LIST, wxDefaultPosition, wxSize(160, 240), displayNames);
-    m_selectedRow = 0;
-    m_typeList->SetSelection(m_selectedRow);
-    add(m_typeList, {});
+void ThemePage::createCategoryList() {
+    m_typeTree = make_unowned<wxTreeCtrl>(
+        currentParent(), ID_CATEGORY_TREE,
+        wxDefaultPosition, wxSize(180, 320),
+        wxTR_HAS_BUTTONS | wxTR_HIDE_ROOT | wxTR_LINES_AT_ROOT | wxTR_FULL_ROW_HIGHLIGHT
+    );
+
+    const auto root = m_typeTree->AddRoot("(root)");
+    addTreeNode(root, categoryTreeLayout());
+    m_typeTree->ExpandAll();
+    m_selectedRow = +SettingsCategory::Default;
+
+    add(m_typeTree, {});
 }
 
 void ThemePage::createLeftPanel() {
-    const auto inheritTip = tr("inheritColor");
+    vbox({ .proportion = 2, .border = 0 }, [this] {
+        const auto addPicker = [&](const wxString& labelText, const wxString& tooltip = {}) -> Unowned<ColorPicker> {
+            auto picker = make_unowned<ColorPicker>(currentParent(), m_theme, m_tr, labelText, tooltip);
+            picker->create();
+            add(picker);
+            return picker;
+        };
 
-    auto addPicker = [&](const wxString& labelText, const wxString& tooltip = {}) -> Unowned<ColorPicker> {
-        auto picker = make_unowned<ColorPicker>(currentParent(), m_theme, m_tr, labelText, tooltip);
-        picker->create();
-        add(picker);
-        return picker;
-    };
-
-    vbox({ .proportion = 2, .border = 0 }, [&] {
+        const auto inheritTip = tr("inheritColor");
         m_fgPicker = addPicker(tr("foreground"), inheritTip);
         spacer();
         m_bgPicker = addPicker(tr("background"), inheritTip);
@@ -200,13 +260,7 @@ void ThemePage::createLeftPanel() {
 
         m_lblFont = text(tr("font"), {});
         m_fontChoice = make_unowned<wxChoice>(currentParent(), wxID_ANY);
-        auto fonts = getAllFixedWidthFonts();
-        fonts.insert(fonts.begin(), "");
-        wxArrayString fontArr;
-        for (const auto& f : fonts) {
-            fontArr.Add(f);
-        }
-        m_fontChoice->Append(fontArr);
+        m_fontChoice->Append(getAllFixedWidthFonts());
         add(m_fontChoice);
         connect(m_lblFont, m_fontChoice);
     });
@@ -311,9 +365,31 @@ void ThemePage::saveNewTheme(const bool setActive) {
 // Category handling
 // ---------------------------------------------------------------------------
 
-void ThemePage::onSelectCategory(wxCommandEvent& event) {
+void ThemePage::onCategorySelChanging(wxTreeEvent& event) {
+    // Veto selection of folder nodes (Keywords / Margins / Brace / Asm).
+    // wx fires SEL_CHANGED only when the new selection sticks, so vetoing
+    // here prevents flicker and keeps `m_selectedRow` aligned with the
+    // last real (selectable) category.
+    const auto newItem = event.GetItem();
+    if (!newItem.IsOk()) {
+        return;
+    }
+    if (!m_treeCategories.contains(newItem.GetID())) {
+        event.Veto();
+    }
+}
+
+void ThemePage::onCategorySelChanged(wxTreeEvent& event) {
+    const auto item = event.GetItem();
+    if (!item.IsOk()) {
+        return;
+    }
+    const auto it = m_treeCategories.find(item.GetID());
+    if (it == m_treeCategories.end()) {
+        return;
+    }
     saveCategory();
-    m_selectedRow = event.GetSelection();
+    m_selectedRow = +it->second;
     loadCategory();
 }
 
