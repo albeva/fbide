@@ -323,6 +323,12 @@ jobs:
             "${APPDIR}/usr/share/applications/fbide.desktop"
           cp packaging/linux/fbide.desktop "${APPDIR}/fbide.desktop"
 
+          # AppStream MetaInfo. The component id (reverse-DNS) doubles as
+          # the file's basename — software centres key off the path, so
+          # the leaf must match the <id> inside the XML.
+          install -Dm644 packaging/linux/fbide.metainfo.xml \
+            "${APPDIR}/usr/share/metainfo/io.github.albeva.fbide.metainfo.xml"
+
           install -Dm755 packaging/linux/AppRun "${APPDIR}/AppRun"
 
       - name: Download linuxdeploy
