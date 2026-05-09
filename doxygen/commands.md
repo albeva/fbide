@@ -18,7 +18,7 @@ toggles) that surface it.
 | `enabled`        | Broad UI gate (set by `UIManager::applyState`).         |
 | `forceDisabled`  | Per-editor mask (set by `DocumentManager`).             |
 | `checked`        | Toggle state for `wxITEM_CHECK` entries.                |
-| `binds`          | `vector<variant<wxMenu*, wxMenuItem*, wxToolBarToolBase*, wxAuiManager*, ConfigManager*>>` |
+| `binds`          | `vector<variant<wxMenu*, wxMenuItem*, wxAuiToolBar*, wxAuiManager*, ConfigManager*>>` |
 
 `CommandManager` (`src/lib/command/CommandManager.hpp`) owns every entry
 in two lookup tables: by name, and by id. The constructor seeds the
@@ -52,7 +52,7 @@ CommandId.hpp   : enum CommandId { ..., Compile, ... }
 CommandManager  : addCommands({ {.id=+CommandId::Compile, .name="compile"} })
                   EVT_MENU(+CommandId::Compile, CommandManager::onCompile)
 UIManager       : while building "run" menu, lookup "compile" by name,
-                  attach the wxMenuItem* / wxToolBarToolBase* to entry.binds
+                  attach the wxMenuItem* / wxAuiToolBar* to entry.binds
 runtime         : F5 / click → wxEVT_MENU id=+CommandId::Compile
                   → CommandManager::onCompile
                   → m_ctx.getCompilerManager().compile()

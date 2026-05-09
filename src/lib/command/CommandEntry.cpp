@@ -53,20 +53,6 @@ void CommandEntry::update() {
                 item->GetMenu()->UpdateUI();
             }
         },
-        [this, effectiveEnabled](wxToolBarToolBase* tool) {
-            bool refresh = false;
-            if (tool->IsEnabled() != effectiveEnabled) {
-                tool->Enable(effectiveEnabled);
-                refresh = true;
-            }
-            if (tool->CanBeToggled() && tool->IsToggled() != checked) {
-                tool->Toggle(checked);
-                refresh = true;
-            }
-            if (refresh) {
-                tool->GetToolBar()->Realize();
-            }
-        },
         [this, effectiveEnabled](wxAuiToolBar* tb) {
             // wxAuiToolBar enable / toggle / state queries are id-keyed
             // on the parent toolbar; the per-tool wxAuiToolBarItem has

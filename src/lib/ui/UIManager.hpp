@@ -164,8 +164,7 @@ private:
     Unowned<CompilerLog> m_compilerLog;                 ///< Compiler-log dialog (wx-parented, hidden until shown).
     Unowned<OutputConsole> m_console;                   ///< Build/run output pane.
     Unowned<wxFrame> m_frame;                           ///< Top-level frame.
-    Unowned<wxToolBar> m_toolbar;                       ///< Classic frame toolbar (set when `toolbar.useAui=0`).
-    Unowned<wxAuiToolBar> m_auiToolbar;                 ///< AUI-managed toolbar pane (set when `toolbar.useAui=1`).
+    Unowned<wxAuiToolBar> m_auiToolbar;                 ///< AUI-managed toolbar pane.
     Unowned<wxAuiNotebook> m_notebook;                  ///< Document tabs.
     Unowned<wxAuiNotebook> m_sideBar;                   ///< Sidebar (Browser/Subs) notebook.
     std::vector<wxMenuItem*> m_externalLinkItems;       ///< Live menu items in the dynamic external-links submenu.
