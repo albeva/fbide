@@ -61,6 +61,7 @@ enum class KeywordKind {
     Constructor,
     Destructor,
     Operator,
+    Property,
     Do,
     While,
     For,

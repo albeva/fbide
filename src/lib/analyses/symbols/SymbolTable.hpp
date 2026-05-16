@@ -10,17 +10,22 @@
 
 namespace fbide {
 
-/// Top-level declaration kinds we surface from a parse tree. Restricted to
-/// the categories the old fbide Sub/Function browser showed; namespaces are
-/// recursed into but don't appear as a kind themselves.
+/// Top-level declaration kinds we surface from a parse tree. Namespaces are
+/// recursed into but don't appear as a kind themselves. The numeric order is
+/// load-bearing: `SymbolBrowser` uses `static_cast<int>(kind)` as an image-list
+/// index, so new kinds must be appended at matching positions there.
 enum class SymbolKind : std::uint8_t {
-    Sub,      ///< `Sub` declaration.
-    Function, ///< `Function` declaration.
-    Type,     ///< `Type` declaration.
-    Union,    ///< `Union` declaration.
-    Enum,     ///< `Enum` declaration.
-    Macro,    ///< `#macro` definition.
-    Include,  ///< `#include` directive.
+    Sub,         ///< `Sub` definition.
+    Function,    ///< `Function` definition.
+    Constructor, ///< `Constructor` definition.
+    Destructor,  ///< `Destructor` definition.
+    Operator,    ///< `Operator` definition (free-standing or UDT member).
+    Property,    ///< `Property` definition.
+    Type,        ///< `Type` declaration.
+    Union,       ///< `Union` declaration.
+    Enum,        ///< `Enum` declaration.
+    Macro,       ///< `#macro` definition.
+    Include,     ///< `#include` directive.
 };
 
 /// One captured declaration. `line` is 0-based and refers to the opener
@@ -50,13 +55,14 @@ struct Include {
  *
  * Constructed directly from a (lean) `ProgramTree`. The walk:
  *
- * - Captures top-level Sub / Function / Type / Union / Enum.
- * - Keeps the qualified name for methods (`Sub Type.Method`).
+ * - Captures top-level Sub / Function / Constructor / Destructor /
+ *   Operator / Property / Type / Union / Enum.
+ * - Keeps the qualified name for methods (`Sub Type.Method`,
+ *   `Operator Type.+`).
  * - Recurses into Namespace bodies (flat list — no qualified names
  *   for now).
  * - Skips anonymous declarations.
- * - Intentionally ignores Constructor / Destructor / Operator at
- *   this stage.
+ * - Only definitions are captured; `Declare`d prototypes are not.
  *
  * Pooled by `IntellisenseService` — `populate` rewalks while keeping
  * vector capacities, and `reset` clears without freeing.
@@ -75,10 +81,18 @@ public:
     /// allocating a fresh one on every parse.
     void populate(const reformat::ProgramTree& tree);
 
-    /// `Sub` declarations in source order.
+    /// `Sub` definitions in source order.
     [[nodiscard]] auto getSubs() const -> const std::vector<Symbol>& { return m_subs; }
-    /// `Function` declarations in source order.
+    /// `Function` definitions in source order.
     [[nodiscard]] auto getFunctions() const -> const std::vector<Symbol>& { return m_functions; }
+    /// `Constructor` definitions in source order.
+    [[nodiscard]] auto getConstructors() const -> const std::vector<Symbol>& { return m_constructors; }
+    /// `Destructor` definitions in source order.
+    [[nodiscard]] auto getDestructors() const -> const std::vector<Symbol>& { return m_destructors; }
+    /// `Operator` definitions in source order.
+    [[nodiscard]] auto getOperators() const -> const std::vector<Symbol>& { return m_operators; }
+    /// `Property` definitions in source order.
+    [[nodiscard]] auto getProperties() const -> const std::vector<Symbol>& { return m_properties; }
     /// `Type` declarations in source order.
     [[nodiscard]] auto getTypes() const -> const std::vector<Symbol>& { return m_types; }
     /// `Union` declarations in source order.
@@ -117,9 +131,13 @@ private:
     /// Recompute `m_hash` from the captured (kind, name) pairs.
     void computeHash();
 
-    std::vector<Symbol> m_subs;      ///< `Sub` declarations.
-    std::vector<Symbol> m_functions; ///< `Function` declarations.
-    std::vector<Symbol> m_types;     ///< `Type` declarations.
+    std::vector<Symbol> m_subs;         ///< `Sub` definitions.
+    std::vector<Symbol> m_functions;    ///< `Function` definitions.
+    std::vector<Symbol> m_constructors; ///< `Constructor` definitions.
+    std::vector<Symbol> m_destructors;  ///< `Destructor` definitions.
+    std::vector<Symbol> m_operators;    ///< `Operator` definitions.
+    std::vector<Symbol> m_properties;   ///< `Property` definitions.
+    std::vector<Symbol> m_types;        ///< `Type` declarations.
     std::vector<Symbol> m_unions;    ///< `Union` declarations.
     std::vector<Symbol> m_enums;     ///< `Enum` declarations.
     std::vector<Symbol> m_macros;    ///< `#macro` definitions.

@@ -112,23 +112,30 @@ auto hasBlockCloserAfterFirst(const std::vector<Token>& tokens) -> bool {
 }
 
 auto isBodyDefinition(const std::vector<Token>& tokens) -> bool {
-    bool foundKw = false;
+    KeywordKind opener = KeywordKind::None;
     for (const auto& t : tokens) {
         if (isLayout(t.kind)) {
             continue;
         }
-        if (!foundKw) {
+        if (opener == KeywordKind::None) {
             switch (t.keywordKind) {
             case KeywordKind::Sub:
             case KeywordKind::Function:
             case KeywordKind::Constructor:
             case KeywordKind::Destructor:
             case KeywordKind::Operator:
-                foundKw = true;
+            case KeywordKind::Property:
+                opener = t.keywordKind;
                 continue;
             default:
                 continue;
             }
+        }
+        // `Operator` is only ever a definition opener — its name is the operator
+        // symbol/keyword that follows, none of which is word-like, so any
+        // following token confirms the definition.
+        if (opener == KeywordKind::Operator) {
+            return true;
         }
         if (isWordLike(t.kind)) {
             return true;
@@ -164,6 +171,7 @@ auto isOpener(const std::vector<Token>& tokens) -> bool {
     case KeywordKind::Constructor:
     case KeywordKind::Destructor:
     case KeywordKind::Operator:
+    case KeywordKind::Property:
         return isBodyDefinition(tokens);
     case KeywordKind::Do:
     case KeywordKind::While:
@@ -196,6 +204,7 @@ constexpr std::array<std::string_view, 2> kEndFunction { "end", "function" };
 constexpr std::array<std::string_view, 2> kEndCtor { "end", "constructor" };
 constexpr std::array<std::string_view, 2> kEndDtor { "end", "destructor" };
 constexpr std::array<std::string_view, 2> kEndOperator { "end", "operator" };
+constexpr std::array<std::string_view, 2> kEndProperty { "end", "property" };
 constexpr std::array<std::string_view, 2> kEndSelect { "end", "select" };
 constexpr std::array<std::string_view, 2> kEndType { "end", "type" };
 constexpr std::array<std::string_view, 2> kEndEnum { "end", "enum" };
@@ -225,6 +234,8 @@ auto closerFor(const KeywordKind k) -> std::span<const std::string_view> {
         return kEndDtor;
     case KeywordKind::Operator:
         return kEndOperator;
+    case KeywordKind::Property:
+        return kEndProperty;
     case KeywordKind::Select:
         return kEndSelect;
     case KeywordKind::Type:

@@ -71,6 +71,10 @@ SymbolBrowser::SymbolBrowser(Context& ctx, wxWindow* parent)
     constexpr std::array kIconKinds = {
         SymbolKind::Sub,
         SymbolKind::Function,
+        SymbolKind::Constructor,
+        SymbolKind::Destructor,
+        SymbolKind::Operator,
+        SymbolKind::Property,
         SymbolKind::Type,
         SymbolKind::Union,
         SymbolKind::Enum,
@@ -116,6 +120,10 @@ void SymbolBrowser::rebuild() {
     appendIncludes(m_ctx.tr("sidebar.symbols.includes"), m_currentTable->getIncludes());
     appendBucket(SymbolKind::Sub, m_ctx.tr("sidebar.symbols.subs"), m_currentTable->getSubs());
     appendBucket(SymbolKind::Function, m_ctx.tr("sidebar.symbols.functions"), m_currentTable->getFunctions());
+    appendBucket(SymbolKind::Constructor, m_ctx.tr("sidebar.symbols.constructors"), m_currentTable->getConstructors());
+    appendBucket(SymbolKind::Destructor, m_ctx.tr("sidebar.symbols.destructors"), m_currentTable->getDestructors());
+    appendBucket(SymbolKind::Operator, m_ctx.tr("sidebar.symbols.operators"), m_currentTable->getOperators());
+    appendBucket(SymbolKind::Property, m_ctx.tr("sidebar.symbols.properties"), m_currentTable->getProperties());
     appendBucket(SymbolKind::Type, m_ctx.tr("sidebar.symbols.types"), m_currentTable->getTypes());
     appendBucket(SymbolKind::Union, m_ctx.tr("sidebar.symbols.unions"), m_currentTable->getUnions());
     appendBucket(SymbolKind::Enum, m_ctx.tr("sidebar.symbols.enums"), m_currentTable->getEnums());
@@ -176,6 +184,18 @@ void SymbolBrowser::dispatch(const Entry& entry) {
         break;
     case SymbolKind::Function:
         gotoSymbol(table.getFunctions(), entry.index);
+        break;
+    case SymbolKind::Constructor:
+        gotoSymbol(table.getConstructors(), entry.index);
+        break;
+    case SymbolKind::Destructor:
+        gotoSymbol(table.getDestructors(), entry.index);
+        break;
+    case SymbolKind::Operator:
+        gotoSymbol(table.getOperators(), entry.index);
+        break;
+    case SymbolKind::Property:
+        gotoSymbol(table.getProperties(), entry.index);
         break;
     case SymbolKind::Type:
         gotoSymbol(table.getTypes(), entry.index);

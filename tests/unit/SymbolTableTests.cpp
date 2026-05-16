@@ -189,6 +189,194 @@ TEST_F(SymbolTableTests, MethodWithAccessModifier) {
     EXPECT_EQ(table.getSubs()[0].name, "Vec.Hide");
 }
 
+TEST_F(SymbolTableTests, ConstructorAndDestructor) {
+    const auto table = extract(
+        "Constructor Vec()\n"
+        "End Constructor\n"
+        "Destructor Vec()\n"
+        "End Destructor\n"
+    );
+    ASSERT_EQ(table.getConstructors().size(), 1U);
+    EXPECT_EQ(table.getConstructors()[0].name, "Vec");
+    EXPECT_EQ(table.getConstructors()[0].line, 0);
+
+    ASSERT_EQ(table.getDestructors().size(), 1U);
+    EXPECT_EQ(table.getDestructors()[0].name, "Vec");
+    EXPECT_EQ(table.getDestructors()[0].line, 2);
+}
+
+TEST_F(SymbolTableTests, MemberOperator) {
+    // UDT member operators carry the `TypeName.` qualifier and the operator
+    // token(s) — symbolic, keyword, or bracketed.
+    const auto table = extract(
+        "Operator Vec.+ (rhs As Vec) As Vec\n"
+        "End Operator\n"
+        "Operator Vec.Cast() As String\n"
+        "End Operator\n"
+        "Operator Vec.[] (i As Integer) As Integer\n"
+        "End Operator\n"
+    );
+    ASSERT_EQ(table.getOperators().size(), 3U);
+    EXPECT_EQ(table.getOperators()[0].name, "Vec.+");
+    EXPECT_EQ(table.getOperators()[1].name, "Vec.Cast");
+    EXPECT_EQ(table.getOperators()[2].name, "Vec.[]");
+}
+
+TEST_F(SymbolTableTests, FreeStandingOperator) {
+    const auto table = extract(
+        "Operator + (lhs As Vec, rhs As Vec) As Vec\n"
+        "End Operator\n"
+    );
+    ASSERT_EQ(table.getOperators().size(), 1U);
+    EXPECT_EQ(table.getOperators()[0].name, "+");
+}
+
+TEST_F(SymbolTableTests, Property) {
+    const auto table = extract(
+        "Property Vec.X() As Integer\n"
+        "End Property\n"
+        "Property Vec.X(value As Integer)\n"
+        "End Property\n"
+    );
+    ASSERT_EQ(table.getProperties().size(), 2U);
+    EXPECT_EQ(table.getProperties()[0].name, "Vec.X");
+    EXPECT_EQ(table.getProperties()[1].name, "Vec.X");
+}
+
+TEST_F(SymbolTableTests, OperatorNameForms) {
+    // Operators come in many shapes — keyword names (`Cast`, `Let`, `New`,
+    // `Delete`), bracketed allocation forms (`New[]`, `Delete[]`), sigils
+    // (`@`), and compound-assignment symbols (`+=`).
+    const auto table = extract(
+        "Operator Vec.Let (rhs As Vec)\n"
+        "End Operator\n"
+        "Operator Vec.+= (rhs As Vec)\n"
+        "End Operator\n"
+        "Operator Vec.@ () As Integer Ptr\n"
+        "End Operator\n"
+        "Operator Vec.New (size As UInteger) As Any Ptr\n"
+        "End Operator\n"
+        "Operator Vec.New[] (size As UInteger) As Any Ptr\n"
+        "End Operator\n"
+        "Operator Vec.Delete (buf As Any Ptr)\n"
+        "End Operator\n"
+        "Operator Vec.Delete[] (buf As Any Ptr)\n"
+        "End Operator\n"
+    );
+    ASSERT_EQ(table.getOperators().size(), 7U);
+    EXPECT_EQ(table.getOperators()[0].name, "Vec.Let");
+    EXPECT_EQ(table.getOperators()[1].name, "Vec.+=");
+    EXPECT_EQ(table.getOperators()[2].name, "Vec.@");
+    EXPECT_EQ(table.getOperators()[3].name, "Vec.New");
+    EXPECT_EQ(table.getOperators()[4].name, "Vec.New[]");
+    EXPECT_EQ(table.getOperators()[5].name, "Vec.Delete");
+    EXPECT_EQ(table.getOperators()[6].name, "Vec.Delete[]");
+}
+
+TEST_F(SymbolTableTests, AccessModifiersOnAllCallables) {
+    // `Private` / `Public` / `Protected` are transparent prefixes on every
+    // callable kind, not just Sub / Function.
+    const auto table = extract(
+        "Public Constructor Vec()\n"
+        "End Constructor\n"
+        "Private Destructor Vec()\n"
+        "End Destructor\n"
+        "Protected Operator Vec.+ (rhs As Vec) As Vec\n"
+        "End Operator\n"
+        "Public Property Vec.X() As Integer\n"
+        "End Property\n"
+    );
+    ASSERT_EQ(table.getConstructors().size(), 1U);
+    EXPECT_EQ(table.getConstructors()[0].name, "Vec");
+    ASSERT_EQ(table.getDestructors().size(), 1U);
+    EXPECT_EQ(table.getDestructors()[0].name, "Vec");
+    ASSERT_EQ(table.getOperators().size(), 1U);
+    EXPECT_EQ(table.getOperators()[0].name, "Vec.+");
+    ASSERT_EQ(table.getProperties().size(), 1U);
+    EXPECT_EQ(table.getProperties()[0].name, "Vec.X");
+}
+
+TEST_F(SymbolTableTests, CallablesInsideNamespaceRecurse) {
+    // Every callable kind is found when nested inside a Namespace body.
+    const auto table = extract(
+        "Namespace Geom\n"
+        "    Constructor Vec()\n"
+        "    End Constructor\n"
+        "    Destructor Vec()\n"
+        "    End Destructor\n"
+        "    Operator Vec.+ (rhs As Vec) As Vec\n"
+        "    End Operator\n"
+        "    Property Vec.X() As Integer\n"
+        "    End Property\n"
+        "End Namespace\n"
+    );
+    ASSERT_EQ(table.getConstructors().size(), 1U);
+    EXPECT_EQ(table.getConstructors()[0].name, "Vec");
+    ASSERT_EQ(table.getDestructors().size(), 1U);
+    EXPECT_EQ(table.getDestructors()[0].name, "Vec");
+    ASSERT_EQ(table.getOperators().size(), 1U);
+    EXPECT_EQ(table.getOperators()[0].name, "Vec.+");
+    ASSERT_EQ(table.getProperties().size(), 1U);
+    EXPECT_EQ(table.getProperties()[0].name, "Vec.X");
+}
+
+TEST_F(SymbolTableTests, AllSymbolKindsTogether) {
+    // One source exercising every captured kind — guards against a kind being
+    // dropped by the walker dispatch.
+    const auto table = extract(
+        "#include \"foo.bi\"\n"
+        "#macro M(a)\n"
+        "    a\n"
+        "#endmacro\n"
+        "Sub S\n"
+        "End Sub\n"
+        "Function F() As Integer\n"
+        "End Function\n"
+        "Constructor C()\n"
+        "End Constructor\n"
+        "Destructor C()\n"
+        "End Destructor\n"
+        "Operator C.+ (rhs As C) As C\n"
+        "End Operator\n"
+        "Property C.P() As Integer\n"
+        "End Property\n"
+        "Type T\n"
+        "    x As Integer\n"
+        "End Type\n"
+        "Union U\n"
+        "    a As Integer\n"
+        "End Union\n"
+        "Enum E\n"
+        "    Red\n"
+        "End Enum\n"
+    );
+    EXPECT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getFunctions().size(), 1U);
+    EXPECT_EQ(table.getConstructors().size(), 1U);
+    EXPECT_EQ(table.getDestructors().size(), 1U);
+    EXPECT_EQ(table.getOperators().size(), 1U);
+    EXPECT_EQ(table.getProperties().size(), 1U);
+    EXPECT_EQ(table.getTypes().size(), 1U);
+    EXPECT_EQ(table.getUnions().size(), 1U);
+    EXPECT_EQ(table.getEnums().size(), 1U);
+    EXPECT_EQ(table.getMacros().size(), 1U);
+    EXPECT_EQ(table.getIncludes().size(), 1U);
+}
+
+TEST_F(SymbolTableTests, NewKindsParticipateInHash) {
+    // Hash covers (kind, name) for the OO kinds too — renaming a constructor
+    // changes the hash so the browser rebuilds.
+    const auto a = extract(
+        "Constructor Foo()\n"
+        "End Constructor\n"
+    );
+    const auto b = extract(
+        "Constructor Bar()\n"
+        "End Constructor\n"
+    );
+    EXPECT_NE(a.getHash(), b.getHash());
+}
+
 TEST_F(SymbolTableTests, EnumAndUnion) {
     const auto table = extract(
         "Enum Color\n"
