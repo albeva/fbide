@@ -30,11 +30,21 @@ enum class SymbolKind : std::uint8_t {
 
 /// One captured declaration. `line` is 0-based and refers to the opener
 /// (e.g., the `Sub` keyword line), suitable for `wxStyledTextCtrl::GotoLine`.
+/// A negative `line` marks a synthetic `Type` entry — an undeclared owner of
+/// a method (`Sub Foo.Bar` with no `Type Foo`) — which exists only to group
+/// its members and has no navigable location.
 struct Symbol {
     SymbolKind kind; ///< Declaration kind.
     wxString name;   ///< Declared name; qualified (`Type.Method`) for methods.
-    int line = 0;    ///< 0-based source line of the opener.
+    int line = 0;    ///< 0-based source line of the opener; negative if synthetic.
 };
+
+/// Owning UDT of a member symbol, or an empty string for a free-standing one.
+/// `Constructor` / `Destructor` are always members — their whole name is the
+/// owning type. `Sub` / `Function` / `Operator` / `Property` are members when
+/// method-qualified (`Owner.member`); the owner is the text before the final
+/// dot. Other kinds are never members.
+[[nodiscard]] auto symbolOwner(const Symbol& sym) -> wxString;
 
 /// One captured `#include` (or `#include once`) directive. `path` is the
 /// literal quoted text with quotes stripped — no resolution (the caller
@@ -63,6 +73,9 @@ struct Include {
  *   for now).
  * - Skips anonymous declarations.
  * - Only definitions are captured; `Declare`d prototypes are not.
+ * - Synthesises a `Type` entry for any method owner that is not itself
+ *   declared, so the browser can group members under it. Synthetic
+ *   types carry a negative `line`.
  *
  * Pooled by `IntellisenseService` — `populate` rewalks while keeping
  * vector capacities, and `reset` clears without freeing.
@@ -128,6 +141,9 @@ private:
     void emit(SymbolKind kind,
         const std::vector<lexer::Token>& opener,
         std::size_t keywordIdx);
+    /// Append a synthetic `Type` (negative line) for every method owner that
+    /// is not already a declared type, so members can be grouped under it.
+    void synthesizeOwnerTypes();
     /// Recompute `m_hash` from the captured (kind, name) pairs.
     void computeHash();
 

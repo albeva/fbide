@@ -332,6 +332,9 @@ TEST_F(SymbolTableTests, AllSymbolKindsTogether) {
         "End Sub\n"
         "Function F() As Integer\n"
         "End Function\n"
+        "Type C\n"
+        "    x As Integer\n"
+        "End Type\n"
         "Constructor C()\n"
         "End Constructor\n"
         "Destructor C()\n"
@@ -356,7 +359,7 @@ TEST_F(SymbolTableTests, AllSymbolKindsTogether) {
     EXPECT_EQ(table.getDestructors().size(), 1U);
     EXPECT_EQ(table.getOperators().size(), 1U);
     EXPECT_EQ(table.getProperties().size(), 1U);
-    EXPECT_EQ(table.getTypes().size(), 1U);
+    EXPECT_EQ(table.getTypes().size(), 2U); // C and T, both declared
     EXPECT_EQ(table.getUnions().size(), 1U);
     EXPECT_EQ(table.getEnums().size(), 1U);
     EXPECT_EQ(table.getMacros().size(), 1U);
@@ -375,6 +378,77 @@ TEST_F(SymbolTableTests, NewKindsParticipateInHash) {
         "End Constructor\n"
     );
     EXPECT_NE(a.getHash(), b.getHash());
+}
+
+TEST_F(SymbolTableTests, UndeclaredMethodOwnerSynthesisesType) {
+    // `Sub Vec.Foo` with no `Type Vec` — a synthetic group-only Type is added
+    // so the browser can nest the method. Synthetic types carry a negative
+    // line and so are not navigable.
+    const auto table = extract(
+        "Sub Vec.Foo\n"
+        "End Sub\n"
+    );
+    ASSERT_EQ(table.getTypes().size(), 1U);
+    EXPECT_EQ(table.getTypes()[0].name, "Vec");
+    EXPECT_LT(table.getTypes()[0].line, 0);
+    EXPECT_EQ(symbolOwner(table.getSubs()[0]), "Vec");
+}
+
+TEST_F(SymbolTableTests, ConstructorSynthesisesOwnerType) {
+    const auto table = extract(
+        "Constructor Vec()\n"
+        "End Constructor\n"
+    );
+    ASSERT_EQ(table.getTypes().size(), 1U);
+    EXPECT_EQ(table.getTypes()[0].name, "Vec");
+    EXPECT_LT(table.getTypes()[0].line, 0);
+}
+
+TEST_F(SymbolTableTests, DeclaredOwnerHasNoSyntheticDuplicate) {
+    // The owner is already a declared type — no synthetic entry, and the
+    // declared one keeps its real (non-negative) line.
+    const auto table = extract(
+        "Type Vec\n"
+        "    x As Integer\n"
+        "End Type\n"
+        "Sub Vec.Foo\n"
+        "End Sub\n"
+        "Constructor Vec()\n"
+        "End Constructor\n"
+    );
+    ASSERT_EQ(table.getTypes().size(), 1U);
+    EXPECT_EQ(table.getTypes()[0].name, "Vec");
+    EXPECT_GE(table.getTypes()[0].line, 0);
+}
+
+TEST_F(SymbolTableTests, ManyMembersShareOneSyntheticType) {
+    // Several members of the same undeclared owner collapse to one Type entry.
+    const auto table = extract(
+        "Sub Vec.A\n"
+        "End Sub\n"
+        "Function Vec.B() As Integer\n"
+        "End Function\n"
+        "Constructor Vec()\n"
+        "End Constructor\n"
+        "Property Vec.C() As Integer\n"
+        "End Property\n"
+    );
+    ASSERT_EQ(table.getTypes().size(), 1U);
+    EXPECT_EQ(table.getTypes()[0].name, "Vec");
+}
+
+TEST_F(SymbolTableTests, FreeStandingSymbolsDoNotSynthesiseTypes) {
+    const auto table = extract(
+        "Sub Foo\n"
+        "End Sub\n"
+        "Function Bar() As Integer\n"
+        "End Function\n"
+        "Operator + (lhs As Integer, rhs As Integer) As Integer\n"
+        "End Operator\n"
+    );
+    EXPECT_TRUE(table.getTypes().empty());
+    EXPECT_TRUE(symbolOwner(table.getSubs()[0]).empty());
+    EXPECT_TRUE(symbolOwner(table.getOperators()[0]).empty());
 }
 
 TEST_F(SymbolTableTests, EnumAndUnion) {

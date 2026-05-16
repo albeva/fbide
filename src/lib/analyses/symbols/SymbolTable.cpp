@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "SymbolTable.hpp"
+#include <unordered_set>
 #include "analyses/lexer/Token.hpp"
 using namespace fbide;
 using namespace fbide::reformat;
@@ -206,10 +207,64 @@ SymbolTable::SymbolTable(const ProgramTree& tree) {
     populate(tree);
 }
 
+auto fbide::symbolOwner(const Symbol& sym) -> wxString {
+    switch (sym.kind) {
+    case SymbolKind::Constructor:
+    case SymbolKind::Destructor:
+        // The constructor/destructor name is the owning type itself.
+        return sym.name;
+    case SymbolKind::Sub:
+    case SymbolKind::Function:
+    case SymbolKind::Operator:
+    case SymbolKind::Property:
+        // `Owner.member` → text before the final dot, empty when free-standing.
+        return sym.name.BeforeLast('.');
+    case SymbolKind::Type:
+    case SymbolKind::Union:
+    case SymbolKind::Enum:
+    case SymbolKind::Macro:
+    case SymbolKind::Include:
+        return {};
+    }
+    return {};
+}
+
 void SymbolTable::populate(const ProgramTree& tree) {
     walkNodes(tree.nodes);
     collectIncludes(tree.nodes);
+    synthesizeOwnerTypes();
     computeHash();
+}
+
+void SymbolTable::synthesizeOwnerTypes() {
+    std::unordered_set<wxString> known;
+    known.reserve(m_types.size());
+    for (const auto& type : m_types) {
+        known.insert(type.name);
+    }
+    // Scan members in declaration order; the first reference to an undeclared
+    // owner appends a synthetic, group-only Type entry.
+    const auto absorb = [&](const std::vector<Symbol>& members) {
+        for (const auto& sym : members) {
+            const wxString owner = symbolOwner(sym);
+            if (owner.empty()) {
+                continue;
+            }
+            if (known.insert(owner).second) {
+                m_types.push_back(Symbol {
+                    .kind = SymbolKind::Type,
+                    .name = owner,
+                    .line = -1,
+                });
+            }
+        }
+    };
+    absorb(m_subs);
+    absorb(m_functions);
+    absorb(m_constructors);
+    absorb(m_destructors);
+    absorb(m_operators);
+    absorb(m_properties);
 }
 
 auto SymbolTable::findIncludeAt(const int line) const -> const Include* {
