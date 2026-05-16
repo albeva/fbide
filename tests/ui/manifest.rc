@@ -1,0 +1,9 @@
+// Embeds the shared Win32 application manifest into the GUI test runner so
+// wxWidgets picks up common-controls v6 / DPI settings — same as the main
+// fbide executable (see src/lib/rc/app.rc). Without it wxWidgets warns at
+// startup about the missing manifest.
+//
+// MinGW only: on MSVC the linker embeds the manifest separately.
+#ifdef __MINGW32__
+1 24 "cmake/app.manifest"
+#endif

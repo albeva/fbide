@@ -59,7 +59,14 @@ gtest_discover_tests(tests
 add_executable(ui-tests
     ui/uimain.cpp
     ui/EditorTests.cpp
+    ui/EditorPerfTests.cpp
 )
+
+# Embed the Win32 application manifest so the GUI test runner gets the
+# common-controls v6 / DPI settings — without it wxWidgets warns at startup.
+if (WIN32)
+    target_sources(ui-tests PRIVATE ui/manifest.rc)
+endif ()
 
 target_compile_definitions(ui-tests PRIVATE
     FBIDE_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data/"

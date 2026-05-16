@@ -34,10 +34,10 @@ public:
         if (!wxTheApp || !wxTheApp->CallOnInit()) {
             throw std::runtime_error("wxWidgets init failed");
         }
-        // Replace wxLogGui (the default for wxApp builds) with stderr so
-        // log records emitted during tests don't surface as modal dialogs
-        // that block the wxUIActionSimulator input pump.
-        delete wxLog::SetActiveTarget(new wxLogStderr());
+        // Silence wxWidgets logging for the whole test run: no stderr noise
+        // and no modal wxLogGui dialogs that would block the
+        // wxUIActionSimulator input pump.
+        wxLog::EnableLogging(false);
     }
 
     void TearDown() override {
