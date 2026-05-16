@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "SymbolTable.hpp"
+#include <unordered_set>
 #include "analyses/lexer/Token.hpp"
 using namespace fbide;
 using namespace fbide::reformat;
@@ -108,7 +109,9 @@ auto detectInclude(const std::vector<Token>& tokens) -> std::optional<IncludeMat
     };
 }
 
-/// First significant token's `KeywordKind` and its index inside `tokens`.
+/// First structurally significant token's `KeywordKind` and its index inside
+/// `tokens`. Leading access modifiers (`Private` / `Public` / `Protected`) are
+/// skipped so `Private Sub Foo` dispatches on `Sub`, not the modifier.
 struct FirstKeyword {
     KeywordKind kind = KeywordKind::None;
     std::size_t index = std::string::npos;
@@ -117,6 +120,9 @@ auto findFirstKeyword(const std::vector<Token>& tokens) -> FirstKeyword {
     for (std::size_t i = 0; i < tokens.size(); i++) {
         const auto& tkn = tokens[i];
         if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
+            continue;
+        }
+        if (isAccessModifier(tkn.keywordKind)) {
             continue;
         }
         if (tkn.keywordKind != KeywordKind::None && tkn.keywordKind != KeywordKind::Other) {
@@ -137,16 +143,128 @@ auto findWordlikeAfter(const std::vector<Token>& tokens, std::size_t start) -> c
     return nullptr;
 }
 
+/// Index of the first non-layout token at or after `start`, or `npos`.
+auto nextSignificant(const std::vector<Token>& tokens, std::size_t start) -> std::size_t {
+    while (start < tokens.size() && isLayoutToken(tokens[start])) {
+        start++;
+    }
+    return start < tokens.size() ? start : std::string::npos;
+}
+
+/// Build the declared name of a Sub / Function starting from `start`.
+/// FreeBASIC methods carry a qualifier — `Sub TypeName.MethodName` — so a
+/// trailing `.identifier` chain is folded into the name (`TypeName.MethodName`).
+/// Returns an empty string when no name token is present (anonymous).
+auto qualifiedNameAfter(const std::vector<Token>& tokens, std::size_t start) -> wxString {
+    const Token* head = findWordlikeAfter(tokens, start);
+    if (head == nullptr) {
+        return {};
+    }
+    wxString name = wxString::FromUTF8(head->text);
+
+    // Continue across `.identifier` segments — `Type.Method`, or a deeper
+    // `Namespace.Type.Method` qualifier.
+    std::size_t i = static_cast<std::size_t>(head - tokens.data()) + 1;
+    while (true) {
+        const std::size_t dot = nextSignificant(tokens, i);
+        if (dot == std::string::npos || tokens[dot].operatorKind != OperatorKind::Dot) {
+            break;
+        }
+        const std::size_t member = nextSignificant(tokens, dot + 1);
+        if (member == std::string::npos || !isWordLike(tokens[member].kind)) {
+            break;
+        }
+        name += '.';
+        name += wxString::FromUTF8(tokens[member].text);
+        i = member + 1;
+    }
+    return name;
+}
+
+/// Build the declared name of an `Operator` starting from `start`. An operator
+/// name is not a plain identifier — it may be a symbol (`+`, `[]`, `@`), a
+/// keyword (`Cast`, `New`, `Delete`, `Let`), and either free-standing or a UDT
+/// member (`Operator TypeName.+`). Every significant token from `start` up to
+/// the parameter list `(` is concatenated verbatim, e.g. `TypeName.New[]`.
+auto operatorNameAfter(const std::vector<Token>& tokens, std::size_t start) -> wxString {
+    wxString name;
+    for (std::size_t i = start; i < tokens.size(); i++) {
+        const auto& tkn = tokens[i];
+        if (isLayoutToken(tkn)) {
+            continue;
+        }
+        if (tkn.operatorKind == OperatorKind::ParenOpen) {
+            break; // parameter list — name complete
+        }
+        name += wxString::FromUTF8(tkn.text);
+    }
+    return name;
+}
+
 } // namespace
 
 SymbolTable::SymbolTable(const ProgramTree& tree) {
     populate(tree);
 }
 
+auto fbide::symbolOwner(const Symbol& sym) -> wxString {
+    switch (sym.kind) {
+    case SymbolKind::Constructor:
+    case SymbolKind::Destructor:
+        // The constructor/destructor name is the owning type itself.
+        return sym.name;
+    case SymbolKind::Sub:
+    case SymbolKind::Function:
+    case SymbolKind::Operator:
+    case SymbolKind::Property:
+        // `Owner.member` → text before the final dot, empty when free-standing.
+        return sym.name.BeforeLast('.');
+    case SymbolKind::Type:
+    case SymbolKind::Union:
+    case SymbolKind::Enum:
+    case SymbolKind::Macro:
+    case SymbolKind::Include:
+        return {};
+    }
+    return {};
+}
+
 void SymbolTable::populate(const ProgramTree& tree) {
     walkNodes(tree.nodes);
     collectIncludes(tree.nodes);
+    synthesizeOwnerTypes();
     computeHash();
+}
+
+void SymbolTable::synthesizeOwnerTypes() {
+    std::unordered_set<wxString> known;
+    known.reserve(m_types.size());
+    for (const auto& type : m_types) {
+        known.insert(type.name);
+    }
+    // Scan members in declaration order; the first reference to an undeclared
+    // owner appends a synthetic, group-only Type entry.
+    const auto absorb = [&](const std::vector<Symbol>& members) {
+        for (const auto& sym : members) {
+            const wxString owner = symbolOwner(sym);
+            if (owner.empty()) {
+                continue;
+            }
+            if (known.insert(owner).second) {
+                m_types.push_back(Symbol {
+                    .kind = SymbolKind::Type,
+                    .name = owner,
+                    .line = -1,
+                });
+            }
+        }
+    };
+    absorb(m_subs);
+    absorb(m_functions);
+    absorb(m_constructors);
+    absorb(m_destructors);
+    absorb(m_operators);
+    absorb(m_properties);
 }
 
 auto SymbolTable::findIncludeAt(const int line) const -> const Include* {
@@ -183,6 +301,10 @@ void SymbolTable::tryAddInclude(const std::vector<Token>& tokens) {
 void SymbolTable::reset() {
     m_subs.clear();
     m_functions.clear();
+    m_constructors.clear();
+    m_destructors.clear();
+    m_operators.clear();
+    m_properties.clear();
     m_types.clear();
     m_unions.clear();
     m_enums.clear();
@@ -211,6 +333,18 @@ void SymbolTable::walkBlock(const BlockNode& block) {
         break;
     case KeywordKind::Function:
         emit(SymbolKind::Function, openerTokens, first.index);
+        break;
+    case KeywordKind::Constructor:
+        emit(SymbolKind::Constructor, openerTokens, first.index);
+        break;
+    case KeywordKind::Destructor:
+        emit(SymbolKind::Destructor, openerTokens, first.index);
+        break;
+    case KeywordKind::Operator:
+        emit(SymbolKind::Operator, openerTokens, first.index);
+        break;
+    case KeywordKind::Property:
+        emit(SymbolKind::Property, openerTokens, first.index);
         break;
     case KeywordKind::Type:
         emit(SymbolKind::Type, openerTokens, first.index);
@@ -246,13 +380,20 @@ void SymbolTable::emit(
     const std::vector<Token>& opener,
     const std::size_t keywordIdx
 ) {
-    const Token* name = findWordlikeAfter(opener, keywordIdx + 1);
-    if (name == nullptr) {
+    // Operator names are not plain identifiers (`+`, `[]`, `Cast`, `Type.New`);
+    // every token up to the parameter list forms the name. Everything else is
+    // an identifier, optionally method-qualified (`Sub TypeName.MethodName`,
+    // `Constructor TypeName`) — qualifiedNameAfter returns a bare name unchanged
+    // when no dot follows.
+    wxString name = kind == SymbolKind::Operator
+        ? operatorNameAfter(opener, keywordIdx + 1)
+        : qualifiedNameAfter(opener, keywordIdx + 1);
+    if (name.empty()) {
         return; // anonymous — skip
     }
     Symbol sym {
         .kind = kind,
-        .name = wxString::FromUTF8(name->text),
+        .name = std::move(name),
         .line = opener.empty() ? 0 : opener.front().line,
     };
     switch (kind) {
@@ -261,6 +402,18 @@ void SymbolTable::emit(
         break;
     case SymbolKind::Function:
         m_functions.push_back(std::move(sym));
+        break;
+    case SymbolKind::Constructor:
+        m_constructors.push_back(std::move(sym));
+        break;
+    case SymbolKind::Destructor:
+        m_destructors.push_back(std::move(sym));
+        break;
+    case SymbolKind::Operator:
+        m_operators.push_back(std::move(sym));
+        break;
+    case SymbolKind::Property:
+        m_properties.push_back(std::move(sym));
         break;
     case SymbolKind::Type:
         m_types.push_back(std::move(sym));
@@ -283,6 +436,10 @@ void SymbolTable::computeHash() {
     std::size_t hash = 0;
     hash = hashVector(hash, SymbolKind::Sub, m_subs);
     hash = hashVector(hash, SymbolKind::Function, m_functions);
+    hash = hashVector(hash, SymbolKind::Constructor, m_constructors);
+    hash = hashVector(hash, SymbolKind::Destructor, m_destructors);
+    hash = hashVector(hash, SymbolKind::Operator, m_operators);
+    hash = hashVector(hash, SymbolKind::Property, m_properties);
     hash = hashVector(hash, SymbolKind::Type, m_types);
     hash = hashVector(hash, SymbolKind::Union, m_unions);
     hash = hashVector(hash, SymbolKind::Enum, m_enums);

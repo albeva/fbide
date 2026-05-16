@@ -10,26 +10,41 @@
 
 namespace fbide {
 
-/// Top-level declaration kinds we surface from a parse tree. Restricted to
-/// the categories the old fbide Sub/Function browser showed; namespaces are
-/// recursed into but don't appear as a kind themselves.
+/// Top-level declaration kinds we surface from a parse tree. Namespaces are
+/// recursed into but don't appear as a kind themselves. The numeric order is
+/// load-bearing: `SymbolBrowser` uses `static_cast<int>(kind)` as an image-list
+/// index, so new kinds must be appended at matching positions there.
 enum class SymbolKind : std::uint8_t {
-    Sub,      ///< `Sub` declaration.
-    Function, ///< `Function` declaration.
-    Type,     ///< `Type` declaration.
-    Union,    ///< `Union` declaration.
-    Enum,     ///< `Enum` declaration.
-    Macro,    ///< `#macro` definition.
-    Include,  ///< `#include` directive.
+    Sub,         ///< `Sub` definition.
+    Function,    ///< `Function` definition.
+    Constructor, ///< `Constructor` definition.
+    Destructor,  ///< `Destructor` definition.
+    Operator,    ///< `Operator` definition (free-standing or UDT member).
+    Property,    ///< `Property` definition.
+    Type,        ///< `Type` declaration.
+    Union,       ///< `Union` declaration.
+    Enum,        ///< `Enum` declaration.
+    Macro,       ///< `#macro` definition.
+    Include,     ///< `#include` directive.
 };
 
 /// One captured declaration. `line` is 0-based and refers to the opener
 /// (e.g., the `Sub` keyword line), suitable for `wxStyledTextCtrl::GotoLine`.
+/// A negative `line` marks a synthetic `Type` entry — an undeclared owner of
+/// a method (`Sub Foo.Bar` with no `Type Foo`) — which exists only to group
+/// its members and has no navigable location.
 struct Symbol {
     SymbolKind kind; ///< Declaration kind.
-    wxString name;   ///< Declared identifier.
-    int line = 0;    ///< 0-based source line of the opener.
+    wxString name;   ///< Declared name; qualified (`Type.Method`) for methods.
+    int line = 0;    ///< 0-based source line of the opener; negative if synthetic.
 };
+
+/// Owning UDT of a member symbol, or an empty string for a free-standing one.
+/// `Constructor` / `Destructor` are always members — their whole name is the
+/// owning type. `Sub` / `Function` / `Operator` / `Property` are members when
+/// method-qualified (`Owner.member`); the owner is the text before the final
+/// dot. Other kinds are never members.
+[[nodiscard]] auto symbolOwner(const Symbol& sym) -> wxString;
 
 /// One captured `#include` (or `#include once`) directive. `path` is the
 /// literal quoted text with quotes stripped — no resolution (the caller
@@ -50,12 +65,17 @@ struct Include {
  *
  * Constructed directly from a (lean) `ProgramTree`. The walk:
  *
- * - Captures top-level Sub / Function / Type / Union / Enum.
+ * - Captures top-level Sub / Function / Constructor / Destructor /
+ *   Operator / Property / Type / Union / Enum.
+ * - Keeps the qualified name for methods (`Sub Type.Method`,
+ *   `Operator Type.+`).
  * - Recurses into Namespace bodies (flat list — no qualified names
  *   for now).
  * - Skips anonymous declarations.
- * - Intentionally ignores Constructor / Destructor / Operator at
- *   this stage.
+ * - Only definitions are captured; `Declare`d prototypes are not.
+ * - Synthesises a `Type` entry for any method owner that is not itself
+ *   declared, so the browser can group members under it. Synthetic
+ *   types carry a negative `line`.
  *
  * Pooled by `IntellisenseService` — `populate` rewalks while keeping
  * vector capacities, and `reset` clears without freeing.
@@ -74,10 +94,18 @@ public:
     /// allocating a fresh one on every parse.
     void populate(const reformat::ProgramTree& tree);
 
-    /// `Sub` declarations in source order.
+    /// `Sub` definitions in source order.
     [[nodiscard]] auto getSubs() const -> const std::vector<Symbol>& { return m_subs; }
-    /// `Function` declarations in source order.
+    /// `Function` definitions in source order.
     [[nodiscard]] auto getFunctions() const -> const std::vector<Symbol>& { return m_functions; }
+    /// `Constructor` definitions in source order.
+    [[nodiscard]] auto getConstructors() const -> const std::vector<Symbol>& { return m_constructors; }
+    /// `Destructor` definitions in source order.
+    [[nodiscard]] auto getDestructors() const -> const std::vector<Symbol>& { return m_destructors; }
+    /// `Operator` definitions in source order.
+    [[nodiscard]] auto getOperators() const -> const std::vector<Symbol>& { return m_operators; }
+    /// `Property` definitions in source order.
+    [[nodiscard]] auto getProperties() const -> const std::vector<Symbol>& { return m_properties; }
     /// `Type` declarations in source order.
     [[nodiscard]] auto getTypes() const -> const std::vector<Symbol>& { return m_types; }
     /// `Union` declarations in source order.
@@ -113,12 +141,19 @@ private:
     void emit(SymbolKind kind,
         const std::vector<lexer::Token>& opener,
         std::size_t keywordIdx);
+    /// Append a synthetic `Type` (negative line) for every method owner that
+    /// is not already a declared type, so members can be grouped under it.
+    void synthesizeOwnerTypes();
     /// Recompute `m_hash` from the captured (kind, name) pairs.
     void computeHash();
 
-    std::vector<Symbol> m_subs;      ///< `Sub` declarations.
-    std::vector<Symbol> m_functions; ///< `Function` declarations.
-    std::vector<Symbol> m_types;     ///< `Type` declarations.
+    std::vector<Symbol> m_subs;         ///< `Sub` definitions.
+    std::vector<Symbol> m_functions;    ///< `Function` definitions.
+    std::vector<Symbol> m_constructors; ///< `Constructor` definitions.
+    std::vector<Symbol> m_destructors;  ///< `Destructor` definitions.
+    std::vector<Symbol> m_operators;    ///< `Operator` definitions.
+    std::vector<Symbol> m_properties;   ///< `Property` definitions.
+    std::vector<Symbol> m_types;        ///< `Type` declarations.
     std::vector<Symbol> m_unions;    ///< `Union` declarations.
     std::vector<Symbol> m_enums;     ///< `Enum` declarations.
     std::vector<Symbol> m_macros;    ///< `#macro` definitions.

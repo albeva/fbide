@@ -23,7 +23,9 @@ void SymbolBrowser::appendBucket(
     const wxString& label,
     const std::vector<Symbol>& bucket
 ) {
-    if (bucket.empty()) {
+    // Method-qualified symbols are nested under their owning type instead.
+    const auto isFreeStanding = [](const Symbol& sym) { return symbolOwner(sym).empty(); };
+    if (std::ranges::none_of(bucket, isFreeStanding)) {
         return;
     }
 
@@ -32,8 +34,81 @@ void SymbolBrowser::appendBucket(
     SetItemBold(folder, true);
     for (std::size_t idx = 0; idx < bucket.size(); idx++) {
         const auto& sym = bucket[idx];
+        if (!isFreeStanding(sym)) {
+            continue;
+        }
         const auto id = AppendItem(folder, sym.name, image, image, nullptr);
         m_entries[id.GetID()] = { .kind = kind, .index = idx };
+    }
+    Expand(folder);
+}
+
+auto SymbolBrowser::memberLabel(const Symbol& sym) const -> wxString {
+    switch (sym.kind) {
+    case SymbolKind::Constructor:
+        return m_ctx.tr("sidebar.symbols.constructor");
+    case SymbolKind::Destructor:
+        return m_ctx.tr("sidebar.symbols.destructor");
+    default:
+        // `Owner.member` → bare member name.
+        return sym.name.AfterLast('.');
+    }
+}
+
+void SymbolBrowser::appendTypeTree(const wxString& label) {
+    const auto& types = m_currentTable->getTypes();
+    if (types.empty()) {
+        return;
+    }
+
+    constexpr auto typeImage = static_cast<int>(SymbolKind::Type);
+    const auto folder = AppendItem(GetRootItem(), label, typeImage, typeImage);
+    SetItemBold(folder, true);
+
+    // One nested member, paired with the flat-vector slot it navigates to.
+    struct Member {
+        SymbolKind kind;
+        std::size_t index;
+        int line;
+        wxString label;
+    };
+
+    for (std::size_t typeIdx = 0; typeIdx < types.size(); typeIdx++) {
+        const auto& type = types[typeIdx];
+        const auto node = AppendItem(folder, type.name, typeImage, typeImage);
+        // A declared type navigates to its source line; a synthetic owner
+        // (negative line) is a group header only.
+        if (type.line >= 0) {
+            m_entries[node.GetID()] = { .kind = SymbolKind::Type, .index = typeIdx };
+        }
+
+        // Gather every member owned by this type, across all callable kinds.
+        std::vector<Member> members;
+        const auto gather = [&](const SymbolKind kind, const std::vector<Symbol>& bucket) {
+            for (std::size_t idx = 0; idx < bucket.size(); idx++) {
+                if (symbolOwner(bucket[idx]) == type.name) {
+                    members.push_back({ .kind = kind,
+                        .index = idx,
+                        .line = bucket[idx].line,
+                        .label = memberLabel(bucket[idx]) });
+                }
+            }
+        };
+        gather(SymbolKind::Sub, m_currentTable->getSubs());
+        gather(SymbolKind::Function, m_currentTable->getFunctions());
+        gather(SymbolKind::Constructor, m_currentTable->getConstructors());
+        gather(SymbolKind::Destructor, m_currentTable->getDestructors());
+        gather(SymbolKind::Operator, m_currentTable->getOperators());
+        gather(SymbolKind::Property, m_currentTable->getProperties());
+
+        // Source order — members come from per-kind vectors, so sort by line.
+        std::ranges::sort(members, {}, &Member::line);
+        for (const auto& member : members) {
+            const auto image = static_cast<int>(member.kind);
+            const auto leaf = AppendItem(node, member.label, image, image, nullptr);
+            m_entries[leaf.GetID()] = { .kind = member.kind, .index = member.index };
+        }
+        Expand(node);
     }
     Expand(folder);
 }
@@ -71,6 +146,10 @@ SymbolBrowser::SymbolBrowser(Context& ctx, wxWindow* parent)
     constexpr std::array kIconKinds = {
         SymbolKind::Sub,
         SymbolKind::Function,
+        SymbolKind::Constructor,
+        SymbolKind::Destructor,
+        SymbolKind::Operator,
+        SymbolKind::Property,
         SymbolKind::Type,
         SymbolKind::Union,
         SymbolKind::Enum,
@@ -114,9 +193,10 @@ void SymbolBrowser::rebuild() {
 
     clearTree();
     appendIncludes(m_ctx.tr("sidebar.symbols.includes"), m_currentTable->getIncludes());
+    appendTypeTree(m_ctx.tr("sidebar.symbols.types"));
     appendBucket(SymbolKind::Sub, m_ctx.tr("sidebar.symbols.subs"), m_currentTable->getSubs());
     appendBucket(SymbolKind::Function, m_ctx.tr("sidebar.symbols.functions"), m_currentTable->getFunctions());
-    appendBucket(SymbolKind::Type, m_ctx.tr("sidebar.symbols.types"), m_currentTable->getTypes());
+    appendBucket(SymbolKind::Operator, m_ctx.tr("sidebar.symbols.operators"), m_currentTable->getOperators());
     appendBucket(SymbolKind::Union, m_ctx.tr("sidebar.symbols.unions"), m_currentTable->getUnions());
     appendBucket(SymbolKind::Enum, m_ctx.tr("sidebar.symbols.enums"), m_currentTable->getEnums());
     appendBucket(SymbolKind::Macro, m_ctx.tr("sidebar.symbols.macros"), m_currentTable->getMacros());
@@ -176,6 +256,18 @@ void SymbolBrowser::dispatch(const Entry& entry) {
         break;
     case SymbolKind::Function:
         gotoSymbol(table.getFunctions(), entry.index);
+        break;
+    case SymbolKind::Constructor:
+        gotoSymbol(table.getConstructors(), entry.index);
+        break;
+    case SymbolKind::Destructor:
+        gotoSymbol(table.getDestructors(), entry.index);
+        break;
+    case SymbolKind::Operator:
+        gotoSymbol(table.getOperators(), entry.index);
+        break;
+    case SymbolKind::Property:
+        gotoSymbol(table.getProperties(), entry.index);
         break;
     case SymbolKind::Type:
         gotoSymbol(table.getTypes(), entry.index);

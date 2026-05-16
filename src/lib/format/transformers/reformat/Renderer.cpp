@@ -325,6 +325,7 @@ auto Renderer::isDefinition(const BlockNode& block) -> bool {
         case KeywordKind::Constructor:
         case KeywordKind::Destructor:
         case KeywordKind::Operator:
+        case KeywordKind::Property:
         case KeywordKind::Type:
         case KeywordKind::Enum:
         case KeywordKind::Union:

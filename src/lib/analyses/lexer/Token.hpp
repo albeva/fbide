@@ -61,6 +61,7 @@ enum class KeywordKind {
     Constructor,
     Destructor,
     Operator,
+    Property,
     Do,
     While,
     For,
@@ -88,13 +89,16 @@ enum class KeywordKind {
     As,
     // Declaration
     Declare,
-    // Access modifier — `Private` / `Public` / `Protected` preceding a Sub /
-    // Function / Type / etc. The block-dispatch code skips these so the
-    // following keyword decides the structure (e.g. `Private Sub Foo` opens a
-    // sub block). `Public:` (followed by a colon) is a label inside a Type
-    // body and does not open a block; the colon-split / non-word-after-modifier
-    // checks handle that case.
-    AccessModifier,
+    // Access modifiers — `Private` / `Public` / `Protected` preceding a Sub /
+    // Function / Type / etc. The block-dispatch code skips these (see
+    // `isAccessModifier`) so the following keyword decides the structure (e.g.
+    // `Private Sub Foo` opens a sub block). `Public:` (followed by a colon) is a
+    // label inside a Type body and does not open a block; the colon-split /
+    // non-word-after-modifier checks handle that case. Kept as three distinct
+    // kinds so later passes can tell the modifiers apart.
+    Private,
+    Public,
+    Protected,
     // Early-exit statements (prevent following block keyword from opening a scope)
     Exit,
     Continue,
@@ -117,6 +121,15 @@ enum class KeywordKind {
     // A keyword not structurally significant
     Other,
 };
+
+/// True when `kind` is an access modifier (`Private` / `Public` / `Protected`).
+/// These are transparent prefixes of Sub / Function / Type / ... — block
+/// dispatch skips them so the following keyword decides the structure.
+constexpr auto isAccessModifier(const KeywordKind kind) noexcept -> bool {
+    return kind == KeywordKind::Private
+        || kind == KeywordKind::Public
+        || kind == KeywordKind::Protected;
+}
 
 /// Classification of symbol operators for formatting.
 /// Only kinds the formatter actually branches on are enumerated; everything

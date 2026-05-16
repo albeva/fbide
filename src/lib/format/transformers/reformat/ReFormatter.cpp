@@ -235,6 +235,7 @@ void ReFormatter::dispatch() {
     case KeywordKind::Constructor:
     case KeywordKind::Destructor:
     case KeywordKind::Operator:
+    case KeywordKind::Property:
         if (isBodyDefinition()) {
             openBlockOrStatement();
         } else {
@@ -275,7 +276,7 @@ void ReFormatter::dispatch() {
             // Access modifiers (`Public Type Foo As Integer`) are transparent —
             // skip so `Type` registers as the first structural keyword and the
             // following `As` registers as the second.
-            if (tkn.keywordKind == KeywordKind::AccessModifier) {
+            if (isAccessModifier(tkn.keywordKind)) {
                 continue;
             }
             if (tkn.keywordKind != KeywordKind::None && tkn.keywordKind != KeywordKind::Other) {
@@ -338,7 +339,7 @@ auto ReFormatter::firstKeyword() const -> KeywordKind {
         if (!isWordLike(tkn.kind)) {
             return KeywordKind::None;
         }
-        if (tkn.keywordKind == KeywordKind::AccessModifier) {
+        if (isAccessModifier(tkn.keywordKind)) {
             continue;
         }
         return tkn.keywordKind;
@@ -399,23 +400,30 @@ auto ReFormatter::isBodyDefinition() const -> bool {
     // Check that a callable keyword (Sub/Function/etc.) is followed by a name.
     // Returns false for: "exit sub" (no name after Sub), "Function = 10" (= not a name).
     // Returns true for: "Sub Main", "Private Sub Main", "Operator Cast", "Function Add(...)".
-    bool foundKeyword = false;
+    KeywordKind opener = KeywordKind::None;
     for (const auto& tkn : m_segment) {
         if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
             continue;
         }
-        if (!foundKeyword) {
+        if (opener == KeywordKind::None) {
             switch (tkn.keywordKind) {
             case KeywordKind::Sub:
             case KeywordKind::Function:
             case KeywordKind::Constructor:
             case KeywordKind::Destructor:
             case KeywordKind::Operator:
-                foundKeyword = true;
+            case KeywordKind::Property:
+                opener = tkn.keywordKind;
                 continue;
             default:
                 continue;
             }
+        }
+        // `Operator` is only ever a definition opener — its name is the operator
+        // symbol/keyword that follows (`+`, `=`, `[]`, `Cast`, `Type.New`), none
+        // of which is word-like, so any following token confirms the definition.
+        if (opener == KeywordKind::Operator) {
+            return true;
         }
         // After the keyword: any word-like token (identifier or keyword group)
         // or '(' means a name follows — this is a body definition. The name

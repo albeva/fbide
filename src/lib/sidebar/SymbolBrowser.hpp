@@ -55,10 +55,21 @@ private:
     /// Clear the tree and `m_entries`.
     void clearTree();
 
-    /// Append a folder + leaves under the tree root when the bucket is
-    /// non-empty. Each leaf registers an `Entry` in `m_entries` keyed by
-    /// its tree id, so activation skips any tree-walking.
+    /// Append a folder + leaves under the tree root when the bucket holds at
+    /// least one free-standing symbol. Method-qualified symbols are skipped —
+    /// they are grouped under their owning type by `appendTypeTree`. Each leaf
+    /// registers an `Entry` in `m_entries` keyed by its tree id.
     void appendBucket(SymbolKind kind, const wxString& label, const std::vector<Symbol>& bucket);
+
+    /// Append the Types folder: each declared or synthesised type, with its
+    /// method members (subs, functions, constructors, …) nested beneath it.
+    /// Declared types register a navigable `Entry`; synthetic group-only
+    /// types do not.
+    void appendTypeTree(const wxString& label);
+
+    /// Display label for a member leaf: the bare member name (`Owner.member`
+    /// stripped to `member`), or a localised "Constructor" / "Destructor".
+    [[nodiscard]] auto memberLabel(const Symbol& sym) const -> wxString;
 
     /// Append the Includes folder under the tree root when non-empty.
     /// Each leaf registers an `Entry` in `m_entries`.
