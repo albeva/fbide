@@ -40,16 +40,26 @@ struct GroupLabel {
 auto groupLabelKeys(const ThemeCategory cat) -> GroupLabel {
     using TC = ThemeCategory;
     switch (cat) {
-    case TC::Keywords:         return { "", "core" };
-    case TC::KeywordTypes:     return { "", "types" };
-    case TC::KeywordOperators: return { "", "operators" };
-    case TC::KeywordConstants: return { "", "defines" };
-    case TC::KeywordLibrary:   return { "", "library" };
-    case TC::KeywordCustom:    return { "", "custom" };
-    case TC::KeywordAsm1:      return { "asm",          "instructions" };
-    case TC::KeywordAsm2:      return { "asm",          "registers"    };
-    case TC::KeywordPP:        return { "preprocessor", "directives"   };
-    default:                   return { "", "" };
+    case TC::Keywords:
+        return { "", "core" };
+    case TC::KeywordTypes:
+        return { "", "types" };
+    case TC::KeywordOperators:
+        return { "", "operators" };
+    case TC::KeywordConstants:
+        return { "", "defines" };
+    case TC::KeywordLibrary:
+        return { "", "library" };
+    case TC::KeywordCustom:
+        return { "", "custom" };
+    case TC::KeywordAsm1:
+        return { "asm", "instructions" };
+    case TC::KeywordAsm2:
+        return { "asm", "registers" };
+    case TC::KeywordPP:
+        return { "preprocessor", "directives" };
+    default:
+        return { "", "" };
     }
 }
 

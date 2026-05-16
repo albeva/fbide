@@ -29,7 +29,7 @@ using namespace fbide;
 namespace {
 constexpr auto appName = "FBIde";
 const int DocumentTabsId = wxNewId();
-}
+} // namespace
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(UIManager, wxEvtHandler)

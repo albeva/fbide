@@ -100,8 +100,8 @@ auto detectInclude(const std::vector<Token>& tokens) -> std::optional<IncludeMat
         return std::nullopt;
     }
     const std::size_t end = (text.back() == text.front() && text.size() > 1)
-        ? text.size() - 1
-        : text.size();
+                              ? text.size() - 1
+                              : text.size();
     return IncludeMatch {
         .path = wxString::FromUTF8(text.substr(1, end - 1)),
         .line = line,

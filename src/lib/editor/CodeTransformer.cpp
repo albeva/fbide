@@ -298,8 +298,8 @@ auto CodeTransformer::renderCloser(const std::span<const std::string_view> words
     // closer matches the user's "no transformation" preference.
     const auto kw1Mode = m_keywordCases[indexOfKeywordGroup(ThemeCategory::Keywords)];
     const auto rule = (m_transformKeywords && kw1Mode != CaseMode::None)
-        ? kw1Mode
-        : CaseMode { CaseMode::Lower };
+                        ? kw1Mode
+                        : CaseMode { CaseMode::Lower };
 
     wxString out;
     for (std::size_t i = 0; i < words.size(); i++) {
