@@ -39,12 +39,12 @@ namespace fbide {
  * license) and renamed/namespaced for fbide use.
  */
 class MemoryDocument final : public Scintilla::IDocument {
-    std::string m_text;                   ///< UTF-8 source text.
-    std::string m_textStyles;             ///< One style byte per source byte.
+    std::string m_text;                     ///< UTF-8 source text.
+    std::string m_textStyles;               ///< One style byte per source byte.
     std::vector<Sci_Position> m_lineStarts; ///< Byte offset of each line start.
-    std::vector<int> m_lineStates;        ///< Per-line lexer state (Scintilla `LineState`).
-    std::vector<int> m_lineLevels;        ///< Per-line fold level.
-    Sci_Position m_endStyled = 0;         ///< Watermark — bytes through this position have been styled.
+    std::vector<int> m_lineStates;          ///< Per-line lexer state (Scintilla `LineState`).
+    std::vector<int> m_lineLevels;          ///< Per-line fold level.
+    Sci_Position m_endStyled = 0;           ///< Watermark — bytes through this position have been styled.
 
 public:
     /// Default-constructed empty document.

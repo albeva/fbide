@@ -52,10 +52,10 @@ private:
     /// True when `token` is layout-only (Whitespace, Newline, Comment).
     [[nodiscard]] static auto isLayout(const lexer::Token& token) -> bool;
 
-    FormatOptions m_options;             ///< Format options pinned for this run.
-    bool m_lastWasBlankLine = false;     ///< True when the previous emit was a blank line.
-    bool m_lastWasBlock = false;         ///< True when the previous emit closed a top-level block.
-    std::vector<lexer::Token> m_output;  ///< Output buffer.
+    FormatOptions m_options;            ///< Format options pinned for this run.
+    bool m_lastWasBlankLine = false;    ///< True when the previous emit was a blank line.
+    bool m_lastWasBlock = false;        ///< True when the previous emit closed a top-level block.
+    std::vector<lexer::Token> m_output; ///< Output buffer.
 };
 
 } // namespace fbide::reformat

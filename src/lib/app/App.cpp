@@ -204,8 +204,8 @@ void App::initAppearance() {
     const auto result = SetAppearance(target);
     if (result != AppearanceResult::Ok) {
         const wxString reason = (result == AppearanceResult::CannotChange)
-            ? "appearance can no longer be changed (already shown windows)"
-            : "wx returned Failure";
+                                  ? "appearance can no longer be changed (already shown windows)"
+                                  : "wx returned Failure";
         wxLogWarning("SetAppearance('%s') did not apply: %s", appearance, reason);
     }
 }

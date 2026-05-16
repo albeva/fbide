@@ -39,18 +39,18 @@ private:
     bool m_braceHighlight;    ///< Highlight matching braces.
 
     // Right column
-    bool m_syntaxHighlight;   ///< Enable syntax highlighting.
-    bool m_showLineNumbers;   ///< Show line-number margin.
-    bool m_showRightMargin;   ///< Show right margin guide line.
-    bool m_foldMargin;        ///< Show fold margin.
-    bool m_splashScreen;      ///< Show splash screen on startup.
+    bool m_syntaxHighlight; ///< Enable syntax highlighting.
+    bool m_showLineNumbers; ///< Show line-number margin.
+    bool m_showRightMargin; ///< Show right margin guide line.
+    bool m_foldMargin;      ///< Show fold margin.
+    bool m_splashScreen;    ///< Show splash screen on startup.
 
     // Bottom row
-    int m_edgeColumn;     ///< Right margin column.
-    int m_tabSize;        ///< Tab width in columns.
-    wxString m_encoding;  ///< Default `TextEncoding` config key (e.g. "UTF-8").
-    wxString m_eolMode;   ///< Default `EolMode` config key ("LF" / "CRLF" / "CR").
-    wxString m_language;  ///< Selected locale identifier (filename stem).
+    int m_edgeColumn;    ///< Right margin column.
+    int m_tabSize;       ///< Tab width in columns.
+    wxString m_encoding; ///< Default `TextEncoding` config key (e.g. "UTF-8").
+    wxString m_eolMode;  ///< Default `EolMode` config key ("LF" / "CRLF" / "CR").
+    wxString m_language; ///< Selected locale identifier (filename stem).
 };
 
 } // namespace fbide
