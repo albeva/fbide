@@ -690,23 +690,42 @@ void Editor::onModified(wxStyledTextEvent& event) {
         return;
     }
 
-    // Throttle a background re-parse: restart the one-shot timer; if the
+    // Throttle a background reparse: restart the one-shot timer; if the
     // user keeps typing, only the final pause triggers a submit.
     m_intellisenseTimer.StartOnce(Constants::analysesThrottle);
 
-    // We need to filter out genuine text insert that is not handled
-    // by char add.
-    if (m_transformer != nullptr && mod & wxSTC_MOD_INSERTTEXT) {
+    // Genuine text insert not handled by char-add (paste, multi-line
+    // indent, ...). A bulk edit fires one EVT_STC_MODIFIED per modified
+    // line — accumulate the union span and defer a *single* transformer
+    // pass rather than one per event (which is O(events) relexes).
+    if (m_transformer != nullptr && (mod & wxSTC_MOD_INSERTTEXT) != 0) {
         m_insertHandled = false;
         const int pos = event.GetPosition();
-        const int length = event.GetLength();
-        CallAfter([this, pos, length] {
-            if (m_insertHandled) {
-                return;
-            }
-            m_editorLocked = true;
-            m_transformer->onTextInserted(*this, pos, length);
-            m_editorLocked = false;
-        });
+        const int end = pos + event.GetLength();
+        if (m_pendingInsertStart < 0) {
+            m_pendingInsertStart = pos;
+            m_pendingInsertEnd = end;
+            CallAfter(&Editor::flushPendingInsert);
+        } else {
+            m_pendingInsertStart = std::min(m_pendingInsertStart, pos);
+            m_pendingInsertEnd = std::max(m_pendingInsertEnd, end);
+        }
     }
+}
+
+void Editor::flushPendingInsert() {
+    const int start = m_pendingInsertStart;
+    const int end = std::min(m_pendingInsertEnd, GetLength());
+    m_pendingInsertStart = -1;
+    m_pendingInsertEnd = -1;
+
+    // Char-add already transformed this insert, or the editor is locked
+    // (load / reload) — nothing to do.
+    if (start < 0 || end <= start || m_insertHandled || m_transformer == nullptr || m_editorLocked) {
+        return;
+    }
+
+    m_editorLocked = true;
+    m_transformer->onTextInserted(*this, start, end - start);
+    m_editorLocked = false;
 }

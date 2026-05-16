@@ -196,12 +196,12 @@ TEST(EditorTests, AutoIndentEnterMidLineLeavesCaretBeforeMovedContent) {
 // ---------------------------------------------------------------------------
 // Ctrl+click hotspots on `#include "path"`. The full openInclude flow needs
 // a DocumentManager + SymbolTable; the shim runs without those, so these
-// tests assert the prerequisite state instead — that the editor has the
-// PP-context styles marked clickable when Ctrl is held, AND that the lexer
-// has actually painted the path bytes with one of those styles.
+// tests assert the prerequisite state instead — that the editor marks the
+// include path (StringPP) clickable when Ctrl is held, AND that the lexer
+// has actually painted the path bytes with that style.
 // ---------------------------------------------------------------------------
 
-TEST(EditorTests, CtrlEnablesHotspotsOnIncludePathStyles) {
+TEST(EditorTests, CtrlEnablesHotspotOnIncludePathStyle) {
     EditorTestShim shim;
     shim.editor().SetText("#include \"foo.bi\"\n");
     shim.run([&] {
@@ -209,14 +209,14 @@ TEST(EditorTests, CtrlEnablesHotspotsOnIncludePathStyles) {
         sim.KeyDown(WXK_CONTROL);
         wxYield();
     });
-    // Pressing Ctrl flips hotspot styling on for every PP-context style so
-    // Ctrl+click anywhere on a `#include` line fires `EVT_STC_HOTSPOT_CLICK`.
-    EXPECT_TRUE(shim.editor().StyleGetHotSpot(+ThemeCategory::Preprocessor));
-    EXPECT_TRUE(shim.editor().StyleGetHotSpot(+ThemeCategory::KeywordPP));
+    // Pressing Ctrl flips hotspot styling on for the include path (StringPP)
+    // so Ctrl+click on the quoted path fires `EVT_STC_HOTSPOT_CLICK`.
     EXPECT_TRUE(shim.editor().StyleGetHotSpot(+ThemeCategory::StringPP));
-    EXPECT_TRUE(shim.editor().StyleGetHotSpot(+ThemeCategory::IdentifierPP));
-    // Regular-code styles stay non-clickable — Ctrl+click on plain code
-    // must not be hijacked by the include handler.
+    // Every other PP-context and regular-code style stays non-clickable —
+    // Ctrl+click off the path must not be hijacked by the include handler.
+    EXPECT_FALSE(shim.editor().StyleGetHotSpot(+ThemeCategory::Preprocessor));
+    EXPECT_FALSE(shim.editor().StyleGetHotSpot(+ThemeCategory::KeywordPP));
+    EXPECT_FALSE(shim.editor().StyleGetHotSpot(+ThemeCategory::IdentifierPP));
     EXPECT_FALSE(shim.editor().StyleGetHotSpot(+ThemeCategory::Default));
     EXPECT_FALSE(shim.editor().StyleGetHotSpot(+ThemeCategory::Keywords));
     EXPECT_FALSE(shim.editor().StyleGetHotSpot(+ThemeCategory::String));
