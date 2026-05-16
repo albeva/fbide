@@ -42,7 +42,6 @@ public:
     };
 
 private:
-
     /// Locale lookup with optional default — wraps `m_tr.get_or`.
     auto tr(const wxString& path, const wxString& def = wxEmptyString) const -> wxString;
 

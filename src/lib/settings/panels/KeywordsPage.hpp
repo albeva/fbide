@@ -38,11 +38,11 @@ private:
     /// Save the textbox contents back into `m_groups[m_selectedGroup]`.
     void stashCurrent();
 
-    Unowned<wxChoice> m_groupChoice;     ///< Keyword-group dropdown.
-    Unowned<wxChoice> m_caseChoice;      ///< Case-mode dropdown.
-    Unowned<wxTextCtrl> m_textKeywords;  ///< Multi-line keyword editor.
-    std::size_t m_selectedGroup = 0;     ///< Index of the currently displayed group.
-    std::array<wxString, kThemeKeywordGroupsCount> m_groups {}; ///< Per-group keyword text.
+    Unowned<wxChoice> m_groupChoice;                                           ///< Keyword-group dropdown.
+    Unowned<wxChoice> m_caseChoice;                                            ///< Case-mode dropdown.
+    Unowned<wxTextCtrl> m_textKeywords;                                        ///< Multi-line keyword editor.
+    std::size_t m_selectedGroup = 0;                                           ///< Index of the currently displayed group.
+    std::array<wxString, kThemeKeywordGroupsCount> m_groups {};                ///< Per-group keyword text.
     std::array<CaseMode, kThemeKeywordGroupsCount> m_cases { CaseMode::None }; ///< Per-group case mode.
 };
 

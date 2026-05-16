@@ -60,11 +60,11 @@ private:
     /// Create a labelled text-entry + Browse button bound to `value`.
     auto makeFileEntry(wxString& value, const wxString& labelText) -> std::pair<Unowned<wxTextCtrl>, Unowned<wxButton>>;
 
-    wxString m_compilerPath;     ///< `compiler.path` value.
-    wxString m_compileCommand;   ///< `compiler.compile` template.
-    wxString m_runCommand;       ///< `compiler.run` template.
+    wxString m_compilerPath;   ///< `compiler.path` value.
+    wxString m_compileCommand; ///< `compiler.compile` template.
+    wxString m_runCommand;     ///< `compiler.run` template.
 #ifdef __WXMSW__
-    wxString m_helpFile;         ///< CHM help-file path (Windows only).
+    wxString m_helpFile; ///< CHM help-file path (Windows only).
 #endif
     Unowned<wxTextCtrl> m_compilerPathField {};   ///< Cached compiler-path entry for `focusCompilerPath`.
     Unowned<wxTextCtrl> m_compileCommandField {}; ///< Cached compile-command entry (target of placeholder inserts).

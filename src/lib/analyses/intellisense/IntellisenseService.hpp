@@ -17,8 +17,8 @@ class FBSciLexer;
 
 /// Result delivered to the sink wxEvtHandler when a parse finishes.
 struct IntellisenseResult {
-    const Document* owner;                       ///< Tag the worker received with the task.
-    std::shared_ptr<const SymbolTable> symbols;  ///< Pooled symbol table, freshly populated.
+    const Document* owner;                      ///< Tag the worker received with the task.
+    std::shared_ptr<const SymbolTable> symbols; ///< Pooled symbol table, freshly populated.
 };
 
 wxDECLARE_EVENT(EVT_INTELLISENSE_RESULT, wxThreadEvent);
@@ -76,8 +76,8 @@ private:
     /// table before publishing it.
     auto acquireSymbolTable() -> std::shared_ptr<SymbolTable>;
 
-    Context& m_ctx;         ///< Application context.
-    wxEvtHandler* m_sink;   ///< UI-thread event sink for `EVT_INTELLISENSE_RESULT`.
+    Context& m_ctx;       ///< Application context.
+    wxEvtHandler* m_sink; ///< UI-thread event sink for `EVT_INTELLISENSE_RESULT`.
 
     /// Lexer owned by the worker. Configured once at ctor with current
     /// keywords from ConfigManager. Worker is the only thread that touches it.

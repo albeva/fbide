@@ -197,10 +197,10 @@ private:
     /// Intellisense result delivery (worker thread → UI thread).
     void onIntellisenseResult(wxThreadEvent& event);
 
-    Context& m_ctx;                                       ///< Application context.
-    wxFindReplaceData m_findData { wxFR_DOWN };           ///< Find/replace dialog state.
-    std::vector<std::unique_ptr<Document>> m_documents;   ///< Open documents in tab order.
-    std::unique_ptr<CodeTransformer> m_codeTransformer;   ///< Shared on-type transformer.
+    Context& m_ctx;                                     ///< Application context.
+    wxFindReplaceData m_findData { wxFR_DOWN };         ///< Find/replace dialog state.
+    std::vector<std::unique_ptr<Document>> m_documents; ///< Open documents in tab order.
+    std::unique_ptr<CodeTransformer> m_codeTransformer; ///< Shared on-type transformer.
     /// Declared last so destruction runs first — worker thread stops and
     /// joins before the documents and transformer it might race with go away.
     std::unique_ptr<IntellisenseService> m_intellisense;

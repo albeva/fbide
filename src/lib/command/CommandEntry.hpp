@@ -65,13 +65,13 @@ struct CommandEntry final {
     /// Effective enabled state — `enabled` masked by `forceDisabled`.
     [[nodiscard]] auto isEnabled() const -> bool { return !forceDisabled && enabled; }
 
-    wxWindowID id = wxID_ANY;          ///< wx event id (zero/`wxID_ANY` triggers `wxNewId()`).
-    wxString name;                     ///< Stable internal name (matches layout/locale/shortcuts keys).
-    wxItemKind kind = wxITEM_NORMAL;   ///< Item kind (Normal, Check, Dropdown).
-    bool enabled = true;               ///< Broad enabled gate (set by `UIManager::applyState`).
-    bool forceDisabled = false;        ///< Per-editor mask (set by `DocumentManager::syncEditCommands`).
-    bool checked = false;              ///< Checked state for `wxITEM_CHECK` entries.
-    std::vector<Bind> binds = {};      ///< Bound UI controls.
+    wxWindowID id = wxID_ANY;        ///< wx event id (zero/`wxID_ANY` triggers `wxNewId()`).
+    wxString name;                   ///< Stable internal name (matches layout/locale/shortcuts keys).
+    wxItemKind kind = wxITEM_NORMAL; ///< Item kind (Normal, Check, Dropdown).
+    bool enabled = true;             ///< Broad enabled gate (set by `UIManager::applyState`).
+    bool forceDisabled = false;      ///< Per-editor mask (set by `DocumentManager::syncEditCommands`).
+    bool checked = false;            ///< Checked state for `wxITEM_CHECK` entries.
+    std::vector<Bind> binds = {};    ///< Bound UI controls.
 };
 
 } // namespace fbide

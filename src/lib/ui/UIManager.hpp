@@ -156,18 +156,18 @@ private:
     /// pane lookup by name succeeds.
     void loadAuiPerspective();
 
-    Context& m_ctx;                                     ///< Application context.
-    UIState m_documentState = UIState::None;            ///< Document-side state slot.
-    UIState m_compilerState = UIState::None;            ///< Compiler-side state slot (overrides document).
-    wxAuiManager m_aui;                                 ///< AUI dock manager for the frame.
-    std::unique_ptr<ArtiProvider> m_artProvider;        ///< Icon/bitmap dispatch for menus + toolbar.
-    Unowned<CompilerLog> m_compilerLog;                 ///< Compiler-log dialog (wx-parented, hidden until shown).
-    Unowned<OutputConsole> m_console;                   ///< Build/run output pane.
-    Unowned<wxFrame> m_frame;                           ///< Top-level frame.
-    Unowned<wxAuiToolBar> m_auiToolbar;                 ///< AUI-managed toolbar pane.
-    Unowned<wxAuiNotebook> m_notebook;                  ///< Document tabs.
-    Unowned<wxAuiNotebook> m_sideBar;                   ///< Sidebar (Browser/Subs) notebook.
-    std::vector<wxMenuItem*> m_externalLinkItems;       ///< Live menu items in the dynamic external-links submenu.
+    Context& m_ctx;                               ///< Application context.
+    UIState m_documentState = UIState::None;      ///< Document-side state slot.
+    UIState m_compilerState = UIState::None;      ///< Compiler-side state slot (overrides document).
+    wxAuiManager m_aui;                           ///< AUI dock manager for the frame.
+    std::unique_ptr<ArtiProvider> m_artProvider;  ///< Icon/bitmap dispatch for menus + toolbar.
+    Unowned<CompilerLog> m_compilerLog;           ///< Compiler-log dialog (wx-parented, hidden until shown).
+    Unowned<OutputConsole> m_console;             ///< Build/run output pane.
+    Unowned<wxFrame> m_frame;                     ///< Top-level frame.
+    Unowned<wxAuiToolBar> m_auiToolbar;           ///< AUI-managed toolbar pane.
+    Unowned<wxAuiNotebook> m_notebook;            ///< Document tabs.
+    Unowned<wxAuiNotebook> m_sideBar;             ///< Sidebar (Browser/Subs) notebook.
+    std::vector<wxMenuItem*> m_externalLinkItems; ///< Live menu items in the dynamic external-links submenu.
 
     // Document-level commands toggled by `applyState`. Edit commands here
     // (Undo, Redo, Cut, Copy, Paste, SelectAll) get their broad "is there

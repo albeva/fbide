@@ -12,10 +12,10 @@ namespace fbide::reformat {
 
 /// Formatting options.
 struct FormatOptions {
-    std::size_t tabSize = 4;  ///< Indent width in spaces.
-    bool anchoredPP = false;  ///< When true, preprocessor directives anchor at column 0.
-    bool reIndent = true;     ///< Apply structural indentation.
-    bool reFormat = true;     ///< Apply inter-token spacing + blank-line policy.
+    std::size_t tabSize = 4; ///< Indent width in spaces.
+    bool anchoredPP = false; ///< When true, preprocessor directives anchor at column 0.
+    bool reIndent = true;    ///< Apply structural indentation.
+    bool reFormat = true;    ///< Apply inter-token spacing + blank-line policy.
     /// Build a lean tree: drop Whitespace, Comment, CommentBlock tokens and
     /// collapse runs of Newlines into a single separator. Intended for
     /// non-rendering consumers (sub/function browser, future analyses).
