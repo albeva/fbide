@@ -320,7 +320,7 @@ void ThemePage::onSaveTheme(wxCommandEvent&) {
     if (m_activeTheme == currentThemeName) {
         getContext().getTheme() = m_theme;
         syncActiveThemeConfig();
-        getContext().getUIManager().updateEditorSettigs();
+        getContext().getUIManager().updateSettings();
     }
 }
 

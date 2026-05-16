@@ -61,7 +61,7 @@ auto DocumentManager::defaultEolMode() const -> EolMode {
 }
 
 // ---------------------------------------------------------------------------
-// File andling
+// File handling
 // ---------------------------------------------------------------------------
 
 auto DocumentManager::newFile(DocumentType type) -> Document& {
@@ -373,7 +373,7 @@ void DocumentManager::reloadConfigIfMatches(const wxString& path) const {
     // refreshed in place. Layout / locale tweaks land on the next FBIde
     // launch (matches the language-change restart flow).
     if (m_ctx.getConfigManager().reloadIfKnown(path)) {
-        m_ctx.getUIManager().updateEditorSettigs();
+        m_ctx.getUIManager().updateSettings();
     }
 }
 
@@ -483,7 +483,7 @@ void DocumentManager::cancelIntellisense(const Document* doc) {
 }
 
 void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
-    auto result = event.GetPayload<IntellisenseResult>();
+    const auto result = event.GetPayload<IntellisenseResult>();
     // Validate the document is still alive — race against close.
     if (!contains(result.owner)) {
         return;

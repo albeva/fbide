@@ -686,9 +686,9 @@ void UIManager::disable(const std::ranges::range auto& range) const {
     }
 }
 
-void UIManager::updateEditorSettigs() {
+void UIManager::updateSettings() {
     // Reapply settings to all open editors
     for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {
-        doc->getEditor()->applySettings();
+        doc->updateSettings();
     }
 }

@@ -118,11 +118,18 @@ public:
         m_symbolTable = std::move(table);
     }
 
+    /// Update document controls settings
+    void updateSettings();
+
 private:
     /// Page resized — re-evaluate whether the minimap still fits.
     void onContainerSize(wxSizeEvent& event);
     /// Show/hide the minimap based on the current page width.
     void updateMinimapVisibility();
+    /// Create the minimap widget and dock it into the page layout.
+    void createMinimap();
+    /// Destroy the minimap widget and drop it from the page layout.
+    void destroyMinimap();
 
     Context& m_ctx;                                ///< Application context.
     wxString m_compiledFile;                       ///< Path of the most recently compiled executable.
@@ -130,7 +137,7 @@ private:
     DocumentType m_type;                           ///< Document type — drives lexer + theme dispatch.
     Unowned<wxPanel> m_container;                  ///< wx-parented notebook page — holds editor + minimap.
     Unowned<Editor> m_editor;                      ///< Editor widget, child of m_container.
-    Unowned<wxStyledTextCtrlMiniMap> m_minimap;    ///< Minimap (experiment), child of m_container.
+    Unowned<wxStyledTextCtrlMiniMap> m_minimap;    ///< Minimap — lazily created; null while disabled.
     int m_minimapWidth;                            ///< Minimap width in px — `editor.minimapWidth` config key.
     bool m_minimapEnabled;                         ///< Minimap toggle state — `commands.viewMinimap`.
     wxDateTime m_modTime;                          ///< Last on-disk mtime — backs `checkExternalChange`.

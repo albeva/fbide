@@ -52,20 +52,20 @@ Document::Document(wxWindow* parent, Context& ctx, const DocumentType type)
           &ctx.getDocumentManager().getCodeTransformer(), type
       )
   )
-, m_minimap(make_unowned<wxStyledTextCtrlMiniMap>(m_container.get(), m_editor.get()))
 , m_minimapWidth(minimapWidthFromConfig(ctx))
 , m_minimapEnabled(minimapEnabledFromConfig(ctx))
 , m_encoding(defaultEncodingFromConfig(ctx))
 , m_eolMode(defaultEolModeFromConfig(ctx)) {
-    // Editor fills the page, fixed-width minimap docked right.
-    m_minimap->SetMinSize(wxSize(m_minimapWidth, -1));
-
+    // Editor fills the page; the minimap (when enabled) docks to its right.
     const auto sizer = make_unowned<wxBoxSizer>(wxHORIZONTAL);
     sizer->Add(m_editor, 1, wxEXPAND);
-    sizer->Add(m_minimap, 0, wxEXPAND);
     m_container->SetSizer(sizer);
 
-    // Auto-hide the minimap when disabled or the page becomes too narrow.
+    if (m_minimapEnabled) {
+        createMinimap();
+    }
+
+    // Auto-hide the minimap when the page becomes too narrow.
     m_container->Bind(wxEVT_SIZE, &Document::onContainerSize, this);
     updateMinimapVisibility();
 
@@ -75,8 +75,49 @@ Document::Document(wxWindow* parent, Context& ctx, const DocumentType type)
 }
 
 void Document::showMinimap(const bool enabled) {
+    if (m_minimapEnabled == enabled) {
+        return;
+    }
     m_minimapEnabled = enabled;
+    if (enabled) {
+        createMinimap();
+    } else {
+        destroyMinimap();
+    }
     updateMinimapVisibility();
+}
+
+void Document::createMinimap() {
+    if (m_minimap != nullptr) {
+        return;
+    }
+    m_minimap = make_unowned<wxStyledTextCtrlMiniMap>(m_container.get(), m_editor.get());
+    m_minimap->SetMinSize(wxSize(m_minimapWidth, -1));
+    if (auto* sizer = m_container->GetSizer(); sizer != nullptr) {
+        sizer->Add(m_minimap, 0, wxEXPAND);
+        sizer->Layout();
+    }
+}
+
+void Document::destroyMinimap() {
+    if (m_minimap == nullptr) {
+        return;
+    }
+    if (auto* sizer = m_container->GetSizer(); sizer != nullptr) {
+        sizer->Detach(m_minimap.get());
+        sizer->Layout();
+    }
+    // wx-owned via m_container — Destroy() unparents and frees it.
+    m_minimap->Destroy();
+    m_minimap = nullptr;
+}
+
+void Document::updateSettings() {
+    getEditor()->applySettings();
+    if (m_minimap != nullptr) {
+        m_minimap->SetEdit(nullptr);
+        m_minimap->SetEdit(getEditor());
+    }
 }
 
 void Document::onContainerSize(wxSizeEvent& event) {
@@ -90,7 +131,7 @@ void Document::updateMinimapVisibility() {
         return;
     }
     const int available = m_container->GetClientSize().GetWidth();
-    const bool visible = m_minimapEnabled && available >= m_minimapWidth + kMinEditorWidth;
+    const bool visible = available >= m_minimapWidth + kMinEditorWidth;
     if (sizer->IsShown(m_minimap.get()) == visible) {
         return;
     }

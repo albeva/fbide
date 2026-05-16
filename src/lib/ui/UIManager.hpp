@@ -85,7 +85,7 @@ public:
     void setCompilerState(UIState state);
 
     /// Force editors to update settings.
-    void updateEditorSettigs();
+    void updateSettings();
 
     /// Toggle the output console pane's visibility.
     void showConsole(bool show);
