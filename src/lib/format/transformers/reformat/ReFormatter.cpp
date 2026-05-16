@@ -275,7 +275,7 @@ void ReFormatter::dispatch() {
             // Access modifiers (`Public Type Foo As Integer`) are transparent —
             // skip so `Type` registers as the first structural keyword and the
             // following `As` registers as the second.
-            if (tkn.keywordKind == KeywordKind::AccessModifier) {
+            if (isAccessModifier(tkn.keywordKind)) {
                 continue;
             }
             if (tkn.keywordKind != KeywordKind::None && tkn.keywordKind != KeywordKind::Other) {
@@ -338,7 +338,7 @@ auto ReFormatter::firstKeyword() const -> KeywordKind {
         if (!isWordLike(tkn.kind)) {
             return KeywordKind::None;
         }
-        if (tkn.keywordKind == KeywordKind::AccessModifier) {
+        if (isAccessModifier(tkn.keywordKind)) {
             continue;
         }
         return tkn.keywordKind;

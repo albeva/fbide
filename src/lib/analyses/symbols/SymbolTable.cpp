@@ -108,7 +108,9 @@ auto detectInclude(const std::vector<Token>& tokens) -> std::optional<IncludeMat
     };
 }
 
-/// First significant token's `KeywordKind` and its index inside `tokens`.
+/// First structurally significant token's `KeywordKind` and its index inside
+/// `tokens`. Leading access modifiers (`Private` / `Public` / `Protected`) are
+/// skipped so `Private Sub Foo` dispatches on `Sub`, not the modifier.
 struct FirstKeyword {
     KeywordKind kind = KeywordKind::None;
     std::size_t index = std::string::npos;
@@ -117,6 +119,9 @@ auto findFirstKeyword(const std::vector<Token>& tokens) -> FirstKeyword {
     for (std::size_t i = 0; i < tokens.size(); i++) {
         const auto& tkn = tokens[i];
         if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
+            continue;
+        }
+        if (isAccessModifier(tkn.keywordKind)) {
             continue;
         }
         if (tkn.keywordKind != KeywordKind::None && tkn.keywordKind != KeywordKind::Other) {

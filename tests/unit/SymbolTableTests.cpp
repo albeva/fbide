@@ -132,6 +132,38 @@ TEST_F(SymbolTableTests, SubFunctionType) {
     EXPECT_EQ(table.getTypes()[0].line, 4);
 }
 
+TEST_F(SymbolTableTests, AccessModifiersOnSubFunction) {
+    // `Private` / `Public` / `Protected` are transparent prefixes — the
+    // declaration is still captured under its real kind and name.
+    const auto table = extract(
+        "Private Sub Foo\n"
+        "End Sub\n"
+        "Public Function Bar() As Integer\n"
+        "End Function\n"
+        "Protected Sub Baz\n"
+        "End Sub\n"
+    );
+    ASSERT_EQ(table.getSubs().size(), 2U);
+    EXPECT_EQ(table.getSubs()[0].name, "Foo");
+    EXPECT_EQ(table.getSubs()[0].line, 0);
+    EXPECT_EQ(table.getSubs()[1].name, "Baz");
+    EXPECT_EQ(table.getSubs()[1].line, 4);
+
+    ASSERT_EQ(table.getFunctions().size(), 1U);
+    EXPECT_EQ(table.getFunctions()[0].name, "Bar");
+    EXPECT_EQ(table.getFunctions()[0].line, 2);
+}
+
+TEST_F(SymbolTableTests, AccessModifierOnType) {
+    const auto table = extract(
+        "Public Type T\n"
+        "    x As Integer\n"
+        "End Type\n"
+    );
+    ASSERT_EQ(table.getTypes().size(), 1U);
+    EXPECT_EQ(table.getTypes()[0].name, "T");
+}
+
 TEST_F(SymbolTableTests, EnumAndUnion) {
     const auto table = extract(
         "Enum Color\n"

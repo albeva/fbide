@@ -4,6 +4,7 @@
 - Fixed perfomance issues with multiline edits (undo/redo/index, etc.)
 - Fixed unsaved FBIDETEMP location to be fbide cwd (#70)
 - Fixed "Cmd prompt" command, which messed with fbide cwd
+- Fixed symbol browser not listing Sub/Function declarations with `Private`/`Public`/`Protected` modifiers (#74)
 
 # Changes since 0.5.0-beta.3
 

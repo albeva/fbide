@@ -39,7 +39,7 @@ auto firstKeyword(const std::vector<Token>& tokens) -> KeywordKind {
         if (!isWordLike(t.kind)) {
             return KeywordKind::None;
         }
-        if (t.keywordKind == KeywordKind::AccessModifier) {
+        if (isAccessModifier(t.keywordKind)) {
             continue;
         }
         return t.keywordKind;
@@ -55,7 +55,7 @@ auto secondStructuralKeyword(const std::vector<Token>& tokens) -> KeywordKind {
         }
         // Access modifiers (`Public Type Foo As Integer`) are transparent —
         // skip so `Type` registers as the first structural keyword.
-        if (t.keywordKind == KeywordKind::AccessModifier) {
+        if (isAccessModifier(t.keywordKind)) {
             continue;
         }
         if (t.keywordKind != KeywordKind::None && t.keywordKind != KeywordKind::Other) {

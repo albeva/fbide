@@ -44,9 +44,9 @@ auto fbide::lexer::structuralKeywords() -> const std::unordered_map<std::string,
         // Declaration
         { "declare", KeywordKind::Declare },
         // Access modifiers (transparent prefix for Sub/Function/Type/...)
-        { "private", KeywordKind::AccessModifier },
-        { "public", KeywordKind::AccessModifier },
-        { "protected", KeywordKind::AccessModifier },
+        { "private", KeywordKind::Private },
+        { "public", KeywordKind::Public },
+        { "protected", KeywordKind::Protected },
         // Early-exit (keeps following block keyword from opening a scope)
         { "exit", KeywordKind::Exit },
         { "continue", KeywordKind::Continue },
