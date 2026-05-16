@@ -84,7 +84,7 @@ void SymbolBrowser::appendTypeTree(const wxString& label) {
 
         // Gather every member owned by this type, across all callable kinds.
         std::vector<Member> members;
-        const auto gather = [&](SymbolKind kind, const std::vector<Symbol>& bucket) {
+        const auto gather = [&](const SymbolKind kind, const std::vector<Symbol>& bucket) {
             for (std::size_t idx = 0; idx < bucket.size(); idx++) {
                 if (symbolOwner(bucket[idx]) == type.name) {
                     members.push_back({ .kind = kind,
