@@ -256,7 +256,7 @@ auto App::OnInit() -> bool {
     // sit in memory waiting to be coalesced. Together these ensure the
     // last few records survive a crash.
     const auto logPath = resolveLogPath(cli.logPath);
-    auto* logStream = new std::ofstream(logPath.ToStdString(), std::ios::app);
+    const auto logStream = make_unowned<std::ofstream>(logPath.ToStdString(), std::ios::app);
     *logStream << std::unitbuf;
     wxLog::SetRepetitionCounting(false);
     wxLog::SetActiveTarget(new wxLogStream(logStream));

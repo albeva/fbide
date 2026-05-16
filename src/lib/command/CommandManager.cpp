@@ -374,15 +374,6 @@ void CommandManager::onKillProcess(wxCommandEvent&) {
 }
 
 void CommandManager::onCmdPrompt(wxCommandEvent&) {
-    // Working directory: active document's folder or IDE folder
-    wxString cwd;
-    if (const auto* doc = m_ctx.getDocumentManager().getActive(); doc != nullptr && !doc->isNew()) {
-        cwd = wxPathOnly(doc->getFilePath());
-    } else {
-        cwd = m_ctx.getConfigManager().getAppDir();
-    }
-
-    wxSetWorkingDirectory(cwd);
     wxExecute(ConfigManager::getTerminal());
 }
 
