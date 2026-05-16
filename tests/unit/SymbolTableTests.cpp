@@ -577,3 +577,84 @@ TEST_F(SymbolTableTests, HashStableOnLineShift) {
     );
     EXPECT_EQ(a.getHash(), b.getHash());
 }
+
+// ---------------------------------------------------------------------------
+// Preprocessor conditional blocks — symbols guarded by `#if` / `#ifdef` /
+// `#ifndef` are collected (the parser does not evaluate conditions, so both
+// `#if` and `#else` branches contribute). `#macro` bodies are not recursed.
+// ---------------------------------------------------------------------------
+
+TEST_F(SymbolTableTests, SymbolsInsidePpIfCaptured) {
+    const auto table = extract(
+        "#if defined(FOO)\n"
+        "    Sub Guarded\n"
+        "    End Sub\n"
+        "    Type Gizmo\n"
+        "        x As Integer\n"
+        "    End Type\n"
+        "#endif\n"
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Guarded");
+    ASSERT_EQ(table.getTypes().size(), 1U);
+    EXPECT_EQ(table.getTypes()[0].name, "Gizmo");
+}
+
+TEST_F(SymbolTableTests, SymbolsInPpIfdefAndIfndef) {
+    const auto table = extract(
+        "#ifdef FOO\n"
+        "    Sub A\n"
+        "    End Sub\n"
+        "#endif\n"
+        "#ifndef BAR\n"
+        "    Sub B\n"
+        "    End Sub\n"
+        "#endif\n"
+    );
+    ASSERT_EQ(table.getSubs().size(), 2U);
+    EXPECT_EQ(table.getSubs()[0].name, "A");
+    EXPECT_EQ(table.getSubs()[1].name, "B");
+}
+
+TEST_F(SymbolTableTests, PpIfElseCollectsBothBranches) {
+    // Conditions are not evaluated — symbols from every branch are listed.
+    const auto table = extract(
+        "#if defined(FOO)\n"
+        "    Sub WhenFoo\n"
+        "    End Sub\n"
+        "#else\n"
+        "    Sub WhenNotFoo\n"
+        "    End Sub\n"
+        "#endif\n"
+    );
+    ASSERT_EQ(table.getSubs().size(), 2U);
+    EXPECT_EQ(table.getSubs()[0].name, "WhenFoo");
+    EXPECT_EQ(table.getSubs()[1].name, "WhenNotFoo");
+}
+
+TEST_F(SymbolTableTests, NestedPpIfRecurses) {
+    const auto table = extract(
+        "#if defined(FOO)\n"
+        "    #if defined(BAR)\n"
+        "        Sub Deep\n"
+        "        End Sub\n"
+        "    #endif\n"
+        "#endif\n"
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Deep");
+}
+
+TEST_F(SymbolTableTests, PpMacroBodyNotRecursed) {
+    // A `#macro` body is a template, not a scope — declarations inside it
+    // are not real symbols. Only the macro name itself is captured.
+    const auto table = extract(
+        "#macro DEFINE_SUB\n"
+        "    Sub Generated\n"
+        "    End Sub\n"
+        "#endmacro\n"
+    );
+    EXPECT_TRUE(table.getSubs().empty());
+    ASSERT_EQ(table.getMacros().size(), 1U);
+    EXPECT_EQ(table.getMacros()[0].name, "DEFINE_SUB");
+}

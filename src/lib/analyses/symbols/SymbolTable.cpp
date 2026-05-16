@@ -370,6 +370,20 @@ void SymbolTable::walkBlock(const BlockNode& block) {
     case KeywordKind::Namespace:
         walkNodes(block.body);
         break;
+    case KeywordKind::PpIf:
+    case KeywordKind::PpIfDef:
+    case KeywordKind::PpIfNDef:
+    case KeywordKind::PpElse:
+    case KeywordKind::PpElseIf:
+    case KeywordKind::PpElseIfDef:
+    case KeywordKind::PpElseIfNDef:
+        // Conditional-compilation branches are transparent for symbol
+        // collection — recurse so declarations guarded by `#if` / `#else` /
+        // `#elseif` still show up (mirrors `collectIncludes`). Conditions are
+        // not evaluated, so every branch contributes. `#macro` bodies and
+        // other nested scopes are intentionally not recursed into.
+        walkNodes(block.body);
+        break;
     default:
         break;
     }
