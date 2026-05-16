@@ -304,3 +304,50 @@ TEST_F(AutoIndentTests, NoCloserForNonOpeners) {
     EXPECT_TRUE(closerWords("End If").empty());
     EXPECT_TRUE(closerWords("Print x").empty());
 }
+
+// ---------------------------------------------------------------------------
+// Preprocessor compound statements — `#if`/`#ifdef`/`#ifndef` -> `#endif`,
+// `#macro` -> `#endmacro`, mirroring language-level block behaviour.
+// ---------------------------------------------------------------------------
+
+TEST_F(AutoIndentTests, PreprocessorConditionalOpens) {
+    EXPECT_TRUE(opener("#if FOO"));
+    EXPECT_TRUE(opener("#ifdef FOO"));
+    EXPECT_TRUE(opener("#ifndef FOO"));
+    EXPECT_TRUE(opener("    #if FOO"));
+}
+
+TEST_F(AutoIndentTests, PreprocessorMacroOpens) {
+    EXPECT_TRUE(opener("#macro DOUBLE(x)"));
+}
+
+TEST_F(AutoIndentTests, PreprocessorClosers) {
+    EXPECT_TRUE(closer("#endif"));
+    EXPECT_TRUE(closer("#endmacro"));
+}
+
+TEST_F(AutoIndentTests, PreprocessorMidBlock) {
+    EXPECT_TRUE(mid("#else"));
+    EXPECT_TRUE(mid("#elseif BAR"));
+    EXPECT_TRUE(mid("#elseifdef BAR"));
+    EXPECT_TRUE(mid("#elseifndef BAR"));
+}
+
+TEST_F(AutoIndentTests, PreprocessorNonBlockNeutral) {
+    EXPECT_TRUE(neutral("#define FOO 1"));
+    EXPECT_TRUE(neutral("#include \"foo.bi\""));
+    EXPECT_TRUE(neutral("#undef FOO"));
+}
+
+TEST_F(AutoIndentTests, AutoClosePreprocessor) {
+    EXPECT_EQ(closerWords("#if FOO"), (std::vector<std::string_view> { "#endif" }));
+    EXPECT_EQ(closerWords("#ifdef FOO"), (std::vector<std::string_view> { "#endif" }));
+    EXPECT_EQ(closerWords("#ifndef FOO"), (std::vector<std::string_view> { "#endif" }));
+    EXPECT_EQ(closerWords("#macro M(x)"), (std::vector<std::string_view> { "#endmacro" }));
+}
+
+TEST_F(AutoIndentTests, NoCloserForPreprocessorNonOpeners) {
+    EXPECT_TRUE(closerWords("#endif").empty());
+    EXPECT_TRUE(closerWords("#else").empty());
+    EXPECT_TRUE(closerWords("#define FOO 1").empty());
+}

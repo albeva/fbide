@@ -9,6 +9,7 @@
 - Added constructors, destructors, operators and properties to the symbol browser
 - Changed symbol browser to group UDT methods (subs, functions, constructors, …) under their owning type
 - Added a search box to the symbol browser to filter results live by name, symbol type or UDT
+- Added auto-indent and closer insertion for preprocessor blocks (#72)
 
 # Changes since 0.5.0-beta.3
 

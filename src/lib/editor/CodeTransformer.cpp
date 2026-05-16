@@ -292,13 +292,17 @@ void CodeTransformer::transformRange(Editor& editor, const int rangeStart, const
 }
 
 auto CodeTransformer::renderCloser(const std::span<const std::string_view> words) const -> wxString {
-    // Closers are Keyword1 words (`end`, `if`, `sub`, ...). Honour the
-    // per-group case rule only when the master keyword-case toggle is on;
-    // otherwise keep the lowercase form supplied by AutoIndent so the
-    // closer matches the user's "no transformation" preference.
-    const auto kw1Mode = m_keywordCases[indexOfKeywordGroup(ThemeCategory::Keywords)];
-    const auto rule = (m_transformKeywords && kw1Mode != CaseMode::None)
-                        ? kw1Mode
+    // Closers are keyword words supplied lowercase by AutoIndent — Keyword1
+    // for language closers (`end`, `if`, `sub`, ...), KeywordPP for
+    // preprocessor closers (`#endif`, `#endmacro`). Honour the matching
+    // group's case rule only when the master keyword-case toggle is on;
+    // otherwise keep the lowercase form so the closer matches the user's
+    // "no transformation" preference.
+    const bool isPreprocessor = !words.empty() && words.front().starts_with('#');
+    const auto group = isPreprocessor ? ThemeCategory::KeywordPP : ThemeCategory::Keywords;
+    const auto groupMode = m_keywordCases[indexOfKeywordGroup(group)];
+    const auto rule = (m_transformKeywords && groupMode != CaseMode::None)
+                        ? groupMode
                         : CaseMode { CaseMode::Lower };
 
     wxString out;
