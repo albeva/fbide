@@ -27,7 +27,7 @@ enum class SymbolKind : std::uint8_t {
 /// (e.g., the `Sub` keyword line), suitable for `wxStyledTextCtrl::GotoLine`.
 struct Symbol {
     SymbolKind kind; ///< Declaration kind.
-    wxString name;   ///< Declared identifier.
+    wxString name;   ///< Declared name; qualified (`Type.Method`) for methods.
     int line = 0;    ///< 0-based source line of the opener.
 };
 
@@ -51,6 +51,7 @@ struct Include {
  * Constructed directly from a (lean) `ProgramTree`. The walk:
  *
  * - Captures top-level Sub / Function / Type / Union / Enum.
+ * - Keeps the qualified name for methods (`Sub Type.Method`).
  * - Recurses into Namespace bodies (flat list — no qualified names
  *   for now).
  * - Skips anonymous declarations.

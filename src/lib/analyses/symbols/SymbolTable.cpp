@@ -142,6 +142,44 @@ auto findWordlikeAfter(const std::vector<Token>& tokens, std::size_t start) -> c
     return nullptr;
 }
 
+/// Index of the first non-layout token at or after `start`, or `npos`.
+auto nextSignificant(const std::vector<Token>& tokens, std::size_t start) -> std::size_t {
+    while (start < tokens.size() && isLayoutToken(tokens[start])) {
+        start++;
+    }
+    return start < tokens.size() ? start : std::string::npos;
+}
+
+/// Build the declared name of a Sub / Function starting from `start`.
+/// FreeBASIC methods carry a qualifier — `Sub TypeName.MethodName` — so a
+/// trailing `.identifier` chain is folded into the name (`TypeName.MethodName`).
+/// Returns an empty string when no name token is present (anonymous).
+auto qualifiedNameAfter(const std::vector<Token>& tokens, std::size_t start) -> wxString {
+    const Token* head = findWordlikeAfter(tokens, start);
+    if (head == nullptr) {
+        return {};
+    }
+    wxString name = wxString::FromUTF8(head->text);
+
+    // Continue across `.identifier` segments — `Type.Method`, or a deeper
+    // `Namespace.Type.Method` qualifier.
+    std::size_t i = static_cast<std::size_t>(head - tokens.data()) + 1;
+    while (true) {
+        const std::size_t dot = nextSignificant(tokens, i);
+        if (dot == std::string::npos || tokens[dot].operatorKind != OperatorKind::Dot) {
+            break;
+        }
+        const std::size_t member = nextSignificant(tokens, dot + 1);
+        if (member == std::string::npos || !isWordLike(tokens[member].kind)) {
+            break;
+        }
+        name += '.';
+        name += wxString::FromUTF8(tokens[member].text);
+        i = member + 1;
+    }
+    return name;
+}
+
 } // namespace
 
 SymbolTable::SymbolTable(const ProgramTree& tree) {
@@ -251,13 +289,16 @@ void SymbolTable::emit(
     const std::vector<Token>& opener,
     const std::size_t keywordIdx
 ) {
-    const Token* name = findWordlikeAfter(opener, keywordIdx + 1);
-    if (name == nullptr) {
+    // Sub / Function may be methods (`Sub TypeName.MethodName`); the qualifier
+    // is folded into the name. Type / Union / Enum carry a bare identifier —
+    // qualifiedNameAfter returns it unchanged since no dot follows.
+    wxString name = qualifiedNameAfter(opener, keywordIdx + 1);
+    if (name.empty()) {
         return; // anonymous — skip
     }
     Symbol sym {
         .kind = kind,
-        .name = wxString::FromUTF8(name->text),
+        .name = std::move(name),
         .line = opener.empty() ? 0 : opener.front().line,
     };
     switch (kind) {

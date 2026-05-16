@@ -164,6 +164,31 @@ TEST_F(SymbolTableTests, AccessModifierOnType) {
     EXPECT_EQ(table.getTypes()[0].name, "T");
 }
 
+TEST_F(SymbolTableTests, MethodKeepsQualifiedName) {
+    // FB OO syntax — `Sub TypeName.MethodName` defines a method body. The
+    // browser shows the fully qualified name.
+    const auto table = extract(
+        "Sub Vec.Reset\n"
+        "End Sub\n"
+        "Function Vec.Length() As Double\n"
+        "End Function\n"
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Vec.Reset");
+
+    ASSERT_EQ(table.getFunctions().size(), 1U);
+    EXPECT_EQ(table.getFunctions()[0].name, "Vec.Length");
+}
+
+TEST_F(SymbolTableTests, MethodWithAccessModifier) {
+    const auto table = extract(
+        "Private Sub Vec.Hide\n"
+        "End Sub\n"
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Vec.Hide");
+}
+
 TEST_F(SymbolTableTests, EnumAndUnion) {
     const auto table = extract(
         "Enum Color\n"

@@ -5,6 +5,7 @@
 - Fixed unsaved FBIDETEMP location to be fbide cwd (#70)
 - Fixed "Cmd prompt" command, which messed with fbide cwd
 - Fixed symbol browser not listing Sub/Function declarations with `Private`/`Public`/`Protected` modifiers (#74)
+- Changed symbol browser to show the qualified name for methods (`Type.Method`) (#74)
 
 # Changes since 0.5.0-beta.3
 
