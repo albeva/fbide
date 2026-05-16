@@ -1,3 +1,7 @@
+# Changes since 0.5.0-rc.1
+
+- Added editor minimap — toggle via View → Minimap (F6)
+
 # Changes since 0.5.0-beta.3
 
 - Added new cobalt theme (Gothon)

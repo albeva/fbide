@@ -212,7 +212,7 @@ void UIManager::onPageClose(wxAuiNotebookEvent& event) {
 
     const auto* page = m_notebook->GetPage(static_cast<size_t>(pageIdx));
     auto& docManager = m_ctx.getDocumentManager();
-    if (auto* doc = docManager.findByEditor(page)) {
+    if (auto* doc = docManager.findByPage(page)) {
         docManager.closeFile(*doc);
     }
 }
@@ -226,8 +226,10 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
         return;
     }
     auto* page = m_notebook->GetPage(static_cast<size_t>(sel));
-    page->SetFocus();
-    const auto* doc = m_ctx.getDocumentManager().findByEditor(page);
+    auto* doc = m_ctx.getDocumentManager().findByPage(page);
+    if (doc != nullptr) {
+        doc->getEditor()->SetFocus();
+    }
     m_ctx.getSideBarManager().showSymbolsFor(doc);
     setTitle(doc->isNew() ? doc->getTitle() : doc->getFilePath());
 }
@@ -686,10 +688,7 @@ void UIManager::disable(const std::ranges::range auto& range) const {
 
 void UIManager::updateEditorSettigs() {
     // Reapply settings to all open editors
-    const auto* notebook = getNotebook();
-    for (size_t idx = 0; idx < notebook->GetPageCount(); idx++) {
-        if (auto* editor = static_cast<Editor*>(notebook->GetPage(idx))) {
-            editor->applySettings();
-        }
+    for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {
+        doc->getEditor()->applySettings();
     }
 }

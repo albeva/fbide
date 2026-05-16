@@ -68,7 +68,7 @@ auto DocumentManager::newFile(DocumentType type) -> Document& {
     const auto thaw = m_ctx.getUIManager().freeze();
     auto* notebook = getNotebook();
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(notebook, m_ctx, type));
-    notebook->AddPage(doc.getEditor(), doc.getTitle(), true);
+    notebook->AddPage(doc.getPage(), doc.getTitle(), true);
     return doc;
 }
 
@@ -197,7 +197,7 @@ auto DocumentManager::openFile(const wxString& filePath) -> Document* {
     doc.setModified(false);
 
     auto* notebook = getNotebook();
-    notebook->AddPage(doc.getEditor(), doc.getTitle(), true);
+    notebook->AddPage(doc.getPage(), doc.getTitle(), true);
 
     m_ctx.getFileHistory().addFile(filePath);
 
@@ -541,7 +541,7 @@ void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
         return;
     }
     const auto* page = notebook->GetPage(static_cast<size_t>(pageIdx));
-    auto* doc = findByEditor(page);
+    auto* doc = findByPage(page);
     if (doc == nullptr) {
         return;
     }
@@ -649,7 +649,7 @@ auto DocumentManager::getActive() const -> Document* {
         return nullptr;
     }
     const auto* page = notebook->GetPage(static_cast<size_t>(sel));
-    return findByEditor(page);
+    return findByPage(page);
 }
 
 void DocumentManager::setActive(Document* document) {
@@ -694,6 +694,21 @@ auto DocumentManager::findByEditor(const wxWindow* editor) const -> Document* {
     return nullptr;
 }
 
+auto DocumentManager::findByPage(const wxWindow* page) const -> Document* {
+    for (auto& doc : m_documents) {
+        if (doc->getPage() == page) {
+            return doc.get();
+        }
+    }
+    return nullptr;
+}
+
+void DocumentManager::setMinimapVisible(const bool visible) {
+    for (const auto& doc : m_documents) {
+        doc->showMinimap(visible);
+    }
+}
+
 auto DocumentManager::contains(const Document* doc) const -> bool {
     return doc != nullptr && std::ranges::contains(m_documents, doc, &std::unique_ptr<Document>::get);
 }
@@ -701,7 +716,7 @@ auto DocumentManager::contains(const Document* doc) const -> bool {
 auto DocumentManager::findPageIndex(const Document& doc) const -> int {
     const auto* notebook = m_ctx.getUIManager().getNotebook();
     for (size_t idx = 0; idx < notebook->GetPageCount(); idx++) {
-        if (notebook->GetPage(idx) == doc.getEditor()) {
+        if (notebook->GetPage(idx) == doc.getPage()) {
             return static_cast<int>(idx);
         }
     }

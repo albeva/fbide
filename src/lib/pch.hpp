@@ -56,6 +56,7 @@
 #include <wx/splash.h>
 #include <wx/splitter.h>
 #include <wx/statline.h>
+#include <wx/stc/minimap.h>
 #include <wx/stc/stc.h>
 #include <wx/stdpaths.h>
 #include <wx/textfile.h>

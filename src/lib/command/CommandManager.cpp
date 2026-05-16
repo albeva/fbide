@@ -64,6 +64,7 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     EVT_MENU(+CommandId::Preferences, CommandManager::onSettings)
     EVT_MENU(+CommandId::Format,      CommandManager::onFormat)
     EVT_MENU(+CommandId::Subs,        CommandManager::onSubs)
+    EVT_MENU(+CommandId::Minimap,     CommandManager::onMinimap)
     EVT_MENU(+CommandId::CompilerLog, CommandManager::onCompilerLog)
 
     // Run
@@ -128,6 +129,7 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .id = +CommandId::Replace,          .name="replace" },
         CommandEntry { .id = +CommandId::Result,           .name="viewResult", .kind = wxITEM_CHECK },
         CommandEntry { .id = +CommandId::Browser,          .name="viewBrowser", .kind = wxITEM_CHECK },
+        CommandEntry { .id = +CommandId::Minimap,          .name="viewMinimap", .kind = wxITEM_CHECK, .checked = true },
         CommandEntry { .id = +CommandId::Run,              .name="run" },
         CommandEntry { .id = +CommandId::Save,             .name="save" },
         CommandEntry { .id = +CommandId::SaveAll,          .name="saveAll" },
@@ -341,6 +343,10 @@ void CommandManager::onFormat(wxCommandEvent&) {
 
 void CommandManager::onSubs(wxCommandEvent&) {
     m_ctx.getSideBarManager().showSymbolBrowser();
+}
+
+void CommandManager::onMinimap(wxCommandEvent& event) {
+    m_ctx.getDocumentManager().setMinimapVisible(event.IsChecked());
 }
 
 void CommandManager::onCompilerLog(wxCommandEvent&) {

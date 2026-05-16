@@ -143,6 +143,8 @@ private:
     void onFormat(wxCommandEvent& event);
     /// `Show Subs` (F2) — reveal the Sub/Function browser.
     void onSubs(wxCommandEvent& event);
+    /// `Minimap` — toggle the per-document minimap on every open document.
+    void onMinimap(wxCommandEvent& event);
     /// `Compiler Log` — show the compiler-log dialog.
     void onCompilerLog(wxCommandEvent& event);
 

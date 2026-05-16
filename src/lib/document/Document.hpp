@@ -10,6 +10,8 @@
 #include "TextEncoding.hpp"
 #include "analyses/symbols/SymbolTable.hpp"
 
+class wxStyledTextCtrlMiniMap;
+
 namespace fbide {
 class Context;
 class Editor;
@@ -19,8 +21,9 @@ class Editor;
  * that lets us round-trip to disk — path, type, encoding, EOL,
  * mod-time, latest symbol table.
  *
- * **Owns:** the wx-parented `Editor` widget (`Unowned<Editor>`) plus
- * the `shared_ptr<const SymbolTable>` published by intellisense.
+ * **Owns:** the wx-parented container panel (`Unowned<wxPanel>`) that
+ * holds the `Editor` widget and the experimental minimap, plus the
+ * `shared_ptr<const SymbolTable>` published by intellisense.
  * **Owned by:** `DocumentManager` via `unique_ptr<Document>`.
  * **Lifetime:** matches the notebook tab.
  *
@@ -53,6 +56,15 @@ public:
     [[nodiscard]] auto getEditor() -> Editor* { return m_editor; }
     /// Const overload of `getEditor`.
     [[nodiscard]] auto getEditor() const -> const Editor* { return m_editor; }
+
+    /// Get the notebook page — the container panel holding editor + minimap.
+    [[nodiscard]] auto getPage() -> wxWindow* { return m_container; }
+    /// Const overload of `getPage`.
+    [[nodiscard]] auto getPage() const -> const wxWindow* { return m_container; }
+
+    /// Enable or disable the minimap. Effective visibility also depends
+    /// on the page being wide enough — see `updateMinimapVisibility`.
+    void showMinimap(bool enabled);
 
     /// Path of the most recently compiled executable.
     [[nodiscard]] auto getCompiledFile() const -> wxString { return m_compiledFile; }
@@ -107,11 +119,20 @@ public:
     }
 
 private:
+    /// Page resized — re-evaluate whether the minimap still fits.
+    void onContainerSize(wxSizeEvent& event);
+    /// Show/hide the minimap based on the current page width.
+    void updateMinimapVisibility();
+
     Context& m_ctx;                                ///< Application context.
     wxString m_compiledFile;                       ///< Path of the most recently compiled executable.
     wxString m_filePath;                           ///< Absolute path on disk; empty for new documents.
     DocumentType m_type;                           ///< Document type — drives lexer + theme dispatch.
-    Unowned<Editor> m_editor;                      ///< wx-parented editor widget.
+    Unowned<wxPanel> m_container;                  ///< wx-parented notebook page — holds editor + minimap.
+    Unowned<Editor> m_editor;                      ///< Editor widget, child of m_container.
+    Unowned<wxStyledTextCtrlMiniMap> m_minimap;    ///< Minimap (experiment), child of m_container.
+    int m_minimapWidth;                            ///< Minimap width in px — `editor.minimapWidth` config key.
+    bool m_minimapEnabled;                         ///< Minimap toggle state — `commands.viewMinimap`.
     wxDateTime m_modTime;                          ///< Last on-disk mtime — backs `checkExternalChange`.
     TextEncoding m_encoding;                       ///< Bytes-to-text codec used on save.
     EolMode m_eolMode;                             ///< Line-ending convention applied on save.

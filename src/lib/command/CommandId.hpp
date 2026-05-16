@@ -51,6 +51,7 @@ enum class CommandId : wxWindowID {
     Format,
     Result,
     Browser,
+    Minimap,
     CompilerLog,
     Subs,
     Compile,

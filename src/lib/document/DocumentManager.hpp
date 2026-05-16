@@ -136,6 +136,12 @@ public:
     /// Find document by its editor widget.
     [[nodiscard]] auto findByEditor(const wxWindow* editor) const -> Document*;
 
+    /// Find document by its notebook page (the container panel).
+    [[nodiscard]] auto findByPage(const wxWindow* page) const -> Document*;
+
+    /// Show or hide the minimap on every open document.
+    void setMinimapVisible(bool visible);
+
     /// Iterate all open documents (ordering matches tab order at creation).
     [[nodiscard]] auto getDocuments() const
         -> std::span<const std::unique_ptr<Document>> { return m_documents; }
