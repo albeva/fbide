@@ -72,10 +72,14 @@ Version::Version(const wxString& version) noexcept {
 
 auto Version::tagToString(const Tag tag) -> wxString {
     switch (tag) {
-    case Tag::None:             return {};
-    case Tag::Alpha:            return "alpha";
-    case Tag::Beta:             return "beta";
-    case Tag::ReleaseCandidate: return "rc";
+    case Tag::None:
+        return {};
+    case Tag::Alpha:
+        return "alpha";
+    case Tag::Beta:
+        return "beta";
+    case Tag::ReleaseCandidate:
+        return "rc";
     }
     return {};
 }

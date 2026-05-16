@@ -94,9 +94,9 @@ private:
     /// is enough — no per-emit-site instrumentation needed.
     static void stampLines(std::vector<Token>& tokens);
 
-    IStyledSource& m_src;            ///< Source view we read from.
-    Sci_PositionU m_pos = 0;         ///< Current scan position.
-    bool m_canBeUnary = true;        ///< Operator unary/binary disambiguation context.
+    IStyledSource& m_src;     ///< Source view we read from.
+    Sci_PositionU m_pos = 0;  ///< Current scan position.
+    bool m_canBeUnary = true; ///< Operator unary/binary disambiguation context.
     /// Index of the open directive token in `out`. SIZE_MAX when no directive
     /// is open (between PP lines / inside non-PP code). The first KeywordPP
     /// run on a line appends to this token; subsequent KeywordPP runs emit

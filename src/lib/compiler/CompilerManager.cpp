@@ -79,7 +79,7 @@ void CompilerManager::quickRun() {
     // Determine temp folder from current file or IDE path
     const auto& filePath = doc->getFilePath();
     const auto tempFolder = filePath.empty()
-                              ? wxPathOnly(m_ctx.getConfigManager().getAppDir()) + "/"
+                              ? wxGetCwd() + "/"
                               : wxPathOnly(filePath) + "/";
 
     // Save content to temp file — preserve doc encoding so the compiler

@@ -75,17 +75,21 @@ public:
     [[nodiscard]] constexpr auto getMajor() const noexcept -> int { return m_major; }
     [[nodiscard]] constexpr auto getMinor() const noexcept -> int { return m_minor; }
     [[nodiscard]] constexpr auto getPatch() const noexcept -> int { return m_patch; }
-    [[nodiscard]] constexpr auto getTag()   const noexcept -> Tag { return m_tag; }
+    [[nodiscard]] constexpr auto getTag() const noexcept -> Tag { return m_tag; }
     [[nodiscard]] constexpr auto getTweak() const noexcept -> int { return m_tweak; }
 
     /// Lexicographic compare on (major, minor, patch, tagRank, tweak).
     /// `tagRank()` makes `Tag::None` the greatest so a final release
     /// outranks every pre-release at the same numeric triple.
     [[nodiscard]] friend constexpr auto operator<=>(const Version& a, const Version& b) noexcept -> std::strong_ordering {
-        if (const auto c = a.m_major <=> b.m_major; c != 0) return c;
-        if (const auto c = a.m_minor <=> b.m_minor; c != 0) return c;
-        if (const auto c = a.m_patch <=> b.m_patch; c != 0) return c;
-        if (const auto c = tagRank(a.m_tag) <=> tagRank(b.m_tag); c != 0) return c;
+        if (const auto c = a.m_major <=> b.m_major; c != 0)
+            return c;
+        if (const auto c = a.m_minor <=> b.m_minor; c != 0)
+            return c;
+        if (const auto c = a.m_patch <=> b.m_patch; c != 0)
+            return c;
+        if (const auto c = tagRank(a.m_tag) <=> tagRank(b.m_tag); c != 0)
+            return c;
         return a.m_tweak <=> b.m_tweak;
     }
 
@@ -96,10 +100,14 @@ private:
     /// pre-releases. Alpha < Beta < ReleaseCandidate < None.
     [[nodiscard]] static constexpr auto tagRank(const Tag tag) noexcept -> int {
         switch (tag) {
-        case Tag::Alpha:            return 0;
-        case Tag::Beta:             return 1;
-        case Tag::ReleaseCandidate: return 2;
-        case Tag::None:             return 3;
+        case Tag::Alpha:
+            return 0;
+        case Tag::Beta:
+            return 1;
+        case Tag::ReleaseCandidate:
+            return 2;
+        case Tag::None:
+            return 3;
         }
         return 3;
     }

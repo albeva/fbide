@@ -44,8 +44,8 @@ private:
     /// Per-leaf lookup payload. `kind` selects which `SymbolTable` vector
     /// to read, `index` is the offset into that vector.
     struct Entry {
-        SymbolKind kind;    ///< Which `SymbolTable` bucket the leaf came from.
-        std::size_t index;  ///< Offset into that bucket's vector.
+        SymbolKind kind;   ///< Which `SymbolTable` bucket the leaf came from.
+        std::size_t index; ///< Offset into that bucket's vector.
     };
 
     /// Tree-leaf activation — dispatch to navigation or include open.

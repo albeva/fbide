@@ -72,12 +72,12 @@ public:
     /// Public so the analyses/lexer adapter can read it via IStyledSource.
     struct alignas(int) LineState final {
         constexpr LineState() = default;
-        bool continueLine     : 1 = false;          ///< Line ends in `_` continuation.
-        bool isFirst          : 1 = false;          ///< This is the first significant line of the source.
-        bool continuePP       : 1 = false;          ///< Inside a continued preprocessor directive.
-        bool fieldAccess      : 1 = false;          ///< Last token was `.` or `->` — next ident is a field.
-        bool ppDirectiveSeen  : 1 = false;          ///< In PP body, the directive identifier (first ident after `#`) was already classified.
-        AsmState asmState     : 3 = AsmState::None; ///< Asm context tracker (None/Undetermined/Block/Stmt).
+        bool continueLine    : 1 = false;          ///< Line ends in `_` continuation.
+        bool isFirst         : 1 = false;          ///< This is the first significant line of the source.
+        bool continuePP      : 1 = false;          ///< Inside a continued preprocessor directive.
+        bool fieldAccess     : 1 = false;          ///< Last token was `.` or `->` — next ident is a field.
+        bool ppDirectiveSeen : 1 = false;          ///< In PP body, the directive identifier (first ident after `#`) was already classified.
+        AsmState asmState    : 3 = AsmState::None; ///< Asm context tracker (None/Undetermined/Block/Stmt).
 
         std::uint8_t commentNestLevel = 0; ///< Open `/'` block-comment nesting level.
         std::uint8_t reserved1 = 0;        ///< Reserved for future use.

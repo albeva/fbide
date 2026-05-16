@@ -131,18 +131,18 @@ private:
     /// Destroy the minimap widget and drop it from the page layout.
     void destroyMinimap();
 
-    Context& m_ctx;                                ///< Application context.
-    wxString m_compiledFile;                       ///< Path of the most recently compiled executable.
-    wxString m_filePath;                           ///< Absolute path on disk; empty for new documents.
-    DocumentType m_type;                           ///< Document type — drives lexer + theme dispatch.
-    Unowned<wxPanel> m_container;                  ///< wx-parented notebook page — holds editor + minimap.
-    Unowned<Editor> m_editor;                      ///< Editor widget, child of m_container.
-    Unowned<wxStyledTextCtrlMiniMap> m_minimap;    ///< Minimap — lazily created; null while disabled.
-    int m_minimapWidth;                            ///< Minimap width in px — `editor.minimapWidth` config key.
-    bool m_minimapEnabled;                         ///< Minimap toggle state — `commands.viewMinimap`.
-    wxDateTime m_modTime;                          ///< Last on-disk mtime — backs `checkExternalChange`.
-    TextEncoding m_encoding;                       ///< Bytes-to-text codec used on save.
-    EolMode m_eolMode;                             ///< Line-ending convention applied on save.
+    Context& m_ctx;                             ///< Application context.
+    wxString m_compiledFile;                    ///< Path of the most recently compiled executable.
+    wxString m_filePath;                        ///< Absolute path on disk; empty for new documents.
+    DocumentType m_type;                        ///< Document type — drives lexer + theme dispatch.
+    Unowned<wxPanel> m_container;               ///< wx-parented notebook page — holds editor + minimap.
+    Unowned<Editor> m_editor;                   ///< Editor widget, child of m_container.
+    Unowned<wxStyledTextCtrlMiniMap> m_minimap; ///< Minimap — lazily created; null while disabled.
+    int m_minimapWidth;                         ///< Minimap width in px — `editor.minimapWidth` config key.
+    bool m_minimapEnabled;                      ///< Minimap toggle state — `commands.viewMinimap`.
+    wxDateTime m_modTime;                       ///< Last on-disk mtime — backs `checkExternalChange`.
+    TextEncoding m_encoding;                    ///< Bytes-to-text codec used on save.
+    EolMode m_eolMode;                          ///< Line-ending convention applied on save.
     /// Set when encoding is changed; cleared on save. OR'd with editor's
     /// modify flag in isModified() so encoding-only edits still show as dirty.
     bool m_metaModified = false;

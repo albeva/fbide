@@ -53,20 +53,20 @@ private:
     /// True when at least one transform is active.
     [[nodiscard]] auto isTransforming() const -> bool;
 
-    Context& m_ctx;                                            ///< Application context.
-    Document* m_doc;                                           ///< Source document being previewed.
-    wxCharBuffer m_buffer;                                     ///< UTF-8 snapshot of the document text.
-    std::vector<lexer::Token> m_tokens;                        ///< Lexed tokens, fed into the transform chain.
-    std::vector<std::unique_ptr<Transform>> m_transforms;      ///< Active transforms, in pipeline order.
-    std::unique_ptr<Renderer> m_renderer;                      ///< Active renderer (text or HTML).
+    Context& m_ctx;                                       ///< Application context.
+    Document* m_doc;                                      ///< Source document being previewed.
+    wxCharBuffer m_buffer;                                ///< UTF-8 snapshot of the document text.
+    std::vector<lexer::Token> m_tokens;                   ///< Lexed tokens, fed into the transform chain.
+    std::vector<std::unique_ptr<Transform>> m_transforms; ///< Active transforms, in pipeline order.
+    std::unique_ptr<Renderer> m_renderer;                 ///< Active renderer (text or HTML).
 
-    Unowned<wxCheckBox> m_reindentCheck = nullptr;             ///< "Re-indent" toggle.
-    Unowned<wxCheckBox> m_reformatCheck = nullptr;             ///< "Re-format" toggle.
-    Unowned<wxCheckBox> m_alignPPCheck = nullptr;              ///< "Anchored PP" toggle.
-    Unowned<wxCheckBox> m_applyCaseCheck = nullptr;            ///< "Apply keyword case" toggle.
-    Unowned<Editor> m_preview = nullptr;                       ///< Preview editor (read-only Editor).
-    Unowned<wxButton> m_actionBtn = nullptr;                   ///< Apply button.
-    Unowned<wxButton> m_browserBtn = nullptr;                  ///< Open-in-browser button (HTML mode).
+    Unowned<wxCheckBox> m_reindentCheck = nullptr;  ///< "Re-indent" toggle.
+    Unowned<wxCheckBox> m_reformatCheck = nullptr;  ///< "Re-format" toggle.
+    Unowned<wxCheckBox> m_alignPPCheck = nullptr;   ///< "Anchored PP" toggle.
+    Unowned<wxCheckBox> m_applyCaseCheck = nullptr; ///< "Apply keyword case" toggle.
+    Unowned<Editor> m_preview = nullptr;            ///< Preview editor (read-only Editor).
+    Unowned<wxButton> m_actionBtn = nullptr;        ///< Apply button.
+    Unowned<wxButton> m_browserBtn = nullptr;       ///< Open-in-browser button (HTML mode).
 
     wxDECLARE_EVENT_TABLE();
 };

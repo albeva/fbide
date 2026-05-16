@@ -17,16 +17,16 @@ class DocumentIO {
 public:
     /// Successful load result — text plus the detected encoding/EOL.
     struct LoadResult {
-        wxString text;          ///< Decoded text.
-        TextEncoding encoding;  ///< Encoding the bytes were decoded with.
-        EolMode eolMode;        ///< Detected (or fallback) EOL mode.
+        wxString text;         ///< Decoded text.
+        TextEncoding encoding; ///< Encoding the bytes were decoded with.
+        EolMode eolMode;       ///< Detected (or fallback) EOL mode.
     };
 
     /// Save outcome.
     enum class SaveResult : std::uint8_t {
-        Success,        ///< File written.
-        IOError,        ///< Could not open or write the file.
-        EncodingError,  ///< Codec rejected text — nothing written.
+        Success,       ///< File written.
+        IOError,       ///< Could not open or write the file.
+        EncodingError, ///< Codec rejected text — nothing written.
     };
 
     /// Load file into memory. Returns nullopt only when the file cannot

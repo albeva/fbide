@@ -11,8 +11,8 @@ namespace fbide {
 
 /// Result of an async process execution.
 struct ProcessResult final {
-    int exitCode = -1;        ///< Process exit code (`-1` when launch failed).
-    wxArrayString output;     ///< Captured stdout/stderr lines (when redirected).
+    int exitCode = -1;    ///< Process exit code (`-1` when launch failed).
+    wxArrayString output; ///< Captured stdout/stderr lines (when redirected).
 
     /// True if the process was launched successfully and terminated.
     /// False if wxExecute failed to start the process.

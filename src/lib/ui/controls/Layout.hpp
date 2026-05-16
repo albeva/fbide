@@ -320,9 +320,9 @@ private:
         m_currentSizer->AddSpacer(resolveBorder(m_currentOptions.border));
     }
 
-    wxBoxSizer* m_currentSizer = nullptr;          ///< Active sizer (top of the implicit stack).
-    wxWindow* m_currentParent = this;              ///< Active wx parent for new controls.
-    LayoutContainerOptions m_currentOptions = {};  ///< Active container options.
+    wxBoxSizer* m_currentSizer = nullptr;         ///< Active sizer (top of the implicit stack).
+    wxWindow* m_currentParent = this;             ///< Active wx parent for new controls.
+    LayoutContainerOptions m_currentOptions = {}; ///< Active container options.
 };
 
 } // namespace fbide

@@ -69,12 +69,12 @@ private:
     /// Browse Files tree leaf activated — open the file in a new editor tab.
     void onFileActivated(wxTreeEvent& event);
 
-    Context& m_ctx;                          ///< Application context.
-    wxAuiNotebook* m_notebook = nullptr;     ///< Non-owning pointer into the sidebar notebook (owned by the frame).
-    Unowned<wxGenericDirCtrl> m_dirCtrl;     ///< Browse Files control.
-    Unowned<SymbolBrowser> m_symbolBrowser;  ///< Sub/Function tree control.
-    int m_subFunctionPage = wxNOT_FOUND;     ///< Cached page index of the Sub/Function tab.
-    int m_browseFilesPage = wxNOT_FOUND;     ///< Cached page index of the Browse Files tab.
+    Context& m_ctx;                         ///< Application context.
+    wxAuiNotebook* m_notebook = nullptr;    ///< Non-owning pointer into the sidebar notebook (owned by the frame).
+    Unowned<wxGenericDirCtrl> m_dirCtrl;    ///< Browse Files control.
+    Unowned<SymbolBrowser> m_symbolBrowser; ///< Sub/Function tree control.
+    int m_subFunctionPage = wxNOT_FOUND;    ///< Cached page index of the Sub/Function tab.
+    int m_browseFilesPage = wxNOT_FOUND;    ///< Cached page index of the Browse Files tab.
 };
 
 } // namespace fbide

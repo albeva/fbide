@@ -518,8 +518,8 @@ void StyleLexer::emitKeywordPP(const StyleRange& range, std::vector<Token>& out)
     // Preprocessor token (e.g. `once` after `include`, or PP wordlist
     // matches in macro bodies that must not reclassify the directive).
     const bool atDirectivePos = m_ppDirectiveIdx < out.size()
-        && m_ppDirectiveIdx == out.size() - 1
-        && out[m_ppDirectiveIdx].text == "#";
+                             && m_ppDirectiveIdx == out.size() - 1
+                             && out[m_ppDirectiveIdx].text == "#";
     if (atDirectivePos) {
         out[m_ppDirectiveIdx].text += text;
         out[m_ppDirectiveIdx].keywordKind = kwKind;

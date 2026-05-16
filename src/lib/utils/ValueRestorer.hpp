@@ -34,7 +34,7 @@ private:
         ((std::get<Is>(m_targets) = std::move(std::get<Is>(m_values))), ...);
     }
 
-    std::tuple<Ts&...> m_targets;          ///< References to the original variables.
+    std::tuple<Ts&...> m_targets;             ///< References to the original variables.
     std::tuple<std::decay_t<Ts>...> m_values; ///< Captured values to restore on scope exit.
 };
 
