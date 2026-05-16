@@ -320,17 +320,30 @@ void SymbolBrowser::clearTree() {
 }
 
 void SymbolBrowser::rebuild() {
-    const auto thaw = FreezeLock(this);
+    // Repopulating a native wxTreeCtrl (DeleteAllItems + AppendItem + Expand)
+    // pulls keyboard focus onto the control on MSW. A rebuild runs on a
+    // background intellisense result while the user is typing in the editor,
+    // so the browser must never steal focus — capture whatever window holds
+    // it and restore it if the rebuild moved it.
+    wxWindow* const priorFocus = wxWindow::FindFocus();
 
-    clearTree();
-    appendIncludes(m_ctx.tr("sidebar.symbols.includes"), m_currentTable->getIncludes());
-    appendTypeTree(m_ctx.tr("sidebar.symbols.types"));
-    appendBucket(SymbolKind::Sub, m_ctx.tr("sidebar.symbols.subs"), m_currentTable->getSubs());
-    appendBucket(SymbolKind::Function, m_ctx.tr("sidebar.symbols.functions"), m_currentTable->getFunctions());
-    appendBucket(SymbolKind::Operator, m_ctx.tr("sidebar.symbols.operators"), m_currentTable->getOperators());
-    appendBucket(SymbolKind::Union, m_ctx.tr("sidebar.symbols.unions"), m_currentTable->getUnions());
-    appendBucket(SymbolKind::Enum, m_ctx.tr("sidebar.symbols.enums"), m_currentTable->getEnums());
-    appendBucket(SymbolKind::Macro, m_ctx.tr("sidebar.symbols.macros"), m_currentTable->getMacros());
+    {
+        const auto thaw = FreezeLock(this);
+
+        clearTree();
+        appendIncludes(m_ctx.tr("sidebar.symbols.includes"), m_currentTable->getIncludes());
+        appendTypeTree(m_ctx.tr("sidebar.symbols.types"));
+        appendBucket(SymbolKind::Sub, m_ctx.tr("sidebar.symbols.subs"), m_currentTable->getSubs());
+        appendBucket(SymbolKind::Function, m_ctx.tr("sidebar.symbols.functions"), m_currentTable->getFunctions());
+        appendBucket(SymbolKind::Operator, m_ctx.tr("sidebar.symbols.operators"), m_currentTable->getOperators());
+        appendBucket(SymbolKind::Union, m_ctx.tr("sidebar.symbols.unions"), m_currentTable->getUnions());
+        appendBucket(SymbolKind::Enum, m_ctx.tr("sidebar.symbols.enums"), m_currentTable->getEnums());
+        appendBucket(SymbolKind::Macro, m_ctx.tr("sidebar.symbols.macros"), m_currentTable->getMacros());
+    }
+
+    if (priorFocus != nullptr && wxWindow::FindFocus() != priorFocus) {
+        priorFocus->SetFocus();
+    }
 }
 
 void SymbolBrowser::onItemActivated(wxTreeEvent& event) {
