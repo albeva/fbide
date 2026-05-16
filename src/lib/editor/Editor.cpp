@@ -39,12 +39,13 @@ auto isBrace(const int ch) -> bool {
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
-    EVT_STC_MARGINCLICK (wxID_ANY,       Editor::onMarginClick)
-    EVT_STC_MODIFIED(wxID_ANY,           Editor::onModified)
-    EVT_STC_UPDATEUI(wxID_ANY,           Editor::onUpdateUI)
-    EVT_STC_ZOOM(wxID_ANY,               Editor::onZoom)
-    EVT_STC_CHARADDED(wxID_ANY,          Editor::onCharAdded)
-    EVT_STC_HOTSPOT_CLICK(wxID_ANY,      Editor::onHotSpotClick)
+    EVT_STC_MARGINCLICK (wxID_ANY,  Editor::onMarginClick)
+    EVT_STC_MODIFIED(wxID_ANY,      Editor::onModified)
+    EVT_STC_UPDATEUI(wxID_ANY,      Editor::onUpdateUI)
+    EVT_STC_ZOOM(wxID_ANY,          Editor::onZoom)
+    EVT_STC_CHARADDED(wxID_ANY,     Editor::onCharAdded)
+    EVT_STC_HOTSPOT_CLICK(wxID_ANY, Editor::onHotSpotClick)
+    EVT_TIMER(wxID_ANY,             Editor::onIntellisenseTimer)
     EVT_KEY_DOWN(Editor::onKeyDown)
     EVT_KEY_UP(Editor::onKeyUp)
     EVT_KILL_FOCUS(Editor::onKillFocus)
@@ -72,7 +73,6 @@ Editor::Editor(
 , m_preview(preview) {
     applySettings();
     m_intellisenseTimer.SetOwner(this);
-    Bind(wxEVT_TIMER, &Editor::onIntellisenseTimer, this);
 }
 
 void Editor::applySettings() {
@@ -525,6 +525,10 @@ void Editor::postUpdateUI() {
     updateBraceMatch();
     if (m_documentManager != nullptr) {
         m_documentManager->syncEditCommands();
+        // Refresh the tab's `[*]` dirty marker. Coalesced here — a bulk
+        // edit fires EVT_STC_MODIFIED per line, but the dirty state (and
+        // thus the title) changes at most once per burst.
+        m_documentManager->updateActiveTabTitle();
     }
     m_callPostUpdate = false;
 }
@@ -681,9 +685,6 @@ void Editor::onModified(wxStyledTextEvent& event) {
     const auto mod = event.GetModificationType();
     if ((mod & (wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT | wxSTC_PERFORMED_UNDO | wxSTC_PERFORMED_REDO)) == 0) {
         return;
-    }
-    if (m_documentManager != nullptr) {
-        m_documentManager->updateActiveTabTitle();
     }
 
     if (m_editorLocked) {
