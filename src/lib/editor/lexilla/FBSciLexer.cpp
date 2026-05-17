@@ -6,10 +6,14 @@
 //
 // ReSharper disable CppDFALocalValueEscapesFunction
 #include "FBSciLexer.hpp"
+#include <map>
 #include "CharCategory.hpp"
-#include "SciLexer.h"
+// clang-format off
 #include "Scintilla.h"
+#include "SciLexer.h"
 #include "StyleContext.h"
+#include "OptionSet.h"
+// clang-format on
 using namespace fbide;
 
 namespace {
@@ -51,6 +55,13 @@ constexpr std::array<const char*, kThemeKeywordGroupsCount + 1> wordListDescript
         nullptr
 };
 
+struct OptionSet final : Lexilla::OptionSet<FBSciLexer::Options> {
+    OptionSet() {
+        DefineProperty("fold", &FBSciLexer::Options::fold);
+    }
+};
+OptionSet kOptionSet;
+
 // endregion
 
 } // namespace
@@ -82,6 +93,13 @@ Sci_Position SCI_METHOD FBSciLexer::WordListSet(const int n, const char* wl) {
         if (m_wordLists[idx].Set(wl)) {
             return 0;
         }
+    }
+    return -1;
+}
+
+Sci_Position FBSciLexer::PropertySet(const char* key, const char* val) {
+    if (kOptionSet.PropertySet(&m_options, key, val)) {
+        return 0;
     }
     return -1;
 }
@@ -834,10 +852,11 @@ namespace {
 void SCI_METHOD FBSciLexer::Fold(
     [[maybe_unused]] Sci_PositionU startPos,
     [[maybe_unused]] const Sci_Position lengthDoc,
-    [[maybe_unused]] int /*initStyle*/,
+    [[maybe_unused]] int initStyle,
     [[maybe_unused]] Scintilla::IDocument* pAccess
 ) {
-    [[maybe_unused]] Lexilla::LexAccessor styler(pAccess);
+    if (not m_options.fold) { return; }
+    Lexilla::LexAccessor styler(pAccess);
 }
 
 // endregion

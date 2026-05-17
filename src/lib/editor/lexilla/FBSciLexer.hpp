@@ -46,6 +46,8 @@ public:
     const char* SCI_METHOD DescribeWordListSets() override;
     /// Scintilla hook — install wordlist `n` from a space-separated string.
     Sci_Position SCI_METHOD WordListSet(int n, const char* wl) override;
+    /// Set property
+    Sci_Position SCI_METHOD PropertySet(const char *key, const char *val) override;
 
     /// Scintilla hook — colorize the document range starting at `startPos`.
     void SCI_METHOD Lex(Sci_PositionU startPos, Sci_Position lengthDoc,
@@ -94,6 +96,11 @@ public:
         }
     };
     static_assert(sizeof(LineState) == sizeof(int) && alignof(LineState) == alignof(int));
+
+    /// Options
+    struct Options final {
+        bool fold = false;
+    };
 
 private:
     /// Form of the number being lexed
@@ -152,6 +159,7 @@ private:
     bool m_ppDirectiveSeen = false;                                      ///< In PP body, the directive identifier (first ident after `#`) was already classified — survives `_` continuation + nested block comments.
     AsmState m_asmState = AsmState::None;                                ///< Active asm context (drives wordlist selection and EOL resolution).
     std::array<char, MAX_IDENT_LEN> m_identBuffer {};                    ///< Reusable identifier-spelling buffer.
+    Options m_options{};                                                 ///< lexilla options
 };
 
 } // namespace fbide

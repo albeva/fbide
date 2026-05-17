@@ -77,8 +77,8 @@ Editor::Editor(
 
 void Editor::applySettings() {
     applyEditorSettings();
-    defineFoldMargins();
     applyTheme();
+    defineFoldMargins();
     updateLineNumberMarginWidth();
     Refresh();
 }
@@ -134,6 +134,7 @@ void Editor::defineFoldMargins() {
 
     const auto& editor = m_configManager.config().at("editor");
     if (not editor.get_or("folderMargin", false)) {
+        SetProperty("fold", "0");
         return;
     }
 
