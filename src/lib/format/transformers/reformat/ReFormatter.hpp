@@ -62,11 +62,11 @@ private:
 
     // Per-invocation scan state (reset by buildTree).
     const std::vector<lexer::Token>* m_tokens = nullptr; ///< Active token stream (filtered or original).
-    std::size_t m_index = 0;             ///< Current scan index into `*m_tokens`.
-    bool m_prevWasNewline = true;        ///< True when the prior token was a newline / start of input.
-    TreeBuilder m_builder;               ///< Tree being assembled.
-    std::vector<lexer::Token> m_segment; ///< Buffered tokens for the current statement / opener.
-    std::vector<std::size_t> m_ppDepths; ///< Builder stack depth recorded at each PP block open.
+    std::size_t m_index = 0;                             ///< Current scan index into `*m_tokens`.
+    bool m_prevWasNewline = true;                        ///< True when the prior token was a newline / start of input.
+    TreeBuilder m_builder;                               ///< Tree being assembled.
+    std::vector<lexer::Token> m_segment;                 ///< Buffered tokens for the current statement / opener.
+    std::vector<std::size_t> m_ppDepths;                 ///< Builder stack depth recorded at each PP block open.
 };
 
 } // namespace fbide::reformat

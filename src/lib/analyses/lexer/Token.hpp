@@ -61,6 +61,7 @@ enum class KeywordKind {
     Constructor,
     Destructor,
     Operator,
+    Property,
     Do,
     While,
     For,
@@ -88,13 +89,16 @@ enum class KeywordKind {
     As,
     // Declaration
     Declare,
-    // Access modifier — `Private` / `Public` / `Protected` preceding a Sub /
-    // Function / Type / etc. The block-dispatch code skips these so the
-    // following keyword decides the structure (e.g. `Private Sub Foo` opens a
-    // sub block). `Public:` (followed by a colon) is a label inside a Type
-    // body and does not open a block; the colon-split / non-word-after-modifier
-    // checks handle that case.
-    AccessModifier,
+    // Access modifiers — `Private` / `Public` / `Protected` preceding a Sub /
+    // Function / Type / etc. The block-dispatch code skips these (see
+    // `isAccessModifier`) so the following keyword decides the structure (e.g.
+    // `Private Sub Foo` opens a sub block). `Public:` (followed by a colon) is a
+    // label inside a Type body and does not open a block; the colon-split /
+    // non-word-after-modifier checks handle that case. Kept as three distinct
+    // kinds so later passes can tell the modifiers apart.
+    Private,
+    Public,
+    Protected,
     // Early-exit statements (prevent following block keyword from opening a scope)
     Exit,
     Continue,
@@ -117,6 +121,15 @@ enum class KeywordKind {
     // A keyword not structurally significant
     Other,
 };
+
+/// True when `kind` is an access modifier (`Private` / `Public` / `Protected`).
+/// These are transparent prefixes of Sub / Function / Type / ... — block
+/// dispatch skips them so the following keyword decides the structure.
+constexpr auto isAccessModifier(const KeywordKind kind) noexcept -> bool {
+    return kind == KeywordKind::Private
+        || kind == KeywordKind::Public
+        || kind == KeywordKind::Protected;
+}
 
 /// Classification of symbol operators for formatting.
 /// Only kinds the formatter actually branches on are enumerated; everything
@@ -169,18 +182,18 @@ enum class OperatorKind : std::uint8_t {
 /// `verbatim` marks the token as residing inside a `' format off` region;
 /// downstream transforms must preserve its original text unchanged.
 struct Token final {
-    TokenKind kind {};                            ///< Token category.
-    KeywordKind keywordKind = KeywordKind::None;  ///< Structural keyword classification (None for non-keywords).
+    TokenKind kind {};                              ///< Token category.
+    KeywordKind keywordKind = KeywordKind::None;    ///< Structural keyword classification (None for non-keywords).
     OperatorKind operatorKind = OperatorKind::None; ///< Operator classification (None for non-operators).
     /// Original FBSciLexer style class for the source range this token came from.
     /// Reserved for debugging and future features. No consumer reads it today.
     ThemeCategory style = ThemeCategory::Default;
-    bool verbatim = false;                        ///< True when this token resides in a `' format off` region.
+    bool verbatim = false; ///< True when this token resides in a `' format off` region.
     /// Set on Newline tokens whose preceding line ends with `_` line-continuation
     /// (FBSciLexer's `LineState::continueLine` bit). The formatter uses this to
     /// keep a logical statement intact across the physical newline.
     bool continuation = false;
-    std::string text;                             ///< UTF-8 token text (owned).
+    std::string text; ///< UTF-8 token text (owned).
     /// 0-based line number where the token starts in the original source.
     /// Populated by `StyleLexer::tokenise` via a single post-pass that walks
     /// the emitted tokens and increments on Newline. Default 0 for callers

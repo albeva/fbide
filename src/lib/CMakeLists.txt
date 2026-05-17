@@ -52,6 +52,7 @@ target_sources(fbide_lib
     settings/panels/ThemePage.cpp
     sidebar/SideBarManager.cpp
     sidebar/SymbolBrowser.cpp
+    sidebar/SymbolBrowserPanel.cpp
     ui/ArtiProvider.cpp
     ui/CompilerLog.cpp
     ui/EncodingMenu.cpp
@@ -120,6 +121,7 @@ target_sources(fbide_lib
     settings/panels/ThemePage.hpp
     sidebar/SideBarManager.hpp
     sidebar/SymbolBrowser.hpp
+    sidebar/SymbolBrowserPanel.hpp
     ui/ArtiProvider.hpp
     ui/CompilerLog.hpp
     ui/EncodingMenu.hpp

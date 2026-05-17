@@ -41,11 +41,11 @@ private:
     /// Run every panel's `apply()`, save dirty categories, refresh live UI.
     void applyChanges() const;
 
-    Context& m_ctx;                            ///< Application context.
-    Unowned<GeneralPage> m_generalPage;        ///< General tab.
-    Unowned<ThemePage> m_themePage;            ///< Theme tab.
-    Unowned<KeywordsPage> m_keywordsPage;      ///< Keywords tab.
-    Unowned<CompilerPage> m_compilerPage;      ///< Compiler tab.
+    Context& m_ctx;                       ///< Application context.
+    Unowned<GeneralPage> m_generalPage;   ///< General tab.
+    Unowned<ThemePage> m_themePage;       ///< Theme tab.
+    Unowned<KeywordsPage> m_keywordsPage; ///< Keywords tab.
+    Unowned<CompilerPage> m_compilerPage; ///< Compiler tab.
 };
 
 } // namespace fbide

@@ -36,10 +36,16 @@ auto firstKeyword(const std::vector<Token>& tokens) -> KeywordKind {
         if (isLayout(t.kind) || t.kind == TokenKind::Comment || t.kind == TokenKind::CommentBlock) {
             continue;
         }
+        if (t.kind == TokenKind::Preprocessor) {
+            // A preprocessor directive (`#if`, `#macro`, `#endif`, ...) is a
+            // single token carrying its structural kind. It is not word-like,
+            // so classify it here rather than falling through to the bail-out.
+            return t.keywordKind;
+        }
         if (!isWordLike(t.kind)) {
             return KeywordKind::None;
         }
-        if (t.keywordKind == KeywordKind::AccessModifier) {
+        if (isAccessModifier(t.keywordKind)) {
             continue;
         }
         return t.keywordKind;
@@ -55,7 +61,7 @@ auto secondStructuralKeyword(const std::vector<Token>& tokens) -> KeywordKind {
         }
         // Access modifiers (`Public Type Foo As Integer`) are transparent —
         // skip so `Type` registers as the first structural keyword.
-        if (t.keywordKind == KeywordKind::AccessModifier) {
+        if (isAccessModifier(t.keywordKind)) {
             continue;
         }
         if (t.keywordKind != KeywordKind::None && t.keywordKind != KeywordKind::Other) {
@@ -112,23 +118,30 @@ auto hasBlockCloserAfterFirst(const std::vector<Token>& tokens) -> bool {
 }
 
 auto isBodyDefinition(const std::vector<Token>& tokens) -> bool {
-    bool foundKw = false;
+    KeywordKind opener = KeywordKind::None;
     for (const auto& t : tokens) {
         if (isLayout(t.kind)) {
             continue;
         }
-        if (!foundKw) {
+        if (opener == KeywordKind::None) {
             switch (t.keywordKind) {
             case KeywordKind::Sub:
             case KeywordKind::Function:
             case KeywordKind::Constructor:
             case KeywordKind::Destructor:
             case KeywordKind::Operator:
-                foundKw = true;
+            case KeywordKind::Property:
+                opener = t.keywordKind;
                 continue;
             default:
                 continue;
             }
+        }
+        // `Operator` is only ever a definition opener — its name is the operator
+        // symbol/keyword that follows, none of which is word-like, so any
+        // following token confirms the definition.
+        if (opener == KeywordKind::Operator) {
+            return true;
         }
         if (isWordLike(t.kind)) {
             return true;
@@ -145,13 +158,19 @@ auto isCloser(const KeywordKind first) -> bool {
     return first == KeywordKind::End
         || first == KeywordKind::Loop
         || first == KeywordKind::Next
-        || first == KeywordKind::Wend;
+        || first == KeywordKind::Wend
+        || first == KeywordKind::PpEndIf
+        || first == KeywordKind::PpEndMacro;
 }
 
 auto isMid(const KeywordKind first) -> bool {
     return first == KeywordKind::Else
         || first == KeywordKind::ElseIf
-        || first == KeywordKind::Case;
+        || first == KeywordKind::Case
+        || first == KeywordKind::PpElse
+        || first == KeywordKind::PpElseIf
+        || first == KeywordKind::PpElseIfDef
+        || first == KeywordKind::PpElseIfNDef;
 }
 
 auto isOpener(const std::vector<Token>& tokens) -> bool {
@@ -164,6 +183,7 @@ auto isOpener(const std::vector<Token>& tokens) -> bool {
     case KeywordKind::Constructor:
     case KeywordKind::Destructor:
     case KeywordKind::Operator:
+    case KeywordKind::Property:
         return isBodyDefinition(tokens);
     case KeywordKind::Do:
     case KeywordKind::While:
@@ -180,6 +200,14 @@ auto isOpener(const std::vector<Token>& tokens) -> bool {
         return lastSignificantKeyword(tokens) == KeywordKind::Then;
     case KeywordKind::Type:
         return secondStructuralKeyword(tokens) != KeywordKind::As;
+    // Preprocessor blocks (`#if` / `#ifdef` / `#ifndef` / `#macro`) have no
+    // single-line form — they always open a block closed by `#endif` /
+    // `#endmacro`.
+    case KeywordKind::PpIf:
+    case KeywordKind::PpIfDef:
+    case KeywordKind::PpIfNDef:
+    case KeywordKind::PpMacro:
+        return true;
     default:
         return false;
     }
@@ -196,6 +224,7 @@ constexpr std::array<std::string_view, 2> kEndFunction { "end", "function" };
 constexpr std::array<std::string_view, 2> kEndCtor { "end", "constructor" };
 constexpr std::array<std::string_view, 2> kEndDtor { "end", "destructor" };
 constexpr std::array<std::string_view, 2> kEndOperator { "end", "operator" };
+constexpr std::array<std::string_view, 2> kEndProperty { "end", "property" };
 constexpr std::array<std::string_view, 2> kEndSelect { "end", "select" };
 constexpr std::array<std::string_view, 2> kEndType { "end", "type" };
 constexpr std::array<std::string_view, 2> kEndEnum { "end", "enum" };
@@ -204,6 +233,10 @@ constexpr std::array<std::string_view, 2> kEndWith { "end", "with" };
 constexpr std::array<std::string_view, 2> kEndNS { "end", "namespace" };
 constexpr std::array<std::string_view, 2> kEndScope { "end", "scope" };
 constexpr std::array<std::string_view, 2> kEndAsm { "end", "asm" };
+// Preprocessor closers are single directive tokens — the `#` is part of the
+// keyword, lowercase; the renderer applies the KeywordPP case rule.
+constexpr std::array<std::string_view, 1> kPpEndIf { "#endif" };
+constexpr std::array<std::string_view, 1> kPpEndMacro { "#endmacro" };
 
 auto closerFor(const KeywordKind k) -> std::span<const std::string_view> {
     switch (k) {
@@ -225,6 +258,8 @@ auto closerFor(const KeywordKind k) -> std::span<const std::string_view> {
         return kEndDtor;
     case KeywordKind::Operator:
         return kEndOperator;
+    case KeywordKind::Property:
+        return kEndProperty;
     case KeywordKind::Select:
         return kEndSelect;
     case KeywordKind::Type:
@@ -241,6 +276,12 @@ auto closerFor(const KeywordKind k) -> std::span<const std::string_view> {
         return kEndScope;
     case KeywordKind::Asm:
         return kEndAsm;
+    case KeywordKind::PpIf:
+    case KeywordKind::PpIfDef:
+    case KeywordKind::PpIfNDef:
+        return kPpEndIf;
+    case KeywordKind::PpMacro:
+        return kPpEndMacro;
     default:
         return {};
     }

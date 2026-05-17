@@ -28,8 +28,8 @@ private:
     /// Build a `wxBitmap` from raw XPM data.
     [[nodiscard]] auto make(const char* const* xpm) const -> wxBitmap;
 
-    std::unordered_map<CommandId, const char* const*> m_commandIcons;  ///< CommandId → XPM mapping.
-    std::unordered_map<SymbolKind, const char* const*> m_symbolIcons;  ///< SymbolKind → XPM mapping.
+    std::unordered_map<CommandId, const char* const*> m_commandIcons; ///< CommandId → XPM mapping.
+    std::unordered_map<SymbolKind, const char* const*> m_symbolIcons; ///< SymbolKind → XPM mapping.
 };
 
 } // namespace fbide

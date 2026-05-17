@@ -6,7 +6,7 @@
 //
 #include "SideBarManager.hpp"
 #include <wx/dirctrl.h>
-#include "SymbolBrowser.hpp"
+#include "SymbolBrowserPanel.hpp"
 #include "app/Context.hpp"
 #include "command/CommandEntry.hpp"
 #include "command/CommandId.hpp"
@@ -32,9 +32,9 @@ void SideBarManager::attach(wxAuiNotebook* notebook) {
 
     // Sub/Function tree tab — first page so it matches the old fbide order
     // (S/F tree → Browse Files).
-    m_symbolBrowser = make_unowned<SymbolBrowser>(m_ctx, m_notebook);
+    m_symbolPanel = make_unowned<SymbolBrowserPanel>(m_ctx, m_notebook);
     m_subFunctionPage = static_cast<int>(m_notebook->GetPageCount());
-    m_notebook->AddPage(m_symbolBrowser, m_ctx.tr("sidebar.tabs.subFunction"));
+    m_notebook->AddPage(m_symbolPanel, m_ctx.tr("sidebar.tabs.subFunction"));
 
     // Browse Files tab.
     m_dirCtrl = make_unowned<wxGenericDirCtrl>(
@@ -73,14 +73,14 @@ void SideBarManager::showSymbolBrowser() {
         entry->setChecked(true);
     }
     m_notebook->SetSelection(static_cast<size_t>(m_subFunctionPage));
-    if (m_symbolBrowser != nullptr) {
-        m_symbolBrowser->SetFocus();
+    if (m_symbolPanel != nullptr) {
+        m_symbolPanel->focusSearch();
     }
 }
 
 void SideBarManager::showSymbolsFor(const Document* doc) {
-    if (m_symbolBrowser != nullptr) {
-        m_symbolBrowser->setSymbols(doc);
+    if (m_symbolPanel != nullptr) {
+        m_symbolPanel->setSymbols(doc);
     }
 }
 

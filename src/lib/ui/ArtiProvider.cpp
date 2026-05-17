@@ -33,6 +33,10 @@ ArtiProvider::ArtiProvider()
 , m_symbolIcons {
     { SymbolKind::Sub, XPM::sym_sub_xpm },
     { SymbolKind::Function, XPM::sym_function_xpm },
+    { SymbolKind::Constructor, XPM::sym_constructor_xpm },
+    { SymbolKind::Destructor, XPM::sym_destructor_xpm },
+    { SymbolKind::Operator, XPM::sym_operator_xpm },
+    { SymbolKind::Property, XPM::sym_property_xpm },
     { SymbolKind::Type, XPM::sym_type_xpm },
     { SymbolKind::Union, XPM::sym_union_xpm },
     { SymbolKind::Enum, XPM::sym_enum_xpm },

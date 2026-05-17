@@ -1,3 +1,18 @@
+# Changes since 0.5.0-rc.1
+
+- Added editor minimap — toggle via View → Minimap (F6)
+- Fixed perfomance issues with multiline edits (undo/redo/index, etc.)
+- Fixed unsaved FBIDETEMP location to be fbide cwd (#70)
+- Fixed "Cmd prompt" command, which messed with fbide cwd
+- Fixed symbol browser not listing Sub/Function declarations with `Private`/`Public`/`Protected` modifiers (#74)
+- Changed symbol browser to show the qualified name for methods (`Type.Method`)
+- Added constructors, destructors, operators and properties to the symbol browser
+- Changed symbol browser to group UDT methods (subs, functions, constructors, …) under their owning type
+- Added a search box to the symbol browser to filter results live by name, symbol type or UDT
+- Added auto-indent and closer insertion for preprocessor blocks (#72)
+- Changed symbol browser to list symbols declared inside `#if`/`#ifdef`/`#ifndef` blocks (#73)
+- Fixed several issues around folding (#55)
+
 # Changes since 0.5.0-beta.3
 
 - Added new cobalt theme (Gothon)

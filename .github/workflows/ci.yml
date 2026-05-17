@@ -235,6 +235,15 @@ jobs:
         if: needs.version.outputs.release == 'true'
         run: cmake --install build/ci --prefix package
 
+      # The READONLY sentinel marks a bundled ide/ directory as immutable, so
+      # FBIde mirrors it to the user data dir on launch. Portable Windows zips
+      # run in-place from a writable folder and edit ide/ directly — strip the
+      # sentinel here. It belongs only in the AppImage distribution.
+      - name: Strip READONLY sentinel from Windows payload
+        if: needs.version.outputs.release == 'true'
+        shell: pwsh
+        run: Remove-Item -Force -Path package/ide/READONLY
+
       - name: Zip release artefact
         if: needs.version.outputs.release == 'true'
         shell: pwsh

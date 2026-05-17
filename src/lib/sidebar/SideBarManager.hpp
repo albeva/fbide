@@ -13,14 +13,14 @@ class wxTreeEvent;
 namespace fbide {
 class Context;
 class Document;
-class SymbolBrowser;
+class SymbolBrowserPanel;
 
 /**
  * Populates the Browser sidebar notebook with tabs (Browse Files,
  * Sub/Function tree) and drives their behaviour.
  *
  * **Owns:** the tab content (wx-parented to the notebook) plus the
- * cached `wxGenericDirCtrl*` and `SymbolBrowser*`.
+ * cached `wxGenericDirCtrl*` and `SymbolBrowserPanel*`.
  * **Owned by:** `Context`. Declared *after* `UIManager` so destruction
  * runs first — its non-owning pointer to the sidebar `wxAuiNotebook`
  * (owned by the frame UIManager destroys) cannot dangle.
@@ -41,7 +41,7 @@ public:
 
     /// Construct without populating tabs; `attach()` does that later.
     explicit SideBarManager(Context& ctx);
-    /// Out-of-line so the destructor sees the full `SymbolBrowser` definition.
+    /// Out-of-line so the destructor sees the full `SymbolBrowserPanel` definition.
     ~SideBarManager() override;
 
     /// Two-phase init: called from `UIManager::createLayout` once the sidebar
@@ -60,21 +60,21 @@ public:
     /// when the same shared_ptr<SymbolTable> is shown twice in a row.
     void showSymbolsFor(const Document* doc);
 
-    /// Reveal the Browser pane (toggling its CommandEntry on if hidden) and
-    /// switch the notebook to the Sub/Function tree tab. Bound to the
-    /// "Show Subs" command (F2).
+    /// Reveal the Browser pane (toggling its CommandEntry on if hidden),
+    /// switch the notebook to the Sub/Function tree tab and focus its filter
+    /// box. Bound to the "Show Subs" command (F2).
     void showSymbolBrowser();
 
 private:
     /// Browse Files tree leaf activated — open the file in a new editor tab.
     void onFileActivated(wxTreeEvent& event);
 
-    Context& m_ctx;                          ///< Application context.
-    wxAuiNotebook* m_notebook = nullptr;     ///< Non-owning pointer into the sidebar notebook (owned by the frame).
-    Unowned<wxGenericDirCtrl> m_dirCtrl;     ///< Browse Files control.
-    Unowned<SymbolBrowser> m_symbolBrowser;  ///< Sub/Function tree control.
-    int m_subFunctionPage = wxNOT_FOUND;     ///< Cached page index of the Sub/Function tab.
-    int m_browseFilesPage = wxNOT_FOUND;     ///< Cached page index of the Browse Files tab.
+    Context& m_ctx;                            ///< Application context.
+    wxAuiNotebook* m_notebook = nullptr;       ///< Non-owning pointer into the sidebar notebook (owned by the frame).
+    Unowned<wxGenericDirCtrl> m_dirCtrl;       ///< Browse Files control.
+    Unowned<SymbolBrowserPanel> m_symbolPanel; ///< Sub/Function tab (filter box + tree).
+    int m_subFunctionPage = wxNOT_FOUND;       ///< Cached page index of the Sub/Function tab.
+    int m_browseFilesPage = wxNOT_FOUND;       ///< Cached page index of the Browse Files tab.
 };
 
 } // namespace fbide

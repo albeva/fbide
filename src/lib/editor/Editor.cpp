@@ -39,12 +39,13 @@ auto isBrace(const int ch) -> bool {
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
-    EVT_STC_MARGINCLICK (wxID_ANY,       Editor::onMarginClick)
-    EVT_STC_MODIFIED(wxID_ANY,           Editor::onModified)
-    EVT_STC_UPDATEUI(wxID_ANY,           Editor::onUpdateUI)
-    EVT_STC_ZOOM(wxID_ANY,               Editor::onZoom)
-    EVT_STC_CHARADDED(wxID_ANY,          Editor::onCharAdded)
-    EVT_STC_HOTSPOT_CLICK(wxID_ANY,      Editor::onHotSpotClick)
+    EVT_STC_MARGINCLICK (wxID_ANY,  Editor::onMarginClick)
+    EVT_STC_MODIFIED(wxID_ANY,      Editor::onModified)
+    EVT_STC_UPDATEUI(wxID_ANY,      Editor::onUpdateUI)
+    EVT_STC_ZOOM(wxID_ANY,          Editor::onZoom)
+    EVT_STC_CHARADDED(wxID_ANY,     Editor::onCharAdded)
+    EVT_STC_HOTSPOT_CLICK(wxID_ANY, Editor::onHotSpotClick)
+    EVT_TIMER(wxID_ANY,             Editor::onIntellisenseTimer)
     EVT_KEY_DOWN(Editor::onKeyDown)
     EVT_KEY_UP(Editor::onKeyUp)
     EVT_KILL_FOCUS(Editor::onKillFocus)
@@ -72,13 +73,12 @@ Editor::Editor(
 , m_preview(preview) {
     applySettings();
     m_intellisenseTimer.SetOwner(this);
-    Bind(wxEVT_TIMER, &Editor::onIntellisenseTimer, this);
 }
 
 void Editor::applySettings() {
     applyEditorSettings();
-    defineFoldMargins();
     applyTheme();
+    defineFoldMargins();
     updateLineNumberMarginWidth();
     Refresh();
 }
@@ -134,6 +134,7 @@ void Editor::defineFoldMargins() {
 
     const auto& editor = m_configManager.config().at("editor");
     if (not editor.get_or("folderMargin", false)) {
+        SetProperty("fold", "0");
         return;
     }
 
@@ -525,6 +526,10 @@ void Editor::postUpdateUI() {
     updateBraceMatch();
     if (m_documentManager != nullptr) {
         m_documentManager->syncEditCommands();
+        // Refresh the tab's `[*]` dirty marker. Coalesced here — a bulk
+        // edit fires EVT_STC_MODIFIED per line, but the dirty state (and
+        // thus the title) changes at most once per burst.
+        m_documentManager->updateActiveTabTitle();
     }
     m_callPostUpdate = false;
 }
@@ -635,13 +640,7 @@ void Editor::setIncludeHotspots(const bool active) {
     }
     m_includeHotspotsActive = active;
     SetMouseDownCaptures(!active);
-    StyleSetHotSpot(+ThemeCategory::Preprocessor, active);
-    StyleSetHotSpot(+ThemeCategory::KeywordPP, active);
-    // PP body tokens — `include "path"` paints the path as StringPP and the
-    // optional `once` modifier as IdentifierPP; both must be clickable so
-    // Ctrl+click anywhere on the directive line opens the include.
     StyleSetHotSpot(+ThemeCategory::StringPP, active);
-    StyleSetHotSpot(+ThemeCategory::IdentifierPP, active);
 }
 
 void Editor::onHotSpotClick(wxStyledTextEvent& event) {
@@ -688,31 +687,47 @@ void Editor::onModified(wxStyledTextEvent& event) {
     if ((mod & (wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT | wxSTC_PERFORMED_UNDO | wxSTC_PERFORMED_REDO)) == 0) {
         return;
     }
-    if (m_documentManager != nullptr) {
-        m_documentManager->updateActiveTabTitle();
-    }
 
     if (m_editorLocked) {
         return;
     }
 
-    // Throttle a background re-parse: restart the one-shot timer; if the
+    // Throttle a background reparse: restart the one-shot timer; if the
     // user keeps typing, only the final pause triggers a submit.
     m_intellisenseTimer.StartOnce(Constants::analysesThrottle);
 
-    // We need to filter out genuine text insert that is not handled
-    // by char add.
-    if (m_transformer != nullptr && mod & wxSTC_MOD_INSERTTEXT) {
+    // Genuine text insert not handled by char-add (paste, multi-line
+    // indent, ...). A bulk edit fires one EVT_STC_MODIFIED per modified
+    // line — accumulate the union span and defer a *single* transformer
+    // pass rather than one per event (which is O(events) relexes).
+    if (m_transformer != nullptr && (mod & wxSTC_MOD_INSERTTEXT) != 0) {
         m_insertHandled = false;
         const int pos = event.GetPosition();
-        const int length = event.GetLength();
-        CallAfter([this, pos, length] {
-            if (m_insertHandled) {
-                return;
-            }
-            m_editorLocked = true;
-            m_transformer->onTextInserted(*this, pos, length);
-            m_editorLocked = false;
-        });
+        const int end = pos + event.GetLength();
+        if (m_pendingInsertStart < 0) {
+            m_pendingInsertStart = pos;
+            m_pendingInsertEnd = end;
+            CallAfter(&Editor::flushPendingInsert);
+        } else {
+            m_pendingInsertStart = std::min(m_pendingInsertStart, pos);
+            m_pendingInsertEnd = std::max(m_pendingInsertEnd, end);
+        }
     }
+}
+
+void Editor::flushPendingInsert() {
+    const int start = m_pendingInsertStart;
+    const int end = std::min(m_pendingInsertEnd, GetLength());
+    m_pendingInsertStart = -1;
+    m_pendingInsertEnd = -1;
+
+    // Char-add already transformed this insert, or the editor is locked
+    // (load / reload) — nothing to do.
+    if (start < 0 || end <= start || m_insertHandled || m_transformer == nullptr || m_editorLocked) {
+        return;
+    }
+
+    m_editorLocked = true;
+    m_transformer->onTextInserted(*this, start, end - start);
+    m_editorLocked = false;
 }

@@ -107,6 +107,8 @@ private:
     void onUpdateUI(wxStyledTextEvent& event);
     /// Deferred follow-up after `onUpdateUI` — runs once per UI tick.
     void postUpdateUI();
+    /// Coalesced transformer pass for a burst of text inserts — see `onModified`.
+    void flushPendingInsert();
     /// Zoom event — bump the line-number margin width.
     void onZoom(wxStyledTextEvent& event);
     /// Single-char insert — drives `CodeTransformer` on-type pipeline.
@@ -148,19 +150,25 @@ private:
     /// Resize the line-number margin to fit the current line count + zoom.
     void updateLineNumberMarginWidth();
 
-    ConfigManager& m_configManager;   ///< Config source — settings, keywords, theme entries.
-    Theme& m_theme;                   ///< Active editor theme.
-    DocumentManager* m_documentManager; ///< Optional — null in standalone/test contexts.
-    UIManager* m_uiManager;           ///< Optional — null in standalone/test contexts.
-    CodeTransformer* m_transformer;   ///< Shared on-type transformer (nullable in preview).
-    DocumentType m_docType;          ///< Current document type — drives theme dispatch.
-    wxFont m_font;                   ///< Editor font.
-    bool m_preview;                  ///< True when this is a Format-dialog preview pane.
-    bool m_insertHandled = false;    ///< Latch to dedupe single-char vs multi-char insert paths.
-    bool m_editorLocked = false;     ///< Set during load/reload to suppress on-type transforms.
+    ConfigManager& m_configManager;       ///< Config source — settings, keywords, theme entries.
+    Theme& m_theme;                       ///< Active editor theme.
+    DocumentManager* m_documentManager;   ///< Optional — null in standalone/test contexts.
+    UIManager* m_uiManager;               ///< Optional — null in standalone/test contexts.
+    CodeTransformer* m_transformer;       ///< Shared on-type transformer (nullable in preview).
+    DocumentType m_docType;               ///< Current document type — drives theme dispatch.
+    wxFont m_font;                        ///< Editor font.
+    bool m_preview;                       ///< True when this is a Format-dialog preview pane.
+    bool m_insertHandled = false;         ///< Latch to dedupe single-char vs multi-char insert paths.
+    bool m_editorLocked = false;          ///< Set during load/reload to suppress on-type transforms.
     bool m_includeHotspotsActive = false; ///< True when Ctrl is held and PP styles show hotspot cursor.
-    int m_lastCaretPos = 0;          ///< Caret position from previous `onUpdateUI` — backs `onCaretMoved`.
-    bool m_callPostUpdate = false;   ///< Latch — triggers `postUpdateUI` on the next tick.
+    int m_lastCaretPos = 0;               ///< Caret position from previous `onUpdateUI` — backs `onCaretMoved`.
+    bool m_callPostUpdate = false;        ///< Latch — triggers `postUpdateUI` on the next tick.
+    /// Accumulated insert span awaiting a coalesced transformer pass.
+    /// `m_pendingInsertStart < 0` means nothing pending. A burst of
+    /// `EVT_STC_MODIFIED` inserts (multi-line indent, paste) folds into a
+    /// single deferred `onTextInserted` instead of one call per event.
+    int m_pendingInsertStart = -1;
+    int m_pendingInsertEnd = -1;
     /// Restart on each text-changing modify event; on fire submits a
     /// snapshot to DocumentManager::submitIntellisense.
     wxTimer m_intellisenseTimer;

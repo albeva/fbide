@@ -71,9 +71,9 @@ private:
     /// Render `words` to the canonical closer text using the active editor's case rules.
     [[nodiscard]] auto renderCloser(std::span<const std::string_view> words) const -> wxString;
 
-    ConfigManager& m_configManager;  ///< Config source — drives settings/keyword reload.
-    bool m_autoIndent = true;        ///< Master toggle for auto-indent.
-    bool m_transformKeywords = true; ///< Master toggle for keyword case transform.
+    ConfigManager& m_configManager;                                   ///< Config source — drives settings/keyword reload.
+    bool m_autoIndent = true;                                         ///< Master toggle for auto-indent.
+    bool m_transformKeywords = true;                                  ///< Master toggle for keyword case transform.
     std::array<CaseMode, kThemeKeywordGroupsCount> m_keywordCases {}; ///< Per-keyword-group case mode.
 };
 

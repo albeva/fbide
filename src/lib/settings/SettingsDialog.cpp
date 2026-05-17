@@ -69,10 +69,11 @@ void SettingsDialog::create(const Page initial) {
 }
 
 void SettingsDialog::applyChanges() const {
+    const auto thaw = m_ctx.getUIManager().freeze();
     m_generalPage->apply();
     m_themePage->apply();
     m_keywordsPage->apply();
     m_compilerPage->apply();
     m_ctx.getConfigManager().save(ConfigManager::Category::Config);
-    m_ctx.getUIManager().updateEditorSettigs();
+    m_ctx.getUIManager().updateSettings();
 }
