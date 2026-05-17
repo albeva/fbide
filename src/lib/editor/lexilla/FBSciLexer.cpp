@@ -879,6 +879,31 @@ auto lineIndent(Lexilla::LexAccessor& styler, const Sci_Position line) -> int {
     return -1; // ran to end of document with no content
 }
 
+// `/'` nesting depth at the end of `line`, read back from the per-line state
+// the lexer already persisted (LineState::commentNestLevel) — no re-lexing.
+auto commentNestAtEnd(Lexilla::LexAccessor& styler, const Sci_Position line) -> int {
+    return FBSciLexer::LineState::fromInt(styler.GetLineState(line)).commentNestLevel;
+}
+
+// True when the first non-whitespace character of `line` is styled as a
+// multiline comment — i.e. a `/'` opens the line with only whitespace before
+// it. Relies on the styling the lexer already produced.
+auto lineStartsWithMlComment(Lexilla::LexAccessor& styler, const Sci_Position line) -> bool {
+    const Sci_Position start = styler.LineStart(line);
+    const Sci_Position end = styler.LineStart(line + 1);
+    for (Sci_Position pos = start; pos < end; pos++) {
+        const char ch = styler.SafeGetCharAt(pos);
+        if (ch == ' ' || ch == '\t') {
+            continue;
+        }
+        if (ch == '\r' || ch == '\n') {
+            return false; // blank line
+        }
+        return styler.StyleIndexAt(pos) == +ThemeCategory::MultilineComment;
+    }
+    return false;
+}
+
 } // namespace
 
 void SCI_METHOD FBSciLexer::Fold(
@@ -895,36 +920,119 @@ void SCI_METHOD FBSciLexer::Fold(
     const Sci_Position lineCount = styler.GetLine(styler.Length()) + 1;
     const auto start = static_cast<Sci_Position>(startPos);
 
-    // Editing a line can flip the header flag of the non-blank line above it,
-    // so begin at the nearest non-blank line strictly above the touched range.
+    // `/'` nesting at the start of a line == nesting at the end of the line above.
+    const auto nestStartOf = [&](const Sci_Position line) -> int {
+        return line > 0 ? commentNestAtEnd(styler, line - 1) : 0;
+    };
+
+    // Editing a line can flip the header flag of the line above it. Begin at
+    // the nearest non-blank line that also starts outside any comment, so the
+    // forward pass resumes from a clean state (no comment region carried in).
     Sci_Position firstLine = styler.GetLine(start);
     while (firstLine > 0) {
         firstLine--;
-        if (lineIndent(styler, firstLine) >= 0) {
+        if (nestStartOf(firstLine) == 0 && lineIndent(styler, firstLine) >= 0) {
             break;
         }
     }
     const Sci_Position lastTouched = styler.GetLine(start + lengthDoc - 1);
 
-    // Forward pass. `pending*` buffers the most recent non-blank line until the
-    // next non-blank line reveals whether it opens a fold. Blank lines are
-    // finalised inline, inheriting the previous non-blank line's level number
-    // (cosmetic — Scintilla skips WHITEFLAG lines when walking fold ranges).
+    // Forward pass. `pending*` buffers the most recent code line until the next
+    // code line reveals whether it opens an indentation fold. Multiline
+    // comments fold as an exception: a `/'` alone on its line opens a region
+    // whose interior is swallowed one level below the opener.
+    //
+    // Indent is clamped below the flag bits, so `+` composes the level number
+    // and the flags exactly as `|` would, without a signed-bitwise op.
     int prevIndent = 0;
     Sci_Position pendingLine = -1;
     int pendingIndent = 0;
     bool reachedEnd = true;
 
-    for (Sci_Position line = firstLine; line < lineCount; line++) {
-        const int indent = lineIndent(styler, line);
+    bool mlActive = false;      // inside a foldable multiline-comment region
+    int mlHeaderLevel = 0;      // indentation level of that region's `/'` opener
+    Sci_Position mlCloser = -1; // line carrying the matching outer `'/`
 
-        // Indent is clamped below the flag bits, so `+` composes the level
-        // number and the flags exactly as `|` would, without a signed-bitwise op.
+    for (Sci_Position line = firstLine; line < lineCount; line++) {
+        // --- Interior / closer of an active comment region -----------------
+        if (mlActive) {
+            if (line < mlCloser) {
+                // Swallowed comment body — fixed level, opens no sub-folds.
+                const int body = std::min(mlHeaderLevel + 1, kMaxFoldIndent);
+                styler.SetLevel(line, SC_FOLDLEVELBASE + body);
+                if (line > lastTouched) { // nothing buffered inside a region
+                    reachedEnd = false;
+                    break;
+                }
+                continue;
+            }
+            // Closer line: a code line sitting at the region's structural level.
+            mlActive = false;
+            if (pendingLine >= 0) {
+                const int header = mlHeaderLevel > pendingIndent ? SC_FOLDLEVELHEADERFLAG : 0;
+                styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent + header);
+            }
+            prevIndent = mlHeaderLevel;
+            pendingLine = line;
+            pendingIndent = mlHeaderLevel;
+            if (line > lastTouched) {
+                reachedEnd = false;
+                break;
+            }
+            continue;
+        }
+
+        const int nestStart = nestStartOf(line);
+
+        // --- Multiline-comment region opener -------------------------------
+        if (nestStart == 0 && commentNestAtEnd(styler, line) > 0
+            && lineStartsWithMlComment(styler, line)) {
+            // Matching outer `'/`: the first later line back at nesting 0.
+            // Absent (unterminated comment) → the region runs to end of file.
+            Sci_Position closer = lineCount;
+            for (Sci_Position scan = line + 1; scan < lineCount; scan++) {
+                if (commentNestAtEnd(styler, scan) == 0) {
+                    closer = scan;
+                    break;
+                }
+            }
+            // Foldable only with at least one interior line.
+            if (closer >= line + 2) {
+                const int level = lineIndent(styler, line); // `/'` is the content
+                if (pendingLine >= 0) {
+                    const int header = level > pendingIndent ? SC_FOLDLEVELHEADERFLAG : 0;
+                    styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent + header);
+                }
+                styler.SetLevel(line, SC_FOLDLEVELBASE + level + SC_FOLDLEVELHEADERFLAG);
+                prevIndent = level;
+                pendingLine = -1;
+                mlActive = true;
+                mlHeaderLevel = level;
+                mlCloser = closer;
+                if (line > lastTouched) {
+                    reachedEnd = false;
+                    break;
+                }
+                continue;
+            }
+            // Not foldable (no interior) — fall through, treat as a code line.
+        }
+
+        // --- Stray comment-covered line ------------------------------------
+        // Begins inside a comment but is not part of a foldable region (the
+        // comment's `/'` was not alone on its line). Freeze at the ambient
+        // level — never a header, invisible to the indentation buffer.
+        if (nestStart > 0) {
+            styler.SetLevel(line, SC_FOLDLEVELBASE + prevIndent);
+            continue;
+        }
+
+        // --- Plain indentation folding -------------------------------------
+        const int indent = lineIndent(styler, line);
         if (indent < 0) {
             styler.SetLevel(line, SC_FOLDLEVELBASE + prevIndent + SC_FOLDLEVELWHITEFLAG);
             continue;
         }
-
         if (pendingLine >= 0) {
             const int header = indent > pendingIndent ? SC_FOLDLEVELHEADERFLAG : 0;
             styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent + header);
@@ -933,16 +1041,16 @@ void SCI_METHOD FBSciLexer::Fold(
         pendingLine = line;
         pendingIndent = indent;
 
-        // Lines up to lastTouched are settled once the first non-blank line
-        // beyond it has resolved the buffered line.
+        // Lines up to lastTouched are settled once the first code line beyond
+        // it has resolved the buffered line.
         if (line > lastTouched) {
             reachedEnd = false;
             break;
         }
     }
 
-    // End-of-document tail: the last buffered non-blank line has no following
-    // non-blank line, so its next indent is 0 — it can never be a header.
+    // End-of-document tail: the last buffered code line has no following code
+    // line, so its next indent is 0 — it can never be a header.
     if (reachedEnd && pendingLine >= 0) {
         styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent);
     }

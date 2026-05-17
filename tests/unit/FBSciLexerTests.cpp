@@ -737,4 +737,72 @@ TEST_F(FBSciLexerTests, FoldIncrementalSubrangeMatchesFull) {
     }
 }
 
+TEST_F(FBSciLexerTests, FoldMultilineCommentBlock) {
+    // `/'` alone on its line opens a fold; the matching `'/` line is the
+    // closer and stays visible.
+    EXPECT_EQ(
+        fold("/'\nsome comment\nmore comment\n'/print \"hello\"\n"),
+        "0H|1|1|0"
+    );
+}
+
+TEST_F(FBSciLexerTests, FoldNestedMultilineComment) {
+    // A nested `/'` does not open a new fold; the whole comment is one region.
+    // Blank line inside the comment is swallowed, not treated as a break.
+    EXPECT_EQ(
+        fold(
+            "/'\n"
+            "  comment\n"
+            "\n"
+            "  /'\n"
+            "     nested comment\n"
+            "  '/\n"
+            "end'/\n"
+            "print \"hello\"\n"
+        ),
+        "0H|1|1|1|1|1|0|0"
+    );
+}
+
+TEST_F(FBSciLexerTests, FoldMlCommentAfterCodeDoesNotFold) {
+    // `/'` preceded by non-whitespace content does not open a foldable region.
+    EXPECT_EQ(
+        fold("print \"x\" /'\ninside\n'/ print \"y\"\n"),
+        "0|0|0"
+    );
+}
+
+TEST_F(FBSciLexerTests, FoldMlCommentInsideIndentBlock) {
+    // A comment region nested inside an indentation block: the block folds via
+    // indentation, the comment folds as its own region one level deeper.
+    EXPECT_EQ(
+        fold("sub foo()\n    /'\n    comment\n    '/\nend sub\n"),
+        "0H|4H|5|4|0"
+    );
+}
+
+TEST_F(FBSciLexerTests, FoldMlCommentIncrementalMatchesFull) {
+    // Folding a range inside a comment region must reproduce the full-document
+    // levels — the incremental back-up walks out of the comment to its opener.
+    const std::string src = "/'\n  comment\n\n  /'\n  nested\n  '/\nend'/\nx\n";
+    m_doc.Set(src);
+    m_lexer->Lex(0, m_doc.Length(), +S::Default, &m_doc);
+    m_lexer->Fold(0, m_doc.Length(), +S::Default, &m_doc);
+
+    std::vector<int> full;
+    for (Sci_Position line = 0; line < m_doc.MaxLine(); line++) {
+        full.push_back(m_doc.GetLevel(line));
+    }
+
+    // Re-fold only the range covering line 4 (inside the nested comment).
+    const Sci_Position rangeStart = m_doc.LineStart(4);
+    const Sci_Position rangeLen = m_doc.LineStart(5) - rangeStart;
+    m_lexer->Fold(rangeStart, rangeLen, +S::Default, &m_doc);
+
+    for (Sci_Position line = 0; line < m_doc.MaxLine(); line++) {
+        EXPECT_EQ(m_doc.GetLevel(line), full[static_cast<std::size_t>(line)])
+            << "line " << line;
+    }
+}
+
 // endregion
