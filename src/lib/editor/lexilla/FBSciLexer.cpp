@@ -6,6 +6,7 @@
 //
 // ReSharper disable CppDFALocalValueEscapesFunction
 #include "FBSciLexer.hpp"
+#include <algorithm>
 #include <map>
 #include "CharCategory.hpp"
 // clang-format off
@@ -847,16 +848,104 @@ void FBSciLexer::lexPreprocessor() noexcept {
 // region ---------- Folding ----------
 
 namespace {
+
+// Tab width used when measuring indentation for folding. Scintilla's default;
+// the lexer cannot see the editor's tab setting through IDocument, and fold
+// comparisons are relative, so a consistently-indented file folds either way.
+constexpr int kFoldTabWidth = 8;
+
+// Largest indentation a fold level number can hold without overlapping the
+// fold flag bits.
+constexpr int kMaxFoldIndent = SC_FOLDLEVELNUMBERMASK - SC_FOLDLEVELBASE;
+
+// Visual indentation of `line`: the column of its first non-whitespace
+// character. Returns -1 when the line is blank (empty or whitespace-only).
+auto lineIndent(Lexilla::LexAccessor& styler, const Sci_Position line) -> int {
+    const Sci_Position start = styler.LineStart(line);
+    const Sci_Position end = styler.LineStart(line + 1);
+    int indent = 0;
+    for (Sci_Position pos = start; pos < end; pos++) {
+        const char ch = styler.SafeGetCharAt(pos);
+        if (ch == ' ') {
+            indent++;
+        } else if (ch == '\t') {
+            indent += kFoldTabWidth - (indent % kFoldTabWidth);
+        } else if (ch == '\r' || ch == '\n') {
+            return -1; // end of line reached before any content
+        } else {
+            return std::min(indent, kMaxFoldIndent);
+        }
+    }
+    return -1; // ran to end of document with no content
+}
+
 } // namespace
 
 void SCI_METHOD FBSciLexer::Fold(
-    [[maybe_unused]] Sci_PositionU startPos,
-    [[maybe_unused]] const Sci_Position lengthDoc,
+    const Sci_PositionU startPos,
+    const Sci_Position lengthDoc,
     [[maybe_unused]] int initStyle,
-    [[maybe_unused]] Scintilla::IDocument* pAccess
+    Scintilla::IDocument* pAccess
 ) {
-    if (not m_options.fold) { return; }
+    if (not m_options.fold || lengthDoc == 0) {
+        return;
+    }
+
     Lexilla::LexAccessor styler(pAccess);
+    const Sci_Position lineCount = styler.GetLine(styler.Length()) + 1;
+    const auto start = static_cast<Sci_Position>(startPos);
+
+    // Editing a line can flip the header flag of the non-blank line above it,
+    // so begin at the nearest non-blank line strictly above the touched range.
+    Sci_Position firstLine = styler.GetLine(start);
+    while (firstLine > 0) {
+        firstLine--;
+        if (lineIndent(styler, firstLine) >= 0) {
+            break;
+        }
+    }
+    const Sci_Position lastTouched = styler.GetLine(start + lengthDoc - 1);
+
+    // Forward pass. `pending*` buffers the most recent non-blank line until the
+    // next non-blank line reveals whether it opens a fold. Blank lines are
+    // finalised inline, inheriting the previous non-blank line's level number
+    // (cosmetic — Scintilla skips WHITEFLAG lines when walking fold ranges).
+    int prevIndent = 0;
+    Sci_Position pendingLine = -1;
+    int pendingIndent = 0;
+    bool reachedEnd = true;
+
+    for (Sci_Position line = firstLine; line < lineCount; line++) {
+        const int indent = lineIndent(styler, line);
+
+        // Indent is clamped below the flag bits, so `+` composes the level
+        // number and the flags exactly as `|` would, without a signed-bitwise op.
+        if (indent < 0) {
+            styler.SetLevel(line, SC_FOLDLEVELBASE + prevIndent + SC_FOLDLEVELWHITEFLAG);
+            continue;
+        }
+
+        if (pendingLine >= 0) {
+            const int header = indent > pendingIndent ? SC_FOLDLEVELHEADERFLAG : 0;
+            styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent + header);
+        }
+        prevIndent = indent;
+        pendingLine = line;
+        pendingIndent = indent;
+
+        // Lines up to lastTouched are settled once the first non-blank line
+        // beyond it has resolved the buffered line.
+        if (line > lastTouched) {
+            reachedEnd = false;
+            break;
+        }
+    }
+
+    // End-of-document tail: the last buffered non-blank line has no following
+    // non-blank line, so its next indent is 0 — it can never be a header.
+    if (reachedEnd && pendingLine >= 0) {
+        styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent);
+    }
 }
 
 // endregion

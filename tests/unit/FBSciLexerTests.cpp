@@ -27,6 +27,7 @@ protected:
         m_lexer->WordListSet(6, "if ifdef ifndef else elseif endif macro endmacro define include"); // KeywordPP
         m_lexer->WordListSet(7, "mov push pop ret jmp");                             // KeywordAsm1
         m_lexer->WordListSet(8, "eax ebx ecx edx");                                  // KeywordAsm2
+        m_lexer->PropertySet("fold", "1");
     }
 
     void TearDown() override {
@@ -657,37 +658,83 @@ TEST_F(FBSciLexerTests, FoldTabIndentRoundsToEight) {
     );
 }
 
-TEST_F(FBSciLexerTests, FoldMultilineCommentBlockFoldsWhenPure) {
-    // Opener on its own line, body all comment, closer alone -> one fold.
-    EXPECT_EQ(
-        fold("/' comment\n   inside\n   '/\ndim x\n"),
-        "0H|1|1|0"
-    );
-}
-
-TEST_F(FBSciLexerTests, FoldMultilineCommentOpenerAfterCodeDoesNotFold) {
-    // Opener line has code before `/'` so the block must not fold.
+TEST_F(FBSciLexerTests, FoldCommentContentNotSpecialCased) {
+    // Folding is purely indentation-based — comment content is not treated
+    // specially, so flat comment lines produce no fold.
     EXPECT_EQ(
         fold("x = 1 /' comment\ninside '/ dim y\n"),
         "0|0"
     );
-}
-
-TEST_F(FBSciLexerTests, FoldSingleLineMultilineCommentNoFold) {
-    // `/' ... '/` on a single line: pure ML but no continuation, so no fold.
     EXPECT_EQ(
         fold("/' inline '/\ndim x\n"),
         "0|0"
     );
 }
 
-TEST_F(FBSciLexerTests, FoldIndentedMultilineCommentBlock) {
-    // Opener indented; continuation line has zero indent. Fold level for
-    // continuation must still exceed the opener so the fold is valid.
+TEST_F(FBSciLexerTests, FoldWorkedExample) {
+    // Spec worked example: an outer block with a nested block inside, and a
+    // blank line (line 3) that must not open, close, or break a block.
     EXPECT_EQ(
-        fold("    /' start\ncontinuation\n    '/\n"),
-        "4H|5|5"
+        fold(
+            "start block\n"
+            "    indented line\n"
+            "\n"
+            "    indented line\n"
+            "    nested block\n"
+            "        sub indented line\n"
+            "    end nested block\n"
+            "end of block\n"
+        ),
+        "0H|4|4W|4|4H|8|4|0"
     );
+}
+
+TEST_F(FBSciLexerTests, FoldIndentedRunWithoutOpenerDoesNotFold) {
+    // Indented lines with no opener above them are not foldable — no header.
+    EXPECT_EQ(
+        fold("\n    non-foldable line\n    non-foldable line\n\n"),
+        "0W|4|4|4W"
+    );
+}
+
+TEST_F(FBSciLexerTests, FoldNonFoldableLineMayHaveChildBlock) {
+    // A non-foldable indented line is not a header, but a deeper block that
+    // follows it still folds.
+    EXPECT_EQ(
+        fold(
+            "\n"
+            "    non-foldable line\n"
+            "    block start\n"
+            "        nested block\n"
+            "        nested ends\n"
+            "    non-foldable line\n"
+        ),
+        "0W|4|4H|8|8|4"
+    );
+}
+
+TEST_F(FBSciLexerTests, FoldIncrementalSubrangeMatchesFull) {
+    // Folding only the range of a single edited line must reproduce the same
+    // levels as a full-document fold (back-up + look-ahead behaviour).
+    const std::string src = "sub foo()\n    if x then\n        dim y\n    end if\nend sub\n";
+    m_doc.Set(src);
+    m_lexer->Lex(0, m_doc.Length(), +S::Default, &m_doc);
+    m_lexer->Fold(0, m_doc.Length(), +S::Default, &m_doc);
+
+    std::vector<int> full;
+    for (Sci_Position line = 0; line < m_doc.MaxLine(); line++) {
+        full.push_back(m_doc.GetLevel(line));
+    }
+
+    // Re-fold only the range covering line 2.
+    const Sci_Position rangeStart = m_doc.LineStart(2);
+    const Sci_Position rangeLen = m_doc.LineStart(3) - rangeStart;
+    m_lexer->Fold(rangeStart, rangeLen, +S::Default, &m_doc);
+
+    for (Sci_Position line = 0; line < m_doc.MaxLine(); line++) {
+        EXPECT_EQ(m_doc.GetLevel(line), full[static_cast<std::size_t>(line)])
+            << "line " << line;
+    }
 }
 
 // endregion

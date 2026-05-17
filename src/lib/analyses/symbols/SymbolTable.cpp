@@ -400,8 +400,8 @@ void SymbolTable::emit(
     // `Constructor TypeName`) — qualifiedNameAfter returns a bare name unchanged
     // when no dot follows.
     wxString name = kind == SymbolKind::Operator
-        ? operatorNameAfter(opener, keywordIdx + 1)
-        : qualifiedNameAfter(opener, keywordIdx + 1);
+                      ? operatorNameAfter(opener, keywordIdx + 1)
+                      : qualifiedNameAfter(opener, keywordIdx + 1);
     if (name.empty()) {
         return; // anonymous — skip
     }
