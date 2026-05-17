@@ -46,9 +46,9 @@ private:
     /// current query into the tree filter.
     void onSearch(wxCommandEvent& event);
 
-    Context& m_ctx;                   ///< Application context.
-    Unowned<wxSearchCtrl> m_search;   ///< Live filter input.
-    Unowned<SymbolBrowser> m_tree;    ///< Symbol tree.
+    Context& m_ctx;                 ///< Application context.
+    Unowned<wxSearchCtrl> m_search; ///< Live filter input.
+    Unowned<SymbolBrowser> m_tree;  ///< Symbol tree.
 };
 
 } // namespace fbide
