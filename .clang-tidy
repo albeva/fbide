@@ -29,3 +29,7 @@ CheckOptions:
     value: 'true'
   - key: modernize-use-trailing-return-type.TransformLambdas
     value: 'none'
+  - key: misc-include-cleaner.MissingIncludes
+    value: 'false'
+  - key: misc-include-cleaner.UnusedIncludes
+    value: 'false'

@@ -322,10 +322,11 @@ jobs:
         run: cmake --build build/ci
 
       # CTest exists for parity with the Windows job; skip GUI tests because
-      # the runner has no display (xvfb would mask real failures).
+      # the runner has no display (xvfb would mask real failures). GUI suites
+      # carry the `gui` label (see tests/CMakeLists.txt).
       - name: Test (non-GUI)
         working-directory: build/ci
-        run: ctest --output-on-failure -E "EditorTests"
+        run: ctest --output-on-failure -LE gui
 
       - name: Stage AppDir
         run: |
