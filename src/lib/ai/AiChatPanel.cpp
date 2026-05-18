@@ -7,7 +7,9 @@
 #include "AiChatPanel.hpp"
 #include <maddy/parser.h>
 #include <sstream>
+#include <wx/filedlg.h>
 #include <wx/html/htmlwin.h>
+#include "AiContext.hpp"
 #include "AiManager.hpp"
 #include "app/Context.hpp"
 using namespace fbide;
@@ -25,6 +27,20 @@ AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
     m_output = make_unowned<wxHtmlWindow>(this, wxID_ANY);
     sizer->Add(m_output, wxSizerFlags(1).Expand().Border(wxALL, 4));
 
+    // Context bar: list of attached files plus add/remove buttons.
+    m_contextList = make_unowned<wxListBox>(this, wxID_ANY, wxDefaultPosition, wxSize(-1, 56));
+    m_addFile = make_unowned<wxButton>(this, wxID_ANY, m_ctx.tr("panels.aichat.addFile"));
+    m_removeFile = make_unowned<wxButton>(this, wxID_ANY, m_ctx.tr("panels.aichat.removeFile"));
+
+    auto contextButtons = make_unowned<wxBoxSizer>(wxVERTICAL);
+    contextButtons->Add(m_addFile, wxSizerFlags().Expand());
+    contextButtons->Add(m_removeFile, wxSizerFlags().Expand().Border(wxTOP, 2));
+
+    auto contextRow = make_unowned<wxBoxSizer>(wxHORIZONTAL);
+    contextRow->Add(m_contextList, wxSizerFlags(1).Expand());
+    contextRow->Add(contextButtons, wxSizerFlags().Border(wxLEFT, 4));
+    sizer->Add(contextRow, wxSizerFlags().Expand().Border(wxLEFT | wxRIGHT | wxBOTTOM, 4));
+
     m_input = make_unowned<wxTextCtrl>(
         this, wxID_ANY, wxEmptyString,
         wxDefaultPosition, wxSize(-1, 60),
@@ -38,6 +54,8 @@ AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
     SetSizer(sizer);
 
     m_send->Bind(wxEVT_BUTTON, &AiChatPanel::onSend, this);
+    m_addFile->Bind(wxEVT_BUTTON, &AiChatPanel::onAddFile, this);
+    m_removeFile->Bind(wxEVT_BUTTON, &AiChatPanel::onRemoveFile, this);
     m_renderTimer.SetOwner(this);
     Bind(wxEVT_TIMER, &AiChatPanel::onRenderTimer, this);
 
@@ -90,6 +108,40 @@ void AiChatPanel::onRenderTimer(wxTimerEvent& /*event*/) {
     if (m_dirty) {
         m_dirty = false;
         renderConversation();
+    }
+}
+
+void AiChatPanel::onAddFile(wxCommandEvent& /*event*/) {
+    wxFileDialog dialog(
+        this, m_ctx.tr("panels.aichat.addFile"), {}, {},
+        "FreeBASIC sources (*.bas;*.bi)|*.bas;*.bi|All files (*.*)|*.*",
+        wxFD_OPEN | wxFD_MULTIPLE | wxFD_FILE_MUST_EXIST
+    );
+    if (dialog.ShowModal() != wxID_OK) {
+        return;
+    }
+    wxArrayString paths;
+    dialog.GetPaths(paths);
+    auto& context = m_ctx.getAiManager().context();
+    for (const auto& path : paths) {
+        context.add(std::make_unique<FileContextItem>(path));
+    }
+    refreshContextList();
+}
+
+void AiChatPanel::onRemoveFile(wxCommandEvent& /*event*/) {
+    const int selection = m_contextList->GetSelection();
+    if (selection == wxNOT_FOUND) {
+        return;
+    }
+    m_ctx.getAiManager().context().removeAt(static_cast<std::size_t>(selection));
+    refreshContextList();
+}
+
+void AiChatPanel::refreshContextList() {
+    m_contextList->Clear();
+    for (const auto& item : m_ctx.getAiManager().context().items()) {
+        m_contextList->Append(item->label());
     }
 }
 

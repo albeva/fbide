@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "AiContext.hpp"
 #include "AiProvider.hpp"
 #include "AiTypes.hpp"
 
@@ -45,10 +46,14 @@ public:
     /// Drop the conversation history.
     void clear() { m_history.clear(); }
 
+    /// The set of files/items attached to the conversation as context.
+    [[nodiscard]] auto context() -> AiContext& { return m_context; }
+
 private:
     Context& m_ctx;                         ///< Application context.
     std::unique_ptr<AiProvider> m_provider; ///< Active backend (null until configured).
     std::vector<AiMessage> m_history;       ///< Conversation messages.
+    AiContext m_context;                    ///< Files attached as context.
     wxString m_model;                       ///< Model name sent with each request.
 };
 

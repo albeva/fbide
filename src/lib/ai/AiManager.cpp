@@ -90,6 +90,11 @@ void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChu
     AiRequest request;
     request.model = m_model;
     request.messages = m_history;
+    // Attached files become a system-prompt preamble, re-read fresh on
+    // every send so the model always sees current file content.
+    if (!m_context.empty()) {
+        request.system = "The user has attached the following files as context:\n" + m_context.buildText();
+    }
 
     // Accumulate the streamed deltas so the full reply can be stored in
     // the history once the request completes.

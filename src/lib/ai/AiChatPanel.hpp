@@ -13,7 +13,8 @@ namespace fbide {
 class Context;
 
 /**
- * AI chat side panel: conversation view, message input box, send button.
+ * AI chat side panel: conversation view, message input box, send button,
+ * and a context bar for attaching files.
  *
  * Docked on the right of the main frame as a hideable AUI pane, toggled
  * by the `viewAiChat` command (F7). Sends messages through `AiManager`
@@ -39,22 +40,34 @@ private:
     /// Throttle tick — re-renders if streamed text arrived since the last.
     void onRenderTimer(wxTimerEvent& event);
 
+    /// "Add file" — pick files and attach them as conversation context.
+    void onAddFile(wxCommandEvent& event);
+
+    /// "Remove" — drop the selected context file.
+    void onRemoveFile(wxCommandEvent& event);
+
     /// Re-render the whole conversation (plus the streaming reply and any
     /// error) into the HTML view.
     void renderConversation();
 
+    /// Repopulate the context list box from `AiManager`'s context.
+    void refreshContextList();
+
     /// Keep the HTML view scrolled to the newest content.
     void scrollToBottom();
 
-    Context& m_ctx;                 ///< Application context.
-    Unowned<wxHtmlWindow> m_output; ///< Conversation view (rendered HTML).
-    Unowned<wxTextCtrl> m_input;    ///< Message input box.
-    Unowned<wxButton> m_send;       ///< Send button.
-    wxString m_streaming;           ///< Partial assistant reply while streaming.
-    wxString m_lastError;           ///< Last request error, shown until the next send.
-    wxTimer m_renderTimer;          ///< Throttles re-render while streaming.
-    bool m_busy = false;            ///< True while a request is in flight.
-    bool m_dirty = false;           ///< Streamed text arrived since the last render.
+    Context& m_ctx;                   ///< Application context.
+    Unowned<wxHtmlWindow> m_output;   ///< Conversation view (rendered HTML).
+    Unowned<wxTextCtrl> m_input;      ///< Message input box.
+    Unowned<wxButton> m_send;         ///< Send button.
+    Unowned<wxListBox> m_contextList; ///< Attached context files.
+    Unowned<wxButton> m_addFile;      ///< "Add file" button.
+    Unowned<wxButton> m_removeFile;   ///< "Remove" button.
+    wxString m_streaming;             ///< Partial assistant reply while streaming.
+    wxString m_lastError;             ///< Last request error, shown until the next send.
+    wxTimer m_renderTimer;            ///< Throttles re-render while streaming.
+    bool m_busy = false;              ///< True while a request is in flight.
+    bool m_dirty = false;             ///< Streamed text arrived since the last render.
 };
 
 } // namespace fbide

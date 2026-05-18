@@ -4,6 +4,7 @@ target_sources(fbide_lib
     PRIVATE
     about/AboutDialog.cpp
     ai/AiChatPanel.cpp
+    ai/AiContext.cpp
     ai/AiManager.cpp
     ai/AnthropicProvider.cpp
     ai/ClaudeCliProvider.cpp
@@ -72,6 +73,7 @@ target_sources(fbide_lib
     PUBLIC FILE_SET HEADERS FILES
     about/AboutDialog.hpp
     ai/AiChatPanel.hpp
+    ai/AiContext.hpp
     ai/AiManager.hpp
     ai/AiProvider.hpp
     ai/AiTypes.hpp
