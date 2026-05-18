@@ -50,6 +50,7 @@ wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
     EVT_KEY_UP(Editor::onKeyUp)
     EVT_KILL_FOCUS(Editor::onKillFocus)
     EVT_SET_FOCUS(Editor::onFocus)
+    EVT_CONTEXT_MENU(Editor::onContextMenu)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -75,6 +76,15 @@ Editor::Editor(
     m_intellisenseTimer.SetOwner(this);
 }
 
+void Editor::onContextMenu(wxContextMenuEvent& event) {
+    // Preview editors have no UIManager — leave them without a menu.
+    if (m_uiManager == nullptr) {
+        event.Skip();
+        return;
+    }
+    m_uiManager->showEditorContextMenu(this);
+}
+
 void Editor::applySettings() {
     applyEditorSettings();
     applyTheme();
@@ -90,7 +100,8 @@ void Editor::applyEditorSettings() {
         m_transformer->applySettings();
     }
 
-    UsePopUp(wxSTC_POPUP_TEXT);
+    // The right-click menu is built by UIManager — see onContextMenu.
+    UsePopUp(wxSTC_POPUP_NEVER);
     SetTabWidth(tabSize);
     SetUseTabs(false);
     SetTabIndents(true);

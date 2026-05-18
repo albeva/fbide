@@ -63,15 +63,19 @@ AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
 }
 
 void AiChatPanel::onSend(wxCommandEvent& /*event*/) {
-    if (m_busy) {
-        return;
-    }
     const auto text = m_input->GetValue();
     if (text.empty()) {
         return;
     }
-
     m_input->Clear();
+    submitPrompt(text);
+}
+
+void AiChatPanel::submitPrompt(const wxString& text) {
+    if (m_busy || text.empty()) {
+        return;
+    }
+
     m_lastError.clear();
     m_streaming.clear();
     m_busy = true;

@@ -8,6 +8,7 @@
 // ReSharper disable CppMemberFunctionMayBeStatic
 #include "CommandManager.hpp"
 #include "about/AboutDialog.hpp"
+#include "ai/AiChatPanel.hpp"
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
@@ -66,6 +67,8 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     EVT_MENU(+CommandId::Subs,        CommandManager::onSubs)
     EVT_MENU(+CommandId::Minimap,     CommandManager::onMinimap)
     EVT_MENU(+CommandId::CompilerLog, CommandManager::onCompilerLog)
+    EVT_MENU(+CommandId::AiExplain,   CommandManager::onAiExplain)
+    EVT_MENU(+CommandId::AiRefactor,  CommandManager::onAiRefactor)
 
     // Run
     EVT_MENU(+CommandId::Compile,       CommandManager::onCompile)
@@ -96,6 +99,8 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .name="menus.help",   .kind = wxITEM_DROPDOWN },
         // commands
         CommandEntry { .id = +CommandId::AiChat,           .name="viewAiChat", .kind = wxITEM_CHECK },
+        CommandEntry { .id = +CommandId::AiExplain,        .name="aiExplain" },
+        CommandEntry { .id = +CommandId::AiRefactor,       .name="aiRefactor" },
         CommandEntry { .id = +CommandId::About,            .name="about" },
         CommandEntry { .id = +CommandId::Close,            .name="close" },
         CommandEntry { .id = +CommandId::CloseAll,         .name="closeAll" },
@@ -352,6 +357,33 @@ void CommandManager::onMinimap(wxCommandEvent& event) {
 
 void CommandManager::onCompilerLog(wxCommandEvent&) {
     m_ctx.getCompilerManager().showCompilerLog();
+}
+
+void CommandManager::onAiExplain(wxCommandEvent&) {
+    runAiCodeAction("Explain this FreeBASIC code:");
+}
+
+void CommandManager::onAiRefactor(wxCommandEvent&) {
+    runAiCodeAction("Refactor this FreeBASIC code, and explain what you changed:");
+}
+
+void CommandManager::runAiCodeAction(const wxString& instruction) {
+    auto* doc = m_ctx.getDocumentManager().getActive();
+    if (doc == nullptr) {
+        return;
+    }
+    const wxString selection = doc->getEditor()->GetSelectedText();
+    if (selection.empty()) {
+        return;
+    }
+
+    // Reveal the AI chat pane if it is hidden.
+    if (auto* entry = find("viewAiChat"); entry != nullptr && !entry->checked) {
+        entry->setChecked(true);
+    }
+
+    const wxString prompt = instruction + "\n\n```freebasic\n" + selection + "\n```";
+    m_ctx.getUIManager().getAiChatPanel().submitPrompt(prompt);
 }
 
 void CommandManager::onCompile(wxCommandEvent&) {

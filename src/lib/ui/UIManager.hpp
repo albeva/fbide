@@ -15,6 +15,7 @@ namespace fbide {
 class AiChatPanel;
 class CompilerLog;
 class Context;
+class Editor;
 
 /// RAII guard around `wxWindow::Freeze` / `Thaw`. Suppresses repaint
 /// thrash during bulk UI updates; thaws on scope exit.
@@ -76,6 +77,12 @@ public:
 
     /// Get the document notebook.
     [[nodiscard]] auto getNotebook() -> wxAuiNotebook* { return m_notebook; }
+
+    /// Get the AI chat panel.
+    [[nodiscard]] auto getAiChatPanel() -> AiChatPanel&;
+
+    /// Build and pop up the editor right-click context menu for `editor`.
+    void showEditorContextMenu(Editor* editor);
 
     /// Set the document-level UI state (None, FocusedUnknownFile, FocusedValidSourceFile).
     /// Compiler state takes precedence when active.

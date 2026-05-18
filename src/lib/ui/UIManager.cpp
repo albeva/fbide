@@ -609,6 +609,32 @@ void UIManager::createLayout() {
     aiEntry->binds.push_back(&m_aui);
 }
 
+auto UIManager::getAiChatPanel() -> AiChatPanel& {
+    return *m_aiChatPanel;
+}
+
+void UIManager::showEditorContextMenu(Editor* editor) {
+    if (editor == nullptr) {
+        return;
+    }
+    const bool hasSelection = !editor->GetSelectedText().empty();
+
+    wxMenu menu;
+    menu.Append(+CommandId::Undo);
+    menu.Append(+CommandId::Redo);
+    menu.AppendSeparator();
+    menu.Append(+CommandId::Cut);
+    menu.Append(+CommandId::Copy);
+    menu.Append(+CommandId::Paste);
+    menu.AppendSeparator();
+    menu.Append(+CommandId::SelectAll);
+    menu.AppendSeparator();
+    menu.Append(+CommandId::AiExplain, m_ctx.tr("commands.aiExplain.name"))->Enable(hasSelection);
+    menu.Append(+CommandId::AiRefactor, m_ctx.tr("commands.aiRefactor.name"))->Enable(hasSelection);
+
+    editor->PopupMenu(&menu);
+}
+
 void UIManager::setDocumentState(const UIState state) {
     m_documentState = state;
     applyState(m_compilerState != UIState::None ? m_compilerState : m_documentState);

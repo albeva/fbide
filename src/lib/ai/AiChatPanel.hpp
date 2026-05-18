@@ -33,6 +33,11 @@ public:
     /// Build the panel and its controls as a child of `parent`.
     AiChatPanel(wxWindow* parent, Context& ctx);
 
+    /// Send `text` to the model as a chat message and render the reply.
+    /// Used by the send button and by editor code actions. No-op when a
+    /// request is already in flight or `text` is empty.
+    void submitPrompt(const wxString& text);
+
 private:
     /// Send button — dispatches the input box text through `AiManager`.
     void onSend(wxCommandEvent& event);

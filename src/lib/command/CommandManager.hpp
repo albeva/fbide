@@ -148,6 +148,14 @@ private:
     /// `Compiler Log` — show the compiler-log dialog.
     void onCompilerLog(wxCommandEvent& event);
 
+    /// `Explain with AI` — send the editor selection to the AI chat.
+    void onAiExplain(wxCommandEvent& event);
+    /// `Refactor with AI` — send the editor selection to the AI chat.
+    void onAiRefactor(wxCommandEvent& event);
+    /// Shared code-action body: reveal the AI pane, send the active
+    /// editor's selection prefixed with `instruction`.
+    void runAiCodeAction(const wxString& instruction);
+
     /// `Compile` — kick off a compile of the active document.
     void onCompile(wxCommandEvent& event);
     /// `Compile and Run` — compile, then run on success.

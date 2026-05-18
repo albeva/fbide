@@ -125,6 +125,8 @@ private:
     void onKeyUp(wxKeyEvent& event);
     /// Editor lost focus — clear hotspot styling so it doesn't linger.
     void onKillFocus(wxFocusEvent& event);
+    /// Right-click — show the editor context menu via `UIManager`.
+    void onContextMenu(wxContextMenuEvent& event);
     /// Toggle Scintilla hotspot style on Preprocessor styles.
     void setIncludeHotspots(bool active);
     /// Recompute brace match for the current caret position.
