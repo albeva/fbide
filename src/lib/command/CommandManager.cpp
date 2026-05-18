@@ -95,6 +95,7 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .name="menus.run",    .kind = wxITEM_DROPDOWN },
         CommandEntry { .name="menus.help",   .kind = wxITEM_DROPDOWN },
         // commands
+        CommandEntry { .id = +CommandId::AiChat,           .name="viewAiChat", .kind = wxITEM_CHECK },
         CommandEntry { .id = +CommandId::About,            .name="about" },
         CommandEntry { .id = +CommandId::Close,            .name="close" },
         CommandEntry { .id = +CommandId::CloseAll,         .name="closeAll" },

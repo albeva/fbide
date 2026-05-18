@@ -1,6 +1,6 @@
 # wxWidgets configuration
 
-set(FBIDE_WX_LIBS core base aui stc net)
+set(FBIDE_WX_LIBS core base aui stc html net)
 if(WXWIN)
     list(APPEND CMAKE_PREFIX_PATH "${WXWIN}")
     find_package(wxWidgets CONFIG REQUIRED COMPONENTS ${FBIDE_WX_LIBS})

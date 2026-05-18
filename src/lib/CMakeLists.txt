@@ -3,6 +3,7 @@ add_library(fbide_lib)
 target_sources(fbide_lib
     PRIVATE
     about/AboutDialog.cpp
+    ai/AiChatPanel.cpp
     analyses/intellisense/IntellisenseService.cpp
     analyses/lexer/KeywordTables.cpp
     analyses/lexer/MemoryDocument.cpp
@@ -65,6 +66,7 @@ target_sources(fbide_lib
 
     PUBLIC FILE_SET HEADERS FILES
     about/AboutDialog.hpp
+    ai/AiChatPanel.hpp
     analyses/intellisense/IntellisenseService.hpp
     analyses/lexer/KeywordTables.hpp
     analyses/lexer/MemoryDocument.hpp

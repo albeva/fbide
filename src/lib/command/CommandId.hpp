@@ -62,6 +62,7 @@ enum class CommandId : wxWindowID {
     CmdPrompt,
     Parameters,
     ShowExitCode,
+    AiChat,
 
     /// Dynamic slots for externally configured Help menu links.
     /// Range reserved for wxEVT_MENU dispatch via EVT_MENU_RANGE.

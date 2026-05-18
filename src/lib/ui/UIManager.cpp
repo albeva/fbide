@@ -8,6 +8,7 @@
 #include "UIManager.hpp"
 #include "CompilerLog.hpp"
 #include "EncodingMenu.hpp"
+#include "ai/AiChatPanel.hpp"
 #include "app/Context.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
@@ -587,6 +588,25 @@ void UIManager::createLayout() {
     );
     browserEntry->binds.push_back(&m_aui);
     m_ctx.getSideBarManager().attach(m_sideBar.get());
+
+    // AI chat pane (right, hidden by default)
+    m_aiChatPanel = make_unowned<AiChatPanel>(m_frame, m_ctx);
+
+    auto* aiEntry = m_ctx.getCommandManager().find(+CommandId::AiChat);
+    if (aiEntry == nullptr) {
+        wxLogError("Entry is missing for the AI chat panel");
+        return;
+    }
+    m_aui.AddPane(
+        m_aiChatPanel.get(),
+        wxAuiPaneInfo()
+            .Name(aiEntry->name)
+            .Caption(m_ctx.tr("panels.aichat.title"))
+            .Right()
+            .BestSize(320, -1)
+            .Hide()
+    );
+    aiEntry->binds.push_back(&m_aui);
 }
 
 void UIManager::setDocumentState(const UIState state) {
