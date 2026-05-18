@@ -55,6 +55,16 @@ private:
     /// error) into the HTML view.
     void renderConversation();
 
+    /// Render one message body: prose through maddy, fenced code blocks
+    /// through the syntax highlighter. `reformatCode` re-indents/re-formats
+    /// FreeBASIC blocks (used for model replies, not the user's own code).
+    auto renderMessageBody(const wxString& markdown, bool reformatCode) -> wxString;
+
+    /// Render a single fenced code block — FreeBASIC gets syntax
+    /// highlighting (optionally reformatted), anything else a plain
+    /// escaped `<pre>`.
+    auto renderCodeBlock(const wxString& code, const wxString& lang, bool reformat) -> wxString;
+
     /// Repopulate the context list box from `AiManager`'s context.
     void refreshContextList();
 

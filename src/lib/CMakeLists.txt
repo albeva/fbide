@@ -9,6 +9,7 @@ target_sources(fbide_lib
     ai/AnthropicProvider.cpp
     ai/ClaudeCliProvider.cpp
     ai/GeminiProvider.cpp
+    ai/MockProvider.cpp
     ai/OllamaProvider.cpp
     analyses/intellisense/IntellisenseService.cpp
     analyses/lexer/KeywordTables.cpp
@@ -80,6 +81,7 @@ target_sources(fbide_lib
     ai/AnthropicProvider.hpp
     ai/ClaudeCliProvider.hpp
     ai/GeminiProvider.hpp
+    ai/MockProvider.hpp
     ai/OllamaProvider.hpp
     analyses/intellisense/IntellisenseService.hpp
     analyses/lexer/KeywordTables.hpp

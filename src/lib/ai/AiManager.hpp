@@ -10,6 +10,10 @@
 #include "AiProvider.hpp"
 #include "AiTypes.hpp"
 
+namespace Scintilla {
+class ILexer5;
+}
+
 namespace fbide {
 class Context;
 
@@ -49,13 +53,20 @@ public:
     /// The set of files/items attached to the conversation as context.
     [[nodiscard]] auto context() -> AiContext& { return m_context; }
 
+    /// Render FreeBASIC `code` as syntax-highlighted HTML (theme-colored
+    /// `<pre><span>`). Reuses the one configured lexer across calls. When
+    /// `reformat` is true the code is also re-indented and re-formatted to
+    /// the editor's settings before rendering.
+    [[nodiscard]] auto highlightFreeBasic(const wxString& code, bool reformat) -> wxString;
+
 private:
-    Context& m_ctx;                         ///< Application context.
-    std::unique_ptr<AiProvider> m_provider; ///< Active backend (null until configured).
-    std::vector<AiMessage> m_history;       ///< Conversation messages.
-    AiContext m_context;                    ///< Files attached as context.
-    wxString m_model;                       ///< Model name sent with each request.
-    wxString m_systemPrompt;                ///< Configured system prompt (may be empty).
+    Context& m_ctx;                          ///< Application context.
+    std::unique_ptr<AiProvider> m_provider;  ///< Active backend (null until configured).
+    std::vector<AiMessage> m_history;        ///< Conversation messages.
+    AiContext m_context;                     ///< Files attached as context.
+    wxString m_model;                        ///< Model name sent with each request.
+    wxString m_systemPrompt;                 ///< Configured system prompt (may be empty).
+    Scintilla::ILexer5* m_fbLexer = nullptr; ///< Reused FreeBASIC lexer for chat code blocks.
 };
 
 } // namespace fbide

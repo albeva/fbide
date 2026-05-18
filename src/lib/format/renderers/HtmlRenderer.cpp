@@ -96,8 +96,21 @@ auto HtmlRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxSt
     std::string output;
     output.reserve(getSizeHint() + tokens.size() * 50); // html needs lot of markup
 
-    output += "<pre style=\"background:" + hexColour(defaultBg)
-            + ";color:" + hexColour(defaultFg) + "\">";
+    // wxHtmlWindow ignores CSS backgrounds and `color` on block elements,
+    // but honours the table `bgcolor` attribute and `<font color>` — Table
+    // mode carries the colours there. Pre mode keeps the plain CSS-styled
+    // <pre> for browsers.
+    // Match the editor's theme font face; size left at the default.
+    const auto face = m_theme.getResolvedFont().GetFaceName().utf8_string();
+
+    if (m_wrap == Wrap::Table) {
+        output += "<table cellpadding=\"6\" cellspacing=\"0\" width=\"100%\"><tr><td bgcolor=\"" + hexColour(defaultBg) + "\">";
+        output += "<pre><font face=\"" + face + "\" color=\"" + hexColour(defaultFg) + "\">";
+    } else {
+        output += "<pre style=\"background-color:" + hexColour(defaultBg)
+                + ";color:" + hexColour(defaultFg)
+                + ";font-family:'" + face + "',monospace\">";
+    }
 
     for (const auto& tok : tokens) {
         const auto escaped = escapeHtml(tok.text);
@@ -109,7 +122,7 @@ auto HtmlRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxSt
 
         const auto& style = m_theme.get(tokenToCategory(tok.kind));
         std::string css = "color:" + hexColour(m_theme.foreground(style.colors.foreground))
-                        + ";background:" + hexColour(m_theme.background(style.colors.background));
+                        + ";background-color:" + hexColour(m_theme.background(style.colors.background));
         if (style.bold) {
             css += ";font-weight:bold";
         }
@@ -123,7 +136,11 @@ auto HtmlRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxSt
         output += "<span style=\"" + css + "\">" + escaped + "</span>";
     }
 
-    output += "</pre>";
+    if (m_wrap == Wrap::Table) {
+        output += "</font></pre></td></tr></table>";
+    } else {
+        output += "</pre>";
+    }
     return wxString::FromUTF8(output);
 }
 

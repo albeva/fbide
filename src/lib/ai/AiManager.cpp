@@ -8,9 +8,18 @@
 #include "AnthropicProvider.hpp"
 #include "ClaudeCliProvider.hpp"
 #include "GeminiProvider.hpp"
+#include "MockProvider.hpp"
 #include "OllamaProvider.hpp"
+#include "analyses/lexer/MemoryDocument.hpp"
+#include "analyses/lexer/StyleLexer.hpp"
+#include "analyses/lexer/StyledSource.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
+#include "config/ThemeCategory.hpp"
+#include "editor/lexilla/FBSciLexer.hpp"
+#include "format/renderers/HtmlRenderer.hpp"
+#include "format/transformers/case/CaseTransform.hpp"
+#include "format/transformers/reformat/ReFormatter.hpp"
 using namespace fbide;
 
 namespace {
@@ -34,7 +43,7 @@ AiManager::AiManager(Context& ctx)
     //   systemPrompt = <system prompt>   optional default system prompt
     //
     //   [ai/<config-name>]               one section per named config
-    //   provider     = anthropic | ollama | claude-cli | gemini
+    //   provider     = anthropic | ollama | claude-cli | gemini | mock
     //   model        = <model name>
     //   key          = <API key>         (anthropic + gemini — plaintext,
     //                  see docs/ai-chat-plan.md; OS keychain is deferred)
@@ -74,15 +83,64 @@ AiManager::AiManager(Context& ctx)
         if (const auto key = config.at("key").as<wxString>(); key && !key->empty()) {
             m_provider = std::make_unique<GeminiProvider>(*key);
         }
+    } else if (provider == "mock") {
+        // Offline test provider — no model, no key.
+        m_provider = std::make_unique<MockProvider>();
     } else {
         m_model = config.at("model").value_or(kDefaultAnthropicModel);
         if (const auto key = config.at("key").as<wxString>(); key && !key->empty()) {
             m_provider = std::make_unique<AnthropicProvider>(*key);
         }
     }
+
+    // One FreeBASIC lexer, configured once and reused for every chat code
+    // block — see highlightFreeBasic.
+    m_fbLexer = FBSciLexer::Create();
+    lexer::configureFbWordlists(*m_fbLexer, m_ctx.getConfigManager().keywords().at("groups"));
 }
 
-AiManager::~AiManager() = default;
+AiManager::~AiManager() {
+    if (m_fbLexer != nullptr) {
+        m_fbLexer->Release();
+    }
+}
+
+auto AiManager::highlightFreeBasic(const wxString& code, const bool reformat) -> wxString {
+    const auto utf8 = code.utf8_string();
+
+    // Lex over a headless MemoryDocument — same colouring path as the
+    // editor. Only the document is per-call; the lexer is reused.
+    MemoryDocument doc;
+    doc.Set(std::string_view { utf8.data(), utf8.size() });
+    m_fbLexer->Lex(0, doc.Length(), +ThemeCategory::Default, &doc);
+
+    lexer::MemoryDocStyledSource source(doc);
+    lexer::StyleLexer adapter(source);
+    auto tokens = adapter.tokenise();
+
+    // Apply keyword case, then re-indent + re-format model code to the
+    // editor's settings — the same pipeline as the Format dialog.
+    if (reformat) {
+        std::array<CaseMode, kThemeKeywordGroupsCount> cases {};
+        const auto& caseConfig = m_ctx.getConfigManager().keywords().at("cases");
+        for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
+            const auto key = wxString(getThemeCategoryName(kThemeKeywordCategories[idx]));
+            cases[idx] = CaseMode::parse(caseConfig.get_or(key, "None").ToStdString()).value_or(CaseMode::None);
+        }
+        CaseTransform caseTransform(cases);
+        tokens = caseTransform.apply(tokens);
+
+        reformat::ReFormatter formatter(reformat::FormatOptions {
+            .tabSize = static_cast<std::size_t>(m_ctx.getConfigManager().config().get_or("editor.tabSize", 4)),
+            .reIndent = true,
+            .reFormat = true,
+        });
+        tokens = formatter.apply(tokens);
+    }
+
+    // Table wrapper — wxHtmlWindow only paints the code background that way.
+    return HtmlRenderer(m_ctx.getTheme(), utf8.size(), HtmlRenderer::Wrap::Table).render(tokens);
+}
 
 void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChunk, AiProvider::ResponseHandler onComplete) {
     if (m_provider == nullptr) {
