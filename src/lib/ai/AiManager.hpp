@@ -34,9 +34,10 @@ public:
     [[nodiscard]] auto isReady() const -> bool { return m_provider != nullptr; }
 
     /// Append `text` as a user message and send the whole conversation to
-    /// the model. `handler` receives the assistant reply or an error. A
-    /// successful reply is appended to the history before `handler` runs.
-    void sendMessage(const wxString& text, AiProvider::ResponseHandler handler);
+    /// the model. `onChunk` receives the reply incrementally; `onComplete`
+    /// runs once at the end. A successful reply is appended to the history
+    /// before `onComplete` runs.
+    void sendMessage(const wxString& text, AiProvider::ChunkHandler onChunk, AiProvider::ResponseHandler onComplete);
 
     /// The conversation so far, oldest message first.
     [[nodiscard]] auto history() const -> const std::vector<AiMessage>& { return m_history; }

@@ -53,9 +53,9 @@ AiManager::AiManager(Context& ctx)
 
 AiManager::~AiManager() = default;
 
-void AiManager::sendMessage(const wxString& text, AiProvider::ResponseHandler handler) {
+void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChunk, AiProvider::ResponseHandler onComplete) {
     if (m_provider == nullptr) {
-        handler(AiResponse {
+        onComplete(AiResponse {
             .ok = false,
             .text = {},
             .error = "No AI provider configured. Check the [ai] section in the preferences.",
@@ -69,10 +69,23 @@ void AiManager::sendMessage(const wxString& text, AiProvider::ResponseHandler ha
     request.model = m_model;
     request.messages = m_history;
 
-    m_provider->send(request, [this, handler = std::move(handler)](AiResponse response) {
-        if (response.ok) {
-            m_history.push_back({ .role = AiRole::Assistant, .content = response.text });
+    // Accumulate the streamed deltas so the full reply can be stored in
+    // the history once the request completes.
+    auto accumulated = std::make_shared<wxString>();
+
+    m_provider->send(
+        request,
+        [onChunk = std::move(onChunk), accumulated](const wxString& delta) {
+            *accumulated += delta;
+            onChunk(delta);
+        },
+        [this, accumulated, onComplete = std::move(onComplete)](AiResponse response) {
+            if (response.ok) {
+                // Prefer the streamed text; fall back to a non-streamed reply.
+                const wxString& full = accumulated->empty() ? response.text : *accumulated;
+                m_history.push_back({ .role = AiRole::Assistant, .content = full });
+            }
+            onComplete(std::move(response));
         }
-        handler(std::move(response));
-    });
+    );
 }

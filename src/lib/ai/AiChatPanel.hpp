@@ -18,7 +18,8 @@ class Context;
  * Docked on the right of the main frame as a hideable AUI pane, toggled
  * by the `viewAiChat` command (F7). Sends messages through `AiManager`
  * and renders the conversation as HTML (markdown replies converted via
- * maddy).
+ * maddy). Replies stream in incrementally; a throttle timer limits how
+ * often the HTML view is rebuilt.
  *
  * **Owns:** its child controls (wx-parented).
  * **Owned by:** the main frame via `UIManager`.
@@ -35,16 +36,25 @@ private:
     /// Send button — dispatches the input box text through `AiManager`.
     void onSend(wxCommandEvent& event);
 
-    /// Re-render the whole conversation (plus busy / error state) into
-    /// the HTML view.
+    /// Throttle tick — re-renders if streamed text arrived since the last.
+    void onRenderTimer(wxTimerEvent& event);
+
+    /// Re-render the whole conversation (plus the streaming reply and any
+    /// error) into the HTML view.
     void renderConversation();
+
+    /// Keep the HTML view scrolled to the newest content.
+    void scrollToBottom();
 
     Context& m_ctx;                 ///< Application context.
     Unowned<wxHtmlWindow> m_output; ///< Conversation view (rendered HTML).
     Unowned<wxTextCtrl> m_input;    ///< Message input box.
     Unowned<wxButton> m_send;       ///< Send button.
+    wxString m_streaming;           ///< Partial assistant reply while streaming.
     wxString m_lastError;           ///< Last request error, shown until the next send.
+    wxTimer m_renderTimer;          ///< Throttles re-render while streaming.
     bool m_busy = false;            ///< True while a request is in flight.
+    bool m_dirty = false;           ///< Streamed text arrived since the last render.
 };
 
 } // namespace fbide

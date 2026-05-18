@@ -28,9 +28,13 @@ beyond the original FBIde feature set, approved by the maintainer.
 
 ## Deferred (not in PoC)
 
-Directories as context, response streaming, settings UI, OS keychain.
-API key stored as `[ai] key=` in the prefs INI as plaintext — security
-risk, flagged with a TODO.
+Directories as context, settings UI, OS keychain. API key stored as
+`[ai] key=` in the prefs INI as plaintext — security risk, flagged with
+a TODO.
+
+Response streaming is implemented — all three providers stream the
+reply incrementally (`AsyncProcess` gained a line-streaming mode for the
+claude-cli provider; the HTTP providers use `wxWebRequest` data events).
 
 ## Phases
 

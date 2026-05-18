@@ -10,9 +10,11 @@ using namespace fbide;
 using json = nlohmann::json;
 
 namespace {
+constexpr int kHttpErrorStatus = 400;
+
 /// Map a role onto the Ollama `messages[].role` value. Ollama carries the
 /// system prompt as a `system`-role message in the array.
-auto roleToString(const AiRole role) -> const char* {
+auto roleToString(AiRole role) -> const char* {
     switch (role) {
     case AiRole::System:
         return "system";
@@ -37,6 +39,7 @@ auto chatUrl(wxString endpoint) -> wxString {
 OllamaProvider::OllamaProvider(wxString endpoint)
 : m_endpoint(std::move(endpoint)) {
     Bind(wxEVT_WEBREQUEST_STATE, &OllamaProvider::onRequestState, this);
+    Bind(wxEVT_WEBREQUEST_DATA, &OllamaProvider::onRequestData, this);
 }
 
 OllamaProvider::~OllamaProvider() {
@@ -45,15 +48,15 @@ OllamaProvider::~OllamaProvider() {
     }
 }
 
-void OllamaProvider::send(const AiRequest& request, ResponseHandler handler) {
+void OllamaProvider::send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) {
     if (m_busy) {
-        handler(AiResponse { .ok = false, .text = {}, .error = "A request is already in progress." });
+        onComplete(AiResponse { .ok = false, .text = {}, .error = "A request is already in progress." });
         return;
     }
 
     json body;
     body["model"] = request.model.utf8_string();
-    body["stream"] = false;
+    body["stream"] = true;
     auto messages = json::array();
     if (!request.system.empty()) {
         messages.push_back({
@@ -71,70 +74,87 @@ void OllamaProvider::send(const AiRequest& request, ResponseHandler handler) {
 
     m_request = wxWebSession::GetDefault().CreateRequest(this, chatUrl(m_endpoint));
     if (!m_request.IsOk()) {
-        handler(AiResponse { .ok = false, .text = {}, .error = "Failed to create the web request." });
+        onComplete(AiResponse { .ok = false, .text = {}, .error = "Failed to create the web request." });
         return;
     }
-    m_request.SetTimeouts(
-        300000, // 5 min connect timeout
-        300000  // 5 min transfer timeout
-    );
     m_request.SetMethod("POST");
     m_request.SetData(wxString::FromUTF8(body.dump()), "application/json");
+    // Stream the body to us through wxEVT_WEBREQUEST_DATA events.
+    m_request.SetStorage(wxWebRequest::Storage_None);
 
-    m_handler = std::move(handler);
+    m_onChunk = std::move(onChunk);
+    m_onComplete = std::move(onComplete);
+    m_buffer.clear();
+    m_streamError.clear();
     m_busy = true;
     m_request.Start();
 }
 
-void OllamaProvider::onRequestState(wxWebRequestEvent& event) {
-    AiResponse response;
-    switch (event.GetState()) {
-    case wxWebRequest::State_Completed:
-        response = parseResponse(event.GetResponse().AsString());
-        break;
-    case wxWebRequest::State_Failed:
-        response.error = "Request failed: " + event.GetErrorDescription()
-                       + " (is the Ollama server running?)";
-        break;
-    case wxWebRequest::State_Unauthorized:
-        response.error = "Unauthorized.";
-        break;
-    case wxWebRequest::State_Cancelled:
-        response.error = "Request cancelled.";
-        break;
-    case wxWebRequest::State_Idle:
-    case wxWebRequest::State_Active:
-        return; // Not a terminal state — nothing to report yet.
-    }
+void OllamaProvider::onRequestData(wxWebRequestEvent& event) {
+    m_buffer.append(static_cast<const char*>(event.GetDataBuffer()), event.GetDataSize());
+    consumeBuffer();
+}
 
-    m_busy = false;
-    if (const auto handler = std::exchange(m_handler, nullptr)) {
-        handler(std::move(response));
+void OllamaProvider::consumeBuffer() {
+    // Ollama streams newline-delimited JSON — one object per line, e.g.
+    // {"message":{"content":"<delta>"},"done":false}.
+    for (auto pos = m_buffer.find('\n'); pos != std::string::npos; pos = m_buffer.find('\n')) {
+        std::string line = m_buffer.substr(0, pos);
+        m_buffer.erase(0, pos + 1);
+
+        const auto chunk = json::parse(line, nullptr, false);
+        if (chunk.is_discarded()) {
+            continue;
+        }
+        if (chunk.contains("error")) {
+            m_streamError = wxString::FromUTF8(chunk.value("error", "Unknown Ollama error."));
+            continue;
+        }
+        if (chunk.contains("message") && chunk["message"].is_object()) {
+            m_onChunk(wxString::FromUTF8(chunk["message"].value("content", "")));
+        }
     }
 }
 
-auto OllamaProvider::parseResponse(const wxString& raw) -> AiResponse {
-    AiResponse response;
-
-    const auto parsed = json::parse(raw.utf8_string(), nullptr, false);
-    if (parsed.is_discarded()) {
-        response.error = "Malformed JSON in the Ollama response.";
-        return response;
+void OllamaProvider::onRequestState(wxWebRequestEvent& event) {
+    switch (event.GetState()) {
+    case wxWebRequest::State_Completed: {
+        consumeBuffer();
+        AiResponse response;
+        if (const int status = event.GetResponse().GetStatus(); status >= kHttpErrorStatus) {
+            response.error = wxString::Format("Ollama error (HTTP %d).", status);
+        } else if (!m_streamError.empty()) {
+            response.error = m_streamError;
+        } else {
+            response.ok = true;
+        }
+        finish(std::move(response));
+        break;
     }
-
-    // Ollama reports failures as `{ "error": "<message>" }`.
-    if (parsed.contains("error")) {
-        response.error = wxString::FromUTF8(parsed.value("error", "Unknown Ollama error."));
-        return response;
+    case wxWebRequest::State_Failed:
+        finish(AiResponse {
+            .ok = false,
+            .text = {},
+            .error = "Request failed: " + event.GetErrorDescription() + " (is the Ollama server running?)",
+        });
+        break;
+    case wxWebRequest::State_Unauthorized:
+        finish(AiResponse { .ok = false, .text = {}, .error = "Unauthorized." });
+        break;
+    case wxWebRequest::State_Cancelled:
+        finish(AiResponse { .ok = false, .text = {}, .error = "Request cancelled." });
+        break;
+    case wxWebRequest::State_Idle:
+    case wxWebRequest::State_Active:
+        break; // Not a terminal state — nothing to report yet.
     }
+}
 
-    // Success: `{ "message": { "role": ..., "content": ... } }`.
-    if (parsed.contains("message") && parsed["message"].is_object()) {
-        response.text = wxString::FromUTF8(parsed["message"].value("content", ""));
-        response.ok = true;
-        return response;
+void OllamaProvider::finish(AiResponse response) {
+    m_busy = false;
+    m_buffer.clear();
+    m_onChunk = nullptr;
+    if (auto handler = std::exchange(m_onComplete, nullptr)) {
+        handler(std::move(response));
     }
-
-    response.error = "Unexpected Ollama response shape.";
-    return response;
 }

@@ -7,22 +7,33 @@
 #include "AsyncProcess.hpp"
 using namespace fbide;
 
-auto AsyncProcess::exec(const wxString& command, const wxString& workingDir, const bool redirect, Callback&& callback, const wxString& input) -> AsyncProcess* {
+namespace {
+// Stdout poll interval while streaming, in milliseconds.
+constexpr int kPollIntervalMs = 25;
+} // namespace
+
+auto AsyncProcess::exec(const wxString& command, const wxString& workingDir, const bool redirect, Callback&& callback, const wxString& input, LineHandler onLine) -> AsyncProcess* {
     auto* self = new AsyncProcess(std::move(callback));
-    self->exec(command, workingDir, redirect, input);
+    self->exec(command, workingDir, redirect, input, std::move(onLine));
     return self;
 }
 
 AsyncProcess::AsyncProcess(Callback&& callback)
 : wxProcess(nullptr)
-, m_callback(std::move(callback)) {}
+, m_callback(std::move(callback)) {
+    m_pollTimer.SetOwner(this);
+    Bind(wxEVT_TIMER, &AsyncProcess::onPollTimer, this);
+}
 
 void AsyncProcess::exec(
     const wxString& command,
     const wxString& workingDir,
     const bool redirect,
-    const wxString& input
+    const wxString& input,
+    LineHandler onLine
 ) {
+    m_onLine = std::move(onLine);
+
     if (redirect) {
         Redirect();
     }
@@ -56,6 +67,11 @@ void AsyncProcess::exec(
             CloseOutput();
         }
     }
+
+    // Streaming mode: poll stdout for complete lines as they arrive.
+    if (m_onLine) {
+        m_pollTimer.Start(kPollIntervalMs);
+    }
 }
 
 void AsyncProcess::kill() {
@@ -69,12 +85,55 @@ void AsyncProcess::kill() {
     }
 }
 
+void AsyncProcess::onPollTimer(wxTimerEvent& /*event*/) {
+    drainLines(false);
+}
+
+void AsyncProcess::drainLines(const bool flush) {
+    auto* stream = GetInputStream();
+    if (stream == nullptr) {
+        return;
+    }
+
+    // Read only what is available — IsInputAvailable() guards each GetC so
+    // the UI thread never blocks waiting on the pipe.
+    while (IsInputAvailable()) {
+        const int ch = stream->GetC();
+        if (stream->LastRead() == 0) {
+            break;
+        }
+        m_lineBuffer.push_back(static_cast<char>(ch));
+    }
+
+    // Emit every complete line.
+    for (auto pos = m_lineBuffer.find('\n'); pos != std::string::npos; pos = m_lineBuffer.find('\n')) {
+        std::string line = m_lineBuffer.substr(0, pos);
+        m_lineBuffer.erase(0, pos + 1);
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        m_onLine(wxString::FromUTF8(line));
+    }
+
+    if (flush && !m_lineBuffer.empty()) {
+        m_onLine(wxString::FromUTF8(m_lineBuffer));
+        m_lineBuffer.clear();
+    }
+}
+
 void AsyncProcess::OnTerminate(int /*pid*/, const int status) {
     ProcessResult result;
     result.exitCode = status;
     result.launched = true;
 
-    if (IsRedirected()) {
+    if (m_onLine) {
+        // Streaming mode: stop polling and flush the final stdout bytes.
+        m_pollTimer.Stop();
+        drainLines(true);
+        if (IsRedirected()) {
+            readStream(GetErrorStream(), result.output);
+        }
+    } else if (IsRedirected()) {
         readStream(GetInputStream(), result.output);
         readStream(GetErrorStream(), result.output);
     }

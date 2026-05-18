@@ -25,16 +25,23 @@ class AiProvider {
 public:
     NO_COPY_AND_MOVE(AiProvider)
 
-    /// Callback delivering the result; always invoked on the UI thread.
+    /// Streaming callback — invoked 0+ times with reply text deltas as
+    /// they arrive. Always on the UI thread.
+    using ChunkHandler = std::function<void(const wxString& delta)>;
+
+    /// Completion callback — invoked exactly once when the reply finishes
+    /// or fails. Always on the UI thread. On a streamed success the text
+    /// has already been delivered through the `ChunkHandler`, so
+    /// `AiResponse::text` is left empty.
     using ResponseHandler = std::function<void(AiResponse)>;
 
     AiProvider() = default;
     virtual ~AiProvider() = default;
 
-    /// Send `request`. `handler` runs exactly once when the reply or an
-    /// error arrives. Implementations reject overlapping calls with an
-    /// error response.
-    virtual void send(const AiRequest& request, ResponseHandler handler) = 0;
+    /// Send `request`. `onChunk` receives reply text incrementally;
+    /// `onComplete` runs exactly once at the end (success or error).
+    /// Implementations reject overlapping calls with an error response.
+    virtual void send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) = 0;
 };
 
 } // namespace fbide

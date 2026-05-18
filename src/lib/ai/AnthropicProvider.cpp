@@ -12,6 +12,7 @@ using json = nlohmann::json;
 namespace {
 constexpr auto kEndpoint = "https://api.anthropic.com/v1/messages";
 constexpr auto kAnthropicVersion = "2023-06-01";
+constexpr int kHttpErrorStatus = 400;
 
 /// Map a role onto the Anthropic `messages[].role` value. Anthropic carries
 /// the system prompt as a top-level field, so a `System` role never appears
@@ -31,6 +32,7 @@ auto roleToString(AiRole role) -> const char* {
 AnthropicProvider::AnthropicProvider(wxString apiKey)
 : m_apiKey(std::move(apiKey)) {
     Bind(wxEVT_WEBREQUEST_STATE, &AnthropicProvider::onRequestState, this);
+    Bind(wxEVT_WEBREQUEST_DATA, &AnthropicProvider::onRequestData, this);
 }
 
 AnthropicProvider::~AnthropicProvider() {
@@ -39,15 +41,16 @@ AnthropicProvider::~AnthropicProvider() {
     }
 }
 
-void AnthropicProvider::send(const AiRequest& request, ResponseHandler handler) {
+void AnthropicProvider::send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) {
     if (m_busy) {
-        handler(AiResponse { .ok = false, .text = {}, .error = "A request is already in progress." });
+        onComplete(AiResponse { .ok = false, .text = {}, .error = "A request is already in progress." });
         return;
     }
 
     json body;
     body["model"] = request.model.utf8_string();
     body["max_tokens"] = request.maxTokens;
+    body["stream"] = true;
     if (!request.system.empty()) {
         body["system"] = request.system.utf8_string();
     }
@@ -62,72 +65,95 @@ void AnthropicProvider::send(const AiRequest& request, ResponseHandler handler) 
 
     m_request = wxWebSession::GetDefault().CreateRequest(this, kEndpoint);
     if (!m_request.IsOk()) {
-        handler(AiResponse { .ok = false, .text = {}, .error = "Failed to create the web request." });
+        onComplete(AiResponse { .ok = false, .text = {}, .error = "Failed to create the web request." });
         return;
     }
     m_request.SetMethod("POST");
     m_request.SetHeader("x-api-key", m_apiKey);
     m_request.SetHeader("anthropic-version", kAnthropicVersion);
     m_request.SetData(wxString::FromUTF8(body.dump()), "application/json");
+    // Stream the body to us through wxEVT_WEBREQUEST_DATA events.
+    m_request.SetStorage(wxWebRequest::Storage_None);
 
-    m_handler = std::move(handler);
+    m_onChunk = std::move(onChunk);
+    m_onComplete = std::move(onComplete);
+    m_buffer.clear();
+    m_streamError.clear();
     m_busy = true;
     m_request.Start();
 }
 
-void AnthropicProvider::onRequestState(wxWebRequestEvent& event) {
-    AiResponse response;
-    switch (event.GetState()) {
-    case wxWebRequest::State_Completed:
-        response = parseResponse(event.GetResponse().AsString());
-        break;
-    case wxWebRequest::State_Failed:
-        response.error = "Request failed: " + event.GetErrorDescription();
-        break;
-    case wxWebRequest::State_Unauthorized:
-        response.error = "Unauthorized — check the Anthropic API key.";
-        break;
-    case wxWebRequest::State_Cancelled:
-        response.error = "Request cancelled.";
-        break;
-    case wxWebRequest::State_Idle:
-    case wxWebRequest::State_Active:
-        return; // Not a terminal state — nothing to report yet.
-    }
+void AnthropicProvider::onRequestData(wxWebRequestEvent& event) {
+    m_buffer.append(static_cast<const char*>(event.GetDataBuffer()), event.GetDataSize());
+    consumeBuffer();
+}
 
-    m_busy = false;
-    if (auto handler = std::exchange(m_handler, nullptr)) {
-        handler(std::move(response));
+void AnthropicProvider::consumeBuffer() {
+    // SSE: every payload arrives on a `data:` line; `event:` lines and
+    // blank separators are ignored. Anthropic puts one JSON object per
+    // `data:` line.
+    for (auto pos = m_buffer.find('\n'); pos != std::string::npos; pos = m_buffer.find('\n')) {
+        std::string line = m_buffer.substr(0, pos);
+        m_buffer.erase(0, pos + 1);
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (!line.starts_with("data:")) {
+            continue;
+        }
+
+        const auto payload = json::parse(line.substr(std::string_view("data:").size()), nullptr, false);
+        if (payload.is_discarded()) {
+            continue;
+        }
+        const auto type = payload.value("type", "");
+        if (type == "content_block_delta") {
+            const auto& delta = payload["delta"];
+            if (delta.is_object() && delta.value("type", "") == "text_delta") {
+                m_onChunk(wxString::FromUTF8(delta.value("text", "")));
+            }
+        } else if (type == "error") {
+            const auto& error = payload["error"];
+            m_streamError = wxString::FromUTF8(error.is_object() ? error.value("message", "Unknown API error.") : "Unknown API error.");
+        }
     }
 }
 
-auto AnthropicProvider::parseResponse(const wxString& raw) -> AiResponse {
-    AiResponse response;
-
-    const auto parsed = json::parse(raw.utf8_string(), nullptr, false);
-    if (parsed.is_discarded()) {
-        response.error = "Malformed JSON in the API response.";
-        return response;
-    }
-
-    // Anthropic reports API-level failures as `{ "error": { "message": ... } }`.
-    if (parsed.contains("error")) {
-        const auto& error = parsed["error"];
-        response.error = wxString::FromUTF8(error.value("message", "Unknown API error."));
-        return response;
-    }
-
-    // Success: `content` is an array of blocks; collect the text ones.
-    if (parsed.contains("content") && parsed["content"].is_array()) {
-        for (const auto& block : parsed["content"]) {
-            if (block.value("type", "") == "text") {
-                response.text += wxString::FromUTF8(block.value("text", ""));
-            }
+void AnthropicProvider::onRequestState(wxWebRequestEvent& event) {
+    switch (event.GetState()) {
+    case wxWebRequest::State_Completed: {
+        consumeBuffer();
+        AiResponse response;
+        if (const int status = event.GetResponse().GetStatus(); status >= kHttpErrorStatus) {
+            response.error = wxString::Format("Anthropic API error (HTTP %d).", status);
+        } else if (!m_streamError.empty()) {
+            response.error = m_streamError;
+        } else {
+            response.ok = true;
         }
-        response.ok = true;
-        return response;
+        finish(std::move(response));
+        break;
     }
+    case wxWebRequest::State_Failed:
+        finish(AiResponse { .ok = false, .text = {}, .error = "Request failed: " + event.GetErrorDescription() });
+        break;
+    case wxWebRequest::State_Unauthorized:
+        finish(AiResponse { .ok = false, .text = {}, .error = "Unauthorized - check the Anthropic API key." });
+        break;
+    case wxWebRequest::State_Cancelled:
+        finish(AiResponse { .ok = false, .text = {}, .error = "Request cancelled." });
+        break;
+    case wxWebRequest::State_Idle:
+    case wxWebRequest::State_Active:
+        break; // Not a terminal state — nothing to report yet.
+    }
+}
 
-    response.error = "Unexpected API response shape.";
-    return response;
+void AnthropicProvider::finish(AiResponse response) {
+    m_busy = false;
+    m_buffer.clear();
+    m_onChunk = nullptr;
+    if (auto handler = std::exchange(m_onComplete, nullptr)) {
+        handler(std::move(response));
+    }
 }

@@ -11,16 +11,20 @@
 using namespace fbide;
 using json = nlohmann::json;
 
+namespace {
+constexpr int kStderrSnippetLength = 300;
+} // namespace
+
 ClaudeCliProvider::ClaudeCliProvider(wxString claudePath)
 : m_claudePath(std::move(claudePath)) {}
 
-void ClaudeCliProvider::send(const AiRequest& request, ResponseHandler handler) {
+void ClaudeCliProvider::send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) {
     if (m_busy) {
-        handler(AiResponse { .ok = false, .text = {}, .error = "A request is already in progress." });
+        onComplete(AiResponse { .ok = false, .text = {}, .error = "A request is already in progress." });
         return;
     }
     if (request.messages.empty()) {
-        handler(AiResponse { .ok = false, .text = {}, .error = "Nothing to send." });
+        onComplete(AiResponse { .ok = false, .text = {}, .error = "Nothing to send." });
         return;
     }
 
@@ -36,7 +40,7 @@ void ClaudeCliProvider::send(const AiRequest& request, ResponseHandler handler) 
     const wxString& prompt = request.messages.back().content;
 
     wxString command = quoteArg(m_claudePath);
-    command += " -p --output-format json";
+    command += " -p --output-format stream-json --verbose --include-partial-messages";
     if (!request.model.empty()) {
         command += " --model " + quoteArg(request.model);
     }
@@ -47,18 +51,52 @@ void ClaudeCliProvider::send(const AiRequest& request, ResponseHandler handler) 
         command += " --append-system-prompt " + quoteArg(request.system);
     }
 
+    // Reset the per-request state collected from the stream events.
+    m_sawResult = false;
+    m_isError = false;
+    m_resultText.clear();
+    m_pendingSessionId.clear();
     m_busy = true;
+
     AsyncProcess::exec(
         command, {}, /*redirect=*/true,
-        [this, handler = std::move(handler)](ProcessResult result) {
+        [this, onComplete = std::move(onComplete)](ProcessResult result) {
             m_busy = false;
-            handler(handleResult(result));
+            onComplete(buildResponse(result));
         },
-        prompt
+        prompt,
+        [this, onChunk = std::move(onChunk)](const wxString& line) {
+            handleLine(line, onChunk);
+        }
     );
 }
 
-auto ClaudeCliProvider::handleResult(const ProcessResult& result) -> AiResponse {
+void ClaudeCliProvider::handleLine(const wxString& line, const ChunkHandler& onChunk) {
+    const auto event = json::parse(line.utf8_string(), nullptr, false);
+    if (event.is_discarded()) {
+        return;
+    }
+
+    const auto type = event.value("type", "");
+    if (type == "stream_event") {
+        // Partial-message event — the actual token deltas.
+        const auto& inner = event["event"];
+        if (inner.is_object() && inner.value("type", "") == "content_block_delta") {
+            const auto& delta = inner["delta"];
+            if (delta.is_object() && delta.value("type", "") == "text_delta") {
+                onChunk(wxString::FromUTF8(delta.value("text", "")));
+            }
+        }
+    } else if (type == "result") {
+        // Terminal event — carries the final status and the resume id.
+        m_sawResult = true;
+        m_isError = event.value("is_error", false);
+        m_resultText = wxString::FromUTF8(event.value("result", ""));
+        m_pendingSessionId = wxString::FromUTF8(event.value("session_id", ""));
+    }
+}
+
+auto ClaudeCliProvider::buildResponse(const ProcessResult& result) -> AiResponse {
     AiResponse response;
 
     if (!result.launched) {
@@ -67,32 +105,29 @@ auto ClaudeCliProvider::handleResult(const ProcessResult& result) -> AiResponse 
         return response;
     }
 
-    // stdout and stderr are merged into result.output — the JSON result
-    // object is somewhere in that blob.
-    wxString blob;
-    for (const auto& line : result.output) {
-        blob += line;
-        blob += '\n';
-    }
-
-    const auto parsed = json::parse(blob.utf8_string(), nullptr, false);
-    if (parsed.is_discarded()) {
-        response.error = "Could not parse the Claude CLI output: " + blob.Left(200);
+    if (!m_sawResult) {
+        wxString stderrText;
+        for (const auto& line : result.output) {
+            stderrText += line;
+            stderrText += '\n';
+        }
+        stderrText = stderrText.Strip(wxString::both);
+        response.error = "The Claude CLI produced no result.";
+        if (!stderrText.empty()) {
+            response.error += " " + stderrText.Left(kStderrSnippetLength);
+        }
         return response;
     }
 
-    // Capture the session id so the next turn can --resume it.
-    if (const auto session = parsed.value("session_id", ""); !session.empty()) {
-        m_sessionId = wxString::FromUTF8(session);
-    }
-
-    const auto text = wxString::FromUTF8(parsed.value("result", ""));
-    if (parsed.value("is_error", false) || result.exitCode != 0) {
-        response.error = text.empty() ? wxString("The Claude CLI reported an error.") : text;
+    if (m_isError || result.exitCode != 0) {
+        response.error = m_resultText.empty() ? wxString("The Claude CLI reported an error.") : m_resultText;
         return response;
     }
 
-    response.text = text;
+    m_sessionId = m_pendingSessionId;
     response.ok = true;
+    // Fallback for a CLI build that streams no partial deltas — AiManager
+    // prefers the streamed text and uses this only when nothing streamed.
+    response.text = m_resultText;
     return response;
 }
