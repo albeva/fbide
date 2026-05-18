@@ -30,15 +30,17 @@ AiManager::AiManager(Context& ctx)
     // AI config in the preferences uses a named-config layout:
     //
     //   [ai]
-    //   active = <config-name>           selects which config below to use
+    //   active       = <config-name>     selects which config below to use
+    //   systemPrompt = <system prompt>   optional default system prompt
     //
     //   [ai/<config-name>]               one section per named config
-    //   provider   = anthropic | ollama | claude-cli | gemini
-    //   model      = <model name>
-    //   key        = <API key>           (anthropic + gemini — plaintext,
-    //                see docs/ai-chat-plan.md; OS keychain is deferred)
-    //   endpoint   = <Ollama base URL>   (ollama only)
-    //   claudePath = <path to claude>    (claude-cli only)
+    //   provider     = anthropic | ollama | claude-cli | gemini
+    //   model        = <model name>
+    //   key          = <API key>         (anthropic + gemini — plaintext,
+    //                  see docs/ai-chat-plan.md; OS keychain is deferred)
+    //   endpoint     = <Ollama base URL> (ollama only)
+    //   claudePath   = <path to claude>  (claude-cli only)
+    //   systemPrompt = <system prompt>   optional — overrides [ai] systemPrompt
     //
     // Only the `active` config is used. There is no hot-reload — the
     // provider is resolved once here, at construction.
@@ -49,7 +51,14 @@ AiManager::AiManager(Context& ctx)
         return; // No active config — `isReady()` stays false.
     }
 
+    // `[ai] systemPrompt` is the default; an `[ai/<name>] systemPrompt`
+    // overrides it for that config. Nothing is baked in when both absent.
+    m_systemPrompt = root.at("ai.systemPrompt").as<wxString>().value_or(wxString {});
+
     const auto& config = root.at("ai." + *active);
+    if (const auto overridePrompt = config.at("systemPrompt").as<wxString>()) {
+        m_systemPrompt = *overridePrompt;
+    }
     const auto provider = config.at("provider").value_or("anthropic");
 
     if (provider == "ollama") {
@@ -90,10 +99,16 @@ void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChu
     AiRequest request;
     request.model = m_model;
     request.messages = m_history;
-    // Attached files become a system-prompt preamble, re-read fresh on
-    // every send so the model always sees current file content.
+
+    // System prompt = the configured prompt (if any) followed by the
+    // attached files, re-read fresh on every send so the model always
+    // sees current file content. Empty when neither is set.
+    request.system = m_systemPrompt;
     if (!m_context.empty()) {
-        request.system = "The user has attached the following files as context:\n" + m_context.buildText();
+        if (!request.system.empty()) {
+            request.system += "\n\n";
+        }
+        request.system += "The user has attached the following files as context:\n" + m_context.buildText();
     }
 
     // Accumulate the streamed deltas so the full reply can be stored in

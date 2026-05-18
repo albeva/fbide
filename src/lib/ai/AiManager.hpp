@@ -55,6 +55,7 @@ private:
     std::vector<AiMessage> m_history;       ///< Conversation messages.
     AiContext m_context;                    ///< Files attached as context.
     wxString m_model;                       ///< Model name sent with each request.
+    wxString m_systemPrompt;                ///< Configured system prompt (may be empty).
 };
 
 } // namespace fbide
