@@ -6,6 +6,7 @@ target_sources(fbide_lib
     ai/AiChatPanel.cpp
     ai/AiManager.cpp
     ai/AnthropicProvider.cpp
+    ai/OllamaProvider.cpp
     analyses/intellisense/IntellisenseService.cpp
     analyses/lexer/KeywordTables.cpp
     analyses/lexer/MemoryDocument.cpp
@@ -73,6 +74,7 @@ target_sources(fbide_lib
     ai/AiProvider.hpp
     ai/AiTypes.hpp
     ai/AnthropicProvider.hpp
+    ai/OllamaProvider.hpp
     analyses/intellisense/IntellisenseService.hpp
     analyses/lexer/KeywordTables.hpp
     analyses/lexer/MemoryDocument.hpp
@@ -155,9 +157,12 @@ target_link_libraries(fbide_lib
 )
 linkWxWidgets(fbide_lib)
 
-# nlohmann/json — header-only; added as a SYSTEM include so its headers
-# are exempt from the project's -Werror / /WX warning level.
-target_include_directories(fbide_lib SYSTEM PRIVATE "${nlohmann_json_SOURCE_DIR}/include")
+# nlohmann/json and maddy — header-only; added as SYSTEM includes so their
+# headers are exempt from the project's -Werror / /WX warning level.
+target_include_directories(fbide_lib SYSTEM PRIVATE
+    "${nlohmann_json_SOURCE_DIR}/include"
+    "${maddy_SOURCE_DIR}/include"
+)
 
 # Scintilla/Lexilla for custom lexer
 if (TARGET lexilla_lexlib)

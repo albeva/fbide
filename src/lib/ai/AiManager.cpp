@@ -6,27 +6,40 @@
 //
 #include "AiManager.hpp"
 #include "AnthropicProvider.hpp"
+#include "OllamaProvider.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 using namespace fbide;
 
 namespace {
-// Default model when `[ai] model` is not set in the preferences. Declared
-// as an array (not `const char*`) so it binds to `Value::value_or`'s
-// string-literal overload rather than the `bool` one.
-constexpr char kDefaultModel[] = "claude-sonnet-4-6";
+// Defaults applied when the matching `[ai]` key is absent. Declared as
+// arrays (not `const char*`) so they bind to `Value::value_or`'s string-
+// literal overload rather than the `bool` one.
+constexpr char kDefaultAnthropicModel[] = "claude-sonnet-4-6";
+constexpr char kDefaultOllamaModel[] = "llama3.2";
+constexpr char kDefaultOllamaEndpoint[] = "http://localhost:11434";
 } // namespace
 
 AiManager::AiManager(Context& ctx)
 : m_ctx(ctx) {
-    // Provider config lives under `[ai]` in the preferences. The API key is
-    // stored as plaintext for now — see docs/ai-chat-plan.md (deferred:
-    // OS keychain). No key means no provider, and `isReady()` stays false.
+    // Provider config lives under `[ai]` in the preferences:
+    //   provider = anthropic | ollama   (default: anthropic)
+    //   model    = <model name>
+    //   key      = <Anthropic API key>  (anthropic only — plaintext, see
+    //              docs/ai-chat-plan.md; OS keychain is deferred)
+    //   endpoint = <Ollama base URL>    (ollama only)
     const auto& config = m_ctx.getConfigManager().config();
-    m_model = config.at("ai.model").value_or(kDefaultModel);
+    const auto provider = config.at("ai.provider").value_or("anthropic");
 
-    if (const auto key = config.at("ai.key").as<wxString>(); key && !key->empty()) {
-        m_provider = std::make_unique<AnthropicProvider>(*key);
+    if (provider == "ollama") {
+        m_model = config.at("ai.model").value_or(kDefaultOllamaModel);
+        const auto endpoint = config.at("ai.endpoint").value_or(kDefaultOllamaEndpoint);
+        m_provider = std::make_unique<OllamaProvider>(endpoint);
+    } else {
+        m_model = config.at("ai.model").value_or(kDefaultAnthropicModel);
+        if (const auto key = config.at("ai.key").as<wxString>(); key && !key->empty()) {
+            m_provider = std::make_unique<AnthropicProvider>(*key);
+        }
     }
 }
 
@@ -37,7 +50,7 @@ void AiManager::sendMessage(const wxString& text, AiProvider::ResponseHandler ha
         handler(AiResponse {
             .ok = false,
             .text = {},
-            .error = "No AI provider configured. Add an [ai] key entry to the preferences.",
+            .error = "No AI provider configured. Check the [ai] section in the preferences.",
         });
         return;
     }

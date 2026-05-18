@@ -5,7 +5,10 @@
 // https://github.com/albeva/fbide
 //
 #include "AiChatPanel.hpp"
+#include <maddy/parser.h>
+#include <sstream>
 #include <wx/html/htmlwin.h>
+#include "AiManager.hpp"
 #include "app/Context.hpp"
 using namespace fbide;
 
@@ -20,7 +23,7 @@ AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
     m_input = make_unowned<wxTextCtrl>(
         this, wxID_ANY, wxEmptyString,
         wxDefaultPosition, wxSize(-1, 60),
-        wxTE_MULTILINE | wxTE_PROCESS_ENTER
+        wxTE_MULTILINE
     );
     sizer->Add(m_input, wxSizerFlags().Expand().Border(wxLEFT | wxRIGHT, 4));
 
@@ -30,14 +33,58 @@ AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
     SetSizer(sizer);
 
     m_send->Bind(wxEVT_BUTTON, &AiChatPanel::onSend, this);
+
+    renderConversation();
 }
 
 void AiChatPanel::onSend(wxCommandEvent& /*event*/) {
+    if (m_busy) {
+        return;
+    }
     const auto text = m_input->GetValue();
     if (text.empty()) {
         return;
     }
-    // Phase 1 stub: echo the input. The real model round-trip lands in Phase 3.
-    m_output->SetPage("<html><body><p>" + text + "</p></body></html>");
+
     m_input->Clear();
+    m_lastError.clear();
+    m_busy = true;
+    m_send->Disable();
+
+    m_ctx.getAiManager().sendMessage(text, [this](const AiResponse& response) {
+        m_busy = false;
+        m_send->Enable();
+        if (!response.ok) {
+            m_lastError = response.error;
+        }
+        renderConversation();
+    });
+
+    // Show the user message (already appended to the history) and the
+    // busy indicator while the reply is in flight.
+    renderConversation();
+}
+
+void AiChatPanel::renderConversation() {
+    const auto config = std::make_shared<maddy::ParserConfig>();
+    maddy::Parser parser(config);
+
+    wxString html = "<html><body>";
+    for (const auto& message : m_ctx.getAiManager().history()) {
+        std::stringstream markdown(message.content.utf8_string());
+        html += "<p><b>";
+        html += message.role == AiRole::User ? "You" : "Assistant";
+        html += "</b></p>";
+        html += wxString::FromUTF8(parser.Parse(markdown));
+        html += "<hr>";
+    }
+    if (m_busy) {
+        html += "<p><i>Thinking…</i></p>";
+    }
+    if (!m_lastError.empty()) {
+        html += "<p><font color=\"#cc0000\"><b>Error:</b> " + m_lastError + "</font></p>";
+    }
+    html += "</body></html>";
+
+    m_output->SetPage(html);
 }

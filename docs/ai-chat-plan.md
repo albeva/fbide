@@ -6,9 +6,10 @@ beyond the original FBIde feature set, approved by the maintainer.
 ## Locked design decisions
 
 - **Module** `lib/ai/`.
-- **Backend** — single provider (Anthropic) but behind an abstract
-  `AiProvider` so OpenAI/Gemini/Ollama can be added later without core
-  changes. `AiRequest`/`AiResponse` stay provider-neutral.
+- **Backend** — abstract `AiProvider` with provider-neutral
+  `AiRequest`/`AiResponse`. Two providers implemented: Anthropic (cloud,
+  API key) and Ollama (local, free, no key). Selected via `[ai] provider`.
+  OpenAI/Gemini can be added later as further subclasses.
 - **HTTP** — `wxWebRequest` (no new dependency, async).
 - **Chat UI** — dockable `wxPanel` on the right, AUI pane. Conversation
   rendered as a single `wxHtmlWindow`; markdown converted to HTML.

@@ -16,13 +16,13 @@ class Context;
  * AI chat side panel: conversation view, message input box, send button.
  *
  * Docked on the right of the main frame as a hideable AUI pane, toggled
- * by the `viewAiChat` command (F7).
+ * by the `viewAiChat` command (F7). Sends messages through `AiManager`
+ * and renders the conversation as HTML (markdown replies converted via
+ * maddy).
  *
  * **Owns:** its child controls (wx-parented).
  * **Owned by:** the main frame via `UIManager`.
  * **Threading:** UI thread only.
- *
- * Phase 1 stub — UI only. Model wiring lands in a later phase.
  */
 class AiChatPanel final : public wxPanel {
 public:
@@ -32,13 +32,19 @@ public:
     AiChatPanel(wxWindow* parent, Context& ctx);
 
 private:
-    /// Send button / Ctrl+Enter — echoes the input (stub until Phase 3).
+    /// Send button — dispatches the input box text through `AiManager`.
     void onSend(wxCommandEvent& event);
+
+    /// Re-render the whole conversation (plus busy / error state) into
+    /// the HTML view.
+    void renderConversation();
 
     Context& m_ctx;                 ///< Application context.
     Unowned<wxHtmlWindow> m_output; ///< Conversation view (rendered HTML).
     Unowned<wxTextCtrl> m_input;    ///< Message input box.
     Unowned<wxButton> m_send;       ///< Send button.
+    wxString m_lastError;           ///< Last request error, shown until the next send.
+    bool m_busy = false;            ///< True while a request is in flight.
 };
 
 } // namespace fbide
