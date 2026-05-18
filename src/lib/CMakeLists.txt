@@ -6,6 +6,7 @@ target_sources(fbide_lib
     ai/AiChatPanel.cpp
     ai/AiManager.cpp
     ai/AnthropicProvider.cpp
+    ai/ClaudeCliProvider.cpp
     ai/OllamaProvider.cpp
     analyses/intellisense/IntellisenseService.cpp
     analyses/lexer/KeywordTables.cpp
@@ -74,6 +75,7 @@ target_sources(fbide_lib
     ai/AiProvider.hpp
     ai/AiTypes.hpp
     ai/AnthropicProvider.hpp
+    ai/ClaudeCliProvider.hpp
     ai/OllamaProvider.hpp
     analyses/intellisense/IntellisenseService.hpp
     analyses/lexer/KeywordTables.hpp

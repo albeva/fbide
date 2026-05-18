@@ -7,9 +7,9 @@
 #include "AsyncProcess.hpp"
 using namespace fbide;
 
-auto AsyncProcess::exec(const wxString& command, const wxString& workingDir, const bool redirect, Callback&& callback) -> AsyncProcess* {
+auto AsyncProcess::exec(const wxString& command, const wxString& workingDir, const bool redirect, Callback&& callback, const wxString& input) -> AsyncProcess* {
     auto* self = new AsyncProcess(std::move(callback));
-    self->exec(command, workingDir, redirect);
+    self->exec(command, workingDir, redirect, input);
     return self;
 }
 
@@ -20,7 +20,8 @@ AsyncProcess::AsyncProcess(Callback&& callback)
 void AsyncProcess::exec(
     const wxString& command,
     const wxString& workingDir,
-    const bool redirect
+    const bool redirect,
+    const wxString& input
 ) {
     if (redirect) {
         Redirect();
@@ -33,6 +34,27 @@ void AsyncProcess::exec(
     if (pid == 0) {
         m_callback(ProcessResult {});
         delete this; // NOLINT(*-owning-memory)
+        return;
+    }
+
+    // Feed the child's stdin, then close it so the process sees EOF. The
+    // pipe buffer is small, so write in a loop to cover large payloads.
+    if (!input.empty()) {
+        if (auto* stream = GetOutputStream()) {
+            const auto utf8 = input.utf8_string();
+            const char* data = utf8.data();
+            size_t remaining = utf8.size();
+            while (remaining > 0 && stream->IsOk()) {
+                stream->Write(data, remaining);
+                const size_t written = stream->LastWrite();
+                if (written == 0) {
+                    break;
+                }
+                data += written;
+                remaining -= written;
+            }
+            CloseOutput();
+        }
     }
 }
 

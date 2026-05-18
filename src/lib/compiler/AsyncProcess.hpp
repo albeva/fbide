@@ -42,11 +42,15 @@ public:
     /// @param workingDir Working directory for the process. Empty = inherit.
     /// @param redirect   If true, capture stdout/stderr into ProcessResult::output.
     /// @param callback Called exactly once when the process terminates (or fails to launch).
+    /// @param input    Optional UTF-8 data written to the child's stdin, after
+    ///                 which stdin is closed. Requires `redirect` — ignored
+    ///                 otherwise.
     static auto exec(
         const wxString& command,
         const wxString& workingDir,
         bool redirect,
-        Callback&& callback
+        Callback&& callback,
+        const wxString& input = {}
     ) -> AsyncProcess*;
 
     /// Kill the process
@@ -61,10 +65,12 @@ private:
     /// @param command    The command line to execute.
     /// @param workingDir Working directory for the process. Empty = inherit.
     /// @param redirect   If true, capture stdout/stderr into ProcessResult::output.
+    /// @param input      UTF-8 data to write to the child's stdin (then close).
     void exec(
         const wxString& command,
         const wxString& workingDir,
-        bool redirect
+        bool redirect,
+        const wxString& input
     );
 
     /// wxProcess hook — invoked when the child process exits. Calls `m_callback`

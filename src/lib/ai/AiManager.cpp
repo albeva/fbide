@@ -6,6 +6,7 @@
 //
 #include "AiManager.hpp"
 #include "AnthropicProvider.hpp"
+#include "ClaudeCliProvider.hpp"
 #include "OllamaProvider.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
@@ -18,16 +19,19 @@ namespace {
 constexpr char kDefaultAnthropicModel[] = "claude-sonnet-4-6";
 constexpr char kDefaultOllamaModel[] = "llama3.2";
 constexpr char kDefaultOllamaEndpoint[] = "http://localhost:11434";
+constexpr char kDefaultClaudeModel[] = "sonnet";
+constexpr char kDefaultClaudePath[] = "claude";
 } // namespace
 
 AiManager::AiManager(Context& ctx)
 : m_ctx(ctx) {
     // Provider config lives under `[ai]` in the preferences:
-    //   provider = anthropic | ollama   (default: anthropic)
-    //   model    = <model name>
-    //   key      = <Anthropic API key>  (anthropic only — plaintext, see
-    //              docs/ai-chat-plan.md; OS keychain is deferred)
-    //   endpoint = <Ollama base URL>    (ollama only)
+    //   provider   = anthropic | ollama | claude-cli  (default: anthropic)
+    //   model      = <model name>
+    //   key        = <Anthropic API key>  (anthropic only — plaintext, see
+    //                docs/ai-chat-plan.md; OS keychain is deferred)
+    //   endpoint   = <Ollama base URL>    (ollama only)
+    //   claudePath = <path to claude>     (claude-cli only)
     const auto& config = m_ctx.getConfigManager().config();
     const auto provider = config.at("ai.provider").value_or("anthropic");
 
@@ -35,6 +39,10 @@ AiManager::AiManager(Context& ctx)
         m_model = config.at("ai.model").value_or(kDefaultOllamaModel);
         const auto endpoint = config.at("ai.endpoint").value_or(kDefaultOllamaEndpoint);
         m_provider = std::make_unique<OllamaProvider>(endpoint);
+    } else if (provider == "claude-cli") {
+        m_model = config.at("ai.model").value_or(kDefaultClaudeModel);
+        const auto path = config.at("ai.claudePath").value_or(kDefaultClaudePath);
+        m_provider = std::make_unique<ClaudeCliProvider>(path);
     } else {
         m_model = config.at("ai.model").value_or(kDefaultAnthropicModel);
         if (const auto key = config.at("ai.key").as<wxString>(); key && !key->empty()) {
