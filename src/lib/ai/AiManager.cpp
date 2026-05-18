@@ -27,33 +27,47 @@ constexpr char kDefaultGeminiModel[] = "gemini-2.5-flash";
 
 AiManager::AiManager(Context& ctx)
 : m_ctx(ctx) {
-    // Provider config lives under `[ai]` in the preferences:
+    // AI config in the preferences uses a named-config layout:
+    //
+    //   [ai]
+    //   active = <config-name>           selects which config below to use
+    //
+    //   [ai/<config-name>]               one section per named config
     //   provider   = anthropic | ollama | claude-cli | gemini
-    //                (default: anthropic)
     //   model      = <model name>
-    //   key        = <API key>            (anthropic + gemini — plaintext,
+    //   key        = <API key>           (anthropic + gemini — plaintext,
     //                see docs/ai-chat-plan.md; OS keychain is deferred)
-    //   endpoint   = <Ollama base URL>    (ollama only)
-    //   claudePath = <path to claude>     (claude-cli only)
-    const auto& config = m_ctx.getConfigManager().config();
-    const auto provider = config.at("ai.provider").value_or("anthropic");
+    //   endpoint   = <Ollama base URL>   (ollama only)
+    //   claudePath = <path to claude>    (claude-cli only)
+    //
+    // Only the `active` config is used. There is no hot-reload — the
+    // provider is resolved once here, at construction.
+    const auto& root = m_ctx.getConfigManager().config();
+
+    const auto active = root.at("ai.active").as<wxString>();
+    if (!active || active->empty()) {
+        return; // No active config — `isReady()` stays false.
+    }
+
+    const auto& config = root.at("ai." + *active);
+    const auto provider = config.at("provider").value_or("anthropic");
 
     if (provider == "ollama") {
-        m_model = config.at("ai.model").value_or(kDefaultOllamaModel);
-        const auto endpoint = config.at("ai.endpoint").value_or(kDefaultOllamaEndpoint);
+        m_model = config.at("model").value_or(kDefaultOllamaModel);
+        const auto endpoint = config.at("endpoint").value_or(kDefaultOllamaEndpoint);
         m_provider = std::make_unique<OllamaProvider>(endpoint);
     } else if (provider == "claude-cli") {
-        m_model = config.at("ai.model").value_or(kDefaultClaudeModel);
-        const auto path = config.at("ai.claudePath").value_or(kDefaultClaudePath);
+        m_model = config.at("model").value_or(kDefaultClaudeModel);
+        const auto path = config.at("claudePath").value_or(kDefaultClaudePath);
         m_provider = std::make_unique<ClaudeCliProvider>(path);
     } else if (provider == "gemini") {
-        m_model = config.at("ai.model").value_or(kDefaultGeminiModel);
-        if (const auto key = config.at("ai.key").as<wxString>(); key && !key->empty()) {
+        m_model = config.at("model").value_or(kDefaultGeminiModel);
+        if (const auto key = config.at("key").as<wxString>(); key && !key->empty()) {
             m_provider = std::make_unique<GeminiProvider>(*key);
         }
     } else {
-        m_model = config.at("ai.model").value_or(kDefaultAnthropicModel);
-        if (const auto key = config.at("ai.key").as<wxString>(); key && !key->empty()) {
+        m_model = config.at("model").value_or(kDefaultAnthropicModel);
+        if (const auto key = config.at("key").as<wxString>(); key && !key->empty()) {
             m_provider = std::make_unique<AnthropicProvider>(*key);
         }
     }
