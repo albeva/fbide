@@ -7,6 +7,7 @@
 #include "AiManager.hpp"
 #include "AnthropicProvider.hpp"
 #include "ClaudeCliProvider.hpp"
+#include "GeminiProvider.hpp"
 #include "OllamaProvider.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
@@ -21,15 +22,17 @@ constexpr char kDefaultOllamaModel[] = "llama3.2";
 constexpr char kDefaultOllamaEndpoint[] = "http://localhost:11434";
 constexpr char kDefaultClaudeModel[] = "sonnet";
 constexpr char kDefaultClaudePath[] = "claude";
+constexpr char kDefaultGeminiModel[] = "gemini-2.5-flash";
 } // namespace
 
 AiManager::AiManager(Context& ctx)
 : m_ctx(ctx) {
     // Provider config lives under `[ai]` in the preferences:
-    //   provider   = anthropic | ollama | claude-cli  (default: anthropic)
+    //   provider   = anthropic | ollama | claude-cli | gemini
+    //                (default: anthropic)
     //   model      = <model name>
-    //   key        = <Anthropic API key>  (anthropic only — plaintext, see
-    //                docs/ai-chat-plan.md; OS keychain is deferred)
+    //   key        = <API key>            (anthropic + gemini — plaintext,
+    //                see docs/ai-chat-plan.md; OS keychain is deferred)
     //   endpoint   = <Ollama base URL>    (ollama only)
     //   claudePath = <path to claude>     (claude-cli only)
     const auto& config = m_ctx.getConfigManager().config();
@@ -43,6 +46,11 @@ AiManager::AiManager(Context& ctx)
         m_model = config.at("ai.model").value_or(kDefaultClaudeModel);
         const auto path = config.at("ai.claudePath").value_or(kDefaultClaudePath);
         m_provider = std::make_unique<ClaudeCliProvider>(path);
+    } else if (provider == "gemini") {
+        m_model = config.at("ai.model").value_or(kDefaultGeminiModel);
+        if (const auto key = config.at("ai.key").as<wxString>(); key && !key->empty()) {
+            m_provider = std::make_unique<GeminiProvider>(*key);
+        }
     } else {
         m_model = config.at("ai.model").value_or(kDefaultAnthropicModel);
         if (const auto key = config.at("ai.key").as<wxString>(); key && !key->empty()) {

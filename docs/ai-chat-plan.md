@@ -7,14 +7,15 @@ beyond the original FBIde feature set, approved by the maintainer.
 
 - **Module** `lib/ai/`.
 - **Backend** — abstract `AiProvider` with provider-neutral
-  `AiRequest`/`AiResponse`. Three providers implemented, selected via
+  `AiRequest`/`AiResponse`. Four providers implemented, selected via
   `[ai] provider`:
   - `anthropic` — Anthropic Messages API (cloud, API key).
   - `ollama` — local Ollama server (free, no key).
   - `claude-cli` — spawns the `claude` CLI in print mode; uses the
     Claude Code login (e.g. a Max subscription), no API key. Prompt on
     stdin, `--resume <session-id>` for conversation continuity.
-  OpenAI/Gemini can be added later as further subclasses.
+  - `gemini` — Google Gemini API (cloud, API key).
+  OpenAI can be added later as a further subclass.
 - **HTTP** — `wxWebRequest` (no new dependency, async).
 - **Chat UI** — dockable `wxPanel` on the right, AUI pane. Conversation
   rendered as a single `wxHtmlWindow`; markdown converted to HTML.
