@@ -1,0 +1,345 @@
+//
+// FBIde editor for FreeBASIC - https://freebasic.net
+// Copyright (c) 2026 Albert Varaksin
+// Licensed under the MIT License. See LICENSE file for details.
+// https://github.com/albeva/fbide
+//
+#include "Markdown.hpp"
+#include <md4c.h>
+using namespace fbide;
+
+namespace {
+
+/// Mutable state threaded through the md4c callbacks as `userdata`. md4c is a
+/// SAX-style parser — it streams enter/leave/text events; this builder turns
+/// that event stream into the flat `MdDoc`.
+struct Builder {
+    MdDoc doc;
+
+    // Inline styling. Spans nest, so each style is a depth counter rather
+    // than a flag — `**a *b* a**` leaves bold active across the inner span.
+    int em = 0;       ///< `*emphasis*` depth.
+    int strong = 0;   ///< `**strong**` depth.
+    int codeSpan = 0; ///< inline `` `code` `` depth.
+    int del = 0;      ///< `~~strikethrough~~` depth.
+
+    // Current link span (md4c spans never nest links).
+    bool inLink = false;
+    wxString linkUrl;
+
+    // Open lists, outermost first. Each tracks the next ordinal to hand out.
+    struct ListCtx {
+        bool ordered;
+        int next;
+    };
+    std::vector<ListCtx> lists;
+
+    int quoteDepth = 0; ///< Current block-quote nesting.
+
+    // The block currently being assembled.
+    bool open = false;
+    MdBlock cur;
+    bool inCodeBlock = false; ///< Inside MD_BLOCK_CODE — text is verbatim code.
+
+    /// Current accumulated inline style.
+    [[nodiscard]] auto style() const -> MdStyle {
+        return { .bold = strong > 0,
+            .italic = em > 0,
+            .code = codeSpan > 0,
+            .strikethrough = del > 0 };
+    }
+
+    /// Open a fresh block of `kind`, carrying the current quote depth. Any
+    /// block still open is flushed first — markdown blocks never overlap.
+    void begin(const MdBlockKind kind) {
+        end();
+        cur = MdBlock {};
+        cur.kind = kind;
+        cur.quoteDepth = quoteDepth;
+        open = true;
+    }
+
+    /// Push the open block (if any) into the document.
+    void end() {
+        if (open) {
+            doc.blocks.push_back(std::move(cur));
+            open = false;
+        }
+    }
+
+    /// Append a text run — to the code body inside a fence, otherwise as a
+    /// styled (and possibly link-tagged) inline fragment.
+    void addText(const wxString& text) {
+        if (!open) {
+            return;
+        }
+        if (inCodeBlock) {
+            cur.codeText += text;
+            return;
+        }
+        cur.inlines.push_back({
+            .kind = inLink ? MdInlineKind::Link : MdInlineKind::Text,
+            .text = text,
+            .url = inLink ? linkUrl : wxString {},
+            .style = style(),
+        });
+    }
+
+    /// Append a soft or hard line break (ignored inside code).
+    void addBreak(const MdInlineKind kind) {
+        if (open && !inCodeBlock) {
+            cur.inlines.push_back({ .kind = kind, .text = {}, .url = {}, .style = {} });
+        }
+    }
+};
+
+/// Wrap an md4c (pointer, length) string — never NUL-terminated — as wxString.
+auto mdStr(const MD_CHAR* text, const MD_SIZE size) -> wxString {
+    return wxString::FromUTF8(text, size);
+}
+
+/// Wrap an md4c attribute's verbatim text as wxString. Attribute substrings
+/// split out entities; for the fields used here (code-fence info string) the
+/// verbatim form is what is wanted.
+auto attrStr(const MD_ATTRIBUTE& attr) -> wxString {
+    return wxString::FromUTF8(attr.text, attr.size);
+}
+
+/// Decode the handful of HTML entities that turn up in chat prose. md4c keeps
+/// no entity table, so anything else is passed through verbatim.
+auto decodeEntity(const wxString& entity) -> wxString {
+    if (entity == "&amp;") {
+        return "&";
+    }
+    if (entity == "&lt;") {
+        return "<";
+    }
+    if (entity == "&gt;") {
+        return ">";
+    }
+    if (entity == "&quot;") {
+        return "\"";
+    }
+    if (entity == "&apos;") {
+        return "'";
+    }
+    if (entity == "&nbsp;") {
+        return wxString(wxUniChar(0x00A0));
+    }
+    // Numeric: &#1234; or &#x12AB;
+    if (entity.StartsWith("&#") && entity.EndsWith(";")) {
+        const wxString digits = entity.Mid(2, entity.size() - 3);
+        long value = 0;
+        const bool hex = digits.StartsWith("x") || digits.StartsWith("X");
+        if ((hex ? digits.Mid(1).ToLong(&value, 16) : digits.ToLong(&value)) && value > 0) {
+            return wxString(wxUniChar(static_cast<int>(value)));
+        }
+    }
+    return entity;
+}
+
+} // namespace
+
+// md4c stores plain C function pointers; give the callbacks C language
+// linkage so the assignment is well-formed. `static` keeps them file-local.
+extern "C" {
+
+static int mdEnterBlock(MD_BLOCKTYPE type, void* detail, void* userData) {
+    auto& b = *static_cast<Builder*>(userData);
+    switch (type) {
+    case MD_BLOCK_QUOTE:
+        b.quoteDepth++;
+        break;
+    case MD_BLOCK_UL:
+        b.lists.push_back({ .ordered = false, .next = 1 });
+        break;
+    case MD_BLOCK_OL: {
+        const auto* d = static_cast<MD_BLOCK_OL_DETAIL*>(detail);
+        b.lists.push_back({ .ordered = true, .next = static_cast<int>(d->start) });
+        break;
+    }
+    case MD_BLOCK_LI:
+        // Open the item block now: tight lists put the text straight in the
+        // LI (no inner MD_BLOCK_P), so there must be a block to receive it.
+        b.begin(MdBlockKind::ListItem);
+        if (!b.lists.empty()) {
+            auto& list = b.lists.back();
+            b.cur.listDepth = static_cast<int>(b.lists.size());
+            b.cur.listOrdered = list.ordered;
+            b.cur.listOrdinal = list.next++;
+            b.cur.listMarker = true;
+        }
+        break;
+    case MD_BLOCK_HR:
+        b.begin(MdBlockKind::Rule);
+        b.end();
+        break;
+    case MD_BLOCK_H: {
+        const auto* d = static_cast<MD_BLOCK_H_DETAIL*>(detail);
+        b.begin(MdBlockKind::Heading);
+        b.cur.headingLevel = d->level;
+        break;
+    }
+    case MD_BLOCK_CODE: {
+        const auto* d = static_cast<MD_BLOCK_CODE_DETAIL*>(detail);
+        b.begin(MdBlockKind::CodeFence);
+        b.cur.codeLang = attrStr(d->lang).Lower();
+        b.inCodeBlock = true;
+        break;
+    }
+    case MD_BLOCK_P:
+        if (b.open && b.cur.kind == MdBlockKind::ListItem) {
+            // Loose-list item: the paragraph fills the already-open item
+            // block. A second paragraph in the same item gets a line break.
+            if (!b.cur.inlines.empty()) {
+                b.addBreak(MdInlineKind::HardBreak);
+            }
+        } else {
+            b.begin(MdBlockKind::Paragraph);
+        }
+        break;
+    default:
+        // MD_BLOCK_DOC and the table blocks (tables extension is off) need
+        // no action.
+        break;
+    }
+    return 0;
+}
+
+static int mdLeaveBlock(MD_BLOCKTYPE type, void* /*detail*/, void* userData) {
+    auto& b = *static_cast<Builder*>(userData);
+    switch (type) {
+    case MD_BLOCK_QUOTE:
+        if (b.quoteDepth > 0) {
+            b.quoteDepth--;
+        }
+        break;
+    case MD_BLOCK_UL:
+    case MD_BLOCK_OL:
+        if (!b.lists.empty()) {
+            b.lists.pop_back();
+        }
+        break;
+    case MD_BLOCK_CODE:
+        b.inCodeBlock = false;
+        b.end();
+        break;
+    case MD_BLOCK_LI:
+    case MD_BLOCK_H:
+        b.end();
+        break;
+    case MD_BLOCK_P:
+        // A list item's paragraph stays open — the item is closed by LI.
+        if (b.open && b.cur.kind == MdBlockKind::Paragraph) {
+            b.end();
+        }
+        break;
+    default:
+        break;
+    }
+    return 0;
+}
+
+static int mdEnterSpan(MD_SPANTYPE type, void* detail, void* userData) {
+    auto& b = *static_cast<Builder*>(userData);
+    switch (type) {
+    case MD_SPAN_EM:
+        b.em++;
+        break;
+    case MD_SPAN_STRONG:
+        b.strong++;
+        break;
+    case MD_SPAN_CODE:
+        b.codeSpan++;
+        break;
+    case MD_SPAN_DEL:
+        b.del++;
+        break;
+    case MD_SPAN_A: {
+        const auto* d = static_cast<MD_SPAN_A_DETAIL*>(detail);
+        b.inLink = true;
+        b.linkUrl = attrStr(d->href);
+        break;
+    }
+    default:
+        // Images, LaTeX and wiki links are not rendered specially.
+        break;
+    }
+    return 0;
+}
+
+static int mdLeaveSpan(MD_SPANTYPE type, void* /*detail*/, void* userData) {
+    auto& b = *static_cast<Builder*>(userData);
+    switch (type) {
+    case MD_SPAN_EM:
+        b.em = std::max(0, b.em - 1);
+        break;
+    case MD_SPAN_STRONG:
+        b.strong = std::max(0, b.strong - 1);
+        break;
+    case MD_SPAN_CODE:
+        b.codeSpan = std::max(0, b.codeSpan - 1);
+        break;
+    case MD_SPAN_DEL:
+        b.del = std::max(0, b.del - 1);
+        break;
+    case MD_SPAN_A:
+        b.inLink = false;
+        b.linkUrl.clear();
+        break;
+    default:
+        break;
+    }
+    return 0;
+}
+
+static int mdText(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userData) {
+    auto& b = *static_cast<Builder*>(userData);
+    switch (type) {
+    case MD_TEXT_NORMAL:
+    case MD_TEXT_CODE:
+    case MD_TEXT_HTML: // MD_FLAG_NOHTML routes raw HTML here as plain text.
+    case MD_TEXT_LATEXMATH:
+        b.addText(mdStr(text, size));
+        break;
+    case MD_TEXT_ENTITY:
+        b.addText(decodeEntity(mdStr(text, size)));
+        break;
+    case MD_TEXT_NULLCHAR:
+        b.addText(wxString(wxUniChar(0xFFFD)));
+        break;
+    case MD_TEXT_BR:
+        b.addBreak(MdInlineKind::HardBreak);
+        break;
+    case MD_TEXT_SOFTBR:
+        b.addBreak(MdInlineKind::SoftBreak);
+        break;
+    default:
+        break;
+    }
+    return 0;
+}
+
+} // extern "C"
+
+auto fbide::parseMarkdown(const wxString& text) -> MdDoc {
+    Builder builder;
+
+    MD_PARSER parser {};
+    parser.abi_version = 0;
+    parser.flags = MD_FLAG_NOHTML | MD_FLAG_PERMISSIVEAUTOLINKS
+                 | MD_FLAG_STRIKETHROUGH | MD_FLAG_COLLAPSEWHITESPACE;
+    parser.enter_block = mdEnterBlock;
+    parser.leave_block = mdLeaveBlock;
+    parser.enter_span = mdEnterSpan;
+    parser.leave_span = mdLeaveSpan;
+    parser.text = mdText;
+
+    const auto utf8 = text.utf8_string();
+    md_parse(utf8.c_str(), static_cast<MD_SIZE>(utf8.size()), &parser, &builder);
+
+    // md4c closes every open block at end of input, so an unterminated fence
+    // is already flushed; this is a belt-and-braces guard.
+    builder.end();
+    return std::move(builder.doc);
+}

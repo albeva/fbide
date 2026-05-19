@@ -11,6 +11,7 @@ target_sources(fbide_lib
     ai/GeminiProvider.cpp
     ai/MockProvider.cpp
     ai/OllamaProvider.cpp
+    ai/chat/Markdown.cpp
     analyses/intellisense/IntellisenseService.cpp
     analyses/lexer/KeywordTables.cpp
     analyses/lexer/MemoryDocument.cpp
@@ -83,6 +84,7 @@ target_sources(fbide_lib
     ai/GeminiProvider.hpp
     ai/MockProvider.hpp
     ai/OllamaProvider.hpp
+    ai/chat/Markdown.hpp
     analyses/intellisense/IntellisenseService.hpp
     analyses/lexer/KeywordTables.hpp
     analyses/lexer/MemoryDocument.hpp
@@ -161,7 +163,7 @@ target_sources(fbide_lib
 
 # target settings
 target_link_libraries(fbide_lib
-    PRIVATE compiler_options compiler_warnings
+    PRIVATE compiler_options compiler_warnings md4c
 )
 linkWxWidgets(fbide_lib)
 

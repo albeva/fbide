@@ -22,6 +22,7 @@ add_executable(tests
     unit/DocumentIOTests.cpp
     unit/EncodingDetectorTests.cpp
     unit/FBSciLexerTests.cpp
+    unit/MarkdownTests.cpp
     unit/ReFormatterTests.cpp
     unit/StyleLexerTests.cpp
     unit/RunCommandTests.cpp
