@@ -136,8 +136,8 @@ AiChatView::~AiChatView() = default;
 
 void AiChatView::setMessages(std::vector<ChatViewMessage> messages) {
     m_messages = std::move(messages);
-    relayout();                                   // per-message caching re-lays only what actually changed
-    Scroll(0, (m_totalHeight / kScrollStep) + 1); // keep pinned to the newest
+    relayout();                                 // per-message caching re-lays only what actually changed
+    Scroll(0, m_totalHeight / kScrollStep + 1); // keep pinned to the newest
     Refresh();
 }
 
