@@ -17,6 +17,7 @@ add_executable(tests
     unit/main.cpp
     unit/AutoIndentTests.cpp
     unit/BasicTests.cpp
+    unit/ChatLayoutTests.cpp
     unit/CodeHighlighterTests.cpp
     unit/CompileCommandTests.cpp
     unit/ConfigManagerTests.cpp
