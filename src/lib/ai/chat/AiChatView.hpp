@@ -56,8 +56,23 @@ private:
         bool fromUser = false; ///< Role — drives bubble colour + side.
     };
 
+    /// What a client point hit.
+    struct HitResult {
+        enum class What : std::uint8_t { None,
+            Link,
+            CodeButton };
+        What what = What::None;
+        wxString url;            ///< Link target — `What::Link`.
+        int messageIndex = -1;   ///< Message hit.
+        int codeBlockIndex = -1; ///< Code block hit — `What::CodeButton`.
+        int buttonIndex = -1;    ///< 0 Copy, 1 Insert, 2 Run — `What::CodeButton`.
+    };
+
     void onPaint(wxPaintEvent& event);
     void onSize(wxSizeEvent& event);
+    void onMotion(wxMouseEvent& event);
+    void onLeftDown(wxMouseEvent& event);
+    void onLeaveWindow(wxMouseEvent& event);
 
     /// Re-lay every message for the current client width.
     void relayout();
@@ -65,6 +80,24 @@ private:
     /// Paint one laid-out message — its bubble and content. `originY` is the
     /// scroll offset, so document coordinates map to client coordinates.
     void paintMessage(wxGCDC& gc, const LaidMessage& message, int originY) const;
+
+    /// Paint the hover toolbar over the currently hovered code block.
+    void paintCodeToolbar(wxGCDC& gc, int originY) const;
+
+    /// Hit-test a client point against links and code-toolbar buttons.
+    [[nodiscard]] auto hitTest(const wxPoint& clientPoint) const -> HitResult;
+
+    /// Screen rect of a code-block toolbar button (0 Copy, 1 Insert, 2 Run).
+    [[nodiscard]] auto toolbarButtonRect(const LaidMessage& message, const LaidCodeBlock& block,
+        int button, int originY) const -> wxRect;
+
+    /// Refresh the hovered code block from a client point; repaint on change.
+    void updateHover(const wxPoint& clientPoint);
+
+    /// Toolbar actions on a code block's source.
+    void copyCode(const wxString& code) const;
+    void insertCode(const wxString& code) const;
+    void runCode(const wxString& code) const;
 
     /// Resolve the layout palette from the active theme + system colours.
     [[nodiscard]] auto palette() const -> ChatPalette;
@@ -85,6 +118,9 @@ private:
     std::vector<LaidMessage> m_items;               ///< One laid-out bubble per message.
     int m_layoutWidth = -1;                         ///< Client width m_items were built for.
     int m_totalHeight = 0;                          ///< Stacked height of all bubbles.
+    int m_hoverMessage = -1;                        ///< Hovered message (toolbar host).
+    int m_hoverCode = -1;                           ///< Hovered code block within it.
+    int m_hoverButton = -1;                         ///< Hovered toolbar button, or -1.
 };
 
 } // namespace fbide

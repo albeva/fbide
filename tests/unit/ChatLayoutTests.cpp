@@ -160,6 +160,26 @@ TEST_F(ChatLayoutTests, CodeBlockHasPaddingStripsAndCodeLines) {
     EXPECT_EQ(doc.height, 56);
 }
 
+TEST_F(ChatLayoutTests, CodeBlockRegionIsRecorded) {
+    const auto doc = layout("text\n\n```fb\nab\ncd\n```", 500);
+    ASSERT_EQ(doc.codeBlocks.size(), 1U);
+    EXPECT_EQ(doc.codeBlocks[0].code, "ab\ncd\n");
+    EXPECT_EQ(doc.codeBlocks[0].lang, "fb");
+    // The region spans every Code line of the block.
+    int codeTop = -1;
+    int codeBottom = 0;
+    for (const auto& line : doc.lines) {
+        if (line.kind == LineKind::Code) {
+            if (codeTop < 0) {
+                codeTop = line.y;
+            }
+            codeBottom = line.y + line.height;
+        }
+    }
+    EXPECT_EQ(doc.codeBlocks[0].y, codeTop);
+    EXPECT_EQ(doc.codeBlocks[0].height, codeBottom - codeTop);
+}
+
 TEST_F(ChatLayoutTests, CodeRunsAreMonospaceAndIndentedByPadding) {
     const auto doc = layout("```\nab\n```", 500);
     ASSERT_EQ(doc.lines.size(), 3U);

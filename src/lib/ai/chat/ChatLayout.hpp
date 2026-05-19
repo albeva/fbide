@@ -70,6 +70,15 @@ struct LinkTarget {
     wxString url;
 };
 
+/// A laid-out fenced code block — its region within the document plus the
+/// raw source, so the view can place a toolbar over it and act on the code.
+struct LaidCodeBlock {
+    wxString code;  ///< Raw fenced code, '\n'-separated.
+    wxString lang;  ///< Fence info string (lowercased).
+    int y = 0;      ///< Top offset within the document (includes padding).
+    int height = 0; ///< Total height including padding strips.
+};
+
 /// Colours the layout and painter need that are not carried on code runs.
 struct ChatPalette {
     wxColour text;         ///< Body prose colour.
@@ -83,8 +92,9 @@ struct ChatPalette {
 struct LaidOutDoc {
     std::vector<PaintLine> lines;
     std::vector<LinkTarget> links;
-    int width = 0;  ///< Width the document was laid out for.
-    int height = 0; ///< Total stacked height.
+    std::vector<LaidCodeBlock> codeBlocks; ///< Fenced code-block regions.
+    int width = 0;                         ///< Width the document was laid out for.
+    int height = 0;                        ///< Total stacked height.
 };
 
 /// Highlights a fenced code block — `code` body, `lang` fence tag — into

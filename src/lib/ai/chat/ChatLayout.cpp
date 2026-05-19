@@ -245,6 +245,7 @@ struct Engine {
     /// PaintLine per highlighted code line. Code lines are not wrapped.
     void emitCode(const MdBlock& block) {
         blockGap();
+        const int blockTop = y;
         const int left = block.quoteDepth * kQuoteIndent;
         const TextStyle mono { .monospace = true };
         const int lineHeight = measurer.lineHeight(mono);
@@ -290,6 +291,11 @@ struct Engine {
             .quoteDepth = block.quoteDepth,
             .runs = {} });
         y += kCodePadding;
+
+        out.codeBlocks.push_back({ .code = block.codeText,
+            .lang = block.codeLang,
+            .y = blockTop,
+            .height = y - blockTop });
     }
 
     /// Emit a horizontal rule line.
