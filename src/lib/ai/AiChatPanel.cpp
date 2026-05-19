@@ -209,7 +209,7 @@ void AiChatPanel::onAddContext(wxCommandEvent& /*event*/) {
         menu.AppendSubMenu(subMenu, "Includes");
     }
     menu.AppendSeparator();
-    menu.Append(ID_AttachBrowse, "Browse files…");
+    menu.Append(ID_AttachBrowse, wxString::FromUTF8("Browse files…"));
 
     const int selection = GetPopupMenuSelectionFromUser(menu);
     if (selection == wxID_NONE) {
@@ -270,7 +270,7 @@ void AiChatPanel::renderConversation() {
         // text as it arrives, or a placeholder until the first chunk.
         messages.push_back({
             .fromUser = false,
-            .markdown = m_streaming.empty() ? wxString("_Thinking…_") : m_streaming,
+            .markdown = m_streaming.empty() ? wxString::FromUTF8("_Thinking…_") : m_streaming,
         });
     }
     if (!m_lastError.empty()) {
