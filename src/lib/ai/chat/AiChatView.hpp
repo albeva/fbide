@@ -67,8 +67,6 @@ private:
     void onCopyCode(wxCommandEvent& event);   ///< EVT_BUTTON, ID_CodeCopy.
     void onInsertCode(wxCommandEvent& event); ///< EVT_BUTTON, ID_CodeInsert.
     void onRunCode(wxCommandEvent& event);    ///< EVT_BUTTON, ID_CodeRun.
-    void onScroll(wxScrollWinEvent& event);   ///< Reposition the bar on scroll.
-    void onMouseWheel(wxMouseEvent& event);   ///< Reposition the bar on wheel.
 
     /// Re-lay every message for the current client width.
     void relayout();
@@ -92,12 +90,6 @@ private:
     /// passing a negative index hides it.
     void showActionBar(int messageIndex, int codeIndex);
     void hideActionBar();
-
-    /// Place the bar at its sticky position over its current target code
-    /// block: anchored to the block's top-right when the top is visible,
-    /// clamped to the viewport top while the block extends above the view.
-    /// Hidden when the block is entirely outside the viewport.
-    void repositionActionBar();
 
     /// Resolve the layout palette from the active theme + system colours.
     [[nodiscard]] auto palette() const -> ChatPalette;
