@@ -173,11 +173,10 @@ target_link_libraries(fbide_lib
 )
 linkWxWidgets(fbide_lib)
 
-# nlohmann/json and maddy — header-only; added as SYSTEM includes so their
-# headers are exempt from the project's -Werror / /WX warning level.
+# nlohmann/json — header-only; added as a SYSTEM include so its headers are
+# exempt from the project's -Werror / /WX warning level.
 target_include_directories(fbide_lib SYSTEM PRIVATE
     "${nlohmann_json_SOURCE_DIR}/include"
-    "${maddy_SOURCE_DIR}/include"
 )
 
 # Scintilla/Lexilla for custom lexer
