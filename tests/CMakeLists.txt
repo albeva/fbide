@@ -85,7 +85,10 @@ target_include_directories(ui-tests SYSTEM PRIVATE
 target_include_directories(ui-tests PRIVATE "${CMAKE_BINARY_DIR}/configured_files/include")
 target_precompile_headers(ui-tests REUSE_FROM fbide_lib)
 
+# Label every ui-tests case `gui` so headless CI can exclude the whole
+# executable with `ctest -LE gui` — no fragile per-suite name matching.
 gtest_discover_tests(ui-tests
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     DISCOVERY_MODE PRE_TEST
+    PROPERTIES LABELS "gui"
 )
