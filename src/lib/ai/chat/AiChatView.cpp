@@ -101,86 +101,14 @@ private:
 
 } // namespace
 
-/// Inner scrolled paint surface — does all of the scrolling, layout and
-/// painting for the chat conversation. AiChatView holds one of these and
-/// forwards its public API; the canvas is hidden from external headers.
-class AiChatView::Canvas final : public wxScrolled<wxWindow> {
-    // The enclosing panel forwards the action bar's events into Canvas — let
-    // it reach the private handlers.
-    friend class AiChatView;
-
-public:
-    NO_COPY_AND_MOVE(Canvas)
-
-    Canvas(wxWindow* parent, Context& ctx);
-    ~Canvas() override;
-
-    /// Replace the whole conversation and re-render.
-    void setMessages(std::vector<ChatViewMessage> messages);
-    /// Re-read theme/keyword config, then re-lay and repaint.
-    void refreshTheme();
-
-private:
-    /// A message laid out inside its bubble.
-    struct LaidMessage {
-        LaidOutDoc doc;        ///< Wrapped content.
-        wxRect bubble;         ///< Bubble rect in document coordinates.
-        wxString markdown;     ///< Source markdown — layout cache key.
-        int contentWidth = 0;  ///< Content width inside the bubble padding.
-        bool fromUser = false; ///< Role — drives bubble colour + side.
-    };
-
-    void onPaint(wxPaintEvent& event);
-    void onSize(wxSizeEvent& event);
-    void onMotion(wxMouseEvent& event);
-    void onLeftDown(wxMouseEvent& event);
-    void onLeaveWindow(wxMouseEvent& event);
-    void onBarLeave(wxCommandEvent& event);
-    void onCopyCode(wxCommandEvent& event);
-    void onInsertCode(wxCommandEvent& event);
-    void onRunCode(wxCommandEvent& event);
-    void onScroll(wxScrollWinEvent& event);
-
-    void relayout();
-    void paintMessage(
-        wxGCDC& gc, const LaidMessage& message, int originY, int updateTop, int updateBottom
-    ) const;
-    [[nodiscard]] auto linkAt(const wxPoint& clientPoint) const -> wxString;
-    [[nodiscard]] auto codeBlockAt(const wxPoint& clientPoint) const -> std::pair<int, int>;
-    void showActionBar(int messageIndex, int codeIndex);
-    void hideActionBar();
-    [[nodiscard]] auto palette() const -> ChatPalette;
-    [[nodiscard]] auto bubbleColour(bool fromUser) const -> wxColour;
-    [[nodiscard]] auto highlightFence(const wxString& code, const wxString& lang, bool reformat) const
-        -> std::vector<CodeLine>;
-
-    Context& m_ctx;
-    std::unique_ptr<CodeHighlighter> m_highlighter;
-    Unowned<CodeActionBar> m_actionBar;
-    wxBitmap m_buffer;
-    wxFont m_bodyFont;
-    wxFont m_monoFont;
-    std::vector<ChatViewMessage> m_messages;
-    std::vector<LaidMessage> m_items;
-    int m_layoutWidth = -1;
-    int m_totalHeight = 0;
-    int m_barMessage = -1;
-    int m_barCode = -1;
-
-    wxDECLARE_EVENT_TABLE();
-};
-
 // clang-format off
-wxBEGIN_EVENT_TABLE(AiChatView::Canvas, wxScrolled<wxWindow>)
-    EVT_PAINT(AiChatView::Canvas::onPaint)
-    EVT_SIZE(AiChatView::Canvas::onSize)
-    EVT_MOTION(AiChatView::Canvas::onMotion)
-    EVT_LEFT_DOWN(AiChatView::Canvas::onLeftDown)
-    EVT_LEAVE_WINDOW(AiChatView::Canvas::onLeaveWindow)
-    EVT_SCROLLWIN(AiChatView::Canvas::onScroll)
-wxEND_EVENT_TABLE()
-
-wxBEGIN_EVENT_TABLE(AiChatView, wxPanel)
+wxBEGIN_EVENT_TABLE(AiChatView, wxScrolled)
+    EVT_PAINT(AiChatView::onPaint)
+    EVT_SIZE(AiChatView::onSize)
+    EVT_MOTION(AiChatView::onMotion)
+    EVT_LEFT_DOWN(AiChatView::onLeftDown)
+    EVT_LEAVE_WINDOW(AiChatView::onLeaveWindow)
+    EVT_SCROLLWIN(AiChatView::onScroll)
     EVT_BUTTON(ID_CodeCopy, AiChatView::onCopyCode)
     EVT_BUTTON(ID_CodeInsert, AiChatView::onInsertCode)
     EVT_BUTTON(ID_CodeRun, AiChatView::onRunCode)
@@ -188,9 +116,7 @@ wxBEGIN_EVENT_TABLE(AiChatView, wxPanel)
 wxEND_EVENT_TABLE()
 // clang-format on
 
-AiChatView::Canvas::Canvas(wxWindow* parent, Context& ctx)
-// wxCLIP_CHILDREN: the action bar is a child window over custom-painted
-// content — clipping keeps our paint out of its region, so it does not flash.
+AiChatView::AiChatView(wxWindow* parent, Context& ctx)
 : wxScrolled(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL | wxCLIP_CHILDREN)
 , m_ctx(ctx) {
     wxScrolled::SetBackgroundStyle(wxBG_STYLE_PAINT);
@@ -198,25 +124,25 @@ AiChatView::Canvas::Canvas(wxWindow* parent, Context& ctx)
 
     m_bodyFont = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
     m_monoFont = m_ctx.getTheme().getResolvedFont();
-
     m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
 
-    // One reusable action bar, shown over whichever code block is hovered.
-    // It emits EVT_CODE_ACTION / EVT_CODE_BAR_LEAVE — caught by the event table.
+    // The action bar starts attached — its parent is the scroll surface so
+    // it scrolls with the content. showActionBar reparents it to `this`
+    // (the outer panel) when the snippet's top edge goes above the view.
     m_actionBar = make_unowned<CodeActionBar>(this, m_ctx);
     m_actionBar->Hide();
 }
 
-AiChatView::Canvas::~Canvas() = default;
+AiChatView::~AiChatView() = default;
 
-void AiChatView::Canvas::setMessages(std::vector<ChatViewMessage> messages) {
+void AiChatView::setMessages(std::vector<ChatViewMessage> messages) {
     m_messages = std::move(messages);
-    relayout();                                 // per-message caching re-lays only what actually changed
-    Scroll(0, m_totalHeight / kScrollStep + 1); // keep pinned to the newest
+    relayout();                                                // per-message caching re-lays only what actually changed
+    Scroll(0, m_totalHeight / kScrollStep + 1);  // keep pinned to the newest
     Refresh();
 }
 
-void AiChatView::Canvas::refreshTheme() {
+void AiChatView::refreshTheme() {
     // Keyword groups may have changed — rebuild the configured lexer.
     m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
     m_monoFont = m_ctx.getTheme().getResolvedFont();
@@ -226,14 +152,14 @@ void AiChatView::Canvas::refreshTheme() {
     Refresh();
 }
 
-void AiChatView::Canvas::onSize(wxSizeEvent& event) {
+void AiChatView::onSize(wxSizeEvent& event) {
     hideActionBar(); // bubble positions shift — re-hover brings the bar back
     relayout();
     Refresh();
     event.Skip();
 }
 
-void AiChatView::Canvas::relayout() {
+void AiChatView::relayout() {
     const int panelWidth = GetClientSize().GetWidth();
     const bool widthChanged = panelWidth != m_layoutWidth;
 
@@ -302,7 +228,7 @@ void AiChatView::Canvas::relayout() {
     SetVirtualSize(panelWidth, m_totalHeight);
 }
 
-void AiChatView::Canvas::onPaint(wxPaintEvent& /*event*/) {
+void AiChatView::onPaint(wxPaintEvent& /*event*/) {
     wxPaintDC paintDc(this);
     const wxSize size = GetClientSize();
     if (size.GetWidth() <= 0 || size.GetHeight() <= 0) {
@@ -333,7 +259,7 @@ void AiChatView::Canvas::onPaint(wxPaintEvent& /*event*/) {
 
     // Bubbles are stacked in document order — binary-search to the first one
     // that can intersect the dirty band rather than scanning the whole list.
-    auto first = std::lower_bound(
+    const auto first = std::lower_bound(
         m_items.begin(), m_items.end(), regionTopDoc,
         [](const LaidMessage& message, const int top) { return message.bubble.GetBottom() < top; }
     );
@@ -347,7 +273,7 @@ void AiChatView::Canvas::onPaint(wxPaintEvent& /*event*/) {
     paintDc.Blit(update.x, update.y, update.width, update.height, &memoryDc, update.x, update.y);
 }
 
-void AiChatView::Canvas::paintMessage(
+void AiChatView::paintMessage(
     wxGCDC& gc,
     const LaidMessage& message,
     const int originY,
@@ -421,7 +347,7 @@ void AiChatView::Canvas::paintMessage(
     }
 }
 
-auto AiChatView::Canvas::bubbleColour(const bool fromUser) const -> wxColour {
+auto AiChatView::bubbleColour(const bool fromUser) const -> wxColour {
     const wxColour windowBg = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
     if (fromUser) {
         // Accent-tinted toward the system highlight colour.
@@ -431,7 +357,7 @@ auto AiChatView::Canvas::bubbleColour(const bool fromUser) const -> wxColour {
     return blend(windowBg, wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT), 0.07);
 }
 
-auto AiChatView::Canvas::palette() const -> ChatPalette {
+auto AiChatView::palette() const -> ChatPalette {
     const auto& theme = m_ctx.getTheme();
     const wxColour separator = theme.getSeparator();
     return {
@@ -443,7 +369,7 @@ auto AiChatView::Canvas::palette() const -> ChatPalette {
     };
 }
 
-auto AiChatView::Canvas::highlightFence(const wxString& code, const wxString& lang, const bool reformat) const
+auto AiChatView::highlightFence(const wxString& code, const wxString& lang, const bool reformat) const
     -> std::vector<CodeLine> {
     if (isFreeBasicTag(lang)) {
         return m_highlighter->highlight(code, reformat);
@@ -476,7 +402,7 @@ auto AiChatView::Canvas::highlightFence(const wxString& code, const wxString& la
     return lines;
 }
 
-auto AiChatView::Canvas::linkAt(const wxPoint& clientPoint) const -> wxString {
+auto AiChatView::linkAt(const wxPoint& clientPoint) const -> wxString {
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
     const wxPoint docPoint(clientPoint.x, clientPoint.y + originY);
 
@@ -502,7 +428,7 @@ auto AiChatView::Canvas::linkAt(const wxPoint& clientPoint) const -> wxString {
     return {};
 }
 
-auto AiChatView::Canvas::codeBlockAt(const wxPoint& clientPoint) const -> std::pair<int, int> {
+auto AiChatView::codeBlockAt(const wxPoint& clientPoint) const -> std::pair<int, int> {
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
     const wxPoint docPoint(clientPoint.x, clientPoint.y + originY);
 
@@ -525,7 +451,7 @@ auto AiChatView::Canvas::codeBlockAt(const wxPoint& clientPoint) const -> std::p
     return { -1, -1 };
 }
 
-void AiChatView::Canvas::showActionBar(const int messageIndex, const int codeIndex) {
+void AiChatView::showActionBar(const int messageIndex, const int codeIndex) {
     if (messageIndex < 0 || codeIndex < 0) {
         hideActionBar();
         return;
@@ -543,31 +469,22 @@ void AiChatView::Canvas::showActionBar(const int messageIndex, const int codeInd
     const int xClient = codeRight - barSize.GetWidth() - kActionBarInset;
 
     // Attached when the snippet's top edge is inside the visible area; the
-    // bar then lives in the scrolled canvas and scrolls with the content.
+    // bar then lives in the scroll surface and scrolls with the content.
     // Detached when the top has scrolled above the viewport — reparent to
-    // the outer panel so the bar floats just below the canvas top edge.
+    // this panel so the bar floats just below the scroll surface's top edge.
     const bool attached = codeTopClient >= 0;
-    wxWindow* desiredParent = attached ? static_cast<wxWindow*>(this) : GetParent();
-
-    if (m_actionBar->GetParent() != desiredParent) {
-        const bool wasShown = m_actionBar->IsShown();
-        if (wasShown) {
-            m_actionBar->Hide();
-        }
-        m_actionBar->Reparent(desiredParent);
-    }
 
     int x = 0;
     int y = 0;
     if (attached) {
-        // Position is in the canvas's client coordinates.
+        // Position is in the scroll surface's client coordinates.
         x = xClient;
         y = codeTopClient + kActionBarInset;
     } else {
-        // Position is in the outer panel's client coordinates. Keep the same
-        // horizontal placement, drop the vertical to just below the canvas's
-        // own top inside the panel.
-        const wxPoint inPanel = GetParent()->ScreenToClient(ClientToScreen(wxPoint(xClient, 0)));
+        // Position is in this panel's client coordinates. Keep the same
+        // horizontal placement, drop the vertical to just below the scroll
+        // surface's own top inside the panel.
+        const wxPoint inPanel = ScreenToClient(ClientToScreen(wxPoint(xClient, 0)));
         x = inPanel.x;
         y = GetPosition().y + kActionBarInset;
     }
@@ -576,10 +493,10 @@ void AiChatView::Canvas::showActionBar(const int messageIndex, const int codeInd
     if (!m_actionBar->IsShown()) {
         m_actionBar->Show();
     }
-    m_actionBar->Raise();
+    // m_actionBar->Raise();
 }
 
-void AiChatView::Canvas::onScroll(wxScrollWinEvent& event) {
+void AiChatView::onScroll(wxScrollWinEvent& event) {
     event.Skip(); // let wxScrolled perform the actual scroll first
     if (m_barMessage >= 0 && m_barCode >= 0) {
         // Re-evaluate the mode once the scroll has happened — the snippet's
@@ -588,7 +505,7 @@ void AiChatView::Canvas::onScroll(wxScrollWinEvent& event) {
     }
 }
 
-void AiChatView::Canvas::hideActionBar() {
+void AiChatView::hideActionBar() {
     m_barMessage = -1;
     m_barCode = -1;
     if (m_actionBar->IsShown()) {
@@ -596,7 +513,7 @@ void AiChatView::Canvas::hideActionBar() {
     }
 }
 
-void AiChatView::Canvas::onMotion(wxMouseEvent& event) {
+void AiChatView::onMotion(wxMouseEvent& event) {
     const wxPoint pos = event.GetPosition();
     SetCursor(linkAt(pos).empty() ? wxCursor(wxCURSOR_ARROW) : wxCursor(wxCURSOR_HAND));
 
@@ -609,7 +526,7 @@ void AiChatView::Canvas::onMotion(wxMouseEvent& event) {
     event.Skip();
 }
 
-void AiChatView::Canvas::onLeftDown(wxMouseEvent& event) {
+void AiChatView::onLeftDown(wxMouseEvent& event) {
     const wxString url = linkAt(event.GetPosition());
     if (!url.empty()) {
         wxLaunchDefaultBrowser(url);
@@ -617,7 +534,7 @@ void AiChatView::Canvas::onLeftDown(wxMouseEvent& event) {
     event.Skip();
 }
 
-void AiChatView::Canvas::onLeaveWindow(wxMouseEvent& event) {
+void AiChatView::onLeaveWindow(wxMouseEvent& event) {
     // The pointer may have moved onto the action bar (a child window) — keep
     // the bar shown in that case.
     if (m_actionBar->IsShown()) {
@@ -629,7 +546,7 @@ void AiChatView::Canvas::onLeaveWindow(wxMouseEvent& event) {
     event.Skip();
 }
 
-void AiChatView::Canvas::onBarLeave(wxCommandEvent& /*event*/) {
+void AiChatView::onBarLeave(wxCommandEvent& /*event*/) {
     // The bar reported the pointer left it — drop the bar unless the pointer
     // moved back onto a code block.
     if (codeBlockAt(ScreenToClient(wxGetMousePosition())).first < 0) {
@@ -637,7 +554,7 @@ void AiChatView::Canvas::onBarLeave(wxCommandEvent& /*event*/) {
     }
 }
 
-void AiChatView::Canvas::onCopyCode(wxCommandEvent& /*event*/) {
+void AiChatView::onCopyCode(wxCommandEvent& /*event*/) {
     if (m_barMessage < 0 || m_barCode < 0) {
         return;
     }
@@ -650,7 +567,7 @@ void AiChatView::Canvas::onCopyCode(wxCommandEvent& /*event*/) {
     }
 }
 
-void AiChatView::Canvas::onInsertCode(wxCommandEvent& /*event*/) {
+void AiChatView::onInsertCode(wxCommandEvent& /*event*/) {
     if (m_barMessage < 0 || m_barCode < 0) {
         return;
     }
@@ -669,7 +586,7 @@ void AiChatView::Canvas::onInsertCode(wxCommandEvent& /*event*/) {
     editor->EndUndoAction();
 }
 
-void AiChatView::Canvas::onRunCode(wxCommandEvent& /*event*/) {
+void AiChatView::onRunCode(wxCommandEvent& /*event*/) {
     if (m_barMessage < 0 || m_barCode < 0) {
         return;
     }
@@ -682,41 +599,3 @@ void AiChatView::Canvas::onRunCode(wxCommandEvent& /*event*/) {
     m_ctx.getCompilerManager().quickRun();
 }
 
-// ---------------------------------------------------------------------------
-// AiChatView — the wxPanel wrapper around the scrolled canvas.
-// ---------------------------------------------------------------------------
-
-AiChatView::AiChatView(wxWindow* parent, Context& ctx)
-: wxPanel(parent, wxID_ANY) {
-    m_canvas = make_unowned<Canvas>(this, ctx);
-
-    auto sizer = make_unowned<wxBoxSizer>(wxVERTICAL);
-    sizer->Add(m_canvas, wxSizerFlags(1).Expand());
-    SetSizer(sizer);
-}
-
-AiChatView::~AiChatView() = default;
-
-void AiChatView::setMessages(std::vector<ChatViewMessage> messages) {
-    m_canvas->setMessages(std::move(messages));
-}
-
-void AiChatView::refreshTheme() {
-    m_canvas->refreshTheme();
-}
-
-void AiChatView::onCopyCode(wxCommandEvent& event) {
-    m_canvas->onCopyCode(event);
-}
-
-void AiChatView::onInsertCode(wxCommandEvent& event) {
-    m_canvas->onInsertCode(event);
-}
-
-void AiChatView::onRunCode(wxCommandEvent& event) {
-    m_canvas->onRunCode(event);
-}
-
-void AiChatView::onBarLeave(wxCommandEvent& event) {
-    m_canvas->onBarLeave(event);
-}
