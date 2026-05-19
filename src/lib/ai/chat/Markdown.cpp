@@ -124,7 +124,7 @@ auto decodeEntity(const wxString& entity) -> wxString {
         return "'";
     }
     if (entity == "&nbsp;") {
-        return wxString(wxUniChar(0x00A0));
+        return { wxUniChar(0x00A0) };
     }
     // Numeric: &#1234; or &#x12AB;
     if (entity.StartsWith("&#") && entity.EndsWith(";")) {
@@ -132,7 +132,7 @@ auto decodeEntity(const wxString& entity) -> wxString {
         long value = 0;
         const bool hex = digits.StartsWith("x") || digits.StartsWith("X");
         if ((hex ? digits.Mid(1).ToLong(&value, 16) : digits.ToLong(&value)) && value > 0) {
-            return wxString(wxUniChar(static_cast<int>(value)));
+            return { wxUniChar(static_cast<int>(value)) };
         }
     }
     return entity;
@@ -144,58 +144,58 @@ auto decodeEntity(const wxString& entity) -> wxString {
 // linkage so the assignment is well-formed. `static` keeps them file-local.
 extern "C" {
 
-static int mdEnterBlock(MD_BLOCKTYPE type, void* detail, void* userData) {
-    auto& b = *static_cast<Builder*>(userData);
+static int mdEnterBlock(const MD_BLOCKTYPE type, void* detail, void* userData) {
+    auto& builder = *static_cast<Builder*>(userData);
     switch (type) {
     case MD_BLOCK_QUOTE:
-        b.quoteDepth++;
+        builder.quoteDepth++;
         break;
     case MD_BLOCK_UL:
-        b.lists.push_back({ .ordered = false, .next = 1 });
+        builder.lists.push_back({ .ordered = false, .next = 1 });
         break;
     case MD_BLOCK_OL: {
         const auto* d = static_cast<MD_BLOCK_OL_DETAIL*>(detail);
-        b.lists.push_back({ .ordered = true, .next = static_cast<int>(d->start) });
+        builder.lists.push_back({ .ordered = true, .next = static_cast<int>(d->start) });
         break;
     }
     case MD_BLOCK_LI:
         // Open the item block now: tight lists put the text straight in the
         // LI (no inner MD_BLOCK_P), so there must be a block to receive it.
-        b.begin(MdBlockKind::ListItem);
-        if (!b.lists.empty()) {
-            auto& list = b.lists.back();
-            b.cur.listDepth = static_cast<int>(b.lists.size());
-            b.cur.listOrdered = list.ordered;
-            b.cur.listOrdinal = list.next++;
-            b.cur.listMarker = true;
+        builder.begin(MdBlockKind::ListItem);
+        if (!builder.lists.empty()) {
+            auto& list = builder.lists.back();
+            builder.cur.listDepth = static_cast<int>(builder.lists.size());
+            builder.cur.listOrdered = list.ordered;
+            builder.cur.listOrdinal = list.next++;
+            builder.cur.listMarker = true;
         }
         break;
     case MD_BLOCK_HR:
-        b.begin(MdBlockKind::Rule);
-        b.end();
+        builder.begin(MdBlockKind::Rule);
+        builder.end();
         break;
     case MD_BLOCK_H: {
-        const auto* d = static_cast<MD_BLOCK_H_DETAIL*>(detail);
-        b.begin(MdBlockKind::Heading);
-        b.cur.headingLevel = d->level;
+        const auto* hDetail = static_cast<MD_BLOCK_H_DETAIL*>(detail);
+        builder.begin(MdBlockKind::Heading);
+        builder.cur.headingLevel = hDetail->level;
         break;
     }
     case MD_BLOCK_CODE: {
-        const auto* d = static_cast<MD_BLOCK_CODE_DETAIL*>(detail);
-        b.begin(MdBlockKind::CodeFence);
-        b.cur.codeLang = attrStr(d->lang).Lower();
-        b.inCodeBlock = true;
+        const auto* codeDetail = static_cast<MD_BLOCK_CODE_DETAIL*>(detail);
+        builder.begin(MdBlockKind::CodeFence);
+        builder.cur.codeLang = attrStr(codeDetail->lang).Lower();
+        builder.inCodeBlock = true;
         break;
     }
     case MD_BLOCK_P:
-        if (b.open && b.cur.kind == MdBlockKind::ListItem) {
+        if (builder.open && builder.cur.kind == MdBlockKind::ListItem) {
             // Loose-list item: the paragraph fills the already-open item
             // block. A second paragraph in the same item gets a line break.
-            if (!b.cur.inlines.empty()) {
-                b.addBreak(MdInlineKind::HardBreak);
+            if (!builder.cur.inlines.empty()) {
+                builder.addBreak(MdInlineKind::HardBreak);
             }
         } else {
-            b.begin(MdBlockKind::Paragraph);
+            builder.begin(MdBlockKind::Paragraph);
         }
         break;
     default:
@@ -206,32 +206,32 @@ static int mdEnterBlock(MD_BLOCKTYPE type, void* detail, void* userData) {
     return 0;
 }
 
-static int mdLeaveBlock(MD_BLOCKTYPE type, void* /*detail*/, void* userData) {
-    auto& b = *static_cast<Builder*>(userData);
+static int mdLeaveBlock(const MD_BLOCKTYPE type, void* /*detail*/, void* userData) {
+    auto& builder = *static_cast<Builder*>(userData);
     switch (type) {
     case MD_BLOCK_QUOTE:
-        if (b.quoteDepth > 0) {
-            b.quoteDepth--;
+        if (builder.quoteDepth > 0) {
+            builder.quoteDepth--;
         }
         break;
     case MD_BLOCK_UL:
     case MD_BLOCK_OL:
-        if (!b.lists.empty()) {
-            b.lists.pop_back();
+        if (!builder.lists.empty()) {
+            builder.lists.pop_back();
         }
         break;
     case MD_BLOCK_CODE:
-        b.inCodeBlock = false;
-        b.end();
+        builder.inCodeBlock = false;
+        builder.end();
         break;
     case MD_BLOCK_LI:
     case MD_BLOCK_H:
-        b.end();
+        builder.end();
         break;
     case MD_BLOCK_P:
         // A list item's paragraph stays open — the item is closed by LI.
-        if (b.open && b.cur.kind == MdBlockKind::Paragraph) {
-            b.end();
+        if (builder.open && builder.cur.kind == MdBlockKind::Paragraph) {
+            builder.end();
         }
         break;
     default:
@@ -240,25 +240,25 @@ static int mdLeaveBlock(MD_BLOCKTYPE type, void* /*detail*/, void* userData) {
     return 0;
 }
 
-static int mdEnterSpan(MD_SPANTYPE type, void* detail, void* userData) {
-    auto& b = *static_cast<Builder*>(userData);
+static int mdEnterSpan(const MD_SPANTYPE type, void* detail, void* userData) {
+    auto& builder = *static_cast<Builder*>(userData);
     switch (type) {
     case MD_SPAN_EM:
-        b.em++;
+        builder.em++;
         break;
     case MD_SPAN_STRONG:
-        b.strong++;
+        builder.strong++;
         break;
     case MD_SPAN_CODE:
-        b.codeSpan++;
+        builder.codeSpan++;
         break;
     case MD_SPAN_DEL:
-        b.del++;
+        builder.del++;
         break;
     case MD_SPAN_A: {
         const auto* d = static_cast<MD_SPAN_A_DETAIL*>(detail);
-        b.inLink = true;
-        b.linkUrl = attrStr(d->href);
+        builder.inLink = true;
+        builder.linkUrl = attrStr(d->href);
         break;
     }
     default:
@@ -268,24 +268,24 @@ static int mdEnterSpan(MD_SPANTYPE type, void* detail, void* userData) {
     return 0;
 }
 
-static int mdLeaveSpan(MD_SPANTYPE type, void* /*detail*/, void* userData) {
-    auto& b = *static_cast<Builder*>(userData);
+static int mdLeaveSpan(const MD_SPANTYPE type, void* /*detail*/, void* userData) {
+    auto& builder = *static_cast<Builder*>(userData);
     switch (type) {
     case MD_SPAN_EM:
-        b.em = std::max(0, b.em - 1);
+        builder.em = std::max(0, builder.em - 1);
         break;
     case MD_SPAN_STRONG:
-        b.strong = std::max(0, b.strong - 1);
+        builder.strong = std::max(0, builder.strong - 1);
         break;
     case MD_SPAN_CODE:
-        b.codeSpan = std::max(0, b.codeSpan - 1);
+        builder.codeSpan = std::max(0, builder.codeSpan - 1);
         break;
     case MD_SPAN_DEL:
-        b.del = std::max(0, b.del - 1);
+        builder.del = std::max(0, builder.del - 1);
         break;
     case MD_SPAN_A:
-        b.inLink = false;
-        b.linkUrl.clear();
+        builder.inLink = false;
+        builder.linkUrl.clear();
         break;
     default:
         break;
@@ -293,26 +293,26 @@ static int mdLeaveSpan(MD_SPANTYPE type, void* /*detail*/, void* userData) {
     return 0;
 }
 
-static int mdText(MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userData) {
-    auto& b = *static_cast<Builder*>(userData);
+static int mdText(const MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userData) {
+    auto& builder = *static_cast<Builder*>(userData);
     switch (type) {
     case MD_TEXT_NORMAL:
     case MD_TEXT_CODE:
     case MD_TEXT_HTML: // MD_FLAG_NOHTML routes raw HTML here as plain text.
     case MD_TEXT_LATEXMATH:
-        b.addText(mdStr(text, size));
+        builder.addText(mdStr(text, size));
         break;
     case MD_TEXT_ENTITY:
-        b.addText(decodeEntity(mdStr(text, size)));
+        builder.addText(decodeEntity(mdStr(text, size)));
         break;
     case MD_TEXT_NULLCHAR:
-        b.addText(wxString(wxUniChar(0xFFFD)));
+        builder.addText(wxString(wxUniChar(0xFFFD)));
         break;
     case MD_TEXT_BR:
-        b.addBreak(MdInlineKind::HardBreak);
+        builder.addBreak(MdInlineKind::HardBreak);
         break;
     case MD_TEXT_SOFTBR:
-        b.addBreak(MdInlineKind::SoftBreak);
+        builder.addBreak(MdInlineKind::SoftBreak);
         break;
     default:
         break;

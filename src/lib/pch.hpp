@@ -34,9 +34,14 @@
 #include <wx/apptrait.h>
 #include <wx/artprov.h>
 #include <wx/aui/aui.h>
+#include <wx/bmpbuttn.h>
 #include <wx/clipbrd.h>
 #include <wx/colordlg.h>
 #include <wx/convauto.h>
+#include <wx/dataobj.h>
+#include <wx/dcclient.h>
+#include <wx/dcgraph.h>
+#include <wx/dcmemory.h>
 #include <wx/dir.h>
 #include <wx/fdrepdlg.h>
 #include <wx/file.h>
@@ -45,12 +50,15 @@
 #include <wx/filename.h>
 #include <wx/fontenum.h>
 #include <wx/hyperlink.h>
+#include <wx/image.h>
 #include <wx/imaglist.h>
 #include <wx/ipc.h>
 #include <wx/listctrl.h>
 #include <wx/log.h>
 #include <wx/notebook.h>
 #include <wx/process.h>
+#include <wx/settings.h>
+#include <wx/sizer.h>
 #include <wx/snglinst.h>
 #include <wx/spinctrl.h>
 #include <wx/splash.h>
@@ -64,6 +72,7 @@
 #include <wx/tokenzr.h>
 #include <wx/treectrl.h>
 #include <wx/txtstrm.h>
+#include <wx/utils.h>
 #include <wx/wfstream.h>
 #include <wx/wupdlock.h>
 
