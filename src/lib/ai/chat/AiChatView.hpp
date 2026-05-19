@@ -25,14 +25,12 @@ struct ChatViewMessage {
 /**
  * AI conversation view.
  *
- * A `wxPanel` that hosts an inner `wxScrolled<wxWindow>` as the scroll
- * surface. AiChatView itself owns the conversation model, paints the
- * messages into the scroll surface and manages the floating code action
- * bar. Anything we need to overlay on the conversation (the action bar)
- * sits as a sibling of the scroll surface inside this panel, so it can
- * stay put while the surface scrolls.
+ * A `wxScrolled<wxWindow>` that owns the conversation model, paints the
+ * messages and manages a floating code action bar shown over the hovered
+ * code block. The action bar is a child of this window, so it scrolls
+ * with the content.
  *
- * **Owns:** the scroll surface, the action bar and the code highlighter.
+ * **Owns:** the action bar and the code highlighter.
  * **Owned by:** `AiChatPanel` (wx-parented).
  * **Threading:** UI thread only.
  */
@@ -59,8 +57,6 @@ private:
         bool fromUser = false; ///< Role — drives bubble colour + side.
     };
 
-    // Scroll-surface events arrive here via the pushed handler on
-    // `m_scrollView` — see the ctor.
     void onPaint(wxPaintEvent& event);
     void onSize(wxSizeEvent& event);
     void onMotion(wxMouseEvent& event);
@@ -74,7 +70,7 @@ private:
     void onRunCode(wxCommandEvent& event);
     void onBarLeave(wxCommandEvent& event);
 
-    /// Re-lay every message for the current scroll-surface width.
+    /// Re-lay every message for the current view width.
     void relayout();
 
     /// Paint one laid-out message — its bubble and content. `originY` is the
@@ -84,16 +80,17 @@ private:
         wxGCDC& gc, const LaidMessage& message, int originY, int updateTop, int updateBottom
     ) const;
 
-    /// Link target under a scroll-surface client point, or empty when none.
+    /// Link target under a client point, or empty when none.
     [[nodiscard]] auto linkAt(const wxPoint& clientPoint) const -> wxString;
 
-    /// (message, code-block) indices of the code block under a scroll-surface
-    /// client point, or {-1, -1} when none.
+    /// (message, code-block) indices of the code block under a client point,
+    /// or {-1, -1} when none.
     [[nodiscard]] auto codeBlockAt(const wxPoint& clientPoint) const -> std::pair<int, int>;
 
-    /// Show the action bar over code block `codeIndex` of `messageIndex`,
-    /// in attached or detached mode as the snippet's top edge dictates.
-    /// A negative index hides it.
+    /// Show the action bar over code block `codeIndex` of `messageIndex`.
+    /// Bar tracks the snippet while its top edge is visible, then pins to
+    /// the top of the visible area once the snippet has scrolled past. A
+    /// negative index hides it.
     void showActionBar(int messageIndex, int codeIndex);
     void hideActionBar();
 
@@ -114,7 +111,7 @@ private:
     wxFont m_monoFont;                              ///< Base monospace (code) font.
     std::vector<ChatViewMessage> m_messages;        ///< Conversation source.
     std::vector<LaidMessage> m_items;               ///< One laid-out bubble per message.
-    int m_layoutWidth = -1;                         ///< Scroll-surface width m_items were built for.
+    int m_layoutWidth = -1;                         ///< View width m_items were built for.
     int m_totalHeight = 0;                          ///< Stacked height of all bubbles.
     int m_barMessage = -1;                          ///< Message the action bar targets.
     int m_barCode = -1;                             ///< Code block the action bar targets.

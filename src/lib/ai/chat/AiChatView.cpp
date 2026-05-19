@@ -126,9 +126,8 @@ AiChatView::AiChatView(wxWindow* parent, Context& ctx)
     m_monoFont = m_ctx.getTheme().getResolvedFont();
     m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
 
-    // The action bar starts attached — its parent is the scroll surface so
-    // it scrolls with the content. showActionBar reparents it to `this`
-    // (the outer panel) when the snippet's top edge goes above the view.
+    // One reusable action bar, shown over whichever code block is hovered.
+    // It is a child of this scroll surface, so it scrolls with the content.
     m_actionBar = make_unowned<CodeActionBar>(this, m_ctx);
     m_actionBar->Hide();
 }
@@ -469,21 +468,22 @@ void AiChatView::showActionBar(const int messageIndex, const int codeIndex) {
     const int xClient = codeRight - barSize.GetWidth() - kActionBarInset;
 
     // Attached when the snippet's top edge is inside the visible area; the
-    // bar then lives in the scroll surface and scrolls with the content.
-    // Detached when the top has scrolled above the viewport — reparent to
-    // this panel so the bar floats just below the scroll surface's top edge.
+    // bar tracks the code block and scrolls with the content. Detached when
+    // the top has scrolled above the viewport — pin the bar just below the
+    // scroll surface's own top so it stays visible while the user scrolls
+    // through a long snippet.
     const bool attached = codeTopClient >= 0;
 
     int x = 0;
     int y = 0;
     if (attached) {
-        // Position is in the scroll surface's client coordinates.
+        // Position tracks the snippet in scroll-surface client coordinates.
         x = xClient;
         y = codeTopClient + kActionBarInset;
     } else {
-        // Position is in this panel's client coordinates. Keep the same
-        // horizontal placement, drop the vertical to just below the scroll
-        // surface's own top inside the panel.
+        // Pin to the top of the visible area. ScreenToClient/ClientToScreen
+        // is identity here — kept explicit to mark this as a coordinate
+        // translation, not a stray offset.
         const wxPoint inPanel = ScreenToClient(ClientToScreen(wxPoint(xClient, 0)));
         x = inPanel.x;
         y = GetPosition().y + kActionBarInset;
@@ -493,14 +493,14 @@ void AiChatView::showActionBar(const int messageIndex, const int codeIndex) {
     if (!m_actionBar->IsShown()) {
         m_actionBar->Show();
     }
-    // m_actionBar->Raise();
 }
 
 void AiChatView::onScroll(wxScrollWinEvent& event) {
     event.Skip(); // let wxScrolled perform the actual scroll first
     if (m_barMessage >= 0 && m_barCode >= 0) {
-        // Re-evaluate the mode once the scroll has happened — the snippet's
-        // top edge may have crossed in / out of the viewport.
+        // Reposition once the scroll lands — the snippet's top edge may have
+        // crossed in / out of the viewport, switching the bar between the
+        // attached and detached modes.
         CallAfter([this] { showActionBar(m_barMessage, m_barCode); });
     }
 }
