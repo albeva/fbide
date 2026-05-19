@@ -57,10 +57,10 @@ struct WrapItem {
         Space,
         HardBreak };
     Type type = Type::Word;
-    wxString text;   ///< Word text (Word only).
-    TextStyle style; ///< Font selection (Word / Space).
-    wxColour colour; ///< Foreground colour (Word).
-    int linkId = -1; ///< Link index, or -1.
+    wxString text {};   ///< Word text (Word only).
+    TextStyle style {}; ///< Font selection (Word / Space).
+    wxColour colour {}; ///< Foreground colour (Word).
+    int linkId = -1;    ///< Link index, or -1.
 };
 
 /// Split `text` into Word items separated by collapsed Space items, appending
@@ -111,7 +111,7 @@ struct Engine {
     const ChatPalette& palette;
     const CodeFenceHighlighter& highlightFence;
 
-    LaidOutDoc out;
+    LaidOutDoc out {};
     int y = 0; ///< Running vertical cursor.
 
     /// Insert the inter-block gap (skipped before the first block).
