@@ -5,13 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "AiChatView.hpp"
-#include <wx/clipbrd.h>
-#include <wx/dataobj.h>
-#include <wx/dcclient.h>
-#include <wx/dcgraph.h>
-#include <wx/dcmemory.h>
-#include <wx/settings.h>
-#include <wx/utils.h>
 #include "CodeActionBar.hpp"
 #include "CodeHighlighter.hpp"
 #include "Markdown.hpp"
@@ -113,7 +106,9 @@ wxBEGIN_EVENT_TABLE(AiChatView, wxScrolled<wxWindow>)
     EVT_MOTION(AiChatView::onMotion)
     EVT_LEFT_DOWN(AiChatView::onLeftDown)
     EVT_LEAVE_WINDOW(AiChatView::onLeaveWindow)
-    EVT_COMMAND(wxID_ANY, EVT_CODE_ACTION, AiChatView::onCodeAction)
+    EVT_BUTTON(ID_CodeCopy, AiChatView::onCopyCode)
+    EVT_BUTTON(ID_CodeInsert, AiChatView::onInsertCode)
+    EVT_BUTTON(ID_CodeRun, AiChatView::onRunCode)
     EVT_COMMAND(wxID_ANY, EVT_CODE_BAR_LEAVE, AiChatView::onBarLeave)
 wxEND_EVENT_TABLE()
 // clang-format on
@@ -467,20 +462,6 @@ void AiChatView::onLeaveWindow(wxMouseEvent& event) {
     event.Skip();
 }
 
-void AiChatView::onCodeAction(wxCommandEvent& event) {
-    switch (static_cast<CodeAction>(event.GetInt())) {
-    case CodeAction::Copy:
-        copyCode();
-        break;
-    case CodeAction::Insert:
-        insertCode();
-        break;
-    case CodeAction::Run:
-        runCode();
-        break;
-    }
-}
-
 void AiChatView::onBarLeave(wxCommandEvent& /*event*/) {
     // The bar reported the pointer left it — drop the bar unless the pointer
     // moved back onto a code block.
@@ -489,7 +470,7 @@ void AiChatView::onBarLeave(wxCommandEvent& /*event*/) {
     }
 }
 
-void AiChatView::copyCode() const {
+void AiChatView::onCopyCode(wxCommandEvent& /*event*/) {
     if (m_barMessage < 0 || m_barCode < 0) {
         return;
     }
@@ -502,7 +483,7 @@ void AiChatView::copyCode() const {
     }
 }
 
-void AiChatView::insertCode() const {
+void AiChatView::onInsertCode(wxCommandEvent& /*event*/) {
     if (m_barMessage < 0 || m_barCode < 0) {
         return;
     }
@@ -521,7 +502,7 @@ void AiChatView::insertCode() const {
     editor->EndUndoAction();
 }
 
-void AiChatView::runCode() const {
+void AiChatView::onRunCode(wxCommandEvent& /*event*/) {
     if (m_barMessage < 0 || m_barCode < 0) {
         return;
     }

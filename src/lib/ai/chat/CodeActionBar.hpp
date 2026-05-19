@@ -10,17 +10,13 @@
 namespace fbide {
 class Context;
 
-/// Which action a `CodeActionBar` button triggers. Carried as the integer
-/// payload (`wxCommandEvent::GetInt`) of an `EVT_CODE_ACTION` event.
-enum class CodeAction : int {
-    Copy,   ///< Copy the code to the clipboard.
-    Insert, ///< Insert the code into the active editor.
-    Run,    ///< Compile and run the code.
+/// Window IDs of the `CodeActionBar` buttons. Each button's `wxEVT_BUTTON`
+/// propagates to the host, which catches it by these IDs.
+enum CodeActionId : int {
+    ID_CodeCopy = wxID_HIGHEST + 1, ///< Copy the code to the clipboard.
+    ID_CodeInsert,                  ///< Insert the code into the active editor.
+    ID_CodeRun,                     ///< Compile and run the code.
 };
-
-/// Emitted by `CodeActionBar` when an action button is clicked; the event's
-/// `GetInt()` is the `CodeAction`.
-wxDECLARE_EVENT(EVT_CODE_ACTION, wxCommandEvent);
 
 /// Emitted by `CodeActionBar` when the pointer genuinely leaves the bar.
 wxDECLARE_EVENT(EVT_CODE_BAR_LEAVE, wxCommandEvent);
@@ -30,8 +26,9 @@ wxDECLARE_EVENT(EVT_CODE_BAR_LEAVE, wxCommandEvent);
  *
  * A small real toolbar — flat icon buttons for copying the code, inserting
  * it into the editor and compiling + running it. It loads its own icons
- * from the application's `ArtiProvider` and emits `EVT_CODE_ACTION` /
- * `EVT_CODE_BAR_LEAVE`; the host listens for those.
+ * from the application's `ArtiProvider`. The buttons carry the `CodeActionId`
+ * IDs; their `wxEVT_BUTTON` events propagate to the host. The bar also emits
+ * `EVT_CODE_BAR_LEAVE` when the pointer leaves it.
  *
  * **Owns:** its buttons (wx-parented).
  * **Owned by:** `AiChatView` (wx-parented).
@@ -44,11 +41,8 @@ public:
     CodeActionBar(wxWindow* parent, Context& ctx);
 
 private:
-    /// Add one flat icon button for `action` to `sizer`.
-    void addButton(wxSizer* sizer, const wxBitmap& icon, CodeAction action, const wxString& tip);
-
-    /// Fire an `EVT_CODE_ACTION` carrying `action`.
-    void emitAction(CodeAction action);
+    /// Add one flat icon button with window id `id` to `sizer`.
+    void addButton(wxSizer* sizer, const wxBitmap& icon, int id, const wxString& tip);
 
     /// Fire `EVT_CODE_BAR_LEAVE` when the pointer truly leaves the bar.
     void onLeave(wxMouseEvent& event);

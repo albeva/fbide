@@ -63,8 +63,10 @@ private:
     void onMotion(wxMouseEvent& event);
     void onLeftDown(wxMouseEvent& event);
     void onLeaveWindow(wxMouseEvent& event);
-    void onCodeAction(wxCommandEvent& event); ///< EVT_CODE_ACTION from the bar.
     void onBarLeave(wxCommandEvent& event);   ///< EVT_CODE_BAR_LEAVE from the bar.
+    void onCopyCode(wxCommandEvent& event);   ///< EVT_BUTTON, ID_CodeCopy.
+    void onInsertCode(wxCommandEvent& event); ///< EVT_BUTTON, ID_CodeInsert.
+    void onRunCode(wxCommandEvent& event);    ///< EVT_BUTTON, ID_CodeRun.
 
     /// Re-lay every message for the current client width.
     void relayout();
@@ -84,11 +86,6 @@ private:
     /// passing a negative index hides it.
     void showActionBar(int messageIndex, int codeIndex);
     void hideActionBar();
-
-    /// Action-bar button handlers — operate on the bar's current code block.
-    void copyCode() const;
-    void insertCode() const;
-    void runCode() const;
 
     /// Resolve the layout palette from the active theme + system colours.
     [[nodiscard]] auto palette() const -> ChatPalette;

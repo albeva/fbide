@@ -16,7 +16,6 @@
 using namespace fbide;
 
 namespace fbide {
-wxDEFINE_EVENT(EVT_CODE_ACTION, wxCommandEvent);
 wxDEFINE_EVENT(EVT_CODE_BAR_LEAVE, wxCommandEvent);
 } // namespace fbide
 
@@ -46,16 +45,16 @@ auto faded(const wxBitmap& bitmap, const double factor) -> wxBitmap {
 
 CodeActionBar::CodeActionBar(wxWindow* parent, Context& ctx)
 : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE) {
-    SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
-    SetDoubleBuffered(true); // flicker-free button hover repaints
+    wxPanel::SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+    wxPanel::SetDoubleBuffered(true); // flicker-free button hover repaints
 
     const auto& art = ctx.getUIManager().getArtProvider();
 
-    auto sizer = make_unowned<wxBoxSizer>(wxHORIZONTAL);
+    const auto sizer = make_unowned<wxBoxSizer>(wxHORIZONTAL);
     sizer->AddSpacer(kSidePadding);
-    addButton(sizer, art.getBitmap(CommandId::Copy), CodeAction::Copy, "Copy code");
-    addButton(sizer, art.getBitmap(CommandId::Paste), CodeAction::Insert, "Insert into editor");
-    addButton(sizer, art.getBitmap(CommandId::QuickRun), CodeAction::Run, "Compile && run");
+    addButton(sizer, art.getBitmap(CommandId::Copy), ID_CodeCopy, "Copy code");
+    addButton(sizer, art.getBitmap(CommandId::Paste), ID_CodeInsert, "Insert into editor");
+    addButton(sizer, art.getBitmap(CommandId::QuickRun), ID_CodeRun, "Compile && run");
     sizer->AddSpacer(kSidePadding);
 
     SetSizer(sizer);
@@ -64,30 +63,18 @@ CodeActionBar::CodeActionBar(wxWindow* parent, Context& ctx)
     Bind(wxEVT_LEAVE_WINDOW, &CodeActionBar::onLeave, this);
 }
 
-void CodeActionBar::addButton(
-    wxSizer* sizer,
-    const wxBitmap& icon,
-    const CodeAction action,
-    const wxString& tip
-) {
-    // Idle shows a muted icon; mouse-over / focus / pressed show it full.
-    auto button = make_unowned<wxBitmapButton>(
-        this, wxID_ANY, faded(icon, kMutedAlpha), wxDefaultPosition, wxDefaultSize,
+void CodeActionBar::addButton(wxSizer* sizer, const wxBitmap& icon, const int id, const wxString& tip) {
+    // Idle shows a muted icon; mouse-over / focus / pressed show it full. The
+    // button keeps its own id — its wxEVT_BUTTON propagates to the host.
+    const auto button = make_unowned<wxBitmapButton>(
+        this, id, faded(icon, kMutedAlpha), wxDefaultPosition, wxDefaultSize,
         wxBU_EXACTFIT | wxBORDER_NONE
     );
     button->SetBitmapCurrent(icon);
     button->SetBitmapFocus(icon);
     button->SetBitmapPressed(icon);
     button->SetToolTip(tip);
-    button->Bind(wxEVT_BUTTON, [this, action](wxCommandEvent&) { emitAction(action); });
     sizer->Add(button, wxSizerFlags().Border(wxALL, kButtonGap));
-}
-
-void CodeActionBar::emitAction(const CodeAction action) {
-    wxCommandEvent event(EVT_CODE_ACTION, GetId());
-    event.SetEventObject(this);
-    event.SetInt(static_cast<int>(action));
-    ProcessWindowEvent(event); // unhandled here — propagates to the host
 }
 
 void CodeActionBar::onLeave(wxMouseEvent& event) {
