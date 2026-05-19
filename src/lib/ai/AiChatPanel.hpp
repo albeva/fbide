@@ -41,6 +41,10 @@ public:
     /// request is already in flight or `text` is empty.
     void submitPrompt(const wxString& text);
 
+    /// Re-render the conversation after editor settings (theme / keywords)
+    /// have changed — code blocks pick up the new colours and font.
+    void refreshTheme();
+
 private:
     /// Send button — dispatches the input box text through `AiManager`.
     void onSend(wxCommandEvent& event);

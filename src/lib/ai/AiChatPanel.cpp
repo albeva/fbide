@@ -108,6 +108,10 @@ AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
     renderConversation();
 }
 
+void AiChatPanel::refreshTheme() {
+    m_output->refreshTheme();
+}
+
 void AiChatPanel::onSend(wxCommandEvent& /*event*/) {
     const auto text = m_input->GetValue();
     if (text.empty()) {

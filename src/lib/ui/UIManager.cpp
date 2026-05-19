@@ -737,4 +737,6 @@ void UIManager::updateSettings() {
     for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {
         doc->updateSettings();
     }
+    // Re-render the AI chat so its code snippets pick up the new theme.
+    m_aiChatPanel->refreshTheme();
 }
