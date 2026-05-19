@@ -42,8 +42,20 @@ public:
     void refreshTheme();
 
 private:
-    class Canvas;             ///< Inner scrolled paint surface; defined in the .cpp.
+    class Canvas; ///< Inner scrolled paint surface; defined in the .cpp.
+
+    // The action bar's events bubble up to whichever parent it is currently
+    // attached to (the canvas, or this panel directly in detached mode). The
+    // panel catches them centrally and forwards into the canvas, so dispatch
+    // does not depend on the bar's current parent.
+    void onCopyCode(wxCommandEvent& event);
+    void onInsertCode(wxCommandEvent& event);
+    void onRunCode(wxCommandEvent& event);
+    void onBarLeave(wxCommandEvent& event);
+
     Unowned<Canvas> m_canvas; ///< The conversation scroll surface.
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide
