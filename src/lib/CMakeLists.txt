@@ -6,6 +6,7 @@ target_sources(fbide_lib
     ai/AiChatPanel.cpp
     ai/AiContext.cpp
     ai/AiManager.cpp
+    ai/ContextTagBar.cpp
     ai/chat/AiChatView.cpp
     ai/chat/ChatLayout.cpp
     ai/chat/CodeActionBar.cpp
@@ -82,6 +83,7 @@ target_sources(fbide_lib
     ai/AiContext.hpp
     ai/AiManager.hpp
     ai/AiTypes.hpp
+    ai/ContextTagBar.hpp
     ai/chat/AiChatView.hpp
     ai/chat/ChatLayout.hpp
     ai/chat/CodeActionBar.hpp

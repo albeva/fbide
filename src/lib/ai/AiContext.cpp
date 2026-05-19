@@ -27,6 +27,20 @@ auto FileContextItem::label() const -> wxString {
     return wxFileName(m_path).GetFullName();
 }
 
+BufferContextItem::BufferContextItem(wxString label, wxString content)
+: m_label(std::move(label))
+, m_content(std::move(content)) {}
+
+void BufferContextItem::appendTo(wxString& out) const {
+    out += "\n--- File: " + m_label + " ---\n";
+    out += m_content;
+    out += "\n";
+}
+
+auto BufferContextItem::label() const -> wxString {
+    return m_label;
+}
+
 void AiContext::add(std::unique_ptr<AiContextItem> item) {
     m_items.push_back(std::move(item));
 }

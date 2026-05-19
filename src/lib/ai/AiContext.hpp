@@ -44,6 +44,22 @@ private:
     wxString m_path; ///< Absolute path of the attached file.
 };
 
+/// An in-memory buffer attached as context — a snapshot of an editor's text
+/// taken when the item was created. Used for open tabs, whose live content
+/// (including unsaved edits) is captured at attach time.
+class BufferContextItem final : public AiContextItem {
+public:
+    /// Construct with a display `label` (the tab title) and captured `content`.
+    BufferContextItem(wxString label, wxString content);
+
+    void appendTo(wxString& out) const override;
+    [[nodiscard]] auto label() const -> wxString override;
+
+private:
+    wxString m_label;   ///< Display label — the tab title.
+    wxString m_content; ///< Captured editor text.
+};
+
 /**
  * Ordered set of context items attached to the conversation.
  *

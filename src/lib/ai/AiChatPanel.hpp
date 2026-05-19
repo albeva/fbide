@@ -10,16 +10,20 @@
 namespace fbide {
 class Context;
 class AiChatView;
+class ContextTagBar;
+class Document;
 
 /**
- * AI chat side panel: conversation view, message input box, send button,
- * and a context bar for attaching files.
+ * AI chat side panel: conversation view, a context tag strip, the message
+ * input box, an attach (+) button and a send button.
  *
  * Docked on the right of the main frame as a hideable AUI pane, toggled
  * by the `viewAiChat` command (F7). Sends messages through `AiManager`
- * and renders the conversation in a custom-painted `AiChatView` (markdown
- * parsed and laid out natively). Replies stream in incrementally; a
- * throttle timer limits how often the view is rebuilt.
+ * and renders the conversation in a custom-painted `AiChatView`. Replies
+ * stream in incrementally; a throttle timer limits how often the view is
+ * rebuilt. The input box grows with its content; the `+` button attaches
+ * tabs / includes / files as conversation context, shown as removable
+ * tags in `ContextTagBar`.
  *
  * **Owns:** its child controls (wx-parented).
  * **Owned by:** the main frame via `UIManager`.
@@ -44,31 +48,36 @@ private:
     /// Throttle tick — re-renders if streamed text arrived since the last.
     void onRenderTimer(wxTimerEvent& event);
 
-    /// "Add file" — pick files and attach them as conversation context.
-    void onAddFile(wxCommandEvent& event);
+    /// Input box changed — grow / shrink it to fit.
+    void onInputText(wxCommandEvent& event);
 
-    /// "Remove" — drop the selected context file.
-    void onRemoveFile(wxCommandEvent& event);
+    /// "+" button — pop the attach-context menu.
+    void onAddContext(wxCommandEvent& event);
 
-    /// Rebuild the conversation in the view from `AiManager`'s history,
-    /// plus the streaming reply and any error.
+    /// `EVT_CONTEXT_TAGS_CHANGED` from the tag bar — re-lay the panel.
+    void onTagsChanged(wxCommandEvent& event);
+
+    /// Grow / shrink the input box to fit its content (line-count capped).
+    void autoSizeInput();
+
+    /// Attach `doc`'s current editor text as a context snapshot.
+    void attachDocument(Document* doc);
+
+    /// Re-render the whole conversation (plus the streaming reply and any
+    /// error) into the chat view.
     void renderConversation();
 
-    /// Repopulate the context list box from `AiManager`'s context.
-    void refreshContextList();
-
-    Context& m_ctx;                   ///< Application context.
-    Unowned<AiChatView> m_output;     ///< Conversation view (custom-painted).
-    Unowned<wxTextCtrl> m_input;      ///< Message input box.
-    Unowned<wxButton> m_send;         ///< Send button.
-    Unowned<wxListBox> m_contextList; ///< Attached context files.
-    Unowned<wxButton> m_addFile;      ///< "Add file" button.
-    Unowned<wxButton> m_removeFile;   ///< "Remove" button.
-    wxString m_streaming;             ///< Partial assistant reply while streaming.
-    wxString m_lastError;             ///< Last request error, shown until the next send.
-    wxTimer m_renderTimer;            ///< Throttles re-render while streaming.
-    bool m_busy = false;              ///< True while a request is in flight.
-    bool m_dirty = false;             ///< Streamed text arrived since the last render.
+    Context& m_ctx;                  ///< Application context.
+    Unowned<AiChatView> m_output;    ///< Conversation view (custom-painted).
+    Unowned<ContextTagBar> m_tagBar; ///< Attached-context tag strip.
+    Unowned<wxTextCtrl> m_input;     ///< Message input box.
+    Unowned<wxButton> m_addContext;  ///< "+" attach-context button.
+    Unowned<wxButton> m_send;        ///< Send button.
+    wxString m_streaming;            ///< Partial assistant reply while streaming.
+    wxString m_lastError;            ///< Last request error, shown until the next send.
+    wxTimer m_renderTimer;           ///< Throttles re-render while streaming.
+    bool m_busy = false;             ///< True while a request is in flight.
+    bool m_dirty = false;            ///< Streamed text arrived since the last render.
 };
 
 } // namespace fbide
