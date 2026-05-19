@@ -156,8 +156,7 @@ CodeHighlighter::~CodeHighlighter() {
     }
 }
 
-auto CodeHighlighter::highlight(const wxString& code, const bool reformat) const
-    -> std::vector<CodeLine> {
+auto CodeHighlighter::highlight(const wxString& code, const bool reformat) const -> std::vector<CodeLine> {
     const auto utf8 = code.utf8_string();
 
     // Lex over a headless MemoryDocument — the editor's colouring path.

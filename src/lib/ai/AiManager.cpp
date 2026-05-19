@@ -5,13 +5,13 @@
 // https://github.com/albeva/fbide
 //
 #include "AiManager.hpp"
-#include "AnthropicProvider.hpp"
-#include "ClaudeCliProvider.hpp"
-#include "GeminiProvider.hpp"
-#include "MockProvider.hpp"
-#include "OllamaProvider.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
+#include "provider/AnthropicProvider.hpp"
+#include "provider/ClaudeCliProvider.hpp"
+#include "provider/GeminiProvider.hpp"
+#include "provider/MockProvider.hpp"
+#include "provider/OllamaProvider.hpp"
 using namespace fbide;
 
 namespace {

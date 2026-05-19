@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "AiTypes.hpp"
+#include "ai/AiTypes.hpp"
 
 namespace fbide {
 

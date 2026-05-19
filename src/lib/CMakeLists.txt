@@ -6,16 +6,16 @@ target_sources(fbide_lib
     ai/AiChatPanel.cpp
     ai/AiContext.cpp
     ai/AiManager.cpp
-    ai/AnthropicProvider.cpp
-    ai/ClaudeCliProvider.cpp
-    ai/GeminiProvider.cpp
-    ai/MockProvider.cpp
-    ai/OllamaProvider.cpp
     ai/chat/AiChatView.cpp
     ai/chat/ChatLayout.cpp
     ai/chat/CodeActionBar.cpp
     ai/chat/CodeHighlighter.cpp
     ai/chat/Markdown.cpp
+    ai/provider/AnthropicProvider.cpp
+    ai/provider/ClaudeCliProvider.cpp
+    ai/provider/GeminiProvider.cpp
+    ai/provider/MockProvider.cpp
+    ai/provider/OllamaProvider.cpp
     analyses/intellisense/IntellisenseService.cpp
     analyses/lexer/KeywordTables.cpp
     analyses/lexer/MemoryDocument.cpp
@@ -81,18 +81,18 @@ target_sources(fbide_lib
     ai/AiChatPanel.hpp
     ai/AiContext.hpp
     ai/AiManager.hpp
-    ai/AiProvider.hpp
     ai/AiTypes.hpp
-    ai/AnthropicProvider.hpp
-    ai/ClaudeCliProvider.hpp
-    ai/GeminiProvider.hpp
-    ai/MockProvider.hpp
-    ai/OllamaProvider.hpp
     ai/chat/AiChatView.hpp
     ai/chat/ChatLayout.hpp
     ai/chat/CodeActionBar.hpp
     ai/chat/CodeHighlighter.hpp
     ai/chat/Markdown.hpp
+    ai/provider/AiProvider.hpp
+    ai/provider/AnthropicProvider.hpp
+    ai/provider/ClaudeCliProvider.hpp
+    ai/provider/GeminiProvider.hpp
+    ai/provider/MockProvider.hpp
+    ai/provider/OllamaProvider.hpp
     analyses/intellisense/IntellisenseService.hpp
     analyses/lexer/KeywordTables.hpp
     analyses/lexer/MemoryDocument.hpp

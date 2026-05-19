@@ -7,8 +7,8 @@
 #pragma once
 #include "pch.hpp"
 #include "AiContext.hpp"
-#include "AiProvider.hpp"
 #include "AiTypes.hpp"
+#include "provider/AiProvider.hpp"
 
 namespace fbide {
 class Context;
