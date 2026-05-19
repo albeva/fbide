@@ -106,12 +106,8 @@ wxBEGIN_EVENT_TABLE(AiChatView, wxScrolled<wxWindow>)
     EVT_MOTION(AiChatView::onMotion)
     EVT_LEFT_DOWN(AiChatView::onLeftDown)
     EVT_LEAVE_WINDOW(AiChatView::onLeaveWindow)
-    EVT_BUTTON(ID_CodeCopy, AiChatView::onCopyCode)
-    EVT_BUTTON(ID_CodeInsert, AiChatView::onInsertCode)
-    EVT_BUTTON(ID_CodeRun, AiChatView::onRunCode)
     EVT_SCROLLWIN(AiChatView::onScroll)
     EVT_MOUSEWHEEL(AiChatView::onMouseWheel)
-    EVT_COMMAND(wxID_ANY, EVT_CODE_BAR_LEAVE, AiChatView::onBarLeave)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -129,9 +125,16 @@ AiChatView::AiChatView(wxWindow* parent, Context& ctx)
     m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
 
     // One reusable action bar, shown over whichever code block is hovered.
-    // It emits EVT_CODE_ACTION / EVT_CODE_BAR_LEAVE — caught by the event table.
-    m_actionBar = make_unowned<CodeActionBar>(this, m_ctx);
+    // Parent it to AiChatView's parent rather than to AiChatView itself, so
+    // wxScrolled does not drag it around as the user scrolls — that double
+    // movement (auto-scroll then our reposition) flickered. The bar's events
+    // no longer propagate to AiChatView, so bind them on the bar directly.
+    m_actionBar = make_unowned<CodeActionBar>(GetParent(), m_ctx);
     m_actionBar->Hide();
+    m_actionBar->Bind(wxEVT_BUTTON, &AiChatView::onCopyCode, this, ID_CodeCopy);
+    m_actionBar->Bind(wxEVT_BUTTON, &AiChatView::onInsertCode, this, ID_CodeInsert);
+    m_actionBar->Bind(wxEVT_BUTTON, &AiChatView::onRunCode, this, ID_CodeRun);
+    m_actionBar->Bind(EVT_CODE_BAR_LEAVE, &AiChatView::onBarLeave, this);
 }
 
 AiChatView::~AiChatView() = default;
@@ -509,7 +512,12 @@ void AiChatView::repositionActionBar() {
 
     const int x = codeRight - barSize.GetWidth() - kActionBarInset;
 
-    m_actionBar->Move(x, y);
+    // (x, y) is in AiChatView client coords. The bar is parented to the panel
+    // above us — translate via the screen so the move respects any sizer
+    // border between the panel and us.
+    const wxPoint inPanel
+        = m_actionBar->GetParent()->ScreenToClient(ClientToScreen(wxPoint(x, y)));
+    m_actionBar->Move(inPanel);
     if (!m_actionBar->IsShown()) {
         m_actionBar->Show();
     }
