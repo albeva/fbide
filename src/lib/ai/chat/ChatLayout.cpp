@@ -107,19 +107,34 @@ void appendWords(
 
 /// Carries the layout state while walking the document's blocks.
 struct Engine {
-    const MdDoc& doc;
-    const int width;
-    const TextMeasurer& measurer;
-    const ChatPalette& palette;
-    const CodeFenceHighlighter& highlightFence;
+    NO_COPY_AND_MOVE(Engine)
 
-    LaidOutDoc out {};
-    int y = 0; ///< Running vertical cursor.
+    const MdDoc& m_doc;
+    const int m_width;
+    const TextMeasurer& m_measurer;
+    const ChatPalette& m_palette;
+    const CodeFenceHighlighter& m_highlightFence;
+
+    LaidOutDoc m_out {};
+    int m_yPos = 0; ///< Running vertical cursor.
+
+    Engine(
+        const MdDoc& doc,
+        const int width,
+        const TextMeasurer& measurer,
+        const ChatPalette& palette,
+        const CodeFenceHighlighter& highlightFence
+    )
+    : m_doc(doc)
+    , m_width(width)
+    , m_measurer(measurer)
+    , m_palette(palette)
+    , m_highlightFence(highlightFence) {}
 
     /// Insert the inter-block gap (skipped before the first block).
     void blockGap() {
-        if (y > 0) {
-            y += kBlockGap;
+        if (m_yPos > 0) {
+            m_yPos += kBlockGap;
         }
     }
 
@@ -143,14 +158,14 @@ struct Engine {
             style.sizeDelta = baseSizeDelta;
             style.bold = style.bold || baseBold;
 
-            wxColour colour = palette.text;
+            wxColour colour = m_palette.text;
             int linkId = -1;
             if (inl.kind == MdInlineKind::Link) {
                 style.underline = true;
-                colour = palette.link;
+                colour = m_palette.link;
                 if (!inl.url.empty()) {
-                    out.links.push_back({ .url = inl.url });
-                    linkId = static_cast<int>(out.links.size()) - 1;
+                    m_out.links.push_back({ .url = inl.url });
+                    linkId = static_cast<int>(m_out.links.size()) - 1;
                 }
             }
             appendWords(items, inl.text, style, colour, linkId);
@@ -166,9 +181,9 @@ struct Engine {
         const std::optional<PaintRun>& marker,
         const int quoteDepth
     ) {
-        const int bodyHeight = measurer.lineHeight(TextStyle {});
+        const int bodyHeight = m_measurer.lineHeight(TextStyle {});
         std::vector<PaintRun> lineRuns;
-        int x = contentLeft;
+        int xPos = contentLeft;
         int maxHeight = 0;
         bool pendingSpace = false;
         TextStyle spaceStyle;
@@ -178,7 +193,7 @@ struct Engine {
         const auto flush = [&] {
             PaintLine line;
             line.kind = LineKind::Prose;
-            line.y = y;
+            line.y = m_yPos;
             line.height = maxHeight > 0 ? maxHeight : bodyHeight;
             line.quoteDepth = quoteDepth;
             if (firstLine && marker.has_value()) {
@@ -187,10 +202,10 @@ struct Engine {
             for (auto& run : lineRuns) {
                 line.runs.push_back(std::move(run));
             }
-            y += line.height;
-            out.lines.push_back(std::move(line));
+            m_yPos += line.height;
+            m_out.lines.push_back(std::move(line));
             lineRuns.clear();
-            x = contentLeft;
+            xPos = contentLeft;
             maxHeight = 0;
             pendingSpace = false;
             firstLine = false;
@@ -207,22 +222,22 @@ struct Engine {
                 spaceStyle = item.style;
                 continue;
             }
-            const int wordWidth = measurer.width(item.text, item.style);
-            const int spaceWidth = pendingSpace ? measurer.width(" ", spaceStyle) : 0;
-            if (!lineRuns.empty() && x + spaceWidth + wordWidth > width) {
+            const int wordWidth = m_measurer.width(item.text, item.style);
+            const int spaceWidth = pendingSpace ? m_measurer.width(" ", spaceStyle) : 0;
+            if (!lineRuns.empty() && xPos + spaceWidth + wordWidth > m_width) {
                 flush(); // wrap — the leading space is dropped
             } else if (pendingSpace && !lineRuns.empty()) {
-                x += spaceWidth;
+                xPos += spaceWidth;
             }
             pendingSpace = false;
             lineRuns.push_back({ .text = item.text,
                 .style = item.style,
                 .colour = item.colour,
-                .x = x,
+                .x = xPos,
                 .width = wordWidth,
                 .linkId = item.linkId });
-            x += wordWidth;
-            maxHeight = std::max(maxHeight, measurer.lineHeight(item.style));
+            xPos += wordWidth;
+            maxHeight = std::max(maxHeight, m_measurer.lineHeight(item.style));
         }
         if (!lineRuns.empty() || (!produced && marker.has_value())) {
             flush();
@@ -234,10 +249,10 @@ struct Engine {
         const wxString text = block.listOrdered
                                 ? wxString::Format("%d. ", block.listOrdinal)
                                 : wxString(wxUniChar(0x2022)) + " ";
-        const int markerWidth = measurer.width(text, TextStyle {});
+        const int markerWidth = m_measurer.width(text, TextStyle {});
         return { .text = text,
             .style = {},
-            .colour = palette.text,
+            .colour = m_palette.text,
             .x = std::max(0, contentLeft - markerWidth),
             .width = markerWidth,
             .linkId = -1 };
@@ -258,21 +273,21 @@ struct Engine {
     ) {
         PaintLine line;
         line.kind = LineKind::Code;
-        line.y = y;
+        line.y = m_yPos;
         line.height = lineHeight;
         line.quoteDepth = quoteDepth;
-        int x = firstX;
+        int fx = firstX;
         bool lineEmpty = true;
 
         const auto wrap = [&] {
-            out.lines.push_back(std::move(line));
-            y += lineHeight;
+            m_out.lines.push_back(std::move(line));
+            m_yPos += lineHeight;
             line = PaintLine {};
             line.kind = LineKind::Code;
-            line.y = y;
+            line.y = m_yPos;
             line.height = lineHeight;
             line.quoteDepth = quoteDepth;
-            x = contX;
+            fx = contX;
             lineEmpty = true;
         };
 
@@ -283,13 +298,13 @@ struct Engine {
                 .monospace = true };
             // Wrap before the run if the whole token would overflow — keeps
             // breaks on token boundaries where possible.
-            if (!lineEmpty && x + measurer.width(codeRun.text, style) > rightEdge) {
+            if (!lineEmpty && fx + m_measurer.width(codeRun.text, style) > rightEdge) {
                 wrap();
             }
             const wxString& text = codeRun.text;
             std::size_t pos = 0;
             while (pos < text.length()) {
-                const int avail = rightEdge - x;
+                const int avail = rightEdge - fx;
                 const std::size_t remaining = text.length() - pos;
                 std::size_t take = avail > 0 ? static_cast<std::size_t>(avail / charWidth) : 0;
                 if (take >= remaining) {
@@ -305,10 +320,10 @@ struct Engine {
                 line.runs.push_back({ .text = text.Mid(pos, take),
                     .style = style,
                     .colour = codeRun.colour,
-                    .x = x,
+                    .x = fx,
                     .width = segmentWidth,
                     .linkId = -1 });
-                x += segmentWidth;
+                fx += segmentWidth;
                 pos += take;
                 lineEmpty = false;
                 if (pos < text.length()) {
@@ -316,65 +331,65 @@ struct Engine {
                 }
             }
         }
-        out.lines.push_back(std::move(line));
-        y += lineHeight;
+        m_out.lines.push_back(std::move(line));
+        m_yPos += lineHeight;
     }
 
     /// Emit a fenced code block: a padded background strip carrying the
     /// highlighted code, soft-wrapped to the available width.
     void emitCode(const MdBlock& block) {
         blockGap();
-        const int blockTop = y;
+        const int blockTop = m_yPos;
         const int left = block.quoteDepth * kQuoteIndent;
         const TextStyle mono { .monospace = true };
-        const int lineHeight = measurer.lineHeight(mono);
-        const int charWidth = std::max(1, measurer.width("0", mono));
-        const auto codeLines = highlightFence(block.codeText, block.codeLang);
+        const int lineHeight = m_measurer.lineHeight(mono);
+        const int charWidth = std::max(1, m_measurer.width("0", mono));
+        const auto codeLines = m_highlightFence(block.codeText, block.codeLang);
 
         const int codeLeft = left + kCodePadding;
-        const int rightEdge = std::max(codeLeft + charWidth, width - kCodePadding);
+        const int rightEdge = std::max(codeLeft + charWidth, m_width - kCodePadding);
         const int contX = codeLeft + (kCodeWrapIndent * charWidth);
 
         // Top padding strip — an empty Code line the painter fills with the
         // code background.
-        out.lines.push_back({ .kind = LineKind::Code,
-            .y = y,
+        m_out.lines.push_back({ .kind = LineKind::Code,
+            .y = m_yPos,
             .height = kCodePadding,
             .quoteDepth = block.quoteDepth,
             .runs = {} });
-        y += kCodePadding;
+        m_yPos += kCodePadding;
 
         for (const auto& codeLine : codeLines) {
             emitCodeLine(codeLine, codeLeft, contX, rightEdge, lineHeight, charWidth, block.quoteDepth);
         }
 
-        out.lines.push_back({ .kind = LineKind::Code,
-            .y = y,
+        m_out.lines.push_back({ .kind = LineKind::Code,
+            .y = m_yPos,
             .height = kCodePadding,
             .quoteDepth = block.quoteDepth,
             .runs = {} });
-        y += kCodePadding;
+        m_yPos += kCodePadding;
 
-        out.codeBlocks.push_back({ .code = block.codeText,
+        m_out.codeBlocks.push_back({ .code = block.codeText,
             .lang = block.codeLang,
             .y = blockTop,
-            .height = y - blockTop });
+            .height = m_yPos - blockTop });
     }
 
     /// Emit a horizontal rule line.
     void emitRule(const int quoteDepth) {
         blockGap();
-        out.lines.push_back({ .kind = LineKind::Rule,
-            .y = y,
+        m_out.lines.push_back({ .kind = LineKind::Rule,
+            .y = m_yPos,
             .height = kRuleHeight,
             .quoteDepth = quoteDepth,
             .runs = {} });
-        y += kRuleHeight;
+        m_yPos += kRuleHeight;
     }
 
     /// Lay out every block in document order.
     void run() {
-        for (const auto& block : doc.blocks) {
+        for (const auto& block : m_doc.blocks) {
             switch (block.kind) {
             case MdBlockKind::Paragraph:
                 blockGap();
@@ -412,8 +427,8 @@ struct Engine {
                 break;
             }
         }
-        out.width = width;
-        out.height = y;
+        m_out.width = m_width;
+        m_out.height = m_yPos;
     }
 };
 
@@ -426,11 +441,13 @@ auto fbide::layoutMarkdown(
     const ChatPalette& palette,
     const CodeFenceHighlighter& highlightFence
 ) -> LaidOutDoc {
-    Engine engine { .doc = doc,
-        .width = width,
-        .measurer = measurer,
-        .palette = palette,
-        .highlightFence = highlightFence };
+    Engine engine {
+        doc,
+        width,
+        measurer,
+        palette,
+        highlightFence
+    };
     engine.run();
-    return std::move(engine.out);
+    return std::move(engine.m_out);
 }
