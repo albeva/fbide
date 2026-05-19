@@ -102,6 +102,7 @@ private:
     Context& m_ctx;                                 ///< Application context.
     std::unique_ptr<CodeHighlighter> m_highlighter; ///< FreeBASIC code highlighter.
     Unowned<CodeActionBar> m_actionBar;             ///< Floating per-code-block toolbar.
+    wxBitmap m_buffer;                              ///< Off-screen paint buffer, reused across paints.
     wxFont m_bodyFont;                              ///< Base prose font.
     wxFont m_monoFont;                              ///< Base monospace (code) font.
     std::vector<ChatViewMessage> m_messages;        ///< Conversation source.

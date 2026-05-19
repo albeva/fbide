@@ -234,26 +234,36 @@ void AiChatView::onPaint(wxPaintEvent& /*event*/) {
         return;
     }
 
-    // Paint into an off-screen buffer through a wxGCDC for antialiased text,
-    // then blit — avoids flicker while scrolling.
-    wxBitmap buffer(size);
-    wxMemoryDC memoryDc(buffer);
+    // Reuse a single off-screen buffer across paints; reallocate only when
+    // the window resizes. wxScrolled scrolls existing pixels and invalidates
+    // just the newly-exposed strip, so most repaints touch a small region.
+    if (!m_buffer.IsOk() || m_buffer.GetSize() != size) {
+        m_buffer = wxBitmap(size);
+    }
+
+    const wxRect update = GetUpdateRegion().GetBox();
+
+    wxMemoryDC memoryDc(m_buffer);
     wxGCDC gc(memoryDc);
-    gc.SetBackground(wxBrush(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW)));
-    gc.Clear();
+
+    // Repaint only the update rect — fill the band with background, draw
+    // through it, blit it. Pixels outside the rect stay as they were.
+    gc.SetPen(*wxTRANSPARENT_PEN);
+    gc.SetBrush(wxBrush(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW)));
+    gc.DrawRectangle(update);
 
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
-    const int viewTop = originY;
-    const int viewBottom = originY + size.GetHeight();
+    const int regionTopDoc = originY + update.y;
+    const int regionBottomDoc = regionTopDoc + update.height;
 
     for (const auto& item : m_items) {
-        if (item.bubble.GetBottom() < viewTop || item.bubble.GetTop() > viewBottom) {
-            continue; // bubble entirely outside the viewport
+        if (item.bubble.GetBottom() < regionTopDoc || item.bubble.GetTop() > regionBottomDoc) {
+            continue; // bubble entirely outside the dirty region
         }
         paintMessage(gc, item, originY);
     }
 
-    paintDc.Blit(0, 0, size.GetWidth(), size.GetHeight(), &memoryDc, 0, 0);
+    paintDc.Blit(update.x, update.y, update.width, update.height, &memoryDc, update.x, update.y);
 }
 
 void AiChatView::paintMessage(wxGCDC& gc, const LaidMessage& message, const int originY) const {
