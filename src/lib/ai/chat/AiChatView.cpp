@@ -275,6 +275,13 @@ void AiChatView::onPaint(wxPaintEvent& /*event*/) {
     }
 
     paintDc.Blit(update.x, update.y, update.width, update.height, &memoryDc, update.x, update.y);
+
+    // The action bar is a sibling under the panel, not a child of this
+    // window — sibling clipping does not protect it, so its on-screen pixels
+    // get covered by our blit. Force it to repaint when it overlaps us.
+    if (m_actionBar->IsShown()) {
+        m_actionBar->Refresh();
+    }
 }
 
 void AiChatView::paintMessage(
@@ -495,10 +502,23 @@ void AiChatView::repositionActionBar() {
     const int codeBottomClient = codeBottomDoc - originY;
     const int viewportHeight = GetClientSize().GetHeight();
 
+    // Capture the bar's current area in our client coords so we can invalidate
+    // it after the move — moving a sibling does not redraw the area it
+    // vacates, so the chat view would otherwise leave a ghost of the bar.
+    const bool wasShown = m_actionBar->IsShown();
+    wxRect oldAreaInView;
+    if (wasShown) {
+        const wxRect oldPanel(m_actionBar->GetPosition(), m_actionBar->GetSize());
+        const wxPoint topInView
+            = ScreenToClient(m_actionBar->GetParent()->ClientToScreen(oldPanel.GetTopLeft()));
+        oldAreaInView = wxRect(topInView, oldPanel.GetSize());
+    }
+
     // Block entirely outside the viewport — hide and stop.
     if (codeBottomClient < 0 || codeTopClient > viewportHeight) {
-        if (m_actionBar->IsShown()) {
+        if (wasShown) {
             m_actionBar->Hide();
+            Refresh(false, &oldAreaInView);
         }
         return;
     }
@@ -518,10 +538,15 @@ void AiChatView::repositionActionBar() {
     const wxPoint inPanel
         = m_actionBar->GetParent()->ScreenToClient(ClientToScreen(wxPoint(x, y)));
     m_actionBar->Move(inPanel);
-    if (!m_actionBar->IsShown()) {
+    if (!wasShown) {
         m_actionBar->Show();
     }
     m_actionBar->Raise();
+
+    // Repaint the area the bar just vacated so its pixels do not linger.
+    if (wasShown) {
+        Refresh(false, &oldAreaInView);
+    }
 }
 
 void AiChatView::onScroll(wxScrollWinEvent& event) {
