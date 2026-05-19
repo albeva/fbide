@@ -48,17 +48,29 @@ public:
     void refreshTheme();
 
 private:
+    /// A message laid out inside its bubble.
+    struct LaidMessage {
+        LaidOutDoc doc;        ///< Wrapped content.
+        wxRect bubble;         ///< Bubble rect in document coordinates.
+        int contentWidth = 0;  ///< Content width inside the bubble padding.
+        bool fromUser = false; ///< Role — drives bubble colour + side.
+    };
+
     void onPaint(wxPaintEvent& event);
     void onSize(wxSizeEvent& event);
 
     /// Re-lay every message for the current client width.
     void relayout();
 
-    /// Paint one laid-out message; `screenTop` is its top in client coords.
-    void paintMessage(wxGCDC& gc, const LaidOutDoc& doc, int leftMargin, int screenTop) const;
+    /// Paint one laid-out message — its bubble and content. `originY` is the
+    /// scroll offset, so document coordinates map to client coordinates.
+    void paintMessage(wxGCDC& gc, const LaidMessage& message, int originY) const;
 
     /// Resolve the layout palette from the active theme + system colours.
     [[nodiscard]] auto palette() const -> ChatPalette;
+
+    /// Bubble background colour for a user / assistant message.
+    [[nodiscard]] auto bubbleColour(bool fromUser) const -> wxColour;
 
     /// Highlight a fenced code block — FreeBASIC through the lexer, anything
     /// else as plain default-coloured lines.
@@ -70,10 +82,9 @@ private:
     wxFont m_bodyFont;                              ///< Base prose font.
     wxFont m_monoFont;                              ///< Base monospace (code) font.
     std::vector<ChatViewMessage> m_messages;        ///< Conversation source.
-    std::vector<LaidOutDoc> m_layouts;              ///< One layout per message.
-    std::vector<int> m_offsets;                     ///< Top y of each message.
-    int m_layoutWidth = -1;                         ///< Content width m_layouts were built for.
-    int m_totalHeight = 0;                          ///< Stacked height of all messages.
+    std::vector<LaidMessage> m_items;               ///< One laid-out bubble per message.
+    int m_layoutWidth = -1;                         ///< Client width m_items were built for.
+    int m_totalHeight = 0;                          ///< Stacked height of all bubbles.
 };
 
 } // namespace fbide

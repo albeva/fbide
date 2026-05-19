@@ -18,17 +18,33 @@ using namespace fbide;
 
 namespace {
 
-// Outer margin between the view edge and message content.
+// Outer margin between the view edge and the bubbles.
 constexpr int kMargin = 12;
-// Vertical gap between consecutive messages.
-constexpr int kMessageGap = 16;
+// Vertical gap between consecutive message bubbles.
+constexpr int kMessageGap = 10;
 // Vertical scroll step in pixels.
 constexpr int kScrollStep = 16;
+// Padding between a bubble's edge and its content.
+constexpr int kBubblePad = 10;
+// Corner radius of a message bubble.
+constexpr int kBubbleRadius = 10;
+// Largest fraction of the available width a bubble may occupy.
+constexpr double kBubbleMaxFraction = 0.85;
+// Smallest content width a bubble shrinks to.
+constexpr int kMinBubbleContent = 60;
 
 /// True when `lang` (a fence tag) denotes FreeBASIC. An empty tag counts — in
 /// a FreeBASIC IDE an untagged block is assumed to be FreeBASIC.
 auto isFreeBasicTag(const wxString& lang) -> bool {
     return lang.empty() || lang == "freebasic" || lang == "fb" || lang == "basic" || lang == "bas";
+}
+
+/// Linear blend of two colours — `t` of 0 yields `a`, 1 yields `b`.
+auto blend(const wxColour& a, const wxColour& b, const double t) -> wxColour {
+    const auto mix = [t](const unsigned char from, const unsigned char to) {
+        return static_cast<unsigned char>(from + ((to - from) * t));
+    };
+    return { mix(a.Red(), b.Red()), mix(a.Green(), b.Green()), mix(a.Blue(), b.Blue()) };
 }
 
 /// Resolve a concrete font for a layout text style from the body/mono bases.
@@ -124,8 +140,8 @@ void AiChatView::onSize(wxSizeEvent& event) {
 }
 
 void AiChatView::relayout() {
-    const int contentWidth = std::max(80, GetClientSize().GetWidth() - (2 * kMargin));
-    if (contentWidth == m_layoutWidth) {
+    const int panelWidth = GetClientSize().GetWidth();
+    if (panelWidth == m_layoutWidth) {
         return; // width unchanged — cached layouts still valid
     }
 
@@ -138,19 +154,43 @@ void AiChatView::relayout() {
         return highlightFence(code, lang);
     };
 
-    m_layouts.clear();
-    m_offsets.clear();
-    int y = 0;
+    // A bubble may take at most kBubbleMaxFraction of the inter-margin width,
+    // leaving a gutter on the opposite side.
+    const int available = std::max(120, panelWidth - (2 * kMargin));
+    const int maxBubble = std::max(100, static_cast<int>(available * kBubbleMaxFraction));
+    const int maxContent = std::max(kMinBubbleContent, maxBubble - (2 * kBubblePad));
+
+    m_items.clear();
+    int y = kMargin;
     for (const auto& message : m_messages) {
-        auto doc = layoutMarkdown(parseMarkdown(message.markdown), contentWidth, measurer, pal, highlight);
-        m_offsets.push_back(y);
-        y += doc.height + kMessageGap;
-        m_layouts.push_back(std::move(doc));
+        LaidMessage item;
+        item.fromUser = message.fromUser;
+        item.doc = layoutMarkdown(parseMarkdown(message.markdown), maxContent, measurer, pal, highlight);
+
+        // Shrink the bubble to its widest line — wrapping was done at
+        // maxContent, so every line already fits the shrunk width.
+        int widest = 0;
+        for (const auto& line : item.doc.lines) {
+            for (const auto& run : line.runs) {
+                widest = std::max(widest, run.x + run.width);
+            }
+        }
+        item.contentWidth = std::clamp(widest, kMinBubbleContent, maxContent);
+
+        const int bubbleWidth = item.contentWidth + (2 * kBubblePad);
+        const int bubbleHeight = item.doc.height + (2 * kBubblePad);
+        const int bubbleX = message.fromUser
+                              ? (panelWidth - kMargin - bubbleWidth)
+                              : kMargin;
+        item.bubble = wxRect(bubbleX, y, bubbleWidth, bubbleHeight);
+
+        y += bubbleHeight + kMessageGap;
+        m_items.push_back(std::move(item));
     }
 
-    m_totalHeight = m_messages.empty() ? 0 : (y - kMessageGap);
-    m_layoutWidth = contentWidth;
-    SetVirtualSize(GetClientSize().GetWidth(), m_totalHeight + (2 * kMargin));
+    m_totalHeight = m_items.empty() ? 0 : (y - kMessageGap + kMargin);
+    m_layoutWidth = panelWidth;
+    SetVirtualSize(panelWidth, m_totalHeight);
 }
 
 void AiChatView::onPaint(wxPaintEvent& /*event*/) {
@@ -169,39 +209,44 @@ void AiChatView::onPaint(wxPaintEvent& /*event*/) {
     gc.Clear();
 
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
-    const int viewTop = originY - kMargin;
+    const int viewTop = originY;
     const int viewBottom = originY + size.GetHeight();
 
-    for (std::size_t index = 0; index < m_layouts.size(); index++) {
-        const int messageTop = m_offsets[index] + kMargin;
-        const auto& doc = m_layouts[index];
-        if (messageTop + doc.height < viewTop || messageTop > viewBottom) {
-            continue; // message entirely outside the viewport
+    for (const auto& item : m_items) {
+        if (item.bubble.GetBottom() < viewTop || item.bubble.GetTop() > viewBottom) {
+            continue; // bubble entirely outside the viewport
         }
-        paintMessage(gc, doc, kMargin, messageTop - originY);
+        paintMessage(gc, item, originY);
     }
 
     paintDc.Blit(0, 0, size.GetWidth(), size.GetHeight(), &memoryDc, 0, 0);
 }
 
-void AiChatView::paintMessage(wxGCDC& gc, const LaidOutDoc& doc, const int leftMargin, const int screenTop) const {
+void AiChatView::paintMessage(wxGCDC& gc, const LaidMessage& message, const int originY) const {
     const ChatPalette pal = palette();
-    const int clientHeight = GetClientSize().GetHeight();
 
-    for (const auto& line : doc.lines) {
-        const int lineTop = screenTop + line.y;
-        if (lineTop + line.height < 0 || lineTop > clientHeight) {
-            continue; // line outside the viewport
-        }
+    // Bubble — a rounded rect, then clip content to it.
+    wxRect bubble = message.bubble;
+    bubble.y -= originY;
+    gc.SetPen(*wxTRANSPARENT_PEN);
+    gc.SetBrush(wxBrush(bubbleColour(message.fromUser)));
+    gc.DrawRoundedRectangle(bubble, kBubbleRadius);
+    gc.SetClippingRegion(bubble);
+
+    const int contentLeft = bubble.x + kBubblePad;
+    const int contentTop = bubble.y + kBubblePad;
+
+    for (const auto& line : message.doc.lines) {
+        const int lineTop = contentTop + line.y;
 
         if (line.kind == LineKind::Code) {
             gc.SetBrush(wxBrush(pal.codeBg));
             gc.SetPen(*wxTRANSPARENT_PEN);
-            gc.DrawRectangle(leftMargin, lineTop, m_layoutWidth, line.height);
+            gc.DrawRectangle(contentLeft, lineTop, message.contentWidth, line.height);
         } else if (line.kind == LineKind::Rule) {
             gc.SetPen(wxPen(pal.rule));
             const int ruleY = lineTop + (line.height / 2);
-            gc.DrawLine(leftMargin, ruleY, leftMargin + m_layoutWidth, ruleY);
+            gc.DrawLine(contentLeft, ruleY, contentLeft + message.contentWidth, ruleY);
         }
 
         for (const auto& run : line.runs) {
@@ -210,9 +255,21 @@ void AiChatView::paintMessage(wxGCDC& gc, const LaidOutDoc& doc, const int leftM
             }
             gc.SetFont(fontFor(run.style, m_bodyFont, m_monoFont));
             gc.SetTextForeground(run.colour);
-            gc.DrawText(run.text, leftMargin + run.x, lineTop + 2);
+            gc.DrawText(run.text, contentLeft + run.x, lineTop + 2);
         }
     }
+
+    gc.DestroyClippingRegion();
+}
+
+auto AiChatView::bubbleColour(const bool fromUser) const -> wxColour {
+    const wxColour windowBg = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
+    if (fromUser) {
+        // Accent-tinted toward the system highlight colour.
+        return blend(windowBg, wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT), 0.20);
+    }
+    // A subtle surface, nudged toward the text colour.
+    return blend(windowBg, wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT), 0.07);
 }
 
 auto AiChatView::palette() const -> ChatPalette {
