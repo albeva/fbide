@@ -106,7 +106,7 @@ public:
     /// Editor under test.
     [[nodiscard]] auto editor() -> Editor& { return *m_editor; }
 
-    void typeText(const wxString& text) {
+    static void typeText(const wxString& text) {
         wxUIActionSimulator sim;
         for (const auto ch : text) {
             sim.Char(ch);
