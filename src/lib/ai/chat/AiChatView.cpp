@@ -12,15 +12,19 @@
 #include <wx/dcmemory.h>
 #include <wx/settings.h>
 #include <wx/utils.h>
+#include "CodeActionBar.hpp"
 #include "CodeHighlighter.hpp"
 #include "Markdown.hpp"
 #include "app/Context.hpp"
+#include "command/CommandId.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/Theme.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "editor/Editor.hpp"
+#include "ui/ArtiProvider.hpp"
+#include "ui/UIManager.hpp"
 using namespace fbide;
 
 namespace {
@@ -39,14 +43,8 @@ constexpr int kBubbleRadius = 10;
 constexpr double kBubbleMaxFraction = 0.85;
 // Smallest content width a bubble shrinks to.
 constexpr int kMinBubbleContent = 60;
-// Code-block hover toolbar geometry.
-constexpr int kBtnW = 54;
-constexpr int kBtnH = 20;
-constexpr int kBtnGap = 4;
-constexpr int kToolbarInset = 6;
-// Toolbar button count and labels (index order: Copy, Insert, Run).
-constexpr int kButtonCount = 3;
-constexpr std::array<const char*, kButtonCount> kButtonLabels { "Copy", "Insert", "Run" };
+// Inset of the action bar from the code block's top-right corner.
+constexpr int kActionBarInset = 4;
 
 /// True when `lang` (a fence tag) denotes FreeBASIC. An empty tag counts — in
 /// a FreeBASIC IDE an untagged block is assumed to be FreeBASIC.
@@ -122,6 +120,25 @@ AiChatView::AiChatView(wxWindow* parent, Context& ctx)
 
     m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
 
+    // One reusable action bar, shown over whichever code block is hovered.
+    auto& art = m_ctx.getUIManager().getArtProvider();
+    m_actionBar = make_unowned<CodeActionBar>(
+        this,
+        art.getBitmap(CommandId::Copy),
+        art.getBitmap(CommandId::Paste),
+        art.getBitmap(CommandId::CompileAndRun),
+        [this] { copyCode(); },
+        [this] { insertCode(); },
+        [this] { runCode(); }
+    );
+    m_actionBar->Hide();
+    m_actionBar->setLeaveHandler([this] {
+        // Pointer left the bar — drop it unless it returned to a code block.
+        if (codeBlockAt(ScreenToClient(wxGetMousePosition())).first < 0) {
+            hideActionBar();
+        }
+    });
+
     Bind(wxEVT_PAINT, &AiChatView::onPaint, this);
     Bind(wxEVT_SIZE, &AiChatView::onSize, this);
     Bind(wxEVT_MOTION, &AiChatView::onMotion, this);
@@ -143,11 +160,13 @@ void AiChatView::refreshTheme() {
     m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
     m_monoFont = m_ctx.getTheme().getResolvedFont();
     m_layoutWidth = -1;
+    hideActionBar();
     relayout();
     Refresh();
 }
 
 void AiChatView::onSize(wxSizeEvent& event) {
+    hideActionBar(); // bubble positions shift — re-hover brings the bar back
     relayout();
     Refresh();
     event.Skip();
@@ -247,7 +266,6 @@ void AiChatView::onPaint(wxPaintEvent& /*event*/) {
         }
         paintMessage(gc, item, originY);
     }
-    paintCodeToolbar(gc, originY);
 
     paintDc.Blit(0, 0, size.GetWidth(), size.GetHeight(), &memoryDc, 0, 0);
 }
@@ -347,48 +365,14 @@ auto AiChatView::highlightFence(const wxString& code, const wxString& lang, cons
     return lines;
 }
 
-auto AiChatView::toolbarButtonRect(
-    const LaidMessage& message,
-    const LaidCodeBlock& block,
-    const int button,
-    const int originY
-) const -> wxRect {
-    const int contentLeft = message.bubble.x + kBubblePad;
-    const int contentTop = message.bubble.y + kBubblePad;
-    const int codeRight = contentLeft + message.contentWidth;
-    const int totalWidth = (kButtonCount * kBtnW) + ((kButtonCount - 1) * kBtnGap);
-    const int toolbarX = codeRight - kToolbarInset - totalWidth;
-    const int x = toolbarX + (button * (kBtnW + kBtnGap));
-    const int yDoc = contentTop + block.y + kToolbarInset;
-    return { x, yDoc - originY, kBtnW, kBtnH };
-}
-
-auto AiChatView::hitTest(const wxPoint& clientPoint) const -> HitResult {
+auto AiChatView::linkAt(const wxPoint& clientPoint) const -> wxString {
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
     const wxPoint docPoint(clientPoint.x, clientPoint.y + originY);
 
-    for (std::size_t mi = 0; mi < m_items.size(); mi++) {
-        const auto& item = m_items[mi];
+    for (const auto& item : m_items) {
         if (!item.bubble.Contains(docPoint)) {
             continue;
         }
-        const int messageIndex = static_cast<int>(mi);
-
-        // Code-block toolbar buttons (screen coordinates).
-        for (std::size_t ci = 0; ci < item.doc.codeBlocks.size(); ci++) {
-            for (int button = 0; button < kButtonCount; button++) {
-                const wxRect rect = toolbarButtonRect(item, item.doc.codeBlocks[ci], button, originY);
-                if (rect.Contains(clientPoint)) {
-                    return { .what = HitResult::What::CodeButton,
-                        .url = {},
-                        .messageIndex = messageIndex,
-                        .codeBlockIndex = static_cast<int>(ci),
-                        .buttonIndex = button };
-                }
-            }
-        }
-
-        // Link runs (document coordinates).
         const int contentLeft = item.bubble.x + kBubblePad;
         const int contentTop = item.bubble.y + kBubblePad;
         for (const auto& line : item.doc.lines) {
@@ -398,25 +382,19 @@ auto AiChatView::hitTest(const wxPoint& clientPoint) const -> HitResult {
                 }
                 const wxRect runRect(contentLeft + run.x, contentTop + line.y, run.width, line.height);
                 if (runRect.Contains(docPoint)) {
-                    return { .what = HitResult::What::Link,
-                        .url = item.doc.links[static_cast<std::size_t>(run.linkId)].url,
-                        .messageIndex = messageIndex,
-                        .codeBlockIndex = -1,
-                        .buttonIndex = -1 };
+                    return item.doc.links[static_cast<std::size_t>(run.linkId)].url;
                 }
             }
         }
-        break; // the point lay in this bubble; nothing actionable there
+        break; // only one bubble can contain the point
     }
     return {};
 }
 
-void AiChatView::updateHover(const wxPoint& clientPoint) {
+auto AiChatView::codeBlockAt(const wxPoint& clientPoint) const -> std::pair<int, int> {
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
     const wxPoint docPoint(clientPoint.x, clientPoint.y + originY);
 
-    int hoverMessage = -1;
-    int hoverCode = -1;
     for (std::size_t mi = 0; mi < m_items.size(); mi++) {
         const auto& item = m_items[mi];
         if (!item.bubble.Contains(docPoint)) {
@@ -428,104 +406,96 @@ void AiChatView::updateHover(const wxPoint& clientPoint) {
             const auto& block = item.doc.codeBlocks[ci];
             const wxRect codeRect(contentLeft, contentTop + block.y, item.contentWidth, block.height);
             if (codeRect.Contains(docPoint)) {
-                hoverMessage = static_cast<int>(mi);
-                hoverCode = static_cast<int>(ci);
-                break;
+                return { static_cast<int>(mi), static_cast<int>(ci) };
             }
         }
-        break; // only one bubble can contain the point
+        break;
     }
+    return { -1, -1 };
+}
 
-    const HitResult hit = hitTest(clientPoint);
-    const int hoverButton = hit.what == HitResult::What::CodeButton ? hit.buttonIndex : -1;
+void AiChatView::showActionBar(const int messageIndex, const int codeIndex) {
+    if (messageIndex < 0 || codeIndex < 0) {
+        hideActionBar();
+        return;
+    }
+    m_barMessage = messageIndex;
+    m_barCode = codeIndex;
 
-    if (hoverMessage != m_hoverMessage || hoverCode != m_hoverCode || hoverButton != m_hoverButton) {
-        m_hoverMessage = hoverMessage;
-        m_hoverCode = hoverCode;
-        m_hoverButton = hoverButton;
-        Refresh();
+    const auto& item = m_items[static_cast<std::size_t>(messageIndex)];
+    const auto& block = item.doc.codeBlocks[static_cast<std::size_t>(codeIndex)];
+    const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
+    const int codeRight = item.bubble.x + kBubblePad + item.contentWidth;
+    const int codeTop = item.bubble.y + kBubblePad + block.y - originY;
+
+    // Tuck the bar into the code block's top-right corner.
+    const wxSize barSize = m_actionBar->GetSize();
+    m_actionBar->Move(codeRight - barSize.GetWidth() - kActionBarInset, codeTop + kActionBarInset);
+    m_actionBar->Show();
+    m_actionBar->Raise();
+}
+
+void AiChatView::hideActionBar() {
+    m_barMessage = -1;
+    m_barCode = -1;
+    if (m_actionBar->IsShown()) {
+        m_actionBar->Hide();
     }
 }
 
 void AiChatView::onMotion(wxMouseEvent& event) {
-    updateHover(event.GetPosition());
-    const HitResult hit = hitTest(event.GetPosition());
-    SetCursor(hit.what == HitResult::What::None ? wxCursor(wxCURSOR_ARROW) : wxCursor(wxCURSOR_HAND));
+    const wxPoint pos = event.GetPosition();
+    SetCursor(linkAt(pos).empty() ? wxCursor(wxCURSOR_ARROW) : wxCursor(wxCURSOR_HAND));
+
+    const auto [messageIndex, codeIndex] = codeBlockAt(pos);
+    if (messageIndex < 0) {
+        hideActionBar();
+    } else if (messageIndex != m_barMessage || codeIndex != m_barCode || !m_actionBar->IsShown()) {
+        showActionBar(messageIndex, codeIndex);
+    }
     event.Skip();
 }
 
 void AiChatView::onLeftDown(wxMouseEvent& event) {
-    const HitResult hit = hitTest(event.GetPosition());
-    if (hit.what == HitResult::What::Link) {
-        if (!hit.url.empty()) {
-            wxLaunchDefaultBrowser(hit.url);
-        }
-    } else if (hit.what == HitResult::What::CodeButton) {
-        const auto& block = m_items[static_cast<std::size_t>(hit.messageIndex)]
-                                .doc.codeBlocks[static_cast<std::size_t>(hit.codeBlockIndex)];
-        switch (hit.buttonIndex) {
-        case 0:
-            copyCode(block.code);
-            break;
-        case 1:
-            insertCode(block.code);
-            break;
-        case 2:
-            runCode(block.code);
-            break;
-        default:
-            break;
-        }
+    const wxString url = linkAt(event.GetPosition());
+    if (!url.empty()) {
+        wxLaunchDefaultBrowser(url);
     }
     event.Skip();
 }
 
 void AiChatView::onLeaveWindow(wxMouseEvent& event) {
-    if (m_hoverMessage != -1 || m_hoverCode != -1 || m_hoverButton != -1) {
-        m_hoverMessage = -1;
-        m_hoverCode = -1;
-        m_hoverButton = -1;
-        Refresh();
+    // The pointer may have moved onto the action bar (a child window) — keep
+    // the bar shown in that case.
+    if (m_actionBar->IsShown()) {
+        const wxRect barRect(m_actionBar->GetScreenPosition(), m_actionBar->GetSize());
+        if (!barRect.Contains(wxGetMousePosition())) {
+            hideActionBar();
+        }
     }
     event.Skip();
 }
 
-void AiChatView::paintCodeToolbar(wxGCDC& gc, const int originY) const {
-    if (m_hoverMessage < 0 || m_hoverCode < 0) {
+void AiChatView::copyCode() const {
+    if (m_barMessage < 0 || m_barCode < 0) {
         return;
     }
-    const auto& message = m_items[static_cast<std::size_t>(m_hoverMessage)];
-    const auto& block = message.doc.codeBlocks[static_cast<std::size_t>(m_hoverCode)];
-
-    const ChatPalette pal = palette();
-    const wxColour base = blend(pal.codeBg, wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT), 0.22);
-    const wxColour hover = blend(pal.codeBg, wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT), 0.55);
-    const wxColour textColour = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
-
-    gc.SetFont(m_bodyFont);
-    for (int button = 0; button < kButtonCount; button++) {
-        const wxRect rect = toolbarButtonRect(message, block, button, originY);
-        gc.SetPen(*wxTRANSPARENT_PEN);
-        gc.SetBrush(wxBrush(button == m_hoverButton ? hover : base));
-        gc.DrawRoundedRectangle(rect, 4);
-
-        const wxString label = kButtonLabels.at(static_cast<std::size_t>(button));
-        wxCoord textWidth = 0;
-        wxCoord textHeight = 0;
-        gc.GetTextExtent(label, &textWidth, &textHeight);
-        gc.SetTextForeground(textColour);
-        gc.DrawText(label, rect.x + ((rect.width - textWidth) / 2), rect.y + ((rect.height - textHeight) / 2));
-    }
-}
-
-void AiChatView::copyCode(const wxString& code) const {
+    const wxString& code = m_items[static_cast<std::size_t>(m_barMessage)]
+                               .doc.codeBlocks[static_cast<std::size_t>(m_barCode)]
+                               .code;
     if (wxTheClipboard->Open()) {
         wxTheClipboard->SetData(make_unowned<wxTextDataObject>(code));
         wxTheClipboard->Close();
     }
 }
 
-void AiChatView::insertCode(const wxString& code) const {
+void AiChatView::insertCode() const {
+    if (m_barMessage < 0 || m_barCode < 0) {
+        return;
+    }
+    const wxString& code = m_items[static_cast<std::size_t>(m_barMessage)]
+                               .doc.codeBlocks[static_cast<std::size_t>(m_barCode)]
+                               .code;
     auto* document = m_ctx.getDocumentManager().getActive();
     if (document == nullptr) {
         // No open document — drop the snippet into a fresh one.
@@ -538,7 +508,13 @@ void AiChatView::insertCode(const wxString& code) const {
     editor->EndUndoAction();
 }
 
-void AiChatView::runCode(const wxString& code) const {
+void AiChatView::runCode() const {
+    if (m_barMessage < 0 || m_barCode < 0) {
+        return;
+    }
+    const wxString& code = m_items[static_cast<std::size_t>(m_barMessage)]
+                               .doc.codeBlocks[static_cast<std::size_t>(m_barCode)]
+                               .code;
     // Open the snippet as a new document and quick-run it (compile to a temp
     // file and execute) — the same path as the Run command.
     m_ctx.getDocumentManager().newFile().getEditor()->SetText(code);

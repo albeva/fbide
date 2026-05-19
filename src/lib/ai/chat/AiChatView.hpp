@@ -13,6 +13,7 @@ class wxGCDC;
 
 namespace fbide {
 class Context;
+class CodeActionBar;
 class CodeHighlighter;
 
 /// One conversation message handed to the chat view.
@@ -57,18 +58,6 @@ private:
         bool fromUser = false; ///< Role — drives bubble colour + side.
     };
 
-    /// What a client point hit.
-    struct HitResult {
-        enum class What : std::uint8_t { None,
-            Link,
-            CodeButton };
-        What what = What::None;
-        wxString url;            ///< Link target — `What::Link`.
-        int messageIndex = -1;   ///< Message hit.
-        int codeBlockIndex = -1; ///< Code block hit — `What::CodeButton`.
-        int buttonIndex = -1;    ///< 0 Copy, 1 Insert, 2 Run — `What::CodeButton`.
-    };
-
     void onPaint(wxPaintEvent& event);
     void onSize(wxSizeEvent& event);
     void onMotion(wxMouseEvent& event);
@@ -82,23 +71,22 @@ private:
     /// scroll offset, so document coordinates map to client coordinates.
     void paintMessage(wxGCDC& gc, const LaidMessage& message, int originY) const;
 
-    /// Paint the hover toolbar over the currently hovered code block.
-    void paintCodeToolbar(wxGCDC& gc, int originY) const;
+    /// Link target under a client point, or empty when there is none.
+    [[nodiscard]] auto linkAt(const wxPoint& clientPoint) const -> wxString;
 
-    /// Hit-test a client point against links and code-toolbar buttons.
-    [[nodiscard]] auto hitTest(const wxPoint& clientPoint) const -> HitResult;
+    /// (message, code-block) indices of the code block under a client point,
+    /// or {-1, -1} when the point is over no code block.
+    [[nodiscard]] auto codeBlockAt(const wxPoint& clientPoint) const -> std::pair<int, int>;
 
-    /// Screen rect of a code-block toolbar button (0 Copy, 1 Insert, 2 Run).
-    [[nodiscard]] auto toolbarButtonRect(const LaidMessage& message, const LaidCodeBlock& block,
-        int button, int originY) const -> wxRect;
+    /// Show the action bar over code block `codeIndex` of `messageIndex`;
+    /// passing a negative index hides it.
+    void showActionBar(int messageIndex, int codeIndex);
+    void hideActionBar();
 
-    /// Refresh the hovered code block from a client point; repaint on change.
-    void updateHover(const wxPoint& clientPoint);
-
-    /// Toolbar actions on a code block's source.
-    void copyCode(const wxString& code) const;
-    void insertCode(const wxString& code) const;
-    void runCode(const wxString& code) const;
+    /// Action-bar button handlers — operate on the bar's current code block.
+    void copyCode() const;
+    void insertCode() const;
+    void runCode() const;
 
     /// Resolve the layout palette from the active theme + system colours.
     [[nodiscard]] auto palette() const -> ChatPalette;
@@ -114,15 +102,15 @@ private:
 
     Context& m_ctx;                                 ///< Application context.
     std::unique_ptr<CodeHighlighter> m_highlighter; ///< FreeBASIC code highlighter.
+    Unowned<CodeActionBar> m_actionBar;             ///< Floating per-code-block toolbar.
     wxFont m_bodyFont;                              ///< Base prose font.
     wxFont m_monoFont;                              ///< Base monospace (code) font.
     std::vector<ChatViewMessage> m_messages;        ///< Conversation source.
     std::vector<LaidMessage> m_items;               ///< One laid-out bubble per message.
     int m_layoutWidth = -1;                         ///< Client width m_items were built for.
     int m_totalHeight = 0;                          ///< Stacked height of all bubbles.
-    int m_hoverMessage = -1;                        ///< Hovered message (toolbar host).
-    int m_hoverCode = -1;                           ///< Hovered code block within it.
-    int m_hoverButton = -1;                         ///< Hovered toolbar button, or -1.
+    int m_barMessage = -1;                          ///< Message the action bar targets.
+    int m_barCode = -1;                             ///< Code block the action bar targets.
 };
 
 } // namespace fbide

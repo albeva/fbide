@@ -13,6 +13,7 @@ target_sources(fbide_lib
     ai/OllamaProvider.cpp
     ai/chat/AiChatView.cpp
     ai/chat/ChatLayout.cpp
+    ai/chat/CodeActionBar.cpp
     ai/chat/CodeHighlighter.cpp
     ai/chat/Markdown.cpp
     analyses/intellisense/IntellisenseService.cpp
@@ -89,6 +90,7 @@ target_sources(fbide_lib
     ai/OllamaProvider.hpp
     ai/chat/AiChatView.hpp
     ai/chat/ChatLayout.hpp
+    ai/chat/CodeActionBar.hpp
     ai/chat/CodeHighlighter.hpp
     ai/chat/Markdown.hpp
     analyses/intellisense/IntellisenseService.hpp
