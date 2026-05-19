@@ -65,9 +65,7 @@ auto activeIncludes(Document* doc) -> std::vector<wxString> {
 } // namespace
 
 AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
-// wxCLIP_CHILDREN: the floating action bar is a child of this panel
-// (sibling of the chat view). Clipping keeps our paint out of its region.
-: wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL | wxCLIP_CHILDREN)
+: wxPanel(parent, wxID_ANY)
 , m_ctx(ctx) {
     auto sizer = make_unowned<wxBoxSizer>(wxVERTICAL);
 
