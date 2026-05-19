@@ -7,10 +7,9 @@
 #pragma once
 #include "pch.hpp"
 
-class wxHtmlWindow;
-
 namespace fbide {
 class Context;
+class AiChatView;
 
 /**
  * AI chat side panel: conversation view, message input box, send button,
@@ -18,9 +17,9 @@ class Context;
  *
  * Docked on the right of the main frame as a hideable AUI pane, toggled
  * by the `viewAiChat` command (F7). Sends messages through `AiManager`
- * and renders the conversation as HTML (markdown replies converted via
- * maddy). Replies stream in incrementally; a throttle timer limits how
- * often the HTML view is rebuilt.
+ * and renders the conversation in a custom-painted `AiChatView` (markdown
+ * parsed and laid out natively). Replies stream in incrementally; a
+ * throttle timer limits how often the view is rebuilt.
  *
  * **Owns:** its child controls (wx-parented).
  * **Owned by:** the main frame via `UIManager`.
@@ -51,28 +50,15 @@ private:
     /// "Remove" — drop the selected context file.
     void onRemoveFile(wxCommandEvent& event);
 
-    /// Re-render the whole conversation (plus the streaming reply and any
-    /// error) into the HTML view.
+    /// Rebuild the conversation in the view from `AiManager`'s history,
+    /// plus the streaming reply and any error.
     void renderConversation();
-
-    /// Render one message body: prose through maddy, fenced code blocks
-    /// through the syntax highlighter. `reformatCode` re-indents/re-formats
-    /// FreeBASIC blocks (used for model replies, not the user's own code).
-    auto renderMessageBody(const wxString& markdown, bool reformatCode) -> wxString;
-
-    /// Render a single fenced code block — FreeBASIC gets syntax
-    /// highlighting (optionally reformatted), anything else a plain
-    /// escaped `<pre>`.
-    auto renderCodeBlock(const wxString& code, const wxString& lang, bool reformat) -> wxString;
 
     /// Repopulate the context list box from `AiManager`'s context.
     void refreshContextList();
 
-    /// Keep the HTML view scrolled to the newest content.
-    void scrollToBottom();
-
     Context& m_ctx;                   ///< Application context.
-    Unowned<wxHtmlWindow> m_output;   ///< Conversation view (rendered HTML).
+    Unowned<AiChatView> m_output;     ///< Conversation view (custom-painted).
     Unowned<wxTextCtrl> m_input;      ///< Message input box.
     Unowned<wxButton> m_send;         ///< Send button.
     Unowned<wxListBox> m_contextList; ///< Attached context files.

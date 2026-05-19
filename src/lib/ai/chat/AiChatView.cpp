@@ -135,8 +135,8 @@ AiChatView::~AiChatView() = default;
 
 void AiChatView::setMessages(std::vector<ChatViewMessage> messages) {
     m_messages = std::move(messages);
-    m_layoutWidth = -1; // force a relayout even if the width is unchanged
-    relayout();
+    relayout();                                   // per-message caching re-lays only what actually changed
+    Scroll(0, (m_totalHeight / kScrollStep) + 1); // keep pinned to the newest
     Refresh();
 }
 
@@ -159,9 +159,7 @@ void AiChatView::onSize(wxSizeEvent& event) {
 
 void AiChatView::relayout() {
     const int panelWidth = GetClientSize().GetWidth();
-    if (panelWidth == m_layoutWidth) {
-        return; // width unchanged — cached layouts still valid
-    }
+    const bool widthChanged = panelWidth != m_layoutWidth;
 
     wxClientDC clientDc(this);
     wxGCDC measureDc(clientDc);
@@ -178,22 +176,36 @@ void AiChatView::relayout() {
     const int maxBubble = std::max(100, static_cast<int>(available * kBubbleMaxFraction));
     const int maxContent = std::max(kMinBubbleContent, maxBubble - (2 * kBubblePad));
 
-    m_items.clear();
+    std::vector<LaidMessage> rebuilt;
+    rebuilt.reserve(m_messages.size());
     int y = kMargin;
-    for (const auto& message : m_messages) {
+    for (std::size_t index = 0; index < m_messages.size(); index++) {
+        const auto& message = m_messages[index];
         LaidMessage item;
         item.fromUser = message.fromUser;
-        item.doc = layoutMarkdown(parseMarkdown(message.markdown), maxContent, measurer, pal, highlight);
+        item.markdown = message.markdown;
 
-        // Shrink the bubble to its widest line — wrapping was done at
-        // maxContent, so every line already fits the shrunk width.
-        int widest = 0;
-        for (const auto& line : item.doc.lines) {
-            for (const auto& run : line.runs) {
-                widest = std::max(widest, run.x + run.width);
+        // Reuse the cached layout when the message text and width are both
+        // unchanged — while a reply streams, only the last message moves.
+        const bool reusable = !widthChanged
+                           && index < m_items.size()
+                           && m_items[index].fromUser == message.fromUser
+                           && m_items[index].markdown == message.markdown;
+        if (reusable) {
+            item.doc = std::move(m_items[index].doc);
+            item.contentWidth = m_items[index].contentWidth;
+        } else {
+            item.doc = layoutMarkdown(parseMarkdown(message.markdown), maxContent, measurer, pal, highlight);
+            // Shrink the bubble to its widest line — wrapping was done at
+            // maxContent, so every line already fits the shrunk width.
+            int widest = 0;
+            for (const auto& line : item.doc.lines) {
+                for (const auto& run : line.runs) {
+                    widest = std::max(widest, run.x + run.width);
+                }
             }
+            item.contentWidth = std::clamp(widest, kMinBubbleContent, maxContent);
         }
-        item.contentWidth = std::clamp(widest, kMinBubbleContent, maxContent);
 
         const int bubbleWidth = item.contentWidth + (2 * kBubblePad);
         const int bubbleHeight = item.doc.height + (2 * kBubblePad);
@@ -203,9 +215,10 @@ void AiChatView::relayout() {
         item.bubble = wxRect(bubbleX, y, bubbleWidth, bubbleHeight);
 
         y += bubbleHeight + kMessageGap;
-        m_items.push_back(std::move(item));
+        rebuilt.push_back(std::move(item));
     }
 
+    m_items = std::move(rebuilt);
     m_totalHeight = m_items.empty() ? 0 : (y - kMessageGap + kMargin);
     m_layoutWidth = panelWidth;
     SetVirtualSize(panelWidth, m_totalHeight);

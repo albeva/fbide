@@ -5,42 +5,16 @@
 // https://github.com/albeva/fbide
 //
 #include "AiChatPanel.hpp"
-#include <maddy/parser.h>
-#include <sstream>
 #include <wx/filedlg.h>
-#include <wx/html/htmlwin.h>
 #include "AiContext.hpp"
 #include "AiManager.hpp"
 #include "app/Context.hpp"
+#include "chat/AiChatView.hpp"
 using namespace fbide;
 
 namespace {
 // Re-render at most this often while a reply streams in, in milliseconds.
 constexpr int kRenderThrottleMs = 150;
-
-/// Escape the HTML metacharacters in plain text.
-auto escapeHtml(const wxString& text) -> wxString {
-    wxString out;
-    out.reserve(text.size());
-    for (const auto ch : text) {
-        if (ch == '&') {
-            out += "&amp;";
-        } else if (ch == '<') {
-            out += "&lt;";
-        } else if (ch == '>') {
-            out += "&gt;";
-        } else {
-            out += ch;
-        }
-    }
-    return out;
-}
-
-/// True when `lang` (a fence tag) denotes FreeBASIC. An empty tag counts —
-/// in a FreeBASIC IDE an untagged block is assumed to be FreeBASIC.
-auto isFreeBasicTag(const wxString& lang) -> bool {
-    return lang.empty() || lang == "freebasic" || lang == "fb" || lang == "basic" || lang == "bas";
-}
 } // namespace
 
 AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
@@ -48,7 +22,7 @@ AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
 , m_ctx(ctx) {
     auto sizer = make_unowned<wxBoxSizer>(wxVERTICAL);
 
-    m_output = make_unowned<wxHtmlWindow>(this, wxID_ANY);
+    m_output = make_unowned<AiChatView>(this, m_ctx);
     sizer->Add(m_output, wxSizerFlags(1).Expand().Border(wxALL, 4));
 
     // Context bar: list of attached files plus add/remove buttons.
@@ -174,82 +148,26 @@ void AiChatPanel::refreshContextList() {
 }
 
 void AiChatPanel::renderConversation() {
-    wxString html = "<html><body>";
+    std::vector<ChatViewMessage> messages;
     for (const auto& message : m_ctx.getAiManager().history()) {
-        const bool isAssistant = message.role == AiRole::Assistant;
-        html += "<p><b>";
-        html += isAssistant ? "Assistant" : "You";
-        html += "</b></p>";
-        // Reformat model code; leave the user's own code untouched.
-        html += renderMessageBody(message.content, isAssistant);
-        html += "<hr>";
+        messages.push_back({
+            .fromUser = message.role == AiRole::User,
+            .markdown = message.content,
+        });
     }
     if (m_busy) {
-        // The streaming reply is not in the history yet — render the
-        // partial text as it arrives.
-        html += "<p><b>Assistant</b></p>";
-        html += m_streaming.empty() ? wxString("<p><i>Thinking&hellip;</i></p>") : renderMessageBody(m_streaming, true);
+        // The streaming reply is not in the history yet — show the partial
+        // text as it arrives, or a placeholder until the first chunk.
+        messages.push_back({
+            .fromUser = false,
+            .markdown = m_streaming.empty() ? wxString("_Thinking…_") : m_streaming,
+        });
     }
     if (!m_lastError.empty()) {
-        html += "<p><font color=\"#cc0000\"><b>Error:</b> " + m_lastError + "</font></p>";
+        messages.push_back({
+            .fromUser = false,
+            .markdown = "**Error:** " + m_lastError,
+        });
     }
-    html += "</body></html>";
-
-    m_output->SetPage(html);
-    scrollToBottom();
-}
-
-auto AiChatPanel::renderMessageBody(const wxString& markdown, const bool reformatCode) -> wxString {
-    const auto config = std::make_shared<maddy::ParserConfig>();
-    maddy::Parser parser(config);
-
-    wxString html;
-    wxString prose;    // accumulated prose lines awaiting maddy
-    wxString code;     // accumulated code lines inside the current fence
-    wxString codeLang; // language tag of the current fence
-    bool inCode = false;
-
-    const auto flushProse = [&] {
-        if (!prose.empty()) {
-            std::stringstream stream(prose.utf8_string());
-            html += wxString::FromUTF8(parser.Parse(stream));
-            prose.clear();
-        }
-    };
-
-    // Split on fenced code blocks (```), keeping empty lines.
-    wxStringTokenizer lines(markdown, "\n", wxTOKEN_RET_EMPTY_ALL);
-    while (lines.HasMoreTokens()) {
-        const wxString line = lines.GetNextToken();
-        if (line.Strip(wxString::both).StartsWith("```")) {
-            if (inCode) {
-                html += renderCodeBlock(code, codeLang, reformatCode);
-                code.clear();
-                inCode = false;
-            } else {
-                flushProse();
-                codeLang = line.Strip(wxString::both).Mid(3).Strip(wxString::both).Lower();
-                inCode = true;
-            }
-            continue;
-        }
-        (inCode ? code : prose) += line + "\n";
-    }
-    // An unterminated fence (mid-stream) still renders what arrived so far.
-    if (inCode) {
-        html += renderCodeBlock(code, codeLang, reformatCode);
-    }
-    flushProse();
-    return html;
-}
-
-auto AiChatPanel::renderCodeBlock(const wxString& code, const wxString& lang, const bool reformat) -> wxString {
-    if (isFreeBasicTag(lang)) {
-        return m_ctx.getAiManager().highlightFreeBasic(code, reformat);
-    }
-    return "<pre>" + escapeHtml(code) + "</pre>";
-}
-
-void AiChatPanel::scrollToBottom() {
-    m_output->Scroll(0, m_output->GetScrollRange(wxVERTICAL));
+    m_output->setMessages(std::move(messages));
 }

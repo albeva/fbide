@@ -52,6 +52,7 @@ private:
     struct LaidMessage {
         LaidOutDoc doc;        ///< Wrapped content.
         wxRect bubble;         ///< Bubble rect in document coordinates.
+        wxString markdown;     ///< Source markdown — layout cache key.
         int contentWidth = 0;  ///< Content width inside the bubble padding.
         bool fromUser = false; ///< Role — drives bubble colour + side.
     };
