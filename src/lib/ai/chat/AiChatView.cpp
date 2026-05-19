@@ -128,7 +128,7 @@ AiChatView::AiChatView(wxWindow* parent, Context& ctx)
         this,
         art.getBitmap(CommandId::Copy),
         art.getBitmap(CommandId::Paste),
-        art.getBitmap(CommandId::CompileAndRun),
+        art.getBitmap(CommandId::QuickRun),
         [this] { copyCode(); },
         [this] { insertCode(); },
         [this] { runCode(); }
