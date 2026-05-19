@@ -109,6 +109,8 @@ wxBEGIN_EVENT_TABLE(AiChatView, wxScrolled<wxWindow>)
     EVT_BUTTON(ID_CodeCopy, AiChatView::onCopyCode)
     EVT_BUTTON(ID_CodeInsert, AiChatView::onInsertCode)
     EVT_BUTTON(ID_CodeRun, AiChatView::onRunCode)
+    EVT_SCROLLWIN(AiChatView::onScroll)
+    EVT_MOUSEWHEEL(AiChatView::onMouseWheel)
     EVT_COMMAND(wxID_ANY, EVT_CODE_BAR_LEAVE, AiChatView::onBarLeave)
 wxEND_EVENT_TABLE()
 // clang-format on
@@ -457,18 +459,7 @@ void AiChatView::showActionBar(const int messageIndex, const int codeIndex) {
     }
     m_barMessage = messageIndex;
     m_barCode = codeIndex;
-
-    const auto& item = m_items[static_cast<std::size_t>(messageIndex)];
-    const auto& block = item.doc.codeBlocks[static_cast<std::size_t>(codeIndex)];
-    const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
-    const int codeRight = item.bubble.x + kBubblePad + item.contentWidth;
-    const int codeTop = item.bubble.y + kBubblePad + block.y - originY;
-
-    // Tuck the bar into the code block's top-right corner.
-    const wxSize barSize = m_actionBar->GetSize();
-    m_actionBar->Move(codeRight - barSize.GetWidth() - kActionBarInset, codeTop + kActionBarInset);
-    m_actionBar->Show();
-    m_actionBar->Raise();
+    repositionActionBar();
 }
 
 void AiChatView::hideActionBar() {
@@ -477,6 +468,62 @@ void AiChatView::hideActionBar() {
     if (m_actionBar->IsShown()) {
         m_actionBar->Hide();
     }
+}
+
+void AiChatView::repositionActionBar() {
+    if (m_barMessage < 0 || m_barCode < 0) {
+        return;
+    }
+    if (static_cast<std::size_t>(m_barMessage) >= m_items.size()) {
+        return;
+    }
+    const auto& item = m_items[static_cast<std::size_t>(m_barMessage)];
+    if (static_cast<std::size_t>(m_barCode) >= item.doc.codeBlocks.size()) {
+        return;
+    }
+    const auto& block = item.doc.codeBlocks[static_cast<std::size_t>(m_barCode)];
+
+    const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
+    const int codeRight = item.bubble.x + kBubblePad + item.contentWidth;
+    const int codeTopDoc = item.bubble.y + kBubblePad + block.y;
+    const int codeBottomDoc = codeTopDoc + block.height;
+
+    const int codeTopClient = codeTopDoc - originY;
+    const int codeBottomClient = codeBottomDoc - originY;
+    const int viewportHeight = GetClientSize().GetHeight();
+
+    // Block entirely outside the viewport — hide and stop.
+    if (codeBottomClient < 0 || codeTopClient > viewportHeight) {
+        if (m_actionBar->IsShown()) {
+            m_actionBar->Hide();
+        }
+        return;
+    }
+
+    const wxSize barSize = m_actionBar->GetSize();
+    // Anchor to the block's top when visible, otherwise stick to the viewport
+    // top. Clamp to stay inside the block so the bar slides off with it.
+    int y = std::max(codeTopClient + kActionBarInset, kActionBarInset);
+    const int maxY = codeBottomClient - barSize.GetHeight() - kActionBarInset;
+    y = std::min(y, maxY);
+
+    const int x = codeRight - barSize.GetWidth() - kActionBarInset;
+
+    m_actionBar->Move(x, y);
+    if (!m_actionBar->IsShown()) {
+        m_actionBar->Show();
+    }
+    m_actionBar->Raise();
+}
+
+void AiChatView::onScroll(wxScrollWinEvent& event) {
+    event.Skip(); // let wxScrolled perform the actual scroll first
+    CallAfter([this] { repositionActionBar(); });
+}
+
+void AiChatView::onMouseWheel(wxMouseEvent& event) {
+    event.Skip(); // wxScrolled handles the wheel itself
+    CallAfter([this] { repositionActionBar(); });
 }
 
 void AiChatView::onMotion(wxMouseEvent& event) {
