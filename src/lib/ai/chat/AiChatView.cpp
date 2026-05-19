@@ -110,7 +110,9 @@ private:
 } // namespace
 
 AiChatView::AiChatView(wxWindow* parent, Context& ctx)
-: wxScrolled<wxWindow>(parent, wxID_ANY)
+// wxCLIP_CHILDREN: the action bar is a child window over custom-painted
+// content — clipping keeps our paint out of its region, so it does not flash.
+: wxScrolled<wxWindow>(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL | wxCLIP_CHILDREN)
 , m_ctx(ctx) {
     SetBackgroundStyle(wxBG_STYLE_PAINT);
     SetScrollRate(0, kScrollStep);

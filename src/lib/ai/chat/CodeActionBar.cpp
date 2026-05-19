@@ -26,6 +26,7 @@ CodeActionBar::CodeActionBar(
 )
 : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE) {
     SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+    SetDoubleBuffered(true); // flicker-free button hover repaints
 
     auto sizer = make_unowned<wxBoxSizer>(wxHORIZONTAL);
     const auto addButton = [&](const wxBitmap& icon, const wxString& tip, Action action) {
