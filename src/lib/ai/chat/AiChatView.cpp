@@ -16,15 +16,12 @@
 #include "CodeHighlighter.hpp"
 #include "Markdown.hpp"
 #include "app/Context.hpp"
-#include "command/CommandId.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/Theme.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "editor/Editor.hpp"
-#include "ui/ArtiProvider.hpp"
-#include "ui/UIManager.hpp"
 using namespace fbide;
 
 namespace {
@@ -109,12 +106,24 @@ private:
 
 } // namespace
 
+// clang-format off
+wxBEGIN_EVENT_TABLE(AiChatView, wxScrolled<wxWindow>)
+    EVT_PAINT(AiChatView::onPaint)
+    EVT_SIZE(AiChatView::onSize)
+    EVT_MOTION(AiChatView::onMotion)
+    EVT_LEFT_DOWN(AiChatView::onLeftDown)
+    EVT_LEAVE_WINDOW(AiChatView::onLeaveWindow)
+    EVT_COMMAND(wxID_ANY, EVT_CODE_ACTION, AiChatView::onCodeAction)
+    EVT_COMMAND(wxID_ANY, EVT_CODE_BAR_LEAVE, AiChatView::onBarLeave)
+wxEND_EVENT_TABLE()
+// clang-format on
+
 AiChatView::AiChatView(wxWindow* parent, Context& ctx)
 // wxCLIP_CHILDREN: the action bar is a child window over custom-painted
 // content — clipping keeps our paint out of its region, so it does not flash.
-: wxScrolled<wxWindow>(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL | wxCLIP_CHILDREN)
+: wxScrolled(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL | wxCLIP_CHILDREN)
 , m_ctx(ctx) {
-    SetBackgroundStyle(wxBG_STYLE_PAINT);
+    wxScrolled::SetBackgroundStyle(wxBG_STYLE_PAINT);
     SetScrollRate(0, kScrollStep);
 
     m_bodyFont = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
@@ -123,29 +132,9 @@ AiChatView::AiChatView(wxWindow* parent, Context& ctx)
     m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
 
     // One reusable action bar, shown over whichever code block is hovered.
-    auto& art = m_ctx.getUIManager().getArtProvider();
-    m_actionBar = make_unowned<CodeActionBar>(
-        this,
-        art.getBitmap(CommandId::Copy),
-        art.getBitmap(CommandId::Paste),
-        art.getBitmap(CommandId::QuickRun),
-        [this] { copyCode(); },
-        [this] { insertCode(); },
-        [this] { runCode(); }
-    );
+    // It emits EVT_CODE_ACTION / EVT_CODE_BAR_LEAVE — caught by the event table.
+    m_actionBar = make_unowned<CodeActionBar>(this, m_ctx);
     m_actionBar->Hide();
-    m_actionBar->setLeaveHandler([this] {
-        // Pointer left the bar — drop it unless it returned to a code block.
-        if (codeBlockAt(ScreenToClient(wxGetMousePosition())).first < 0) {
-            hideActionBar();
-        }
-    });
-
-    Bind(wxEVT_PAINT, &AiChatView::onPaint, this);
-    Bind(wxEVT_SIZE, &AiChatView::onSize, this);
-    Bind(wxEVT_MOTION, &AiChatView::onMotion, this);
-    Bind(wxEVT_LEFT_DOWN, &AiChatView::onLeftDown, this);
-    Bind(wxEVT_LEAVE_WINDOW, &AiChatView::onLeaveWindow, this);
 }
 
 AiChatView::~AiChatView() = default;
@@ -476,6 +465,28 @@ void AiChatView::onLeaveWindow(wxMouseEvent& event) {
         }
     }
     event.Skip();
+}
+
+void AiChatView::onCodeAction(wxCommandEvent& event) {
+    switch (static_cast<CodeAction>(event.GetInt())) {
+    case CodeAction::Copy:
+        copyCode();
+        break;
+    case CodeAction::Insert:
+        insertCode();
+        break;
+    case CodeAction::Run:
+        runCode();
+        break;
+    }
+}
+
+void AiChatView::onBarLeave(wxCommandEvent& /*event*/) {
+    // The bar reported the pointer left it — drop the bar unless the pointer
+    // moved back onto a code block.
+    if (codeBlockAt(ScreenToClient(wxGetMousePosition())).first < 0) {
+        hideActionBar();
+    }
 }
 
 void AiChatView::copyCode() const {

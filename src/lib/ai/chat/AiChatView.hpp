@@ -63,6 +63,8 @@ private:
     void onMotion(wxMouseEvent& event);
     void onLeftDown(wxMouseEvent& event);
     void onLeaveWindow(wxMouseEvent& event);
+    void onCodeAction(wxCommandEvent& event); ///< EVT_CODE_ACTION from the bar.
+    void onBarLeave(wxCommandEvent& event);   ///< EVT_CODE_BAR_LEAVE from the bar.
 
     /// Re-lay every message for the current client width.
     void relayout();
@@ -111,6 +113,8 @@ private:
     int m_totalHeight = 0;                          ///< Stacked height of all bubbles.
     int m_barMessage = -1;                          ///< Message the action bar targets.
     int m_barCode = -1;                             ///< Code block the action bar targets.
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide

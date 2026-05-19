@@ -8,13 +8,30 @@
 #include "pch.hpp"
 
 namespace fbide {
+class Context;
+
+/// Which action a `CodeActionBar` button triggers. Carried as the integer
+/// payload (`wxCommandEvent::GetInt`) of an `EVT_CODE_ACTION` event.
+enum class CodeAction : int {
+    Copy,   ///< Copy the code to the clipboard.
+    Insert, ///< Insert the code into the active editor.
+    Run,    ///< Compile and run the code.
+};
+
+/// Emitted by `CodeActionBar` when an action button is clicked; the event's
+/// `GetInt()` is the `CodeAction`.
+wxDECLARE_EVENT(EVT_CODE_ACTION, wxCommandEvent);
+
+/// Emitted by `CodeActionBar` when the pointer genuinely leaves the bar.
+wxDECLARE_EVENT(EVT_CODE_BAR_LEAVE, wxCommandEvent);
 
 /**
  * Floating action toolbar shown over a code block in the chat view.
  *
  * A small real toolbar — flat icon buttons for copying the code, inserting
- * it into the editor and compiling + running it. One instance is reused:
- * `AiChatView` moves and shows it over whichever code block is hovered.
+ * it into the editor and compiling + running it. It loads its own icons
+ * from the application's `ArtiProvider` and emits `EVT_CODE_ACTION` /
+ * `EVT_CODE_BAR_LEAVE`; the host listens for those.
  *
  * **Owns:** its buttons (wx-parented).
  * **Owned by:** `AiChatView` (wx-parented).
@@ -23,29 +40,18 @@ class CodeActionBar final : public wxPanel {
 public:
     NO_COPY_AND_MOVE(CodeActionBar)
 
-    /// Callback run when an action button is clicked.
-    using Action = std::function<void()>;
-
-    /// Build the bar with the three action icons and their handlers.
-    CodeActionBar(
-        wxWindow* parent,
-        const wxBitmap& copyIcon,
-        const wxBitmap& insertIcon,
-        const wxBitmap& runIcon,
-        Action onCopy,
-        Action onInsert,
-        Action onRun
-    );
-
-    /// Set the handler invoked when the pointer genuinely leaves the bar
-    /// (moving onto a child button does not count). Lets the host decide
-    /// whether the bar should stay visible.
-    void setLeaveHandler(std::function<void()> handler) { m_onLeave = std::move(handler); }
+    /// Build the bar as a child of `parent`, loading its icons from `ctx`.
+    CodeActionBar(wxWindow* parent, Context& ctx);
 
 private:
-    void onLeave(wxMouseEvent& event);
+    /// Add one flat icon button for `action` to `sizer`.
+    void addButton(wxSizer* sizer, const wxBitmap& icon, CodeAction action, const wxString& tip);
 
-    std::function<void()> m_onLeave; ///< Pointer-left-the-bar handler.
+    /// Fire an `EVT_CODE_ACTION` carrying `action`.
+    void emitAction(CodeAction action);
+
+    /// Fire `EVT_CODE_BAR_LEAVE` when the pointer truly leaves the bar.
+    void onLeave(wxMouseEvent& event);
 };
 
 } // namespace fbide
