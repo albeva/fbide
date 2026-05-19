@@ -256,31 +256,65 @@ void AiChatView::onPaint(wxPaintEvent& /*event*/) {
     const int regionTopDoc = originY + update.y;
     const int regionBottomDoc = regionTopDoc + update.height;
 
-    for (const auto& item : m_items) {
-        if (item.bubble.GetBottom() < regionTopDoc || item.bubble.GetTop() > regionBottomDoc) {
-            continue; // bubble entirely outside the dirty region
+    // Bubbles are stacked in document order — binary-search to the first one
+    // that can intersect the dirty band rather than scanning the whole list.
+    auto first = std::lower_bound(
+        m_items.begin(), m_items.end(), regionTopDoc,
+        [](const LaidMessage& message, const int top) { return message.bubble.GetBottom() < top; }
+    );
+    for (auto it = first; it != m_items.end(); ++it) {
+        if (it->bubble.GetTop() > regionBottomDoc) {
+            break; // first bubble past the band — the rest are too
         }
-        paintMessage(gc, item, originY);
+        paintMessage(gc, *it, originY, update.y, update.y + update.height);
     }
 
     paintDc.Blit(update.x, update.y, update.width, update.height, &memoryDc, update.x, update.y);
 }
 
-void AiChatView::paintMessage(wxGCDC& gc, const LaidMessage& message, const int originY) const {
+void AiChatView::paintMessage(
+    wxGCDC& gc,
+    const LaidMessage& message,
+    const int originY,
+    const int updateTop,
+    const int updateBottom
+) const {
     const ChatPalette pal = palette();
 
-    // Bubble — a rounded rect, then clip content to it.
+    // Bubble — a rounded rect. Content stays within the rect by layout, so
+    // no per-message clipping region is needed.
     wxRect bubble = message.bubble;
     bubble.y -= originY;
     gc.SetPen(*wxTRANSPARENT_PEN);
     gc.SetBrush(wxBrush(bubbleColour(message.fromUser)));
     gc.DrawRoundedRectangle(bubble, kBubbleRadius);
-    gc.SetClippingRegion(bubble);
 
     const int contentLeft = bubble.x + kBubblePad;
     const int contentTop = bubble.y + kBubblePad;
 
-    for (const auto& line : message.doc.lines) {
+    // Binary-search to the first line that can be inside the dirty band.
+    // Lines are stacked by y in the laid-out document.
+    const auto& lines = message.doc.lines;
+    const int updateTopRel = updateTop - contentTop;
+    const int updateBottomRel = updateBottom - contentTop;
+    auto first = std::lower_bound(
+        lines.begin(), lines.end(), updateTopRel,
+        [](const PaintLine& line, const int top) { return line.y + line.height < top; }
+    );
+
+    // Cache the last applied font / colour to avoid redundant DC state churn
+    // — a paragraph's runs mostly share the body font, and adjacent runs
+    // often share colour.
+    TextStyle currentStyle {};
+    wxColour currentColour;
+    bool styleSet = false;
+    bool colourSet = false;
+
+    for (auto it = first; it != lines.end(); ++it) {
+        const auto& line = *it;
+        if (line.y > updateBottomRel) {
+            break;
+        }
         const int lineTop = contentTop + line.y;
 
         if (line.kind == LineKind::Code) {
@@ -297,13 +331,19 @@ void AiChatView::paintMessage(wxGCDC& gc, const LaidMessage& message, const int 
             if (run.text.empty()) {
                 continue;
             }
-            gc.SetFont(fontFor(run.style, m_bodyFont, m_monoFont));
-            gc.SetTextForeground(run.colour);
+            if (!styleSet || run.style != currentStyle) {
+                gc.SetFont(fontFor(run.style, m_bodyFont, m_monoFont));
+                currentStyle = run.style;
+                styleSet = true;
+            }
+            if (!colourSet || run.colour != currentColour) {
+                gc.SetTextForeground(run.colour);
+                currentColour = run.colour;
+                colourSet = true;
+            }
             gc.DrawText(run.text, contentLeft + run.x, lineTop + 2);
         }
     }
-
-    gc.DestroyClippingRegion();
 }
 
 auto AiChatView::bubbleColour(const bool fromUser) const -> wxColour {

@@ -72,8 +72,12 @@ private:
     void relayout();
 
     /// Paint one laid-out message — its bubble and content. `originY` is the
-    /// scroll offset, so document coordinates map to client coordinates.
-    void paintMessage(wxGCDC& gc, const LaidMessage& message, int originY) const;
+    /// scroll offset, so document coordinates map to client coordinates;
+    /// `updateTop` / `updateBottom` bound the dirty band in client coordinates
+    /// so lines outside it are skipped.
+    void paintMessage(
+        wxGCDC& gc, const LaidMessage& message, int originY, int updateTop, int updateBottom
+    ) const;
 
     /// Link target under a client point, or empty when there is none.
     [[nodiscard]] auto linkAt(const wxPoint& clientPoint) const -> wxString;
