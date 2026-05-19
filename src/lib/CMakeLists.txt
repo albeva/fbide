@@ -11,6 +11,7 @@ target_sources(fbide_lib
     ai/GeminiProvider.cpp
     ai/MockProvider.cpp
     ai/OllamaProvider.cpp
+    ai/chat/AiChatView.cpp
     ai/chat/ChatLayout.cpp
     ai/chat/CodeHighlighter.cpp
     ai/chat/Markdown.cpp
@@ -86,6 +87,7 @@ target_sources(fbide_lib
     ai/GeminiProvider.hpp
     ai/MockProvider.hpp
     ai/OllamaProvider.hpp
+    ai/chat/AiChatView.hpp
     ai/chat/ChatLayout.hpp
     ai/chat/CodeHighlighter.hpp
     ai/chat/Markdown.hpp
