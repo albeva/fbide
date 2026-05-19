@@ -14,6 +14,8 @@ namespace {
 constexpr int kBlockGap = 8;
 // Padding inside the code-block background — above, below and left of text.
 constexpr int kCodePadding = 8;
+// Continuation indent for soft-wrapped code lines, in characters.
+constexpr int kCodeWrapIndent = 2;
 // Left indent added per block-quote nesting level.
 constexpr int kQuoteIndent = 16;
 // Left indent added per list nesting level.
@@ -241,15 +243,97 @@ struct Engine {
             .linkId = -1 };
     }
 
-    /// Emit a fenced code block: a padded background strip carrying one
-    /// PaintLine per highlighted code line. Code lines are not wrapped.
+    /// Soft-wrap one highlighted code line into one or more Code PaintLines.
+    /// Wrapping prefers token boundaries; a token wider than the available
+    /// width is split between characters (the font is monospace). Wrapped
+    /// continuation lines start at `contX`.
+    void emitCodeLine(
+        const CodeLine& codeLine,
+        const int firstX,
+        const int contX,
+        const int rightEdge,
+        const int lineHeight,
+        const int charWidth,
+        const int quoteDepth
+    ) {
+        PaintLine line;
+        line.kind = LineKind::Code;
+        line.y = y;
+        line.height = lineHeight;
+        line.quoteDepth = quoteDepth;
+        int x = firstX;
+        bool lineEmpty = true;
+
+        const auto wrap = [&] {
+            out.lines.push_back(std::move(line));
+            y += lineHeight;
+            line = PaintLine {};
+            line.kind = LineKind::Code;
+            line.y = y;
+            line.height = lineHeight;
+            line.quoteDepth = quoteDepth;
+            x = contX;
+            lineEmpty = true;
+        };
+
+        for (const auto& codeRun : codeLine) {
+            const TextStyle style { .bold = codeRun.bold,
+                .italic = codeRun.italic,
+                .underline = codeRun.underlined,
+                .monospace = true };
+            // Wrap before the run if the whole token would overflow — keeps
+            // breaks on token boundaries where possible.
+            if (!lineEmpty && x + measurer.width(codeRun.text, style) > rightEdge) {
+                wrap();
+            }
+            const wxString& text = codeRun.text;
+            std::size_t pos = 0;
+            while (pos < text.length()) {
+                const int avail = rightEdge - x;
+                const std::size_t remaining = text.length() - pos;
+                std::size_t take = avail > 0 ? static_cast<std::size_t>(avail / charWidth) : 0;
+                if (take >= remaining) {
+                    take = remaining;
+                } else if (take == 0) {
+                    if (!lineEmpty) {
+                        wrap(); // no room — try a fresh line
+                        continue;
+                    }
+                    take = 1; // fresh line still too narrow — force progress
+                }
+                const int segmentWidth = static_cast<int>(take) * charWidth;
+                line.runs.push_back({ .text = text.Mid(pos, take),
+                    .style = style,
+                    .colour = codeRun.colour,
+                    .x = x,
+                    .width = segmentWidth,
+                    .linkId = -1 });
+                x += segmentWidth;
+                pos += take;
+                lineEmpty = false;
+                if (pos < text.length()) {
+                    wrap(); // the token spills onto the next line
+                }
+            }
+        }
+        out.lines.push_back(std::move(line));
+        y += lineHeight;
+    }
+
+    /// Emit a fenced code block: a padded background strip carrying the
+    /// highlighted code, soft-wrapped to the available width.
     void emitCode(const MdBlock& block) {
         blockGap();
         const int blockTop = y;
         const int left = block.quoteDepth * kQuoteIndent;
         const TextStyle mono { .monospace = true };
         const int lineHeight = measurer.lineHeight(mono);
+        const int charWidth = std::max(1, measurer.width("0", mono));
         const auto codeLines = highlightFence(block.codeText, block.codeLang);
+
+        const int codeLeft = left + kCodePadding;
+        const int rightEdge = std::max(codeLeft + charWidth, width - kCodePadding);
+        const int contX = codeLeft + (kCodeWrapIndent * charWidth);
 
         // Top padding strip — an empty Code line the painter fills with the
         // code background.
@@ -261,28 +345,7 @@ struct Engine {
         y += kCodePadding;
 
         for (const auto& codeLine : codeLines) {
-            PaintLine line;
-            line.kind = LineKind::Code;
-            line.y = y;
-            line.height = lineHeight;
-            line.quoteDepth = block.quoteDepth;
-            int x = left + kCodePadding;
-            for (const auto& codeRun : codeLine) {
-                const TextStyle style { .bold = codeRun.bold,
-                    .italic = codeRun.italic,
-                    .underline = codeRun.underlined,
-                    .monospace = true };
-                const int runWidth = measurer.width(codeRun.text, style);
-                line.runs.push_back({ .text = codeRun.text,
-                    .style = style,
-                    .colour = codeRun.colour,
-                    .x = x,
-                    .width = runWidth,
-                    .linkId = -1 });
-                x += runWidth;
-            }
-            out.lines.push_back(std::move(line));
-            y += lineHeight;
+            emitCodeLine(codeLine, codeLeft, contX, rightEdge, lineHeight, charWidth, block.quoteDepth);
         }
 
         out.lines.push_back({ .kind = LineKind::Code,

@@ -191,6 +191,27 @@ TEST_F(ChatLayoutTests, CodeRunsAreMonospaceAndIndentedByPadding) {
     EXPECT_EQ(run.width, 16); // 2 chars * 8px monospace
 }
 
+TEST_F(ChatLayoutTests, LongCodeLineSoftWraps) {
+    // Monospace is 8px/char; at width 100 a code line wraps. The first line
+    // starts at the code padding (8), continuation lines are further indented.
+    const auto doc = layout("```\nabcdefghijklmnopqrstuvwxy\n```", 100);
+    // top pad + 3 wrapped lines + bottom pad
+    ASSERT_EQ(doc.lines.size(), 5U);
+    for (const auto& line : doc.lines) {
+        EXPECT_EQ(line.kind, LineKind::Code);
+    }
+    EXPECT_EQ(doc.lines[1].runs[0].x, 8);  // first line at code padding
+    EXPECT_EQ(doc.lines[2].runs[0].x, 24); // continuation indent
+    EXPECT_EQ(doc.lines[3].runs[0].x, 24);
+}
+
+TEST_F(ChatLayoutTests, ShortCodeLineDoesNotWrap) {
+    const auto doc = layout("```\nshort\n```", 500);
+    ASSERT_EQ(doc.lines.size(), 3U); // top pad + 1 line + bottom pad
+    ASSERT_EQ(doc.lines[1].runs.size(), 1U);
+    EXPECT_EQ(doc.lines[1].runs[0].text, "short");
+}
+
 // ---------------------------------------------------------------------------
 // Rules
 // ---------------------------------------------------------------------------
