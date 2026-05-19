@@ -8,9 +8,13 @@
 #include "analyses/lexer/MemoryDocument.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
 #include "analyses/lexer/StyledSource.hpp"
+#include "app/Context.hpp"
+#include "config/ConfigManager.hpp"
 #include "config/Theme.hpp"
 #include "config/ThemeCategory.hpp"
 #include "editor/lexilla/FBSciLexer.hpp"
+#include "format/transformers/case/CaseTransform.hpp"
+#include "format/transformers/reformat/ReFormatter.hpp"
 using namespace fbide;
 
 namespace {
@@ -68,11 +72,13 @@ auto needsStyling(const lexer::TokenKind kind) -> bool {
 
 } // namespace
 
-auto fbide::highlightCode(const std::vector<lexer::Token>& tokens, const Theme& theme)
+auto fbide::highlightCode(const std::vector<lexer::Token>& tokens, const Theme& theme, const int tabWidth)
     -> std::vector<CodeLine> {
+    const int tabStop = std::max(1, tabWidth);
     std::vector<CodeLine> lines;
     CodeLine current;
     const wxColour defaultFg = theme.foreground({});
+    int column = 0; // visual column on the current line, for tab stops
 
     for (const auto& token : tokens) {
         // Resolve the run's colour and typeface once per token.
@@ -95,9 +101,24 @@ auto fbide::highlightCode(const std::vector<lexer::Token>& tokens, const Theme& 
         while (true) {
             const std::size_t newline = text.find('\n', start);
             const std::size_t stop = newline == std::string::npos ? text.size() : newline;
-            if (stop > start) {
+
+            // Expand tabs to spaces against tab stops so indentation renders
+            // (a bare '\t' has no reliable width in the painter).
+            const wxString raw = wxString::FromUTF8(text.data() + start, stop - start);
+            wxString segment;
+            for (const wxUniChar ch : raw) {
+                if (ch == '\t') {
+                    const int fill = tabStop - (column % tabStop);
+                    segment.Append(' ', static_cast<std::size_t>(fill));
+                    column += fill;
+                } else {
+                    segment += ch;
+                    column++;
+                }
+            }
+            if (!segment.empty()) {
                 current.push_back({
-                    .text = wxString::FromUTF8(text.data() + start, stop - start),
+                    .text = segment,
                     .colour = colour,
                     .bold = bold,
                     .italic = italic,
@@ -109,6 +130,7 @@ auto fbide::highlightCode(const std::vector<lexer::Token>& tokens, const Theme& 
             }
             lines.push_back(std::move(current));
             current.clear();
+            column = 0;
             start = newline + 1;
         }
     }
@@ -122,9 +144,10 @@ auto fbide::highlightCode(const std::vector<lexer::Token>& tokens, const Theme& 
     return lines;
 }
 
-CodeHighlighter::CodeHighlighter(const Value& keywordGroups)
-: m_lexer(FBSciLexer::Create()) {
-    lexer::configureFbWordlists(*m_lexer, keywordGroups);
+CodeHighlighter::CodeHighlighter(Context& ctx)
+: m_ctx(ctx)
+, m_lexer(FBSciLexer::Create()) {
+    lexer::configureFbWordlists(*m_lexer, m_ctx.getConfigManager().keywords().at("groups"));
 }
 
 CodeHighlighter::~CodeHighlighter() {
@@ -133,7 +156,7 @@ CodeHighlighter::~CodeHighlighter() {
     }
 }
 
-auto CodeHighlighter::highlight(const wxString& code, const Theme& theme) const
+auto CodeHighlighter::highlight(const wxString& code, const bool reformat) const
     -> std::vector<CodeLine> {
     const auto utf8 = code.utf8_string();
 
@@ -144,5 +167,29 @@ auto CodeHighlighter::highlight(const wxString& code, const Theme& theme) const
 
     lexer::MemoryDocStyledSource source(doc);
     lexer::StyleLexer adapter(source);
-    return highlightCode(adapter.tokenise(), theme);
+    auto tokens = adapter.tokenise();
+
+    const int tabWidth = m_ctx.getConfigManager().config().get_or("editor.tabSize", 4);
+
+    if (reformat) {
+        // Keyword case, then re-indent + re-format to the editor's settings —
+        // the Format-dialog pipeline, applied to model replies.
+        std::array<CaseMode, kThemeKeywordGroupsCount> cases {};
+        const auto& caseConfig = m_ctx.getConfigManager().keywords().at("cases");
+        for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
+            const auto key = wxString(getThemeCategoryName(kThemeKeywordCategories[idx]));
+            cases[idx] = CaseMode::parse(caseConfig.get_or(key, "None").ToStdString())
+                             .value_or(CaseMode::None);
+        }
+        tokens = CaseTransform(cases).apply(tokens);
+
+        reformat::ReFormatter formatter(reformat::FormatOptions {
+            .tabSize = static_cast<std::size_t>(tabWidth),
+            .reIndent = true,
+            .reFormat = true,
+        });
+        tokens = formatter.apply(tokens);
+    }
+
+    return highlightCode(tokens, m_ctx.getTheme(), tabWidth);
 }

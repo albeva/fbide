@@ -136,6 +136,41 @@ TEST_F(CodeHighlighterTests, WhitespaceUsesDefaultColour) {
 }
 
 // ---------------------------------------------------------------------------
+// Tab expansion
+// ---------------------------------------------------------------------------
+
+TEST_F(CodeHighlighterTests, LeadingTabExpandsToSpaces) {
+    const std::vector<Token> tokens {
+        tok(TokenKind::Whitespace, "\t"),
+        tok(TokenKind::Identifier, "x"),
+    };
+    const auto lines = highlightCode(tokens, makeTheme(), 4);
+    ASSERT_EQ(lines.size(), 1U);
+    ASSERT_EQ(lines[0].size(), 2U);
+    EXPECT_EQ(lines[0][0].text, "    "); // tab at column 0 → 4 spaces
+    EXPECT_EQ(lines[0][1].text, "x");
+}
+
+TEST_F(CodeHighlighterTests, TabAdvancesToNextTabStop) {
+    // A tab from column 2 (tab width 4) fills just 2 spaces.
+    const auto lines = highlightCode({ tok(TokenKind::Identifier, "ab\tc") }, makeTheme(), 4);
+    ASSERT_EQ(lines[0].size(), 1U);
+    EXPECT_EQ(lines[0][0].text, "ab  c");
+}
+
+TEST_F(CodeHighlighterTests, TabColumnResetsEachLine) {
+    const std::vector<Token> tokens {
+        tok(TokenKind::Identifier, "abc"),
+        tok(TokenKind::Newline, "\n"),
+        tok(TokenKind::Whitespace, "\t"),
+        tok(TokenKind::Identifier, "y"),
+    };
+    const auto lines = highlightCode(tokens, makeTheme(), 4);
+    ASSERT_EQ(lines.size(), 2U);
+    EXPECT_EQ(lines[1][0].text, "    "); // tab on a fresh line → full 4 spaces
+}
+
+// ---------------------------------------------------------------------------
 // A small mixed line
 // ---------------------------------------------------------------------------
 

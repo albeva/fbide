@@ -107,8 +107,9 @@ private:
     [[nodiscard]] auto bubbleColour(bool fromUser) const -> wxColour;
 
     /// Highlight a fenced code block — FreeBASIC through the lexer, anything
-    /// else as plain default-coloured lines.
-    [[nodiscard]] auto highlightFence(const wxString& code, const wxString& lang) const
+    /// else as plain default-coloured lines. `reformat` re-indents/reformats
+    /// FreeBASIC code (used for model replies, not the user's own).
+    [[nodiscard]] auto highlightFence(const wxString& code, const wxString& lang, bool reformat) const
         -> std::vector<CodeLine>;
 
     Context& m_ctx;                                 ///< Application context.

@@ -120,9 +120,7 @@ AiChatView::AiChatView(wxWindow* parent, Context& ctx)
     m_bodyFont = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
     m_monoFont = m_ctx.getTheme().getResolvedFont();
 
-    m_highlighter = std::make_unique<CodeHighlighter>(
-        m_ctx.getConfigManager().keywords().at("groups")
-    );
+    m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
 
     Bind(wxEVT_PAINT, &AiChatView::onPaint, this);
     Bind(wxEVT_SIZE, &AiChatView::onSize, this);
@@ -142,9 +140,7 @@ void AiChatView::setMessages(std::vector<ChatViewMessage> messages) {
 
 void AiChatView::refreshTheme() {
     // Keyword groups may have changed — rebuild the configured lexer.
-    m_highlighter = std::make_unique<CodeHighlighter>(
-        m_ctx.getConfigManager().keywords().at("groups")
-    );
+    m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
     m_monoFont = m_ctx.getTheme().getResolvedFont();
     m_layoutWidth = -1;
     relayout();
@@ -166,9 +162,6 @@ void AiChatView::relayout() {
     const DcMeasurer measurer(measureDc, m_bodyFont, m_monoFont);
 
     const ChatPalette pal = palette();
-    const auto highlight = [this](const wxString& code, const wxString& lang) {
-        return highlightFence(code, lang);
-    };
 
     // A bubble may take at most kBubbleMaxFraction of the inter-margin width,
     // leaving a gutter on the opposite side.
@@ -195,6 +188,11 @@ void AiChatView::relayout() {
             item.doc = std::move(m_items[index].doc);
             item.contentWidth = m_items[index].contentWidth;
         } else {
+            // Reformat model replies; leave the user's own code untouched.
+            const bool reformat = !message.fromUser;
+            const auto highlight = [this, reformat](const wxString& code, const wxString& lang) {
+                return highlightFence(code, lang, reformat);
+            };
             item.doc = layoutMarkdown(parseMarkdown(message.markdown), maxContent, measurer, pal, highlight);
             // Shrink the bubble to its widest line — wrapping was done at
             // maxContent, so every line already fits the shrunk width.
@@ -316,10 +314,10 @@ auto AiChatView::palette() const -> ChatPalette {
     };
 }
 
-auto AiChatView::highlightFence(const wxString& code, const wxString& lang) const
+auto AiChatView::highlightFence(const wxString& code, const wxString& lang, const bool reformat) const
     -> std::vector<CodeLine> {
     if (isFreeBasicTag(lang)) {
-        return m_highlighter->highlight(code, m_ctx.getTheme());
+        return m_highlighter->highlight(code, reformat);
     }
 
     // Non-FreeBASIC fence — render as plain, default-coloured lines.
