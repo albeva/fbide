@@ -7,6 +7,7 @@
 - Added basic shell script syntax highlighting for `.sh` / `.bash` files
 - Added basic Makefile syntax highlighting (`Makefile`, `GNUmakefile`, `.mk`, `.make`)
 - Added basic JSON syntax highlighting for `.json` / `.json5` files
+- Added basic CSS syntax highlighting for `.css` files
 - Added a document type indicator to the status bar
 - Added option to override document type (right click on type indicator in the status bar)
 

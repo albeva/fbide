@@ -19,6 +19,7 @@ enum class DocumentType {
     Bash,       // .sh, .bash — Scintilla Bash lexer
     Makefile,   // Makefile / .mk / .make — Scintilla Makefile lexer
     Json,       // .json, .json5 — Scintilla JSON lexer
+    Css,        // .css — Scintilla CSS lexer
     Text,       // .txt and anything else — no lexer
 };
 
@@ -45,6 +46,7 @@ inline constexpr std::array kDocumentTypes {
     DocumentType::Bash,
     DocumentType::Makefile,
     DocumentType::Json,
+    DocumentType::Css,
     DocumentType::Text,
 };
 

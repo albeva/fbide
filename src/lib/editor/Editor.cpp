@@ -252,6 +252,9 @@ void Editor::loadLexer() {
         case DocumentType::Json:
             SetLexer(wxSTC_LEX_JSON);
             break;
+        case DocumentType::Css:
+            SetLexer(wxSTC_LEX_CSS);
+            break;
         case DocumentType::Text:
             SetLexer(wxSTC_LEX_NULL);
             break;
@@ -287,6 +290,9 @@ void Editor::loadLexerTheme() {
             break;
         case DocumentType::Json:
             applyJsonTheme();
+            break;
+        case DocumentType::Css:
+            applyCssTheme();
             break;
         case DocumentType::Text:
             applyTextTheme();
@@ -443,6 +449,46 @@ void Editor::applyJsonTheme() {
     applyStyle(wxSTC_JSON_KEYWORD, theme.get(ThemeCategory::Keywords), theme);
     applyStyle(wxSTC_JSON_LDKEYWORD, theme.get(ThemeCategory::KeywordPP), theme);
     applyStyle(wxSTC_JSON_ERROR, theme.get(ThemeCategory::Error), theme);
+}
+
+void Editor::applyCssTheme() {
+    const auto& theme = m_theme;
+
+    // Keyword lists live in keywords.ini under [css]. The Scintilla CSS
+    // lexer uses up to 8 lists; we populate the three that matter for a
+    // basic setup — properties, pseudo-classes, pseudo-elements. The rest
+    // stay empty so unknown identifiers fall to UNKNOWN_IDENTIFIER (Error).
+    const auto& css = m_configManager.keywords().at("css");
+    SetKeyWords(0, css.get_or("properties", ""));
+    SetKeyWords(1, css.get_or("pseudoclasses", ""));
+    SetKeyWords(3, css.get_or("properties", ""));     // CSS3 properties — share the list
+    SetKeyWords(4, css.get_or("pseudoelements", "")); // CSS2 single-colon ::-style
+    SetKeyWords(7, css.get_or("pseudoelements", "")); // CSS3 double-colon ::before
+
+    applyStyle(wxSTC_CSS_DEFAULT, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_CSS_TAG, theme.get(ThemeCategory::Identifier), theme);
+    applyStyle(wxSTC_CSS_CLASS, theme.get(ThemeCategory::KeywordTypes), theme);
+    applyStyle(wxSTC_CSS_ID, theme.get(ThemeCategory::KeywordConstants), theme);
+    applyStyle(wxSTC_CSS_PSEUDOCLASS, theme.get(ThemeCategory::Label), theme);
+    applyStyle(wxSTC_CSS_EXTENDED_PSEUDOCLASS, theme.get(ThemeCategory::Label), theme);
+    applyStyle(wxSTC_CSS_PSEUDOELEMENT, theme.get(ThemeCategory::Label), theme);
+    applyStyle(wxSTC_CSS_EXTENDED_PSEUDOELEMENT, theme.get(ThemeCategory::Label), theme);
+    applyStyle(wxSTC_CSS_UNKNOWN_PSEUDOCLASS, theme.get(ThemeCategory::Error), theme);
+    applyStyle(wxSTC_CSS_OPERATOR, theme.get(ThemeCategory::Operator), theme);
+    applyStyle(wxSTC_CSS_IDENTIFIER, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_CSS_IDENTIFIER2, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_CSS_IDENTIFIER3, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_CSS_EXTENDED_IDENTIFIER, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_CSS_UNKNOWN_IDENTIFIER, theme.get(ThemeCategory::Identifier), theme);
+    applyStyle(wxSTC_CSS_VALUE, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_CSS_COMMENT, theme.get(ThemeCategory::MultilineComment), theme);
+    applyStyle(wxSTC_CSS_IMPORTANT, theme.get(ThemeCategory::KeywordPP), theme);
+    applyStyle(wxSTC_CSS_DIRECTIVE, theme.get(ThemeCategory::Preprocessor), theme);
+    applyStyle(wxSTC_CSS_DOUBLESTRING, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_CSS_SINGLESTRING, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_CSS_ATTRIBUTE, theme.get(ThemeCategory::KeywordOperators), theme);
+    applyStyle(wxSTC_CSS_GROUP_RULE, theme.get(ThemeCategory::Preprocessor), theme);
+    applyStyle(wxSTC_CSS_VARIABLE, theme.get(ThemeCategory::Identifier), theme);
 }
 
 void Editor::applyTextTheme() {

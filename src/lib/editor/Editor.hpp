@@ -164,6 +164,8 @@ private:
     void applyMakefileTheme();
     /// Theme dispatch for JSON documents (built-in wxSTC JSON lexer).
     void applyJsonTheme();
+    /// Theme dispatch for CSS documents (built-in wxSTC CSS lexer).
+    void applyCssTheme();
     /// Theme dispatch for plain-text documents (no lexer).
     void applyTextTheme();
     /// Resize the line-number margin to fit the current line count + zoom.
