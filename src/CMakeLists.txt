@@ -20,10 +20,10 @@ elseif (APPLE)
     # attach Info.plist
     set_target_properties(fbide PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${PROJECT_SOURCE_DIR}/src/lib/rc/Info.plist)
     # copy resources/ide to the Bundle
-    file(GLOB_RECURSE IDE_RESOURCES ${PROJECT_SOURCE_DIR}/resources/ide/*)
+    file(GLOB_RECURSE IDE_RESOURCES ${PROJECT_SOURCE_DIR}/resources/pristine/*)
     foreach (FILE ${IDE_RESOURCES})
         file(RELATIVE_PATH REL_PATH
-            ${PROJECT_SOURCE_DIR}/resources/ide
+            ${PROJECT_SOURCE_DIR}/resources/pristine
             ${FILE}
         )
         get_filename_component(REL_DIR ${REL_PATH} DIRECTORY)
