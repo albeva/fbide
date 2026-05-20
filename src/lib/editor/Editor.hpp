@@ -162,6 +162,8 @@ private:
     void applyBashTheme();
     /// Theme dispatch for Makefiles (built-in wxSTC Makefile lexer).
     void applyMakefileTheme();
+    /// Theme dispatch for JSON documents (built-in wxSTC JSON lexer).
+    void applyJsonTheme();
     /// Theme dispatch for plain-text documents (no lexer).
     void applyTextTheme();
     /// Resize the line-number margin to fit the current line count + zoom.

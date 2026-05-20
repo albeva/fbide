@@ -18,6 +18,7 @@ enum class DocumentType {
     Batch,      // .bat, .cmd — Scintilla Batch lexer
     Bash,       // .sh, .bash — Scintilla Bash lexer
     Makefile,   // Makefile / .mk / .make — Scintilla Makefile lexer
+    Json,       // .json, .json5 — Scintilla JSON lexer
     Text,       // .txt and anything else — no lexer
 };
 
@@ -43,6 +44,7 @@ inline constexpr std::array kDocumentTypes {
     DocumentType::Batch,
     DocumentType::Bash,
     DocumentType::Makefile,
+    DocumentType::Json,
     DocumentType::Text,
 };
 

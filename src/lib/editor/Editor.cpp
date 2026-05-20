@@ -249,6 +249,9 @@ void Editor::loadLexer() {
         case DocumentType::Makefile:
             SetLexer(wxSTC_LEX_MAKEFILE);
             break;
+        case DocumentType::Json:
+            SetLexer(wxSTC_LEX_JSON);
+            break;
         case DocumentType::Text:
             SetLexer(wxSTC_LEX_NULL);
             break;
@@ -281,6 +284,9 @@ void Editor::loadLexerTheme() {
             break;
         case DocumentType::Makefile:
             applyMakefileTheme();
+            break;
+        case DocumentType::Json:
+            applyJsonTheme();
             break;
         case DocumentType::Text:
             applyTextTheme();
@@ -411,6 +417,32 @@ void Editor::applyMakefileTheme() {
     applyStyle(wxSTC_MAKE_OPERATOR, theme.get(ThemeCategory::Operator), theme);
     applyStyle(wxSTC_MAKE_TARGET, theme.get(ThemeCategory::Label), theme);
     applyStyle(wxSTC_MAKE_IDEOL, theme.get(ThemeCategory::Error), theme);
+}
+
+void Editor::applyJsonTheme() {
+    const auto& theme = m_theme;
+
+    // Keyword lists live in keywords.ini under [json]:
+    //   keywords   → SCE_JSON_KEYWORD (true / false / null)
+    //   ldkeywords → SCE_JSON_LDKEYWORD (JSON-LD `@id`, `@context`, ...)
+    const auto& json = m_configManager.keywords().at("json");
+    SetKeyWords(0, json.get_or("keywords", ""));
+    SetKeyWords(1, json.get_or("ldkeywords", ""));
+
+    applyStyle(wxSTC_JSON_DEFAULT, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_JSON_NUMBER, theme.get(ThemeCategory::Number), theme);
+    applyStyle(wxSTC_JSON_STRING, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_JSON_STRINGEOL, theme.get(ThemeCategory::Error), theme);
+    applyStyle(wxSTC_JSON_PROPERTYNAME, theme.get(ThemeCategory::KeywordTypes), theme);
+    applyStyle(wxSTC_JSON_ESCAPESEQUENCE, theme.get(ThemeCategory::KeywordOperators), theme);
+    applyStyle(wxSTC_JSON_LINECOMMENT, theme.get(ThemeCategory::Comment), theme);
+    applyStyle(wxSTC_JSON_BLOCKCOMMENT, theme.get(ThemeCategory::MultilineComment), theme);
+    applyStyle(wxSTC_JSON_OPERATOR, theme.get(ThemeCategory::Operator), theme);
+    applyStyle(wxSTC_JSON_URI, theme.get(ThemeCategory::KeywordConstants), theme);
+    applyStyle(wxSTC_JSON_COMPACTIRI, theme.get(ThemeCategory::KeywordConstants), theme);
+    applyStyle(wxSTC_JSON_KEYWORD, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_JSON_LDKEYWORD, theme.get(ThemeCategory::KeywordPP), theme);
+    applyStyle(wxSTC_JSON_ERROR, theme.get(ThemeCategory::Error), theme);
 }
 
 void Editor::applyTextTheme() {

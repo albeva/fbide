@@ -53,6 +53,9 @@ auto documentTypeFromPath(const std::filesystem::path& path) -> DocumentType {
     if (ext == "mk" || ext == "make") {
         return DocumentType::Makefile;
     }
+    if (ext == "json" || ext == "json5") {
+        return DocumentType::Json;
+    }
     return DocumentType::Text;
 }
 
@@ -72,6 +75,8 @@ auto documentTypeKey(const DocumentType type) -> std::string_view {
         return "bash";
     case DocumentType::Makefile:
         return "makefile";
+    case DocumentType::Json:
+        return "json";
     case DocumentType::Text:
         return "text";
     }
@@ -93,6 +98,8 @@ auto documentTypeFromKey(const std::string_view key) -> std::optional<DocumentTy
         return DocumentType::Bash;
     if (key == "makefile")
         return DocumentType::Makefile;
+    if (key == "json")
+        return DocumentType::Json;
     if (key == "text")
         return DocumentType::Text;
     return std::nullopt;
