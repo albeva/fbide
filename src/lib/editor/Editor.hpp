@@ -153,6 +153,8 @@ private:
     void applyMarkdownTheme();
     /// Theme dispatch for Windows batch files (built-in wxSTC Batch lexer).
     void applyBatchTheme();
+    /// Theme dispatch for shell / bash scripts (built-in wxSTC Bash lexer).
+    void applyBashTheme();
     /// Theme dispatch for plain-text documents (no lexer).
     void applyTextTheme();
     /// Resize the line-number margin to fit the current line count + zoom.

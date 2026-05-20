@@ -4,6 +4,7 @@
 - Added a confirm-and-close prompt when Save As targets a file already open in another tab
 - Added basic Markdown syntax highlighting for `.md` / `.markdown` files
 - Added basic Windows batch syntax highlighting for `.bat` / `.cmd` files
+- Added basic shell script syntax highlighting for `.sh` / `.bash` files
 
 # Changes since 0.5.0-rc.1
 

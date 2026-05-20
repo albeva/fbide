@@ -232,6 +232,9 @@ void Editor::loadLexer() {
         case DocumentType::Batch:
             SetLexer(wxSTC_LEX_BATCH);
             break;
+        case DocumentType::Bash:
+            SetLexer(wxSTC_LEX_BASH);
+            break;
         case DocumentType::Text:
             SetLexer(wxSTC_LEX_NULL);
             break;
@@ -258,6 +261,9 @@ void Editor::loadLexerTheme() {
             break;
         case DocumentType::Batch:
             applyBatchTheme();
+            break;
+        case DocumentType::Bash:
+            applyBashTheme();
             break;
         case DocumentType::Text:
             applyTextTheme();
@@ -353,6 +359,30 @@ void Editor::applyBatchTheme() {
     applyStyle(wxSTC_BAT_COMMAND, theme.get(ThemeCategory::KeywordTypes), theme);
     applyStyle(wxSTC_BAT_IDENTIFIER, theme.get(ThemeCategory::Identifier), theme);
     applyStyle(wxSTC_BAT_OPERATOR, theme.get(ThemeCategory::Operator), theme);
+}
+
+void Editor::applyBashTheme() {
+    const auto& theme = m_theme;
+
+    // Keyword list lives in keywords.ini under [bash]:
+    //   words → SCE_SH_WORD (reserved words + common built-ins)
+    const auto& bash = m_configManager.keywords().at("bash");
+    SetKeyWords(0, bash.get_or("words", ""));
+
+    applyStyle(wxSTC_SH_DEFAULT, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_SH_ERROR, theme.get(ThemeCategory::Error), theme);
+    applyStyle(wxSTC_SH_COMMENTLINE, theme.get(ThemeCategory::Comment), theme);
+    applyStyle(wxSTC_SH_NUMBER, theme.get(ThemeCategory::Number), theme);
+    applyStyle(wxSTC_SH_WORD, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_SH_STRING, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_SH_CHARACTER, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_SH_OPERATOR, theme.get(ThemeCategory::Operator), theme);
+    applyStyle(wxSTC_SH_IDENTIFIER, theme.get(ThemeCategory::Identifier), theme);
+    applyStyle(wxSTC_SH_SCALAR, theme.get(ThemeCategory::Identifier), theme);
+    applyStyle(wxSTC_SH_PARAM, theme.get(ThemeCategory::Identifier), theme);
+    applyStyle(wxSTC_SH_BACKTICKS, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_SH_HERE_DELIM, theme.get(ThemeCategory::Preprocessor), theme);
+    applyStyle(wxSTC_SH_HERE_Q, theme.get(ThemeCategory::String), theme);
 }
 
 void Editor::applyTextTheme() {

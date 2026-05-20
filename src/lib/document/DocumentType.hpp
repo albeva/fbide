@@ -16,6 +16,7 @@ enum class DocumentType {
     Properties, // .ini, old fbide config files
     Markdown,   // .md, .markdown — Scintilla Markdown lexer
     Batch,      // .bat, .cmd — Scintilla Batch lexer
+    Bash,       // .sh, .bash — Scintilla Bash lexer
     Text,       // .txt and anything else — no lexer
 };
 

@@ -33,6 +33,9 @@ auto documentTypeFromPath(const std::filesystem::path& path) -> DocumentType {
     if (ext == "bat" || ext == "cmd") {
         return DocumentType::Batch;
     }
+    if (ext == "sh" || ext == "bash") {
+        return DocumentType::Bash;
+    }
     return DocumentType::Text;
 }
 
