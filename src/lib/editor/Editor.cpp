@@ -363,7 +363,7 @@ auto Editor::replaceNext(const wxString& findText, const wxString& replaceText, 
     // Check if current selection matches the find text
     const auto selected = GetSelectedText();
     bool matches = false;
-    if (flags & wxFR_MATCHCASE) {
+    if ((flags & wxFR_MATCHCASE) != 0) {
         matches = (selected == findText);
     } else {
         matches = (selected.Lower() == findText.Lower());
@@ -543,7 +543,7 @@ void Editor::onCharAdded(wxStyledTextEvent& event) {
     }
 }
 
-void Editor::onZoom(wxStyledTextEvent&) {
+void Editor::onZoom(wxStyledTextEvent& /*event*/) {
     updateLineNumberMarginWidth();
 }
 
@@ -556,8 +556,7 @@ void Editor::updateBraceMatch() {
     const auto ch = GetCharAt(pos);
 
     if (isBrace(ch)) {
-        const auto match = BraceMatch(pos);
-        if (match != wxSTC_INVALID_POSITION) {
+        if (const auto match = BraceMatch(pos);match != wxSTC_INVALID_POSITION) {
             BraceHighlight(pos, match);
         } else {
             BraceBadLight(pos);
