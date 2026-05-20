@@ -95,6 +95,11 @@ public:
     /// Update the statusbar with current cursor position.
     void updateStatusBar() const;
 
+    /// Push the focused-document UI state (Compile/Run menu enables, etc.)
+    /// based on the current document type. Called on focus and whenever
+    /// the type changes mid-session.
+    void updateDocumentState() const;
+
     /// Enable / disable code transforms (e.g. during loading)
     void disableTransforms(bool state);
 

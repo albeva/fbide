@@ -56,4 +56,46 @@ auto documentTypeFromPath(const std::filesystem::path& path) -> DocumentType {
     return DocumentType::Text;
 }
 
+auto documentTypeKey(const DocumentType type) -> std::string_view {
+    switch (type) {
+    case DocumentType::FreeBASIC:
+        return "freebasic";
+    case DocumentType::HTML:
+        return "html";
+    case DocumentType::Properties:
+        return "properties";
+    case DocumentType::Markdown:
+        return "markdown";
+    case DocumentType::Batch:
+        return "batch";
+    case DocumentType::Bash:
+        return "bash";
+    case DocumentType::Makefile:
+        return "makefile";
+    case DocumentType::Text:
+        return "text";
+    }
+    std::unreachable();
+}
+
+auto documentTypeFromKey(const std::string_view key) -> std::optional<DocumentType> {
+    if (key == "freebasic")
+        return DocumentType::FreeBASIC;
+    if (key == "html")
+        return DocumentType::HTML;
+    if (key == "properties")
+        return DocumentType::Properties;
+    if (key == "markdown")
+        return DocumentType::Markdown;
+    if (key == "batch")
+        return DocumentType::Batch;
+    if (key == "bash")
+        return DocumentType::Bash;
+    if (key == "makefile")
+        return DocumentType::Makefile;
+    if (key == "text")
+        return DocumentType::Text;
+    return std::nullopt;
+}
+
 } // namespace fbide

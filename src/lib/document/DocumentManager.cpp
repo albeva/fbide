@@ -468,6 +468,7 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
         frame->SetStatusText("", 1);
         frame->SetStatusText("", 2);
         frame->SetStatusText("", 3);
+        frame->SetStatusText("", 4);
     }
 
     return true;

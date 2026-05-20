@@ -7,6 +7,7 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "UIManager.hpp"
 #include "CompilerLog.hpp"
+#include "DocumentTypeMenu.hpp"
 #include "EncodingMenu.hpp"
 #include "app/Context.hpp"
 #include "command/CommandId.hpp"
@@ -469,13 +470,14 @@ void UIManager::configureToolBar() {
 }
 
 void UIManager::createStatusBar() const {
-    auto* bar = m_frame->CreateStatusBar(4);
+    auto* bar = m_frame->CreateStatusBar(5);
     // Field 0 = welcome / status message (stretch)
     // Field 1 = line : column
-    // Field 2 = EOL mode
-    // Field 3 = encoding
-    constexpr int widths[] = { -1, 90, 90, 140 };
-    bar->SetStatusWidths(4, widths);
+    // Field 2 = document type
+    // Field 3 = EOL mode
+    // Field 4 = encoding
+    constexpr int widths[] = { -1, 90, 100, 90, 140 };
+    bar->SetStatusWidths(5, widths);
     m_frame->SetStatusText(m_ctx.tr("common.welcome"));
 
     bar->Bind(wxEVT_LEFT_DOWN, &UIManager::onStatusBarClick, const_cast<UIManager*>(this));
@@ -496,6 +498,19 @@ void UIManager::onStatusBarClick(wxMouseEvent& event) {
     wxRect rect;
 
     if (bar->GetFieldRect(2, rect) && rect.Contains(pos)) {
+        auto menu = DocumentTypeMenu::build(m_ctx, doc->getType());
+        menu->Bind(wxEVT_MENU, [this, doc](const wxCommandEvent& evt) {
+            if (const auto type = DocumentTypeMenu::typeFromId(evt.GetId())) {
+                doc->setType(*type);
+                doc->getEditor()->updateStatusBar();
+                m_ctx.getDocumentManager().updateActiveTabTitle();
+            }
+        });
+        bar->PopupMenu(menu.get());
+        return;
+    }
+
+    if (bar->GetFieldRect(3, rect) && rect.Contains(pos)) {
         const auto menu = EncodingMenu::buildEolMenu(doc->getEolMode());
         menu->Bind(wxEVT_MENU, [doc](const wxCommandEvent& evt) {
             if (const auto mode = EncodingMenu::eolFromId(evt.GetId())) {
@@ -507,7 +522,7 @@ void UIManager::onStatusBarClick(wxMouseEvent& event) {
         return;
     }
 
-    if (bar->GetFieldRect(3, rect) && rect.Contains(pos)) {
+    if (bar->GetFieldRect(4, rect) && rect.Contains(pos)) {
         auto menu = EncodingMenu::buildEncodingMenu(
             doc->getEncoding(),
             m_ctx.tr("statusbar.encoding.reloadWithEncoding")

@@ -9,6 +9,7 @@
 #include "Editor.hpp"
 #include "CodeTransformer.hpp"
 #include "analyses/symbols/SymbolTable.hpp"
+#include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/Theme.hpp"
 #include "config/ThemeCategory.hpp"
@@ -79,11 +80,14 @@ Editor::Editor(
 
 void Editor::applySettings() {
     StyleResetDefault();
+
     loadLexer();
     applyEditorSettings();
     applyTheme();
     defineFoldMargins();
     updateLineNumberMarginWidth();
+
+    Colourise(0, -1);
     Refresh();
 }
 
@@ -176,6 +180,13 @@ void Editor::applyTheme() {
     StyleSetForeground(wxSTC_STYLE_DEFAULT, foreground);
     StyleSetBackground(wxSTC_STYLE_DEFAULT, background);
     StyleSetFont(wxSTC_STYLE_DEFAULT, m_font);
+
+    // Propagate the themed STYLE_DEFAULT to every other style index. Any
+    // index not overridden below (control-char, calltip, fold-display, any
+    // style a future lexer might add, and — critically — style 0 used by
+    // LEX_NULL for plain text) inherits sensible theme defaults.
+    StyleClearAll();
+
     StyleSetBackground(wxSTC_STYLE_INDENTGUIDE, background);
     StyleSetForeground(wxSTC_STYLE_INDENTGUIDE, theme.getSeparator());
 
@@ -418,6 +429,10 @@ void Editor::updateLineNumberMarginWidth() {
 void Editor::setDocType(const DocumentType type) {
     m_docType = type;
     applySettings();
+    // Status bar (type label) and menu-enable state (Compile/Run, etc.)
+    // both depend on the document type — refresh both now that it changed.
+    updateStatusBar();
+    updateDocumentState();
 }
 
 void Editor::selectLine() {
@@ -712,11 +727,18 @@ void Editor::updateStatusBar() const {
                             ? m_documentManager->findByEditor(this)
                             : nullptr;
     if (doc != nullptr) {
-        frame->SetStatusText(wxString::FromUTF8(doc->getEolMode().toString()), 2);
-        frame->SetStatusText(wxString::FromUTF8(doc->getEncoding().toString()), 3);
+        const auto typeKey = documentTypeKey(doc->getType());
+        auto typeLabel = m_uiManager->getContext().tr(wxString("statusbar.type.") + wxString::FromUTF8(typeKey.data(), typeKey.size()));
+        if (typeLabel.empty()) {
+            typeLabel = wxString::FromUTF8(typeKey.data(), typeKey.size());
+        }
+        frame->SetStatusText(typeLabel, 2);
+        frame->SetStatusText(wxString::FromUTF8(doc->getEolMode().toString()), 3);
+        frame->SetStatusText(wxString::FromUTF8(doc->getEncoding().toString()), 4);
     } else {
         frame->SetStatusText("", 2);
         frame->SetStatusText("", 3);
+        frame->SetStatusText("", 4);
     }
 }
 
@@ -724,15 +746,20 @@ void Editor::disableTransforms(const bool state) {
     m_editorLocked = state;
 }
 
+void Editor::updateDocumentState() const {
+    if (m_uiManager == nullptr) {
+        return;
+    }
+    const auto state = m_docType == DocumentType::FreeBASIC
+                         ? UIState::FocusedValidSourceFile
+                         : UIState::FocusedUnknownFile;
+    m_uiManager->setDocumentState(state);
+}
+
 void Editor::onFocus(wxFocusEvent& event) {
     event.Skip();
     updateStatusBar();
-    if (m_uiManager != nullptr) {
-        const auto state = m_docType == DocumentType::FreeBASIC
-                             ? UIState::FocusedValidSourceFile
-                             : UIState::FocusedUnknownFile;
-        m_uiManager->setDocumentState(state);
-    }
+    updateDocumentState();
 }
 
 void Editor::onIntellisenseTimer(wxTimerEvent& /*event*/) {

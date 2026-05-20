@@ -4,12 +4,14 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
+// ReSharper disable CppMemberFunctionMayBeConst
 #include "Document.hpp"
 #include "DocumentManager.hpp"
 #include "DocumentPath.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "editor/Editor.hpp"
+#include "sidebar/SideBarManager.hpp"
 using namespace fbide;
 
 namespace {
@@ -70,9 +72,7 @@ Document::Document(wxWindow* parent, Context& ctx, const DocumentType type)
     m_container->Bind(wxEVT_SIZE, &Document::onContainerSize, this);
     updateMinimapVisibility();
 
-    if (m_editor) {
-        m_editor->SetEOLMode(m_eolMode.toStc());
-    }
+    m_editor->SetEOLMode(m_eolMode.toStc());
 }
 
 void Document::showMinimap(const bool enabled) {
@@ -126,7 +126,7 @@ void Document::onContainerSize(wxSizeEvent& event) {
     updateMinimapVisibility();
 }
 
-void Document::updateMinimapVisibility() {
+void Document::updateMinimapVisibility() const {
     auto* sizer = m_container->GetSizer();
     if (sizer == nullptr || m_minimap == nullptr) {
         return;
@@ -142,12 +142,42 @@ void Document::updateMinimapVisibility() {
 
 void Document::setFilePath(const std::filesystem::path& path) {
     m_filePath = path;
-    const auto newType = documentTypeFromPath(path);
-    if (newType != m_type) {
-        m_type = newType;
-        m_editor->setDocType(newType);
+    // Only re-derive type from the new path when the user hasn't
+    // explicitly overridden it — Save As shouldn't stomp a manual choice.
+    if (!m_typeOverridden) {
+        const auto newType = documentTypeFromPath(path);
+        if (newType != m_type) {
+            m_type = newType;
+            m_editor->setDocType(newType);
+        }
     }
     updateModTime();
+}
+
+void Document::setType(const DocumentType type) {
+    m_typeOverridden = true;
+    if (type == m_type) {
+        return;
+    }
+    m_type = type;
+    m_editor->setDocType(type);
+
+    auto& dm = m_ctx.getDocumentManager();
+    if (type == DocumentType::FreeBASIC) {
+        // Re-enter the FreeBASIC pipeline — submit the current buffer for
+        // intellisense so the symbol browser populates.
+        dm.submitIntellisense(this, m_editor->GetText());
+    } else {
+        // Leaving FreeBASIC: drop any in-flight intellisense work, release
+        // the symbol table (frees the shared_ptr — workers may still hold
+        // a reference until they finish, which is fine), and clear the
+        // sub/function browser if this is the active document.
+        dm.cancelIntellisense(this);
+        m_symbolTable = nullptr;
+        if (dm.getActive() == this) {
+            m_ctx.getSideBarManager().showSymbolsFor(nullptr);
+        }
+    }
 }
 
 auto Document::getTitle() const -> wxString {
@@ -161,19 +191,12 @@ auto Document::getTitle() const -> wxString {
 }
 
 auto Document::isModified() const -> bool {
-    return m_metaModified || (m_editor && m_editor->GetModify());
+    return m_metaModified || m_editor->GetModify();
 }
 
 void Document::setModified(const bool modified) {
-    if (m_editor) {
-        if (modified) {
-            // Can't force STC to modified state directly, but this
-            // is typically called with false to clear the state
-        } else {
-            m_editor->SetSavePoint();
-        }
-    }
     if (!modified) {
+        m_editor->SetSavePoint();
         m_metaModified = false;
     }
 }
@@ -191,10 +214,8 @@ void Document::setEolMode(const EolMode mode) {
         return;
     }
     m_eolMode = mode;
-    if (m_editor) {
-        m_editor->ConvertEOLs(mode.toStc());
-        m_editor->SetEOLMode(mode.toStc());
-    }
+    m_editor->ConvertEOLs(mode.toStc());
+    m_editor->SetEOLMode(mode.toStc());
 }
 
 auto Document::checkExternalChange() const -> bool {
@@ -210,10 +231,6 @@ auto Document::checkExternalChange() const -> bool {
 }
 
 auto Document::getKeywordAtCursor() const -> wxString {
-    if (m_editor == nullptr) {
-        return {};
-    }
-
     const auto pos = m_editor->GetCurrentPos();
     const auto start = m_editor->WordStartPosition(pos, true);
     const auto end = m_editor->WordEndPosition(pos, true);
@@ -238,6 +255,6 @@ void Document::updateModTime() {
         return;
     }
     std::error_code ec;
-    const auto t = std::filesystem::last_write_time(m_filePath, ec);
-    m_modTime = ec ? std::filesystem::file_time_type {} : t;
+    const auto time = std::filesystem::last_write_time(m_filePath, ec);
+    m_modTime = ec ? std::filesystem::file_time_type {} : time;
 }

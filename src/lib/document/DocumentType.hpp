@@ -24,4 +24,26 @@ enum class DocumentType {
 /// Determine document type from file path extension.
 [[nodiscard]] auto documentTypeFromPath(const std::filesystem::path& path) -> DocumentType;
 
+/// Stable string key for a document type — used for session serialization
+/// and as a locale lookup key (`statusbar/type/<key>`). The set of keys is
+/// part of the on-disk session format; do not rename them lightly.
+[[nodiscard]] auto documentTypeKey(DocumentType type) -> std::string_view;
+
+/// Inverse of `documentTypeKey`. Returns nullopt for unknown keys —
+/// callers fall back to the path-derived type.
+[[nodiscard]] auto documentTypeFromKey(std::string_view key) -> std::optional<DocumentType>;
+
+/// Enumeration of every document type in stable order. Used by the
+/// status-bar type menu to populate items.
+inline constexpr std::array kDocumentTypes {
+    DocumentType::FreeBASIC,
+    DocumentType::HTML,
+    DocumentType::Properties,
+    DocumentType::Markdown,
+    DocumentType::Batch,
+    DocumentType::Bash,
+    DocumentType::Makefile,
+    DocumentType::Text,
+};
+
 } // namespace fbide

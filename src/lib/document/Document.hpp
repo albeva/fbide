@@ -53,6 +53,16 @@ public:
     /// Get document type.
     [[nodiscard]] auto getType() const -> DocumentType { return m_type; }
 
+    /// Override the document type (user picked from the status bar menu).
+    /// Sticky across Save / Save As until the document is closed — the
+    /// override flag is per-instance, only persisted via FileSession.
+    /// Reapplies editor settings (lexer + theme).
+    void setType(DocumentType type);
+
+    /// True when the type was set explicitly via `setType` rather than
+    /// derived from the file path.
+    [[nodiscard]] auto isTypeOverridden() const -> bool { return m_typeOverridden; }
+
     /// Get the editor widget.
     [[nodiscard]] auto getEditor() -> Editor* { return m_editor; }
     /// Const overload of `getEditor`.
@@ -126,7 +136,7 @@ private:
     /// Page resized — re-evaluate whether the minimap still fits.
     void onContainerSize(wxSizeEvent& event);
     /// Show/hide the minimap based on the current page width.
-    void updateMinimapVisibility();
+    void updateMinimapVisibility()const;
     /// Create the minimap widget and dock it into the page layout.
     void createMinimap();
     /// Destroy the minimap widget and drop it from the page layout.
@@ -136,6 +146,7 @@ private:
     wxString m_compiledFile;                    ///< Path of the most recently compiled executable.
     std::filesystem::path m_filePath;           ///< Absolute path on disk; empty for new documents.
     DocumentType m_type;                        ///< Document type — drives lexer + theme dispatch.
+    bool m_typeOverridden = false;              ///< True when the user explicitly picked the type.
     Unowned<wxPanel> m_container;               ///< wx-parented notebook page — holds editor + minimap.
     Unowned<Editor> m_editor;                   ///< Editor widget, child of m_container.
     Unowned<wxStyledTextCtrlMiniMap> m_minimap; ///< Minimap — lazily created; null while disabled.

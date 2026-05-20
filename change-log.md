@@ -6,6 +6,8 @@
 - Added basic Windows batch syntax highlighting for `.bat` / `.cmd` files
 - Added basic shell script syntax highlighting for `.sh` / `.bash` files
 - Added basic Makefile syntax highlighting (`Makefile`, `GNUmakefile`, `.mk`, `.make`)
+- Added a document type indicator to the status bar
+- Added option to override document type (right click on type indicator in the status bar)
 
 # Changes since 0.5.0-rc.1
 

@@ -124,6 +124,12 @@ auto FileSession::save(const wxString& path) -> bool {
         cfg.Write("cursor", editor->GetCurrentPos());
         cfg.Write("encoding", wxString(doc->getEncoding().toString()));
         cfg.Write("eolMode", wxString(doc->getEolMode().toString()));
+        // Only persist the type when the user has explicitly overridden it.
+        // Otherwise it can be re-derived from the path on next load.
+        if (doc->isTypeOverridden()) {
+            const auto typeKey = documentTypeKey(doc->getType());
+            cfg.Write("type", wxString::FromUTF8(typeKey.data(), typeKey.size()));
+        }
 
         // Store code folds
         if (m_ctx.getConfigManager().config().get_or("editor.folderMargin", false)) {
@@ -243,6 +249,15 @@ void FileSession::loadV3(const wxString& path) {
         if (cfg.Read("eolMode", &eolKey) && !eolKey.empty()) {
             if (const auto eol = EolMode::parse(eolKey.ToStdString()); eol.has_value()) {
                 doc->setEolMode(*eol);
+            }
+        }
+        // Restore user-overridden document type (e.g. user picked "Bash"
+        // for an extensionless file last session). Auto-detected types
+        // aren't persisted, so absence here means "trust the derived type".
+        wxString typeKey;
+        if (cfg.Read("type", &typeKey) && !typeKey.empty()) {
+            if (const auto type = documentTypeFromKey(typeKey.ToStdString()); type.has_value()) {
+                doc->setType(*type);
             }
         }
         // setEncoding / setEolMode flip the meta-dirty flag — clear.
