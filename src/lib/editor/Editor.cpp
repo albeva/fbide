@@ -229,6 +229,9 @@ void Editor::loadLexer() {
         case DocumentType::Markdown:
             SetLexer(wxSTC_LEX_MARKDOWN);
             break;
+        case DocumentType::Batch:
+            SetLexer(wxSTC_LEX_BATCH);
+            break;
         case DocumentType::Text:
             SetLexer(wxSTC_LEX_NULL);
             break;
@@ -252,6 +255,9 @@ void Editor::loadLexerTheme() {
             break;
         case DocumentType::Markdown:
             applyMarkdownTheme();
+            break;
+        case DocumentType::Batch:
+            applyBatchTheme();
             break;
         case DocumentType::Text:
             applyTextTheme();
@@ -326,6 +332,27 @@ void Editor::applyMarkdownTheme() {
     applyStyle(wxSTC_MARKDOWN_CODE, theme.get(ThemeCategory::String), theme);
     applyStyle(wxSTC_MARKDOWN_CODE2, theme.get(ThemeCategory::String), theme);
     applyStyle(wxSTC_MARKDOWN_CODEBK, theme.get(ThemeCategory::String), theme);
+}
+
+void Editor::applyBatchTheme() {
+    const auto& theme = m_theme;
+
+    // Keyword lists live in keywords.ini under [batch]:
+    //   words    → SCE_BAT_WORD (flow keywords)
+    //   commands → SCE_BAT_COMMAND (built-in / external commands)
+    // The lexer matches case-insensitively.
+    const auto& batch = m_configManager.keywords().at("batch");
+    SetKeyWords(0, batch.get_or("words", ""));
+    SetKeyWords(1, batch.get_or("commands", ""));
+
+    applyStyle(wxSTC_BAT_DEFAULT, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_BAT_COMMENT, theme.get(ThemeCategory::Comment), theme);
+    applyStyle(wxSTC_BAT_WORD, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_BAT_LABEL, theme.get(ThemeCategory::Label), theme);
+    applyStyle(wxSTC_BAT_HIDE, theme.get(ThemeCategory::KeywordOperators), theme);
+    applyStyle(wxSTC_BAT_COMMAND, theme.get(ThemeCategory::KeywordTypes), theme);
+    applyStyle(wxSTC_BAT_IDENTIFIER, theme.get(ThemeCategory::Identifier), theme);
+    applyStyle(wxSTC_BAT_OPERATOR, theme.get(ThemeCategory::Operator), theme);
 }
 
 void Editor::applyTextTheme() {

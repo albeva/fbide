@@ -15,6 +15,7 @@ enum class DocumentType {
     HTML,       // .html, .htm — HTML lexer
     Properties, // .ini, old fbide config files
     Markdown,   // .md, .markdown — Scintilla Markdown lexer
+    Batch,      // .bat, .cmd — Scintilla Batch lexer
     Text,       // .txt and anything else — no lexer
 };
 

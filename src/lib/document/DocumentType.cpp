@@ -30,6 +30,9 @@ auto documentTypeFromPath(const std::filesystem::path& path) -> DocumentType {
     if (ext == "md" || ext == "markdown") {
         return DocumentType::Markdown;
     }
+    if (ext == "bat" || ext == "cmd") {
+        return DocumentType::Batch;
+    }
     return DocumentType::Text;
 }
 
