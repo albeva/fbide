@@ -508,7 +508,7 @@ void AiChatView::onScroll(wxScrollWinEvent& event) {
 void AiChatView::hideActionBar() {
     m_barMessage = -1;
     m_barCode = -1;
-    if (m_actionBar->IsShown()) {
+    if (m_actionBar != nullptr && m_actionBar->IsShown()) {
         m_actionBar->Hide();
     }
 }
