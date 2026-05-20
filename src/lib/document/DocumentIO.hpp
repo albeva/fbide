@@ -34,7 +34,7 @@ public:
     /// rejects the bytes, the payload is reloaded as ISO-8859-1 so the
     /// user always sees something.
     [[nodiscard]] static auto load(
-        const wxString& path,
+        const std::filesystem::path& path,
         TextEncoding defaultEncoding,
         EolMode defaultEol
     ) -> std::optional<LoadResult>;
@@ -45,7 +45,7 @@ public:
     /// decode falls back to ISO-8859-1 if the forced encoding rejects
     /// the bytes.
     [[nodiscard]] static auto loadWithEncoding(
-        const wxString& path,
+        const std::filesystem::path& path,
         TextEncoding encoding,
         EolMode defaultEol
     ) -> std::optional<LoadResult>;
@@ -57,10 +57,12 @@ public:
     ///   EncodingError — chosen encoding cannot represent some characters;
     ///                   nothing was written, caller should surface the
     ///                   failure and leave the document dirty.
-    [[nodiscard]] static auto save(const wxString& path,
+    [[nodiscard]] static auto save(
+        const std::filesystem::path& path,
         const wxString& text,
         TextEncoding encoding,
-        EolMode eolMode) -> SaveResult;
+        EolMode eolMode
+    ) -> SaveResult;
 };
 
 } // namespace fbide

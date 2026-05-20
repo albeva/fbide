@@ -20,6 +20,7 @@ add_executable(tests
     unit/CompileCommandTests.cpp
     unit/ConfigManagerTests.cpp
     unit/DocumentIOTests.cpp
+    unit/DocumentPathTests.cpp
     unit/EncodingDetectorTests.cpp
     unit/FBSciLexerTests.cpp
     unit/ReFormatterTests.cpp

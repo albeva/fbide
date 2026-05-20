@@ -15,6 +15,7 @@
 #include "config/FileHistory.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentPath.hpp"
 #include "editor/Editor.hpp"
 #include "rc/icons.hpp"
 #include "sidebar/SideBarManager.hpp"
@@ -231,7 +232,7 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
         doc->getEditor()->SetFocus();
     }
     m_ctx.getSideBarManager().showSymbolsFor(doc);
-    setTitle(doc->isNew() ? doc->getTitle() : doc->getFilePath());
+    setTitle(doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath()));
 }
 
 void UIManager::onNotebookDblClick(wxAuiNotebookEvent& event) {

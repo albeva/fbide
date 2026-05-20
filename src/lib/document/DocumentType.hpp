@@ -18,6 +18,6 @@ enum class DocumentType {
 };
 
 /// Determine document type from file path extension.
-[[nodiscard]] auto documentTypeFromPath(const wxString& path) -> DocumentType;
+[[nodiscard]] auto documentTypeFromPath(const std::filesystem::path& path) -> DocumentType;
 
 } // namespace fbide

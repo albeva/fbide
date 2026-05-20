@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "DocumentIO.hpp"
+#include "DocumentPath.hpp"
 #include "EncodingDetector.hpp"
 using namespace fbide;
 
@@ -49,8 +50,8 @@ auto normalizeEols(const wxString& text, const EolMode mode) -> wxString {
 namespace {
 
 /// Read whole file into a byte buffer. Returns nullopt on I/O failure.
-auto readAllBytes(const wxString& path) -> std::optional<std::vector<unsigned char>> {
-    wxFile file(path, wxFile::read);
+auto readAllBytes(const std::filesystem::path& path) -> std::optional<std::vector<unsigned char>> {
+    wxFile file(toWxString(path), wxFile::read);
     if (!file.IsOpened()) {
         return std::nullopt;
     }
@@ -99,7 +100,7 @@ auto decodeAndDetectEol(std::span<const unsigned char> bytes, TextEncoding encod
 } // namespace
 
 auto DocumentIO::load(
-    const wxString& path,
+    const std::filesystem::path& path,
     const TextEncoding defaultEncoding,
     const EolMode defaultEol
 ) -> std::optional<LoadResult> {
@@ -113,7 +114,7 @@ auto DocumentIO::load(
 }
 
 auto DocumentIO::loadWithEncoding(
-    const wxString& path,
+    const std::filesystem::path& path,
     const TextEncoding encoding,
     const EolMode defaultEol
 ) -> std::optional<LoadResult> {
@@ -124,10 +125,12 @@ auto DocumentIO::loadWithEncoding(
     return decodeAndDetectEol(stripBom(*bytes, encoding), encoding, defaultEol);
 }
 
-auto DocumentIO::save(const wxString& path,
+auto DocumentIO::save(
+    const std::filesystem::path& path,
     const wxString& text,
     const TextEncoding encoding,
-    const EolMode eolMode) -> SaveResult {
+    const EolMode eolMode
+) -> SaveResult {
     const auto normalized = normalizeEols(text, eolMode);
 
     const auto encoded = encoding.encode(normalized);
@@ -135,7 +138,7 @@ auto DocumentIO::save(const wxString& path,
         return SaveResult::EncodingError;
     }
 
-    wxFile file(path, wxFile::write);
+    wxFile file(toWxString(path), wxFile::write);
     if (!file.IsOpened()) {
         return SaveResult::IOError;
     }

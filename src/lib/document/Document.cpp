@@ -6,6 +6,7 @@
 //
 #include "Document.hpp"
 #include "DocumentManager.hpp"
+#include "DocumentPath.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "editor/Editor.hpp"
@@ -139,7 +140,7 @@ void Document::updateMinimapVisibility() {
     sizer->Layout();
 }
 
-void Document::setFilePath(const wxString& path) {
+void Document::setFilePath(const std::filesystem::path& path) {
     m_filePath = path;
     const auto newType = documentTypeFromPath(path);
     if (newType != m_type) {
@@ -152,7 +153,7 @@ void Document::setFilePath(const wxString& path) {
 auto Document::getTitle() const -> wxString {
     wxString title = isNew()
                        ? m_ctx.tr("document.untitled")
-                       : wxFileName(m_filePath).GetFullName();
+                       : toWxString(m_filePath.filename());
     if (isModified()) {
         title = "[*] " + title;
     }
@@ -197,11 +198,15 @@ void Document::setEolMode(const EolMode mode) {
 }
 
 auto Document::checkExternalChange() const -> bool {
-    if (isNew() || !wxFileExists(m_filePath)) {
+    if (isNew()) {
         return false;
     }
-    const wxDateTime currentModTime = wxFileName(m_filePath).GetModificationTime();
-    return m_modTime.IsValid() && currentModTime.IsValid() && currentModTime != m_modTime;
+    std::error_code ec;
+    const auto currentModTime = std::filesystem::last_write_time(m_filePath, ec);
+    if (ec) {
+        return false;
+    }
+    return m_modTime != std::filesystem::file_time_type {} && currentModTime != m_modTime;
 }
 
 auto Document::getKeywordAtCursor() const -> wxString {
@@ -228,9 +233,11 @@ auto Document::getKeywordAtCursor() const -> wxString {
 }
 
 void Document::updateModTime() {
-    if (!isNew() && wxFileExists(m_filePath)) {
-        m_modTime = wxFileName(m_filePath).GetModificationTime();
-    } else {
-        m_modTime = wxDateTime();
+    if (isNew()) {
+        m_modTime = {};
+        return;
     }
+    std::error_code ec;
+    const auto t = std::filesystem::last_write_time(m_filePath, ec);
+    m_modTime = ec ? std::filesystem::file_time_type {} : t;
 }

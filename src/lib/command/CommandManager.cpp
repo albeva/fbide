@@ -14,6 +14,7 @@
 #include "config/FileHistory.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentPath.hpp"
 #include "document/FileSession.hpp"
 #include "editor/Editor.hpp"
 #include "format/FormatDialog.hpp"
@@ -376,8 +377,10 @@ void CommandManager::onKillProcess(wxCommandEvent&) {
 void CommandManager::onCmdPrompt(wxCommandEvent&) {
     wxExecuteEnv env;
     if (const auto* doc = m_ctx.getDocumentManager().getActive(); doc != nullptr && !doc->isNew()) {
-        if (const auto dir = wxPathOnly(doc->getFilePath()); wxDirExists(dir)) {
-            env.cwd = dir;
+        const auto parent = doc->getFilePath().parent_path();
+        std::error_code ec;
+        if (std::filesystem::is_directory(parent, ec)) {
+            env.cwd = toWxString(parent);
         }
     }
     wxExecute(ConfigManager::getTerminal(), wxEXEC_ASYNC, nullptr, &env);

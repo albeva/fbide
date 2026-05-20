@@ -8,8 +8,16 @@
 
 namespace fbide {
 
-auto documentTypeFromPath(const wxString& path) -> DocumentType {
-    const auto ext = wxFileName(path).GetExt().Lower();
+auto documentTypeFromPath(const std::filesystem::path& path) -> DocumentType {
+    // fs::path::extension() returns including the leading dot, e.g. ".bas".
+    auto ext = path.extension().string();
+    if (!ext.empty() && ext.front() == '.') {
+        ext.erase(0, 1);
+    }
+    std::ranges::transform(ext, ext.begin(), [](const unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+
     if (ext == "bas" || ext == "bi") {
         return DocumentType::FreeBASIC;
     }

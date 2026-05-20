@@ -10,6 +10,7 @@
 #include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentPath.hpp"
 #include "help/HelpManager.hpp"
 using namespace fbide;
 
@@ -243,9 +244,15 @@ void CompilerPage::insertPlaceholder(const wxString& placeholder) {
 auto CompilerPage::getSampleSourcePath() const -> wxString {
     if (auto* doc = getContext().getDocumentManager().getActive(); doc != nullptr && !doc->isNew()) {
         const auto& path = doc->getFilePath();
-        const auto ext = wxFileName(path).GetExt().Lower();
+        auto ext = path.extension().string();
+        if (!ext.empty() && ext.front() == '.') {
+            ext.erase(0, 1);
+        }
+        std::ranges::transform(ext, ext.begin(), [](const unsigned char ch) {
+            return static_cast<char>(std::tolower(ch));
+        });
         if (ext == "bas" || ext == "bi") {
-            return path;
+            return toWxString(path);
         }
     }
 #ifdef __WXMSW__
