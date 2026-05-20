@@ -149,6 +149,8 @@ private:
     void applyHtmlTheme();
     /// Theme dispatch for properties / `.ini` documents.
     void applyPropertiesTheme();
+    /// Theme dispatch for Markdown documents (built-in wxSTC Markdown lexer).
+    void applyMarkdownTheme();
     /// Theme dispatch for plain-text documents (no lexer).
     void applyTextTheme();
     /// Resize the line-number margin to fit the current line count + zoom.

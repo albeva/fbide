@@ -4,6 +4,8 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
+// ReSharper disable CppMemberFunctionMayBeConst
+// ReSharper disable CppParameterMayBeConstPtrOrRef
 #include "Editor.hpp"
 #include "CodeTransformer.hpp"
 #include "analyses/symbols/SymbolTable.hpp"
@@ -135,7 +137,7 @@ void Editor::defineFoldMargins() {
     }
 
     const auto& editor = m_configManager.config().at("editor");
-    if (m_docType != DocumentType::FreeBASIC || not editor.get_or("folderMargin", false)) {
+    if (m_docType == DocumentType::Text || not editor.get_or("folderMargin", false)) {
         SetProperty("fold", "0");
         return;
     }
@@ -224,6 +226,9 @@ void Editor::loadLexer() {
         case DocumentType::Properties:
             SetLexer(wxSTC_LEX_PROPERTIES);
             break;
+        case DocumentType::Markdown:
+            SetLexer(wxSTC_LEX_MARKDOWN);
+            break;
         case DocumentType::Text:
             SetLexer(wxSTC_LEX_NULL);
             break;
@@ -244,6 +249,9 @@ void Editor::loadLexerTheme() {
             break;
         case DocumentType::Properties:
             applyPropertiesTheme();
+            break;
+        case DocumentType::Markdown:
+            applyMarkdownTheme();
             break;
         case DocumentType::Text:
             applyTextTheme();
@@ -292,6 +300,32 @@ void Editor::applyPropertiesTheme() {
     applyStyle(wxSTC_PROPS_ASSIGNMENT, theme.get(ThemeCategory::Operator), theme);
     applyStyle(wxSTC_PROPS_DEFVAL, theme.get(ThemeCategory::String), theme);
     applyStyle(wxSTC_PROPS_KEY, theme.get(ThemeCategory::Keywords), theme);
+}
+
+void Editor::applyMarkdownTheme() {
+    const auto& theme = m_theme;
+    applyStyle(wxSTC_MARKDOWN_DEFAULT, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_MARKDOWN_LINE_BEGIN, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_MARKDOWN_STRONG1, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_MARKDOWN_STRONG2, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_MARKDOWN_EM1, theme.get(ThemeCategory::KeywordTypes), theme);
+    applyStyle(wxSTC_MARKDOWN_EM2, theme.get(ThemeCategory::KeywordTypes), theme);
+    applyStyle(wxSTC_MARKDOWN_HEADER1, theme.get(ThemeCategory::KeywordPP), theme);
+    applyStyle(wxSTC_MARKDOWN_HEADER2, theme.get(ThemeCategory::KeywordPP), theme);
+    applyStyle(wxSTC_MARKDOWN_HEADER3, theme.get(ThemeCategory::IdentifierPP), theme);
+    applyStyle(wxSTC_MARKDOWN_HEADER4, theme.get(ThemeCategory::IdentifierPP), theme);
+    applyStyle(wxSTC_MARKDOWN_HEADER5, theme.get(ThemeCategory::IdentifierPP), theme);
+    applyStyle(wxSTC_MARKDOWN_HEADER6, theme.get(ThemeCategory::IdentifierPP), theme);
+    applyStyle(wxSTC_MARKDOWN_PRECHAR, theme.get(ThemeCategory::Operator), theme);
+    applyStyle(wxSTC_MARKDOWN_ULIST_ITEM, theme.get(ThemeCategory::Operator), theme);
+    applyStyle(wxSTC_MARKDOWN_OLIST_ITEM, theme.get(ThemeCategory::Operator), theme);
+    applyStyle(wxSTC_MARKDOWN_BLOCKQUOTE, theme.get(ThemeCategory::Comment), theme);
+    applyStyle(wxSTC_MARKDOWN_STRIKEOUT, theme.get(ThemeCategory::Comment), theme);
+    applyStyle(wxSTC_MARKDOWN_HRULE, theme.get(ThemeCategory::Preprocessor), theme);
+    applyStyle(wxSTC_MARKDOWN_LINK, theme.get(ThemeCategory::KeywordConstants), theme);
+    applyStyle(wxSTC_MARKDOWN_CODE, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_MARKDOWN_CODE2, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_MARKDOWN_CODEBK, theme.get(ThemeCategory::String), theme);
 }
 
 void Editor::applyTextTheme() {
@@ -580,7 +614,7 @@ void Editor::updateBraceMatch() {
     const auto ch = GetCharAt(pos);
 
     if (isBrace(ch)) {
-        if (const auto match = BraceMatch(pos);match != wxSTC_INVALID_POSITION) {
+        if (const auto match = BraceMatch(pos); match != wxSTC_INVALID_POSITION) {
             BraceHighlight(pos, match);
         } else {
             BraceBadLight(pos);

@@ -79,7 +79,7 @@ void DocumentManager::openFile() {
         m_ctx.tr("files.loadTitle"),
         "",
         ".bas",
-        m_ctx.getConfigManager().filePatterns({ "freebasic", "properties", "all" }),
+        m_ctx.getConfigManager().filePatterns({ "freebasic", "properties", "markdown", "all" }),
         wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE
     );
 

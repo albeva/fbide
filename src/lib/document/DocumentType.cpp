@@ -27,6 +27,9 @@ auto documentTypeFromPath(const std::filesystem::path& path) -> DocumentType {
     if (ext == "ini" || ext == "fbt" || ext == "lng" || ext == "fbl") {
         return DocumentType::Properties;
     }
+    if (ext == "md" || ext == "markdown") {
+        return DocumentType::Markdown;
+    }
     return DocumentType::Text;
 }
 

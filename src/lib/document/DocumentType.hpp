@@ -14,6 +14,7 @@ enum class DocumentType {
     FreeBASIC,  // .bas, .bi — FreeBASIC lexer with keyword groups
     HTML,       // .html, .htm — HTML lexer
     Properties, // .ini, old fbide config files
+    Markdown,   // .md, .markdown — Scintilla Markdown lexer
     Text,       // .txt and anything else — no lexer
 };
 
