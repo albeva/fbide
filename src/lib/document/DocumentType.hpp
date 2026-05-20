@@ -17,6 +17,7 @@ enum class DocumentType {
     Markdown,   // .md, .markdown — Scintilla Markdown lexer
     Batch,      // .bat, .cmd — Scintilla Batch lexer
     Bash,       // .sh, .bash — Scintilla Bash lexer
+    Makefile,   // Makefile / .mk / .make — Scintilla Makefile lexer
     Text,       // .txt and anything else — no lexer
 };
 

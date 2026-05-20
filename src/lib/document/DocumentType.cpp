@@ -8,15 +8,29 @@
 
 namespace fbide {
 
+namespace {
+    auto toLowerAscii(std::string s) -> std::string {
+        std::ranges::transform(s, s.begin(), [](const unsigned char ch) {
+            return static_cast<char>(std::tolower(ch));
+        });
+        return s;
+    }
+} // namespace
+
 auto documentTypeFromPath(const std::filesystem::path& path) -> DocumentType {
-    // fs::path::extension() returns including the leading dot, e.g. ".bas".
+    // Filename match first — Makefiles typically have no extension.
+    // Case-insensitive on macOS/Windows naturally, but normalise for POSIX.
+    const auto filename = toLowerAscii(path.filename().string());
+    if (filename == "makefile" || filename == "gnumakefile") {
+        return DocumentType::Makefile;
+    }
+
+    // Extension match. fs::path::extension() returns including the leading dot, e.g. ".bas".
     auto ext = path.extension().string();
     if (!ext.empty() && ext.front() == '.') {
         ext.erase(0, 1);
     }
-    std::ranges::transform(ext, ext.begin(), [](const unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
+    ext = toLowerAscii(std::move(ext));
 
     if (ext == "bas" || ext == "bi") {
         return DocumentType::FreeBASIC;
@@ -35,6 +49,9 @@ auto documentTypeFromPath(const std::filesystem::path& path) -> DocumentType {
     }
     if (ext == "sh" || ext == "bash") {
         return DocumentType::Bash;
+    }
+    if (ext == "mk" || ext == "make") {
+        return DocumentType::Makefile;
     }
     return DocumentType::Text;
 }

@@ -235,6 +235,9 @@ void Editor::loadLexer() {
         case DocumentType::Bash:
             SetLexer(wxSTC_LEX_BASH);
             break;
+        case DocumentType::Makefile:
+            SetLexer(wxSTC_LEX_MAKEFILE);
+            break;
         case DocumentType::Text:
             SetLexer(wxSTC_LEX_NULL);
             break;
@@ -264,6 +267,9 @@ void Editor::loadLexerTheme() {
             break;
         case DocumentType::Bash:
             applyBashTheme();
+            break;
+        case DocumentType::Makefile:
+            applyMakefileTheme();
             break;
         case DocumentType::Text:
             applyTextTheme();
@@ -383,6 +389,17 @@ void Editor::applyBashTheme() {
     applyStyle(wxSTC_SH_BACKTICKS, theme.get(ThemeCategory::String), theme);
     applyStyle(wxSTC_SH_HERE_DELIM, theme.get(ThemeCategory::Preprocessor), theme);
     applyStyle(wxSTC_SH_HERE_Q, theme.get(ThemeCategory::String), theme);
+}
+
+void Editor::applyMakefileTheme() {
+    const auto& theme = m_theme;
+    applyStyle(wxSTC_MAKE_DEFAULT, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_MAKE_COMMENT, theme.get(ThemeCategory::Comment), theme);
+    applyStyle(wxSTC_MAKE_PREPROCESSOR, theme.get(ThemeCategory::Preprocessor), theme);
+    applyStyle(wxSTC_MAKE_IDENTIFIER, theme.get(ThemeCategory::Identifier), theme);
+    applyStyle(wxSTC_MAKE_OPERATOR, theme.get(ThemeCategory::Operator), theme);
+    applyStyle(wxSTC_MAKE_TARGET, theme.get(ThemeCategory::Label), theme);
+    applyStyle(wxSTC_MAKE_IDEOL, theme.get(ThemeCategory::Error), theme);
 }
 
 void Editor::applyTextTheme() {

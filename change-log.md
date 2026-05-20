@@ -5,6 +5,7 @@
 - Added basic Markdown syntax highlighting for `.md` / `.markdown` files
 - Added basic Windows batch syntax highlighting for `.bat` / `.cmd` files
 - Added basic shell script syntax highlighting for `.sh` / `.bash` files
+- Added basic Makefile syntax highlighting (`Makefile`, `GNUmakefile`, `.mk`, `.make`)
 
 # Changes since 0.5.0-rc.1
 

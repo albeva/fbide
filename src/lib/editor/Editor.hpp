@@ -155,6 +155,8 @@ private:
     void applyBatchTheme();
     /// Theme dispatch for shell / bash scripts (built-in wxSTC Bash lexer).
     void applyBashTheme();
+    /// Theme dispatch for Makefiles (built-in wxSTC Makefile lexer).
+    void applyMakefileTheme();
     /// Theme dispatch for plain-text documents (no lexer).
     void applyTextTheme();
     /// Resize the line-number margin to fit the current line count + zoom.
