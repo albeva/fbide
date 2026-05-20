@@ -139,6 +139,10 @@ private:
     void applyStyle(int stcId, const Theme::Entry& style, const Theme& theme);
     /// Apply foreground/background colors to the given Scintilla style id.
     void applyColors(int stcId, const Theme::Colors& colors, const Theme& theme);
+    /// Load correct lexer for the given file type
+    void loadLexer();
+    /// Apply theme for the lexer
+    void loadLexerTheme();
     /// Theme dispatch for FreeBASIC documents (custom lexer + every category).
     void applyFreebasicTheme();
     /// Theme dispatch for HTML documents (built-in wxSTC HTML lexer).
