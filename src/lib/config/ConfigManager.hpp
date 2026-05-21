@@ -135,7 +135,7 @@ public:
     void reloadConfig(const wxString& configPath);
 
     /// Save the category's Value tree to its backing file.
-    void save(Category category);
+    void save(Category category)const;
 
     /// Reload any loaded config category or the active theme whose backing
     /// file matches `path`. Returns true when a reload occurred. Use to

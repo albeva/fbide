@@ -540,7 +540,7 @@ void ConfigManager::load(const Category category) {
     wxLogMessage("Loaded %s from %s", catName, file);
 }
 
-void ConfigManager::save(const Category category) {
+void ConfigManager::save(const Category category) const {
     // Locale is bundle-only. The IDE never writes its translation strings
     // back; any caller asking for `save(Locale)` is a bug — flag loudly
     // rather than silently truncating the bundle locale file under
