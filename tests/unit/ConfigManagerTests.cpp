@@ -370,6 +370,26 @@ TEST_F(ConfigManagerTests, ThemePathPortableIgnoresUserDir) {
     EXPECT_EQ(wxFileName(resolved).GetPath(), tmp.path() + "/ide/themes");
 }
 
+TEST_F(ConfigManagerTests, RelativeOfUserDataPathStripsUserDataPrefix) {
+    // Regression: under READONLY, `themesWriteDir()` returns
+    // `<UserDataDir>/themes/`, so a theme saved there yields an absolute
+    // path. `relative()` must strip the `m_userDataDir` prefix the same
+    // way it strips `m_ideDir` — otherwise `config["theme"]` ends up
+    // storing the full absolute path and leaks the user's home dir
+    // into the overlay file.
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName, "\n");
+    tmp.write("ide/READONLY", "");
+    wxFileName::Mkdir(tmp.path() + "/userdata/themes", 0755, wxPATH_MKDIR_FULL);
+    tmp.write("userdata/themes/modern-dark.ini", "[Default]\n");
+
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "", tmp.path() + "/userdata");
+
+    const wxString userThemeAbs = tmp.path() + "/userdata/themes/modern-dark.ini";
+    EXPECT_EQ(cm.relative(userThemeAbs), "themes/modern-dark.ini");
+}
+
 TEST_F(ConfigManagerTests, ThemesWriteDirRoutesByReadOnly) {
     // Portable → bundle themes dir; READONLY → user themes dir. This is
     // the rule ThemePage::onSaveTheme uses to redirect save targets so

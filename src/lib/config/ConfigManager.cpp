@@ -718,6 +718,17 @@ auto ConfigManager::relative(const wxString& path) const -> wxString {
     if (const auto ide = makeRelative(m_ideDir, abs)) {
         return *ide;
     }
+    // User data dir under READONLY is the writable equivalent of the
+    // bundle's ide/ — a path like `<UserDataDir>/themes/dark.ini`
+    // belongs to the same logical layout and must stringify as the same
+    // relative form so `themePath()` round-trips correctly on the next
+    // load. Without this, theme saves under READONLY leaked absolute
+    // paths into `config["theme"]`.
+    if (!m_userDataDir.empty()) {
+        if (const auto userData = makeRelative(m_userDataDir, abs)) {
+            return *userData;
+        }
+    }
     if (const auto app = makeRelative(m_appDir, abs)) {
         return *app;
     }
