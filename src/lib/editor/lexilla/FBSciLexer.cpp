@@ -949,6 +949,30 @@ void SCI_METHOD FBSciLexer::Fold(
     int pendingIndent = 0;
     bool reachedEnd = true;
 
+    // Blank / whitespace-only lines are buffered until the next code line
+    // resolves their level via look-ahead. Setting their level to
+    // `max(prevIndent, nextIndent)` keeps a blank that sits between a
+    // header and a deeper body at the BODY's level, never at the header's.
+    // Scintilla treats WHITE lines as transparent for fold-range scoping,
+    // but only when their level is unambiguously inside the body — a
+    // WHITE line at the header's level can defeat fold-marker rendering
+    // in some Scintilla configurations.
+    //
+    // Blanks always form a contiguous run, so only the first index is
+    // needed; the end is the current line being processed (or lineCount
+    // at end-of-doc flush). O(1) memory, no allocation in the hot path.
+    Sci_Position pendingBlankStart = -1;
+    const auto resolveBlanksUpTo = [&](const Sci_Position endExclusive, const int level) {
+        if (pendingBlankStart < 0) {
+            return;
+        }
+        const int clamped = std::min(level, kMaxFoldIndent);
+        for (Sci_Position blank = pendingBlankStart; blank < endExclusive; blank++) {
+            styler.SetLevel(blank, SC_FOLDLEVELBASE + clamped + SC_FOLDLEVELWHITEFLAG);
+        }
+        pendingBlankStart = -1;
+    };
+
     bool mlActive = false;      // inside a foldable multiline-comment region
     int mlHeaderLevel = 0;      // indentation level of that region's `/'` opener
     Sci_Position mlCloser = -1; // line carrying the matching outer `'/`
@@ -968,6 +992,7 @@ void SCI_METHOD FBSciLexer::Fold(
             }
             // Closer line: a code line sitting at the region's structural level.
             mlActive = false;
+            resolveBlanksUpTo(line, std::max(prevIndent, mlHeaderLevel));
             if (pendingLine >= 0) {
                 const int header = mlHeaderLevel > pendingIndent ? SC_FOLDLEVELHEADERFLAG : 0;
                 styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent + header);
@@ -999,6 +1024,7 @@ void SCI_METHOD FBSciLexer::Fold(
             // Foldable only with at least one interior line.
             if (closer >= line + 2) {
                 const int level = lineIndent(styler, line); // `/'` is the content
+                resolveBlanksUpTo(line, std::max(prevIndent, level));
                 if (pendingLine >= 0) {
                     const int header = level > pendingIndent ? SC_FOLDLEVELHEADERFLAG : 0;
                     styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent + header);
@@ -1023,6 +1049,7 @@ void SCI_METHOD FBSciLexer::Fold(
         // comment's `/'` was not alone on its line). Freeze at the ambient
         // level — never a header, invisible to the indentation buffer.
         if (nestStart > 0) {
+            resolveBlanksUpTo(line, prevIndent);
             styler.SetLevel(line, SC_FOLDLEVELBASE + prevIndent);
             continue;
         }
@@ -1030,9 +1057,15 @@ void SCI_METHOD FBSciLexer::Fold(
         // --- Plain indentation folding -------------------------------------
         const int indent = lineIndent(styler, line);
         if (indent < 0) {
-            styler.SetLevel(line, SC_FOLDLEVELBASE + prevIndent + SC_FOLDLEVELWHITEFLAG);
+            // Mark the start of a blank run if we aren't already in one.
+            // Level resolution is deferred to the next code line via
+            // `resolveBlanksUpTo`, giving us look-ahead with O(1) state.
+            if (pendingBlankStart < 0) {
+                pendingBlankStart = line;
+            }
             continue;
         }
+        resolveBlanksUpTo(line, std::max(prevIndent, indent));
         if (pendingLine >= 0) {
             const int header = indent > pendingIndent ? SC_FOLDLEVELHEADERFLAG : 0;
             styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent + header);
@@ -1050,9 +1083,14 @@ void SCI_METHOD FBSciLexer::Fold(
     }
 
     // End-of-document tail: the last buffered code line has no following code
-    // line, so its next indent is 0 — it can never be a header.
-    if (reachedEnd && pendingLine >= 0) {
-        styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent);
+    // line, so its next indent is 0 — it can never be a header. Trailing
+    // blanks with no later code line to resolve their look-ahead get the
+    // last seen indent.
+    if (reachedEnd) {
+        resolveBlanksUpTo(lineCount, prevIndent);
+        if (pendingLine >= 0) {
+            styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent);
+        }
     }
 }
 

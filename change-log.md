@@ -1,6 +1,6 @@
 # Changes since 0.5.0-rc.2
 
-- Changed READONLY-bundled IDE resources from one-shot full-copy mirror to per-category `.local.ini` overlays — bundle defaults now propagate to users on upgrade, and only divergent values persist in the overlay
+- Changed fbide now stores config changes in `.local.`, keeping original base files immutable.
 - Added two-dir theme enumeration under READONLY: themes in `<user-data-dir>/themes/` shadow same-named bundle themes; theme edits save there too
 - Fixed `#include` opening the same file in multiple tabs on case-insensitive filesystems (#87)
 - Added a confirm-and-close prompt when Save As targets a file already open in another tab
@@ -12,6 +12,7 @@
 - Added basic CSS syntax highlighting for `.css` files
 - Added a document type indicator to the status bar
 - Added option to override document type (right click on type indicator in the status bar)
+- Fixed issue with folding where opener was followed by empty lines.
 
 # Changes since 0.5.0-rc.1
 
