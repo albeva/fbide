@@ -20,6 +20,9 @@ struct TextStyle {
     bool underline = false;     ///< Underlined (links).
     bool strikethrough = false; ///< Struck through.
     bool monospace = false;     ///< Monospace face (inline + block code).
+    bool themed = false;        ///< FreeBASIC-highlighted code — use the
+                                ///< editor theme's font face. Implies
+                                ///< `monospace`; ignored when it isn't set.
 
     auto operator==(const TextStyle&) const -> bool = default;
 };

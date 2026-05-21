@@ -103,12 +103,18 @@ private:
     [[nodiscard]] auto highlightFence(const wxString& code, const wxString& lang, bool reformat) const
         -> std::vector<CodeLine>;
 
+    /// Resolve `m_bodyFont` / `m_monoFont` / `m_themedFont` from the
+    /// platform default + the optional `[ai] fontSize` config override.
+    /// All three share the resolved point size so faces line up.
+    void resolveFonts();
+
     Context& m_ctx;                                 ///< Application context.
     std::unique_ptr<CodeHighlighter> m_highlighter; ///< FreeBASIC code highlighter.
     Unowned<CodeActionBar> m_actionBar;             ///< Floating per-code-block toolbar.
     wxBitmap m_buffer;                              ///< Off-screen paint buffer, reused across paints.
     wxFont m_bodyFont;                              ///< Base prose font.
-    wxFont m_monoFont;                              ///< Base monospace (code) font.
+    wxFont m_monoFont;                              ///< System monospace face — inline `code` and non-FB fences.
+    wxFont m_themedFont;                            ///< Editor-theme font resized to body — FreeBASIC fenced runs only.
     std::vector<ChatViewMessage> m_messages;        ///< Conversation source.
     std::vector<LaidMessage> m_items;               ///< One laid-out bubble per message.
     int m_layoutWidth = -1;                         ///< View width m_items were built for.

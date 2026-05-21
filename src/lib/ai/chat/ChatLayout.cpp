@@ -23,6 +23,13 @@ constexpr int kListIndent = 24;
 // Height of a horizontal rule line.
 constexpr int kRuleHeight = 13;
 
+/// True when `lang` (a fence tag) denotes FreeBASIC. Mirrors the same
+/// rule in AiChatView so layout and paint agree on which fences get the
+/// theme font vs. the system monospace font. Empty tag → assumed FB.
+auto isFreeBasicTag(const wxString& lang) -> bool {
+    return lang.empty() || lang == "freebasic" || lang == "fb" || lang == "basic" || lang == "bas";
+}
+
 /// Body-relative point-size bump for heading level 1-6.
 auto headingSizeDelta(const unsigned level) -> int {
     switch (level) {
@@ -269,7 +276,8 @@ struct Engine {
         const int rightEdge,
         const int lineHeight,
         const int charWidth,
-        const int quoteDepth
+        const int quoteDepth,
+        const bool themed
     ) {
         PaintLine line;
         line.kind = LineKind::Code;
@@ -295,7 +303,8 @@ struct Engine {
             const TextStyle style { .bold = codeRun.bold,
                 .italic = codeRun.italic,
                 .underline = codeRun.underlined,
-                .monospace = true };
+                .monospace = true,
+                .themed = themed };
             // Wrap before the run if the whole token would overflow — keeps
             // breaks on token boundaries where possible.
             if (!lineEmpty && fx + m_measurer.width(codeRun.text, style) > rightEdge) {
@@ -341,7 +350,8 @@ struct Engine {
         blockGap();
         const int blockTop = m_yPos;
         const int left = block.quoteDepth * kQuoteIndent;
-        const TextStyle mono { .monospace = true };
+        const bool themed = isFreeBasicTag(block.codeLang);
+        const TextStyle mono { .monospace = true, .themed = themed };
         const int lineHeight = m_measurer.lineHeight(mono);
         const int charWidth = std::max(1, m_measurer.width("0", mono));
         const auto codeLines = m_highlightFence(block.codeText, block.codeLang);
@@ -360,7 +370,7 @@ struct Engine {
         m_yPos += kCodePadding;
 
         for (const auto& codeLine : codeLines) {
-            emitCodeLine(codeLine, codeLeft, contX, rightEdge, lineHeight, charWidth, block.quoteDepth);
+            emitCodeLine(codeLine, codeLeft, contX, rightEdge, lineHeight, charWidth, block.quoteDepth, themed);
         }
 
         m_out.lines.push_back({ .kind = LineKind::Code,

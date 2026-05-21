@@ -52,9 +52,18 @@ auto blend(const wxColour& a, const wxColour& b, const double t) -> wxColour {
     return { mix(a.Red(), b.Red()), mix(a.Green(), b.Green()), mix(a.Blue(), b.Blue()) };
 }
 
-/// Resolve a concrete font for a layout text style from the body/mono bases.
-auto fontFor(const TextStyle& style, const wxFont& body, const wxFont& mono) -> wxFont {
-    wxFont font = style.monospace ? mono : body;
+/// Resolve a concrete font for a layout text style from the three bases:
+/// - body  → prose, headings, anything non-monospace.
+/// - mono  → markdown inline `code` and non-FB fenced blocks; system
+///           teletype face for native look in the chat surround.
+/// - themed → FreeBASIC fenced blocks; editor-theme font face, sized to
+///           match `body` so the code preview lines up visually with the
+///           prose around it instead of jumping to the theme's own size.
+auto fontFor(const TextStyle& style, const wxFont& body, const wxFont& mono, const wxFont& themed) -> wxFont {
+    wxFont font = body;
+    if (style.monospace) {
+        font = style.themed ? themed : mono;
+    }
     if (style.sizeDelta != 0) {
         font.SetPointSize(std::max(4, font.GetPointSize() + style.sizeDelta));
     }
@@ -69,16 +78,17 @@ auto fontFor(const TextStyle& style, const wxFont& body, const wxFont& mono) -> 
 /// paints with, so layout and paint agree to the pixel.
 class DcMeasurer final : public TextMeasurer {
 public:
-    DcMeasurer(wxDC& dc, wxFont body, wxFont mono)
+    DcMeasurer(wxDC& dc, wxFont body, wxFont mono, wxFont themed)
     : m_dc(dc)
     , m_body(std::move(body))
-    , m_mono(std::move(mono)) {}
+    , m_mono(std::move(mono))
+    , m_themed(std::move(themed)) {}
 
     auto width(const wxString& text, const TextStyle& style) const -> int override {
         if (text.empty()) {
             return 0;
         }
-        const wxFont font = fontFor(style, m_body, m_mono);
+        const wxFont font = fontFor(style, m_body, m_mono, m_themed);
         wxCoord textWidth = 0;
         wxCoord textHeight = 0;
         m_dc.GetTextExtent(text, &textWidth, &textHeight, nullptr, nullptr, &font);
@@ -86,7 +96,7 @@ public:
     }
 
     auto lineHeight(const TextStyle& style) const -> int override {
-        const wxFont font = fontFor(style, m_body, m_mono);
+        const wxFont font = fontFor(style, m_body, m_mono, m_themed);
         wxCoord textWidth = 0;
         wxCoord textHeight = 0;
         m_dc.GetTextExtent("Ag", &textWidth, &textHeight, nullptr, nullptr, &font);
@@ -97,6 +107,7 @@ private:
     wxDC& m_dc;
     wxFont m_body;
     wxFont m_mono;
+    wxFont m_themed;
 };
 
 } // namespace
@@ -122,8 +133,7 @@ AiChatView::AiChatView(wxWindow* parent, Context& ctx)
     wxScrolled::SetBackgroundStyle(wxBG_STYLE_PAINT);
     SetScrollRate(0, kScrollStep);
 
-    m_bodyFont = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
-    m_monoFont = m_ctx.getTheme().getResolvedFont();
+    resolveFonts();
     m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
 
     // One reusable action bar, shown over whichever code block is hovered.
@@ -134,17 +144,35 @@ AiChatView::AiChatView(wxWindow* parent, Context& ctx)
 
 AiChatView::~AiChatView() = default;
 
+void AiChatView::resolveFonts() {
+    // Body starts from the platform's default GUI font. `[ai] fontSize`
+    // overrides the point size when set (>0); leaving it unset / empty
+    // keeps the system default. The teletype and theme fonts then
+    // follow the body size so the three faces line up vertically in
+    // the chat bubble (a theme font like 14pt JetBrains Mono inside a
+    // 13pt prose bubble looked off before this).
+    m_bodyFont = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
+    const auto fontSize = m_ctx.getConfigManager().config().at("ai.fontSize").as<int>();
+    if (fontSize.has_value() && *fontSize > 0) {
+        m_bodyFont.SetPointSize(*fontSize);
+    }
+    const int size = m_bodyFont.GetPointSize();
+    m_monoFont = wxFont(wxFontInfo(size).Family(wxFONTFAMILY_TELETYPE));
+    m_themedFont = m_ctx.getTheme().getResolvedFont();
+    m_themedFont.SetPointSize(size);
+}
+
 void AiChatView::setMessages(std::vector<ChatViewMessage> messages) {
     m_messages = std::move(messages);
-    relayout();                                                // per-message caching re-lays only what actually changed
-    Scroll(0, m_totalHeight / kScrollStep + 1);  // keep pinned to the newest
+    relayout();                                 // per-message caching re-lays only what actually changed
+    Scroll(0, m_totalHeight / kScrollStep + 1); // keep pinned to the newest
     Refresh();
 }
 
 void AiChatView::refreshTheme() {
     // Keyword groups may have changed — rebuild the configured lexer.
     m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
-    m_monoFont = m_ctx.getTheme().getResolvedFont();
+    resolveFonts();
     m_layoutWidth = -1;
     hideActionBar();
     relayout();
@@ -164,7 +192,7 @@ void AiChatView::relayout() {
 
     wxClientDC clientDc(this);
     wxGCDC measureDc(clientDc);
-    const DcMeasurer measurer(measureDc, m_bodyFont, m_monoFont);
+    const DcMeasurer measurer(measureDc, m_bodyFont, m_monoFont, m_themedFont);
 
     const ChatPalette pal = palette();
 
@@ -332,7 +360,7 @@ void AiChatView::paintMessage(
                 continue;
             }
             if (!styleSet || run.style != currentStyle) {
-                gc.SetFont(fontFor(run.style, m_bodyFont, m_monoFont));
+                gc.SetFont(fontFor(run.style, m_bodyFont, m_monoFont, m_themedFont));
                 currentStyle = run.style;
                 styleSet = true;
             }
@@ -598,4 +626,3 @@ void AiChatView::onRunCode(wxCommandEvent& /*event*/) {
     m_ctx.getDocumentManager().newFile().getEditor()->SetText(code);
     m_ctx.getCompilerManager().quickRun();
 }
-
