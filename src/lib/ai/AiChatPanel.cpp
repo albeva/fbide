@@ -38,7 +38,7 @@ enum AttachMenuId : int {
 /// The active document's `#include`s, resolved to existing files. Paths are
 /// resolved relative to the document's own folder; compiler / system-dir
 /// includes that do not resolve there are dropped.
-auto activeIncludes(Document* doc) -> std::vector<std::filesystem::path> {
+auto activeIncludes(const Document* doc) -> std::vector<std::filesystem::path> {
     namespace fs = std::filesystem;
     std::vector<fs::path> result;
     if (doc == nullptr) {
@@ -111,7 +111,7 @@ AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
     renderConversation();
 }
 
-void AiChatPanel::refreshTheme() {
+void AiChatPanel::refreshTheme() const {
     m_output->refreshTheme();
 }
 
@@ -144,7 +144,7 @@ void AiChatPanel::submitPrompt(const wxString& text) {
             m_streaming += delta;
             m_dirty = true;
         },
-        [this](AiResponse response) {
+        [this](const AiResponse& response) {
             m_renderTimer.Stop();
             m_busy = false;
             m_dirty = false;
@@ -269,7 +269,7 @@ void AiChatPanel::onAddContext(wxCommandEvent& /*event*/) {
     Layout();
 }
 
-void AiChatPanel::attachDocument(Document* doc) {
+void AiChatPanel::attachDocument(Document* doc) const {
     if (doc == nullptr) {
         return;
     }
@@ -283,7 +283,7 @@ void AiChatPanel::onTagsChanged(wxCommandEvent& /*event*/) {
     Layout(); // the tag bar shrank or hid — re-flow the panel
 }
 
-void AiChatPanel::renderConversation() {
+void AiChatPanel::renderConversation() const {
     std::vector<ChatViewMessage> messages;
     for (const auto& message : m_ctx.getAiManager().history()) {
         messages.push_back({

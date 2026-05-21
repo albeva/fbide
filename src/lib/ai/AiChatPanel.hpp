@@ -43,7 +43,7 @@ public:
 
     /// Re-render the conversation after editor settings (theme / keywords)
     /// have changed — code blocks pick up the new colours and font.
-    void refreshTheme();
+    void refreshTheme() const;
 
 private:
     /// Send button — dispatches the input box text through `AiManager`.
@@ -69,11 +69,11 @@ private:
     void autoSizeInput();
 
     /// Attach `doc`'s current editor text as a context snapshot.
-    void attachDocument(Document* doc);
+    void attachDocument(Document* doc) const;
 
     /// Re-render the whole conversation (plus the streaming reply and any
     /// error) into the chat view.
-    void renderConversation();
+    void renderConversation() const;
 
     Context& m_ctx;                  ///< Application context.
     Unowned<AiChatView> m_output;    ///< Conversation view (custom-painted).
