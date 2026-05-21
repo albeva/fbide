@@ -35,49 +35,15 @@ void dismissSplash() {
 namespace {
 /// Sentinel filename. When present in the IDE resources directory, that
 /// directory is treated as read-only (e.g. inside a macOS .app bundle,
-/// AppImage, or signed Windows install) and the resources are mirrored
-/// to a writable per-user copy on first launch.
+/// AppImage, or signed Windows install) and writable artefacts —
+/// per-category `.local.ini` overlays and theme copies — are routed to
+/// `wxStandardPaths::GetUserDataDir()` instead of next to the bundle.
 constexpr auto kReadOnlySentinel = "READONLY";
 
 /// True when the IDE resources directory carries the read-only sentinel.
 auto hasReadOnlySentinel(const wxString& dir) -> bool {
     wxFileName marker(dir, kReadOnlySentinel);
     return marker.FileExists();
-}
-
-/// Recursively copy every file under `src` to `dst`, skipping any file
-/// that already exists at the destination. Returns the number of files
-/// copied. The sentinel itself is never propagated. Missing directories
-/// at the destination are created on demand.
-auto copyMissingResources(const wxString& src, const wxString& dst) -> std::size_t {
-    std::size_t copied = 0;
-    if (!wxFileName::Mkdir(dst, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL)) {
-        wxLogWarning("Failed to create user resources directory '%s'", dst);
-        return 0;
-    }
-
-    wxDir dir(src);
-    if (!dir.IsOpened()) {
-        return 0;
-    }
-
-    wxString name;
-    bool more = dir.GetFirst(&name, wxEmptyString, wxDIR_FILES | wxDIR_DIRS);
-    while (more) {
-        const wxString srcPath = src + wxFILE_SEP_PATH + name;
-        const wxString dstPath = dst + wxFILE_SEP_PATH + name;
-        if (wxDirExists(srcPath)) {
-            copied += copyMissingResources(srcPath, dstPath);
-        } else if (name != kReadOnlySentinel && !wxFileExists(dstPath)) {
-            if (wxCopyFile(srcPath, dstPath, /*overwrite=*/false)) {
-                ++copied;
-            } else {
-                wxLogWarning("Failed to copy '%s' to '%s'", srcPath, dstPath);
-            }
-        }
-        more = dir.GetNext(&name);
-    }
-    return copied;
 }
 } // namespace
 
@@ -298,31 +264,24 @@ ConfigManager::ConfigManager(
         return;
     }
 
-    // Read-only IDE directory sentinel. When present and the user has
-    // not asked for an explicit override, mirror the resources to a
-    // writable per-user copy under wxStandardPaths::GetUserDataDir() and
-    // load/save from there. Lets bundles, AppImages, and signed
-    // installers ship truly immutable resource trees while still letting
-    // FBIde edit themes, layouts, etc. CLI overrides bypass the mirror
-    // (the user knows where they pointed FBIde) — warn so the bypass
-    // isn't silent.
-    const bool cliOverride = !idePath.empty() || !configPath.empty();
-    const bool readOnlyIde = hasReadOnlySentinel(m_ideDir);
-    if (cliOverride && readOnlyIde) {
-        wxLogWarning(
-            "READONLY sentinel found in '%s' but ignored — --ide / --config override is in effect",
-            m_ideDir
-        );
-    } else if (readOnlyIde) {
-        const wxString userIdeDir = m_userDataDir + wxFILE_SEP_PATH + "ide";
-        wxLogMessage("READONLY ide directory '%s' detected; mirroring to '%s'", m_ideDir, userIdeDir);
-        const auto copied = copyMissingResources(m_ideDir, userIdeDir);
-        wxLogMessage("Copied %zu missing resource file(s) into '%s'", copied, userIdeDir);
-        m_ideDir = userIdeDir;
+    // READONLY sentinel + explicit-config flag drive the strategy rules:
+    // - sentinel present → writable artefacts (`.local.ini` overlays,
+    //   theme copies) route to `m_userDataDir` rather than next to the
+    //   bundle. The sentinel describes the dir, not the boot mode, so
+    //   `--ide=PATH` is respected and the dir's own sentinel decides.
+    // - `--config=PATH` → all four mutable categories run `Direct` (no
+    //   overlay) so CI / repro runs aren't influenced by stray overlays.
+    m_explicitConfig = !configPath.empty();
+    m_readOnlyIde = hasReadOnlySentinel(m_ideDir);
+    if (m_readOnlyIde) {
+        wxLogMessage("READONLY sentinel detected in '%s' — overlays route to '%s'", m_ideDir, m_userDataDir);
     }
 
     auto& entry = m_categories[static_cast<std::size_t>(Category::Config)];
-    entry.strategy = ConfigStrategy::direct(absolute(configPath.empty() ? getPlatformConfigFileName() : configPath));
+    entry.strategy = buildStrategy(
+        Category::Config,
+        absolute(configPath.empty() ? getPlatformConfigFileName() : configPath)
+    );
     wxLogMessage("ide directory: %s", m_ideDir);
     load(Category::Config);
 
@@ -362,8 +321,13 @@ void ConfigManager::setCategoryPath(const Category category, const wxString& pat
 }
 
 void ConfigManager::reloadConfig(const wxString& configPath) {
+    // Runtime equivalent of `--config=PATH` — flip to explicit mode so
+    // subsequent strategy rebuilds (sub-categories, reloadIfKnown) stay
+    // `Direct`. Sub-categories already loaded under prior mode are
+    // unaffected here; full sub-category rebind is task #13 territory.
+    m_explicitConfig = true;
     auto& entry = m_categories[static_cast<std::size_t>(Category::Config)];
-    entry.strategy = ConfigStrategy::direct(absolute(configPath));
+    entry.strategy = buildStrategy(Category::Config, absolute(configPath));
     load(Category::Config);
 
     if (const auto themeRel = config().get_or("theme", wxString {}); not themeRel.empty()) {
@@ -380,6 +344,19 @@ void ConfigManager::reloadConfig(const wxString& configPath) {
 }
 
 // ---------------------------------------------------------------------------
+// Strategy
+// ---------------------------------------------------------------------------
+
+auto ConfigManager::buildStrategy(const Category category, wxString basePath) const -> ConfigStrategy {
+    // Locale is the only bundle-only mutable slot (custom locales come
+    // from a user-set `locale=<path>` in the config overlay, not from an
+    // overlay of the locale file itself). Everything else is overlay-
+    // capable; the explicit-config flag still forces `Direct`.
+    const bool overlayCapable = category != Category::Locale;
+    return ConfigStrategy::select(basePath, m_userDataDir, m_readOnlyIde, overlayCapable, m_explicitConfig);
+}
+
+// ---------------------------------------------------------------------------
 // Load / save
 // ---------------------------------------------------------------------------
 
@@ -388,6 +365,10 @@ void ConfigManager::load(const Category category) {
     wxString file;
 
     if (category == Category::Config) {
+        // Strategy already built by ctor / reloadConfig before they
+        // called us — config is the bootstrap, its path is known up
+        // front. Sub-categories below get strategy built right after
+        // path resolution.
         file = entry.strategy.basePath();
     } else {
         const auto key = getCategoryName(category);
@@ -398,6 +379,7 @@ void ConfigManager::load(const Category category) {
             return;
         }
         file = absolute(*relPath);
+        entry.strategy = buildStrategy(category, file);
     }
 
     if (!wxFileExists(file)) {
@@ -445,7 +427,6 @@ void ConfigManager::load(const Category category) {
         case Category::Keywords:
         case Category::Shortcuts:
             entry.category = category;
-            entry.strategy = ConfigStrategy::direct(file);
             entry.baseline = Value {};
             entry.root = Value {};
             return;
@@ -461,10 +442,10 @@ void ConfigManager::load(const Category category) {
 
     wxFileConfig cfg(stream, wxConvUTF8);
 
-    // Parse twice so baseline and root are independent Value trees. Value
-    // is move-only by design (`Value.hpp:48-49`), and overlay-merge in
-    // stage 4 will need the baseline preserved across the merge into root.
-    // For now baseline == root since no overlay is layered in yet.
+    // Parse twice — baseline is the pristine bundle tree (needed at save
+    // time to diff against). Root starts as a second independent parse
+    // because Value is move-only by design (`Value.hpp:48-49`); the
+    // overlay merge below mutates root without touching baseline.
     Value baseline;
     cfg.SetPath("/");
     importGroup(cfg, baseline);
@@ -473,8 +454,27 @@ void ConfigManager::load(const Category category) {
     cfg.SetPath("/");
     importGroup(cfg, root);
 
+    // Overlay merge — only when the strategy provides an overlay path
+    // and that file actually exists. Missing overlay is fine; it just
+    // means the user has no divergences from bundle yet.
+    if (entry.strategy.usesOverlay() && wxFileExists(entry.strategy.overlayPath())) {
+        wxFFileInputStream overlayStream(entry.strategy.overlayPath());
+        if (overlayStream.IsOk()) {
+            wxFileConfig overlayCfg(overlayStream, wxConvUTF8);
+            Value overlay;
+            overlayCfg.SetPath("/");
+            importGroup(overlayCfg, overlay);
+            root.mergeFrom(overlay);
+            wxLogMessage(
+                "Merged overlay %s into %s",
+                entry.strategy.overlayPath(), getCategoryName(category).data()
+            );
+        } else {
+            wxLogWarning("Overlay '%s' exists but could not be read", entry.strategy.overlayPath());
+        }
+    }
+
     entry.category = category;
-    entry.strategy = ConfigStrategy::direct(file);
     entry.baseline = std::move(baseline);
     entry.root = std::move(root);
     wxLogMessage("Loaded %s from %s", getCategoryName(category).data(), file);
@@ -487,10 +487,38 @@ void ConfigManager::save(const Category category) {
         return;
     }
 
-    // Open the read stream before the write stream: wxFileConfig parses
-    // existingStream in its constructor (preserves comments + ordering),
-    // then we truncate the file for writing. Reversing the order would
-    // zero the file before parsing completed.
+    if (entry.strategy.usesOverlay()) {
+        // Aggressive prune: persist only leaves that diverge from the
+        // bundle baseline. Empty diff → no overlay file at all (delete
+        // if one existed). Overlay file is machine-managed; we write
+        // fresh from the diff rather than merging into existing keys so
+        // stale entries from prior saves don't accumulate.
+        const auto& overlayPath = entry.strategy.overlayPath();
+        const auto diff = entry.root.diffAgainst(entry.baseline);
+        if (!diff) {
+            if (wxFileExists(overlayPath)) {
+                wxRemoveFile(overlayPath);
+                wxLogMessage("Pruned empty overlay '%s'", overlayPath);
+            }
+            return;
+        }
+        wxFileConfig overlayCfg;
+        wxFFileOutputStream outStream(overlayPath);
+        if (!outStream.IsOk()) {
+            wxLogError("Failed to open '%s' for writing", overlayPath);
+            return;
+        }
+        exportGroup(diff, "", overlayCfg);
+        overlayCfg.Save(outStream, wxConvUTF8);
+        wxLogMessage("Saved overlay '%s'", overlayPath);
+        return;
+    }
+
+    // Direct mode (`--config=PATH` or locale). Open the read stream
+    // before the write stream: `wxFileConfig` parses existingStream in
+    // its constructor (preserves comments + ordering), then we truncate
+    // the file for writing. Reversing the order would zero the file
+    // before parsing completed.
     const auto& savePath = entry.strategy.savePath();
     wxFileInputStream existingStream(savePath);
     wxFileConfig cfg(existingStream, wxConvUTF8);
@@ -507,7 +535,13 @@ void ConfigManager::save(const Category category) {
 auto ConfigManager::reloadIfKnown(const wxString& path) -> bool {
     for (std::size_t index = 0; index < CAT_COUNT; index++) {
         const auto& entry = m_categories[index];
-        if (samePath(path, entry.strategy.basePath())) {
+        // Trigger reload when the user touches either side of the
+        // layered pair — the bundle base (rare; usually requires elevated
+        // perms inside a bundle) or the writable overlay.
+        const bool baseMatch = samePath(path, entry.strategy.basePath());
+        const bool overlayMatch = entry.strategy.usesOverlay()
+                               && samePath(path, entry.strategy.overlayPath());
+        if (baseMatch || overlayMatch) {
             load(entry.category);
             // if this was config, then reload all other files as well.
             if (entry.category == Category::Config) {

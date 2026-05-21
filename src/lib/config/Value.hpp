@@ -140,6 +140,15 @@ public:
     /// always wins — same rule as leaves.
     void mergeFrom(const Value& other);
 
+    /// Return the subset of this tree whose leaves differ from `baseline`
+    /// at the same path (or are absent from baseline). Result has only the
+    /// divergent leaves plus the parent groups required to reach them.
+    /// Inverse of `mergeFrom`: `baseline.mergeFrom(merged.diffAgainst(baseline))`
+    /// reconstructs `merged`. Deletion semantics not expressed — keys
+    /// present in baseline but absent from this tree are NOT in the diff
+    /// (the user expresses deletion by editing the overlay file directly).
+    [[nodiscard]] auto diffAgainst(const Value& baseline) const -> Value;
+
     // -------------------------------------------------------------------
     // Writes — replace this node's contents with a leaf
     // -------------------------------------------------------------------

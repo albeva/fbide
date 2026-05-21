@@ -187,12 +187,18 @@ private:
     /// Load the category file from disk and rebuild its Value tree.
     void load(Category category);
 
+    /// Build the `ConfigStrategy` for `category` given a resolved base path.
+    /// Uses `m_userDataDir`, `m_readOnlyIde`, `m_explicitConfig` so callers
+    /// (ctor + `load()` for sub-categories + `reloadConfig` / `setCategoryPath`)
+    /// share the same rules.
+    [[nodiscard]] auto buildStrategy(Category category, wxString basePath) const -> ConfigStrategy;
+
     /// Per-category bookkeeping: storage policy + parsed trees.
     struct Entry final {
         Category category;       ///< Category identifier.
         ConfigStrategy strategy; ///< Where the file lives and how saves are routed.
-        Value baseline;          ///< Pristine parse of `strategy.basePath()`. Used to diff against `root` on save.
-        Value root;              ///< Merged tree (baseline + overlay). Same as baseline until overlay merge lands.
+        Value baseline;          ///< Pristine parse of `strategy.basePath()` — diffed against `root` on save.
+        Value root;              ///< Merged tree (baseline + overlay).
     };
     /// Number of categories — one slot per `Category` enum value.
     static constexpr std::size_t CAT_COUNT = 5;
@@ -200,6 +206,8 @@ private:
     wxString m_appDir;                            ///< App directory (binary location).
     wxString m_ideDir {};                         ///< IDE resources directory.
     wxString m_userDataDir {};                    ///< User-writable dir for overlays + theme copies (READONLY mode).
+    bool m_readOnlyIde { false };                 ///< True when `READONLY` sentinel routes overlays to `m_userDataDir`.
+    bool m_explicitConfig { false };              ///< True when `--config=PATH` was supplied — all mutable categories use `Direct`.
     std::array<Entry, CAT_COUNT> m_categories {}; ///< Per-category state.
     Theme m_theme {};                             ///< Active editor theme.
 };

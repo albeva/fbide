@@ -321,3 +321,41 @@ void Value::mergeFrom(const Value& other) {
         (*this)[key].mergeFrom(*child);
     }
 }
+
+auto Value::diffAgainst(const Value& baseline) const -> Value {
+    Value out;
+
+    // Leaf (or invalid) at this node — emit only if our leaf actually
+    // differs from baseline's leaf at the same point. Type mismatch
+    // (baseline is a group, or baseline is absent) counts as divergence
+    // and forces the leaf out.
+    if (!isTable()) {
+        if (!*this) {
+            return out;
+        }
+        const auto mergedLeaf = as<wxString>().value_or(wxString {});
+        if (baseline.isTable() || !baseline) {
+            out = mergedLeaf;
+            return out;
+        }
+        const auto baselineLeaf = baseline.as<wxString>().value_or(wxString {});
+        if (mergedLeaf != baselineLeaf) {
+            out = mergedLeaf;
+        }
+        return out;
+    }
+
+    // Group — recurse per child. Children present only in baseline are
+    // never visited, so deletion is intentionally unexpressible by diff.
+    // Children whose own diff is empty are skipped, so parent groups are
+    // synthesised on `out` only when they contain a divergence.
+    for (const auto& [key, child] : entries()) {
+        Value childDiff = child->diffAgainst(baseline.at(key));
+        if (childDiff) {
+            // operator[] creates the child slot under out; move-assign
+            // embeds the recursive diff via the defaulted Value&& operator.
+            out[key] = std::move(childDiff);
+        }
+    }
+    return out;
+}

@@ -62,8 +62,7 @@ TEST_F(ConfigManagerTests, MissingKeywordsLoadsEmpty) {
     TempDir tmp;
     tmp.write("config.ini",
         "version=0.5.0\n"
-        "keywords=does_not_exist.ini\n"
-    );
+        "keywords=does_not_exist.ini\n");
 
     ConfigManager cm(tmp.path(), tmp.path(), "config.ini");
     auto& kw = cm.keywords();
@@ -76,8 +75,7 @@ TEST_F(ConfigManagerTests, MissingShortcutsLoadsEmpty) {
     TempDir tmp;
     tmp.write("config.ini",
         "version=0.5.0\n"
-        "shortcuts=does_not_exist.ini\n"
-    );
+        "shortcuts=does_not_exist.ini\n");
 
     ConfigManager cm(tmp.path(), tmp.path(), "config.ini");
     auto& sc = cm.shortcuts();
@@ -99,8 +97,7 @@ TEST_F(ConfigManagerTests, MissingThemeFileTriggersDefaults) {
     TempDir tmp;
     tmp.write("config.ini",
         "version=0.5.0\n"
-        "theme=themes/does_not_exist.ini\n"
-    );
+        "theme=themes/does_not_exist.ini\n");
 
     ConfigManager cm(tmp.path(), tmp.path(), "config.ini");
     const auto& theme = cm.getTheme();
@@ -117,4 +114,182 @@ TEST_F(ConfigManagerTests, MissingThemeEntryTriggersDefaults) {
     const auto& theme = cm.getTheme();
     EXPECT_EQ(theme.get(ThemeCategory::Default).colors.foreground, *wxBLACK);
     EXPECT_EQ(theme.get(ThemeCategory::Default).colors.background, *wxWHITE);
+}
+
+// ---------------------------------------------------------------------------
+// Layered config — bundle base + .local.ini overlay
+//
+// These tests exercise the default-boot path (empty `configPath` → Overlay
+// strategy). They lay out a minimal bundle under <tmp>/ide/ and drive
+// READONLY routing via the `userDataDirOverride` ctor seam so nothing
+// touches the real platform user-data directory.
+// ---------------------------------------------------------------------------
+
+namespace {
+/// Compute the `<base>.local.ini` filename for the running platform's
+/// config — same logic as `ConfigStrategy::deriveOverlayPath` but just
+/// the basename, since these tests pick the path themselves.
+auto overlayBasename(const wxString& configBasename) -> wxString {
+    wxFileName fn(configBasename);
+    fn.SetName(fn.GetName() + ".local");
+    return fn.GetFullName();
+}
+} // namespace
+
+TEST_F(ConfigManagerTests, DefaultBootPortableNoOverlayLoadsBundleAsIs) {
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName,
+        "[editor]\n"
+        "tabSize=4\n"
+        "theme=dark\n");
+
+    // No overlay file present — root must reflect bundle exactly.
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "");
+    EXPECT_EQ(cm.config().get_or("editor.tabSize", wxString { "<missing>" }), "4");
+    EXPECT_EQ(cm.config().get_or("editor.theme", wxString { "<missing>" }), "dark");
+}
+
+TEST_F(ConfigManagerTests, DefaultBootOverlayMergesIntoConfigRoot) {
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName,
+        "[editor]\n"
+        "tabSize=4\n"
+        "theme=dark\n");
+    tmp.write("ide/" + overlayBasename(cfgName),
+        "[editor]\n"
+        "tabSize=8\n");
+
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "");
+    // Overlay wins where it diverges, bundle survives where it doesn't.
+    EXPECT_EQ(cm.config().get_or("editor.tabSize", wxString { "<missing>" }), "8");
+    EXPECT_EQ(cm.config().get_or("editor.theme", wxString { "<missing>" }), "dark");
+}
+
+TEST_F(ConfigManagerTests, SaveMatchingBaselineProducesNoOverlayFile) {
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName,
+        "[editor]\n"
+        "tabSize=4\n");
+
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "");
+    // Mutate then revert — diff against baseline is empty.
+    cm.config()["editor"]["tabSize"] = "8";
+    cm.config()["editor"]["tabSize"] = "4";
+    cm.save(ConfigManager::Category::Config);
+
+    const wxString overlayPath = tmp.path() + "/ide/" + overlayBasename(cfgName);
+    EXPECT_FALSE(wxFileExists(overlayPath));
+}
+
+TEST_F(ConfigManagerTests, SaveDivergentValueWritesPrunedOverlay) {
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName,
+        "[editor]\n"
+        "tabSize=4\n"
+        "theme=dark\n");
+
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "");
+    cm.config()["editor"]["tabSize"] = "8";
+    cm.save(ConfigManager::Category::Config);
+
+    const wxString overlayPath = tmp.path() + "/ide/" + overlayBasename(cfgName);
+    ASSERT_TRUE(wxFileExists(overlayPath));
+
+    // Parse the produced overlay and confirm it carries only the divergence.
+    wxFFileInputStream in(overlayPath);
+    wxFileConfig produced(in, wxConvUTF8);
+    wxString value;
+    EXPECT_TRUE(produced.Read("editor/tabSize", &value));
+    EXPECT_EQ(value, "8");
+    EXPECT_FALSE(produced.Read("editor/theme", &value));
+}
+
+TEST_F(ConfigManagerTests, SaveResetToBaselineDeletesExistingOverlay) {
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName,
+        "[editor]\n"
+        "tabSize=4\n");
+    // Pre-existing overlay from a previous run that we now revert.
+    tmp.write("ide/" + overlayBasename(cfgName),
+        "[editor]\n"
+        "tabSize=8\n");
+
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "");
+    EXPECT_EQ(cm.config().get_or("editor.tabSize", wxString {}), "8");
+
+    cm.config()["editor"]["tabSize"] = "4";
+    cm.save(ConfigManager::Category::Config);
+
+    const wxString overlayPath = tmp.path() + "/ide/" + overlayBasename(cfgName);
+    EXPECT_FALSE(wxFileExists(overlayPath));
+}
+
+TEST_F(ConfigManagerTests, ReadOnlyRoutesOverlayToUserDataDir) {
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName,
+        "[editor]\n"
+        "tabSize=4\n");
+    tmp.write("ide/READONLY", "");
+    // userDataDir must exist before we try to write into it.
+    wxFileName::Mkdir(tmp.path() + "/userdata", 0755, wxPATH_MKDIR_FULL);
+
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "", tmp.path() + "/userdata");
+    cm.config()["editor"]["tabSize"] = "8";
+    cm.save(ConfigManager::Category::Config);
+
+    const wxString bundleOverlay = tmp.path() + "/ide/" + overlayBasename(cfgName);
+    const wxString userOverlay = tmp.path() + "/userdata/" + overlayBasename(cfgName);
+    EXPECT_FALSE(wxFileExists(bundleOverlay));
+    EXPECT_TRUE(wxFileExists(userOverlay));
+}
+
+TEST_F(ConfigManagerTests, ReadOnlyLoadsOverlayFromUserDataDir) {
+    // Round-trip: write an overlay into the user dir, construct
+    // ConfigManager pointing at the same dir, confirm the overlay is
+    // picked up during load (not the absent bundle-adjacent one).
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName,
+        "[editor]\n"
+        "tabSize=4\n");
+    tmp.write("ide/READONLY", "");
+    tmp.write("userdata/" + overlayBasename(cfgName),
+        "[editor]\n"
+        "tabSize=12\n");
+
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "", tmp.path() + "/userdata");
+    EXPECT_EQ(cm.config().get_or("editor.tabSize", wxString { "<missing>" }), "12");
+}
+
+TEST_F(ConfigManagerTests, ExplicitConfigPathBypassesOverlay) {
+    // `--config=PATH` semantics: even with READONLY sentinel and an
+    // overlay file alongside, the explicit path is treated as a single
+    // self-contained config. Saves go back to PATH directly.
+    TempDir tmp;
+    tmp.write("explicit.ini",
+        "[editor]\n"
+        "tabSize=4\n");
+    tmp.write("explicit.local.ini",
+        "[editor]\n"
+        "tabSize=999\n");
+
+    ConfigManager cm(tmp.path(), tmp.path(), "explicit.ini");
+    // Overlay must be ignored — root reflects the explicit file only.
+    EXPECT_EQ(cm.config().get_or("editor.tabSize", wxString {}), "4");
+
+    cm.config()["editor"]["tabSize"] = "16";
+    cm.save(ConfigManager::Category::Config);
+
+    // Save must overwrite explicit.ini, not produce any new overlay.
+    wxFFileInputStream in(tmp.path() + "/explicit.ini");
+    wxFileConfig roundTrip(in, wxConvUTF8);
+    wxString value;
+    EXPECT_TRUE(roundTrip.Read("editor/tabSize", &value));
+    EXPECT_EQ(value, "16");
 }
