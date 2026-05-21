@@ -8,24 +8,23 @@
 using namespace fbide;
 
 auto ConfigStrategy::deriveOverlayPath(
-    const wxString& basePath,
-    const wxString& userDataDir,
+    const std::filesystem::path& basePath,
+    const std::filesystem::path& userDataDir,
     const bool readOnly
-) -> wxString {
-    wxFileName fn(basePath);
-    // `config_macos` → `config_macos.local`, extension stays put. Works
-    // for any extension (`.ini`, legacy `.fbt`, ...) — overlay file ends
-    // up `<stem>.local.<ext>`.
-    fn.SetName(fn.GetName() + ".local");
-    if (readOnly) {
-        fn.SetPath(userDataDir);
-    }
-    return fn.GetFullPath();
+) -> std::filesystem::path {
+    // `config_macos.ini` → `config_macos.local.ini`; extension stays
+    // put. Works for any extension (`.ini`, legacy `.fbt`, ...) — the
+    // overlay file ends up `<stem>.local.<ext>`.
+    const auto parent = readOnly ? userDataDir : basePath.parent_path();
+    auto filename = basePath.stem();
+    filename += ".local";
+    filename += basePath.extension();
+    return parent / filename;
 }
 
 auto ConfigStrategy::select(
-    const wxString& basePath,
-    const wxString& userDataDir,
+    const std::filesystem::path& basePath,
+    const std::filesystem::path& userDataDir,
     const bool readOnly,
     const bool overlayCapable,
     const bool explicitMode

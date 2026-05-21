@@ -135,7 +135,7 @@ public:
     void reloadConfig(const wxString& configPath);
 
     /// Save the category's Value tree to its backing file.
-    void save(Category category)const;
+    void save(Category category) const;
 
     /// Reload any loaded config category or the active theme whose backing
     /// file matches `path`. Returns true when a reload occurred. Use to
@@ -152,9 +152,9 @@ public:
     [[nodiscard]] auto relative(const wxString& path) const -> wxString;
 
     /// Application directory (resolved from `appPath` argument).
-    [[nodiscard]] auto getAppDir() const -> const wxString& { return m_appDir; }
+    [[nodiscard]] auto getAppDir() const -> wxString;
     /// IDE resources directory (e.g. `<appDir>/ide` by default).
-    [[nodiscard]] auto getIdeDir() const -> const wxString& { return m_ideDir; }
+    [[nodiscard]] auto getIdeDir() const -> wxString;
 
     // -----------------------------------------------------------------------
     // Category accessors — return a reference to the category root Value.
@@ -206,7 +206,12 @@ private:
     /// Uses `m_userDataDir`, `m_readOnlyIde`, `m_explicitConfig` so callers
     /// (ctor + `load()` for sub-categories + `reloadConfig` / `setCategoryPath`)
     /// share the same rules.
-    [[nodiscard]] auto buildStrategy(Category category, const wxString& basePath) const -> ConfigStrategy;
+    [[nodiscard]] auto buildStrategy(Category category, const std::filesystem::path& basePath) const -> ConfigStrategy;
+
+    /// Resolve `rel` to an absolute path, walking the same ide → app →
+    /// cwd chain as the public `absolute()`. Used internally to avoid
+    /// the round-trip through `wxString`.
+    [[nodiscard]] auto absolutePath(const std::filesystem::path& rel) const -> std::filesystem::path;
 
     /// Per-category bookkeeping: storage policy + parsed trees.
     struct Entry final {
@@ -218,9 +223,9 @@ private:
     /// Number of categories — one slot per `Category` enum value.
     static constexpr std::size_t CAT_COUNT = 5;
 
-    wxString m_appDir {};                         ///< App directory (binary location).
-    wxString m_ideDir {};                         ///< IDE resources directory.
-    wxString m_userDataDir {};                    ///< User-writable dir for overlays + theme copies (READONLY mode).
+    std::filesystem::path m_appDir;               ///< App directory (binary location).
+    std::filesystem::path m_ideDir;               ///< IDE resources directory.
+    std::filesystem::path m_userDataDir;          ///< User-writable dir for overlays + theme copies (READONLY mode).
     bool m_readOnlyIde { false };                 ///< True when `READONLY` sentinel routes overlays to `m_userDataDir`.
     bool m_explicitConfig { false };              ///< True when `--config=PATH` was supplied — all mutable categories use `Direct`.
     std::array<Entry, CAT_COUNT> m_categories {}; ///< Per-category state.
