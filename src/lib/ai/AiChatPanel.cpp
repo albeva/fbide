@@ -38,8 +38,9 @@ enum AttachMenuId : int {
 /// The active document's `#include`s, resolved to existing files. Paths are
 /// resolved relative to the document's own folder; compiler / system-dir
 /// includes that do not resolve there are dropped.
-auto activeIncludes(Document* doc) -> std::vector<wxString> {
-    std::vector<wxString> result;
+auto activeIncludes(Document* doc) -> std::vector<std::filesystem::path> {
+    namespace fs = std::filesystem;
+    std::vector<fs::path> result;
     if (doc == nullptr) {
         return result;
     }
@@ -47,17 +48,18 @@ auto activeIncludes(Document* doc) -> std::vector<wxString> {
     if (!table) {
         return result;
     }
-    const wxString baseDir = wxFileName(doc->getFilePath()).GetPath();
+    const fs::path baseDir = doc->getFilePath().parent_path();
+    std::error_code ec;
     for (const auto& include : table->getIncludes()) {
-        wxFileName file(include.path);
-        if (!file.IsAbsolute()) {
+        fs::path file = toPath(include.path);
+        if (!file.is_absolute()) {
             if (baseDir.empty()) {
                 continue; // untitled host file — nothing to resolve against
             }
-            file.MakeAbsolute(baseDir);
+            file = (baseDir / file).lexically_normal();
         }
-        if (file.FileExists()) {
-            result.push_back(file.GetFullPath());
+        if (fs::exists(file, ec)) {
+            result.push_back(std::move(file));
         }
     }
     return result;
@@ -191,7 +193,7 @@ void AiChatPanel::onAddContext(wxCommandEvent& /*event*/) {
             otherTabs.push_back(document.get());
         }
     }
-    const std::vector<wxString> includes = activeIncludes(active);
+    const auto includes = activeIncludes(active);
 
     wxMenu menu;
     menu.Append(ID_AttachActive, "Active tab")->Enable(active != nullptr);
@@ -207,7 +209,8 @@ void AiChatPanel::onAddContext(wxCommandEvent& /*event*/) {
         auto subMenu = make_unowned<wxMenu>();
         for (std::size_t i = 0; i < includes.size(); i++) {
             subMenu->Append(
-                ID_AttachIncludeBase + static_cast<int>(i), wxFileName(includes[i]).GetFullName()
+                ID_AttachIncludeBase + static_cast<int>(i),
+                toWx(includes[i].filename())
             );
         }
         menu.AppendSubMenu(subMenu, "Includes");
@@ -233,7 +236,7 @@ void AiChatPanel::onAddContext(wxCommandEvent& /*event*/) {
             wxArrayString paths;
             dialog.GetPaths(paths);
             for (const auto& path : paths) {
-                context.add(std::make_unique<FileContextItem>(path));
+                context.add(std::make_unique<FileContextItem>(toPath(path)));
             }
         }
     } else if (selection >= ID_AttachTabBase && selection < ID_AttachIncludeBase) {

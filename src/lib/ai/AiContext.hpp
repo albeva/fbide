@@ -34,14 +34,16 @@ public:
 /// time `appendTo` is called.
 class FileContextItem final : public AiContextItem {
 public:
-    /// Construct for the file at `path`.
-    explicit FileContextItem(wxString path);
+    /// Construct for the file at `path`. Stored as `std::filesystem::path`
+    /// throughout — callers feeding paths from wx APIs (wxFileDialog
+    /// etc.) convert at their own boundary via `toPath()`.
+    explicit FileContextItem(std::filesystem::path path);
 
     void appendTo(wxString& out) const override;
     [[nodiscard]] auto label() const -> wxString override;
 
 private:
-    wxString m_path; ///< Absolute path of the attached file.
+    std::filesystem::path m_path; ///< Absolute path of the attached file.
 };
 
 /// An in-memory buffer attached as context — a snapshot of an editor's text

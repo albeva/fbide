@@ -8,23 +8,24 @@
 #include <wx/ffile.h>
 using namespace fbide;
 
-FileContextItem::FileContextItem(wxString path)
+FileContextItem::FileContextItem(std::filesystem::path path)
 : m_path(std::move(path)) {}
 
 void FileContextItem::appendTo(wxString& out) const {
+    const auto pathWx = toWx(m_path);
     wxString content;
-    if (wxFFile file(m_path, "rb"); file.IsOpened()) {
+    if (wxFFile file(pathWx, "rb"); file.IsOpened()) {
         file.ReadAll(&content, wxConvUTF8);
     } else {
         content = "<could not read file>";
     }
-    out += "\n--- File: " + m_path + " ---\n";
+    out += "\n--- File: " + pathWx + " ---\n";
     out += content;
     out += "\n";
 }
 
 auto FileContextItem::label() const -> wxString {
-    return wxFileName(m_path).GetFullName();
+    return toWx(m_path.filename());
 }
 
 BufferContextItem::BufferContextItem(wxString label, wxString content)
