@@ -86,21 +86,7 @@ Match `path` against `strategy.basePath()` *or* `strategy.overlayPath()` for eac
 
 ## Migration of legacy mirrored files
 
-Existing READONLY-bundled users have full-copy `<base>.ini` files in `<UserDataDir>` from the old mirror. One-shot per category, performed in the ctor when READONLY sentinel is present:
-
-For each mutable category:
-- `legacyPath = <UserDataDir>/<base>.ini`.
-- `overlayPath = <UserDataDir>/<base>.local.ini`.
-- If `legacyPath` exists and `overlayPath` does **not** exist:
-  1. Load bundle baseline.
-  2. Parse `legacyPath` independently.
-  3. Diff legacy against baseline → trimmed `Value` tree.
-  4. Write the trimmed tree to `overlayPath` (skip the write if empty).
-  5. Delete `legacyPath`.
-  6. Log `"migrated <base>.ini → <base>.local.ini (N keys retained)"`.
-- If `overlayPath` already exists, the user has run a new build before — no migration; legacy file left untouched (don't double-trample).
-
-Old per-user theme copies under `<UserDataDir>/ide/themes/` are picked up by the new two-dir theme enumeration with no intervention.
+**Skipped.** FBIde has only shipped in beta / rc to date, so we don't carry forward the legacy full-copy `<base>.ini` files that the old mirror produced in `<UserDataDir>`. Existing pre-release users with a stale mirror will see fresh empty overlays on first launch with the new code; if they want their prior customisations they re-apply them by hand. Old per-user theme copies under `<UserDataDir>/ide/themes/` are still picked up by the new two-dir theme enumeration — they just won't migrate to a different layout.
 
 ## Theme handling
 
@@ -181,7 +167,7 @@ TDD where the unit is a pure function over data (helpers); refactor / integratio
 7. **Wire `mergeOverlay` into `load()`** — end-to-end overlay loading; integration tests for READONLY vs portable routing.
 8. **TDD: `diffAgainstBaseline(merged, baseline)` helper** — returns subset of merged whose leaves differ; deletion semantics deferred to user-edited overlay.
 9. **Rewrite `save()` around `ConfigStrategy`** — diff+prune for Overlay, direct write for Direct; preserve hand-edited overlay comments via read-before-write.
-10. **TDD: `migrateLegacyMirror` helper** — diff legacy against bundle, write trimmed overlay, delete legacy; no-op if overlay already exists.
+10. ~~**TDD: `migrateLegacyMirror` helper**~~ — skipped: pre-release versions only, no migration story owed to users.
 11. **Delete `copyMissingResources`** + reduce `hasReadOnlySentinel` to routing flag.
 12. **Update `reloadIfKnown`** to match base OR overlay path per category; preserve Config cascade.
 13. **Clarify + implement `setCategoryPath` / `reloadConfig`** under layered model (former = new bundle + derived overlay; latter = Direct, matching `--config=PATH` semantics at runtime).

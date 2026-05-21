@@ -267,6 +267,72 @@ TEST_F(ConfigManagerTests, ReadOnlyLoadsOverlayFromUserDataDir) {
     EXPECT_EQ(cm.config().get_or("editor.tabSize", wxString { "<missing>" }), "12");
 }
 
+TEST_F(ConfigManagerTests, ReloadConfigCascadesSubCategoriesToDirectMode) {
+    // Default-boot start with overlay-mode keywords. After
+    // `reloadConfig(PATH)` flips to explicit mode, mutating and saving
+    // keywords must hit the base file directly — no `.local.ini` is
+    // produced, because the sub-category strategy was rebuilt under
+    // the new mode.
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName, "keywords=keywords.ini\n");
+    tmp.write("ide/keywords.ini",
+        "[functions]\n"
+        "Print=1\n");
+    tmp.write("explicit.ini", "keywords=alt_keywords.ini\n");
+    tmp.write("alt_keywords.ini",
+        "[functions]\n"
+        "Foo=1\n");
+
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "");
+    EXPECT_EQ(cm.keywords().get_or("functions.Print", wxString { "<missing>" }), "1");
+
+    cm.reloadConfig(tmp.path() + "/explicit.ini");
+
+    // New keywords visible; old keywords gone.
+    EXPECT_EQ(cm.keywords().get_or("functions.Foo", wxString { "<missing>" }), "1");
+    EXPECT_EQ(cm.keywords().get_or("functions.Print", wxString { "<missing>" }), "<missing>");
+
+    // Mutate + save. Direct mode → base file overwritten, no overlay.
+    cm.keywords()["functions"]["Bar"] = "1";
+    cm.save(ConfigManager::Category::Keywords);
+
+    EXPECT_FALSE(wxFileExists(tmp.path() + "/alt_keywords.local.ini"));
+
+    wxFFileInputStream in(tmp.path() + "/alt_keywords.ini");
+    wxFileConfig produced(in, wxConvUTF8);
+    wxString value;
+    EXPECT_TRUE(produced.Read("functions/Bar", &value));
+    EXPECT_EQ(value, "1");
+}
+
+TEST_F(ConfigManagerTests, SetCategoryPathInheritsBootModeStrategy) {
+    // Default-boot rotation. `setCategoryPath` flows through `load()`
+    // which calls `buildStrategy()` under the current mode (Overlay),
+    // so the new sub-category gets an overlay path alongside its base.
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName, "keywords=keywords.ini\n");
+    tmp.write("ide/keywords.ini",
+        "[functions]\n"
+        "Print=1\n");
+    tmp.write("ide/alt_keywords.ini",
+        "[functions]\n"
+        "Alt=1\n");
+
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "");
+    cm.setCategoryPath(ConfigManager::Category::Keywords, tmp.path() + "/ide/alt_keywords.ini");
+
+    EXPECT_EQ(cm.keywords().get_or("functions.Alt", wxString { "<missing>" }), "1");
+    EXPECT_EQ(cm.keywords().get_or("functions.Print", wxString { "<missing>" }), "<missing>");
+
+    cm.keywords()["functions"]["Bar"] = "1";
+    cm.save(ConfigManager::Category::Keywords);
+
+    // Overlay mode inherits → `.local.ini` lands next to the new base.
+    EXPECT_TRUE(wxFileExists(tmp.path() + "/ide/alt_keywords.local.ini"));
+}
+
 TEST_F(ConfigManagerTests, ExplicitConfigPathBypassesOverlay) {
     // `--config=PATH` semantics: even with READONLY sentinel and an
     // overlay file alongside, the explicit path is treated as a single

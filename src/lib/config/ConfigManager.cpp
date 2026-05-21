@@ -330,6 +330,14 @@ void ConfigManager::reloadConfig(const wxString& configPath) {
     entry.strategy = buildStrategy(Category::Config, absolute(configPath));
     load(Category::Config);
 
+    // Cascade — sub-categories were loaded under the prior mode (likely
+    // Overlay). After flipping to explicit they need fresh strategies
+    // so subsequent saves honour the Direct rule. load() rebuilds the
+    // strategy via buildStrategy() using the new m_explicitConfig.
+    for (const auto cat : { Category::Locale, Category::Shortcuts, Category::Keywords, Category::Layout }) {
+        load(cat);
+    }
+
     if (const auto themeRel = config().get_or("theme", wxString {}); not themeRel.empty()) {
         const auto themeAbs = absolute(themeRel);
         if (wxFileExists(themeAbs)) {
