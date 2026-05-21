@@ -61,7 +61,7 @@ struct OptionSet final : Lexilla::OptionSet<FBSciLexer::Options> {
         DefineProperty("fold", &FBSciLexer::Options::fold);
     }
 };
-OptionSet kOptionSet;
+OptionSet kOptionSet; // NOLINT(*-throwing-static-initialization, *-err58-cpp, *-avoid-non-const-global-variables)
 
 // endregion
 
@@ -72,15 +72,17 @@ OptionSet kOptionSet;
 FBSciLexer::FBSciLexer()
 : DefaultLexer("freebasic", SCLEX_AUTOMATIC, lexicalClasses.data(), lexicalClasses.size()) {}
 
-const char* SCI_METHOD FBSciLexer::DescribeWordListSets() {
+auto FBSciLexer::DescribeWordListSets() -> const char* SCI_METHOD {
     // ReSharper disable once CppVariableCanBeMadeConstexpr
     static const std::string desc = [] {
         std::string result;
         for (const auto* entry : wordListDescriptions) {
-            if (entry == nullptr)
+            if (entry == nullptr) {
                 break;
-            if (!result.empty())
+            }
+            if (!result.empty()) {
                 result += '\n';
+            }
             result += entry;
         }
         return result;
@@ -88,17 +90,17 @@ const char* SCI_METHOD FBSciLexer::DescribeWordListSets() {
     return desc.c_str();
 }
 
-Sci_Position SCI_METHOD FBSciLexer::WordListSet(const int n, const char* wl) {
+auto SCI_METHOD FBSciLexer::WordListSet(const int n, const char* wl) -> Sci_Position {
     const auto idx = static_cast<std::size_t>(n);
     if (idx < kThemeKeywordGroupsCount) {
-        if (m_wordLists[idx].Set(wl)) {
+        if (m_wordLists[idx].Set(wl)) { // NOLINT(*-pro-bounds-*)
             return 0;
         }
     }
     return -1;
 }
 
-Sci_Position FBSciLexer::PropertySet(const char* key, const char* val) {
+auto FBSciLexer::PropertySet(const char* key, const char* val) -> Sci_Position {
     if (kOptionSet.PropertySet(&m_options, key, val)) {
         return 0;
     }
@@ -298,7 +300,7 @@ void FBSciLexer::resetToDefault() noexcept {
     m_isFirst = false;
 }
 
-bool FBSciLexer::canAccessMember() noexcept {
+auto FBSciLexer::canAccessMember() const noexcept -> bool {
     using enum ThemeCategory;
     const auto st = m_sc->state;
     if (st == +Comment) {
@@ -621,8 +623,8 @@ auto FBSciLexer::identifyKeyword() noexcept -> bool {
             if (strcmp("end", m_identBuffer.data()) == 0) {
                 auto pos = static_cast<Sci_Position>(m_sc->currentPos);
                 while (true) {
-                    const char c = m_styler->SafeGetCharAt(pos, '\0');
-                    if (c != ' ' && c != '\t') {
+                    const char ch = m_styler->SafeGetCharAt(pos, '\0');
+                    if (ch != ' ' && ch != '\t') {
                         break;
                     }
                     pos++;
@@ -651,8 +653,8 @@ auto FBSciLexer::identifyKeyword() noexcept -> bool {
     const std::size_t last = asmContext ? kThemeKeywordGroupsCount : pp;
 
     for (std::size_t index = first; index < last; index++) {
-        if (m_wordLists[index].InList(m_identBuffer.data())) {
-            m_sc->ChangeState(+kThemeKeywordCategories[index]);
+        if (m_wordLists[index].InList(m_identBuffer.data())) {  // NOLINT(*-pro-bounds-*)
+            m_sc->ChangeState(+kThemeKeywordCategories[index]); // NOLINT(*-pro-bounds-*)
             break;
         }
     }
@@ -760,7 +762,7 @@ void FBSciLexer::lexPreprocessor() noexcept {
         // via LineState.
         if (!m_ppDirectiveSeen) {
             constexpr std::size_t pp = indexOfKeywordGroup(KeywordPP);
-            if (m_wordLists[pp].InList(m_identBuffer.data())) {
+            if (m_wordLists[pp].InList(m_identBuffer.data())) { // NOLINT(*-pro-bounds-avoid-unchecked-container-access)
                 m_sc->ChangeState(+KeywordPP);
             } else {
                 m_sc->ChangeState(+IdentifierPP);
@@ -881,7 +883,7 @@ auto lineIndent(Lexilla::LexAccessor& styler, const Sci_Position line) -> int {
 
 // `/'` nesting depth at the end of `line`, read back from the per-line state
 // the lexer already persisted (LineState::commentNestLevel) — no re-lexing.
-auto commentNestAtEnd(Lexilla::LexAccessor& styler, const Sci_Position line) -> int {
+auto commentNestAtEnd(const Lexilla::LexAccessor& styler, const Sci_Position line) -> int {
     return FBSciLexer::LineState::fromInt(styler.GetLineState(line)).commentNestLevel;
 }
 
