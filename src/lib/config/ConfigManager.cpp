@@ -228,8 +228,14 @@ auto ConfigManager::getDefaultTerminalLauncher() -> wxString {
 // Init
 // ---------------------------------------------------------------------------
 
-ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, const wxString& configPath)
-: m_appDir(appPath) {
+ConfigManager::ConfigManager(
+    const wxString& appPath,
+    const wxString& idePath,
+    const wxString& configPath,
+    const wxString& userDataDirOverride
+)
+: m_appDir(appPath)
+, m_userDataDir(userDataDirOverride.empty() ? wxStandardPaths::Get().GetUserDataDir() : userDataDirOverride) {
     if (not wxDirExists(appPath)) {
         wxLogError("app directory '%s' does not exist", appPath);
         return;
@@ -308,7 +314,7 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
             m_ideDir
         );
     } else if (readOnlyIde) {
-        const wxString userIdeDir = wxStandardPaths::Get().GetUserDataDir() + wxFILE_SEP_PATH + "ide";
+        const wxString userIdeDir = m_userDataDir + wxFILE_SEP_PATH + "ide";
         wxLogMessage("READONLY ide directory '%s' detected; mirroring to '%s'", m_ideDir, userIdeDir);
         const auto copied = copyMissingResources(m_ideDir, userIdeDir);
         wxLogMessage("Copied %zu missing resource file(s) into '%s'", copied, userIdeDir);
@@ -316,7 +322,7 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
     }
 
     auto& entry = m_categories[static_cast<std::size_t>(Category::Config)];
-    entry.path = absolute(configPath.empty() ? getPlatformConfigFileName() : configPath);
+    entry.strategy = ConfigStrategy::direct(absolute(configPath.empty() ? getPlatformConfigFileName() : configPath));
     wxLogMessage("ide directory: %s", m_ideDir);
     load(Category::Config);
 
@@ -338,7 +344,7 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
             m_theme.loadDefaults();
         }
     } else {
-        wxLogWarning("No 'theme' entry found in config '%s' — using built-in default", entry.path);
+        wxLogWarning("No 'theme' entry found in config '%s' — using built-in default", entry.strategy.basePath());
         m_theme.loadDefaults();
     }
 }
@@ -357,7 +363,7 @@ void ConfigManager::setCategoryPath(const Category category, const wxString& pat
 
 void ConfigManager::reloadConfig(const wxString& configPath) {
     auto& entry = m_categories[static_cast<std::size_t>(Category::Config)];
-    entry.path = absolute(configPath);
+    entry.strategy = ConfigStrategy::direct(absolute(configPath));
     load(Category::Config);
 
     if (const auto themeRel = config().get_or("theme", wxString {}); not themeRel.empty()) {
@@ -382,7 +388,7 @@ void ConfigManager::load(const Category category) {
     wxString file;
 
     if (category == Category::Config) {
-        file = entry.path;
+        file = entry.strategy.basePath();
     } else {
         const auto key = getCategoryName(category);
         const auto& ref = config().at({ key.data(), key.size() });
@@ -439,7 +445,8 @@ void ConfigManager::load(const Category category) {
         case Category::Keywords:
         case Category::Shortcuts:
             entry.category = category;
-            entry.path = file;
+            entry.strategy = ConfigStrategy::direct(file);
+            entry.baseline = Value {};
             entry.root = Value {};
             return;
         }
@@ -453,13 +460,22 @@ void ConfigManager::load(const Category category) {
     }
 
     wxFileConfig cfg(stream, wxConvUTF8);
+
+    // Parse twice so baseline and root are independent Value trees. Value
+    // is move-only by design (`Value.hpp:48-49`), and overlay-merge in
+    // stage 4 will need the baseline preserved across the merge into root.
+    // For now baseline == root since no overlay is layered in yet.
+    Value baseline;
     cfg.SetPath("/");
+    importGroup(cfg, baseline);
 
     Value root;
+    cfg.SetPath("/");
     importGroup(cfg, root);
 
     entry.category = category;
-    entry.path = file;
+    entry.strategy = ConfigStrategy::direct(file);
+    entry.baseline = std::move(baseline);
     entry.root = std::move(root);
     wxLogMessage("Loaded %s from %s", getCategoryName(category).data(), file);
 }
@@ -475,11 +491,12 @@ void ConfigManager::save(const Category category) {
     // existingStream in its constructor (preserves comments + ordering),
     // then we truncate the file for writing. Reversing the order would
     // zero the file before parsing completed.
-    wxFileInputStream existingStream(entry.path);
+    const auto& savePath = entry.strategy.savePath();
+    wxFileInputStream existingStream(savePath);
     wxFileConfig cfg(existingStream, wxConvUTF8);
-    wxFFileOutputStream outStream(entry.path);
+    wxFFileOutputStream outStream(savePath);
     if (!outStream.IsOk()) {
-        wxLogError("Failed to open '%s' for writing", entry.path);
+        wxLogError("Failed to open '%s' for writing", savePath);
         return;
     }
 
@@ -490,7 +507,7 @@ void ConfigManager::save(const Category category) {
 auto ConfigManager::reloadIfKnown(const wxString& path) -> bool {
     for (std::size_t index = 0; index < CAT_COUNT; index++) {
         const auto& entry = m_categories[index];
-        if (samePath(path, entry.path)) {
+        if (samePath(path, entry.strategy.basePath())) {
             load(entry.category);
             // if this was config, then reload all other files as well.
             if (entry.category == Category::Config) {

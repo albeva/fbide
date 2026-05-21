@@ -129,6 +129,18 @@ public:
     [[nodiscard]] auto entries() const -> const Table&;
 
     // -------------------------------------------------------------------
+    // Overlay merge
+    // -------------------------------------------------------------------
+
+    /// Recursively overlay `other` on top of this tree. Leaves in `other`
+    /// replace leaves at the same path; groups recurse; keys present only
+    /// in this tree are preserved. Empty-string leaves still override
+    /// (key-presence wins regardless of value). On a type mismatch
+    /// (overlay leaf where this is a group, or vice versa) the overlay
+    /// always wins — same rule as leaves.
+    void mergeFrom(const Value& other);
+
+    // -------------------------------------------------------------------
     // Writes — replace this node's contents with a leaf
     // -------------------------------------------------------------------
     /// Assign a `bool` leaf.

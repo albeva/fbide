@@ -294,3 +294,30 @@ auto Value::operator=(const char* v) -> Value& {
     m_data = wxString { v };
     return *this;
 }
+
+// -------------------------------------------------------------------------
+// Overlay merge
+// -------------------------------------------------------------------------
+void Value::mergeFrom(const Value& other) {
+    // Invalid overlay = no-op. Lets callers pass a default-constructed
+    // Value when the overlay file is absent without checking first.
+    if (!other) {
+        return;
+    }
+
+    // Overlay leaf — replace this whole subtree. Captures both the
+    // same-leaf case and the type-mismatch case (overlay leaf where
+    // we're a group). `operator=(const wxString&)` resets m_data to a
+    // leaf, dropping any prior Table.
+    if (!other.isTable()) {
+        *this = other.as<wxString>().value_or(wxString {});
+        return;
+    }
+
+    // Overlay group — recurse per child. `operator[]` converts this node
+    // to a Table if it isn't already (type-mismatch: overlay group where
+    // we're a leaf), and creates missing children on demand.
+    for (const auto& [key, child] : other.entries()) {
+        (*this)[key].mergeFrom(*child);
+    }
+}

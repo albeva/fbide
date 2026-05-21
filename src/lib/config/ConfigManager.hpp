@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "ConfigStrategy.hpp"
 #include "Theme.hpp"
 #include "Value.hpp"
 #include "Version.hpp"
@@ -97,11 +98,20 @@ public:
     // -----------------------------------------------------------------------
 
     /// Construct and load every category from disk.
-    /// @param appPath    Directory of the running fbide binary.
-    /// @param idePath    Override for the `<binary>/ide` resource directory.
-    /// @param configPath Override for the platform default config file
-    ///                   (resolved relative to `idePath` when not absolute).
-    explicit ConfigManager(const wxString& appPath, const wxString& idePath = "", const wxString& configPath = "");
+    /// @param appPath              Directory of the running fbide binary.
+    /// @param idePath              Override for the `<binary>/ide` resource directory.
+    /// @param configPath           Override for the platform default config file
+    ///                             (resolved relative to `idePath` when not absolute).
+    /// @param userDataDirOverride  Test seam — overrides `wxStandardPaths::Get().GetUserDataDir()`
+    ///                             for overlay routing under READONLY. Empty (default) uses
+    ///                             the real platform user-data directory. Production code
+    ///                             never passes this.
+    explicit ConfigManager(
+        const wxString& appPath,
+        const wxString& idePath = "",
+        const wxString& configPath = "",
+        const wxString& userDataDirOverride = ""
+    );
 
     /// Point a category to a new file and reload it.
     void setCategoryPath(Category category, const wxString& path);
@@ -177,17 +187,19 @@ private:
     /// Load the category file from disk and rebuild its Value tree.
     void load(Category category);
 
-    /// Per-category bookkeeping: which file backs it and its parsed root.
+    /// Per-category bookkeeping: storage policy + parsed trees.
     struct Entry final {
-        Category category; ///< Category identifier.
-        wxString path;     ///< Absolute path to the backing INI file.
-        Value root;        ///< Parsed root `Value` for the category.
+        Category category;       ///< Category identifier.
+        ConfigStrategy strategy; ///< Where the file lives and how saves are routed.
+        Value baseline;          ///< Pristine parse of `strategy.basePath()`. Used to diff against `root` on save.
+        Value root;              ///< Merged tree (baseline + overlay). Same as baseline until overlay merge lands.
     };
     /// Number of categories — one slot per `Category` enum value.
     static constexpr std::size_t CAT_COUNT = 5;
 
     wxString m_appDir;                            ///< App directory (binary location).
     wxString m_ideDir {};                         ///< IDE resources directory.
+    wxString m_userDataDir {};                    ///< User-writable dir for overlays + theme copies (READONLY mode).
     std::array<Entry, CAT_COUNT> m_categories {}; ///< Per-category state.
     Theme m_theme {};                             ///< Active editor theme.
 };
