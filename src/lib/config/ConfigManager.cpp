@@ -536,6 +536,16 @@ void ConfigManager::load(const Category category) {
 }
 
 void ConfigManager::save(const Category category) {
+    // Locale is bundle-only. The IDE never writes its translation strings
+    // back; any caller asking for `save(Locale)` is a bug — flag loudly
+    // rather than silently truncating the bundle locale file under
+    // portable mode (or no-op'ing under READONLY where the write would
+    // fail anyway).
+    if (category == Category::Locale) {
+        wxLogError("save(Locale) refused — locale files are bundle-only");
+        return;
+    }
+
     const auto& entry = m_categories[static_cast<std::size_t>(category)];
     if (entry.category != category) {
         wxLogWarning("Trying to save unloaded category '%s'", getCategoryName(category).data());
@@ -613,8 +623,8 @@ auto ConfigManager::reloadIfKnown(const wxString& path) -> bool {
 
     // Theme reload requires a copied path — Theme::load(path) resets the
     // object and then assigns the incoming path back into m_themePath.
-    if (const auto themePath = m_theme.getPath(); samePath(path, themePath)) {
-        m_theme.load(themePath);
+    if (const auto currentThemePath = m_theme.getPath(); samePath(path, currentThemePath)) {
+        m_theme.load(currentThemePath);
         return true;
     }
 
@@ -718,16 +728,15 @@ auto ConfigManager::relative(const wxString& path) const -> wxString {
     if (const auto ide = makeRelative(m_ideDir, abs)) {
         return *ide;
     }
-    // User data dir under READONLY is the writable equivalent of the
-    // bundle's ide/ — a path like `<UserDataDir>/themes/dark.ini`
-    // belongs to the same logical layout and must stringify as the same
-    // relative form so `themePath()` round-trips correctly on the next
-    // load. Without this, theme saves under READONLY leaked absolute
-    // paths into `config["theme"]`.
-    if (!m_userDataDir.empty()) {
-        if (const auto userData = makeRelative(m_userDataDir, abs)) {
-            return *userData;
-        }
+    // User data dir is the writable equivalent of the bundle's ide/ —
+    // a path like `<UserDataDir>/themes/dark.ini` belongs to the same
+    // logical layout and must stringify as the same relative form so
+    // `themePath()` round-trips correctly on the next load. Without
+    // this, theme saves under READONLY leaked absolute paths into
+    // `config["theme"]`. `m_userDataDir` is always populated (ctor
+    // falls back to `wxStandardPaths` when no override) so no guard.
+    if (const auto userData = makeRelative(m_userDataDir, abs)) {
+        return *userData;
     }
     if (const auto app = makeRelative(m_appDir, abs)) {
         return *app;

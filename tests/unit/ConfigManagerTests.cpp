@@ -370,6 +370,35 @@ TEST_F(ConfigManagerTests, ThemePathPortableIgnoresUserDir) {
     EXPECT_EQ(wxFileName(resolved).GetPath(), tmp.path() + "/ide/themes");
 }
 
+TEST_F(ConfigManagerTests, SaveLocaleIsRefusedAndLeavesBundleFileUntouched) {
+    // Locale is bundle-only — no code path should ever ask the IDE to
+    // write it. `save(Locale)` must refuse rather than truncate the
+    // shipped locale file (which would happen under portable mode where
+    // the bundle dir is writable). Asserts both branches: in-memory
+    // mutation does not reach disk, and the on-disk file is byte-for-
+    // byte unchanged.
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName, "locale=locales/en.ini\n");
+    tmp.write("ide/locales/en.ini",
+        "[strings]\n"
+        "greeting=Hello\n");
+
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "");
+    ASSERT_EQ(cm.locale().get_or("strings.greeting", wxString {}), "Hello");
+
+    // Mutate in-memory then attempt to persist. For any other category
+    // this would round-trip to disk; for Locale we expect a refusal.
+    cm.locale()["strings"]["greeting"] = "Bonjour";
+    cm.save(ConfigManager::Category::Locale);
+
+    wxFFileInputStream roundTripStream(tmp.path() + "/ide/locales/en.ini");
+    wxFileConfig roundTrip(roundTripStream, wxConvUTF8);
+    wxString value;
+    ASSERT_TRUE(roundTrip.Read("strings/greeting", &value));
+    EXPECT_EQ(value, "Hello");
+}
+
 TEST_F(ConfigManagerTests, RelativeOfUserDataPathStripsUserDataPrefix) {
     // Regression: under READONLY, `themesWriteDir()` returns
     // `<UserDataDir>/themes/`, so a theme saved there yields an absolute
