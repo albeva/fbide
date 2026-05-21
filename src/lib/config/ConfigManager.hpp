@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "ConfigStrategy.hpp"
 #include "Theme.hpp"
 #include "Value.hpp"
 #include "Version.hpp"
@@ -72,8 +73,23 @@ public:
     /// Get paths of every language file under resources/IDE/v2/locales.
     [[nodiscard]] auto getAllLanguages() const -> std::vector<wxString>;
 
-    /// Get paths of every theme file under resources/IDE/v2/themes.
+    /// Get paths of every theme file under `ide/themes/`. Under READONLY,
+    /// also enumerates `<UserDataDir>/themes/`; user entries shadow
+    /// bundle entries on basename collision. Sorted by basename.
     [[nodiscard]] auto getAllThemes() const -> std::vector<wxString>;
+
+    /// Resolve a theme path (relative or absolute) honouring the
+    /// READONLY two-dir model: when the sentinel is present, a file at
+    /// `<UserDataDir>/<relPath>` takes precedence over the bundle copy.
+    /// Falls back to `absolute()` (ide → app → cwd) when no user
+    /// override exists. Absolute paths are returned as-is.
+    [[nodiscard]] auto themePath(const wxString& relPath) const -> wxString;
+
+    /// Directory theme files are written to, created if missing. Under
+    /// READONLY this is `<UserDataDir>/themes/`; otherwise
+    /// `<ideDir>/themes/`. Always safe to call before a theme write —
+    /// `wxFileName::Mkdir(..., wxPATH_MKDIR_FULL)` is idempotent.
+    [[nodiscard]] auto themesWriteDir() const -> wxString;
 
     /// Platform default config file name.
     [[nodiscard]] static auto getPlatformConfigFileName() -> wxString;
@@ -97,11 +113,20 @@ public:
     // -----------------------------------------------------------------------
 
     /// Construct and load every category from disk.
-    /// @param appPath    Directory of the running fbide binary.
-    /// @param idePath    Override for the `<binary>/ide` resource directory.
-    /// @param configPath Override for the platform default config file
-    ///                   (resolved relative to `idePath` when not absolute).
-    explicit ConfigManager(const wxString& appPath, const wxString& idePath = "", const wxString& configPath = "");
+    /// @param appPath              Directory of the running fbide binary.
+    /// @param idePath              Override for the `<binary>/ide` resource directory.
+    /// @param configPath           Override for the platform default config file
+    ///                             (resolved relative to `idePath` when not absolute).
+    /// @param userDataDirOverride  Test seam — overrides `wxStandardPaths::Get().GetUserDataDir()`
+    ///                             for overlay routing under READONLY. Empty (default) uses
+    ///                             the real platform user-data directory. Production code
+    ///                             never passes this.
+    explicit ConfigManager(
+        const wxString& appPath,
+        const wxString& idePath = "",
+        const wxString& configPath = "",
+        const wxString& userDataDirOverride = ""
+    );
 
     /// Point a category to a new file and reload it.
     void setCategoryPath(Category category, const wxString& path);
@@ -110,7 +135,7 @@ public:
     void reloadConfig(const wxString& configPath);
 
     /// Save the category's Value tree to its backing file.
-    void save(Category category);
+    void save(Category category) const;
 
     /// Reload any loaded config category or the active theme whose backing
     /// file matches `path`. Returns true when a reload occurred. Use to
@@ -127,9 +152,9 @@ public:
     [[nodiscard]] auto relative(const wxString& path) const -> wxString;
 
     /// Application directory (resolved from `appPath` argument).
-    [[nodiscard]] auto getAppDir() const -> const wxString& { return m_appDir; }
+    [[nodiscard]] auto getAppDir() const -> wxString;
     /// IDE resources directory (e.g. `<appDir>/ide` by default).
-    [[nodiscard]] auto getIdeDir() const -> const wxString& { return m_ideDir; }
+    [[nodiscard]] auto getIdeDir() const -> wxString;
 
     // -----------------------------------------------------------------------
     // Category accessors — return a reference to the category root Value.
@@ -177,19 +202,34 @@ private:
     /// Load the category file from disk and rebuild its Value tree.
     void load(Category category);
 
-    /// Per-category bookkeeping: which file backs it and its parsed root.
+    /// Build the `ConfigStrategy` for `category` given a resolved base path.
+    /// Uses `m_userDataDir`, `m_readOnlyIde`, `m_explicitConfig` so callers
+    /// (ctor + `load()` for sub-categories + `reloadConfig` / `setCategoryPath`)
+    /// share the same rules.
+    [[nodiscard]] auto buildStrategy(Category category, const std::filesystem::path& basePath) const -> ConfigStrategy;
+
+    /// Resolve `rel` to an absolute path, walking the same ide → app →
+    /// cwd chain as the public `absolute()`. Used internally to avoid
+    /// the round-trip through `wxString`.
+    [[nodiscard]] auto absolutePath(const std::filesystem::path& rel) const -> std::filesystem::path;
+
+    /// Per-category bookkeeping: storage policy + parsed trees.
     struct Entry final {
-        Category category; ///< Category identifier.
-        wxString path;     ///< Absolute path to the backing INI file.
-        Value root;        ///< Parsed root `Value` for the category.
+        Category category { Category::Config }; ///< Category identifier; overwritten on `load()`.
+        ConfigStrategy strategy;                ///< Where the file lives and how saves are routed.
+        Value baseline;                         ///< Pristine parse of `strategy.basePath()` — diffed against `root` on save.
+        Value root;                             ///< Merged tree (baseline + overlay).
     };
     /// Number of categories — one slot per `Category` enum value.
     static constexpr std::size_t CAT_COUNT = 5;
 
-    wxString m_appDir;                            ///< App directory (binary location).
-    wxString m_ideDir {};                         ///< IDE resources directory.
+    std::filesystem::path m_appDir;               ///< App directory (binary location).
+    std::filesystem::path m_ideDir;               ///< IDE resources directory.
+    std::filesystem::path m_userDataDir;          ///< User-writable dir for overlays + theme copies (READONLY mode).
+    bool m_readOnlyIde { false };                 ///< True when `READONLY` sentinel routes overlays to `m_userDataDir`.
+    bool m_explicitConfig { false };              ///< True when `--config=PATH` was supplied — all mutable categories use `Direct`.
     std::array<Entry, CAT_COUNT> m_categories {}; ///< Per-category state.
-    Theme m_theme {};                             ///< Active editor theme.
+    Theme m_theme;                                ///< Active editor theme.
 };
 
 } // namespace fbide

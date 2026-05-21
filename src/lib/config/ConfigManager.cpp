@@ -6,8 +6,34 @@
 //
 #include "ConfigManager.hpp"
 using namespace fbide;
+namespace fs = std::filesystem;
 
 namespace {
+// ---------------------------------------------------------------------------
+// wxString <-> std::filesystem::path conversion
+//
+// Everything inside this TU works in `fs::path`. Conversions to/from
+// `wxString` happen only at the public API boundary and at wx interop
+// points (wxFFile streams, wxLog formatting). The two helpers below
+// encode the platform-conditional UTF-8 / wide-char split in one place.
+// ---------------------------------------------------------------------------
+
+[[nodiscard]] auto toPath(const wxString& str) -> fs::path {
+#ifdef __WXMSW__
+    return fs::path { str.ToStdWstring() };
+#else
+    return fs::path { str.ToStdString(wxConvUTF8) };
+#endif
+}
+
+[[nodiscard]] auto toWx(const fs::path& path) -> wxString {
+#ifdef __WXMSW__
+    return wxString { path.wstring() };
+#else
+    return wxString::FromUTF8(path.string());
+#endif
+}
+
 void dismissSplash() {
     auto node = wxTopLevelWindows.GetFirst();
     while (node) {
@@ -35,69 +61,27 @@ void dismissSplash() {
 namespace {
 /// Sentinel filename. When present in the IDE resources directory, that
 /// directory is treated as read-only (e.g. inside a macOS .app bundle,
-/// AppImage, or signed Windows install) and the resources are mirrored
-/// to a writable per-user copy on first launch.
+/// AppImage, or signed Windows install) and writable artefacts —
+/// per-category `.local.ini` overlays and theme copies — are routed to
+/// `wxStandardPaths::GetUserDataDir()` instead of next to the bundle.
 constexpr auto kReadOnlySentinel = "READONLY";
 
 /// True when the IDE resources directory carries the read-only sentinel.
-auto hasReadOnlySentinel(const wxString& dir) -> bool {
-    wxFileName marker(dir, kReadOnlySentinel);
-    return marker.FileExists();
+[[nodiscard]] auto hasReadOnlySentinel(const fs::path& dir) -> bool {
+    std::error_code ec;
+    return fs::exists(dir / kReadOnlySentinel, ec);
 }
 
-/// Recursively copy every file under `src` to `dst`, skipping any file
-/// that already exists at the destination. Returns the number of files
-/// copied. The sentinel itself is never propagated. Missing directories
-/// at the destination are created on demand.
-auto copyMissingResources(const wxString& src, const wxString& dst) -> std::size_t {
-    std::size_t copied = 0;
-    if (!wxFileName::Mkdir(dst, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL)) {
-        wxLogWarning("Failed to create user resources directory '%s'", dst);
-        return 0;
-    }
-
-    wxDir dir(src);
-    if (!dir.IsOpened()) {
-        return 0;
-    }
-
-    wxString name;
-    bool more = dir.GetFirst(&name, wxEmptyString, wxDIR_FILES | wxDIR_DIRS);
-    while (more) {
-        const wxString srcPath = src + wxFILE_SEP_PATH + name;
-        const wxString dstPath = dst + wxFILE_SEP_PATH + name;
-        if (wxDirExists(srcPath)) {
-            copied += copyMissingResources(srcPath, dstPath);
-        } else if (name != kReadOnlySentinel && !wxFileExists(dstPath)) {
-            if (wxCopyFile(srcPath, dstPath, /*overwrite=*/false)) {
-                ++copied;
-            } else {
-                wxLogWarning("Failed to copy '%s' to '%s'", srcPath, dstPath);
-            }
-        }
-        more = dir.GetNext(&name);
-    }
-    return copied;
-}
-} // namespace
-
-namespace {
-/// True when `a` and `b` refer to the same filesystem entry. Follows
-/// symlinks on both sides via std::filesystem::equivalent, so editing a
-/// config file through a symlink still matches the loaded canonical path.
-auto samePath(const wxString& a, const wxString& b) -> bool {
-    if (a.empty() || b.empty()) {
+/// True when `lhs` and `rhs` refer to the same filesystem entry.
+/// Follows symlinks on both sides via `std::filesystem::equivalent`, so
+/// editing a config file through a symlink still matches the loaded
+/// canonical path.
+[[nodiscard]] auto samePath(const fs::path& lhs, const fs::path& rhs) -> bool {
+    if (lhs.empty() || rhs.empty()) {
         return false;
     }
     std::error_code ec;
-#ifdef __WXMSW__
-    const std::filesystem::path fa(a.ToStdWstring());
-    const std::filesystem::path fb(b.ToStdWstring());
-#else
-    const std::filesystem::path fa(a.ToStdString(wxConvUTF8));
-    const std::filesystem::path fb(b.ToStdString(wxConvUTF8));
-#endif
-    return std::filesystem::equivalent(fa, fb, ec);
+    return fs::equivalent(lhs, rhs, ec);
 }
 } // namespace
 
@@ -153,36 +137,115 @@ void exportGroup(const Value& node, const wxString& path, wxFileConfig& cfg) {
 // Get info
 // ---------------------------------------------------------------------------
 
-static auto enumerate(const wxString& base, const std::initializer_list<wxString> specs = { "*.ini" }) -> std::vector<wxString> {
-    std::vector<wxString> files;
-    for (const auto& spec : specs) {
-        if (const wxDir dir(base); dir.IsOpened()) {
-            wxString name;
-            if (dir.GetFirst(&name, spec, wxDIR_FILES)) {
-                do {
-                    wxFileName path { name };
-                    path.MakeAbsolute(base);
-                    files.emplace_back(path.GetFullPath());
-                } while (dir.GetNext(&name));
+namespace {
+/// Enumerate regular files directly under `base` whose extension is in
+/// `exts` (with leading dot, e.g. `".ini"`). Returns absolute paths
+/// sorted by full path. Symlinks are followed via `directory_iterator`
+/// defaults, matching the symlink-aware semantics elsewhere in this TU.
+[[nodiscard]] auto enumerate(const fs::path& base, std::initializer_list<std::string_view> exts = { ".ini" }) -> std::vector<fs::path> {
+    std::vector<fs::path> files;
+    std::error_code ec;
+    const fs::directory_iterator it { base, ec };
+    if (ec) {
+        return files;
+    }
+    for (const auto& entry : it) {
+        if (!entry.is_regular_file(ec)) {
+            continue;
+        }
+        const auto ext = entry.path().extension().string();
+        for (const auto sv : exts) {
+            if (ext == sv) {
+                files.emplace_back(entry.path());
+                break;
             }
         }
     }
     std::ranges::sort(files);
     return files;
 }
+} // namespace
 
 auto ConfigManager::getAllLanguages() const -> std::vector<wxString> {
-    return enumerate(m_ideDir / "locales");
+    const auto paths = enumerate(m_ideDir / "locales");
+    std::vector<wxString> out;
+    out.reserve(paths.size());
+    for (const auto& path : paths) {
+        out.push_back(toWx(path));
+    }
+    return out;
 }
 
 auto ConfigManager::getAllThemes() const -> std::vector<wxString> {
-    return enumerate(m_ideDir / "themes", { "*.ini", "*.fbt" });
+    auto bundle = enumerate(m_ideDir / "themes", { ".ini", ".fbt" });
+    if (!m_readOnlyIde) {
+        std::vector<wxString> out;
+        out.reserve(bundle.size());
+        for (const auto& path : bundle) {
+            out.push_back(toWx(path));
+        }
+        return out;
+    }
+    auto user = enumerate(m_userDataDir / "themes", { ".ini", ".fbt" });
+
+    // Two-dir merge — user entries shadow bundle entries on basename
+    // collision. `std::unordered_map` because the pch ships unordered
+    // but not ordered map; sort by basename in a separate pass.
+    std::unordered_map<std::string, fs::path> byName;
+    for (auto& path : bundle) {
+        byName[path.filename().string()] = std::move(path);
+    }
+    for (auto& path : user) {
+        byName[path.filename().string()] = std::move(path);
+    }
+    std::vector<fs::path> merged;
+    merged.reserve(byName.size());
+    for (auto& value : std::views::values(byName)) {
+        merged.push_back(std::move(value));
+    }
+    std::ranges::sort(merged, [](const fs::path& lhs, const fs::path& rhs) {
+        return lhs.filename() < rhs.filename();
+    });
+    std::vector<wxString> out;
+    out.reserve(merged.size());
+    for (const auto& path : merged) {
+        out.push_back(toWx(path));
+    }
+    return out;
+}
+
+auto ConfigManager::themesWriteDir() const -> wxString {
+    const auto dir = (m_readOnlyIde ? m_userDataDir : m_ideDir) / "themes";
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    return toWx(dir);
+}
+
+auto ConfigManager::themePath(const wxString& relPath) const -> wxString {
+    if (relPath.empty()) {
+        return relPath;
+    }
+    const auto rel = toPath(relPath);
+    if (rel.is_absolute()) {
+        return toWx(rel.lexically_normal());
+    }
+    // READONLY: user override at `<UserDataDir>/<rel>` wins. Probed
+    // before the generic `absolute()` walk so a same-named bundle theme
+    // never shadows the user's edit.
+    if (m_readOnlyIde) {
+        std::error_code ec;
+        const auto candidate = (m_userDataDir / rel).lexically_normal();
+        if (fs::exists(candidate, ec)) {
+            return toWx(candidate);
+        }
+    }
+    return toWx(absolutePath(rel));
 }
 
 auto ConfigManager::getPlatformConfigFileName() -> wxString {
 #ifdef __WXMSW__
     return "config_win.ini";
-#elif defined(__WXOSX__)
+#elifdef __WXOSX__
     return "config_macos.ini";
 #else
     return "config_linux.ini";
@@ -192,7 +255,7 @@ auto ConfigManager::getPlatformConfigFileName() -> wxString {
 auto ConfigManager::getTerminal() -> wxString {
 #ifdef __WXMSW__
     return "cmd.exe";
-#elif defined(__WXOSX__)
+#elifdef __WXOSX__
     return "open -a Terminal";
 #else
     return "x-terminal-emulator";
@@ -211,7 +274,7 @@ auto ConfigManager::getDefaultTerminalLauncher() -> wxString {
     // Keeping cmd in the foreground (no `start`) means kill / Stop
     // cascades through cmd's process group to the child program.
     return "cmd /C";
-#elif defined(__WXOSX__)
+#elifdef __WXOSX__
     // TODO: Terminal.app does not accept the program as a CLI argument;
     // launching requires AppleScript via `osascript` or a temp `.command`
     // script. Cannot be expressed as a single-line template prefix.
@@ -228,54 +291,60 @@ auto ConfigManager::getDefaultTerminalLauncher() -> wxString {
 // Init
 // ---------------------------------------------------------------------------
 
-ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, const wxString& configPath)
-: m_appDir(appPath) {
-    if (not wxDirExists(appPath)) {
+ConfigManager::ConfigManager(
+    const wxString& appPath,
+    const wxString& idePath,
+    const wxString& configPath,
+    const wxString& userDataDirOverride
+)
+: m_appDir(toPath(appPath))
+, m_userDataDir(toPath(userDataDirOverride.empty() ? wxStandardPaths::Get().GetUserDataDir() : userDataDirOverride)) {
+    // Normalise trailing-separator forms so `.filename()` returns the
+    // last segment (needed by the macOS bundle / AppImage detection
+    // below). fs::path treats `/foo/bar/` and `/foo/bar` differently —
+    // the former has an empty filename component.
+    if (!m_appDir.empty() && !m_appDir.has_filename()) {
+        m_appDir = m_appDir.parent_path();
+    }
+
+    std::error_code ec;
+    if (!fs::is_directory(m_appDir, ec)) {
         wxLogError("app directory '%s' does not exist", appPath);
         return;
     }
 
-    if (not idePath.empty()) {
-        const auto path = absolute(idePath);
-        if (wxDirExists(path)) {
+    if (!idePath.empty()) {
+        const auto path = absolutePath(toPath(idePath));
+        if (fs::is_directory(path, ec)) {
             m_ideDir = path;
         } else {
-            wxLogWarning("ide config directory '%s' does not exist", path);
+            wxLogWarning("ide config directory '%s' does not exist", toWx(path));
         }
     }
     if (m_ideDir.empty()) {
 #ifdef __WXOSX__
         // Prefer bundle Resources when running inside a macOS .app
-        wxFileName appPathFn(m_appDir, "");
-        const auto& dirs = appPathFn.GetDirs();
-        if (!dirs.empty() && dirs.back() == "MacOS") {
-            appPathFn.RemoveLastDir(); // MacOS -> Contents
-            const wxString contentsDir = appPathFn.GetPath();
-            const wxString bundleIde = contentsDir + "/Resources/ide";
-            if (wxDirExists(bundleIde)) {
+        if (m_appDir.filename() == "MacOS") {
+            const auto bundleIde = m_appDir.parent_path() / "Resources" / "ide";
+            if (fs::is_directory(bundleIde, ec)) {
                 m_ideDir = bundleIde;
             } else {
-                // Fallback if bundle layout not as expected
                 m_ideDir = m_appDir / "ide";
             }
         } else {
             // Not in a bundle (e.g., running from build dir)
             m_ideDir = m_appDir / "ide";
         }
-#elif defined(FBIDE_APPIMAGE_BUILD)
+#elifdef FBIDE_APPIMAGE_BUILD
         // FHS layout used by AppImage / future deb / rpm packages: the
         // binary lives at <prefix>/bin/fbide and resources at
         // <prefix>/share/fbide/ide. Walk one directory up from the
         // binary location and look for share/fbide/ide; fall back to
         // the portable side-by-side layout if that directory is absent
         // (e.g. running from a build tree before `cmake --install`).
-        wxFileName appPathFn(m_appDir, "");
-        const auto& dirs = appPathFn.GetDirs();
-        if (!dirs.empty() && dirs.back() == "bin") {
-            appPathFn.RemoveLastDir();
-            const wxString prefix = appPathFn.GetPath();
-            const wxString fhsIde = prefix + "/share/fbide/ide";
-            if (wxDirExists(fhsIde)) {
+        if (m_appDir.filename() == "bin") {
+            const auto fhsIde = m_appDir.parent_path() / "share" / "fbide" / "ide";
+            if (fs::is_directory(fhsIde, ec)) {
                 m_ideDir = fhsIde;
             } else {
                 m_ideDir = m_appDir / "ide";
@@ -287,37 +356,30 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
         m_ideDir = m_appDir / "ide";
 #endif
     }
-    if (not wxDirExists(m_ideDir)) {
-        wxLogError("ide config directory '%s' does not exist", m_ideDir);
+    if (!fs::is_directory(m_ideDir, ec)) {
+        wxLogError("ide config directory '%s' does not exist", toWx(m_ideDir));
         return;
     }
 
-    // Read-only IDE directory sentinel. When present and the user has
-    // not asked for an explicit override, mirror the resources to a
-    // writable per-user copy under wxStandardPaths::GetUserDataDir() and
-    // load/save from there. Lets bundles, AppImages, and signed
-    // installers ship truly immutable resource trees while still letting
-    // FBIde edit themes, layouts, etc. CLI overrides bypass the mirror
-    // (the user knows where they pointed FBIde) — warn so the bypass
-    // isn't silent.
-    const bool cliOverride = !idePath.empty() || !configPath.empty();
-    const bool readOnlyIde = hasReadOnlySentinel(m_ideDir);
-    if (cliOverride && readOnlyIde) {
-        wxLogWarning(
-            "READONLY sentinel found in '%s' but ignored — --ide / --config override is in effect",
-            m_ideDir
-        );
-    } else if (readOnlyIde) {
-        const wxString userIdeDir = wxStandardPaths::Get().GetUserDataDir() + wxFILE_SEP_PATH + "ide";
-        wxLogMessage("READONLY ide directory '%s' detected; mirroring to '%s'", m_ideDir, userIdeDir);
-        const auto copied = copyMissingResources(m_ideDir, userIdeDir);
-        wxLogMessage("Copied %zu missing resource file(s) into '%s'", copied, userIdeDir);
-        m_ideDir = userIdeDir;
+    // READONLY sentinel + explicit-config flag drive the strategy rules:
+    // - sentinel present → writable artefacts (`.local.ini` overlays,
+    //   theme copies) route to `m_userDataDir` rather than next to the
+    //   bundle. The sentinel describes the dir, not the boot mode, so
+    //   `--ide=PATH` is respected and the dir's own sentinel decides.
+    // - `--config=PATH` → all four mutable categories run `Direct` (no
+    //   overlay) so CI / repro runs aren't influenced by stray overlays.
+    m_explicitConfig = !configPath.empty();
+    m_readOnlyIde = hasReadOnlySentinel(m_ideDir);
+    if (m_readOnlyIde) {
+        wxLogMessage("READONLY sentinel detected in '%s' — overlays route to '%s'", toWx(m_ideDir), toWx(m_userDataDir));
     }
 
-    auto& entry = m_categories[static_cast<std::size_t>(Category::Config)];
-    entry.path = absolute(configPath.empty() ? getPlatformConfigFileName() : configPath);
-    wxLogMessage("ide directory: %s", m_ideDir);
+    auto& entry = m_categories.at(static_cast<std::size_t>(Category::Config));
+    entry.strategy = buildStrategy(
+        Category::Config,
+        absolutePath(toPath(configPath.empty() ? getPlatformConfigFileName() : configPath))
+    );
+    wxLogMessage("ide directory: %s", toWx(m_ideDir));
     load(Category::Config);
 
     // Load all configs
@@ -328,8 +390,8 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
     // Resolve + load theme immediately after config is available. If the
     // configured theme file is missing or absent, fall back to a built-in
     // minimal theme so the editor still launches with a usable scheme.
-    if (const auto themeRel = config().get_or("theme", wxString {}); not themeRel.empty()) {
-        const auto themeAbs = absolute(themeRel);
+    if (const auto themeRel = config().get_or("theme", wxString {}); !themeRel.empty()) {
+        const auto themeAbs = themePath(themeRel);
         if (wxFileExists(themeAbs)) {
             m_theme.load(themeAbs);
             wxLogMessage("Loaded theme from %s", themeAbs);
@@ -338,7 +400,7 @@ ConfigManager::ConfigManager(const wxString& appPath, const wxString& idePath, c
             m_theme.loadDefaults();
         }
     } else {
-        wxLogWarning("No 'theme' entry found in config '%s' — using built-in default", entry.path);
+        wxLogWarning("No 'theme' entry found in config '%s' — using built-in default", toWx(entry.strategy.basePath()));
         m_theme.loadDefaults();
     }
 }
@@ -356,12 +418,25 @@ void ConfigManager::setCategoryPath(const Category category, const wxString& pat
 }
 
 void ConfigManager::reloadConfig(const wxString& configPath) {
-    auto& entry = m_categories[static_cast<std::size_t>(Category::Config)];
-    entry.path = absolute(configPath);
+    // Runtime equivalent of `--config=PATH` — flip to explicit mode so
+    // subsequent strategy rebuilds (sub-categories, reloadIfKnown) stay
+    // `Direct`. Sub-categories already loaded under prior mode are
+    // unaffected here; full sub-category rebind is task #13 territory.
+    m_explicitConfig = true;
+    auto& entry = m_categories.at(static_cast<std::size_t>(Category::Config));
+    entry.strategy = buildStrategy(Category::Config, absolutePath(toPath(configPath)));
     load(Category::Config);
 
-    if (const auto themeRel = config().get_or("theme", wxString {}); not themeRel.empty()) {
-        const auto themeAbs = absolute(themeRel);
+    // Cascade — sub-categories were loaded under the prior mode (likely
+    // Overlay). After flipping to explicit they need fresh strategies
+    // so subsequent saves honour the Direct rule. load() rebuilds the
+    // strategy via buildStrategy() using the new m_explicitConfig.
+    for (const auto cat : { Category::Locale, Category::Shortcuts, Category::Keywords, Category::Layout }) {
+        load(cat);
+    }
+
+    if (const auto themeRel = config().get_or("theme", wxString {}); !themeRel.empty()) {
+        const auto themeAbs = themePath(themeRel);
         if (wxFileExists(themeAbs)) {
             m_theme.load(themeAbs);
         } else {
@@ -374,35 +449,54 @@ void ConfigManager::reloadConfig(const wxString& configPath) {
 }
 
 // ---------------------------------------------------------------------------
+// Strategy
+// ---------------------------------------------------------------------------
+
+auto ConfigManager::buildStrategy(const Category category, const fs::path& basePath) const -> ConfigStrategy {
+    // Locale is the only bundle-only mutable slot (custom locales come
+    // from a user-set `locale=<path>` in the config overlay, not from an
+    // overlay of the locale file itself). Everything else is overlay-
+    // capable; the explicit-config flag still forces `Direct`.
+    const bool overlayCapable = category != Category::Locale;
+    return ConfigStrategy::select(basePath, m_userDataDir, m_readOnlyIde, overlayCapable, m_explicitConfig);
+}
+
+// ---------------------------------------------------------------------------
 // Load / save
 // ---------------------------------------------------------------------------
 
 void ConfigManager::load(const Category category) {
-    auto& entry = m_categories[static_cast<std::size_t>(category)];
-    wxString file;
+    auto& entry = m_categories.at(static_cast<std::size_t>(category));
+    const auto catView = getCategoryName(category);
+    const wxString catName { catView.data(), catView.size() };
+    fs::path file;
 
     if (category == Category::Config) {
-        file = entry.path;
+        // Strategy already built by ctor / reloadConfig before they
+        // called us — config is the bootstrap, its path is known up
+        // front. Sub-categories below get strategy built right after
+        // path resolution.
+        file = entry.strategy.basePath();
     } else {
-        const auto key = getCategoryName(category);
-        const auto& ref = config().at({ key.data(), key.size() });
+        const auto& ref = config().at(catName);
         const auto relPath = ref.as<wxString>();
         if (!relPath.has_value() || relPath->empty()) {
-            wxLogError("Config category '%s' missing or invalid", key.data());
+            wxLogError("Config category '%s' missing or invalid", catName);
             return;
         }
-        file = absolute(*relPath);
+        file = absolutePath(toPath(*relPath));
+        entry.strategy = buildStrategy(category, file);
     }
 
-    if (!wxFileExists(file)) {
+    std::error_code ec;
+    if (!fs::exists(file, ec)) {
         // Per-category recovery for missing files. Config + Layout are
         // load-bearing for the rest of the IDE, so a miss is fatal —
         // every other path falls back to a workable empty / default
         // state and lets the app keep going.
-        const auto catName = getCategoryName(category);
         wxLogError(
             "Config file '%s' for '%s' category not found",
-            file, catName.data()
+            toWx(file), catName
         );
         switch (category) {
         case Category::Config:
@@ -411,7 +505,7 @@ void ConfigManager::load(const Category category) {
                     "FBIde could not start: the main configuration file was not found.\n\n"
                     "Expected at:\n%s\n\n"
                     "Reinstall FBIde or supply --config=<path>.",
-                    file
+                    toWx(file)
                 )
             );
         case Category::Layout:
@@ -420,7 +514,7 @@ void ConfigManager::load(const Category category) {
                     "FBIde could not start: the layout file was not found.\n\n"
                     "Expected at:\n%s\n\n"
                     "Reinstall FBIde or restore the layout.ini next to the IDE resources.",
-                    file
+                    toWx(file)
                 )
             );
         case Category::Locale:
@@ -433,53 +527,126 @@ void ConfigManager::load(const Category category) {
                     "FBIde could not start: the locale file was not found.\n\n"
                     "Expected at:\n%s\n\n"
                     "Reinstall FBIde or restore the locales directory next to the IDE resources.",
-                    file
+                    toWx(file)
                 )
             );
         case Category::Keywords:
         case Category::Shortcuts:
             entry.category = category;
-            entry.path = file;
+            entry.baseline = Value {};
             entry.root = Value {};
             return;
         }
         return;
     }
 
-    wxFFileInputStream stream(file);
+    const auto fileWx = toWx(file);
+    wxFFileInputStream stream(fileWx);
     if (!stream.IsOk()) {
-        wxLogError("Failed to open '%s' for reading", file);
+        wxLogError("Failed to open '%s' for reading", fileWx);
         return;
     }
 
     wxFileConfig cfg(stream, wxConvUTF8);
+
+    // Parse twice — baseline is the pristine bundle tree (needed at save
+    // time to diff against). Root starts as a second independent parse
+    // because Value is move-only by design (`Value.hpp:48-49`); the
+    // overlay merge below mutates root without touching baseline.
+    Value baseline;
     cfg.SetPath("/");
+    importGroup(cfg, baseline);
 
     Value root;
+    cfg.SetPath("/");
     importGroup(cfg, root);
 
+    // Overlay merge — only when the strategy provides an overlay path
+    // and that file actually exists. Missing overlay is fine; it just
+    // means the user has no divergences from bundle yet.
+    if (entry.strategy.usesOverlay() && fs::exists(entry.strategy.overlayPath(), ec)) {
+        const auto overlayWx = toWx(entry.strategy.overlayPath());
+        wxFFileInputStream overlayStream(overlayWx);
+        if (overlayStream.IsOk()) {
+            wxFileConfig overlayCfg(overlayStream, wxConvUTF8);
+            Value overlay;
+            overlayCfg.SetPath("/");
+            importGroup(overlayCfg, overlay);
+            root.mergeFrom(overlay);
+            wxLogMessage("Merged overlay %s into %s", overlayWx, catName);
+        } else {
+            wxLogWarning("Overlay '%s' exists but could not be read", overlayWx);
+        }
+    }
+
     entry.category = category;
-    entry.path = file;
+    entry.baseline = std::move(baseline);
     entry.root = std::move(root);
-    wxLogMessage("Loaded %s from %s", getCategoryName(category).data(), file);
+    wxLogMessage("Loaded %s from %s", catName, fileWx);
 }
 
-void ConfigManager::save(const Category category) {
-    const auto& entry = m_categories[static_cast<std::size_t>(category)];
-    if (entry.category != category) {
-        wxLogWarning("Trying to save unloaded category '%s'", getCategoryName(category).data());
+void ConfigManager::save(const Category category) const {
+    // Locale is bundle-only. The IDE never writes its translation strings
+    // back; any caller asking for `save(Locale)` is a bug — flag loudly
+    // rather than silently truncating the bundle locale file under
+    // portable mode (or no-op'ing under READONLY where the write would
+    // fail anyway).
+    if (category == Category::Locale) {
+        wxLogError("save(Locale) refused — locale files are bundle-only");
         return;
     }
 
-    // Open the read stream before the write stream: wxFileConfig parses
-    // existingStream in its constructor (preserves comments + ordering),
-    // then we truncate the file for writing. Reversing the order would
-    // zero the file before parsing completed.
-    wxFileInputStream existingStream(entry.path);
+    const auto& entry = m_categories.at(static_cast<std::size_t>(category));
+    if (entry.category != category) {
+        const auto catView = getCategoryName(category);
+        const wxString catName { catView.data(), catView.size() };
+        wxLogWarning("Trying to save unloaded category '%s'", catName);
+        return;
+    }
+
+    if (entry.strategy.usesOverlay()) {
+        // Aggressive prune: persist only leaves that diverge from the
+        // bundle baseline. Empty diff → no overlay file at all (delete
+        // if one existed). Overlay file is machine-managed; we write
+        // fresh from the diff rather than merging into existing keys so
+        // stale entries from prior saves don't accumulate.
+        const auto& overlayPath = entry.strategy.overlayPath();
+        const auto overlayWx = toWx(overlayPath);
+        std::error_code ec;
+        const auto diff = entry.root.diffAgainst(entry.baseline);
+        if (!diff) {
+            if (fs::exists(overlayPath, ec)) {
+                fs::remove(overlayPath, ec);
+                wxLogMessage("Pruned empty overlay '%s'", overlayWx);
+            }
+            return;
+        }
+        // Ensure parent dir exists — under READONLY this is
+        // `<UserDataDir>` which may not exist on first launch.
+        fs::create_directories(overlayPath.parent_path(), ec);
+        wxFileConfig overlayCfg;
+        wxFFileOutputStream outStream(overlayWx);
+        if (!outStream.IsOk()) {
+            wxLogError("Failed to open '%s' for writing", overlayWx);
+            return;
+        }
+        exportGroup(diff, "", overlayCfg);
+        overlayCfg.Save(outStream, wxConvUTF8);
+        wxLogMessage("Saved overlay '%s'", overlayWx);
+        return;
+    }
+
+    // Direct mode (`--config=PATH` or locale). Open the read stream
+    // before the write stream: `wxFileConfig` parses existingStream in
+    // its constructor (preserves comments + ordering), then we truncate
+    // the file for writing. Reversing the order would zero the file
+    // before parsing completed.
+    const auto savePathWx = toWx(entry.strategy.savePath());
+    wxFileInputStream existingStream(savePathWx);
     wxFileConfig cfg(existingStream, wxConvUTF8);
-    wxFFileOutputStream outStream(entry.path);
+    wxFFileOutputStream outStream(savePathWx);
     if (!outStream.IsOk()) {
-        wxLogError("Failed to open '%s' for writing", entry.path);
+        wxLogError("Failed to open '%s' for writing", savePathWx);
         return;
     }
 
@@ -488,17 +655,24 @@ void ConfigManager::save(const Category category) {
 }
 
 auto ConfigManager::reloadIfKnown(const wxString& path) -> bool {
+    const auto target = toPath(path);
     for (std::size_t index = 0; index < CAT_COUNT; index++) {
-        const auto& entry = m_categories[index];
-        if (samePath(path, entry.path)) {
+        const auto& entry = m_categories.at(index);
+        // Trigger reload when the user touches either side of the
+        // layered pair — the bundle base (rare; usually requires elevated
+        // perms inside a bundle) or the writable overlay.
+        const bool baseMatch = samePath(target, entry.strategy.basePath());
+        const bool overlayMatch = entry.strategy.usesOverlay()
+                               && samePath(target, entry.strategy.overlayPath());
+        if (baseMatch || overlayMatch) {
             load(entry.category);
             // if this was config, then reload all other files as well.
             if (entry.category == Category::Config) {
                 for (std::size_t sub = 1; sub < CAT_COUNT; sub++) {
-                    load(m_categories[sub].category);
+                    load(m_categories.at(sub).category);
                 }
-                if (const auto themeRel = config().get_or("theme", ""); not themeRel.empty()) {
-                    m_theme.load(absolute(themeRel));
+                if (const auto themeRel = config().get_or("theme", ""); !themeRel.empty()) {
+                    m_theme.load(themePath(themeRel));
                 }
             }
             return true;
@@ -507,8 +681,8 @@ auto ConfigManager::reloadIfKnown(const wxString& path) -> bool {
 
     // Theme reload requires a copied path — Theme::load(path) resets the
     // object and then assigns the incoming path back into m_themePath.
-    if (const auto themePath = m_theme.getPath(); samePath(path, themePath)) {
-        m_theme.load(themePath);
+    if (const auto currentThemePath = m_theme.getPath(); samePath(target, toPath(currentThemePath))) {
+        m_theme.load(currentThemePath);
         return true;
     }
 
@@ -529,7 +703,7 @@ namespace {
 /// Returns empty when `glob` is empty. Falls back to `key` for the
 /// description when the locale entry is missing so translation gaps
 /// are visible in the dialog.
-auto composeFilter(const wxString& key, const wxString& desc, const wxString& glob) -> wxString {
+[[nodiscard]] auto composeFilter(const wxString& key, const wxString& desc, const wxString& glob) -> wxString {
     if (glob.IsEmpty()) {
         return {};
     }
@@ -567,53 +741,77 @@ auto ConfigManager::filePatterns(const std::initializer_list<std::string_view> k
 // Path handling
 // ---------------------------------------------------------------------------
 
+auto ConfigManager::getAppDir() const -> wxString {
+    return toWx(m_appDir);
+}
+
+auto ConfigManager::getIdeDir() const -> wxString {
+    return toWx(m_ideDir);
+}
+
 auto ConfigManager::absolute(const wxString& pathName) const -> wxString {
-    wxFileName path(pathName);
-    path.Normalize(wxPATH_NORM_ENV_VARS | wxPATH_NORM_DOTS | wxPATH_NORM_TILDE | wxPATH_NORM_SHORTCUT);
-
-    if (path.IsAbsolute()) {
-        return path.GetAbsolutePath();
-    }
-
-    wxFileName fn(path);
-
-    fn.MakeAbsolute(m_ideDir);
-    if (fn.Exists()) {
-        return fn.GetAbsolutePath();
-    }
-
-    fn = path;
-    fn.MakeAbsolute(m_appDir);
-    if (fn.Exists()) {
-        return fn.GetAbsolutePath();
-    }
-
-    fn = path;
-    fn.MakeAbsolute(wxGetCwd());
-    if (fn.Exists()) {
-        return fn.GetAbsolutePath();
-    }
-
-    wxLogError("Failed to resolve absolute path %s", pathName);
-    return pathName;
+    return toWx(absolutePath(toPath(pathName)));
 }
 
-static auto makeRelative(const wxString& path, const wxString& to) -> std::optional<wxString> {
-    if (to.StartsWith(path)) {
-        wxFileName result(to);
-        result.MakeRelativeTo(path);
-        return result.GetFullPath(wxPATH_UNIX);
+auto ConfigManager::absolutePath(const fs::path& rel) const -> fs::path {
+    if (rel.is_absolute()) {
+        return rel.lexically_normal();
     }
-    return {};
+
+    // Walk candidate bases: ide → app → cwd. Preserves the order the
+    // legacy wxFileName-based resolver used; user-themes-dir precedence
+    // is handled separately by `themePath()`. `lexically_normal`
+    // resolves `.` and `..` segments without touching the filesystem
+    // (so it doesn't canonicalise symlinks — matches prior behaviour
+    // and keeps user-visible paths in the form the user supplied).
+    std::error_code ec;
+    const std::array bases { m_ideDir, m_appDir, fs::current_path(ec) };
+    for (const auto& base : bases) {
+        if (base.empty()) {
+            continue;
+        }
+        const auto candidate = (base / rel).lexically_normal();
+        if (fs::exists(candidate, ec)) {
+            return candidate;
+        }
+    }
+
+    wxLogError("Failed to resolve absolute path %s", toWx(rel));
+    return rel;
 }
+
+namespace {
+/// Make `abs` relative to `base` iff `abs` is actually under `base`.
+/// Returns empty optional when `abs` is on a different subtree (so the
+/// caller can fall through to the next candidate base). Uses
+/// `lexically_relative` which doesn't touch the filesystem.
+[[nodiscard]] auto makeRelative(const fs::path& base, const fs::path& abs) -> std::optional<fs::path> {
+    if (base.empty()) {
+        return std::nullopt;
+    }
+    auto rel = abs.lexically_relative(base);
+    if (rel.empty() || *rel.begin() == "..") {
+        return std::nullopt;
+    }
+    return rel;
+}
+} // namespace
 
 auto ConfigManager::relative(const wxString& path) const -> wxString {
-    const auto abs = absolute(path);
-    if (const auto ide = makeRelative(m_ideDir, abs)) {
-        return *ide;
-    }
-    if (const auto app = makeRelative(m_appDir, abs)) {
-        return *app;
+    const auto abs = absolutePath(toPath(path));
+    // Candidate base dirs, in priority order:
+    // - m_ideDir       — bundle resources.
+    // - m_userDataDir  — writable equivalent of ide/. A path like
+    //                    `<userDataDir>/themes/dark.ini` must stringify
+    //                    the same as the bundle equivalent so
+    //                    themePath() round-trips correctly on the next
+    //                    load.
+    // - m_appDir       — binary directory; fallback for portable
+    //                    side-by-side layouts.
+    for (const auto* base : { &m_ideDir, &m_userDataDir, &m_appDir }) {
+        if (const auto rel = makeRelative(*base, abs)) {
+            return toWx(rel->generic_string());
+        }
     }
     return path;
 }

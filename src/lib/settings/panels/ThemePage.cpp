@@ -310,11 +310,20 @@ void ThemePage::onSaveTheme(wxCommandEvent&) {
     saveCategory();
 
     if (isUnsavedNewTheme()) {
+        // saveNewTheme writes the theme at `themesWriteDir() / name`
+        // already; no second save needed.
         saveNewTheme(false);
         updateTitle();
+    } else {
+        // Route existing-theme saves through `themesWriteDir()` —
+        // under READONLY this is `<UserDataDir>/themes/`, so edits to
+        // a bundled theme land in the user copy (which then shadows
+        // the bundle via the two-dir merge in `getAllThemes`). Same-
+        // name file in portable mode is a no-op redirect.
+        auto& cm = getContext().getConfigManager();
+        const wxString target = cm.themesWriteDir() / wxFileName(m_theme.getPath()).GetFullName();
+        m_theme.save(target);
     }
-
-    m_theme.save();
 
     const auto currentThemeName = getContext().getTheme().getPath();
     if (m_activeTheme == currentThemeName) {
@@ -339,7 +348,7 @@ void ThemePage::saveNewTheme(const bool setActive) {
         return;
     }
 
-    const wxFileName path(getContext().getConfigManager().getIdeDir() / "themes" / name + ".ini");
+    const wxFileName path(getContext().getConfigManager().themesWriteDir() / name + ".ini");
     if (not path.IsOk()) {
         wxMessageBox(wxString::Format(tr("invalidFilename"), path.GetFullPath()));
         return;
