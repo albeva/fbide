@@ -370,6 +370,28 @@ TEST_F(ConfigManagerTests, ThemePathPortableIgnoresUserDir) {
     EXPECT_EQ(wxFileName(resolved).GetPath(), tmp.path() + "/ide/themes");
 }
 
+TEST_F(ConfigManagerTests, ThemesWriteDirRoutesByReadOnly) {
+    // Portable → bundle themes dir; READONLY → user themes dir. This is
+    // the rule ThemePage::onSaveTheme uses to redirect save targets so
+    // edits to a bundle-shipped theme land in the user-writable copy.
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName, "\n");
+
+    // Portable
+    {
+        ConfigManager cm(tmp.path(), tmp.path() + "/ide", "");
+        EXPECT_EQ(cm.themesWriteDir(), tmp.path() + "/ide/themes");
+    }
+
+    // READONLY routes to user dir
+    tmp.write("ide/READONLY", "");
+    {
+        ConfigManager cm(tmp.path(), tmp.path() + "/ide", "", tmp.path() + "/userdata");
+        EXPECT_EQ(cm.themesWriteDir(), tmp.path() + "/userdata/themes");
+    }
+}
+
 TEST_F(ConfigManagerTests, ReloadConfigCascadesSubCategoriesToDirectMode) {
     // Default-boot start with overlay-mode keywords. After
     // `reloadConfig(PATH)` flips to explicit mode, mutating and saving

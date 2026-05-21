@@ -169,6 +169,10 @@ auto ConfigManager::getAllThemes() const -> std::vector<wxString> {
     return merged;
 }
 
+auto ConfigManager::themesWriteDir() const -> wxString {
+    return (m_readOnlyIde ? m_userDataDir : m_ideDir) / "themes";
+}
+
 auto ConfigManager::themePath(const wxString& relPath) const -> wxString {
     if (relPath.empty()) {
         return relPath;
