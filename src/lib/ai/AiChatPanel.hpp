@@ -55,6 +55,10 @@ private:
     /// Input box changed — grow / shrink it to fit.
     void onInputText(wxCommandEvent& event);
 
+    /// Input box keypress — plain Enter submits, Shift/Ctrl/Alt+Enter inserts
+    /// a newline. Anything else passes through to the text control.
+    void onInputKeyDown(wxKeyEvent& event);
+
     /// "+" button — pop the attach-context menu.
     void onAddContext(wxCommandEvent& event);
 

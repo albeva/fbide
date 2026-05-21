@@ -102,6 +102,7 @@ AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
     m_send->Bind(wxEVT_BUTTON, &AiChatPanel::onSend, this);
     m_addContext->Bind(wxEVT_BUTTON, &AiChatPanel::onAddContext, this);
     m_input->Bind(wxEVT_TEXT, &AiChatPanel::onInputText, this);
+    m_input->Bind(wxEVT_KEY_DOWN, &AiChatPanel::onInputKeyDown, this);
     Bind(EVT_CONTEXT_TAGS_CHANGED, &AiChatPanel::onTagsChanged, this);
     m_renderTimer.SetOwner(this);
     Bind(wxEVT_TIMER, &AiChatPanel::onRenderTimer, this);
@@ -171,6 +172,24 @@ void AiChatPanel::onRenderTimer(wxTimerEvent& /*event*/) {
 void AiChatPanel::onInputText(wxCommandEvent& event) {
     autoSizeInput();
     event.Skip();
+}
+
+void AiChatPanel::onInputKeyDown(wxKeyEvent& event) {
+    const int code = event.GetKeyCode();
+    const bool isReturn = code == WXK_RETURN || code == WXK_NUMPAD_ENTER;
+    if (!isReturn) {
+        event.Skip();
+        return;
+    }
+    // Shift/Ctrl/Alt + Enter inserts a newline — defer to the text control.
+    if (event.ShiftDown() || event.ControlDown() || event.AltDown() || event.MetaDown()) {
+        event.Skip();
+        return;
+    }
+    // Plain Enter submits. Don't skip — swallowing the event prevents the
+    // newline from being inserted into the input box.
+    wxCommandEvent submit;
+    onSend(submit);
 }
 
 void AiChatPanel::autoSizeInput() {
