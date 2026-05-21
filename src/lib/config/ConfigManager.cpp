@@ -48,22 +48,23 @@ auto hasReadOnlySentinel(const wxString& dir) -> bool {
 } // namespace
 
 namespace {
-/// True when `a` and `b` refer to the same filesystem entry. Follows
-/// symlinks on both sides via std::filesystem::equivalent, so editing a
-/// config file through a symlink still matches the loaded canonical path.
-auto samePath(const wxString& a, const wxString& b) -> bool {
-    if (a.empty() || b.empty()) {
+/// True when `lhs` and `rhs` refer to the same filesystem entry.
+/// Follows symlinks on both sides via std::filesystem::equivalent, so
+/// editing a config file through a symlink still matches the loaded
+/// canonical path.
+auto samePath(const wxString& lhs, const wxString& rhs) -> bool {
+    if (lhs.empty() || rhs.empty()) {
         return false;
     }
     std::error_code ec;
 #ifdef __WXMSW__
-    const std::filesystem::path fa(a.ToStdWstring());
-    const std::filesystem::path fb(b.ToStdWstring());
+    const std::filesystem::path lhsFs(lhs.ToStdWstring());
+    const std::filesystem::path rhsFs(rhs.ToStdWstring());
 #else
-    const std::filesystem::path fa(a.ToStdString(wxConvUTF8));
-    const std::filesystem::path fb(b.ToStdString(wxConvUTF8));
+    const std::filesystem::path lhsFs(lhs.ToStdString(wxConvUTF8));
+    const std::filesystem::path rhsFs(rhs.ToStdString(wxConvUTF8));
 #endif
-    return std::filesystem::equivalent(fa, fb, ec);
+    return std::filesystem::equivalent(lhsFs, rhsFs, ec);
 }
 } // namespace
 
@@ -119,7 +120,8 @@ void exportGroup(const Value& node, const wxString& path, wxFileConfig& cfg) {
 // Get info
 // ---------------------------------------------------------------------------
 
-static auto enumerate(const wxString& base, const std::initializer_list<wxString> specs = { "*.ini" }) -> std::vector<wxString> {
+namespace {
+auto enumerate(const wxString& base, const std::initializer_list<wxString> specs = { "*.ini" }) -> std::vector<wxString> {
     std::vector<wxString> files;
     for (const auto& spec : specs) {
         if (const wxDir dir(base); dir.IsOpened()) {
@@ -136,6 +138,7 @@ static auto enumerate(const wxString& base, const std::initializer_list<wxString
     std::ranges::sort(files);
     return files;
 }
+} // namespace
 
 auto ConfigManager::getAllLanguages() const -> std::vector<wxString> {
     return enumerate(m_ideDir / "locales");
@@ -714,7 +717,8 @@ auto ConfigManager::absolute(const wxString& pathName) const -> wxString {
     return pathName;
 }
 
-static auto makeRelative(const wxString& path, const wxString& to) -> std::optional<wxString> {
+namespace {
+auto makeRelative(const wxString& path, const wxString& to) -> std::optional<wxString> {
     if (to.StartsWith(path)) {
         wxFileName result(to);
         result.MakeRelativeTo(path);
@@ -722,6 +726,7 @@ static auto makeRelative(const wxString& path, const wxString& to) -> std::optio
     }
     return {};
 }
+} // namespace
 
 auto ConfigManager::relative(const wxString& path) const -> wxString {
     const auto abs = absolute(path);
