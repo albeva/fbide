@@ -73,8 +73,17 @@ public:
     /// Get paths of every language file under resources/IDE/v2/locales.
     [[nodiscard]] auto getAllLanguages() const -> std::vector<wxString>;
 
-    /// Get paths of every theme file under resources/IDE/v2/themes.
+    /// Get paths of every theme file under `ide/themes/`. Under READONLY,
+    /// also enumerates `<UserDataDir>/themes/`; user entries shadow
+    /// bundle entries on basename collision. Sorted by basename.
     [[nodiscard]] auto getAllThemes() const -> std::vector<wxString>;
+
+    /// Resolve a theme path (relative or absolute) honouring the
+    /// READONLY two-dir model: when the sentinel is present, a file at
+    /// `<UserDataDir>/<relPath>` takes precedence over the bundle copy.
+    /// Falls back to `absolute()` (ide → app → cwd) when no user
+    /// override exists. Absolute paths are returned as-is.
+    [[nodiscard]] auto themePath(const wxString& relPath) const -> wxString;
 
     /// Platform default config file name.
     [[nodiscard]] static auto getPlatformConfigFileName() -> wxString;

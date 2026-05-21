@@ -142,7 +142,50 @@ auto ConfigManager::getAllLanguages() const -> std::vector<wxString> {
 }
 
 auto ConfigManager::getAllThemes() const -> std::vector<wxString> {
-    return enumerate(m_ideDir / "themes", { "*.ini", "*.fbt" });
+    auto bundle = enumerate(m_ideDir / "themes", { "*.ini", "*.fbt" });
+    if (!m_readOnlyIde) {
+        return bundle;
+    }
+    auto user = enumerate(m_userDataDir / "themes", { "*.ini", "*.fbt" });
+
+    // Two-dir merge — user entries shadow bundle entries on basename
+    // collision. `std::unordered_map` because the pch ships unordered
+    // but not ordered map; sort by basename in a separate pass.
+    std::unordered_map<wxString, wxString> byName;
+    for (auto& path : bundle) {
+        byName[wxFileName(path).GetFullName()] = std::move(path);
+    }
+    for (auto& path : user) {
+        byName[wxFileName(path).GetFullName()] = std::move(path);
+    }
+    std::vector<wxString> merged;
+    merged.reserve(byName.size());
+    for (auto& value : std::views::values(byName)) {
+        merged.push_back(std::move(value));
+    }
+    std::ranges::sort(merged, [](const wxString& a, const wxString& b) {
+        return wxFileName(a).GetFullName() < wxFileName(b).GetFullName();
+    });
+    return merged;
+}
+
+auto ConfigManager::themePath(const wxString& relPath) const -> wxString {
+    if (relPath.empty()) {
+        return relPath;
+    }
+    if (wxFileName fn { relPath }; fn.IsAbsolute()) {
+        return fn.GetAbsolutePath();
+    }
+    // READONLY: user override at `<UserDataDir>/<relPath>` wins. Probed
+    // before the generic `absolute()` walk so a same-named bundle theme
+    // never shadows the user's edit.
+    if (m_readOnlyIde) {
+        const wxString candidate = m_userDataDir + wxFILE_SEP_PATH + relPath;
+        if (wxFileExists(candidate)) {
+            return wxFileName(candidate).GetAbsolutePath();
+        }
+    }
+    return absolute(relPath);
 }
 
 auto ConfigManager::getPlatformConfigFileName() -> wxString {
@@ -294,7 +337,7 @@ ConfigManager::ConfigManager(
     // configured theme file is missing or absent, fall back to a built-in
     // minimal theme so the editor still launches with a usable scheme.
     if (const auto themeRel = config().get_or("theme", wxString {}); not themeRel.empty()) {
-        const auto themeAbs = absolute(themeRel);
+        const auto themeAbs = themePath(themeRel);
         if (wxFileExists(themeAbs)) {
             m_theme.load(themeAbs);
             wxLogMessage("Loaded theme from %s", themeAbs);
@@ -339,7 +382,7 @@ void ConfigManager::reloadConfig(const wxString& configPath) {
     }
 
     if (const auto themeRel = config().get_or("theme", wxString {}); not themeRel.empty()) {
-        const auto themeAbs = absolute(themeRel);
+        const auto themeAbs = themePath(themeRel);
         if (wxFileExists(themeAbs)) {
             m_theme.load(themeAbs);
         } else {
@@ -557,7 +600,7 @@ auto ConfigManager::reloadIfKnown(const wxString& path) -> bool {
                     load(m_categories[sub].category);
                 }
                 if (const auto themeRel = config().get_or("theme", ""); not themeRel.empty()) {
-                    m_theme.load(absolute(themeRel));
+                    m_theme.load(themePath(themeRel));
                 }
             }
             return true;

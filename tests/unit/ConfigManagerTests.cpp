@@ -267,6 +267,109 @@ TEST_F(ConfigManagerTests, ReadOnlyLoadsOverlayFromUserDataDir) {
     EXPECT_EQ(cm.config().get_or("editor.tabSize", wxString { "<missing>" }), "12");
 }
 
+// ---------------------------------------------------------------------------
+// Theme two-dir enumeration + path resolution (READONLY only)
+// ---------------------------------------------------------------------------
+
+TEST_F(ConfigManagerTests, GetAllThemesPortableEnumeratesBundleOnly) {
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName, "\n");
+    tmp.write("ide/themes/dark.ini", "[Default]\n");
+    tmp.write("ide/themes/light.ini", "[Default]\n");
+    // userdata exists but no READONLY — its themes/ must not contribute.
+    wxFileName::Mkdir(tmp.path() + "/userdata/themes", 0755, wxPATH_MKDIR_FULL);
+    tmp.write("userdata/themes/ignored.ini", "[Default]\n");
+
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "", tmp.path() + "/userdata");
+
+    const auto themes = cm.getAllThemes();
+    ASSERT_EQ(themes.size(), 2);
+    EXPECT_EQ(wxFileName(themes[0]).GetFullName(), "dark.ini");
+    EXPECT_EQ(wxFileName(themes[1]).GetFullName(), "light.ini");
+}
+
+TEST_F(ConfigManagerTests, GetAllThemesReadOnlyMergesBundleAndUserDirs) {
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName, "\n");
+    tmp.write("ide/READONLY", "");
+    tmp.write("ide/themes/dark.ini", "[Default]\n");
+    tmp.write("ide/themes/light.ini", "[Default]\n");
+
+    wxFileName::Mkdir(tmp.path() + "/userdata/themes", 0755, wxPATH_MKDIR_FULL);
+    tmp.write("userdata/themes/solarized.ini", "[Default]\n");
+
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "", tmp.path() + "/userdata");
+
+    const auto themes = cm.getAllThemes();
+    ASSERT_EQ(themes.size(), 3);
+    // Sorted by basename across both dirs.
+    EXPECT_EQ(wxFileName(themes[0]).GetFullName(), "dark.ini");
+    EXPECT_EQ(wxFileName(themes[1]).GetFullName(), "light.ini");
+    EXPECT_EQ(wxFileName(themes[2]).GetFullName(), "solarized.ini");
+}
+
+TEST_F(ConfigManagerTests, GetAllThemesUserDirWinsOnBasenameCollision) {
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName, "\n");
+    tmp.write("ide/READONLY", "");
+    tmp.write("ide/themes/dark.ini", "[Default]\n");
+    wxFileName::Mkdir(tmp.path() + "/userdata/themes", 0755, wxPATH_MKDIR_FULL);
+    tmp.write("userdata/themes/dark.ini", "[Default]\n");
+
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "", tmp.path() + "/userdata");
+
+    const auto themes = cm.getAllThemes();
+    ASSERT_EQ(themes.size(), 1);
+    EXPECT_EQ(wxFileName(themes[0]).GetPath(), tmp.path() + "/userdata/themes");
+}
+
+TEST_F(ConfigManagerTests, ThemePathReadOnlyPrefersUserOverride) {
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName, "\n");
+    tmp.write("ide/READONLY", "");
+    tmp.write("ide/themes/dark.ini", "[Default]\n");
+    wxFileName::Mkdir(tmp.path() + "/userdata/themes", 0755, wxPATH_MKDIR_FULL);
+    tmp.write("userdata/themes/dark.ini", "[Default]\n");
+
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "", tmp.path() + "/userdata");
+
+    const auto resolved = cm.themePath("themes/dark.ini");
+    EXPECT_EQ(wxFileName(resolved).GetPath(), tmp.path() + "/userdata/themes");
+}
+
+TEST_F(ConfigManagerTests, ThemePathReadOnlyFallsBackToBundleWhenUserMissing) {
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName, "\n");
+    tmp.write("ide/READONLY", "");
+    tmp.write("ide/themes/dark.ini", "[Default]\n");
+    wxFileName::Mkdir(tmp.path() + "/userdata/themes", 0755, wxPATH_MKDIR_FULL);
+
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "", tmp.path() + "/userdata");
+
+    const auto resolved = cm.themePath("themes/dark.ini");
+    EXPECT_EQ(wxFileName(resolved).GetPath(), tmp.path() + "/ide/themes");
+}
+
+TEST_F(ConfigManagerTests, ThemePathPortableIgnoresUserDir) {
+    TempDir tmp;
+    const auto cfgName = ConfigManager::getPlatformConfigFileName();
+    tmp.write("ide/" + cfgName, "\n");
+    tmp.write("ide/themes/dark.ini", "[Default]\n");
+    wxFileName::Mkdir(tmp.path() + "/userdata/themes", 0755, wxPATH_MKDIR_FULL);
+    tmp.write("userdata/themes/dark.ini", "[Default]\n");
+
+    // No READONLY sentinel → user dir is ignored even though it exists.
+    ConfigManager cm(tmp.path(), tmp.path() + "/ide", "", tmp.path() + "/userdata");
+
+    const auto resolved = cm.themePath("themes/dark.ini");
+    EXPECT_EQ(wxFileName(resolved).GetPath(), tmp.path() + "/ide/themes");
+}
+
 TEST_F(ConfigManagerTests, ReloadConfigCascadesSubCategoriesToDirectMode) {
     // Default-boot start with overlay-mode keywords. After
     // `reloadConfig(PATH)` flips to explicit mode, mutating and saving
