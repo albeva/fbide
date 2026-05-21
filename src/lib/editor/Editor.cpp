@@ -723,7 +723,7 @@ void Editor::uncommentSelection() {
 void Editor::onUpdateUI(wxStyledTextEvent& event) {
     event.Skip();
 
-    if (m_editorLocked) {
+    if (m_docType != DocumentType::FreeBASIC || m_editorLocked) {
         return;
     }
 
@@ -760,12 +760,13 @@ void Editor::postUpdateUI() {
 }
 
 void Editor::onCharAdded(wxStyledTextEvent& event) {
-    if (not m_editorLocked && m_transformer != nullptr) {
-        m_editorLocked = true;
-        m_transformer->onCharAdded(*this, event.GetKey());
-        m_editorLocked = false;
-        m_insertHandled = true;
+    if (m_docType != DocumentType::FreeBASIC || m_editorLocked || m_transformer == nullptr) {
+        return;
     }
+    m_editorLocked = true;
+    m_transformer->onCharAdded(*this, event.GetKey());
+    m_editorLocked = false;
+    m_insertHandled = true;
 }
 
 void Editor::onZoom(wxStyledTextEvent& /*event*/) {
@@ -880,13 +881,10 @@ void Editor::setIncludeHotspots(const bool active) {
 }
 
 void Editor::onHotSpotClick(wxStyledTextEvent& event) {
-    if (m_docType != DocumentType::FreeBASIC) {
+    if (m_docType != DocumentType::FreeBASIC || m_documentManager == nullptr) {
         return;
     }
 
-    if (m_documentManager == nullptr) {
-        return;
-    }
     auto& docMgr = *m_documentManager;
     const auto* doc = docMgr.findByEditor(this);
     if (doc == nullptr) {
@@ -919,6 +917,10 @@ void Editor::onMarginClick(wxStyledTextEvent& event) {
 
 void Editor::onModified(wxStyledTextEvent& event) {
     event.Skip();
+
+    if (m_docType != DocumentType::FreeBASIC) {
+        return;
+    }
     const auto mod = event.GetModificationType();
     if ((mod & (wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT | wxSTC_PERFORMED_UNDO | wxSTC_PERFORMED_REDO)) == 0) {
         return;
