@@ -42,7 +42,7 @@ constexpr auto kReadOnlySentinel = "READONLY";
 
 /// True when the IDE resources directory carries the read-only sentinel.
 auto hasReadOnlySentinel(const wxString& dir) -> bool {
-    wxFileName marker(dir, kReadOnlySentinel);
+    const wxFileName marker(dir, kReadOnlySentinel);
     return marker.FileExists();
 }
 } // namespace
@@ -126,12 +126,12 @@ auto enumerate(const wxString& base, const std::initializer_list<wxString> specs
     for (const auto& spec : specs) {
         if (const wxDir dir(base); dir.IsOpened()) {
             wxString name;
-            if (dir.GetFirst(&name, spec, wxDIR_FILES)) {
-                do {
-                    wxFileName path { name };
-                    path.MakeAbsolute(base);
-                    files.emplace_back(path.GetFullPath());
-                } while (dir.GetNext(&name));
+            bool more = dir.GetFirst(&name, spec, wxDIR_FILES);
+            while (more) {
+                wxFileName path { name };
+                path.MakeAbsolute(base);
+                files.emplace_back(path.GetFullPath());
+                more = dir.GetNext(&name);
             }
         }
     }
@@ -166,8 +166,8 @@ auto ConfigManager::getAllThemes() const -> std::vector<wxString> {
     for (auto& value : std::views::values(byName)) {
         merged.push_back(std::move(value));
     }
-    std::ranges::sort(merged, [](const wxString& a, const wxString& b) {
-        return wxFileName(a).GetFullName() < wxFileName(b).GetFullName();
+    std::ranges::sort(merged, [](const wxString& lhs, const wxString& rhs) {
+        return wxFileName(lhs).GetFullName() < wxFileName(rhs).GetFullName();
     });
     return merged;
 }
@@ -182,7 +182,7 @@ auto ConfigManager::themePath(const wxString& relPath) const -> wxString {
     if (relPath.empty()) {
         return relPath;
     }
-    if (wxFileName fn { relPath }; fn.IsAbsolute()) {
+    if (const wxFileName fn { relPath }; fn.IsAbsolute()) {
         return fn.GetAbsolutePath();
     }
     // READONLY: user override at `<UserDataDir>/<relPath>` wins. Probed
@@ -200,7 +200,7 @@ auto ConfigManager::themePath(const wxString& relPath) const -> wxString {
 auto ConfigManager::getPlatformConfigFileName() -> wxString {
 #ifdef __WXMSW__
     return "config_win.ini";
-#elif defined(__WXOSX__)
+#elifdef __WXOSX__
     return "config_macos.ini";
 #else
     return "config_linux.ini";
@@ -210,7 +210,7 @@ auto ConfigManager::getPlatformConfigFileName() -> wxString {
 auto ConfigManager::getTerminal() -> wxString {
 #ifdef __WXMSW__
     return "cmd.exe";
-#elif defined(__WXOSX__)
+#elifdef __WXOSX__
     return "open -a Terminal";
 #else
     return "x-terminal-emulator";
@@ -229,7 +229,7 @@ auto ConfigManager::getDefaultTerminalLauncher() -> wxString {
     // Keeping cmd in the foreground (no `start`) means kill / Stop
     // cascades through cmd's process group to the child program.
     return "cmd /C";
-#elif defined(__WXOSX__)
+#elifdef __WXOSX__
     // TODO: Terminal.app does not accept the program as a CLI argument;
     // launching requires AppleScript via `osascript` or a temp `.command`
     // script. Cannot be expressed as a single-line template prefix.
@@ -286,7 +286,7 @@ ConfigManager::ConfigManager(
             // Not in a bundle (e.g., running from build dir)
             m_ideDir = m_appDir / "ide";
         }
-#elif defined(FBIDE_APPIMAGE_BUILD)
+#elifdef FBIDE_APPIMAGE_BUILD
         // FHS layout used by AppImage / future deb / rpm packages: the
         // binary lives at <prefix>/bin/fbide and resources at
         // <prefix>/share/fbide/ide. Walk one directory up from the
@@ -329,7 +329,7 @@ ConfigManager::ConfigManager(
         wxLogMessage("READONLY sentinel detected in '%s' — overlays route to '%s'", m_ideDir, m_userDataDir);
     }
 
-    auto& entry = m_categories[static_cast<std::size_t>(Category::Config)];
+    auto& entry = m_categories.at(static_cast<std::size_t>(Category::Config));
     entry.strategy = buildStrategy(
         Category::Config,
         absolute(configPath.empty() ? getPlatformConfigFileName() : configPath)
@@ -378,7 +378,7 @@ void ConfigManager::reloadConfig(const wxString& configPath) {
     // `Direct`. Sub-categories already loaded under prior mode are
     // unaffected here; full sub-category rebind is task #13 territory.
     m_explicitConfig = true;
-    auto& entry = m_categories[static_cast<std::size_t>(Category::Config)];
+    auto& entry = m_categories.at(static_cast<std::size_t>(Category::Config));
     entry.strategy = buildStrategy(Category::Config, absolute(configPath));
     load(Category::Config);
 
@@ -407,7 +407,7 @@ void ConfigManager::reloadConfig(const wxString& configPath) {
 // Strategy
 // ---------------------------------------------------------------------------
 
-auto ConfigManager::buildStrategy(const Category category, wxString basePath) const -> ConfigStrategy {
+auto ConfigManager::buildStrategy(const Category category, const wxString& basePath) const -> ConfigStrategy {
     // Locale is the only bundle-only mutable slot (custom locales come
     // from a user-set `locale=<path>` in the config overlay, not from an
     // overlay of the locale file itself). Everything else is overlay-
@@ -421,7 +421,9 @@ auto ConfigManager::buildStrategy(const Category category, wxString basePath) co
 // ---------------------------------------------------------------------------
 
 void ConfigManager::load(const Category category) {
-    auto& entry = m_categories[static_cast<std::size_t>(category)];
+    auto& entry = m_categories.at(static_cast<std::size_t>(category));
+    const auto catView = getCategoryName(category);
+    const wxString catName { catView.data(), catView.size() };
     wxString file;
 
     if (category == Category::Config) {
@@ -431,11 +433,10 @@ void ConfigManager::load(const Category category) {
         // path resolution.
         file = entry.strategy.basePath();
     } else {
-        const auto key = getCategoryName(category);
-        const auto& ref = config().at({ key.data(), key.size() });
+        const auto& ref = config().at(catName);
         const auto relPath = ref.as<wxString>();
         if (!relPath.has_value() || relPath->empty()) {
-            wxLogError("Config category '%s' missing or invalid", key.data());
+            wxLogError("Config category '%s' missing or invalid", catName);
             return;
         }
         file = absolute(*relPath);
@@ -447,10 +448,9 @@ void ConfigManager::load(const Category category) {
         // load-bearing for the rest of the IDE, so a miss is fatal —
         // every other path falls back to a workable empty / default
         // state and lets the app keep going.
-        const auto catName = getCategoryName(category);
         wxLogError(
             "Config file '%s' for '%s' category not found",
-            file, catName.data()
+            file, catName
         );
         switch (category) {
         case Category::Config:
@@ -527,7 +527,7 @@ void ConfigManager::load(const Category category) {
             root.mergeFrom(overlay);
             wxLogMessage(
                 "Merged overlay %s into %s",
-                entry.strategy.overlayPath(), getCategoryName(category).data()
+                entry.strategy.overlayPath(), catName
             );
         } else {
             wxLogWarning("Overlay '%s' exists but could not be read", entry.strategy.overlayPath());
@@ -537,7 +537,7 @@ void ConfigManager::load(const Category category) {
     entry.category = category;
     entry.baseline = std::move(baseline);
     entry.root = std::move(root);
-    wxLogMessage("Loaded %s from %s", getCategoryName(category).data(), file);
+    wxLogMessage("Loaded %s from %s", catName, file);
 }
 
 void ConfigManager::save(const Category category) {
@@ -551,9 +551,11 @@ void ConfigManager::save(const Category category) {
         return;
     }
 
-    const auto& entry = m_categories[static_cast<std::size_t>(category)];
+    const auto& entry = m_categories.at(static_cast<std::size_t>(category));
     if (entry.category != category) {
-        wxLogWarning("Trying to save unloaded category '%s'", getCategoryName(category).data());
+        const auto catView = getCategoryName(category);
+        const wxString catName { catView.data(), catView.size() };
+        wxLogWarning("Trying to save unloaded category '%s'", catName);
         return;
     }
 
@@ -607,7 +609,7 @@ void ConfigManager::save(const Category category) {
 
 auto ConfigManager::reloadIfKnown(const wxString& path) -> bool {
     for (std::size_t index = 0; index < CAT_COUNT; index++) {
-        const auto& entry = m_categories[index];
+        const auto& entry = m_categories.at(index);
         // Trigger reload when the user touches either side of the
         // layered pair — the bundle base (rare; usually requires elevated
         // perms inside a bundle) or the writable overlay.
@@ -619,7 +621,7 @@ auto ConfigManager::reloadIfKnown(const wxString& path) -> bool {
             // if this was config, then reload all other files as well.
             if (entry.category == Category::Config) {
                 for (std::size_t sub = 1; sub < CAT_COUNT; sub++) {
-                    load(m_categories[sub].category);
+                    load(m_categories.at(sub).category);
                 }
                 if (const auto themeRel = config().get_or("theme", ""); not themeRel.empty()) {
                     m_theme.load(themePath(themeRel));

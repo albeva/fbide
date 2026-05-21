@@ -206,7 +206,7 @@ private:
     /// Uses `m_userDataDir`, `m_readOnlyIde`, `m_explicitConfig` so callers
     /// (ctor + `load()` for sub-categories + `reloadConfig` / `setCategoryPath`)
     /// share the same rules.
-    [[nodiscard]] auto buildStrategy(Category category, wxString basePath) const -> ConfigStrategy;
+    [[nodiscard]] auto buildStrategy(Category category, const wxString& basePath) const -> ConfigStrategy;
 
     /// Per-category bookkeeping: storage policy + parsed trees.
     struct Entry final {
