@@ -11,6 +11,9 @@
 namespace fs = std::filesystem;
 using namespace fbide;
 
+// gtest fixtures are referenced by TEST_F macro expansion and
+// idiomatically stay at file scope.
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 class ConfigStrategyTests : public testing::Test {};
 
 // ---------------------------------------------------------------------------
@@ -46,7 +49,9 @@ TEST_F(ConfigStrategyTests, DirectExposesAllAccessors) {
 
 TEST_F(ConfigStrategyTests, IsCopyable) {
     const auto original = ConfigStrategy::overlay("/a", "/b");
-    const auto copy = original;
+    // Force a real copy rather than relying on copy-elision so the
+    // test actually exercises the copy constructor.
+    auto copy = original; // NOLINT(performance-unnecessary-copy-initialization)
     EXPECT_EQ(copy.basePath(), fs::path { "/a" });
     EXPECT_EQ(copy.overlayPath(), fs::path { "/b" });
     EXPECT_TRUE(copy.usesOverlay());

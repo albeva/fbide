@@ -9,6 +9,9 @@
 
 using namespace fbide;
 
+// gtest fixtures are referenced by TEST_F macro expansion and
+// idiomatically stay at file scope.
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 class ValueDiffTests : public testing::Test {};
 
 // ---------------------------------------------------------------------------

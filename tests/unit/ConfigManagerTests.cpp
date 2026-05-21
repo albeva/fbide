@@ -24,7 +24,7 @@ public:
     TempDir() {
         const auto base = wxFileName::CreateTempFileName("fbide_cfg_test");
         wxRemoveFile(base);
-        wxFileName::Mkdir(base, 0755, wxPATH_MKDIR_FULL);
+        wxFileName::Mkdir(base, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
         m_path = base;
     }
     ~TempDir() {
@@ -33,16 +33,16 @@ public:
         }
     }
     TempDir(const TempDir&) = delete;
-    TempDir& operator=(const TempDir&) = delete;
+    auto operator=(const TempDir&) -> TempDir& = delete;
     TempDir(TempDir&&) = delete;
-    TempDir& operator=(TempDir&&) = delete;
+    auto operator=(TempDir&&) -> TempDir& = delete;
 
     [[nodiscard]] auto path() const -> const wxString& { return m_path; }
 
     void write(const wxString& relPath, const wxString& contents) const {
         const wxString full = m_path + "/" + relPath;
-        wxFileName fn(full);
-        wxFileName::Mkdir(fn.GetPath(), 0755, wxPATH_MKDIR_FULL);
+        const wxFileName fn(full);
+        wxFileName::Mkdir(fn.GetPath(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
         wxFFile out(full, "w");
         out.Write(contents);
     }
@@ -73,6 +73,9 @@ auto overlayBasename() -> wxString {
 }
 } // namespace
 
+// gtest fixtures are referenced by TEST_F macro expansion and
+// idiomatically stay at file scope.
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 class ConfigManagerTests : public testing::Test {};
 
 // ---------------------------------------------------------------------------
@@ -91,12 +94,12 @@ TEST_F(ConfigManagerTests, MissingNonFatalCategoriesLoadEmpty) {
         const char* configLine;
         const char* lookupKey;
     };
-    const Case cases[] = {
-        { ConfigManager::Category::Keywords, "keywords=does_not_exist.ini\n", "groups.Keywords" },
-        { ConfigManager::Category::Shortcuts, "shortcuts=does_not_exist.ini\n", "file.open" },
-    };
+    const std::array<Case, 2> cases = { {
+        { .cat = ConfigManager::Category::Keywords, .configLine = "keywords=does_not_exist.ini\n", .lookupKey = "groups.Keywords" },
+        { .cat = ConfigManager::Category::Shortcuts, .configLine = "shortcuts=does_not_exist.ini\n", .lookupKey = "file.open" },
+    } };
     for (const auto& tc : cases) {
-        TempDir tmp;
+        const TempDir tmp;
         tmp.write("config.ini", wxString::Format("version=0.5.0\n%s", tc.configLine));
 
         ConfigManager cm(tmp.path(), tmp.path(), "config.ini");
@@ -114,7 +117,7 @@ TEST_F(ConfigManagerTests, MissingNonFatalCategoriesLoadEmpty) {
 // ---------------------------------------------------------------------------
 
 TEST_F(ConfigManagerTests, MissingThemeFileTriggersDefaults) {
-    TempDir tmp;
+    const TempDir tmp;
     tmp.write("config.ini",
         "version=0.5.0\n"
         "theme=themes/does_not_exist.ini\n");
@@ -126,7 +129,7 @@ TEST_F(ConfigManagerTests, MissingThemeFileTriggersDefaults) {
 }
 
 TEST_F(ConfigManagerTests, MissingThemeEntryTriggersDefaults) {
-    TempDir tmp;
+    const TempDir tmp;
     // No `theme=` key at all — fallback kicks in just the same.
     tmp.write("config.ini", "version=0.5.0\n");
 
@@ -146,7 +149,7 @@ TEST_F(ConfigManagerTests, MissingThemeEntryTriggersDefaults) {
 // ---------------------------------------------------------------------------
 
 TEST_F(ConfigManagerTests, DefaultBootPortableNoOverlayLoadsBundleAsIs) {
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp,
         "[editor]\n"
         "tabSize=4\n"
@@ -159,7 +162,7 @@ TEST_F(ConfigManagerTests, DefaultBootPortableNoOverlayLoadsBundleAsIs) {
 }
 
 TEST_F(ConfigManagerTests, DefaultBootOverlayMergesIntoConfigRoot) {
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp,
         "[editor]\n"
         "tabSize=4\n"
@@ -175,7 +178,7 @@ TEST_F(ConfigManagerTests, DefaultBootOverlayMergesIntoConfigRoot) {
 }
 
 TEST_F(ConfigManagerTests, SaveMatchingBaselineProducesNoOverlayFile) {
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp,
         "[editor]\n"
         "tabSize=4\n");
@@ -190,7 +193,7 @@ TEST_F(ConfigManagerTests, SaveMatchingBaselineProducesNoOverlayFile) {
 }
 
 TEST_F(ConfigManagerTests, SaveDivergentValueWritesPrunedOverlay) {
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp,
         "[editor]\n"
         "tabSize=4\n"
@@ -205,7 +208,7 @@ TEST_F(ConfigManagerTests, SaveDivergentValueWritesPrunedOverlay) {
 
     // Parse the produced overlay and confirm it carries only the divergence.
     wxFFileInputStream in(overlayPath);
-    wxFileConfig produced(in, wxConvUTF8);
+    const wxFileConfig produced(in, wxConvUTF8);
     wxString value;
     EXPECT_TRUE(produced.Read("editor/tabSize", &value));
     EXPECT_EQ(value, "8");
@@ -213,7 +216,7 @@ TEST_F(ConfigManagerTests, SaveDivergentValueWritesPrunedOverlay) {
 }
 
 TEST_F(ConfigManagerTests, SaveResetToBaselineDeletesExistingOverlay) {
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp,
         "[editor]\n"
         "tabSize=4\n");
@@ -232,7 +235,7 @@ TEST_F(ConfigManagerTests, SaveResetToBaselineDeletesExistingOverlay) {
 }
 
 TEST_F(ConfigManagerTests, ReadOnlyRoutesOverlayToUserDataDir) {
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp,
         "[editor]\n"
         "tabSize=4\n",
@@ -250,7 +253,7 @@ TEST_F(ConfigManagerTests, ReadOnlyLoadsOverlayFromUserDataDir) {
     // Round-trip: write an overlay into the user dir, construct
     // ConfigManager pointing at the same dir, confirm the overlay is
     // picked up during load (not the absent bundle-adjacent one).
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp,
         "[editor]\n"
         "tabSize=4\n",
@@ -268,58 +271,58 @@ TEST_F(ConfigManagerTests, ReadOnlyLoadsOverlayFromUserDataDir) {
 // ---------------------------------------------------------------------------
 
 TEST_F(ConfigManagerTests, GetAllThemesPortableEnumeratesBundleOnly) {
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp);
     tmp.write("ide/themes/dark.ini", "[Default]\n");
     tmp.write("ide/themes/light.ini", "[Default]\n");
     // userdata exists but no READONLY — its themes/ must not contribute.
     tmp.write("userdata/themes/ignored.ini", "[Default]\n");
 
-    ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
+    const ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
 
     const auto themes = cm.getAllThemes();
     ASSERT_EQ(themes.size(), 2);
-    EXPECT_EQ(wxFileName(themes[0]).GetFullName(), "dark.ini");
-    EXPECT_EQ(wxFileName(themes[1]).GetFullName(), "light.ini");
+    EXPECT_EQ(wxFileName(themes.at(0)).GetFullName(), "dark.ini");
+    EXPECT_EQ(wxFileName(themes.at(1)).GetFullName(), "light.ini");
 }
 
 TEST_F(ConfigManagerTests, GetAllThemesReadOnlyMergesBundleAndUserDirs) {
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp, "\n", /*readOnly=*/true);
     tmp.write("ide/themes/dark.ini", "[Default]\n");
     tmp.write("ide/themes/light.ini", "[Default]\n");
     tmp.write("userdata/themes/solarized.ini", "[Default]\n");
 
-    ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
+    const ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
 
     const auto themes = cm.getAllThemes();
     ASSERT_EQ(themes.size(), 3);
     // Sorted by basename across both dirs.
-    EXPECT_EQ(wxFileName(themes[0]).GetFullName(), "dark.ini");
-    EXPECT_EQ(wxFileName(themes[1]).GetFullName(), "light.ini");
-    EXPECT_EQ(wxFileName(themes[2]).GetFullName(), "solarized.ini");
+    EXPECT_EQ(wxFileName(themes.at(0)).GetFullName(), "dark.ini");
+    EXPECT_EQ(wxFileName(themes.at(1)).GetFullName(), "light.ini");
+    EXPECT_EQ(wxFileName(themes.at(2)).GetFullName(), "solarized.ini");
 }
 
 TEST_F(ConfigManagerTests, GetAllThemesUserDirWinsOnBasenameCollision) {
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp, "\n", /*readOnly=*/true);
     tmp.write("ide/themes/dark.ini", "[Default]\n");
     tmp.write("userdata/themes/dark.ini", "[Default]\n");
 
-    ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
+    const ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
 
     const auto themes = cm.getAllThemes();
     ASSERT_EQ(themes.size(), 1);
-    EXPECT_EQ(wxFileName(themes[0]).GetPath(), tmp.path() + "/userdata/themes");
+    EXPECT_EQ(wxFileName(themes.at(0)).GetPath(), tmp.path() + "/userdata/themes");
 }
 
 TEST_F(ConfigManagerTests, ThemePathReadOnlyPrefersUserOverride) {
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp, "\n", /*readOnly=*/true);
     tmp.write("ide/themes/dark.ini", "[Default]\n");
     tmp.write("userdata/themes/dark.ini", "[Default]\n");
 
-    ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
+    const ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
 
     EXPECT_EQ(
         wxFileName(cm.themePath("themes/dark.ini")).GetPath(),
@@ -328,11 +331,11 @@ TEST_F(ConfigManagerTests, ThemePathReadOnlyPrefersUserOverride) {
 }
 
 TEST_F(ConfigManagerTests, ThemePathReadOnlyFallsBackToBundleWhenUserMissing) {
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp, "\n", /*readOnly=*/true);
     tmp.write("ide/themes/dark.ini", "[Default]\n");
 
-    ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
+    const ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
 
     EXPECT_EQ(
         wxFileName(cm.themePath("themes/dark.ini")).GetPath(),
@@ -341,13 +344,13 @@ TEST_F(ConfigManagerTests, ThemePathReadOnlyFallsBackToBundleWhenUserMissing) {
 }
 
 TEST_F(ConfigManagerTests, ThemePathPortableIgnoresUserDir) {
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp);
     tmp.write("ide/themes/dark.ini", "[Default]\n");
     tmp.write("userdata/themes/dark.ini", "[Default]\n");
 
     // No READONLY sentinel → user dir is ignored even though it exists.
-    ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
+    const ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
 
     EXPECT_EQ(
         wxFileName(cm.themePath("themes/dark.ini")).GetPath(),
@@ -362,7 +365,7 @@ TEST_F(ConfigManagerTests, SaveLocaleIsRefusedAndLeavesBundleFileUntouched) {
     // the bundle dir is writable). Asserts both branches: in-memory
     // mutation does not reach disk, and the on-disk file is byte-for-
     // byte unchanged.
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp, "locale=locales/en.ini\n");
     tmp.write("ide/locales/en.ini",
         "[strings]\n"
@@ -377,7 +380,7 @@ TEST_F(ConfigManagerTests, SaveLocaleIsRefusedAndLeavesBundleFileUntouched) {
     cm.save(ConfigManager::Category::Locale);
 
     wxFFileInputStream roundTripStream(ideDir + "/locales/en.ini");
-    wxFileConfig roundTrip(roundTripStream, wxConvUTF8);
+    const wxFileConfig roundTrip(roundTripStream, wxConvUTF8);
     wxString value;
     ASSERT_TRUE(roundTrip.Read("strings/greeting", &value));
     EXPECT_EQ(value, "Hello");
@@ -390,11 +393,11 @@ TEST_F(ConfigManagerTests, RelativeOfUserDataPathStripsUserDataPrefix) {
     // way it strips `m_ideDir` — otherwise `config["theme"]` ends up
     // storing the full absolute path and leaks the user's home dir
     // into the overlay file.
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp, "\n", /*readOnly=*/true);
     tmp.write("userdata/themes/modern-dark.ini", "[Default]\n");
 
-    ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
+    const ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
 
     EXPECT_EQ(
         cm.relative(tmp.path() + "/userdata/themes/modern-dark.ini"),
@@ -406,19 +409,19 @@ TEST_F(ConfigManagerTests, ThemesWriteDirRoutesByReadOnly) {
     // Portable → bundle themes dir; READONLY → user themes dir. This is
     // the rule ThemePage::onSaveTheme uses to redirect save targets so
     // edits to a bundle-shipped theme land in the user-writable copy.
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp);
 
     // Portable
     {
-        ConfigManager cm(tmp.path(), ideDir, "");
+        const ConfigManager cm(tmp.path(), ideDir, "");
         EXPECT_EQ(cm.themesWriteDir(), ideDir + "/themes");
     }
 
     // READONLY routes to user dir
     tmp.write("ide/READONLY", "");
     {
-        ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
+        const ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
         EXPECT_EQ(cm.themesWriteDir(), tmp.path() + "/userdata/themes");
     }
 }
@@ -429,7 +432,7 @@ TEST_F(ConfigManagerTests, ReloadConfigCascadesSubCategoriesToDirectMode) {
     // keywords must hit the base file directly — no `.local.ini` is
     // produced, because the sub-category strategy was rebuilt under
     // the new mode.
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp, "keywords=keywords.ini\n");
     tmp.write("ide/keywords.ini",
         "[functions]\n"
@@ -455,7 +458,7 @@ TEST_F(ConfigManagerTests, ReloadConfigCascadesSubCategoriesToDirectMode) {
     EXPECT_FALSE(wxFileExists(tmp.path() + "/alt_keywords.local.ini"));
 
     wxFFileInputStream in(tmp.path() + "/alt_keywords.ini");
-    wxFileConfig produced(in, wxConvUTF8);
+    const wxFileConfig produced(in, wxConvUTF8);
     wxString value;
     EXPECT_TRUE(produced.Read("functions/Bar", &value));
     EXPECT_EQ(value, "1");
@@ -465,7 +468,7 @@ TEST_F(ConfigManagerTests, SetCategoryPathInheritsBootModeStrategy) {
     // Default-boot rotation. `setCategoryPath` flows through `load()`
     // which calls `buildStrategy()` under the current mode (Overlay),
     // so the new sub-category gets an overlay path alongside its base.
-    TempDir tmp;
+    const TempDir tmp;
     const auto ideDir = seedBundle(tmp, "keywords=keywords.ini\n");
     tmp.write("ide/keywords.ini",
         "[functions]\n"
@@ -491,7 +494,7 @@ TEST_F(ConfigManagerTests, ExplicitConfigPathBypassesOverlay) {
     // `--config=PATH` semantics: even with READONLY sentinel and an
     // overlay file alongside, the explicit path is treated as a single
     // self-contained config. Saves go back to PATH directly.
-    TempDir tmp;
+    const TempDir tmp;
     tmp.write("explicit.ini",
         "[editor]\n"
         "tabSize=4\n");
@@ -508,7 +511,7 @@ TEST_F(ConfigManagerTests, ExplicitConfigPathBypassesOverlay) {
 
     // Save must overwrite explicit.ini, not produce any new overlay.
     wxFFileInputStream in(tmp.path() + "/explicit.ini");
-    wxFileConfig roundTrip(in, wxConvUTF8);
+    const wxFileConfig roundTrip(in, wxConvUTF8);
     wxString value;
     EXPECT_TRUE(roundTrip.Read("editor/tabSize", &value));
     EXPECT_EQ(value, "16");
