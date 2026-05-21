@@ -85,9 +85,10 @@ public:
     /// override exists. Absolute paths are returned as-is.
     [[nodiscard]] auto themePath(const wxString& relPath) const -> wxString;
 
-    /// Directory theme files are written to. Under READONLY this is
-    /// `<UserDataDir>/themes/`; otherwise `<ideDir>/themes/`. Callers
-    /// are responsible for creating it on demand before saving.
+    /// Directory theme files are written to, created if missing. Under
+    /// READONLY this is `<UserDataDir>/themes/`; otherwise
+    /// `<ideDir>/themes/`. Always safe to call before a theme write —
+    /// `wxFileName::Mkdir(..., wxPATH_MKDIR_FULL)` is idempotent.
     [[nodiscard]] auto themesWriteDir() const -> wxString;
 
     /// Platform default config file name.

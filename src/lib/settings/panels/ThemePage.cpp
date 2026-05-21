@@ -310,20 +310,20 @@ void ThemePage::onSaveTheme(wxCommandEvent&) {
     saveCategory();
 
     if (isUnsavedNewTheme()) {
+        // saveNewTheme writes the theme at `themesWriteDir() / name`
+        // already; no second save needed.
         saveNewTheme(false);
         updateTitle();
+    } else {
+        // Route existing-theme saves through `themesWriteDir()` —
+        // under READONLY this is `<UserDataDir>/themes/`, so edits to
+        // a bundled theme land in the user copy (which then shadows
+        // the bundle via the two-dir merge in `getAllThemes`). Same-
+        // name file in portable mode is a no-op redirect.
+        auto& cm = getContext().getConfigManager();
+        const wxString target = cm.themesWriteDir() / wxFileName(m_theme.getPath()).GetFullName();
+        m_theme.save(target);
     }
-
-    // Route saves through `themesWriteDir()` — under READONLY this is
-    // `<UserDataDir>/themes/`, so edits to a bundled theme land in the
-    // user copy (which then shadows the bundle via the two-dir merge
-    // in `getAllThemes`). Same-name file in portable mode is a no-op
-    // redirect.
-    auto& cm = getContext().getConfigManager();
-    const wxString writeDir = cm.themesWriteDir();
-    wxFileName::Mkdir(writeDir, 0755, wxPATH_MKDIR_FULL);
-    const wxString target = writeDir + wxFILE_SEP_PATH + wxFileName(m_theme.getPath()).GetFullName();
-    m_theme.save(target);
 
     const auto currentThemeName = getContext().getTheme().getPath();
     if (m_activeTheme == currentThemeName) {
@@ -348,8 +348,7 @@ void ThemePage::saveNewTheme(const bool setActive) {
         return;
     }
 
-    const wxString writeDir = getContext().getConfigManager().themesWriteDir();
-    const wxFileName path(writeDir / name + ".ini");
+    const wxFileName path(getContext().getConfigManager().themesWriteDir() / name + ".ini");
     if (not path.IsOk()) {
         wxMessageBox(wxString::Format(tr("invalidFilename"), path.GetFullPath()));
         return;
@@ -360,7 +359,6 @@ void ThemePage::saveNewTheme(const bool setActive) {
         return;
     }
 
-    wxFileName::Mkdir(writeDir, 0755, wxPATH_MKDIR_FULL);
     m_theme.save(path.GetAbsolutePath());
     m_themeChoice->Append(name);
     m_themeChoice->SetStringSelection(name);

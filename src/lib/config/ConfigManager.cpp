@@ -173,7 +173,9 @@ auto ConfigManager::getAllThemes() const -> std::vector<wxString> {
 }
 
 auto ConfigManager::themesWriteDir() const -> wxString {
-    return (m_readOnlyIde ? m_userDataDir : m_ideDir) / "themes";
+    const auto dir = (m_readOnlyIde ? m_userDataDir : m_ideDir) / "themes";
+    wxFileName::Mkdir(dir, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+    return dir;
 }
 
 auto ConfigManager::themePath(const wxString& relPath) const -> wxString {
@@ -187,7 +189,7 @@ auto ConfigManager::themePath(const wxString& relPath) const -> wxString {
     // before the generic `absolute()` walk so a same-named bundle theme
     // never shadows the user's edit.
     if (m_readOnlyIde) {
-        const wxString candidate = m_userDataDir + wxFILE_SEP_PATH + relPath;
+        const wxString candidate = m_userDataDir / relPath;
         if (wxFileExists(candidate)) {
             return wxFileName(candidate).GetAbsolutePath();
         }
@@ -730,21 +732,20 @@ auto makeRelative(const wxString& path, const wxString& to) -> std::optional<wxS
 
 auto ConfigManager::relative(const wxString& path) const -> wxString {
     const auto abs = absolute(path);
-    if (const auto ide = makeRelative(m_ideDir, abs)) {
-        return *ide;
-    }
-    // User data dir is the writable equivalent of the bundle's ide/ —
-    // a path like `<UserDataDir>/themes/dark.ini` belongs to the same
-    // logical layout and must stringify as the same relative form so
-    // `themePath()` round-trips correctly on the next load. Without
-    // this, theme saves under READONLY leaked absolute paths into
-    // `config["theme"]`. `m_userDataDir` is always populated (ctor
-    // falls back to `wxStandardPaths` when no override) so no guard.
-    if (const auto userData = makeRelative(m_userDataDir, abs)) {
-        return *userData;
-    }
-    if (const auto app = makeRelative(m_appDir, abs)) {
-        return *app;
+    // Candidate base dirs, in priority order:
+    // - m_ideDir       — bundle resources.
+    // - m_userDataDir  — writable equivalent of ide/ (always populated;
+    //                    ctor falls back to wxStandardPaths when no
+    //                    override). A path like `<userDataDir>/themes/
+    //                    dark.ini` must stringify the same as the
+    //                    bundle equivalent so themePath() round-trips
+    //                    correctly on the next load.
+    // - m_appDir       — binary directory; fallback for portable
+    //                    side-by-side layouts.
+    for (const auto* base : { &m_ideDir, &m_userDataDir, &m_appDir }) {
+        if (const auto rel = makeRelative(*base, abs)) {
+            return *rel;
+        }
     }
     return path;
 }
