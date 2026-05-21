@@ -40,17 +40,28 @@ public:
     /// Create a new document. Editor is created as child of parent.
     Document(wxWindow* parent, Context& ctx, DocumentType type = DocumentType::FreeBASIC);
 
-    /// Get the file path. Empty if untitled.
-    [[nodiscard]] auto getFilePath() const -> const wxString& { return m_filePath; }
+    /// Get the file path. Empty if untitled. Returned as `std::filesystem::path`
+    /// — callers that hand it to a wx API should wrap with `toWxString(...)`.
+    [[nodiscard]] auto getFilePath() const -> const std::filesystem::path& { return m_filePath; }
 
     /// Set the file path.
-    void setFilePath(const wxString& path);
+    void setFilePath(const std::filesystem::path& path);
 
     /// Get display title for tab (filename or "Untitled").
     [[nodiscard]] auto getTitle() const -> wxString;
 
     /// Get document type.
     [[nodiscard]] auto getType() const -> DocumentType { return m_type; }
+
+    /// Override the document type (user picked from the status bar menu).
+    /// Sticky across Save / Save As until the document is closed — the
+    /// override flag is per-instance, only persisted via FileSession.
+    /// Reapplies editor settings (lexer + theme).
+    void setType(DocumentType type);
+
+    /// True when the type was set explicitly via `setType` rather than
+    /// derived from the file path.
+    [[nodiscard]] auto isTypeOverridden() const -> bool { return m_typeOverridden; }
 
     /// Get the editor widget.
     [[nodiscard]] auto getEditor() -> Editor* { return m_editor; }
@@ -125,7 +136,7 @@ private:
     /// Page resized — re-evaluate whether the minimap still fits.
     void onContainerSize(wxSizeEvent& event);
     /// Show/hide the minimap based on the current page width.
-    void updateMinimapVisibility();
+    void updateMinimapVisibility()const;
     /// Create the minimap widget and dock it into the page layout.
     void createMinimap();
     /// Destroy the minimap widget and drop it from the page layout.
@@ -133,14 +144,15 @@ private:
 
     Context& m_ctx;                             ///< Application context.
     wxString m_compiledFile;                    ///< Path of the most recently compiled executable.
-    wxString m_filePath;                        ///< Absolute path on disk; empty for new documents.
+    std::filesystem::path m_filePath;           ///< Absolute path on disk; empty for new documents.
     DocumentType m_type;                        ///< Document type — drives lexer + theme dispatch.
+    bool m_typeOverridden = false;              ///< True when the user explicitly picked the type.
     Unowned<wxPanel> m_container;               ///< wx-parented notebook page — holds editor + minimap.
     Unowned<Editor> m_editor;                   ///< Editor widget, child of m_container.
     Unowned<wxStyledTextCtrlMiniMap> m_minimap; ///< Minimap — lazily created; null while disabled.
     int m_minimapWidth;                         ///< Minimap width in px — `editor.minimapWidth` config key.
     bool m_minimapEnabled;                      ///< Minimap toggle state — `commands.viewMinimap`.
-    wxDateTime m_modTime;                       ///< Last on-disk mtime — backs `checkExternalChange`.
+    std::filesystem::file_time_type m_modTime;  ///< Last on-disk mtime — backs `checkExternalChange`.
     TextEncoding m_encoding;                    ///< Bytes-to-text codec used on save.
     EolMode m_eolMode;                          ///< Line-ending convention applied on save.
     /// Set when encoding is changed; cleared on save. OR'd with editor's

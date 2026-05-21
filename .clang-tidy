@@ -15,6 +15,7 @@ Checks: '-*,
     -*-easily-swappable-parameters,
     -*-avoid-pragma-once,
     -*-math-missing-parentheses,
+    -hicpp-signed-bitwise,
     '
 WarningsAsErrors: '*'
 CheckOptions:
@@ -34,3 +35,5 @@ CheckOptions:
     value: 'false'
   - key: misc-include-cleaner.UnusedIncludes
     value: 'false'
+  - key: cppcoreguidelines-pro-bounds-avoid-unchecked-container-access.ExcludeClasses
+    value: '::fbide::Value;::std::unordered_map;::std::map'

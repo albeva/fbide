@@ -47,7 +47,10 @@ void AboutDialog::create() {
 
         separator();
 
-        const auto text = make_unowned<BBCodeText>(currentParent(), wxID_ANY, loadReadme(), wxDefaultPosition, wxSize(-1, 200));
+        const auto text = make_unowned<BBCodeText>(
+            currentParent(), wxID_ANY, loadReadme(),
+            wxDefaultPosition, wxSize(-1, 200)
+        );
         add(text, { .proportion = 1 });
     });
 
@@ -59,7 +62,7 @@ void AboutDialog::create() {
 }
 
 auto AboutDialog::loadReadme() const -> wxString {
-    const auto readmePath = m_ctx.getConfigManager().absolute("ide/readme.txt");
+    const auto readmePath = m_ctx.getConfigManager().absolute("readme.txt");
     wxString content;
     wxFile file(readmePath);
     if (!file.IsOpened()) {

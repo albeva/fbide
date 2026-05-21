@@ -21,7 +21,9 @@ add_executable(tests
     unit/CodeHighlighterTests.cpp
     unit/CompileCommandTests.cpp
     unit/ConfigManagerTests.cpp
+    unit/ConfigStrategyTests.cpp
     unit/DocumentIOTests.cpp
+    unit/DocumentPathTests.cpp
     unit/EncodingDetectorTests.cpp
     unit/FBSciLexerTests.cpp
     unit/MarkdownTests.cpp
@@ -32,6 +34,8 @@ add_executable(tests
     unit/SymbolTableTests.cpp
     unit/TextEncodingTests.cpp
     unit/ThemeTests.cpp
+    unit/ValueDiffTests.cpp
+    unit/ValueMergeTests.cpp
     unit/VersionTests.cpp
 )
 

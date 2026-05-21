@@ -1,0 +1,138 @@
+//
+// FBIde editor for FreeBASIC - https://freebasic.net
+// Copyright (c) 2026 Albert Varaksin
+// Licensed under the MIT License. See LICENSE file for details.
+// https://github.com/albeva/fbide
+//
+#include <filesystem>
+#include <gtest/gtest.h>
+#include "config/ConfigStrategy.hpp"
+
+namespace fs = std::filesystem;
+using namespace fbide;
+
+// gtest fixtures are referenced by TEST_F macro expansion and
+// idiomatically stay at file scope.
+// NOLINTNEXTLINE(misc-use-internal-linkage)
+class ConfigStrategyTests : public testing::Test {};
+
+// ---------------------------------------------------------------------------
+// Overlay strategy — bundle baseline + writable user overlay. savePath()
+// must point at the overlay so saves never write the immutable bundle.
+// ---------------------------------------------------------------------------
+
+TEST_F(ConfigStrategyTests, OverlayExposesAllAccessors) {
+    const auto strat = ConfigStrategy::overlay("/ide/config.ini", "/user/config.local.ini");
+    EXPECT_EQ(strat.basePath(), fs::path { "/ide/config.ini" });
+    EXPECT_EQ(strat.overlayPath(), fs::path { "/user/config.local.ini" });
+    EXPECT_EQ(strat.savePath(), strat.overlayPath());
+    EXPECT_TRUE(strat.usesOverlay());
+}
+
+// ---------------------------------------------------------------------------
+// Direct strategy — single file, no layering (--config=PATH at startup or
+// reloadConfig() at runtime). savePath() collapses to basePath().
+// ---------------------------------------------------------------------------
+
+TEST_F(ConfigStrategyTests, DirectExposesAllAccessors) {
+    const auto strat = ConfigStrategy::direct("/tmp/ci-config.ini");
+    EXPECT_EQ(strat.basePath(), fs::path { "/tmp/ci-config.ini" });
+    EXPECT_TRUE(strat.overlayPath().empty());
+    EXPECT_EQ(strat.savePath(), strat.basePath());
+    EXPECT_FALSE(strat.usesOverlay());
+}
+
+// ---------------------------------------------------------------------------
+// Value-type behaviour — must be copyable / movable so ConfigManager can
+// keep a strategy per Entry without ceremony.
+// ---------------------------------------------------------------------------
+
+TEST_F(ConfigStrategyTests, IsCopyable) {
+    const auto original = ConfigStrategy::overlay("/a", "/b");
+    // Force a real copy rather than relying on copy-elision so the
+    // test actually exercises the copy constructor.
+    auto copy = original; // NOLINT(performance-unnecessary-copy-initialization)
+    EXPECT_EQ(copy.basePath(), fs::path { "/a" });
+    EXPECT_EQ(copy.overlayPath(), fs::path { "/b" });
+    EXPECT_TRUE(copy.usesOverlay());
+}
+
+// ---------------------------------------------------------------------------
+// deriveOverlayPath — pure path transform. Inserts ".local" before the
+// extension; routes to <userDataDir> when READONLY, else stays next to base.
+// ---------------------------------------------------------------------------
+
+TEST_F(ConfigStrategyTests, DeriveOverlayPathPortableLivesNextToBase) {
+    const fs::path base = "/ide/config_macos.ini";
+    const auto path = ConfigStrategy::deriveOverlayPath(base, "/anything", /*readOnly=*/false);
+    EXPECT_EQ(path.filename(), "config_macos.local.ini");
+    EXPECT_EQ(path.parent_path(), base.parent_path());
+}
+
+TEST_F(ConfigStrategyTests, DeriveOverlayPathReadOnlyRoutesToUserDir) {
+    const fs::path base = "/ide/config_macos.ini";
+    const fs::path userDataDir = "/user/Library/Application Support/fbide";
+    const auto path = ConfigStrategy::deriveOverlayPath(base, userDataDir, /*readOnly=*/true);
+    EXPECT_EQ(path.filename(), "config_macos.local.ini");
+    EXPECT_EQ(path.parent_path(), userDataDir);
+}
+
+TEST_F(ConfigStrategyTests, DeriveOverlayPathPreservesExtension) {
+    // Theme ".ini" today; ".fbt" legacy. Either should round-trip with
+    // ".local" inserted before the extension, not appended after it.
+    const auto fbt = ConfigStrategy::deriveOverlayPath("/themes/dark.fbt", "", false);
+    EXPECT_EQ(fbt.filename(), "dark.local.fbt");
+}
+
+// ---------------------------------------------------------------------------
+// select — top-level rule. Two axes (explicitMode, overlayCapable) collapse
+// to Direct; only the (overlayCapable && !explicitMode) cell is Overlay.
+// ---------------------------------------------------------------------------
+
+TEST_F(ConfigStrategyTests, SelectBundleOnlyCategoryAlwaysDirect) {
+    // overlayCapable=false → locale (and any other bundle-only slot).
+    // Direct regardless of explicitMode / readOnly.
+    const auto strat = ConfigStrategy::select(
+        "/ide/locales/en.ini", "/user", /*readOnly=*/true,
+        /*overlayCapable=*/false, /*explicitMode=*/false
+    );
+    EXPECT_FALSE(strat.usesOverlay());
+    EXPECT_EQ(strat.basePath(), fs::path { "/ide/locales/en.ini" });
+}
+
+TEST_F(ConfigStrategyTests, SelectExplicitModeForcesDirect) {
+    // --config=PATH (or runtime reloadConfig) → Direct for every category.
+    // Reproducibility/CI rule: no overlays sneak in on top of an explicit
+    // single-file config.
+    const auto strat = ConfigStrategy::select(
+        "/tmp/ci.ini", "/user", /*readOnly=*/true,
+        /*overlayCapable=*/true, /*explicitMode=*/true
+    );
+    EXPECT_FALSE(strat.usesOverlay());
+    EXPECT_EQ(strat.basePath(), fs::path { "/tmp/ci.ini" });
+}
+
+TEST_F(ConfigStrategyTests, SelectDefaultBootPortableProducesOverlayNextToBase) {
+    const fs::path base = "/ide/config_macos.ini";
+    const auto strat = ConfigStrategy::select(
+        base, "/user", /*readOnly=*/false,
+        /*overlayCapable=*/true, /*explicitMode=*/false
+    );
+    EXPECT_TRUE(strat.usesOverlay());
+    EXPECT_EQ(strat.basePath(), base);
+    EXPECT_EQ(strat.overlayPath().filename(), "config_macos.local.ini");
+    EXPECT_EQ(strat.overlayPath().parent_path(), base.parent_path());
+}
+
+TEST_F(ConfigStrategyTests, SelectDefaultBootReadOnlyRoutesOverlayToUserDir) {
+    const fs::path base = "/ide/config_macos.ini";
+    const fs::path userDataDir = "/user/Library/Application Support/fbide";
+    const auto strat = ConfigStrategy::select(
+        base, userDataDir, /*readOnly=*/true,
+        /*overlayCapable=*/true, /*explicitMode=*/false
+    );
+    EXPECT_TRUE(strat.usesOverlay());
+    EXPECT_EQ(strat.basePath(), base);
+    EXPECT_EQ(strat.overlayPath().filename(), "config_macos.local.ini");
+    EXPECT_EQ(strat.overlayPath().parent_path(), userDataDir);
+}

@@ -120,7 +120,7 @@ private:
     /// Drop back to the Default state machine for the next char.
     FBIDE_INLINE void resetToDefault() noexcept;
     /// True when the current position can resolve as a member access target.
-    FBIDE_INLINE bool canAccessMember() noexcept;
+    FBIDE_INLINE bool canAccessMember()const noexcept;
     /// State: Default — dispatch to the right lexer for the next char.
     FBIDE_INLINE void lexDefault() noexcept;
     /// State: single-line comment (`'`).

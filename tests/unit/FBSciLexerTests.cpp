@@ -18,15 +18,15 @@ protected:
         m_lexer = FBSciLexer::Create();
         // Set up keyword lists matching fbfull.lng groups
         // Indices map 1:1 to DEFINE_THEME_KEYWORD_GROUPS order.
-        m_lexer->WordListSet(0, "dim as if then else end sub function type asm");    // Keyword1
-        m_lexer->WordListSet(1, "integer string single double long byte");           // Keyword2
-        m_lexer->WordListSet(2, "and or not mod xor");                               // Keyword3
-        m_lexer->WordListSet(3, "__fb_version__");                                   // Keyword4
-        m_lexer->WordListSet(4, "");                                                 // KeywordCustom
-        m_lexer->WordListSet(5, "");                                                 // KeywordCustom
+        m_lexer->WordListSet(0, "dim as if then else end sub function type asm");                   // Keyword1
+        m_lexer->WordListSet(1, "integer string single double long byte");                          // Keyword2
+        m_lexer->WordListSet(2, "and or not mod xor");                                              // Keyword3
+        m_lexer->WordListSet(3, "__fb_version__");                                                  // Keyword4
+        m_lexer->WordListSet(4, "");                                                                // KeywordCustom
+        m_lexer->WordListSet(5, "");                                                                // KeywordCustom
         m_lexer->WordListSet(6, "if ifdef ifndef else elseif endif macro endmacro define include"); // KeywordPP
-        m_lexer->WordListSet(7, "mov push pop ret jmp");                             // KeywordAsm1
-        m_lexer->WordListSet(8, "eax ebx ecx edx");                                  // KeywordAsm2
+        m_lexer->WordListSet(7, "mov push pop ret jmp");                                            // KeywordAsm1
+        m_lexer->WordListSet(8, "eax ebx ecx edx");                                                 // KeywordAsm2
         m_lexer->PropertySet("fold", "1");
     }
 
@@ -590,7 +590,6 @@ TEST_F(FBSciLexerTests, PreprocessorBlockBodyKeywordsHighlight) {
     );
 }
 
-
 // endregion
 
 // region ---------- Field Access ----------
@@ -642,11 +641,32 @@ TEST_F(FBSciLexerTests, FoldNestedBlocks) {
     );
 }
 
+TEST_F(FBSciLexerTests, FoldSubWithBlankFirstBodyLineOpensFold) {
+    // Bug report: a SUB whose first body line is blank should still fold.
+    // The header flag must land on the SUB despite the blank gap, AND
+    // the blank line itself must inherit the body's indent (not the
+    // header's) so Scintilla never sees a non-WHITE-blocking sibling at
+    // the header level. Look-ahead, not look-back, decides the blank
+    // line's level.
+    EXPECT_EQ(
+        fold(
+            "SUB hello\n"
+            "\n"
+            "    print \"world\"\n"
+            "END SUB\n"
+        ),
+        "0H|4W|4|0"
+    );
+}
+
 TEST_F(FBSciLexerTests, FoldBlankLineInheritsAndPermitsHeader) {
-    // Blank line gets WHITEFLAG; header detection looks past it to line 2.
+    // Blank line gets WHITEFLAG at the BODY's indent (look-ahead), not the
+    // header's — so Scintilla's fold-marker rendering never sees a
+    // sibling at the header level. Header detection still looks past the
+    // blank to line 2 to decide the SUB is foldable.
     EXPECT_EQ(
         fold("sub foo()\n\n    dim x\nend sub\n"),
-        "0H|0W|4|0"
+        "0H|4W|4|0"
     );
 }
 
@@ -691,15 +711,16 @@ TEST_F(FBSciLexerTests, FoldWorkedExample) {
 
 TEST_F(FBSciLexerTests, FoldIndentedRunWithoutOpenerDoesNotFold) {
     // Indented lines with no opener above them are not foldable — no header.
+    // The leading blank inherits the body's indent via look-ahead.
     EXPECT_EQ(
         fold("\n    non-foldable line\n    non-foldable line\n\n"),
-        "0W|4|4|4W"
+        "4W|4|4|4W"
     );
 }
 
 TEST_F(FBSciLexerTests, FoldNonFoldableLineMayHaveChildBlock) {
     // A non-foldable indented line is not a header, but a deeper block that
-    // follows it still folds.
+    // follows it still folds. Leading blank inherits the body's indent.
     EXPECT_EQ(
         fold(
             "\n"
@@ -709,7 +730,7 @@ TEST_F(FBSciLexerTests, FoldNonFoldableLineMayHaveChildBlock) {
             "        nested ends\n"
             "    non-foldable line\n"
         ),
-        "0W|4|4H|8|8|4"
+        "4W|4|4H|8|8|4"
     );
 }
 

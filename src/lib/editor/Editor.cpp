@@ -4,9 +4,12 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
+// ReSharper disable CppMemberFunctionMayBeConst
+// ReSharper disable CppParameterMayBeConstPtrOrRef
 #include "Editor.hpp"
 #include "CodeTransformer.hpp"
 #include "analyses/symbols/SymbolTable.hpp"
+#include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/Theme.hpp"
 #include "config/ThemeCategory.hpp"
@@ -86,10 +89,15 @@ void Editor::onContextMenu(wxContextMenuEvent& event) {
 }
 
 void Editor::applySettings() {
+    StyleResetDefault();
+
+    loadLexer();
     applyEditorSettings();
     applyTheme();
     defineFoldMargins();
     updateLineNumberMarginWidth();
+
+    Colourise(0, -1);
     Refresh();
 }
 
@@ -144,7 +152,7 @@ void Editor::defineFoldMargins() {
     }
 
     const auto& editor = m_configManager.config().at("editor");
-    if (not editor.get_or("folderMargin", false)) {
+    if (m_docType == DocumentType::Text || not editor.get_or("folderMargin", false)) {
         SetProperty("fold", "0");
         return;
     }
@@ -176,14 +184,21 @@ void Editor::defineFoldMargins() {
 void Editor::applyTheme() {
     const auto& theme = m_theme;
     const auto& defaultEntry = theme.get(ThemeCategory::Default);
-    const auto& defaultColors = defaultEntry.colors;
+    const auto& [foreground, background] = defaultEntry.colors;
 
     m_font = theme.getResolvedFont();
 
-    StyleSetForeground(wxSTC_STYLE_DEFAULT, defaultColors.foreground);
-    StyleSetBackground(wxSTC_STYLE_DEFAULT, defaultColors.background);
+    StyleSetForeground(wxSTC_STYLE_DEFAULT, foreground);
+    StyleSetBackground(wxSTC_STYLE_DEFAULT, background);
     StyleSetFont(wxSTC_STYLE_DEFAULT, m_font);
-    StyleSetBackground(wxSTC_STYLE_INDENTGUIDE, defaultColors.background);
+
+    // Propagate the themed STYLE_DEFAULT to every other style index. Any
+    // index not overridden below (control-char, calltip, fold-display, any
+    // style a future lexer might add, and — critically — style 0 used by
+    // LEX_NULL for plain text) inherits sensible theme defaults.
+    StyleClearAll();
+
+    StyleSetBackground(wxSTC_STYLE_INDENTGUIDE, background);
     StyleSetForeground(wxSTC_STYLE_INDENTGUIDE, theme.getSeparator());
 
     // Line numbers
@@ -191,7 +206,7 @@ void Editor::applyTheme() {
     StyleSetFont(wxSTC_STYLE_LINENUMBER, m_font);
 
     // Caret — no dedicated field, use default foreground.
-    SetCaretForeground(defaultColors.foreground);
+    SetCaretForeground(foreground);
 
     // Selection
     const auto& sel = theme.getSelection();
@@ -205,39 +220,7 @@ void Editor::applyTheme() {
     // separator lines
     SetEdgeColour(theme.foreground(theme.getSeparator()));
 
-    if (m_configManager.config().get_or("editor.syntaxHighlight", true)) {
-        switch (m_docType) {
-        case DocumentType::FreeBASIC:
-            applyFreebasicTheme();
-            break;
-        case DocumentType::HTML:
-            applyHtmlTheme();
-            break;
-        case DocumentType::Properties:
-            applyPropertiesTheme();
-            break;
-        case DocumentType::Text:
-            applyTextTheme();
-            break;
-        }
-    }
-}
-
-void Editor::applyFreebasicTheme() {
-    const auto& theme = m_theme;
-
-    SetILexer(FBSciLexer::Create());
-
-    // Apply keywords
-    const auto& groups = m_configManager.keywords().at("groups");
-    for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
-        const auto key = getThemeCategoryName(kThemeKeywordCategories.at(idx));
-        SetKeyWords(static_cast<int>(idx), groups.get_or(wxString(key), "").Lower());
-    }
-
-    for (const auto cat : kThemeCategories) {
-        applyStyle(+cat, theme.get(cat), theme);
-    }
+    loadLexerTheme();
 }
 
 void Editor::applyStyle(const int stcId, const Theme::Entry& style, const Theme& theme) {
@@ -253,10 +236,101 @@ void Editor::applyColors(const int stcId, const Theme::Colors& colors, const The
     StyleSetBackground(stcId, theme.background(colors.background));
 }
 
+void Editor::loadLexer() {
+    if (m_configManager.config().get_or("editor.syntaxHighlight", true)) {
+        switch (m_docType) {
+        case DocumentType::FreeBASIC:
+            SetILexer(FBSciLexer::Create());
+            break;
+        case DocumentType::HTML:
+            SetLexer(wxSTC_LEX_HTML);
+            break;
+        case DocumentType::Properties:
+            SetLexer(wxSTC_LEX_PROPERTIES);
+            break;
+        case DocumentType::Markdown:
+            SetLexer(wxSTC_LEX_MARKDOWN);
+            break;
+        case DocumentType::Batch:
+            SetLexer(wxSTC_LEX_BATCH);
+            break;
+        case DocumentType::Bash:
+            SetLexer(wxSTC_LEX_BASH);
+            break;
+        case DocumentType::Makefile:
+            SetLexer(wxSTC_LEX_MAKEFILE);
+            break;
+        case DocumentType::Json:
+            SetLexer(wxSTC_LEX_JSON);
+            break;
+        case DocumentType::Css:
+            SetLexer(wxSTC_LEX_CSS);
+            break;
+        case DocumentType::Text:
+            SetLexer(wxSTC_LEX_NULL);
+            break;
+        }
+    } else {
+        SetLexer(wxSTC_LEX_NULL);
+    }
+}
+
+void Editor::loadLexerTheme() {
+    if (m_configManager.config().get_or("editor.syntaxHighlight", true)) {
+        switch (m_docType) {
+        case DocumentType::FreeBASIC:
+            applyFreebasicTheme();
+            break;
+        case DocumentType::HTML:
+            applyHtmlTheme();
+            break;
+        case DocumentType::Properties:
+            applyPropertiesTheme();
+            break;
+        case DocumentType::Markdown:
+            applyMarkdownTheme();
+            break;
+        case DocumentType::Batch:
+            applyBatchTheme();
+            break;
+        case DocumentType::Bash:
+            applyBashTheme();
+            break;
+        case DocumentType::Makefile:
+            applyMakefileTheme();
+            break;
+        case DocumentType::Json:
+            applyJsonTheme();
+            break;
+        case DocumentType::Css:
+            applyCssTheme();
+            break;
+        case DocumentType::Text:
+            applyTextTheme();
+            break;
+        }
+    } else {
+        applyTextTheme();
+    }
+}
+
+void Editor::applyFreebasicTheme() {
+    const auto& theme = m_theme;
+
+    // Apply keywords
+    const auto& groups = m_configManager.keywords().at("groups");
+    for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
+        const auto key = getThemeCategoryName(kThemeKeywordCategories.at(idx));
+        SetKeyWords(static_cast<int>(idx), groups.get_or(wxString(key), "").Lower());
+    }
+
+    for (const auto cat : kThemeCategories) {
+        applyStyle(+cat, theme.get(cat), theme);
+    }
+}
+
 void Editor::applyHtmlTheme() {
     const auto& theme = m_theme;
-    SetLexer(wxSTC_LEX_HTML);
-
     applyStyle(wxSTC_H_DEFAULT, theme.get(ThemeCategory::Default), theme);
     applyStyle(wxSTC_H_TAG, theme.get(ThemeCategory::Keywords), theme);
     applyStyle(wxSTC_H_TAGUNKNOWN, theme.get(ThemeCategory::Keywords), theme);
@@ -272,7 +346,6 @@ void Editor::applyHtmlTheme() {
 
 void Editor::applyPropertiesTheme() {
     const auto& theme = m_theme;
-    SetLexer(wxSTC_LEX_PROPERTIES);
     applyStyle(wxSTC_PROPS_DEFAULT, theme.get(ThemeCategory::Default), theme);
     applyStyle(wxSTC_PROPS_COMMENT, theme.get(ThemeCategory::Comment), theme);
     applyStyle(wxSTC_PROPS_SECTION, theme.get(ThemeCategory::Preprocessor), theme);
@@ -281,8 +354,156 @@ void Editor::applyPropertiesTheme() {
     applyStyle(wxSTC_PROPS_KEY, theme.get(ThemeCategory::Keywords), theme);
 }
 
+void Editor::applyMarkdownTheme() {
+    const auto& theme = m_theme;
+    applyStyle(wxSTC_MARKDOWN_DEFAULT, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_MARKDOWN_LINE_BEGIN, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_MARKDOWN_STRONG1, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_MARKDOWN_STRONG2, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_MARKDOWN_EM1, theme.get(ThemeCategory::KeywordTypes), theme);
+    applyStyle(wxSTC_MARKDOWN_EM2, theme.get(ThemeCategory::KeywordTypes), theme);
+    applyStyle(wxSTC_MARKDOWN_HEADER1, theme.get(ThemeCategory::KeywordPP), theme);
+    applyStyle(wxSTC_MARKDOWN_HEADER2, theme.get(ThemeCategory::KeywordPP), theme);
+    applyStyle(wxSTC_MARKDOWN_HEADER3, theme.get(ThemeCategory::IdentifierPP), theme);
+    applyStyle(wxSTC_MARKDOWN_HEADER4, theme.get(ThemeCategory::IdentifierPP), theme);
+    applyStyle(wxSTC_MARKDOWN_HEADER5, theme.get(ThemeCategory::IdentifierPP), theme);
+    applyStyle(wxSTC_MARKDOWN_HEADER6, theme.get(ThemeCategory::IdentifierPP), theme);
+    applyStyle(wxSTC_MARKDOWN_PRECHAR, theme.get(ThemeCategory::Operator), theme);
+    applyStyle(wxSTC_MARKDOWN_ULIST_ITEM, theme.get(ThemeCategory::Operator), theme);
+    applyStyle(wxSTC_MARKDOWN_OLIST_ITEM, theme.get(ThemeCategory::Operator), theme);
+    applyStyle(wxSTC_MARKDOWN_BLOCKQUOTE, theme.get(ThemeCategory::Comment), theme);
+    applyStyle(wxSTC_MARKDOWN_STRIKEOUT, theme.get(ThemeCategory::Comment), theme);
+    applyStyle(wxSTC_MARKDOWN_HRULE, theme.get(ThemeCategory::Preprocessor), theme);
+    applyStyle(wxSTC_MARKDOWN_LINK, theme.get(ThemeCategory::KeywordConstants), theme);
+    applyStyle(wxSTC_MARKDOWN_CODE, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_MARKDOWN_CODE2, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_MARKDOWN_CODEBK, theme.get(ThemeCategory::String), theme);
+}
+
+void Editor::applyBatchTheme() {
+    const auto& theme = m_theme;
+
+    // Keyword lists live in keywords.ini under [batch]:
+    //   words    → SCE_BAT_WORD (flow keywords)
+    //   commands → SCE_BAT_COMMAND (built-in / external commands)
+    // The lexer matches case-insensitively.
+    const auto& batch = m_configManager.keywords().at("batch");
+    SetKeyWords(0, batch.get_or("words", ""));
+    SetKeyWords(1, batch.get_or("commands", ""));
+
+    applyStyle(wxSTC_BAT_DEFAULT, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_BAT_COMMENT, theme.get(ThemeCategory::Comment), theme);
+    applyStyle(wxSTC_BAT_WORD, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_BAT_LABEL, theme.get(ThemeCategory::Label), theme);
+    applyStyle(wxSTC_BAT_HIDE, theme.get(ThemeCategory::KeywordOperators), theme);
+    applyStyle(wxSTC_BAT_COMMAND, theme.get(ThemeCategory::KeywordTypes), theme);
+    applyStyle(wxSTC_BAT_IDENTIFIER, theme.get(ThemeCategory::Identifier), theme);
+    applyStyle(wxSTC_BAT_OPERATOR, theme.get(ThemeCategory::Operator), theme);
+}
+
+void Editor::applyBashTheme() {
+    const auto& theme = m_theme;
+
+    // Keyword list lives in keywords.ini under [bash]:
+    //   words → SCE_SH_WORD (reserved words + common built-ins)
+    const auto& bash = m_configManager.keywords().at("bash");
+    SetKeyWords(0, bash.get_or("words", ""));
+
+    applyStyle(wxSTC_SH_DEFAULT, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_SH_ERROR, theme.get(ThemeCategory::Error), theme);
+    applyStyle(wxSTC_SH_COMMENTLINE, theme.get(ThemeCategory::Comment), theme);
+    applyStyle(wxSTC_SH_NUMBER, theme.get(ThemeCategory::Number), theme);
+    applyStyle(wxSTC_SH_WORD, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_SH_STRING, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_SH_CHARACTER, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_SH_OPERATOR, theme.get(ThemeCategory::Operator), theme);
+    applyStyle(wxSTC_SH_IDENTIFIER, theme.get(ThemeCategory::Identifier), theme);
+    applyStyle(wxSTC_SH_SCALAR, theme.get(ThemeCategory::Identifier), theme);
+    applyStyle(wxSTC_SH_PARAM, theme.get(ThemeCategory::Identifier), theme);
+    applyStyle(wxSTC_SH_BACKTICKS, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_SH_HERE_DELIM, theme.get(ThemeCategory::Preprocessor), theme);
+    applyStyle(wxSTC_SH_HERE_Q, theme.get(ThemeCategory::String), theme);
+}
+
+void Editor::applyMakefileTheme() {
+    const auto& theme = m_theme;
+    applyStyle(wxSTC_MAKE_DEFAULT, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_MAKE_COMMENT, theme.get(ThemeCategory::Comment), theme);
+    applyStyle(wxSTC_MAKE_PREPROCESSOR, theme.get(ThemeCategory::Preprocessor), theme);
+    applyStyle(wxSTC_MAKE_IDENTIFIER, theme.get(ThemeCategory::Identifier), theme);
+    applyStyle(wxSTC_MAKE_OPERATOR, theme.get(ThemeCategory::Operator), theme);
+    applyStyle(wxSTC_MAKE_TARGET, theme.get(ThemeCategory::Label), theme);
+    applyStyle(wxSTC_MAKE_IDEOL, theme.get(ThemeCategory::Error), theme);
+}
+
+void Editor::applyJsonTheme() {
+    const auto& theme = m_theme;
+
+    // Keyword lists live in keywords.ini under [json]:
+    //   keywords   → SCE_JSON_KEYWORD (true / false / null)
+    //   ldkeywords → SCE_JSON_LDKEYWORD (JSON-LD `@id`, `@context`, ...)
+    const auto& json = m_configManager.keywords().at("json");
+    SetKeyWords(0, json.get_or("keywords", ""));
+    SetKeyWords(1, json.get_or("ldkeywords", ""));
+
+    applyStyle(wxSTC_JSON_DEFAULT, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_JSON_NUMBER, theme.get(ThemeCategory::Number), theme);
+    applyStyle(wxSTC_JSON_STRING, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_JSON_STRINGEOL, theme.get(ThemeCategory::Error), theme);
+    applyStyle(wxSTC_JSON_PROPERTYNAME, theme.get(ThemeCategory::KeywordTypes), theme);
+    applyStyle(wxSTC_JSON_ESCAPESEQUENCE, theme.get(ThemeCategory::KeywordOperators), theme);
+    applyStyle(wxSTC_JSON_LINECOMMENT, theme.get(ThemeCategory::Comment), theme);
+    applyStyle(wxSTC_JSON_BLOCKCOMMENT, theme.get(ThemeCategory::MultilineComment), theme);
+    applyStyle(wxSTC_JSON_OPERATOR, theme.get(ThemeCategory::Operator), theme);
+    applyStyle(wxSTC_JSON_URI, theme.get(ThemeCategory::KeywordConstants), theme);
+    applyStyle(wxSTC_JSON_COMPACTIRI, theme.get(ThemeCategory::KeywordConstants), theme);
+    applyStyle(wxSTC_JSON_KEYWORD, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_JSON_LDKEYWORD, theme.get(ThemeCategory::KeywordPP), theme);
+    applyStyle(wxSTC_JSON_ERROR, theme.get(ThemeCategory::Error), theme);
+}
+
+void Editor::applyCssTheme() {
+    const auto& theme = m_theme;
+
+    // Keyword lists live in keywords.ini under [css]. The Scintilla CSS
+    // lexer uses up to 8 lists; we populate the three that matter for a
+    // basic setup — properties, pseudo-classes, pseudo-elements. The rest
+    // stay empty so unknown identifiers fall to UNKNOWN_IDENTIFIER (Error).
+    const auto& css = m_configManager.keywords().at("css");
+    SetKeyWords(0, css.get_or("properties", ""));
+    SetKeyWords(1, css.get_or("pseudoclasses", ""));
+    SetKeyWords(3, css.get_or("properties", ""));     // CSS3 properties — share the list
+    SetKeyWords(4, css.get_or("pseudoelements", "")); // CSS2 single-colon ::-style
+    SetKeyWords(7, css.get_or("pseudoelements", "")); // CSS3 double-colon ::before
+
+    applyStyle(wxSTC_CSS_DEFAULT, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_CSS_TAG, theme.get(ThemeCategory::Identifier), theme);
+    applyStyle(wxSTC_CSS_CLASS, theme.get(ThemeCategory::KeywordTypes), theme);
+    applyStyle(wxSTC_CSS_ID, theme.get(ThemeCategory::KeywordConstants), theme);
+    applyStyle(wxSTC_CSS_PSEUDOCLASS, theme.get(ThemeCategory::Label), theme);
+    applyStyle(wxSTC_CSS_EXTENDED_PSEUDOCLASS, theme.get(ThemeCategory::Label), theme);
+    applyStyle(wxSTC_CSS_PSEUDOELEMENT, theme.get(ThemeCategory::Label), theme);
+    applyStyle(wxSTC_CSS_EXTENDED_PSEUDOELEMENT, theme.get(ThemeCategory::Label), theme);
+    applyStyle(wxSTC_CSS_UNKNOWN_PSEUDOCLASS, theme.get(ThemeCategory::Error), theme);
+    applyStyle(wxSTC_CSS_OPERATOR, theme.get(ThemeCategory::Operator), theme);
+    applyStyle(wxSTC_CSS_IDENTIFIER, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_CSS_IDENTIFIER2, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_CSS_IDENTIFIER3, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_CSS_EXTENDED_IDENTIFIER, theme.get(ThemeCategory::Keywords), theme);
+    applyStyle(wxSTC_CSS_UNKNOWN_IDENTIFIER, theme.get(ThemeCategory::Identifier), theme);
+    applyStyle(wxSTC_CSS_VALUE, theme.get(ThemeCategory::Default), theme);
+    applyStyle(wxSTC_CSS_COMMENT, theme.get(ThemeCategory::MultilineComment), theme);
+    applyStyle(wxSTC_CSS_IMPORTANT, theme.get(ThemeCategory::KeywordPP), theme);
+    applyStyle(wxSTC_CSS_DIRECTIVE, theme.get(ThemeCategory::Preprocessor), theme);
+    applyStyle(wxSTC_CSS_DOUBLESTRING, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_CSS_SINGLESTRING, theme.get(ThemeCategory::String), theme);
+    applyStyle(wxSTC_CSS_ATTRIBUTE, theme.get(ThemeCategory::KeywordOperators), theme);
+    applyStyle(wxSTC_CSS_GROUP_RULE, theme.get(ThemeCategory::Preprocessor), theme);
+    applyStyle(wxSTC_CSS_VARIABLE, theme.get(ThemeCategory::Identifier), theme);
+}
+
 void Editor::applyTextTheme() {
-    SetLexer(wxSTC_LEX_NULL);
+    applyStyle(0, m_theme.get(ThemeCategory::Default), m_theme);
 }
 
 void Editor::updateLineNumberMarginWidth() {
@@ -297,6 +518,10 @@ void Editor::updateLineNumberMarginWidth() {
 void Editor::setDocType(const DocumentType type) {
     m_docType = type;
     applySettings();
+    // Status bar (type label) and menu-enable state (Compile/Run, etc.)
+    // both depend on the document type — refresh both now that it changed.
+    updateStatusBar();
+    updateDocumentState();
 }
 
 void Editor::selectLine() {
@@ -374,7 +599,7 @@ auto Editor::replaceNext(const wxString& findText, const wxString& replaceText, 
     // Check if current selection matches the find text
     const auto selected = GetSelectedText();
     bool matches = false;
-    if (flags & wxFR_MATCHCASE) {
+    if ((flags & wxFR_MATCHCASE) != 0) {
         matches = (selected == findText);
     } else {
         matches = (selected.Lower() == findText.Lower());
@@ -509,7 +734,7 @@ void Editor::uncommentSelection() {
 void Editor::onUpdateUI(wxStyledTextEvent& event) {
     event.Skip();
 
-    if (m_editorLocked) {
+    if (m_docType != DocumentType::FreeBASIC || m_editorLocked) {
         return;
     }
 
@@ -546,15 +771,16 @@ void Editor::postUpdateUI() {
 }
 
 void Editor::onCharAdded(wxStyledTextEvent& event) {
-    if (not m_editorLocked && m_transformer != nullptr) {
-        m_editorLocked = true;
-        m_transformer->onCharAdded(*this, event.GetKey());
-        m_editorLocked = false;
-        m_insertHandled = true;
+    if (m_docType != DocumentType::FreeBASIC || m_editorLocked || m_transformer == nullptr) {
+        return;
     }
+    m_editorLocked = true;
+    m_transformer->onCharAdded(*this, event.GetKey());
+    m_editorLocked = false;
+    m_insertHandled = true;
 }
 
-void Editor::onZoom(wxStyledTextEvent&) {
+void Editor::onZoom(wxStyledTextEvent& /*event*/) {
     updateLineNumberMarginWidth();
 }
 
@@ -567,8 +793,7 @@ void Editor::updateBraceMatch() {
     const auto ch = GetCharAt(pos);
 
     if (isBrace(ch)) {
-        const auto match = BraceMatch(pos);
-        if (match != wxSTC_INVALID_POSITION) {
+        if (const auto match = BraceMatch(pos); match != wxSTC_INVALID_POSITION) {
             BraceHighlight(pos, match);
         } else {
             BraceBadLight(pos);
@@ -592,11 +817,18 @@ void Editor::updateStatusBar() const {
                             ? m_documentManager->findByEditor(this)
                             : nullptr;
     if (doc != nullptr) {
-        frame->SetStatusText(wxString::FromUTF8(doc->getEolMode().toString()), 2);
-        frame->SetStatusText(wxString::FromUTF8(doc->getEncoding().toString()), 3);
+        const auto typeKey = documentTypeKey(doc->getType());
+        auto typeLabel = m_uiManager->getContext().tr(wxString("statusbar.type.") + wxString::FromUTF8(typeKey.data(), typeKey.size()));
+        if (typeLabel.empty()) {
+            typeLabel = wxString::FromUTF8(typeKey.data(), typeKey.size());
+        }
+        frame->SetStatusText(typeLabel, 2);
+        frame->SetStatusText(wxString::FromUTF8(doc->getEolMode().toString()), 3);
+        frame->SetStatusText(wxString::FromUTF8(doc->getEncoding().toString()), 4);
     } else {
         frame->SetStatusText("", 2);
         frame->SetStatusText("", 3);
+        frame->SetStatusText("", 4);
     }
 }
 
@@ -604,15 +836,20 @@ void Editor::disableTransforms(const bool state) {
     m_editorLocked = state;
 }
 
+void Editor::updateDocumentState() const {
+    if (m_uiManager == nullptr) {
+        return;
+    }
+    const auto state = m_docType == DocumentType::FreeBASIC
+                         ? UIState::FocusedValidSourceFile
+                         : UIState::FocusedUnknownFile;
+    m_uiManager->setDocumentState(state);
+}
+
 void Editor::onFocus(wxFocusEvent& event) {
     event.Skip();
     updateStatusBar();
-    if (m_uiManager != nullptr) {
-        const auto state = m_docType == DocumentType::FreeBASIC
-                             ? UIState::FocusedValidSourceFile
-                             : UIState::FocusedUnknownFile;
-        m_uiManager->setDocumentState(state);
-    }
+    updateDocumentState();
 }
 
 void Editor::onIntellisenseTimer(wxTimerEvent& /*event*/) {
@@ -655,13 +892,10 @@ void Editor::setIncludeHotspots(const bool active) {
 }
 
 void Editor::onHotSpotClick(wxStyledTextEvent& event) {
-    if (m_docType != DocumentType::FreeBASIC) {
+    if (m_docType != DocumentType::FreeBASIC || m_documentManager == nullptr) {
         return;
     }
 
-    if (m_documentManager == nullptr) {
-        return;
-    }
     auto& docMgr = *m_documentManager;
     const auto* doc = docMgr.findByEditor(this);
     if (doc == nullptr) {
@@ -694,6 +928,10 @@ void Editor::onMarginClick(wxStyledTextEvent& event) {
 
 void Editor::onModified(wxStyledTextEvent& event) {
     event.Skip();
+
+    if (m_docType != DocumentType::FreeBASIC) {
+        return;
+    }
     const auto mod = event.GetModificationType();
     if ((mod & (wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT | wxSTC_PERFORMED_UNDO | wxSTC_PERFORMED_REDO)) == 0) {
         return;

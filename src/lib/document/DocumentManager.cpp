@@ -7,6 +7,7 @@
 #include "DocumentManager.hpp"
 #include "Document.hpp"
 #include "DocumentIO.hpp"
+#include "DocumentPath.hpp"
 #include "FileSession.hpp"
 #include "analyses/intellisense/IntellisenseService.hpp"
 #include "analyses/symbols/SymbolTable.hpp"
@@ -78,7 +79,7 @@ void DocumentManager::openFile() {
         m_ctx.tr("files.loadTitle"),
         "",
         ".bas",
-        m_ctx.getConfigManager().filePatterns({ "freebasic", "properties", "all" }),
+        m_ctx.getConfigManager().filePatterns({ "freebasic", "properties", "markdown", "batch", "bash", "makefile", "json", "css", "all" }),
         wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE
     );
 
@@ -98,53 +99,50 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
         return nullptr;
     }
 
-    const auto tryOpen = [this](const wxString& candidate) -> Document* {
+    const auto tryOpen = [this](const std::filesystem::path& candidate) -> Document* {
         if (candidate.empty()) {
             return nullptr;
         }
-        wxFileName fn(candidate);
-        fn.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS);
-        const auto full = fn.GetFullPath();
-        if (!wxFileExists(full)) {
+        const auto full = canonicalizePath(candidate);
+        std::error_code ec;
+        if (!std::filesystem::exists(full, ec)) {
             return nullptr;
         }
         return openFile(full);
     };
 
-    const wxFileName req(includePath);
-    if (req.IsAbsolute()) {
-        return tryOpen(includePath);
+    const auto req = toFsPath(includePath);
+    if (req.is_absolute()) {
+        return tryOpen(req);
     }
 
     // 1. Relative to source file
     if (!origin.isNew()) {
-        wxFileName combined(includePath);
-        combined.MakeAbsolute(wxFileName(origin.getFilePath()).GetPath());
-        if (auto* doc = tryOpen(combined.GetFullPath())) {
+        if (auto* doc = tryOpen(origin.getFilePath().parent_path() / req)) {
             return doc;
         }
     }
 
     // 2. Compiler `inc/` folder: <dir-of-fbc>/inc/<path>
-    const auto compilerPath = m_ctx.getConfigManager().config().get_or("compiler.path", "");
-    if (!compilerPath.empty()) {
-        wxFileName fbc(compilerPath);
-        fbc.MakeAbsolute(m_ctx.getConfigManager().getAppDir());
-        wxFileName inc(fbc.GetPath(), wxEmptyString);
-        inc.AppendDir("inc");
-        wxFileName combined(includePath);
-        combined.MakeAbsolute(inc.GetPath());
-        if (auto* doc = tryOpen(combined.GetFullPath())) {
+    const auto compilerPathStr = m_ctx.getConfigManager().config().get_or("compiler.path", "");
+    if (!compilerPathStr.empty()) {
+        auto fbc = toFsPath(compilerPathStr);
+        if (fbc.is_relative()) {
+            fbc = toFsPath(m_ctx.getConfigManager().getAppDir()) / fbc;
+        }
+        if (auto* doc = tryOpen(fbc.parent_path() / "inc" / req)) {
             return doc;
         }
     }
 
     // 3. Current working directory
     {
-        wxFileName combined(includePath);
-        combined.MakeAbsolute();
-        if (auto* doc = tryOpen(combined.GetFullPath())) {
-            return doc;
+        std::error_code ec;
+        const auto cwd = std::filesystem::current_path(ec);
+        if (!ec) {
+            if (auto* doc = tryOpen(cwd / req)) {
+                return doc;
+            }
         }
     }
 
@@ -152,18 +150,29 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
 }
 
 auto DocumentManager::openFile(const wxString& filePath) -> Document* {
-    if (not wxFileExists(filePath)) {
+    return openFile(toFsPath(filePath));
+}
+
+auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Document* {
+    std::error_code ec;
+    if (!std::filesystem::exists(filePath, ec)) {
         return nullptr;
     }
 
+    // Canonicalize once at entry — fixes duplicate-tab bug on case-insensitive
+    // filesystems (macOS/Windows: `fbgfx.bi` vs `FBGFX.bi`), resolves symlinks,
+    // and ensures the stored path is identity-comparable for findByPath.
+    const auto canonical = canonicalizePath(filePath);
+    const auto canonicalWx = toWxString(canonical);
+
     // Session files are loaded separately
-    if (wxFileName(filePath).GetExt() == SESSION_EXT) {
-        m_ctx.getFileSession().load(filePath);
+    if (auto ext = canonical.extension().string(); ext.size() > 1 && ext.substr(1) == SESSION_EXT) {
+        m_ctx.getFileSession().load(canonicalWx);
         return nullptr;
     }
 
     // Check if already open
-    if (auto* existing = findByPath(filePath)) {
+    if (auto* existing = findByPath(canonical)) {
         const auto idx = findPageIndex(*existing);
         if (idx != wxNOT_FOUND) {
             getNotebook()->SetSelection(static_cast<size_t>(idx));
@@ -173,14 +182,14 @@ auto DocumentManager::openFile(const wxString& filePath) -> Document* {
 
     // Read file first — if it fails, don't create an Editor (dangling
     // child of the notebook). Config-derived defaults seed detection.
-    const auto loaded = DocumentIO::load(filePath, defaultEncoding(), defaultEolMode());
+    const auto loaded = DocumentIO::load(canonical, defaultEncoding(), defaultEolMode());
     if (!loaded.has_value()) {
-        wxLogError(m_ctx.tr("messages.loadFailed"), filePath);
+        wxLogError(m_ctx.tr("messages.loadFailed"), canonicalWx);
         return nullptr;
     }
 
     const auto thaw = m_ctx.getUIManager().freeze();
-    const auto type = documentTypeFromPath(filePath);
+    const auto type = documentTypeFromPath(canonical);
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(getNotebook(), m_ctx, type));
 
     // don't reformat code on file load
@@ -193,13 +202,13 @@ auto DocumentManager::openFile(const wxString& filePath) -> Document* {
     editor->EmptyUndoBuffer();
     doc.setEncoding(loaded->encoding);
     doc.setEolMode(loaded->eolMode);
-    doc.setFilePath(filePath);
+    doc.setFilePath(canonical);
     doc.setModified(false);
 
     auto* notebook = getNotebook();
     notebook->AddPage(doc.getPage(), doc.getTitle(), true);
 
-    m_ctx.getFileHistory().addFile(filePath);
+    m_ctx.getFileHistory().addFile(canonicalWx);
 
     // Initial parse: bypass throttle, submit immediately.
     submitIntellisense(&doc, loaded->text);
@@ -256,7 +265,7 @@ void DocumentManager::reloadWithEncoding(Document& doc, const TextEncoding encod
     editor->updateStatusBar();
 }
 
-auto DocumentManager::saveFile(Document& doc) const -> bool {
+auto DocumentManager::saveFile(Document& doc) -> bool {
     if (doc.isNew()) {
         return saveFileAs(doc);
     }
@@ -284,11 +293,11 @@ auto DocumentManager::saveFile(Document& doc) const -> bool {
     doc.setModified(false);
     doc.updateModTime();
     updateTabTitle(doc);
-    reloadConfigIfMatches(doc.getFilePath());
+    reloadConfigIfMatches(toWxString(doc.getFilePath()));
     return true;
 }
 
-auto DocumentManager::saveFileAs(Document& doc) const -> bool {
+auto DocumentManager::saveFileAs(Document& doc) -> bool {
     const auto typeKey = doc.getType() == DocumentType::HTML ? "html" : "freebasic";
     const auto filter = m_ctx.getConfigManager().filePatterns({ typeKey, "all" });
 
@@ -296,7 +305,7 @@ auto DocumentManager::saveFileAs(Document& doc) const -> bool {
         m_ctx.getUIManager().getMainFrame(),
         m_ctx.tr("files.saveTitle"),
         "",
-        doc.isNew() ? wxString(".bas") : wxFileName(doc.getFilePath()).GetFullName(),
+        doc.isNew() ? wxString(".bas") : toWxString(doc.getFilePath().filename()),
         filter,
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
     );
@@ -305,7 +314,23 @@ auto DocumentManager::saveFileAs(Document& doc) const -> bool {
         return false;
     }
 
-    const auto newPath = dlg.GetPath();
+    const auto newPath = canonicalizePath(toFsPath(dlg.GetPath()));
+
+    // Guard against overwriting a file that is already loaded in another
+    // tab — the on-disk content would diverge from the open buffer.
+    auto* clash = findByPath(newPath);
+    if (clash != nullptr && clash != &doc) {
+        const auto answer = wxMessageBox(
+            m_ctx.tr("messages.saveOverwriteOpenMessage"),
+            m_ctx.tr("messages.saveOverwriteOpenTitle"),
+            wxYES_NO | wxICON_EXCLAMATION,
+            m_ctx.getUIManager().getMainFrame()
+        );
+        if (answer != wxYES) {
+            return false;
+        }
+    }
+
     const auto result = DocumentIO::save(newPath, doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode());
     if (result != DocumentIO::SaveResult::Success) {
         reportSaveFailure(result, m_ctx, doc.getEncoding());
@@ -316,7 +341,15 @@ auto DocumentManager::saveFileAs(Document& doc) const -> bool {
     doc.setModified(false);
     doc.updateModTime();
     updateTabTitle(doc);
-    reloadConfigIfMatches(newPath);
+    reloadConfigIfMatches(toWxString(newPath));
+
+    if (clash != nullptr && clash != &doc) {
+        // Two tabs showing the same file is redundant. The user already
+        // confirmed the overwrite, so close the mirror tab without
+        // re-prompting about its now-stale buffer.
+        clash->setModified(false);
+        closeFile(*clash);
+    }
     return true;
 }
 
@@ -324,7 +357,8 @@ void DocumentManager::reloadFromDisk(Document& doc) {
     if (doc.isNew()) {
         return;
     }
-    if (!wxFileExists(doc.getFilePath())) {
+    std::error_code ec;
+    if (!std::filesystem::exists(doc.getFilePath(), ec)) {
         wxLogError("%s", m_ctx.tr("messages.reloadFailed"));
         return;
     }
@@ -377,7 +411,7 @@ void DocumentManager::reloadConfigIfMatches(const wxString& path) const {
     }
 }
 
-auto DocumentManager::saveAllFiles() const -> bool {
+auto DocumentManager::saveAllFiles() -> bool {
     for (auto& doc : m_documents) {
         if (doc->isModified()) {
             if (!saveFile(*doc)) {
@@ -434,6 +468,7 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
         frame->SetStatusText("", 1);
         frame->SetStatusText("", 2);
         frame->SetStatusText("", 3);
+        frame->SetStatusText("", 4);
     }
 
     return true;
@@ -562,7 +597,8 @@ void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
     const auto path = doc->getFilePath();
     Document* docPtr = doc;
 
-    const bool fileOnDisk = hasPath && wxFileExists(path);
+    std::error_code fsEc;
+    const bool fileOnDisk = hasPath && std::filesystem::exists(path, fsEc);
 
     wxMenu menu;
     menu.Append(+CommandId::Close, m_ctx.tr("commands.close.name"));
@@ -593,7 +629,7 @@ void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
         if (auto* entry = m_ctx.getCommandManager().find(+CommandId::Browser)) {
             entry->setChecked(true);
         }
-        m_ctx.getSideBarManager().locateFile(path); }, kTabShowInBrowserId);
+        m_ctx.getSideBarManager().locateFile(toWxString(path)); }, kTabShowInBrowserId);
     menu.Bind(wxEVT_MENU, [this, docPtr](const wxCommandEvent&) {
         if (contains(docPtr)) {
             reloadFromDisk(*docPtr);
@@ -663,17 +699,17 @@ void DocumentManager::setActive(Document* document) {
 }
 
 auto DocumentManager::findByPath(const wxString& path) const -> Document* {
-    auto normalized = wxFileName(path);
-    normalized.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS);
-    const auto fullPath = normalized.GetFullPath();
+    return findByPath(toFsPath(path));
+}
 
+auto DocumentManager::findByPath(const std::filesystem::path& path) const -> Document* {
+    // Stored doc paths are canonical (set via openFile / saveFileAs).
+    // Canonicalize the query once so case-insensitive filesystems, symlinks,
+    // and relative paths all collapse to the same identity.
+    const auto canonical = canonicalizePath(path);
     for (auto& doc : m_documents) {
-        if (!doc->isNew()) {
-            wxFileName docPath(doc->getFilePath());
-            docPath.Normalize(wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS);
-            if (docPath.GetFullPath() == fullPath) {
-                return doc.get();
-            }
+        if (!doc->isNew() && doc->getFilePath() == canonical) {
+            return doc.get();
         }
     }
     return nullptr;
@@ -737,7 +773,7 @@ void DocumentManager::updateTabTitle(const Document& doc) const {
     const auto idx = findPageIndex(doc);
     if (idx != wxNOT_FOUND) {
         getNotebook()->SetPageText(static_cast<size_t>(idx), doc.getTitle());
-        m_ctx.getUIManager().setTitle(doc.isNew() ? doc.getTitle() : doc.getFilePath());
+        m_ctx.getUIManager().setTitle(doc.isNew() ? doc.getTitle() : toWxString(doc.getFilePath()));
     }
 }
 

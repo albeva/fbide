@@ -95,6 +95,11 @@ public:
     /// Update the statusbar with current cursor position.
     void updateStatusBar() const;
 
+    /// Push the focused-document UI state (Compile/Run menu enables, etc.)
+    /// based on the current document type. Called on focus and whenever
+    /// the type changes mid-session.
+    void updateDocumentState() const;
+
     /// Enable / disable code transforms (e.g. during loading)
     void disableTransforms(bool state);
 
@@ -141,12 +146,28 @@ private:
     void applyStyle(int stcId, const Theme::Entry& style, const Theme& theme);
     /// Apply foreground/background colors to the given Scintilla style id.
     void applyColors(int stcId, const Theme::Colors& colors, const Theme& theme);
+    /// Load correct lexer for the given file type
+    void loadLexer();
+    /// Apply theme for the lexer
+    void loadLexerTheme();
     /// Theme dispatch for FreeBASIC documents (custom lexer + every category).
     void applyFreebasicTheme();
     /// Theme dispatch for HTML documents (built-in wxSTC HTML lexer).
     void applyHtmlTheme();
     /// Theme dispatch for properties / `.ini` documents.
     void applyPropertiesTheme();
+    /// Theme dispatch for Markdown documents (built-in wxSTC Markdown lexer).
+    void applyMarkdownTheme();
+    /// Theme dispatch for Windows batch files (built-in wxSTC Batch lexer).
+    void applyBatchTheme();
+    /// Theme dispatch for shell / bash scripts (built-in wxSTC Bash lexer).
+    void applyBashTheme();
+    /// Theme dispatch for Makefiles (built-in wxSTC Makefile lexer).
+    void applyMakefileTheme();
+    /// Theme dispatch for JSON documents (built-in wxSTC JSON lexer).
+    void applyJsonTheme();
+    /// Theme dispatch for CSS documents (built-in wxSTC CSS lexer).
+    void applyCssTheme();
     /// Theme dispatch for plain-text documents (no lexer).
     void applyTextTheme();
     /// Resize the line-number margin to fit the current line count + zoom.

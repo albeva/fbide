@@ -69,6 +69,10 @@ public:
     /// Destroy any lazily created chrome (compiler log dialog, etc.).
     ~UIManager() override;
 
+    /// Access the application context — for widgets that already hold a
+    /// `UIManager*` and need localisation lookups (status bar, editor).
+    [[nodiscard]] auto getContext() const -> Context& { return m_ctx; }
+
     /// Build the main application frame with all UI elements.
     void createMainFrame();
 
