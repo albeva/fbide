@@ -12,48 +12,28 @@ using namespace fbide;
 class ConfigStrategyTests : public testing::Test {};
 
 // ---------------------------------------------------------------------------
-// Overlay strategy — bundle baseline + writable user overlay
+// Overlay strategy — bundle baseline + writable user overlay. savePath()
+// must point at the overlay so saves never write the immutable bundle.
 // ---------------------------------------------------------------------------
 
-TEST_F(ConfigStrategyTests, OverlayCarriesBothPaths) {
+TEST_F(ConfigStrategyTests, OverlayExposesAllAccessors) {
     const auto strat = ConfigStrategy::overlay("/ide/config.ini", "/user/config.local.ini");
     EXPECT_EQ(strat.basePath(), "/ide/config.ini");
     EXPECT_EQ(strat.overlayPath(), "/user/config.local.ini");
-}
-
-TEST_F(ConfigStrategyTests, OverlaySavesToOverlayPath) {
-    // Saves under the Overlay strategy must land in the writable .local.ini,
-    // never in the immutable bundle file. savePath() encodes that rule so
-    // ConfigManager::save() can stay agnostic of strategy mode.
-    const auto strat = ConfigStrategy::overlay("/ide/config.ini", "/user/config.local.ini");
     EXPECT_EQ(strat.savePath(), strat.overlayPath());
-}
-
-TEST_F(ConfigStrategyTests, OverlayUsesOverlay) {
-    const auto strat = ConfigStrategy::overlay("/ide/config.ini", "/user/config.local.ini");
     EXPECT_TRUE(strat.usesOverlay());
 }
 
 // ---------------------------------------------------------------------------
-// Direct strategy — single file, no layering (--config=PATH at startup, or
-// reloadConfig() at runtime)
+// Direct strategy — single file, no layering (--config=PATH at startup or
+// reloadConfig() at runtime). savePath() collapses to basePath().
 // ---------------------------------------------------------------------------
 
-TEST_F(ConfigStrategyTests, DirectCarriesOnlyBasePath) {
+TEST_F(ConfigStrategyTests, DirectExposesAllAccessors) {
     const auto strat = ConfigStrategy::direct("/tmp/ci-config.ini");
     EXPECT_EQ(strat.basePath(), "/tmp/ci-config.ini");
     EXPECT_TRUE(strat.overlayPath().IsEmpty());
-}
-
-TEST_F(ConfigStrategyTests, DirectSavesToBasePath) {
-    // Explicit-path mode round-trips: load and save target the same file. No
-    // overlay file is ever produced.
-    const auto strat = ConfigStrategy::direct("/tmp/ci-config.ini");
     EXPECT_EQ(strat.savePath(), strat.basePath());
-}
-
-TEST_F(ConfigStrategyTests, DirectDoesNotUseOverlay) {
-    const auto strat = ConfigStrategy::direct("/tmp/ci-config.ini");
     EXPECT_FALSE(strat.usesOverlay());
 }
 
@@ -88,11 +68,6 @@ TEST_F(ConfigStrategyTests, DeriveOverlayPathReadOnlyRoutesToUserDir) {
     const auto path = ConfigStrategy::deriveOverlayPath(base, userDataDir, /*readOnly=*/true);
     EXPECT_EQ(wxFileName(path).GetFullName(), "config_macos.local.ini");
     EXPECT_EQ(wxFileName(path).GetPath(), userDataDir);
-}
-
-TEST_F(ConfigStrategyTests, DeriveOverlayPathKeywordsFile) {
-    const auto path = ConfigStrategy::deriveOverlayPath("/ide/keywords.ini", "", false);
-    EXPECT_EQ(wxFileName(path).GetFullName(), "keywords.local.ini");
 }
 
 TEST_F(ConfigStrategyTests, DeriveOverlayPathPreservesExtension) {

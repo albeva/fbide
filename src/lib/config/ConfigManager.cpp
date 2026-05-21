@@ -572,6 +572,9 @@ void ConfigManager::save(const Category category) {
             }
             return;
         }
+        // Ensure parent dir exists — under READONLY this is
+        // `<UserDataDir>` which may not exist on first launch.
+        wxFileName::Mkdir(wxFileName(overlayPath).GetPath(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
         wxFileConfig overlayCfg;
         wxFFileOutputStream outStream(overlayPath);
         if (!outStream.IsOk()) {
