@@ -38,10 +38,13 @@ constexpr int kMinBubbleContent = 60;
 // Inset of the action bar from the code block's top-right corner.
 constexpr int kActionBarInset = 4;
 
-/// True when `lang` (a fence tag) denotes FreeBASIC. An empty tag counts — in
-/// a FreeBASIC IDE an untagged block is assumed to be FreeBASIC.
+/// True when `lang` (a fence tag) denotes FreeBASIC. Requires an explicit
+/// tag — an untagged ```...``` fence is NOT assumed to be FreeBASIC.
+/// Untagged blocks rendered as model output are typically shell commands,
+/// pseudo-code, or generic snippets that the FB lexer would mangle if it
+/// tried to colour them.
 auto isFreeBasicTag(const wxString& lang) -> bool {
-    return lang.empty() || lang == "freebasic" || lang == "fb" || lang == "basic" || lang == "bas";
+    return lang == "freebasic" || lang == "fb" || lang == "basic" || lang == "bas";
 }
 
 /// Linear blend of two colours — `t` of 0 yields `a`, 1 yields `b`.
@@ -353,23 +356,94 @@ void AiChatView::paintMessage(
             gc.SetPen(wxPen(pal.rule));
             const int ruleY = lineTop + (line.height / 2);
             gc.DrawLine(contentLeft, ruleY, contentLeft + message.contentWidth, ruleY);
+        } else if ((line.kind == LineKind::TableHeader || line.kind == LineKind::TableBody)
+                   && !line.tableColumns.empty()) {
+            // Header rows get a subtle background tint (reuse the code-block
+            // colour); the fill is clipped to the table's actual column
+            // range so it doesn't leak out into the rest of the bubble.
+            // Borders / dividers are drawn after, on top of the fill.
+            const int leftEdge = contentLeft + line.tableColumns.front().x;
+            const int rightEdge = contentLeft + line.tableColumns.back().x
+                                + line.tableColumns.back().width;
+            const int tableWidth = rightEdge - leftEdge;
+            if (line.kind == LineKind::TableHeader) {
+                gc.SetBrush(wxBrush(pal.tableHeaderBg));
+                gc.SetPen(*wxTRANSPARENT_PEN);
+                gc.DrawRectangle(leftEdge, lineTop, tableWidth, line.height);
+            }
+            gc.SetPen(wxPen(pal.rule));
+            // Vertical column separators (skip the leftmost — covered by
+            // the outer left border below).
+            for (std::size_t c = 1; c < line.tableColumns.size(); c++) {
+                const int colX = contentLeft + line.tableColumns[c].x;
+                gc.DrawLine(colX, lineTop, colX, lineTop + line.height);
+            }
+            // Outer left + right borders.
+            gc.DrawLine(leftEdge, lineTop, leftEdge, lineTop + line.height);
+            gc.DrawLine(rightEdge, lineTop, rightEdge, lineTop + line.height);
+            // Horizontal row divider at the top of every row — covers
+            // both the table top border (first row) and inter-row
+            // separators. `tableRowStart` is true only on the first
+            // visual line of each row, so wrapped cells don't get
+            // intermediate dividers.
+            if (line.tableRowStart) {
+                gc.DrawLine(leftEdge, lineTop, rightEdge, lineTop);
+            }
+            // Closing border at the bottom of the very last row. Drawn
+            // at `lineTop + height` so it meets the side-line endpoints
+            // exactly — drawing one pixel inside the row leaves the
+            // vertical borders visibly overhanging the corner.
+            if (line.tableLastLine) {
+                const int bottomY = lineTop + line.height;
+                gc.DrawLine(leftEdge, bottomY, rightEdge, bottomY);
+            }
         }
 
-        for (const auto& run : line.runs) {
-            if (run.text.empty()) {
-                continue;
-            }
+        // Baseline-aligned drawing. Different font families have different
+        // ascents above the baseline; if we draw every run at the same
+        // top (`DrawText` y is the top of the glyph box), the baselines
+        // drift and mixed prose/mono lines look "jittery". `wxFontMetrics`
+        // ascent (which excludes leading — what `GetTextExtent` height
+        // includes) is the per-font distance from the top of the glyph
+        // box to the baseline.
+        //
+        // Pass 1 finds the max ascent across runs in this line; pass 2
+        // draws each run at `baseline - runAscent`. The `currentStyle`
+        // cache spans both passes so a single-style line sets the font
+        // once across both.
+        wxCoord ascent = 0;
+        wxCoord maxAscent = 0;
+        const auto ascentForRun = [&](const PaintRun& run) -> wxCoord {
             if (!styleSet || run.style != currentStyle) {
                 gc.SetFont(fontFor(run.style, m_bodyFont, m_monoFont, m_themedFont));
                 currentStyle = run.style;
                 styleSet = true;
             }
+            return gc.GetFontMetrics().ascent;
+        };
+
+        for (const auto& run : line.runs) {
+            if (run.text.empty()) {
+                continue;
+            }
+            ascent = ascentForRun(run);
+            if (ascent > maxAscent) {
+                maxAscent = ascent;
+            }
+        }
+        const wxCoord baseline = lineTop + 2 + maxAscent;
+
+        for (const auto& run : line.runs) {
+            if (run.text.empty()) {
+                continue;
+            }
+            ascent = ascentForRun(run);
             if (!colourSet || run.colour != currentColour) {
                 gc.SetTextForeground(run.colour);
                 currentColour = run.colour;
                 colourSet = true;
             }
-            gc.DrawText(run.text, contentLeft + run.x, lineTop + 2);
+            gc.DrawText(run.text, contentLeft + run.x, baseline - ascent);
         }
     }
 }
@@ -387,12 +461,19 @@ auto AiChatView::bubbleColour(const bool fromUser) const -> wxColour {
 auto AiChatView::palette() const -> ChatPalette {
     const auto& theme = m_ctx.getTheme();
     const wxColour separator = theme.getSeparator();
+    const wxColour windowBg = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
+    const wxColour windowText = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
     return {
-        .text = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT),
+        .text = windowText,
         .link = wxColour(40, 100, 220),
         .codeBg = theme.background({}),
         .inlineCodeBg = theme.background({}),
         .rule = separator.IsOk() ? separator : wxColour(180, 180, 180),
+        // Header tint is derived from system colours (not the editor
+        // theme) so it always contrasts with `text`. The editor theme
+        // can be dark while the OS is in light mode (and vice versa);
+        // using `codeBg` here makes the header invisible in those mixes.
+        .tableHeaderBg = blend(windowBg, windowText, 0.14),
     };
 }
 

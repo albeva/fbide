@@ -21,6 +21,15 @@ auto plainText(const MdBlock& block) -> wxString {
     return out;
 }
 
+/// Same, for a single table cell — flatten its inline runs to plain text.
+auto cellText(const MdTableCell& cell) -> wxString {
+    wxString out;
+    for (const auto& run : cell.inlines) {
+        out += run.text;
+    }
+    return out;
+}
+
 } // namespace
 
 class MarkdownTests : public testing::Test {};
@@ -248,4 +257,77 @@ TEST_F(MarkdownTests, ProseThenCodeThenProse) {
     EXPECT_EQ(doc.blocks[0].kind, MdBlockKind::Paragraph);
     EXPECT_EQ(doc.blocks[1].kind, MdBlockKind::CodeFence);
     EXPECT_EQ(doc.blocks[2].kind, MdBlockKind::Paragraph);
+}
+
+// ---------------------------------------------------------------------------
+// GFM tables
+// ---------------------------------------------------------------------------
+
+TEST_F(MarkdownTests, SimpleTableParsedAsTableBlock) {
+    const auto doc = parseMarkdown(
+        "| Name | Type |\n"
+        "|------|------|\n"
+        "| Foo  | Int  |\n"
+        "| Bar  | Str  |\n"
+    );
+    ASSERT_EQ(doc.blocks.size(), 1U);
+    const auto& table = doc.blocks[0];
+    EXPECT_EQ(table.kind, MdBlockKind::Table);
+    EXPECT_EQ(table.headerRowCount, 1U);
+    ASSERT_EQ(table.rows.size(), 3U);
+    ASSERT_EQ(table.rows[0].cells.size(), 2U);
+    EXPECT_EQ(cellText(table.rows[0].cells[0]), "Name");
+    EXPECT_EQ(cellText(table.rows[0].cells[1]), "Type");
+    EXPECT_EQ(cellText(table.rows[1].cells[0]), "Foo");
+    EXPECT_EQ(cellText(table.rows[1].cells[1]), "Int");
+    EXPECT_EQ(cellText(table.rows[2].cells[0]), "Bar");
+    EXPECT_EQ(cellText(table.rows[2].cells[1]), "Str");
+}
+
+TEST_F(MarkdownTests, TableSeparatorMarkersDriveColumnAlignment) {
+    const auto doc = parseMarkdown(
+        "| L | C | R |\n"
+        "|:--|:-:|--:|\n"
+        "| 1 | 2 | 3 |\n"
+    );
+    ASSERT_EQ(doc.blocks.size(), 1U);
+    const auto& table = doc.blocks[0];
+    ASSERT_EQ(table.columnAlignment.size(), 3U);
+    EXPECT_EQ(table.columnAlignment[0], MdTableAlignment::Left);
+    EXPECT_EQ(table.columnAlignment[1], MdTableAlignment::Center);
+    EXPECT_EQ(table.columnAlignment[2], MdTableAlignment::Right);
+}
+
+TEST_F(MarkdownTests, InlineFormattingInTableCells) {
+    const auto doc = parseMarkdown(
+        "| Plain | Styled            |\n"
+        "|-------|-------------------|\n"
+        "| x     | **bold** `code`   |\n"
+    );
+    ASSERT_EQ(doc.blocks.size(), 1U);
+    const auto& table = doc.blocks[0];
+    ASSERT_EQ(table.rows.size(), 2U);
+    const auto& styledCell = table.rows[1].cells[1];
+    // Three inline runs: "bold" with bold style, " ", "code" with code style.
+    bool sawBold = false;
+    bool sawCode = false;
+    for (const auto& run : styledCell.inlines) {
+        if (run.style.bold && run.text == "bold") {
+            sawBold = true;
+        }
+        if (run.style.code && run.text == "code") {
+            sawCode = true;
+        }
+    }
+    EXPECT_TRUE(sawBold);
+    EXPECT_TRUE(sawCode);
+}
+
+TEST_F(MarkdownTests, HeaderRowAloneIsNotATable) {
+    // GFM requires the separator row to commit to a table. A naked
+    // header row should be parsed as a paragraph, leaving the streaming
+    // case (header arrives before separator) un-broken.
+    const auto doc = parseMarkdown("| not | a table |\n");
+    ASSERT_EQ(doc.blocks.size(), 1U);
+    EXPECT_EQ(doc.blocks[0].kind, MdBlockKind::Paragraph);
 }

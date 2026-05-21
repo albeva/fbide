@@ -41,6 +41,13 @@ struct Builder {
     MdBlock cur;
     bool inCodeBlock = false; ///< Inside MD_BLOCK_CODE — text is verbatim code.
 
+    // Table state — non-null only while a table is being assembled. md4c
+    // emits cells via TH/TD blocks, and inline events inside a cell route
+    // to `cellInlines` instead of `cur.inlines`. `inHeader` is true between
+    // MD_BLOCK_THEAD enter/leave so we know which rows to mark as header.
+    bool inHeader = false;
+    std::vector<MdInline>* cellInlines = nullptr;
+
     /// Current accumulated inline style.
     [[nodiscard]] auto style() const -> MdStyle {
         return { .bold = strong > 0,
@@ -67,17 +74,33 @@ struct Builder {
         }
     }
 
-    /// Append a text run — to the code body inside a fence, otherwise as a
-    /// styled (and possibly link-tagged) inline fragment.
-    void addText(const wxString& text) {
+    /// Where the next inline fragment should land — a table cell when
+    /// inside one, otherwise the open block's own inline list.
+    [[nodiscard]] auto inlineSink() -> std::vector<MdInline>* {
+        if (cellInlines != nullptr) {
+            return cellInlines;
+        }
         if (!open) {
-            return;
+            return nullptr;
         }
+        return &cur.inlines;
+    }
+
+    /// Append a text run — to the code body inside a fence, otherwise as a
+    /// styled (and possibly link-tagged) inline fragment in the current
+    /// sink (table cell or block paragraph).
+    void addText(const wxString& text) {
         if (inCodeBlock) {
-            cur.codeText += text;
+            if (open) {
+                cur.codeText += text;
+            }
             return;
         }
-        cur.inlines.push_back({
+        auto* sink = inlineSink();
+        if (sink == nullptr) {
+            return;
+        }
+        sink->push_back({
             .kind = inLink ? MdInlineKind::Link : MdInlineKind::Text,
             .text = text,
             .url = inLink ? linkUrl : wxString {},
@@ -87,11 +110,32 @@ struct Builder {
 
     /// Append a soft or hard line break (ignored inside code).
     void addBreak(const MdInlineKind kind) {
-        if (open && !inCodeBlock) {
-            cur.inlines.push_back({ .kind = kind, .text = {}, .url = {}, .style = {} });
+        if (inCodeBlock) {
+            return;
         }
+        auto* sink = inlineSink();
+        if (sink == nullptr) {
+            return;
+        }
+        sink->push_back({ .kind = kind, .text = {}, .url = {}, .style = {} });
     }
 };
+
+/// Translate md4c's `MD_ALIGN` to our local enum so the public model
+/// doesn't leak md4c types.
+[[nodiscard]] auto translateAlign(const MD_ALIGN align) -> MdTableAlignment {
+    switch (align) {
+    case MD_ALIGN_LEFT:
+        return MdTableAlignment::Left;
+    case MD_ALIGN_CENTER:
+        return MdTableAlignment::Center;
+    case MD_ALIGN_RIGHT:
+        return MdTableAlignment::Right;
+    case MD_ALIGN_DEFAULT:
+    default:
+        return MdTableAlignment::Default;
+    }
+}
 
 /// Wrap an md4c (pointer, length) string — never NUL-terminated — as wxString.
 auto mdStr(const MD_CHAR* text, const MD_SIZE size) -> wxString {
@@ -198,9 +242,41 @@ static int mdEnterBlock(const MD_BLOCKTYPE type, void* detail, void* userData) {
             builder.begin(MdBlockKind::Paragraph);
         }
         break;
+    case MD_BLOCK_TABLE:
+        builder.begin(MdBlockKind::Table);
+        break;
+    case MD_BLOCK_THEAD:
+        builder.inHeader = true;
+        break;
+    case MD_BLOCK_TBODY:
+        builder.inHeader = false;
+        break;
+    case MD_BLOCK_TR:
+        if (builder.open && builder.cur.kind == MdBlockKind::Table) {
+            builder.cur.rows.push_back({});
+            if (builder.inHeader) {
+                builder.cur.headerRowCount++;
+            }
+        }
+        break;
+    case MD_BLOCK_TH:
+    case MD_BLOCK_TD:
+        if (builder.open && builder.cur.kind == MdBlockKind::Table
+            && !builder.cur.rows.empty()) {
+            auto& row = builder.cur.rows.back();
+            row.cells.push_back({});
+            builder.cellInlines = &row.cells.back().inlines;
+            // Column alignment is captured from header-row cells. md4c
+            // also reports it on body cells, but the header is the
+            // canonical source per GFM.
+            if (builder.inHeader && detail != nullptr) {
+                const auto* td = static_cast<MD_BLOCK_TD_DETAIL*>(detail);
+                builder.cur.columnAlignment.push_back(translateAlign(td->align));
+            }
+        }
+        break;
     default:
-        // MD_BLOCK_DOC and the table blocks (tables extension is off) need
-        // no action.
+        // MD_BLOCK_DOC needs no action.
         break;
     }
     return 0;
@@ -233,6 +309,17 @@ static int mdLeaveBlock(const MD_BLOCKTYPE type, void* /*detail*/, void* userDat
         if (builder.open && builder.cur.kind == MdBlockKind::Paragraph) {
             builder.end();
         }
+        break;
+    case MD_BLOCK_TH:
+    case MD_BLOCK_TD:
+        builder.cellInlines = nullptr;
+        break;
+    case MD_BLOCK_THEAD:
+    case MD_BLOCK_TBODY:
+        builder.inHeader = false;
+        break;
+    case MD_BLOCK_TABLE:
+        builder.end();
         break;
     default:
         break;
@@ -328,7 +415,8 @@ auto fbide::parseMarkdown(const wxString& text) -> MdDoc {
     MD_PARSER parser {};
     parser.abi_version = 0;
     parser.flags = MD_FLAG_NOHTML | MD_FLAG_PERMISSIVEAUTOLINKS
-                 | MD_FLAG_STRIKETHROUGH | MD_FLAG_COLLAPSEWHITESPACE;
+                 | MD_FLAG_STRIKETHROUGH | MD_FLAG_COLLAPSEWHITESPACE
+                 | MD_FLAG_TABLES;
     parser.enter_block = mdEnterBlock;
     parser.leave_block = mdLeaveBlock;
     parser.enter_span = mdEnterSpan;

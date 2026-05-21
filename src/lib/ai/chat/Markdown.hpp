@@ -42,6 +42,29 @@ enum class MdBlockKind : std::uint8_t {
     CodeFence, ///< Fenced or indented code — see `codeLang` / `codeText`.
     ListItem,  ///< One item line of a list — see `list*` fields.
     Rule,      ///< Horizontal rule (`---`). Carries no content.
+    Table,     ///< GFM pipe table — see `rows` / `columnAlignment`.
+};
+
+/// Per-column text alignment, derived from the GFM separator row's `:`
+/// markers. `Default` means the layout picks (left for the time being).
+enum class MdTableAlignment : std::uint8_t {
+    Default,
+    Left,
+    Center,
+    Right,
+};
+
+/// One cell of a table row. Inline content is parsed with the same rules
+/// as a paragraph, so `code`, **bold**, *italic*, [links] in cells all
+/// reuse the existing inline pipeline.
+struct MdTableCell {
+    std::vector<MdInline> inlines;
+};
+
+/// One row of a table. The first `MdBlock::headerRowCount` rows are the
+/// header (visually tinted by the painter); the rest are body rows.
+struct MdTableRow {
+    std::vector<MdTableCell> cells;
 };
 
 /// One block of the document. The markdown tree is flattened: list nesting
@@ -49,16 +72,20 @@ enum class MdBlockKind : std::uint8_t {
 /// so the document is a simple linear sequence the layout engine can walk.
 struct MdBlock {
     MdBlockKind kind = MdBlockKind::Paragraph;
-    std::vector<MdInline> inlines; ///< Paragraph / Heading / ListItem content.
-    unsigned headingLevel = 0;     ///< Heading: 1-6.
-    wxString codeLang;             ///< CodeFence: fence info string, lowercased.
-    wxString codeText;             ///< CodeFence: verbatim code, '\n'-separated.
-    int quoteDepth = 0;            ///< Block-quote nesting (0 = not quoted).
-    int listDepth = 0;             ///< List nesting (0 = not in a list).
-    bool listOrdered = false;      ///< ListItem: ordered vs bulleted.
-    int listOrdinal = 0;           ///< ListItem: number for ordered lists.
-    bool listMarker = false;       ///< ListItem: draw the bullet/number
-                                   ///< (false for an item's continuation lines).
+    std::vector<MdInline> inlines;                 ///< Paragraph / Heading / ListItem content.
+    unsigned headingLevel = 0;                     ///< Heading: 1-6.
+    wxString codeLang;                             ///< CodeFence: fence info string, lowercased.
+    wxString codeText;                             ///< CodeFence: verbatim code, '\n'-separated.
+    int quoteDepth = 0;                            ///< Block-quote nesting (0 = not quoted).
+    int listDepth = 0;                             ///< List nesting (0 = not in a list).
+    bool listOrdered = false;                      ///< ListItem: ordered vs bulleted.
+    int listOrdinal = 0;                           ///< ListItem: number for ordered lists.
+    bool listMarker = false;                       ///< ListItem: draw the bullet/number
+                                                   ///< (false for an item's continuation lines).
+    std::vector<MdTableAlignment> columnAlignment; ///< Table: one entry per column.
+    std::vector<MdTableRow> rows;                  ///< Table: header rows first, then body.
+    std::size_t headerRowCount = 0;                ///< Table: number of leading rows in `rows`
+                                                   ///< that are header (usually 1).
 };
 
 /// Parsed markdown document — a flat sequence of blocks.

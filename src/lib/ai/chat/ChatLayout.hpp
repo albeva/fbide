@@ -44,9 +44,19 @@ public:
 
 /// Kind of a laid-out line — selects background and decoration when painting.
 enum class LineKind : std::uint8_t {
-    Prose, ///< Wrapped prose / heading / list item.
-    Code,  ///< A code-block line (or its padding) — painted on the code bg.
-    Rule,  ///< A horizontal rule — no runs.
+    Prose,       ///< Wrapped prose / heading / list item.
+    Code,        ///< A code-block line (or its padding) — painted on the code bg.
+    Rule,        ///< A horizontal rule — no runs.
+    TableHeader, ///< Header row of a table — painted with a subtle tint.
+    TableBody,   ///< Body row of a table — painted on the prose background.
+};
+
+/// One column of a laid-out table row. Carries the column's geometry
+/// and alignment so the painter can draw separators and the layout can
+/// position cell text correctly.
+struct TableColumn {
+    int x = 0;     ///< Left edge, in document coordinates.
+    int width = 0; ///< Pixel width allocated to this column.
 };
 
 /// One painted run: a span of same-styled text at a known offset.
@@ -66,6 +76,18 @@ struct PaintLine {
     int height = 0;     ///< Line height in pixels.
     int quoteDepth = 0; ///< Block-quote nesting — the painter draws that many bars.
     std::vector<PaintRun> runs;
+    /// Table-only: per-column geometry. Empty for non-table lines. The
+    /// painter draws vertical separators between columns and (for
+    /// TableBody) a horizontal divider at the top of the row.
+    std::vector<TableColumn> tableColumns;
+    /// Table-only: true for the very LAST visual line of the table —
+    /// the painter draws the bottom border on it.
+    bool tableLastLine = false;
+    /// Table-only: true for the first visual line of a table row. Cells
+    /// that wrap to multiple lines produce extra PaintLines for the
+    /// same row; the painter uses this flag to draw the row-divider
+    /// only at the actual row start, not between wrapped lines.
+    bool tableRowStart = false;
 };
 
 /// A hyperlink target, referenced by `PaintRun::linkId`.
@@ -84,11 +106,15 @@ struct LaidCodeBlock {
 
 /// Colours the layout and painter need that are not carried on code runs.
 struct ChatPalette {
-    wxColour text;         ///< Body prose colour.
-    wxColour link;         ///< Hyperlink colour.
-    wxColour codeBg;       ///< Code-block background.
-    wxColour inlineCodeBg; ///< Inline `code` background.
-    wxColour rule;         ///< Horizontal-rule colour.
+    wxColour text;          ///< Body prose colour.
+    wxColour link;          ///< Hyperlink colour.
+    wxColour codeBg;        ///< Code-block background (from editor theme).
+    wxColour inlineCodeBg;  ///< Inline `code` background.
+    wxColour rule;          ///< Horizontal-rule colour.
+    wxColour tableHeaderBg; ///< Table header-row tint. Derived from system
+                            ///< colours (not the editor theme) so it stays
+                            ///< distinct from `text` in both light and dark
+                            ///< modes regardless of the editor theme.
 };
 
 /// A fully laid-out document — stacked, wrapped lines plus link targets.
