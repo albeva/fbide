@@ -37,6 +37,7 @@ target_sources(fbide_lib
     editor/AutoIndent.cpp
     editor/CodeTransformer.cpp
     editor/Editor.cpp
+    editor/LineHistory.cpp
     editor/lexilla/FBSciLexer.cpp
     format/FormatDialog.cpp
     format/renderers/HtmlRenderer.cpp
@@ -105,6 +106,7 @@ target_sources(fbide_lib
     editor/AutoIndent.hpp
     editor/CodeTransformer.hpp
     editor/Editor.hpp
+    editor/LineHistory.hpp
     editor/lexilla/CharCategory.hpp
     editor/lexilla/FBSciLexer.hpp
     format/FormatDialog.hpp
