@@ -88,6 +88,7 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
     m_showLineNumbers = editor.get_or("lineNumbers", true);
     m_showRightMargin = editor.get_or("longLine", false);
     m_foldMargin = editor.get_or("folderMargin", false);
+    m_changeTracking = editor.get_or("changeTracking", true);
     m_edgeColumn = editor.get_or("edgeColumn", 80);
     m_tabSize = editor.get_or("tabSize", 4);
     m_encoding = editor.get_or("encoding", "UTF-8");
@@ -119,6 +120,7 @@ void GeneralPage::create() {
             checkBox(m_showLineNumbers, tr("dialogs.settings.general.lineNumbers"));
             checkBox(m_showRightMargin, tr("dialogs.settings.general.rightMargin"));
             checkBox(m_foldMargin, tr("dialogs.settings.general.foldMargin"));
+            checkBox(m_changeTracking, tr("dialogs.settings.general.changeTracking"));
             checkBox(m_splashScreen, tr("dialogs.settings.general.splashScreen"));
             spinCtrl(m_tabSize, tr("dialogs.settings.general.tabSize"), 1, 16, {});
             hbox({ .center = true, .border = 0 }, [&] {
@@ -179,6 +181,7 @@ void GeneralPage::apply() {
     editor["lineNumbers"] = m_showLineNumbers;
     editor["longLine"] = m_showRightMargin;
     editor["folderMargin"] = m_foldMargin;
+    editor["changeTracking"] = m_changeTracking;
     editor["edgeColumn"] = m_edgeColumn;
     editor["tabSize"] = m_tabSize;
     editor["encoding"] = m_encoding;

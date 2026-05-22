@@ -64,6 +64,7 @@ gtest_discover_tests(tests
 # GUI dependency).
 add_executable(ui-tests
     ui/uimain.cpp
+    ui/EditorChangeMarginTests.cpp
     ui/EditorTests.cpp
     ui/EditorPerfTests.cpp
 )

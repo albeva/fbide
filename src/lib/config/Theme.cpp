@@ -296,6 +296,13 @@ void Theme::loadDefaults() {
     m_foldMargin = {
         .foreground = *wxBLACK, .background = *wxLIGHT_GREY
     };
+    // Diff-state palette — picked to match the AI patch proposal
+    // colours so a margin marker and the patch card read as one
+    // family. The Editor's change-tracking margin uses Added + Modified
+    // today; Removed is reserved for the diff viewer.
+    m_changesAdded = wxColour(80, 200, 100);
+    m_changesModified = wxColour(220, 160, 30);
+    m_changesRemoved = wxColour(220, 80, 80);
     derivePpEntriesFromBase();
     reset();
 }

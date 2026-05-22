@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "LineHistory.hpp"
 #include "config/Theme.hpp"
 #include "document/DocumentType.hpp"
 
@@ -103,11 +104,31 @@ public:
     /// Enable / disable code transforms (e.g. during loading)
     void disableTransforms(bool state);
 
+    /// Scintilla marker numbers used by the change-tracking margin.
+    /// Public so tests (and any future overlay) can query a line's
+    /// state via `MarkerGet(line) & (1 << kAddedMarker)`.
+    static constexpr int kAddedMarker = 0;
+    static constexpr int kModifiedMarker = 1;
+
 private:
     /// Margin click — toggle folds on the fold margin.
     void onMarginClick(wxStyledTextEvent& event);
-    /// Buffer modified — restart intellisense timer; route bulk inserts.
+    /// Buffer modified — restart intellisense timer; route bulk inserts;
+    /// feed the change-tracker.
     void onModified(wxStyledTextEvent& event);
+    /// Save-point reached — fired when the document returns to its
+    /// saved state (either by save or by undo to clean). Re-snapshots
+    /// the change tracker and clears every change marker.
+    void onSavePointReached(wxStyledTextEvent& event);
+    /// Apply an insert / delete from `onModified` to `m_lineHistory` and
+    /// refresh the change-margin markers on the affected line range.
+    void updateChangeTracking(wxStyledTextEvent& event);
+    /// Re-mark lines `[from, to]` from `m_lineHistory::stateOf`. Clears
+    /// any stale marker on those lines first.
+    void remarkChangedLines(int from, int to);
+    /// Snapshot the current document as the new "clean" baseline and
+    /// clear every change marker. Called from `onSavePointReached`.
+    void resnapshotChangeTracker();
     /// Coalesced "something changed" — status bar, brace match, sync edit cmds.
     void onUpdateUI(wxStyledTextEvent& event);
     /// Deferred follow-up after `onUpdateUI` — runs once per UI tick.
@@ -138,6 +159,10 @@ private:
     void applyEditorSettings();
     /// Configure fold margins + marker colors from the active theme.
     void defineFoldMargins();
+    /// Configure the change-tracking margin — width, mask and the two
+    /// markers (Added / Modified) that the upcoming `LineHistory` will
+    /// drive. Reapplied from `applySettings` so theme changes pick up.
+    void defineChangesMargin();
     /// Apply theme via the per-`DocumentType` dispatch.
     void applyTheme();
     /// Apply a single theme `Entry` to the given Scintilla style id.
@@ -190,6 +215,14 @@ private:
     /// single deferred `onTextInserted` instead of one call per event.
     int m_pendingInsertStart = -1;
     int m_pendingInsertEnd = -1;
+    /// Per-line "did this change since the last save?" tracker — drives
+    /// the change-margin markers. Snapshot is taken on file load and on
+    /// every `SAVEPOINTREACHED` (save or undo back to clean).
+    LineHistory m_lineHistory;
+    /// True when the `editor.changeTracking` config switch is on. When
+    /// off the margin is hidden and every change-tracker handler short
+    /// circuits so no per-modify or per-save work happens.
+    bool m_changeTracking = true;
     /// Restart on each text-changing modify event; on fire submits a
     /// snapshot to DocumentManager::submitIntellisense.
     wxTimer m_intellisenseTimer;
