@@ -10,44 +10,41 @@
 namespace fbide {
 
 /**
- * A `wxBoxSizer` subclass that adjusts per-item borders and outer
- * padding automatically based on visibility.
+ * A `wxBoxSizer` subclass that owns per-item borders so layout code
+ * doesn't have to compute them at every Add.
  *
  * Layout model
  * ------------
- * - `margin` is the per-item border applied via `wxALL` on every
- *   visible item (wxWidgets' standard "border" concept).
- * - `gap` is the per-item border applied to inner items when the
- *   value differs from `margin` — in that case the sizer holds a
- *   single nested `wxBoxSizer`, with `margin` as the outer border
- *   and `gap` as the per-item border inside.
- * - `-1` resolves to `wxSizerFlags::GetDefaultBorder()`.
+ * - `gap` is the single border size used for both the inter-item
+ *   spacing and (when `margin` is on) the outer padding. `-1`
+ *   resolves to `wxSizerFlags::GetDefaultBorder()`.
+ * - `margin = true` (default) puts a `gap`-sized border on the
+ *   sizer's outer edges so visible items sit inset from the parent.
+ * - `margin = false` leaves the outer edges flush — useful when the
+ *   surrounding sizer already provides the padding (e.g. a nested
+ *   `vbox` inside another `vbox`).
  *
- * Why the nested form: per-`wxSizerItem` border is a single integer
- * applied to whichever edge flags the item has. With `margin != gap`,
- * a single sizer can't express both "outer = margin" and "between =
- * 2*gap" simultaneously, so the inner sizer carries the gap and the
- * outer carries the margin.
+ * Per-item flags applied during `CalcMin` (only visible items):
+ * - inter-item gap as the leading-edge border (`wxLEFT` for
+ *   horizontal sizers, `wxTOP` for vertical ones) on every
+ *   non-first visible item.
+ * - outer leading-edge border on the first visible item when
+ *   `margin` is on.
+ * - outer trailing-edge border on the last visible item when
+ *   `margin` is on.
+ * - cross-axis border on every visible item when `margin` is on.
  *
  * Visibility-driven behaviour
  * ---------------------------
- * - If every child is hidden (or none have been added), the sizer
- *   reports a zero minimum size — no margin is added.
- * - When at least one child is visible, the outer border kicks in
- *   and per-item borders are restored.
  * - The recompute runs from `CalcMin`, so any `Show`/`Hide`/`Add`/
- *   `Remove` picked up by a normal `Layout()` call reaches us
+ *   `Remove` picked up by a normal `Layout()` pass reaches us
  *   without needing explicit notification.
+ * - With no visible children the sizer reports a zero minimum size
+ *   — no items, no margin, no work.
  *
- * `Options::center` applies cross-axis centring to every item
- * (`wxALIGN_CENTRE_VERTICAL` for a horizontal sizer,
- * `wxALIGN_CENTRE_HORIZONTAL` for a vertical one). Items added with
- * `wxEXPAND` are left alone — expanding already saturates the cross
- * axis, so a centre flag would be a no-op or conflicting.
- *
- * `wxEXPAND` and `proportion` from the caller are preserved as-is.
- * Per-item borders supplied by the caller are stripped at insertion
- * time — the sizer owns that decision.
+ * `Options::alignment` applies cross-axis alignment to every visible
+ * item. Items added with `wxEXPAND` are left alone — expanding
+ * already saturates the cross axis.
  */
 class SmartBoxSizer final : public wxBoxSizer {
 public:
