@@ -45,6 +45,14 @@ auto isFreeBasicTag(const wxString& lang) -> bool {
     return lang == "freebasic" || lang == "fb" || lang == "basic" || lang == "bas";
 }
 
+/// Stable UTF-8 key for a parsed SEARCH/REPLACE block — used by the
+/// "already applied" set so live-edit and the manual apply path agree
+/// on which proposals have been handled. Marker separator is anything
+/// that can't appear in real source-file text.
+auto patchKey(const LaidPatchBlock& patch) -> std::string {
+    return (patch.search + wxString("\n>>>\n") + patch.replace).utf8_string();
+}
+
 /// Linear blend of two colours — `t` of 0 yields `a`, 1 yields `b`.
 auto blend(const wxColour& a, const wxColour& b, const double t) -> wxColour {
     const auto mix = [t](const unsigned char from, const unsigned char to) {
@@ -540,6 +548,29 @@ void AiChatView::paintMessage(
             gc.DrawText(run.text, contentLeft + run.x, baseline - ascent);
         }
     }
+
+    // Overlay applied SEARCH/REPLACE proposals with a translucent veil so
+    // the chat thread distinguishes resolved cards from still-actionable
+    // ones at a glance. Drawn after content so it dims (rather than
+    // hides) the underlying strips and text.
+    if (!message.doc.patchBlocks.empty() && !m_appliedPatches.empty()) {
+        const wxColour windowText = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
+        const wxColour overlay(windowText.Red(), windowText.Green(), windowText.Blue(), 90);
+        gc.SetPen(*wxTRANSPARENT_PEN);
+        gc.SetBrush(wxBrush(overlay));
+        for (const auto& patch : message.doc.patchBlocks) {
+            if (!m_appliedPatches.contains(patchKey(patch))) {
+                continue;
+            }
+            const int patchY = contentTop + patch.y;
+            // Skip cards entirely above or below the dirty band — the
+            // line loop above already used the same bounds.
+            if (patchY + patch.height < updateTop || patchY > updateBottom) {
+                continue;
+            }
+            gc.DrawRectangle(contentLeft, patchY, message.contentWidth, patch.height);
+        }
+    }
 }
 
 auto AiChatView::bubbleColour(const bool fromUser) const -> wxColour {
@@ -946,12 +977,7 @@ auto AiChatView::applyPatch(const LaidPatchBlock& patch) -> bool {
 void AiChatView::autoApplyPatches() {
     for (const auto& item : m_items) {
         for (const auto& patch : item.doc.patchBlocks) {
-            // Compose a stable key from the verbatim search + replace
-            // text. Identical proposals collapse to the same key, so the
-            // same block re-emitted on a chunk reparse is skipped.
-            const std::string key
-                = (patch.search + wxString("\n>>>\n") + patch.replace).utf8_string();
-            if (!m_appliedPatches.insert(key).second) {
+            if (!m_appliedPatches.insert(patchKey(patch)).second) {
                 continue; // already handled this proposal
             }
             // Apply may fail (e.g. SEARCH text not in the buffer) — the
@@ -973,10 +999,9 @@ void AiChatView::onApplyPatch(wxCommandEvent& /*event*/) {
         return;
     }
     // Record so live-edit doesn't try to apply it again on the next reparse.
-    const std::string key
-        = (patch.search + wxString("\n>>>\n") + patch.replace).utf8_string();
-    m_appliedPatches.insert(key);
+    m_appliedPatches.insert(patchKey(patch));
     hideActionBar();
+    Refresh(); // pick up the new "applied" overlay on the card
 }
 
 void AiChatView::onRejectPatch(wxCommandEvent& /*event*/) {
