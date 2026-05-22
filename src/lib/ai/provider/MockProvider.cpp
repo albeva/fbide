@@ -28,6 +28,7 @@ const auto kHelpReply = wxString::FromUTF8(
 - `json` — JSON code sample.
 - `table` — markdown table.
 - `emoji` — text with emoji.
+- `all` — every reply above, concatenated with rules.
 
 Anything else gets the default mixed reply.
 )"
@@ -151,6 +152,20 @@ That dash run above should render as a horizontal rule.
 )"
 );
 
+/// Concatenation of every canned reply (except the default), with help
+/// first and the rest separated by horizontal rules so the boundaries
+/// are visible in the rendered bubble. Lets us eyeball every render
+/// path in a single bubble.
+const auto kAllReply
+    = kHelpReply + "\n---\n\n"
+    + kShortReply + "\n\n---\n\n"
+    + kTextReply + "\n\n---\n\n"
+    + kFbReply + "\n---\n\n"
+    + kJsonReply + "\n---\n\n"
+    + kTableReply + "\n---\n\n"
+    + kEmojiReply + "\n---\n\n"
+    + kLongReply;
+
 const auto kDefaultReply = wxString::FromUTF8(
     R"(Here is a **FreeBASIC** example — a `For` loop that prints numbers:
 
@@ -209,6 +224,9 @@ auto pickReply(const AiRequest& request) -> const wxString& {
     }
     if (key == "emoji") {
         return kEmojiReply;
+    }
+    if (key == "all") {
+        return kAllReply;
     }
     return kDefaultReply;
 }
