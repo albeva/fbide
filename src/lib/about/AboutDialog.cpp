@@ -29,9 +29,10 @@ void AboutDialog::create() {
         currentParent(), wxID_ANY, wxBitmap(XPM::fbide_xpm),
         wxDefaultPosition, wxSize(300, 75)
     );
+
     add(banner);
 
-    vbox("FBIde information", { .border = 0 }, [&] {
+    vbox("FBIde information", { .margin = false }, [&] {
         const auto info = label(
             wxString::Format(
                 "Version:       %s\n"
@@ -55,8 +56,6 @@ void AboutDialog::create() {
     });
 
     add(CreateStdDialogButtonSizer(wxOK));
-    currentSizer()->AddSpacer(defaultBorder());
-
     SetSizerAndFit(currentSizer());
     Centre();
 }

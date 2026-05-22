@@ -9,28 +9,7 @@ using namespace fbide;
 
 SmartBoxSizer::SmartBoxSizer(const Options options, const wxOrientation orientation)
 : wxBoxSizer(orientation)
-, m_options(options) {
-    // If we have a margin, create a nested sizer.
-    if (const auto margin = resolvedBorder(); margin != 0) {
-        m_inner = new wxBoxSizer(orientation);
-        m_innerItem = wxBoxSizer::Add(
-            m_inner,
-            wxSizerFlags(1).Expand().Border(wxALL, margin)
-        );
-    }
-    m_constructing = false;
-}
-
-auto SmartBoxSizer::DoInsert(const std::size_t index, wxSizerItem* item) -> wxSizerItem* {
-    if (!m_constructing) {
-        item->SetBorder(0);
-        item->SetFlag(item->GetFlag() & ~static_cast<int>(wxALL));
-        if (m_inner != nullptr) {
-            return m_inner->Insert(index, item);
-        }
-    }
-    return wxBoxSizer::DoInsert(index, item);
-}
+, m_options(options) {}
 
 auto SmartBoxSizer::CalcMin() -> wxSize {
     applyAutoLayout();
@@ -45,27 +24,36 @@ auto SmartBoxSizer::defaultSize(const int value) -> int {
 }
 
 void SmartBoxSizer::applyAutoLayout() {
-    const auto& children = m_inner != nullptr ? m_inner->GetChildren() : GetChildren();
-    auto items = children | std::views::filter(&wxSizerItem::IsShown);
-    if (items.empty()) {
+    auto visible = GetChildren() | std::views::filter(&wxSizerItem::IsShown);
+    if (visible.empty()) {
         return;
     }
 
     const bool isHorizontal = GetOrientation() == wxHORIZONTAL;
     const auto gap = resolvedGap();
 
-    bool isFirst = true;
-    for (auto* item : items) {
-        int flags = item->GetFlag() & ~static_cast<int>(wxALL);
+    auto iter = visible.begin();
+    const auto end = visible.end();
+    while (iter != end) {
+        const auto isFirst = iter == visible.begin();
+        auto* child = *iter++;
+        const auto isLast = iter == end;
 
-        if (isFirst) {
-            isFirst = false;
-        } else if (gap != 0) {
-            flags |= isHorizontal ? wxLEFT : wxTOP;
+        int flags = child->GetFlag() & ~static_cast<int>(wxALL);
+        if (gap != 0) {
+            if (!isFirst || m_options.margin) {
+                flags |= isHorizontal ? wxLEFT : wxTOP;
+            }
+            if (isLast && m_options.margin) {
+                flags |= isHorizontal ? wxRIGHT : wxBOTTOM;
+            }
+            if (m_options.margin) {
+                flags |= isHorizontal ? wxTOP | wxBOTTOM : wxLEFT | wxRIGHT;
+            }
         }
 
-        item->SetFlag(withAlignment(flags));
-        item->SetBorder(gap);
+        child->SetFlag(withAlignment(flags));
+        child->SetBorder(gap);
     }
 }
 
@@ -80,6 +68,7 @@ auto SmartBoxSizer::withAlignment(int flags) const -> int {
 
     flags &= ~(wxALIGN_RIGHT | wxALIGN_BOTTOM | wxALIGN_CENTER);
     const bool isHorizontal = GetOrientation() == wxHORIZONTAL;
+
     switch (m_options.alignment) {
     case Alignment::Leading:
         flags |= isHorizontal ? wxALIGN_LEFT : wxALIGN_TOP;
@@ -93,5 +82,6 @@ auto SmartBoxSizer::withAlignment(int flags) const -> int {
     case Alignment::None:
         break;
     }
+
     return flags;
 }

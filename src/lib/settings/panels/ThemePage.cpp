@@ -161,7 +161,7 @@ auto ThemePage::tr(const wxString& path, const wxString& def) const -> wxString 
 void ThemePage::create() {
     createTopRow();
 
-    hbox(m_activeTheme, { .proportion = 1, .border = 0 }, [&] {
+    hbox(m_activeTheme, { .proportion = 1, .margin = false }, [&] {
         m_themeBox = wxDynamicCast(currentSizer(), wxStaticBoxSizer);
         createCategoryList();
         createLeftPanel();
@@ -181,7 +181,7 @@ void ThemePage::create() {
 }
 
 void ThemePage::createTopRow() {
-    hbox(tr("name"), { .alignment = SmartBoxSizer::Alignment::Center, .border = 0 }, [&] {
+    hbox(tr("name"), { .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
         m_themeFiles = getContext().getConfigManager().getAllThemes();
         wxArrayString names;
         names.reserve(m_themeFiles.size() + 1);
@@ -242,7 +242,7 @@ void ThemePage::createCategoryList() {
 }
 
 void ThemePage::createLeftPanel() {
-    vbox({ .proportion = 2, .border = 0 }, [this] {
+    vbox({ .proportion = 2, .margin = false }, [this] {
         const auto addPicker = [&](const wxString& labelText, const wxString& tooltip = {}) -> Unowned<ColorPicker> {
             auto picker = make_unowned<ColorPicker>(currentParent(), m_theme, m_tr, labelText, tooltip);
             picker->create();
@@ -273,7 +273,7 @@ m_changesBackgroundPicker->Hide();
 }
 
 void ThemePage::createRightPanel() {
-    vbox({ .proportion = 1, .border = 0 }, [&] {
+    vbox({ .proportion = 1, .margin = false }, [&] {
         m_fontOptionsLabel = text(tr("fontOptions"), {});
 
         m_chkBold = checkBox(tr("bold"));

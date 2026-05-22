@@ -84,7 +84,7 @@ void FormatDialog::create() {
     });
 
     // Preview editor
-    vbox(m_ctx.tr("dialogs.format.preview"), { .proportion = 1, .border = 0 }, [&] {
+    vbox(m_ctx.tr("dialogs.format.preview"), { .proportion = 1, .margin = false }, [&] {
         m_preview = make_unowned<Editor>(currentParent(), m_ctx.getConfigManager(), m_ctx.getTheme(),
             &m_ctx.getDocumentManager(), &m_ctx.getUIManager(), nullptr, DocumentType::FreeBASIC, true);
         m_preview->SetReadOnly(true);
@@ -93,7 +93,7 @@ void FormatDialog::create() {
     });
 
     // Buttons
-    hbox({ .border = 0 }, [&] {
+    hbox({ .margin = false }, [&] {
         m_browserBtn = button(m_ctx.tr("dialogs.format.openInBrowser"), { .expand = false }, ID_BROWSER);
 
         currentSizer()->AddStretchSpacer();

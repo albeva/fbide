@@ -98,7 +98,7 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 }
 
 void GeneralPage::create() {
-    hbox(tr("dialogs.settings.general.editorSettings"), { .border = 0 }, [&] {
+    hbox(tr("dialogs.settings.general.editorSettings"), { .margin = false }, [&] {
         vbox({ .proportion = 1 }, [&] {
             checkBox(m_autoIndent, tr("dialogs.settings.general.autoIndent"));
             checkBox(m_transformKeywords, tr("dialogs.settings.general.transformKeywords"));
@@ -107,7 +107,7 @@ void GeneralPage::create() {
             checkBox(m_showLineEndings, tr("dialogs.settings.general.lineEndings"));
             checkBox(m_braceHighlight, tr("dialogs.settings.general.braceHighlight"));
             spinCtrl(m_edgeColumn, tr("dialogs.settings.general.rightMarginWidth"), 1, 200, {});
-            hbox({ .alignment = SmartBoxSizer::Alignment::Center, .border = 0 }, [&] {
+            hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
                 text(tr("dialogs.settings.general.encoding"), { .expand = false });
                 choice(m_encoding, encodingChoices(), { .expand = false })->SetMinSize(wxSize(160, -1));
             });
@@ -123,7 +123,7 @@ void GeneralPage::create() {
             checkBox(m_changeTracking, tr("dialogs.settings.general.changeTracking"));
             checkBox(m_splashScreen, tr("dialogs.settings.general.splashScreen"));
             spinCtrl(m_tabSize, tr("dialogs.settings.general.tabSize"), 1, 16, {});
-            hbox({ .alignment = SmartBoxSizer::Alignment::Center, .border = 0 }, [&] {
+            hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
                 text(tr("dialogs.settings.general.eolMode"), { .expand = false });
                 choice(m_eolMode, eolModeChoices(), { .expand = false })->SetMinSize(wxSize(160, -1));
             });
@@ -135,7 +135,7 @@ void GeneralPage::create() {
     // `m_language` keeps storing the filename so the on-disk config
     // shape doesn't change.
     vbox(tr("dialogs.settings.general.language"), {}, [&] {
-        hbox({ .alignment = SmartBoxSizer::Alignment::Center, .border = 0 }, [&] {
+        hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
             text(tr("dialogs.settings.general.languageSelect"), { .proportion = 1, .expand = false });
             const auto languages = loadLanguageOptions(getContext());
 

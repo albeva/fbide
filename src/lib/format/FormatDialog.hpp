@@ -19,7 +19,7 @@ class CaseMode;
 
 /// Format dialog — pipeline-driven preview of `Reformat`, `CaseTransform`,
 /// and `HtmlRenderer` transforms applied to the document.
-class FormatDialog final : public Layout<FormatDialog, wxDialog> {
+class FormatDialog final : public Layout<wxDialog> {
 public:
     NO_COPY_AND_MOVE(FormatDialog)
 

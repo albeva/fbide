@@ -67,9 +67,9 @@ public:
     /// Construction options. `-1` for margin or gap means "platform
     /// default" — resolved through `wxSizerFlags::GetDefaultBorder()`.
     struct Options final {
-        int border = -1;                       ///< Per-item border on the outer/all-edges.
         int gap = -1;                          ///< Per-item border on inner items (when nested).
         Alignment alignment = Alignment::None; ///< Cross-axis alignment applied to every item.
+        bool margin = true;                    ///< leave gap sized margin on the edges of the orienation
     };
 
     SmartBoxSizer(Options options, wxOrientation orientation);
@@ -79,16 +79,11 @@ public:
     /// the base for the actual minimum-size computation.
     auto CalcMin() -> wxSize override;
 
-protected:
-    /// All `Add` / `Insert` overloads on `wxSizer` flow through here.
-    /// We intercept so user-supplied per-item borders are stripped
-    /// (the sizer manages them) and so insertions can be routed to
-    /// the inner sizer when in nested mode.
-    auto DoInsert(std::size_t index, wxSizerItem* item) -> wxSizerItem* override;
+    /// Update options. Call view Layout after setting this.
+    void setOptions(const Options options) { m_options = options; }
 
 private:
     /// Resolve `-1` to `wxSizerFlags::GetDefaultBorder()`.
-    [[nodiscard]] auto resolvedBorder() const -> int { return defaultSize(m_options.border); }
     [[nodiscard]] auto resolvedGap() const -> int { return defaultSize(m_options.gap); }
     [[nodiscard]] static auto defaultSize(int value) -> int;
 
@@ -103,19 +98,8 @@ private:
     /// `wxEXPAND` (which saturates the cross axis).
     [[nodiscard]] auto withAlignment(int flags) const -> int;
 
+    /// Smart box options
     Options m_options;
-    /// Set only in nested mode (`margin != gap`); the SmartBoxSizer
-    /// itself then contains exactly one item — `m_inner` — and user
-    /// items go into `m_inner`.
-    wxBoxSizer* m_inner = nullptr;
-    /// `wxSizerItem` wrapping `m_inner` inside `this`. Owned by the
-    /// base sizer; we just retain the pointer to retune its border
-    /// during `applyAutoLayout`.
-    wxSizerItem* m_innerItem = nullptr;
-    /// `true` until the constructor's bootstrap `Add(m_inner, ...)`
-    /// completes — so the override of `DoInsert` knows not to route
-    /// that one call back through itself.
-    bool m_constructing = true;
 };
 
 } // namespace fbide

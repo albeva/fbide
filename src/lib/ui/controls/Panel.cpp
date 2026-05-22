@@ -35,7 +35,7 @@ auto Panel::spinCtrl(int& value, const wxString& labelText, const int minVal, co
     hbox({ .proportion = opts.proportion,
              .expand = opts.expand,
              .alignment = SmartBoxSizer::Alignment::Center,
-             .border = 0 },
+             .margin = false },
         [&] {
             spin = Layout::spinCtrl(value, minVal, maxVal, {}, id, style);
             const auto lbl = text(labelText, { .expand = false });
@@ -53,7 +53,7 @@ auto Panel::spinCtrl(const wxString& labelText, const int minVal, const int maxV
     hbox({ .proportion = opts.proportion,
              .expand = opts.expand,
              .alignment = SmartBoxSizer::Alignment::Center,
-             .border = 0 },
+             .margin = false },
         [&] {
             spin = Layout::spinCtrl(minVal, maxVal, {}, id, style);
             const auto lbl = text(labelText, { .expand = false });

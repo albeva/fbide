@@ -16,10 +16,6 @@ concept SizerAware = requires(T& parent, wxSizer* sizer) {
     { parent.SetSizer(sizer) } -> std::same_as<void>;
 };
 
-/// Sentinel for "use the platform default border" — passed through to
-/// `SmartBoxSizer` which resolves it via `wxSizerFlags::GetDefaultBorder()`.
-inline constexpr auto DEFAULT_PADDING = -1;
-
 /// Container options — drive the `SmartBoxSizer` that backs every
 /// `vbox` / `hbox`. `border` is the per-item border (margin) applied
 /// to every visible child; `gap` is the per-item border inside the
@@ -31,8 +27,8 @@ struct LayoutContainerOptions final {
     int proportion = 0;
     bool expand = true;
     SmartBoxSizer::Alignment alignment = SmartBoxSizer::Alignment::None;
-    int border = DEFAULT_PADDING;
-    int gap = DEFAULT_PADDING;
+    bool margin = true;
+    int gap = SmartBoxSizer::DEFAULT_SIZE;
 };
 
 /// Item-level options — `proportion` and whether the item should
@@ -43,12 +39,6 @@ struct LayoutItemOptions final {
     bool expand = true;
 };
 
-/// Concept matching any wx-window-like type that accepts a `wxSizer*` via `SetSizer`.
-template<typename T>
-concept DefaultSizerProvider = requires() {
-    { T::defaultSizer() } -> std::convertible_to<wxBoxSizer*>;
-};
-
 /// Templated layout helper that can extend any wxWindow-derived class.
 /// Builds a tree of `SmartBoxSizer`s through nested `hbox` / `vbox`
 /// blocks. The root sizer is a `SmartBoxSizer` with default options.
@@ -56,7 +46,7 @@ concept DefaultSizerProvider = requires() {
 /// Usage:
 ///   class MyPanel : public Layout<wxPanel> { ... };
 ///   class MyDialog : public Layout<wxDialog> { ... };
-template<typename Super, SizerAware Base>
+template<SizerAware Base>
 class Layout : public Base {
 public:
     NO_COPY_AND_MOVE(Layout)
@@ -65,11 +55,7 @@ public:
     template<typename... Args>
     explicit Layout(Args&&... args)
     : Base(std::forward<Args>(args)...) {
-        if constexpr (DefaultSizerProvider<Super>) {
-            m_currentSizer = Super::defaultSizer();
-        } else {
-            m_currentSizer = make_unowned<SmartBoxSizer>(SmartBoxSizer::Options {}, wxVERTICAL);
-        }
+        m_currentSizer = make_unowned<SmartBoxSizer>(SmartBoxSizer::Options {}, wxVERTICAL);
     }
 
     /// Platform default border — at least 5 px. Exposed so callers
@@ -113,7 +99,7 @@ public:
     /// Add an explicit pixel-sized gap. Niche — `SmartBoxSizer`
     /// already inserts the `gap` between visible items; reach for
     /// this only when you need an off-grid spacer.
-    void spacer(const int size = DEFAULT_PADDING) {
+    void spacer(const int size = SmartBoxSizer::DEFAULT_SIZE) {
         m_currentSizer->AddSpacer(size < 0 ? defaultBorder() : size);
     }
 
@@ -268,9 +254,9 @@ private:
         const ValueRestorer restoreState { m_currentSizer, m_currentParent };
 
         const SmartBoxSizer::Options smartOpts {
-            .border = opts.border,
             .gap = opts.gap,
             .alignment = opts.alignment,
+            .margin = opts.margin
         };
 
         const auto smart = make_unowned<SmartBoxSizer>(

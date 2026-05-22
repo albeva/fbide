@@ -44,10 +44,6 @@ wxBEGIN_EVENT_TABLE(ColorPicker, wxPanel)
 wxEND_EVENT_TABLE()
 // clang-format on
 
-auto ColorPicker::defaultSizer() -> SmartBoxSizer* {
-    return new SmartBoxSizer({ .border = 0 }, wxVERTICAL);
-}
-
 ColorPicker::ColorPicker(wxWindow* parent, const Theme& theme, const Value& tr,
     wxString label, wxString inheritTooltip)
 : Layout(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL)
@@ -58,12 +54,16 @@ ColorPicker::ColorPicker(wxWindow* parent, const Theme& theme, const Value& tr,
 
 void ColorPicker::create() {
     SetBackgroundColour(wxTransparentColor);
+    if (auto* smart = wxDynamicCast(currentSizer(), SmartBoxSizer)) {
+        smart->setOptions({ .margin = false });
+    }
+
     // Wrap our content in an explicit border-less vbox — the
     // SmartBoxSizer root would otherwise apply the default margin
     // around every child of the picker itself.
-    vbox({ .border = 0 }, [&] {
+    vbox({ .margin = false }, [&] {
         m_lbl = label(m_labelText);
-        hbox({ .alignment = SmartBoxSizer::Alignment::Center, .border = 0 }, [&] {
+        hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
             m_chkInherit = make_unowned<wxCheckBox>(currentParent(), ID_CHK_INHERIT, wxEmptyString);
             if (not m_inheritTooltip.empty()) {
                 m_chkInherit->SetToolTip(m_inheritTooltip);
