@@ -28,6 +28,7 @@ const auto kHelpReply = wxString::FromUTF8(
 - `json` — JSON code sample.
 - `table` — markdown table.
 - `emoji` — text with emoji.
+- `patch` — SEARCH/REPLACE proposal card.
 - `all` — every reply above, concatenated with rules.
 
 Anything else gets the default mixed reply.
@@ -91,6 +92,25 @@ A right-aligned numeric table:
 |  1 |    42 |
 |  2 |  1024 |
 | 17 |     7 |
+)"
+);
+
+const auto kPatchReply = wxString::FromUTF8(
+    R"(Tightening the greeting — replace the literal name with the parameter:
+
+<<<<<<< SEARCH greeter.bas
+print "Hello, world!"
+=======
+print "Hello, " & name & "!"
+>>>>>>> REPLACE
+
+And one more, swapping the loop bound to a named constant:
+
+<<<<<<< SEARCH greeter.bas
+for i = 1 to 10
+=======
+for i = 1 to kMaxGreetings
+>>>>>>> REPLACE
 )"
 );
 
@@ -164,6 +184,7 @@ const auto kAllReply
     + kJsonReply + "\n---\n\n"
     + kTableReply + "\n---\n\n"
     + kEmojiReply + "\n---\n\n"
+    + kPatchReply + "\n---\n\n"
     + kLongReply;
 
 const auto kDefaultReply = wxString::FromUTF8(
@@ -224,6 +245,9 @@ auto pickReply(const AiRequest& request) -> const wxString& {
     }
     if (key == "emoji") {
         return kEmojiReply;
+    }
+    if (key == "patch") {
+        return kPatchReply;
     }
     if (key == "all") {
         return kAllReply;

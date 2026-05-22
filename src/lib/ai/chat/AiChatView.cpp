@@ -651,19 +651,58 @@ auto AiChatView::codeBlockAt(const wxPoint& clientPoint) const -> std::pair<int,
     return { -1, -1 };
 }
 
-void AiChatView::showActionBar(const int messageIndex, const int codeIndex) {
-    if (messageIndex < 0 || codeIndex < 0) {
+auto AiChatView::patchBlockAt(const wxPoint& clientPoint) const -> std::pair<int, int> {
+    const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
+    const wxPoint docPoint(clientPoint.x, clientPoint.y + originY);
+
+    for (std::size_t mi = 0; mi < m_items.size(); mi++) {
+        const auto& item = m_items[mi];
+        if (!item.bubble.Contains(docPoint)) {
+            continue;
+        }
+        const int contentLeft = item.bubble.x + kBubblePad;
+        const int contentTop = item.bubble.y + kBubblePad;
+        for (std::size_t pi = 0; pi < item.doc.patchBlocks.size(); pi++) {
+            const auto& block = item.doc.patchBlocks[pi];
+            const wxRect patchRect(contentLeft, contentTop + block.y, item.contentWidth, block.height);
+            if (patchRect.Contains(docPoint)) {
+                return { static_cast<int>(mi), static_cast<int>(pi) };
+            }
+        }
+        break;
+    }
+    return { -1, -1 };
+}
+
+void AiChatView::showActionBar(const int messageIndex, const int blockIndex, const CodeActionBar::Mode mode) {
+    if (messageIndex < 0 || blockIndex < 0) {
         hideActionBar();
         return;
     }
     m_barMessage = messageIndex;
-    m_barCode = codeIndex;
+    m_barIndex = blockIndex;
+    m_actionBar->setMode(mode);
 
     const auto& item = m_items[static_cast<std::size_t>(messageIndex)];
-    const auto& block = item.doc.codeBlocks[static_cast<std::size_t>(codeIndex)];
+    // Mode picks the right block table — code blocks for CodeSample, patch
+    // proposals for PatchProposal. The two share (y, height) so the
+    // positioning math is identical past this point.
+    int blockY = 0;
+    int blockHeight = 0;
+    if (mode == CodeActionBar::Mode::CodeSample) {
+        const auto& block = item.doc.codeBlocks[static_cast<std::size_t>(blockIndex)];
+        blockY = block.y;
+        blockHeight = block.height;
+    } else {
+        const auto& block = item.doc.patchBlocks[static_cast<std::size_t>(blockIndex)];
+        blockY = block.y;
+        blockHeight = block.height;
+    }
+    (void)blockHeight; // reserved — bottom-pin behaviour can use it later.
+
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
     const int codeRight = item.bubble.x + kBubblePad + item.contentWidth;
-    const int codeTopClient = item.bubble.y + kBubblePad + block.y - originY;
+    const int codeTopClient = item.bubble.y + kBubblePad + blockY - originY;
 
     const wxSize barSize = m_actionBar->GetSize();
     const int xClient = codeRight - barSize.GetWidth() - kActionBarInset;
@@ -698,18 +737,18 @@ void AiChatView::showActionBar(const int messageIndex, const int codeIndex) {
 
 void AiChatView::onScroll(wxScrollWinEvent& event) {
     event.Skip(); // let wxScrolled perform the actual scroll first
-    if (m_barMessage >= 0 && m_barCode >= 0) {
-        // Reposition the action bar inline — the snippet's top edge may
+    if (m_barMessage >= 0 && m_barIndex >= 0) {
+        // Reposition the action bar inline — the block's top edge may
         // have crossed in / out of the viewport, switching the bar between
         // the attached and detached modes. Done synchronously so we don't
         // queue an extra paint cycle per scroll tick.
-        showActionBar(m_barMessage, m_barCode);
+        showActionBar(m_barMessage, m_barIndex, m_actionBar->mode());
     }
 }
 
 void AiChatView::hideActionBar() {
     m_barMessage = -1;
-    m_barCode = -1;
+    m_barIndex = -1;
     if (m_actionBar != nullptr && m_actionBar->IsShown()) {
         m_actionBar->Hide();
     }
@@ -761,12 +800,30 @@ void AiChatView::onMotion(wxMouseEvent& event) {
     const wxPoint pos = event.GetPosition();
     SetCursor(linkAt(pos).empty() ? wxCursor(wxCURSOR_ARROW) : wxCursor(wxCURSOR_HAND));
 
-    const auto [messageIndex, codeIndex] = codeBlockAt(pos);
-    if (messageIndex < 0) {
-        hideActionBar();
-    } else if (messageIndex != m_barMessage || codeIndex != m_barCode || !m_actionBar->IsShown()) {
-        showActionBar(messageIndex, codeIndex);
+    // Try a code block first; if none is hit, fall through to patch
+    // proposals. Most replies have at most one of either kind in a given
+    // bubble, so the search cost is negligible.
+    const auto [codeMi, codeIdx] = codeBlockAt(pos);
+    if (codeMi >= 0) {
+        if (codeMi != m_barMessage || codeIdx != m_barIndex
+            || m_actionBar->mode() != CodeActionBar::Mode::CodeSample
+            || !m_actionBar->IsShown()) {
+            showActionBar(codeMi, codeIdx, CodeActionBar::Mode::CodeSample);
+        }
+        event.Skip();
+        return;
     }
+    const auto [patchMi, patchIdx] = patchBlockAt(pos);
+    if (patchMi >= 0) {
+        if (patchMi != m_barMessage || patchIdx != m_barIndex
+            || m_actionBar->mode() != CodeActionBar::Mode::PatchProposal
+            || !m_actionBar->IsShown()) {
+            showActionBar(patchMi, patchIdx, CodeActionBar::Mode::PatchProposal);
+        }
+        event.Skip();
+        return;
+    }
+    hideActionBar();
     event.Skip();
 }
 
@@ -799,11 +856,11 @@ void AiChatView::onBarLeave(wxCommandEvent& /*event*/) {
 }
 
 void AiChatView::onCopyCode(wxCommandEvent& /*event*/) {
-    if (m_barMessage < 0 || m_barCode < 0) {
+    if (m_barMessage < 0 || m_barIndex < 0) {
         return;
     }
     const wxString& code = m_items[static_cast<std::size_t>(m_barMessage)]
-                               .doc.codeBlocks[static_cast<std::size_t>(m_barCode)]
+                               .doc.codeBlocks[static_cast<std::size_t>(m_barIndex)]
                                .code;
     if (wxTheClipboard->Open()) {
         wxTheClipboard->SetData(make_unowned<wxTextDataObject>(code));
@@ -812,11 +869,11 @@ void AiChatView::onCopyCode(wxCommandEvent& /*event*/) {
 }
 
 void AiChatView::onInsertCode(wxCommandEvent& /*event*/) {
-    if (m_barMessage < 0 || m_barCode < 0) {
+    if (m_barMessage < 0 || m_barIndex < 0) {
         return;
     }
     const wxString& code = m_items[static_cast<std::size_t>(m_barMessage)]
-                               .doc.codeBlocks[static_cast<std::size_t>(m_barCode)]
+                               .doc.codeBlocks[static_cast<std::size_t>(m_barIndex)]
                                .code;
     auto* document = m_ctx.getDocumentManager().getActive();
     if (document == nullptr) {
@@ -831,11 +888,11 @@ void AiChatView::onInsertCode(wxCommandEvent& /*event*/) {
 }
 
 void AiChatView::onRunCode(wxCommandEvent& /*event*/) {
-    if (m_barMessage < 0 || m_barCode < 0) {
+    if (m_barMessage < 0 || m_barIndex < 0) {
         return;
     }
     const wxString& code = m_items[static_cast<std::size_t>(m_barMessage)]
-                               .doc.codeBlocks[static_cast<std::size_t>(m_barCode)]
+                               .doc.codeBlocks[static_cast<std::size_t>(m_barIndex)]
                                .code;
     // Open the snippet as a new document and quick-run it (compile to a temp
     // file and execute) — the same path as the Run command.

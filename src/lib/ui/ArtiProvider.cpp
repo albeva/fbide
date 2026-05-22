@@ -28,7 +28,9 @@ ArtiProvider::ArtiProvider()
     { CommandId::QuickRun, XPM::qrun_xpm },
     { CommandId::KillProcess, XPM::compresx_xpm },
     { CommandId::Result, XPM::output_xpm },
-    { CommandId::Browser, XPM::browse_xpm }
+    { CommandId::Browser, XPM::browse_xpm },
+    { CommandId::Accept, XPM::accept_xpm },
+    { CommandId::Reject, XPM::reject_xpm }
 }
 , m_symbolIcons {
     { SymbolKind::Sub, XPM::sym_sub_xpm },

@@ -11,6 +11,7 @@
 
 // NOLINTBEGIN(*-avoid-c-arrays)
 namespace XPM {
+#include "icons/accept.xpm"
 #include "icons/browse.xpm"
 #include "icons/close.xpm"
 #include "icons/compile.xpm"
@@ -24,6 +25,7 @@ namespace XPM {
 #include "icons/paste.xpm"
 #include "icons/qrun.xpm"
 #include "icons/redo.xpm"
+#include "icons/reject.xpm"
 #include "icons/run.xpm"
 #include "icons/save.xpm"
 #include "icons/saveall.xpm"

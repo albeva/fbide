@@ -8,12 +8,12 @@
 #include "pch.hpp"
 #include <wx/scrolwin.h>
 #include "ChatLayout.hpp"
+#include "CodeActionBar.hpp"
 
 class wxGCDC;
 
 namespace fbide {
 class Context;
-class CodeActionBar;
 class CodeHighlighter;
 
 /// One conversation message handed to the chat view.
@@ -101,11 +101,16 @@ private:
     /// or {-1, -1} when none.
     [[nodiscard]] auto codeBlockAt(const wxPoint& clientPoint) const -> std::pair<int, int>;
 
-    /// Show the action bar over code block `codeIndex` of `messageIndex`.
-    /// Bar tracks the snippet while its top edge is visible, then pins to
-    /// the top of the visible area once the snippet has scrolled past. A
-    /// negative index hides it.
-    void showActionBar(int messageIndex, int codeIndex);
+    /// (message, patch-block) indices of the SEARCH/REPLACE proposal under
+    /// a client point, or {-1, -1} when none.
+    [[nodiscard]] auto patchBlockAt(const wxPoint& clientPoint) const -> std::pair<int, int>;
+
+    /// Show the action bar over block `blockIndex` of `messageIndex`, with
+    /// `mode` selecting which button set the bar presents. Bar tracks the
+    /// block while its top edge is visible, then pins to the top of the
+    /// visible area once the block has scrolled past. A negative index
+    /// hides it.
+    void showActionBar(int messageIndex, int blockIndex, CodeActionBar::Mode mode);
     void hideActionBar();
 
     [[nodiscard]] auto palette() const -> ChatPalette;
@@ -140,7 +145,7 @@ private:
     int m_layoutWidth = -1;                         ///< View width m_items were built for.
     int m_totalHeight = 0;                          ///< Stacked height of all bubbles.
     int m_barMessage = -1;                          ///< Message the action bar targets.
-    int m_barCode = -1;                             ///< Code block the action bar targets.
+    int m_barIndex = -1;                            ///< Code or patch block index — see `m_actionBar->mode()`.
 #ifdef __WXOSX__
     int m_bodyLineHeight = 0;  ///< Body-font line height — sets the per-notch wheel scroll amount.
     int m_wheelPixelAccum = 0; ///< Fractional remainder carried between wheel events.

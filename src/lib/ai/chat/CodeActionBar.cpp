@@ -52,18 +52,54 @@ CodeActionBar::CodeActionBar(wxWindow* parent, Context& ctx)
 
     const auto sizer = make_unowned<wxBoxSizer>(wxHORIZONTAL);
     sizer->AddSpacer(kSidePadding);
-    addButton(sizer, art.getBitmap(CommandId::Copy), ID_CodeCopy, "Copy code");
-    addButton(sizer, art.getBitmap(CommandId::Paste), ID_CodeInsert, "Insert into editor");
-    addButton(sizer, art.getBitmap(CommandId::QuickRun), ID_CodeRun, "Compile && run");
+    // Both button sets are added to the same row sizer up front; setMode
+    // shows / hides the inactive group and re-runs Layout + Fit so the
+    // bar shrinks to whichever set is visible.
+    addButton(sizer, art.getBitmap(CommandId::Copy), ID_CodeCopy, "Copy code", m_codeButtons);
+    addButton(sizer, art.getBitmap(CommandId::Paste), ID_CodeInsert, "Insert into editor", m_codeButtons);
+    addButton(sizer, art.getBitmap(CommandId::QuickRun), ID_CodeRun, "Compile && run", m_codeButtons);
+    addButton(sizer, art.getBitmap(CommandId::Accept), ID_PatchApply, "Apply this edit", m_patchButtons);
+    addButton(sizer, art.getBitmap(CommandId::Reject), ID_PatchReject, "Reject this edit", m_patchButtons);
     sizer->AddSpacer(kSidePadding);
 
     SetSizer(sizer);
-    sizer->SetSizeHints(this); // shrink the bar to fit its buttons
+
+    // Hide the proposal set initially; CodeSample is the default mode and
+    // matches the historical layout. Fit() sizes the bar to just the
+    // visible buttons.
+    for (auto* button : m_patchButtons) {
+        button->Hide();
+    }
+    Layout();
+    Fit();
 
     Bind(wxEVT_LEAVE_WINDOW, &CodeActionBar::onLeave, this);
 }
 
-void CodeActionBar::addButton(wxSizer* sizer, const wxBitmap& icon, const int id, const wxString& tip) {
+void CodeActionBar::setMode(const Mode mode) {
+    if (m_mode == mode) {
+        return;
+    }
+    m_mode = mode;
+    const bool showCode = (mode == Mode::CodeSample);
+    const bool showPatch = (mode == Mode::PatchProposal);
+    for (auto* button : m_codeButtons) {
+        button->Show(showCode);
+    }
+    for (auto* button : m_patchButtons) {
+        button->Show(showPatch);
+    }
+    Layout();
+    Fit();
+}
+
+void CodeActionBar::addButton(
+    wxSizer* sizer,
+    const wxBitmap& icon,
+    const int id,
+    const wxString& tip,
+    std::vector<wxWindow*>& group
+) {
     // Idle shows a muted icon; mouse-over / focus / pressed show it full. The
     // button keeps its own id — its wxEVT_BUTTON propagates to the host.
     const auto button = make_unowned<wxBitmapButton>(
@@ -75,6 +111,7 @@ void CodeActionBar::addButton(wxSizer* sizer, const wxBitmap& icon, const int id
     button->SetBitmapPressed(icon);
     button->SetToolTip(tip);
     sizer->Add(button, wxSizerFlags().Border(wxALL, kButtonGap));
+    group.push_back(button);
 }
 
 void CodeActionBar::onLeave(wxMouseEvent& event) {
