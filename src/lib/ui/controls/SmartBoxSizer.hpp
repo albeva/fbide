@@ -81,8 +81,7 @@ public:
 
 private:
     /// Resolve `-1` to `wxSizerFlags::GetDefaultBorder()`.
-    [[nodiscard]] auto resolvedGap() const -> int { return defaultSize(m_options.gap); }
-    [[nodiscard]] static auto defaultSize(int value) -> int;
+    [[nodiscard]] auto resolvedGap() const;
 
     /// Walk the managed item list (own children in single-sizer
     /// mode, inner sizer's children in nested mode) and update each

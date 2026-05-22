@@ -16,11 +16,11 @@ auto SmartBoxSizer::CalcMin() -> wxSize {
     return wxBoxSizer::CalcMin();
 }
 
-auto SmartBoxSizer::defaultSize(const int value) -> int {
-    if (value == -1) {
+auto SmartBoxSizer::resolvedGap() const {
+    if (m_options.gap == -1) {
         return std::max(DEFAULT_SIZE, wxSizerFlags::GetDefaultBorder());
     }
-    return value;
+    return m_options.gap;
 }
 
 void SmartBoxSizer::applyAutoLayout() {
