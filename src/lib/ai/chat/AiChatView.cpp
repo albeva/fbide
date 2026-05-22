@@ -174,9 +174,7 @@ wxBEGIN_EVENT_TABLE(AiChatView, wxScrolled)
     EVT_LEFT_DOWN(AiChatView::onLeftDown)
     EVT_LEAVE_WINDOW(AiChatView::onLeaveWindow)
     EVT_SCROLLWIN(AiChatView::onScroll)
-#ifdef __WXOSX__
     EVT_MOUSEWHEEL(AiChatView::onMouseWheel)
-#endif
     EVT_BUTTON(ID_CodeCopy, AiChatView::onCopyCode)
     EVT_BUTTON(ID_CodeInsert, AiChatView::onInsertCode)
     EVT_BUTTON(ID_CodeRun, AiChatView::onRunCode)
@@ -223,7 +221,6 @@ void AiChatView::resolveFonts() {
     m_themedFont = m_ctx.getTheme().getResolvedFont();
     m_themedFont.SetPointSize(size);
 
-#ifdef __WXOSX__
     // Body line-height drives the per-notch wheel scroll amount in
     // onMouseWheel — matches the leading used by DcMeasurer so a
     // wheel notch scrolls a round number of visible lines.
@@ -232,7 +229,6 @@ void AiChatView::resolveFonts() {
     wxCoord textHeight = 0;
     dc.GetTextExtent("Ag", &textWidth, &textHeight, nullptr, nullptr, &m_bodyFont);
     m_bodyLineHeight = textHeight + 4;
-#endif
 }
 
 void AiChatView::setMessages(std::vector<ChatViewMessage> messages) {
@@ -792,7 +788,6 @@ void AiChatView::hideActionBar() {
     }
 }
 
-#ifdef __WXOSX__
 void AiChatView::onMouseWheel(wxMouseEvent& event) {
     // Vertical wheel only — horizontal events fall through to default.
     if (event.GetWheelAxis() != wxMOUSE_WHEEL_VERTICAL) {
@@ -832,7 +827,6 @@ void AiChatView::onMouseWheel(wxMouseEvent& event) {
     GetViewStart(&viewX, &viewY);
     Scroll(viewX, std::max(0, viewY - pixels));
 }
-#endif
 
 void AiChatView::onMotion(wxMouseEvent& event) {
     const wxPoint pos = event.GetPosition();

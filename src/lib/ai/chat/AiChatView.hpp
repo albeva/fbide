@@ -64,14 +64,12 @@ private:
     void onLeftDown(wxMouseEvent& event);
     void onLeaveWindow(wxMouseEvent& event);
     void onScroll(wxScrollWinEvent& event);
-#ifdef __WXOSX__
-    /// Pixel-precise wheel handler — only built on macOS so that trackpad
-    /// momentum events (the small-rotation tail of an inertial flick) don't
-    /// get rounded away by `wxScrolled`'s line-quantising default handler.
-    /// On Windows / GTK the native wheel response is what users expect, so
-    /// the default handler is left in place.
+    /// Pixel-precise wheel handler. Bypasses `wxScrolled`'s default
+    /// line-quantising path, which combined with our 1-px scroll rate
+    /// (`SetScrollRate(0, 1)`) would scroll only ~3 px per wheel notch.
+    /// Converts rotation directly to pixels with a fractional carry so
+    /// macOS trackpad momentum tails don't get rounded away.
     void onMouseWheel(wxMouseEvent& event);
-#endif
 
     // Action-bar events propagate up the parent chain and land here.
     void onCopyCode(wxCommandEvent& event);
@@ -165,10 +163,8 @@ private:
                                                       ///< auto-applied (or attempted) this
                                                       ///< session — guards live-edit against
                                                       ///< double-apply across reparses.
-#ifdef __WXOSX__
     int m_bodyLineHeight = 0;  ///< Body-font line height — sets the per-notch wheel scroll amount.
     int m_wheelPixelAccum = 0; ///< Fractional remainder carried between wheel events.
-#endif
 
     wxDECLARE_EVENT_TABLE();
 };
