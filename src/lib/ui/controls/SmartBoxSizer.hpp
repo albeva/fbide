@@ -56,23 +56,12 @@ public:
     /// Default size for border or a gap.
     static constexpr int DEFAULT_SIZE = 5;
 
-    /// Cross-axis alignment applied to every visible item (no-op when
-    /// the item has `wxEXPAND`, which saturates the cross axis).
-    ///
-    /// - `None`: leave each item's alignment flags untouched.
-    /// - `Leading`: top-of-cross for horizontal boxes, left-of-cross
-    ///   for vertical boxes. Strips any opposing alignment the caller
-    ///   may have supplied; the new flag is wx's implicit default
-    ///   (`wxALIGN_LEFT` / `wxALIGN_TOP` are both 0).
-    /// - `Center`: cross-axis centring (`wxALIGN_CENTER_VERTICAL` or
-    ///   `wxALIGN_CENTER_HORIZONTAL` depending on orientation).
-    /// - `Trailing`: bottom-of-cross for horizontal boxes,
-    ///   right-of-cross for vertical boxes.
+    /// Child item alignment in the container, based on container orientation
     enum class Alignment : std::uint8_t {
-        None,
-        Leading,
-        Center,
-        Trailing
+        None,    ///< No auto align, child can set it's own alignment
+        Leading, ///< Align to left or top edge of the container
+        Center,  ///< Align to the middle of the container
+        Trailing ///< Align to the right or bottom of the container
     };
 
     /// Construction options. `-1` for margin or gap means "platform
