@@ -70,7 +70,7 @@ auto showChmBlockedWithWikiOption(wxWindow* parent, const wxString& fileName) ->
 
     buildChmBlockedContent(dlg, fileName);
 
-    dlg.hbox({ .border = 0 }, [&] {
+    dlg.hbox({ .margin = false }, [&] {
         dlg.currentSizer()->AddStretchSpacer();
         dlg.button("Open Online Wiki", { .expand = false }, wxID_OK);
         dlg.button("", { .expand = false }, wxID_CANCEL);

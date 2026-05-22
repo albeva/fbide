@@ -77,11 +77,11 @@ struct PaintLine {
     int y = 0;          ///< Top offset within the document.
     int height = 0;     ///< Line height in pixels.
     int quoteDepth = 0; ///< Block-quote nesting — the painter draws that many bars.
-    std::vector<PaintRun> runs;
+    std::vector<PaintRun> runs {};
     /// Table-only: per-column geometry. Empty for non-table lines. The
     /// painter draws vertical separators between columns and (for
     /// TableBody) a horizontal divider at the top of the row.
-    std::vector<TableColumn> tableColumns;
+    std::vector<TableColumn> tableColumns {};
     /// Table-only: true for the very LAST visual line of the table —
     /// the painter draws the bottom border on it.
     bool tableLastLine = false;
