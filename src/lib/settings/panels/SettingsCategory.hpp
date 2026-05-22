@@ -17,13 +17,18 @@ namespace fbide {
 
 /// Settings-UI category enum: all syntax styles, plus the extra Theme
 /// properties (line number, selection, brace matching) — populated by
-/// reusing the same x-macros that define Theme internals.
+/// reusing the same x-macros that define Theme internals. The trailing
+/// `Changes` slot is a hand-added pseudo-category for the diff-state
+/// palette (Added / Modified / Removed / Background); it bypasses the
+/// per-category `Colors`/`Entry` plumbing and is rendered by
+/// `ThemePage` with its own custom picker block.
 enum class SettingsCategory : int {
 // clang-format off
     #define SYN_ENUM(NAME, ...) NAME,
         DEFINE_SETTINGS_CATEGORY(SYN_ENUM)
     #undef SYN_ENUM
     // clang-format on
+    Changes,
 };
 
 constexpr auto operator+(const SettingsCategory& rhs) -> int {
@@ -53,6 +58,8 @@ constexpr auto getSettingsCategoryName(const SettingsCategory category) -> std::
         #undef SYN_CASE
         #undef EXTRA_CASE
         // clang-format on
+    case SettingsCategory::Changes:
+        return "Changes";
     }
     std::unreachable();
 }
@@ -84,6 +91,10 @@ inline auto readCategory(const Theme& theme, const SettingsCategory cat) -> Them
             DEFINE_THEME_EXTRA_PROPERTY(EXTRA_CASE)
         #undef EXTRA_CASE
         // clang-format on
+    case SettingsCategory::Changes:
+        // `Changes` carries four wxColours, not a Colors/Entry — ThemePage
+        // branches before this call. Reaching it here would mean a UI bug.
+        std::unreachable();
     default:
         std::unreachable();
     }
@@ -99,6 +110,10 @@ constexpr auto capabilityOf(const SettingsCategory category) -> SettingsCapabili
     case SettingsCategory::Selection:
     case SettingsCategory::FoldMargin:
         return { .foreground = true, .background = true, .style = false, .font = false, .fontSize = false, .separator = false };
+    case SettingsCategory::Changes:
+        // None of the standard pickers — ThemePage renders four
+        // dedicated diff-state pickers in their place.
+        return { .foreground = false, .background = false, .style = false, .font = false, .fontSize = false, .separator = false };
     default:
         // syntax styles (except Default) + Brace/BadBrace: colours + style
         return { .foreground = true, .background = true, .style = true, .font = false, .fontSize = false, .separator = false };

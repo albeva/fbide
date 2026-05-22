@@ -1,0 +1,132 @@
+//
+// FBIde editor for FreeBASIC - https://freebasic.net
+// Copyright (c) 2026 Albert Varaksin
+// Licensed under the MIT License. See LICENSE file for details.
+// https://github.com/albeva/fbide
+//
+#pragma once
+#include "pch.hpp"
+
+namespace fbide {
+
+/**
+ * A `wxBoxSizer` subclass that adjusts per-item borders and outer
+ * padding automatically based on visibility.
+ *
+ * Layout model
+ * ------------
+ * - `margin` is the per-item border applied via `wxALL` on every
+ *   visible item (wxWidgets' standard "border" concept).
+ * - `gap` is the per-item border applied to inner items when the
+ *   value differs from `margin` — in that case the sizer holds a
+ *   single nested `wxBoxSizer`, with `margin` as the outer border
+ *   and `gap` as the per-item border inside.
+ * - `-1` resolves to `wxSizerFlags::GetDefaultBorder()`.
+ *
+ * Why the nested form: per-`wxSizerItem` border is a single integer
+ * applied to whichever edge flags the item has. With `margin != gap`,
+ * a single sizer can't express both "outer = margin" and "between =
+ * 2*gap" simultaneously, so the inner sizer carries the gap and the
+ * outer carries the margin.
+ *
+ * Visibility-driven behaviour
+ * ---------------------------
+ * - If every child is hidden (or none have been added), the sizer
+ *   reports a zero minimum size — no margin is added.
+ * - When at least one child is visible, the outer border kicks in
+ *   and per-item borders are restored.
+ * - The recompute runs from `CalcMin`, so any `Show`/`Hide`/`Add`/
+ *   `Remove` picked up by a normal `Layout()` call reaches us
+ *   without needing explicit notification.
+ *
+ * `Options::center` applies cross-axis centring to every item
+ * (`wxALIGN_CENTRE_VERTICAL` for a horizontal sizer,
+ * `wxALIGN_CENTRE_HORIZONTAL` for a vertical one). Items added with
+ * `wxEXPAND` are left alone — expanding already saturates the cross
+ * axis, so a centre flag would be a no-op or conflicting.
+ *
+ * `wxEXPAND` and `proportion` from the caller are preserved as-is.
+ * Per-item borders supplied by the caller are stripped at insertion
+ * time — the sizer owns that decision.
+ */
+class SmartBoxSizer final : public wxBoxSizer {
+public:
+    NO_COPY_AND_MOVE(SmartBoxSizer)
+
+    /// Default size for border or a gap.
+    static constexpr int DEFAULT_SIZE = 5;
+
+    /// Cross-axis alignment applied to every visible item (no-op when
+    /// the item has `wxEXPAND`, which saturates the cross axis).
+    ///
+    /// - `None`: leave each item's alignment flags untouched.
+    /// - `Leading`: top-of-cross for horizontal boxes, left-of-cross
+    ///   for vertical boxes. Strips any opposing alignment the caller
+    ///   may have supplied; the new flag is wx's implicit default
+    ///   (`wxALIGN_LEFT` / `wxALIGN_TOP` are both 0).
+    /// - `Center`: cross-axis centring (`wxALIGN_CENTER_VERTICAL` or
+    ///   `wxALIGN_CENTER_HORIZONTAL` depending on orientation).
+    /// - `Trailing`: bottom-of-cross for horizontal boxes,
+    ///   right-of-cross for vertical boxes.
+    enum class Alignment : std::uint8_t {
+        None,
+        Leading,
+        Center,
+        Trailing
+    };
+
+    /// Construction options. `-1` for margin or gap means "platform
+    /// default" — resolved through `wxSizerFlags::GetDefaultBorder()`.
+    struct Options final {
+        int border = -1;                       ///< Per-item border on the outer/all-edges.
+        int gap = -1;                          ///< Per-item border on inner items (when nested).
+        Alignment alignment = Alignment::None; ///< Cross-axis alignment applied to every item.
+    };
+
+    SmartBoxSizer(Options options, wxOrientation orientation);
+
+    /// Hooked from `wxBoxSizer::Layout`; reapplies per-item borders
+    /// and outer padding based on current visibility, then defers to
+    /// the base for the actual minimum-size computation.
+    auto CalcMin() -> wxSize override;
+
+protected:
+    /// All `Add` / `Insert` overloads on `wxSizer` flow through here.
+    /// We intercept so user-supplied per-item borders are stripped
+    /// (the sizer manages them) and so insertions can be routed to
+    /// the inner sizer when in nested mode.
+    auto DoInsert(std::size_t index, wxSizerItem* item) -> wxSizerItem* override;
+
+private:
+    /// Resolve `-1` to `wxSizerFlags::GetDefaultBorder()`.
+    [[nodiscard]] auto resolvedBorder() const -> int { return defaultSize(m_options.border); }
+    [[nodiscard]] auto resolvedGap() const -> int { return defaultSize(m_options.gap); }
+    [[nodiscard]] static auto defaultSize(int value) -> int;
+
+    /// Walk the managed item list (own children in single-sizer
+    /// mode, inner sizer's children in nested mode) and update each
+    /// item's border + flags from the current visibility state.
+    void applyAutoLayout();
+
+    /// Apply the configured cross-axis `Alignment` to `flags` —
+    /// strips existing alignment bits and OR's in the orientation-
+    /// correct one. No-op when `Alignment::None` or the item is
+    /// `wxEXPAND` (which saturates the cross axis).
+    [[nodiscard]] auto withAlignment(int flags) const -> int;
+
+    Options m_options;
+    /// Set only in nested mode (`margin != gap`); the SmartBoxSizer
+    /// itself then contains exactly one item — `m_inner` — and user
+    /// items go into `m_inner`.
+    wxBoxSizer* m_inner = nullptr;
+    /// `wxSizerItem` wrapping `m_inner` inside `this`. Owned by the
+    /// base sizer; we just retain the pointer to retune its border
+    /// during `applyAutoLayout`.
+    wxSizerItem* m_innerItem = nullptr;
+    /// `true` until the constructor's bootstrap `Add(m_inner, ...)`
+    /// completes — so the override of `DoInsert` knows not to route
+    /// that one call back through itself.
+    bool m_constructing = true;
+};
+
+} // namespace fbide

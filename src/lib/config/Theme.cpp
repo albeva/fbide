@@ -275,6 +275,10 @@ void Theme::load(const wxString& themePath, const bool reset) {
     }
 
     derivePpEntriesFromBase();
+    // Themes saved before the change-tracking feature don't carry the
+    // diff palette keys; seed sensible defaults so the picker reflects
+    // a real colour rather than an empty swatch.
+    seedChangesPaletteDefaults();
 
     // Qualified to disambiguate from the `reset` bool parameter.
     this->reset();
@@ -296,15 +300,34 @@ void Theme::loadDefaults() {
     m_foldMargin = {
         .foreground = *wxBLACK, .background = *wxLIGHT_GREY
     };
-    // Diff-state palette — picked to match the AI patch proposal
-    // colours so a margin marker and the patch card read as one
-    // family. The Editor's change-tracking margin uses Added + Modified
-    // today; Removed is reserved for the diff viewer.
-    m_changesAdded = wxColour(80, 200, 100);
-    m_changesModified = wxColour(220, 160, 30);
-    m_changesRemoved = wxColour(220, 80, 80);
+    seedChangesPaletteDefaults();
     derivePpEntriesFromBase();
     reset();
+}
+
+void Theme::seedChangesPaletteDefaults() {
+    // Diff-state palette — picked to match the AI patch proposal
+    // colours so a margin marker and the patch card read as one
+    // family. The Editor's change-tracking margin uses Added +
+    // Modified + Background today; Removed is reserved for the diff
+    // viewer. Only fills slots the loaded theme didn't already
+    // populate, so user customisations are preserved.
+    if (!m_changesAdded.IsOk()) {
+        m_changesAdded = wxColour(80, 200, 100);
+    }
+    if (!m_changesModified.IsOk()) {
+        m_changesModified = wxColour(220, 160, 30);
+    }
+    if (!m_changesRemoved.IsOk()) {
+        m_changesRemoved = wxColour(220, 80, 80);
+    }
+    // Bake the fold-margin background into ChangesBackground when
+    // unset rather than fall back at paint time — keeps the runtime
+    // value concrete and the picker meaningful (no implicit
+    // inheritance from another category).
+    if (!m_changesBackground.IsOk() && m_foldMargin.background.IsOk()) {
+        m_changesBackground = m_foldMargin.background;
+    }
 }
 
 void Theme::derivePpEntriesFromBase() {

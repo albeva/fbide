@@ -65,9 +65,11 @@ target_sources(fbide_lib
     ui/controls/BBCodeText.cpp
     ui/controls/ColorPicker.cpp
     ui/controls/Panel.cpp
+    ui/controls/SmartBoxSizer.cpp
     ui/utilities/FileDropTarget.cpp
 
     PUBLIC FILE_SET HEADERS FILES
+    ui/controls/SmartBoxSizer.hpp
     about/AboutDialog.hpp
     analyses/intellisense/IntellisenseService.hpp
     analyses/lexer/KeywordTables.hpp

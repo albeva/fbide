@@ -107,13 +107,13 @@ void GeneralPage::create() {
             checkBox(m_showLineEndings, tr("dialogs.settings.general.lineEndings"));
             checkBox(m_braceHighlight, tr("dialogs.settings.general.braceHighlight"));
             spinCtrl(m_edgeColumn, tr("dialogs.settings.general.rightMarginWidth"), 1, 200, {});
-            hbox({ .center = true, .border = 0 }, [&] {
+            hbox({ .alignment = SmartBoxSizer::Alignment::Center, .border = 0 }, [&] {
                 text(tr("dialogs.settings.general.encoding"), { .expand = false });
                 choice(m_encoding, encodingChoices(), { .expand = false })->SetMinSize(wxSize(160, -1));
             });
         });
 
-        separator({ .space = false });
+        separator();
 
         vbox({ .proportion = 1 }, [&] {
             checkBox(m_syntaxHighlight, tr("dialogs.settings.general.syntaxHighlight"));
@@ -123,7 +123,7 @@ void GeneralPage::create() {
             checkBox(m_changeTracking, tr("dialogs.settings.general.changeTracking"));
             checkBox(m_splashScreen, tr("dialogs.settings.general.splashScreen"));
             spinCtrl(m_tabSize, tr("dialogs.settings.general.tabSize"), 1, 16, {});
-            hbox({ .center = true, .border = 0 }, [&] {
+            hbox({ .alignment = SmartBoxSizer::Alignment::Center, .border = 0 }, [&] {
                 text(tr("dialogs.settings.general.eolMode"), { .expand = false });
                 choice(m_eolMode, eolModeChoices(), { .expand = false })->SetMinSize(wxSize(160, -1));
             });
@@ -135,7 +135,7 @@ void GeneralPage::create() {
     // `m_language` keeps storing the filename so the on-disk config
     // shape doesn't change.
     vbox(tr("dialogs.settings.general.language"), {}, [&] {
-        hbox({ .center = true, .border = 0 }, [&] {
+        hbox({ .alignment = SmartBoxSizer::Alignment::Center, .border = 0 }, [&] {
             text(tr("dialogs.settings.general.languageSelect"), { .proportion = 1, .expand = false });
             const auto languages = loadLanguageOptions(getContext());
 

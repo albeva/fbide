@@ -80,7 +80,7 @@ KeywordsPage::KeywordsPage(Context& ctx, wxWindow* parent)
 
 void KeywordsPage::create() {
     // Group dropdown + case dropdown row
-    hbox({ .center = true, .border = 0 }, [&] {
+    hbox({ .alignment = SmartBoxSizer::Alignment::Center, .border = 0 }, [&] {
         wxArrayString options;
         options.reserve(kThemeKeywordGroupsCount);
         const auto& group = getContext().getConfigManager().locale().at("dialogs.settings.themes.categories");

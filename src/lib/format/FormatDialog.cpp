@@ -62,7 +62,7 @@ FormatDialog::~FormatDialog() = default;
 
 void FormatDialog::create() {
     // Options bar
-    hbox(m_ctx.tr("dialogs.format.options"), { .center = true }, [&] {
+    hbox(m_ctx.tr("dialogs.format.options"), { .alignment = SmartBoxSizer::Alignment::Center }, [&] {
         m_reindentCheck = checkBox(m_ctx.tr("dialogs.format.reindent.label"), { .expand = false }, ID_REINDENT);
         m_reindentCheck->SetToolTip(m_ctx.tr("dialogs.format.reindent.tooltip"));
 
@@ -72,12 +72,12 @@ void FormatDialog::create() {
         m_reformatCheck = checkBox(m_ctx.tr("dialogs.format.reformat.label"), { .expand = false }, ID_REFORMAT);
         m_reformatCheck->SetToolTip(m_ctx.tr("dialogs.format.reformat.tooltip"));
 
-        separator({ .space = false });
+        separator();
 
         m_applyCaseCheck = checkBox(m_ctx.tr("dialogs.format.applyCase.label"), { .expand = false }, ID_APPLY_CASE);
         m_applyCaseCheck->SetToolTip(m_ctx.tr("dialogs.format.applyCase.tooltip"));
 
-        separator({ .space = false });
+        separator();
 
         radio(m_ctx.tr("dialogs.format.output.format"), { .expand = false }, ID_RENDER_CODE, wxRB_GROUP)->SetValue(true);
         radio(m_ctx.tr("dialogs.format.output.html"), { .expand = false }, ID_RENDER_HTML);

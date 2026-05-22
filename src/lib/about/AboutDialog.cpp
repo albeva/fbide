@@ -29,7 +29,7 @@ void AboutDialog::create() {
         currentParent(), wxID_ANY, wxBitmap(XPM::fbide_xpm),
         wxDefaultPosition, wxSize(300, 75)
     );
-    add(banner, { .padding = false });
+    add(banner);
 
     vbox("FBIde information", { .border = 0 }, [&] {
         const auto info = label(
@@ -41,7 +41,7 @@ void AboutDialog::create() {
                 __DATE__,
                 wxMAJOR_VERSION, wxMINOR_VERSION, wxRELEASE_NUMBER
             ),
-            { .space = false }
+            {}
         );
         info->SetFont(infoFont);
 
@@ -54,7 +54,7 @@ void AboutDialog::create() {
         add(text, { .proportion = 1 });
     });
 
-    add(CreateStdDialogButtonSizer(wxOK), { .padding = false });
+    add(CreateStdDialogButtonSizer(wxOK));
     currentSizer()->AddSpacer(defaultBorder());
 
     SetSizerAndFit(currentSizer());

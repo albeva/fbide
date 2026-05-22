@@ -273,7 +273,7 @@ auto CompilerPage::makeFileEntry(wxString& value, const wxString& labelText) -> 
     const auto lbl = text(labelText, {});
     Unowned<wxButton> btn;
     Unowned<wxTextCtrl> tf;
-    hbox({ .center = true, .border = 0 }, [&] {
+    hbox({ .alignment = SmartBoxSizer::Alignment::Center, .border = 0 }, [&] {
         tf = textField(value, { .proportion = 1 });
         connect(lbl, tf);
         btn = button("...", {});

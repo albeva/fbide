@@ -223,19 +223,16 @@ void Editor::defineChangesMargin() {
     // change-bar look. Colours come from the theme; when the loaded theme
     // doesn't define them (legacy files) we fall back to the diff palette
     // the default theme ships with — see `Theme::loadDefaults`.
-    const wxColour added = m_theme.getChangesAdded().IsOk()
-                             ? m_theme.getChangesAdded()
-                             : wxColour(80, 200, 100);
-    const wxColour modified = m_theme.getChangesModified().IsOk()
-                                ? m_theme.getChangesModified()
-                                : wxColour(220, 160, 30);
+    const wxColour added = m_theme.getChangesAdded();
+    const wxColour modified = m_theme.getChangesModified();
     MarkerDefine(kAddedMarker, wxSTC_MARK_FULLRECT, added, added);
     MarkerDefine(kModifiedMarker, wxSTC_MARK_FULLRECT, modified, modified);
 
-    // Margin background matches the fold strip so the two read as one
-    // gutter; the markers themselves provide the colour.
-    const auto foldBg = m_theme.background(m_theme.getFoldMargin().background);
-    SetMarginBackground(+Margins::Changes, foldBg);
+    // `ChangesBackground` is seeded from the fold-margin background at
+    // load time (see `Theme::seedChangesPaletteDefaults`), so by the
+    // time we read it here it always carries a concrete colour — no
+    // runtime fallback chain.
+    SetMarginBackground(+Margins::Changes, m_theme.getChangesBackground());
 }
 
 void Editor::applyTheme() {
