@@ -5,7 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "AiChatView.hpp"
-#include <wx/sizer.h>
 #include "ChatLayout.hpp"
 #include "CodeActionBar.hpp"
 #include "CodeHighlighter.hpp"
@@ -32,7 +31,7 @@ constexpr int kBubblePad = 10;
 // Corner radius of a message bubble.
 constexpr int kBubbleRadius = 10;
 // Largest fraction of the available width a bubble may occupy.
-constexpr double kBubbleMaxFraction = 0.85;
+constexpr double kBubbleMaxFraction = 0.95;
 // Smallest content width a bubble shrinks to.
 constexpr int kMinBubbleContent = 60;
 // Inset of the action bar from the code block's top-right corner.

@@ -69,7 +69,7 @@ auto activeIncludes(const Document* doc) -> std::vector<std::filesystem::path> {
 AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
 : wxPanel(parent, wxID_ANY)
 , m_ctx(ctx) {
-    auto sizer = make_unowned<wxBoxSizer>(wxVERTICAL);
+    const auto sizer = make_unowned<wxBoxSizer>(wxVERTICAL);
 
     m_output = make_unowned<AiChatView>(this, m_ctx);
     sizer->Add(m_output, wxSizerFlags(1).Expand().Border(wxALL, 4));
@@ -91,7 +91,7 @@ AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
     m_addContext->SetToolTip("Attach context");
     m_send = make_unowned<wxButton>(this, wxID_ANY, m_ctx.tr("panels.aichat.send"));
 
-    auto row = make_unowned<wxBoxSizer>(wxHORIZONTAL);
+    const auto row = make_unowned<wxBoxSizer>(wxHORIZONTAL);
     row->Add(m_addContext, wxSizerFlags().Centre());
     row->AddStretchSpacer(1);
     row->Add(m_send, wxSizerFlags().Centre());
