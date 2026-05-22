@@ -29,9 +29,10 @@ void AboutDialog::create() {
         currentParent(), wxID_ANY, wxBitmap(XPM::fbide_xpm),
         wxDefaultPosition, wxSize(300, 75)
     );
-    add(banner, { .padding = false });
 
-    vbox("FBIde information", { .border = 0 }, [&] {
+    add(banner);
+
+    vbox("FBIde information", { .margin = false }, [&] {
         const auto info = label(
             wxString::Format(
                 "Version:       %s\n"
@@ -41,7 +42,7 @@ void AboutDialog::create() {
                 __DATE__,
                 wxMAJOR_VERSION, wxMINOR_VERSION, wxRELEASE_NUMBER
             ),
-            { .space = false }
+            {}
         );
         info->SetFont(infoFont);
 
@@ -54,9 +55,7 @@ void AboutDialog::create() {
         add(text, { .proportion = 1 });
     });
 
-    add(CreateStdDialogButtonSizer(wxOK), { .padding = false });
-    currentSizer()->AddSpacer(defaultBorder());
-
+    add(CreateStdDialogButtonSizer(wxOK));
     SetSizerAndFit(currentSizer());
     Centre();
 }

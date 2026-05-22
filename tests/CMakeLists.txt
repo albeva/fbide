@@ -27,6 +27,7 @@ add_executable(tests
     unit/EncodingDetectorTests.cpp
     unit/FBSciLexerTests.cpp
     unit/MarkdownTests.cpp
+    unit/LineHistoryTests.cpp
     unit/ReFormatterTests.cpp
     unit/StyleLexerTests.cpp
     unit/RunCommandTests.cpp
@@ -66,6 +67,7 @@ gtest_discover_tests(tests
 # GUI dependency).
 add_executable(ui-tests
     ui/uimain.cpp
+    ui/EditorChangeMarginTests.cpp
     ui/EditorTests.cpp
     ui/EditorPerfTests.cpp
 )

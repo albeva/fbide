@@ -51,6 +51,7 @@ target_sources(fbide_lib
     editor/AutoIndent.cpp
     editor/CodeTransformer.cpp
     editor/Editor.cpp
+    editor/LineHistory.cpp
     editor/lexilla/FBSciLexer.cpp
     format/FormatDialog.cpp
     format/renderers/HtmlRenderer.cpp
@@ -78,9 +79,11 @@ target_sources(fbide_lib
     ui/controls/BBCodeText.cpp
     ui/controls/ColorPicker.cpp
     ui/controls/Panel.cpp
+    ui/controls/SmartBoxSizer.cpp
     ui/utilities/FileDropTarget.cpp
 
     PUBLIC FILE_SET HEADERS FILES
+    ui/controls/SmartBoxSizer.hpp
     about/AboutDialog.hpp
     ai/AiChatPanel.hpp
     ai/AiContext.hpp
@@ -135,6 +138,7 @@ target_sources(fbide_lib
     editor/AutoIndent.hpp
     editor/CodeTransformer.hpp
     editor/Editor.hpp
+    editor/LineHistory.hpp
     editor/lexilla/CharCategory.hpp
     editor/lexilla/FBSciLexer.hpp
     format/FormatDialog.hpp

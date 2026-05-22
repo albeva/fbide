@@ -42,7 +42,6 @@ public:
     };
 
 private:
-
     /// Locale lookup with optional default — wraps `m_tr.get_or`.
     auto tr(const wxString& path, const wxString& def = wxEmptyString) const -> wxString;
 
@@ -79,6 +78,10 @@ private:
     void loadCategory();
     /// Push the editor widgets back into the working theme's category entry.
     void saveCategory();
+    /// Load the four diff-state pickers from the working theme.
+    void loadChangesCategory();
+    /// Push the four diff-state pickers back into the working theme.
+    void saveChangesCategory();
     /// Refresh the right-pane title from the current category.
     void updateTitle();
     /// Enable/disable category-specific widgets (e.g. font fields).
@@ -104,7 +107,14 @@ private:
     Unowned<wxStaticText> m_lblFont;          ///< Font label.
     Unowned<wxStaticText> m_lblFontSize;      ///< Font-size label.
 
-    wxStaticBoxSizer* m_themeBox = nullptr; ///< Right-pane group box.
+    // Diff-state pickers — shown only when the "Changes" tree node is
+    // selected. The standard fg/bg pickers are hidden in that case.
+    Unowned<ColorPicker> m_changesAddedPicker;
+    Unowned<ColorPicker> m_changesModifiedPicker;
+    Unowned<ColorPicker> m_changesRemovedPicker;
+    Unowned<ColorPicker> m_changesBackgroundPicker;
+
+    wxStaticBox* m_themeBox = nullptr; ///< Right-pane group box.
 
     /// Index offset between the theme dropdown selection and `m_themeFiles`
     /// (slot 0 is the synthetic "New theme..." entry).

@@ -53,16 +53,24 @@ ColorPicker::ColorPicker(wxWindow* parent, const Theme& theme, const Value& tr,
 , m_inheritTooltip(std::move(inheritTooltip)) {}
 
 void ColorPicker::create() {
-    currentOptions() = { .border = 0 };
+    SetBackgroundColour(wxTransparentColor);
+    if (auto* smart = wxDynamicCast(currentSizer(), SmartBoxSizer)) {
+        smart->setOptions({ .margin = false });
+    }
 
-    m_lbl = label(m_labelText, {});
-    hbox({ .center = true, .border = 0 }, [&] {
-        m_chkInherit = make_unowned<wxCheckBox>(currentParent(), ID_CHK_INHERIT, wxEmptyString);
-        if (not m_inheritTooltip.empty()) {
-            m_chkInherit->SetToolTip(m_inheritTooltip);
-        }
-        currentSizer()->Add(m_chkInherit, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder());
-        m_btn = button(wxString {}, { .proportion = 1, .space = false }, ID_BTN_COLOR);
+    // Wrap our content in an explicit border-less vbox — the
+    // SmartBoxSizer root would otherwise apply the default margin
+    // around every child of the picker itself.
+    vbox({ .margin = false }, [&] {
+        m_lbl = label(m_labelText);
+        hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
+            m_chkInherit = make_unowned<wxCheckBox>(currentParent(), ID_CHK_INHERIT, wxEmptyString);
+            if (not m_inheritTooltip.empty()) {
+                m_chkInherit->SetToolTip(m_inheritTooltip);
+            }
+            currentSizer()->Add(m_chkInherit, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder());
+            m_btn = button(wxString {}, { .proportion = 1 }, ID_BTN_COLOR);
+        });
     });
     connect(m_lbl, m_btn);
 

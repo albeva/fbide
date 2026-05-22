@@ -22,12 +22,24 @@ namespace fbide {
     _( Brace,      brace,      Entry     ) \
     _( BadBrace,   badBrace,   Entry     )
 
-#define DEFINE_THEME_PROPERTY(_)           \
-    /* name        member      type     */ \
-    _( Version,    version,    Version   ) \
-    _( Separator,  separator,  wxColour  ) \
-    _( Font,       font,       wxString  ) \
-    _( FontSize,   fontSize,   int       ) \
+// Top-level theme properties. The four `Changes*` entries are the
+// diff-state palette — used today by the Editor's change-tracking
+// margin (Added + Modified + background) and reused later by the AI
+// patch proposal renderer for SEARCH/REPLACE cards. Removed has no
+// margin glyph (a deleted line has nowhere to live), but the slot
+// is here so the diff viewer has a single source of truth.
+// `ChangesBackground` paints the margin's own background; falls back
+// to the fold-margin background when unset.
+#define DEFINE_THEME_PROPERTY(_)                          \
+    /* name              member             type      */  \
+    _( Version,           version,            Version   ) \
+    _( Separator,         separator,          wxColour  ) \
+    _( Font,              font,               wxString  ) \
+    _( FontSize,          fontSize,           int       ) \
+    _( ChangesAdded,      changesAdded,       wxColour  ) \
+    _( ChangesModified,   changesModified,    wxColour  ) \
+    _( ChangesRemoved,    changesRemoved,     wxColour  ) \
+    _( ChangesBackground, changesBackground,  wxColour  ) \
     DEFINE_THEME_EXTRA_PROPERTY(_)
 
 /**
@@ -151,6 +163,13 @@ private:
     /// them). Themes that explicitly include a section, even with empty
     /// colour fields, are loaded as-is.
     void derivePpEntriesFromBase();
+    /// Seed the diff-state palette (`ChangesAdded` / `Modified` /
+    /// `Removed` / `Background`) with sensible defaults when the
+    /// loaded theme didn't carry them. The first three get hard-coded
+    /// RGB values; `ChangesBackground` is copied from the fold-margin
+    /// background — baked once at load time so the runtime value is
+    /// always concrete (no tiered inheritance).
+    void seedChangesPaletteDefaults();
     /// Invalidate the cached runtime font.
     void reset();
     /// Build the runtime wxFont, substituting the system monospace face

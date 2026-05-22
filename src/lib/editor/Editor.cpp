@@ -21,17 +21,29 @@
 using namespace fbide;
 
 namespace {
+// Order matches Scintilla margin indices — Changes sits at the right,
+// directly against the text edge, so the diff bar is the first thing
+// the eye picks up next to the line content.
 enum class Margins : std::uint8_t {
     LineNumbers = 0,
-    Fold = 1
+    Fold = 1,
+    Changes = 2
 };
 constexpr auto operator+(const Margins& rhs) -> int {
     return static_cast<int>(rhs);
 }
 
+// Marker numbers come from `Editor::kAddedMarker` / `kModifiedMarker`
+// (public so tests can query). Scintilla reserves the upper range
+// (25–31) for fold markers via `wxSTC_MASK_FOLDERS`, so the low-range
+// picks don't collide.
+constexpr int kChangeMarkersMask
+    = (1 << Editor::kAddedMarker) | (1 << Editor::kModifiedMarker);
+
 struct Constants final {
     static constexpr int edgeColumn = 80;
     static constexpr int foldMarginWidth = 16;
+    static constexpr int changeMarginWidth = 5;
     static constexpr int analysesThrottle = 500;
 };
 
@@ -42,13 +54,14 @@ auto isBrace(const int ch) -> bool {
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
-    EVT_STC_MARGINCLICK (wxID_ANY,  Editor::onMarginClick)
-    EVT_STC_MODIFIED(wxID_ANY,      Editor::onModified)
-    EVT_STC_UPDATEUI(wxID_ANY,      Editor::onUpdateUI)
-    EVT_STC_ZOOM(wxID_ANY,          Editor::onZoom)
-    EVT_STC_CHARADDED(wxID_ANY,     Editor::onCharAdded)
-    EVT_STC_HOTSPOT_CLICK(wxID_ANY, Editor::onHotSpotClick)
-    EVT_TIMER(wxID_ANY,             Editor::onIntellisenseTimer)
+    EVT_STC_MARGINCLICK (wxID_ANY,    Editor::onMarginClick)
+    EVT_STC_MODIFIED(wxID_ANY,        Editor::onModified)
+    EVT_STC_SAVEPOINTREACHED(wxID_ANY,Editor::onSavePointReached)
+    EVT_STC_UPDATEUI(wxID_ANY,        Editor::onUpdateUI)
+    EVT_STC_ZOOM(wxID_ANY,            Editor::onZoom)
+    EVT_STC_CHARADDED(wxID_ANY,       Editor::onCharAdded)
+    EVT_STC_HOTSPOT_CLICK(wxID_ANY,   Editor::onHotSpotClick)
+    EVT_TIMER(wxID_ANY,               Editor::onIntellisenseTimer)
     EVT_KEY_DOWN(Editor::onKeyDown)
     EVT_KEY_UP(Editor::onKeyUp)
     EVT_KILL_FOCUS(Editor::onKillFocus)
@@ -77,6 +90,16 @@ Editor::Editor(
 , m_preview(preview) {
     applySettings();
     m_intellisenseTimer.SetOwner(this);
+
+    // Establish an initial baseline for the change tracker. Scintilla
+    // only fires `SAVEPOINTREACHED` on a *transition* into the clean
+    // state, so a brand-new editor (e.g. File → New) never gets one;
+    // without this seed, modify events would land on an empty
+    // `LineHistory` and produce no markers. A subsequent file load
+    // re-baselines through the SAVEPOINTREACHED path.
+    if (!m_preview && m_changeTracking) {
+        resnapshotChangeTracker();
+    }
 }
 
 void Editor::onContextMenu(wxContextMenuEvent& event) {
@@ -95,6 +118,7 @@ void Editor::applySettings() {
     applyEditorSettings();
     applyTheme();
     defineFoldMargins();
+    defineChangesMargin();
     updateLineNumberMarginWidth();
 
     Colourise(0, -1);
@@ -107,6 +131,7 @@ void Editor::applyEditorSettings() {
     if (m_transformer != nullptr) {
         m_transformer->applySettings();
     }
+    m_changeTracking = editor.get_or("changeTracking", true);
 
     // The right-click menu is built by UIManager — see onContextMenu.
     UsePopUp(wxSTC_POPUP_NEVER);
@@ -123,8 +148,8 @@ void Editor::applyEditorSettings() {
     if (m_preview) {
         // Preview mode: hide all margins and decorations
         SetMarginWidth(+Margins::LineNumbers, 0);
+        SetMarginWidth(+Margins::Changes, 0);
         SetMarginWidth(+Margins::Fold, 0);
-        // SetMarginWidth(2, 0);
         SetEdgeMode(wxSTC_EDGE_NONE);
         SetViewEOL(false);
         SetIndentationGuides(wxSTC_IV_NONE);
@@ -141,8 +166,9 @@ void Editor::applyEditorSettings() {
     SetViewWhiteSpace(editor.get_or("whiteSpace", false) ? wxSTC_WS_VISIBLEALWAYS : wxSTC_WS_INVISIBLE);
 
     // Line number margin
-    SetMarginCount(2);
+    SetMarginCount(3);
     SetMarginWidth(+Margins::LineNumbers, 0);
+    SetMarginWidth(+Margins::Changes, 0);
     SetMarginWidth(+Margins::Fold, 0);
 }
 
@@ -179,6 +205,45 @@ void Editor::defineFoldMargins() {
     SetFoldMarginColour(true, foldBg);
     SetFoldMarginHiColour(true, foldBg);
     SetProperty("fold", "1");
+}
+
+void Editor::defineChangesMargin() {
+    if (m_preview) {
+        return;
+    }
+
+    // Disabled via `editor.changeTracking` — hide the margin entirely
+    // and drop any leftover markers from a prior session. The other
+    // handlers also short-circuit on `m_changeTracking == false`, so
+    // no per-modify work runs while it's off.
+    if (!m_changeTracking) {
+        SetMarginWidth(+Margins::Changes, 0);
+        MarkerDeleteAll(kAddedMarker);
+        MarkerDeleteAll(kModifiedMarker);
+        return;
+    }
+
+    // Symbol margin with only the two change markers visible. The mask
+    // keeps fold and other markers from leaking onto this strip.
+    SetMarginType(+Margins::Changes, wxSTC_MARGIN_SYMBOL);
+    SetMarginMask(+Margins::Changes, kChangeMarkersMask);
+    SetMarginWidth(+Margins::Changes, Constants::changeMarginWidth);
+    SetMarginSensitive(+Margins::Changes, false);
+
+    // Full-rectangle markers fill the margin cell — the VS Code / JetBrains
+    // change-bar look. Colours come from the theme; when the loaded theme
+    // doesn't define them (legacy files) we fall back to the diff palette
+    // the default theme ships with — see `Theme::loadDefaults`.
+    const wxColour added = m_theme.getChangesAdded();
+    const wxColour modified = m_theme.getChangesModified();
+    MarkerDefine(kAddedMarker, wxSTC_MARK_FULLRECT, added, added);
+    MarkerDefine(kModifiedMarker, wxSTC_MARK_FULLRECT, modified, modified);
+
+    // `ChangesBackground` is seeded from the fold-margin background at
+    // load time (see `Theme::seedChangesPaletteDefaults`), so by the
+    // time we read it here it always carries a concrete colour — no
+    // runtime fallback chain.
+    SetMarginBackground(+Margins::Changes, m_theme.getChangesBackground());
 }
 
 void Editor::applyTheme() {
@@ -929,14 +994,20 @@ void Editor::onMarginClick(wxStyledTextEvent& event) {
 void Editor::onModified(wxStyledTextEvent& event) {
     event.Skip();
 
-    if (m_docType != DocumentType::FreeBASIC) {
-        return;
-    }
     const auto mod = event.GetModificationType();
     if ((mod & (wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT | wxSTC_PERFORMED_UNDO | wxSTC_PERFORMED_REDO)) == 0) {
         return;
     }
 
+    // Change tracking runs for every document type that paints a margin
+    // (preview panes opt out via m_preview). Done first so the markers
+    // are accurate even when the rest of `onModified` returns early
+    // for non-FreeBASIC docs.
+    updateChangeTracking(event);
+
+    if (m_docType != DocumentType::FreeBASIC) {
+        return;
+    }
     if (m_editorLocked) {
         return;
     }
@@ -979,4 +1050,107 @@ void Editor::flushPendingInsert() {
     m_editorLocked = true;
     m_transformer->onTextInserted(*this, start, end - start);
     m_editorLocked = false;
+}
+
+void Editor::onSavePointReached(wxStyledTextEvent& event) {
+    event.Skip();
+    if (!m_changeTracking) {
+        return;
+    }
+    // Fires from SetSavePoint (save) and from undo back to the saved
+    // state — in both cases the buffer now matches "on-disk", so the
+    // change tracker re-baselines and every margin marker is dropped.
+    resnapshotChangeTracker();
+}
+
+void Editor::updateChangeTracking(wxStyledTextEvent& event) {
+    if (m_preview || !m_changeTracking) {
+        return;
+    }
+    const auto mod = event.GetModificationType();
+    const bool isInsert = (mod & wxSTC_MOD_INSERTTEXT) != 0;
+    const bool isDelete = (mod & wxSTC_MOD_DELETETEXT) != 0;
+    if (!isInsert && !isDelete) {
+        return;
+    }
+
+    const int pos = event.GetPosition();
+    const int line = LineFromPosition(pos);
+    const int linesAdded = event.GetLinesAdded();
+    // Splice at the line itself when the edit lands at column 0 — the
+    // new lines (or removed lines) belong above the existing line L;
+    // otherwise the edit splits / merges within L and the new / removed
+    // lines belong after it.
+    const bool atLineStart = (pos == PositionFromLine(line));
+    const int spliceAt = atLineStart ? line : line + 1;
+
+    if (linesAdded > 0) {
+        m_lineHistory.applyInsert(spliceAt, linesAdded);
+    } else if (linesAdded < 0) {
+        m_lineHistory.applyDelete(spliceAt, -linesAdded);
+    }
+
+    // Sync sizes when Scintilla now has more lines than the tracker.
+    // Happens when an empty-document baseline (zero lines) absorbs its
+    // first in-place character: linesAdded is 0 so no splice ran above,
+    // but Scintilla's line count is 1 — pad the tracker with -1
+    // (Added) entries so the new line reads as Added rather than
+    // sliding off the end of `m_originIndex`.
+    const int liveCount = GetLineCount();
+    const int trackerCount = m_lineHistory.lineCount();
+    if (trackerCount < liveCount) {
+        m_lineHistory.applyInsert(trackerCount, liveCount - trackerCount);
+    }
+
+    // Refresh markers on the directly-affected range. For inserts that
+    // grew the document, include all newly-added lines; deletes leave
+    // only the absorbing line to re-check.
+    const int rangeEnd = (isInsert && linesAdded > 0) ? (line + linesAdded) : line;
+    remarkChangedLines(line, rangeEnd);
+}
+
+void Editor::remarkChangedLines(const int from, const int to) {
+    const int lineCount = GetLineCount();
+    for (int lineNum = std::max(0, from); lineNum <= to && lineNum < lineCount; lineNum++) {
+        MarkerDelete(lineNum, kAddedMarker);
+        MarkerDelete(lineNum, kModifiedMarker);
+        wxString text = GetLine(lineNum);
+        while (!text.empty() && (text[text.length() - 1] == '\n' || text[text.length() - 1] == '\r')) {
+            text.RemoveLast();
+        }
+        switch (m_lineHistory.stateOf(lineNum, text)) {
+        case LineHistory::State::Added:
+            MarkerAdd(lineNum, kAddedMarker);
+            break;
+        case LineHistory::State::Modified:
+            MarkerAdd(lineNum, kModifiedMarker);
+            break;
+        case LineHistory::State::Unchanged:
+            break;
+        }
+    }
+}
+
+void Editor::resnapshotChangeTracker() {
+    std::vector<wxString> lines;
+    // An empty document has no lines from the user's POV — Scintilla
+    // surfaces one empty trailing line as internal bookkeeping, but
+    // treating that as a real baseline would make the first typed
+    // character look like a Modified line (amber) instead of the
+    // expected Added line (green). Leave `lines` empty in that case
+    // so the next edit reads as Added.
+    if (GetTextLength() > 0) {
+        const int lineCount = GetLineCount();
+        lines.reserve(static_cast<std::size_t>(lineCount));
+        for (int lineNum = 0; lineNum < lineCount; lineNum++) {
+            wxString text = GetLine(lineNum);
+            while (!text.empty() && (text[text.length() - 1] == '\n' || text[text.length() - 1] == '\r')) {
+                text.RemoveLast();
+            }
+            lines.push_back(std::move(text));
+        }
+    }
+    m_lineHistory.snapshot(std::move(lines));
+    MarkerDeleteAll(kAddedMarker);
+    MarkerDeleteAll(kModifiedMarker);
 }

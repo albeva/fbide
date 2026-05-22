@@ -76,7 +76,7 @@ auto loadLanguageOptions(const Context& ctx) -> std::vector<LanguageOption> {
 
 GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent) {
-    auto& cfg = getContext().getConfigManager().config();
+    const auto& cfg = getContext().getConfigManager().config();
     const auto& editor = cfg.at("editor");
     m_autoIndent = editor.get_or("autoIndent", true);
     m_transformKeywords = editor.get_or("transformKeywords", true);
@@ -88,6 +88,7 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
     m_showLineNumbers = editor.get_or("lineNumbers", true);
     m_showRightMargin = editor.get_or("longLine", false);
     m_foldMargin = editor.get_or("folderMargin", false);
+    m_changeTracking = editor.get_or("changeTracking", true);
     m_edgeColumn = editor.get_or("edgeColumn", 80);
     m_tabSize = editor.get_or("tabSize", 4);
     m_encoding = editor.get_or("encoding", "UTF-8");
@@ -97,7 +98,7 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 }
 
 void GeneralPage::create() {
-    hbox(tr("dialogs.settings.general.editorSettings"), { .border = 0 }, [&] {
+    hbox(tr("dialogs.settings.general.editorSettings"), { .margin = false }, [&] {
         vbox({ .proportion = 1 }, [&] {
             checkBox(m_autoIndent, tr("dialogs.settings.general.autoIndent"));
             checkBox(m_transformKeywords, tr("dialogs.settings.general.transformKeywords"));
@@ -106,22 +107,23 @@ void GeneralPage::create() {
             checkBox(m_showLineEndings, tr("dialogs.settings.general.lineEndings"));
             checkBox(m_braceHighlight, tr("dialogs.settings.general.braceHighlight"));
             spinCtrl(m_edgeColumn, tr("dialogs.settings.general.rightMarginWidth"), 1, 200, {});
-            hbox({ .center = true, .border = 0 }, [&] {
+            hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
                 text(tr("dialogs.settings.general.encoding"), { .expand = false });
                 choice(m_encoding, encodingChoices(), { .expand = false })->SetMinSize(wxSize(160, -1));
             });
         });
 
-        separator({ .space = false });
+        separator();
 
         vbox({ .proportion = 1 }, [&] {
             checkBox(m_syntaxHighlight, tr("dialogs.settings.general.syntaxHighlight"));
             checkBox(m_showLineNumbers, tr("dialogs.settings.general.lineNumbers"));
             checkBox(m_showRightMargin, tr("dialogs.settings.general.rightMargin"));
             checkBox(m_foldMargin, tr("dialogs.settings.general.foldMargin"));
+            checkBox(m_changeTracking, tr("dialogs.settings.general.changeTracking"));
             checkBox(m_splashScreen, tr("dialogs.settings.general.splashScreen"));
             spinCtrl(m_tabSize, tr("dialogs.settings.general.tabSize"), 1, 16, {});
-            hbox({ .center = true, .border = 0 }, [&] {
+            hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
                 text(tr("dialogs.settings.general.eolMode"), { .expand = false });
                 choice(m_eolMode, eolModeChoices(), { .expand = false })->SetMinSize(wxSize(160, -1));
             });
@@ -133,7 +135,7 @@ void GeneralPage::create() {
     // `m_language` keeps storing the filename so the on-disk config
     // shape doesn't change.
     vbox(tr("dialogs.settings.general.language"), {}, [&] {
-        hbox({ .center = true, .border = 0 }, [&] {
+        hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
             text(tr("dialogs.settings.general.languageSelect"), { .proportion = 1, .expand = false });
             const auto languages = loadLanguageOptions(getContext());
 
@@ -179,6 +181,7 @@ void GeneralPage::apply() {
     editor["lineNumbers"] = m_showLineNumbers;
     editor["longLine"] = m_showRightMargin;
     editor["folderMargin"] = m_foldMargin;
+    editor["changeTracking"] = m_changeTracking;
     editor["edgeColumn"] = m_edgeColumn;
     editor["tabSize"] = m_tabSize;
     editor["encoding"] = m_encoding;

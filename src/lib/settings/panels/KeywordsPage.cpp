@@ -80,7 +80,7 @@ KeywordsPage::KeywordsPage(Context& ctx, wxWindow* parent)
 
 void KeywordsPage::create() {
     // Group dropdown + case dropdown row
-    hbox({ .center = true, .border = 0 }, [&] {
+    hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
         wxArrayString options;
         options.reserve(kThemeKeywordGroupsCount);
         const auto& group = getContext().getConfigManager().locale().at("dialogs.settings.themes.categories");
@@ -118,7 +118,6 @@ void KeywordsPage::create() {
     m_textKeywords->SetFont(font);
 
     add(m_textKeywords, { .proportion = 1 });
-    spacer();
     SetSizerAndFit(currentSizer());
 }
 

@@ -27,7 +27,7 @@ CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 }
 
 void CompilerPage::create() {
-    vbox(tr("dialogs.settings.compiler.compilerAndPaths"), { .proportion = 1, .border = 0 }, [&] {
+    vbox(tr("dialogs.settings.compiler.compilerAndPaths"), { .proportion = 1, .margin = false }, [&] {
         compilerPath();
         spacer();
         compilerCommand();
@@ -273,7 +273,7 @@ auto CompilerPage::makeFileEntry(wxString& value, const wxString& labelText) -> 
     const auto lbl = text(labelText, {});
     Unowned<wxButton> btn;
     Unowned<wxTextCtrl> tf;
-    hbox({ .center = true, .border = 0 }, [&] {
+    hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
         tf = textField(value, { .proportion = 1 });
         connect(lbl, tf);
         btn = button("...", {});
