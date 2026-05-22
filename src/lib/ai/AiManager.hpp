@@ -49,6 +49,18 @@ public:
     /// The set of files/items attached to the conversation as context.
     [[nodiscard]] auto context() -> AiContext& { return m_context; }
 
+    /// Agent mode — when true, the system prompt is rewritten to request
+    /// edits as SEARCH/REPLACE blocks against the pinned edit target.
+    /// Off (default) keeps the historical chat behaviour.
+    [[nodiscard]] auto isAgentMode() const -> bool { return m_agentMode; }
+    void setAgentMode(const bool on) { m_agentMode = on; }
+
+    /// Live-edit — when true and the bubble carries a complete patch
+    /// proposal, the chat applies it as it streams. Off (default) keeps
+    /// proposals manual.
+    [[nodiscard]] auto isLiveEdit() const -> bool { return m_liveEdit; }
+    void setLiveEdit(const bool on) { m_liveEdit = on; }
+
 private:
     Context& m_ctx;                         ///< Application context.
     std::unique_ptr<AiProvider> m_provider; ///< Active backend (null until configured).
@@ -56,6 +68,8 @@ private:
     AiContext m_context;                    ///< Files attached as context.
     wxString m_model;                       ///< Model name sent with each request.
     wxString m_systemPrompt;                ///< Configured system prompt (may be empty).
+    bool m_agentMode = false;               ///< Agent mode toggle state.
+    bool m_liveEdit = false;                ///< Live-edit auto-apply toggle state.
 };
 
 } // namespace fbide

@@ -46,6 +46,26 @@ private:
     std::filesystem::path m_path; ///< Absolute path of the attached file.
 };
 
+/// The conversation's edit target — the file the model is allowed to
+/// propose writes against in agent mode. Distinct from `FileContextItem`
+/// because (a) only one may be pinned at a time and (b) the chat UI
+/// surfaces the apply / reject affordances only when one is present.
+/// Content is read fresh from disk on every send, like `FileContextItem`.
+class EditTargetItem final : public AiContextItem {
+public:
+    explicit EditTargetItem(std::filesystem::path path);
+
+    void appendTo(wxString& out) const override;
+    [[nodiscard]] auto label() const -> wxString override;
+
+    /// Absolute path of the pinned file — used by the chat view to
+    /// resolve which document to apply SEARCH/REPLACE blocks against.
+    [[nodiscard]] auto path() const -> const std::filesystem::path& { return m_path; }
+
+private:
+    std::filesystem::path m_path;
+};
+
 /// An in-memory buffer attached as context — a snapshot of an editor's text
 /// taken when the item was created. Used for open tabs, whose live content
 /// (including unsaved edits) is captured at attach time.
@@ -87,6 +107,14 @@ public:
 
     /// Build the combined context text from every item.
     [[nodiscard]] auto buildText() const -> wxString;
+
+    /// The pinned edit target, or nullptr when none. Walk is linear over
+    /// the items list — there is at most one in practice (single-pinned).
+    [[nodiscard]] auto editTarget() const -> const EditTargetItem*;
+
+    /// Replace any existing pinned edit target with one for `path`. Pass
+    /// an empty path to clear without setting a new one.
+    void setEditTarget(std::filesystem::path path);
 
 private:
     std::vector<std::unique_ptr<AiContextItem>> m_items; ///< Attached items.

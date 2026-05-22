@@ -9,6 +9,7 @@
 #include "CodeActionBar.hpp"
 #include "CodeHighlighter.hpp"
 #include "Markdown.hpp"
+#include "ai/AiManager.hpp"
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
@@ -171,6 +172,8 @@ wxBEGIN_EVENT_TABLE(AiChatView, wxScrolled)
     EVT_BUTTON(ID_CodeCopy, AiChatView::onCopyCode)
     EVT_BUTTON(ID_CodeInsert, AiChatView::onInsertCode)
     EVT_BUTTON(ID_CodeRun, AiChatView::onRunCode)
+    EVT_BUTTON(ID_PatchApply, AiChatView::onApplyPatch)
+    EVT_BUTTON(ID_PatchReject, AiChatView::onRejectPatch)
     EVT_COMMAND(wxID_ANY, EVT_CODE_BAR_LEAVE, AiChatView::onBarLeave)
 wxEND_EVENT_TABLE()
 // clang-format on
@@ -229,6 +232,10 @@ void AiChatView::setMessages(std::vector<ChatViewMessage> messages) {
     relayout();               // per-message caching re-lays only what actually changed
     Scroll(0, m_totalHeight); // keep pinned to the newest — wxScrolled clamps to the max
     Refresh();
+
+    if (m_ctx.getAiManager().isLiveEdit()) {
+        autoApplyPatches();
+    }
 }
 
 void AiChatView::refreshTheme() {
@@ -898,4 +905,82 @@ void AiChatView::onRunCode(wxCommandEvent& /*event*/) {
     // file and execute) — the same path as the Run command.
     m_ctx.getDocumentManager().newFile().getEditor()->SetText(code);
     m_ctx.getCompilerManager().quickRun();
+}
+
+auto AiChatView::applyPatch(const LaidPatchBlock& patch) -> bool {
+    auto* document = m_ctx.getDocumentManager().getActive();
+    if (document == nullptr) {
+        return false;
+    }
+    auto* editor = document->getEditor();
+
+    // Try the SEARCH text as-is first. If a model emits a block that ends
+    // with `\n` (the common case) but the matching text in the buffer
+    // doesn't have the trailing newline (final line, no EOL), retry with
+    // both strings trimmed of their trailing newline.
+    wxString search = patch.search;
+    wxString replace = patch.replace;
+    editor->SetTargetStart(0);
+    editor->SetTargetEnd(editor->GetLength());
+    editor->SetSearchFlags(wxSTC_FIND_MATCHCASE);
+    int found = editor->SearchInTarget(search);
+    if (found < 0 && !search.empty() && search[search.length() - 1] == '\n') {
+        search.RemoveLast();
+        if (!replace.empty() && replace[replace.length() - 1] == '\n') {
+            replace.RemoveLast();
+        }
+        editor->SetTargetStart(0);
+        editor->SetTargetEnd(editor->GetLength());
+        found = editor->SearchInTarget(search);
+    }
+    if (found < 0) {
+        return false;
+    }
+
+    editor->BeginUndoAction();
+    editor->ReplaceTarget(replace);
+    editor->EndUndoAction();
+    return true;
+}
+
+void AiChatView::autoApplyPatches() {
+    for (const auto& item : m_items) {
+        for (const auto& patch : item.doc.patchBlocks) {
+            // Compose a stable key from the verbatim search + replace
+            // text. Identical proposals collapse to the same key, so the
+            // same block re-emitted on a chunk reparse is skipped.
+            const std::string key
+                = (patch.search + wxString("\n>>>\n") + patch.replace).utf8_string();
+            if (!m_appliedPatches.insert(key).second) {
+                continue; // already handled this proposal
+            }
+            // Apply may fail (e.g. SEARCH text not in the buffer) — the
+            // hash is still inserted above, so we don't retry every
+            // reparse. The proposal card remains visible for inspection.
+            (void)applyPatch(patch);
+        }
+    }
+}
+
+void AiChatView::onApplyPatch(wxCommandEvent& /*event*/) {
+    if (m_barMessage < 0 || m_barIndex < 0) {
+        return;
+    }
+    const auto& patch = m_items[static_cast<std::size_t>(m_barMessage)]
+                            .doc.patchBlocks[static_cast<std::size_t>(m_barIndex)];
+    if (!applyPatch(patch)) {
+        wxLogStatus("Patch couldn't be applied — SEARCH text not found or no active document.");
+        return;
+    }
+    // Record so live-edit doesn't try to apply it again on the next reparse.
+    const std::string key
+        = (patch.search + wxString("\n>>>\n") + patch.replace).utf8_string();
+    m_appliedPatches.insert(key);
+    hideActionBar();
+}
+
+void AiChatView::onRejectPatch(wxCommandEvent& /*event*/) {
+    // No editor mutation — just dismiss the bar. The proposal card stays
+    // visible in the chat history as an audit trail.
+    hideActionBar();
 }

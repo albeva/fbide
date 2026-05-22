@@ -5,8 +5,10 @@
 // https://github.com/albeva/fbide
 //
 #include "AiChatPanel.hpp"
+#include <wx/checkbox.h>
 #include <wx/filedlg.h>
 #include <wx/menu.h>
+#include <wx/tglbtn.h>
 #include "AiContext.hpp"
 #include "AiManager.hpp"
 #include "ContextTagBar.hpp"
@@ -84,15 +86,24 @@ AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
     );
     sizer->Add(m_input, wxSizerFlags().Expand().Border(wxLEFT | wxRIGHT | wxTOP, 4));
 
-    // Bottom row: the attach button on the left, send on the right.
+    // Bottom row: attach + agent toggle + live-edit on the left, send on the right.
     m_addContext = make_unowned<wxButton>(
         this, wxID_ANY, "+", wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT
     );
     m_addContext->SetToolTip("Attach context");
+    m_agentToggle = make_unowned<wxToggleButton>(
+        this, wxID_ANY, "agent", wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT
+    );
+    m_agentToggle->SetToolTip("Agent mode — AI may propose edits to the pinned file");
+    m_liveEdit = make_unowned<wxCheckBox>(this, wxID_ANY, "live-edit");
+    m_liveEdit->SetToolTip("Apply proposed edits as they stream in");
+    m_liveEdit->Disable(); // only meaningful while agent mode is on
     m_send = make_unowned<wxButton>(this, wxID_ANY, m_ctx.tr("panels.aichat.send"));
 
     const auto row = make_unowned<wxBoxSizer>(wxHORIZONTAL);
     row->Add(m_addContext, wxSizerFlags().Centre());
+    row->Add(m_agentToggle, wxSizerFlags().Centre().Border(wxLEFT, 4));
+    row->Add(m_liveEdit, wxSizerFlags().Centre().Border(wxLEFT, 4));
     row->AddStretchSpacer(1);
     row->Add(m_send, wxSizerFlags().Centre());
     sizer->Add(row, wxSizerFlags().Expand().Border(wxALL, 4));
@@ -101,6 +112,8 @@ AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
 
     m_send->Bind(wxEVT_BUTTON, &AiChatPanel::onSend, this);
     m_addContext->Bind(wxEVT_BUTTON, &AiChatPanel::onAddContext, this);
+    m_agentToggle->Bind(wxEVT_TOGGLEBUTTON, &AiChatPanel::onAgentToggle, this);
+    m_liveEdit->Bind(wxEVT_CHECKBOX, &AiChatPanel::onLiveEditToggle, this);
     m_input->Bind(wxEVT_TEXT, &AiChatPanel::onInputText, this);
     m_input->Bind(wxEVT_KEY_DOWN, &AiChatPanel::onInputKeyDown, this);
     Bind(EVT_CONTEXT_TAGS_CHANGED, &AiChatPanel::onTagsChanged, this);
@@ -281,6 +294,34 @@ void AiChatPanel::attachDocument(Document* doc) const {
 
 void AiChatPanel::onTagsChanged(wxCommandEvent& /*event*/) {
     Layout(); // the tag bar shrank or hid — re-flow the panel
+}
+
+void AiChatPanel::onAgentToggle(wxCommandEvent& /*event*/) {
+    const bool on = m_agentToggle->GetValue();
+    auto& aiManager = m_ctx.getAiManager();
+    aiManager.setAgentMode(on);
+    m_liveEdit->Enable(on);
+    if (!on) {
+        // Live-edit only makes sense in agent mode — clear its state so
+        // the user re-opting in starts from off rather than a remembered
+        // checked box.
+        m_liveEdit->SetValue(false);
+        aiManager.setLiveEdit(false);
+    }
+    if (on && aiManager.context().editTarget() == nullptr) {
+        // No edit target pinned yet — auto-pin the active document so
+        // the model has a target to write against.
+        if (auto* const active = m_ctx.getDocumentManager().getActive()) {
+            aiManager.context().setEditTarget(active->getFilePath());
+            wxCommandEvent tagsChanged(EVT_CONTEXT_TAGS_CHANGED);
+            tagsChanged.SetEventObject(this);
+            ProcessWindowEvent(tagsChanged);
+        }
+    }
+}
+
+void AiChatPanel::onLiveEditToggle(wxCommandEvent& /*event*/) {
+    m_ctx.getAiManager().setLiveEdit(m_liveEdit->GetValue());
 }
 
 void AiChatPanel::renderConversation() const {

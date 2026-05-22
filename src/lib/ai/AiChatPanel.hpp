@@ -7,6 +7,9 @@
 #pragma once
 #include "pch.hpp"
 
+class wxToggleButton;
+class wxCheckBox;
+
 namespace fbide {
 class Context;
 class AiChatView;
@@ -62,6 +65,14 @@ private:
     /// "+" button — pop the attach-context menu.
     void onAddContext(wxCommandEvent& event);
 
+    /// Agent toggle — flips the AiManager state and auto-pins the active
+    /// document as the edit target if no target is set yet.
+    void onAgentToggle(wxCommandEvent& event);
+
+    /// Live-edit checkbox — flips the AiManager state. Only meaningful
+    /// while agent mode is on (the control is disabled otherwise).
+    void onLiveEditToggle(wxCommandEvent& event);
+
     /// `EVT_CONTEXT_TAGS_CHANGED` from the tag bar — re-lay the panel.
     void onTagsChanged(wxCommandEvent& event);
 
@@ -75,17 +86,19 @@ private:
     /// error) into the chat view.
     void renderConversation() const;
 
-    Context& m_ctx;                  ///< Application context.
-    Unowned<AiChatView> m_output;    ///< Conversation view (custom-painted).
-    Unowned<ContextTagBar> m_tagBar; ///< Attached-context tag strip.
-    Unowned<wxTextCtrl> m_input;     ///< Message input box.
-    Unowned<wxButton> m_addContext;  ///< "+" attach-context button.
-    Unowned<wxButton> m_send;        ///< Send button.
-    wxString m_streaming;            ///< Partial assistant reply while streaming.
-    wxString m_lastError;            ///< Last request error, shown until the next send.
-    wxTimer m_renderTimer;           ///< Throttles re-render while streaming.
-    bool m_busy = false;             ///< True while a request is in flight.
-    bool m_dirty = false;            ///< Streamed text arrived since the last render.
+    Context& m_ctx;                        ///< Application context.
+    Unowned<AiChatView> m_output;          ///< Conversation view (custom-painted).
+    Unowned<ContextTagBar> m_tagBar;       ///< Attached-context tag strip.
+    Unowned<wxTextCtrl> m_input;           ///< Message input box.
+    Unowned<wxButton> m_addContext;        ///< "+" attach-context button.
+    Unowned<wxToggleButton> m_agentToggle; ///< Chat ↔ Agent mode toggle.
+    Unowned<wxCheckBox> m_liveEdit;        ///< Auto-apply patches while streaming.
+    Unowned<wxButton> m_send;              ///< Send button.
+    wxString m_streaming;                  ///< Partial assistant reply while streaming.
+    wxString m_lastError;                  ///< Last request error, shown until the next send.
+    wxTimer m_renderTimer;                 ///< Throttles re-render while streaming.
+    bool m_busy = false;                   ///< True while a request is in flight.
+    bool m_dirty = false;                  ///< Streamed text arrived since the last render.
 };
 
 } // namespace fbide
