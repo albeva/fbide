@@ -718,16 +718,21 @@ void AiChatView::onMouseWheel(wxMouseEvent& event) {
     //     momentum tail of a trackpad flick.
     // Here we convert rotation directly to pixels at a fixed ratio
     // (one wheel notch ≈ 3 body line-heights) and carry the remainder
-    // between events so no fraction is lost.
+    // between events so no fraction is lost. The 9/10 damper applied
+    // through the accumulator slows scroll by ~10% without losing
+    // precision in the carry.
     const int wheelDelta = event.GetWheelDelta();
     if (wheelDelta <= 0) {
         event.Skip();
         return;
     }
+    constexpr int kDamperNum = 9;
+    constexpr int kDamperDen = 10;
     const int pxPerNotch = std::max(24, m_bodyLineHeight * 3);
-    m_wheelPixelAccum += event.GetWheelRotation() * pxPerNotch;
-    const int pixels = m_wheelPixelAccum / wheelDelta;
-    m_wheelPixelAccum -= pixels * wheelDelta;
+    const int divisor = wheelDelta * kDamperDen;
+    m_wheelPixelAccum += event.GetWheelRotation() * pxPerNotch * kDamperNum;
+    const int pixels = m_wheelPixelAccum / divisor;
+    m_wheelPixelAccum -= pixels * divisor;
     if (pixels == 0) {
         return; // nothing to do this tick — fractional momentum keeps building
     }
