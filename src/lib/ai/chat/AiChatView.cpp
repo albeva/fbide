@@ -266,10 +266,16 @@ void AiChatView::onPaint(wxPaintEvent& /*event*/) {
     }
 
     // Reuse a single off-screen buffer across paints; reallocate only when
-    // the window resizes. wxScrolled scrolls existing pixels and invalidates
-    // just the newly-exposed strip, so most repaints touch a small region.
-    if (!m_buffer.IsOk() || m_buffer.GetSize() != size) {
-        m_buffer = wxBitmap(size);
+    // the window resizes OR the DPI changes (drag the window to / from a
+    // Retina display). The bitmap is allocated at PHYSICAL pixels with
+    // its DIP scale set so wxGCDC rasterises text at the screen's native
+    // resolution — without this, fonts and emoji render at 1× and get
+    // bilinear-upscaled on the blit, looking fuzzy on Retina.
+    const double scale = GetDPIScaleFactor();
+    if (!m_buffer.IsOk()
+        || m_buffer.GetDIPSize() != size
+        || m_buffer.GetScaleFactor() != scale) {
+        m_buffer.CreateWithDIPSize(size, scale);
     }
 
     const wxRect update = GetUpdateRegion().GetBox();
