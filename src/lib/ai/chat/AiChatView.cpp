@@ -165,6 +165,9 @@ wxBEGIN_EVENT_TABLE(AiChatView, wxScrolled)
     EVT_LEFT_DOWN(AiChatView::onLeftDown)
     EVT_LEAVE_WINDOW(AiChatView::onLeaveWindow)
     EVT_SCROLLWIN(AiChatView::onScroll)
+#ifdef __WXOSX__
+    EVT_MOUSEWHEEL(AiChatView::onMouseWheel)
+#endif
     EVT_BUTTON(ID_CodeCopy, AiChatView::onCopyCode)
     EVT_BUTTON(ID_CodeInsert, AiChatView::onInsertCode)
     EVT_BUTTON(ID_CodeRun, AiChatView::onRunCode)
@@ -208,6 +211,17 @@ void AiChatView::resolveFonts() {
     m_monoFont = wxFont(wxFontInfo(size).Family(wxFONTFAMILY_TELETYPE));
     m_themedFont = m_ctx.getTheme().getResolvedFont();
     m_themedFont.SetPointSize(size);
+
+#ifdef __WXOSX__
+    // Body line-height drives the per-notch wheel scroll amount in
+    // onMouseWheel — matches the leading used by DcMeasurer so a
+    // wheel notch scrolls a round number of visible lines.
+    wxClientDC dc(this);
+    wxCoord textWidth = 0;
+    wxCoord textHeight = 0;
+    dc.GetTextExtent("Ag", &textWidth, &textHeight, nullptr, nullptr, &m_bodyFont);
+    m_bodyLineHeight = textHeight + 4;
+#endif
 }
 
 void AiChatView::setMessages(std::vector<ChatViewMessage> messages) {
@@ -686,6 +700,43 @@ void AiChatView::hideActionBar() {
         m_actionBar->Hide();
     }
 }
+
+#ifdef __WXOSX__
+void AiChatView::onMouseWheel(wxMouseEvent& event) {
+    // Vertical wheel only — horizontal events fall through to default.
+    if (event.GetWheelAxis() != wxMOUSE_WHEEL_VERTICAL) {
+        event.Skip();
+        return;
+    }
+
+    // Rotation-to-pixels with a fractional accumulator. The default
+    // wxScrolled handler quantises rotation through `wheelDelta` into
+    // "lines", then scales by `linesPerAction * scrollRate` — with our
+    // pixel-grain rate that becomes ~3 px per accumulated line, which:
+    //   - makes a wheel notch feel sluggish, and
+    //   - drops the small-rotation events macOS emits during the
+    //     momentum tail of a trackpad flick.
+    // Here we convert rotation directly to pixels at a fixed ratio
+    // (one wheel notch ≈ 3 body line-heights) and carry the remainder
+    // between events so no fraction is lost.
+    const int wheelDelta = event.GetWheelDelta();
+    if (wheelDelta <= 0) {
+        event.Skip();
+        return;
+    }
+    const int pxPerNotch = std::max(24, m_bodyLineHeight * 3);
+    m_wheelPixelAccum += event.GetWheelRotation() * pxPerNotch;
+    const int pixels = m_wheelPixelAccum / wheelDelta;
+    m_wheelPixelAccum -= pixels * wheelDelta;
+    if (pixels == 0) {
+        return; // nothing to do this tick — fractional momentum keeps building
+    }
+    int viewX = 0;
+    int viewY = 0;
+    GetViewStart(&viewX, &viewY);
+    Scroll(viewX, std::max(0, viewY - pixels));
+}
+#endif
 
 void AiChatView::onMotion(wxMouseEvent& event) {
     const wxPoint pos = event.GetPosition();

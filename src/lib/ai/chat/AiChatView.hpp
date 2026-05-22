@@ -63,6 +63,14 @@ private:
     void onLeftDown(wxMouseEvent& event);
     void onLeaveWindow(wxMouseEvent& event);
     void onScroll(wxScrollWinEvent& event);
+#ifdef __WXOSX__
+    /// Pixel-precise wheel handler — only built on macOS so that trackpad
+    /// momentum events (the small-rotation tail of an inertial flick) don't
+    /// get rounded away by `wxScrolled`'s line-quantising default handler.
+    /// On Windows / GTK the native wheel response is what users expect, so
+    /// the default handler is left in place.
+    void onMouseWheel(wxMouseEvent& event);
+#endif
 
     // Action-bar events propagate up the parent chain and land here.
     void onCopyCode(wxCommandEvent& event);
@@ -133,6 +141,10 @@ private:
     int m_totalHeight = 0;                          ///< Stacked height of all bubbles.
     int m_barMessage = -1;                          ///< Message the action bar targets.
     int m_barCode = -1;                             ///< Code block the action bar targets.
+#ifdef __WXOSX__
+    int m_bodyLineHeight = 0;  ///< Body-font line height — sets the per-notch wheel scroll amount.
+    int m_wheelPixelAccum = 0; ///< Fractional remainder carried between wheel events.
+#endif
 
     wxDECLARE_EVENT_TABLE();
 };
