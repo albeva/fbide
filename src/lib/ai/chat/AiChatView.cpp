@@ -24,8 +24,6 @@ namespace {
 constexpr int kMargin = 12;
 // Vertical gap between consecutive message bubbles.
 constexpr int kMessageGap = 10;
-// Vertical scroll step in pixels.
-constexpr int kScrollStep = 16;
 // Padding between a bubble's edge and its content.
 constexpr int kBubblePad = 10;
 // Corner radius of a message bubble.
@@ -77,7 +75,12 @@ auto fontFor(const TextStyle& style, const wxFont& body, const wxFont& mono, con
 }
 
 /// `TextMeasurer` backed by a wxDC — measures with the same fonts the view
-/// paints with, so layout and paint agree to the pixel.
+/// paints with, so layout and paint agree to the pixel. Per-style results
+/// are memoised: a single relayout asks for the same handful of styles
+/// thousands of times (every word's width, every wrap-loop space width,
+/// every line's height), so even a tiny linear-scan cache eliminates the
+/// per-call `fontFor` font rebuild + repeated `GetTextExtent` for fixed
+/// strings.
 class DcMeasurer final : public TextMeasurer {
 public:
     DcMeasurer(wxDC& dc, wxFont body, wxFont mono, wxFont themed)
@@ -90,26 +93,66 @@ public:
         if (text.empty()) {
             return 0;
         }
-        const wxFont font = fontFor(style, m_body, m_mono, m_themed);
+        Entry& entry = lookup(style);
+        // Hot path — the wrap loop measures a space between every word/word
+        // pair, always with the same style as its neighbours.
+        if (text.length() == 1 && text[0] == ' ') {
+            if (entry.spaceWidth < 0) {
+                entry.spaceWidth = measure(" ", entry.font);
+            }
+            return entry.spaceWidth;
+        }
+        return measure(text, entry.font);
+    }
+
+    auto lineHeight(const TextStyle& style) const -> int override {
+        Entry& entry = lookup(style);
+        if (entry.lineHeight < 0) {
+            wxCoord textWidth = 0;
+            wxCoord textHeight = 0;
+            m_dc.GetTextExtent("Ag", &textWidth, &textHeight, nullptr, nullptr, &entry.font);
+            entry.lineHeight = textHeight + 4; // a little leading
+        }
+        return entry.lineHeight;
+    }
+
+private:
+    /// One memoised style — its resolved wxFont and any derived
+    /// measurements that get hit repeatedly. Linear-scanned by `lookup`.
+    struct Entry {
+        TextStyle style {};
+        wxFont font {};
+        int lineHeight = -1;
+        int spaceWidth = -1;
+    };
+
+    /// Find (or insert) the cache entry for `style`. A relayout sees only
+    /// a handful of distinct styles, so the linear scan beats hashing.
+    auto lookup(const TextStyle& style) const -> Entry& {
+        for (auto& entry : m_cache) {
+            if (entry.style == style) {
+                return entry;
+            }
+        }
+        m_cache.push_back({ .style = style,
+            .font = fontFor(style, m_body, m_mono, m_themed),
+            .lineHeight = -1,
+            .spaceWidth = -1 });
+        return m_cache.back();
+    }
+
+    auto measure(const wxString& text, const wxFont& font) const -> int {
         wxCoord textWidth = 0;
         wxCoord textHeight = 0;
         m_dc.GetTextExtent(text, &textWidth, &textHeight, nullptr, nullptr, &font);
         return textWidth;
     }
 
-    auto lineHeight(const TextStyle& style) const -> int override {
-        const wxFont font = fontFor(style, m_body, m_mono, m_themed);
-        wxCoord textWidth = 0;
-        wxCoord textHeight = 0;
-        m_dc.GetTextExtent("Ag", &textWidth, &textHeight, nullptr, nullptr, &font);
-        return textHeight + 4; // a little leading
-    }
-
-private:
     wxDC& m_dc;
     wxFont m_body;
     wxFont m_mono;
     wxFont m_themed;
+    mutable std::vector<Entry> m_cache;
 };
 
 } // namespace
@@ -133,9 +176,12 @@ AiChatView::AiChatView(wxWindow* parent, Context& ctx)
 : wxScrolled(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL | wxCLIP_CHILDREN)
 , m_ctx(ctx) {
     wxScrolled::SetBackgroundStyle(wxBG_STYLE_PAINT);
-    SetScrollRate(0, kScrollStep);
+    // Pixel-granular scroll so high-rate input devices (trackpads, smooth
+    // wheels) don't snap to a coarser step.
+    SetScrollRate(0, 1);
 
     resolveFonts();
+    rebuildBubbleBrushes();
     m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
 
     // One reusable action bar, shown over whichever code block is hovered.
@@ -166,8 +212,8 @@ void AiChatView::resolveFonts() {
 
 void AiChatView::setMessages(std::vector<ChatViewMessage> messages) {
     m_messages = std::move(messages);
-    relayout();                                 // per-message caching re-lays only what actually changed
-    Scroll(0, m_totalHeight / kScrollStep + 1); // keep pinned to the newest
+    relayout();               // per-message caching re-lays only what actually changed
+    Scroll(0, m_totalHeight); // keep pinned to the newest — wxScrolled clamps to the max
     Refresh();
 }
 
@@ -175,10 +221,16 @@ void AiChatView::refreshTheme() {
     // Keyword groups may have changed — rebuild the configured lexer.
     m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
     resolveFonts();
+    rebuildBubbleBrushes();
     m_layoutWidth = -1;
     hideActionBar();
     relayout();
     Refresh();
+}
+
+void AiChatView::rebuildBubbleBrushes() {
+    m_userBubbleBrush = wxBrush(bubbleColour(true));
+    m_assistantBubbleBrush = wxBrush(bubbleColour(false));
 }
 
 void AiChatView::onSize(wxSizeEvent& event) {
@@ -292,6 +344,9 @@ void AiChatView::onPaint(wxPaintEvent& /*event*/) {
     const int regionTopDoc = originY + update.y;
     const int regionBottomDoc = regionTopDoc + update.height;
 
+    // Resolve palette once per paint — every visible bubble shares it.
+    const ChatPalette pal = palette();
+
     // Bubbles are stacked in document order — binary-search to the first one
     // that can intersect the dirty band rather than scanning the whole list.
     const auto first = std::lower_bound(
@@ -302,7 +357,7 @@ void AiChatView::onPaint(wxPaintEvent& /*event*/) {
         if (it->bubble.GetTop() > regionBottomDoc) {
             break; // first bubble past the band — the rest are too
         }
-        paintMessage(gc, *it, originY, update.y, update.y + update.height);
+        paintMessage(gc, *it, pal, originY, update.y, update.y + update.height);
     }
 
     paintDc.Blit(update.x, update.y, update.width, update.height, &memoryDc, update.x, update.y);
@@ -311,18 +366,17 @@ void AiChatView::onPaint(wxPaintEvent& /*event*/) {
 void AiChatView::paintMessage(
     wxGCDC& gc,
     const LaidMessage& message,
+    const ChatPalette& pal,
     const int originY,
     const int updateTop,
     const int updateBottom
 ) const {
-    const ChatPalette pal = palette();
-
     // Bubble — a rounded rect. Content stays within the rect by layout, so
     // no per-message clipping region is needed.
     wxRect bubble = message.bubble;
     bubble.y -= originY;
     gc.SetPen(*wxTRANSPARENT_PEN);
-    gc.SetBrush(wxBrush(bubbleColour(message.fromUser)));
+    gc.SetBrush(message.fromUser ? m_userBubbleBrush : m_assistantBubbleBrush);
     gc.DrawRoundedRectangle(bubble, kBubbleRadius);
 
     const int contentLeft = bubble.x + kBubblePad;
@@ -338,10 +392,14 @@ void AiChatView::paintMessage(
         [](const PaintLine& line, const int top) { return line.y + line.height < top; }
     );
 
-    // Cache the last applied font / colour to avoid redundant DC state churn
-    // — a paragraph's runs mostly share the body font, and adjacent runs
-    // often share colour.
+    // Cache the last applied font + its ascent + the last colour, to avoid
+    // redundant DC state churn — a paragraph's runs mostly share the body
+    // font, and adjacent runs often share colour. `currentAscent` is paired
+    // with `currentStyle` so we don't re-query `GetFontMetrics()` for every
+    // run when the style is unchanged (which is the common case across both
+    // ascent-collection and draw passes).
     TextStyle currentStyle {};
+    wxCoord currentAscent = 0;
     wxColour currentColour;
     bool styleSet = false;
     bool colourSet = false;
@@ -413,25 +471,26 @@ void AiChatView::paintMessage(
         // box to the baseline.
         //
         // Pass 1 finds the max ascent across runs in this line; pass 2
-        // draws each run at `baseline - runAscent`. The `currentStyle`
-        // cache spans both passes so a single-style line sets the font
-        // once across both.
-        wxCoord ascent = 0;
-        wxCoord maxAscent = 0;
+        // draws each run at `baseline - runAscent`. The `currentStyle` +
+        // `currentAscent` cache spans both passes — for a single-style
+        // line the font is set once and `GetFontMetrics()` is hit once
+        // across all runs in both passes.
         const auto ascentForRun = [&](const PaintRun& run) -> wxCoord {
             if (!styleSet || run.style != currentStyle) {
                 gc.SetFont(fontFor(run.style, m_bodyFont, m_monoFont, m_themedFont));
                 currentStyle = run.style;
+                currentAscent = gc.GetFontMetrics().ascent;
                 styleSet = true;
             }
-            return gc.GetFontMetrics().ascent;
+            return currentAscent;
         };
 
+        wxCoord maxAscent = 0;
         for (const auto& run : line.runs) {
             if (run.text.empty()) {
                 continue;
             }
-            ascent = ascentForRun(run);
+            const wxCoord ascent = ascentForRun(run);
             if (ascent > maxAscent) {
                 maxAscent = ascent;
             }
@@ -442,7 +501,7 @@ void AiChatView::paintMessage(
             if (run.text.empty()) {
                 continue;
             }
-            ascent = ascentForRun(run);
+            const wxCoord ascent = ascentForRun(run);
             if (!colourSet || run.colour != currentColour) {
                 gc.SetTextForeground(run.colour);
                 currentColour = run.colour;
@@ -612,10 +671,11 @@ void AiChatView::showActionBar(const int messageIndex, const int codeIndex) {
 void AiChatView::onScroll(wxScrollWinEvent& event) {
     event.Skip(); // let wxScrolled perform the actual scroll first
     if (m_barMessage >= 0 && m_barCode >= 0) {
-        // Reposition once the scroll lands — the snippet's top edge may have
-        // crossed in / out of the viewport, switching the bar between the
-        // attached and detached modes.
-        CallAfter([this] { showActionBar(m_barMessage, m_barCode); });
+        // Reposition the action bar inline — the snippet's top edge may
+        // have crossed in / out of the viewport, switching the bar between
+        // the attached and detached modes. Done synchronously so we don't
+        // queue an extra paint cycle per scroll tick.
+        showActionBar(m_barMessage, m_barCode);
     }
 }
 

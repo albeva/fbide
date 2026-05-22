@@ -73,11 +73,17 @@ private:
     /// Re-lay every message for the current view width.
     void relayout();
 
-    /// Paint one laid-out message — its bubble and content. `originY` is the
-    /// scroll offset; `updateTop` / `updateBottom` bound the dirty band so
-    /// lines outside it are skipped.
+    /// Paint one laid-out message — its bubble and content. `pal` is hoisted
+    /// from `onPaint` so it is resolved once per paint, not per bubble.
+    /// `originY` is the scroll offset; `updateTop` / `updateBottom` bound the
+    /// dirty band so lines outside it are skipped.
     void paintMessage(
-        wxGCDC& gc, const LaidMessage& message, int originY, int updateTop, int updateBottom
+        wxGCDC& gc,
+        const LaidMessage& message,
+        const ChatPalette& pal,
+        int originY,
+        int updateTop,
+        int updateBottom
     ) const;
 
     /// Link target under a client point, or empty when none.
@@ -97,6 +103,10 @@ private:
     [[nodiscard]] auto palette() const -> ChatPalette;
     [[nodiscard]] auto bubbleColour(bool fromUser) const -> wxColour;
 
+    /// Rebuild the cached bubble brushes from current system + theme colours.
+    /// Called from the constructor and from `refreshTheme()`.
+    void rebuildBubbleBrushes();
+
     /// Highlight a fenced code block — FreeBASIC through the lexer, anything
     /// else as plain default-coloured lines. `reformat` re-indents/reformats
     /// FreeBASIC code (used for model replies, not the user's own).
@@ -115,6 +125,8 @@ private:
     wxFont m_bodyFont;                              ///< Base prose font.
     wxFont m_monoFont;                              ///< System monospace face — inline `code` and non-FB fences.
     wxFont m_themedFont;                            ///< Editor-theme font resized to body — FreeBASIC fenced runs only.
+    wxBrush m_userBubbleBrush;                      ///< Cached bubble fill — user messages.
+    wxBrush m_assistantBubbleBrush;                 ///< Cached bubble fill — assistant messages.
     std::vector<ChatViewMessage> m_messages;        ///< Conversation source.
     std::vector<LaidMessage> m_items;               ///< One laid-out bubble per message.
     int m_layoutWidth = -1;                         ///< View width m_items were built for.
