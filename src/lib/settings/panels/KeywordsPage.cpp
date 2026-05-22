@@ -118,7 +118,6 @@ void KeywordsPage::create() {
     m_textKeywords->SetFont(font);
 
     add(m_textKeywords, { .proportion = 1 });
-    spacer();
     SetSizerAndFit(currentSizer());
 }
 

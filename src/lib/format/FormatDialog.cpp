@@ -36,7 +36,7 @@ enum ControlId {
 } // namespace
 
 // clang-format off
-wxBEGIN_EVENT_TABLE(FormatDialog, Layout<wxDialog>)
+wxBEGIN_EVENT_TABLE(FormatDialog, Layout)
     EVT_CHECKBOX(ID_REINDENT,               FormatDialog::onTransformChanged)
     EVT_CHECKBOX(ID_REFORMAT,               FormatDialog::onTransformChanged)
     EVT_CHECKBOX(ID_ALIGN_PP,               FormatDialog::onTransformChanged)

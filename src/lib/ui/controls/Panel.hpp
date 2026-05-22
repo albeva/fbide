@@ -12,7 +12,7 @@ namespace fbide {
 class Context;
 
 /// Settings panel base — extends Layout<wxPanel> with Context access.
-class Panel : public Layout<wxPanel> {
+class Panel : public Layout<Panel, wxPanel> {
 public:
     NO_COPY_AND_MOVE(Panel)
 

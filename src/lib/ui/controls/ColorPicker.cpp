@@ -44,6 +44,10 @@ wxBEGIN_EVENT_TABLE(ColorPicker, wxPanel)
 wxEND_EVENT_TABLE()
 // clang-format on
 
+auto ColorPicker::defaultSizer() -> SmartBoxSizer* {
+    return new SmartBoxSizer({ .border = 0 }, wxVERTICAL);
+}
+
 ColorPicker::ColorPicker(wxWindow* parent, const Theme& theme, const Value& tr,
     wxString label, wxString inheritTooltip)
 : Layout(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL)

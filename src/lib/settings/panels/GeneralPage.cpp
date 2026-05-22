@@ -76,7 +76,7 @@ auto loadLanguageOptions(const Context& ctx) -> std::vector<LanguageOption> {
 
 GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 : Panel(ctx, wxID_ANY, parent) {
-    auto& cfg = getContext().getConfigManager().config();
+    const auto& cfg = getContext().getConfigManager().config();
     const auto& editor = cfg.at("editor");
     m_autoIndent = editor.get_or("autoIndent", true);
     m_transformKeywords = editor.get_or("transformKeywords", true);

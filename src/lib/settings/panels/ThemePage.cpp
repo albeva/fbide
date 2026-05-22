@@ -255,10 +255,14 @@ void ThemePage::createLeftPanel() {
         m_bgPicker = addPicker(tr("background"), inheritTip);
         m_separatorPicker = addPicker(tr("separator"));
 
-        m_changesAddedPicker = addPicker(tr("changesAdded", "Added"));
-        m_changesModifiedPicker = addPicker(tr("changesModified", "Modified"));
-        m_changesRemovedPicker = addPicker(tr("changesRemoved", "Removed"));
         m_changesBackgroundPicker = addPicker(tr("changesBackground", "Background"));
+m_changesBackgroundPicker->Hide();
+        m_changesAddedPicker = addPicker(tr("changesAdded", "Added"));
+        m_changesAddedPicker->Hide();
+        m_changesModifiedPicker = addPicker(tr("changesModified", "Modified"));
+        m_changesModifiedPicker->Hide();
+        m_changesRemovedPicker = addPicker(tr("changesRemoved", "Removed"));
+        m_changesRemovedPicker->Hide();
 
         m_lblFont = text(tr("font"), {});
         m_fontChoice = make_unowned<wxChoice>(currentParent(), wxID_ANY);

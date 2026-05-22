@@ -43,6 +43,12 @@ struct LayoutItemOptions final {
     bool expand = true;
 };
 
+/// Concept matching any wx-window-like type that accepts a `wxSizer*` via `SetSizer`.
+template<typename T>
+concept DefaultSizerProvider = requires() {
+    { T::defaultSizer() } -> std::convertible_to<wxBoxSizer*>;
+};
+
 /// Templated layout helper that can extend any wxWindow-derived class.
 /// Builds a tree of `SmartBoxSizer`s through nested `hbox` / `vbox`
 /// blocks. The root sizer is a `SmartBoxSizer` with default options.
@@ -50,7 +56,7 @@ struct LayoutItemOptions final {
 /// Usage:
 ///   class MyPanel : public Layout<wxPanel> { ... };
 ///   class MyDialog : public Layout<wxDialog> { ... };
-template<SizerAware Base>
+template<typename Super, SizerAware Base>
 class Layout : public Base {
 public:
     NO_COPY_AND_MOVE(Layout)
@@ -59,7 +65,11 @@ public:
     template<typename... Args>
     explicit Layout(Args&&... args)
     : Base(std::forward<Args>(args)...) {
-        m_currentSizer = make_unowned<SmartBoxSizer>(SmartBoxSizer::Options {}, wxVERTICAL);
+        if constexpr (DefaultSizerProvider<Super>) {
+            m_currentSizer = Super::defaultSizer();
+        } else {
+            m_currentSizer = make_unowned<SmartBoxSizer>(SmartBoxSizer::Options {}, wxVERTICAL);
+        }
     }
 
     /// Platform default border — at least 5 px. Exposed so callers

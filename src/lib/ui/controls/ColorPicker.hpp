@@ -15,9 +15,11 @@ class Value;
 /// Color picker control — label, optional "inherit" checkbox, color-swatch button.
 /// Clicking the button pops a menu: "Choose color..." opens the color dialog;
 /// "Copy from" lists every settings category with foreground/background preview.
-class ColorPicker final : public Layout<wxPanel> {
+class ColorPicker final : public Layout<ColorPicker, wxPanel> {
 public:
     NO_COPY_AND_MOVE(ColorPicker)
+
+    static auto defaultSizer() -> SmartBoxSizer*;
 
     /// Construct without populating widgets; `create()` builds the UI.
     ColorPicker(wxWindow* parent, const Theme& theme, const Value& tr,
