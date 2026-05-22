@@ -44,11 +44,13 @@ public:
 
 /// Kind of a laid-out line — selects background and decoration when painting.
 enum class LineKind : std::uint8_t {
-    Prose,       ///< Wrapped prose / heading / list item.
-    Code,        ///< A code-block line (or its padding) — painted on the code bg.
-    Rule,        ///< A horizontal rule — no runs.
-    TableHeader, ///< Header row of a table — painted with a subtle tint.
-    TableBody,   ///< Body row of a table — painted on the prose background.
+    Prose,        ///< Wrapped prose / heading / list item.
+    Code,         ///< A code-block line (or its padding) — painted on the code bg.
+    Rule,         ///< A horizontal rule — no runs.
+    TableHeader,  ///< Header row of a table — painted with a subtle tint.
+    TableBody,    ///< Body row of a table — painted on the prose background.
+    PatchSearch,  ///< Line in a SEARCH/REPLACE proposal's SEARCH half — red tint.
+    PatchReplace, ///< Line in a SEARCH/REPLACE proposal's REPLACE half — green tint.
 };
 
 /// One column of a laid-out table row. Carries the column's geometry
@@ -104,26 +106,40 @@ struct LaidCodeBlock {
     int height = 0; ///< Total height including padding strips.
 };
 
+/// A laid-out SEARCH/REPLACE proposal — its region within the document
+/// plus the raw search/replace strings, so the view can place an action
+/// bar (Apply / Reject) over it and resolve the edit when applied.
+struct LaidPatchBlock {
+    wxString target;  ///< Optional target path from the SEARCH header.
+    wxString search;  ///< Verbatim SEARCH text.
+    wxString replace; ///< Verbatim REPLACE text.
+    int y = 0;        ///< Top offset within the document (includes padding).
+    int height = 0;   ///< Total height including padding strips.
+};
+
 /// Colours the layout and painter need that are not carried on code runs.
 struct ChatPalette {
-    wxColour text;          ///< Body prose colour.
-    wxColour link;          ///< Hyperlink colour.
-    wxColour codeBg;        ///< Code-block background (from editor theme).
-    wxColour inlineCodeBg;  ///< Inline `code` background.
-    wxColour rule;          ///< Horizontal-rule colour.
-    wxColour tableHeaderBg; ///< Table header-row tint. Derived from system
-                            ///< colours (not the editor theme) so it stays
-                            ///< distinct from `text` in both light and dark
-                            ///< modes regardless of the editor theme.
+    wxColour text;           ///< Body prose colour.
+    wxColour link;           ///< Hyperlink colour.
+    wxColour codeBg;         ///< Code-block background (from editor theme).
+    wxColour inlineCodeBg;   ///< Inline `code` background.
+    wxColour rule;           ///< Horizontal-rule colour.
+    wxColour tableHeaderBg;  ///< Table header-row tint. Derived from system
+                             ///< colours (not the editor theme) so it stays
+                             ///< distinct from `text` in both light and dark
+                             ///< modes regardless of the editor theme.
+    wxColour patchSearchBg;  ///< SEARCH half of a patch proposal — red tint.
+    wxColour patchReplaceBg; ///< REPLACE half of a patch proposal — green tint.
 };
 
 /// A fully laid-out document — stacked, wrapped lines plus link targets.
 struct LaidOutDoc {
     std::vector<PaintLine> lines;
     std::vector<LinkTarget> links;
-    std::vector<LaidCodeBlock> codeBlocks; ///< Fenced code-block regions.
-    int width = 0;                         ///< Width the document was laid out for.
-    int height = 0;                        ///< Total stacked height.
+    std::vector<LaidCodeBlock> codeBlocks;   ///< Fenced code-block regions.
+    std::vector<LaidPatchBlock> patchBlocks; ///< SEARCH/REPLACE proposal regions.
+    int width = 0;                           ///< Width the document was laid out for.
+    int height = 0;                          ///< Total stacked height.
 };
 
 /// Highlights a fenced code block — `code` body, `lang` fence tag — into

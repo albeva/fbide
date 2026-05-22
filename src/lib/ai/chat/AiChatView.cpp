@@ -429,6 +429,15 @@ void AiChatView::paintMessage(
             gc.SetBrush(wxBrush(pal.codeBg));
             gc.SetPen(*wxTRANSPARENT_PEN);
             gc.DrawRectangle(contentLeft, lineTop, message.contentWidth, line.height);
+        } else if (line.kind == LineKind::PatchSearch || line.kind == LineKind::PatchReplace) {
+            // Two-tone background for a SEARCH/REPLACE proposal — same
+            // padding pattern as a code block, just tinted red / green.
+            const wxColour& fill = line.kind == LineKind::PatchSearch
+                                     ? pal.patchSearchBg
+                                     : pal.patchReplaceBg;
+            gc.SetBrush(wxBrush(fill));
+            gc.SetPen(*wxTRANSPARENT_PEN);
+            gc.DrawRectangle(contentLeft, lineTop, message.contentWidth, line.height);
         } else if (line.kind == LineKind::Rule) {
             gc.SetPen(wxPen(pal.rule));
             const int ruleY = lineTop + (line.height / 2);
@@ -552,6 +561,11 @@ auto AiChatView::palette() const -> ChatPalette {
         // can be dark while the OS is in light mode (and vice versa);
         // using `codeBg` here makes the header invisible in those mixes.
         .tableHeaderBg = blend(windowBg, windowText, 0.14),
+        // SEARCH / REPLACE tints — blended into the editor code background
+        // so they sit on the same surface as fenced code, but pushed
+        // toward diff-red / diff-green so a glance distinguishes them.
+        .patchSearchBg = blend(theme.background({}), wxColour(220, 80, 80), 0.30),
+        .patchReplaceBg = blend(theme.background({}), wxColour(80, 200, 100), 0.30),
     };
 }
 

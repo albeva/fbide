@@ -266,12 +266,14 @@ struct Engine {
             .linkId = -1 };
     }
 
-    /// Soft-wrap one highlighted code line into one or more Code PaintLines.
+    /// Soft-wrap one highlighted code line into one or more PaintLines of
+    /// `kind` (Code for fences, PatchSearch/PatchReplace for proposals).
     /// Wrapping prefers token boundaries; a token wider than the available
     /// width is split between characters (the font is monospace). Wrapped
     /// continuation lines start at `contX`.
     void emitCodeLine(
         const CodeLine& codeLine,
+        const LineKind kind,
         const int firstX,
         const int contX,
         const int rightEdge,
@@ -281,7 +283,7 @@ struct Engine {
         const bool themed
     ) {
         PaintLine line;
-        line.kind = LineKind::Code;
+        line.kind = kind;
         line.y = m_yPos;
         line.height = lineHeight;
         line.quoteDepth = quoteDepth;
@@ -292,7 +294,7 @@ struct Engine {
             m_out.lines.push_back(std::move(line));
             m_yPos += lineHeight;
             line = PaintLine {};
-            line.kind = LineKind::Code;
+            line.kind = kind;
             line.y = m_yPos;
             line.height = lineHeight;
             line.quoteDepth = quoteDepth;
@@ -371,7 +373,10 @@ struct Engine {
         m_yPos += kCodePadding;
 
         for (const auto& codeLine : codeLines) {
-            emitCodeLine(codeLine, codeLeft, contX, rightEdge, lineHeight, charWidth, block.quoteDepth, themed);
+            emitCodeLine(
+                codeLine, LineKind::Code, codeLeft, contX, rightEdge,
+                lineHeight, charWidth, block.quoteDepth, themed
+            );
         }
 
         m_out.lines.push_back({ .kind = LineKind::Code,
@@ -383,6 +388,82 @@ struct Engine {
 
         m_out.codeBlocks.push_back({ .code = block.codeText,
             .lang = block.codeLang,
+            .y = blockTop,
+            .height = m_yPos - blockTop });
+    }
+
+    /// Split `text` (verbatim, '\n'-separated) into one CodeLine per source
+    /// line, all coloured `colour` and styled monospace. A trailing
+    /// newline does NOT produce a final empty line — patch text typically
+    /// ends with `\n` and we don't want a phantom blank row.
+    [[nodiscard]] auto toCodeLines(const wxString& text, const wxColour& colour) const
+        -> std::vector<CodeLine> {
+        std::vector<CodeLine> out;
+        wxString current;
+        const auto flush = [&] {
+            CodeLine line;
+            if (!current.empty()) {
+                line.push_back({ .text = current, .colour = colour });
+            }
+            out.push_back(std::move(line));
+            current.clear();
+        };
+        for (const wxUniChar ch : text) {
+            if (ch == '\n') {
+                flush();
+            } else {
+                current += ch;
+            }
+        }
+        if (!current.empty()) {
+            flush();
+        }
+        return out;
+    }
+
+    /// Emit a SEARCH/REPLACE proposal: two stacked tinted strips holding
+    /// the verbatim SEARCH (red) then REPLACE (green) lines. Soft-wrap
+    /// reuses `emitCodeLine` with PatchSearch / PatchReplace kinds; the
+    /// painter draws the tint band on the line background.
+    void emitPatch(const MdBlock& block) {
+        blockGap();
+        const int blockTop = m_yPos;
+        const int left = block.quoteDepth * kQuoteIndent;
+        const TextStyle mono { .monospace = true };
+        const int lineHeight = m_measurer.lineHeight(mono);
+        const int charWidth = std::max(1, m_measurer.width("0", mono));
+
+        const int codeLeft = left + kCodePadding;
+        const int rightEdge = std::max(codeLeft + charWidth, m_width - kCodePadding);
+        const int contX = codeLeft + (kCodeWrapIndent * charWidth);
+
+        const auto emitStrip = [&](const wxString& text, const LineKind kind) {
+            m_out.lines.push_back({ .kind = kind,
+                .y = m_yPos,
+                .height = kCodePadding,
+                .quoteDepth = block.quoteDepth,
+                .runs = {} });
+            m_yPos += kCodePadding;
+            for (const auto& codeLine : toCodeLines(text, m_palette.text)) {
+                emitCodeLine(
+                    codeLine, kind, codeLeft, contX, rightEdge,
+                    lineHeight, charWidth, block.quoteDepth, false
+                );
+            }
+            m_out.lines.push_back({ .kind = kind,
+                .y = m_yPos,
+                .height = kCodePadding,
+                .quoteDepth = block.quoteDepth,
+                .runs = {} });
+            m_yPos += kCodePadding;
+        };
+
+        emitStrip(block.patchSearch, LineKind::PatchSearch);
+        emitStrip(block.patchReplace, LineKind::PatchReplace);
+
+        m_out.patchBlocks.push_back({ .target = block.patchTarget,
+            .search = block.patchSearch,
+            .replace = block.patchReplace,
             .y = blockTop,
             .height = m_yPos - blockTop });
     }
@@ -654,6 +735,9 @@ struct Engine {
                 break;
             case MdBlockKind::Table:
                 emitTable(block);
+                break;
+            case MdBlockKind::Patch:
+                emitPatch(block);
                 break;
             }
         }

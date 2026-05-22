@@ -43,6 +43,9 @@ enum class MdBlockKind : std::uint8_t {
     ListItem,  ///< One item line of a list — see `list*` fields.
     Rule,      ///< Horizontal rule (`---`). Carries no content.
     Table,     ///< GFM pipe table — see `rows` / `columnAlignment`.
+    Patch,     ///< SEARCH/REPLACE proposal — see `patch*` fields. Only
+               ///< produced for a fully-closed block; partial blocks
+               ///< mid-stream are silently consumed.
 };
 
 /// Per-column text alignment, derived from the GFM separator row's `:`
@@ -86,6 +89,10 @@ struct MdBlock {
     std::vector<MdTableRow> rows;                  ///< Table: header rows first, then body.
     std::size_t headerRowCount = 0;                ///< Table: number of leading rows in `rows`
                                                    ///< that are header (usually 1).
+    wxString patchTarget;                          ///< Patch: optional target path from
+                                                   ///< the `<<<<<<< SEARCH` header.
+    wxString patchSearch;                          ///< Patch: verbatim SEARCH text.
+    wxString patchReplace;                         ///< Patch: verbatim REPLACE text.
 };
 
 /// Parsed markdown document — a flat sequence of blocks.

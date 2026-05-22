@@ -331,3 +331,107 @@ TEST_F(MarkdownTests, HeaderRowAloneIsNotATable) {
     ASSERT_EQ(doc.blocks.size(), 1U);
     EXPECT_EQ(doc.blocks[0].kind, MdBlockKind::Paragraph);
 }
+
+// ---------------------------------------------------------------------------
+// Patch proposals (SEARCH/REPLACE)
+// ---------------------------------------------------------------------------
+
+TEST_F(MarkdownTests, PatchBlockBasic) {
+    const auto doc = parseMarkdown(
+        "<<<<<<< SEARCH\n"
+        "old line\n"
+        "=======\n"
+        "new line\n"
+        ">>>>>>> REPLACE\n"
+    );
+    ASSERT_EQ(doc.blocks.size(), 1U);
+    EXPECT_EQ(doc.blocks[0].kind, MdBlockKind::Patch);
+    EXPECT_EQ(doc.blocks[0].patchSearch, "old line\n");
+    EXPECT_EQ(doc.blocks[0].patchReplace, "new line\n");
+    EXPECT_TRUE(doc.blocks[0].patchTarget.empty());
+}
+
+TEST_F(MarkdownTests, PatchBlockCarriesTargetPath) {
+    const auto doc = parseMarkdown(
+        "<<<<<<< SEARCH path/to/file.bas\n"
+        "x\n"
+        "=======\n"
+        "y\n"
+        ">>>>>>> REPLACE\n"
+    );
+    ASSERT_EQ(doc.blocks.size(), 1U);
+    EXPECT_EQ(doc.blocks[0].kind, MdBlockKind::Patch);
+    EXPECT_EQ(doc.blocks[0].patchTarget, "path/to/file.bas");
+}
+
+TEST_F(MarkdownTests, PatchBlockBetweenMarkdownSegments) {
+    const auto doc = parseMarkdown(
+        "Before.\n\n"
+        "<<<<<<< SEARCH\n"
+        "a\n"
+        "=======\n"
+        "b\n"
+        ">>>>>>> REPLACE\n\n"
+        "After."
+    );
+    ASSERT_EQ(doc.blocks.size(), 3U);
+    EXPECT_EQ(doc.blocks[0].kind, MdBlockKind::Paragraph);
+    EXPECT_EQ(plainText(doc.blocks[0]), "Before.");
+    EXPECT_EQ(doc.blocks[1].kind, MdBlockKind::Patch);
+    EXPECT_EQ(doc.blocks[1].patchSearch, "a\n");
+    EXPECT_EQ(doc.blocks[1].patchReplace, "b\n");
+    EXPECT_EQ(doc.blocks[2].kind, MdBlockKind::Paragraph);
+    EXPECT_EQ(plainText(doc.blocks[2]), "After.");
+}
+
+TEST_F(MarkdownTests, PartialPatchAtEndIsDropped) {
+    // Mid-stream — the closing marker has not arrived yet. The block
+    // is silently consumed so md4c never sees the `=======` and treats
+    // the preceding text as an H2 setext heading.
+    const auto doc = parseMarkdown(
+        "Lead-in.\n\n"
+        "<<<<<<< SEARCH\n"
+        "in progress\n"
+        "=======\n"
+        "partial..."
+    );
+    ASSERT_EQ(doc.blocks.size(), 1U);
+    EXPECT_EQ(doc.blocks[0].kind, MdBlockKind::Paragraph);
+    EXPECT_EQ(plainText(doc.blocks[0]), "Lead-in.");
+}
+
+TEST_F(MarkdownTests, MultiLineSearchAndReplace) {
+    const auto doc = parseMarkdown(
+        "<<<<<<< SEARCH\n"
+        "line one\n"
+        "line two\n"
+        "=======\n"
+        "replaced one\n"
+        "replaced two\n"
+        "replaced three\n"
+        ">>>>>>> REPLACE\n"
+    );
+    ASSERT_EQ(doc.blocks.size(), 1U);
+    EXPECT_EQ(doc.blocks[0].patchSearch, "line one\nline two\n");
+    EXPECT_EQ(doc.blocks[0].patchReplace, "replaced one\nreplaced two\nreplaced three\n");
+}
+
+TEST_F(MarkdownTests, MultiplePatchBlocks) {
+    const auto doc = parseMarkdown(
+        "<<<<<<< SEARCH\n"
+        "a\n"
+        "=======\n"
+        "A\n"
+        ">>>>>>> REPLACE\n"
+        "<<<<<<< SEARCH\n"
+        "b\n"
+        "=======\n"
+        "B\n"
+        ">>>>>>> REPLACE\n"
+    );
+    ASSERT_EQ(doc.blocks.size(), 2U);
+    EXPECT_EQ(doc.blocks[0].kind, MdBlockKind::Patch);
+    EXPECT_EQ(doc.blocks[0].patchSearch, "a\n");
+    EXPECT_EQ(doc.blocks[1].kind, MdBlockKind::Patch);
+    EXPECT_EQ(doc.blocks[1].patchSearch, "b\n");
+}

@@ -409,7 +409,58 @@ static int mdText(const MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, voi
 
 } // extern "C"
 
-auto fbide::parseMarkdown(const wxString& text) -> MdDoc {
+namespace {
+
+// Marker lines for the SEARCH/REPLACE proposal block. Recognised in a
+// pre-pass before md4c sees the input — md4c would otherwise treat the
+// `=======` separator as an H2 setext underline. Convention is the
+// Aider / Cursor style: exact characters, each on its own line. The
+// header may carry an optional target path after a single space.
+const wxString kSearchPrefix = "<<<<<<< SEARCH";
+const wxString kSeparatorMarker = "=======";
+const wxString kReplacePrefix = ">>>>>>> REPLACE";
+
+/// True when `line` (with surrounding whitespace already trimmed) opens
+/// a SEARCH block. `target` is filled with any text after the prefix.
+auto matchSearchMarker(const wxString& line, wxString& target) -> bool {
+    if (!line.StartsWith(kSearchPrefix)) {
+        return false;
+    }
+    const std::size_t prefixLen = kSearchPrefix.size();
+    if (line.size() == prefixLen) {
+        target.clear();
+        return true;
+    }
+    if (line[prefixLen] != ' ') {
+        return false;
+    }
+    target = line.Mid(prefixLen + 1);
+    target.Trim();
+    return true;
+}
+
+auto matchSeparator(const wxString& line) -> bool {
+    return line == kSeparatorMarker;
+}
+
+auto matchReplaceMarker(const wxString& line) -> bool {
+    if (!line.StartsWith(kReplacePrefix)) {
+        return false;
+    }
+    return line.size() == kReplacePrefix.size() || line[kReplacePrefix.size()] == ' ';
+}
+
+/// Strip a single trailing `\r` from `line` so CRLF input matches markers.
+void stripCr(wxString& line) {
+    if (!line.empty() && line[line.length() - 1] == '\r') {
+        line.RemoveLast();
+    }
+}
+
+/// Run md4c over a plain markdown segment — the original body of
+/// `parseMarkdown`. Used per segment between Patch blocks; called as a
+/// helper rather than recursively from the top-level entry point.
+auto parseSegment(const wxString& text) -> MdDoc {
     Builder builder;
 
     MD_PARSER parser {};
@@ -430,4 +481,97 @@ auto fbide::parseMarkdown(const wxString& text) -> MdDoc {
     // is already flushed; this is a belt-and-braces guard.
     builder.end();
     return std::move(builder.doc);
+}
+
+} // namespace
+
+auto fbide::parseMarkdown(const wxString& text) -> MdDoc {
+    // Pre-scan for SEARCH/REPLACE proposal blocks line by line. Markdown
+    // between proposals is parsed by md4c per segment; a fully-closed
+    // proposal emits an MdBlockKind::Patch. A proposal that is still
+    // open at end-of-input (mid-stream partial) is silently dropped —
+    // the next chunk reparse will pick it up once the closing marker
+    // arrives.
+    MdDoc result;
+    wxString mdAccum; // accumulated markdown between proposals
+
+    const auto flushMarkdown = [&] {
+        if (mdAccum.empty()) {
+            return;
+        }
+        MdDoc segment = parseSegment(mdAccum);
+        for (auto& block : segment.blocks) {
+            result.blocks.push_back(std::move(block));
+        }
+        mdAccum.clear();
+    };
+
+    enum class State : std::uint8_t { Markdown,
+        InSearch,
+        InReplace };
+    State state = State::Markdown;
+    wxString patchTarget;
+    wxString patchSearch;
+    wxString patchReplace;
+
+    std::size_t pos = 0;
+    while (pos < text.length()) {
+        // Slice one logical line from `pos`. `hasNewline` distinguishes
+        // a complete line from a trailing partial one at end-of-input.
+        const std::size_t newline = text.find('\n', pos);
+        const bool hasNewline = newline != wxString::npos;
+        const std::size_t lineEnd = hasNewline ? newline : text.length();
+        wxString line = text.Mid(pos, lineEnd - pos);
+        stripCr(line);
+
+        const wxString suffix = hasNewline ? wxString("\n") : wxString();
+
+        switch (state) {
+        case State::Markdown: {
+            wxString candidateTarget;
+            if (matchSearchMarker(line, candidateTarget)) {
+                flushMarkdown(); // emit pending prose before the proposal
+                patchTarget = candidateTarget;
+                patchSearch.clear();
+                patchReplace.clear();
+                state = State::InSearch;
+            } else {
+                mdAccum += line;
+                mdAccum += suffix;
+            }
+            break;
+        }
+        case State::InSearch:
+            if (matchSeparator(line)) {
+                state = State::InReplace;
+            } else {
+                patchSearch += line;
+                patchSearch += suffix;
+            }
+            break;
+        case State::InReplace:
+            if (matchReplaceMarker(line)) {
+                MdBlock block;
+                block.kind = MdBlockKind::Patch;
+                block.patchTarget = patchTarget;
+                block.patchSearch = patchSearch;
+                block.patchReplace = patchReplace;
+                result.blocks.push_back(std::move(block));
+                patchTarget.clear();
+                patchSearch.clear();
+                patchReplace.clear();
+                state = State::Markdown;
+            } else {
+                patchReplace += line;
+                patchReplace += suffix;
+            }
+            break;
+        }
+
+        pos = hasNewline ? newline + 1 : text.length();
+    }
+
+    flushMarkdown();
+    // A still-open proposal at EOF is dropped on purpose — partial mid-stream.
+    return result;
 }

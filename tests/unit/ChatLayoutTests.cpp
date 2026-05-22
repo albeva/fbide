@@ -276,3 +276,56 @@ TEST_F(ChatLayoutTests, BlockQuoteIndentsAndRecordsDepth) {
     EXPECT_EQ(doc.lines[0].quoteDepth, 1);
     EXPECT_EQ(doc.lines[0].runs[0].x, 16); // one quote-indent level
 }
+
+// ---------------------------------------------------------------------------
+// Patch proposals
+// ---------------------------------------------------------------------------
+
+TEST_F(ChatLayoutTests, PatchBlockEmitsSearchAndReplaceStrips) {
+    const auto doc = layout(
+        "<<<<<<< SEARCH\n"
+        "old\n"
+        "=======\n"
+        "new\n"
+        ">>>>>>> REPLACE\n",
+        500
+    );
+    // Two padding strips per half + one content line per half = 6 lines.
+    ASSERT_EQ(doc.lines.size(), 6U);
+    EXPECT_EQ(doc.lines[0].kind, LineKind::PatchSearch);  // top pad
+    EXPECT_EQ(doc.lines[1].kind, LineKind::PatchSearch);  // "old"
+    EXPECT_EQ(doc.lines[2].kind, LineKind::PatchSearch);  // bottom pad
+    EXPECT_EQ(doc.lines[3].kind, LineKind::PatchReplace); // top pad
+    EXPECT_EQ(doc.lines[4].kind, LineKind::PatchReplace); // "new"
+    EXPECT_EQ(doc.lines[5].kind, LineKind::PatchReplace); // bottom pad
+}
+
+TEST_F(ChatLayoutTests, PatchBlockRegionIsRecorded) {
+    const auto doc = layout(
+        "<<<<<<< SEARCH\n"
+        "a\n"
+        "=======\n"
+        "b\n"
+        ">>>>>>> REPLACE\n",
+        500
+    );
+    ASSERT_EQ(doc.patchBlocks.size(), 1U);
+    EXPECT_EQ(doc.patchBlocks[0].search, "a\n");
+    EXPECT_EQ(doc.patchBlocks[0].replace, "b\n");
+    EXPECT_EQ(doc.patchBlocks[0].y, doc.lines.front().y);
+    EXPECT_EQ(doc.patchBlocks[0].height,
+        doc.lines.back().y + doc.lines.back().height - doc.lines.front().y);
+}
+
+TEST_F(ChatLayoutTests, PatchBlockCarriesTargetThrough) {
+    const auto doc = layout(
+        "<<<<<<< SEARCH foo.bas\n"
+        "x\n"
+        "=======\n"
+        "y\n"
+        ">>>>>>> REPLACE\n",
+        500
+    );
+    ASSERT_EQ(doc.patchBlocks.size(), 1U);
+    EXPECT_EQ(doc.patchBlocks[0].target, "foo.bas");
+}
