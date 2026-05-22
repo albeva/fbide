@@ -605,7 +605,11 @@ void ConfigManager::save(const Category category) const {
         // Ensure parent dir exists — under READONLY this is
         // `<UserDataDir>` which may not exist on first launch.
         fs::create_directories(overlayPath.parent_path(), ec);
-        wxFileConfig overlayCfg;
+        // Explicit empty + style=0: the default `wxFileConfig()` ctor
+        // sets `wxCONFIG_USE_LOCAL_FILE | wxCONFIG_USE_GLOBAL_FILE` and
+        // auto-loads `<AppName>.ini` from the user/global dirs, baking
+        // stale unrelated keys into the overlay on Save().
+        wxFileConfig overlayCfg(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
         wxFFileOutputStream outStream(overlayWx);
         if (!outStream.IsOk()) {
             wxLogError("Failed to open '%s' for writing", overlayWx);
