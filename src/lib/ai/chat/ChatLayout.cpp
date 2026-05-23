@@ -69,6 +69,15 @@ auto textStyleOf(const MdStyle& style) -> TextStyle {
     };
 }
 
+// Forward declaration so the helper below can refer to `WrapItem`; the
+// full type is defined just after.
+struct WrapItem;
+
+/// Placeholder label for an image used inside a table cell — table
+/// cells stay text-only so the bitmap is replaced by its alt text
+/// rendered as a clickable link.
+[[nodiscard]] auto imageCellLabel(const WrapItem& item) -> wxString;
+
 /// One unit of wrappable inline content.
 struct WrapItem {
     enum class Type : std::uint8_t { Word,
@@ -92,6 +101,11 @@ struct WrapItem {
     };
     ImagePayload image {};
 };
+
+auto imageCellLabel(const WrapItem& item) -> wxString {
+    return wxString(wxUniChar(kImageGlyph)) + " "
+         + (item.text.empty() ? wxString("image") : item.text);
+}
 
 /// Split `text` into Word items separated by collapsed Space items, appending
 /// them to `items`. Leading/trailing whitespace yields edge Space items, which
@@ -656,14 +670,6 @@ struct Engine {
             }
         }
         return total;
-    }
-
-    /// Placeholder label for an image used inside a table cell — table
-    /// cells stay text-only so the bitmap is replaced by its alt text
-    /// rendered as a clickable link.
-    [[nodiscard]] static auto imageCellLabel(const WrapItem& item) -> wxString {
-        return wxString(wxUniChar(kImageGlyph)) + " "
-             + (item.text.empty() ? wxString("image") : item.text);
     }
 
     /// Greedy-wrap a cell's WrapItems to `columnWidth`. Returns one
