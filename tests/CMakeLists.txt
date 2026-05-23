@@ -72,6 +72,7 @@ add_executable(ui-tests
     ui/EditorChangeMarginTests.cpp
     ui/EditorTests.cpp
     ui/EditorPerfTests.cpp
+    ui/MarkdownViewTests.cpp
 )
 
 # Embed the Win32 application manifest so the GUI test runner gets the
