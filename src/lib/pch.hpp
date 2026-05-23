@@ -17,10 +17,12 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <list>
 #include <memory>
 #include <optional>
 #include <ranges>
 #include <span>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <utility>
@@ -39,6 +41,7 @@
 #include <wx/colordlg.h>
 #include <wx/convauto.h>
 #include <wx/dataobj.h>
+#include <wx/dcbuffer.h>
 #include <wx/dcclient.h>
 #include <wx/dcgraph.h>
 #include <wx/dcmemory.h>
@@ -57,6 +60,7 @@
 #include <wx/log.h>
 #include <wx/notebook.h>
 #include <wx/process.h>
+#include <wx/scrolwin.h>
 #include <wx/settings.h>
 #include <wx/sizer.h>
 #include <wx/snglinst.h>
@@ -73,6 +77,7 @@
 #include <wx/treectrl.h>
 #include <wx/txtstrm.h>
 #include <wx/utils.h>
+#include <wx/webrequest.h>
 #include <wx/wfstream.h>
 #include <wx/wupdlock.h>
 

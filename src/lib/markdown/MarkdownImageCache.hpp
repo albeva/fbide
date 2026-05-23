@@ -6,9 +6,6 @@
 //
 #pragma once
 #include "pch.hpp"
-#include <list>
-#include <string>
-#include <wx/webrequest.h>
 
 namespace fbide {
 

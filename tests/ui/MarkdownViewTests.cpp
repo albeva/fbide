@@ -8,7 +8,6 @@
 // the `ui-tests` target because the widget needs a real `wxApp` + a
 // parent window to attach to.
 //
-#include <wx/frame.h>
 #include <gtest/gtest.h>
 #include "markdown/MarkdownView.hpp"
 

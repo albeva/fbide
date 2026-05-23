@@ -5,11 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "markdown/MarkdownView.hpp"
-#include <wx/clipbrd.h>
-#include <wx/dataobj.h>
-#include <wx/dcbuffer.h>
-#include <wx/dcclient.h>
-#include <wx/dcgraph.h>
 using namespace fbide;
 
 // NOLINTNEXTLINE(cert-err58-cpp, bugprone-throwing-static-initialization)
@@ -121,17 +116,7 @@ MarkdownView::MarkdownView(wxWindow* parent, const wxWindowID winid)
 , m_highlighter(defaultHighlight) {
     wxScrolled::SetBackgroundStyle(wxBG_STYLE_PAINT);
     SetScrollRate(0, 1);
-    m_imageCache->setListener([this](const wxString& /*url*/) {
-        if (m_imageRelayoutPending) {
-            return;
-        }
-        m_imageRelayoutPending = true;
-        CallAfter([this] {
-            m_imageRelayoutPending = false;
-            relayout();
-            Refresh();
-        });
-    });
+    installImageCacheListener();
     resolveFonts();
 }
 
@@ -141,6 +126,8 @@ void MarkdownView::setMarkdown(const wxString& markdown) {
     if (markdown == m_markdown) {
         return;
     }
+    // Content change invalidates any positions the selection held.
+    m_selection.clear();
     m_markdown = markdown;
     relayout();
     Scroll(0, 0);
@@ -150,7 +137,9 @@ void MarkdownView::setMarkdown(const wxString& markdown) {
 void MarkdownView::setHighlighter(CodeFenceHighlighter highlighter) {
     m_highlighter = highlighter ? std::move(highlighter) : defaultHighlight;
     // The cached layout was built with the previous highlighter; force a
-    // rebuild so code blocks pick up the new colouring.
+    // rebuild so code blocks pick up the new colouring. Any cached
+    // selection positions belong to the old code-run layout.
+    m_selection.clear();
     m_document.clear();
     relayout();
     Refresh();
@@ -158,6 +147,12 @@ void MarkdownView::setHighlighter(CodeFenceHighlighter highlighter) {
 
 void MarkdownView::setImageCache(std::unique_ptr<MarkdownImageCache> cache) {
     m_imageCache = cache ? std::move(cache) : std::make_unique<MarkdownImageCache>();
+    installImageCacheListener();
+}
+
+void MarkdownView::installImageCacheListener() {
+    // Multiple downloads can settle in the same event-loop tick; coalesce
+    // them into a single deferred relayout + repaint.
     m_imageCache->setListener([this](const wxString& /*url*/) {
         if (m_imageRelayoutPending) {
             return;
@@ -244,7 +239,7 @@ void MarkdownView::relayout() {
     }
     const int contentWidth = std::max(40, panelWidth - (2 * kPadding));
 
-    wxClientDC clientDc(this);
+    const wxClientDC clientDc(this);
     wxGCDC measureDc;
     measureDc.SetGraphicsContext(makeGraphicsContext(clientDc));
     const DcMeasurer measurer(measureDc, m_bodyFont, m_monoFont, m_themedFont, m_measurerCache);

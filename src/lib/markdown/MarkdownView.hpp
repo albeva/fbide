@@ -6,7 +6,6 @@
 //
 #pragma once
 #include "pch.hpp"
-#include <wx/scrolwin.h>
 #include "markdown/MarkdownDocument.hpp"
 #include "markdown/MarkdownImageCache.hpp"
 #include "markdown/MarkdownLayout.hpp"
@@ -106,6 +105,10 @@ private:
 
     void relayout();
     void resolveFonts();
+    /// Bind the cache's "ready" callback so a finished image download
+    /// schedules a coalesced relayout. Re-invoked whenever the cache
+    /// itself is swapped via `setImageCache`.
+    void installImageCacheListener();
     [[nodiscard]] static auto palette() -> MarkdownPalette;
     [[nodiscard]] auto linkAt(const wxPoint& clientPoint) const -> wxString;
 

@@ -6,7 +6,6 @@
 //
 #pragma once
 #include "pch.hpp"
-#include <wx/dcgraph.h>
 #include "markdown/MarkdownLayout.hpp"
 
 namespace fbide {
@@ -59,6 +58,8 @@ struct MeasurementEntry {
 /// and pass it around.
 class DcMeasurer final : public TextMeasurer {
 public:
+    NO_COPY_AND_MOVE(DcMeasurer)
+
     DcMeasurer(
         wxDC& dcRef,
         wxFont body,
@@ -66,6 +67,7 @@ public:
         wxFont themed,
         std::vector<MeasurementEntry>& cache
     );
+    ~DcMeasurer() override = default;
 
     [[nodiscard]] auto width(const wxString& text, const TextStyle& style) const -> int override;
     [[nodiscard]] auto lineHeight(const TextStyle& style) const -> int override;
