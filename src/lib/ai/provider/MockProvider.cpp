@@ -28,6 +28,9 @@ const auto kHelpReply = wxString::FromUTF8(
 - `json` — JSON code sample.
 - `table` — markdown table.
 - `emoji` — text with emoji.
+- `tasks` — GFM task-list checkboxes.
+- `setext` — `===` / `---` underline headings.
+- `images` — inline images from the FBIde screenshot gallery.
 - `patch` — SEARCH/REPLACE proposal card.
 - `all` — every reply above, concatenated with rules.
 
@@ -92,6 +95,74 @@ A right-aligned numeric table:
 |  1 |    42 |
 |  2 |  1024 |
 | 17 |     7 |
+)"
+);
+
+const auto kTasksReply = wxString::FromUTF8(
+    R"(### v0.6 release checklist
+
+- [x] Implement task lists in the markdown renderer
+- [x] Add image rendering through `MarkdownImageCache`
+- [x] Cover setext headings (`===` / `---` underlines)
+- [ ] Polish drag-selection auto-scroll past the edges
+- [ ] Wire selection support into the help / about panes
+- [X] Update the mock provider's canned replies
+
+Mixed lists work too:
+
+1. Plan the work
+2. - [ ] Sub-item that hasn't been started
+   - [x] Sub-item that's done
+3. Ship it
+)"
+);
+
+const auto kSetextReply = wxString::FromUTF8(
+    R"(Setext-style headings — the `===` and `---` underlines below count
+as H1 and H2 just like `#` and `##` would.
+
+Top-level heading
+=================
+
+This is the body of the first section. Setext H1 should render at the
+same size as a `#` heading and pick up the heading bold + extra spacing
+from the layout engine.
+
+Smaller heading
+---------------
+
+Setext H2 mirrors `##`. The `---` form is also how horizontal rules are
+written, but the parser disambiguates: a `---` *underneath text*  is a
+setext heading, a `---` on its own (with blank lines around it) is a
+horizontal rule.
+
+---
+
+(That last rule above is a real horizontal rule, for contrast.)
+)"
+);
+
+const auto kImagesReply = wxString::FromUTF8(
+    R"(A few screenshots from the [FBIde gallery](https://fbide.freebasic.net/):
+
+![About dialog](https://fbide.org/images/screenshots/about.png)
+
+The classic about box — the smallest image in the gallery, good for
+checking that small images render at their natural size and don't get
+scaled up to fill the bubble.
+
+![Dark theme](https://fbide.org/images/screenshots/dark-theme.png)
+
+Editor running with the dark theme. Wider images scale down to fit the
+bubble while keeping their aspect ratio.
+
+![Code formatter](https://fbide.org/images/screenshots/code-formatter.png)
+
+Before / after panes of the FreeBASIC code formatter.
+
+![Integrated file browser](https://fbide.org/images/screenshots/integrated-file-browser.png)
+
+The sidebar file tree alongside the editor.
 )"
 );
 
@@ -184,6 +255,9 @@ const auto kAllReply
     + kJsonReply + "\n---\n\n"
     + kTableReply + "\n---\n\n"
     + kEmojiReply + "\n---\n\n"
+    + kTasksReply + "\n---\n\n"
+    + kSetextReply + "\n---\n\n"
+    + kImagesReply + "\n---\n\n"
     + kPatchReply + "\n---\n\n"
     + kLongReply;
 
@@ -245,6 +319,15 @@ auto pickReply(const AiRequest& request) -> const wxString& {
     }
     if (key == "emoji") {
         return kEmojiReply;
+    }
+    if (key == "tasks" || key == "todo") {
+        return kTasksReply;
+    }
+    if (key == "setext" || key == "headings") {
+        return kSetextReply;
+    }
+    if (key == "images" || key == "gallery") {
+        return kImagesReply;
     }
     if (key == "patch") {
         return kPatchReply;
