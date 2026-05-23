@@ -8,7 +8,7 @@
 #include "pch.hpp"
 #include "AiProvider.hpp"
 
-namespace fbide {
+namespace fbide::ai {
 
 /**
  * Offline AI provider for testing the chat UI.
@@ -41,4 +41,4 @@ private:
     bool m_busy = false;            ///< True while emitting.
 };
 
-} // namespace fbide
+} // namespace fbide::ai

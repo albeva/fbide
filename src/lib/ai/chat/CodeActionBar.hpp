@@ -9,6 +9,9 @@
 
 namespace fbide {
 class Context;
+} // namespace fbide
+
+namespace fbide::ai {
 
 /// Window IDs of the `CodeActionBar` buttons. Each button's `wxEVT_BUTTON`
 /// propagates to the host, which catches it by these IDs.
@@ -78,4 +81,4 @@ private:
     Mode m_mode = Mode::CodeSample;        ///< Current visible set.
 };
 
-} // namespace fbide
+} // namespace fbide::ai

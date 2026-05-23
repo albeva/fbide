@@ -6,6 +6,7 @@
 //
 #include "MockProvider.hpp"
 using namespace fbide;
+using namespace fbide::ai;
 
 namespace {
 // Emission cadence and chunk size for the simulated stream.

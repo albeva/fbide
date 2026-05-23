@@ -16,6 +16,7 @@
 #include "format/transformers/case/CaseTransform.hpp"
 #include "format/transformers/reformat/ReFormatter.hpp"
 using namespace fbide;
+using namespace fbide::ai;
 
 namespace {
 
@@ -72,7 +73,7 @@ auto needsStyling(const lexer::TokenKind kind) -> bool {
 
 } // namespace
 
-auto fbide::highlightCode(const std::vector<lexer::Token>& tokens, const Theme& theme, const int tabWidth)
+auto fbide::ai::highlightCode(const std::vector<lexer::Token>& tokens, const Theme& theme, const int tabWidth)
     -> std::vector<CodeLine> {
     const int tabStop = std::max(1, tabWidth);
     std::vector<CodeLine> lines;

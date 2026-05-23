@@ -9,7 +9,9 @@
 #include "config/ConfigManager.hpp"
 
 namespace fbide {
-class AiManager;
+namespace ai {
+    class AiManager;
+}
 class App;
 class CommandManager;
 class CompilerManager;
@@ -117,9 +119,9 @@ public:
     [[nodiscard]] auto getHelpManager() const -> const HelpManager& { return *m_helpManager; }
 
     /// Access the AI manager (chat provider + conversation).
-    [[nodiscard]] auto getAiManager() -> AiManager& { return *m_aiManager; }
+    [[nodiscard]] auto getAiManager() -> ai::AiManager& { return *m_aiManager; }
     /// Const overload of `getAiManager`.
-    [[nodiscard]] auto getAiManager() const -> const AiManager& { return *m_aiManager; }
+    [[nodiscard]] auto getAiManager() const -> const ai::AiManager& { return *m_aiManager; }
 
 private:
     App& m_app;                                     ///< Owning application.
@@ -134,7 +136,7 @@ private:
     std::unique_ptr<FileSession> m_fileSession;         ///< Session `.fbs` load/save.
     std::unique_ptr<CompilerManager> m_compilerManager; ///< Compile/run lifecycle.
     std::unique_ptr<HelpManager> m_helpManager;         ///< Help dispatcher.
-    std::unique_ptr<AiManager> m_aiManager;             ///< AI chat provider + conversation.
+    std::unique_ptr<ai::AiManager> m_aiManager;         ///< AI chat provider + conversation.
     std::unique_ptr<CommandManager> m_commandManager;   ///< Command table + dispatch (last).
 };
 

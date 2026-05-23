@@ -9,6 +9,7 @@
 #include "config/Theme.hpp"
 
 using namespace fbide;
+using namespace fbide::ai;
 using lexer::Token;
 using lexer::TokenKind;
 

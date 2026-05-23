@@ -10,7 +10,7 @@
 #include <wx/webrequest.h>
 #include "AiProvider.hpp"
 
-namespace fbide {
+namespace fbide::ai {
 
 /**
  * AI provider backed by the Anthropic Messages API.
@@ -52,4 +52,4 @@ private:
     bool m_busy = false;          ///< True while a request is in flight.
 };
 
-} // namespace fbide
+} // namespace fbide::ai

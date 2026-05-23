@@ -15,6 +15,9 @@ class ILexer5;
 namespace fbide {
 class Context;
 class Theme;
+} // namespace fbide
+
+namespace fbide::ai {
 
 /// One syntax-coloured run within a code line. `text` never spans lines.
 struct CodeRun {
@@ -64,4 +67,4 @@ private:
     Scintilla::ILexer5* m_lexer; ///< Reused FreeBASIC lexer; Release()d in the dtor.
 };
 
-} // namespace fbide
+} // namespace fbide::ai

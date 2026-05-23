@@ -7,6 +7,7 @@
 #include "AnthropicProvider.hpp"
 #include <nlohmann/json.hpp>
 using namespace fbide;
+using namespace fbide::ai;
 using json = nlohmann::json;
 
 namespace {

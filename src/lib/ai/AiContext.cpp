@@ -7,6 +7,7 @@
 #include "AiContext.hpp"
 #include <wx/ffile.h>
 using namespace fbide;
+using namespace fbide::ai;
 
 FileContextItem::FileContextItem(std::filesystem::path path)
 : m_path(std::move(path)) {}

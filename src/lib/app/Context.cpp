@@ -16,6 +16,7 @@
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
+using namespace fbide::ai;
 
 Context::Context(App& app, const wxString& binaryPath, const wxString& idePath, const wxString& configPath)
 : m_app(app)

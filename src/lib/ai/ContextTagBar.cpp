@@ -12,10 +12,11 @@
 #include "AiManager.hpp"
 #include "app/Context.hpp"
 using namespace fbide;
+using namespace fbide::ai;
 
-namespace fbide {
+namespace fbide::ai {
 wxDEFINE_EVENT(EVT_CONTEXT_TAGS_CHANGED, wxCommandEvent);
-} // namespace fbide
+} // namespace fbide::ai
 
 namespace {
 // Gap between chips.

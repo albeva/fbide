@@ -18,6 +18,9 @@ class wxGCDC;
 
 namespace fbide {
 class Context;
+} // namespace fbide
+
+namespace fbide::ai {
 class CodeHighlighter;
 
 /// One conversation message handed to the chat view.
@@ -205,4 +208,4 @@ private:
     wxDECLARE_EVENT_TABLE();
 };
 
-} // namespace fbide
+} // namespace fbide::ai

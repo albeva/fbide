@@ -13,6 +13,7 @@
 #include "provider/MockProvider.hpp"
 #include "provider/OllamaProvider.hpp"
 using namespace fbide;
+using namespace fbide::ai;
 
 namespace {
 // Defaults applied when the matching `[ai]` key is absent. Declared as

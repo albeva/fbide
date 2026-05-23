@@ -14,10 +14,11 @@
 #include "ui/ArtiProvider.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
+using namespace fbide::ai;
 
-namespace fbide {
+namespace fbide::ai {
 wxDEFINE_EVENT(EVT_CODE_BAR_LEAVE, wxCommandEvent);
-} // namespace fbide
+} // namespace fbide::ai
 
 namespace {
 // Gap around each button.

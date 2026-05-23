@@ -10,6 +10,9 @@
 
 namespace fbide {
 struct ProcessResult;
+} // namespace fbide
+
+namespace fbide::ai {
 
 /**
  * AI provider backed by the Claude Code CLI (`claude -p`).
@@ -56,4 +59,4 @@ private:
     bool m_busy = false;         ///< True while a CLI invocation is in flight.
 };
 
-} // namespace fbide
+} // namespace fbide::ai

@@ -19,6 +19,7 @@
 #include "document/DocumentManager.hpp"
 #include "editor/Editor.hpp"
 using namespace fbide;
+using namespace fbide::ai;
 
 namespace {
 // Re-render at most this often while a reply streams in, in milliseconds.

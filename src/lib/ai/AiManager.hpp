@@ -12,6 +12,9 @@
 
 namespace fbide {
 class Context;
+} // namespace fbide
+
+namespace fbide::ai {
 
 /**
  * Owns the active AI provider and the running conversation.
@@ -72,4 +75,4 @@ private:
     bool m_liveEdit = false;                ///< Live-edit auto-apply toggle state.
 };
 
-} // namespace fbide
+} // namespace fbide::ai

@@ -12,9 +12,12 @@ class wxCheckBox;
 
 namespace fbide {
 class Context;
+class Document;
+} // namespace fbide
+
+namespace fbide::ai {
 class AiChatView;
 class ContextTagBar;
-class Document;
 
 /**
  * AI chat side panel: conversation view, a context tag strip, the message
@@ -101,4 +104,4 @@ private:
     bool m_dirty = false;                  ///< Streamed text arrived since the last render.
 };
 
-} // namespace fbide
+} // namespace fbide::ai

@@ -7,7 +7,7 @@
 #pragma once
 #include "pch.hpp"
 
-namespace fbide {
+namespace fbide::ai {
 
 /**
  * One item attached to the AI conversation as context.
@@ -120,4 +120,4 @@ private:
     std::vector<std::unique_ptr<AiContextItem>> m_items; ///< Attached items.
 };
 
-} // namespace fbide
+} // namespace fbide::ai

@@ -8,7 +8,7 @@
 #include "pch.hpp"
 #include "ai/AiTypes.hpp"
 
-namespace fbide {
+namespace fbide::ai {
 
 /**
  * Abstract AI model backend.
@@ -44,4 +44,4 @@ public:
     virtual void send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) = 0;
 };
 
-} // namespace fbide
+} // namespace fbide::ai

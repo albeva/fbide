@@ -6,6 +6,7 @@
 //
 #include "markdown/MarkdownView.hpp"
 using namespace fbide;
+using namespace fbide::ai;
 using namespace fbide::markdown;
 
 // NOLINTNEXTLINE(cert-err58-cpp, bugprone-throwing-static-initialization)

@@ -28,6 +28,7 @@ namespace XPM {
 }
 #endif
 using namespace fbide;
+using namespace fbide::ai;
 
 namespace {
 constexpr auto appName = "FBIde";

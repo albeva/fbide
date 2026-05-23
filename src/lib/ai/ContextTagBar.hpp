@@ -9,6 +9,9 @@
 
 namespace fbide {
 class Context;
+} // namespace fbide
+
+namespace fbide::ai {
 
 /// Emitted by `ContextTagBar` after a tag is removed, so the host can
 /// re-lay its sizer (the bar's height changes / it may hide).
@@ -41,4 +44,4 @@ private:
     Context& m_ctx; ///< Application context — reaches the AI context.
 };
 
-} // namespace fbide
+} // namespace fbide::ai

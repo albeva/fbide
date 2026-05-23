@@ -8,7 +8,7 @@
 #include "pch.hpp"
 #include <cstdint>
 
-namespace fbide {
+namespace fbide::ai {
 
 /// Role of a message within an AI conversation.
 enum class AiRole : std::uint8_t {
@@ -40,4 +40,4 @@ struct AiResponse {
     wxString error;  ///< Human-readable failure reason (set when not `ok`).
 };
 
-} // namespace fbide
+} // namespace fbide::ai

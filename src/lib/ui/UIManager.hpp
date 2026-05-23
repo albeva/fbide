@@ -12,7 +12,9 @@
 #include "command/CommandId.hpp"
 
 namespace fbide {
-class AiChatPanel;
+namespace ai {
+    class AiChatPanel;
+}
 class CompilerLog;
 class Context;
 class Editor;
@@ -83,7 +85,7 @@ public:
     [[nodiscard]] auto getNotebook() -> wxAuiNotebook* { return m_notebook; }
 
     /// Get the AI chat panel.
-    [[nodiscard]] auto getAiChatPanel() -> AiChatPanel&;
+    [[nodiscard]] auto getAiChatPanel() -> ai::AiChatPanel&;
 
     /// Build and pop up the editor right-click context menu for `editor`.
     void showEditorContextMenu(Editor* editor);
@@ -179,7 +181,7 @@ private:
     Unowned<wxAuiToolBar> m_auiToolbar;           ///< AUI-managed toolbar pane.
     Unowned<wxAuiNotebook> m_notebook;            ///< Document tabs.
     Unowned<wxAuiNotebook> m_sideBar;             ///< Sidebar (Browser/Subs) notebook.
-    Unowned<AiChatPanel> m_aiChatPanel;           ///< AI chat pane (right, hidden by default).
+    Unowned<ai::AiChatPanel> m_aiChatPanel;       ///< AI chat pane (right, hidden by default).
     std::vector<wxMenuItem*> m_externalLinkItems; ///< Live menu items in the dynamic external-links submenu.
 
     // Document-level commands toggled by `applyState`. Edit commands here

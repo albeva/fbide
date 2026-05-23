@@ -9,6 +9,7 @@
 #include "compiler/AsyncProcess.hpp"
 #include "compiler/QuoteUtils.hpp"
 using namespace fbide;
+using namespace fbide::ai;
 using json = nlohmann::json;
 
 namespace {

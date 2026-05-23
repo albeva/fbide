@@ -162,7 +162,7 @@ struct LaidOutDoc {
 /// Highlights a fenced code block — `code` body, `lang` fence tag — into
 /// coloured lines. Injected so the layout stays independent of the lexer.
 using CodeFenceHighlighter
-    = std::function<std::vector<CodeLine>(const wxString& code, const wxString& lang)>;
+    = std::function<std::vector<ai::CodeLine>(const wxString& code, const wxString& lang)>;
 
 /// Image lookup result handed to the layout for an `MdInlineKind::Image`.
 /// `Loading` and `Failed` cause the layout to emit a placeholder prose line;
