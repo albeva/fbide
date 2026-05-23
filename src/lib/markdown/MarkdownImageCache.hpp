@@ -38,9 +38,13 @@ namespace fbide {
  */
 class MarkdownImageCache final : public wxEvtHandler {
 public:
-    enum class State : std::uint8_t { Loading,
+    NO_COPY_AND_MOVE(MarkdownImageCache)
+
+    enum class State : std::uint8_t {
+        Loading,
         Ready,
-        Failed };
+        Failed
+    };
 
     /// One cache entry. `bitmap` is valid only when `state == Ready`.
     struct Entry {
@@ -60,7 +64,6 @@ public:
 
     explicit MarkdownImageCache(std::size_t maxReady = kDefaultMaxReady);
     ~MarkdownImageCache() override;
-    NO_COPY_AND_MOVE(MarkdownImageCache)
 
     /// Look up `url`. Kicks off an async download on first request and
     /// returns a Loading entry; subsequent calls return the same entry.
