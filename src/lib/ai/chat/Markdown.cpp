@@ -508,52 +508,33 @@ void stripCr(wxString& line) {
     }
 }
 
-/// Run md4c over a plain markdown segment — the original body of
-/// `parseMarkdown`. Used per segment between Patch blocks; called as a
-/// helper rather than recursively from the top-level entry point.
-auto parseSegment(const wxString& text) -> MdDoc {
-    Builder builder;
+/// One unit of the patch pre-scan output — either a run of markdown text
+/// (to feed to md4c) or a fully-closed SEARCH/REPLACE patch block ready
+/// to drop into the document.
+struct PatchScanSegment {
+    enum class Kind : std::uint8_t { Markdown,
+        Patch };
+    Kind kind = Kind::Markdown;
+    wxString markdown; ///< Populated for `Markdown`.
+    MdBlock patch;     ///< Populated for `Patch`.
+};
 
-    MD_PARSER parser {};
-    parser.abi_version = 0;
-    parser.flags = MD_FLAG_NOHTML | MD_FLAG_PERMISSIVEAUTOLINKS
-                 | MD_FLAG_STRIKETHROUGH | MD_FLAG_COLLAPSEWHITESPACE
-                 | MD_FLAG_TABLES | MD_FLAG_TASKLISTS;
-    parser.enter_block = mdEnterBlock;
-    parser.leave_block = mdLeaveBlock;
-    parser.enter_span = mdEnterSpan;
-    parser.leave_span = mdLeaveSpan;
-    parser.text = mdText;
-
-    const auto utf8 = text.utf8_string();
-    md_parse(utf8.c_str(), static_cast<MD_SIZE>(utf8.size()), &parser, &builder);
-
-    // md4c closes every open block at end of input, so an unterminated fence
-    // is already flushed; this is a belt-and-braces guard.
-    builder.end();
-    return std::move(builder.doc);
-}
-
-} // namespace
-
-auto fbide::parseMarkdown(const wxString& text) -> MdDoc {
-    // Pre-scan for SEARCH/REPLACE proposal blocks line by line. Markdown
-    // between proposals is parsed by md4c per segment; a fully-closed
-    // proposal emits an MdBlockKind::Patch. A proposal that is still
-    // open at end-of-input (mid-stream partial) is silently dropped —
-    // the next chunk reparse will pick it up once the closing marker
-    // arrives.
-    MdDoc result;
-    wxString mdAccum; // accumulated markdown between proposals
-
+/// Split `text` into a sequence of markdown segments and patch blocks.
+/// A proposal that is still open at end-of-input (mid-stream partial) is
+/// silently dropped — the next chunk reparse picks it up once the closing
+/// marker arrives. The patch grammar is recognised before md4c sees the
+/// input so the `=======` separator doesn't get treated as an H2 setext
+/// underline.
+auto splitPatchBlocks(const wxString& text) -> std::vector<PatchScanSegment> {
+    std::vector<PatchScanSegment> out;
+    wxString mdAccum;
     const auto flushMarkdown = [&] {
         if (mdAccum.empty()) {
             return;
         }
-        MdDoc segment = parseSegment(mdAccum);
-        for (auto& block : segment.blocks) {
-            result.blocks.push_back(std::move(block));
-        }
+        out.push_back({ .kind = PatchScanSegment::Kind::Markdown,
+            .markdown = std::move(mdAccum),
+            .patch = {} });
         mdAccum.clear();
     };
 
@@ -607,7 +588,9 @@ auto fbide::parseMarkdown(const wxString& text) -> MdDoc {
                 block.patchTarget = patchTarget;
                 block.patchSearch = patchSearch;
                 block.patchReplace = patchReplace;
-                result.blocks.push_back(std::move(block));
+                out.push_back({ .kind = PatchScanSegment::Kind::Patch,
+                    .markdown = {},
+                    .patch = std::move(block) });
                 patchTarget.clear();
                 patchSearch.clear();
                 patchReplace.clear();
@@ -624,6 +607,54 @@ auto fbide::parseMarkdown(const wxString& text) -> MdDoc {
 
     flushMarkdown();
     // A still-open proposal at EOF is dropped on purpose — partial mid-stream.
+    return out;
+}
+
+/// Run md4c over a plain markdown segment — the original body of
+/// `parseMarkdown`. Used per segment between Patch blocks; called as a
+/// helper rather than recursively from the top-level entry point.
+auto parseSegment(const wxString& text) -> MdDoc {
+    Builder builder;
+
+    MD_PARSER parser {};
+    parser.abi_version = 0;
+    parser.flags = MD_FLAG_NOHTML | MD_FLAG_PERMISSIVEAUTOLINKS
+                 | MD_FLAG_STRIKETHROUGH | MD_FLAG_COLLAPSEWHITESPACE
+                 | MD_FLAG_TABLES | MD_FLAG_TASKLISTS;
+    parser.enter_block = mdEnterBlock;
+    parser.leave_block = mdLeaveBlock;
+    parser.enter_span = mdEnterSpan;
+    parser.leave_span = mdLeaveSpan;
+    parser.text = mdText;
+
+    const auto utf8 = text.utf8_string();
+    md_parse(utf8.c_str(), static_cast<MD_SIZE>(utf8.size()), &parser, &builder);
+
+    // md4c closes every open block at end of input, so an unterminated fence
+    // is already flushed; this is a belt-and-braces guard.
+    builder.end();
+    return std::move(builder.doc);
+}
+
+} // namespace
+
+auto fbide::parseMarkdown(const wxString& text) -> MdDoc {
+    // Patch pre-scan first — the SEARCH/REPLACE grammar isn't markdown and
+    // would confuse md4c (the `=======` separator looks like an H2 setext
+    // underline). The pre-pass yields a flat sequence of markdown chunks
+    // and ready-built Patch blocks; we hand the chunks to md4c and slot
+    // the patches into the final doc as they arrive.
+    MdDoc result;
+    for (auto& segment : splitPatchBlocks(text)) {
+        if (segment.kind == PatchScanSegment::Kind::Markdown) {
+            MdDoc sub = parseSegment(segment.markdown);
+            for (auto& block : sub.blocks) {
+                result.blocks.push_back(std::move(block));
+            }
+        } else {
+            result.blocks.push_back(std::move(segment.patch));
+        }
+    }
     return result;
 }
 
