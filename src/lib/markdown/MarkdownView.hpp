@@ -82,7 +82,7 @@ private:
 
     void relayout();
     void resolveFonts();
-    [[nodiscard]] auto palette() const -> MarkdownPalette;
+    [[nodiscard]] static auto palette() -> MarkdownPalette;
     [[nodiscard]] auto linkAt(const wxPoint& clientPoint) const -> wxString;
 
     wxString m_markdown; ///< Source text. `setMarkdown` writes this; `relayout` reads it.

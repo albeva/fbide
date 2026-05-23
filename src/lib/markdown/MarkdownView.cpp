@@ -10,12 +10,33 @@
 #include <wx/dcgraph.h>
 using namespace fbide;
 
+// NOLINTNEXTLINE(cert-err58-cpp, bugprone-throwing-static-initialization)
 wxDEFINE_EVENT(fbide::MARKDOWN_LINK_CLICKED, wxCommandEvent);
 
 namespace {
 
 /// Inner padding between the panel edge and content.
 constexpr int kPadding = 8;
+/// A touch of leading on top of the measured font height — matches the
+/// chat view's calculation so wheel-step quantisation lines up.
+constexpr int kBodyLeading = 4;
+
+// Palette-derivation factors. The defaults are visually subtle blends
+// against the system window background; named so the tidy magic-number
+// check sees their intent.
+constexpr double kCodeBgBlend = 0.07;
+constexpr double kInlineCodeBgBlend = 0.10;
+constexpr double kRuleBlend = 0.30;
+constexpr double kTableHeaderBgBlend = 0.07;
+constexpr double kPatchHalfBlend = 0.20;
+// RGB triplets for the SEARCH (red) and REPLACE (green) tint targets.
+// `wxColour(R, G, B)` — small enough to be obvious, named for clarity.
+constexpr unsigned char kPatchRedR = 220;
+constexpr unsigned char kPatchRedG = 80;
+constexpr unsigned char kPatchRedB = 80;
+constexpr unsigned char kPatchGreenR = 80;
+constexpr unsigned char kPatchGreenG = 180;
+constexpr unsigned char kPatchGreenB = 80;
 
 /// Linear blend of two colours — `t` of 0 yields `a`, 1 yields `b`.
 auto blend(const wxColour& aColour, const wxColour& bColour, const double tee) -> wxColour {
@@ -63,14 +84,18 @@ auto defaultHighlight(const wxString& code, const wxString& /*lang*/) -> std::ve
 /// the default renderer everywhere else.
 template<typename DcT>
 auto makeGraphicsContext(DcT& target) -> wxGraphicsContext* {
-    const wxGraphicsRenderer* renderer = nullptr;
+    // CreateContext is non-const in the wx API; tidy can't see that
+    // through the virtual overload set, so the const-correctness check
+    // would otherwise flag this pointer.
+    // NOLINTNEXTLINE(misc-const-correctness)
+    wxGraphicsRenderer* renderer = nullptr;
 #ifdef __WXMSW__
     renderer = wxGraphicsRenderer::GetDirect2DRenderer();
 #endif
     if (renderer == nullptr) {
         renderer = wxGraphicsRenderer::GetDefaultRenderer();
     }
-    return const_cast<wxGraphicsRenderer*>(renderer)->CreateContext(target);
+    return renderer->CreateContext(target);
 }
 
 /// DC-backed text measurer with a host-provided cache. Same shape as the
@@ -85,12 +110,12 @@ public:
     , m_themed(std::move(themed))
     , m_cache(cache) {}
 
-    auto width(const wxString& text, const TextStyle& style) const -> int override {
+    [[nodiscard]] auto width(const wxString& text, const TextStyle& style) const -> int override {
         if (text.empty()) {
             return 0;
         }
         MeasurementEntry& entry = lookup(style);
-        if (text.length() == 1 && text[0] == ' ') {
+        if (text == " ") {
             if (entry.spaceWidth < 0) {
                 entry.spaceWidth = measure(" ", entry.font);
             }
@@ -99,7 +124,7 @@ public:
         return measure(text, entry.font);
     }
 
-    auto lineHeight(const TextStyle& style) const -> int override {
+    [[nodiscard]] auto lineHeight(const TextStyle& style) const -> int override {
         MeasurementEntry& entry = lookup(style);
         if (entry.lineHeight < 0) {
             wxCoord textWidth = 0;
@@ -111,7 +136,7 @@ public:
     }
 
 private:
-    auto lookup(const TextStyle& style) const -> MeasurementEntry& {
+    [[nodiscard]] auto lookup(const TextStyle& style) const -> MeasurementEntry& {
         for (auto& entry : m_cache) {
             if (entry.style == style) {
                 return entry;
@@ -124,7 +149,7 @@ private:
         return m_cache.back();
     }
 
-    auto measure(const wxString& text, const wxFont& font) const -> int {
+    [[nodiscard]] auto measure(const wxString& text, const wxFont& font) const -> int {
         wxCoord textWidth = 0;
         wxCoord textHeight = 0;
         m_dc.GetTextExtent(text, &textWidth, &textHeight, nullptr, nullptr, &font);
@@ -151,11 +176,11 @@ wxEND_EVENT_TABLE()
 // clang-format on
 
 MarkdownView::MarkdownView(wxWindow* parent, const wxWindowID winid)
-: wxScrolled(parent, winid, wxDefaultPosition, wxDefaultSize, wxVSCROLL | wxCLIP_CHILDREN) {
+: wxScrolled(parent, winid, wxDefaultPosition, wxDefaultSize, wxVSCROLL | wxCLIP_CHILDREN)
+, m_imageCache(std::make_unique<MarkdownImageCache>())
+, m_highlighter(defaultHighlight) {
     wxScrolled::SetBackgroundStyle(wxBG_STYLE_PAINT);
     SetScrollRate(0, 1);
-    m_highlighter = defaultHighlight;
-    m_imageCache = std::make_unique<MarkdownImageCache>();
     m_imageCache->setListener([this](const wxString& /*url*/) {
         if (m_imageRelayoutPending) {
             return;
@@ -224,24 +249,26 @@ void MarkdownView::resolveFonts() {
     m_monoFont = wxFont(wxFontInfo(size).Family(wxFONTFAMILY_TELETYPE));
     m_themedFont = m_monoFont; // no editor theme available — fall back.
 
-    wxClientDC dc(this);
+    const wxClientDC dc(this);
     wxCoord textWidth = 0;
     wxCoord textHeight = 0;
     dc.GetTextExtent("Ag", &textWidth, &textHeight, nullptr, nullptr, &m_bodyFont);
-    m_bodyLineHeight = textHeight + 4;
+    m_bodyLineHeight = textHeight + kBodyLeading;
 }
 
-auto MarkdownView::palette() const -> MarkdownPalette {
+auto MarkdownView::palette() -> MarkdownPalette {
     const wxColour windowBg = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
     const wxColour windowText = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
+    const wxColour patchRed { kPatchRedR, kPatchRedG, kPatchRedB };
+    const wxColour patchGreen { kPatchGreenR, kPatchGreenG, kPatchGreenB };
     return { .text = windowText,
         .link = wxSystemSettings::GetColour(wxSYS_COLOUR_HOTLIGHT),
-        .codeBg = blend(windowBg, windowText, 0.07),
-        .inlineCodeBg = blend(windowBg, windowText, 0.10),
-        .rule = blend(windowBg, windowText, 0.30),
-        .tableHeaderBg = blend(windowBg, windowText, 0.07),
-        .patchSearchBg = blend(windowBg, wxColour(220, 80, 80), 0.20),
-        .patchReplaceBg = blend(windowBg, wxColour(80, 180, 80), 0.20),
+        .codeBg = blend(windowBg, windowText, kCodeBgBlend),
+        .inlineCodeBg = blend(windowBg, windowText, kInlineCodeBgBlend),
+        .rule = blend(windowBg, windowText, kRuleBlend),
+        .tableHeaderBg = blend(windowBg, windowText, kTableHeaderBgBlend),
+        .patchSearchBg = blend(windowBg, patchRed, kPatchHalfBlend),
+        .patchReplaceBg = blend(windowBg, patchGreen, kPatchHalfBlend),
         .patchFg = windowText };
 }
 
@@ -325,9 +352,10 @@ void MarkdownView::onPaint(wxPaintEvent& /*event*/) {
 
         const int regionTopRel = regionTopDoc - kPadding;
         const int regionBottomRel = regionBottomDoc - kPadding;
-        auto first = std::lower_bound(
-            laid.lines.begin(), laid.lines.end(), regionTopRel,
-            [](const PaintLine& line, const int top) { return line.y + line.height < top; }
+        const auto first = std::ranges::lower_bound(
+            laid.lines, regionTopRel,
+            [](const int height, const int top) { return height < top; },
+            [](const PaintLine& line) { return line.y + line.height; }
         );
 
         PaintRunState runState;
@@ -360,7 +388,7 @@ auto MarkdownView::linkAt(const wxPoint& clientPoint) const -> wxString {
                 continue;
             }
             if (relX >= run.x && relX < run.x + run.width) {
-                return laid.links[static_cast<std::size_t>(run.linkId)].url;
+                return laid.links.at(static_cast<std::size_t>(run.linkId)).url;
             }
         }
         break;

@@ -50,7 +50,7 @@ private:
 } // namespace
 
 TEST(MarkdownViewTests, InstantiatesAndLaysOutContent) {
-    Fixture fixture;
+    const Fixture fixture;
     fixture.view()->setMarkdown(
         "# Title\n\n"
         "Some **bold** and _italic_ text.\n\n"
@@ -62,7 +62,7 @@ TEST(MarkdownViewTests, InstantiatesAndLaysOutContent) {
 }
 
 TEST(MarkdownViewTests, IdenticalSetMarkdownIsCheap) {
-    Fixture fixture;
+    const Fixture fixture;
     const wxString text = "# Heading\n\nbody text.";
     fixture.view()->setMarkdown(text);
     const int firstHeight = fixture.view()->GetVirtualSize().GetHeight();
@@ -71,7 +71,7 @@ TEST(MarkdownViewTests, IdenticalSetMarkdownIsCheap) {
 }
 
 TEST(MarkdownViewTests, RefreshThemeKeepsContent) {
-    Fixture fixture;
+    const Fixture fixture;
     fixture.view()->setMarkdown("# Title\n\nbody.");
     const int beforeHeight = fixture.view()->GetVirtualSize().GetHeight();
     fixture.view()->refreshTheme();
@@ -82,7 +82,7 @@ TEST(MarkdownViewTests, RefreshThemeKeepsContent) {
 }
 
 TEST(MarkdownViewTests, LinkClickedEventDeliversUrl) {
-    Fixture fixture;
+    const Fixture fixture;
     fixture.view()->setMarkdown("see [docs](https://example.org)");
 
     wxString captured;

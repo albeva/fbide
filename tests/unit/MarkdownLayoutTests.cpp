@@ -5,72 +5,26 @@
 // https://github.com/albeva/fbide
 //
 #include <gtest/gtest.h>
+#include "MarkdownTestFixtures.hpp"
 #include "markdown/Markdown.hpp"
 #include "markdown/MarkdownLayout.hpp"
 
 using namespace fbide;
+using namespace fbide::tests;
 
 namespace {
-
-// Deterministic measurer: every glyph is a fixed width, line height tracks
-// the size delta. Proportional text is 10px/char, monospace 8px/char.
-class FakeMeasurer final : public TextMeasurer {
-public:
-    auto width(const wxString& text, const TextStyle& style) const -> int override {
-        return static_cast<int>(text.length()) * (style.monospace ? 8 : 10);
-    }
-    auto lineHeight(const TextStyle& style) const -> int override {
-        return 20 + style.sizeDelta;
-    }
-};
-
-/// Trivial fence highlighter — one black run per code line, '\n'-split, with
-/// the trailing blank line dropped (as the real highlighter does).
-auto splitHighlight(const wxString& code, const wxString& /*lang*/) -> std::vector<CodeLine> {
-    std::vector<CodeLine> lines;
-    CodeLine current;
-    wxString segment;
-    for (const wxUniChar ch : code) {
-        if (ch == '\n') {
-            if (!segment.empty()) {
-                current.push_back({ .text = segment, .colour = wxColour(0, 0, 0) });
-            }
-            lines.push_back(current);
-            current.clear();
-            segment.clear();
-        } else {
-            segment += ch;
-        }
-    }
-    if (!segment.empty()) {
-        current.push_back({ .text = segment, .colour = wxColour(0, 0, 0) });
-    }
-    lines.push_back(current);
-    if (lines.size() > 1 && lines.back().empty()) {
-        lines.pop_back();
-    }
-    return lines;
-}
-
-auto palette() -> MarkdownPalette {
-    return { .text = wxColour(0, 0, 0),
-        .link = wxColour(0, 0, 200),
-        .codeBg = wxColour(240, 240, 240),
-        .inlineCodeBg = wxColour(230, 230, 230),
-        .rule = wxColour(200, 200, 200) };
-}
 
 /// Lay out `markdown` at `width` pixels through the fakes.
 auto layout(const wxString& markdown, const int width) -> LaidOutDoc {
     const FakeMeasurer measurer;
-    return layoutMarkdown(parseMarkdown(markdown), width, measurer, palette(), splitHighlight);
+    return layoutMarkdown(parseMarkdown(markdown), width, measurer, fakePalette(), splitHighlight);
 }
 
 /// Lay out with a custom image resolver — used by the image tests so the
 /// layout can be exercised without the real download path.
 auto layoutWithImages(const wxString& markdown, const int width, const ImageResolver& resolver) -> LaidOutDoc {
     const FakeMeasurer measurer;
-    return layoutMarkdown(parseMarkdown(markdown), width, measurer, palette(), splitHighlight, resolver);
+    return layoutMarkdown(parseMarkdown(markdown), width, measurer, fakePalette(), splitHighlight, resolver);
 }
 
 } // namespace

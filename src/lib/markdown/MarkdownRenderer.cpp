@@ -73,8 +73,8 @@ void fbide::paintLineBackground(
             gc.DrawRectangle(leftEdge, lineTop, tableWidth, line.height);
         }
         gc.SetPen(wxPen(palette.rule));
-        for (std::size_t c = 1; c < line.tableColumns.size(); c++) {
-            const int colX = contentLeft + line.tableColumns[c].x;
+        for (std::size_t col = 1; col < line.tableColumns.size(); col++) {
+            const int colX = contentLeft + line.tableColumns.at(col).x;
             gc.DrawLine(colX, lineTop, colX, lineTop + line.height);
         }
         gc.DrawLine(leftEdge, lineTop, leftEdge, lineTop + line.height);
@@ -133,10 +133,7 @@ void fbide::paintLineText(
         if (run.text.empty()) {
             continue;
         }
-        const wxCoord ascent = selectRunFont(run);
-        if (ascent > maxAscent) {
-            maxAscent = ascent;
-        }
+        maxAscent = std::max(maxAscent, selectRunFont(run));
     }
     const wxCoord baseline = lineTop + 2 + maxAscent;
 
