@@ -66,6 +66,13 @@ auto layout(const wxString& markdown, const int width) -> LaidOutDoc {
     return layoutMarkdown(parseMarkdown(markdown), width, measurer, palette(), splitHighlight);
 }
 
+/// Lay out with a custom image resolver — used by the image tests so the
+/// layout can be exercised without the real download path.
+auto layoutWithImages(const wxString& markdown, const int width, const ImageResolver& resolver) -> LaidOutDoc {
+    const FakeMeasurer measurer;
+    return layoutMarkdown(parseMarkdown(markdown), width, measurer, palette(), splitHighlight, resolver);
+}
+
 } // namespace
 
 class ChatLayoutTests : public testing::Test {};
@@ -241,6 +248,110 @@ TEST_F(ChatLayoutTests, OrderedListMarkerShowsTheOrdinal) {
     const auto doc = layout("3. third", 500);
     ASSERT_GE(doc.lines[0].runs.size(), 1U);
     EXPECT_EQ(doc.lines[0].runs[0].text, "3. ");
+}
+
+TEST_F(ChatLayoutTests, TaskListMarkerReflectsCheckedState) {
+    const auto doc = layout("- [ ] todo\n- [x] done", 500);
+    ASSERT_EQ(doc.lines.size(), 2U);
+    ASSERT_GE(doc.lines[0].runs.size(), 1U);
+    ASSERT_GE(doc.lines[1].runs.size(), 1U);
+    // U+2610 BALLOT BOX, U+2611 BALLOT BOX WITH CHECK.
+    EXPECT_EQ(doc.lines[0].runs[0].text, wxString(wxUniChar(0x2610)) + " ");
+    EXPECT_EQ(doc.lines[1].runs[0].text, wxString(wxUniChar(0x2611)) + " ");
+}
+
+// ---------------------------------------------------------------------------
+// Images
+// ---------------------------------------------------------------------------
+
+TEST_F(ChatLayoutTests, ReadyImageBecomesItsOwnImageLine) {
+    // 100x40 bitmap fits inside a 500px width, so no scaling.
+    const wxImage rawImage(100, 40);
+    const wxBitmap bitmap(rawImage);
+    const auto resolver = [&bitmap](const wxString& /*url*/) -> ImageInfo {
+        return { .state = ImageInfo::State::Ready,
+            .bitmap = bitmap,
+            .width = 100,
+            .height = 40 };
+    };
+    const auto doc = layoutWithImages("![cat](https://e.org/c.png)", 500, resolver);
+    ASSERT_EQ(doc.lines.size(), 1U);
+    EXPECT_EQ(doc.lines[0].kind, LineKind::Image);
+    EXPECT_EQ(doc.lines[0].image.drawWidth, 100);
+    EXPECT_EQ(doc.lines[0].image.drawHeight, 40);
+    EXPECT_EQ(doc.lines[0].image.url, "https://e.org/c.png");
+    EXPECT_EQ(doc.lines[0].image.alt, "cat");
+    ASSERT_EQ(doc.links.size(), 1U);
+    EXPECT_EQ(doc.links[0].url, "https://e.org/c.png");
+    // The image line has one hit-test run carrying the link id, no text.
+    ASSERT_EQ(doc.lines[0].runs.size(), 1U);
+    EXPECT_EQ(doc.lines[0].runs[0].linkId, 0);
+}
+
+TEST_F(ChatLayoutTests, WideImageScalesProportionallyToFitWidth) {
+    // 800x200 → 400-wide bubble → drawn at 400x100.
+    const wxImage rawImage(800, 200);
+    const wxBitmap bitmap(rawImage);
+    const auto resolver = [&bitmap](const wxString&) -> ImageInfo {
+        return { .state = ImageInfo::State::Ready,
+            .bitmap = bitmap,
+            .width = 800,
+            .height = 200 };
+    };
+    const auto doc = layoutWithImages("![big](https://e.org/b.png)", 400, resolver);
+    ASSERT_EQ(doc.lines.size(), 1U);
+    EXPECT_EQ(doc.lines[0].kind, LineKind::Image);
+    EXPECT_EQ(doc.lines[0].image.drawWidth, 400);
+    EXPECT_EQ(doc.lines[0].image.drawHeight, 100);
+}
+
+TEST_F(ChatLayoutTests, LoadingImageRendersAsPlaceholderProseLine) {
+    const auto resolver = [](const wxString&) -> ImageInfo {
+        return { .state = ImageInfo::State::Loading };
+    };
+    const auto doc = layoutWithImages("![cat](https://e.org/c.png)", 500, resolver);
+    ASSERT_EQ(doc.lines.size(), 1U);
+    EXPECT_EQ(doc.lines[0].kind, LineKind::Prose);
+    ASSERT_EQ(doc.lines[0].runs.size(), 1U);
+    EXPECT_TRUE(doc.lines[0].runs[0].text.Contains("cat"));
+    EXPECT_TRUE(doc.lines[0].runs[0].text.Contains("loading"));
+    EXPECT_TRUE(doc.lines[0].runs[0].style.underline);
+    EXPECT_EQ(doc.lines[0].runs[0].linkId, 0);
+}
+
+TEST_F(ChatLayoutTests, FailedImageRendersAsPlaceholderProseLine) {
+    const auto resolver = [](const wxString&) -> ImageInfo {
+        return { .state = ImageInfo::State::Failed };
+    };
+    const auto doc = layoutWithImages("![cat](https://e.org/c.png)", 500, resolver);
+    ASSERT_EQ(doc.lines.size(), 1U);
+    EXPECT_EQ(doc.lines[0].kind, LineKind::Prose);
+    EXPECT_TRUE(doc.lines[0].runs[0].text.Contains("failed"));
+}
+
+TEST_F(ChatLayoutTests, ImageBetweenTextSplitsParagraphIntoThreeLines) {
+    const wxImage rawImage(50, 50);
+    const wxBitmap bitmap(rawImage);
+    const auto resolver = [&bitmap](const wxString&) -> ImageInfo {
+        return { .state = ImageInfo::State::Ready,
+            .bitmap = bitmap,
+            .width = 50,
+            .height = 50 };
+    };
+    const auto doc = layoutWithImages("before ![x](https://e.org/x.png) after", 500, resolver);
+    // The image becomes a block-level break: "before" line, image line, "after" line.
+    ASSERT_EQ(doc.lines.size(), 3U);
+    EXPECT_EQ(doc.lines[0].kind, LineKind::Prose);
+    EXPECT_EQ(doc.lines[1].kind, LineKind::Image);
+    EXPECT_EQ(doc.lines[2].kind, LineKind::Prose);
+}
+
+TEST_F(ChatLayoutTests, ImageWithoutResolverFallsBackToFailedPlaceholder) {
+    // No resolver provided — every image is treated as permanently Failed.
+    const auto doc = layout("![cat](https://e.org/c.png)", 500);
+    ASSERT_EQ(doc.lines.size(), 1U);
+    EXPECT_EQ(doc.lines[0].kind, LineKind::Prose);
+    EXPECT_TRUE(doc.lines[0].runs[0].text.Contains("failed"));
 }
 
 // ---------------------------------------------------------------------------

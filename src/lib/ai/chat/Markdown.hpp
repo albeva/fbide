@@ -23,16 +23,18 @@ struct MdStyle {
 enum class MdInlineKind : std::uint8_t {
     Text,      ///< Styled run of text.
     Link,      ///< Styled run that is also a hyperlink (`url` set).
+    Image,     ///< Embedded image — `text` is the alt label (may be empty),
+               ///< `url` is the image source. Nested alt markup is flattened.
     SoftBreak, ///< Source newline inside a paragraph — wraps as a space.
     HardBreak, ///< Explicit `<br>` — forces a new line.
 };
 
-/// One inline fragment of a block: styled text, a link, or a line break.
+/// One inline fragment of a block: styled text, a link, an image, or a break.
 struct MdInline {
     MdInlineKind kind = MdInlineKind::Text;
-    wxString text; ///< Text / link label. Empty for breaks.
-    wxString url;  ///< Link target. Set only when `kind == Link`.
-    MdStyle style; ///< Styling for Text / Link fragments.
+    wxString text; ///< Text / link label / image alt. Empty for breaks.
+    wxString url;  ///< Link target or image source. Set for Link / Image.
+    MdStyle style; ///< Styling captured at the fragment site.
 };
 
 /// Block kind in the flattened document model.
@@ -85,6 +87,8 @@ struct MdBlock {
     int listOrdinal = 0;                           ///< ListItem: number for ordered lists.
     bool listMarker = false;                       ///< ListItem: draw the bullet/number
                                                    ///< (false for an item's continuation lines).
+    bool isTask = false;                           ///< ListItem: GFM task list item.
+    bool taskChecked = false;                      ///< ListItem: task box ticked (`[x]` / `[X]`).
     std::vector<MdTableAlignment> columnAlignment; ///< Table: one entry per column.
     std::vector<MdTableRow> rows;                  ///< Table: header rows first, then body.
     std::size_t headerRowCount = 0;                ///< Table: number of leading rows in `rows`

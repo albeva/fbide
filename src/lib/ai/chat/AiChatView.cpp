@@ -219,6 +219,13 @@ AiChatView::AiChatView(wxWindow* parent, Context& ctx)
     resolveFonts();
     rebuildBubbleBrushes();
     m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
+    m_imageCache = std::make_unique<ChatImageCache>();
+    // A finished download invalidates the cached layout (the image now
+    // has real dimensions to lay out around), so re-lay and repaint.
+    m_imageCache->setListener([this](const wxString& /*url*/) {
+        relayout();
+        Refresh();
+    });
 
     // One reusable action bar, shown over whichever code block is hovered.
     // It is a child of this scroll surface, so it scrolls with the content.
@@ -330,7 +337,33 @@ void AiChatView::relayout() {
             const auto highlight = [this, reformat](const wxString& code, const wxString& lang) {
                 return highlightFence(code, lang, reformat);
             };
-            item.doc = layoutMarkdown(parseMarkdown(message.markdown), maxContent, measurer, pal, highlight);
+            const auto resolveImage = [this](const wxString& url) -> ImageInfo {
+                const auto& entry = m_imageCache->get(url);
+                ImageInfo info;
+                info.bitmap = entry.bitmap;
+                info.width = entry.width;
+                info.height = entry.height;
+                switch (entry.state) {
+                case ChatImageCache::State::Ready:
+                    info.state = ImageInfo::State::Ready;
+                    break;
+                case ChatImageCache::State::Failed:
+                    info.state = ImageInfo::State::Failed;
+                    break;
+                case ChatImageCache::State::Loading:
+                    info.state = ImageInfo::State::Loading;
+                    break;
+                }
+                return info;
+            };
+            item.doc = layoutMarkdown(
+                parseMarkdown(message.markdown),
+                maxContent,
+                measurer,
+                pal,
+                highlight,
+                resolveImage
+            );
             // Shrink the bubble to its widest line — wrapping was done at
             // maxContent, so every line already fits the shrunk width.
             int widest = 0;
@@ -528,6 +561,19 @@ void AiChatView::paintMessage(
                 const int bottomY = lineTop + line.height;
                 gc.DrawLine(leftEdge, bottomY, rightEdge, bottomY);
             }
+        } else if (line.kind == LineKind::Image && line.image.bitmap.IsOk()) {
+            // Draw through the underlying wxGraphicsContext — `wxGCDC::DrawBitmap`
+            // has no scaled-target overload, but the graphics context does.
+            gc.GetGraphicsContext()->DrawBitmap(
+                line.image.bitmap,
+                contentLeft + line.image.x,
+                lineTop,
+                line.image.drawWidth,
+                line.image.drawHeight
+            );
+            // The line's lone PaintRun is an empty hit-test region for click
+            // handling — the run loop below skips empty text, so nothing
+            // else needs to draw here.
         }
 
         // Baseline-aligned drawing. Different font families have different

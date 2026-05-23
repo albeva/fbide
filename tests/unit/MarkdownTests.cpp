@@ -119,6 +119,18 @@ TEST_F(MarkdownTests, HeadingLevels) {
     EXPECT_EQ(doc.blocks[1].headingLevel, 3U);
 }
 
+TEST_F(MarkdownTests, SetextHeadings) {
+    // `=====` underline → H1, `-----` underline → H2.
+    const auto doc = parseMarkdown("Title One\n=====\n\nTitle Two\n-----");
+    ASSERT_EQ(doc.blocks.size(), 2U);
+    EXPECT_EQ(doc.blocks[0].kind, MdBlockKind::Heading);
+    EXPECT_EQ(doc.blocks[0].headingLevel, 1U);
+    EXPECT_EQ(plainText(doc.blocks[0]), "Title One");
+    EXPECT_EQ(doc.blocks[1].kind, MdBlockKind::Heading);
+    EXPECT_EQ(doc.blocks[1].headingLevel, 2U);
+    EXPECT_EQ(plainText(doc.blocks[1]), "Title Two");
+}
+
 // ---------------------------------------------------------------------------
 // Code fences
 // ---------------------------------------------------------------------------
@@ -188,6 +200,31 @@ TEST_F(MarkdownTests, NestedListDepth) {
     EXPECT_EQ(doc.blocks[1].listDepth, 2);
 }
 
+TEST_F(MarkdownTests, TaskListUncheckedAndChecked) {
+    const auto doc = parseMarkdown("- [ ] todo\n- [x] done");
+    ASSERT_EQ(doc.blocks.size(), 2U);
+    EXPECT_TRUE(doc.blocks[0].isTask);
+    EXPECT_FALSE(doc.blocks[0].taskChecked);
+    EXPECT_EQ(plainText(doc.blocks[0]), "todo");
+    EXPECT_TRUE(doc.blocks[1].isTask);
+    EXPECT_TRUE(doc.blocks[1].taskChecked);
+    EXPECT_EQ(plainText(doc.blocks[1]), "done");
+}
+
+TEST_F(MarkdownTests, TaskListUppercaseTickAlsoChecked) {
+    const auto doc = parseMarkdown("- [X] also done");
+    ASSERT_EQ(doc.blocks.size(), 1U);
+    EXPECT_TRUE(doc.blocks[0].isTask);
+    EXPECT_TRUE(doc.blocks[0].taskChecked);
+}
+
+TEST_F(MarkdownTests, PlainListItemIsNotATask) {
+    const auto doc = parseMarkdown("- regular");
+    ASSERT_EQ(doc.blocks.size(), 1U);
+    EXPECT_FALSE(doc.blocks[0].isTask);
+    EXPECT_FALSE(doc.blocks[0].taskChecked);
+}
+
 // ---------------------------------------------------------------------------
 // Links
 // ---------------------------------------------------------------------------
@@ -200,6 +237,41 @@ TEST_F(MarkdownTests, InlineLink) {
     EXPECT_EQ(runs[1].text, "the docs");
     EXPECT_EQ(runs[1].url, "https://example.org");
     EXPECT_EQ(runs[0].kind, MdInlineKind::Text);
+}
+
+// ---------------------------------------------------------------------------
+// Images
+// ---------------------------------------------------------------------------
+
+TEST_F(MarkdownTests, InlineImage) {
+    const auto doc = parseMarkdown("before ![a cat](https://e.org/cat.png) after");
+    const auto& runs = doc.blocks[0].inlines;
+    ASSERT_EQ(runs.size(), 3U);
+    EXPECT_EQ(runs[0].kind, MdInlineKind::Text);
+    EXPECT_EQ(runs[1].kind, MdInlineKind::Image);
+    EXPECT_EQ(runs[1].text, "a cat");
+    EXPECT_EQ(runs[1].url, "https://e.org/cat.png");
+    EXPECT_EQ(runs[2].kind, MdInlineKind::Text);
+}
+
+TEST_F(MarkdownTests, ImageWithEmptyAlt) {
+    const auto doc = parseMarkdown("![](https://e.org/x.png)");
+    const auto& runs = doc.blocks[0].inlines;
+    ASSERT_EQ(runs.size(), 1U);
+    EXPECT_EQ(runs[0].kind, MdInlineKind::Image);
+    EXPECT_TRUE(runs[0].text.empty());
+    EXPECT_EQ(runs[0].url, "https://e.org/x.png");
+}
+
+TEST_F(MarkdownTests, ImageAltFlattensNestedFormatting) {
+    // md4c emits nested spans inside the alt; the model flattens them
+    // to plain text — image alt text never carries styling.
+    const auto doc = parseMarkdown("![**bold** cat](https://e.org/c.png)");
+    const auto& runs = doc.blocks[0].inlines;
+    ASSERT_EQ(runs.size(), 1U);
+    EXPECT_EQ(runs[0].kind, MdInlineKind::Image);
+    EXPECT_EQ(runs[0].text, "bold cat");
+    EXPECT_EQ(runs[0].url, "https://e.org/c.png");
 }
 
 // ---------------------------------------------------------------------------

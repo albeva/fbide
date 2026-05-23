@@ -8,6 +8,7 @@
 #include "pch.hpp"
 #include <unordered_set>
 #include <wx/scrolwin.h>
+#include "ChatImageCache.hpp"
 #include "ChatLayout.hpp"
 #include "CodeActionBar.hpp"
 
@@ -146,6 +147,7 @@ private:
 
     Context& m_ctx;                                   ///< Application context.
     std::unique_ptr<CodeHighlighter> m_highlighter;   ///< FreeBASIC code highlighter.
+    std::unique_ptr<ChatImageCache> m_imageCache;     ///< Inline-image download cache.
     Unowned<CodeActionBar> m_actionBar;               ///< Floating per-code-block toolbar.
     wxBitmap m_buffer;                                ///< Off-screen paint buffer, reused across paints.
     wxFont m_bodyFont;                                ///< Base prose font.
@@ -163,8 +165,8 @@ private:
                                                       ///< auto-applied (or attempted) this
                                                       ///< session — guards live-edit against
                                                       ///< double-apply across reparses.
-    int m_bodyLineHeight = 0;  ///< Body-font line height — sets the per-notch wheel scroll amount.
-    int m_wheelPixelAccum = 0; ///< Fractional remainder carried between wheel events.
+    int m_bodyLineHeight = 0;                         ///< Body-font line height — sets the per-notch wheel scroll amount.
+    int m_wheelPixelAccum = 0;                        ///< Fractional remainder carried between wheel events.
 
     wxDECLARE_EVENT_TABLE();
 };

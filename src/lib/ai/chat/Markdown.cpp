@@ -27,6 +27,15 @@ struct Builder {
     bool inLink = false;
     wxString linkUrl;
 
+    // Current image span. md4c emits the alt text as inline events between
+    // the IMG enter/leave; the builder diverts those into `imageAlt` and
+    // emits a single Image inline at leave time. Style is captured at the
+    // enter so the surrounding emphasis applies to the resulting fragment.
+    bool inImage = false;
+    wxString imageAlt;
+    wxString imageSrc;
+    MdStyle imageStyle;
+
     // Open lists, outermost first. Each tracks the next ordinal to hand out.
     struct ListCtx {
         bool ordered;
@@ -86,14 +95,19 @@ struct Builder {
         return &cur.inlines;
     }
 
-    /// Append a text run — to the code body inside a fence, otherwise as a
-    /// styled (and possibly link-tagged) inline fragment in the current
-    /// sink (table cell or block paragraph).
+    /// Append a text run — to the code body inside a fence, to the image
+    /// alt buffer inside an image span, otherwise as a styled (and possibly
+    /// link-tagged) inline fragment in the current sink (table cell or
+    /// block paragraph).
     void addText(const wxString& text) {
         if (inCodeBlock) {
             if (open) {
                 cur.codeText += text;
             }
+            return;
+        }
+        if (inImage) {
+            imageAlt += text;
             return;
         }
         auto* sink = inlineSink();
@@ -108,9 +122,9 @@ struct Builder {
         });
     }
 
-    /// Append a soft or hard line break (ignored inside code).
+    /// Append a soft or hard line break (ignored inside code and image alt).
     void addBreak(const MdInlineKind kind) {
-        if (inCodeBlock) {
+        if (inCodeBlock || inImage) {
             return;
         }
         auto* sink = inlineSink();
@@ -118,6 +132,21 @@ struct Builder {
             return;
         }
         sink->push_back({ .kind = kind, .text = {}, .url = {}, .style = {} });
+    }
+
+    /// Emit a single Image inline into the current sink with the alt text
+    /// accumulated between MD_SPAN_IMG enter/leave.
+    void emitImage() {
+        auto* sink = inlineSink();
+        if (sink == nullptr) {
+            return;
+        }
+        sink->push_back({
+            .kind = MdInlineKind::Image,
+            .text = imageAlt,
+            .url = imageSrc,
+            .style = imageStyle,
+        });
     }
 };
 
@@ -202,7 +231,7 @@ static int mdEnterBlock(const MD_BLOCKTYPE type, void* detail, void* userData) {
         builder.lists.push_back({ .ordered = true, .next = static_cast<int>(d->start) });
         break;
     }
-    case MD_BLOCK_LI:
+    case MD_BLOCK_LI: {
         // Open the item block now: tight lists put the text straight in the
         // LI (no inner MD_BLOCK_P), so there must be a block to receive it.
         builder.begin(MdBlockKind::ListItem);
@@ -213,7 +242,13 @@ static int mdEnterBlock(const MD_BLOCKTYPE type, void* detail, void* userData) {
             builder.cur.listOrdinal = list.next++;
             builder.cur.listMarker = true;
         }
+        const auto* liDetail = static_cast<MD_BLOCK_LI_DETAIL*>(detail);
+        if (liDetail != nullptr && liDetail->is_task != 0) {
+            builder.cur.isTask = true;
+            builder.cur.taskChecked = liDetail->task_mark == 'x' || liDetail->task_mark == 'X';
+        }
         break;
+    }
     case MD_BLOCK_HR:
         builder.begin(MdBlockKind::Rule);
         builder.end();
@@ -348,8 +383,16 @@ static int mdEnterSpan(const MD_SPANTYPE type, void* detail, void* userData) {
         builder.linkUrl = attrStr(d->href);
         break;
     }
+    case MD_SPAN_IMG: {
+        const auto* d = static_cast<MD_SPAN_IMG_DETAIL*>(detail);
+        builder.inImage = true;
+        builder.imageAlt.clear();
+        builder.imageSrc = attrStr(d->src);
+        builder.imageStyle = builder.style();
+        break;
+    }
     default:
-        // Images, LaTeX and wiki links are not rendered specially.
+        // LaTeX and wiki links are not rendered specially.
         break;
     }
     return 0;
@@ -373,6 +416,13 @@ static int mdLeaveSpan(const MD_SPANTYPE type, void* /*detail*/, void* userData)
     case MD_SPAN_A:
         builder.inLink = false;
         builder.linkUrl.clear();
+        break;
+    case MD_SPAN_IMG:
+        builder.emitImage();
+        builder.inImage = false;
+        builder.imageAlt.clear();
+        builder.imageSrc.clear();
+        builder.imageStyle = {};
         break;
     default:
         break;
@@ -467,7 +517,7 @@ auto parseSegment(const wxString& text) -> MdDoc {
     parser.abi_version = 0;
     parser.flags = MD_FLAG_NOHTML | MD_FLAG_PERMISSIVEAUTOLINKS
                  | MD_FLAG_STRIKETHROUGH | MD_FLAG_COLLAPSEWHITESPACE
-                 | MD_FLAG_TABLES;
+                 | MD_FLAG_TABLES | MD_FLAG_TASKLISTS;
     parser.enter_block = mdEnterBlock;
     parser.leave_block = mdLeaveBlock;
     parser.enter_span = mdEnterSpan;

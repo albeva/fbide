@@ -23,6 +23,14 @@ constexpr int kListIndent = 24;
 // Height of a horizontal rule line.
 constexpr int kRuleHeight = 13;
 
+// Marker glyphs used by `makeMarker` / image placeholders. Spelled out as
+// named constants so the tidy magic-number check doesn't flag them and so
+// the meaning is obvious at the call site.
+constexpr wchar_t kBulletGlyph = 0x2022;        // U+2022 BULLET — plain list item.
+constexpr wchar_t kTaskUncheckedGlyph = 0x2610; // U+2610 BALLOT BOX.
+constexpr wchar_t kTaskCheckedGlyph = 0x2611;   // U+2611 BALLOT BOX WITH CHECK.
+constexpr int kImageGlyph = 0x1F5BC;            // U+1F5BC FRAME WITH PICTURE — image label.
+
 /// True when `lang` (a fence tag) denotes FreeBASIC. Mirrors the same
 /// rule in AiChatView so layout and paint agree on which fences get the
 /// theme font vs. the system monospace font. Requires an explicit tag —
@@ -65,12 +73,24 @@ auto textStyleOf(const MdStyle& style) -> TextStyle {
 struct WrapItem {
     enum class Type : std::uint8_t { Word,
         Space,
-        HardBreak };
+        HardBreak,
+        Image };
     Type type = Type::Word;
-    wxString text {};   ///< Word text (Word only).
+    wxString text {};   ///< Word text (Word only). Alt text (Image).
     TextStyle style {}; ///< Font selection (Word / Space).
     wxColour colour {}; ///< Foreground colour (Word).
     int linkId = -1;    ///< Link index, or -1.
+
+    /// Image-only payload. Packed in a struct so designated initialisers
+    /// of non-image WrapItems don't have to enumerate every image field.
+    struct ImagePayload {
+        ImageInfo::State state = ImageInfo::State::Failed;
+        wxBitmap bitmap;
+        wxString url;
+        int width = 0;  ///< Natural pixel width of the bitmap.
+        int height = 0; ///< Natural pixel height.
+    };
+    ImagePayload image {};
 };
 
 /// Split `text` into Word items separated by collapsed Space items, appending
@@ -122,6 +142,7 @@ struct Engine {
     const TextMeasurer& m_measurer;
     const ChatPalette& m_palette;
     const CodeFenceHighlighter& m_highlightFence;
+    const ImageResolver& m_resolveImage;
 
     LaidOutDoc m_out {};
     int m_yPos = 0; ///< Running vertical cursor.
@@ -131,13 +152,15 @@ struct Engine {
         const int width,
         const TextMeasurer& measurer,
         const ChatPalette& palette,
-        const CodeFenceHighlighter& highlightFence
+        const CodeFenceHighlighter& highlightFence,
+        const ImageResolver& resolveImage
     )
     : m_doc(doc)
     , m_width(width)
     , m_measurer(measurer)
     , m_palette(palette)
-    , m_highlightFence(highlightFence) {}
+    , m_highlightFence(highlightFence)
+    , m_resolveImage(resolveImage) {}
 
     /// Insert the inter-block gap (skipped before the first block).
     void blockGap() {
@@ -148,7 +171,9 @@ struct Engine {
 
     /// Flatten a block's inline fragments into wrappable items. `baseSizeDelta`
     /// and `baseBold` apply the heading font on top of inline styling. Link
-    /// runs are registered in `out.links` and tagged with their id.
+    /// runs are registered in `out.links` and tagged with their id. Image
+    /// inlines produce an `Image` WrapItem the wrapper turns into a
+    /// dedicated `LineKind::Image` line (or a placeholder when not ready).
     auto flatten(const std::vector<MdInline>& inlines, const int baseSizeDelta, const bool baseBold)
         -> std::vector<WrapItem> {
         std::vector<WrapItem> items;
@@ -160,6 +185,10 @@ struct Engine {
             if (inl.kind == MdInlineKind::SoftBreak) {
                 items.push_back({ .type = WrapItem::Type::Space,
                     .style = { .sizeDelta = baseSizeDelta, .bold = baseBold } });
+                continue;
+            }
+            if (inl.kind == MdInlineKind::Image) {
+                appendImage(items, inl);
                 continue;
             }
             TextStyle style = textStyleOf(inl.style);
@@ -179,6 +208,90 @@ struct Engine {
             appendWords(items, inl.text, style, colour, linkId);
         }
         return items;
+    }
+
+    /// Resolve `inl` (an Image inline) and append a single WrapItem of type
+    /// Image. The wrapper consumes it as a block-level event: flushing the
+    /// current prose line, emitting either an Image PaintLine (Ready) or
+    /// a placeholder prose line (Loading / Failed), then continuing.
+    void appendImage(std::vector<WrapItem>& items, const MdInline& inl) {
+        WrapItem item;
+        item.type = WrapItem::Type::Image;
+        item.text = inl.text;
+        item.image.url = inl.url;
+        if (m_resolveImage) {
+            const ImageInfo info = m_resolveImage(inl.url);
+            item.image.state = info.state;
+            item.image.bitmap = info.bitmap;
+            item.image.width = info.width;
+            item.image.height = info.height;
+        }
+        if (!inl.url.empty()) {
+            m_out.links.push_back({ .url = inl.url });
+            item.linkId = static_cast<int>(m_out.links.size()) - 1;
+        }
+        items.push_back(std::move(item));
+    }
+
+    /// Render `item` (an Image WrapItem) onto its own PaintLine. Ready
+    /// images become a `LineKind::Image` line scaled to fit the available
+    /// width; Loading / Failed images become a placeholder prose line with
+    /// a clickable link-styled label so the user can still open the URL.
+    void emitImageLine(const WrapItem& item, const int contentLeft, const int quoteDepth) {
+        if (item.image.state == ImageInfo::State::Ready && item.image.bitmap.IsOk()
+            && item.image.width > 0 && item.image.height > 0) {
+            const int avail = std::max(1, m_width - contentLeft);
+            int drawWidth = item.image.width;
+            int drawHeight = item.image.height;
+            if (drawWidth > avail) {
+                // Scale proportionally so the image fits the bubble width.
+                drawHeight = std::max(1, drawHeight * avail / drawWidth);
+                drawWidth = avail;
+            }
+            PaintLine line;
+            line.kind = LineKind::Image;
+            line.y = m_yPos;
+            line.height = drawHeight;
+            line.quoteDepth = quoteDepth;
+            line.image.bitmap = item.image.bitmap;
+            line.image.url = item.image.url;
+            line.image.alt = item.text;
+            line.image.drawWidth = drawWidth;
+            line.image.drawHeight = drawHeight;
+            line.image.x = contentLeft;
+            // Hit-test region for click handling.
+            line.runs.push_back({ .text = {},
+                .style = {},
+                .colour = m_palette.link,
+                .x = contentLeft,
+                .width = drawWidth,
+                .linkId = item.linkId });
+            m_yPos += drawHeight;
+            m_out.lines.push_back(std::move(line));
+            return;
+        }
+
+        // Placeholder — render as a single styled link run on its own line.
+        const wxString label = wxString(wxUniChar(kImageGlyph)) + " "
+                             + (item.text.empty() ? wxString("image") : item.text)
+                             + (item.image.state == ImageInfo::State::Loading
+                                     ? wxString(" (loading\xE2\x80\xA6)") // U+2026 horizontal ellipsis
+                                     : wxString(" (failed)"));
+        const TextStyle style { .underline = true };
+        const int width = m_measurer.width(label, style);
+        PaintLine line;
+        line.kind = LineKind::Prose;
+        line.y = m_yPos;
+        line.height = m_measurer.lineHeight(style);
+        line.quoteDepth = quoteDepth;
+        line.runs.push_back({ .text = label,
+            .style = style,
+            .colour = m_palette.link,
+            .x = contentLeft,
+            .width = width,
+            .linkId = item.linkId });
+        m_yPos += line.height;
+        m_out.lines.push_back(std::move(line));
     }
 
     /// Greedily wrap `items` into prose lines starting at `contentLeft`. An
@@ -230,6 +343,31 @@ struct Engine {
                 spaceStyle = item.style;
                 continue;
             }
+            if (item.type == WrapItem::Type::Image) {
+                // Block-level break: flush surrounding prose, then lay the
+                // image (or a placeholder) on its own line. Subsequent
+                // inline content continues on a fresh prose line.
+                if (!lineRuns.empty()) {
+                    flush();
+                }
+                if (firstLine && marker.has_value()) {
+                    // The list marker has no host line yet — emit a stub
+                    // prose line carrying it so the marker stays visible.
+                    PaintLine stub;
+                    stub.kind = LineKind::Prose;
+                    stub.y = m_yPos;
+                    stub.height = bodyHeight;
+                    stub.quoteDepth = quoteDepth;
+                    stub.runs.push_back(*marker);
+                    m_yPos += stub.height;
+                    m_out.lines.push_back(std::move(stub));
+                }
+                emitImageLine(item, contentLeft, quoteDepth);
+                pendingSpace = false;
+                firstLine = false;
+                produced = true;
+                continue;
+            }
             const int wordWidth = m_measurer.width(item.text, item.style);
             const int spaceWidth = pendingSpace ? m_measurer.width(" ", spaceStyle) : 0;
             if (!lineRuns.empty() && xPos + spaceWidth + wordWidth > m_width) {
@@ -252,11 +390,17 @@ struct Engine {
         }
     }
 
-    /// Build the bullet / number run that prefixes a list item.
+    /// Build the bullet / number / checkbox run that prefixes a list item.
     auto makeMarker(const MdBlock& block, const int contentLeft) -> PaintRun {
-        const wxString text = block.listOrdered
-                                ? wxString::Format("%d. ", block.listOrdinal)
-                                : wxString(wxUniChar(0x2022)) + " ";
+        wxString text;
+        if (block.isTask) {
+            // BMP glyphs — render without needing an emoji font.
+            text = wxString(wxUniChar(block.taskChecked ? kTaskCheckedGlyph : kTaskUncheckedGlyph)) + " ";
+        } else if (block.listOrdered) {
+            text = wxString::Format("%d. ", block.listOrdinal);
+        } else {
+            text = wxString(wxUniChar(kBulletGlyph)) + " ";
+        }
         const int markerWidth = m_measurer.width(text, TextStyle {});
         return { .text = text,
             .style = {},
@@ -506,9 +650,23 @@ struct Engine {
                 total += m_measurer.width(item.text, item.style);
                 sawNonSpace = true;
                 break;
+            case WrapItem::Type::Image:
+                // Table cells degrade images to a labelled link; the
+                // bitmap is not laid out inside a cell.
+                total += m_measurer.width(imageCellLabel(item), TextStyle { .underline = true });
+                sawNonSpace = true;
+                break;
             }
         }
         return total;
+    }
+
+    /// Placeholder label for an image used inside a table cell — table
+    /// cells stay text-only so the bitmap is replaced by its alt text
+    /// rendered as a clickable link.
+    [[nodiscard]] static auto imageCellLabel(const WrapItem& item) -> wxString {
+        return wxString(wxUniChar(kImageGlyph)) + " "
+             + (item.text.empty() ? wxString("image") : item.text);
     }
 
     /// Greedy-wrap a cell's WrapItems to `columnWidth`. Returns one
@@ -541,7 +699,21 @@ struct Engine {
                 spaceStyle = item.style;
                 continue;
             }
-            const int wordWidth = m_measurer.width(item.text, item.style);
+            // Synthesise a plain word/style for an Image inline so the
+            // table-cell path can wrap it like any other text token.
+            wxString runText;
+            TextStyle runStyle;
+            wxColour runColour;
+            if (item.type == WrapItem::Type::Image) {
+                runText = imageCellLabel(item);
+                runStyle = TextStyle { .underline = true };
+                runColour = m_palette.link;
+            } else {
+                runText = item.text;
+                runStyle = item.style;
+                runColour = item.colour;
+            }
+            const int wordWidth = m_measurer.width(runText, runStyle);
             const int spaceWidth = pendingSpace ? m_measurer.width(" ", spaceStyle) : 0;
             if (!current.runs.empty() && xPos + spaceWidth + wordWidth > columnWidth) {
                 flush();
@@ -549,9 +721,9 @@ struct Engine {
                 xPos += spaceWidth;
             }
             pendingSpace = false;
-            current.runs.push_back({ .text = item.text,
-                .style = item.style,
-                .colour = item.colour,
+            current.runs.push_back({ .text = runText,
+                .style = runStyle,
+                .colour = runColour,
                 .x = xPos,
                 .width = wordWidth,
                 .linkId = item.linkId });
@@ -753,14 +925,16 @@ auto fbide::layoutMarkdown(
     const int width,
     const TextMeasurer& measurer,
     const ChatPalette& palette,
-    const CodeFenceHighlighter& highlightFence
+    const CodeFenceHighlighter& highlightFence,
+    const ImageResolver& resolveImage
 ) -> LaidOutDoc {
     Engine engine {
         doc,
         width,
         measurer,
         palette,
-        highlightFence
+        highlightFence,
+        resolveImage
     };
     engine.run();
     return std::move(engine.m_out);

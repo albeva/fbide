@@ -51,6 +51,7 @@ enum class LineKind : std::uint8_t {
     TableBody,    ///< Body row of a table — painted on the prose background.
     PatchSearch,  ///< Line in a SEARCH/REPLACE proposal's SEARCH half — red tint.
     PatchReplace, ///< Line in a SEARCH/REPLACE proposal's REPLACE half — green tint.
+    Image,        ///< Embedded image — `image*` fields on PaintLine are set.
 };
 
 /// One column of a laid-out table row. Carries the column's geometry
@@ -90,6 +91,18 @@ struct PaintLine {
     /// same row; the painter uses this flag to draw the row-divider
     /// only at the actual row start, not between wrapped lines.
     bool tableRowStart = false;
+    /// Image-line only: bitmap, click target, alt label and the
+    /// scaled draw rect. Packed in a struct so designated initializers
+    /// elsewhere don't have to list every image field.
+    struct ImageContent {
+        wxBitmap bitmap;
+        wxString url; ///< Source URL — also the click target.
+        wxString alt; ///< Alt text — tooltip / accessibility.
+        int drawWidth = 0;
+        int drawHeight = 0;
+        int x = 0; ///< Left offset of the image rect inside the bubble.
+    };
+    ImageContent image {};
 };
 
 /// A hyperlink target, referenced by `PaintRun::linkId`.
@@ -148,15 +161,36 @@ struct LaidOutDoc {
 using CodeFenceHighlighter
     = std::function<std::vector<CodeLine>(const wxString& code, const wxString& lang)>;
 
+/// Image lookup result handed to the layout for an `MdInlineKind::Image`.
+/// `Loading` and `Failed` cause the layout to emit a placeholder prose line;
+/// `Ready` populates a dedicated `LineKind::Image` line.
+struct ImageInfo {
+    enum class State : std::uint8_t { Loading,
+        Ready,
+        Failed };
+    State state = State::Failed;
+    wxBitmap bitmap;
+    int width = 0;
+    int height = 0;
+};
+
+/// Resolve a markdown image URL to its current cache state. Called once per
+/// image inline per layout pass; the caller (`AiChatView`) is expected to
+/// relayout when the underlying cache transitions to Ready/Failed.
+using ImageResolver = std::function<ImageInfo(const wxString& url)>;
+
 /// Lay `doc` out into stacked, wrapped lines fitting `width` pixels. Code
 /// blocks are highlighted through `highlightFence`; prose colours come from
-/// `palette`; all measurement goes through `measurer`.
+/// `palette`; all measurement goes through `measurer`. Image inlines are
+/// resolved via `resolveImage` — when omitted, every image is treated as
+/// permanently `Failed` (placeholder text only).
 [[nodiscard]] auto layoutMarkdown(
     const MdDoc& doc,
     int width,
     const TextMeasurer& measurer,
     const ChatPalette& palette,
-    const CodeFenceHighlighter& highlightFence
+    const CodeFenceHighlighter& highlightFence,
+    const ImageResolver& resolveImage = {}
 ) -> LaidOutDoc;
 
 } // namespace fbide
