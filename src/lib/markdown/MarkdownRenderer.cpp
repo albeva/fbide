@@ -204,8 +204,8 @@ auto fbide::hitTestLine(
     if (line.runs.empty()) {
         return { 0, 0 };
     }
-    for (std::size_t r = 0; r < line.runs.size(); r++) {
-        const auto& run = line.runs.at(r);
+    for (std::size_t runIdx = 0; runIdx < line.runs.size(); runIdx++) {
+        const auto& run = line.runs.at(runIdx);
         if (run.text.empty()) {
             continue;
         }
@@ -213,14 +213,14 @@ auto fbide::hitTestLine(
         if (xInContent < runRight) {
             // Click is within (or to the left of) this run.
             const int xInRun = std::max(0, xInContent - run.x);
-            return { r, charIndexForX(run.text, run.style, xInRun, measurer) };
+            return { runIdx, charIndexForX(run.text, run.style, xInRun, measurer) };
         }
     }
     // Click is past every run — land at the end of the last text-bearing run.
-    for (std::size_t r = line.runs.size(); r-- > 0;) {
-        const auto& run = line.runs.at(r);
+    for (std::size_t runIdx = line.runs.size(); runIdx-- > 0;) {
+        const auto& run = line.runs.at(runIdx);
         if (!run.text.empty()) {
-            return { r, run.text.length() };
+            return { runIdx, run.text.length() };
         }
     }
     return { 0, 0 };
@@ -247,8 +247,8 @@ void fbide::paintSelectionHighlight(
     gc.SetPen(*wxTRANSPARENT_PEN);
     gc.SetBrush(wxBrush(highlightColour));
 
-    for (std::size_t r = 0; r < line.runs.size(); r++) {
-        const auto& run = line.runs.at(r);
+    for (std::size_t runIdx = 0; runIdx < line.runs.size(); runIdx++) {
+        const auto& run = line.runs.at(runIdx);
         if (run.text.empty()) {
             continue;
         }
@@ -256,15 +256,15 @@ void fbide::paintSelectionHighlight(
         const bool atEnd = (lineIndex == endPos.lineIndex);
         // Position of this run within the selection — fully outside,
         // partially overlapped (start / end / single-line), or fully inside.
-        if (atStart && r < startPos.runIndex) {
+        if (atStart && runIdx < startPos.runIndex) {
             continue;
         }
-        if (atEnd && r > endPos.runIndex) {
+        if (atEnd && runIdx > endPos.runIndex) {
             break;
         }
         // Compute selected character range within this run.
-        const std::size_t selFrom = (atStart && r == startPos.runIndex) ? startPos.charInRun : 0;
-        const std::size_t selTo = (atEnd && r == endPos.runIndex) ? endPos.charInRun : run.text.length();
+        const std::size_t selFrom = (atStart && runIdx == startPos.runIndex) ? startPos.charInRun : 0;
+        const std::size_t selTo = (atEnd && runIdx == endPos.runIndex) ? endPos.charInRun : run.text.length();
         if (selFrom >= selTo) {
             continue;
         }
@@ -288,21 +288,21 @@ auto fbide::extractSelectedText(
         if (li > startPos.lineIndex) {
             out += '\n';
         }
-        for (std::size_t r = 0; r < line.runs.size(); r++) {
-            const auto& run = line.runs.at(r);
+        for (std::size_t runIdx = 0; runIdx < line.runs.size(); runIdx++) {
+            const auto& run = line.runs.at(runIdx);
             if (run.text.empty()) {
                 continue;
             }
             const bool atStart = (li == startPos.lineIndex);
             const bool atEnd = (li == endPos.lineIndex);
-            if (atStart && r < startPos.runIndex) {
+            if (atStart && runIdx < startPos.runIndex) {
                 continue;
             }
-            if (atEnd && r > endPos.runIndex) {
+            if (atEnd && runIdx > endPos.runIndex) {
                 break;
             }
-            const std::size_t selFrom = (atStart && r == startPos.runIndex) ? startPos.charInRun : 0;
-            const std::size_t selTo = (atEnd && r == endPos.runIndex) ? endPos.charInRun : run.text.length();
+            const std::size_t selFrom = (atStart && runIdx == startPos.runIndex) ? startPos.charInRun : 0;
+            const std::size_t selTo = (atEnd && runIdx == endPos.runIndex) ? endPos.charInRun : run.text.length();
             if (selFrom >= selTo) {
                 continue;
             }

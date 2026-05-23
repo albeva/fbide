@@ -24,9 +24,9 @@ auto layout(const wxString& markdown) -> LaidOutDoc {
 
 /// Find a run on a given line that contains `needle` and return its index.
 auto findRun(const PaintLine& line, const wxString& needle) -> std::size_t {
-    for (std::size_t r = 0; r < line.runs.size(); r++) {
-        if (line.runs.at(r).text.Contains(needle)) {
-            return r;
+    for (std::size_t runIdx = 0; runIdx < line.runs.size(); runIdx++) {
+        if (line.runs.at(runIdx).text.Contains(needle)) {
+            return runIdx;
         }
     }
     return line.runs.size();
@@ -56,8 +56,8 @@ TEST_F(MarkdownSelectionTests, RangeNormalisesBackwardsDrag) {
 
 TEST_F(MarkdownSelectionTests, ClearResetsToEmpty) {
     Selection sel;
-    sel.anchor = { .lineIndex = 0, .runIndex = 0, .charInRun = 3 };
-    sel.caret = { .lineIndex = 0, .runIndex = 0, .charInRun = 8 };
+    sel.anchor = { .lineIndex = 0, .runIndex = 0, .charInRun = 0 };
+    sel.caret = { .lineIndex = 0, .runIndex = 0, .charInRun = 1 };
     EXPECT_FALSE(sel.empty());
     sel.clear();
     EXPECT_TRUE(sel.empty());
@@ -109,10 +109,11 @@ TEST_F(MarkdownSelectionTests, ExtractEmptySelectionYieldsEmpty) {
 
 TEST_F(MarkdownSelectionTests, ExtractWholeFirstRun) {
     const auto doc = layout("hello world");
+    const wxString firstWord = "hello";
     Selection sel;
     sel.anchor = { .lineIndex = 0, .runIndex = 0, .charInRun = 0 };
-    sel.caret = { .lineIndex = 0, .runIndex = 0, .charInRun = 5 }; // "hello"
-    EXPECT_EQ(extractSelectedText(doc, sel), "hello");
+    sel.caret = { .lineIndex = 0, .runIndex = 0, .charInRun = firstWord.length() };
+    EXPECT_EQ(extractSelectedText(doc, sel), firstWord);
 }
 
 TEST_F(MarkdownSelectionTests, ExtractAcrossRunsOnSameLine) {
@@ -146,9 +147,10 @@ TEST_F(MarkdownSelectionTests, ExtractAcrossLinesJoinsWithNewline) {
 }
 
 TEST_F(MarkdownSelectionTests, ExtractIsNormalisedAcrossBackwardsDrag) {
-    const auto doc = layout("hello");
+    const wxString word = "hello";
+    const auto doc = layout(word);
     Selection sel;
-    sel.anchor = { .lineIndex = 0, .runIndex = 0, .charInRun = 5 };
+    sel.anchor = { .lineIndex = 0, .runIndex = 0, .charInRun = word.length() };
     sel.caret = { .lineIndex = 0, .runIndex = 0, .charInRun = 0 };
-    EXPECT_EQ(extractSelectedText(doc, sel), "hello");
+    EXPECT_EQ(extractSelectedText(doc, sel), word);
 }

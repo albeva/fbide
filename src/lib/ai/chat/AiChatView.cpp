@@ -800,7 +800,7 @@ void AiChatView::onMotion(wxMouseEvent& event) {
     // Idle cursor — link wins over text wins over arrow.
     if (!linkAt(pos).empty()) {
         SetCursor(wxCursor(wxCURSOR_HAND));
-    } else if (const auto [bubbleIdx, _] = hitTestBubble(pos); bubbleIdx >= 0) {
+    } else if (hitTestBubble(pos).first >= 0) {
         SetCursor(wxCursor(wxCURSOR_IBEAM));
     } else {
         SetCursor(wxCursor(wxCURSOR_ARROW));
