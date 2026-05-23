@@ -17,6 +17,7 @@ add_executable(tests
     unit/main.cpp
     unit/AutoIndentTests.cpp
     unit/BasicTests.cpp
+    unit/MarkdownDocumentTests.cpp
     unit/MarkdownImageCacheTests.cpp
     unit/MarkdownLayoutTests.cpp
     unit/CodeHighlighterTests.cpp

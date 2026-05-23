@@ -11,6 +11,7 @@ target_sources(fbide_lib
     ai/chat/CodeActionBar.cpp
     ai/chat/CodeHighlighter.cpp
     markdown/Markdown.cpp
+    markdown/MarkdownDocument.cpp
     markdown/MarkdownImageCache.cpp
     markdown/MarkdownLayout.cpp
     ai/provider/AnthropicProvider.cpp
@@ -95,6 +96,7 @@ target_sources(fbide_lib
     ai/chat/CodeActionBar.hpp
     ai/chat/CodeHighlighter.hpp
     markdown/Markdown.hpp
+    markdown/MarkdownDocument.hpp
     markdown/MarkdownImageCache.hpp
     markdown/MarkdownLayout.hpp
     ai/provider/AiProvider.hpp
