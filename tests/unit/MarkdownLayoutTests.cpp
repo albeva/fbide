@@ -396,3 +396,79 @@ TEST_F(MarkdownLayoutTests, PatchBlockCarriesTargetThrough) {
     ASSERT_EQ(doc.patchBlocks.size(), 1U);
     EXPECT_EQ(doc.patchBlocks[0].target, "foo.bas");
 }
+
+// ---------------------------------------------------------------------------
+// No-wrap code blocks (wrapCodeBlocks=false → horizontal scroll on the view).
+// ---------------------------------------------------------------------------
+
+namespace {
+
+auto layoutNoWrap(const wxString& markdown, const int width) -> LaidOutDoc {
+    const FakeMeasurer measurer;
+    return layoutMarkdown(parseMarkdown(markdown), width, measurer, fakePalette(), splitHighlight, {}, /*wrapCodeBlocks=*/false);
+}
+
+[[nodiscard]] auto countCodeLines(const LaidOutDoc& doc) -> std::size_t {
+    std::size_t count = 0;
+    for (const auto& line : doc.lines) {
+        if (line.kind == LineKind::Code && !line.runs.empty()) {
+            count++;
+        }
+    }
+    return count;
+}
+
+} // namespace
+
+TEST_F(MarkdownLayoutTests, NoWrapCodeBlockEmitsOneLinePerSourceLine) {
+    // A code line wider than the layout width — wrapping would otherwise
+    // split it into multiple PaintLines. In no-wrap mode the original
+    // source line stays on a single PaintLine, runs overflow naturally,
+    // and the block's naturalWidth grows past contentWidth.
+    const auto doc = layoutNoWrap("```\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nbb\n```\n", /*width=*/120);
+    EXPECT_EQ(countCodeLines(doc), 2U);
+    ASSERT_EQ(doc.codeBlocks.size(), 1U);
+    EXPECT_FALSE(doc.codeBlocks[0].wrapped);
+    EXPECT_GT(doc.codeBlocks[0].naturalWidth, doc.codeBlocks[0].contentWidth);
+}
+
+TEST_F(MarkdownLayoutTests, NoWrapCodeBlockTagsLinesWithBlockIndex) {
+    const auto doc = layoutNoWrap("```\nhello world\n```\n", /*width=*/500);
+    ASSERT_EQ(doc.codeBlocks.size(), 1U);
+    bool sawTagged = false;
+    for (const auto& line : doc.lines) {
+        if (line.kind == LineKind::Code) {
+            EXPECT_EQ(line.blockIndex, 0);
+            sawTagged = true;
+        }
+    }
+    EXPECT_TRUE(sawTagged);
+}
+
+TEST_F(MarkdownLayoutTests, WrappedCodeBlockHasNaturalWidthEqualToContent) {
+    // The default (wrap=true) path records contentWidth as the natural
+    // width too — the view skips the scrollbar for this block.
+    const auto doc = layout("```\nshort\n```\n", /*width=*/500);
+    ASSERT_EQ(doc.codeBlocks.size(), 1U);
+    EXPECT_TRUE(doc.codeBlocks[0].wrapped);
+    EXPECT_EQ(doc.codeBlocks[0].naturalWidth, doc.codeBlocks[0].contentWidth);
+}
+
+TEST_F(MarkdownLayoutTests, NoWrapPatchBlockOverflowsNaturalWidth) {
+    const auto doc = layoutNoWrap(
+        "<<<<<<< SEARCH foo.bas\n"
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+        "=======\n"
+        "bbb\n"
+        ">>>>>>> REPLACE\n",
+        /*width=*/120
+    );
+    ASSERT_EQ(doc.patchBlocks.size(), 1U);
+    EXPECT_FALSE(doc.patchBlocks[0].wrapped);
+    EXPECT_GT(doc.patchBlocks[0].naturalWidth, doc.patchBlocks[0].contentWidth);
+    for (const auto& line : doc.lines) {
+        if (line.kind == LineKind::PatchSearch || line.kind == LineKind::PatchReplace) {
+            EXPECT_EQ(line.blockIndex, 0);
+        }
+    }
+}

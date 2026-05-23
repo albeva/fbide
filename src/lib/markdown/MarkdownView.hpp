@@ -85,6 +85,15 @@ public:
     /// system colour change.
     void refreshTheme();
 
+    /// When `true` (default), code / patch lines soft-wrap to the
+    /// available width. When `false` each source line stays on one
+    /// PaintLine and an overflowing block scrolls horizontally — a
+    /// thin scrollbar appears below each block whose content is wider
+    /// than the visible area. Affects code blocks and SEARCH/REPLACE
+    /// proposals only; prose / tables / images keep their behaviour.
+    void setWrapCodeBlocks(bool wrap);
+    [[nodiscard]] auto wrapCodeBlocks() const -> bool { return m_wrapCodeBlocks; }
+
 private:
     void onPaint(wxPaintEvent& event);
     void onSize(wxSizeEvent& event);
@@ -112,6 +121,26 @@ private:
     [[nodiscard]] static auto palette() -> MarkdownPalette;
     [[nodiscard]] auto linkAt(const wxPoint& clientPoint) const -> wxString;
 
+    /// Per-block horizontal-scroll-bar hit test. Result identifies the
+    /// block (code vs patch + index) and exposes the scrollbar geometry
+    /// so callers can compare against the thumb position. Empty when
+    /// the click misses every scrollbar.
+    struct ScrollbarTarget {
+        bool isPatch = false;
+        std::size_t blockIndex = 0;
+        int maxScroll = 0;
+        int trackX = 0;
+        int trackY = 0;
+        int trackW = 0;
+        int thumbX = 0;
+        int thumbW = 0;
+    };
+    [[nodiscard]] auto scrollbarAt(const wxPoint& clientPoint) -> std::optional<ScrollbarTarget>;
+    /// Current scroll offset for a code or patch block.
+    [[nodiscard]] auto blockScrollOffset(bool isPatch, std::size_t index) const -> int;
+    /// Clamp + write a new scroll offset. No-op when unchanged.
+    void setBlockScrollOffset(bool isPatch, std::size_t index, int offset);
+
     wxString m_markdown; ///< Source text. `setMarkdown` writes this; `relayout` reads it.
     MarkdownDocument m_document;
     std::unique_ptr<MarkdownImageCache> m_imageCache;
@@ -128,6 +157,17 @@ private:
     bool m_imageRelayoutPending = false;
     Selection m_selection;        ///< Current rendered-text selection.
     bool m_dragSelecting = false; ///< True while the left mouse button is held during a drag.
+
+    bool m_wrapCodeBlocks = true;        ///< Layout mode for code / patch blocks.
+    std::vector<int> m_codeBlockScroll;  ///< Per-codeBlocks horizontal scroll offset (px).
+    std::vector<int> m_patchBlockScroll; ///< Per-patchBlocks horizontal scroll offset (px).
+    int m_dragScrollBlockIndex = -1;     ///< Block being scroll-dragged, or -1.
+    bool m_dragScrollIsPatch = false;    ///< Drag target is a patch block (vs code).
+    int m_dragScrollStartOffset = 0;     ///< Scroll offset at drag start.
+    int m_dragScrollStartMouseX = 0;     ///< Client-x at drag start.
+    int m_hoverScrollBlockIndex = -1;    ///< Block whose scrollbar the pointer hovers, or -1.
+    bool m_hoverScrollIsPatch = false;   ///< Hover target is a patch block (vs code).
+    int m_hwheelPixelAccum = 0;          ///< Horizontal-wheel fractional carry.
 
     wxDECLARE_EVENT_TABLE();
 };

@@ -105,6 +105,12 @@ struct PaintLine {
         int x = 0; ///< Left offset of the image rect inside the bubble.
     };
     ImageContent image {};
+    /// Index into `LaidOutDoc::codeBlocks` when this line belongs to a
+    /// fenced code block, into `patchBlocks` when it belongs to a
+    /// SEARCH/REPLACE proposal, or -1 for anything else. Lets the
+    /// painter / hit-tester resolve the containing block in O(1)
+    /// without scanning the block list per line.
+    int blockIndex = -1;
 };
 
 /// A hyperlink target, referenced by `PaintRun::linkId`.
@@ -118,19 +124,30 @@ struct LinkTarget {
 /// `resolveCodeBlockText` so the laid-out doc doesn't carry a duplicate
 /// copy of every snippet.
 struct LaidCodeBlock {
-    int y = 0;      ///< Top offset within the document (includes padding).
-    int height = 0; ///< Total height including padding strips.
+    int y = 0;            ///< Top offset within the document (includes padding).
+    int height = 0;       ///< Total height including padding strips.
+    int contentLeft = 0;  ///< Left edge of the text area inside the block (document coords).
+    int contentWidth = 0; ///< Visible width of the text area — what's not scrolled is clipped to this.
+    int naturalWidth = 0; ///< Right edge of the widest run minus `contentLeft`. Equals
+                          ///< `contentWidth` when the block was laid out with wrapping
+                          ///< on; larger when wrapping is off and lines overflow.
+    bool wrapped = true;  ///< Layout-mode flag — false when the block was laid out
+                          ///< with horizontal scroll instead of soft wrap.
 };
 
 /// A laid-out SEARCH/REPLACE proposal — its region within the document
 /// plus the raw search/replace strings, so the view can place an action
 /// bar (Apply / Reject) over it and resolve the edit when applied.
 struct LaidPatchBlock {
-    wxString target;  ///< Optional target path from the SEARCH header.
-    wxString search;  ///< Verbatim SEARCH text.
-    wxString replace; ///< Verbatim REPLACE text.
-    int y = 0;        ///< Top offset within the document (includes padding).
-    int height = 0;   ///< Total height including padding strips.
+    wxString target;      ///< Optional target path from the SEARCH header.
+    wxString search;      ///< Verbatim SEARCH text.
+    wxString replace;     ///< Verbatim REPLACE text.
+    int y = 0;            ///< Top offset within the document (includes padding).
+    int height = 0;       ///< Total height including padding strips.
+    int contentLeft = 0;  ///< Left edge of the text area inside the block.
+    int contentWidth = 0; ///< Visible width of the text area.
+    int naturalWidth = 0; ///< Width of the widest line — see `LaidCodeBlock::naturalWidth`.
+    bool wrapped = true;  ///< Same meaning as `LaidCodeBlock::wrapped`.
 };
 
 /// Colours the layout and painter need that are not carried on code runs.
@@ -193,7 +210,8 @@ using ImageResolver = std::function<ImageInfo(const wxString& url)>;
     const TextMeasurer& measurer,
     const MarkdownPalette& palette,
     const CodeFenceHighlighter& highlightFence,
-    const ImageResolver& resolveImage = {}
+    const ImageResolver& resolveImage = {},
+    bool wrapCodeBlocks = true
 ) -> LaidOutDoc;
 
 } // namespace fbide::markdown

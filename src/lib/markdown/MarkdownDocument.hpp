@@ -44,7 +44,8 @@ public:
         const TextMeasurer& measurer,
         const MarkdownPalette& palette,
         const CodeFenceHighlighter& highlightFence,
-        const ImageResolver& resolveImage = {}
+        const ImageResolver& resolveImage = {},
+        bool wrapCodeBlocks = true
     ) -> bool;
 
     /// Drop the cached state — `setMarkdown` after `clear` always
@@ -60,6 +61,7 @@ private:
     wxString m_markdown;
     LaidOutDoc m_laid;
     int m_width = -1;
+    bool m_wrapCodeBlocks = true;
 };
 
 } // namespace fbide::markdown

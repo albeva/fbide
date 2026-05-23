@@ -249,6 +249,13 @@ void AiChatView::relayout() {
 
     const MarkdownPalette pal = palette();
 
+    // `markdown.wrapCodeBlocks` (true by default) controls whether code
+    // and patch lines soft-wrap or scroll horizontally. Read once per
+    // relayout — config is cheap, no need to cache it elsewhere.
+    const auto wrapOpt = m_ctx.getConfigManager().config().at("markdown.wrapCodeBlocks").as<bool>();
+    const bool wrapCodeBlocks = wrapOpt.value_or(true);
+    m_wrapCodeBlocks = wrapCodeBlocks;
+
     // A bubble may take at most kBubbleMaxFraction of the inter-margin width,
     // leaving a gutter on the opposite side.
     const int available = std::max(120, panelWidth - (2 * kMargin));
@@ -286,10 +293,14 @@ void AiChatView::relayout() {
         // Move the previous document for this slot if the role matches —
         // its (markdown, width) cache makes `setMarkdown` a no-op when
         // neither has changed (the common case while a reply streams:
-        // only the last bubble's text actually moves).
+        // only the last bubble's text actually moves). Per-block scroll
+        // state migrates with the document so a resize doesn't reset
+        // the user's horizontal scroll position.
         if (index < m_items.size() && m_items[index].fromUser == message.fromUser) {
             item.document = std::move(m_items[index].document);
             item.contentWidth = m_items[index].contentWidth;
+            item.codeBlockScroll = std::move(m_items[index].codeBlockScroll);
+            item.patchBlockScroll = std::move(m_items[index].patchBlockScroll);
         }
 
         // Reformat model replies; leave the user's own code untouched.
@@ -298,18 +309,54 @@ void AiChatView::relayout() {
             return highlightFence(code, lang, reformat);
         };
         const bool rebuilt_layout = item.document.setMarkdown(
-            message.markdown, maxContent, measurer, pal, highlight, resolveImage
+            message.markdown, maxContent, measurer, pal, highlight, resolveImage, wrapCodeBlocks
         );
         if (rebuilt_layout) {
             // Shrink the bubble to its widest line — wrapping was done
             // at maxContent, so every line already fits the shrunk width.
+            // Non-wrapped code / patch lines pay an extra right gutter
+            // (`kBlockTextGutter`) so the longest line doesn't touch
+            // the bubble edge; wrap-mode lines already break at the
+            // bubble's right gutter, so they need no extra room.
+            constexpr int kBlockTextGutter = 8; // mirrors layout's kCodePadding
             int widest = 0;
-            for (const auto& line : item.document.laid().lines) {
+            const auto& laid = item.document.laid();
+            for (const auto& line : laid.lines) {
+                int lineRight = 0;
                 for (const auto& run : line.runs) {
-                    widest = std::max(widest, run.x + run.width);
+                    lineRight = std::max(lineRight, run.x + run.width);
                 }
+                if (lineRight > 0 && line.blockIndex >= 0) {
+                    const auto idx = static_cast<std::size_t>(line.blockIndex);
+                    const bool nonWrappedCode = line.kind == LineKind::Code
+                                             && idx < laid.codeBlocks.size()
+                                             && !laid.codeBlocks.at(idx).wrapped;
+                    const bool nonWrappedPatch = (line.kind == LineKind::PatchSearch
+                                                     || line.kind == LineKind::PatchReplace)
+                                              && idx < laid.patchBlocks.size()
+                                              && !laid.patchBlocks.at(idx).wrapped;
+                    if (nonWrappedCode || nonWrappedPatch) {
+                        lineRight += kBlockTextGutter;
+                    }
+                }
+                widest = std::max(widest, lineRight);
             }
             item.contentWidth = std::clamp(widest, kMinBubbleContent, maxContent);
+        }
+
+        // Sync per-block scroll vectors to the laid doc's block counts,
+        // preserving any pre-existing offsets and clamping to the new
+        // overflow range.
+        const auto& laid = item.document.laid();
+        item.codeBlockScroll.resize(laid.codeBlocks.size(), 0);
+        item.patchBlockScroll.resize(laid.patchBlocks.size(), 0);
+        for (std::size_t i = 0; i < laid.codeBlocks.size(); i++) {
+            const int maxScroll = std::max(0, laid.codeBlocks.at(i).naturalWidth - laid.codeBlocks.at(i).contentWidth);
+            item.codeBlockScroll[i] = std::clamp(item.codeBlockScroll[i], 0, maxScroll);
+        }
+        for (std::size_t i = 0; i < laid.patchBlocks.size(); i++) {
+            const int maxScroll = std::max(0, laid.patchBlocks.at(i).naturalWidth - laid.patchBlocks.at(i).contentWidth);
+            item.patchBlockScroll[i] = std::clamp(item.patchBlockScroll[i], 0, maxScroll);
         }
 
         const int bubbleWidth = item.contentWidth + (2 * kBubblePad);
@@ -458,10 +505,97 @@ void AiChatView::paintMessage(
         const auto next = std::next(it);
         const int nextLineY = (next == laid.lines.end()) ? -1 : next->y;
         markdown::paintLineBackground(gc, line, contentLeft, lineTop, message.contentWidth, pal);
-        if (hasSelection) {
-            markdown::paintSelectionHighlight(gc, line, lineIdx, contentLeft, lineTop, message.contentWidth, nextLineY, m_selection, highlightColour, measurer);
+
+        // Code / patch lines that belong to a non-wrapped block paint
+        // their runs shifted by the block's horizontal scroll offset
+        // and clipped to the block's content rect — the bubble-wide
+        // background stays put.
+        int scrollX = 0;
+        bool clipped = false;
+        if (line.blockIndex >= 0) {
+            if (line.kind == LineKind::Code
+                && static_cast<std::size_t>(line.blockIndex) < laid.codeBlocks.size()) {
+                const auto& block = laid.codeBlocks.at(static_cast<std::size_t>(line.blockIndex));
+                if (!block.wrapped) {
+                    scrollX = message.codeBlockScroll.at(static_cast<std::size_t>(line.blockIndex));
+                    gc.SetClippingRegion(contentLeft + block.contentLeft, lineTop, block.contentWidth, line.height);
+                    clipped = true;
+                }
+            } else if ((line.kind == LineKind::PatchSearch || line.kind == LineKind::PatchReplace)
+                       && static_cast<std::size_t>(line.blockIndex) < laid.patchBlocks.size()) {
+                const auto& block = laid.patchBlocks.at(static_cast<std::size_t>(line.blockIndex));
+                if (!block.wrapped) {
+                    scrollX = message.patchBlockScroll.at(static_cast<std::size_t>(line.blockIndex));
+                    gc.SetClippingRegion(contentLeft + block.contentLeft, lineTop, block.contentWidth, line.height);
+                    clipped = true;
+                }
+            }
         }
-        markdown::paintLineText(gc, line, contentLeft, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
+
+        if (hasSelection) {
+            markdown::paintSelectionHighlight(gc, line, lineIdx, contentLeft - scrollX, lineTop, message.contentWidth, nextLineY, m_selection, highlightColour, measurer);
+        }
+        markdown::paintLineText(gc, line, contentLeft - scrollX, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
+
+        if (clipped) {
+            gc.DestroyClippingRegion();
+        }
+    }
+
+    // Scrollbar pass — one thin track + thumb per overflowing
+    // non-wrapped code / patch block, sitting on top of the block's
+    // bottom padding strip. The track stretches edge-to-edge across
+    // the bubble's content rect (independent of the block's text-only
+    // inner padding); the thumb's size and position still derive from
+    // block content vs. natural width. Skipped entirely when wrap is on.
+    constexpr int kScrollbarHeight = 6;
+    constexpr int kScrollbarMinThumb = 24;
+    constexpr unsigned char kScrollbarTrackAlpha = 60;
+    constexpr unsigned char kScrollbarThumbAlpha = 160;
+    constexpr unsigned char kScrollbarThumbActiveAlpha = 220;
+    const bool dragActive = std::cmp_equal(m_dragScrollMessageIndex, messageIndex);
+    const bool hoverActive = std::cmp_equal(m_hoverScrollMessageIndex, messageIndex);
+    const auto drawScrollbar = [&](const int blockY,
+                                   const int blockHeight,
+                                   const int blockContentWidth,
+                                   const int blockNaturalWidth,
+                                   const int scroll,
+                                   const bool active) {
+        if (blockNaturalWidth <= blockContentWidth) {
+            return;
+        }
+        const int trackX = contentLeft;
+        const int trackY = contentTop + blockY + blockHeight - kScrollbarHeight;
+        const int trackW = message.contentWidth;
+        const double ratio = static_cast<double>(blockContentWidth) / static_cast<double>(blockNaturalWidth);
+        const int thumbW = std::max(kScrollbarMinThumb, static_cast<int>(trackW * ratio));
+        const int maxScroll = blockNaturalWidth - blockContentWidth;
+        const int travel = std::max(0, trackW - thumbW);
+        const int thumbX = trackX + (maxScroll > 0 ? (scroll * travel / maxScroll) : 0);
+        const unsigned char thumbAlpha = active ? kScrollbarThumbActiveAlpha : kScrollbarThumbAlpha;
+        gc.SetPen(*wxTRANSPARENT_PEN);
+        gc.SetBrush(wxBrush(wxColour(pal.text.Red(), pal.text.Green(), pal.text.Blue(), kScrollbarTrackAlpha)));
+        gc.DrawRectangle(trackX, trackY, trackW, kScrollbarHeight);
+        gc.SetBrush(wxBrush(wxColour(pal.text.Red(), pal.text.Green(), pal.text.Blue(), thumbAlpha)));
+        gc.DrawRectangle(thumbX, trackY, thumbW, kScrollbarHeight);
+    };
+    for (std::size_t i = 0; i < laid.codeBlocks.size(); i++) {
+        const auto& block = laid.codeBlocks.at(i);
+        if (block.wrapped) {
+            continue;
+        }
+        const bool active = (dragActive && !m_dragScrollIsPatch && m_dragScrollBlockIndex == i)
+                         || (hoverActive && !m_hoverScrollIsPatch && m_hoverScrollBlockIndex == i);
+        drawScrollbar(block.y, block.height, block.contentWidth, block.naturalWidth, message.codeBlockScroll.at(i), active);
+    }
+    for (std::size_t i = 0; i < laid.patchBlocks.size(); i++) {
+        const auto& block = laid.patchBlocks.at(i);
+        if (block.wrapped) {
+            continue;
+        }
+        const bool active = (dragActive && m_dragScrollIsPatch && m_dragScrollBlockIndex == i)
+                         || (hoverActive && m_hoverScrollIsPatch && m_hoverScrollBlockIndex == i);
+        drawScrollbar(block.y, block.height, block.contentWidth, block.naturalWidth, message.patchBlockScroll.at(i), active);
     }
 
     // Overlay applied SEARCH/REPLACE proposals with a translucent veil so
@@ -709,10 +843,58 @@ void AiChatView::hideActionBar() {
 }
 
 void AiChatView::onMouseWheel(wxMouseEvent& event) {
-    // Vertical wheel only — horizontal events fall through to default.
+    // Horizontal trackpad swipe — route directly to the overflowing
+    // block under the pointer. Uses the same fractional accumulator
+    // trick as vertical scroll so macOS trackpad momentum tails don't
+    // get rounded away.
+    if (event.GetWheelAxis() == wxMOUSE_WHEEL_HORIZONTAL) {
+        const int wheelDelta = event.GetWheelDelta();
+        if (wheelDelta <= 0) {
+            event.Skip();
+            return;
+        }
+        if (const auto target = overflowingBlockAt(event.GetPosition())) {
+            constexpr int kHorizPxPerNotch = 60;
+            constexpr int kDamperNum = 9;
+            constexpr int kDamperDen = 10;
+            const int divisor = wheelDelta * kDamperDen;
+            m_hwheelPixelAccum += event.GetWheelRotation() * kHorizPxPerNotch * kDamperNum;
+            const int pixels = m_hwheelPixelAccum / divisor;
+            m_hwheelPixelAccum -= pixels * divisor;
+            if (pixels == 0) {
+                return;
+            }
+            const auto& item = m_items.at(target->messageIndex);
+            const int current = target->isPatch
+                                  ? item.patchBlockScroll.at(target->blockIndex)
+                                  : item.codeBlockScroll.at(target->blockIndex);
+            // Positive rotation = swipe / wheel-tilt right → reveal
+            // content to the right → increase scrollOffset.
+            setBlockScrollOffset(target->messageIndex, target->isPatch, target->blockIndex, current + pixels);
+            return;
+        }
+        event.Skip();
+        return;
+    }
+    // Vertical wheel only past here — horizontal already handled above.
     if (event.GetWheelAxis() != wxMOUSE_WHEEL_VERTICAL) {
         event.Skip();
         return;
+    }
+    // Shift + vertical wheel over an overflowing non-wrapped code /
+    // patch block scrolls that block horizontally instead of the
+    // conversation — mirrors the browser convention. Plain wheel
+    // keeps its conversation-scroll behaviour even over a block.
+    if (event.ShiftDown()) {
+        if (const auto target = overflowingBlockAt(event.GetPosition())) {
+            constexpr int kScrollbarWheelStep = 40;
+            const int rotation = event.GetWheelRotation();
+            const int delta = (rotation > 0 ? -1 : 1) * kScrollbarWheelStep;
+            const auto& item = m_items.at(target->messageIndex);
+            const int current = target->isPatch ? item.patchBlockScroll.at(target->blockIndex) : item.codeBlockScroll.at(target->blockIndex);
+            setBlockScrollOffset(target->messageIndex, target->isPatch, target->blockIndex, current + delta);
+            return;
+        }
     }
 
     // Rotation-to-pixels with a fractional accumulator. The default
@@ -748,6 +930,122 @@ void AiChatView::onMouseWheel(wxMouseEvent& event) {
     Scroll(viewX, std::max(0, viewY - pixels));
 }
 
+void AiChatView::setBlockScrollOffset(const std::size_t messageIndex, const bool isPatch, const std::size_t index, const int offset) {
+    if (messageIndex >= m_items.size()) {
+        return;
+    }
+    auto& item = m_items.at(messageIndex);
+    auto& vec = isPatch ? item.patchBlockScroll : item.codeBlockScroll;
+    if (index >= vec.size()) {
+        return;
+    }
+    const auto& laid = item.document.laid();
+    const int naturalWidth = isPatch ? laid.patchBlocks.at(index).naturalWidth : laid.codeBlocks.at(index).naturalWidth;
+    const int contentWidth = isPatch ? laid.patchBlocks.at(index).contentWidth : laid.codeBlocks.at(index).contentWidth;
+    const int maxScroll = std::max(0, naturalWidth - contentWidth);
+    const int clamped = std::clamp(offset, 0, maxScroll);
+    if (vec.at(index) == clamped) {
+        return;
+    }
+    vec.at(index) = clamped;
+    Refresh();
+}
+
+auto AiChatView::scrollbarAt(const wxPoint& clientPoint) -> std::optional<ScrollbarTarget> {
+    // Scrollbar geometry mirrors what paintMessage draws — 6px high
+    // track at the bottom of each overflowing non-wrapped block; the
+    // thumb width / position is proportional to contentWidth /
+    // naturalWidth and the current scroll offset.
+    constexpr int kScrollbarHeight = 6;
+    constexpr int kScrollbarMinThumb = 24;
+    const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
+
+    const auto check = [&](const std::size_t messageIndex, const auto& blocks, const std::vector<int>& scrolls, const bool isPatch) -> std::optional<ScrollbarTarget> {
+        const auto& item = m_items.at(messageIndex);
+        const int contentLeftPx = item.bubble.x + kBubblePad;
+        const int contentTopPx = item.bubble.y + kBubblePad - originY;
+        for (std::size_t i = 0; i < blocks.size(); i++) {
+            const auto& block = blocks.at(i);
+            if (block.wrapped || block.naturalWidth <= block.contentWidth) {
+                continue;
+            }
+            // Track stretches edge-to-edge across the bubble interior —
+            // matches what `paintMessage` draws.
+            const int trackX = contentLeftPx;
+            const int trackY = contentTopPx + block.y + block.height - kScrollbarHeight;
+            const int trackW = item.contentWidth;
+            if (clientPoint.y < trackY || clientPoint.y >= trackY + kScrollbarHeight) {
+                continue;
+            }
+            if (clientPoint.x < trackX || clientPoint.x >= trackX + trackW) {
+                continue;
+            }
+            const double ratio = static_cast<double>(block.contentWidth) / static_cast<double>(block.naturalWidth);
+            const int thumbW = std::max(kScrollbarMinThumb, static_cast<int>(trackW * ratio));
+            const int maxScroll = block.naturalWidth - block.contentWidth;
+            const int travel = std::max(0, trackW - thumbW);
+            const int thumbX = trackX + (maxScroll > 0 ? (scrolls.at(i) * travel / maxScroll) : 0);
+            return ScrollbarTarget {
+                .messageIndex = messageIndex,
+                .isPatch = isPatch,
+                .blockIndex = i,
+                .maxScroll = maxScroll,
+                .trackX = trackX,
+                .trackY = trackY,
+                .trackW = trackW,
+                .thumbX = thumbX,
+                .thumbW = thumbW,
+            };
+        }
+        return std::nullopt;
+    };
+    for (std::size_t mi = 0; mi < m_items.size(); mi++) {
+        const auto& laid = m_items.at(mi).document.laid();
+        if (auto hit = check(mi, laid.codeBlocks, m_items.at(mi).codeBlockScroll, /*isPatch=*/false)) {
+            return hit;
+        }
+        if (auto hit = check(mi, laid.patchBlocks, m_items.at(mi).patchBlockScroll, /*isPatch=*/true)) {
+            return hit;
+        }
+    }
+    return std::nullopt;
+}
+
+auto AiChatView::overflowingBlockAt(const wxPoint& clientPoint) -> std::optional<BlockTarget> {
+    const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
+    for (std::size_t mi = 0; mi < m_items.size(); mi++) {
+        const auto& item = m_items.at(mi);
+        const int contentLeftPx = item.bubble.x + kBubblePad;
+        const int contentTopPx = item.bubble.y + kBubblePad - originY;
+        const auto& laid = item.document.laid();
+        const auto check = [&](const auto& blocks, const bool isPatch) -> std::optional<BlockTarget> {
+            for (std::size_t i = 0; i < blocks.size(); i++) {
+                const auto& block = blocks.at(i);
+                if (block.wrapped || block.naturalWidth <= block.contentWidth) {
+                    continue;
+                }
+                const int blockTopPx = contentTopPx + block.y;
+                if (clientPoint.y < blockTopPx || clientPoint.y >= blockTopPx + block.height) {
+                    continue;
+                }
+                const int leftPx = contentLeftPx + block.contentLeft;
+                if (clientPoint.x < leftPx || clientPoint.x >= leftPx + block.contentWidth) {
+                    continue;
+                }
+                return BlockTarget { .messageIndex = mi, .isPatch = isPatch, .blockIndex = i };
+            }
+            return std::nullopt;
+        };
+        if (auto hit = check(laid.codeBlocks, /*isPatch=*/false)) {
+            return hit;
+        }
+        if (auto hit = check(laid.patchBlocks, /*isPatch=*/true)) {
+            return hit;
+        }
+    }
+    return std::nullopt;
+}
+
 auto AiChatView::hitTestBubble(const wxPoint& clientPoint) -> std::pair<int, SelectionPosition> {
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
     const wxPoint docPoint(clientPoint.x, clientPoint.y + originY);
@@ -767,7 +1065,7 @@ auto AiChatView::hitTestInBubble(const std::size_t messageIndex, const wxPoint& 
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
     const int contentLeft = item.bubble.x + kBubblePad;
     const int contentTop = item.bubble.y + kBubblePad - originY;
-    const int relX = clientPoint.x - contentLeft;
+    int relX = clientPoint.x - contentLeft;
     const int relY = clientPoint.y - contentTop;
     const auto& laid = item.document.laid();
     if (laid.lines.empty()) {
@@ -783,6 +1081,24 @@ auto AiChatView::hitTestInBubble(const std::size_t messageIndex, const wxPoint& 
             lineIdx = i;
         } else {
             break;
+        }
+    }
+    // Add the block's horizontal scroll offset so per-character hit
+    // testing on the shifted line lands on the visible character.
+    const auto& targetLine = laid.lines.at(lineIdx);
+    if (targetLine.blockIndex >= 0) {
+        if (targetLine.kind == LineKind::Code
+            && static_cast<std::size_t>(targetLine.blockIndex) < laid.codeBlocks.size()) {
+            const auto& block = laid.codeBlocks.at(static_cast<std::size_t>(targetLine.blockIndex));
+            if (!block.wrapped) {
+                relX += item.codeBlockScroll.at(static_cast<std::size_t>(targetLine.blockIndex));
+            }
+        } else if ((targetLine.kind == LineKind::PatchSearch || targetLine.kind == LineKind::PatchReplace)
+                   && static_cast<std::size_t>(targetLine.blockIndex) < laid.patchBlocks.size()) {
+            const auto& block = laid.patchBlocks.at(static_cast<std::size_t>(targetLine.blockIndex));
+            if (!block.wrapped) {
+                relX += item.patchBlockScroll.at(static_cast<std::size_t>(targetLine.blockIndex));
+            }
         }
     }
     const wxClientDC clientDc(this);
@@ -820,12 +1136,67 @@ void AiChatView::copySelectionToClipboard() {
 void AiChatView::onMotion(wxMouseEvent& event) {
     const wxPoint pos = event.GetPosition();
 
+    // Scrollbar-thumb drag — translate pointer travel back into block
+    // coordinates and update the offset. Runs ahead of every other
+    // motion handler so a drag started on a track keeps tracking even
+    // when the pointer leaves the track.
+    if (m_dragScrollMessageIndex >= 0 && event.LeftIsDown()) {
+        const std::size_t mi = static_cast<std::size_t>(m_dragScrollMessageIndex);
+        if (mi < m_items.size()) {
+            const auto& item = m_items.at(mi);
+            const auto& laid = item.document.laid();
+            const std::size_t idx = m_dragScrollBlockIndex;
+            const bool isPatch = m_dragScrollIsPatch;
+            const int naturalWidth = isPatch ? laid.patchBlocks.at(idx).naturalWidth : laid.codeBlocks.at(idx).naturalWidth;
+            const int contentWidth = isPatch ? laid.patchBlocks.at(idx).contentWidth : laid.codeBlocks.at(idx).contentWidth;
+            const int maxScroll = std::max(0, naturalWidth - contentWidth);
+            if (maxScroll > 0) {
+                const double ratio = static_cast<double>(contentWidth) / static_cast<double>(naturalWidth);
+                const int trackW = contentWidth;
+                const int thumbW = std::max(24, static_cast<int>(trackW * ratio));
+                const int travel = std::max(1, trackW - thumbW);
+                const int deltaPx = pos.x - m_dragScrollStartMouseX;
+                const int newOffset = m_dragScrollStartOffset + (deltaPx * maxScroll / travel);
+                setBlockScrollOffset(mi, isPatch, idx, newOffset);
+            }
+        }
+        event.Skip();
+        return;
+    }
+
     // While drag-selecting, hijack the cursor and skip the action-bar
     // hover logic — the user is clearly selecting, not hovering for
     // the toolbar.
     if (m_dragSelecting && event.LeftIsDown() && m_selectionMessage >= 0) {
         m_selection.caret = hitTestInBubble(static_cast<std::size_t>(m_selectionMessage), pos);
         Refresh();
+        event.Skip();
+        return;
+    }
+
+    // Scrollbar hover — sample once and update the cached state.
+    // Repaint when it changes so the thumb's alpha follows the
+    // pointer. Cursor becomes a plain arrow over the track so the
+    // I-beam doesn't suggest text selection there.
+    const auto sbHit = scrollbarAt(pos);
+    const int prevHoverMsg = m_hoverScrollMessageIndex;
+    const bool prevHoverPatch = m_hoverScrollIsPatch;
+    const std::size_t prevHoverBlock = m_hoverScrollBlockIndex;
+    if (sbHit) {
+        m_hoverScrollMessageIndex = static_cast<int>(sbHit->messageIndex);
+        m_hoverScrollIsPatch = sbHit->isPatch;
+        m_hoverScrollBlockIndex = sbHit->blockIndex;
+    } else {
+        m_hoverScrollMessageIndex = -1;
+    }
+    const bool hoverChanged = (prevHoverMsg != m_hoverScrollMessageIndex)
+                           || (m_hoverScrollMessageIndex >= 0
+                               && (prevHoverPatch != m_hoverScrollIsPatch || prevHoverBlock != m_hoverScrollBlockIndex));
+    if (hoverChanged) {
+        Refresh();
+    }
+    if (sbHit) {
+        SetCursor(wxCursor(wxCURSOR_ARROW));
         event.Skip();
         return;
     }
@@ -868,6 +1239,33 @@ void AiChatView::onMotion(wxMouseEvent& event) {
 
 void AiChatView::onLeftDown(wxMouseEvent& event) {
     const wxPoint pos = event.GetPosition();
+
+    // Scrollbar click — starts a drag and (on a track-not-thumb click)
+    // jumps the thumb so the click point centres it. Suppresses both
+    // link activation and selection so users can scrub the bar without
+    // selecting any text under it.
+    if (const auto hit = scrollbarAt(pos)) {
+        const bool onThumb = pos.x >= hit->thumbX && pos.x < hit->thumbX + hit->thumbW;
+        if (!onThumb && hit->maxScroll > 0) {
+            const int travel = std::max(1, hit->trackW - hit->thumbW);
+            const int newThumbX = std::clamp(pos.x - (hit->thumbW / 2),
+                hit->trackX,
+                hit->trackX + travel);
+            const int jumpOffset = (newThumbX - hit->trackX) * hit->maxScroll / travel;
+            setBlockScrollOffset(hit->messageIndex, hit->isPatch, hit->blockIndex, jumpOffset);
+        }
+        m_dragScrollMessageIndex = static_cast<int>(hit->messageIndex);
+        m_dragScrollIsPatch = hit->isPatch;
+        m_dragScrollBlockIndex = hit->blockIndex;
+        const auto& updated = m_items.at(hit->messageIndex);
+        m_dragScrollStartOffset = hit->isPatch ? updated.patchBlockScroll.at(hit->blockIndex) : updated.codeBlockScroll.at(hit->blockIndex);
+        m_dragScrollStartMouseX = pos.x;
+        if (!HasCapture()) {
+            CaptureMouse();
+        }
+        return;
+    }
+
     const wxString url = linkAt(pos);
     if (!url.empty()) {
         wxLaunchDefaultBrowser(url);
@@ -898,6 +1296,14 @@ void AiChatView::onLeftDown(wxMouseEvent& event) {
 }
 
 void AiChatView::onLeftUp(wxMouseEvent& event) {
+    if (m_dragScrollMessageIndex >= 0) {
+        m_dragScrollMessageIndex = -1;
+        if (HasCapture()) {
+            ReleaseMouse();
+        }
+        event.Skip();
+        return;
+    }
     if (m_dragSelecting) {
         if (m_selectionMessage >= 0) {
             m_selection.caret = hitTestInBubble(static_cast<std::size_t>(m_selectionMessage), event.GetPosition());
@@ -980,6 +1386,12 @@ void AiChatView::onLeaveWindow(wxMouseEvent& event) {
         if (!barRect.Contains(wxGetMousePosition())) {
             hideActionBar();
         }
+    }
+    // Drop scrollbar hover highlight when pointer leaves the window
+    // entirely so the active-thumb tint doesn't linger.
+    if (m_hoverScrollMessageIndex >= 0) {
+        m_hoverScrollMessageIndex = -1;
+        Refresh();
     }
     event.Skip();
 }

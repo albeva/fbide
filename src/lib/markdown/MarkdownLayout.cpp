@@ -171,6 +171,7 @@ struct Engine {
     const MarkdownPalette& m_palette;
     const CodeFenceHighlighter& m_highlightFence;
     const ImageResolver& m_resolveImage;
+    const bool m_wrapCodeBlocks;
 
     LaidOutDoc m_out {};
     int m_yPos = 0; ///< Running vertical cursor.
@@ -181,14 +182,16 @@ struct Engine {
         const TextMeasurer& measurer,
         const MarkdownPalette& palette,
         const CodeFenceHighlighter& highlightFence,
-        const ImageResolver& resolveImage
+        const ImageResolver& resolveImage,
+        const bool wrapCodeBlocks
     )
     : m_doc(doc)
     , m_width(width)
     , m_measurer(measurer)
     , m_palette(palette)
     , m_highlightFence(highlightFence)
-    , m_resolveImage(resolveImage) {}
+    , m_resolveImage(resolveImage)
+    , m_wrapCodeBlocks(wrapCodeBlocks) {}
 
     /// Insert the inter-block gap (skipped before the first block).
     void blockGap() {
@@ -452,7 +455,8 @@ struct Engine {
         const int lineHeight,
         const int charWidth,
         const int quoteDepth,
-        const bool themed
+        const bool themed,
+        const bool noWrap = false
     ) {
         PaintLine line;
         line.kind = kind;
@@ -461,6 +465,34 @@ struct Engine {
         line.quoteDepth = quoteDepth;
         int fx = firstX;
         bool lineEmpty = true;
+
+        // No-wrap mode: every source line stays on one PaintLine, runs
+        // measured at their natural widths and laid out left-to-right
+        // past the right edge. Horizontal scroll on the view side
+        // re-presents the overflow.
+        if (noWrap) {
+            for (const auto& codeRun : codeLine) {
+                if (codeRun.text.empty()) {
+                    continue;
+                }
+                const TextStyle style { .bold = codeRun.bold,
+                    .italic = codeRun.italic,
+                    .underline = codeRun.underlined,
+                    .monospace = true,
+                    .themed = themed };
+                const int width = m_measurer.width(codeRun.text, style);
+                line.runs.push_back({ .text = codeRun.text,
+                    .style = style,
+                    .colour = codeRun.colour,
+                    .x = fx,
+                    .width = width,
+                    .linkId = -1 });
+                fx += width;
+            }
+            m_out.lines.push_back(std::move(line));
+            m_yPos += lineHeight;
+            return;
+        }
 
         const auto wrap = [&] {
             m_out.lines.push_back(std::move(line));
@@ -534,6 +566,9 @@ struct Engine {
         const int codeLeft = left + kCodePadding;
         const int rightEdge = std::max(codeLeft + charWidth, m_width - kCodePadding);
         const int contX = codeLeft + (kCodeWrapIndent * charWidth);
+        const int contentWidth = rightEdge - codeLeft;
+        const std::size_t blockIndex = m_out.codeBlocks.size();
+        const std::size_t lineStart = m_out.lines.size();
 
         // Top padding strip — an empty Code line the painter fills with the
         // code background.
@@ -547,7 +582,8 @@ struct Engine {
         for (const auto& codeLine : codeLines) {
             emitCodeLine(
                 codeLine, LineKind::Code, codeLeft, contX, rightEdge,
-                lineHeight, charWidth, block.quoteDepth, themed
+                lineHeight, charWidth, block.quoteDepth, themed,
+                /*noWrap=*/!m_wrapCodeBlocks
             );
         }
 
@@ -558,7 +594,27 @@ struct Engine {
             .runs = {} });
         m_yPos += kCodePadding;
 
-        m_out.codeBlocks.push_back({ .y = blockTop, .height = m_yPos - blockTop });
+        // Tag every line we just emitted with the block index, and
+        // compute the block's natural width as the max right edge of
+        // any run minus the block's left content edge.
+        int naturalWidth = contentWidth;
+        for (std::size_t li = lineStart; li < m_out.lines.size(); li++) {
+            auto& line = m_out.lines.at(li);
+            line.blockIndex = static_cast<int>(blockIndex);
+            for (const auto& run : line.runs) {
+                const int rightX = run.x + run.width - codeLeft;
+                if (rightX > naturalWidth) {
+                    naturalWidth = rightX;
+                }
+            }
+        }
+
+        m_out.codeBlocks.push_back({ .y = blockTop,
+            .height = m_yPos - blockTop,
+            .contentLeft = codeLeft,
+            .contentWidth = contentWidth,
+            .naturalWidth = naturalWidth,
+            .wrapped = m_wrapCodeBlocks });
     }
 
     /// Split `text` (verbatim, '\n'-separated) into one CodeLine per source
@@ -605,6 +661,9 @@ struct Engine {
         const int codeLeft = left + kCodePadding;
         const int rightEdge = std::max(codeLeft + charWidth, m_width - kCodePadding);
         const int contX = codeLeft + (kCodeWrapIndent * charWidth);
+        const int contentWidth = rightEdge - codeLeft;
+        const std::size_t blockIndex = m_out.patchBlocks.size();
+        const std::size_t lineStart = m_out.lines.size();
 
         const auto emitStrip = [&](const wxString& text, const LineKind kind) {
             m_out.lines.push_back({ .kind = kind,
@@ -616,7 +675,8 @@ struct Engine {
             for (const auto& codeLine : toCodeLines(text, m_palette.patchFg)) {
                 emitCodeLine(
                     codeLine, kind, codeLeft, contX, rightEdge,
-                    lineHeight, charWidth, block.quoteDepth, false
+                    lineHeight, charWidth, block.quoteDepth, false,
+                    /*noWrap=*/!m_wrapCodeBlocks
                 );
             }
             m_out.lines.push_back({ .kind = kind,
@@ -630,11 +690,28 @@ struct Engine {
         emitStrip(block.patchSearch, LineKind::PatchSearch);
         emitStrip(block.patchReplace, LineKind::PatchReplace);
 
+        // Tag every emitted line and compute natural width.
+        int naturalWidth = contentWidth;
+        for (std::size_t li = lineStart; li < m_out.lines.size(); li++) {
+            auto& line = m_out.lines.at(li);
+            line.blockIndex = static_cast<int>(blockIndex);
+            for (const auto& run : line.runs) {
+                const int rightX = run.x + run.width - codeLeft;
+                if (rightX > naturalWidth) {
+                    naturalWidth = rightX;
+                }
+            }
+        }
+
         m_out.patchBlocks.push_back({ .target = block.patchTarget,
             .search = block.patchSearch,
             .replace = block.patchReplace,
             .y = blockTop,
-            .height = m_yPos - blockTop });
+            .height = m_yPos - blockTop,
+            .contentLeft = codeLeft,
+            .contentWidth = contentWidth,
+            .naturalWidth = naturalWidth,
+            .wrapped = m_wrapCodeBlocks });
     }
 
     /// Emit a horizontal rule line.
@@ -943,7 +1020,8 @@ auto fbide::markdown::layoutMarkdown(
     const TextMeasurer& measurer,
     const MarkdownPalette& palette,
     const CodeFenceHighlighter& highlightFence,
-    const ImageResolver& resolveImage
+    const ImageResolver& resolveImage,
+    const bool wrapCodeBlocks
 ) -> LaidOutDoc {
     Engine engine {
         doc,
@@ -951,7 +1029,8 @@ auto fbide::markdown::layoutMarkdown(
         measurer,
         palette,
         highlightFence,
-        resolveImage
+        resolveImage,
+        wrapCodeBlocks
     };
     engine.run();
     return std::move(engine.m_out);

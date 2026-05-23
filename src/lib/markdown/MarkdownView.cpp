@@ -37,6 +37,16 @@ constexpr unsigned char kPatchGreenR = 80;
 constexpr unsigned char kPatchGreenG = 180;
 constexpr unsigned char kPatchGreenB = 80;
 
+// Per-block horizontal scrollbar — drawn at the bottom of an
+// overflowing code or patch block when `wrapCodeBlocks = false`.
+constexpr int kScrollbarHeight = 6;    ///< Track height in pixels.
+constexpr int kScrollbarMinThumb = 24; ///< Floor so a tiny thumb stays grabbable.
+constexpr unsigned char kScrollbarTrackAlpha = 60;
+constexpr unsigned char kScrollbarThumbAlpha = 160;
+constexpr unsigned char kScrollbarThumbActiveAlpha = 220;
+constexpr int kScrollbarWheelStep = 40; ///< Pixels per shift-wheel notch.
+constexpr int kHorizPxPerNotch = 60;    ///< Pixels per trackpad horizontal notch (with damper).
+
 /// Linear blend of two colours — `t` of 0 yields `a`, 1 yields `b`.
 auto blend(const wxColour& aColour, const wxColour& bColour, const double tee) -> wxColour {
     const auto mix = [tee](const unsigned char from, const unsigned char to) {
@@ -120,6 +130,16 @@ MarkdownView::MarkdownView(wxWindow* parent, const wxWindowID winid)
     SetScrollRate(0, 1);
     installImageCacheListener();
     resolveFonts();
+    // Drop scrollbar hover when the pointer leaves so the active-thumb
+    // tint doesn't linger. Bound here instead of in the static event
+    // table because this is the only leave-window handler the view needs.
+    Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent& event) {
+        if (m_hoverScrollBlockIndex >= 0) {
+            m_hoverScrollBlockIndex = -1;
+            Refresh();
+        }
+        event.Skip();
+    });
 }
 
 MarkdownView::~MarkdownView() = default;
@@ -166,6 +186,20 @@ void MarkdownView::installImageCacheListener() {
             Refresh();
         });
     });
+}
+
+void MarkdownView::setWrapCodeBlocks(const bool wrap) {
+    if (wrap == m_wrapCodeBlocks) {
+        return;
+    }
+    m_wrapCodeBlocks = wrap;
+    // Wrap mode is a layout-time decision — drop the cached layout so
+    // the next relayout walks the source again.
+    m_document.clear();
+    m_codeBlockScroll.clear();
+    m_patchBlockScroll.clear();
+    relayout();
+    Refresh();
 }
 
 void MarkdownView::refreshTheme() {
@@ -272,7 +306,25 @@ void MarkdownView::relayout() {
         return info;
     };
 
-    m_document.setMarkdown(m_markdown, contentWidth, measurer, palette(), m_highlighter, resolveImage);
+    m_document.setMarkdown(m_markdown, contentWidth, measurer, palette(), m_highlighter, resolveImage, m_wrapCodeBlocks);
+
+    // Resize the per-block scroll vectors to match the new layout.
+    // When the block count is unchanged the previous offsets carry
+    // over (clamped if the natural width shrank); when it changes the
+    // tail / head defaults to zero.
+    const auto& laid = m_document.laid();
+    m_codeBlockScroll.resize(laid.codeBlocks.size(), 0);
+    m_patchBlockScroll.resize(laid.patchBlocks.size(), 0);
+    for (std::size_t i = 0; i < laid.codeBlocks.size(); i++) {
+        const auto& block = laid.codeBlocks.at(i);
+        const int maxScroll = std::max(0, block.naturalWidth - block.contentWidth);
+        m_codeBlockScroll[i] = std::clamp(m_codeBlockScroll[i], 0, maxScroll);
+    }
+    for (std::size_t i = 0; i < laid.patchBlocks.size(); i++) {
+        const auto& block = laid.patchBlocks.at(i);
+        const int maxScroll = std::max(0, block.naturalWidth - block.contentWidth);
+        m_patchBlockScroll[i] = std::clamp(m_patchBlockScroll[i], 0, maxScroll);
+    }
 
     const int totalHeight = m_document.height() + (2 * kPadding);
     SetVirtualSize(panelWidth, totalHeight);
@@ -342,13 +394,179 @@ void MarkdownView::onPaint(wxPaintEvent& /*event*/) {
             const auto next = std::next(it);
             const int nextLineY = (next == laid.lines.end()) ? -1 : next->y;
             markdown::paintLineBackground(gc, line, contentLeft, lineTop, contentWidth, pal);
-            markdown::paintSelectionHighlight(gc, line, lineIdx, contentLeft, lineTop, contentWidth, nextLineY, m_selection, highlightColour, measurer);
-            markdown::paintLineText(gc, line, contentLeft, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
+
+            // Code / patch lines belonging to a non-wrapped block paint
+            // their text inside the block's content rect, shifted left
+            // by the block's scroll offset. The clip stops the shifted
+            // text from drawing under the bubble padding to either
+            // side; the background was painted full-width above so
+            // there's no gap.
+            int scrollX = 0;
+            bool clipped = false;
+            if (line.blockIndex >= 0) {
+                if (line.kind == LineKind::Code
+                    && static_cast<std::size_t>(line.blockIndex) < laid.codeBlocks.size()) {
+                    const auto& block = laid.codeBlocks.at(static_cast<std::size_t>(line.blockIndex));
+                    if (!block.wrapped) {
+                        scrollX = m_codeBlockScroll.at(static_cast<std::size_t>(line.blockIndex));
+                        gc.SetClippingRegion(contentLeft + block.contentLeft, lineTop, block.contentWidth, line.height);
+                        clipped = true;
+                    }
+                } else if ((line.kind == LineKind::PatchSearch || line.kind == LineKind::PatchReplace)
+                           && static_cast<std::size_t>(line.blockIndex) < laid.patchBlocks.size()) {
+                    const auto& block = laid.patchBlocks.at(static_cast<std::size_t>(line.blockIndex));
+                    if (!block.wrapped) {
+                        scrollX = m_patchBlockScroll.at(static_cast<std::size_t>(line.blockIndex));
+                        gc.SetClippingRegion(contentLeft + block.contentLeft, lineTop, block.contentWidth, line.height);
+                        clipped = true;
+                    }
+                }
+            }
+
+            markdown::paintSelectionHighlight(gc, line, lineIdx, contentLeft - scrollX, lineTop, contentWidth, nextLineY, m_selection, highlightColour, measurer);
+            markdown::paintLineText(gc, line, contentLeft - scrollX, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
+
+            if (clipped) {
+                gc.DestroyClippingRegion();
+                // PaintRunState caches the DC's current font/colour, but
+                // the clip change above didn't touch those. Leave the
+                // state intact so adjacent same-style runs still skip
+                // the redundant SetFont calls.
+            }
+        }
+
+        // Scrollbar pass — drawn after the line content so the thumb /
+        // track sit on top of the bottom padding strip of each block
+        // they belong to. Track stretches edge-to-edge across the
+        // panel content rect; thumb shows the active highlight when
+        // hovered or being dragged. Visible only when the block
+        // overflows.
+        const auto drawScrollbar = [&](const int blockTopPx,
+                                       const int blockHeight,
+                                       const int blockContentWidth,
+                                       const int blockNaturalWidth,
+                                       const int scroll,
+                                       const bool active) {
+            if (blockNaturalWidth <= blockContentWidth) {
+                return;
+            }
+            const int trackX = contentLeft;
+            const int trackY = blockTopPx + blockHeight - kScrollbarHeight;
+            const int trackW = contentWidth;
+            const double ratio = static_cast<double>(blockContentWidth) / static_cast<double>(blockNaturalWidth);
+            const int thumbW = std::max(kScrollbarMinThumb, static_cast<int>(trackW * ratio));
+            const int maxScroll = blockNaturalWidth - blockContentWidth;
+            const int travel = std::max(0, trackW - thumbW);
+            const int thumbX = trackX + (maxScroll > 0 ? (scroll * travel / maxScroll) : 0);
+            const unsigned char thumbAlpha = active ? kScrollbarThumbActiveAlpha : kScrollbarThumbAlpha;
+            gc.SetPen(*wxTRANSPARENT_PEN);
+            gc.SetBrush(wxBrush(wxColour(pal.text.Red(), pal.text.Green(), pal.text.Blue(), kScrollbarTrackAlpha)));
+            gc.DrawRectangle(trackX, trackY, trackW, kScrollbarHeight);
+            gc.SetBrush(wxBrush(wxColour(pal.text.Red(), pal.text.Green(), pal.text.Blue(), thumbAlpha)));
+            gc.DrawRectangle(thumbX, trackY, thumbW, kScrollbarHeight);
+        };
+        for (std::size_t i = 0; i < laid.codeBlocks.size(); i++) {
+            const auto& block = laid.codeBlocks.at(i);
+            if (block.wrapped) {
+                continue;
+            }
+            const int blockTopPx = contentTop + block.y;
+            if (blockTopPx + block.height < update.y || blockTopPx > update.y + update.height) {
+                continue;
+            }
+            const bool active = (m_dragScrollBlockIndex >= 0 && !m_dragScrollIsPatch
+                                    && static_cast<std::size_t>(m_dragScrollBlockIndex) == i)
+                             || (m_hoverScrollBlockIndex >= 0 && !m_hoverScrollIsPatch
+                                 && static_cast<std::size_t>(m_hoverScrollBlockIndex) == i);
+            drawScrollbar(blockTopPx, block.height, block.contentWidth, block.naturalWidth, m_codeBlockScroll.at(i), active);
+        }
+        for (std::size_t i = 0; i < laid.patchBlocks.size(); i++) {
+            const auto& block = laid.patchBlocks.at(i);
+            if (block.wrapped) {
+                continue;
+            }
+            const int blockTopPx = contentTop + block.y;
+            if (blockTopPx + block.height < update.y || blockTopPx > update.y + update.height) {
+                continue;
+            }
+            const bool active = (m_dragScrollBlockIndex >= 0 && m_dragScrollIsPatch
+                                    && static_cast<std::size_t>(m_dragScrollBlockIndex) == i)
+                             || (m_hoverScrollBlockIndex >= 0 && m_hoverScrollIsPatch
+                                 && static_cast<std::size_t>(m_hoverScrollBlockIndex) == i);
+            drawScrollbar(blockTopPx, block.height, block.contentWidth, block.naturalWidth, m_patchBlockScroll.at(i), active);
         }
 
         gc.GetGraphicsContext()->Flush();
     }
     paintDc.Blit(update.x, update.y, update.width, update.height, &memoryDc, update.x, update.y);
+}
+
+auto MarkdownView::blockScrollOffset(const bool isPatch, const std::size_t index) const -> int {
+    const auto& vec = isPatch ? m_patchBlockScroll : m_codeBlockScroll;
+    return index < vec.size() ? vec.at(index) : 0;
+}
+
+void MarkdownView::setBlockScrollOffset(const bool isPatch, const std::size_t index, const int offset) {
+    auto& vec = isPatch ? m_patchBlockScroll : m_codeBlockScroll;
+    if (index >= vec.size()) {
+        return;
+    }
+    const auto& laid = m_document.laid();
+    const int naturalWidth = isPatch ? laid.patchBlocks.at(index).naturalWidth : laid.codeBlocks.at(index).naturalWidth;
+    const int contentWidth = isPatch ? laid.patchBlocks.at(index).contentWidth : laid.codeBlocks.at(index).contentWidth;
+    const int maxScroll = std::max(0, naturalWidth - contentWidth);
+    const int clamped = std::clamp(offset, 0, maxScroll);
+    if (vec.at(index) == clamped) {
+        return;
+    }
+    vec.at(index) = clamped;
+    Refresh();
+}
+
+auto MarkdownView::scrollbarAt(const wxPoint& clientPoint) -> std::optional<ScrollbarTarget> {
+    const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
+    const int contentTopPx = kPadding - originY;
+    constexpr int contentLeftPx = kPadding;
+    const int trackW = std::max(0, GetClientSize().GetWidth() - (2 * kPadding));
+    const auto& laid = m_document.laid();
+
+    const auto check = [&](const auto& blocks, const std::vector<int>& scrolls, const bool isPatch) -> std::optional<ScrollbarTarget> {
+        for (std::size_t i = 0; i < blocks.size(); i++) {
+            const auto& block = blocks.at(i);
+            if (block.wrapped || block.naturalWidth <= block.contentWidth) {
+                continue;
+            }
+            // Edge-to-edge geometry — matches what `onPaint` draws.
+            const int trackX = contentLeftPx;
+            const int trackY = contentTopPx + block.y + block.height - kScrollbarHeight;
+            if (clientPoint.y < trackY || clientPoint.y >= trackY + kScrollbarHeight) {
+                continue;
+            }
+            if (clientPoint.x < trackX || clientPoint.x >= trackX + trackW) {
+                continue;
+            }
+            const double ratio = static_cast<double>(block.contentWidth) / static_cast<double>(block.naturalWidth);
+            const int thumbW = std::max(kScrollbarMinThumb, static_cast<int>(trackW * ratio));
+            const int maxScroll = block.naturalWidth - block.contentWidth;
+            const int travel = std::max(0, trackW - thumbW);
+            const int thumbX = trackX + (maxScroll > 0 ? (scrolls.at(i) * travel / maxScroll) : 0);
+            return ScrollbarTarget {
+                .isPatch = isPatch,
+                .blockIndex = i,
+                .maxScroll = maxScroll,
+                .trackX = trackX,
+                .trackY = trackY,
+                .trackW = trackW,
+                .thumbX = thumbX,
+                .thumbW = thumbW,
+            };
+        }
+        return std::nullopt;
+    };
+    if (auto hit = check(laid.codeBlocks, m_codeBlockScroll, /*isPatch=*/false)) {
+        return hit;
+    }
+    return check(laid.patchBlocks, m_patchBlockScroll, /*isPatch=*/true);
 }
 
 auto MarkdownView::linkAt(const wxPoint& clientPoint) const -> wxString {
@@ -375,7 +593,7 @@ auto MarkdownView::linkAt(const wxPoint& clientPoint) const -> wxString {
 
 auto MarkdownView::hitTest(const wxPoint& clientPoint) -> SelectionPosition {
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
-    const int relX = clientPoint.x - kPadding;
+    int relX = clientPoint.x - kPadding;
     const int relY = clientPoint.y + originY - kPadding;
     const auto& laid = m_document.laid();
     if (laid.lines.empty()) {
@@ -395,6 +613,27 @@ auto MarkdownView::hitTest(const wxPoint& clientPoint) -> SelectionPosition {
             break;
         }
     }
+    // Code / patch lines belonging to a non-wrapped block paint their
+    // runs shifted by -scrollX; the visible click X maps back to a doc
+    // x of `relX + scrollX` so per-run hit-testing finds the actual
+    // character under the pointer.
+    const auto& targetLine = laid.lines.at(lineIdx);
+    if (targetLine.blockIndex >= 0) {
+        if (targetLine.kind == LineKind::Code
+            && static_cast<std::size_t>(targetLine.blockIndex) < laid.codeBlocks.size()) {
+            const auto& block = laid.codeBlocks.at(static_cast<std::size_t>(targetLine.blockIndex));
+            if (!block.wrapped) {
+                relX += m_codeBlockScroll.at(static_cast<std::size_t>(targetLine.blockIndex));
+            }
+        } else if ((targetLine.kind == LineKind::PatchSearch || targetLine.kind == LineKind::PatchReplace)
+                   && static_cast<std::size_t>(targetLine.blockIndex) < laid.patchBlocks.size()) {
+            const auto& block = laid.patchBlocks.at(static_cast<std::size_t>(targetLine.blockIndex));
+            if (!block.wrapped) {
+                relX += m_patchBlockScroll.at(static_cast<std::size_t>(targetLine.blockIndex));
+            }
+        }
+    }
+
     const wxClientDC clientDc(this);
     wxGCDC measureDc;
     measureDc.SetGraphicsContext(makeGraphicsContext(clientDc));
@@ -426,9 +665,55 @@ void MarkdownView::copySelectionToClipboard() const {
 }
 
 void MarkdownView::onMotion(wxMouseEvent& event) {
+    if (m_dragScrollBlockIndex >= 0 && event.LeftIsDown()) {
+        // Scrollbar-thumb drag — map the pointer's pixel travel back
+        // into block-content coordinates so the thumb tracks the
+        // mouse 1:1 while staying clamped to its valid range.
+        const auto& laid = m_document.laid();
+        const std::size_t idx = static_cast<std::size_t>(m_dragScrollBlockIndex);
+        const int blockContentWidth = m_dragScrollIsPatch ? laid.patchBlocks.at(idx).contentWidth : laid.codeBlocks.at(idx).contentWidth;
+        const int blockNaturalWidth = m_dragScrollIsPatch ? laid.patchBlocks.at(idx).naturalWidth : laid.codeBlocks.at(idx).naturalWidth;
+        const int maxScroll = std::max(0, blockNaturalWidth - blockContentWidth);
+        if (maxScroll > 0) {
+            // Drag math must use the same panel-wide track width the
+            // scrollbar paint uses — otherwise thumb travel scales by
+            // the wrong amount.
+            const int trackW = std::max(0, GetClientSize().GetWidth() - (2 * kPadding));
+            const double ratio = static_cast<double>(blockContentWidth) / static_cast<double>(blockNaturalWidth);
+            const int thumbW = std::max(kScrollbarMinThumb, static_cast<int>(trackW * ratio));
+            const int travel = std::max(1, trackW - thumbW);
+            const int deltaPx = event.GetPosition().x - m_dragScrollStartMouseX;
+            const int newOffset = m_dragScrollStartOffset + (deltaPx * maxScroll / travel);
+            setBlockScrollOffset(m_dragScrollIsPatch, idx, newOffset);
+        }
+        event.Skip();
+        return;
+    }
     if (m_dragSelecting && event.LeftIsDown()) {
         m_selection.caret = hitTest(event.GetPosition());
         Refresh();
+        event.Skip();
+        return;
+    }
+    // Scrollbar hover — repaint when the highlighted thumb changes,
+    // show a plain arrow over the track so the I-beam doesn't read as
+    // text-selection there.
+    const auto sbHit = scrollbarAt(event.GetPosition());
+    const int prevHoverIdx = m_hoverScrollBlockIndex;
+    const bool prevHoverPatch = m_hoverScrollIsPatch;
+    if (sbHit) {
+        m_hoverScrollBlockIndex = static_cast<int>(sbHit->blockIndex);
+        m_hoverScrollIsPatch = sbHit->isPatch;
+    } else {
+        m_hoverScrollBlockIndex = -1;
+    }
+    const bool hoverChanged = (prevHoverIdx != m_hoverScrollBlockIndex)
+                           || (m_hoverScrollBlockIndex >= 0 && prevHoverPatch != m_hoverScrollIsPatch);
+    if (hoverChanged) {
+        Refresh();
+    }
+    if (sbHit) {
+        SetCursor(wxCursor(wxCURSOR_ARROW));
         event.Skip();
         return;
     }
@@ -456,6 +741,34 @@ void MarkdownView::onMotion(wxMouseEvent& event) {
 }
 
 void MarkdownView::onLeftDown(wxMouseEvent& event) {
+    // Scrollbar-thumb / track click takes priority over both link and
+    // selection clicks. A click on the track outside the thumb jumps
+    // the thumb under the pointer first (single-segment "page jump")
+    // and then enters drag mode so the user can continue moving.
+    if (const auto hit = scrollbarAt(event.GetPosition())) {
+        const int currentOffset = blockScrollOffset(hit->isPatch, hit->blockIndex);
+        const bool onThumb = event.GetPosition().x >= hit->thumbX
+                          && event.GetPosition().x < hit->thumbX + hit->thumbW;
+        int dragStartOffset = currentOffset;
+        if (!onThumb && hit->maxScroll > 0) {
+            // Centre the thumb on the click point.
+            const int travel = std::max(1, hit->trackW - hit->thumbW);
+            const int newThumbX = std::clamp(event.GetPosition().x - (hit->thumbW / 2),
+                hit->trackX,
+                hit->trackX + travel);
+            dragStartOffset = (newThumbX - hit->trackX) * hit->maxScroll / travel;
+            setBlockScrollOffset(hit->isPatch, hit->blockIndex, dragStartOffset);
+        }
+        m_dragScrollBlockIndex = static_cast<int>(hit->blockIndex);
+        m_dragScrollIsPatch = hit->isPatch;
+        m_dragScrollStartOffset = blockScrollOffset(hit->isPatch, hit->blockIndex);
+        m_dragScrollStartMouseX = event.GetPosition().x;
+        if (!HasCapture()) {
+            CaptureMouse();
+        }
+        return;
+    }
+
     // Link click takes priority over selection start — clicking on a
     // link shouldn't begin a drag-selection.
     const wxString url = linkAt(event.GetPosition());
@@ -486,6 +799,14 @@ void MarkdownView::onLeftDown(wxMouseEvent& event) {
 }
 
 void MarkdownView::onLeftUp(wxMouseEvent& event) {
+    if (m_dragScrollBlockIndex >= 0) {
+        m_dragScrollBlockIndex = -1;
+        if (HasCapture()) {
+            ReleaseMouse();
+        }
+        event.Skip();
+        return;
+    }
     if (m_dragSelecting) {
         m_selection.caret = hitTest(event.GetPosition());
         m_dragSelecting = false;
@@ -557,9 +878,84 @@ void MarkdownView::onCharHook(wxKeyEvent& event) {
 }
 
 void MarkdownView::onMouseWheel(wxMouseEvent& event) {
+    // Horizontal trackpad swipe — route to the overflowing block
+    // under the pointer with a fractional accumulator so fine
+    // movements don't get rounded away.
+    if (event.GetWheelAxis() == wxMOUSE_WHEEL_HORIZONTAL) {
+        const int wheelDelta = event.GetWheelDelta();
+        if (wheelDelta <= 0) {
+            event.Skip();
+            return;
+        }
+        const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
+        const int docY = event.GetPosition().y + originY - kPadding;
+        const auto& laid = m_document.laid();
+        const auto findOverflowing = [&](const auto& blocks, const std::vector<int>& scrolls, const bool isPatch) -> bool {
+            for (std::size_t i = 0; i < blocks.size(); i++) {
+                const auto& block = blocks.at(i);
+                if (block.wrapped || block.naturalWidth <= block.contentWidth) {
+                    continue;
+                }
+                if (docY < block.y || docY >= block.y + block.height) {
+                    continue;
+                }
+                constexpr int kDamperNum = 9;
+                constexpr int kDamperDen = 10;
+                const int divisor = wheelDelta * kDamperDen;
+                m_hwheelPixelAccum += event.GetWheelRotation() * kHorizPxPerNotch * kDamperNum;
+                const int pixels = m_hwheelPixelAccum / divisor;
+                m_hwheelPixelAccum -= pixels * divisor;
+                if (pixels != 0) {
+                    setBlockScrollOffset(isPatch, i, scrolls.at(i) + pixels);
+                }
+                return true;
+            }
+            return false;
+        };
+        if (findOverflowing(laid.codeBlocks, m_codeBlockScroll, /*isPatch=*/false)) {
+            return;
+        }
+        if (findOverflowing(laid.patchBlocks, m_patchBlockScroll, /*isPatch=*/true)) {
+            return;
+        }
+        event.Skip();
+        return;
+    }
     if (event.GetWheelAxis() != wxMOUSE_WHEEL_VERTICAL) {
         event.Skip();
         return;
+    }
+    // Shift + wheel inside an overflowing code/patch block scrolls the
+    // block horizontally rather than scrolling the conversation.
+    // Plain wheel keeps its vertical-scroll behaviour even over a
+    // block so a long doc stays browsable.
+    if (event.ShiftDown()) {
+        const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
+        const int docY = event.GetPosition().y + originY - kPadding;
+        const auto& laid = m_document.laid();
+        const auto findOverflowing = [&](const auto& blocks, const std::vector<int>& scrolls, const bool isPatch) -> bool {
+            for (std::size_t i = 0; i < blocks.size(); i++) {
+                const auto& block = blocks.at(i);
+                if (block.wrapped || block.naturalWidth <= block.contentWidth) {
+                    continue;
+                }
+                if (docY < block.y || docY >= block.y + block.height) {
+                    continue;
+                }
+                const int rotation = event.GetWheelRotation();
+                const int delta = (rotation > 0 ? -1 : 1) * kScrollbarWheelStep;
+                setBlockScrollOffset(isPatch, i, scrolls.at(i) + delta);
+                return true;
+            }
+            return false;
+        };
+        if (findOverflowing(laid.codeBlocks, m_codeBlockScroll, /*isPatch=*/false)) {
+            return;
+        }
+        if (findOverflowing(laid.patchBlocks, m_patchBlockScroll, /*isPatch=*/true)) {
+            return;
+        }
+        // Not over an overflowing block — fall through to vertical scroll.
     }
     // Same rotation-to-pixels translation as `AiChatView` — one wheel
     // notch ≈ 3 body lines, with a fractional accumulator so macOS

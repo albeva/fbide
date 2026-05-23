@@ -63,6 +63,12 @@ private:
         wxRect bubble;                       ///< Bubble rect in document coordinates.
         int contentWidth = 0;                ///< Content width inside the bubble padding.
         bool fromUser = false;               ///< Role — drives bubble colour + side.
+        /// Horizontal scroll offset in pixels per non-wrapped code /
+        /// patch block. Indices line up with the laid doc's `codeBlocks`
+        /// / `patchBlocks`. Empty when `wrapCodeBlocks` is true (or no
+        /// such blocks exist in this bubble).
+        std::vector<int> codeBlockScroll;
+        std::vector<int> patchBlockScroll;
     };
 
     void onPaint(wxPaintEvent& event);
@@ -131,6 +137,35 @@ private:
     /// a client point, or {-1, -1} when none.
     [[nodiscard]] auto patchBlockAt(const wxPoint& clientPoint) const -> std::pair<int, int>;
 
+    /// Hit-test against per-block horizontal scrollbars. Returns the
+    /// bubble + block + scrollbar geometry the click landed on, or
+    /// empty when no scrollbar is at `clientPoint`. Used both for
+    /// click-to-drag dispatch and for shift+wheel routing.
+    struct ScrollbarTarget {
+        std::size_t messageIndex = 0;
+        bool isPatch = false;
+        std::size_t blockIndex = 0;
+        int maxScroll = 0;
+        int trackX = 0;
+        int trackY = 0;
+        int trackW = 0;
+        int thumbX = 0;
+        int thumbW = 0;
+    };
+    [[nodiscard]] auto scrollbarAt(const wxPoint& clientPoint) -> std::optional<ScrollbarTarget>;
+    /// Find the (message, isPatch, blockIndex) of an overflowing
+    /// non-wrapped code / patch block whose body the point lies inside.
+    /// Used by shift+wheel to route horizontal scroll. Empty when no
+    /// such block contains the point.
+    struct BlockTarget {
+        std::size_t messageIndex = 0;
+        bool isPatch = false;
+        std::size_t blockIndex = 0;
+    };
+    [[nodiscard]] auto overflowingBlockAt(const wxPoint& clientPoint) -> std::optional<BlockTarget>;
+    /// Clamp + write a per-block scroll offset and request a repaint.
+    void setBlockScrollOffset(std::size_t messageIndex, bool isPatch, std::size_t index, int offset);
+
     /// Show the action bar over block `blockIndex` of `messageIndex`, with
     /// `mode` selecting which button set the bar presents. Bar tracks the
     /// block while its top edge is visible, then pins to the top of the
@@ -188,6 +223,27 @@ private:
     int m_selectionMessage = -1;                                ///< Bubble whose text is currently selected, or -1.
     markdown::Selection m_selection;                            ///< Selection within that bubble.
     bool m_dragSelecting = false;
+
+    bool m_wrapCodeBlocks = true; ///< Cached `[markdown] wrapCodeBlocks` value; passed to layouts.
+
+    // Per-block horizontal-scroll drag state. Active when
+    // `m_dragScrollMessageIndex >= 0`.
+    int m_dragScrollMessageIndex = -1;
+    bool m_dragScrollIsPatch = false;
+    std::size_t m_dragScrollBlockIndex = 0;
+    int m_dragScrollStartOffset = 0;
+    int m_dragScrollStartMouseX = 0;
+
+    // Per-block scrollbar hover state — paints the thumb with a higher
+    // alpha when the pointer hovers its track or the bar is being
+    // dragged. `m_hoverScrollMessageIndex < 0` means no hover.
+    int m_hoverScrollMessageIndex = -1;
+    bool m_hoverScrollIsPatch = false;
+    std::size_t m_hoverScrollBlockIndex = 0;
+    /// Horizontal-wheel accumulator — same fractional-carry trick as
+    /// `m_wheelPixelAccum` so trackpad fine swipes don't get rounded
+    /// away.
+    int m_hwheelPixelAccum = 0;
     std::unordered_set<std::string> m_appliedPatches; ///< UTF-8 keys of patches already
                                                       ///< auto-applied (or attempted) this
                                                       ///< session — guards live-edit against
