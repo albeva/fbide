@@ -152,9 +152,16 @@ void ChatImageCache::onRequestState(wxWebRequestEvent& event) {
     case wxWebRequest::State_Completed: {
         const int status = event.GetResponse().GetStatus();
         const wxString path = event.GetResponse().GetDataFile();
+        // `wxWebRequest` follows HTTP redirects through the platform
+        // backend (NSURLSession / WinHTTP / libcurl), and the
+        // cross-scheme policy varies. Re-check the *final* URL's scheme
+        // against the allow-list so an https → file:// (or data:)
+        // redirect can't sneak past `allowedScheme` — which only sees
+        // the originally requested URL.
+        const wxString finalUrl = event.GetResponse().GetURL();
         // Decode BEFORE dropping the request handle — wx removes the temp
         // file when the last handle is destroyed.
-        if (status >= kHttpErrorStatus || path.empty()) {
+        if (status >= kHttpErrorStatus || path.empty() || !allowedScheme(finalUrl)) {
             fail(entry, url);
         } else {
             finalize(entry, url, path);
