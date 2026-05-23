@@ -312,8 +312,10 @@ void MarkdownView::onPaint(wxPaintEvent& /*event*/) {
             }
             const auto lineIdx = static_cast<std::size_t>(std::distance(laid.lines.begin(), it));
             const int lineTop = contentTop + line.y;
+            const auto next = std::next(it);
+            const int nextLineY = (next == laid.lines.end()) ? -1 : next->y;
             fbide::paintLineBackground(gc, line, contentLeft, lineTop, contentWidth, pal);
-            fbide::paintSelectionHighlight(gc, line, lineIdx, contentLeft, lineTop, contentWidth, m_selection, highlightColour, measurer);
+            fbide::paintSelectionHighlight(gc, line, lineIdx, contentLeft, lineTop, contentWidth, nextLineY, m_selection, highlightColour, measurer);
             fbide::paintLineText(gc, line, contentLeft, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
         }
 

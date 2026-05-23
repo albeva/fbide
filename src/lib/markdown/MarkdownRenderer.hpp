@@ -137,6 +137,12 @@ struct Selection {
 /// inside the range get a band the full content width. A single-line
 /// selection collapses both edges onto the same line. Called BEFORE
 /// `paintLineText` so the text sits on top.
+///
+/// `nextLineY` is the next laid line's `y` in document coords, or `-1`
+/// when this is the last line. When the selection continues past this
+/// line, the band's height is stretched to the next line's top so the
+/// inter-block gap (the `kBlockGap` space layout leaves between
+/// headings and paragraphs, etc.) is also painted.
 void paintSelectionHighlight(
     wxGCDC& gc,
     const PaintLine& line,
@@ -144,6 +150,7 @@ void paintSelectionHighlight(
     int contentLeft,
     int lineTop,
     int contentWidth,
+    int nextLineY,
     const Selection& selection,
     const wxColour& highlightColour,
     const TextMeasurer& measurer

@@ -255,6 +255,7 @@ void fbide::paintSelectionHighlight(
     const int contentLeft,
     const int lineTop,
     const int contentWidth,
+    const int nextLineY,
     const Selection& selection,
     const wxColour& highlightColour,
     const TextMeasurer& measurer
@@ -284,9 +285,18 @@ void fbide::paintSelectionHighlight(
         return;
     }
 
+    // Stretch the band into the inter-block gap below this line when
+    // the selection continues past it — without this, a selection
+    // across a heading / paragraph boundary shows an unpainted strip
+    // where the layout left `kBlockGap` of breathing room.
+    int bandHeight = line.height;
+    if (!isEndLine && nextLineY > line.y) {
+        bandHeight = nextLineY - line.y;
+    }
+
     gc.SetPen(*wxTRANSPARENT_PEN);
     gc.SetBrush(wxBrush(highlightColour));
-    gc.DrawRectangle(contentLeft + startX, lineTop, endX - startX, line.height);
+    gc.DrawRectangle(contentLeft + startX, lineTop, endX - startX, bandHeight);
 }
 
 auto fbide::extractSelectedText(
