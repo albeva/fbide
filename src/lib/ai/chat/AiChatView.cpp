@@ -116,11 +116,14 @@ auto fontFor(const TextStyle& style, const wxFont& body, const wxFont& mono, con
 /// strings.
 class DcMeasurer final : public TextMeasurer {
 public:
-    DcMeasurer(wxDC& dc, wxFont body, wxFont mono, wxFont themed)
+    using Entry = MeasurementEntry;
+
+    DcMeasurer(wxDC& dc, wxFont body, wxFont mono, wxFont themed, std::vector<Entry>& cache)
     : m_dc(dc)
     , m_body(std::move(body))
     , m_mono(std::move(mono))
-    , m_themed(std::move(themed)) {}
+    , m_themed(std::move(themed))
+    , m_cache(cache) {}
 
     auto width(const wxString& text, const TextStyle& style) const -> int override {
         if (text.empty()) {
@@ -150,17 +153,10 @@ public:
     }
 
 private:
-    /// One memoised style — its resolved wxFont and any derived
-    /// measurements that get hit repeatedly. Linear-scanned by `lookup`.
-    struct Entry {
-        TextStyle style {};
-        wxFont font {};
-        int lineHeight = -1;
-        int spaceWidth = -1;
-    };
-
     /// Find (or insert) the cache entry for `style`. A relayout sees only
     /// a handful of distinct styles, so the linear scan beats hashing.
+    /// The cache lives on `AiChatView` and persists across relayouts —
+    /// font lookups and per-style measurements survive streaming ticks.
     auto lookup(const TextStyle& style) const -> Entry& {
         for (auto& entry : m_cache) {
             if (entry.style == style) {
@@ -185,7 +181,7 @@ private:
     wxFont m_body;
     wxFont m_mono;
     wxFont m_themed;
-    mutable std::vector<Entry> m_cache;
+    std::vector<Entry>& m_cache;
 };
 
 } // namespace
@@ -242,6 +238,10 @@ void AiChatView::resolveFonts() {
     // follow the body size so the three faces line up vertically in
     // the chat bubble (a theme font like 14pt JetBrains Mono inside a
     // 13pt prose bubble looked off before this).
+    // Body / mono / themed fonts are about to be replaced — every cache
+    // entry holds a wxFont derived from the old set and would now lie.
+    m_measurerCache.clear();
+
     m_bodyFont = wxSystemSettings::GetFont(wxSYS_DEFAULT_GUI_FONT);
     const auto fontSize = m_ctx.getConfigManager().config().at("ai.fontSize").as<int>();
     if (fontSize.has_value() && *fontSize > 0) {
@@ -303,7 +303,7 @@ void AiChatView::relayout() {
     wxClientDC clientDc(this);
     wxGCDC measureDc;
     measureDc.SetGraphicsContext(makeChatGraphicsContext(clientDc));
-    const DcMeasurer measurer(measureDc, m_bodyFont, m_monoFont, m_themedFont);
+    const DcMeasurer measurer(measureDc, m_bodyFont, m_monoFont, m_themedFont, m_measurerCache);
 
     const ChatPalette pal = palette();
 

@@ -24,6 +24,19 @@ struct ChatViewMessage {
     wxString markdown;     ///< Message body — markdown source.
 };
 
+/// One entry in the persistent measurement cache shared by every
+/// `DcMeasurer` constructed across relayouts. Lifted out of the measurer
+/// so font lookups and per-style measurements survive streaming ticks
+/// instead of being rebuilt each time. Internal detail of the chat view's
+/// measurement path — defined here only so the .cpp-private `DcMeasurer`
+/// can hold a reference to it.
+struct MeasurementEntry {
+    TextStyle style {};
+    wxFont font {};
+    int lineHeight = -1; ///< Lazy-cached; -1 until measured.
+    int spaceWidth = -1; ///< Lazy-cached width of a single space.
+};
+
 /**
  * AI conversation view.
  *
@@ -167,6 +180,11 @@ private:
                                                       ///< double-apply across reparses.
     int m_bodyLineHeight = 0;                         ///< Body-font line height — sets the per-notch wheel scroll amount.
     int m_wheelPixelAccum = 0;                        ///< Fractional remainder carried between wheel events.
+    /// Persistent measurement cache shared across `DcMeasurer` instances.
+    /// Cleared from `resolveFonts` / `refreshTheme` whenever any cached
+    /// font would become stale. `mutable` so the const measurement path
+    /// can populate it on first miss.
+    mutable std::vector<MeasurementEntry> m_measurerCache;
 
     wxDECLARE_EVENT_TABLE();
 };
