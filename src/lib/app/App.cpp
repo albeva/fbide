@@ -211,6 +211,14 @@ void App::initAppearance() {
 }
 
 auto App::OnInit() -> bool {
+    // Register every bundled wxImage codec once at startup so wxImage
+    // recognises PNG / JPEG / GIF / BMP / etc. throughout the app —
+    // chat-inline images decode through `wxImage::LoadFile`, and the
+    // splash code below registers only PNG (and only when the splash
+    // is shown), which would otherwise leave the image cache without
+    // a working decoder.
+    wxInitAllImageHandlers();
+
     auto cli = parseCli();
     if (cli.parseFailed) {
         std::exit(EXIT_FAILURE);
@@ -557,7 +565,8 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
 
 void App::showSplash() {
     if (m_context->getConfigManager().config().get_or("general.splashScreen", true)) {
-        wxImage::AddHandler(make_unowned<wxPNGHandler>());
+        // PNG handler is already registered by `wxInitAllImageHandlers()`
+        // in `OnInit`, so the splash can decode its bitmap straight away.
         const auto splashPath = m_context->getConfigManager().absolute("splash.png");
         if (const wxBitmap bmp(splashPath, wxBITMAP_TYPE_PNG); bmp.IsOk()) {
             make_unowned<wxSplashScreen>(
