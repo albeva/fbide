@@ -109,6 +109,42 @@ private:
         int updateBottom
     ) const;
 
+    /// Carries the DC-state cache across `paintLineText` calls so adjacent
+    /// runs and lines that share style/colour avoid redundant
+    /// `SetFont` / `GetFontMetrics` / `SetTextForeground` calls.
+    struct PaintRunState {
+        TextStyle currentStyle {};
+        wxCoord currentAscent = 0;
+        wxColour currentColour;
+        bool styleSet = false;
+        bool colourSet = false;
+    };
+
+    /// Paint a single laid-out line's background (code/patch tint strip,
+    /// rule, table fill + borders, image bitmap). Text runs are drawn
+    /// separately by `paintLineText` so the run-state cache can persist
+    /// across lines.
+    void paintLineBackground(
+        wxGCDC& gc,
+        const PaintLine& line,
+        int contentLeft,
+        int lineTop,
+        int contentWidth,
+        const ChatPalette& pal
+    ) const;
+
+    /// Two-pass baseline-aligned text draw for one laid-out line.
+    /// Pass 1 finds the max ascent; pass 2 draws each run. `state` carries
+    /// the DC cache forward so a single-style paragraph hits `SetFont`
+    /// once across many lines.
+    void paintLineText(
+        wxGCDC& gc,
+        const PaintLine& line,
+        int contentLeft,
+        int lineTop,
+        PaintRunState& state
+    ) const;
+
     /// Link target under a client point, or empty when none.
     [[nodiscard]] auto linkAt(const wxPoint& clientPoint) const -> wxString;
 

@@ -493,17 +493,10 @@ void AiChatView::paintMessage(
         [](const PaintLine& line, const int top) { return line.y + line.height < top; }
     );
 
-    // Cache the last applied font + its ascent + the last colour, to avoid
-    // redundant DC state churn — a paragraph's runs mostly share the body
-    // font, and adjacent runs often share colour. `currentAscent` is paired
-    // with `currentStyle` so we don't re-query `GetFontMetrics()` for every
-    // run when the style is unchanged (which is the common case across both
-    // ascent-collection and draw passes).
-    TextStyle currentStyle {};
-    wxCoord currentAscent = 0;
-    wxColour currentColour;
-    bool styleSet = false;
-    bool colourSet = false;
+    // Shared DC-state cache — adjacent runs and lines mostly share style /
+    // colour, so reusing the cache across the whole loop avoids redundant
+    // SetFont / SetTextForeground / GetFontMetrics calls.
+    PaintRunState runState;
 
     for (auto it = first; it != lines.end(); ++it) {
         const auto& line = *it;
@@ -511,128 +504,8 @@ void AiChatView::paintMessage(
             break;
         }
         const int lineTop = contentTop + line.y;
-
-        if (line.kind == LineKind::Code) {
-            gc.SetBrush(wxBrush(pal.codeBg));
-            gc.SetPen(*wxTRANSPARENT_PEN);
-            gc.DrawRectangle(contentLeft, lineTop, message.contentWidth, line.height);
-        } else if (line.kind == LineKind::PatchSearch || line.kind == LineKind::PatchReplace) {
-            // Two-tone background for a SEARCH/REPLACE proposal — same
-            // padding pattern as a code block, just tinted red / green.
-            const wxColour& fill = line.kind == LineKind::PatchSearch
-                                     ? pal.patchSearchBg
-                                     : pal.patchReplaceBg;
-            gc.SetBrush(wxBrush(fill));
-            gc.SetPen(*wxTRANSPARENT_PEN);
-            gc.DrawRectangle(contentLeft, lineTop, message.contentWidth, line.height);
-        } else if (line.kind == LineKind::Rule) {
-            gc.SetPen(wxPen(pal.rule));
-            const int ruleY = lineTop + (line.height / 2);
-            gc.DrawLine(contentLeft, ruleY, contentLeft + message.contentWidth, ruleY);
-        } else if ((line.kind == LineKind::TableHeader || line.kind == LineKind::TableBody)
-                   && !line.tableColumns.empty()) {
-            // Header rows get a subtle background tint (reuse the code-block
-            // colour); the fill is clipped to the table's actual column
-            // range so it doesn't leak out into the rest of the bubble.
-            // Borders / dividers are drawn after, on top of the fill.
-            const int leftEdge = contentLeft + line.tableColumns.front().x;
-            const int rightEdge = contentLeft + line.tableColumns.back().x
-                                + line.tableColumns.back().width;
-            const int tableWidth = rightEdge - leftEdge;
-            if (line.kind == LineKind::TableHeader) {
-                gc.SetBrush(wxBrush(pal.tableHeaderBg));
-                gc.SetPen(*wxTRANSPARENT_PEN);
-                gc.DrawRectangle(leftEdge, lineTop, tableWidth, line.height);
-            }
-            gc.SetPen(wxPen(pal.rule));
-            // Vertical column separators (skip the leftmost — covered by
-            // the outer left border below).
-            for (std::size_t c = 1; c < line.tableColumns.size(); c++) {
-                const int colX = contentLeft + line.tableColumns[c].x;
-                gc.DrawLine(colX, lineTop, colX, lineTop + line.height);
-            }
-            // Outer left + right borders.
-            gc.DrawLine(leftEdge, lineTop, leftEdge, lineTop + line.height);
-            gc.DrawLine(rightEdge, lineTop, rightEdge, lineTop + line.height);
-            // Horizontal row divider at the top of every row — covers
-            // both the table top border (first row) and inter-row
-            // separators. `tableRowStart` is true only on the first
-            // visual line of each row, so wrapped cells don't get
-            // intermediate dividers.
-            if (line.tableRowStart) {
-                gc.DrawLine(leftEdge, lineTop, rightEdge, lineTop);
-            }
-            // Closing border at the bottom of the very last row. Drawn
-            // at `lineTop + height` so it meets the side-line endpoints
-            // exactly — drawing one pixel inside the row leaves the
-            // vertical borders visibly overhanging the corner.
-            if (line.tableLastLine) {
-                const int bottomY = lineTop + line.height;
-                gc.DrawLine(leftEdge, bottomY, rightEdge, bottomY);
-            }
-        } else if (line.kind == LineKind::Image && line.image.bitmap.IsOk()) {
-            // Draw through the underlying wxGraphicsContext — `wxGCDC::DrawBitmap`
-            // has no scaled-target overload, but the graphics context does.
-            gc.GetGraphicsContext()->DrawBitmap(
-                line.image.bitmap,
-                contentLeft + line.image.x,
-                lineTop,
-                line.image.drawWidth,
-                line.image.drawHeight
-            );
-            // The line's lone PaintRun is an empty hit-test region for click
-            // handling — the run loop below skips empty text, so nothing
-            // else needs to draw here.
-        }
-
-        // Baseline-aligned drawing. Different font families have different
-        // ascents above the baseline; if we draw every run at the same
-        // top (`DrawText` y is the top of the glyph box), the baselines
-        // drift and mixed prose/mono lines look "jittery". `wxFontMetrics`
-        // ascent (which excludes leading — what `GetTextExtent` height
-        // includes) is the per-font distance from the top of the glyph
-        // box to the baseline.
-        //
-        // Pass 1 finds the max ascent across runs in this line; pass 2
-        // draws each run at `baseline - runAscent`. `selectRunFont` is a
-        // mutator: when the style differs from the cached one, it sets
-        // the DC font and refreshes `currentAscent` so the cache spans
-        // both passes — for a single-style line the font is set once
-        // and `GetFontMetrics()` is hit once across all runs.
-        const auto selectRunFont = [&](const PaintRun& run) -> wxCoord {
-            if (!styleSet || run.style != currentStyle) {
-                gc.SetFont(fontFor(run.style, m_bodyFont, m_monoFont, m_themedFont));
-                currentStyle = run.style;
-                currentAscent = gc.GetFontMetrics().ascent;
-                styleSet = true;
-            }
-            return currentAscent;
-        };
-
-        wxCoord maxAscent = 0;
-        for (const auto& run : line.runs) {
-            if (run.text.empty()) {
-                continue;
-            }
-            const wxCoord ascent = selectRunFont(run);
-            if (ascent > maxAscent) {
-                maxAscent = ascent;
-            }
-        }
-        const wxCoord baseline = lineTop + 2 + maxAscent;
-
-        for (const auto& run : line.runs) {
-            if (run.text.empty()) {
-                continue;
-            }
-            const wxCoord ascent = selectRunFont(run);
-            if (!colourSet || run.colour != currentColour) {
-                gc.SetTextForeground(run.colour);
-                currentColour = run.colour;
-                colourSet = true;
-            }
-            gc.DrawText(run.text, contentLeft + run.x, baseline - ascent);
-        }
+        paintLineBackground(gc, line, contentLeft, lineTop, message.contentWidth, pal);
+        paintLineText(gc, line, contentLeft, lineTop, runState);
     }
 
     // Overlay applied SEARCH/REPLACE proposals with a translucent veil so
@@ -649,13 +522,150 @@ void AiChatView::paintMessage(
                 continue;
             }
             const int patchY = contentTop + patch.y;
-            // Skip cards entirely above or below the dirty band — the
-            // line loop above already used the same bounds.
             if (patchY + patch.height < updateTop || patchY > updateBottom) {
                 continue;
             }
             gc.DrawRectangle(contentLeft, patchY, message.contentWidth, patch.height);
         }
+    }
+}
+
+void AiChatView::paintLineBackground(
+    wxGCDC& gc,
+    const PaintLine& line,
+    const int contentLeft,
+    const int lineTop,
+    const int contentWidth,
+    const ChatPalette& pal
+) const {
+    if (line.kind == LineKind::Code) {
+        gc.SetBrush(wxBrush(pal.codeBg));
+        gc.SetPen(*wxTRANSPARENT_PEN);
+        gc.DrawRectangle(contentLeft, lineTop, contentWidth, line.height);
+        return;
+    }
+    if (line.kind == LineKind::PatchSearch || line.kind == LineKind::PatchReplace) {
+        // Two-tone background for a SEARCH/REPLACE proposal — same
+        // padding pattern as a code block, just tinted red / green.
+        const wxColour& fill = line.kind == LineKind::PatchSearch
+                                 ? pal.patchSearchBg
+                                 : pal.patchReplaceBg;
+        gc.SetBrush(wxBrush(fill));
+        gc.SetPen(*wxTRANSPARENT_PEN);
+        gc.DrawRectangle(contentLeft, lineTop, contentWidth, line.height);
+        return;
+    }
+    if (line.kind == LineKind::Rule) {
+        gc.SetPen(wxPen(pal.rule));
+        const int ruleY = lineTop + (line.height / 2);
+        gc.DrawLine(contentLeft, ruleY, contentLeft + contentWidth, ruleY);
+        return;
+    }
+    if ((line.kind == LineKind::TableHeader || line.kind == LineKind::TableBody)
+        && !line.tableColumns.empty()) {
+        // Header rows get a subtle background tint; the fill is clipped to
+        // the table's actual column range so it doesn't leak out into the
+        // rest of the bubble. Borders / dividers go on top of the fill.
+        const int leftEdge = contentLeft + line.tableColumns.front().x;
+        const int rightEdge = contentLeft + line.tableColumns.back().x
+                            + line.tableColumns.back().width;
+        const int tableWidth = rightEdge - leftEdge;
+        if (line.kind == LineKind::TableHeader) {
+            gc.SetBrush(wxBrush(pal.tableHeaderBg));
+            gc.SetPen(*wxTRANSPARENT_PEN);
+            gc.DrawRectangle(leftEdge, lineTop, tableWidth, line.height);
+        }
+        gc.SetPen(wxPen(pal.rule));
+        // Vertical column separators (skip the leftmost — covered by
+        // the outer left border below).
+        for (std::size_t c = 1; c < line.tableColumns.size(); c++) {
+            const int colX = contentLeft + line.tableColumns[c].x;
+            gc.DrawLine(colX, lineTop, colX, lineTop + line.height);
+        }
+        // Outer left + right borders.
+        gc.DrawLine(leftEdge, lineTop, leftEdge, lineTop + line.height);
+        gc.DrawLine(rightEdge, lineTop, rightEdge, lineTop + line.height);
+        // Horizontal row divider at the top of every row — covers both
+        // the table top border (first row) and inter-row separators.
+        // `tableRowStart` is true only on the first visual line of each
+        // row, so wrapped cells don't get intermediate dividers.
+        if (line.tableRowStart) {
+            gc.DrawLine(leftEdge, lineTop, rightEdge, lineTop);
+        }
+        // Closing border at the bottom of the very last row. Drawn at
+        // `lineTop + height` so it meets the side-line endpoints
+        // exactly — one pixel inside the row leaves the vertical borders
+        // visibly overhanging the corner.
+        if (line.tableLastLine) {
+            const int bottomY = lineTop + line.height;
+            gc.DrawLine(leftEdge, bottomY, rightEdge, bottomY);
+        }
+        return;
+    }
+    if (line.kind == LineKind::Image && line.image.bitmap.IsOk()) {
+        // Draw through the underlying wxGraphicsContext — `wxGCDC::DrawBitmap`
+        // has no scaled-target overload, but the graphics context does.
+        gc.GetGraphicsContext()->DrawBitmap(
+            line.image.bitmap,
+            contentLeft + line.image.x,
+            lineTop,
+            line.image.drawWidth,
+            line.image.drawHeight
+        );
+        // The line's lone PaintRun is an empty hit-test region for the
+        // click handler — `paintLineText` skips empty runs, so the image
+        // line doesn't pick up any text drawing.
+    }
+}
+
+void AiChatView::paintLineText(
+    wxGCDC& gc,
+    const PaintLine& line,
+    const int contentLeft,
+    const int lineTop,
+    PaintRunState& state
+) const {
+    // Baseline-aligned drawing. Different font families have different
+    // ascents; if every run is drawn at the same top, baselines drift
+    // and mixed prose/mono lines look "jittery". Pass 1 finds the max
+    // ascent across runs in this line; pass 2 draws each run at
+    // `baseline - runAscent`. `selectRunFont` mutates `state` — when
+    // the style differs from the cached one, it sets the DC font and
+    // refreshes `currentAscent` so the cache spans both passes and
+    // every subsequent line that shares the style.
+    const auto selectRunFont = [&](const PaintRun& run) -> wxCoord {
+        if (!state.styleSet || run.style != state.currentStyle) {
+            gc.SetFont(fontFor(run.style, m_bodyFont, m_monoFont, m_themedFont));
+            state.currentStyle = run.style;
+            state.currentAscent = gc.GetFontMetrics().ascent;
+            state.styleSet = true;
+        }
+        return state.currentAscent;
+    };
+
+    wxCoord maxAscent = 0;
+    for (const auto& run : line.runs) {
+        if (run.text.empty()) {
+            continue;
+        }
+        const wxCoord ascent = selectRunFont(run);
+        if (ascent > maxAscent) {
+            maxAscent = ascent;
+        }
+    }
+    const wxCoord baseline = lineTop + 2 + maxAscent;
+
+    for (const auto& run : line.runs) {
+        if (run.text.empty()) {
+            continue;
+        }
+        const wxCoord ascent = selectRunFont(run);
+        if (!state.colourSet || run.colour != state.currentColour) {
+            gc.SetTextForeground(run.colour);
+            state.currentColour = run.colour;
+            state.colourSet = true;
+        }
+        gc.DrawText(run.text, contentLeft + run.x, baseline - ascent);
     }
 }
 
