@@ -211,13 +211,12 @@ auto decodeEntity(const wxString& entity) -> wxString {
     return entity;
 }
 
-} // namespace
-
 // md4c stores plain C function pointers; give the callbacks C language
-// linkage so the assignment is well-formed. `static` keeps them file-local.
+// linkage so the assignment is well-formed. The anonymous namespace gives
+// them internal linkage; `extern "C"` ensures C calling convention.
 extern "C" {
 
-static int mdEnterBlock(const MD_BLOCKTYPE type, void* detail, void* userData) {
+auto mdEnterBlock(const MD_BLOCKTYPE type, void* detail, void* userData) -> int {
     auto& builder = *static_cast<Builder*>(userData);
     switch (type) {
     case MD_BLOCK_QUOTE:
@@ -317,7 +316,7 @@ static int mdEnterBlock(const MD_BLOCKTYPE type, void* detail, void* userData) {
     return 0;
 }
 
-static int mdLeaveBlock(const MD_BLOCKTYPE type, void* /*detail*/, void* userData) {
+auto mdLeaveBlock(const MD_BLOCKTYPE type, void* /*detail*/, void* userData) -> int {
     auto& builder = *static_cast<Builder*>(userData);
     switch (type) {
     case MD_BLOCK_QUOTE:
@@ -362,7 +361,7 @@ static int mdLeaveBlock(const MD_BLOCKTYPE type, void* /*detail*/, void* userDat
     return 0;
 }
 
-static int mdEnterSpan(const MD_SPANTYPE type, void* detail, void* userData) {
+auto mdEnterSpan(const MD_SPANTYPE type, void* detail, void* userData) -> int {
     auto& builder = *static_cast<Builder*>(userData);
     switch (type) {
     case MD_SPAN_EM:
@@ -398,7 +397,7 @@ static int mdEnterSpan(const MD_SPANTYPE type, void* detail, void* userData) {
     return 0;
 }
 
-static int mdLeaveSpan(const MD_SPANTYPE type, void* /*detail*/, void* userData) {
+auto mdLeaveSpan(const MD_SPANTYPE type, void* /*detail*/, void* userData) -> int {
     auto& builder = *static_cast<Builder*>(userData);
     switch (type) {
     case MD_SPAN_EM:
@@ -430,7 +429,7 @@ static int mdLeaveSpan(const MD_SPANTYPE type, void* /*detail*/, void* userData)
     return 0;
 }
 
-static int mdText(const MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userData) {
+auto mdText(const MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* userData) -> int {
     auto& builder = *static_cast<Builder*>(userData);
     switch (type) {
     case MD_TEXT_NORMAL:
@@ -458,6 +457,8 @@ static int mdText(const MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, voi
 }
 
 } // extern "C"
+
+} // namespace
 
 namespace {
 
