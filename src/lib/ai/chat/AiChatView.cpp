@@ -817,9 +817,41 @@ void AiChatView::showActionBar(const int messageIndex, const int blockIndex, con
         y = GetPosition().y + kActionBarInset;
     }
 
+    // Capture the bar's old rect before moving so we can force a
+    // refresh of the area it just vacated. wxWidgets normally
+    // invalidates the parent when a child moves, but our buffered
+    // paint path can miss that on a scroll-then-move sequence —
+    // leaving a ghost band at the previous location. The rect is
+    // inflated by `kActionBarRefreshPad` because the bar uses
+    // `wxBORDER_SIMPLE`, whose native border can sit a pixel or two
+    // outside `GetRect()` and would otherwise leave a thin line
+    // residue along the old bar's bottom / sides.
+    constexpr int kActionBarRefreshPad = 2;
+    const wxRect oldRect = m_actionBar->IsShown() ? m_actionBar->GetRect() : wxRect {};
     m_actionBar->Move(x, y);
     if (!m_actionBar->IsShown()) {
         m_actionBar->Show();
+    }
+    if (!oldRect.IsEmpty() && oldRect != m_actionBar->GetRect()) {
+        wxRect inflated = oldRect;
+        inflated.Inflate(kActionBarRefreshPad, kActionBarRefreshPad);
+        RefreshRect(inflated);
+    }
+}
+
+void AiChatView::hideActionBar() {
+    m_barMessage = -1;
+    m_barIndex = -1;
+    if (m_actionBar != nullptr && m_actionBar->IsShown()) {
+        // Same ghost-band concern as `showActionBar` — invalidate the
+        // bar's rect (inflated to cover the `wxBORDER_SIMPLE` edge) on
+        // the parent before hiding so the area is repainted from
+        // scratch.
+        constexpr int kActionBarRefreshPad = 2;
+        wxRect oldRect = m_actionBar->GetRect();
+        oldRect.Inflate(kActionBarRefreshPad, kActionBarRefreshPad);
+        m_actionBar->Hide();
+        RefreshRect(oldRect);
     }
 }
 
@@ -831,14 +863,6 @@ void AiChatView::onScroll(wxScrollWinEvent& event) {
         // the attached and detached modes. Done synchronously so we don't
         // queue an extra paint cycle per scroll tick.
         showActionBar(m_barMessage, m_barIndex, m_actionBar->mode());
-    }
-}
-
-void AiChatView::hideActionBar() {
-    m_barMessage = -1;
-    m_barIndex = -1;
-    if (m_actionBar != nullptr && m_actionBar->IsShown()) {
-        m_actionBar->Hide();
     }
 }
 
@@ -928,6 +952,20 @@ void AiChatView::onMouseWheel(wxMouseEvent& event) {
     int viewY = 0;
     GetViewStart(&viewX, &viewY);
     Scroll(viewX, std::max(0, viewY - pixels));
+    // Programmatic `Scroll` doesn't fire EVT_SCROLLWIN, so `onScroll`'s
+    // action-bar reposition never runs from here. Without this call the
+    // bar drifts off its block (it gets scrolled along with the content
+    // as a child window) and the action bar lingers at a stale Y.
+    if (m_barMessage >= 0 && m_barIndex >= 0) {
+        showActionBar(m_barMessage, m_barIndex, m_actionBar->mode());
+    }
+    // The scroll-blit copies the action bar's pixels along with the
+    // rest of the content; even after we move the bar above, faint
+    // residue from the blit can linger at sub-pixel boundaries on
+    // macOS. A full client-area invalidate cleans that up — our
+    // buffered paint handler already redraws the visible region in
+    // one pass, so the perf cost is one extra paint per wheel tick.
+    Refresh(false);
 }
 
 void AiChatView::setBlockScrollOffset(const std::size_t messageIndex, const bool isPatch, const std::size_t index, const int offset) {
