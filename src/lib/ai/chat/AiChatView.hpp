@@ -8,9 +8,9 @@
 #include "pch.hpp"
 #include <unordered_set>
 #include <wx/scrolwin.h>
-#include "ChatImageCache.hpp"
-#include "ChatLayout.hpp"
 #include "CodeActionBar.hpp"
+#include "markdown/MarkdownImageCache.hpp"
+#include "markdown/MarkdownLayout.hpp"
 
 class wxGCDC;
 
@@ -103,7 +103,7 @@ private:
     void paintMessage(
         wxGCDC& gc,
         const LaidMessage& message,
-        const ChatPalette& pal,
+        const MarkdownPalette& pal,
         int originY,
         int updateTop,
         int updateBottom
@@ -130,7 +130,7 @@ private:
         int contentLeft,
         int lineTop,
         int contentWidth,
-        const ChatPalette& pal
+        const MarkdownPalette& pal
     ) const;
 
     /// Two-pass baseline-aligned text draw for one laid-out line.
@@ -164,7 +164,7 @@ private:
     void showActionBar(int messageIndex, int blockIndex, CodeActionBar::Mode mode);
     void hideActionBar();
 
-    [[nodiscard]] auto palette() const -> ChatPalette;
+    [[nodiscard]] auto palette() const -> MarkdownPalette;
     [[nodiscard]] auto bubbleColour(bool fromUser) const -> wxColour;
 
     /// Rebuild the cached bubble brushes from current system + theme colours.
@@ -196,7 +196,7 @@ private:
 
     Context& m_ctx;                                   ///< Application context.
     std::unique_ptr<CodeHighlighter> m_highlighter;   ///< FreeBASIC code highlighter.
-    std::unique_ptr<ChatImageCache> m_imageCache;     ///< Inline-image download cache.
+    std::unique_ptr<MarkdownImageCache> m_imageCache; ///< Inline-image download cache.
     Unowned<CodeActionBar> m_actionBar;               ///< Floating per-code-block toolbar.
     wxBitmap m_buffer;                                ///< Off-screen paint buffer, reused across paints.
     wxFont m_bodyFont;                                ///< Base prose font.

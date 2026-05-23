@@ -5,7 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include <gtest/gtest.h>
-#include "ai/chat/Markdown.hpp"
+#include "markdown/Markdown.hpp"
 
 using namespace fbide;
 

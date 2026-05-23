@@ -13,7 +13,7 @@
 namespace fbide {
 
 /**
- * Async cache of inline chat images.
+ * Async cache of inline images for markdown rendering.
  *
  * Markdown image inlines (`![alt](url)`) are downloaded via `wxWebRequest`
  * with `Storage_File` — wx writes the response to a temp file under the
@@ -39,7 +39,7 @@ namespace fbide {
  * Threading: UI thread only. `wxWebRequest` events are dispatched on the
  * UI thread by wx, so no synchronisation is required.
  */
-class ChatImageCache final : public wxEvtHandler {
+class MarkdownImageCache final : public wxEvtHandler {
 public:
     enum class State : std::uint8_t { Loading,
         Ready,
@@ -61,9 +61,9 @@ public:
     /// carry no bitmap, so they're cheap to keep around).
     static constexpr std::size_t kDefaultMaxReady = 32;
 
-    explicit ChatImageCache(std::size_t maxReady = kDefaultMaxReady);
-    ~ChatImageCache() override;
-    NO_COPY_AND_MOVE(ChatImageCache)
+    explicit MarkdownImageCache(std::size_t maxReady = kDefaultMaxReady);
+    ~MarkdownImageCache() override;
+    NO_COPY_AND_MOVE(MarkdownImageCache)
 
     /// Look up `url`. Kicks off an async download on first request and
     /// returns a Loading entry; subsequent calls return the same entry.

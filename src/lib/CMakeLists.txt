@@ -8,11 +8,11 @@ target_sources(fbide_lib
     ai/AiManager.cpp
     ai/ContextTagBar.cpp
     ai/chat/AiChatView.cpp
-    ai/chat/ChatImageCache.cpp
-    ai/chat/ChatLayout.cpp
     ai/chat/CodeActionBar.cpp
     ai/chat/CodeHighlighter.cpp
-    ai/chat/Markdown.cpp
+    markdown/Markdown.cpp
+    markdown/MarkdownImageCache.cpp
+    markdown/MarkdownLayout.cpp
     ai/provider/AnthropicProvider.cpp
     ai/provider/ClaudeCliProvider.cpp
     ai/provider/GeminiProvider.cpp
@@ -92,11 +92,11 @@ target_sources(fbide_lib
     ai/AiTypes.hpp
     ai/ContextTagBar.hpp
     ai/chat/AiChatView.hpp
-    ai/chat/ChatImageCache.hpp
-    ai/chat/ChatLayout.hpp
     ai/chat/CodeActionBar.hpp
     ai/chat/CodeHighlighter.hpp
-    ai/chat/Markdown.hpp
+    markdown/Markdown.hpp
+    markdown/MarkdownImageCache.hpp
+    markdown/MarkdownLayout.hpp
     ai/provider/AiProvider.hpp
     ai/provider/AnthropicProvider.hpp
     ai/provider/ClaudeCliProvider.hpp

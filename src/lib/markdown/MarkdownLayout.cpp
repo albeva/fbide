@@ -4,7 +4,7 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "ChatLayout.hpp"
+#include "markdown/MarkdownLayout.hpp"
 #include <optional>
 using namespace fbide;
 
@@ -154,7 +154,7 @@ struct Engine {
     const MdDoc& m_doc;
     const int m_width;
     const TextMeasurer& m_measurer;
-    const ChatPalette& m_palette;
+    const MarkdownPalette& m_palette;
     const CodeFenceHighlighter& m_highlightFence;
     const ImageResolver& m_resolveImage;
 
@@ -165,7 +165,7 @@ struct Engine {
         const MdDoc& doc,
         const int width,
         const TextMeasurer& measurer,
-        const ChatPalette& palette,
+        const MarkdownPalette& palette,
         const CodeFenceHighlighter& highlightFence,
         const ImageResolver& resolveImage
     )
@@ -927,7 +927,7 @@ auto fbide::layoutMarkdown(
     const MdDoc& doc,
     const int width,
     const TextMeasurer& measurer,
-    const ChatPalette& palette,
+    const MarkdownPalette& palette,
     const CodeFenceHighlighter& highlightFence,
     const ImageResolver& resolveImage
 ) -> LaidOutDoc {

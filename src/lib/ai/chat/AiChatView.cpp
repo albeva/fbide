@@ -5,10 +5,8 @@
 // https://github.com/albeva/fbide
 //
 #include "AiChatView.hpp"
-#include "ChatLayout.hpp"
 #include "CodeActionBar.hpp"
 #include "CodeHighlighter.hpp"
-#include "Markdown.hpp"
 #include "ai/AiManager.hpp"
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
@@ -17,6 +15,8 @@
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "editor/Editor.hpp"
+#include "markdown/Markdown.hpp"
+#include "markdown/MarkdownLayout.hpp"
 using namespace fbide;
 
 namespace {
@@ -215,7 +215,7 @@ AiChatView::AiChatView(wxWindow* parent, Context& ctx)
     resolveFonts();
     rebuildBubbleBrushes();
     m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
-    m_imageCache = std::make_unique<ChatImageCache>();
+    m_imageCache = std::make_unique<MarkdownImageCache>();
     // A finished download invalidates the cached layout (the image now
     // has real dimensions to lay out around). Coalesce multiple
     // notifications that settle in the same event-loop tick — when a
@@ -314,7 +314,7 @@ void AiChatView::relayout() {
     measureDc.SetGraphicsContext(makeChatGraphicsContext(clientDc));
     const DcMeasurer measurer(measureDc, m_bodyFont, m_monoFont, m_themedFont, m_measurerCache);
 
-    const ChatPalette pal = palette();
+    const MarkdownPalette pal = palette();
 
     // A bubble may take at most kBubbleMaxFraction of the inter-margin width,
     // leaving a gutter on the opposite side.
@@ -353,13 +353,13 @@ void AiChatView::relayout() {
                 info.width = entry.width;
                 info.height = entry.height;
                 switch (entry.state) {
-                case ChatImageCache::State::Ready:
+                case MarkdownImageCache::State::Ready:
                     info.state = ImageInfo::State::Ready;
                     break;
-                case ChatImageCache::State::Failed:
+                case MarkdownImageCache::State::Failed:
                     info.state = ImageInfo::State::Failed;
                     break;
-                case ChatImageCache::State::Loading:
+                case MarkdownImageCache::State::Loading:
                     info.state = ImageInfo::State::Loading;
                     break;
                 }
@@ -439,7 +439,7 @@ void AiChatView::onPaint(wxPaintEvent& /*event*/) {
         const int regionBottomDoc = regionTopDoc + update.height;
 
         // Resolve palette once per paint — every visible bubble shares it.
-        const ChatPalette pal = palette();
+        const MarkdownPalette pal = palette();
 
         // Bubbles are stacked in document order — binary-search to the first one
         // that can intersect the dirty band rather than scanning the whole list.
@@ -467,7 +467,7 @@ void AiChatView::onPaint(wxPaintEvent& /*event*/) {
 void AiChatView::paintMessage(
     wxGCDC& gc,
     const LaidMessage& message,
-    const ChatPalette& pal,
+    const MarkdownPalette& pal,
     const int originY,
     const int updateTop,
     const int updateBottom
@@ -536,7 +536,7 @@ void AiChatView::paintLineBackground(
     const int contentLeft,
     const int lineTop,
     const int contentWidth,
-    const ChatPalette& pal
+    const MarkdownPalette& pal
 ) const {
     if (line.kind == LineKind::Code) {
         gc.SetBrush(wxBrush(pal.codeBg));
@@ -679,7 +679,7 @@ auto AiChatView::bubbleColour(const bool fromUser) const -> wxColour {
     return blend(windowBg, wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT), 0.07);
 }
 
-auto AiChatView::palette() const -> ChatPalette {
+auto AiChatView::palette() const -> MarkdownPalette {
     const auto& theme = m_ctx.getTheme();
     const wxColour separator = theme.getSeparator();
     const wxColour windowBg = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);

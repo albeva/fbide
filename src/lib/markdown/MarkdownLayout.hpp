@@ -6,8 +6,8 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "CodeHighlighter.hpp"
-#include "Markdown.hpp"
+#include "ai/chat/CodeHighlighter.hpp"
+#include "markdown/Markdown.hpp"
 
 namespace fbide {
 
@@ -132,7 +132,7 @@ struct LaidPatchBlock {
 };
 
 /// Colours the layout and painter need that are not carried on code runs.
-struct ChatPalette {
+struct MarkdownPalette {
     wxColour text;           ///< Body prose colour.
     wxColour link;           ///< Hyperlink colour.
     wxColour codeBg;         ///< Code-block background (from editor theme).
@@ -189,7 +189,7 @@ using ImageResolver = std::function<ImageInfo(const wxString& url)>;
     const MdDoc& doc,
     int width,
     const TextMeasurer& measurer,
-    const ChatPalette& palette,
+    const MarkdownPalette& palette,
     const CodeFenceHighlighter& highlightFence,
     const ImageResolver& resolveImage = {}
 ) -> LaidOutDoc;

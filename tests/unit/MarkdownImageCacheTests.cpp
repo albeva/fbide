@@ -5,7 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include <gtest/gtest.h>
-#include "ai/chat/ChatImageCache.hpp"
+#include "markdown/MarkdownImageCache.hpp"
 
 using namespace fbide;
 
@@ -20,12 +20,12 @@ auto makeBitmap(const int width, const int height) -> wxBitmap {
 
 } // namespace
 
-class ChatImageCacheTests : public testing::Test {};
+class MarkdownImageCacheTests : public testing::Test {};
 
 // LRU eviction kicks in once the configured cap of Ready entries is full;
 // the oldest (least-recently inserted / accessed) entry is dropped.
-TEST_F(ChatImageCacheTests, EvictsOldestOnceCapReached) {
-    ChatImageCache cache(3);
+TEST_F(MarkdownImageCacheTests, EvictsOldestOnceCapReached) {
+    MarkdownImageCache cache(3);
     cache.insertReady("a", makeBitmap(1, 1), 1, 1);
     cache.insertReady("b", makeBitmap(1, 1), 1, 1);
     cache.insertReady("c", makeBitmap(1, 1), 1, 1);
@@ -39,8 +39,8 @@ TEST_F(ChatImageCacheTests, EvictsOldestOnceCapReached) {
 // A `get` on an existing Ready entry counts as a use and moves it to the
 // most-recently-used end of the LRU — so a subsequent insert evicts the
 // next-oldest instead.
-TEST_F(ChatImageCacheTests, GetTouchesLruPosition) {
-    ChatImageCache cache(3);
+TEST_F(MarkdownImageCacheTests, GetTouchesLruPosition) {
+    MarkdownImageCache cache(3);
     cache.insertReady("a", makeBitmap(1, 1), 1, 1);
     cache.insertReady("b", makeBitmap(1, 1), 1, 1);
     cache.insertReady("c", makeBitmap(1, 1), 1, 1);
@@ -55,12 +55,12 @@ TEST_F(ChatImageCacheTests, GetTouchesLruPosition) {
 // Failed entries hold no bitmap, so they don't pressure the bitmap cap.
 // A cap of 1 should permit one Ready entry alongside any number of Failed
 // entries from disallowed-scheme lookups.
-TEST_F(ChatImageCacheTests, FailedEntriesAreNotCountedAgainstCap) {
-    ChatImageCache cache(1);
+TEST_F(MarkdownImageCacheTests, FailedEntriesAreNotCountedAgainstCap) {
+    MarkdownImageCache cache(1);
     // file:// is not in the allowed-scheme list — synthesises a Failed
     // entry synchronously without touching the network.
     const auto& failed = cache.get("file:///tmp/nope.png");
-    EXPECT_EQ(failed.state, ChatImageCache::State::Failed);
+    EXPECT_EQ(failed.state, MarkdownImageCache::State::Failed);
     cache.insertReady("a", makeBitmap(1, 1), 1, 1);
     cache.insertReady("b", makeBitmap(1, 1), 1, 1);
     EXPECT_TRUE(cache.contains("file:///tmp/nope.png"));
@@ -70,8 +70,8 @@ TEST_F(ChatImageCacheTests, FailedEntriesAreNotCountedAgainstCap) {
 
 // `clearAll` drops every entry and resets the LRU bookkeeping — the cache
 // is fully usable again at full capacity.
-TEST_F(ChatImageCacheTests, ClearAllResetsBookkeeping) {
-    ChatImageCache cache(2);
+TEST_F(MarkdownImageCacheTests, ClearAllResetsBookkeeping) {
+    MarkdownImageCache cache(2);
     cache.insertReady("a", makeBitmap(1, 1), 1, 1);
     cache.insertReady("b", makeBitmap(1, 1), 1, 1);
     cache.clearAll();

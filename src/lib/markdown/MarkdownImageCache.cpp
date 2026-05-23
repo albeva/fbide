@@ -4,7 +4,7 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "ChatImageCache.hpp"
+#include "markdown/MarkdownImageCache.hpp"
 using namespace fbide;
 
 namespace {
@@ -24,16 +24,16 @@ constexpr int kHttpErrorStatus = 400;
 
 } // namespace
 
-ChatImageCache::ChatImageCache(const std::size_t maxReady)
+MarkdownImageCache::MarkdownImageCache(const std::size_t maxReady)
 : m_maxReady(std::max<std::size_t>(1, maxReady)) {
-    Bind(wxEVT_WEBREQUEST_STATE, &ChatImageCache::onRequestState, this);
+    Bind(wxEVT_WEBREQUEST_STATE, &MarkdownImageCache::onRequestState, this);
 }
 
-ChatImageCache::~ChatImageCache() {
+MarkdownImageCache::~MarkdownImageCache() {
     clearAll();
 }
 
-auto ChatImageCache::get(const wxString& url) -> const Entry& {
+auto MarkdownImageCache::get(const wxString& url) -> const Entry& {
     const std::string key = url.utf8_string();
     if (auto it = m_entries.find(key); it != m_entries.end()) {
         // Lookup counts as use — keep Ready entries fresh in the LRU.
@@ -65,7 +65,7 @@ auto ChatImageCache::get(const wxString& url) -> const Entry& {
     return entry;
 }
 
-void ChatImageCache::clearAll() {
+void MarkdownImageCache::clearAll() {
     // Cancel in-flight downloads first; dropping the handles afterwards
     // lets wx remove its per-request temp files.
     for (auto& [id, request] : m_activeRequests) {
@@ -80,7 +80,7 @@ void ChatImageCache::clearAll() {
     m_lruIter.clear();
 }
 
-void ChatImageCache::insertReady(const wxString& url, wxBitmap bitmap, const int width, const int height) {
+void MarkdownImageCache::insertReady(const wxString& url, wxBitmap bitmap, const int width, const int height) {
     const std::string key = url.utf8_string();
     auto [it, inserted] = m_entries.try_emplace(key, Entry {});
     (void)inserted;
@@ -92,11 +92,11 @@ void ChatImageCache::insertReady(const wxString& url, wxBitmap bitmap, const int
     markReady(key);
 }
 
-auto ChatImageCache::contains(const wxString& url) const -> bool {
+auto MarkdownImageCache::contains(const wxString& url) const -> bool {
     return m_entries.contains(url.utf8_string());
 }
 
-void ChatImageCache::markReady(const std::string& key) {
+void MarkdownImageCache::markReady(const std::string& key) {
     // Already in the LRU? Move to MRU position. Otherwise append.
     if (const auto it = m_lruIter.find(key); it != m_lruIter.end()) {
         m_lru.splice(m_lru.end(), m_lru, it->second);
@@ -109,13 +109,13 @@ void ChatImageCache::markReady(const std::string& key) {
     }
 }
 
-void ChatImageCache::touchReady(const std::string& key) {
+void MarkdownImageCache::touchReady(const std::string& key) {
     if (const auto it = m_lruIter.find(key); it != m_lruIter.end()) {
         m_lru.splice(m_lru.end(), m_lru, it->second);
     }
 }
 
-void ChatImageCache::evictOldestReady() {
+void MarkdownImageCache::evictOldestReady() {
     if (m_lru.empty()) {
         return;
     }
@@ -125,14 +125,14 @@ void ChatImageCache::evictOldestReady() {
     m_entries.erase(oldest);
 }
 
-void ChatImageCache::forgetLru(const std::string& key) {
+void MarkdownImageCache::forgetLru(const std::string& key) {
     if (const auto it = m_lruIter.find(key); it != m_lruIter.end()) {
         m_lru.erase(it->second);
         m_lruIter.erase(it);
     }
 }
 
-void ChatImageCache::onRequestState(wxWebRequestEvent& event) {
+void MarkdownImageCache::onRequestState(wxWebRequestEvent& event) {
     const auto reqIt = m_requestUrls.find(event.GetId());
     if (reqIt == m_requestUrls.end()) {
         return; // Cancelled / cleared — drop the late event.
@@ -183,7 +183,7 @@ void ChatImageCache::onRequestState(wxWebRequestEvent& event) {
     }
 }
 
-void ChatImageCache::finalize(Entry& entry, const wxString& url, const wxString& path) {
+void MarkdownImageCache::finalize(Entry& entry, const wxString& url, const wxString& path) {
     if (wxFileName::GetSize(path) > wxULongLong(kMaxBytes)) {
         fail(entry, url);
         return;
@@ -213,7 +213,7 @@ void ChatImageCache::finalize(Entry& entry, const wxString& url, const wxString&
     }
 }
 
-void ChatImageCache::fail(Entry& entry, const wxString& url) {
+void MarkdownImageCache::fail(Entry& entry, const wxString& url) {
     entry.state = State::Failed;
     entry.bitmap = wxBitmap {};
     entry.width = 0;
@@ -223,6 +223,6 @@ void ChatImageCache::fail(Entry& entry, const wxString& url) {
     }
 }
 
-auto ChatImageCache::allowedScheme(const wxString& url) -> bool {
+auto MarkdownImageCache::allowedScheme(const wxString& url) -> bool {
     return url.StartsWith("http://") || url.StartsWith("https://");
 }

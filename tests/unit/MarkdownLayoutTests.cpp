@@ -5,8 +5,8 @@
 // https://github.com/albeva/fbide
 //
 #include <gtest/gtest.h>
-#include "ai/chat/ChatLayout.hpp"
-#include "ai/chat/Markdown.hpp"
+#include "markdown/Markdown.hpp"
+#include "markdown/MarkdownLayout.hpp"
 
 using namespace fbide;
 
@@ -52,7 +52,7 @@ auto splitHighlight(const wxString& code, const wxString& /*lang*/) -> std::vect
     return lines;
 }
 
-auto palette() -> ChatPalette {
+auto palette() -> MarkdownPalette {
     return { .text = wxColour(0, 0, 0),
         .link = wxColour(0, 0, 200),
         .codeBg = wxColour(240, 240, 240),
@@ -75,20 +75,20 @@ auto layoutWithImages(const wxString& markdown, const int width, const ImageReso
 
 } // namespace
 
-class ChatLayoutTests : public testing::Test {};
+class MarkdownLayoutTests : public testing::Test {};
 
 // ---------------------------------------------------------------------------
 // Basics
 // ---------------------------------------------------------------------------
 
-TEST_F(ChatLayoutTests, EmptyDocument) {
+TEST_F(MarkdownLayoutTests, EmptyDocument) {
     const auto doc = layout("", 500);
     EXPECT_TRUE(doc.lines.empty());
     EXPECT_EQ(doc.height, 0);
     EXPECT_EQ(doc.width, 500);
 }
 
-TEST_F(ChatLayoutTests, SingleShortParagraphIsOneLine) {
+TEST_F(MarkdownLayoutTests, SingleShortParagraphIsOneLine) {
     const auto doc = layout("hello world", 500);
     ASSERT_EQ(doc.lines.size(), 1U);
     EXPECT_EQ(doc.lines[0].kind, LineKind::Prose);
@@ -101,7 +101,7 @@ TEST_F(ChatLayoutTests, SingleShortParagraphIsOneLine) {
 // Word wrap
 // ---------------------------------------------------------------------------
 
-TEST_F(ChatLayoutTests, ParagraphWrapsAtWidth) {
+TEST_F(MarkdownLayoutTests, ParagraphWrapsAtWidth) {
     // Words are 40px (4 chars), spaces 10px. Width 100 fits "aaaa bbbb"
     // (40+10+40 = 90) but not a third word.
     const auto doc = layout("aaaa bbbb cccc", 100);
@@ -118,12 +118,12 @@ TEST_F(ChatLayoutTests, ParagraphWrapsAtWidth) {
     EXPECT_EQ(doc.height, 40);
 }
 
-TEST_F(ChatLayoutTests, WideEnoughDocumentDoesNotWrap) {
+TEST_F(MarkdownLayoutTests, WideEnoughDocumentDoesNotWrap) {
     const auto doc = layout("aaaa bbbb cccc", 500);
     EXPECT_EQ(doc.lines.size(), 1U);
 }
 
-TEST_F(ChatLayoutTests, HardBreakForcesNewLine) {
+TEST_F(MarkdownLayoutTests, HardBreakForcesNewLine) {
     // Two spaces + newline is a markdown hard break.
     const auto doc = layout("one  \ntwo", 500);
     ASSERT_EQ(doc.lines.size(), 2U);
@@ -135,7 +135,7 @@ TEST_F(ChatLayoutTests, HardBreakForcesNewLine) {
 // Block stacking
 // ---------------------------------------------------------------------------
 
-TEST_F(ChatLayoutTests, ParagraphsAreSeparatedByABlockGap) {
+TEST_F(MarkdownLayoutTests, ParagraphsAreSeparatedByABlockGap) {
     const auto doc = layout("one\n\ntwo", 500);
     ASSERT_EQ(doc.lines.size(), 2U);
     EXPECT_EQ(doc.lines[0].y, 0);
@@ -143,7 +143,7 @@ TEST_F(ChatLayoutTests, ParagraphsAreSeparatedByABlockGap) {
     EXPECT_EQ(doc.height, 48);
 }
 
-TEST_F(ChatLayoutTests, HeadingUsesALargerLineHeight) {
+TEST_F(MarkdownLayoutTests, HeadingUsesALargerLineHeight) {
     const auto doc = layout("# Title", 500);
     ASSERT_EQ(doc.lines.size(), 1U);
     EXPECT_EQ(doc.lines[0].height, 30); // body 20 + level-1 delta 10
@@ -153,7 +153,7 @@ TEST_F(ChatLayoutTests, HeadingUsesALargerLineHeight) {
 // Code fences
 // ---------------------------------------------------------------------------
 
-TEST_F(ChatLayoutTests, CodeBlockHasPaddingStripsAndCodeLines) {
+TEST_F(MarkdownLayoutTests, CodeBlockHasPaddingStripsAndCodeLines) {
     const auto doc = layout("```\nab\ncd\n```", 500);
     // top pad + 2 code lines + bottom pad
     ASSERT_EQ(doc.lines.size(), 4U);
@@ -167,7 +167,7 @@ TEST_F(ChatLayoutTests, CodeBlockHasPaddingStripsAndCodeLines) {
     EXPECT_EQ(doc.height, 56);
 }
 
-TEST_F(ChatLayoutTests, CodeBlockRegionIsRecorded) {
+TEST_F(MarkdownLayoutTests, CodeBlockRegionIsRecorded) {
     const auto doc = layout("text\n\n```fb\nab\ncd\n```", 500);
     ASSERT_EQ(doc.codeBlocks.size(), 1U);
     // Snippet body and language live on the source markdown — resolved on
@@ -188,7 +188,7 @@ TEST_F(ChatLayoutTests, CodeBlockRegionIsRecorded) {
     EXPECT_EQ(doc.codeBlocks[0].height, codeBottom - codeTop);
 }
 
-TEST_F(ChatLayoutTests, CodeRunsAreMonospaceAndIndentedByPadding) {
+TEST_F(MarkdownLayoutTests, CodeRunsAreMonospaceAndIndentedByPadding) {
     const auto doc = layout("```\nab\n```", 500);
     ASSERT_EQ(doc.lines.size(), 3U);
     ASSERT_EQ(doc.lines[1].runs.size(), 1U);
@@ -199,7 +199,7 @@ TEST_F(ChatLayoutTests, CodeRunsAreMonospaceAndIndentedByPadding) {
     EXPECT_EQ(run.width, 16); // 2 chars * 8px monospace
 }
 
-TEST_F(ChatLayoutTests, LongCodeLineSoftWraps) {
+TEST_F(MarkdownLayoutTests, LongCodeLineSoftWraps) {
     // Monospace is 8px/char; at width 100 a code line wraps. The first line
     // starts at the code padding (8), continuation lines are further indented.
     const auto doc = layout("```\nabcdefghijklmnopqrstuvwxy\n```", 100);
@@ -213,7 +213,7 @@ TEST_F(ChatLayoutTests, LongCodeLineSoftWraps) {
     EXPECT_EQ(doc.lines[3].runs[0].x, 24);
 }
 
-TEST_F(ChatLayoutTests, ShortCodeLineDoesNotWrap) {
+TEST_F(MarkdownLayoutTests, ShortCodeLineDoesNotWrap) {
     const auto doc = layout("```\nshort\n```", 500);
     ASSERT_EQ(doc.lines.size(), 3U); // top pad + 1 line + bottom pad
     ASSERT_EQ(doc.lines[1].runs.size(), 1U);
@@ -224,7 +224,7 @@ TEST_F(ChatLayoutTests, ShortCodeLineDoesNotWrap) {
 // Rules
 // ---------------------------------------------------------------------------
 
-TEST_F(ChatLayoutTests, HorizontalRuleIsARuleLine) {
+TEST_F(MarkdownLayoutTests, HorizontalRuleIsARuleLine) {
     const auto doc = layout("above\n\n---\n\nbelow", 500);
     ASSERT_EQ(doc.lines.size(), 3U);
     EXPECT_EQ(doc.lines[1].kind, LineKind::Rule);
@@ -235,7 +235,7 @@ TEST_F(ChatLayoutTests, HorizontalRuleIsARuleLine) {
 // Lists
 // ---------------------------------------------------------------------------
 
-TEST_F(ChatLayoutTests, ListItemHasAMarkerRunFirst) {
+TEST_F(MarkdownLayoutTests, ListItemHasAMarkerRunFirst) {
     const auto doc = layout("- item", 500);
     ASSERT_EQ(doc.lines.size(), 1U);
     ASSERT_GE(doc.lines[0].runs.size(), 2U);
@@ -245,13 +245,13 @@ TEST_F(ChatLayoutTests, ListItemHasAMarkerRunFirst) {
     EXPECT_EQ(doc.lines[0].runs[1].x, 24); // one list-indent level
 }
 
-TEST_F(ChatLayoutTests, OrderedListMarkerShowsTheOrdinal) {
+TEST_F(MarkdownLayoutTests, OrderedListMarkerShowsTheOrdinal) {
     const auto doc = layout("3. third", 500);
     ASSERT_GE(doc.lines[0].runs.size(), 1U);
     EXPECT_EQ(doc.lines[0].runs[0].text, "3. ");
 }
 
-TEST_F(ChatLayoutTests, TaskListMarkerReflectsCheckedState) {
+TEST_F(MarkdownLayoutTests, TaskListMarkerReflectsCheckedState) {
     const auto doc = layout("- [ ] todo\n- [x] done", 500);
     ASSERT_EQ(doc.lines.size(), 2U);
     ASSERT_GE(doc.lines[0].runs.size(), 1U);
@@ -265,7 +265,7 @@ TEST_F(ChatLayoutTests, TaskListMarkerReflectsCheckedState) {
 // Images
 // ---------------------------------------------------------------------------
 
-TEST_F(ChatLayoutTests, ReadyImageBecomesItsOwnImageLine) {
+TEST_F(MarkdownLayoutTests, ReadyImageBecomesItsOwnImageLine) {
     // 100x40 bitmap fits inside a 500px width, so no scaling.
     const wxImage rawImage(100, 40);
     const wxBitmap bitmap(rawImage);
@@ -289,7 +289,7 @@ TEST_F(ChatLayoutTests, ReadyImageBecomesItsOwnImageLine) {
     EXPECT_EQ(doc.lines[0].runs[0].linkId, 0);
 }
 
-TEST_F(ChatLayoutTests, WideImageScalesProportionallyToFitWidth) {
+TEST_F(MarkdownLayoutTests, WideImageScalesProportionallyToFitWidth) {
     // 800x200 → 400-wide bubble → drawn at 400x100.
     const wxImage rawImage(800, 200);
     const wxBitmap bitmap(rawImage);
@@ -306,7 +306,7 @@ TEST_F(ChatLayoutTests, WideImageScalesProportionallyToFitWidth) {
     EXPECT_EQ(doc.lines[0].image.drawHeight, 100);
 }
 
-TEST_F(ChatLayoutTests, LoadingImageRendersAsPlaceholderProseLine) {
+TEST_F(MarkdownLayoutTests, LoadingImageRendersAsPlaceholderProseLine) {
     const auto resolver = [](const wxString&) -> ImageInfo {
         return { .state = ImageInfo::State::Loading };
     };
@@ -320,7 +320,7 @@ TEST_F(ChatLayoutTests, LoadingImageRendersAsPlaceholderProseLine) {
     EXPECT_EQ(doc.lines[0].runs[0].linkId, 0);
 }
 
-TEST_F(ChatLayoutTests, FailedImageRendersAsPlaceholderProseLine) {
+TEST_F(MarkdownLayoutTests, FailedImageRendersAsPlaceholderProseLine) {
     const auto resolver = [](const wxString&) -> ImageInfo {
         return { .state = ImageInfo::State::Failed };
     };
@@ -330,7 +330,7 @@ TEST_F(ChatLayoutTests, FailedImageRendersAsPlaceholderProseLine) {
     EXPECT_TRUE(doc.lines[0].runs[0].text.Contains("failed"));
 }
 
-TEST_F(ChatLayoutTests, ImageBetweenTextSplitsParagraphIntoThreeLines) {
+TEST_F(MarkdownLayoutTests, ImageBetweenTextSplitsParagraphIntoThreeLines) {
     const wxImage rawImage(50, 50);
     const wxBitmap bitmap(rawImage);
     const auto resolver = [&bitmap](const wxString&) -> ImageInfo {
@@ -347,7 +347,7 @@ TEST_F(ChatLayoutTests, ImageBetweenTextSplitsParagraphIntoThreeLines) {
     EXPECT_EQ(doc.lines[2].kind, LineKind::Prose);
 }
 
-TEST_F(ChatLayoutTests, ImageWithoutResolverFallsBackToFailedPlaceholder) {
+TEST_F(MarkdownLayoutTests, ImageWithoutResolverFallsBackToFailedPlaceholder) {
     // No resolver provided — every image is treated as permanently Failed.
     const auto doc = layout("![cat](https://e.org/c.png)", 500);
     ASSERT_EQ(doc.lines.size(), 1U);
@@ -359,7 +359,7 @@ TEST_F(ChatLayoutTests, ImageWithoutResolverFallsBackToFailedPlaceholder) {
 // Links
 // ---------------------------------------------------------------------------
 
-TEST_F(ChatLayoutTests, LinkRunIsRegisteredAndTagged) {
+TEST_F(MarkdownLayoutTests, LinkRunIsRegisteredAndTagged) {
     const auto doc = layout("see [docs](https://example.org)", 500);
     ASSERT_EQ(doc.links.size(), 1U);
     EXPECT_EQ(doc.links[0].url, "https://example.org");
@@ -382,7 +382,7 @@ TEST_F(ChatLayoutTests, LinkRunIsRegisteredAndTagged) {
 // Quote indent
 // ---------------------------------------------------------------------------
 
-TEST_F(ChatLayoutTests, BlockQuoteIndentsAndRecordsDepth) {
+TEST_F(MarkdownLayoutTests, BlockQuoteIndentsAndRecordsDepth) {
     const auto doc = layout("> quoted", 500);
     ASSERT_EQ(doc.lines.size(), 1U);
     EXPECT_EQ(doc.lines[0].quoteDepth, 1);
@@ -393,7 +393,7 @@ TEST_F(ChatLayoutTests, BlockQuoteIndentsAndRecordsDepth) {
 // Patch proposals
 // ---------------------------------------------------------------------------
 
-TEST_F(ChatLayoutTests, PatchBlockEmitsSearchAndReplaceStrips) {
+TEST_F(MarkdownLayoutTests, PatchBlockEmitsSearchAndReplaceStrips) {
     const auto doc = layout(
         "<<<<<<< SEARCH\n"
         "old\n"
@@ -412,7 +412,7 @@ TEST_F(ChatLayoutTests, PatchBlockEmitsSearchAndReplaceStrips) {
     EXPECT_EQ(doc.lines[5].kind, LineKind::PatchReplace); // bottom pad
 }
 
-TEST_F(ChatLayoutTests, PatchBlockRegionIsRecorded) {
+TEST_F(MarkdownLayoutTests, PatchBlockRegionIsRecorded) {
     const auto doc = layout(
         "<<<<<<< SEARCH\n"
         "a\n"
@@ -429,7 +429,7 @@ TEST_F(ChatLayoutTests, PatchBlockRegionIsRecorded) {
         doc.lines.back().y + doc.lines.back().height - doc.lines.front().y);
 }
 
-TEST_F(ChatLayoutTests, PatchBlockCarriesTargetThrough) {
+TEST_F(MarkdownLayoutTests, PatchBlockCarriesTargetThrough) {
     const auto doc = layout(
         "<<<<<<< SEARCH foo.bas\n"
         "x\n"
