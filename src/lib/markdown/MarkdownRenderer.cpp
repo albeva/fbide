@@ -226,12 +226,35 @@ auto fbide::hitTestLine(
     return { 0, 0 };
 }
 
+namespace {
+
+/// X position (relative to the line's left edge) of the caret described
+/// by `(runIndex, charInRun)` within `line`. Snaps to the right edge of
+/// the last text-bearing run when the position lands past the end of
+/// the visible runs; returns 0 when the line has no text at all.
+auto caretXInLine(const PaintLine& line, const std::size_t runIndex, const std::size_t charInRun, const TextMeasurer& measurer) -> int {
+    if (runIndex < line.runs.size()) {
+        const auto& run = line.runs.at(runIndex);
+        const std::size_t clipped = std::min(charInRun, run.text.length());
+        return run.x + measurer.width(run.text.Mid(0, clipped), run.style);
+    }
+    for (auto it = line.runs.rbegin(); it != line.runs.rend(); ++it) {
+        if (!it->text.empty()) {
+            return it->x + it->width;
+        }
+    }
+    return 0;
+}
+
+} // namespace
+
 void fbide::paintSelectionHighlight(
     wxGCDC& gc,
     const PaintLine& line,
     const std::size_t lineIndex,
     const int contentLeft,
     const int lineTop,
+    const int contentWidth,
     const Selection& selection,
     const wxColour& highlightColour,
     const TextMeasurer& measurer
@@ -244,34 +267,26 @@ void fbide::paintSelectionHighlight(
     if (lineIndex < startPos.lineIndex || lineIndex > endPos.lineIndex) {
         return;
     }
+    const bool isStartLine = (lineIndex == startPos.lineIndex);
+    const bool isEndLine = (lineIndex == endPos.lineIndex);
+
+    // First-line bands start at the selection's caret; later lines fill
+    // from the left edge of the content rect. End-line bands stop at
+    // the selection's caret; earlier lines extend to the right edge so
+    // the wrap-to-next-line behaviour reads visually.
+    const int startX = isStartLine
+                         ? caretXInLine(line, startPos.runIndex, startPos.charInRun, measurer)
+                         : 0;
+    const int endX = isEndLine
+                       ? caretXInLine(line, endPos.runIndex, endPos.charInRun, measurer)
+                       : contentWidth;
+    if (startX >= endX) {
+        return;
+    }
+
     gc.SetPen(*wxTRANSPARENT_PEN);
     gc.SetBrush(wxBrush(highlightColour));
-
-    for (std::size_t runIdx = 0; runIdx < line.runs.size(); runIdx++) {
-        const auto& run = line.runs.at(runIdx);
-        if (run.text.empty()) {
-            continue;
-        }
-        const bool atStart = (lineIndex == startPos.lineIndex);
-        const bool atEnd = (lineIndex == endPos.lineIndex);
-        // Position of this run within the selection — fully outside,
-        // partially overlapped (start / end / single-line), or fully inside.
-        if (atStart && runIdx < startPos.runIndex) {
-            continue;
-        }
-        if (atEnd && runIdx > endPos.runIndex) {
-            break;
-        }
-        // Compute selected character range within this run.
-        const std::size_t selFrom = (atStart && runIdx == startPos.runIndex) ? startPos.charInRun : 0;
-        const std::size_t selTo = (atEnd && runIdx == endPos.runIndex) ? endPos.charInRun : run.text.length();
-        if (selFrom >= selTo) {
-            continue;
-        }
-        const int prefixWidth = measurer.width(run.text.Mid(0, selFrom), run.style);
-        const int spanWidth = measurer.width(run.text.Mid(selFrom, selTo - selFrom), run.style);
-        gc.DrawRectangle(contentLeft + run.x + prefixWidth, lineTop, spanWidth, line.height);
-    }
+    gc.DrawRectangle(contentLeft + startX, lineTop, endX - startX, line.height);
 }
 
 auto fbide::extractSelectedText(

@@ -426,7 +426,7 @@ void AiChatView::paintMessage(
         const int lineTop = contentTop + line.y;
         fbide::paintLineBackground(gc, line, contentLeft, lineTop, message.contentWidth, pal);
         if (hasSelection) {
-            fbide::paintSelectionHighlight(gc, line, lineIdx, contentLeft, lineTop, m_selection, highlightColour, measurer);
+            fbide::paintSelectionHighlight(gc, line, lineIdx, contentLeft, lineTop, message.contentWidth, m_selection, highlightColour, measurer);
         }
         fbide::paintLineText(gc, line, contentLeft, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
     }

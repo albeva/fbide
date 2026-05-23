@@ -128,16 +128,22 @@ struct Selection {
     const TextMeasurer& measurer
 ) -> std::pair<std::size_t, std::size_t>;
 
-/// Paint the selection highlight rectangles for one line. The renderer
-/// computes how much of each run is selected (full / partial / none)
-/// and fills a rect behind the text. Called BEFORE `paintLineText` so
-/// the text sits on top of the highlight.
+/// Paint the selection highlight band for one line — a single filled
+/// rect from the selection's left edge on this line to its right edge.
+/// On the line that contains the selection start, the rect starts at
+/// the start position and extends to `contentWidth` (showing the
+/// selection wraps to the next line); on the line that contains the
+/// end, it goes from `contentLeft` to the end position; lines fully
+/// inside the range get a band the full content width. A single-line
+/// selection collapses both edges onto the same line. Called BEFORE
+/// `paintLineText` so the text sits on top.
 void paintSelectionHighlight(
     wxGCDC& gc,
     const PaintLine& line,
     std::size_t lineIndex,
     int contentLeft,
     int lineTop,
+    int contentWidth,
     const Selection& selection,
     const wxColour& highlightColour,
     const TextMeasurer& measurer
