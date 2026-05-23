@@ -299,6 +299,60 @@ void fbide::paintSelectionHighlight(
     gc.DrawRectangle(contentLeft + startX, lineTop, endX - startX, bandHeight);
 }
 
+auto fbide::selectionToOffset(const LaidOutDoc& doc, const SelectionPosition position) -> std::size_t {
+    std::size_t offset = 0;
+    for (std::size_t li = 0; li < position.lineIndex && li < doc.lines.size(); li++) {
+        for (const auto& run : doc.lines.at(li).runs) {
+            offset += run.text.length();
+        }
+    }
+    if (position.lineIndex < doc.lines.size()) {
+        const auto& line = doc.lines.at(position.lineIndex);
+        for (std::size_t runIdx = 0; runIdx < position.runIndex && runIdx < line.runs.size(); runIdx++) {
+            offset += line.runs.at(runIdx).text.length();
+        }
+        if (position.runIndex < line.runs.size()) {
+            offset += std::min(position.charInRun, line.runs.at(position.runIndex).text.length());
+        }
+    }
+    return offset;
+}
+
+auto fbide::selectionFromOffset(const LaidOutDoc& doc, const std::size_t offset) -> SelectionPosition {
+    std::size_t remaining = offset;
+    for (std::size_t li = 0; li < doc.lines.size(); li++) {
+        const auto& line = doc.lines.at(li);
+        std::size_t lineLen = 0;
+        for (const auto& run : line.runs) {
+            lineLen += run.text.length();
+        }
+        if (remaining <= lineLen) {
+            for (std::size_t runIdx = 0; runIdx < line.runs.size(); runIdx++) {
+                const std::size_t runLen = line.runs.at(runIdx).text.length();
+                if (remaining <= runLen) {
+                    return { .lineIndex = li, .runIndex = runIdx, .charInRun = remaining };
+                }
+                remaining -= runLen;
+            }
+            // Empty line, or offset lands at the end with no run to carry it.
+            return { .lineIndex = li, .runIndex = 0, .charInRun = 0 };
+        }
+        remaining -= lineLen;
+    }
+    // Offset past the end of the document — clamp to the very last position.
+    if (!doc.lines.empty()) {
+        const std::size_t lastLine = doc.lines.size() - 1;
+        const auto& line = doc.lines.at(lastLine);
+        if (!line.runs.empty()) {
+            return { .lineIndex = lastLine,
+                .runIndex = line.runs.size() - 1,
+                .charInRun = line.runs.back().text.length() };
+        }
+        return { .lineIndex = lastLine, .runIndex = 0, .charInRun = 0 };
+    }
+    return {};
+}
+
 auto fbide::extractSelectedText(
     const LaidOutDoc& doc,
     const Selection& selection

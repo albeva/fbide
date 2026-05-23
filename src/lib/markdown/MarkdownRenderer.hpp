@@ -164,6 +164,20 @@ void paintSelectionHighlight(
     const Selection& selection
 ) -> wxString;
 
+/// Total non-space character offset of `position` from the start of
+/// `doc`. Sums every preceding run's `text.length()` (spaces are
+/// layout artefacts, not run characters) plus `position.charInRun`.
+/// Stable across re-wrapping at a different width — the per-line
+/// distribution of runs changes, but the total non-space character
+/// count does not.
+[[nodiscard]] auto selectionToOffset(const LaidOutDoc& doc, SelectionPosition position) -> std::size_t;
+
+/// Inverse of `selectionToOffset` — locate the `(line, run, char)` at
+/// `offset` non-space characters into `doc`. Out-of-range offsets
+/// clamp to the last position. Pair with `selectionToOffset` to
+/// preserve a `Selection` across a re-wrap at a new width.
+[[nodiscard]] auto selectionFromOffset(const LaidOutDoc& doc, std::size_t offset) -> SelectionPosition;
+
 /// DC-state cache carried across `paintLineText` calls. Adjacent runs
 /// in the same paragraph almost always share style / colour; carrying
 /// this across the loop turns `SetFont` from per-run to per-style.

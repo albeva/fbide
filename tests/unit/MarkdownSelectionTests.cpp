@@ -146,6 +146,70 @@ TEST_F(MarkdownSelectionTests, ExtractAcrossLinesJoinsWithNewline) {
     EXPECT_TRUE(text.Contains("\n"));
 }
 
+// ---------------------------------------------------------------------------
+// selectionToOffset / selectionFromOffset
+// ---------------------------------------------------------------------------
+
+TEST_F(MarkdownSelectionTests, OffsetRoundTripForStartOfDoc) {
+    const auto doc = layout("hello world\n\nsecond paragraph");
+    const SelectionPosition start { .lineIndex = 0, .runIndex = 0, .charInRun = 0 };
+    const std::size_t off = selectionToOffset(doc, start);
+    EXPECT_EQ(off, 0U);
+    const SelectionPosition recovered = selectionFromOffset(doc, off);
+    EXPECT_EQ(recovered, start);
+}
+
+TEST_F(MarkdownSelectionTests, OffsetRoundTripMidRun) {
+    const auto doc = layout("hello world");
+    const wxString first = "hello";
+    const SelectionPosition mid { .lineIndex = 0, .runIndex = 0, .charInRun = 3 };
+    const std::size_t off = selectionToOffset(doc, mid);
+    EXPECT_EQ(off, 3U);
+    EXPECT_EQ(selectionFromOffset(doc, off), mid);
+    EXPECT_LT(off, first.length());
+}
+
+TEST_F(MarkdownSelectionTests, OffsetSurvivesRewrapToNarrowerWidth) {
+    // Long paragraph that wraps differently at 500px vs 80px.
+    const wxString markdown = "one two three four five six seven eight nine ten";
+    const FakeMeasurer measurer;
+    const auto wide = layoutMarkdown(parseMarkdown(markdown), kTestWidth, measurer, fakePalette(), splitHighlight);
+    // Pick a selection that spans multiple words in the wide layout.
+    Selection sel;
+    sel.anchor = { .lineIndex = 0, .runIndex = 0, .charInRun = 0 };
+    sel.caret = { .lineIndex = 0, .runIndex = findRun(wide.lines.at(0), "five"), .charInRun = wxString("five").length() };
+    const wxString wideText = extractSelectedText(wide, sel);
+    const std::size_t anchorOff = selectionToOffset(wide, sel.anchor);
+    const std::size_t caretOff = selectionToOffset(wide, sel.caret);
+
+    // Re-lay narrower so the line wrapping changes.
+    constexpr int kNarrowWidth = 80;
+    const auto narrow = layoutMarkdown(parseMarkdown(markdown), kNarrowWidth, measurer, fakePalette(), splitHighlight);
+    EXPECT_GT(narrow.lines.size(), wide.lines.size());
+
+    Selection remapped;
+    remapped.anchor = selectionFromOffset(narrow, anchorOff);
+    remapped.caret = selectionFromOffset(narrow, caretOff);
+    // `extractSelectedText` joins lines with `\n`, so the literal text
+    // legitimately differs after a re-wrap — strip line breaks to
+    // compare the same set of characters was selected.
+    const auto stripBreaks = [](wxString text) {
+        text.Replace("\n", "");
+        return text;
+    };
+    EXPECT_EQ(stripBreaks(extractSelectedText(narrow, remapped)), stripBreaks(wideText));
+}
+
+TEST_F(MarkdownSelectionTests, OffsetPastEndClampsToLastPosition) {
+    const auto doc = layout("hello");
+    const auto recovered = selectionFromOffset(doc, 10'000);
+    // Past every character — clamp to the end of the last run.
+    EXPECT_EQ(recovered.lineIndex, doc.lines.size() - 1);
+    const auto& lastLine = doc.lines.at(recovered.lineIndex);
+    EXPECT_EQ(recovered.runIndex, lastLine.runs.size() - 1);
+    EXPECT_EQ(recovered.charInRun, lastLine.runs.back().text.length());
+}
+
 TEST_F(MarkdownSelectionTests, ExtractIsNormalisedAcrossBackwardsDrag) {
     const wxString word = "hello";
     const auto doc = layout(word);

@@ -208,14 +208,25 @@ void AiChatView::rebuildBubbleBrushes() {
 
 void AiChatView::onSize(wxSizeEvent& event) {
     hideActionBar(); // bubble positions shift — re-hover brings the bar back
-    // A width change re-wraps every bubble's content; the cached
-    // `(line, run, char)` positions in `m_selection` would then point
-    // into the wrong text. Drop the selection rather than let it drift.
-    if (GetClientSize().GetWidth() != m_layoutWidth && m_selectionMessage >= 0) {
-        m_selectionMessage = -1;
-        m_selection.clear();
+    // A width change re-wraps every bubble's content. Convert the
+    // current selection to flat character offsets (stable across
+    // re-wrap), relayout, then convert back — the highlight stays
+    // anchored on the same characters inside the same bubble.
+    const bool widthChanged = GetClientSize().GetWidth() != m_layoutWidth;
+    const bool remap = widthChanged && m_selectionMessage >= 0 && !m_selection.empty();
+    std::size_t anchorOffset = 0;
+    std::size_t caretOffset = 0;
+    if (remap) {
+        const auto& laid = m_items.at(static_cast<std::size_t>(m_selectionMessage)).document.laid();
+        anchorOffset = selectionToOffset(laid, m_selection.anchor);
+        caretOffset = selectionToOffset(laid, m_selection.caret);
     }
     relayout();
+    if (remap) {
+        const auto& laid = m_items.at(static_cast<std::size_t>(m_selectionMessage)).document.laid();
+        m_selection.anchor = selectionFromOffset(laid, anchorOffset);
+        m_selection.caret = selectionFromOffset(laid, caretOffset);
+    }
     Refresh();
     event.Skip();
 }

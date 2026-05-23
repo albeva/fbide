@@ -214,13 +214,25 @@ auto MarkdownView::palette() -> MarkdownPalette {
 
 void MarkdownView::onSize(wxSizeEvent& event) {
     // A width change re-wraps every line; the cached `(line, run, char)`
-    // positions in `m_selection` would then point into the wrong text.
-    // Drop the selection rather than let it drift — proper remapping
-    // needs source-markdown offsets we don't track yet.
-    if (GetClientSize().GetWidth() != m_layoutWidth && !m_selection.empty()) {
-        m_selection.clear();
+    // positions in `m_selection` would then point into a different
+    // distribution of runs. Convert the selection to flat
+    // character offsets (stable across re-wrap), relayout, then convert
+    // back — the highlight stays anchored on the same characters.
+    const bool widthChanged = GetClientSize().GetWidth() != m_layoutWidth;
+    std::size_t anchorOffset = 0;
+    std::size_t caretOffset = 0;
+    const bool remap = widthChanged && !m_selection.empty();
+    if (remap) {
+        const auto& laid = m_document.laid();
+        anchorOffset = selectionToOffset(laid, m_selection.anchor);
+        caretOffset = selectionToOffset(laid, m_selection.caret);
     }
     relayout();
+    if (remap) {
+        const auto& laid = m_document.laid();
+        m_selection.anchor = selectionFromOffset(laid, anchorOffset);
+        m_selection.caret = selectionFromOffset(laid, caretOffset);
+    }
     Refresh();
     event.Skip();
 }
