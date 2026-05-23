@@ -359,17 +359,18 @@ auto MarkdownView::hitTest(const wxPoint& clientPoint) -> SelectionPosition {
     if (laid.lines.empty()) {
         return {};
     }
-    // Find the line under relY, or snap to the nearest edge.
-    std::size_t lineIdx = laid.lines.size() - 1;
-    if (relY < laid.lines.front().y) {
-        lineIdx = 0;
-    } else {
-        for (std::size_t i = 0; i < laid.lines.size(); i++) {
-            const auto& line = laid.lines.at(i);
-            if (relY >= line.y && relY < line.y + line.height) {
-                lineIdx = i;
-                break;
-            }
+    // Snap to the last line whose top is at-or-above the pointer. This
+    // handles three cases cleanly:
+    //   - pointer inside a line     → that line wins
+    //   - pointer in a block gap    → the line above wins (no jump)
+    //   - pointer past every line   → the last line wins
+    //   - pointer above every line  → loop never assigns, default `0` stays
+    std::size_t lineIdx = 0;
+    for (std::size_t i = 0; i < laid.lines.size(); i++) {
+        if (laid.lines.at(i).y <= relY) {
+            lineIdx = i;
+        } else {
+            break;
         }
     }
     const wxClientDC clientDc(this);
