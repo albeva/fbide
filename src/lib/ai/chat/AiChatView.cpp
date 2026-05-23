@@ -585,11 +585,12 @@ void AiChatView::paintMessage(
         // box to the baseline.
         //
         // Pass 1 finds the max ascent across runs in this line; pass 2
-        // draws each run at `baseline - runAscent`. The `currentStyle` +
-        // `currentAscent` cache spans both passes — for a single-style
-        // line the font is set once and `GetFontMetrics()` is hit once
-        // across all runs in both passes.
-        const auto ascentForRun = [&](const PaintRun& run) -> wxCoord {
+        // draws each run at `baseline - runAscent`. `selectRunFont` is a
+        // mutator: when the style differs from the cached one, it sets
+        // the DC font and refreshes `currentAscent` so the cache spans
+        // both passes — for a single-style line the font is set once
+        // and `GetFontMetrics()` is hit once across all runs.
+        const auto selectRunFont = [&](const PaintRun& run) -> wxCoord {
             if (!styleSet || run.style != currentStyle) {
                 gc.SetFont(fontFor(run.style, m_bodyFont, m_monoFont, m_themedFont));
                 currentStyle = run.style;
@@ -604,7 +605,7 @@ void AiChatView::paintMessage(
             if (run.text.empty()) {
                 continue;
             }
-            const wxCoord ascent = ascentForRun(run);
+            const wxCoord ascent = selectRunFont(run);
             if (ascent > maxAscent) {
                 maxAscent = ascent;
             }
@@ -615,7 +616,7 @@ void AiChatView::paintMessage(
             if (run.text.empty()) {
                 continue;
             }
-            const wxCoord ascent = ascentForRun(run);
+            const wxCoord ascent = selectRunFont(run);
             if (!colourSet || run.colour != currentColour) {
                 gc.SetTextForeground(run.colour);
                 currentColour = run.colour;
