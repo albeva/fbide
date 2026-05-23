@@ -145,22 +145,22 @@ horizontal rule.
 const auto kImagesReply = wxString::FromUTF8(
     R"(A few screenshots from the [FBIde gallery](https://fbide.freebasic.net/):
 
-![About dialog](https://fbide.org/images/screenshots/about.png)
+![About dialog](https://fbide.freebasic.net/images/screenshots/about.png)
 
 The classic about box — the smallest image in the gallery, good for
 checking that small images render at their natural size and don't get
 scaled up to fill the bubble.
 
-![Dark theme](https://fbide.org/images/screenshots/dark-theme.png)
+![Dark theme](https://fbide.freebasic.net/images/screenshots/dark-theme.png)
 
 Editor running with the dark theme. Wider images scale down to fit the
 bubble while keeping their aspect ratio.
 
-![Code formatter](https://fbide.org/images/screenshots/code-formatter.png)
+![Code formatter](https://fbide.freebasic.net/images/screenshots/code-formatter.png)
 
 Before / after panes of the FreeBASIC code formatter.
 
-![Integrated file browser](https://fbide.org/images/screenshots/integrated-file-browser.png)
+![Integrated file browser](https://fbide.freebasic.net/images/screenshots/integrated-file-browser.png)
 
 The sidebar file tree alongside the editor.
 )"
