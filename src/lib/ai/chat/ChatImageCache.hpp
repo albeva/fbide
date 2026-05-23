@@ -28,7 +28,7 @@ namespace fbide {
  * Ready or Failed so the chat view can relayout.
  *
  * Only `http://` and `https://` URLs are downloaded; anything else (file,
- * data, mailto, …) is marked Failed immediately. Downloads exceeding 5 MiB
+ * data, mailto, …) is marked Failed immediately. Downloads exceeding 2 MiB
  * or images larger than 4096 px on either axis are rejected.
  *
  * Cleanup: the destructor cancels every in-flight download and drops

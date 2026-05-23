@@ -9,10 +9,12 @@ using namespace fbide;
 
 namespace {
 
-/// Cap on the downloaded payload. Chat replies have no business attaching
-/// multi-megabyte images; the check happens at completion time since the
+/// Cap on the downloaded payload. Chat images are screenshots / icons /
+/// diagrams — not photos — so a 2 MiB cap is generous in practice and
+/// keeps the synchronous decode (`wxImage::LoadFile`) under ~50 ms even
+/// on slower machines. The check runs at completion time because the
 /// HTTP Content-Length isn't always present mid-stream.
-constexpr unsigned long long kMaxBytes = 5ULL * 1024 * 1024;
+constexpr unsigned long long kMaxBytes = 2ULL * 1024 * 1024;
 
 /// Hard cap on decoded dimensions. Anything larger almost certainly means
 /// something went wrong upstream and would blow memory if we drew it.
