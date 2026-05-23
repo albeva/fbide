@@ -5,6 +5,8 @@
 // https://github.com/albeva/fbide
 //
 #include "markdown/MarkdownView.hpp"
+#include <wx/clipbrd.h>
+#include <wx/dataobj.h>
 #include <wx/dcbuffer.h>
 #include <wx/dcclient.h>
 #include <wx/dcgraph.h>
@@ -171,7 +173,10 @@ wxBEGIN_EVENT_TABLE(MarkdownView, wxScrolled<wxPanel>)
     EVT_SIZE(MarkdownView::onSize)
     EVT_MOTION(MarkdownView::onMotion)
     EVT_LEFT_DOWN(MarkdownView::onLeftDown)
+    EVT_LEFT_UP(MarkdownView::onLeftUp)
+    EVT_LEFT_DCLICK(MarkdownView::onLeftDClick)
     EVT_MOUSEWHEEL(MarkdownView::onMouseWheel)
+    EVT_CHAR_HOOK(MarkdownView::onCharHook)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -358,14 +363,22 @@ void MarkdownView::onPaint(wxPaintEvent& /*event*/) {
             [](const PaintLine& line) { return line.y + line.height; }
         );
 
+        // One measurer reused across the line loop — `paintSelectionHighlight`
+        // needs per-character widths to compute the highlight rect, and a
+        // fresh DcMeasurer + the shared cache is cheap to build.
+        const DcMeasurer measurer(memoryDc, m_bodyFont, m_monoFont, m_themedFont, m_measurerCache);
+        const wxColour highlightColour = wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT);
+
         PaintRunState runState;
         for (auto it = first; it != laid.lines.end(); ++it) {
             const auto& line = *it;
             if (line.y > regionBottomRel) {
                 break;
             }
+            const std::size_t lineIdx = static_cast<std::size_t>(std::distance(laid.lines.begin(), it));
             const int lineTop = contentTop + line.y;
             fbide::paintLineBackground(gc, line, contentLeft, lineTop, contentWidth, pal);
+            fbide::paintSelectionHighlight(gc, line, lineIdx, contentLeft, lineTop, m_selection, highlightColour, measurer);
             fbide::paintLineText(gc, line, contentLeft, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
         }
 
@@ -396,27 +409,186 @@ auto MarkdownView::linkAt(const wxPoint& clientPoint) const -> wxString {
     return {};
 }
 
+auto MarkdownView::hitTest(const wxPoint& clientPoint) -> SelectionPosition {
+    const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
+    const int relX = clientPoint.x - kPadding;
+    const int relY = clientPoint.y + originY - kPadding;
+    const auto& laid = m_document.laid();
+    if (laid.lines.empty()) {
+        return {};
+    }
+    // Find the line under relY, or snap to the nearest edge.
+    std::size_t lineIdx = laid.lines.size() - 1;
+    if (relY < laid.lines.front().y) {
+        lineIdx = 0;
+    } else {
+        for (std::size_t i = 0; i < laid.lines.size(); i++) {
+            const auto& line = laid.lines.at(i);
+            if (relY >= line.y && relY < line.y + line.height) {
+                lineIdx = i;
+                break;
+            }
+        }
+    }
+    const wxClientDC clientDc(this);
+    wxGCDC measureDc;
+    measureDc.SetGraphicsContext(makeGraphicsContext(clientDc));
+    const DcMeasurer measurer(measureDc, m_bodyFont, m_monoFont, m_themedFont, m_measurerCache);
+    const auto [runIdx, charIdx] = hitTestLine(laid.lines.at(lineIdx), relX, measurer);
+    return { .lineIndex = lineIdx, .runIndex = runIdx, .charInRun = charIdx };
+}
+
+void MarkdownView::clearSelection() {
+    if (m_selection.empty()) {
+        return;
+    }
+    m_selection.clear();
+    Refresh();
+}
+
+void MarkdownView::copySelectionToClipboard() {
+    if (m_selection.empty()) {
+        return;
+    }
+    const wxString text = extractSelectedText(m_document.laid(), m_selection);
+    if (text.empty()) {
+        return;
+    }
+    if (wxTheClipboard->Open()) {
+        wxTheClipboard->SetData(make_unowned<wxTextDataObject>(text));
+        wxTheClipboard->Close();
+    }
+}
+
 void MarkdownView::onMotion(wxMouseEvent& event) {
-    SetCursor(linkAt(event.GetPosition()).empty() ? wxCursor(wxCURSOR_ARROW)
-                                                  : wxCursor(wxCURSOR_HAND));
+    if (m_dragSelecting && event.LeftIsDown()) {
+        m_selection.caret = hitTest(event.GetPosition());
+        Refresh();
+        event.Skip();
+        return;
+    }
+    // Idle cursor: hand over links, I-beam over text content, arrow
+    // otherwise. Cheap to recompute each motion — `linkAt` is a quick
+    // scan and the line lookup is short.
+    const bool overLink = !linkAt(event.GetPosition()).empty();
+    if (overLink) {
+        SetCursor(wxCursor(wxCURSOR_HAND));
+    } else {
+        // I-beam when the point lands on a text-bearing line of the
+        // laid document; arrow when it's in the empty area.
+        const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
+        const int relY = event.GetPosition().y + originY - kPadding;
+        const auto& laid = m_document.laid();
+        const bool overText = std::ranges::any_of(
+            laid.lines,
+            [relY](const PaintLine& line) {
+                return !line.runs.empty() && relY >= line.y && relY < line.y + line.height;
+            }
+        );
+        SetCursor(overText ? wxCursor(wxCURSOR_IBEAM) : wxCursor(wxCURSOR_ARROW));
+    }
     event.Skip();
 }
 
 void MarkdownView::onLeftDown(wxMouseEvent& event) {
+    // Link click takes priority over selection start — clicking on a
+    // link shouldn't begin a drag-selection.
     const wxString url = linkAt(event.GetPosition());
-    if (url.empty()) {
+    if (!url.empty()) {
+        wxCommandEvent linkEvent(MARKDOWN_LINK_CLICKED, GetId());
+        linkEvent.SetEventObject(this);
+        linkEvent.SetString(url);
+        if (!ProcessWindowEvent(linkEvent)) {
+            wxLaunchDefaultBrowser(url);
+        }
+        return;
+    }
+    // Start a new selection. Shift-click extends the existing one from
+    // its anchor; a plain click sets anchor = caret = clicked position.
+    const SelectionPosition pos = hitTest(event.GetPosition());
+    if (event.ShiftDown() && !m_selection.empty()) {
+        m_selection.caret = pos;
+    } else {
+        m_selection.anchor = pos;
+        m_selection.caret = pos;
+    }
+    m_dragSelecting = true;
+    if (!HasCapture()) {
+        CaptureMouse();
+    }
+    SetFocus(); // ensure Ctrl+C / Ctrl+A reach us
+    Refresh();
+}
+
+void MarkdownView::onLeftUp(wxMouseEvent& event) {
+    if (m_dragSelecting) {
+        m_selection.caret = hitTest(event.GetPosition());
+        m_dragSelecting = false;
+        if (HasCapture()) {
+            ReleaseMouse();
+        }
+        Refresh();
+    }
+    event.Skip();
+}
+
+void MarkdownView::onLeftDClick(wxMouseEvent& event) {
+    // Double-click selects the word under the cursor: walk back from
+    // the hit position to the nearest whitespace, walk forward to the
+    // next, and snap the selection between them.
+    const SelectionPosition pos = hitTest(event.GetPosition());
+    const auto& laid = m_document.laid();
+    if (pos.lineIndex >= laid.lines.size()) {
         event.Skip();
         return;
     }
-    // Give parents a chance to intercept the click via the
-    // MARKDOWN_LINK_CLICKED event. If nobody handles it (or every
-    // handler calls Skip), fall through to launching the browser.
-    wxCommandEvent linkEvent(MARKDOWN_LINK_CLICKED, GetId());
-    linkEvent.SetEventObject(this);
-    linkEvent.SetString(url);
-    if (!ProcessWindowEvent(linkEvent)) {
-        wxLaunchDefaultBrowser(url);
+    const auto& line = laid.lines.at(pos.lineIndex);
+    if (pos.runIndex >= line.runs.size()) {
+        event.Skip();
+        return;
     }
+    const auto& run = line.runs.at(pos.runIndex);
+    const auto isWord = [](const wxUniChar ch) {
+        return wxIsalnum(ch) || ch == '_';
+    };
+    std::size_t start = pos.charInRun;
+    while (start > 0 && isWord(run.text.GetChar(start - 1))) {
+        start--;
+    }
+    std::size_t end = pos.charInRun;
+    while (end < run.text.length() && isWord(run.text.GetChar(end))) {
+        end++;
+    }
+    m_selection.anchor = { .lineIndex = pos.lineIndex, .runIndex = pos.runIndex, .charInRun = start };
+    m_selection.caret = { .lineIndex = pos.lineIndex, .runIndex = pos.runIndex, .charInRun = end };
+    Refresh();
+}
+
+void MarkdownView::onCharHook(wxKeyEvent& event) {
+    if (event.ControlDown() || event.CmdDown()) {
+        if (event.GetKeyCode() == 'C') {
+            copySelectionToClipboard();
+            return;
+        }
+        if (event.GetKeyCode() == 'A') {
+            const auto& laid = m_document.laid();
+            if (!laid.lines.empty()) {
+                const std::size_t lastLine = laid.lines.size() - 1;
+                const auto& last = laid.lines.at(lastLine);
+                m_selection.anchor = { .lineIndex = 0, .runIndex = 0, .charInRun = 0 };
+                const std::size_t lastRun = last.runs.empty() ? 0 : last.runs.size() - 1;
+                const std::size_t lastChar = last.runs.empty() ? 0 : last.runs.at(lastRun).text.length();
+                m_selection.caret = { .lineIndex = lastLine, .runIndex = lastRun, .charInRun = lastChar };
+                Refresh();
+            }
+            return;
+        }
+    }
+    if (event.GetKeyCode() == WXK_ESCAPE) {
+        clearSelection();
+        return;
+    }
+    event.Skip();
 }
 
 void MarkdownView::onMouseWheel(wxMouseEvent& event) {

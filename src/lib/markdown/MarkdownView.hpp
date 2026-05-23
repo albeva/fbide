@@ -63,6 +63,19 @@ public:
     /// to fall back to the built-in plain highlighter.
     void setHighlighter(CodeFenceHighlighter highlighter);
 
+    /// Current selection — anchor + caret; empty when nothing is
+    /// highlighted. Exposed for hosts that want to peek at / extract
+    /// the selected text programmatically.
+    [[nodiscard]] auto selection() const -> const Selection& { return m_selection; }
+
+    /// Clear the current selection. No-op when already empty. Refreshes
+    /// the view if anything changed.
+    void clearSelection();
+
+    /// Copy the currently selected text to the clipboard as plain text.
+    /// No-op when the selection is empty.
+    void copySelectionToClipboard();
+
     /// Replace the inline-image cache. The view owns one by default;
     /// supply a shared cache (e.g. one held across several views) to
     /// override. Passing `nullptr` restores the per-view default.
@@ -78,7 +91,18 @@ private:
     void onSize(wxSizeEvent& event);
     void onMotion(wxMouseEvent& event);
     void onLeftDown(wxMouseEvent& event);
+    void onLeftUp(wxMouseEvent& event);
+    void onLeftDClick(wxMouseEvent& event);
     void onMouseWheel(wxMouseEvent& event);
+    void onCharHook(wxKeyEvent& event);
+
+    /// Locate the (line, run, char) the client point lands on. Snaps to
+    /// the nearest line above / below when the point is outside the
+    /// laid content, so a drag past the top / bottom still has a sane
+    /// caret position. Non-const because hit-testing constructs a
+    /// `wxClientDC` to measure — the measurement cache mutates as it
+    /// fills in.
+    [[nodiscard]] auto hitTest(const wxPoint& clientPoint) -> SelectionPosition;
 
     void relayout();
     void resolveFonts();
@@ -99,6 +123,8 @@ private:
     int m_bodyLineHeight = 0; ///< Body line-height — drives per-notch wheel scroll.
     int m_wheelPixelAccum = 0;
     bool m_imageRelayoutPending = false;
+    Selection m_selection;        ///< Current rendered-text selection.
+    bool m_dragSelecting = false; ///< True while the left mouse button is held during a drag.
 
     wxDECLARE_EVENT_TABLE();
 };
