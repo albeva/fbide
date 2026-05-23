@@ -66,7 +66,23 @@ private:
     void onSize(wxSizeEvent& event);
     void onMotion(wxMouseEvent& event);
     void onLeftDown(wxMouseEvent& event);
+    void onLeftUp(wxMouseEvent& event);
+    void onLeftDClick(wxMouseEvent& event);
+    void onCharHook(wxKeyEvent& event);
     void onLeaveWindow(wxMouseEvent& event);
+
+    /// Locate which bubble (if any) the client point falls inside and
+    /// hit-test inside its laid document. Returns `{messageIndex, pos}`
+    /// where `messageIndex == -1` when the point is not inside a bubble.
+    [[nodiscard]] auto hitTestBubble(const wxPoint& clientPoint) -> std::pair<int, SelectionPosition>;
+
+    /// Hit-test within the bubble at `messageIndex` regardless of where
+    /// the point actually is — used to extend a drag-selection cleanly
+    /// when the pointer crosses out of the originating bubble.
+    [[nodiscard]] auto hitTestInBubble(std::size_t messageIndex, const wxPoint& clientPoint) -> SelectionPosition;
+
+    void clearSelection();
+    void copySelectionToClipboard();
     void onScroll(wxScrollWinEvent& event);
     /// Pixel-precise wheel handler. Bypasses `wxScrolled`'s default
     /// line-quantising path, which combined with our 1-px scroll rate
@@ -93,7 +109,9 @@ private:
     void paintMessage(
         wxGCDC& gc,
         const LaidMessage& message,
+        std::size_t messageIndex,
         const MarkdownPalette& pal,
+        const TextMeasurer& measurer,
         int originY,
         int updateTop,
         int updateBottom
@@ -164,6 +182,9 @@ private:
     int m_totalHeight = 0;                            ///< Stacked height of all bubbles.
     int m_barMessage = -1;                            ///< Message the action bar targets.
     int m_barIndex = -1;                              ///< Code or patch block index — see `m_actionBar->mode()`.
+    int m_selectionMessage = -1;                      ///< Bubble whose text is currently selected, or -1.
+    Selection m_selection;                            ///< Selection within that bubble.
+    bool m_dragSelecting = false;
     std::unordered_set<std::string> m_appliedPatches; ///< UTF-8 keys of patches already
                                                       ///< auto-applied (or attempted) this
                                                       ///< session — guards live-edit against

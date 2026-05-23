@@ -170,6 +170,9 @@ wxBEGIN_EVENT_TABLE(AiChatView, wxScrolled)
     EVT_SIZE(AiChatView::onSize)
     EVT_MOTION(AiChatView::onMotion)
     EVT_LEFT_DOWN(AiChatView::onLeftDown)
+    EVT_LEFT_UP(AiChatView::onLeftUp)
+    EVT_LEFT_DCLICK(AiChatView::onLeftDClick)
+    EVT_CHAR_HOOK(AiChatView::onCharHook)
     EVT_LEAVE_WINDOW(AiChatView::onLeaveWindow)
     EVT_SCROLLWIN(AiChatView::onScroll)
     EVT_MOUSEWHEEL(AiChatView::onMouseWheel)
@@ -251,6 +254,10 @@ void AiChatView::resolveFonts() {
 
 void AiChatView::setMessages(std::vector<ChatViewMessage> messages) {
     m_messages = std::move(messages);
+    // A reflow may invalidate the selection's (line, run, char) positions
+    // — easier to drop the selection than to try to remap it.
+    m_selectionMessage = -1;
+    m_selection.clear();
     relayout();               // per-message caching re-lays only what actually changed
     Scroll(0, m_totalHeight); // keep pinned to the newest — wxScrolled clamps to the max
     Refresh();
@@ -419,11 +426,18 @@ void AiChatView::onPaint(wxPaintEvent& /*event*/) {
             m_items.begin(), m_items.end(), regionTopDoc,
             [](const LaidMessage& message, const int top) { return message.bubble.GetBottom() < top; }
         );
+        // One measurer reused across every bubble. The cache lives on
+        // the view (`m_measurerCache`) so font + width lookups already
+        // populated by `relayout` are reused for selection-highlight
+        // partial-run measurement.
+        const DcMeasurer measurer(memoryDc, m_bodyFont, m_monoFont, m_themedFont, m_measurerCache);
+
         for (auto it = first; it != m_items.end(); ++it) {
             if (it->bubble.GetTop() > regionBottomDoc) {
                 break; // first bubble past the band — the rest are too
             }
-            paintMessage(gc, *it, pal, originY, update.y, update.y + update.height);
+            const auto idx = static_cast<std::size_t>(std::distance(m_items.begin(), it));
+            paintMessage(gc, *it, idx, pal, measurer, originY, update.y, update.y + update.height);
         }
 
         // Force any pending draw commands to land on the bitmap before the
@@ -439,7 +453,9 @@ void AiChatView::onPaint(wxPaintEvent& /*event*/) {
 void AiChatView::paintMessage(
     wxGCDC& gc,
     const LaidMessage& message,
+    const std::size_t messageIndex,
     const MarkdownPalette& pal,
+    const TextMeasurer& measurer,
     const int originY,
     const int updateTop,
     const int updateBottom
@@ -470,13 +486,25 @@ void AiChatView::paintMessage(
     // SetFont / SetTextForeground / GetFontMetrics calls.
     PaintRunState runState;
 
+    // Selection lives on one bubble at a time — only this bubble paints
+    // the highlight. The measurer is hoisted from `onPaint` so it's
+    // shared across bubbles for cheap partial-run width measurement.
+    const bool hasSelection = (m_selectionMessage >= 0)
+                           && (static_cast<std::size_t>(m_selectionMessage) == messageIndex)
+                           && !m_selection.empty();
+    const wxColour highlightColour = wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT);
+
     for (auto it = first; it != laid.lines.end(); ++it) {
         const auto& line = *it;
         if (line.y > updateBottomRel) {
             break;
         }
+        const std::size_t lineIdx = static_cast<std::size_t>(std::distance(laid.lines.begin(), it));
         const int lineTop = contentTop + line.y;
         fbide::paintLineBackground(gc, line, contentLeft, lineTop, message.contentWidth, pal);
+        if (hasSelection) {
+            fbide::paintSelectionHighlight(gc, line, lineIdx, contentLeft, lineTop, m_selection, highlightColour, measurer);
+        }
         fbide::paintLineText(gc, line, contentLeft, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
     }
 
@@ -764,9 +792,96 @@ void AiChatView::onMouseWheel(wxMouseEvent& event) {
     Scroll(viewX, std::max(0, viewY - pixels));
 }
 
+auto AiChatView::hitTestBubble(const wxPoint& clientPoint) -> std::pair<int, SelectionPosition> {
+    const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
+    const wxPoint docPoint(clientPoint.x, clientPoint.y + originY);
+    for (std::size_t mi = 0; mi < m_items.size(); mi++) {
+        if (m_items.at(mi).bubble.Contains(docPoint)) {
+            return { static_cast<int>(mi), hitTestInBubble(mi, clientPoint) };
+        }
+    }
+    return { -1, SelectionPosition {} };
+}
+
+auto AiChatView::hitTestInBubble(const std::size_t messageIndex, const wxPoint& clientPoint) -> SelectionPosition {
+    if (messageIndex >= m_items.size()) {
+        return {};
+    }
+    const auto& item = m_items.at(messageIndex);
+    const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
+    const int contentLeft = item.bubble.x + kBubblePad;
+    const int contentTop = item.bubble.y + kBubblePad - originY;
+    const int relX = clientPoint.x - contentLeft;
+    const int relY = clientPoint.y - contentTop;
+    const auto& laid = item.document.laid();
+    if (laid.lines.empty()) {
+        return {};
+    }
+    std::size_t lineIdx = laid.lines.size() - 1;
+    if (relY < laid.lines.front().y) {
+        lineIdx = 0;
+    } else {
+        for (std::size_t i = 0; i < laid.lines.size(); i++) {
+            const auto& line = laid.lines.at(i);
+            if (relY >= line.y && relY < line.y + line.height) {
+                lineIdx = i;
+                break;
+            }
+        }
+    }
+    const wxClientDC clientDc(this);
+    wxGCDC measureDc;
+    measureDc.SetGraphicsContext(makeChatGraphicsContext(clientDc));
+    const DcMeasurer measurer(measureDc, m_bodyFont, m_monoFont, m_themedFont, m_measurerCache);
+    const auto [runIdx, charIdx] = hitTestLine(laid.lines.at(lineIdx), relX, measurer);
+    return { .lineIndex = lineIdx, .runIndex = runIdx, .charInRun = charIdx };
+}
+
+void AiChatView::clearSelection() {
+    if (m_selectionMessage < 0 && m_selection.empty()) {
+        return;
+    }
+    m_selectionMessage = -1;
+    m_selection.clear();
+    Refresh();
+}
+
+void AiChatView::copySelectionToClipboard() {
+    if (m_selectionMessage < 0 || m_selection.empty()) {
+        return;
+    }
+    const auto& laid = m_items.at(static_cast<std::size_t>(m_selectionMessage)).document.laid();
+    const wxString text = extractSelectedText(laid, m_selection);
+    if (text.empty()) {
+        return;
+    }
+    if (wxTheClipboard->Open()) {
+        wxTheClipboard->SetData(make_unowned<wxTextDataObject>(text));
+        wxTheClipboard->Close();
+    }
+}
+
 void AiChatView::onMotion(wxMouseEvent& event) {
     const wxPoint pos = event.GetPosition();
-    SetCursor(linkAt(pos).empty() ? wxCursor(wxCURSOR_ARROW) : wxCursor(wxCURSOR_HAND));
+
+    // While drag-selecting, hijack the cursor and skip the action-bar
+    // hover logic — the user is clearly selecting, not hovering for
+    // the toolbar.
+    if (m_dragSelecting && event.LeftIsDown() && m_selectionMessage >= 0) {
+        m_selection.caret = hitTestInBubble(static_cast<std::size_t>(m_selectionMessage), pos);
+        Refresh();
+        event.Skip();
+        return;
+    }
+
+    // Idle cursor — link wins over text wins over arrow.
+    if (!linkAt(pos).empty()) {
+        SetCursor(wxCursor(wxCURSOR_HAND));
+    } else if (const auto [bubbleIdx, _] = hitTestBubble(pos); bubbleIdx >= 0) {
+        SetCursor(wxCursor(wxCURSOR_IBEAM));
+    } else {
+        SetCursor(wxCursor(wxCURSOR_ARROW));
+    }
 
     // Try a code block first; if none is hit, fall through to patch
     // proposals. Most replies have at most one of either kind in a given
@@ -796,9 +911,107 @@ void AiChatView::onMotion(wxMouseEvent& event) {
 }
 
 void AiChatView::onLeftDown(wxMouseEvent& event) {
-    const wxString url = linkAt(event.GetPosition());
+    const wxPoint pos = event.GetPosition();
+    const wxString url = linkAt(pos);
     if (!url.empty()) {
         wxLaunchDefaultBrowser(url);
+        event.Skip();
+        return;
+    }
+    const auto [bubbleIdx, position] = hitTestBubble(pos);
+    if (bubbleIdx < 0) {
+        // Click in the gutter outside any bubble — drop the selection.
+        clearSelection();
+        event.Skip();
+        return;
+    }
+    if (event.ShiftDown() && m_selectionMessage == bubbleIdx && !m_selection.empty()) {
+        m_selection.caret = position;
+    } else {
+        // New selection: start anchored at the click point.
+        m_selectionMessage = bubbleIdx;
+        m_selection.anchor = position;
+        m_selection.caret = position;
+    }
+    m_dragSelecting = true;
+    if (!HasCapture()) {
+        CaptureMouse();
+    }
+    SetFocus(); // so Ctrl+C reaches us
+    Refresh();
+}
+
+void AiChatView::onLeftUp(wxMouseEvent& event) {
+    if (m_dragSelecting) {
+        if (m_selectionMessage >= 0) {
+            m_selection.caret = hitTestInBubble(static_cast<std::size_t>(m_selectionMessage), event.GetPosition());
+        }
+        m_dragSelecting = false;
+        if (HasCapture()) {
+            ReleaseMouse();
+        }
+        Refresh();
+    }
+    event.Skip();
+}
+
+void AiChatView::onLeftDClick(wxMouseEvent& event) {
+    const auto [bubbleIdx, position] = hitTestBubble(event.GetPosition());
+    if (bubbleIdx < 0) {
+        event.Skip();
+        return;
+    }
+    const auto& laid = m_items.at(static_cast<std::size_t>(bubbleIdx)).document.laid();
+    if (position.lineIndex >= laid.lines.size()) {
+        event.Skip();
+        return;
+    }
+    const auto& line = laid.lines.at(position.lineIndex);
+    if (position.runIndex >= line.runs.size()) {
+        event.Skip();
+        return;
+    }
+    const auto& run = line.runs.at(position.runIndex);
+    const auto isWord = [](const wxUniChar ch) {
+        return wxIsalnum(ch) || ch == '_';
+    };
+    std::size_t start = position.charInRun;
+    while (start > 0 && isWord(run.text.GetChar(start - 1))) {
+        start--;
+    }
+    std::size_t end = position.charInRun;
+    while (end < run.text.length() && isWord(run.text.GetChar(end))) {
+        end++;
+    }
+    m_selectionMessage = bubbleIdx;
+    m_selection.anchor = { .lineIndex = position.lineIndex, .runIndex = position.runIndex, .charInRun = start };
+    m_selection.caret = { .lineIndex = position.lineIndex, .runIndex = position.runIndex, .charInRun = end };
+    Refresh();
+}
+
+void AiChatView::onCharHook(wxKeyEvent& event) {
+    if (event.ControlDown() || event.CmdDown()) {
+        if (event.GetKeyCode() == 'C') {
+            copySelectionToClipboard();
+            return;
+        }
+        if (event.GetKeyCode() == 'A' && m_selectionMessage >= 0) {
+            const auto& laid = m_items.at(static_cast<std::size_t>(m_selectionMessage)).document.laid();
+            if (!laid.lines.empty()) {
+                const std::size_t lastLine = laid.lines.size() - 1;
+                const auto& last = laid.lines.at(lastLine);
+                m_selection.anchor = { .lineIndex = 0, .runIndex = 0, .charInRun = 0 };
+                const std::size_t lastRun = last.runs.empty() ? 0 : last.runs.size() - 1;
+                const std::size_t lastChar = last.runs.empty() ? 0 : last.runs.at(lastRun).text.length();
+                m_selection.caret = { .lineIndex = lastLine, .runIndex = lastRun, .charInRun = lastChar };
+                Refresh();
+            }
+            return;
+        }
+    }
+    if (event.GetKeyCode() == WXK_ESCAPE) {
+        clearSelection();
+        return;
     }
     event.Skip();
 }
