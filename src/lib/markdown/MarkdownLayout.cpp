@@ -39,23 +39,35 @@ auto isFreeBasicTag(const wxString& lang) -> bool {
     return lang == "freebasic" || lang == "fb" || lang == "basic" || lang == "bas";
 }
 
-/// Body-relative point-size bump for heading level 1-6.
+// Body-relative point-size bumps for `#` through `######`. Tapered so
+// H1 reads as a title and H6 stays close to body weight.
+constexpr int kH1SizeDelta = 10;
+constexpr int kH2SizeDelta = 6;
+constexpr int kH3SizeDelta = 4;
+constexpr int kH4SizeDelta = 2;
+constexpr int kH5SizeDelta = 1;
+
+/// Body-relative point-size bump for heading level 1-6. Case labels
+/// are the markdown heading levels (`#`..`######`); the magic-number
+/// suppression covers `case 5:` which the check flags.
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 auto headingSizeDelta(const unsigned level) -> int {
     switch (level) {
     case 1:
-        return 10;
+        return kH1SizeDelta;
     case 2:
-        return 6;
+        return kH2SizeDelta;
     case 3:
-        return 4;
+        return kH3SizeDelta;
     case 4:
-        return 2;
+        return kH4SizeDelta;
     case 5:
-        return 1;
+        return kH5SizeDelta;
     default:
         return 0;
     }
 }
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
 
 /// Map markdown inline styling to a layout text style.
 auto textStyleOf(const MdStyle& style) -> TextStyle {
@@ -551,7 +563,7 @@ struct Engine {
     /// line, all coloured `colour` and styled monospace. A trailing
     /// newline does NOT produce a final empty line — patch text typically
     /// ends with `\n` and we don't want a phantom blank row.
-    [[nodiscard]] auto toCodeLines(const wxString& text, const wxColour& colour) const
+    [[nodiscard]] static auto toCodeLines(const wxString& text, const wxColour& colour)
         -> std::vector<CodeLine> {
         std::vector<CodeLine> out;
         wxString current;
@@ -752,62 +764,64 @@ struct Engine {
     ///      every cell into a single line with `tableColumns` set.
     void emitTable(const MdBlock& block) {
         blockGap();
-        if (block.rows.empty() || block.rows[0].cells.empty()) {
+        if (block.rows.empty() || block.rows.front().cells.empty()) {
             return;
         }
-        const std::size_t columnCount = block.rows[0].cells.size();
+        const std::size_t columnCount = block.rows.front().cells.size();
         const int left = block.quoteDepth * kQuoteIndent;
         // Tables align with prose at the left edge — no extra padding
         // strip like code blocks have. Available width is the bubble
         // content width minus any block-quote indent.
-        const int available = std::max(80, m_width - left);
+        constexpr int kMinTableWidth = 80;
+        const int available = std::max(kMinTableWidth, m_width - left);
 
         // Flatten every cell up front; reused for both natural-width
         // measurement and per-row wrapping.
         std::vector<std::vector<std::vector<WrapItem>>> cellItems(block.rows.size());
-        for (std::size_t r = 0; r < block.rows.size(); r++) {
-            cellItems[r].resize(columnCount);
-            const auto& row = block.rows[r];
-            for (std::size_t c = 0; c < row.cells.size() && c < columnCount; c++) {
-                cellItems[r][c] = flatten(row.cells[c].inlines, 0, false);
+        for (std::size_t rowIdx = 0; rowIdx < block.rows.size(); rowIdx++) {
+            cellItems.at(rowIdx).resize(columnCount);
+            const auto& row = block.rows.at(rowIdx);
+            for (std::size_t col = 0; col < row.cells.size() && col < columnCount; col++) {
+                cellItems.at(rowIdx).at(col) = flatten(row.cells.at(col).inlines, 0, false);
             }
         }
 
         // Column natural widths.
         std::vector<int> naturalWidths(columnCount, 0);
         for (const auto& row : cellItems) {
-            for (std::size_t c = 0; c < columnCount; c++) {
-                naturalWidths[c] = std::max(naturalWidths[c], measureNaturalWidth(row[c]));
+            for (std::size_t col = 0; col < columnCount; col++) {
+                naturalWidths.at(col) = std::max(naturalWidths.at(col), measureNaturalWidth(row.at(col)));
             }
         }
 
         // Allocate column widths. Pad each natural width with a small
         // gutter so adjacent columns aren't visually touching.
         constexpr int kColGutter = 12;
+        constexpr int kMinColWidth = 40;
         int totalNatural = 0;
-        for (const int w : naturalWidths) {
-            totalNatural += w + kColGutter;
+        for (const int width : naturalWidths) {
+            totalNatural += width + kColGutter;
         }
         std::vector<int> columnWidths(columnCount, 0);
         if (totalNatural <= available) {
-            for (std::size_t c = 0; c < columnCount; c++) {
-                columnWidths[c] = naturalWidths[c] + kColGutter;
+            for (std::size_t col = 0; col < columnCount; col++) {
+                columnWidths.at(col) = naturalWidths.at(col) + kColGutter;
             }
         } else {
-            const int minCol = std::max(40, m_measurer.width("XXX", TextStyle {}));
-            for (std::size_t c = 0; c < columnCount; c++) {
-                const int proportional = ((naturalWidths[c] + kColGutter) * available) / totalNatural;
-                columnWidths[c] = std::max(minCol, proportional);
+            const int minCol = std::max(kMinColWidth, m_measurer.width("XXX", TextStyle {}));
+            for (std::size_t col = 0; col < columnCount; col++) {
+                const int proportional = ((naturalWidths.at(col) + kColGutter) * available) / totalNatural;
+                columnWidths.at(col) = std::max(minCol, proportional);
             }
         }
 
         // Column x positions — first column starts at the block's left
         // edge, sharing it with prose.
         std::vector<TableColumn> columns(columnCount);
-        int x = left;
-        for (std::size_t c = 0; c < columnCount; c++) {
-            columns[c] = { .x = x, .width = columnWidths[c] };
-            x += columnWidths[c];
+        int xPos = left;
+        for (std::size_t col = 0; col < columnCount; col++) {
+            columns.at(col) = { .x = xPos, .width = columnWidths.at(col) };
+            xPos += columnWidths.at(col);
         }
 
         // Wrap and emit each row.
@@ -815,17 +829,15 @@ struct Engine {
         const int lineHeight = m_measurer.lineHeight(proseStyle);
 
         const std::size_t firstLineIndex = m_out.lines.size();
-        for (std::size_t r = 0; r < block.rows.size(); r++) {
-            const bool isHeader = r < block.headerRowCount;
+        for (std::size_t rowIdx = 0; rowIdx < block.rows.size(); rowIdx++) {
+            const bool isHeader = rowIdx < block.headerRowCount;
             const LineKind kind = isHeader ? LineKind::TableHeader : LineKind::TableBody;
 
             std::vector<std::vector<WrappedCellLine>> cellLines(columnCount);
             std::size_t maxLines = 1;
-            for (std::size_t c = 0; c < columnCount; c++) {
-                cellLines[c] = wrapCellToColumn(cellItems[r][c], columnWidths[c] - kColGutter);
-                if (cellLines[c].size() > maxLines) {
-                    maxLines = cellLines[c].size();
-                }
+            for (std::size_t col = 0; col < columnCount; col++) {
+                cellLines.at(col) = wrapCellToColumn(cellItems.at(rowIdx).at(col), columnWidths.at(col) - kColGutter);
+                maxLines = std::max(maxLines, cellLines.at(col).size());
             }
 
             for (std::size_t li = 0; li < maxLines; li++) {
@@ -837,22 +849,22 @@ struct Engine {
                 line.tableColumns = columns;
                 line.tableRowStart = (li == 0);
 
-                for (std::size_t c = 0; c < columnCount; c++) {
-                    if (li >= cellLines[c].size()) {
+                for (std::size_t col = 0; col < columnCount; col++) {
+                    if (li >= cellLines.at(col).size()) {
                         continue;
                     }
-                    const auto& wrapped = cellLines[c][li];
-                    const auto alignment = c < block.columnAlignment.size()
-                                             ? block.columnAlignment[c]
+                    const auto& wrapped = cellLines.at(col).at(li);
+                    const auto alignment = col < block.columnAlignment.size()
+                                             ? block.columnAlignment.at(col)
                                              : MdTableAlignment::Default;
-                    const int innerWidth = columnWidths[c] - kColGutter;
+                    const int innerWidth = columnWidths.at(col) - kColGutter;
                     int alignOffset = (kColGutter / 2);
                     if (alignment == MdTableAlignment::Center) {
                         alignOffset += std::max(0, (innerWidth - wrapped.width) / 2);
                     } else if (alignment == MdTableAlignment::Right) {
                         alignOffset += std::max(0, innerWidth - wrapped.width);
                     }
-                    const int cellXOffset = columns[c].x + alignOffset;
+                    const int cellXOffset = columns.at(col).x + alignOffset;
                     for (auto run : wrapped.runs) {
                         run.x += cellXOffset;
                         line.runs.push_back(std::move(run));

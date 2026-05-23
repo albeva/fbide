@@ -238,9 +238,9 @@ auto caretXInLine(const PaintLine& line, const std::size_t runIndex, const std::
         const std::size_t clipped = std::min(charInRun, run.text.length());
         return run.x + measurer.width(run.text.Mid(0, clipped), run.style);
     }
-    for (auto it = line.runs.rbegin(); it != line.runs.rend(); ++it) {
-        if (!it->text.empty()) {
-            return it->x + it->width;
+    for (const auto& run : std::ranges::reverse_view(line.runs)) {
+        if (!run.text.empty()) {
+            return run.x + run.width;
         }
     }
     return 0;

@@ -178,6 +178,10 @@ auto attrStr(const MD_ATTRIBUTE& attr) -> wxString {
     return wxString::FromUTF8(attr.text, attr.size);
 }
 
+constexpr wchar_t kNbspChar = 0x00A0;           ///< U+00A0 NO-BREAK SPACE.
+constexpr wchar_t kUnicodeReplacement = 0xFFFD; ///< U+FFFD REPLACEMENT CHARACTER.
+constexpr int kHexBase = 16;                    ///< Base for numeric HTML entity hex codes.
+
 /// Decode the handful of HTML entities that turn up in chat prose. md4c keeps
 /// no entity table, so anything else is passed through verbatim.
 auto decodeEntity(const wxString& entity) -> wxString {
@@ -197,14 +201,14 @@ auto decodeEntity(const wxString& entity) -> wxString {
         return "'";
     }
     if (entity == "&nbsp;") {
-        return { wxUniChar(0x00A0) };
+        return { wxUniChar(kNbspChar) };
     }
     // Numeric: &#1234; or &#x12AB;
     if (entity.StartsWith("&#") && entity.EndsWith(";")) {
         const wxString digits = entity.Mid(2, entity.size() - 3);
         long value = 0;
         const bool hex = digits.StartsWith("x") || digits.StartsWith("X");
-        if ((hex ? digits.Mid(1).ToLong(&value, 16) : digits.ToLong(&value)) && value > 0) {
+        if ((hex ? digits.Mid(1).ToLong(&value, kHexBase) : digits.ToLong(&value)) && value > 0) {
             return { wxUniChar(static_cast<int>(value)) };
         }
     }
@@ -226,8 +230,8 @@ auto mdEnterBlock(const MD_BLOCKTYPE type, void* detail, void* userData) -> int 
         builder.lists.push_back({ .ordered = false, .next = 1 });
         break;
     case MD_BLOCK_OL: {
-        const auto* d = static_cast<MD_BLOCK_OL_DETAIL*>(detail);
-        builder.lists.push_back({ .ordered = true, .next = static_cast<int>(d->start) });
+        const auto* olDetail = static_cast<MD_BLOCK_OL_DETAIL*>(detail);
+        builder.lists.push_back({ .ordered = true, .next = static_cast<int>(olDetail->start) });
         break;
     }
     case MD_BLOCK_LI: {
@@ -287,7 +291,7 @@ auto mdEnterBlock(const MD_BLOCKTYPE type, void* detail, void* userData) -> int 
         break;
     case MD_BLOCK_TR:
         if (builder.open && builder.cur.kind == MdBlockKind::Table) {
-            builder.cur.rows.push_back({});
+            builder.cur.rows.emplace_back();
             if (builder.inHeader) {
                 builder.cur.headerRowCount++;
             }
@@ -298,7 +302,7 @@ auto mdEnterBlock(const MD_BLOCKTYPE type, void* detail, void* userData) -> int 
         if (builder.open && builder.cur.kind == MdBlockKind::Table
             && !builder.cur.rows.empty()) {
             auto& row = builder.cur.rows.back();
-            row.cells.push_back({});
+            row.cells.emplace_back();
             builder.cellInlines = &row.cells.back().inlines;
             // Column alignment is captured from header-row cells. md4c
             // also reports it on body cells, but the header is the
@@ -377,16 +381,16 @@ auto mdEnterSpan(const MD_SPANTYPE type, void* detail, void* userData) -> int {
         builder.del++;
         break;
     case MD_SPAN_A: {
-        const auto* d = static_cast<MD_SPAN_A_DETAIL*>(detail);
+        const auto* anchorDetail = static_cast<MD_SPAN_A_DETAIL*>(detail);
         builder.inLink = true;
-        builder.linkUrl = attrStr(d->href);
+        builder.linkUrl = attrStr(anchorDetail->href);
         break;
     }
     case MD_SPAN_IMG: {
-        const auto* d = static_cast<MD_SPAN_IMG_DETAIL*>(detail);
+        const auto* imgDetail = static_cast<MD_SPAN_IMG_DETAIL*>(detail);
         builder.inImage = true;
         builder.imageAlt.clear();
-        builder.imageSrc = attrStr(d->src);
+        builder.imageSrc = attrStr(imgDetail->src);
         builder.imageStyle = builder.style();
         break;
     }
@@ -442,7 +446,7 @@ auto mdText(const MD_TEXTTYPE type, const MD_CHAR* text, MD_SIZE size, void* use
         builder.addText(decodeEntity(mdStr(text, size)));
         break;
     case MD_TEXT_NULLCHAR:
-        builder.addText(wxString(wxUniChar(0xFFFD)));
+        builder.addText(wxString(wxUniChar(kUnicodeReplacement)));
         break;
     case MD_TEXT_BR:
         builder.addBreak(MdInlineKind::HardBreak);
@@ -467,9 +471,13 @@ namespace {
 // `=======` separator as an H2 setext underline. Convention is the
 // Aider / Cursor style: exact characters, each on its own line. The
 // header may carry an optional target path after a single space.
+// Static wxString init can in principle throw on allocation failure;
+// these markers are tiny string literals where the risk is theoretical.
+// NOLINTBEGIN(cert-err58-cpp, bugprone-throwing-static-initialization)
 const wxString kSearchPrefix = "<<<<<<< SEARCH";
 const wxString kSeparatorMarker = "=======";
 const wxString kReplacePrefix = ">>>>>>> REPLACE";
+// NOLINTEND(cert-err58-cpp, bugprone-throwing-static-initialization)
 
 /// True when `line` (with surrounding whitespace already trimmed) opens
 /// a SEARCH block. `target` is filled with any text after the prefix.
@@ -482,7 +490,7 @@ auto matchSearchMarker(const wxString& line, wxString& target) -> bool {
         target.clear();
         return true;
     }
-    if (line[prefixLen] != ' ') {
+    if (line.GetChar(prefixLen) != ' ') {
         return false;
     }
     target = line.Mid(prefixLen + 1);
@@ -498,12 +506,12 @@ auto matchReplaceMarker(const wxString& line) -> bool {
     if (!line.StartsWith(kReplacePrefix)) {
         return false;
     }
-    return line.size() == kReplacePrefix.size() || line[kReplacePrefix.size()] == ' ';
+    return line.size() == kReplacePrefix.size() || line.GetChar(kReplacePrefix.size()) == ' ';
 }
 
 /// Strip a single trailing `\r` from `line` so CRLF input matches markers.
 void stripCr(wxString& line) {
-    if (!line.empty() && line[line.length() - 1] == '\r') {
+    if (!line.empty() && line.GetChar(line.length() - 1) == '\r') {
         line.RemoveLast();
     }
 }
@@ -535,7 +543,10 @@ auto splitPatchBlocks(const wxString& text) -> std::vector<PatchScanSegment> {
         out.push_back({ .kind = PatchScanSegment::Kind::Markdown,
             .markdown = std::move(mdAccum),
             .patch = {} });
-        mdAccum.clear();
+        // Re-initialise the moved-from accumulator to a known-empty
+        // state for the next chunk; `clear()` on a moved-from wxString
+        // would trip clang-tidy's use-after-move.
+        mdAccum = wxString {};
     };
 
     enum class State : std::uint8_t { Markdown,
