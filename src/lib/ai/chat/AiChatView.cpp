@@ -21,6 +21,30 @@ using namespace fbide;
 
 namespace {
 
+/// Build a graphics context using the Direct2D renderer when available
+/// (Windows 10+/8.1, or 7 with the D2D Platform Update), falling back to
+/// the platform default otherwise. Direct2D + DirectWrite is required for
+/// colour emoji on Windows — GDI+ only produces monochrome glyphs from
+/// Segoe UI Symbol and silently drops most pictographs.
+///
+/// IMPORTANT: D2D batches draw commands until `Flush()` or the context is
+/// destroyed. If you draw via a `wxGCDC` and then immediately `Blit` from
+/// the backing memory DC, you must call
+/// `wxGCDC::GetGraphicsContext()->Flush()` first — otherwise the blit
+/// reads the bitmap before D2D writes have landed, producing black flashes
+/// and ghosted content.
+template<typename DcT>
+auto makeChatGraphicsContext(DcT& target) -> wxGraphicsContext* {
+    wxGraphicsRenderer* renderer = nullptr;
+#ifdef __WXMSW__
+    renderer = wxGraphicsRenderer::GetDirect2DRenderer();
+#endif
+    if (renderer == nullptr) {
+        renderer = wxGraphicsRenderer::GetDefaultRenderer();
+    }
+    return renderer->CreateContext(target);
+}
+
 // Outer margin between the view edge and the bubbles.
 constexpr int kMargin = 12;
 // Vertical gap between consecutive message bubbles.
@@ -270,7 +294,8 @@ void AiChatView::relayout() {
     const bool widthChanged = panelWidth != m_layoutWidth;
 
     wxClientDC clientDc(this);
-    wxGCDC measureDc(clientDc);
+    wxGCDC measureDc;
+    measureDc.SetGraphicsContext(makeChatGraphicsContext(clientDc));
     const DcMeasurer measurer(measureDc, m_bodyFont, m_monoFont, m_themedFont);
 
     const ChatPalette pal = palette();
@@ -357,33 +382,42 @@ void AiChatView::onPaint(wxPaintEvent& /*event*/) {
     const wxRect update = GetUpdateRegion().GetBox();
 
     wxMemoryDC memoryDc(m_buffer);
-    wxGCDC gc(memoryDc);
+    {
+        wxGCDC gc;
+        gc.SetGraphicsContext(makeChatGraphicsContext(memoryDc));
 
-    // Repaint only the update rect — fill the band with background, draw
-    // through it, blit it. Pixels outside the rect stay as they were.
-    gc.SetPen(*wxTRANSPARENT_PEN);
-    gc.SetBrush(wxBrush(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW)));
-    gc.DrawRectangle(update);
+        // Repaint only the update rect — fill the band with background, draw
+        // through it, blit it. Pixels outside the rect stay as they were.
+        gc.SetPen(*wxTRANSPARENT_PEN);
+        gc.SetBrush(wxBrush(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW)));
+        gc.DrawRectangle(update);
 
-    const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
-    const int regionTopDoc = originY + update.y;
-    const int regionBottomDoc = regionTopDoc + update.height;
+        const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
+        const int regionTopDoc = originY + update.y;
+        const int regionBottomDoc = regionTopDoc + update.height;
 
-    // Resolve palette once per paint — every visible bubble shares it.
-    const ChatPalette pal = palette();
+        // Resolve palette once per paint — every visible bubble shares it.
+        const ChatPalette pal = palette();
 
-    // Bubbles are stacked in document order — binary-search to the first one
-    // that can intersect the dirty band rather than scanning the whole list.
-    const auto first = std::lower_bound(
-        m_items.begin(), m_items.end(), regionTopDoc,
-        [](const LaidMessage& message, const int top) { return message.bubble.GetBottom() < top; }
-    );
-    for (auto it = first; it != m_items.end(); ++it) {
-        if (it->bubble.GetTop() > regionBottomDoc) {
-            break; // first bubble past the band — the rest are too
+        // Bubbles are stacked in document order — binary-search to the first one
+        // that can intersect the dirty band rather than scanning the whole list.
+        const auto first = std::lower_bound(
+            m_items.begin(), m_items.end(), regionTopDoc,
+            [](const LaidMessage& message, const int top) { return message.bubble.GetBottom() < top; }
+        );
+        for (auto it = first; it != m_items.end(); ++it) {
+            if (it->bubble.GetTop() > regionBottomDoc) {
+                break; // first bubble past the band — the rest are too
+            }
+            paintMessage(gc, *it, pal, originY, update.y, update.y + update.height);
         }
-        paintMessage(gc, *it, pal, originY, update.y, update.y + update.height);
-    }
+
+        // Force any pending draw commands to land on the bitmap before the
+        // blit below reads it. Direct2D batches commands until EndDraw —
+        // without this flush the blit picks up stale pixels and the bubble
+        // flashes black / leaves ghost rows during scroll.
+        gc.GetGraphicsContext()->Flush();
+    } // gc out of scope → wxMemoryDC pixels now safe to blit
 
     paintDc.Blit(update.x, update.y, update.width, update.height, &memoryDc, update.x, update.y);
 }

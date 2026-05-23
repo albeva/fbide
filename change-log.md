@@ -1,6 +1,7 @@
 # Changes since 0.5.0-rc.2
 
 - Fixed sluggish mouse-wheel scroll in the AI chat view on Windows (default `wxScrolled` handler combined with the 1-px scroll rate scrolled only ~3 px per wheel notch)
+- Improved AI chat rendering on Windows by switching to the Direct2D graphics renderer when available — colour emoji now render and DirectWrite gives sharper text; falls back to GDI+ when D2D is unavailable
 - Changed fbide now stores config changes in `.local.`, keeping original base files immutable.
 - Added two-dir theme enumeration under READONLY: themes in `<user-data-dir>/themes/` shadow same-named bundle themes; theme edits save there too
 - Fixed `#include` opening the same file in multiple tabs on case-insensitive filesystems (#87)
