@@ -415,7 +415,12 @@ void AiChatView::paintMessage(
     const bool hasSelection = (m_selectionMessage >= 0)
                            && (std::cmp_equal(m_selectionMessage, messageIndex))
                            && !m_selection.empty();
-    const wxColour highlightColour = wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT);
+    // Translucent selection so code / patch / table backgrounds and
+    // inline images blend through — solid would obscure them and the
+    // band would read as an opaque blue strip.
+    const wxColour sysHighlight = wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT);
+    constexpr unsigned char kHighlightAlpha = 100;
+    const wxColour highlightColour(sysHighlight.Red(), sysHighlight.Green(), sysHighlight.Blue(), kHighlightAlpha);
 
     for (auto it = first; it != laid.lines.end(); ++it) {
         const auto& line = *it;

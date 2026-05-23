@@ -302,7 +302,12 @@ void MarkdownView::onPaint(wxPaintEvent& /*event*/) {
         // needs per-character widths to compute the highlight rect, and a
         // fresh DcMeasurer + the shared cache is cheap to build.
         const DcMeasurer measurer(memoryDc, m_bodyFont, m_monoFont, m_themedFont, m_measurerCache);
-        const wxColour highlightColour = wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT);
+        // Translucent selection so code / patch / table backgrounds and
+        // inline images bleed through — drawing solid would obscure them
+        // and the band would read as an opaque blue strip.
+        const wxColour sysHighlight = wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT);
+        constexpr unsigned char kHighlightAlpha = 100;
+        const wxColour highlightColour(sysHighlight.Red(), sysHighlight.Green(), sysHighlight.Blue(), kHighlightAlpha);
 
         PaintRunState runState;
         for (auto it = first; it != laid.lines.end(); ++it) {
