@@ -217,10 +217,19 @@ AiChatView::AiChatView(wxWindow* parent, Context& ctx)
     m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
     m_imageCache = std::make_unique<ChatImageCache>();
     // A finished download invalidates the cached layout (the image now
-    // has real dimensions to lay out around), so re-lay and repaint.
+    // has real dimensions to lay out around). Coalesce multiple
+    // notifications that settle in the same event-loop tick — when a
+    // reply embeds several images, they often resolve almost together.
     m_imageCache->setListener([this](const wxString& /*url*/) {
-        relayout();
-        Refresh();
+        if (m_imageRelayoutPending) {
+            return;
+        }
+        m_imageRelayoutPending = true;
+        CallAfter([this] {
+            m_imageRelayoutPending = false;
+            relayout();
+            Refresh();
+        });
     });
 
     // One reusable action bar, shown over whichever code block is hovered.

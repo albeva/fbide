@@ -180,6 +180,11 @@ private:
                                                       ///< double-apply across reparses.
     int m_bodyLineHeight = 0;                         ///< Body-font line height — sets the per-notch wheel scroll amount.
     int m_wheelPixelAccum = 0;                        ///< Fractional remainder carried between wheel events.
+    /// True when an image-cache "ready" notification has already scheduled
+    /// a deferred relayout via `CallAfter`. Subsequent notifications in
+    /// the same event-loop tick coalesce into the pending one instead of
+    /// stacking up additional relayout + repaint cycles.
+    bool m_imageRelayoutPending = false;
     /// Persistent measurement cache shared across `DcMeasurer` instances.
     /// Cleared from `resolveFonts` / `refreshTheme` whenever any cached
     /// font would become stale. `mutable` so the const measurement path
