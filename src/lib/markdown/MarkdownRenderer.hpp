@@ -51,6 +51,36 @@ struct MeasurementEntry {
     int spaceWidth = -1; ///< Lazy-cached width of a single space.
 };
 
+/// `TextMeasurer` backed by a wxDC + a host-owned cache. Same wxFonts
+/// (body / mono / themed) are passed to `fontFor` to resolve each
+/// `TextStyle` lazily; per-style results are memoised in `cache` so a
+/// relayout sees only a handful of `GetTextExtent` calls. Both
+/// `MarkdownView` and `AiChatView` construct one per paint / relayout
+/// and pass it around.
+class DcMeasurer final : public TextMeasurer {
+public:
+    DcMeasurer(
+        wxDC& dcRef,
+        wxFont body,
+        wxFont mono,
+        wxFont themed,
+        std::vector<MeasurementEntry>& cache
+    );
+
+    [[nodiscard]] auto width(const wxString& text, const TextStyle& style) const -> int override;
+    [[nodiscard]] auto lineHeight(const TextStyle& style) const -> int override;
+
+private:
+    [[nodiscard]] auto lookup(const TextStyle& style) const -> MeasurementEntry&;
+    [[nodiscard]] auto measure(const wxString& text, const wxFont& font) const -> int;
+
+    wxDC& m_dc;
+    wxFont m_body;
+    wxFont m_mono;
+    wxFont m_themed;
+    std::vector<MeasurementEntry>& m_cache;
+};
+
 /// Position inside a laid-out document — line index, run index within
 /// that line, and a character index within that run. `charInRun == 0`
 /// is "before the first character"; `charInRun == run.text.length()`

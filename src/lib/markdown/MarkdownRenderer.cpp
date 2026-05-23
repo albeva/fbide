@@ -7,6 +7,73 @@
 #include "markdown/MarkdownRenderer.hpp"
 using namespace fbide;
 
+namespace {
+/// Vertical leading added on top of the measured "Ag" height — matches
+/// what the chat view computes for the wheel-scroll quantum so that
+/// per-style line height stays consistent across consumers.
+constexpr int kLineLeading = 4;
+} // namespace
+
+DcMeasurer::DcMeasurer(
+    wxDC& dcRef,
+    wxFont body,
+    wxFont mono,
+    wxFont themed,
+    std::vector<MeasurementEntry>& cache
+)
+: m_dc(dcRef)
+, m_body(std::move(body))
+, m_mono(std::move(mono))
+, m_themed(std::move(themed))
+, m_cache(cache) {}
+
+auto DcMeasurer::width(const wxString& text, const TextStyle& style) const -> int {
+    if (text.empty()) {
+        return 0;
+    }
+    MeasurementEntry& entry = lookup(style);
+    // Hot path — the wrap loop measures a space between every word/word
+    // pair, always with the same style as its neighbours.
+    if (text == " ") {
+        if (entry.spaceWidth < 0) {
+            entry.spaceWidth = measure(" ", entry.font);
+        }
+        return entry.spaceWidth;
+    }
+    return measure(text, entry.font);
+}
+
+auto DcMeasurer::lineHeight(const TextStyle& style) const -> int {
+    MeasurementEntry& entry = lookup(style);
+    if (entry.lineHeight < 0) {
+        wxCoord textWidth = 0;
+        wxCoord textHeight = 0;
+        m_dc.GetTextExtent("Ag", &textWidth, &textHeight, nullptr, nullptr, &entry.font);
+        entry.lineHeight = textHeight + kLineLeading;
+    }
+    return entry.lineHeight;
+}
+
+auto DcMeasurer::lookup(const TextStyle& style) const -> MeasurementEntry& {
+    for (auto& entry : m_cache) {
+        if (entry.style == style) {
+            return entry;
+        }
+    }
+    m_cache.push_back({ .style = style,
+        .font = fontFor(style, m_body, m_mono, m_themed),
+        .lineHeight = -1,
+        .spaceWidth = -1 });
+    return m_cache.back();
+}
+
+auto DcMeasurer::measure(const wxString& text, const wxFont& font) const -> int {
+    wxCoord textWidth = 0;
+    wxCoord textHeight = 0;
+    m_dc.GetTextExtent(text, &textWidth, &textHeight, nullptr, nullptr, &font);
+    return textWidth;
+}
+
 auto fbide::fontFor(
     const TextStyle& style,
     const wxFont& body,
