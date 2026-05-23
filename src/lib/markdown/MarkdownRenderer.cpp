@@ -318,7 +318,20 @@ auto fbide::markdown::selectionToOffset(const LaidOutDoc& doc, const SelectionPo
     return offset;
 }
 
-auto fbide::markdown::selectionFromOffset(const LaidOutDoc& doc, const std::size_t offset) -> SelectionPosition {
+auto fbide::markdown::selectionFromOffset(
+    const LaidOutDoc& doc,
+    const std::size_t offset,
+    const OffsetBias bias
+) -> SelectionPosition {
+    // Two equivalent positions exist on a boundary — end-of-line `N`
+    // and start-of-line `N+1` (and similarly between runs on the same
+    // line). The painter cares about which one we pick: the end-of-line
+    // form extends the highlight band into the inter-block gap below
+    // `N`. `PreferLineStart` is right for a selection's lower end so
+    // an anchor clicked at the start of a block sticks there; the upper
+    // end uses `PreferLineEnd` so a caret dropped at the end of a
+    // paragraph doesn't drag the highlight into the next block.
+    const bool preferEnd = bias == OffsetBias::PreferLineEnd;
     std::size_t remaining = offset;
     for (std::size_t li = 0; li < doc.lines.size(); li++) {
         const auto& line = doc.lines.at(li);
@@ -326,29 +339,30 @@ auto fbide::markdown::selectionFromOffset(const LaidOutDoc& doc, const std::size
         for (const auto& run : line.runs) {
             lineLen += run.text.length();
         }
-        if (remaining <= lineLen) {
+        const bool insideLine = preferEnd ? remaining <= lineLen : remaining < lineLen;
+        if (insideLine) {
             for (std::size_t runIdx = 0; runIdx < line.runs.size(); runIdx++) {
                 const std::size_t runLen = line.runs.at(runIdx).text.length();
-                if (remaining <= runLen) {
+                const bool insideRun = preferEnd ? remaining <= runLen : remaining < runLen;
+                if (insideRun) {
                     return { .lineIndex = li, .runIndex = runIdx, .charInRun = remaining };
                 }
                 remaining -= runLen;
             }
-            // Empty line, or offset lands at the end with no run to carry it.
+            // Reached only when every run was empty — fall back to the line start.
+            return { .lineIndex = li, .runIndex = 0, .charInRun = 0 };
+        }
+        if (li + 1 == doc.lines.size()) {
+            // Offset at or past the end of the document — clamp to the
+            // very last character position.
+            if (!line.runs.empty()) {
+                return { .lineIndex = li,
+                    .runIndex = line.runs.size() - 1,
+                    .charInRun = line.runs.back().text.length() };
+            }
             return { .lineIndex = li, .runIndex = 0, .charInRun = 0 };
         }
         remaining -= lineLen;
-    }
-    // Offset past the end of the document — clamp to the very last position.
-    if (!doc.lines.empty()) {
-        const std::size_t lastLine = doc.lines.size() - 1;
-        const auto& line = doc.lines.at(lastLine);
-        if (!line.runs.empty()) {
-            return { .lineIndex = lastLine,
-                .runIndex = line.runs.size() - 1,
-                .charInRun = line.runs.back().text.length() };
-        }
-        return { .lineIndex = lastLine, .runIndex = 0, .charInRun = 0 };
     }
     return {};
 }

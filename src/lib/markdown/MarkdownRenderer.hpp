@@ -174,11 +174,30 @@ void paintSelectionHighlight(
 /// count does not.
 [[nodiscard]] auto selectionToOffset(const LaidOutDoc& doc, const SelectionPosition& position) -> std::size_t;
 
+/// At an offset that lands exactly on a line boundary, two equivalent
+/// `(line, run, char)` positions exist: the end of line `N` and the
+/// start of line `N+1`. The painter renders them differently — the
+/// former extends the highlight band into the inter-block gap below
+/// line `N`. `PreferLineStart` returns the line-`N+1`-start form;
+/// `PreferLineEnd` returns the line-`N`-end form. The two are also
+/// applied at run boundaries inside a line.
+enum class OffsetBias : std::uint8_t {
+    PreferLineStart, ///< Use for the low end of a selection range — keeps the start at the start of the next block.
+    PreferLineEnd,   ///< Use for the high end of a selection range — keeps the end at the end of the current block.
+};
+
 /// Inverse of `selectionToOffset` — locate the `(line, run, char)` at
 /// `offset` non-space characters into `doc`. Out-of-range offsets
 /// clamp to the last position. Pair with `selectionToOffset` to
-/// preserve a `Selection` across a re-wrap at a new width.
-[[nodiscard]] auto selectionFromOffset(const LaidOutDoc& doc, std::size_t offset) -> SelectionPosition;
+/// preserve a `Selection` across a re-wrap at a new width; pass
+/// `PreferLineStart` for the lower offset of the range and
+/// `PreferLineEnd` for the higher so each end of the selection sticks
+/// to the side the user originally clicked.
+[[nodiscard]] auto selectionFromOffset(
+    const LaidOutDoc& doc,
+    std::size_t offset,
+    OffsetBias bias = OffsetBias::PreferLineStart
+) -> SelectionPosition;
 
 /// DC-state cache carried across `paintLineText` calls. Adjacent runs
 /// in the same paragraph almost always share style / colour; carrying

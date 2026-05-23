@@ -226,8 +226,14 @@ void AiChatView::onSize(wxSizeEvent& event) {
     relayout();
     if (remap) {
         const auto& laid = m_items.at(static_cast<std::size_t>(m_selectionMessage)).document.laid();
-        m_selection.anchor = selectionFromOffset(laid, anchorOffset);
-        m_selection.caret = selectionFromOffset(laid, caretOffset);
+        // Bias the lower offset toward the start of its line and the
+        // higher toward the end so the selection's outer edges stick
+        // where the user originally clicked.
+        const bool anchorIsLow = anchorOffset <= caretOffset;
+        m_selection.anchor = selectionFromOffset(laid, anchorOffset,
+            anchorIsLow ? OffsetBias::PreferLineStart : OffsetBias::PreferLineEnd);
+        m_selection.caret = selectionFromOffset(laid, caretOffset,
+            anchorIsLow ? OffsetBias::PreferLineEnd : OffsetBias::PreferLineStart);
     }
     Refresh();
     event.Skip();

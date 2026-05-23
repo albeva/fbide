@@ -211,6 +211,59 @@ TEST_F(MarkdownSelectionTests, OffsetPastEndClampsToLastPosition) {
     EXPECT_EQ(recovered.charInRun, lastLine.runs.back().text.length());
 }
 
+TEST_F(MarkdownSelectionTests, OffsetAtLineBoundaryPrefersNextLineStart) {
+    // Two paragraphs — the second one starts on its own laid-out line.
+    // A selection anchored at the start of that second line should
+    // round-trip back to the same start-of-line position, not to the
+    // (logically equivalent) end of the previous line — otherwise the
+    // selection highlight grabs the inter-block gap on every resize.
+    const auto doc = layout("first paragraph\n\nsecond paragraph");
+    std::size_t secondLine = doc.lines.size();
+    for (std::size_t li = 0; li < doc.lines.size(); li++) {
+        for (const auto& run : doc.lines.at(li).runs) {
+            if (run.text.StartsWith("second")) {
+                secondLine = li;
+                break;
+            }
+        }
+        if (secondLine != doc.lines.size()) {
+            break;
+        }
+    }
+    ASSERT_LT(secondLine, doc.lines.size());
+    const SelectionPosition lineStart { .lineIndex = secondLine, .runIndex = 0, .charInRun = 0 };
+    const std::size_t off = selectionToOffset(doc, lineStart);
+    EXPECT_EQ(selectionFromOffset(doc, off), lineStart);
+}
+
+TEST_F(MarkdownSelectionTests, OffsetAtLineEndPrefersSameLineForRangeEnd) {
+    // Selection that ends at the last character of the first paragraph.
+    // The end position must stay on that line — if it jumps forward to
+    // `{nextLine, 0, 0}` the painter extends the highlight to the right
+    // edge of the content and into the inter-block gap.
+    const auto doc = layout("first paragraph\n\nsecond paragraph");
+    std::size_t firstLineEnd = 0;
+    for (std::size_t li = 0; li < doc.lines.size(); li++) {
+        const auto& runs = doc.lines.at(li).runs;
+        if (!runs.empty() && runs.front().text.StartsWith("first")) {
+            firstLineEnd = li;
+            // Find the last non-empty run on the line.
+            for (std::size_t r = runs.size(); r > 0; r--) {
+                if (!runs.at(r - 1).text.empty()) {
+                    const SelectionPosition lineEnd { .lineIndex = li,
+                        .runIndex = r - 1,
+                        .charInRun = runs.at(r - 1).text.length() };
+                    const std::size_t off = selectionToOffset(doc, lineEnd);
+                    // The high end of the range — request the end-of-line bias.
+                    EXPECT_EQ(selectionFromOffset(doc, off, OffsetBias::PreferLineEnd), lineEnd);
+                    return;
+                }
+            }
+        }
+    }
+    FAIL() << "Could not find first paragraph's line in laid-out doc";
+}
+
 TEST_F(MarkdownSelectionTests, ExtractIsNormalisedAcrossBackwardsDrag) {
     const wxString word = "hello";
     const auto doc = layout(word);
