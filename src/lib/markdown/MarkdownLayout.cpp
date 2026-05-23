@@ -303,7 +303,7 @@ struct Engine {
                              + (item.image.state == ImageInfo::State::Loading
                                      ? wxString(" (loading\xE2\x80\xA6)") // U+2026 horizontal ellipsis
                                      : wxString(" (failed)"));
-        const TextStyle style { .underline = true };
+        constexpr TextStyle style { .underline = true };
         const int width = m_measurer.width(label, style);
         PaintLine line;
         line.kind = LineKind::Prose;
@@ -417,7 +417,7 @@ struct Engine {
     }
 
     /// Build the bullet / number / checkbox run that prefixes a list item.
-    auto makeMarker(const MdBlock& block, const int contentLeft) -> PaintRun {
+    auto makeMarker(const MdBlock& block, const int contentLeft) const -> PaintRun {
         wxString text;
         if (block.isTask) {
             // BMP glyphs — render without needing an emoji font.
@@ -596,7 +596,7 @@ struct Engine {
         blockGap();
         const int blockTop = m_yPos;
         const int left = block.quoteDepth * kQuoteIndent;
-        const TextStyle mono { .monospace = true };
+        constexpr TextStyle mono { .monospace = true };
         const int lineHeight = m_measurer.lineHeight(mono);
         const int charWidth = std::max(1, m_measurer.width("0", mono));
 
@@ -825,7 +825,7 @@ struct Engine {
         }
 
         // Wrap and emit each row.
-        const TextStyle proseStyle;
+        constexpr TextStyle proseStyle;
         const int lineHeight = m_measurer.lineHeight(proseStyle);
 
         const std::size_t firstLineIndex = m_out.lines.size();

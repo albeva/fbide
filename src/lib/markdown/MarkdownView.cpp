@@ -300,7 +300,7 @@ void MarkdownView::onPaint(wxPaintEvent& /*event*/) {
 
         const MarkdownPalette pal = palette();
         const auto& laid = m_document.laid();
-        const int contentLeft = kPadding;
+        constexpr int contentLeft = kPadding;
         const int contentTop = kPadding - originY;
         const int contentWidth = std::max(0, size.GetWidth() - (2 * kPadding));
 
@@ -403,7 +403,7 @@ void MarkdownView::clearSelection() {
     Refresh();
 }
 
-void MarkdownView::copySelectionToClipboard() {
+void MarkdownView::copySelectionToClipboard() const {
     if (m_selection.empty()) {
         return;
     }

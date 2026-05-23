@@ -73,7 +73,7 @@ public:
 
     /// Copy the currently selected text to the clipboard as plain text.
     /// No-op when the selection is empty.
-    void copySelectionToClipboard();
+    void copySelectionToClipboard() const;
 
     /// Replace the inline-image cache. The view owns one by default;
     /// supply a shared cache (e.g. one held across several views) to

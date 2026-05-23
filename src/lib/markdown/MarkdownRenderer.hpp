@@ -172,7 +172,7 @@ void paintSelectionHighlight(
 /// Stable across re-wrapping at a different width — the per-line
 /// distribution of runs changes, but the total non-space character
 /// count does not.
-[[nodiscard]] auto selectionToOffset(const LaidOutDoc& doc, SelectionPosition position) -> std::size_t;
+[[nodiscard]] auto selectionToOffset(const LaidOutDoc& doc, const SelectionPosition& position) -> std::size_t;
 
 /// Inverse of `selectionToOffset` — locate the `(line, run, char)` at
 /// `offset` non-space characters into `doc`. Out-of-range offsets

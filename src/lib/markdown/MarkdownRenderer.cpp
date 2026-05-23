@@ -299,7 +299,7 @@ void fbide::paintSelectionHighlight(
     gc.DrawRectangle(contentLeft + startX, lineTop, endX - startX, bandHeight);
 }
 
-auto fbide::selectionToOffset(const LaidOutDoc& doc, const SelectionPosition position) -> std::size_t {
+auto fbide::selectionToOffset(const LaidOutDoc& doc, const SelectionPosition& position) -> std::size_t {
     std::size_t offset = 0;
     for (std::size_t li = 0; li < position.lineIndex && li < doc.lines.size(); li++) {
         for (const auto& run : doc.lines.at(li).runs) {

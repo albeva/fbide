@@ -68,7 +68,7 @@ auto MarkdownImageCache::get(const wxString& url) -> const Entry& {
 void MarkdownImageCache::clearAll() {
     // Cancel in-flight downloads first; dropping the handles afterwards
     // lets wx remove its per-request temp files.
-    for (auto& [id, request] : m_activeRequests) {
+    for (auto& request : m_activeRequests | std::views::values) {
         if (request.GetState() == wxWebRequest::State_Active) {
             request.Cancel();
         }
@@ -213,7 +213,7 @@ void MarkdownImageCache::finalize(Entry& entry, const wxString& url, const wxStr
     }
 }
 
-void MarkdownImageCache::fail(Entry& entry, const wxString& url) {
+void MarkdownImageCache::fail(Entry& entry, const wxString& url) const {
     entry.state = State::Failed;
     entry.bitmap = wxBitmap {};
     entry.width = 0;

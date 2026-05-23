@@ -97,7 +97,7 @@ private:
     void finalize(Entry& entry, const wxString& url, const wxString& path);
 
     /// Mark `entry` failed and notify the listener.
-    void fail(Entry& entry, const wxString& url);
+    void fail(Entry& entry, const wxString& url) const;
 
     /// LRU bookkeeping. `markReady` promotes a URL to most-recently-used
     /// (inserting into the order if absent), then evicts the oldest
