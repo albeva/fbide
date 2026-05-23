@@ -9,8 +9,10 @@
 #include <unordered_set>
 #include <wx/scrolwin.h>
 #include "CodeActionBar.hpp"
+#include "markdown/MarkdownDocument.hpp"
 #include "markdown/MarkdownImageCache.hpp"
 #include "markdown/MarkdownLayout.hpp"
+#include "markdown/MarkdownRenderer.hpp"
 
 class wxGCDC;
 
@@ -63,13 +65,14 @@ public:
     void refreshTheme();
 
 private:
-    /// A message laid out inside its bubble.
+    /// A message laid out inside its bubble. `document` owns the parsed +
+    /// laid-out state and skips a re-layout when text + width match. The
+    /// raw markdown lives inside it (`document.markdown()`).
     struct LaidMessage {
-        LaidOutDoc doc;        ///< Wrapped content.
-        wxRect bubble;         ///< Bubble rect in document coordinates.
-        wxString markdown;     ///< Source markdown — layout cache key.
-        int contentWidth = 0;  ///< Content width inside the bubble padding.
-        bool fromUser = false; ///< Role — drives bubble colour + side.
+        MarkdownDocument document; ///< Parsed + laid markdown for this bubble.
+        wxRect bubble;             ///< Bubble rect in document coordinates.
+        int contentWidth = 0;      ///< Content width inside the bubble padding.
+        bool fromUser = false;     ///< Role — drives bubble colour + side.
     };
 
     void onPaint(wxPaintEvent& event);
@@ -107,42 +110,6 @@ private:
         int originY,
         int updateTop,
         int updateBottom
-    ) const;
-
-    /// Carries the DC-state cache across `paintLineText` calls so adjacent
-    /// runs and lines that share style/colour avoid redundant
-    /// `SetFont` / `GetFontMetrics` / `SetTextForeground` calls.
-    struct PaintRunState {
-        TextStyle currentStyle {};
-        wxCoord currentAscent = 0;
-        wxColour currentColour;
-        bool styleSet = false;
-        bool colourSet = false;
-    };
-
-    /// Paint a single laid-out line's background (code/patch tint strip,
-    /// rule, table fill + borders, image bitmap). Text runs are drawn
-    /// separately by `paintLineText` so the run-state cache can persist
-    /// across lines.
-    void paintLineBackground(
-        wxGCDC& gc,
-        const PaintLine& line,
-        int contentLeft,
-        int lineTop,
-        int contentWidth,
-        const MarkdownPalette& pal
-    ) const;
-
-    /// Two-pass baseline-aligned text draw for one laid-out line.
-    /// Pass 1 finds the max ascent; pass 2 draws each run. `state` carries
-    /// the DC cache forward so a single-style paragraph hits `SetFont`
-    /// once across many lines.
-    void paintLineText(
-        wxGCDC& gc,
-        const PaintLine& line,
-        int contentLeft,
-        int lineTop,
-        PaintRunState& state
     ) const;
 
     /// Link target under a client point, or empty when none.

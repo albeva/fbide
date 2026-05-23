@@ -85,28 +85,6 @@ auto blend(const wxColour& a, const wxColour& b, const double t) -> wxColour {
     return { mix(a.Red(), b.Red()), mix(a.Green(), b.Green()), mix(a.Blue(), b.Blue()) };
 }
 
-/// Resolve a concrete font for a layout text style from the three bases:
-/// - body  → prose, headings, anything non-monospace.
-/// - mono  → markdown inline `code` and non-FB fenced blocks; system
-///           teletype face for native look in the chat surround.
-/// - themed → FreeBASIC fenced blocks; editor-theme font face, sized to
-///           match `body` so the code preview lines up visually with the
-///           prose around it instead of jumping to the theme's own size.
-auto fontFor(const TextStyle& style, const wxFont& body, const wxFont& mono, const wxFont& themed) -> wxFont {
-    wxFont font = body;
-    if (style.monospace) {
-        font = style.themed ? themed : mono;
-    }
-    if (style.sizeDelta != 0) {
-        font.SetPointSize(std::max(4, font.GetPointSize() + style.sizeDelta));
-    }
-    font.SetWeight(style.bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL);
-    font.SetStyle(style.italic ? wxFONTSTYLE_ITALIC : wxFONTSTYLE_NORMAL);
-    font.SetUnderlined(style.underline);
-    font.SetStrikethrough(style.strikethrough);
-    return font;
-}
-
 /// `TextMeasurer` backed by a wxDC — measures with the same fonts the view
 /// paints with, so layout and paint agree to the pixel. Per-style results
 /// are memoised: a single relayout asks for the same handful of styles
@@ -307,7 +285,6 @@ void AiChatView::onSize(wxSizeEvent& event) {
 
 void AiChatView::relayout() {
     const int panelWidth = GetClientSize().GetWidth();
-    const bool widthChanged = panelWidth != m_layoutWidth;
 
     wxClientDC clientDc(this);
     wxGCDC measureDc;
@@ -322,6 +299,26 @@ void AiChatView::relayout() {
     const int maxBubble = std::max(100, static_cast<int>(available * kBubbleMaxFraction));
     const int maxContent = std::max(kMinBubbleContent, maxBubble - (2 * kBubblePad));
 
+    const auto resolveImage = [this](const wxString& url) -> ImageInfo {
+        const auto& entry = m_imageCache->get(url);
+        ImageInfo info;
+        info.bitmap = entry.bitmap;
+        info.width = entry.width;
+        info.height = entry.height;
+        switch (entry.state) {
+        case MarkdownImageCache::State::Ready:
+            info.state = ImageInfo::State::Ready;
+            break;
+        case MarkdownImageCache::State::Failed:
+            info.state = ImageInfo::State::Failed;
+            break;
+        case MarkdownImageCache::State::Loading:
+            info.state = ImageInfo::State::Loading;
+            break;
+        }
+        return info;
+    };
+
     std::vector<LaidMessage> rebuilt;
     rebuilt.reserve(m_messages.size());
     int y = kMargin;
@@ -329,54 +326,29 @@ void AiChatView::relayout() {
         const auto& message = m_messages[index];
         LaidMessage item;
         item.fromUser = message.fromUser;
-        item.markdown = message.markdown;
 
-        // Reuse the cached layout when the message text and width are both
-        // unchanged — while a reply streams, only the last message moves.
-        const bool reusable = !widthChanged
-                           && index < m_items.size()
-                           && m_items[index].fromUser == message.fromUser
-                           && m_items[index].markdown == message.markdown;
-        if (reusable) {
-            item.doc = std::move(m_items[index].doc);
+        // Move the previous document for this slot if the role matches —
+        // its (markdown, width) cache makes `setMarkdown` a no-op when
+        // neither has changed (the common case while a reply streams:
+        // only the last bubble's text actually moves).
+        if (index < m_items.size() && m_items[index].fromUser == message.fromUser) {
+            item.document = std::move(m_items[index].document);
             item.contentWidth = m_items[index].contentWidth;
-        } else {
-            // Reformat model replies; leave the user's own code untouched.
-            const bool reformat = !message.fromUser;
-            const auto highlight = [this, reformat](const wxString& code, const wxString& lang) {
-                return highlightFence(code, lang, reformat);
-            };
-            const auto resolveImage = [this](const wxString& url) -> ImageInfo {
-                const auto& entry = m_imageCache->get(url);
-                ImageInfo info;
-                info.bitmap = entry.bitmap;
-                info.width = entry.width;
-                info.height = entry.height;
-                switch (entry.state) {
-                case MarkdownImageCache::State::Ready:
-                    info.state = ImageInfo::State::Ready;
-                    break;
-                case MarkdownImageCache::State::Failed:
-                    info.state = ImageInfo::State::Failed;
-                    break;
-                case MarkdownImageCache::State::Loading:
-                    info.state = ImageInfo::State::Loading;
-                    break;
-                }
-                return info;
-            };
-            item.doc = layoutMarkdown(
-                parseMarkdown(message.markdown),
-                maxContent,
-                measurer,
-                pal,
-                highlight,
-                resolveImage
-            );
-            // Shrink the bubble to its widest line — wrapping was done at
-            // maxContent, so every line already fits the shrunk width.
+        }
+
+        // Reformat model replies; leave the user's own code untouched.
+        const bool reformat = !message.fromUser;
+        const auto highlight = [this, reformat](const wxString& code, const wxString& lang) {
+            return highlightFence(code, lang, reformat);
+        };
+        const bool rebuilt_layout = item.document.setMarkdown(
+            message.markdown, maxContent, measurer, pal, highlight, resolveImage
+        );
+        if (rebuilt_layout) {
+            // Shrink the bubble to its widest line — wrapping was done
+            // at maxContent, so every line already fits the shrunk width.
             int widest = 0;
-            for (const auto& line : item.doc.lines) {
+            for (const auto& line : item.document.laid().lines) {
                 for (const auto& run : line.runs) {
                     widest = std::max(widest, run.x + run.width);
                 }
@@ -385,7 +357,7 @@ void AiChatView::relayout() {
         }
 
         const int bubbleWidth = item.contentWidth + (2 * kBubblePad);
-        const int bubbleHeight = item.doc.height + (2 * kBubblePad);
+        const int bubbleHeight = item.document.height() + (2 * kBubblePad);
         const int bubbleX = message.fromUser
                               ? (panelWidth - kMargin - bubbleWidth)
                               : kMargin;
@@ -485,11 +457,11 @@ void AiChatView::paintMessage(
 
     // Binary-search to the first line that can be inside the dirty band.
     // Lines are stacked by y in the laid-out document.
-    const auto& lines = message.doc.lines;
+    const auto& laid = message.document.laid();
     const int updateTopRel = updateTop - contentTop;
     const int updateBottomRel = updateBottom - contentTop;
     auto first = std::lower_bound(
-        lines.begin(), lines.end(), updateTopRel,
+        laid.lines.begin(), laid.lines.end(), updateTopRel,
         [](const PaintLine& line, const int top) { return line.y + line.height < top; }
     );
 
@@ -498,26 +470,26 @@ void AiChatView::paintMessage(
     // SetFont / SetTextForeground / GetFontMetrics calls.
     PaintRunState runState;
 
-    for (auto it = first; it != lines.end(); ++it) {
+    for (auto it = first; it != laid.lines.end(); ++it) {
         const auto& line = *it;
         if (line.y > updateBottomRel) {
             break;
         }
         const int lineTop = contentTop + line.y;
-        paintLineBackground(gc, line, contentLeft, lineTop, message.contentWidth, pal);
-        paintLineText(gc, line, contentLeft, lineTop, runState);
+        fbide::paintLineBackground(gc, line, contentLeft, lineTop, message.contentWidth, pal);
+        fbide::paintLineText(gc, line, contentLeft, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
     }
 
     // Overlay applied SEARCH/REPLACE proposals with a translucent veil so
     // the chat thread distinguishes resolved cards from still-actionable
     // ones at a glance. Drawn after content so it dims (rather than
     // hides) the underlying strips and text.
-    if (!message.doc.patchBlocks.empty() && !m_appliedPatches.empty()) {
+    if (!laid.patchBlocks.empty() && !m_appliedPatches.empty()) {
         const wxColour windowText = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
         const wxColour overlay(windowText.Red(), windowText.Green(), windowText.Blue(), 90);
         gc.SetPen(*wxTRANSPARENT_PEN);
         gc.SetBrush(wxBrush(overlay));
-        for (const auto& patch : message.doc.patchBlocks) {
+        for (const auto& patch : laid.patchBlocks) {
             if (!m_appliedPatches.contains(patchKey(patch))) {
                 continue;
             }
@@ -527,145 +499,6 @@ void AiChatView::paintMessage(
             }
             gc.DrawRectangle(contentLeft, patchY, message.contentWidth, patch.height);
         }
-    }
-}
-
-void AiChatView::paintLineBackground(
-    wxGCDC& gc,
-    const PaintLine& line,
-    const int contentLeft,
-    const int lineTop,
-    const int contentWidth,
-    const MarkdownPalette& pal
-) const {
-    if (line.kind == LineKind::Code) {
-        gc.SetBrush(wxBrush(pal.codeBg));
-        gc.SetPen(*wxTRANSPARENT_PEN);
-        gc.DrawRectangle(contentLeft, lineTop, contentWidth, line.height);
-        return;
-    }
-    if (line.kind == LineKind::PatchSearch || line.kind == LineKind::PatchReplace) {
-        // Two-tone background for a SEARCH/REPLACE proposal — same
-        // padding pattern as a code block, just tinted red / green.
-        const wxColour& fill = line.kind == LineKind::PatchSearch
-                                 ? pal.patchSearchBg
-                                 : pal.patchReplaceBg;
-        gc.SetBrush(wxBrush(fill));
-        gc.SetPen(*wxTRANSPARENT_PEN);
-        gc.DrawRectangle(contentLeft, lineTop, contentWidth, line.height);
-        return;
-    }
-    if (line.kind == LineKind::Rule) {
-        gc.SetPen(wxPen(pal.rule));
-        const int ruleY = lineTop + (line.height / 2);
-        gc.DrawLine(contentLeft, ruleY, contentLeft + contentWidth, ruleY);
-        return;
-    }
-    if ((line.kind == LineKind::TableHeader || line.kind == LineKind::TableBody)
-        && !line.tableColumns.empty()) {
-        // Header rows get a subtle background tint; the fill is clipped to
-        // the table's actual column range so it doesn't leak out into the
-        // rest of the bubble. Borders / dividers go on top of the fill.
-        const int leftEdge = contentLeft + line.tableColumns.front().x;
-        const int rightEdge = contentLeft + line.tableColumns.back().x
-                            + line.tableColumns.back().width;
-        const int tableWidth = rightEdge - leftEdge;
-        if (line.kind == LineKind::TableHeader) {
-            gc.SetBrush(wxBrush(pal.tableHeaderBg));
-            gc.SetPen(*wxTRANSPARENT_PEN);
-            gc.DrawRectangle(leftEdge, lineTop, tableWidth, line.height);
-        }
-        gc.SetPen(wxPen(pal.rule));
-        // Vertical column separators (skip the leftmost — covered by
-        // the outer left border below).
-        for (std::size_t c = 1; c < line.tableColumns.size(); c++) {
-            const int colX = contentLeft + line.tableColumns[c].x;
-            gc.DrawLine(colX, lineTop, colX, lineTop + line.height);
-        }
-        // Outer left + right borders.
-        gc.DrawLine(leftEdge, lineTop, leftEdge, lineTop + line.height);
-        gc.DrawLine(rightEdge, lineTop, rightEdge, lineTop + line.height);
-        // Horizontal row divider at the top of every row — covers both
-        // the table top border (first row) and inter-row separators.
-        // `tableRowStart` is true only on the first visual line of each
-        // row, so wrapped cells don't get intermediate dividers.
-        if (line.tableRowStart) {
-            gc.DrawLine(leftEdge, lineTop, rightEdge, lineTop);
-        }
-        // Closing border at the bottom of the very last row. Drawn at
-        // `lineTop + height` so it meets the side-line endpoints
-        // exactly — one pixel inside the row leaves the vertical borders
-        // visibly overhanging the corner.
-        if (line.tableLastLine) {
-            const int bottomY = lineTop + line.height;
-            gc.DrawLine(leftEdge, bottomY, rightEdge, bottomY);
-        }
-        return;
-    }
-    if (line.kind == LineKind::Image && line.image.bitmap.IsOk()) {
-        // Draw through the underlying wxGraphicsContext — `wxGCDC::DrawBitmap`
-        // has no scaled-target overload, but the graphics context does.
-        gc.GetGraphicsContext()->DrawBitmap(
-            line.image.bitmap,
-            contentLeft + line.image.x,
-            lineTop,
-            line.image.drawWidth,
-            line.image.drawHeight
-        );
-        // The line's lone PaintRun is an empty hit-test region for the
-        // click handler — `paintLineText` skips empty runs, so the image
-        // line doesn't pick up any text drawing.
-    }
-}
-
-void AiChatView::paintLineText(
-    wxGCDC& gc,
-    const PaintLine& line,
-    const int contentLeft,
-    const int lineTop,
-    PaintRunState& state
-) const {
-    // Baseline-aligned drawing. Different font families have different
-    // ascents; if every run is drawn at the same top, baselines drift
-    // and mixed prose/mono lines look "jittery". Pass 1 finds the max
-    // ascent across runs in this line; pass 2 draws each run at
-    // `baseline - runAscent`. `selectRunFont` mutates `state` — when
-    // the style differs from the cached one, it sets the DC font and
-    // refreshes `currentAscent` so the cache spans both passes and
-    // every subsequent line that shares the style.
-    const auto selectRunFont = [&](const PaintRun& run) -> wxCoord {
-        if (!state.styleSet || run.style != state.currentStyle) {
-            gc.SetFont(fontFor(run.style, m_bodyFont, m_monoFont, m_themedFont));
-            state.currentStyle = run.style;
-            state.currentAscent = gc.GetFontMetrics().ascent;
-            state.styleSet = true;
-        }
-        return state.currentAscent;
-    };
-
-    wxCoord maxAscent = 0;
-    for (const auto& run : line.runs) {
-        if (run.text.empty()) {
-            continue;
-        }
-        const wxCoord ascent = selectRunFont(run);
-        if (ascent > maxAscent) {
-            maxAscent = ascent;
-        }
-    }
-    const wxCoord baseline = lineTop + 2 + maxAscent;
-
-    for (const auto& run : line.runs) {
-        if (run.text.empty()) {
-            continue;
-        }
-        const wxCoord ascent = selectRunFont(run);
-        if (!state.colourSet || run.colour != state.currentColour) {
-            gc.SetTextForeground(run.colour);
-            state.currentColour = run.colour;
-            state.colourSet = true;
-        }
-        gc.DrawText(run.text, contentLeft + run.x, baseline - ascent);
     }
 }
 
@@ -749,14 +582,14 @@ auto AiChatView::linkAt(const wxPoint& clientPoint) const -> wxString {
         }
         const int contentLeft = item.bubble.x + kBubblePad;
         const int contentTop = item.bubble.y + kBubblePad;
-        for (const auto& line : item.doc.lines) {
+        for (const auto& line : item.document.laid().lines) {
             for (const auto& run : line.runs) {
                 if (run.linkId < 0) {
                     continue;
                 }
                 const wxRect runRect(contentLeft + run.x, contentTop + line.y, run.width, line.height);
                 if (runRect.Contains(docPoint)) {
-                    return item.doc.links[static_cast<std::size_t>(run.linkId)].url;
+                    return item.document.laid().links[static_cast<std::size_t>(run.linkId)].url;
                 }
             }
         }
@@ -776,8 +609,8 @@ auto AiChatView::codeBlockAt(const wxPoint& clientPoint) const -> std::pair<int,
         }
         const int contentLeft = item.bubble.x + kBubblePad;
         const int contentTop = item.bubble.y + kBubblePad;
-        for (std::size_t ci = 0; ci < item.doc.codeBlocks.size(); ci++) {
-            const auto& block = item.doc.codeBlocks[ci];
+        for (std::size_t ci = 0; ci < item.document.laid().codeBlocks.size(); ci++) {
+            const auto& block = item.document.laid().codeBlocks[ci];
             const wxRect codeRect(contentLeft, contentTop + block.y, item.contentWidth, block.height);
             if (codeRect.Contains(docPoint)) {
                 return { static_cast<int>(mi), static_cast<int>(ci) };
@@ -799,8 +632,8 @@ auto AiChatView::patchBlockAt(const wxPoint& clientPoint) const -> std::pair<int
         }
         const int contentLeft = item.bubble.x + kBubblePad;
         const int contentTop = item.bubble.y + kBubblePad;
-        for (std::size_t pi = 0; pi < item.doc.patchBlocks.size(); pi++) {
-            const auto& block = item.doc.patchBlocks[pi];
+        for (std::size_t pi = 0; pi < item.document.laid().patchBlocks.size(); pi++) {
+            const auto& block = item.document.laid().patchBlocks[pi];
             const wxRect patchRect(contentLeft, contentTop + block.y, item.contentWidth, block.height);
             if (patchRect.Contains(docPoint)) {
                 return { static_cast<int>(mi), static_cast<int>(pi) };
@@ -827,11 +660,11 @@ void AiChatView::showActionBar(const int messageIndex, const int blockIndex, con
     int blockY = 0;
     int blockHeight = 0;
     if (mode == CodeActionBar::Mode::CodeSample) {
-        const auto& block = item.doc.codeBlocks[static_cast<std::size_t>(blockIndex)];
+        const auto& block = item.document.laid().codeBlocks[static_cast<std::size_t>(blockIndex)];
         blockY = block.y;
         blockHeight = block.height;
     } else {
-        const auto& block = item.doc.patchBlocks[static_cast<std::size_t>(blockIndex)];
+        const auto& block = item.document.laid().patchBlocks[static_cast<std::size_t>(blockIndex)];
         blockY = block.y;
         blockHeight = block.height;
     }
@@ -995,7 +828,7 @@ void AiChatView::onCopyCode(wxCommandEvent& /*event*/) {
         return;
     }
     const auto& message = m_items[static_cast<std::size_t>(m_barMessage)];
-    const wxString code = resolveCodeBlockText(message.markdown, static_cast<std::size_t>(m_barIndex));
+    const wxString code = resolveCodeBlockText(message.document.markdown(), static_cast<std::size_t>(m_barIndex));
     if (wxTheClipboard->Open()) {
         wxTheClipboard->SetData(make_unowned<wxTextDataObject>(code));
         wxTheClipboard->Close();
@@ -1007,7 +840,7 @@ void AiChatView::onInsertCode(wxCommandEvent& /*event*/) {
         return;
     }
     const auto& message = m_items[static_cast<std::size_t>(m_barMessage)];
-    const wxString code = resolveCodeBlockText(message.markdown, static_cast<std::size_t>(m_barIndex));
+    const wxString code = resolveCodeBlockText(message.document.markdown(), static_cast<std::size_t>(m_barIndex));
     auto* document = m_ctx.getDocumentManager().getActive();
     if (document == nullptr) {
         // No open document — drop the snippet into a fresh one.
@@ -1025,7 +858,7 @@ void AiChatView::onRunCode(wxCommandEvent& /*event*/) {
         return;
     }
     const auto& message = m_items[static_cast<std::size_t>(m_barMessage)];
-    const wxString code = resolveCodeBlockText(message.markdown, static_cast<std::size_t>(m_barIndex));
+    const wxString code = resolveCodeBlockText(message.document.markdown(), static_cast<std::size_t>(m_barIndex));
     // Open the snippet as a new document and quick-run it (compile to a temp
     // file and execute) — the same path as the Run command.
     m_ctx.getDocumentManager().newFile().getEditor()->SetText(code);
@@ -1070,7 +903,7 @@ auto AiChatView::applyPatch(const LaidPatchBlock& patch) -> bool {
 
 void AiChatView::autoApplyPatches() {
     for (const auto& item : m_items) {
-        for (const auto& patch : item.doc.patchBlocks) {
+        for (const auto& patch : item.document.laid().patchBlocks) {
             if (!m_appliedPatches.insert(patchKey(patch)).second) {
                 continue; // already handled this proposal
             }
@@ -1087,7 +920,8 @@ void AiChatView::onApplyPatch(wxCommandEvent& /*event*/) {
         return;
     }
     const auto& patch = m_items[static_cast<std::size_t>(m_barMessage)]
-                            .doc.patchBlocks[static_cast<std::size_t>(m_barIndex)];
+                            .document.laid()
+                            .patchBlocks[static_cast<std::size_t>(m_barIndex)];
     if (!applyPatch(patch)) {
         wxLogStatus("Patch couldn't be applied — SEARCH text not found or no active document.");
         return;
