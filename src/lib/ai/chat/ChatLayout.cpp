@@ -530,10 +530,7 @@ struct Engine {
             .runs = {} });
         m_yPos += kCodePadding;
 
-        m_out.codeBlocks.push_back({ .code = block.codeText,
-            .lang = block.codeLang,
-            .y = blockTop,
-            .height = m_yPos - blockTop });
+        m_out.codeBlocks.push_back({ .y = blockTop, .height = m_yPos - blockTop });
     }
 
     /// Split `text` (verbatim, '\n'-separated) into one CodeLine per source

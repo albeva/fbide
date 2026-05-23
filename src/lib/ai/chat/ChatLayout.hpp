@@ -110,11 +110,12 @@ struct LinkTarget {
     wxString url;
 };
 
-/// A laid-out fenced code block — its region within the document plus the
-/// raw source, so the view can place a toolbar over it and act on the code.
+/// A laid-out fenced code block — its rectangle within the document. The
+/// view places a toolbar over it; when the user clicks an action, the
+/// snippet body is resolved on demand from the source markdown via
+/// `resolveCodeBlockText` so the laid-out doc doesn't carry a duplicate
+/// copy of every snippet.
 struct LaidCodeBlock {
-    wxString code;  ///< Raw fenced code, '\n'-separated.
-    wxString lang;  ///< Fence info string (lowercased).
     int y = 0;      ///< Top offset within the document (includes padding).
     int height = 0; ///< Total height including padding strips.
 };

@@ -974,9 +974,8 @@ void AiChatView::onCopyCode(wxCommandEvent& /*event*/) {
     if (m_barMessage < 0 || m_barIndex < 0) {
         return;
     }
-    const wxString& code = m_items[static_cast<std::size_t>(m_barMessage)]
-                               .doc.codeBlocks[static_cast<std::size_t>(m_barIndex)]
-                               .code;
+    const auto& message = m_items[static_cast<std::size_t>(m_barMessage)];
+    const wxString code = resolveCodeBlockText(message.markdown, static_cast<std::size_t>(m_barIndex));
     if (wxTheClipboard->Open()) {
         wxTheClipboard->SetData(make_unowned<wxTextDataObject>(code));
         wxTheClipboard->Close();
@@ -987,9 +986,8 @@ void AiChatView::onInsertCode(wxCommandEvent& /*event*/) {
     if (m_barMessage < 0 || m_barIndex < 0) {
         return;
     }
-    const wxString& code = m_items[static_cast<std::size_t>(m_barMessage)]
-                               .doc.codeBlocks[static_cast<std::size_t>(m_barIndex)]
-                               .code;
+    const auto& message = m_items[static_cast<std::size_t>(m_barMessage)];
+    const wxString code = resolveCodeBlockText(message.markdown, static_cast<std::size_t>(m_barIndex));
     auto* document = m_ctx.getDocumentManager().getActive();
     if (document == nullptr) {
         // No open document — drop the snippet into a fresh one.
@@ -1006,9 +1004,8 @@ void AiChatView::onRunCode(wxCommandEvent& /*event*/) {
     if (m_barMessage < 0 || m_barIndex < 0) {
         return;
     }
-    const wxString& code = m_items[static_cast<std::size_t>(m_barMessage)]
-                               .doc.codeBlocks[static_cast<std::size_t>(m_barIndex)]
-                               .code;
+    const auto& message = m_items[static_cast<std::size_t>(m_barMessage)];
+    const wxString code = resolveCodeBlockText(message.markdown, static_cast<std::size_t>(m_barIndex));
     // Open the snippet as a new document and quick-run it (compile to a temp
     // file and execute) — the same path as the Run command.
     m_ctx.getDocumentManager().newFile().getEditor()->SetText(code);

@@ -625,3 +625,18 @@ auto fbide::parseMarkdown(const wxString& text) -> MdDoc {
     // A still-open proposal at EOF is dropped on purpose — partial mid-stream.
     return result;
 }
+
+auto fbide::resolveCodeBlockText(const wxString& markdown, const std::size_t index) -> wxString {
+    const auto doc = parseMarkdown(markdown);
+    std::size_t seen = 0;
+    for (const auto& block : doc.blocks) {
+        if (block.kind != MdBlockKind::CodeFence) {
+            continue;
+        }
+        if (seen == index) {
+            return block.codeText;
+        }
+        seen++;
+    }
+    return {};
+}

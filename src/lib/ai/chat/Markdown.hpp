@@ -109,4 +109,10 @@ struct MdDoc {
 /// whatever arrived, so it is safe to call on a streaming reply.
 [[nodiscard]] auto parseMarkdown(const wxString& text) -> MdDoc;
 
+/// Resolve the body of the Nth fenced code block in `markdown` by re-parsing
+/// the source. Returns an empty string when `index` is out of range. The
+/// chat view uses this as a slow-path lookup so the laid-out document
+/// doesn't have to keep a duplicate copy of every snippet's text in memory.
+[[nodiscard]] auto resolveCodeBlockText(const wxString& markdown, std::size_t index) -> wxString;
+
 } // namespace fbide

@@ -507,3 +507,35 @@ TEST_F(MarkdownTests, MultiplePatchBlocks) {
     EXPECT_EQ(doc.blocks[1].kind, MdBlockKind::Patch);
     EXPECT_EQ(doc.blocks[1].patchSearch, "b\n");
 }
+
+// ---------------------------------------------------------------------------
+// Code block resolver — slow-path lookup so the laid-out doc can drop its
+// duplicated copy of every snippet's body.
+// ---------------------------------------------------------------------------
+
+TEST_F(MarkdownTests, ResolveCodeBlockTextReturnsFenceBody) {
+    const wxString markdown = "```\nPrint 1\nPrint 2\n```";
+    EXPECT_EQ(resolveCodeBlockText(markdown, 0), "Print 1\nPrint 2\n");
+}
+
+TEST_F(MarkdownTests, ResolveCodeBlockTextRespectsIndex) {
+    const wxString markdown = "first prose\n\n"
+                              "```\nfirst body\n```\n\n"
+                              "middle prose\n\n"
+                              "```\nsecond body\n```\n";
+    EXPECT_EQ(resolveCodeBlockText(markdown, 0), "first body\n");
+    EXPECT_EQ(resolveCodeBlockText(markdown, 1), "second body\n");
+}
+
+TEST_F(MarkdownTests, ResolveCodeBlockTextReturnsEmptyForOutOfRange) {
+    const wxString markdown = "```\nbody\n```";
+    EXPECT_EQ(resolveCodeBlockText(markdown, 1), "");
+    EXPECT_EQ(resolveCodeBlockText("no code here", 0), "");
+}
+
+TEST_F(MarkdownTests, ResolveCodeBlockTextWorksOnUnterminatedFence) {
+    // Mid-stream — the chat view may ask for the body of a fence whose
+    // closing ``` hasn't arrived yet. Should still return what's there.
+    const wxString markdown = "```\npartial\nmore";
+    EXPECT_EQ(resolveCodeBlockText(markdown, 0), "partial\nmore\n");
+}

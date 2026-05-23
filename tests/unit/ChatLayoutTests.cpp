@@ -170,8 +170,9 @@ TEST_F(ChatLayoutTests, CodeBlockHasPaddingStripsAndCodeLines) {
 TEST_F(ChatLayoutTests, CodeBlockRegionIsRecorded) {
     const auto doc = layout("text\n\n```fb\nab\ncd\n```", 500);
     ASSERT_EQ(doc.codeBlocks.size(), 1U);
-    EXPECT_EQ(doc.codeBlocks[0].code, "ab\ncd\n");
-    EXPECT_EQ(doc.codeBlocks[0].lang, "fb");
+    // Snippet body and language live on the source markdown — resolved on
+    // demand via `resolveCodeBlockText`. The laid block only carries the
+    // y/height the painter and hit-tester need.
     // The region spans every Code line of the block.
     int codeTop = -1;
     int codeBottom = 0;
