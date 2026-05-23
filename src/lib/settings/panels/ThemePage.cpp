@@ -255,8 +255,10 @@ void ThemePage::createLeftPanel() {
         m_bgPicker = addPicker(tr("background"), inheritTip);
         m_separatorPicker = addPicker(tr("separator"));
 
+        m_changesForegroundPicker = addPicker(tr("changesForeground", "Foreground"));
+        m_changesForegroundPicker->Hide();
         m_changesBackgroundPicker = addPicker(tr("changesBackground", "Background"));
-m_changesBackgroundPicker->Hide();
+        m_changesBackgroundPicker->Hide();
         m_changesAddedPicker = addPicker(tr("changesAdded", "Added"));
         m_changesAddedPicker->Hide();
         m_changesModifiedPicker = addPicker(tr("changesModified", "Modified"));
@@ -509,6 +511,7 @@ void ThemePage::applyCapability() {
     m_changesModifiedPicker->Show(isChanges);
     m_changesRemovedPicker->Show(isChanges);
     m_changesBackgroundPicker->Show(isChanges);
+    m_changesForegroundPicker->Show(isChanges);
 
     Layout();
 }
@@ -523,6 +526,7 @@ void ThemePage::loadChangesCategory() {
     m_changesModifiedPicker->setColors(m_theme.getChangesModified());
     m_changesRemovedPicker->setColors(m_theme.getChangesRemoved());
     m_changesBackgroundPicker->setColors(m_theme.getChangesBackground());
+    m_changesForegroundPicker->setColors(m_theme.getChangesForeground());
 }
 
 void ThemePage::saveChangesCategory() {
@@ -530,6 +534,7 @@ void ThemePage::saveChangesCategory() {
     m_theme.setChangesModified(m_changesModifiedPicker->getColor());
     m_theme.setChangesRemoved(m_changesRemovedPicker->getColor());
     m_theme.setChangesBackground(m_changesBackgroundPicker->getColor());
+    m_theme.setChangesForeground(m_changesForegroundPicker->getColor());
 }
 
 void ThemePage::syncActiveThemeConfig() {

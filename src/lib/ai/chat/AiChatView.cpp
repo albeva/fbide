@@ -597,9 +597,12 @@ auto AiChatView::palette() const -> ChatPalette {
         .tableHeaderBg = blend(windowBg, windowText, 0.14),
         // SEARCH / REPLACE tints — blended into the editor code background
         // so they sit on the same surface as fenced code, but pushed
-        // toward diff-red / diff-green so a glance distinguishes them.
-        .patchSearchBg = blend(theme.background({}), wxColour(220, 80, 80), 0.30),
-        .patchReplaceBg = blend(theme.background({}), wxColour(80, 200, 100), 0.30),
+        // toward the theme's diff palette (Removed / Added) so a glance
+        // distinguishes them. Sourcing from Theme lets a user retune the
+        // patch card colour by editing one place.
+        .patchSearchBg = blend(theme.background({}), theme.getChangesRemoved(), 0.30),
+        .patchReplaceBg = blend(theme.background({}), theme.getChangesAdded(), 0.30),
+        .patchFg = theme.getChangesForeground(),
     };
 }
 

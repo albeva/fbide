@@ -328,6 +328,12 @@ void Theme::seedChangesPaletteDefaults() {
     if (!m_changesBackground.IsOk() && m_foldMargin.background.IsOk()) {
         m_changesBackground = m_foldMargin.background;
     }
+    // Foreground for diff-state text (used by the AI patch view).
+    // Seed from the Default category's foreground so it reads correctly
+    // against the editor's normal text colour when unset.
+    if (!m_changesForeground.IsOk()) {
+        m_changesForeground = m_categories[+ThemeCategory::Default].colors.foreground;
+    }
 }
 
 void Theme::derivePpEntriesFromBase() {

@@ -130,6 +130,7 @@ struct ChatPalette {
                              ///< modes regardless of the editor theme.
     wxColour patchSearchBg;  ///< SEARCH half of a patch proposal — red tint.
     wxColour patchReplaceBg; ///< REPLACE half of a patch proposal — green tint.
+    wxColour patchFg;        ///< Text colour for patch SEARCH/REPLACE lines.
 };
 
 /// A fully laid-out document — stacked, wrapped lines plus link targets.

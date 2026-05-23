@@ -444,7 +444,7 @@ struct Engine {
                 .quoteDepth = block.quoteDepth,
                 .runs = {} });
             m_yPos += kCodePadding;
-            for (const auto& codeLine : toCodeLines(text, m_palette.text)) {
+            for (const auto& codeLine : toCodeLines(text, m_palette.patchFg)) {
                 emitCodeLine(
                     codeLine, kind, codeLeft, contX, rightEdge,
                     lineHeight, charWidth, block.quoteDepth, false

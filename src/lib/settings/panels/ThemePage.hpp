@@ -113,6 +113,7 @@ private:
     Unowned<ColorPicker> m_changesModifiedPicker;
     Unowned<ColorPicker> m_changesRemovedPicker;
     Unowned<ColorPicker> m_changesBackgroundPicker;
+    Unowned<ColorPicker> m_changesForegroundPicker;
 
     wxStaticBox* m_themeBox = nullptr; ///< Right-pane group box.
 

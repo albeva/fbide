@@ -40,6 +40,7 @@ namespace fbide {
     _( ChangesModified,   changesModified,    wxColour  ) \
     _( ChangesRemoved,    changesRemoved,     wxColour  ) \
     _( ChangesBackground, changesBackground,  wxColour  ) \
+    _( ChangesForeground, changesForeground,  wxColour  ) \
     DEFINE_THEME_EXTRA_PROPERTY(_)
 
 /**
