@@ -15,6 +15,7 @@ target_sources(fbide_lib
     markdown/MarkdownImageCache.cpp
     markdown/MarkdownLayout.cpp
     markdown/MarkdownRenderer.cpp
+    markdown/MarkdownView.cpp
     ai/provider/AnthropicProvider.cpp
     ai/provider/ClaudeCliProvider.cpp
     ai/provider/GeminiProvider.cpp
@@ -101,6 +102,7 @@ target_sources(fbide_lib
     markdown/MarkdownImageCache.hpp
     markdown/MarkdownLayout.hpp
     markdown/MarkdownRenderer.hpp
+    markdown/MarkdownView.hpp
     ai/provider/AiProvider.hpp
     ai/provider/AnthropicProvider.hpp
     ai/provider/ClaudeCliProvider.hpp

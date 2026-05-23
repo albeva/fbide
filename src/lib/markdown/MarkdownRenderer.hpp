@@ -40,6 +40,17 @@ namespace fbide {
     const wxFont& themed
 ) -> wxFont;
 
+/// One entry in the persistent text-measurement cache. Hosts hold a
+/// `std::vector<MeasurementEntry>` and inject it into a `DcMeasurer`
+/// so font lookups and per-style metrics survive across relayouts
+/// (e.g. across streaming-tick rebuilds).
+struct MeasurementEntry {
+    TextStyle style {};
+    wxFont font {};
+    int lineHeight = -1; ///< Lazy-cached; -1 until measured.
+    int spaceWidth = -1; ///< Lazy-cached width of a single space.
+};
+
 /// DC-state cache carried across `paintLineText` calls. Adjacent runs
 /// in the same paragraph almost always share style / colour; carrying
 /// this across the loop turns `SetFont` from per-run to per-style.

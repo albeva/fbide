@@ -26,19 +26,6 @@ struct ChatViewMessage {
     wxString markdown;     ///< Message body — markdown source.
 };
 
-/// One entry in the persistent measurement cache shared by every
-/// `DcMeasurer` constructed across relayouts. Lifted out of the measurer
-/// so font lookups and per-style measurements survive streaming ticks
-/// instead of being rebuilt each time. Internal detail of the chat view's
-/// measurement path — defined here only so the .cpp-private `DcMeasurer`
-/// can hold a reference to it.
-struct MeasurementEntry {
-    TextStyle style {};
-    wxFont font {};
-    int lineHeight = -1; ///< Lazy-cached; -1 until measured.
-    int spaceWidth = -1; ///< Lazy-cached width of a single space.
-};
-
 /**
  * AI conversation view.
  *
