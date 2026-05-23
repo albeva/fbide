@@ -118,19 +118,25 @@ not rewrites.
 
 Numbered to match the findings above. Each one is independent.
 
-- [ ] **#1**  Drop `LaidCodeBlock::code` and `LaidPatchBlock::{search,replace}`; resolve on demand.
-- [ ] **#2**  LRU eviction in `ChatImageCache` (cap on Ready entries).
-- [ ] **#5**  Hoist `DcMeasurer` to an `AiChatView` member.
-- [ ] **#6**  Coalesce image-ready relayouts via `CallAfter`.
-- [ ] **#10** Split `AiChatView::paintMessage` into focused helpers.
-- [ ] **#14** Rename / clean `paintMessage::ascentForRun` side effects.
-- [ ] **#16** Tighten byte cap or move image decode off the UI thread.
-- [ ] **#17** Verify wx redirect policy; disallow scheme-crossing redirects.
+- [x] **#1**  Drop `LaidCodeBlock::{code,lang}`; resolve on demand. *(code blocks
+      done; patch half deferred — `autoApplyPatches` would re-parse every
+      message every streaming tick without a separate dedup-key strategy.)*
+- [x] **#2**  LRU eviction in `ChatImageCache` (cap on Ready entries).
+- [x] **#5**  Hoist measurement cache onto `AiChatView`.
+- [x] **#6**  Coalesce image-ready relayouts via `CallAfter`.
+- [x] **#10** Split `AiChatView::paintMessage` into focused helpers.
+- [x] **#14** Rename `ascentForRun` → `selectRunFont` (side effects are
+      now in the name + doc).
+- [x] **#16** Tighten byte cap (5 → 2 MiB). Off-thread decode still
+      possible if 2 MiB proves too lax.
+- [x] **#17** Defence-in-depth scheme check on the post-redirect URL.
+- [x] **#11** *(tidy)* md4c callbacks moved into the anonymous namespace.
+- [x] **#12** *(tidy)* `imageCellLabel` extracted to a free function.
+- [x] **#15** *(tidy)* Patch pre-scan extracted from `parseMarkdown`.
 - [ ] **#3**  *(deferred)* Evict off-screen bubble `LaidOutDoc`s.
 - [ ] **#7**  *(deferred)* `RefreshRect` the streaming band only.
-- [ ] **#11** *(tidy)*    md4c callbacks → anonymous namespace.
-- [ ] **#12** *(tidy)*    `imageCellLabel` → free function.
-- [ ] **#15** *(tidy)*    Extract patch pre-scan from `parseMarkdown`.
+- [ ] **#1b** *(deferred)* Drop `LaidPatchBlock::{target,search,replace}` —
+      needs a hash-based dedup-key strategy first.
 
 ---
 
