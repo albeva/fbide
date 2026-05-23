@@ -213,6 +213,13 @@ auto MarkdownView::palette() -> MarkdownPalette {
 }
 
 void MarkdownView::onSize(wxSizeEvent& event) {
+    // A width change re-wraps every line; the cached `(line, run, char)`
+    // positions in `m_selection` would then point into the wrong text.
+    // Drop the selection rather than let it drift — proper remapping
+    // needs source-markdown offsets we don't track yet.
+    if (GetClientSize().GetWidth() != m_layoutWidth && !m_selection.empty()) {
+        m_selection.clear();
+    }
     relayout();
     Refresh();
     event.Skip();

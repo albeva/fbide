@@ -208,6 +208,13 @@ void AiChatView::rebuildBubbleBrushes() {
 
 void AiChatView::onSize(wxSizeEvent& event) {
     hideActionBar(); // bubble positions shift — re-hover brings the bar back
+    // A width change re-wraps every bubble's content; the cached
+    // `(line, run, char)` positions in `m_selection` would then point
+    // into the wrong text. Drop the selection rather than let it drift.
+    if (GetClientSize().GetWidth() != m_layoutWidth && m_selectionMessage >= 0) {
+        m_selectionMessage = -1;
+        m_selection.clear();
+    }
     relayout();
     Refresh();
     event.Skip();
