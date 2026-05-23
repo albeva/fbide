@@ -375,7 +375,7 @@ void MarkdownView::onPaint(wxPaintEvent& /*event*/) {
             if (line.y > regionBottomRel) {
                 break;
             }
-            const std::size_t lineIdx = static_cast<std::size_t>(std::distance(laid.lines.begin(), it));
+            const auto lineIdx = static_cast<std::size_t>(std::distance(laid.lines.begin(), it));
             const int lineTop = contentTop + line.y;
             fbide::paintLineBackground(gc, line, contentLeft, lineTop, contentWidth, pal);
             fbide::paintSelectionHighlight(gc, line, lineIdx, contentLeft, lineTop, m_selection, highlightColour, measurer);

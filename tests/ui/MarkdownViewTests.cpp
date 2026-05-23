@@ -81,6 +81,27 @@ TEST(MarkdownViewTests, RefreshThemeKeepsContent) {
     EXPECT_EQ(fixture.view()->GetVirtualSize().GetHeight(), beforeHeight);
 }
 
+TEST(MarkdownViewTests, FreshViewHasEmptySelection) {
+    const Fixture fixture;
+    fixture.view()->setMarkdown("hello world");
+    EXPECT_TRUE(fixture.view()->selection().empty());
+}
+
+TEST(MarkdownViewTests, ClearSelectionIsIdempotent) {
+    const Fixture fixture;
+    fixture.view()->setMarkdown("hello world");
+    fixture.view()->clearSelection();
+    fixture.view()->clearSelection(); // no crash, no spurious refresh
+    EXPECT_TRUE(fixture.view()->selection().empty());
+}
+
+TEST(MarkdownViewTests, CopyWithEmptySelectionIsNoOp) {
+    const Fixture fixture;
+    fixture.view()->setMarkdown("hello world");
+    fixture.view()->copySelectionToClipboard(); // must not crash with no selection
+    SUCCEED();
+}
+
 TEST(MarkdownViewTests, LinkClickedEventDeliversUrl) {
     const Fixture fixture;
     fixture.view()->setMarkdown("see [docs](https://example.org)");

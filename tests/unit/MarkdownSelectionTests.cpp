@@ -47,8 +47,8 @@ TEST_F(MarkdownSelectionTests, EmptySelectionByDefault) {
 
 TEST_F(MarkdownSelectionTests, RangeNormalisesBackwardsDrag) {
     Selection sel;
-    sel.anchor = { 2, 0, 0 };
-    sel.caret = { 1, 0, 0 };
+    sel.anchor = { .lineIndex = 2, .runIndex = 0, .charInRun = 0 };
+    sel.caret = { .lineIndex = 1, .runIndex = 0, .charInRun = 0 };
     const auto [start, end] = sel.range();
     EXPECT_EQ(start.lineIndex, 1U);
     EXPECT_EQ(end.lineIndex, 2U);
@@ -56,8 +56,8 @@ TEST_F(MarkdownSelectionTests, RangeNormalisesBackwardsDrag) {
 
 TEST_F(MarkdownSelectionTests, ClearResetsToEmpty) {
     Selection sel;
-    sel.anchor = { 0, 0, 3 };
-    sel.caret = { 0, 0, 8 };
+    sel.anchor = { .lineIndex = 0, .runIndex = 0, .charInRun = 3 };
+    sel.caret = { .lineIndex = 0, .runIndex = 0, .charInRun = 8 };
     EXPECT_FALSE(sel.empty());
     sel.clear();
     EXPECT_TRUE(sel.empty());
@@ -110,8 +110,8 @@ TEST_F(MarkdownSelectionTests, ExtractEmptySelectionYieldsEmpty) {
 TEST_F(MarkdownSelectionTests, ExtractWholeFirstRun) {
     const auto doc = layout("hello world");
     Selection sel;
-    sel.anchor = { 0, 0, 0 };
-    sel.caret = { 0, 0, 5 }; // "hello"
+    sel.anchor = { .lineIndex = 0, .runIndex = 0, .charInRun = 0 };
+    sel.caret = { .lineIndex = 0, .runIndex = 0, .charInRun = 5 }; // "hello"
     EXPECT_EQ(extractSelectedText(doc, sel), "hello");
 }
 
@@ -124,8 +124,8 @@ TEST_F(MarkdownSelectionTests, ExtractAcrossRunsOnSameLine) {
     ASSERT_LT(boldRun, line.runs.size());
 
     Selection sel;
-    sel.anchor = { 0, 0, 0 };
-    sel.caret = { 0, boldRun, line.runs.at(boldRun).text.length() };
+    sel.anchor = { .lineIndex = 0, .runIndex = 0, .charInRun = 0 };
+    sel.caret = { .lineIndex = 0, .runIndex = boldRun, .charInRun = line.runs.at(boldRun).text.length() };
     const wxString text = extractSelectedText(doc, sel);
     EXPECT_TRUE(text.Contains("hello"));
     EXPECT_TRUE(text.Contains("bold"));
@@ -137,8 +137,8 @@ TEST_F(MarkdownSelectionTests, ExtractAcrossLinesJoinsWithNewline) {
     ASSERT_GE(doc.lines.size(), 2U);
 
     Selection sel;
-    sel.anchor = { 0, 0, 0 };
-    sel.caret = { 1, 0, doc.lines.at(1).runs.at(0).text.length() };
+    sel.anchor = { .lineIndex = 0, .runIndex = 0, .charInRun = 0 };
+    sel.caret = { .lineIndex = 1, .runIndex = 0, .charInRun = doc.lines.at(1).runs.at(0).text.length() };
     const wxString text = extractSelectedText(doc, sel);
     EXPECT_TRUE(text.Contains("first"));
     EXPECT_TRUE(text.Contains("second"));
@@ -148,7 +148,7 @@ TEST_F(MarkdownSelectionTests, ExtractAcrossLinesJoinsWithNewline) {
 TEST_F(MarkdownSelectionTests, ExtractIsNormalisedAcrossBackwardsDrag) {
     const auto doc = layout("hello");
     Selection sel;
-    sel.anchor = { 0, 0, 5 };
-    sel.caret = { 0, 0, 0 };
+    sel.anchor = { .lineIndex = 0, .runIndex = 0, .charInRun = 5 };
+    sel.caret = { .lineIndex = 0, .runIndex = 0, .charInRun = 0 };
     EXPECT_EQ(extractSelectedText(doc, sel), "hello");
 }

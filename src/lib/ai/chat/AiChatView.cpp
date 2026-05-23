@@ -490,7 +490,7 @@ void AiChatView::paintMessage(
     // the highlight. The measurer is hoisted from `onPaint` so it's
     // shared across bubbles for cheap partial-run width measurement.
     const bool hasSelection = (m_selectionMessage >= 0)
-                           && (static_cast<std::size_t>(m_selectionMessage) == messageIndex)
+                           && (std::cmp_equal(m_selectionMessage, messageIndex))
                            && !m_selection.empty();
     const wxColour highlightColour = wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT);
 
@@ -499,7 +499,7 @@ void AiChatView::paintMessage(
         if (line.y > updateBottomRel) {
             break;
         }
-        const std::size_t lineIdx = static_cast<std::size_t>(std::distance(laid.lines.begin(), it));
+        const auto lineIdx = static_cast<std::size_t>(std::distance(laid.lines.begin(), it));
         const int lineTop = contentTop + line.y;
         fbide::paintLineBackground(gc, line, contentLeft, lineTop, message.contentWidth, pal);
         if (hasSelection) {
