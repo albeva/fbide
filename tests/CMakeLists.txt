@@ -20,6 +20,7 @@ add_executable(tests
     unit/MarkdownDocumentTests.cpp
     unit/MarkdownImageCacheTests.cpp
     unit/MarkdownLayoutTests.cpp
+    unit/MarkdownSelectionTests.cpp
     unit/CodeHighlighterTests.cpp
     unit/CompileCommandTests.cpp
     unit/ConfigManagerTests.cpp

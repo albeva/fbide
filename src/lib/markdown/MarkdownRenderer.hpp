@@ -51,6 +51,76 @@ struct MeasurementEntry {
     int spaceWidth = -1; ///< Lazy-cached width of a single space.
 };
 
+/// Position inside a laid-out document — line index, run index within
+/// that line, and a character index within that run. `charInRun == 0`
+/// is "before the first character"; `charInRun == run.text.length()`
+/// is "after the last character". Comparable so `Selection` can
+/// normalise an unordered anchor/caret pair into a `[start, end)` range.
+struct SelectionPosition {
+    std::size_t lineIndex = 0;
+    std::size_t runIndex = 0;
+    std::size_t charInRun = 0;
+
+    friend auto operator<=>(const SelectionPosition&, const SelectionPosition&) = default;
+};
+
+/// Text selection inside one laid-out document — anchor stays put as
+/// the user drags; caret follows the pointer. `empty()` means no
+/// highlight should be drawn. `range()` returns the pair normalised so
+/// the first element is always `<=` the second, regardless of drag
+/// direction.
+struct Selection {
+    SelectionPosition anchor;
+    SelectionPosition caret;
+
+    [[nodiscard]] auto empty() const -> bool { return anchor == caret; }
+    [[nodiscard]] auto range() const -> std::pair<SelectionPosition, SelectionPosition> {
+        if (anchor <= caret) {
+            return { anchor, caret };
+        }
+        return { caret, anchor };
+    }
+
+    void clear() {
+        anchor = caret = SelectionPosition {};
+    }
+};
+
+/// Hit-test a click on a laid-out line: given the click's x-offset
+/// inside the content rect (i.e. relative to `contentLeft`), return the
+/// `{runIndex, charInRun}` that the click corresponds to. Clicks left
+/// of all runs return `{0, 0}`; clicks right of all runs return the
+/// end of the last run. The measurer is used to compute per-character
+/// prefix widths inside a run.
+[[nodiscard]] auto hitTestLine(
+    const PaintLine& line,
+    int xInContent,
+    const TextMeasurer& measurer
+) -> std::pair<std::size_t, std::size_t>;
+
+/// Paint the selection highlight rectangles for one line. The renderer
+/// computes how much of each run is selected (full / partial / none)
+/// and fills a rect behind the text. Called BEFORE `paintLineText` so
+/// the text sits on top of the highlight.
+void paintSelectionHighlight(
+    wxGCDC& gc,
+    const PaintLine& line,
+    std::size_t lineIndex,
+    int contentLeft,
+    int lineTop,
+    const Selection& selection,
+    const wxColour& highlightColour,
+    const TextMeasurer& measurer
+);
+
+/// Extract the rendered text of `selection` from `doc` as a single
+/// `wxString`. Lines are joined with `\n`. The result is plain text —
+/// no markdown markers are reconstructed.
+[[nodiscard]] auto extractSelectedText(
+    const LaidOutDoc& doc,
+    const Selection& selection
+) -> wxString;
+
 /// DC-state cache carried across `paintLineText` calls. Adjacent runs
 /// in the same paragraph almost always share style / colour; carrying
 /// this across the loop turns `SetFont` from per-run to per-style.

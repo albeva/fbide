@@ -104,6 +104,147 @@ void fbide::paintLineBackground(
     }
 }
 
+namespace {
+
+/// Greatest `n` such that `measurer.width(text.Mid(0, n), style) <= targetWidth`.
+/// Binary-searches the prefix lengths; for short runs the cost is
+/// negligible and only paid on the few runs a click hits.
+auto charIndexForX(const wxString& text, const TextStyle& style, const int targetWidth, const TextMeasurer& measurer) -> std::size_t {
+    if (text.empty() || targetWidth <= 0) {
+        return 0;
+    }
+    const std::size_t length = text.length();
+    std::size_t low = 0;
+    std::size_t high = length;
+    while (low < high) {
+        const std::size_t mid = low + ((high - low + 1) / 2);
+        if (measurer.width(text.Mid(0, mid), style) <= targetWidth) {
+            low = mid;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return low;
+}
+
+} // namespace
+
+auto fbide::hitTestLine(
+    const PaintLine& line,
+    const int xInContent,
+    const TextMeasurer& measurer
+) -> std::pair<std::size_t, std::size_t> {
+    if (line.runs.empty()) {
+        return { 0, 0 };
+    }
+    for (std::size_t r = 0; r < line.runs.size(); r++) {
+        const auto& run = line.runs.at(r);
+        if (run.text.empty()) {
+            continue;
+        }
+        const int runRight = run.x + run.width;
+        if (xInContent < runRight) {
+            // Click is within (or to the left of) this run.
+            const int xInRun = std::max(0, xInContent - run.x);
+            return { r, charIndexForX(run.text, run.style, xInRun, measurer) };
+        }
+    }
+    // Click is past every run — land at the end of the last text-bearing run.
+    for (std::size_t r = line.runs.size(); r-- > 0;) {
+        const auto& run = line.runs.at(r);
+        if (!run.text.empty()) {
+            return { r, run.text.length() };
+        }
+    }
+    return { 0, 0 };
+}
+
+void fbide::paintSelectionHighlight(
+    wxGCDC& gc,
+    const PaintLine& line,
+    const std::size_t lineIndex,
+    const int contentLeft,
+    const int lineTop,
+    const Selection& selection,
+    const wxColour& highlightColour,
+    const TextMeasurer& measurer
+) {
+    if (selection.empty()) {
+        return;
+    }
+    const auto [startPos, endPos] = selection.range();
+    // Skip lines entirely outside the selection range.
+    if (lineIndex < startPos.lineIndex || lineIndex > endPos.lineIndex) {
+        return;
+    }
+    gc.SetPen(*wxTRANSPARENT_PEN);
+    gc.SetBrush(wxBrush(highlightColour));
+
+    for (std::size_t r = 0; r < line.runs.size(); r++) {
+        const auto& run = line.runs.at(r);
+        if (run.text.empty()) {
+            continue;
+        }
+        const bool atStart = (lineIndex == startPos.lineIndex);
+        const bool atEnd = (lineIndex == endPos.lineIndex);
+        // Position of this run within the selection — fully outside,
+        // partially overlapped (start / end / single-line), or fully inside.
+        if (atStart && r < startPos.runIndex) {
+            continue;
+        }
+        if (atEnd && r > endPos.runIndex) {
+            break;
+        }
+        // Compute selected character range within this run.
+        const std::size_t selFrom = (atStart && r == startPos.runIndex) ? startPos.charInRun : 0;
+        const std::size_t selTo = (atEnd && r == endPos.runIndex) ? endPos.charInRun : run.text.length();
+        if (selFrom >= selTo) {
+            continue;
+        }
+        const int prefixWidth = measurer.width(run.text.Mid(0, selFrom), run.style);
+        const int spanWidth = measurer.width(run.text.Mid(selFrom, selTo - selFrom), run.style);
+        gc.DrawRectangle(contentLeft + run.x + prefixWidth, lineTop, spanWidth, line.height);
+    }
+}
+
+auto fbide::extractSelectedText(
+    const LaidOutDoc& doc,
+    const Selection& selection
+) -> wxString {
+    if (selection.empty()) {
+        return {};
+    }
+    const auto [startPos, endPos] = selection.range();
+    wxString out;
+    for (std::size_t li = startPos.lineIndex; li <= endPos.lineIndex && li < doc.lines.size(); li++) {
+        const auto& line = doc.lines.at(li);
+        if (li > startPos.lineIndex) {
+            out += '\n';
+        }
+        for (std::size_t r = 0; r < line.runs.size(); r++) {
+            const auto& run = line.runs.at(r);
+            if (run.text.empty()) {
+                continue;
+            }
+            const bool atStart = (li == startPos.lineIndex);
+            const bool atEnd = (li == endPos.lineIndex);
+            if (atStart && r < startPos.runIndex) {
+                continue;
+            }
+            if (atEnd && r > endPos.runIndex) {
+                break;
+            }
+            const std::size_t selFrom = (atStart && r == startPos.runIndex) ? startPos.charInRun : 0;
+            const std::size_t selTo = (atEnd && r == endPos.runIndex) ? endPos.charInRun : run.text.length();
+            if (selFrom >= selTo) {
+                continue;
+            }
+            out += run.text.Mid(selFrom, selTo - selFrom);
+        }
+    }
+    return out;
+}
+
 void fbide::paintLineText(
     wxGCDC& gc,
     const PaintLine& line,
