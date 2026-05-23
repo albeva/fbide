@@ -5,7 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "markdown/MarkdownImageCache.hpp"
-using namespace fbide;
+using namespace fbide::markdown;
 
 namespace {
 

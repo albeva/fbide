@@ -7,6 +7,7 @@
 #include "markdown/MarkdownLayout.hpp"
 #include <optional>
 using namespace fbide;
+using namespace fbide::markdown;
 
 namespace {
 
@@ -935,7 +936,7 @@ struct Engine {
 
 } // namespace
 
-auto fbide::layoutMarkdown(
+auto fbide::markdown::layoutMarkdown(
     const MdDoc& doc,
     const int width,
     const TextMeasurer& measurer,

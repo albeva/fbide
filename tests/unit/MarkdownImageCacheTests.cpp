@@ -8,6 +8,7 @@
 #include "markdown/MarkdownImageCache.hpp"
 
 using namespace fbide;
+using namespace fbide::markdown;
 
 namespace {
 

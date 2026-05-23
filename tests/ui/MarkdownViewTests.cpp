@@ -12,6 +12,7 @@
 #include "markdown/MarkdownView.hpp"
 
 using namespace fbide;
+using namespace fbide::markdown;
 
 namespace {
 

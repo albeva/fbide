@@ -5,7 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "markdown/MarkdownDocument.hpp"
-using namespace fbide;
+using namespace fbide::markdown;
 
 auto MarkdownDocument::setMarkdown(
     const wxString& markdown,

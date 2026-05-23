@@ -6,9 +6,10 @@
 //
 #include "markdown/MarkdownView.hpp"
 using namespace fbide;
+using namespace fbide::markdown;
 
 // NOLINTNEXTLINE(cert-err58-cpp, bugprone-throwing-static-initialization)
-wxDEFINE_EVENT(fbide::MARKDOWN_LINK_CLICKED, wxCommandEvent);
+wxDEFINE_EVENT(fbide::markdown::MARKDOWN_LINK_CLICKED, wxCommandEvent);
 
 namespace {
 
@@ -333,9 +334,9 @@ void MarkdownView::onPaint(wxPaintEvent& /*event*/) {
             const int lineTop = contentTop + line.y;
             const auto next = std::next(it);
             const int nextLineY = (next == laid.lines.end()) ? -1 : next->y;
-            fbide::paintLineBackground(gc, line, contentLeft, lineTop, contentWidth, pal);
-            fbide::paintSelectionHighlight(gc, line, lineIdx, contentLeft, lineTop, contentWidth, nextLineY, m_selection, highlightColour, measurer);
-            fbide::paintLineText(gc, line, contentLeft, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
+            markdown::paintLineBackground(gc, line, contentLeft, lineTop, contentWidth, pal);
+            markdown::paintSelectionHighlight(gc, line, lineIdx, contentLeft, lineTop, contentWidth, nextLineY, m_selection, highlightColour, measurer);
+            markdown::paintLineText(gc, line, contentLeft, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
         }
 
         gc.GetGraphicsContext()->Flush();

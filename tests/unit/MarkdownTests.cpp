@@ -8,6 +8,7 @@
 #include "markdown/Markdown.hpp"
 
 using namespace fbide;
+using namespace fbide::markdown;
 
 namespace {
 

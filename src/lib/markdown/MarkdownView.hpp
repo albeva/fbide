@@ -11,7 +11,7 @@
 #include "markdown/MarkdownLayout.hpp"
 #include "markdown/MarkdownRenderer.hpp"
 
-namespace fbide {
+namespace fbide::markdown {
 
 /// Fired when the user clicks a link inside a `MarkdownView`. The URL is
 /// on the event's string field. Parents that bind this event and do NOT
@@ -132,4 +132,4 @@ private:
     wxDECLARE_EVENT_TABLE();
 };
 
-} // namespace fbide
+} // namespace fbide::markdown

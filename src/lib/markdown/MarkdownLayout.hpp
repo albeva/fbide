@@ -9,7 +9,7 @@
 #include "ai/chat/CodeHighlighter.hpp"
 #include "markdown/Markdown.hpp"
 
-namespace fbide {
+namespace fbide::markdown {
 
 /// Font selection for a run — flags and a size delta relative to the body
 /// font. The measurer and the painter both resolve a concrete font from it.
@@ -196,4 +196,4 @@ using ImageResolver = std::function<ImageInfo(const wxString& url)>;
     const ImageResolver& resolveImage = {}
 ) -> LaidOutDoc;
 
-} // namespace fbide
+} // namespace fbide::markdown

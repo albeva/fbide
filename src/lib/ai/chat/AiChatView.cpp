@@ -18,6 +18,7 @@
 #include "markdown/Markdown.hpp"
 #include "markdown/MarkdownLayout.hpp"
 using namespace fbide;
+using namespace fbide::markdown;
 
 namespace {
 
@@ -449,11 +450,11 @@ void AiChatView::paintMessage(
         const int lineTop = contentTop + line.y;
         const auto next = std::next(it);
         const int nextLineY = (next == laid.lines.end()) ? -1 : next->y;
-        fbide::paintLineBackground(gc, line, contentLeft, lineTop, message.contentWidth, pal);
+        markdown::paintLineBackground(gc, line, contentLeft, lineTop, message.contentWidth, pal);
         if (hasSelection) {
-            fbide::paintSelectionHighlight(gc, line, lineIdx, contentLeft, lineTop, message.contentWidth, nextLineY, m_selection, highlightColour, measurer);
+            markdown::paintSelectionHighlight(gc, line, lineIdx, contentLeft, lineTop, message.contentWidth, nextLineY, m_selection, highlightColour, measurer);
         }
-        fbide::paintLineText(gc, line, contentLeft, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
+        markdown::paintLineText(gc, line, contentLeft, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
     }
 
     // Overlay applied SEARCH/REPLACE proposals with a translucent veil so

@@ -7,7 +7,7 @@
 #pragma once
 #include "pch.hpp"
 
-namespace fbide {
+namespace fbide::markdown {
 
 /// Inline text styling, accumulated from nested markdown spans.
 struct MdStyle {
@@ -115,4 +115,4 @@ struct MdDoc {
 /// doesn't have to keep a duplicate copy of every snippet's text in memory.
 [[nodiscard]] auto resolveCodeBlockText(const wxString& markdown, std::size_t index) -> wxString;
 
-} // namespace fbide
+} // namespace fbide::markdown

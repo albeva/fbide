@@ -6,7 +6,7 @@
 //
 #include "Markdown.hpp"
 #include <md4c.h>
-using namespace fbide;
+using namespace fbide::markdown;
 
 namespace {
 
@@ -649,7 +649,7 @@ auto parseSegment(const wxString& text) -> MdDoc {
 
 } // namespace
 
-auto fbide::parseMarkdown(const wxString& text) -> MdDoc {
+auto fbide::markdown::parseMarkdown(const wxString& text) -> MdDoc {
     // Patch pre-scan first — the SEARCH/REPLACE grammar isn't markdown and
     // would confuse md4c (the `=======` separator looks like an H2 setext
     // underline). The pre-pass yields a flat sequence of markdown chunks
@@ -669,7 +669,7 @@ auto fbide::parseMarkdown(const wxString& text) -> MdDoc {
     return result;
 }
 
-auto fbide::resolveCodeBlockText(const wxString& markdown, const std::size_t index) -> wxString {
+auto fbide::markdown::resolveCodeBlockText(const wxString& markdown, const std::size_t index) -> wxString {
     const auto doc = parseMarkdown(markdown);
     std::size_t seen = 0;
     for (const auto& block : doc.blocks) {

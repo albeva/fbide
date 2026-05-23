@@ -56,10 +56,10 @@ private:
     /// laid-out state and skips a re-layout when text + width match. The
     /// raw markdown lives inside it (`document.markdown()`).
     struct LaidMessage {
-        MarkdownDocument document; ///< Parsed + laid markdown for this bubble.
-        wxRect bubble;             ///< Bubble rect in document coordinates.
-        int contentWidth = 0;      ///< Content width inside the bubble padding.
-        bool fromUser = false;     ///< Role — drives bubble colour + side.
+        markdown::MarkdownDocument document; ///< Parsed + laid markdown for this bubble.
+        wxRect bubble;                       ///< Bubble rect in document coordinates.
+        int contentWidth = 0;                ///< Content width inside the bubble padding.
+        bool fromUser = false;               ///< Role — drives bubble colour + side.
     };
 
     void onPaint(wxPaintEvent& event);
@@ -74,12 +74,12 @@ private:
     /// Locate which bubble (if any) the client point falls inside and
     /// hit-test inside its laid document. Returns `{messageIndex, pos}`
     /// where `messageIndex == -1` when the point is not inside a bubble.
-    [[nodiscard]] auto hitTestBubble(const wxPoint& clientPoint) -> std::pair<int, SelectionPosition>;
+    [[nodiscard]] auto hitTestBubble(const wxPoint& clientPoint) -> std::pair<int, markdown::SelectionPosition>;
 
     /// Hit-test within the bubble at `messageIndex` regardless of where
     /// the point actually is — used to extend a drag-selection cleanly
     /// when the pointer crosses out of the originating bubble.
-    [[nodiscard]] auto hitTestInBubble(std::size_t messageIndex, const wxPoint& clientPoint) -> SelectionPosition;
+    [[nodiscard]] auto hitTestInBubble(std::size_t messageIndex, const wxPoint& clientPoint) -> markdown::SelectionPosition;
 
     void clearSelection();
     void copySelectionToClipboard();
@@ -110,8 +110,8 @@ private:
         wxGCDC& gc,
         const LaidMessage& message,
         std::size_t messageIndex,
-        const MarkdownPalette& pal,
-        const TextMeasurer& measurer,
+        const markdown::MarkdownPalette& pal,
+        const markdown::TextMeasurer& measurer,
         int originY,
         int updateTop,
         int updateBottom
@@ -136,7 +136,7 @@ private:
     void showActionBar(int messageIndex, int blockIndex, CodeActionBar::Mode mode);
     void hideActionBar();
 
-    [[nodiscard]] auto palette() const -> MarkdownPalette;
+    [[nodiscard]] auto palette() const -> markdown::MarkdownPalette;
     [[nodiscard]] auto bubbleColour(bool fromUser) const -> wxColour;
 
     /// Rebuild the cached bubble brushes from current system + theme colours.
@@ -158,7 +158,7 @@ private:
     /// Returns `true` on success, `false` when the SEARCH text could not
     /// be located (e.g. the buffer changed since the proposal arrived).
     /// Wraps a single Scintilla undo action so one Ctrl-Z reverts it.
-    auto applyPatch(const LaidPatchBlock& patch) -> bool;
+    auto applyPatch(const markdown::LaidPatchBlock& patch) -> bool;
 
     /// Walk every laid patch block and apply any not previously seen
     /// (success or failure both counted). Driven by the live-edit toggle
@@ -166,24 +166,24 @@ private:
     /// need a stable key to skip already-handled blocks.
     void autoApplyPatches();
 
-    Context& m_ctx;                                   ///< Application context.
-    std::unique_ptr<CodeHighlighter> m_highlighter;   ///< FreeBASIC code highlighter.
-    std::unique_ptr<MarkdownImageCache> m_imageCache; ///< Inline-image download cache.
-    Unowned<CodeActionBar> m_actionBar;               ///< Floating per-code-block toolbar.
-    wxBitmap m_buffer;                                ///< Off-screen paint buffer, reused across paints.
-    wxFont m_bodyFont;                                ///< Base prose font.
-    wxFont m_monoFont;                                ///< System monospace face — inline `code` and non-FB fences.
-    wxFont m_themedFont;                              ///< Editor-theme font resized to body — FreeBASIC fenced runs only.
-    wxBrush m_userBubbleBrush;                        ///< Cached bubble fill — user messages.
-    wxBrush m_assistantBubbleBrush;                   ///< Cached bubble fill — assistant messages.
-    std::vector<ChatViewMessage> m_messages;          ///< Conversation source.
-    std::vector<LaidMessage> m_items;                 ///< One laid-out bubble per message.
-    int m_layoutWidth = -1;                           ///< View width m_items were built for.
-    int m_totalHeight = 0;                            ///< Stacked height of all bubbles.
-    int m_barMessage = -1;                            ///< Message the action bar targets.
-    int m_barIndex = -1;                              ///< Code or patch block index — see `m_actionBar->mode()`.
-    int m_selectionMessage = -1;                      ///< Bubble whose text is currently selected, or -1.
-    Selection m_selection;                            ///< Selection within that bubble.
+    Context& m_ctx;                                             ///< Application context.
+    std::unique_ptr<CodeHighlighter> m_highlighter;             ///< FreeBASIC code highlighter.
+    std::unique_ptr<markdown::MarkdownImageCache> m_imageCache; ///< Inline-image download cache.
+    Unowned<CodeActionBar> m_actionBar;                         ///< Floating per-code-block toolbar.
+    wxBitmap m_buffer;                                          ///< Off-screen paint buffer, reused across paints.
+    wxFont m_bodyFont;                                          ///< Base prose font.
+    wxFont m_monoFont;                                          ///< System monospace face — inline `code` and non-FB fences.
+    wxFont m_themedFont;                                        ///< Editor-theme font resized to body — FreeBASIC fenced runs only.
+    wxBrush m_userBubbleBrush;                                  ///< Cached bubble fill — user messages.
+    wxBrush m_assistantBubbleBrush;                             ///< Cached bubble fill — assistant messages.
+    std::vector<ChatViewMessage> m_messages;                    ///< Conversation source.
+    std::vector<LaidMessage> m_items;                           ///< One laid-out bubble per message.
+    int m_layoutWidth = -1;                                     ///< View width m_items were built for.
+    int m_totalHeight = 0;                                      ///< Stacked height of all bubbles.
+    int m_barMessage = -1;                                      ///< Message the action bar targets.
+    int m_barIndex = -1;                                        ///< Code or patch block index — see `m_actionBar->mode()`.
+    int m_selectionMessage = -1;                                ///< Bubble whose text is currently selected, or -1.
+    markdown::Selection m_selection;                            ///< Selection within that bubble.
     bool m_dragSelecting = false;
     std::unordered_set<std::string> m_appliedPatches; ///< UTF-8 keys of patches already
                                                       ///< auto-applied (or attempted) this
@@ -200,7 +200,7 @@ private:
     /// Cleared from `resolveFonts` / `refreshTheme` whenever any cached
     /// font would become stale. `mutable` so the const measurement path
     /// can populate it on first miss.
-    mutable std::vector<MeasurementEntry> m_measurerCache;
+    mutable std::vector<markdown::MeasurementEntry> m_measurerCache;
 
     wxDECLARE_EVENT_TABLE();
 };

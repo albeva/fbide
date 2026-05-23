@@ -5,7 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "markdown/MarkdownRenderer.hpp"
-using namespace fbide;
+using namespace fbide::markdown;
 
 namespace {
 /// Vertical leading added on top of the measured "Ag" height — matches
@@ -74,7 +74,7 @@ auto DcMeasurer::measure(const wxString& text, const wxFont& font) const -> int 
     return textWidth;
 }
 
-auto fbide::fontFor(
+auto fbide::markdown::fontFor(
     const TextStyle& style,
     const wxFont& body,
     const wxFont& mono,
@@ -94,7 +94,7 @@ auto fbide::fontFor(
     return font;
 }
 
-void fbide::paintLineBackground(
+void fbide::markdown::paintLineBackground(
     wxGCDC& gc,
     const PaintLine& line,
     const int contentLeft,
@@ -196,7 +196,7 @@ auto charIndexForX(const wxString& text, const TextStyle& style, const int targe
 
 } // namespace
 
-auto fbide::hitTestLine(
+auto fbide::markdown::hitTestLine(
     const PaintLine& line,
     const int xInContent,
     const TextMeasurer& measurer
@@ -248,7 +248,7 @@ auto caretXInLine(const PaintLine& line, const std::size_t runIndex, const std::
 
 } // namespace
 
-void fbide::paintSelectionHighlight(
+void fbide::markdown::paintSelectionHighlight(
     wxGCDC& gc,
     const PaintLine& line,
     const std::size_t lineIndex,
@@ -299,7 +299,7 @@ void fbide::paintSelectionHighlight(
     gc.DrawRectangle(contentLeft + startX, lineTop, endX - startX, bandHeight);
 }
 
-auto fbide::selectionToOffset(const LaidOutDoc& doc, const SelectionPosition& position) -> std::size_t {
+auto fbide::markdown::selectionToOffset(const LaidOutDoc& doc, const SelectionPosition& position) -> std::size_t {
     std::size_t offset = 0;
     for (std::size_t li = 0; li < position.lineIndex && li < doc.lines.size(); li++) {
         for (const auto& run : doc.lines.at(li).runs) {
@@ -318,7 +318,7 @@ auto fbide::selectionToOffset(const LaidOutDoc& doc, const SelectionPosition& po
     return offset;
 }
 
-auto fbide::selectionFromOffset(const LaidOutDoc& doc, const std::size_t offset) -> SelectionPosition {
+auto fbide::markdown::selectionFromOffset(const LaidOutDoc& doc, const std::size_t offset) -> SelectionPosition {
     std::size_t remaining = offset;
     for (std::size_t li = 0; li < doc.lines.size(); li++) {
         const auto& line = doc.lines.at(li);
@@ -353,7 +353,7 @@ auto fbide::selectionFromOffset(const LaidOutDoc& doc, const std::size_t offset)
     return {};
 }
 
-auto fbide::extractSelectedText(
+auto fbide::markdown::extractSelectedText(
     const LaidOutDoc& doc,
     const Selection& selection
 ) -> wxString {
@@ -404,7 +404,7 @@ auto fbide::extractSelectedText(
     return out;
 }
 
-void fbide::paintLineText(
+void fbide::markdown::paintLineText(
     wxGCDC& gc,
     const PaintLine& line,
     const int contentLeft,

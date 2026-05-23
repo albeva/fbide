@@ -7,7 +7,7 @@
 #pragma once
 #include "pch.hpp"
 
-namespace fbide {
+namespace fbide::markdown {
 
 /**
  * Async cache of inline images for markdown rendering.
@@ -124,4 +124,4 @@ private:
     std::unordered_map<std::string, std::list<std::string>::iterator> m_lruIter;
 };
 
-} // namespace fbide
+} // namespace fbide::markdown

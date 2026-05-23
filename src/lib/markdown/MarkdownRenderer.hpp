@@ -8,7 +8,7 @@
 #include "pch.hpp"
 #include "markdown/MarkdownLayout.hpp"
 
-namespace fbide {
+namespace fbide::markdown {
 
 /**
  * Stateless paint primitives for a `LaidOutDoc`.
@@ -218,4 +218,4 @@ void paintLineText(
     PaintRunState& state
 );
 
-} // namespace fbide
+} // namespace fbide::markdown

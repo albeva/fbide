@@ -8,7 +8,7 @@
 #include "pch.hpp"
 #include "markdown/MarkdownLayout.hpp"
 
-namespace fbide {
+namespace fbide::markdown {
 
 /**
  * Headless container for a single rendered markdown document.
@@ -62,4 +62,4 @@ private:
     int m_width = -1;
 };
 
-} // namespace fbide
+} // namespace fbide::markdown

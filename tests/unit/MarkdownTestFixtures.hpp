@@ -31,13 +31,13 @@ constexpr unsigned char kFakeRuleChannel = 200;
 /// tracks the size delta. Proportional text is 10 px / char, monospace
 /// 8 px / char. Stable across runs so wrap-point assertions don't
 /// depend on the host's installed fonts.
-class FakeMeasurer final : public TextMeasurer {
+class FakeMeasurer final : public markdown::TextMeasurer {
 public:
-    [[nodiscard]] auto width(const wxString& text, const TextStyle& style) const -> int override {
+    [[nodiscard]] auto width(const wxString& text, const markdown::TextStyle& style) const -> int override {
         return static_cast<int>(text.length())
              * (style.monospace ? kFakeMonoCharWidth : kFakeProseCharWidth);
     }
-    [[nodiscard]] auto lineHeight(const TextStyle& style) const -> int override {
+    [[nodiscard]] auto lineHeight(const markdown::TextStyle& style) const -> int override {
         return kFakeBaseLineHeight + style.sizeDelta;
     }
 };
@@ -73,7 +73,7 @@ inline auto splitHighlight(const wxString& code, const wxString& /*lang*/) -> st
 /// Stable palette for layout tests. Colours are arbitrary but distinct
 /// so painter-side debugging is easier; layout assertions don't depend
 /// on the values.
-inline auto fakePalette() -> MarkdownPalette {
+inline auto fakePalette() -> markdown::MarkdownPalette {
     return { .text = wxColour(0, 0, 0),
         .link = wxColour(0, 0, kFakeLinkBlue),
         .codeBg = wxColour(kFakeCodeBgChannel, kFakeCodeBgChannel, kFakeCodeBgChannel),
