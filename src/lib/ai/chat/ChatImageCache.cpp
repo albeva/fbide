@@ -22,7 +22,8 @@ constexpr int kHttpErrorStatus = 400;
 
 } // namespace
 
-ChatImageCache::ChatImageCache() {
+ChatImageCache::ChatImageCache(const std::size_t maxReady)
+: m_maxReady(std::max<std::size_t>(1, maxReady)) {
     Bind(wxEVT_WEBREQUEST_STATE, &ChatImageCache::onRequestState, this);
 }
 
@@ -33,6 +34,10 @@ ChatImageCache::~ChatImageCache() {
 auto ChatImageCache::get(const wxString& url) -> const Entry& {
     const std::string key = url.utf8_string();
     if (auto it = m_entries.find(key); it != m_entries.end()) {
+        // Lookup counts as use — keep Ready entries fresh in the LRU.
+        if (it->second.state == State::Ready) {
+            touchReady(key);
+        }
         return it->second;
     }
 
@@ -69,6 +74,60 @@ void ChatImageCache::clearAll() {
     m_activeRequests.clear();
     m_requestUrls.clear();
     m_entries.clear();
+    m_lru.clear();
+    m_lruIter.clear();
+}
+
+void ChatImageCache::insertReady(const wxString& url, wxBitmap bitmap, const int width, const int height) {
+    const std::string key = url.utf8_string();
+    auto [it, inserted] = m_entries.try_emplace(key, Entry {});
+    (void)inserted;
+    Entry& entry = it->second;
+    entry.state = State::Ready;
+    entry.bitmap = std::move(bitmap);
+    entry.width = width;
+    entry.height = height;
+    markReady(key);
+}
+
+auto ChatImageCache::contains(const wxString& url) const -> bool {
+    return m_entries.contains(url.utf8_string());
+}
+
+void ChatImageCache::markReady(const std::string& key) {
+    // Already in the LRU? Move to MRU position. Otherwise append.
+    if (const auto it = m_lruIter.find(key); it != m_lruIter.end()) {
+        m_lru.splice(m_lru.end(), m_lru, it->second);
+    } else {
+        m_lru.push_back(key);
+        m_lruIter[key] = std::prev(m_lru.end());
+    }
+    while (m_lru.size() > m_maxReady) {
+        evictOldestReady();
+    }
+}
+
+void ChatImageCache::touchReady(const std::string& key) {
+    if (const auto it = m_lruIter.find(key); it != m_lruIter.end()) {
+        m_lru.splice(m_lru.end(), m_lru, it->second);
+    }
+}
+
+void ChatImageCache::evictOldestReady() {
+    if (m_lru.empty()) {
+        return;
+    }
+    const std::string oldest = m_lru.front();
+    m_lru.pop_front();
+    m_lruIter.erase(oldest);
+    m_entries.erase(oldest);
+}
+
+void ChatImageCache::forgetLru(const std::string& key) {
+    if (const auto it = m_lruIter.find(key); it != m_lruIter.end()) {
+        m_lru.erase(it->second);
+        m_lruIter.erase(it);
+    }
 }
 
 void ChatImageCache::onRequestState(wxWebRequestEvent& event) {
@@ -139,6 +198,7 @@ void ChatImageCache::finalize(Entry& entry, const wxString& url, const wxString&
     entry.width = image.GetWidth();
     entry.height = image.GetHeight();
     entry.state = State::Ready;
+    markReady(url.utf8_string());
     if (m_listener) {
         m_listener(url);
     }

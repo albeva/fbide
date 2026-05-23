@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include <list>
 #include <string>
 #include <wx/webrequest.h>
 
@@ -56,14 +57,30 @@ public:
     /// the URL whose state just transitioned to Ready or Failed.
     using Listener = std::function<void(const wxString& url)>;
 
-    ChatImageCache();
+    /// Default cap on Ready entries. Failed entries are not counted (they
+    /// carry no bitmap, so they're cheap to keep around).
+    static constexpr std::size_t kDefaultMaxReady = 32;
+
+    explicit ChatImageCache(std::size_t maxReady = kDefaultMaxReady);
     ~ChatImageCache() override;
     NO_COPY_AND_MOVE(ChatImageCache)
 
     /// Look up `url`. Kicks off an async download on first request and
     /// returns a Loading entry; subsequent calls return the same entry.
-    /// Reference is stable until `clearAll()` or destruction.
+    /// A `get` on an existing Ready entry counts as use and refreshes its
+    /// LRU position. Reference is stable until `clearAll()`, eviction or
+    /// destruction.
     [[nodiscard]] auto get(const wxString& url) -> const Entry&;
+
+    /// Insert a Ready entry directly from an already-decoded bitmap —
+    /// for code paths that have the image data on hand without going
+    /// through the HTTP downloader, and for test setup. Eviction kicks
+    /// in if this would exceed the Ready cap.
+    void insertReady(const wxString& url, wxBitmap bitmap, int width, int height);
+
+    /// True when `url` has any entry in the cache (any state). Side-effect
+    /// free — does not touch the LRU and does not start a download.
+    [[nodiscard]] auto contains(const wxString& url) const -> bool;
 
     /// Cancel in-flight downloads and drop every cached entry. The cache
     /// stays usable afterwards. Used when the conversation is cleared.
@@ -82,14 +99,29 @@ private:
     /// Mark `entry` failed and notify the listener.
     void fail(Entry& entry, const wxString& url);
 
+    /// LRU bookkeeping. `markReady` promotes a URL to most-recently-used
+    /// (inserting into the order if absent), then evicts the oldest
+    /// Ready entries until the cap is respected. `touchReady` is the
+    /// no-eviction variant for use during lookup.
+    void markReady(const std::string& key);
+    void touchReady(const std::string& key);
+    void evictOldestReady();
+    void forgetLru(const std::string& key);
+
     [[nodiscard]] static auto allowedScheme(const wxString& url) -> bool;
 
     Listener m_listener;
+    std::size_t m_maxReady;
     std::unordered_map<std::string, Entry> m_entries;       ///< URL → entry.
     std::unordered_map<int, std::string> m_requestUrls;     ///< Request id → URL key.
     std::unordered_map<int, wxWebRequest> m_activeRequests; ///< Keep handles alive while
                                                             ///< downloads run; destroying
                                                             ///< them removes wx's temp files.
+
+    /// LRU order over Ready entries. Front = least-recently-used. The
+    /// iterator map gives O(1) splice on touch.
+    std::list<std::string> m_lru;
+    std::unordered_map<std::string, std::list<std::string>::iterator> m_lruIter;
 };
 
 } // namespace fbide
