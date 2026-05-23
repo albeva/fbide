@@ -54,6 +54,11 @@ endif()
 # enables it explicitly via `-DBUILD_TESTING=ON`.
 option(BUILD_TESTING "Build the FBIde test suite" OFF)
 
+# Link-time optimisation in Release builds. ON by default; turn OFF when
+# linking against prebuilt wxWidgets libraries from a different MSVC
+# toolset (LTCG fails with C1047 on cross-toolset object files).
+option(FBIDE_ENABLE_LTO "Enable IPO/LTO in Release builds (MSVC + Linux)" ON)
+
 # AppImage packaging mode. When ON the install layout follows FHS
 # (`bin/fbide`, `share/fbide/ide/`) so linuxdeploy can drop the result
 # straight into an AppDir, and FBIde's resource resolver looks for the
