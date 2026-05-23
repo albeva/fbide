@@ -7,9 +7,6 @@
 #pragma once
 #include "pch.hpp"
 
-class wxToggleButton;
-class wxCheckBox;
-
 namespace fbide {
 class Context;
 class Document;

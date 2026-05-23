@@ -13,6 +13,7 @@
 #include <cassert>
 #include <concepts>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -37,6 +38,7 @@
 #include <wx/artprov.h>
 #include <wx/aui/aui.h>
 #include <wx/bmpbuttn.h>
+#include <wx/checkbox.h>
 #include <wx/clipbrd.h>
 #include <wx/colordlg.h>
 #include <wx/convauto.h>
@@ -47,8 +49,10 @@
 #include <wx/dcmemory.h>
 #include <wx/dir.h>
 #include <wx/fdrepdlg.h>
+#include <wx/ffile.h>
 #include <wx/file.h>
 #include <wx/fileconf.h>
+#include <wx/filedlg.h>
 #include <wx/filehistory.h>
 #include <wx/filename.h>
 #include <wx/fontenum.h>
@@ -58,6 +62,7 @@
 #include <wx/ipc.h>
 #include <wx/listctrl.h>
 #include <wx/log.h>
+#include <wx/menu.h>
 #include <wx/notebook.h>
 #include <wx/process.h>
 #include <wx/scrolwin.h>
@@ -68,10 +73,12 @@
 #include <wx/splash.h>
 #include <wx/splitter.h>
 #include <wx/statline.h>
+#include <wx/stattext.h>
 #include <wx/stc/minimap.h>
 #include <wx/stc/stc.h>
 #include <wx/stdpaths.h>
 #include <wx/textfile.h>
+#include <wx/tglbtn.h>
 #include <wx/thread.h>
 #include <wx/tokenzr.h>
 #include <wx/treectrl.h>

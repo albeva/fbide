@@ -5,7 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "AiContext.hpp"
-#include <wx/ffile.h>
 using namespace fbide;
 using namespace fbide::ai;
 

@@ -5,9 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "ContextTagBar.hpp"
-#include <wx/settings.h>
-#include <wx/sizer.h>
-#include <wx/stattext.h>
 #include "AiContext.hpp"
 #include "AiManager.hpp"
 #include "app/Context.hpp"

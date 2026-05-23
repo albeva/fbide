@@ -6,7 +6,6 @@
 //
 #pragma once
 #include "pch.hpp"
-#include <cstdint>
 
 namespace fbide::ai {
 

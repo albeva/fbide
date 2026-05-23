@@ -5,10 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #include "AiChatPanel.hpp"
-#include <wx/checkbox.h>
-#include <wx/filedlg.h>
-#include <wx/menu.h>
-#include <wx/tglbtn.h>
 #include "AiContext.hpp"
 #include "AiManager.hpp"
 #include "ContextTagBar.hpp"
