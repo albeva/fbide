@@ -9,30 +9,6 @@ using namespace fbide;
 namespace fs = std::filesystem;
 
 namespace {
-// ---------------------------------------------------------------------------
-// wxString <-> std::filesystem::path conversion
-//
-// Everything inside this TU works in `fs::path`. Conversions to/from
-// `wxString` happen only at the public API boundary and at wx interop
-// points (wxFFile streams, wxLog formatting). The two helpers below
-// encode the platform-conditional UTF-8 / wide-char split in one place.
-// ---------------------------------------------------------------------------
-
-[[nodiscard]] auto toPath(const wxString& str) -> fs::path {
-#ifdef __WXMSW__
-    return fs::path { str.ToStdWstring() };
-#else
-    return fs::path { str.ToStdString(wxConvUTF8) };
-#endif
-}
-
-[[nodiscard]] auto toWx(const fs::path& path) -> wxString {
-#ifdef __WXMSW__
-    return wxString { path.wstring() };
-#else
-    return wxString::FromUTF8(path.string());
-#endif
-}
 
 void dismissSplash() {
     auto node = wxTopLevelWindows.GetFirst();
