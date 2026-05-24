@@ -6,6 +6,7 @@
 //
 #include "AnthropicProvider.hpp"
 #include <nlohmann/json.hpp>
+#include "StreamParsers.hpp"
 using namespace fbide;
 using namespace fbide::ai;
 using json = nlohmann::json;
@@ -14,20 +15,6 @@ namespace {
 constexpr auto kEndpoint = "https://api.anthropic.com/v1/messages";
 constexpr auto kAnthropicVersion = "2023-06-01";
 constexpr int kHttpErrorStatus = 400;
-
-/// Map a role onto the Anthropic `messages[].role` value. Anthropic carries
-/// the system prompt as a top-level field, so a `System` role never appears
-/// in the messages array — treat it as `user` defensively.
-auto roleToString(AiRole role) -> const char* {
-    switch (role) {
-    case AiRole::Assistant:
-        return "assistant";
-    case AiRole::User:
-    case AiRole::System:
-        break;
-    }
-    return "user";
-}
 } // namespace
 
 AnthropicProvider::AnthropicProvider(wxString apiKey)
@@ -58,7 +45,7 @@ void AnthropicProvider::send(const AiRequest& request, ChunkHandler onChunk, Res
     auto messages = json::array();
     for (const auto& msg : request.messages) {
         messages.push_back({
-            { "role", roleToString(msg.role) },
+            { "role", anthropicRoleToString(msg.role) },
             { "content", msg.content.utf8_string() },
         });
     }
@@ -92,31 +79,16 @@ void AnthropicProvider::onRequestData(wxWebRequestEvent& event) {
 void AnthropicProvider::consumeBuffer() {
     // SSE: every payload arrives on a `data:` line; `event:` lines and
     // blank separators are ignored. Anthropic puts one JSON object per
-    // `data:` line.
+    // `data:` line. Per-line parsing lives in `parseAnthropicLine`; the
+    // loop here just splits on `\n` and strips the optional `\r`.
+    const auto onError = [this](const wxString& message) { m_streamError = message; };
     for (auto pos = m_buffer.find('\n'); pos != std::string::npos; pos = m_buffer.find('\n')) {
         std::string line = m_buffer.substr(0, pos);
         m_buffer.erase(0, pos + 1);
         if (!line.empty() && line.back() == '\r') {
             line.pop_back();
         }
-        if (!line.starts_with("data:")) {
-            continue;
-        }
-
-        const auto payload = json::parse(line.substr(std::string_view("data:").size()), nullptr, false);
-        if (payload.is_discarded()) {
-            continue;
-        }
-        const auto type = payload.value("type", "");
-        if (type == "content_block_delta") {
-            const auto& delta = payload["delta"];
-            if (delta.is_object() && delta.value("type", "") == "text_delta") {
-                m_onChunk(wxString::FromUTF8(delta.value("text", "")));
-            }
-        } else if (type == "error") {
-            const auto& error = payload["error"];
-            m_streamError = wxString::FromUTF8(error.is_object() ? error.value("message", "Unknown API error.") : "Unknown API error.");
-        }
+        parseAnthropicLine(line, m_onChunk, onError);
     }
 }
 

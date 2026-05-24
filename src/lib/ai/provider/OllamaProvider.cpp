@@ -6,26 +6,13 @@
 //
 #include "OllamaProvider.hpp"
 #include <nlohmann/json.hpp>
+#include "StreamParsers.hpp"
 using namespace fbide;
 using namespace fbide::ai;
 using json = nlohmann::json;
 
 namespace {
 constexpr int kHttpErrorStatus = 400;
-
-/// Map a role onto the Ollama `messages[].role` value. Ollama carries the
-/// system prompt as a `system`-role message in the array.
-auto roleToString(AiRole role) -> const char* {
-    switch (role) {
-    case AiRole::System:
-        return "system";
-    case AiRole::Assistant:
-        return "assistant";
-    case AiRole::User:
-        break;
-    }
-    return "user";
-}
 
 /// Join the server base URL with the chat endpoint path, tolerating a
 /// trailing slash on the configured endpoint.
@@ -67,7 +54,7 @@ void OllamaProvider::send(const AiRequest& request, ChunkHandler onChunk, Respon
     }
     for (const auto& msg : request.messages) {
         messages.push_back({
-            { "role", roleToString(msg.role) },
+            { "role", ollamaRoleToString(msg.role) },
             { "content", msg.content.utf8_string() },
         });
     }
@@ -97,23 +84,13 @@ void OllamaProvider::onRequestData(wxWebRequestEvent& event) {
 }
 
 void OllamaProvider::consumeBuffer() {
-    // Ollama streams newline-delimited JSON — one object per line, e.g.
-    // {"message":{"content":"<delta>"},"done":false}.
+    // Ollama streams newline-delimited JSON — one object per line. Per-line
+    // parsing lives in `parseOllamaLine`; the loop here just splits on `\n`.
+    const auto onError = [this](const wxString& message) { m_streamError = message; };
     for (auto pos = m_buffer.find('\n'); pos != std::string::npos; pos = m_buffer.find('\n')) {
         std::string line = m_buffer.substr(0, pos);
         m_buffer.erase(0, pos + 1);
-
-        const auto chunk = json::parse(line, nullptr, false);
-        if (chunk.is_discarded()) {
-            continue;
-        }
-        if (chunk.contains("error")) {
-            m_streamError = wxString::FromUTF8(chunk.value("error", "Unknown Ollama error."));
-            continue;
-        }
-        if (chunk.contains("message") && chunk["message"].is_object()) {
-            m_onChunk(wxString::FromUTF8(chunk["message"].value("content", "")));
-        }
+        parseOllamaLine(line, m_onChunk, onError);
     }
 }
 

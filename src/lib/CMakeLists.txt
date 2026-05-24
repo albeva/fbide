@@ -21,6 +21,7 @@ target_sources(fbide_lib
     ai/provider/GeminiProvider.cpp
     ai/provider/MockProvider.cpp
     ai/provider/OllamaProvider.cpp
+    ai/provider/StreamParsers.cpp
     analyses/intellisense/IntellisenseService.cpp
     analyses/lexer/KeywordTables.cpp
     analyses/lexer/MemoryDocument.cpp
@@ -109,6 +110,7 @@ target_sources(fbide_lib
     ai/provider/GeminiProvider.hpp
     ai/provider/MockProvider.hpp
     ai/provider/OllamaProvider.hpp
+    ai/provider/StreamParsers.hpp
     analyses/intellisense/IntellisenseService.hpp
     analyses/lexer/KeywordTables.hpp
     analyses/lexer/MemoryDocument.hpp

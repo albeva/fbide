@@ -6,26 +6,13 @@
 //
 #include "GeminiProvider.hpp"
 #include <nlohmann/json.hpp>
+#include "StreamParsers.hpp"
 using namespace fbide;
 using namespace fbide::ai;
 using json = nlohmann::json;
 
 namespace {
 constexpr int kHttpErrorStatus = 400;
-
-/// Map a role onto the Gemini `contents[].role` value. Gemini uses
-/// `model` (not `assistant`) and carries the system prompt separately,
-/// so a `System` role never appears here — treat it as `user`.
-auto roleToString(AiRole role) -> const char* {
-    switch (role) {
-    case AiRole::Assistant:
-        return "model";
-    case AiRole::User:
-    case AiRole::System:
-        break;
-    }
-    return "user";
-}
 
 /// Build the streaming endpoint URL for `model`.
 auto streamUrl(const wxString& model) -> wxString {
@@ -58,7 +45,7 @@ void GeminiProvider::send(const AiRequest& request, ChunkHandler onChunk, Respon
     auto contents = json::array();
     for (const auto& msg : request.messages) {
         contents.push_back({
-            { "role", roleToString(msg.role) },
+            { "role", geminiRoleToString(msg.role) },
             { "parts", json::array({ json { { "text", msg.content.utf8_string() } } }) },
         });
     }
@@ -95,38 +82,16 @@ void GeminiProvider::onRequestData(wxWebRequestEvent& event) {
 
 void GeminiProvider::consumeBuffer() {
     // SSE: each payload arrives on a `data:` line, one JSON object each.
+    // Per-line parsing lives in `parseGeminiLine`; the loop here just splits
+    // on `\n` and strips the optional `\r`.
+    const auto onError = [this](const wxString& message) { m_streamError = message; };
     for (auto pos = m_buffer.find('\n'); pos != std::string::npos; pos = m_buffer.find('\n')) {
         std::string line = m_buffer.substr(0, pos);
         m_buffer.erase(0, pos + 1);
         if (!line.empty() && line.back() == '\r') {
             line.pop_back();
         }
-        if (!line.starts_with("data:")) {
-            continue;
-        }
-
-        const auto payload = json::parse(line.substr(std::string_view("data:").size()), nullptr, false);
-        if (payload.is_discarded()) {
-            continue;
-        }
-        if (payload.contains("error")) {
-            const auto& error = payload["error"];
-            m_streamError = wxString::FromUTF8(error.is_object() ? error.value("message", "Unknown API error.") : "Unknown API error.");
-            continue;
-        }
-        // candidates[0].content.parts[*].text
-        if (!payload.contains("candidates") || !payload["candidates"].is_array() || payload["candidates"].empty()) {
-            continue;
-        }
-        const auto& content = payload["candidates"][0]["content"];
-        if (!content.is_object() || !content["parts"].is_array()) {
-            continue;
-        }
-        for (const auto& part : content["parts"]) {
-            if (part.contains("text")) {
-                m_onChunk(wxString::FromUTF8(part.value("text", "")));
-            }
-        }
+        parseGeminiLine(line, m_onChunk, onError);
     }
 }
 

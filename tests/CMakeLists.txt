@@ -34,6 +34,7 @@ add_executable(tests
     unit/ReFormatterTests.cpp
     unit/StyleLexerTests.cpp
     unit/RunCommandTests.cpp
+    unit/StreamParsersTests.cpp
     unit/SymbolBrowserFilterTests.cpp
     unit/SymbolTableTests.cpp
     unit/TextEncodingTests.cpp
