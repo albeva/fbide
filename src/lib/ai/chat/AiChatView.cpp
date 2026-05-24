@@ -756,9 +756,6 @@ void AiChatView::showActionBar(const int messageIndex, const int blockIndex, con
     // either way.
     const auto& block = item.document.laid().scrollBlocks[static_cast<std::size_t>(blockIndex)];
     const int blockY = block.y;
-    const int blockHeight = block.height;
-    (void)blockHeight; // reserved — bottom-pin behaviour can use it later.
-    (void)mode;
 
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
     const int codeRight = item.bubble.x + kBubblePad + item.contentWidth;
