@@ -28,19 +28,15 @@ constexpr int kButtonPadding = 2;
 // Opacity of an idle (non-hovered) icon.
 constexpr double kMutedAlpha = 0.4;
 
-/// Typed client data attached to each button so `setMode` can show /
-/// hide the right group. `wxClientData`'s base destructor is called by
-/// wx when the owning button is destroyed.
-class ModeClientData final : public wxClientData {
-public:
-    explicit ModeClientData(const CodeActionBar::Mode mode)
-    : m_mode(mode) {}
+// Convert mode enum to void* value
+constexpr auto toVoidPtr(CodeActionBar::Mode mode) -> void* {
+    return reinterpret_cast<void*>(static_cast<std::intptr_t>(mode));
+}
 
-    [[nodiscard]] auto mode() const -> CodeActionBar::Mode { return m_mode; }
-
-private:
-    CodeActionBar::Mode m_mode;
-};
+// Convert void* to Mode value
+constexpr auto toMode(void* data) -> CodeActionBar::Mode {
+    return static_cast<CodeActionBar::Mode>(reinterpret_cast<std::intptr_t>(data));
+}
 
 /// A dimmed copy of `bitmap` — its alpha scaled by `factor` so an idle icon
 /// reads as muted next to the hovered one.
@@ -91,8 +87,7 @@ void CodeActionBar::setMode(const Mode mode) {
 
     for (const auto* child : GetSizer()->GetChildren()) {
         if (auto* button = wxDynamicCast(child->GetWindow(), wxBitmapButton)) {
-            const auto* data = dynamic_cast<const ModeClientData*>(button->GetClientObject());
-            button->Show(data != nullptr && data->mode() == m_mode);
+            button->Show(toMode(button->GetClientData()) == m_mode);
         }
     }
 
@@ -116,7 +111,7 @@ void CodeActionBar::addButton(
     button->SetBitmapFocus(icon);
     button->SetBitmapPressed(icon);
     button->SetToolTip(tip);
-    button->SetClientObject(make_unowned<ModeClientData>(mode));
+    button->SetClientData(toVoidPtr(mode));
     GetSizer()->Add(button);
 }
 
