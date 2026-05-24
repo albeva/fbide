@@ -8,6 +8,7 @@
 #include "CodeActionBar.hpp"
 #include "CodeHighlighter.hpp"
 #include "ai/AiManager.hpp"
+#include "ai/Patch.hpp"
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
@@ -1403,31 +1404,18 @@ auto AiChatView::applyPatch(const LaidScrollBlock& patch) -> bool {
     }
     auto* editor = document->getEditor();
 
-    // Try the SEARCH text as-is first. If a model emits a block that ends
-    // with `\n` (the common case) but the matching text in the buffer
-    // doesn't have the trailing newline (final line, no EOL), retry with
-    // both strings trimmed of their trailing newline.
-    wxString search = patch.patchSearch;
-    wxString replace = patch.patchReplace;
-    editor->SetTargetStart(0);
-    editor->SetTargetEnd(editor->GetLength());
-    editor->SetSearchFlags(wxSTC_FIND_MATCHCASE);
-    int found = editor->SearchInTarget(search);
-    if (found < 0 && !search.empty() && search[search.length() - 1] == '\n') {
-        search.RemoveLast();
-        if (!replace.empty() && replace[replace.length() - 1] == '\n') {
-            replace.RemoveLast();
-        }
-        editor->SetTargetStart(0);
-        editor->SetTargetEnd(editor->GetLength());
-        found = editor->SearchInTarget(search);
-    }
-    if (found < 0) {
+    // Pure matching with the trailing-newline fallback lives in
+    // findPatchMatch — see PatchTests for the contract.
+    const auto sourceUtf8 = editor->GetText().utf8_string();
+    const auto match = findPatchMatch(sourceUtf8, patch.patchSearch, patch.patchReplace);
+    if (match.offset < 0) {
         return false;
     }
 
     editor->BeginUndoAction();
-    editor->ReplaceTarget(replace);
+    editor->SetTargetStart(match.offset);
+    editor->SetTargetEnd(match.offset + match.length);
+    editor->ReplaceTarget(match.replacement);
     editor->EndUndoAction();
     return true;
 }

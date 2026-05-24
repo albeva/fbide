@@ -31,6 +31,7 @@ add_executable(tests
     unit/FBSciLexerTests.cpp
     unit/MarkdownTests.cpp
     unit/LineHistoryTests.cpp
+    unit/PatchTests.cpp
     unit/ReFormatterTests.cpp
     unit/StyleLexerTests.cpp
     unit/ProviderFactoryTests.cpp
