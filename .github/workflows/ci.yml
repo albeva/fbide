@@ -485,6 +485,21 @@ jobs:
           echo "CC=${LLVM_PREFIX}/bin/clang" >> "$GITHUB_ENV"
           echo "CXX=${LLVM_PREFIX}/bin/clang++" >> "$GITHUB_ENV"
           echo "LLVM_PREFIX=${LLVM_PREFIX}" >> "$GITHUB_ENV"
+          # Homebrew LLVM is keg-only: libc++ / libunwind live under
+          # subdirs of $LLVM_PREFIX/lib and aren't on the linker's
+          # default search path. Without these LDFLAGS the link would
+          # silently fall through to Apple's libc++ (the SDK one),
+          # which is exactly the older libc++ we're trying to avoid.
+          # _LIBCPP_DISABLE_AVAILABILITY is required for newer C++23
+          # stdlib symbols (std::ranges::contains etc.) — Homebrew
+          # libc++ marks them as "unavailable on this OS" through
+          # availability annotations otherwise. CMake honours CXXFLAGS
+          # / LDFLAGS on first configure (seeds CMAKE_*_FLAGS_INIT —
+          # note CMake doesn't read CPPFLAGS, so the -D belongs in
+          # CXXFLAGS), so both the wx and fbide configures pick them
+          # up.
+          echo "CXXFLAGS=-D_LIBCPP_DISABLE_AVAILABILITY" >> "$GITHUB_ENV"
+          echo "LDFLAGS=-L${LLVM_PREFIX}/lib/c++ -L${LLVM_PREFIX}/lib/unwind -lunwind" >> "$GITHUB_ENV"
 
       - name: Set up wxWidgets (osx_cocoa, ${{ matrix.arch }})
         id: wx
