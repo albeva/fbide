@@ -13,15 +13,6 @@ using namespace fbide;
 
 namespace {
 
-/// Lowercase first char — locale keys use lowerFirst(#Name).
-auto lowerFirst(const std::string_view name) -> wxString {
-    wxString out = wxString::FromAscii(name.data(), name.size());
-    if (not out.empty()) {
-        out[0] = wxTolower(out[0]);
-    }
-    return out;
-}
-
 /// 16×16 swatch filled with `c` and outlined, for menu item bitmaps.
 auto makeSwatch(const wxColour& c) -> wxBitmap {
     constexpr int size = 16;
@@ -154,7 +145,7 @@ void ColorPicker::onButtonClick(wxCommandEvent&) {
     const wxString fgLabel = m_tr.get_or("foreground", "Foreground");
     const wxString bgLabel = m_tr.get_or("background", "Background");
 
-    const auto addCategory = [&](const SettingsCategory cat, const std::string_view rawName) {
+    const auto addCategory = [&](const SettingsCategory cat) {
         const auto entry = readCategory(m_theme, cat);
         const bool hasFg = entry.colors.foreground.IsOk();
         const bool hasBg = entry.colors.background.IsOk();
@@ -179,16 +170,20 @@ void ColorPicker::onButtonClick(wxCommandEvent&) {
             sub->Append(item);
             colorMap[id] = entry.colors.background;
         }
-        const auto keyName = lowerFirst(rawName);
-        const auto label = m_tr.get_or("categories." + keyName, keyName);
+        // Locale key mirrors the ThemePage category tree (see
+        // `getSettingsCategoryLabelKey`) so the submenu labels reuse
+        // the translations the tree already ships in every locale,
+        // instead of falling back to raw enum-derived strings like
+        // `keywordTypes` / `numberPP`.
+        const auto sv = getSettingsCategoryLabelKey(cat);
+        const wxString key = wxString::FromAscii(sv.data(), sv.size());
+        const auto label = m_tr.get_or("categories." + key, key);
         copyMenu->AppendSubMenu(sub, label);
     };
 
-    // clang-format off
-    #define ADD_CAT(NAME, ...) addCategory(SettingsCategory::NAME, #NAME);
-        DEFINE_SETTINGS_CATEGORY(ADD_CAT)
-    #undef ADD_CAT
-    // clang-format on
+    for (const auto cat : kSettingsCategories) {
+        addCategory(cat);
+    }
 
     menu.AppendSubMenu(copyMenu, m_tr.get_or("copyFrom", "Copy from"));
 

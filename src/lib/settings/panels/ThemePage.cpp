@@ -56,49 +56,54 @@ void writeCategory(Theme& theme, const SettingsCategory cat, const Theme::Entry&
 
 auto categoryTreeLayout() -> std::vector<ThemePage::TreeNode> {
     using SC = SettingsCategory;
+    // Category-bound nodes are spelled `{ SC::Foo, { ... } }` and their
+    // locale key is derived from the enum via `getSettingsCategoryLabelKey`.
+    // Folder nodes use `{ "folderKey", { ... } }` (string literal picks
+    // the wxString constructor) for the labels that don't correspond to
+    // a single category.
     // clang-format off
     return {
-        { "default", "Default", SC::Default, {
-            { "comments",          "Comments",           SC::Comment,          {} },
-            { "multilineComments", "Multiline comments", SC::MultilineComment, {} },
-            { "identifier",        "Identifier",         SC::Identifier,       {} },
-            { "number",            "Number",             SC::Number,           {} },
-            { "string",            "String",             SC::String, {
-                { "unterminated", "Unterminated", SC::StringOpen, {} },
-            } },
-            { "operator",          "Operator",           SC::Operator,         {} },
-            { "label",             "Label",              SC::Label,            {} },
-            { "error",             "Error",              SC::Error,            {} },
-            { "keywords", "Keywords", std::nullopt, {
-                { "core",              "Core",      SC::Keywords,         {} },
-                { "types",             "Types",     SC::KeywordTypes,     {} },
-                { "operators",         "Operators", SC::KeywordOperators, {} },
-                { "defines",           "Defines",   SC::KeywordConstants, {} },
-                { "library",           "Library",   SC::KeywordLibrary,   {} },
-                { "custom",            "Custom",    SC::KeywordCustom,    {} },
-            } },
-            { "margins", "Margins", std::nullopt, {
-                { "lineNumbers", "Line numbers", SC::LineNumber, {} },
-                { "fold",        "Fold",         SC::FoldMargin, {} },
-                { "changes",     "Changes",      SC::Changes,    {} },
-            } },
-            { "selection", "Selection", SC::Selection, {} },
-            { "brace", "Brace", std::nullopt, {
-                { "match",    "Match",    SC::Brace,    {} },
-                { "mismatch", "Mismatch", SC::BadBrace, {} },
-            } },
-        } },
-        { "asm", "Asm", std::nullopt, {
-            { "instructions", "Instructions", SC::KeywordAsm1, {} },
-            { "registers",    "Registers",    SC::KeywordAsm2, {} },
-        } },
-        { "preprocessor", "Preprocessor", SC::Preprocessor, {
-            { "directives",   "Directives", SC::KeywordPP,    {} },
-            { "ppIdentifier", "Identifier", SC::IdentifierPP, {} },
-            { "ppNumber",     "Number",     SC::NumberPP,     {} },
-            { "ppString",     "String",     SC::StringPP,     {} },
-            { "ppOperator",   "Operator",   SC::OperatorPP,   {} },
-        } },
+        { SC::Default, {
+            { SC::Comment          },
+            { SC::MultilineComment },
+            { SC::Identifier       },
+            { SC::Number           },
+            { SC::String, {
+                { SC::StringOpen },
+            }},
+            { SC::Operator         },
+            { SC::Label            },
+            { SC::Error            },
+            { "keywords", {
+                { SC::Keywords         },
+                { SC::KeywordTypes     },
+                { SC::KeywordOperators },
+                { SC::KeywordConstants },
+                { SC::KeywordLibrary   },
+                { SC::KeywordCustom    },
+            }},
+            { "margins", {
+                { SC::LineNumber },
+                { SC::FoldMargin },
+                { SC::Changes    },
+            }},
+            { SC::Selection },
+            { "brace", {
+                { SC::Brace    },
+                { SC::BadBrace },
+            }},
+        }},
+        { "asm", {
+            { SC::KeywordAsm1 },
+            { SC::KeywordAsm2 },
+        }},
+        { SC::Preprocessor, {
+            { SC::KeywordPP    },
+            { SC::IdentifierPP },
+            { SC::NumberPP     },
+            { SC::StringPP     },
+            { SC::OperatorPP   },
+        }},
     };
     // clang-format on
 }
@@ -214,7 +219,16 @@ void ThemePage::createTopRow() {
 
 void ThemePage::addTreeNode(const wxTreeItemId parent, const std::vector<TreeNode>& nodes) {
     for (const auto& node : nodes) {
-        const auto label = tr("categories." + node.labelKey, node.fallbackLabel);
+        const wxString key = node.category
+                               ? [&] {
+                                     const auto sv = getSettingsCategoryLabelKey(*node.category);
+                                     return wxString::FromAscii(sv.data(), sv.size());
+                                 }()
+                               : node.labelKey;
+        // Fall back to the key itself if the locale lookup is missing —
+        // the user sees the raw key (e.g. "comments") rather than a
+        // mystery blank, which makes missing translations obvious.
+        const auto label = tr("categories." + key, key);
         const auto id = m_typeTree->AppendItem(parent, label);
         if (node.category) {
             m_treeCategories.emplace(id.GetID(), *node.category);
@@ -256,7 +270,7 @@ void ThemePage::createLeftPanel() {
         m_separatorPicker = addPicker(tr("separator"));
 
         m_changesBackgroundPicker = addPicker(tr("changesBackground", "Background"));
-m_changesBackgroundPicker->Hide();
+        m_changesBackgroundPicker->Hide();
         m_changesAddedPicker = addPicker(tr("changesAdded", "Added"));
         m_changesAddedPicker->Hide();
         m_changesModifiedPicker = addPicker(tr("changesModified", "Modified"));

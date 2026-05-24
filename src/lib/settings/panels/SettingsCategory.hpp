@@ -69,6 +69,77 @@ constexpr auto isSyntaxCategory(const SettingsCategory category) -> bool {
     return +category < static_cast<int>(kThemeCategoryCount);
 }
 
+/// Locale-key name (under `dialogs.settings.themes.categories.*`)
+/// for `cat`. Mirrors the labels the ThemePage's category tree uses
+/// — keeping this here lets ColorPicker's "Copy from" submenu reuse
+/// the same translations across all locale files instead of falling
+/// back to raw `keywordTypes` / `numberPP`-style enum names.
+constexpr auto getSettingsCategoryLabelKey(const SettingsCategory cat) -> std::string_view {
+    switch (cat) {
+    case SettingsCategory::Default:
+        return "default";
+    case SettingsCategory::Comment:
+        return "comments";
+    case SettingsCategory::MultilineComment:
+        return "multilineComments";
+    case SettingsCategory::Identifier:
+        return "identifier";
+    case SettingsCategory::Number:
+        return "number";
+    case SettingsCategory::String:
+        return "string";
+    case SettingsCategory::StringOpen:
+        return "unterminated";
+    case SettingsCategory::Keywords:
+        return "core";
+    case SettingsCategory::KeywordTypes:
+        return "types";
+    case SettingsCategory::KeywordOperators:
+        return "operators";
+    case SettingsCategory::KeywordConstants:
+        return "defines";
+    case SettingsCategory::KeywordLibrary:
+        return "library";
+    case SettingsCategory::KeywordCustom:
+        return "custom";
+    case SettingsCategory::KeywordPP:
+        return "directives";
+    case SettingsCategory::KeywordAsm1:
+        return "instructions";
+    case SettingsCategory::KeywordAsm2:
+        return "registers";
+    case SettingsCategory::Operator:
+        return "operator";
+    case SettingsCategory::Label:
+        return "label";
+    case SettingsCategory::Preprocessor:
+        return "preprocessor";
+    case SettingsCategory::NumberPP:
+        return "ppNumber";
+    case SettingsCategory::StringPP:
+        return "ppString";
+    case SettingsCategory::OperatorPP:
+        return "ppOperator";
+    case SettingsCategory::IdentifierPP:
+        return "ppIdentifier";
+    case SettingsCategory::Error:
+        return "error";
+    case SettingsCategory::LineNumber:
+        return "lineNumbers";
+    case SettingsCategory::Selection:
+        return "selection";
+    case SettingsCategory::FoldMargin:
+        return "fold";
+    case SettingsCategory::Brace:
+        return "match";
+    case SettingsCategory::BadBrace:
+        return "mismatch";
+    case SettingsCategory::Changes:
+        return "changes";
+    }
+    std::unreachable();
+}
+
 /// Capability descriptor — which UI controls apply to this category.
 struct SettingsCapability final {
     bool foreground : 1; ///< Show the foreground colour picker.
