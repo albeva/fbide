@@ -1,7 +1,6 @@
 # Changes since 0.5.0-rc.2
 
 - Changed fbide now stores config changes in `.local.`, keeping original base files immutable.
-- Added two-dir theme enumeration under READONLY: themes in `<user-data-dir>/themes/` shadow same-named bundle themes; theme edits save there too
 - Fixed `#include` opening the same file in multiple tabs on case-insensitive filesystems (#87)
 - Added a confirm-and-close prompt when Save As targets a file already open in another tab
 - Added basic Markdown syntax highlighting for `.md` / `.markdown` files
