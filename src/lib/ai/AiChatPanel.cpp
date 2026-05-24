@@ -331,9 +331,12 @@ void AiChatPanel::renderConversation() {
     }
     if (m_busy) {
         // The streaming reply is not in the history yet — show the partial
-        // text as it arrives, or a placeholder until the first chunk.
+        // text as it arrives, or a placeholder until the first chunk. The
+        // `streaming` flag tells the view's auto-apply not to touch any
+        // patch blocks inside this bubble until they're fully formed.
         messages.push_back({
             .fromUser = false,
+            .streaming = true,
             .markdown = m_streaming.empty() ? wxString::FromUTF8("_Thinking…_") : m_streaming,
         });
     }

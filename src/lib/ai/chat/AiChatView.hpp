@@ -23,8 +23,9 @@ class CodeHighlighter;
 
 /// One conversation message handed to the chat view.
 struct ChatViewMessage {
-    bool fromUser = false; ///< true = user prompt, false = assistant reply.
-    wxString markdown;     ///< Message body — markdown source.
+    bool fromUser = false;  ///< true = user prompt, false = assistant reply.
+    bool streaming = false; ///< true while this bubble is the live reply being filled in.
+    wxString markdown;      ///< Message body — markdown source.
 };
 
 /**
@@ -61,6 +62,7 @@ private:
         wxRect bubble;                       ///< Bubble rect in document coordinates.
         int contentWidth = 0;                ///< Content width inside the bubble padding.
         bool fromUser = false;               ///< Role — drives bubble colour + side.
+        bool streaming = false;              ///< Bubble is the in-flight reply being filled in.
         /// Horizontal scroll offset in pixels per non-wrapped scroll
         /// block. Indices line up with the laid doc's `scrollBlocks`.
         /// Empty when `wrapCodeBlocks` is true (or no such blocks

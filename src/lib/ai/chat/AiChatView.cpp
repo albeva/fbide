@@ -292,6 +292,7 @@ void AiChatView::relayout() {
         const auto& message = m_messages[index];
         LaidMessage item;
         item.fromUser = message.fromUser;
+        item.streaming = message.streaming;
 
         // Move the previous document for this slot if the role matches —
         // its (markdown, width) cache makes `setMarkdown` a no-op when
@@ -1390,6 +1391,14 @@ void AiChatView::onRunCode(wxCommandEvent& /*event*/) {
 void AiChatView::autoApplyPatches() {
     auto& manager = m_ctx.getAiManager();
     for (const auto& item : m_items) {
+        // Skip the in-flight bubble — its patch blocks may have partial
+        // SEARCH text that would match the wrong spot in the buffer; the
+        // next chunk extends the SEARCH and would generate a new key,
+        // re-applying on top of the corrupted state. Wait until the
+        // reply lands in history (streaming flag clears).
+        if (item.streaming) {
+            continue;
+        }
         for (const auto& block : item.document.laid().scrollBlocks) {
             if (block.kind != LaidScrollBlock::Kind::Patch) {
                 continue;

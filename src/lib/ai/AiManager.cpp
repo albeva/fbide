@@ -128,9 +128,10 @@ void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChu
     );
 }
 
-auto AiManager::patchKey(const wxString& search, const wxString& replace) -> std::string {
+auto AiManager::patchKey(const wxString& search, const wxString& replace) -> std::uint64_t {
     // Newline-padded separator that won't collide with real source text.
-    return (search + wxString("\n>>>\n") + replace).utf8_string();
+    const auto combined = (search + wxString("\n>>>\n") + replace).utf8_string();
+    return std::hash<std::string> {}(combined);
 }
 
 auto AiManager::applyPatch(const wxString& search, const wxString& replace, const bool recordAlways) -> bool {

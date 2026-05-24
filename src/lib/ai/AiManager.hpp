@@ -46,8 +46,13 @@ public:
     /// The conversation so far, oldest message first.
     [[nodiscard]] auto history() const -> const std::vector<AiMessage>& { return m_history; }
 
-    /// Drop the conversation history.
-    void clear() { m_history.clear(); }
+    /// Drop the conversation history. Also drops the applied-patch set
+    /// so a new conversation can re-apply textually identical proposals
+    /// (e.g. when reproducing the same prompt against a fresh buffer).
+    void clear() {
+        m_history.clear();
+        m_appliedPatches.clear();
+    }
 
     /// The set of files/items attached to the conversation as context.
     [[nodiscard]] auto context() -> AiContext& { return m_context; }
@@ -83,19 +88,22 @@ public:
     [[nodiscard]] auto isPatchApplied(const wxString& search, const wxString& replace) const -> bool;
 
 private:
-    /// Stable UTF-8 key for a `(search, replace)` pair — implementation
-    /// detail of the applied-set.
-    [[nodiscard]] static auto patchKey(const wxString& search, const wxString& replace) -> std::string;
+    /// 64-bit hash key for a `(search, replace)` pair. In-memory only,
+    /// so `std::hash`'s run-to-run instability is harmless. Collisions
+    /// degrade live-edit (one patch may be silently skipped because its
+    /// hash matches an earlier one) without corrupting any data, so the
+    /// trade-off vs. storing the full text is one-sided.
+    [[nodiscard]] static auto patchKey(const wxString& search, const wxString& replace) -> std::uint64_t;
 
-    Context& m_ctx;                                   ///< Application context.
-    std::unique_ptr<AiProvider> m_provider;           ///< Active backend (null until configured).
-    std::vector<AiMessage> m_history;                 ///< Conversation messages.
-    AiContext m_context;                              ///< Files attached as context.
-    wxString m_model;                                 ///< Model name sent with each request.
-    wxString m_systemPrompt;                          ///< Configured system prompt (may be empty).
-    std::unordered_set<std::string> m_appliedPatches; ///< Keys of patches already attempted this session.
-    bool m_agentMode = false;                         ///< Agent mode toggle state.
-    bool m_liveEdit = false;                          ///< Live-edit auto-apply toggle state.
+    Context& m_ctx;                                     ///< Application context.
+    std::unique_ptr<AiProvider> m_provider;             ///< Active backend (null until configured).
+    std::vector<AiMessage> m_history;                   ///< Conversation messages.
+    AiContext m_context;                                ///< Files attached as context.
+    wxString m_model;                                   ///< Model name sent with each request.
+    wxString m_systemPrompt;                            ///< Configured system prompt (may be empty).
+    std::unordered_set<std::uint64_t> m_appliedPatches; ///< Hashes of patches already attempted this session.
+    bool m_agentMode = false;                           ///< Agent mode toggle state.
+    bool m_liveEdit = false;                            ///< Live-edit auto-apply toggle state.
 };
 
 } // namespace fbide::ai
