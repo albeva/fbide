@@ -307,10 +307,10 @@ void AiChatView::relayout() {
         const auto highlight = [this, reformat](const wxString& code, const wxString& lang) {
             return highlightFence(code, lang, reformat);
         };
-        const bool rebuilt_layout = item.document.setMarkdown(
+        const bool documentRebuilt = item.document.setMarkdown(
             message.markdown, maxContent, measurer, pal, highlight, resolveImage, wrapCodeBlocks
         );
-        if (rebuilt_layout) {
+        if (documentRebuilt) {
             // Shrink the bubble to its widest line — wrapping was done
             // at maxContent, so every line already fits the shrunk width.
             // Non-wrapped code / patch lines pay an extra right gutter
