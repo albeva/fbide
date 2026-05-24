@@ -281,7 +281,7 @@ void ThemePage::createLeftPanel() {
         m_lblFont = text(tr("font"), {});
         m_fontChoice = make_unowned<wxChoice>(currentParent(), wxID_ANY);
         m_fontChoice->Append(getAllFixedWidthFonts());
-        add(m_fontChoice);
+        add(m_fontChoice, { .expand = false });
         connect(m_lblFont, m_fontChoice);
     });
 }
