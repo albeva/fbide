@@ -321,7 +321,7 @@ void AiChatPanel::onLiveEditToggle(wxCommandEvent& /*event*/) {
     m_ctx.getAiManager().setLiveEdit(m_liveEdit->GetValue());
 }
 
-void AiChatPanel::renderConversation() const {
+void AiChatPanel::renderConversation() {
     std::vector<ChatViewMessage> messages;
     for (const auto& message : m_ctx.getAiManager().history()) {
         messages.push_back({

@@ -84,7 +84,7 @@ private:
 
     /// Re-render the whole conversation (plus the streaming reply and any
     /// error) into the chat view.
-    void renderConversation() const;
+    void renderConversation();
 
     Context& m_ctx;                        ///< Application context.
     Unowned<AiChatView> m_output;          ///< Conversation view (custom-painted).
