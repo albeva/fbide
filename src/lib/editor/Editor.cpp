@@ -788,7 +788,7 @@ void Editor::uncommentSelection() {
 void Editor::onUpdateUI(wxStyledTextEvent& event) {
     event.Skip();
 
-    if (m_docType != DocumentType::FreeBASIC || m_editorLocked) {
+    if (m_editorLocked) {
         return;
     }
 
@@ -798,6 +798,10 @@ void Editor::onUpdateUI(wxStyledTextEvent& event) {
     if (not m_callPostUpdate && (selection || content)) {
         m_callPostUpdate = true;
         CallAfter(&Editor::postUpdateUI);
+    }
+
+    if (m_docType != DocumentType::FreeBASIC) {
+        return;
     }
 
     const int curr = GetCurrentPos();
