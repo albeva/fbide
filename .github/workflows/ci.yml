@@ -480,13 +480,6 @@ jobs:
           else
             BREW=(/opt/homebrew/bin/brew)
           fi
-          # --overwrite lets brew take precedence over files the runner
-          # already ships under /usr/local/bin (notably the Python
-          # idle3 / pip3 symlinks the x86_64 brew install of LLVM
-          # transitively wants to lay down). Without it the link step
-          # fails the entire install. Harmless on /opt/homebrew where
-          # there's nothing to overwrite.
-          #
           # Pinning to llvm@20 (vs the latest `llvm` formula) sidesteps
           # a libc++ self-check added in LLVM 22 that rejects the
           # header-search order wxWidgets's macOS CMake produces. wx
@@ -499,11 +492,36 @@ jobs:
           # Apple Clang has always done. llvm@20 still ships the
           # C++23 stdlib we care about (std::ranges::contains et al.,
           # which landed in libc++ 18).
-          "${BREW[@]}" install --overwrite llvm@20 dylibbundler
+          #
+          # `--overwrite` lets brew claim files at /usr/local/bin/ for
+          # the named formulae, but does NOT propagate to transitive
+          # deps (e.g. python pulled in by llvm@20). On macos-14's
+          # x86_64 Homebrew, python@3.x trips over the runner's
+          # pre-shipped /usr/local/bin/idle3 etc. and brew exits
+          # non-zero. We don't actually need anything linked into
+          # /usr/local/bin/ — the FBIde / wx builds use absolute
+          # `${LLVM_PREFIX}/bin/...` paths and dylibbundler is
+          # reached via PATH below. So tolerate the link failure,
+          # then verify the Cellar contents.
+          "${BREW[@]}" install --overwrite llvm@20 dylibbundler || true
           LLVM_PREFIX="$("${BREW[@]}" --prefix llvm@20)"
+          DYLIBBUNDLER_PREFIX="$("${BREW[@]}" --prefix dylibbundler)"
+          if [ ! -x "${LLVM_PREFIX}/bin/clang++" ]; then
+            echo "::error::llvm@20 not installed at ${LLVM_PREFIX}"
+            exit 1
+          fi
+          if [ ! -x "${DYLIBBUNDLER_PREFIX}/bin/dylibbundler" ]; then
+            echo "::error::dylibbundler not installed at ${DYLIBBUNDLER_PREFIX}"
+            exit 1
+          fi
           echo "CC=${LLVM_PREFIX}/bin/clang" >> "$GITHUB_ENV"
           echo "CXX=${LLVM_PREFIX}/bin/clang++" >> "$GITHUB_ENV"
           echo "LLVM_PREFIX=${LLVM_PREFIX}" >> "$GITHUB_ENV"
+          # Put both formulae on PATH so dylibbundler is reachable
+          # from packaging/macos/bundle-dylibs.sh even when brew's
+          # link step didn't drop a /usr/local/bin/dylibbundler
+          # symlink (collateral damage from the link-failure above).
+          echo "PATH=${LLVM_PREFIX}/bin:${DYLIBBUNDLER_PREFIX}/bin:${PATH}" >> "$GITHUB_ENV"
           # Homebrew LLVM is keg-only: libc++ / libunwind live under
           # subdirs of $LLVM_PREFIX/lib and aren't on the linker's
           # default search path. Without these LDFLAGS the link would
