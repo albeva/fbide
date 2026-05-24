@@ -17,8 +17,20 @@ if (WIN32)
 elseif (APPLE)
     # macos bundle executable
     add_executable(fbide MACOSX_BUNDLE)
-    # attach Info.plist
-    set_target_properties(fbide PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${PROJECT_SOURCE_DIR}/src/lib/rc/Info.plist)
+    # Use the configured Info.plist (version + bundle metadata substituted
+    # at configure time from configured_files/Info.plist.in).
+    set_target_properties(fbide PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_BINARY_DIR}/configured_files/macos/Info.plist
+    )
+    # App icon — Finder reads CFBundleIconFile from the plist and looks
+    # for `<value>.icns` in Resources/. Sourced from src/lib/rc/ so it
+    # lives next to the Windows .ico (the icon is the same across
+    # platforms; the macOS .icns is built from it).
+    set(FBIDE_MACOS_ICON ${PROJECT_SOURCE_DIR}/src/lib/rc/fbide.icns)
+    set_source_files_properties(${FBIDE_MACOS_ICON}
+        PROPERTIES MACOSX_PACKAGE_LOCATION Resources
+    )
+    target_sources(fbide PRIVATE ${FBIDE_MACOS_ICON})
     # copy resources/ide to the Bundle
     file(GLOB_RECURSE IDE_RESOURCES ${PROJECT_SOURCE_DIR}/resources/pristine/*)
     foreach (FILE ${IDE_RESOURCES})
