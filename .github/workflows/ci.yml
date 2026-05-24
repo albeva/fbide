@@ -53,6 +53,16 @@ on:
         required: false
         default: true
         type: boolean
+      build_macos_arm64:
+        description: Build macOS DMG (arm64)
+        required: false
+        default: true
+        type: boolean
+      build_macos_x86_64:
+        description: Build macOS DMG (x86_64)
+        required: false
+        default: true
+        type: boolean
       publish_release:
         description: Publish a GitHub Release with the built artefacts
         required: false
@@ -88,6 +98,7 @@ jobs:
       release: ${{ steps.resolve.outputs.release }}
       win-archs: ${{ steps.targets.outputs.win-archs }}
       build-linux-appimage: ${{ steps.targets.outputs.build-linux-appimage }}
+      macos-targets: ${{ steps.targets.outputs.macos-targets }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -147,10 +158,22 @@ jobs:
           BUILD_WIN64: ${{ inputs.build_win64 }}
           BUILD_WIN32: ${{ inputs.build_win32 }}
           BUILD_LINUX: ${{ inputs.build_linux_appimage }}
+          BUILD_MACOS_ARM64: ${{ inputs.build_macos_arm64 }}
+          BUILD_MACOS_X86_64: ${{ inputs.build_macos_x86_64 }}
         run: |
+          # macos-targets is a JSON list of {arch, runner} objects fed
+          # directly into build-macos's matrix.include. Both arches run
+          # on macos-latest (Apple Silicon, newest hosted image with
+          # newest Xcode). arm64 builds natively; x86_64 cross-compiles
+          # with Apple Clang's built-in -arch x86_64 support (no
+          # Rosetta needed for the compile, only for running the tests
+          # — Rosetta is pre-installed on the hosted image).
+          mac_arm='{"arch":"arm64","runner":"macos-latest"}'
+          mac_x86='{"arch":"x86_64","runner":"macos-latest"}'
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then
             echo 'win-archs=["x64","x86"]' >> "$GITHUB_OUTPUT"
             echo 'build-linux-appimage=true' >> "$GITHUB_OUTPUT"
+            echo "macos-targets=[${mac_arm},${mac_x86}]" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           archs=()
@@ -159,6 +182,11 @@ jobs:
           IFS=,
           echo "win-archs=[${archs[*]}]" >> "$GITHUB_OUTPUT"
           echo "build-linux-appimage=${BUILD_LINUX:-true}" >> "$GITHUB_OUTPUT"
+          mac=()
+          [ "${BUILD_MACOS_ARM64:-true}" = "true" ] && mac+=("${mac_arm}")
+          [ "${BUILD_MACOS_X86_64:-true}" = "true" ] && mac+=("${mac_x86}")
+          IFS=,
+          echo "macos-targets=[${mac[*]}]" >> "$GITHUB_OUTPUT"
 
   build-and-test:
     name: build-and-test (${{ matrix.arch }})
@@ -386,18 +414,141 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+  # ----------------------------------------------------------------------------
+  # macOS DMG. One per arch, both built on the same macos-latest runner
+  # (Apple Silicon, newest Xcode the hosted image carries). Uses the
+  # default Apple Clang — it cross-compiles to x86_64 natively (-arch
+  # x86_64) and links against Apple's universal libc++ in
+  # /usr/lib/libc++.dylib, which is on every Mac and already covers
+  # the C++23 stdlib FBIde uses (std::ranges::contains et al.). No
+  # Homebrew, no dylib bundling, no fat-binary lipo.
+  # ----------------------------------------------------------------------------
+  build-macos:
+    name: build-macos (${{ matrix.arch }})
+    needs: version
+    if: needs.version.outputs.macos-targets != '[]'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.version.outputs.macos-targets) }}
+    env:
+      BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
+      # Single source of truth for the macOS floor — passed to both wx
+      # (via setup-wx) and to FBIde's configure. Keep aligned with
+      # LSMinimumSystemVersion in configured_files/Info.plist.in.
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # Hosted macos-latest runners ship a recent CMake, but FBIde
+      # requires CMake 4.0+; lukka/get-cmake also provides Ninja.
+      - name: Set up CMake + Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: latest
+
+      # Rosetta is needed only for *running* the x86_64 test binaries
+      # on this arm64 host — the compile path is native arm64 clang
+      # producing x86_64 code. `--install-rosetta` is idempotent.
+      - name: Enable Rosetta (for x86_64 ctest under arm64 host)
+        if: matrix.arch == 'x86_64'
+        run: sudo softwareupdate --install-rosetta --agree-to-license
+
+      - name: Set up wxWidgets (osx_cocoa, ${{ matrix.arch }})
+        id: wx
+        uses: ./.github/actions/setup-wx
+        with:
+          wx-ref: v3.3.2
+          build-type: ${{ env.BUILD_TYPE }}
+          arch: ${{ matrix.arch }}
+
+      # The matrix runs this twice (once per arch) on the same runner.
+      # Apple Clang's `-arch` support handles both cross- and native-
+      # compilation in one toolchain; the wx build above used the
+      # same Apple Clang via setup-wx, so ABIs line up at link time.
+      - name: Configure
+        run: >
+          cmake -G Ninja -B build/ci
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DBUILD_TESTING=ON
+          -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+          -DWXWIN=${{ steps.wx.outputs.wx-root }}
+
+      - name: Build
+        run: cmake --build build/ci
+
+      # GUI tests carry the `gui` label (see tests/CMakeLists.txt) and
+      # are Windows-targeted; skip them here just like the Linux job.
+      # For x86_64 the test binaries run under Rosetta on this arm64
+      # host (enabled above); arm64 tests run native.
+      - name: Test (non-GUI)
+        working-directory: build/ci
+        run: ctest --output-on-failure -LE gui
+
+      # Spot-check: the produced binary's arch matches the matrix and
+      # the deployment target is the one we set. Catches a toolchain
+      # change quietly drifting in a future runner image refresh.
+      - name: Verify binary arch + deployment target
+        run: |
+          set -eux
+          binary="bin/fbide.app/Contents/MacOS/fbide"
+          file "$binary"
+          arches=$(lipo -archs "$binary")
+          echo "Arches: $arches"
+          [ "$arches" = "${{ matrix.arch }}" ]
+          # LC_BUILD_VERSION encodes minos as e.g. "minos 11.0".
+          otool -l "$binary" | awk '/LC_BUILD_VERSION/{f=1} f && /minos/{print; exit}' | grep -q "minos ${MACOSX_DEPLOYMENT_TARGET}"
+
+      # Ad-hoc sign the bundle. We don't ship a Developer ID
+      # signature (no paid Apple Developer Program subscription), but
+      # the binary needs *some* signature so Gatekeeper presents the
+      # bypassable "cannot verify developer" dialog (with the normal
+      # System Settings → Privacy & Security → Open Anyway flow)
+      # rather than the unbypassable "is damaged" rejection. clang's
+      # linker normally adds an ad-hoc signature, but cross-compiled
+      # output sometimes doesn't get it; an explicit step makes the
+      # state deterministic.
+      - name: Ad-hoc sign the bundle
+        run: codesign --force --deep --sign - bin/fbide.app
+
+      - name: Build DMG
+        if: needs.version.outputs.release == 'true'
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -eux
+          dmg="$(packaging/macos/build-dmg.sh bin/fbide.app "${VERSION}" "${{ matrix.arch }}" .)"
+          echo "RELEASE_DMG=$(basename "${dmg}")" >> "$GITHUB_ENV"
+
+      - name: Upload release artefact
+        if: needs.version.outputs.release == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-macos-${{ matrix.arch }}
+          path: ${{ env.RELEASE_DMG }}
+          retention-days: 1
+          if-no-files-found: error
+
   release:
     name: release
-    needs: [version, build-and-test, build-linux-appimage]
+    needs: [version, build-and-test, build-linux-appimage, build-macos]
     # `always()` runs the gate regardless of whether upstream jobs were
     # skipped (selective targets via workflow_dispatch) or not. Then we
     # require a publishable run AND at least one upstream success — a
-    # full skip / failure across both build jobs leaves nothing to
+    # full skip / failure across every build job leaves nothing to
     # release.
     if: |
       always()
       && needs.version.outputs.release == 'true'
-      && (needs.build-and-test.result == 'success' || needs.build-linux-appimage.result == 'success')
+      && (needs.build-and-test.result == 'success'
+          || needs.build-linux-appimage.result == 'success'
+          || needs.build-macos.result == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -413,6 +564,8 @@ jobs:
       # SHA) and the matching release in one step. Pre-release flag is
       # auto-derived: any version containing '-' (i.e. has an
       # .alpha-N / .beta-N / .rc-N suffix) is marked pre-release.
+      # `body` is prepended to the auto-generated commit notes — used
+      # to give download-and-install instructions per platform.
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -421,6 +574,33 @@ jobs:
           target_commitish: ${{ github.sha }}
           prerelease: ${{ contains(needs.version.outputs.version, '-') }}
           generate_release_notes: true
+          body: |
+            ## Downloads
+
+            - **Windows**: `fbide-<version>-win64.zip` (or `win32`). Portable — unzip anywhere and run `fbide.exe`.
+            - **Linux**: `fbide-<version>-x86_64.AppImage`. `chmod +x` and run.
+            - **macOS**:
+              - Apple Silicon → `fbide-<version>-macos-arm64.dmg`
+              - Intel → `fbide-<version>-macos-x86_64.dmg`
+              - Minimum macOS: 11.0 (Big Sur).
+
+            ### macOS first-run
+
+            FBIde isn't signed with an Apple Developer ID, so the
+            first time you open it macOS will warn that *"FBIde
+            can't be opened because Apple cannot check it for
+            malicious software"*. To allow it:
+
+            1. Drag **FBIde.app** to **Applications**.
+            2. Double-click **FBIde** — dismiss the warning dialog.
+            3. Open **System Settings → Privacy & Security**, scroll
+               to the *Security* section, and click **Open Anyway**
+               next to the FBIde entry.
+            4. Confirm in the dialog that follows.
+
+            macOS remembers the decision; subsequent launches open
+            without warnings.
           files: |
             artefacts/*.zip
             artefacts/*.AppImage
+            artefacts/*.dmg

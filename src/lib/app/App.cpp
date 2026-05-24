@@ -293,9 +293,7 @@ auto App::OnInit() -> bool {
     showSplash();
 
     const auto& configManager = m_context->getConfigManager();
-    const auto historyPath = configManager.getIdeDir() / "history.ini";
-    m_context->getFileHistory().load(historyPath);
-    wxLogMessage("file history: %s", historyPath);
+    m_context->getFileHistory().load(configManager.historyPath());
 
     m_context->getUIManager().createMainFrame();
     openFiles(cli.files);
@@ -499,6 +497,25 @@ void App::openFiles(const wxArrayString& files) {
         docManager.openFile(file);
     }
 }
+
+#ifdef __WXOSX__
+void App::MacOpenFiles(const wxArrayString& fileNames) {
+    // macOS can deliver the open-document event while OnInit is
+    // still running (when Finder launches FBIde fresh by double-
+    // clicking a .bas/.bi/.fbs file): the Apple event is queued
+    // before m_context is built. Re-dispatch through CallAfter so
+    // the actual file open runs on a later event-loop tick, by
+    // which point OnInit has finished and the document manager
+    // exists. When fired against an already-running instance
+    // (Dock-drop, open-with on a running app), this is a one-tick
+    // detour at worst.
+    CallAfter([this, fileNames]() {
+        if (m_context) {
+            openFiles(fileNames);
+        }
+    });
+}
+#endif
 
 void App::scheduleRestart(std::function<void()> commitConfig) {
     CallAfter([this, commit = std::move(commitConfig)]() {

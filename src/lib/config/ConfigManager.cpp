@@ -9,11 +9,30 @@ using namespace fbide;
 namespace fs = std::filesystem;
 
 namespace {
-// `toPath()` / `toWx()` come from utils/Utils.hpp via pch — shared with
-// every module that needs to cross the wxString ↔ std::filesystem
-// boundary. Everything below works in `fs::path`; conversions happen
-// only at the public API boundary and at wx interop points (wxFFile
-// streams, wxLog formatting).
+// ---------------------------------------------------------------------------
+// wxString <-> std::filesystem::path conversion
+//
+// Everything inside this TU works in `fs::path`. Conversions to/from
+// `wxString` happen only at the public API boundary and at wx interop
+// points (wxFFile streams, wxLog formatting). The two helpers below
+// encode the platform-conditional UTF-8 / wide-char split in one place.
+// ---------------------------------------------------------------------------
+
+[[nodiscard]] auto toPath(const wxString& str) -> fs::path {
+#ifdef __WXMSW__
+    return fs::path { str.ToStdWstring() };
+#else
+    return fs::path { str.ToStdString(wxConvUTF8) };
+#endif
+}
+
+[[nodiscard]] auto toWx(const fs::path& path) -> wxString {
+#ifdef __WXMSW__
+    return wxString { path.wstring() };
+#else
+    return wxString::FromUTF8(path.string());
+#endif
+}
 
 void dismissSplash() {
     auto node = wxTopLevelWindows.GetFirst();
@@ -202,6 +221,13 @@ auto ConfigManager::themesWriteDir() const -> wxString {
     return toWx(dir);
 }
 
+auto ConfigManager::historyPath() const -> fs::path {
+    const auto& dir = m_readOnlyIde ? m_userDataDir : m_ideDir;
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    return dir / "history.local.ini";
+}
+
 auto ConfigManager::themePath(const wxString& relPath) const -> wxString {
     if (relPath.empty()) {
         return relPath;
@@ -352,7 +378,7 @@ ConfigManager::ConfigManager(
     m_explicitConfig = !configPath.empty();
     m_readOnlyIde = hasReadOnlySentinel(m_ideDir);
     if (m_readOnlyIde) {
-        wxLogMessage("READONLY sentinel detected in '%s' — overlays route to '%s'", toWx(m_ideDir), toWx(m_userDataDir));
+        wxLogVerbose("READONLY sentinel detected in '%s' — overlays route to '%s'", toWx(m_ideDir), toWx(m_userDataDir));
     }
 
     auto& entry = m_categories.at(static_cast<std::size_t>(Category::Config));
@@ -360,7 +386,7 @@ ConfigManager::ConfigManager(
         Category::Config,
         absolutePath(toPath(configPath.empty() ? getPlatformConfigFileName() : configPath))
     );
-    wxLogMessage("ide directory: %s", toWx(m_ideDir));
+    wxLogVerbose("ide directory: %s", toWx(m_ideDir));
     load(Category::Config);
 
     // Load all configs
@@ -375,7 +401,7 @@ ConfigManager::ConfigManager(
         const auto themeAbs = themePath(themeRel);
         if (wxFileExists(themeAbs)) {
             m_theme.load(themeAbs);
-            wxLogMessage("Loaded theme from %s", themeAbs);
+            wxLogVerbose("Loaded theme from %s", themeAbs);
         } else {
             wxLogError("Theme file '%s' not found — using built-in default", themeAbs);
             m_theme.loadDefaults();
@@ -554,7 +580,7 @@ void ConfigManager::load(const Category category) {
             overlayCfg.SetPath("/");
             importGroup(overlayCfg, overlay);
             root.mergeFrom(overlay);
-            wxLogMessage("Merged overlay %s into %s", overlayWx, catName);
+            wxLogVerbose("Merged overlay %s into %s", overlayWx, catName);
         } else {
             wxLogWarning("Overlay '%s' exists but could not be read", overlayWx);
         }
@@ -563,7 +589,7 @@ void ConfigManager::load(const Category category) {
     entry.category = category;
     entry.baseline = std::move(baseline);
     entry.root = std::move(root);
-    wxLogMessage("Loaded %s from %s", catName, fileWx);
+    wxLogVerbose("Loaded %s from %s", catName, fileWx);
 }
 
 void ConfigManager::save(const Category category) const {
@@ -598,17 +624,13 @@ void ConfigManager::save(const Category category) const {
         if (!diff) {
             if (fs::exists(overlayPath, ec)) {
                 fs::remove(overlayPath, ec);
-                wxLogMessage("Pruned empty overlay '%s'", overlayWx);
+                wxLogVerbose("Pruned empty overlay '%s'", overlayWx);
             }
             return;
         }
         // Ensure parent dir exists — under READONLY this is
         // `<UserDataDir>` which may not exist on first launch.
         fs::create_directories(overlayPath.parent_path(), ec);
-        // Explicit empty + style=0: the default `wxFileConfig()` ctor
-        // sets `wxCONFIG_USE_LOCAL_FILE | wxCONFIG_USE_GLOBAL_FILE` and
-        // auto-loads `<AppName>.ini` from the user/global dirs, baking
-        // stale unrelated keys into the overlay on Save().
         wxFileConfig overlayCfg(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
         wxFFileOutputStream outStream(overlayWx);
         if (!outStream.IsOk()) {
@@ -617,7 +639,7 @@ void ConfigManager::save(const Category category) const {
         }
         exportGroup(diff, "", overlayCfg);
         overlayCfg.Save(outStream, wxConvUTF8);
-        wxLogMessage("Saved overlay '%s'", overlayWx);
+        wxLogVerbose("Saved overlay '%s'", overlayWx);
         return;
     }
 

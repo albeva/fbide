@@ -246,12 +246,15 @@ public:
     /// `vbox(title, ...)` / `hbox(title, ...)`.
     [[nodiscard]] auto currentParent() const -> wxWindow* { return m_currentParent; }
 
+    /// Get current named label
+    [[nodiscard]] auto currentNamedLabel() const -> wxStaticText* { return m_namedLabel; }
+
 private:
     /// Push a new `SmartBoxSizer` (optionally inside a static box),
     /// run `func` with it as the active sizer, then pop.
     template<std::invocable Func>
     void makeBox(const wxString& title, const int direction, const LayoutContainerOptions opts, Func&& func) {
-        const ValueRestorer restoreState { m_currentSizer, m_currentParent };
+        const ValueRestorer restoreState { m_currentSizer, m_currentParent, m_namedLabel };
 
         const SmartBoxSizer::Options smartOpts {
             .gap = opts.gap,
@@ -263,25 +266,23 @@ private:
             smartOpts, static_cast<wxOrientation>(direction)
         );
 
-        if (title.empty()) {
-            add(smart, opts);
-        } else {
-            // Wrap in a wxStaticBoxSizer; the SmartBoxSizer goes
-            // inside as the static box's content sizer.
-            wxStaticBoxSizer* const staticSizer = make_unowned<wxStaticBoxSizer>(
-                direction, m_currentParent, title
-            );
-            staticSizer->Add(smart, 1, wxEXPAND);
-            m_currentParent = staticSizer->GetStaticBox();
-            add(staticSizer, opts);
+        if (not title.empty()) {
+            auto* vsizer = new SmartBoxSizer(SmartBoxSizer::Options {}, wxVERTICAL);
+            add(vsizer, opts);
+            m_currentSizer = vsizer;
+            m_namedLabel = label(title);
+            m_namedLabel->SetFont(m_namedLabel->GetFont().Bold());
+            separator();
         }
 
+        add(smart, opts);
         m_currentSizer = smart;
         std::invoke(std::forward<Func>(func));
     }
 
     wxBoxSizer* m_currentSizer = nullptr; ///< Active SmartBoxSizer (held as base).
     wxWindow* m_currentParent = this;     ///< Active wx parent for new controls.
+    wxStaticText* m_namedLabel = nullptr;
 };
 
 } // namespace fbide

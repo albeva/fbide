@@ -56,49 +56,54 @@ void writeCategory(Theme& theme, const SettingsCategory cat, const Theme::Entry&
 
 auto categoryTreeLayout() -> std::vector<ThemePage::TreeNode> {
     using SC = SettingsCategory;
+    // Category-bound nodes are spelled `{ SC::Foo, { ... } }` and their
+    // locale key is derived from the enum via `getSettingsCategoryLabelKey`.
+    // Folder nodes use `{ "folderKey", { ... } }` (string literal picks
+    // the wxString constructor) for the labels that don't correspond to
+    // a single category.
     // clang-format off
     return {
-        { "default", "Default", SC::Default, {
-            { "comments",          "Comments",           SC::Comment,          {} },
-            { "multilineComments", "Multiline comments", SC::MultilineComment, {} },
-            { "identifier",        "Identifier",         SC::Identifier,       {} },
-            { "number",            "Number",             SC::Number,           {} },
-            { "string",            "String",             SC::String, {
-                { "unterminated", "Unterminated", SC::StringOpen, {} },
-            } },
-            { "operator",          "Operator",           SC::Operator,         {} },
-            { "label",             "Label",              SC::Label,            {} },
-            { "error",             "Error",              SC::Error,            {} },
-            { "keywords", "Keywords", std::nullopt, {
-                { "core",              "Core",      SC::Keywords,         {} },
-                { "types",             "Types",     SC::KeywordTypes,     {} },
-                { "operators",         "Operators", SC::KeywordOperators, {} },
-                { "defines",           "Defines",   SC::KeywordConstants, {} },
-                { "library",           "Library",   SC::KeywordLibrary,   {} },
-                { "custom",            "Custom",    SC::KeywordCustom,    {} },
-            } },
-            { "margins", "Margins", std::nullopt, {
-                { "lineNumbers", "Line numbers", SC::LineNumber, {} },
-                { "fold",        "Fold",         SC::FoldMargin, {} },
-                { "changes",     "Changes",      SC::Changes,    {} },
-            } },
-            { "selection", "Selection", SC::Selection, {} },
-            { "brace", "Brace", std::nullopt, {
-                { "match",    "Match",    SC::Brace,    {} },
-                { "mismatch", "Mismatch", SC::BadBrace, {} },
-            } },
-        } },
-        { "asm", "Asm", std::nullopt, {
-            { "instructions", "Instructions", SC::KeywordAsm1, {} },
-            { "registers",    "Registers",    SC::KeywordAsm2, {} },
-        } },
-        { "preprocessor", "Preprocessor", SC::Preprocessor, {
-            { "directives",   "Directives", SC::KeywordPP,    {} },
-            { "ppIdentifier", "Identifier", SC::IdentifierPP, {} },
-            { "ppNumber",     "Number",     SC::NumberPP,     {} },
-            { "ppString",     "String",     SC::StringPP,     {} },
-            { "ppOperator",   "Operator",   SC::OperatorPP,   {} },
-        } },
+        { SC::Default, {
+            { SC::Comment          },
+            { SC::MultilineComment },
+            { SC::Identifier       },
+            { SC::Number           },
+            { SC::String, {
+                { SC::StringOpen },
+            }},
+            { SC::Operator         },
+            { SC::Label            },
+            { SC::Error            },
+            { "keywords", {
+                { SC::Keywords         },
+                { SC::KeywordTypes     },
+                { SC::KeywordOperators },
+                { SC::KeywordConstants },
+                { SC::KeywordLibrary   },
+                { SC::KeywordCustom    },
+            }},
+            { "margins", {
+                { SC::LineNumber },
+                { SC::FoldMargin },
+                { SC::Changes    },
+            }},
+            { SC::Selection },
+            { "brace", {
+                { SC::Brace    },
+                { SC::BadBrace },
+            }},
+        }},
+        { "asm", {
+            { SC::KeywordAsm1 },
+            { SC::KeywordAsm2 },
+        }},
+        { SC::Preprocessor, {
+            { SC::KeywordPP    },
+            { SC::IdentifierPP },
+            { SC::NumberPP     },
+            { SC::StringPP     },
+            { SC::OperatorPP   },
+        }},
     };
     // clang-format on
 }
@@ -161,8 +166,8 @@ auto ThemePage::tr(const wxString& path, const wxString& def) const -> wxString 
 void ThemePage::create() {
     createTopRow();
 
-    hbox(m_activeTheme, { .proportion = 1, .margin = false }, [&] {
-        m_themeBox = wxDynamicCast(currentParent(), wxStaticBox);
+    hbox({ .proportion = 1, .margin = false }, [&] {
+        m_themeLabel = currentNamedLabel();
         createCategoryList();
         createLeftPanel();
         separator();
@@ -170,18 +175,16 @@ void ThemePage::create() {
     });
     SetSizerAndFit(currentSizer());
 
-    updateTitle();
-
     m_selectedRow = +SettingsCategory::Default;
     loadCategory();
-    wxTreeItemIdValue cookie;
+    wxTreeItemIdValue cookie = nullptr;
     if (const auto first = m_typeTree->GetFirstChild(m_typeTree->GetRootItem(), cookie); first.IsOk()) {
         m_typeTree->SelectItem(first);
     }
 }
 
 void ThemePage::createTopRow() {
-    hbox(tr("name"), { .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
+    hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
         m_themeFiles = getContext().getConfigManager().getAllThemes();
         wxArrayString names;
         names.reserve(m_themeFiles.size() + 1);
@@ -214,7 +217,16 @@ void ThemePage::createTopRow() {
 
 void ThemePage::addTreeNode(const wxTreeItemId parent, const std::vector<TreeNode>& nodes) {
     for (const auto& node : nodes) {
-        const auto label = tr("categories." + node.labelKey, node.fallbackLabel);
+        const wxString key = node.category
+                               ? [&] {
+                                     const auto sv = getSettingsCategoryLabelKey(*node.category);
+                                     return wxString::FromAscii(sv.data(), sv.size());
+                                 }()
+                               : node.labelKey;
+        // Fall back to the key itself if the locale lookup is missing —
+        // the user sees the raw key (e.g. "comments") rather than a
+        // mystery blank, which makes missing translations obvious.
+        const auto label = tr("categories." + key, key);
         const auto id = m_typeTree->AppendItem(parent, label);
         if (node.category) {
             m_treeCategories.emplace(id.GetID(), *node.category);
@@ -229,7 +241,7 @@ void ThemePage::addTreeNode(const wxTreeItemId parent, const std::vector<TreeNod
 void ThemePage::createCategoryList() {
     m_typeTree = make_unowned<wxTreeCtrl>(
         currentParent(), ID_CATEGORY_TREE,
-        wxDefaultPosition, wxSize(180, 320),
+        wxDefaultPosition, wxSize(180, 200),
         wxTR_HAS_BUTTONS | wxTR_HIDE_ROOT | wxTR_LINES_AT_ROOT | wxTR_FULL_ROW_HIGHLIGHT
     );
 
@@ -269,7 +281,7 @@ void ThemePage::createLeftPanel() {
         m_lblFont = text(tr("font"), {});
         m_fontChoice = make_unowned<wxChoice>(currentParent(), wxID_ANY);
         m_fontChoice->Append(getAllFixedWidthFonts());
-        add(m_fontChoice);
+        add(m_fontChoice, { .expand = false });
         connect(m_lblFont, m_fontChoice);
     });
 }
@@ -306,7 +318,6 @@ void ThemePage::onSelectTheme(wxCommandEvent& event) {
         m_activeTheme = "";
     }
 
-    updateTitle();
     if (not isUnsavedNewTheme()) {
         m_theme = {};
         m_theme.load(m_activeTheme);
@@ -321,7 +332,6 @@ void ThemePage::onSaveTheme(wxCommandEvent&) {
         // saveNewTheme writes the theme at `themesWriteDir() / name`
         // already; no second save needed.
         saveNewTheme(false);
-        updateTitle();
     } else {
         // Route existing-theme saves through `themesWriteDir()` —
         // under READONLY this is `<UserDataDir>/themes/`, so edits to
@@ -541,8 +551,4 @@ void ThemePage::syncActiveThemeConfig() {
     auto& cm = getContext().getConfigManager();
     cm.config()["theme"] = cm.relative(m_theme.getPath());
     cm.save(ConfigManager::Category::Config);
-}
-
-void ThemePage::updateTitle() {
-    m_themeBox->SetLabel(m_themeChoice->GetStringSelection());
 }

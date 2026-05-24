@@ -33,6 +33,12 @@ public:
 
     /// Cleanup on exit — flush clipboard so copied content persists after app closes.
     auto OnExit() -> int override;
+
+#ifdef __WXOSX__
+    /// Receive document-open events from the OS
+    void MacOpenFiles(const wxArrayString& fileNames) override;
+#endif
+
     /// Apply `appearance=` config (light/dark/system) to the wx appearance API.
     void initAppearance();
 

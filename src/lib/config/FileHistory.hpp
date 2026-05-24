@@ -9,14 +9,14 @@
 
 namespace fbide {
 
-/// Manages recent file history, persisted to history.ini.
+/// Manages recent file history, persisted to history.local.ini.
 class FileHistory final {
 public:
     NO_COPY_AND_MOVE(FileHistory)
     FileHistory() = default;
 
     /// Load history from an INI file.
-    void load(const wxString& path);
+    void load(const std::filesystem::path& path);
 
     /// Save history to the loaded path.
     void save();
@@ -31,7 +31,7 @@ public:
     [[nodiscard]] auto getHistory() -> wxFileHistory& { return m_history; }
 
 private:
-    wxString m_path;                           ///< Path to the backing INI file.
+    std::filesystem::path m_path;              ///< Path to the backing INI file.
     wxFileHistory m_history { 9, wxID_FILE1 }; ///< Underlying wx history (9 slots from `wxID_FILE1`).
 };
 

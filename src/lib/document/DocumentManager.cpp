@@ -10,7 +10,6 @@
 #include "DocumentPath.hpp"
 #include "FileSession.hpp"
 #include "analyses/intellisense/IntellisenseService.hpp"
-#include "analyses/symbols/SymbolTable.hpp"
 #include "app/Context.hpp"
 #include "command/CommandEntry.hpp"
 #include "command/CommandId.hpp"
@@ -298,14 +297,43 @@ auto DocumentManager::saveFile(Document& doc) -> bool {
 }
 
 auto DocumentManager::saveFileAs(Document& doc) -> bool {
-    const auto typeKey = doc.getType() == DocumentType::HTML ? "html" : "freebasic";
-    const auto filter = m_ctx.getConfigManager().filePatterns({ typeKey, "all" });
+    auto& cfg = m_ctx.getConfigManager();
+
+    // Preselect the filter from the document's type override (the
+    // status-bar language menu); default to FreeBASIC otherwise. An
+    // override whose type has no configured `[filePatterns]` entry
+    // is ignored so the dialog still ships a usable filter.
+    std::string_view typeKey = "freebasic";
+    if (doc.isTypeOverridden()) {
+        const auto overrideKey = documentTypeKey(doc.getType());
+        const wxString patternKey = wxString::FromAscii(overrideKey.data(), overrideKey.size());
+        if (!cfg.config().at("filePatterns").get_or(patternKey, "").IsEmpty()) {
+            typeKey = overrideKey;
+        }
+    }
+    const auto filter = cfg.filePatterns({ typeKey, "all" });
+
+    // Default filename for a new document — derive the extension from
+    // the resolved type's first glob entry so an HTML-overridden new
+    // doc seeds with ".html", a FreeBASIC one with ".bas", etc.
+    const auto defaultName = [&] -> wxString {
+        if (!doc.isNew()) {
+            return toWxString(doc.getFilePath().filename());
+        }
+        const wxString key = wxString::FromAscii(typeKey.data(), typeKey.size());
+        wxString glob = cfg.config().at("filePatterns").get_or(key, "");
+        glob = glob.BeforeFirst(';'); // "*.bas;*.bi" → "*.bas"
+        if (glob.StartsWith("*")) {
+            glob = glob.Mid(1); // "*.bas" → ".bas"
+        }
+        return glob;
+    }();
 
     wxFileDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
         m_ctx.tr("files.saveTitle"),
         "",
-        doc.isNew() ? wxString(".bas") : toWxString(doc.getFilePath().filename()),
+        defaultName,
         filter,
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
     );

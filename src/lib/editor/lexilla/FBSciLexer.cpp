@@ -72,7 +72,7 @@ OptionSet kOptionSet; // NOLINT(*-throwing-static-initialization, *-err58-cpp, *
 FBSciLexer::FBSciLexer()
 : DefaultLexer("freebasic", SCLEX_AUTOMATIC, lexicalClasses.data(), lexicalClasses.size()) {}
 
-const char* SCI_METHOD FBSciLexer::DescribeWordListSets() {
+auto SCI_METHOD FBSciLexer::DescribeWordListSets() -> const char* {
     // ReSharper disable once CppVariableCanBeMadeConstexpr
     static const std::string desc = [] {
         std::string result;
@@ -90,7 +90,7 @@ const char* SCI_METHOD FBSciLexer::DescribeWordListSets() {
     return desc.c_str();
 }
 
-Sci_Position SCI_METHOD FBSciLexer::WordListSet(const int n, const char* wl) {
+auto SCI_METHOD FBSciLexer::WordListSet(const int n, const char* wl) -> Sci_Position {
     const auto idx = static_cast<std::size_t>(n);
     if (idx < kThemeKeywordGroupsCount) {
         if (m_wordLists[idx].Set(wl)) { // NOLINT(*-pro-bounds-*)

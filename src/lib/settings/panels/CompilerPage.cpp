@@ -27,19 +27,13 @@ CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 }
 
 void CompilerPage::create() {
-    vbox(tr("dialogs.settings.compiler.compilerAndPaths"), { .proportion = 1, .margin = false }, [&] {
-        compilerPath();
-        spacer();
-        compilerCommand();
-        spacer();
-        runCommand();
+    compilerPath();
+    compilerCommand();
+    runCommand();
 #ifdef __WXMSW__
-        spacer();
-        helpFile();
+    helpFile();
 #endif
-        spacer();
-        placeholderTable();
-    });
+    placeholderTable();
     SetSizerAndFit(currentSizer());
 }
 
@@ -136,11 +130,11 @@ void CompilerPage::placeholderTable() {
     m_placeholderTitle = text(trOr("dialogs.settings.compiler.placeholders.title", "Placeholders (click to insert)"), {});
     const auto list = make_unowned<wxListCtrl>(
         currentParent(), wxID_ANY,
-        wxDefaultPosition, wxDefaultSize,
+        wxDefaultPosition, wxSize(-1, 100),
         wxLC_REPORT | wxLC_SINGLE_SEL
     );
     list->AppendColumn(trOr("dialogs.settings.compiler.placeholders.placeholder", "Placeholder"), wxLIST_FORMAT_LEFT, 120);
-    list->AppendColumn(trOr("dialogs.settings.compiler.placeholders.expansion", "Expansion"), wxLIST_FORMAT_LEFT, 400);
+    list->AppendColumn(trOr("dialogs.settings.compiler.placeholders.expansion", "Expansion"), wxLIST_FORMAT_LEFT, -1);
     list->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& evt) {
         int flags = 0;
         const long item = m_placeholderList->HitTest(evt.GetPosition(), flags);
@@ -215,7 +209,7 @@ void CompilerPage::refreshPlaceholders() {
         wxString fbc = m_compilerPath;
         if (fbc.empty()) {
 #ifdef __WXMSW__
-            fbc = "C:\\path\\to\\fbc.exe";
+            fbc = R"(C:\path\to\fbc.exe)";
 #else
             fbc = "/path/to/fbc";
 #endif

@@ -117,7 +117,7 @@ void CodeTransformer::enable(const bool state) {
 // Internal transform handlers
 // ===========================================================================
 
-void CodeTransformer::applyIndentAndCloser(Editor& editor) {
+void CodeTransformer::applyIndentAndCloser(Editor& editor) const {
     const int currLine = editor.GetCurrentLine();
     if (currLine == 0) {
         return;

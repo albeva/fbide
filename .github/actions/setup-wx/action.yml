@@ -20,10 +20,10 @@ inputs:
     default: Release
   arch:
     description: >
-      Target architecture (x64 | x86). Must match the architecture the
-      MSVC dev environment was set up for — wx and FBIde need to compile
-      for the same arch. Cache key partitions by arch so the x86 and x64
-      caches do not collide. Ignored on Linux (host arch only).
+      Target architecture. Windows: x64 | x86 (must match the MSVC dev
+      environment). macOS: arm64 | x86_64 (single-arch builds, one
+      DMG per arch). Linux ignores this (host arch only). Cache key
+      partitions by arch so per-arch caches don't collide.
     required: false
     default: x64
 
@@ -43,22 +43,33 @@ runs:
       shell: bash
       run: |
         WORK="${{ github.workspace }}/wxwidgets"
-        if [ "${RUNNER_OS}" = "Windows" ]; then
-          TOOLCHAIN="msvc/${{ inputs.arch }}"
-          DIST_LEAF="${{ inputs.arch }}"
-        else
-          TOOLCHAIN="gtk3"
-          DIST_LEAF="linux"
-        fi
+        case "${RUNNER_OS}" in
+          Windows)
+            TOOLCHAIN="msvc/${{ inputs.arch }}"
+            DIST_LEAF="${{ inputs.arch }}"
+            ;;
+          macOS)
+            # Single-arch wx builds keyed on the input arch — FBIde
+            # ships one DMG per arch, so wx is built per-arch to
+            # match.
+            TOOLCHAIN="osx_cocoa/${{ inputs.arch }}"
+            DIST_LEAF="macos-${{ inputs.arch }}"
+            ;;
+          *)
+            TOOLCHAIN="gtk3"
+            DIST_LEAF="linux"
+            ;;
+        esac
         echo "wx-work=${WORK}" >> "$GITHUB_OUTPUT"
         echo "wx-src=${WORK}/src" >> "$GITHUB_OUTPUT"
         echo "wx-build=${WORK}/build/${TOOLCHAIN}/${{ inputs.build-type }}" >> "$GITHUB_OUTPUT"
         echo "wx-root=${WORK}/dist/${DIST_LEAF}" >> "$GITHUB_OUTPUT"
 
-    # Cache key includes arch + build-type so x64/x86 and Debug/Release
-    # caches do not collide. hashFiles() perturbs the key whenever the
-    # action or either build script changes, so manual invalidation is
-    # rarely needed.
+    # Cache key includes arch + build-type so per-arch and per-config
+    # caches do not collide. Linux ignores the arch (host only); macOS
+    # and Windows both partition by arch. hashFiles() perturbs the key
+    # whenever the action or either build script changes, so manual
+    # invalidation is rarely needed.
     - name: Restore wxWidgets cache
       id: cache
       uses: actions/cache/restore@v5
@@ -101,6 +112,17 @@ runs:
         WX_BUILD_DIR: ${{ steps.paths.outputs.wx-build }}
         WX_DIST_DIR: ${{ steps.paths.outputs.wx-root }}
         WX_BUILD_TYPE: ${{ inputs.build-type }}
+      run: bash "${{ github.action_path }}/build-wx.sh"
+
+    - name: Build wxWidgets (macOS)
+      if: steps.cache.outputs.cache-hit != 'true' && runner.os == 'macOS'
+      shell: bash
+      env:
+        WX_SRC_DIR: ${{ steps.paths.outputs.wx-src }}
+        WX_BUILD_DIR: ${{ steps.paths.outputs.wx-build }}
+        WX_DIST_DIR: ${{ steps.paths.outputs.wx-root }}
+        WX_BUILD_TYPE: ${{ inputs.build-type }}
+        WX_ARCH: ${{ inputs.arch }}
       run: bash "${{ github.action_path }}/build-wx.sh"
 
     - name: Save wxWidgets cache
