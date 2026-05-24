@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "ChatSelection.hpp"
 #include "CodeActionBar.hpp"
 #include "markdown/MarkdownDocument.hpp"
 #include "markdown/MarkdownImageCache.hpp"
@@ -211,9 +212,7 @@ private:
     int m_totalHeight = 0;                                      ///< Stacked height of all bubbles.
     int m_barMessage = -1;                                      ///< Message the action bar targets.
     int m_barIndex = -1;                                        ///< Code or patch block index — see `m_actionBar->mode()`.
-    int m_selectionMessage = -1;                                ///< Bubble whose text is currently selected, or -1.
-    markdown::Selection m_selection;                            ///< Selection within that bubble.
-    bool m_dragSelecting = false;
+    ChatSelection m_selection;                                  ///< Selection state across the conversation.
 
     bool m_wrapCodeBlocks = true; ///< Cached `[markdown] wrapCodeBlocks` value; passed to layouts.
 
