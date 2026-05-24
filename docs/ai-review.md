@@ -258,8 +258,11 @@ Numbered to match the findings above. Each item is shippable on its own.
 
 ## Tidy / notes (defer unless touched)
 
-- [ ] **#25** `CodeActionBar`: replace `void*` round-trip with
-      `wxClientData` subclass.
+- [x] **#25** *(rejected)* `CodeActionBar`'s `void*` round-trip stays.
+      Tried 484ce02, reverted in bf2ab10 — a `wxClientData` subclass
+      adds one heap allocation per button at construction; the existing
+      `toVoidPtr` / `toMode` helpers pay zero. Type-erased pattern is
+      local to the bar and acceptable for the win.
 - [ ] **#26** *(note only)* Per-paint `wxGraphicsContext` allocation —
       profiling lead if Retina paints get slow.
 - [ ] **#27** *(note only)* `wxString::FromUTF8` per token delta —
