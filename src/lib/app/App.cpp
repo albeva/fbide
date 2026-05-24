@@ -285,9 +285,7 @@ auto App::OnInit() -> bool {
     showSplash();
 
     const auto& configManager = m_context->getConfigManager();
-    const auto historyPath = configManager.getIdeDir() / "history.ini";
-    m_context->getFileHistory().load(historyPath);
-    wxLogMessage("file history: %s", historyPath);
+    m_context->getFileHistory().load(configManager.historyPath());
 
     m_context->getUIManager().createMainFrame();
     openFiles(cli.files);

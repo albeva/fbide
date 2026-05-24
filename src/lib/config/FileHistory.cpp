@@ -5,14 +5,17 @@
 // https://github.com/albeva/fbide
 //
 #include "FileHistory.hpp"
+#include "document/DocumentPath.hpp"
 using namespace fbide;
 
-void FileHistory::load(const wxString& path) {
+void FileHistory::load(const std::filesystem::path& path) {
     m_path = path;
-    if (!wxFileExists(path)) {
+    wxLogVerbose("file history: %s", path.string());
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec)) {
         return;
     }
-    wxFFileInputStream stream(path);
+    wxFFileInputStream stream(toWxString(path));
     const wxFileConfig ini(stream);
     m_history.Load(ini);
 
@@ -31,7 +34,7 @@ void FileHistory::save() {
     }
     wxFileConfig ini(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
     m_history.Save(ini);
-    wxFileOutputStream stream(m_path);
+    wxFileOutputStream stream(toWxString(m_path));
     ini.Save(stream);
 }
 

@@ -221,6 +221,13 @@ auto ConfigManager::themesWriteDir() const -> wxString {
     return toWx(dir);
 }
 
+auto ConfigManager::historyPath() const -> fs::path {
+    const auto& dir = m_readOnlyIde ? m_userDataDir : m_ideDir;
+    std::error_code ec;
+    fs::create_directories(dir, ec);
+    return dir / "history.local.ini";
+}
+
 auto ConfigManager::themePath(const wxString& relPath) const -> wxString {
     if (relPath.empty()) {
         return relPath;
@@ -371,7 +378,7 @@ ConfigManager::ConfigManager(
     m_explicitConfig = !configPath.empty();
     m_readOnlyIde = hasReadOnlySentinel(m_ideDir);
     if (m_readOnlyIde) {
-        wxLogMessage("READONLY sentinel detected in '%s' — overlays route to '%s'", toWx(m_ideDir), toWx(m_userDataDir));
+        wxLogVerbose("READONLY sentinel detected in '%s' — overlays route to '%s'", toWx(m_ideDir), toWx(m_userDataDir));
     }
 
     auto& entry = m_categories.at(static_cast<std::size_t>(Category::Config));
@@ -379,7 +386,7 @@ ConfigManager::ConfigManager(
         Category::Config,
         absolutePath(toPath(configPath.empty() ? getPlatformConfigFileName() : configPath))
     );
-    wxLogMessage("ide directory: %s", toWx(m_ideDir));
+    wxLogVerbose("ide directory: %s", toWx(m_ideDir));
     load(Category::Config);
 
     // Load all configs
@@ -394,7 +401,7 @@ ConfigManager::ConfigManager(
         const auto themeAbs = themePath(themeRel);
         if (wxFileExists(themeAbs)) {
             m_theme.load(themeAbs);
-            wxLogMessage("Loaded theme from %s", themeAbs);
+            wxLogVerbose("Loaded theme from %s", themeAbs);
         } else {
             wxLogError("Theme file '%s' not found — using built-in default", themeAbs);
             m_theme.loadDefaults();
@@ -573,7 +580,7 @@ void ConfigManager::load(const Category category) {
             overlayCfg.SetPath("/");
             importGroup(overlayCfg, overlay);
             root.mergeFrom(overlay);
-            wxLogMessage("Merged overlay %s into %s", overlayWx, catName);
+            wxLogVerbose("Merged overlay %s into %s", overlayWx, catName);
         } else {
             wxLogWarning("Overlay '%s' exists but could not be read", overlayWx);
         }
@@ -582,7 +589,7 @@ void ConfigManager::load(const Category category) {
     entry.category = category;
     entry.baseline = std::move(baseline);
     entry.root = std::move(root);
-    wxLogMessage("Loaded %s from %s", catName, fileWx);
+    wxLogVerbose("Loaded %s from %s", catName, fileWx);
 }
 
 void ConfigManager::save(const Category category) const {
@@ -617,7 +624,7 @@ void ConfigManager::save(const Category category) const {
         if (!diff) {
             if (fs::exists(overlayPath, ec)) {
                 fs::remove(overlayPath, ec);
-                wxLogMessage("Pruned empty overlay '%s'", overlayWx);
+                wxLogVerbose("Pruned empty overlay '%s'", overlayWx);
             }
             return;
         }
@@ -632,7 +639,7 @@ void ConfigManager::save(const Category category) const {
         }
         exportGroup(diff, "", overlayCfg);
         overlayCfg.Save(outStream, wxConvUTF8);
-        wxLogMessage("Saved overlay '%s'", overlayWx);
+        wxLogVerbose("Saved overlay '%s'", overlayWx);
         return;
     }
 
