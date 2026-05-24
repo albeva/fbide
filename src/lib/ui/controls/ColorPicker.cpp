@@ -56,6 +56,7 @@ void ColorPicker::create() {
             m_chkInherit->SetToolTip(m_inheritTooltip);
         }
         m_btn = button(wxEmptyString, {}, ID_BTN_COLOR);
+        m_btn->SetMinSize(wxSize(110, -1));
     });
     connect(lbl, m_btn);
 
