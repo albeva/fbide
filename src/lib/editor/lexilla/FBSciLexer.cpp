@@ -72,7 +72,7 @@ OptionSet kOptionSet; // NOLINT(*-throwing-static-initialization, *-err58-cpp, *
 FBSciLexer::FBSciLexer()
 : DefaultLexer("freebasic", SCLEX_AUTOMATIC, lexicalClasses.data(), lexicalClasses.size()) {}
 
-auto FBSciLexer::DescribeWordListSets() -> const char* SCI_METHOD {
+auto SCI_METHOD FBSciLexer::DescribeWordListSets() -> const char* {
     // ReSharper disable once CppVariableCanBeMadeConstexpr
     static const std::string desc = [] {
         std::string result;

@@ -27,7 +27,7 @@ CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 }
 
 void CompilerPage::create() {
-    vbox(tr("dialogs.settings.compiler.compilerAndPaths"), { .proportion = 1, .margin = false }, [&] {
+    vbox({ .proportion = 1, .margin = false }, [&] {
         compilerPath();
         spacer();
         compilerCommand();

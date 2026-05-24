@@ -44,7 +44,6 @@ ColorPicker::ColorPicker(wxWindow* parent, const Theme& theme, const Value& tr,
 , m_inheritTooltip(std::move(inheritTooltip)) {}
 
 void ColorPicker::create() {
-    SetBackgroundColour(wxTransparentColor);
     if (auto* smart = wxDynamicCast(currentSizer(), SmartBoxSizer)) {
         smart->setOptions({ .margin = false });
     }

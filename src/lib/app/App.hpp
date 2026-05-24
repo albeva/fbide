@@ -34,13 +34,11 @@ public:
     /// Cleanup on exit — flush clipboard so copied content persists after app closes.
     auto OnExit() -> int override;
 
-    /// Receive document-open events from the OS — macOS sends these
-    /// when the user double-clicks a file associated with FBIde in
-    /// Finder, drops files on the Dock icon, etc. On other platforms
-    /// the base class implementation is a no-op. We defer to
-    /// `openFiles` so the OS-event and CLI positional-arg paths
-    /// share one implementation.
+#ifdef __WXOSX__
+    /// Receive document-open events from the OS
     void MacOpenFiles(const wxArrayString& fileNames) override;
+#endif
+
     /// Apply `appearance=` config (light/dark/system) to the wx appearance API.
     void initAppearance();
 

@@ -492,6 +492,7 @@ void App::openFiles(const wxArrayString& files) {
     }
 }
 
+#ifdef __WXOSX__
 void App::MacOpenFiles(const wxArrayString& fileNames) {
     // macOS can deliver the open-document event while OnInit is
     // still running (when Finder launches FBIde fresh by double-
@@ -508,6 +509,7 @@ void App::MacOpenFiles(const wxArrayString& fileNames) {
         }
     });
 }
+#endif
 
 void App::scheduleRestart(std::function<void()> commitConfig) {
     CallAfter([this, commit = std::move(commitConfig)]() {

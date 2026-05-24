@@ -166,7 +166,7 @@ auto ThemePage::tr(const wxString& path, const wxString& def) const -> wxString 
 void ThemePage::create() {
     createTopRow();
 
-    hbox(m_activeTheme, { .proportion = 1, .margin = false }, [&] {
+    hbox({ .proportion = 1, .margin = false }, [&] {
         m_themeLabel = currentNamedLabel();
         createCategoryList();
         createLeftPanel();
@@ -175,18 +175,16 @@ void ThemePage::create() {
     });
     SetSizerAndFit(currentSizer());
 
-    updateTitle();
-
     m_selectedRow = +SettingsCategory::Default;
     loadCategory();
-    wxTreeItemIdValue cookie;
+    wxTreeItemIdValue cookie = nullptr;
     if (const auto first = m_typeTree->GetFirstChild(m_typeTree->GetRootItem(), cookie); first.IsOk()) {
         m_typeTree->SelectItem(first);
     }
 }
 
 void ThemePage::createTopRow() {
-    hbox(tr("name"), { .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
+    hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
         m_themeFiles = getContext().getConfigManager().getAllThemes();
         wxArrayString names;
         names.reserve(m_themeFiles.size() + 1);
@@ -243,7 +241,7 @@ void ThemePage::addTreeNode(const wxTreeItemId parent, const std::vector<TreeNod
 void ThemePage::createCategoryList() {
     m_typeTree = make_unowned<wxTreeCtrl>(
         currentParent(), ID_CATEGORY_TREE,
-        wxDefaultPosition, wxSize(180, 320),
+        wxDefaultPosition, wxSize(180, 200),
         wxTR_HAS_BUTTONS | wxTR_HIDE_ROOT | wxTR_LINES_AT_ROOT | wxTR_FULL_ROW_HIGHLIGHT
     );
 
@@ -318,7 +316,6 @@ void ThemePage::onSelectTheme(wxCommandEvent& event) {
         m_activeTheme = "";
     }
 
-    updateTitle();
     if (not isUnsavedNewTheme()) {
         m_theme = {};
         m_theme.load(m_activeTheme);
@@ -333,7 +330,6 @@ void ThemePage::onSaveTheme(wxCommandEvent&) {
         // saveNewTheme writes the theme at `themesWriteDir() / name`
         // already; no second save needed.
         saveNewTheme(false);
-        updateTitle();
     } else {
         // Route existing-theme saves through `themesWriteDir()` —
         // under READONLY this is `<UserDataDir>/themes/`, so edits to
@@ -550,8 +546,4 @@ void ThemePage::syncActiveThemeConfig() {
     auto& cm = getContext().getConfigManager();
     cm.config()["theme"] = cm.relative(m_theme.getPath());
     cm.save(ConfigManager::Category::Config);
-}
-
-void ThemePage::updateTitle() {
-    m_themeLabel->SetLabel(m_themeChoice->GetStringSelection());
 }

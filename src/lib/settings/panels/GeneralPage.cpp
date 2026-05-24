@@ -99,7 +99,7 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
 
 void GeneralPage::create() {
     hbox(tr("dialogs.settings.general.editorSettings"), { .margin = false }, [&] {
-        vbox({ .proportion = 1 }, [&] {
+        vbox({ .proportion = 1, .margin = false }, [&] {
             checkBox(m_autoIndent, tr("dialogs.settings.general.autoIndent"));
             checkBox(m_transformKeywords, tr("dialogs.settings.general.transformKeywords"));
             checkBox(m_indentGuide, tr("dialogs.settings.general.indentGuides"));
@@ -115,7 +115,7 @@ void GeneralPage::create() {
 
         separator();
 
-        vbox({ .proportion = 1 }, [&] {
+        vbox({ .proportion = 1, .margin = false }, [&] {
             checkBox(m_syntaxHighlight, tr("dialogs.settings.general.syntaxHighlight"));
             checkBox(m_showLineNumbers, tr("dialogs.settings.general.lineNumbers"));
             checkBox(m_showRightMargin, tr("dialogs.settings.general.rightMargin"));

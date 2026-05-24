@@ -101,8 +101,6 @@ private:
     void loadChangesCategory();
     /// Push the four diff-state pickers back into the working theme.
     void saveChangesCategory();
-    /// Refresh the right-pane title from the current category.
-    void updateTitle();
     /// Enable/disable category-specific widgets (e.g. font fields).
     void applyCapability();
     /// Persist the active theme path back to config.
