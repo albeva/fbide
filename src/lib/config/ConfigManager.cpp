@@ -624,7 +624,7 @@ void ConfigManager::save(const Category category) const {
         // Ensure parent dir exists — under READONLY this is
         // `<UserDataDir>` which may not exist on first launch.
         fs::create_directories(overlayPath.parent_path(), ec);
-        wxFileConfig overlayCfg;
+        wxFileConfig overlayCfg(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
         wxFFileOutputStream outStream(overlayWx);
         if (!outStream.IsOk()) {
             wxLogError("Failed to open '%s' for writing", overlayWx);
