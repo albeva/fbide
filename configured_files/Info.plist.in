@@ -37,12 +37,13 @@
     <true/>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright (c) 2026 Albert Varaksin. MIT License.</string>
-    <!-- Floor matches CI: Sonoma is the lowest macOS that Homebrew
-         still ships pre-built LLVM bottles for. FBIde uses Homebrew
-         clang's libc++ to get the C++23 stdlib (std::ranges::contains
-         etc.), so we cap the supported floor at the same line. -->
+    <!-- Floor matches CI's CMAKE_OSX_DEPLOYMENT_TARGET. Big Sur was
+         the first macOS to ship Apple Silicon; below that we'd run
+         into Xcode's own deployment-target floor and start needing
+         conditional libc++ availability shims for the C++23 stdlib
+         features we use. -->
     <key>LSMinimumSystemVersion</key>
-    <string>14.0</string>
+    <string>11.0</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.developer-tools</string>
     <!-- Two document types declared:

@@ -163,12 +163,13 @@ jobs:
         run: |
           # macos-targets is a JSON list of {arch, runner} objects fed
           # directly into build-macos's matrix.include. Both arches run
-          # on macos-14 (Apple Silicon, Sonoma): arm64 builds natively,
-          # x86_64 cross-compiles via Rosetta + a side-by-side x86_64
-          # Homebrew install. Sonoma is the floor because Homebrew
-          # ships pre-built LLVM bottles only for Sonoma+.
-          mac_arm='{"arch":"arm64","runner":"macos-14"}'
-          mac_x86='{"arch":"x86_64","runner":"macos-14"}'
+          # on macos-latest (Apple Silicon, newest hosted image with
+          # newest Xcode). arm64 builds natively; x86_64 cross-compiles
+          # with Apple Clang's built-in -arch x86_64 support (no
+          # Rosetta needed for the compile, only for running the tests
+          # — Rosetta is pre-installed on the hosted image).
+          mac_arm='{"arch":"arm64","runner":"macos-latest"}'
+          mac_x86='{"arch":"x86_64","runner":"macos-latest"}'
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then
             echo 'win-archs=["x64","x86"]' >> "$GITHUB_OUTPUT"
             echo 'build-linux-appimage=true' >> "$GITHUB_OUTPUT"
@@ -414,22 +415,20 @@ jobs:
           if-no-files-found: error
 
   # ----------------------------------------------------------------------------
-  # macOS DMG. Per-arch builds because FBIde uses Homebrew clang's libc++
-  # for C++23 stdlib coverage (std::ranges::contains and friends Apple's
-  # libc++ doesn't yet ship), and Homebrew bottles are per-arch — so the
-  # bundled libc++ inside the .app must match the binary's arch.
-  # Both arches run on macos-14 (Apple Silicon, Sonoma). arm64 builds
-  # natively against arm64 Homebrew at /opt/homebrew. x86_64 cross-
-  # compiles via Rosetta against x86_64 Homebrew at /usr/local — both
-  # Homebrew trees coexist on the runner. Produces two DMGs mirroring
-  # the Windows x64/x86 split.
+  # macOS DMG. One per arch, both built on the same macos-latest runner
+  # (Apple Silicon, newest Xcode the hosted image carries). Uses the
+  # default Apple Clang — it cross-compiles to x86_64 natively (-arch
+  # x86_64) and links against Apple's universal libc++ in
+  # /usr/lib/libc++.dylib, which is on every Mac and already covers
+  # the C++23 stdlib FBIde uses (std::ranges::contains et al.). No
+  # Homebrew, no dylib bundling, no fat-binary lipo.
   # ----------------------------------------------------------------------------
   build-macos:
     name: build-macos (${{ matrix.arch }})
     needs: version
     if: needs.version.outputs.macos-targets != '[]'
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
+    timeout-minutes: 30
     permissions:
       contents: read
     strategy:
@@ -441,102 +440,24 @@ jobs:
       # Single source of truth for the macOS floor — passed to both wx
       # (via setup-wx) and to FBIde's configure. Keep aligned with
       # LSMinimumSystemVersion in configured_files/Info.plist.in.
-      MACOSX_DEPLOYMENT_TARGET: '14.0'
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # Hosted macos-latest runners ship a recent CMake, but FBIde
+      # requires CMake 4.0+; lukka/get-cmake also provides Ninja.
       - name: Set up CMake + Ninja
         uses: lukka/get-cmake@latest
         with:
           cmakeVersion: latest
 
-      # Homebrew LLVM gives us a modern libc++ that ships C++23 stdlib
-      # features (std::ranges::contains, etc.) Apple's libc++ doesn't
-      # have yet. dylibbundler is used post-build to fold the Homebrew
-      # libc++ dylib into the .app so end-user Macs without Homebrew
-      # can still run it. CC / CXX get persisted into $GITHUB_ENV so
-      # both the wxWidgets build (via setup-wx) and the FBIde configure
-      # step below pick them up automatically — no duplication.
-      #
-      # arm64 uses the native /opt/homebrew tree. x86_64 cross-compiles
-      # under Rosetta against a side-by-side /usr/local Homebrew tree:
-      # `arch -x86_64 brew install …` lands x86_64 bottles there, and
-      # the x86_64 clang from /usr/local/opt/llvm runs under Rosetta
-      # when invoked. Hosted macos-14 runners usually ship the x86_64
-      # brew prefix pre-installed; we bootstrap it if missing.
-      - name: Install Homebrew toolchain (LLVM + dylibbundler)
-        run: |
-          set -eux
-          if [ "${{ matrix.arch }}" = "x86_64" ]; then
-            # Rosetta is normally present on macos-14; --install-rosetta
-            # is idempotent and exits zero if already installed.
-            sudo softwareupdate --install-rosetta --agree-to-license
-            if [ ! -x /usr/local/bin/brew ]; then
-              NONINTERACTIVE=1 arch -x86_64 /bin/bash -c \
-                "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-            fi
-            BREW=(arch -x86_64 /usr/local/bin/brew)
-          else
-            BREW=(/opt/homebrew/bin/brew)
-          fi
-          # Pinning to llvm@20 (vs the latest `llvm` formula) sidesteps
-          # a libc++ self-check added in LLVM 22 that rejects the
-          # header-search order wxWidgets's macOS CMake produces. wx
-          # puts `-I${SDK}/usr/include` at the front of its target's
-          # include flags, which sits ahead of clang's own libc++
-          # headers; LLVM 22's `<cstddef>` then asserts on not finding
-          # libc++'s `<stddef.h>` first and bails. LLVM 20 (still on
-          # libc++ 20) doesn't have that assertion, and its `<cstddef>`
-          # works fine through Apple's stddef.h — which is what
-          # Apple Clang has always done. llvm@20 still ships the
-          # C++23 stdlib we care about (std::ranges::contains et al.,
-          # which landed in libc++ 18).
-          #
-          # `--overwrite` lets brew claim files at /usr/local/bin/ for
-          # the named formulae, but does NOT propagate to transitive
-          # deps (e.g. python pulled in by llvm@20). On macos-14's
-          # x86_64 Homebrew, python@3.x trips over the runner's
-          # pre-shipped /usr/local/bin/idle3 etc. and brew exits
-          # non-zero. We don't actually need anything linked into
-          # /usr/local/bin/ — the FBIde / wx builds use absolute
-          # `${LLVM_PREFIX}/bin/...` paths and dylibbundler is
-          # reached via PATH below. So tolerate the link failure,
-          # then verify the Cellar contents.
-          "${BREW[@]}" install --overwrite llvm@20 dylibbundler || true
-          LLVM_PREFIX="$("${BREW[@]}" --prefix llvm@20)"
-          DYLIBBUNDLER_PREFIX="$("${BREW[@]}" --prefix dylibbundler)"
-          if [ ! -x "${LLVM_PREFIX}/bin/clang++" ]; then
-            echo "::error::llvm@20 not installed at ${LLVM_PREFIX}"
-            exit 1
-          fi
-          if [ ! -x "${DYLIBBUNDLER_PREFIX}/bin/dylibbundler" ]; then
-            echo "::error::dylibbundler not installed at ${DYLIBBUNDLER_PREFIX}"
-            exit 1
-          fi
-          echo "CC=${LLVM_PREFIX}/bin/clang" >> "$GITHUB_ENV"
-          echo "CXX=${LLVM_PREFIX}/bin/clang++" >> "$GITHUB_ENV"
-          echo "LLVM_PREFIX=${LLVM_PREFIX}" >> "$GITHUB_ENV"
-          # Put both formulae on PATH so dylibbundler is reachable
-          # from packaging/macos/bundle-dylibs.sh even when brew's
-          # link step didn't drop a /usr/local/bin/dylibbundler
-          # symlink (collateral damage from the link-failure above).
-          echo "PATH=${LLVM_PREFIX}/bin:${DYLIBBUNDLER_PREFIX}/bin:${PATH}" >> "$GITHUB_ENV"
-          # Homebrew LLVM is keg-only: libc++ / libunwind live under
-          # subdirs of $LLVM_PREFIX/lib and aren't on the linker's
-          # default search path. Without these LDFLAGS the link would
-          # silently fall through to Apple's libc++ (the SDK one),
-          # which is exactly the older libc++ we're trying to avoid.
-          # _LIBCPP_DISABLE_AVAILABILITY is required for newer C++23
-          # stdlib symbols (std::ranges::contains etc.) — Homebrew
-          # libc++ marks them as "unavailable on this OS" through
-          # availability annotations otherwise. CMake honours CXXFLAGS
-          # / LDFLAGS on first configure (seeds CMAKE_*_FLAGS_INIT —
-          # note CMake doesn't read CPPFLAGS, so the -D belongs in
-          # CXXFLAGS), so both the wx and fbide configures pick them
-          # up.
-          echo "CXXFLAGS=-D_LIBCPP_DISABLE_AVAILABILITY" >> "$GITHUB_ENV"
-          echo "LDFLAGS=-L${LLVM_PREFIX}/lib/c++ -L${LLVM_PREFIX}/lib/unwind -lunwind" >> "$GITHUB_ENV"
+      # Rosetta is needed only for *running* the x86_64 test binaries
+      # on this arm64 host — the compile path is native arm64 clang
+      # producing x86_64 code. `--install-rosetta` is idempotent.
+      - name: Enable Rosetta (for x86_64 ctest under arm64 host)
+        if: matrix.arch == 'x86_64'
+        run: sudo softwareupdate --install-rosetta --agree-to-license
 
       - name: Set up wxWidgets (osx_cocoa, ${{ matrix.arch }})
         id: wx
@@ -546,18 +467,17 @@ jobs:
           build-type: ${{ env.BUILD_TYPE }}
           arch: ${{ matrix.arch }}
 
-      # Single-arch configure — the matrix runs this twice (once per
-      # arch), each on its native runner. CC / CXX flow in from the
-      # job-level Homebrew step so this configure picks up Homebrew
-      # clang automatically (matches the toolchain wx was built with,
-      # so ABIs line up at link time).
+      # The matrix runs this twice (once per arch) on the same runner.
+      # Apple Clang's `-arch` support handles both cross- and native-
+      # compilation in one toolchain; the wx build above used the
+      # same Apple Clang via setup-wx, so ABIs line up at link time.
       - name: Configure
         run: >
           cmake -G Ninja -B build/ci
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
           -DBUILD_TESTING=ON
           -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}
-          -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
           -DWXWIN=${{ steps.wx.outputs.wx-root }}
 
       - name: Build
@@ -565,17 +485,16 @@ jobs:
 
       # GUI tests carry the `gui` label (see tests/CMakeLists.txt) and
       # are Windows-targeted; skip them here just like the Linux job.
-      # The macOS runners are native for each matrix arm, so the test
-      # binaries run host-native (no Rosetta on the test path).
+      # For x86_64 the test binaries run under Rosetta on this arm64
+      # host (enabled above); arm64 tests run native.
       - name: Test (non-GUI)
         working-directory: build/ci
         run: ctest --output-on-failure -LE gui
 
-      # Spot-check: the produced binary should be single-arch matching
-      # the matrix. Catches a future toolchain change quietly producing
-      # a fat binary the bundler can't handle (Homebrew libc++ is
-      # per-arch only).
-      - name: Verify single-arch binary
+      # Spot-check: the produced binary's arch matches the matrix and
+      # the deployment target is the one we set. Catches a toolchain
+      # change quietly drifting in a future runner image refresh.
+      - name: Verify binary arch + deployment target
         run: |
           set -eux
           binary="bin/fbide.app/Contents/MacOS/fbide"
@@ -583,13 +502,8 @@ jobs:
           arches=$(lipo -archs "$binary")
           echo "Arches: $arches"
           [ "$arches" = "${{ matrix.arch }}" ]
-
-      # Fold the Homebrew libc++ / libc++abi / libunwind dylibs into
-      # Contents/Frameworks/ and rewrite the binary's load commands to
-      # @executable_path/../Frameworks/. End-user Macs without
-      # Homebrew can then run the .app stand-alone.
-      - name: Bundle Homebrew dylibs into .app
-        run: packaging/macos/bundle-dylibs.sh bin/fbide.app
+          # LC_BUILD_VERSION encodes minos as e.g. "minos 11.0".
+          otool -l "$binary" | awk '/LC_BUILD_VERSION/{f=1} f && /minos/{print; exit}' | grep -q "minos ${MACOSX_DEPLOYMENT_TARGET}"
 
       - name: Build DMG
         if: needs.version.outputs.release == 'true'

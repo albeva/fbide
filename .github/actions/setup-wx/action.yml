@@ -21,10 +21,9 @@ inputs:
   arch:
     description: >
       Target architecture. Windows: x64 | x86 (must match the MSVC dev
-      environment). macOS: arm64 | x86_64 (single-arch builds — bundles
-      Homebrew libc++ which is per-arch). Linux ignores this (host arch
-      only). Cache key partitions by arch so per-arch caches don't
-      collide.
+      environment). macOS: arm64 | x86_64 (single-arch builds, one
+      DMG per arch). Linux ignores this (host arch only). Cache key
+      partitions by arch so per-arch caches don't collide.
     required: false
     default: x64
 
@@ -50,9 +49,9 @@ runs:
             DIST_LEAF="${{ inputs.arch }}"
             ;;
           macOS)
-            # Single-arch wx builds keyed on the input arch — the
-            # downstream FBIde build bundles Homebrew libc++, which
-            # ships per-arch, so a single universal dist isn't viable.
+            # Single-arch wx builds keyed on the input arch — FBIde
+            # ships one DMG per arch, so wx is built per-arch to
+            # match.
             TOOLCHAIN="osx_cocoa/${{ inputs.arch }}"
             DIST_LEAF="macos-${{ inputs.arch }}"
             ;;

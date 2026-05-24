@@ -14,13 +14,13 @@
 # keeping the dependency list in YAML where Dependabot can see it.
 #
 # macOS: osx_cocoa toolkit, single-arch build keyed on WX_ARCH
-# (arm64 | x86_64). FBIde's macOS DMG bundles Homebrew libc++, which
-# is per-arch, so per-arch wx dists drive per-arch DMGs.
-# CMAKE_OSX_DEPLOYMENT_TARGET sets the runtime floor — must match
-# LSMinimumSystemVersion in fbide's Info.plist
-# (configured_files/Info.plist.in).
-# CC / CXX come in via the environment (job-level brew-installed
-# Homebrew clang); CMake honours them automatically.
+# (arm64 | x86_64). FBIde ships one DMG per arch, so wx is built
+# per-arch to match. The build uses whatever Apple Clang is on PATH
+# (the default Xcode CLT toolchain on the runner), which links
+# against Apple's universal libc++ — already on every Mac, no
+# bundling needed downstream. CMAKE_OSX_DEPLOYMENT_TARGET sets the
+# runtime floor — must match LSMinimumSystemVersion in fbide's
+# Info.plist (configured_files/Info.plist.in).
 set -euo pipefail
 
 # IPO is always off for the Linux/GCC wx build — known wx + GCC LTO
@@ -39,7 +39,7 @@ case "$(uname -s)" in
         TOOLKIT_ARGS=(
             -DwxBUILD_TOOLKIT=osx_cocoa
             -DCMAKE_OSX_ARCHITECTURES="${WX_ARCH}"
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
         )
         ;;
     *)
