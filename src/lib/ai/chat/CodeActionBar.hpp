@@ -67,18 +67,24 @@ private:
     /// remember it under `group` so `setMode` can show / hide the set.
     void addButton(
         wxSizer* sizer,
+        Mode* mode,
         const wxBitmap& icon,
         int id,
-        const wxString& tip,
-        std::vector<wxWindow*>& group
+        const wxString& tip
     );
 
     /// Fire `EVT_CODE_BAR_LEAVE` when the pointer truly leaves the bar.
     void onLeave(wxMouseEvent& event);
 
-    std::vector<wxWindow*> m_codeButtons;  ///< Copy / Insert / Run set.
-    std::vector<wxWindow*> m_patchButtons; ///< Apply / Reject set.
+    /// Custom paint — fills the background and strokes a 1-px border at
+    /// the client-rect edge. Owning the border paint keeps it on the
+    /// blit-able pixel surface so it follows the parent's scroll
+    /// cleanly (avoids the `wxBORDER_SIMPLE` ghost-line artefact).
+    void onPaint(wxPaintEvent& event);
+
     Mode m_mode = Mode::CodeSample;        ///< Current visible set.
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide::ai

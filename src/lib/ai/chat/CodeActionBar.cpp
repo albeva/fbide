@@ -5,14 +5,11 @@
 // https://github.com/albeva/fbide
 //
 #include "CodeActionBar.hpp"
-#include <wx/bmpbuttn.h>
-#include <wx/image.h>
-#include <wx/settings.h>
-#include <wx/sizer.h>
 #include "app/Context.hpp"
 #include "command/CommandId.hpp"
 #include "ui/ArtiProvider.hpp"
 #include "ui/UIManager.hpp"
+#include "ui/controls/SmartBoxSizer.hpp"
 using namespace fbide;
 using namespace fbide::ai;
 
@@ -20,13 +17,19 @@ namespace fbide::ai {
 wxDEFINE_EVENT(EVT_CODE_BAR_LEAVE, wxCommandEvent);
 } // namespace fbide::ai
 
+wxBEGIN_EVENT_TABLE(CodeActionBar, wxPanel)
+    EVT_PAINT(CodeActionBar::onPaint)
+    EVT_LEAVE_WINDOW(CodeActionBar::onLeave)
+wxEND_EVENT_TABLE()
+
 namespace {
-// Gap around each button.
-constexpr int kButtonGap = 1;
 // Extra padding at the bar's left and right ends.
-constexpr int kSidePadding = 4;
+constexpr int kButtonPadding = 2;
 // Opacity of an idle (non-hovered) icon.
-constexpr double kMutedAlpha = 0.45;
+constexpr double kMutedAlpha = 0.4;
+
+auto kCodeSample = CodeActionBar::Mode::CodeSample;
+auto PatchProposal = CodeActionBar::Mode::PatchProposal;
 
 /// A dimmed copy of `bitmap` — its alpha scaled by `factor` so an idle icon
 /// reads as muted next to the hovered one.
@@ -47,24 +50,27 @@ auto faded(const wxBitmap& bitmap, const double factor) -> wxBitmap {
 CodeActionBar::CodeActionBar(wxWindow* parent, Context& ctx)
 : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE) {
     wxPanel::SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
-    const auto& art = ctx.getUIManager().getArtProvider();
+    wxPanel::SetBackgroundStyle(wxBG_STYLE_PAINT);
 
-    const auto sizer = make_unowned<wxBoxSizer>(wxHORIZONTAL);
-    sizer->AddSpacer(kSidePadding);
-    // Both button sets are added to the same row sizer up front; setMode
-    // shows / hides the inactive group and re-runs Layout + Fit so the
-    // bar shrinks to whichever set is visible.
-    addButton(sizer, art.getBitmap(CommandId::Copy), ID_CodeCopy, "Copy code", m_codeButtons);
-    addButton(sizer, art.getBitmap(CommandId::Paste), ID_CodeInsert, "Insert into editor", m_codeButtons);
-    addButton(sizer, art.getBitmap(CommandId::QuickRun), ID_CodeRun, "Compile && run", m_codeButtons);
-    addButton(sizer, art.getBitmap(CommandId::Accept), ID_PatchApply, "Apply this edit", m_patchButtons);
-    addButton(sizer, art.getBitmap(CommandId::Reject), ID_PatchReject, "Reject this edit", m_patchButtons);
-    sizer->AddSpacer(kSidePadding);
-    SetSizer(sizer);
-    Bind(wxEVT_LEAVE_WINDOW, &CodeActionBar::onLeave, this);
+    const auto& art = ctx.getUIManager().getArtProvider();
+    const auto buttons = make_unowned<SmartBoxSizer>(SmartBoxSizer::Options { .gap = kButtonPadding }, wxHORIZONTAL);
+    addButton(buttons, &kCodeSample, art.getBitmap(CommandId::Copy), ID_CodeCopy, "Copy code");
+    addButton(buttons, &kCodeSample, art.getBitmap(CommandId::Paste), ID_CodeInsert, "Insert into editor");
+    addButton(buttons, &kCodeSample, art.getBitmap(CommandId::QuickRun), ID_CodeRun, "Compile && run");
+    addButton(buttons, &PatchProposal, art.getBitmap(CommandId::Accept), ID_PatchApply, "Apply this edit");
+    addButton(buttons, &PatchProposal, art.getBitmap(CommandId::Reject), ID_PatchReject, "Reject this edit");
+    SetSizer(buttons);
 
     m_mode = Mode::PatchProposal;
     setMode(Mode::CodeSample);
+}
+
+void CodeActionBar::onPaint(wxPaintEvent& /*event*/) {
+    wxPaintDC dc(this);
+    const wxRect r = GetClientRect();
+    dc.SetBrush(wxBrush(GetBackgroundColour()));
+    dc.SetPen(wxPen(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNSHADOW)));
+    dc.DrawRectangle(r);
 }
 
 void CodeActionBar::setMode(const Mode mode) {
@@ -72,24 +78,25 @@ void CodeActionBar::setMode(const Mode mode) {
         return;
     }
     m_mode = mode;
-    const bool showCode = (mode == Mode::CodeSample);
-    const bool showPatch = (mode == Mode::PatchProposal);
-    for (auto* button : m_codeButtons) {
-        button->Show(showCode);
+
+    for (const auto* child : GetSizer()->GetChildren()) {
+        if (auto* button = wxDynamicCast(child->GetWindow(), wxBitmapButton)) {
+            if (void* data = button->GetClientData()) {
+                button->Show(*static_cast<Mode*>(data) == m_mode);
+            }
+        }
     }
-    for (auto* button : m_patchButtons) {
-        button->Show(showPatch);
-    }
+
     Layout();
     Fit();
 }
 
 void CodeActionBar::addButton(
     wxSizer* sizer,
+    Mode* mode,
     const wxBitmap& icon,
     const int id,
-    const wxString& tip,
-    std::vector<wxWindow*>& group
+    const wxString& tip
 ) {
     // Idle shows a muted icon; mouse-over / focus / pressed show it full. The
     // button keeps its own id — its wxEVT_BUTTON propagates to the host.
@@ -101,8 +108,8 @@ void CodeActionBar::addButton(
     button->SetBitmapFocus(icon);
     button->SetBitmapPressed(icon);
     button->SetToolTip(tip);
-    sizer->Add(button, wxSizerFlags().Border(wxALL, kButtonGap));
-    group.push_back(button);
+    button->SetClientData(static_cast<void*>(mode));
+    sizer->Add(button);
 }
 
 void CodeActionBar::onLeave(wxMouseEvent& event) {
