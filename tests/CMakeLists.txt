@@ -19,6 +19,7 @@ add_executable(tests
     unit/AutoIndentTests.cpp
     unit/BasicTests.cpp
     unit/MarkdownDocumentTests.cpp
+    unit/MockProviderTests.cpp
     unit/MarkdownImageCacheTests.cpp
     unit/MarkdownLayoutTests.cpp
     unit/MarkdownSelectionTests.cpp

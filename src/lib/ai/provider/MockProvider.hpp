@@ -24,10 +24,23 @@ class MockProvider final : public wxEvtHandler, public AiProvider {
 public:
     NO_COPY_AND_MOVE(MockProvider)
 
+    /// One picked canned reply — the text and whether to skip chunking.
+    /// Returned by `pickReply` and consumed by `send`. Exposed so tests
+    /// can verify the dispatch table without running the timer.
+    struct PickedReply {
+        wxString text;     ///< Full canned reply body.
+        bool fast = false; ///< True for `allf` / `all fast` — emit instantly.
+    };
+
     MockProvider();
 
     /// Stream the canned example reply. See `AiProvider::send`.
     void send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) override;
+
+    /// Map `request`'s last message onto the matching canned reply.
+    /// Anything that doesn't match a known command falls through to the
+    /// default mixed reply.
+    [[nodiscard]] static auto pickReply(const AiRequest& request) -> PickedReply;
 
 private:
     /// Timer tick — emit the next chunk, or finish the request.

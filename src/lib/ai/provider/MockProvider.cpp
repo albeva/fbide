@@ -397,71 +397,60 @@ auto normalise(const wxString& text) -> wxString {
     return trimmed.Lower();
 }
 
-/// Pick a canned reply based on the user's last message. Unknown
-/// prompts get the default mixed reply.
-/// Picked reply + whether to stream it. The `all` family lets the
-/// caller opt out of the chunked emission used to exercise the
-/// streaming render path — `allf` / `all fast` dump the whole thing
-/// in one chunk so the renderer sees it instantly.
-struct PickedReply {
-    const wxString* text = nullptr;
-    bool fast = false;
-};
+} // namespace
 
-auto pickReply(const AiRequest& request) -> PickedReply {
+auto MockProvider::pickReply(const AiRequest& request) -> PickedReply {
     if (request.messages.empty()) {
-        return { .text = &kDefaultReply };
+        return { .text = kDefaultReply };
     }
     const wxString key = normalise(request.messages.back().content);
     if (key == "allf" || key == "all fast") {
-        return { .text = &kAllReply, .fast = true };
+        return { .text = kAllReply, .fast = true };
     }
     if (key == "help" || key == "list" || key == "?") {
-        return { .text = &kHelpReply };
+        return { .text = kHelpReply };
     }
     if (key == "short") {
-        return { .text = &kShortReply };
+        return { .text = kShortReply };
     }
     if (key == "long") {
-        return { .text = &kLongReply };
+        return { .text = kLongReply };
     }
     if (key == "text") {
-        return { .text = &kTextReply };
+        return { .text = kTextReply };
     }
     if (key == "fb" || key == "freebasic") {
-        return { .text = &kFbReply };
+        return { .text = kFbReply };
     }
     if (key == "bigcode" || key == "big" || key == "long fb") {
-        return { .text = &kBigCodeReply };
+        return { .text = kBigCodeReply };
     }
     if (key == "json") {
-        return { .text = &kJsonReply };
+        return { .text = kJsonReply };
     }
     if (key == "table") {
-        return { .text = &kTableReply };
+        return { .text = kTableReply };
     }
     if (key == "emoji") {
-        return { .text = &kEmojiReply };
+        return { .text = kEmojiReply };
     }
     if (key == "tasks" || key == "todo") {
-        return { .text = &kTasksReply };
+        return { .text = kTasksReply };
     }
     if (key == "setext" || key == "headings") {
-        return { .text = &kSetextReply };
+        return { .text = kSetextReply };
     }
     if (key == "images" || key == "gallery") {
-        return { .text = &kImagesReply };
+        return { .text = kImagesReply };
     }
     if (key == "patch") {
-        return { .text = &kPatchReply };
+        return { .text = kPatchReply };
     }
     if (key == "all") {
-        return { .text = &kAllReply };
+        return { .text = kAllReply };
     }
-    return { .text = &kDefaultReply };
+    return { .text = kDefaultReply };
 }
-
-} // namespace
 
 MockProvider::MockProvider() {
     m_timer.SetOwner(this);
@@ -478,8 +467,8 @@ void MockProvider::send(const AiRequest& request, ChunkHandler onChunk, Response
     // is exercised just like a real provider. `allf` / `all fast` skip
     // the slicing and emit the whole reply in one chunk for paste-style
     // performance comparison against the streamed path.
-    const PickedReply picked = pickReply(request);
-    const wxString& reply = *picked.text;
+    const auto picked = pickReply(request);
+    const wxString& reply = picked.text;
     m_chunks.clear();
     if (picked.fast) {
         m_chunks.push_back(reply);
