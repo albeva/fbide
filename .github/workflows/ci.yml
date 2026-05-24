@@ -505,6 +505,18 @@ jobs:
           # LC_BUILD_VERSION encodes minos as e.g. "minos 11.0".
           otool -l "$binary" | awk '/LC_BUILD_VERSION/{f=1} f && /minos/{print; exit}' | grep -q "minos ${MACOSX_DEPLOYMENT_TARGET}"
 
+      # Ad-hoc sign the bundle. We don't ship a Developer ID
+      # signature (no paid Apple Developer Program subscription), but
+      # the binary needs *some* signature so Gatekeeper presents the
+      # bypassable "cannot verify developer" dialog (with the normal
+      # System Settings → Privacy & Security → Open Anyway flow)
+      # rather than the unbypassable "is damaged" rejection. clang's
+      # linker normally adds an ad-hoc signature, but cross-compiled
+      # output sometimes doesn't get it; an explicit step makes the
+      # state deterministic.
+      - name: Ad-hoc sign the bundle
+        run: codesign --force --deep --sign - bin/fbide.app
+
       - name: Build DMG
         if: needs.version.outputs.release == 'true'
         env:
@@ -552,6 +564,8 @@ jobs:
       # SHA) and the matching release in one step. Pre-release flag is
       # auto-derived: any version containing '-' (i.e. has an
       # .alpha-N / .beta-N / .rc-N suffix) is marked pre-release.
+      # `body` is prepended to the auto-generated commit notes — used
+      # to give download-and-install instructions per platform.
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -560,6 +574,32 @@ jobs:
           target_commitish: ${{ github.sha }}
           prerelease: ${{ contains(needs.version.outputs.version, '-') }}
           generate_release_notes: true
+          body: |
+            ## Downloads
+
+            - **Windows**: `fbide-<version>-win64.zip` (or `win32`). Portable — unzip anywhere and run `fbide.exe`.
+            - **Linux**: `fbide-<version>-x86_64.AppImage`. `chmod +x` and run.
+            - **macOS**:
+              - Apple Silicon → `fbide-<version>-macos-arm64.dmg`
+              - Intel → `fbide-<version>-macos-x86_64.dmg`
+              - Minimum macOS: 11.0 (Big Sur).
+
+            ### macOS first-run
+
+            FBIde isn't signed with an Apple Developer ID, so the
+            first time you open it macOS will warn that *"FBIde
+            can't be opened because Apple cannot check it for
+            malicious software"*. To allow it:
+
+            1. Drag **FBIde.app** to **Applications**.
+            2. Double-click **FBIde** — dismiss the warning dialog.
+            3. Open **System Settings → Privacy & Security**, scroll
+               to the *Security* section, and click **Open Anyway**
+               next to the FBIde entry.
+            4. Confirm in the dialog that follows.
+
+            macOS remembers the decision; subsequent launches open
+            without warnings.
           files: |
             artefacts/*.zip
             artefacts/*.AppImage
