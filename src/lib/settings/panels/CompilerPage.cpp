@@ -30,9 +30,9 @@ void CompilerPage::create() {
     compilerPath();
     compilerCommand();
     runCommand();
-// #ifdef __WXMSW__
+#ifdef __WXMSW__
     helpFile();
-// #endif
+#endif
     placeholderTable();
     SetSizerAndFit(currentSizer());
 }

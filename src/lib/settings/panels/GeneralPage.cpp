@@ -134,7 +134,7 @@ void GeneralPage::create() {
     // header (falling back to the filename) sorted alphabetically;
     // `m_language` keeps storing the filename so the on-disk config
     // shape doesn't change.
-    vbox(tr("dialogs.settings.general.language"), {}, [&] {
+    vbox(tr("dialogs.settings.general.language"), { .margin = false }, [&] {
         hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
             text(tr("dialogs.settings.general.languageSelect"), { .proportion = 1, .expand = false });
             const auto languages = loadLanguageOptions(getContext());
