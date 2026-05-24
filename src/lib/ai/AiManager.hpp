@@ -51,6 +51,7 @@ public:
 
     /// The set of files/items attached to the conversation as context.
     [[nodiscard]] auto context() -> AiContext& { return m_context; }
+    [[nodiscard]] auto context() const -> const AiContext& { return m_context; }
 
     /// Agent mode — when true, the system prompt is rewritten to request
     /// edits as SEARCH/REPLACE blocks against the pinned edit target.
