@@ -15,6 +15,7 @@ FetchContent_MakeAvailable(googletest)
 # Console-mode unit tests (wxAppConsole entry).
 add_executable(tests
     unit/main.cpp
+    unit/AiContextTests.cpp
     unit/AutoIndentTests.cpp
     unit/BasicTests.cpp
     unit/MarkdownDocumentTests.cpp
