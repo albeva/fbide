@@ -61,7 +61,7 @@ struct OptionSet final : Lexilla::OptionSet<FBSciLexer::Options> {
         DefineProperty("fold", &FBSciLexer::Options::fold);
     }
 };
-OptionSet kOptionSet;
+OptionSet kOptionSet; // NOLINT(*-throwing-static-initialization, *-err58-cpp, *-avoid-non-const-global-variables)
 
 // endregion
 
@@ -72,15 +72,17 @@ OptionSet kOptionSet;
 FBSciLexer::FBSciLexer()
 : DefaultLexer("freebasic", SCLEX_AUTOMATIC, lexicalClasses.data(), lexicalClasses.size()) {}
 
-const char* SCI_METHOD FBSciLexer::DescribeWordListSets() {
+auto SCI_METHOD FBSciLexer::DescribeWordListSets() -> const char* {
     // ReSharper disable once CppVariableCanBeMadeConstexpr
     static const std::string desc = [] {
         std::string result;
         for (const auto* entry : wordListDescriptions) {
-            if (entry == nullptr)
+            if (entry == nullptr) {
                 break;
-            if (!result.empty())
+            }
+            if (!result.empty()) {
                 result += '\n';
+            }
             result += entry;
         }
         return result;
@@ -88,17 +90,17 @@ const char* SCI_METHOD FBSciLexer::DescribeWordListSets() {
     return desc.c_str();
 }
 
-Sci_Position SCI_METHOD FBSciLexer::WordListSet(const int n, const char* wl) {
+auto SCI_METHOD FBSciLexer::WordListSet(const int n, const char* wl) -> Sci_Position {
     const auto idx = static_cast<std::size_t>(n);
     if (idx < kThemeKeywordGroupsCount) {
-        if (m_wordLists[idx].Set(wl)) {
+        if (m_wordLists[idx].Set(wl)) { // NOLINT(*-pro-bounds-*)
             return 0;
         }
     }
     return -1;
 }
 
-Sci_Position FBSciLexer::PropertySet(const char* key, const char* val) {
+auto FBSciLexer::PropertySet(const char* key, const char* val) -> Sci_Position {
     if (kOptionSet.PropertySet(&m_options, key, val)) {
         return 0;
     }
@@ -298,7 +300,7 @@ void FBSciLexer::resetToDefault() noexcept {
     m_isFirst = false;
 }
 
-bool FBSciLexer::canAccessMember() noexcept {
+auto FBSciLexer::canAccessMember() const noexcept -> bool {
     using enum ThemeCategory;
     const auto st = m_sc->state;
     if (st == +Comment) {
@@ -621,8 +623,8 @@ auto FBSciLexer::identifyKeyword() noexcept -> bool {
             if (strcmp("end", m_identBuffer.data()) == 0) {
                 auto pos = static_cast<Sci_Position>(m_sc->currentPos);
                 while (true) {
-                    const char c = m_styler->SafeGetCharAt(pos, '\0');
-                    if (c != ' ' && c != '\t') {
+                    const char ch = m_styler->SafeGetCharAt(pos, '\0');
+                    if (ch != ' ' && ch != '\t') {
                         break;
                     }
                     pos++;
@@ -651,8 +653,8 @@ auto FBSciLexer::identifyKeyword() noexcept -> bool {
     const std::size_t last = asmContext ? kThemeKeywordGroupsCount : pp;
 
     for (std::size_t index = first; index < last; index++) {
-        if (m_wordLists[index].InList(m_identBuffer.data())) {
-            m_sc->ChangeState(+kThemeKeywordCategories[index]);
+        if (m_wordLists[index].InList(m_identBuffer.data())) {  // NOLINT(*-pro-bounds-*)
+            m_sc->ChangeState(+kThemeKeywordCategories[index]); // NOLINT(*-pro-bounds-*)
             break;
         }
     }
@@ -760,7 +762,7 @@ void FBSciLexer::lexPreprocessor() noexcept {
         // via LineState.
         if (!m_ppDirectiveSeen) {
             constexpr std::size_t pp = indexOfKeywordGroup(KeywordPP);
-            if (m_wordLists[pp].InList(m_identBuffer.data())) {
+            if (m_wordLists[pp].InList(m_identBuffer.data())) { // NOLINT(*-pro-bounds-avoid-unchecked-container-access)
                 m_sc->ChangeState(+KeywordPP);
             } else {
                 m_sc->ChangeState(+IdentifierPP);
@@ -881,7 +883,7 @@ auto lineIndent(Lexilla::LexAccessor& styler, const Sci_Position line) -> int {
 
 // `/'` nesting depth at the end of `line`, read back from the per-line state
 // the lexer already persisted (LineState::commentNestLevel) — no re-lexing.
-auto commentNestAtEnd(Lexilla::LexAccessor& styler, const Sci_Position line) -> int {
+auto commentNestAtEnd(const Lexilla::LexAccessor& styler, const Sci_Position line) -> int {
     return FBSciLexer::LineState::fromInt(styler.GetLineState(line)).commentNestLevel;
 }
 
@@ -949,6 +951,30 @@ void SCI_METHOD FBSciLexer::Fold(
     int pendingIndent = 0;
     bool reachedEnd = true;
 
+    // Blank / whitespace-only lines are buffered until the next code line
+    // resolves their level via look-ahead. Setting their level to
+    // `max(prevIndent, nextIndent)` keeps a blank that sits between a
+    // header and a deeper body at the BODY's level, never at the header's.
+    // Scintilla treats WHITE lines as transparent for fold-range scoping,
+    // but only when their level is unambiguously inside the body — a
+    // WHITE line at the header's level can defeat fold-marker rendering
+    // in some Scintilla configurations.
+    //
+    // Blanks always form a contiguous run, so only the first index is
+    // needed; the end is the current line being processed (or lineCount
+    // at end-of-doc flush). O(1) memory, no allocation in the hot path.
+    Sci_Position pendingBlankStart = -1;
+    const auto resolveBlanksUpTo = [&](const Sci_Position endExclusive, const int level) {
+        if (pendingBlankStart < 0) {
+            return;
+        }
+        const int clamped = std::min(level, kMaxFoldIndent);
+        for (Sci_Position blank = pendingBlankStart; blank < endExclusive; blank++) {
+            styler.SetLevel(blank, SC_FOLDLEVELBASE + clamped + SC_FOLDLEVELWHITEFLAG);
+        }
+        pendingBlankStart = -1;
+    };
+
     bool mlActive = false;      // inside a foldable multiline-comment region
     int mlHeaderLevel = 0;      // indentation level of that region's `/'` opener
     Sci_Position mlCloser = -1; // line carrying the matching outer `'/`
@@ -968,6 +994,7 @@ void SCI_METHOD FBSciLexer::Fold(
             }
             // Closer line: a code line sitting at the region's structural level.
             mlActive = false;
+            resolveBlanksUpTo(line, std::max(prevIndent, mlHeaderLevel));
             if (pendingLine >= 0) {
                 const int header = mlHeaderLevel > pendingIndent ? SC_FOLDLEVELHEADERFLAG : 0;
                 styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent + header);
@@ -999,6 +1026,7 @@ void SCI_METHOD FBSciLexer::Fold(
             // Foldable only with at least one interior line.
             if (closer >= line + 2) {
                 const int level = lineIndent(styler, line); // `/'` is the content
+                resolveBlanksUpTo(line, std::max(prevIndent, level));
                 if (pendingLine >= 0) {
                     const int header = level > pendingIndent ? SC_FOLDLEVELHEADERFLAG : 0;
                     styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent + header);
@@ -1023,6 +1051,7 @@ void SCI_METHOD FBSciLexer::Fold(
         // comment's `/'` was not alone on its line). Freeze at the ambient
         // level — never a header, invisible to the indentation buffer.
         if (nestStart > 0) {
+            resolveBlanksUpTo(line, prevIndent);
             styler.SetLevel(line, SC_FOLDLEVELBASE + prevIndent);
             continue;
         }
@@ -1030,9 +1059,15 @@ void SCI_METHOD FBSciLexer::Fold(
         // --- Plain indentation folding -------------------------------------
         const int indent = lineIndent(styler, line);
         if (indent < 0) {
-            styler.SetLevel(line, SC_FOLDLEVELBASE + prevIndent + SC_FOLDLEVELWHITEFLAG);
+            // Mark the start of a blank run if we aren't already in one.
+            // Level resolution is deferred to the next code line via
+            // `resolveBlanksUpTo`, giving us look-ahead with O(1) state.
+            if (pendingBlankStart < 0) {
+                pendingBlankStart = line;
+            }
             continue;
         }
+        resolveBlanksUpTo(line, std::max(prevIndent, indent));
         if (pendingLine >= 0) {
             const int header = indent > pendingIndent ? SC_FOLDLEVELHEADERFLAG : 0;
             styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent + header);
@@ -1050,9 +1085,14 @@ void SCI_METHOD FBSciLexer::Fold(
     }
 
     // End-of-document tail: the last buffered code line has no following code
-    // line, so its next indent is 0 — it can never be a header.
-    if (reachedEnd && pendingLine >= 0) {
-        styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent);
+    // line, so its next indent is 0 — it can never be a header. Trailing
+    // blanks with no later code line to resolve their look-ahead get the
+    // last seen indent.
+    if (reachedEnd) {
+        resolveBlanksUpTo(lineCount, prevIndent);
+        if (pendingLine >= 0) {
+            styler.SetLevel(pendingLine, SC_FOLDLEVELBASE + pendingIndent);
+        }
     }
 }
 

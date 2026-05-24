@@ -7,6 +7,7 @@
 #include "FileSession.hpp"
 #include "Document.hpp"
 #include "DocumentManager.hpp"
+#include "DocumentPath.hpp"
 #include "TextEncoding.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
@@ -43,42 +44,35 @@ void applyScrollAndCursor(Editor* editor, const long scroll, const long cursor) 
     editor->SetSelectionEnd(static_cast<int>(cursor));
 }
 
-/// Normalise a path for session storage: always forward-slash separators,
-/// even on Windows, so session files stay portable between platforms.
-auto toPortablePath(const wxString& path) -> wxString {
-    wxString out = path;
-    out.Replace("\\", "/");
-    return out;
-}
+/// Produce the path string to store for a file. If `filePath` lives anywhere
+/// under `sessionDir` (nested at any depth), return a relative path rooted at
+/// `sessionDir`. Otherwise return an absolute path. Result always uses forward
+/// slashes (via `generic_string()`) for cross-platform portability.
+auto pathForSession(const std::filesystem::path& filePath,
+    const std::filesystem::path& sessionDir) -> std::string {
+    std::error_code ec;
+    const auto absolute = std::filesystem::weakly_canonical(filePath, ec);
+    const auto& canonical = ec ? filePath : absolute;
 
-/// Produce the path to store for a file. If `filePath` lives anywhere under
-/// `sessionDir` (nested at any depth), return a relative path rooted at
-/// `sessionDir`. Otherwise return an absolute path. Result always uses
-/// forward slashes.
-auto pathForSession(const wxString& filePath, const wxString& sessionDir) -> wxString {
-    wxFileName fn(filePath);
-    fn.MakeAbsolute();
-
-    wxFileName rel = fn;
-    if (rel.MakeRelativeTo(sessionDir)) {
-        const auto relPath = rel.GetFullPath(wxPATH_UNIX);
-        // `..` prefix means the file is outside the session folder subtree.
-        if (!relPath.StartsWith("..")) {
-            return toPortablePath(relPath);
+    if (!sessionDir.empty()) {
+        std::error_code relEc;
+        const auto rel = std::filesystem::relative(canonical, sessionDir, relEc);
+        if (!relEc && !rel.empty() && !rel.native().starts_with(std::filesystem::path { ".." }.native())) {
+            return rel.generic_string();
         }
     }
-    return toPortablePath(fn.GetFullPath());
+    return canonical.generic_string();
 }
 
 /// Resolve a stored path on load. Relative paths are rooted at the session
 /// folder; absolute paths pass through unchanged.
-auto resolveStoredPath(const wxString& storedPath, const wxString& sessionDir) -> wxString {
-    wxFileName fn(storedPath);
-    if (fn.IsAbsolute()) {
-        return fn.GetFullPath();
+auto resolveStoredPath(const wxString& storedPath,
+    const std::filesystem::path& sessionDir) -> std::filesystem::path {
+    const auto stored = toFsPath(storedPath);
+    if (stored.is_absolute()) {
+        return stored;
     }
-    fn.MakeAbsolute(sessionDir);
-    return fn.GetFullPath();
+    return sessionDir / stored;
 }
 
 } // namespace
@@ -112,7 +106,7 @@ auto FileSession::save(const wxString& path) -> bool {
 
     wxFileConfig cfg(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
 
-    const auto sessionDir = wxFileName(path).GetPath();
+    const auto sessionDir = toFsPath(path).parent_path();
     const auto* notebook = m_ctx.getUIManager().getNotebook();
     cfg.Write("/session/version", Version);
     cfg.Write("/session/selectedTab", notebook->GetSelection());
@@ -125,11 +119,17 @@ auto FileSession::save(const wxString& path) -> bool {
         auto* editor = doc->getEditor();
         const auto group = wxString::Format("/%s%03zu", FILE_GROUP_PREFIX, fileIndex);
         cfg.SetPath(group);
-        cfg.Write("path", pathForSession(doc->getFilePath(), sessionDir));
+        cfg.Write("path", wxString::FromUTF8(pathForSession(doc->getFilePath(), sessionDir)));
         cfg.Write("scroll", editor->GetFirstVisibleLine());
         cfg.Write("cursor", editor->GetCurrentPos());
         cfg.Write("encoding", wxString(doc->getEncoding().toString()));
         cfg.Write("eolMode", wxString(doc->getEolMode().toString()));
+        // Only persist the type when the user has explicitly overridden it.
+        // Otherwise it can be re-derived from the path on next load.
+        if (doc->isTypeOverridden()) {
+            const auto typeKey = documentTypeKey(doc->getType());
+            cfg.Write("type", wxString::FromUTF8(typeKey.data(), typeKey.size()));
+        }
 
         // Store code folds
         if (m_ctx.getConfigManager().config().get_or("editor.folderMargin", false)) {
@@ -203,7 +203,7 @@ void FileSession::loadV3(const wxString& path) {
 
     const auto thaw = m_ctx.getUIManager().freeze();
     auto& dm = m_ctx.getDocumentManager();
-    const auto sessionDir = wxFileName(path).GetPath();
+    const auto sessionDir = toFsPath(path).parent_path();
 
     // Collect file groups. wxFileConfig's iteration order is not guaranteed,
     // so sort — zero-padded names yield insertion order.
@@ -227,7 +227,8 @@ void FileSession::loadV3(const wxString& path) {
             continue;
         }
         const auto filePath = resolveStoredPath(storedPath, sessionDir);
-        if (!wxFileExists(filePath)) {
+        std::error_code fsEc;
+        if (!std::filesystem::exists(filePath, fsEc)) {
             continue;
         }
 
@@ -248,6 +249,15 @@ void FileSession::loadV3(const wxString& path) {
         if (cfg.Read("eolMode", &eolKey) && !eolKey.empty()) {
             if (const auto eol = EolMode::parse(eolKey.ToStdString()); eol.has_value()) {
                 doc->setEolMode(*eol);
+            }
+        }
+        // Restore user-overridden document type (e.g. user picked "Bash"
+        // for an extensionless file last session). Auto-detected types
+        // aren't persisted, so absence here means "trust the derived type".
+        wxString typeKey;
+        if (cfg.Read("type", &typeKey) && !typeKey.empty()) {
+            if (const auto type = documentTypeFromKey(typeKey.ToStdString()); type.has_value()) {
+                doc->setType(*type);
             }
         }
         // setEncoding / setEolMode flip the meta-dirty flag — clear.

@@ -19,9 +19,12 @@ add_executable(tests
     unit/BasicTests.cpp
     unit/CompileCommandTests.cpp
     unit/ConfigManagerTests.cpp
+    unit/ConfigStrategyTests.cpp
     unit/DocumentIOTests.cpp
+    unit/DocumentPathTests.cpp
     unit/EncodingDetectorTests.cpp
     unit/FBSciLexerTests.cpp
+    unit/LineHistoryTests.cpp
     unit/ReFormatterTests.cpp
     unit/StyleLexerTests.cpp
     unit/RunCommandTests.cpp
@@ -29,6 +32,8 @@ add_executable(tests
     unit/SymbolTableTests.cpp
     unit/TextEncodingTests.cpp
     unit/ThemeTests.cpp
+    unit/ValueDiffTests.cpp
+    unit/ValueMergeTests.cpp
     unit/VersionTests.cpp
 )
 
@@ -59,6 +64,7 @@ gtest_discover_tests(tests
 # GUI dependency).
 add_executable(ui-tests
     ui/uimain.cpp
+    ui/EditorChangeMarginTests.cpp
     ui/EditorTests.cpp
     ui/EditorPerfTests.cpp
 )

@@ -52,6 +52,11 @@ public:
     /// Open a file. Returns existing document if already open, or nullptr on failure.
     auto openFile(const wxString& filePath) -> Document*;
 
+    /// fs::path overload — used by `openInclude` and other code that already
+    /// operates on `std::filesystem::path` and would otherwise need to round-trip
+    /// through `wxString`. Same semantics as the `wxString` overload.
+    auto openFile(const std::filesystem::path& filePath) -> Document*;
+
     /// Resolve and open an `#include` path requested from `origin`.
     /// Search order: relative to `origin` file's directory, then the
     /// compiler's `inc/` folder, then the current working directory.
@@ -62,13 +67,14 @@ public:
     void openFile();
 
     /// Save a document. Shows save dialog if untitled. Returns false if cancelled.
-    auto saveFile(Document& doc) const -> bool;
+    auto saveFile(Document& doc) -> bool;
 
     /// Save a document with a new name. Returns false if cancelled.
-    auto saveFileAs(Document& doc) const -> bool;
+    /// May reload another open document if its on-disk file is overwritten.
+    auto saveFileAs(Document& doc) -> bool;
 
     /// Save all modified documents. Returns false if any save was cancelled.
-    auto saveAllFiles() const -> bool;
+    auto saveAllFiles() -> bool;
 
     /// Close a document. Returns false if user cancelled (unsaved changes).
     auto closeFile(Document& doc) -> bool;
@@ -123,6 +129,11 @@ public:
 
     /// Find document by file path. Returns nullptr if not found.
     [[nodiscard]] auto findByPath(const wxString& path) const -> Document*;
+
+    /// fs::path overload — used by internal callers that already operate
+    /// on `std::filesystem::path`. Identical semantics to the `wxString`
+    /// overload but skips one round-trip conversion.
+    [[nodiscard]] auto findByPath(const std::filesystem::path& path) const -> Document*;
 
     /// Get number of modified documents.
     [[nodiscard]] auto getModifiedCount() const -> size_t;

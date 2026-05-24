@@ -34,10 +34,8 @@ auto Panel::spinCtrl(int& value, const wxString& labelText, const int minVal, co
     Unowned<wxSpinCtrl> spin;
     hbox({ .proportion = opts.proportion,
              .expand = opts.expand,
-             .space = opts.space,
-             .padding = opts.padding,
-             .center = true,
-             .border = 0 },
+             .alignment = SmartBoxSizer::Alignment::Center,
+             .margin = false },
         [&] {
             spin = Layout::spinCtrl(value, minVal, maxVal, {}, id, style);
             const auto lbl = text(labelText, { .expand = false });
@@ -54,10 +52,8 @@ auto Panel::spinCtrl(const wxString& labelText, const int minVal, const int maxV
     Unowned<wxSpinCtrl> spin;
     hbox({ .proportion = opts.proportion,
              .expand = opts.expand,
-             .space = opts.space,
-             .padding = opts.padding,
-             .center = true,
-             .border = 0 },
+             .alignment = SmartBoxSizer::Alignment::Center,
+             .margin = false },
         [&] {
             spin = Layout::spinCtrl(minVal, maxVal, {}, id, style);
             const auto lbl = text(labelText, { .expand = false });

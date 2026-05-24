@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "SmartBoxSizer.hpp"
 
 namespace fbide {
 
@@ -15,46 +16,32 @@ concept SizerAware = requires(T& parent, wxSizer* sizer) {
     { parent.SetSizer(sizer) } -> std::same_as<void>;
 };
 
-/// Default gaps and paddings, adhere to platform default
-inline constexpr auto DEFAULT_PADDING = -1;
-
-/// Layout options container sizers
+/// Container options — drive the `SmartBoxSizer` that backs every
+/// `vbox` / `hbox`. `border` is the per-item border (margin) applied
+/// to every visible child; `gap` is the per-item border inside the
+/// inner sizer when `border != gap` triggers `SmartBoxSizer`'s nested
+/// path. `center` adds cross-axis centring to every non-`wxEXPAND`
+/// item. Container-level `proportion` / `expand` decide how the
+/// container sits inside its parent.
 struct LayoutContainerOptions final {
-    /// Sizing proportion inside parent container
     int proportion = 0;
-    /// Fill view along container axis
     bool expand = true;
-    /// Add leading (left or top) space
-    bool space = true;
-    /// Apply parent container padding
-    bool padding = true;
-    /// Center child items within the container
-    bool center = false;
-    /// Space around child items
-    int border = DEFAULT_PADDING;
-    /// Space between child items
-    int gap = DEFAULT_PADDING;
+    SmartBoxSizer::Alignment alignment = SmartBoxSizer::Alignment::None;
+    bool margin = true;
+    int gap = SmartBoxSizer::DEFAULT_SIZE;
 };
 
-/// Layout options for individual managed items
+/// Item-level options — `proportion` and whether the item should
+/// fill the cross axis. Per-item border is owned by `SmartBoxSizer`
+/// so callers don't pass it.
 struct LayoutItemOptions final {
-    /// Sizing proportion inside parent container
     int proportion = 0;
-    /// Fill view along container axis
     bool expand = true;
-    /// Add leading (left or top) space
-    bool space = true;
-    /// Apply parent container padding
-    bool padding = true;
 };
-
-/// Default item options — equivalent to `LayoutItemOptions{}`.
-constexpr LayoutItemOptions defaultItemOptions = {};
-/// Item options for separator lines — drops parent-container padding.
-constexpr LayoutItemOptions defaultSeparatorOptions = { .padding = false };
 
 /// Templated layout helper that can extend any wxWindow-derived class.
-/// Provides automatic gap management between sibling elements.
+/// Builds a tree of `SmartBoxSizer`s through nested `hbox` / `vbox`
+/// blocks. The root sizer is a `SmartBoxSizer` with default options.
 ///
 /// Usage:
 ///   class MyPanel : public Layout<wxPanel> { ... };
@@ -64,46 +51,42 @@ class Layout : public Base {
 public:
     NO_COPY_AND_MOVE(Layout)
 
-    /// Forward-construct the wx base, then install a vertical box sizer.
+    /// Forward-construct the wx base, then install the root `SmartBoxSizer`.
     template<typename... Args>
     explicit Layout(Args&&... args)
     : Base(std::forward<Args>(args)...) {
-        m_currentSizer = make_unowned<wxBoxSizer>(wxVERTICAL);
+        m_currentSizer = make_unowned<SmartBoxSizer>(SmartBoxSizer::Options {}, wxVERTICAL);
     }
 
-    /// Platform default border — at least 5 px.
+    /// Platform default border — at least 5 px. Exposed so callers
+    /// (and `SmartBoxSizer` itself, via `DEFAULT_PADDING`) agree on
+    /// the same fallback value.
     static auto defaultBorder() -> int {
         return std::max(5, wxSizerFlags::GetDefaultBorder());
     }
 
-    /// Resolve `DEFAULT_PADDING` to the platform default; pass other values through.
-    static auto resolveBorder(const int border) -> int {
-        return border == DEFAULT_PADDING ? defaultBorder() : border;
-    }
+    // -----------------------------------------------------------------------
+    // Item insertion
+    // -----------------------------------------------------------------------
 
-    /// Add a window to the current sizer with automatic gap.
+    /// Add a window. Border / centring is handled by the active
+    /// `SmartBoxSizer`; only proportion + expand are passed in.
     void add(wxWindow* view, const LayoutItemOptions opts = {}) {
-        const auto calc = calculate(opts);
-        if (calc.space != 0) {
-            m_currentSizer->AddSpacer(resolveBorder(calc.space));
-        }
-        m_currentSizer->Add(view, calc.proportion, calc.flags, resolveBorder(calc.border));
+        const int flags = opts.expand ? wxEXPAND : 0;
+        m_currentSizer->Add(view, opts.proportion, flags);
     }
 
-    /// Add child sizer
+    /// Add a child sizer. Same proportion / expand semantics as the
+    /// window variant — the sub-sizer carries its own internal
+    /// border / gap / centring via its own options.
     void add(wxSizer* sizer, const LayoutContainerOptions opts = {}) {
-        const auto calc = calculate({ .proportion = opts.proportion,
-            .expand = opts.expand,
-            .space = opts.space,
-            .padding = opts.padding });
-        if (calc.space != 0) {
-            m_currentSizer->AddSpacer(resolveBorder(calc.space));
-        }
-        m_currentSizer->Add(sizer, calc.proportion, calc.flags, resolveBorder(calc.border));
+        const int flags = opts.expand ? wxEXPAND : 0;
+        m_currentSizer->Add(sizer, opts.proportion, flags);
     }
 
-    /// Add a separator line (orientation auto-detected from parent sizer).
-    void separator(const LayoutItemOptions opts = defaultSeparatorOptions) {
+    /// Add a separator line. Orientation is the cross axis of the
+    /// active sizer.
+    void separator(const LayoutItemOptions opts = {}) {
         const bool horizontal = m_currentSizer->GetOrientation() == wxHORIZONTAL;
         const auto line = make_unowned<wxStaticLine>(
             m_currentParent, wxID_STATIC,
@@ -113,8 +96,12 @@ public:
         add(line, opts);
     }
 
-    /// Add a space
-    void spacer(const int size = DEFAULT_PADDING) { currentSizer()->AddSpacer(resolveBorder(size)); }
+    /// Add an explicit pixel-sized gap. Niche — `SmartBoxSizer`
+    /// already inserts the `gap` between visible items; reach for
+    /// this only when you need an off-grid spacer.
+    void spacer(const int size = SmartBoxSizer::DEFAULT_SIZE) {
+        m_currentSizer->AddSpacer(size < 0 ? defaultBorder() : size);
+    }
 
     // -----------------------------------------------------------------------
     // Controls
@@ -127,7 +114,7 @@ public:
         return ctrl;
     }
 
-    /// Add a checkbox
+    /// Add a checkbox bound to `value`.
     auto checkBox(bool& value, const wxString& str, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxCheckBox> {
         const auto ctrl = checkBox(str, opts, id, style);
         ctrl->SetValue(value);
@@ -144,7 +131,7 @@ public:
         return ctrl;
     }
 
-    /// Add a spin control with initial value
+    /// Add a spin control bound to `value`.
     auto spinCtrl(int& value, const int minVal, const int maxVal, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxSpinCtrl> {
         const auto ctrl = spinCtrl(minVal, maxVal, opts, id, style);
         ctrl->SetValue(value);
@@ -154,7 +141,7 @@ public:
         return ctrl;
     }
 
-    /// Add spin control
+    /// Add a spin control.
     auto spinCtrl(int minVal, int maxVal, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxSpinCtrl> {
         const auto ctrl = make_unowned<wxSpinCtrl>(
             m_currentParent, id, "",
@@ -165,7 +152,7 @@ public:
         return ctrl;
     }
 
-    /// Add a choice dropdown with initial value.
+    /// Add a choice dropdown bound to `value`.
     auto choice(wxString& value, const wxArrayString& choices, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxChoice> {
         const auto ctrl = choice(choices, opts, id, style);
         const auto sel = ctrl->FindString(value);
@@ -176,14 +163,14 @@ public:
         return ctrl;
     }
 
-    /// Add a choice dropdown
+    /// Add a choice dropdown.
     auto choice(const wxArrayString& choices, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxChoice> {
         const auto ctrl = make_unowned<wxChoice>(m_currentParent, id, wxDefaultPosition, wxDefaultSize, choices, style);
         add(ctrl, opts);
         return ctrl;
     }
 
-    /// Add a text field with initial value
+    /// Add a text field bound to `value`.
     auto textField(wxString& value, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxTextCtrl> {
         const auto ctrl = textField(opts, id, style);
         ctrl->SetValue(value);
@@ -193,7 +180,7 @@ public:
         return ctrl;
     }
 
-    /// Add a text field
+    /// Add a text field.
     auto textField(const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxTextCtrl> {
         const auto ctrl = make_unowned<wxTextCtrl>(m_currentParent, id, wxEmptyString, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
@@ -207,14 +194,14 @@ public:
         return ctrl;
     }
 
-    /// Add a radio button
+    /// Add a radio button.
     auto radio(const wxString& str, const LayoutItemOptions opts = {}, const wxWindowID id = wxID_ANY, const long style = 0) -> Unowned<wxRadioButton> {
         const auto ctrl = make_unowned<wxRadioButton>(m_currentParent, id, str, wxDefaultPosition, wxDefaultSize, style);
         add(ctrl, opts);
         return ctrl;
     }
 
-    /// Connect label to a control
+    /// Connect a label so clicking it focuses `control`.
     void connect(wxStaticText* label, wxControl* control) {
         label->Bind(wxEVT_LEFT_DOWN, [control](const auto&) {
             control->SetFocus();
@@ -222,107 +209,80 @@ public:
     }
 
     // -----------------------------------------------------------------------
-    // HBOX
+    // HBOX / VBOX
     // -----------------------------------------------------------------------
 
-    /// Lay child items out horizontally
     template<std::invocable Func>
     void hbox(const LayoutContainerOptions opts, Func&& func) {
         makeBox(wxEmptyString, wxHORIZONTAL, opts, std::forward<Func>(func));
     }
 
-    /// Lay child items out horizontally in a named bordered box
     template<std::invocable Func>
     void hbox(const wxString& title, const LayoutContainerOptions opts, Func&& func) {
         makeBox(title, wxHORIZONTAL, opts, std::forward<Func>(func));
     }
 
-    // -----------------------------------------------------------------------
-    // VBOX
-    // -----------------------------------------------------------------------
-
-    /// Lay child items out vertically
     template<std::invocable Func>
     void vbox(const LayoutContainerOptions opts, Func&& func) {
         makeBox(wxEmptyString, wxVERTICAL, opts, std::forward<Func>(func));
     }
 
-    /// Lay child items out vertically in a named bordered box
     template<std::invocable Func>
     void vbox(const wxString& title, const LayoutContainerOptions opts, Func&& func) {
         makeBox(title, wxVERTICAL, opts, std::forward<Func>(func));
     }
 
     // -----------------------------------------------------------------------
-    // Layout options
+    // Accessors
     // -----------------------------------------------------------------------
 
-    /// Gey current managed sizer (hbox or vbox)
+    /// Active sizer (top of the implicit stack). The DSL guarantees
+    /// this is a `SmartBoxSizer`, but the static type is the base for
+    /// uniform interaction with `wxSizer` APIs.
     [[nodiscard]] auto currentSizer() const -> wxBoxSizer* { return m_currentSizer; }
 
-    /// Get current parent that should own the added view
+    /// Active wx parent for new controls — defaults to `this`, but
+    /// becomes the static box's content window inside titled
+    /// `vbox(title, ...)` / `hbox(title, ...)`.
     [[nodiscard]] auto currentParent() const -> wxWindow* { return m_currentParent; }
 
-    /// Get current layout options
-    [[nodiscard]] auto currentOptions() -> LayoutContainerOptions& { return m_currentOptions; }
+    /// Get current named label
+    [[nodiscard]] auto currentNamedLabel() const -> wxStaticText* { return m_namedLabel; }
 
 private:
-    /// Resolved sizer flags and spacing for a single `add` call.
-    struct CalculatedOptions final {
-        int space;      ///< Leading spacer in pixels (0 = none).
-        int proportion; ///< wxSizer proportion.
-        int flags;      ///< Combined `wxSizerFlags` bits.
-        int border;     ///< Border width in pixels.
-    };
-
-    /// Resolve `LayoutItemOptions` against the active container options.
-    auto calculate(const LayoutItemOptions opts) -> CalculatedOptions {
-        const bool isFirst = m_currentSizer->GetItemCount() == 0;
-        const bool vertical = m_currentSizer->IsVertical();
-        int flags = vertical ? wxLEFT | wxRIGHT : wxTOP | wxBOTTOM;
-        const int padding = opts.padding ? m_currentOptions.border : 0;
-        const int border = padding;
-        const int space = opts.space ? (isFirst ? padding : m_currentOptions.gap) : 0;
-
-        if (opts.expand) {
-            flags |= wxEXPAND;
-        } else if (m_currentOptions.center) {
-            flags |= vertical ? wxALIGN_CENTER_HORIZONTAL : wxALIGN_CENTER_VERTICAL;
-        }
-
-        return { .space = space, .proportion = opts.proportion, .flags = flags, .border = border };
-    }
-
-    /// Push a new sizer (optionally inside a static box), call `func`, pop.
+    /// Push a new `SmartBoxSizer` (optionally inside a static box),
+    /// run `func` with it as the active sizer, then pop.
     template<std::invocable Func>
     void makeBox(const wxString& title, const int direction, const LayoutContainerOptions opts, Func&& func) {
-        const ValueRestorer restoreSizer { m_currentSizer, m_currentOptions, m_currentParent };
-        auto* sizer = [&] -> wxBoxSizer* {
-            if (title.empty()) {
-                return make_unowned<wxBoxSizer>(direction);
-            }
-            const auto ss = make_unowned<wxStaticBoxSizer>(direction, m_currentParent, title);
-            m_currentParent = ss->GetStaticBox();
-            return ss;
-        }();
-        add(sizer, opts);
-        m_currentSizer = sizer;
-        m_currentOptions = opts;
-        std::invoke(std::forward<Func>(func));
-        closeContainer();
-    }
+        const ValueRestorer restoreState { m_currentSizer, m_currentParent, m_namedLabel };
 
-    /// Append a trailing spacer to round off the container.
-    void closeContainer() {
-        if (m_currentSizer->IsEmpty()) {
-            return;
+        const SmartBoxSizer::Options smartOpts {
+            .gap = opts.gap,
+            .alignment = opts.alignment,
+            .margin = opts.margin
+        };
+
+        const auto smart = make_unowned<SmartBoxSizer>(
+            smartOpts, static_cast<wxOrientation>(direction)
+        );
+
+        if (not title.empty()) {
+            auto* vsizer = new SmartBoxSizer(SmartBoxSizer::Options {}, wxVERTICAL);
+            add(vsizer, opts);
+            m_currentSizer = vsizer;
+            m_namedLabel = label(title);
+            m_namedLabel->SetFont(m_namedLabel->GetFont().Bold());
+            separator();
         }
-        m_currentSizer->AddSpacer(resolveBorder(m_currentOptions.border));
+
+        add(smart, opts);
+        m_currentSizer = smart;
+        std::invoke(std::forward<Func>(func));
     }
 
-    wxBoxSizer* m_currentSizer = nullptr;         ///< Active sizer (top of the implicit stack).
-    wxWindow* m_currentParent = this;             ///< Active wx parent for new controls.
-    LayoutContainerOptions m_currentOptions = {}; ///< Active container options.
+    wxBoxSizer* m_currentSizer = nullptr; ///< Active SmartBoxSizer (held as base).
+    wxWindow* m_currentParent = this;     ///< Active wx parent for new controls.
+    wxStaticText* m_namedLabel = nullptr;
 };
 
 } // namespace fbide

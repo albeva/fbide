@@ -53,7 +53,7 @@ public:
 
 private:
     /// Auto-indent the new line and (if appropriate) emit a matching closer.
-    void applyIndentAndCloser(Editor& editor);
+    void applyIndentAndCloser(Editor& editor) const;
     /// True when `prevLine` already has a body below it (fold header flag),
     /// implying its closer also exists — suppress auto-emitting another.
     [[nodiscard]] static auto blockAlreadyClosed(Editor& editor, int prevLine) -> bool;

@@ -8,6 +8,7 @@
 #include "app/Context.hpp"
 #include "cmake/config.hpp"
 #include "config/ConfigManager.hpp"
+#include "document/DocumentManager.hpp"
 #include "ui/controls/BBCodeText.hpp"
 namespace XPM {
 #include "rc/fbide.xpm"
@@ -29,9 +30,10 @@ void AboutDialog::create() {
         currentParent(), wxID_ANY, wxBitmap(XPM::fbide_xpm),
         wxDefaultPosition, wxSize(300, 75)
     );
-    add(banner, { .padding = false });
 
-    vbox("FBIde information", { .border = 0 }, [&] {
+    add(banner);
+
+    vbox("FBIde information", { .margin = false }, [&] {
         const auto info = label(
             wxString::Format(
                 "Version:       %s\n"
@@ -41,25 +43,47 @@ void AboutDialog::create() {
                 __DATE__,
                 wxMAJOR_VERSION, wxMINOR_VERSION, wxRELEASE_NUMBER
             ),
-            { .space = false }
+            {}
         );
         info->SetFont(infoFont);
 
         separator();
 
-        const auto text = make_unowned<BBCodeText>(currentParent(), wxID_ANY, loadReadme(), wxDefaultPosition, wxSize(-1, 200));
+        const auto text = make_unowned<BBCodeText>(
+            currentParent(), wxID_ANY, loadReadme(),
+            wxDefaultPosition, wxSize(-1, 200)
+        );
         add(text, { .proportion = 1 });
     });
 
-    add(CreateStdDialogButtonSizer(wxOK), { .padding = false });
-    currentSizer()->AddSpacer(defaultBorder());
+    // Licence links — click to open the file in the editor and close
+    // the dialog. The URL field of wxHyperlinkCtrl is unused (we
+    // bind the click ourselves), but it must be non-empty or wx
+    // refuses to construct the control on some platforms; we pass
+    // the file name as a harmless placeholder.
+    hbox({}, [&] {
+        const auto addLink = [&](const wxString& label, const wxString& file) {
+            const auto link = make_unowned<wxHyperlinkCtrl>(
+                currentParent(), wxID_ANY, label, file
+            );
+            link->Bind(wxEVT_HYPERLINK, [this, file](wxHyperlinkEvent&) {
+                const auto path = m_ctx.getConfigManager().absolute(file);
+                m_ctx.getDocumentManager().openFile(path);
+                EndModal(wxID_OK);
+            });
+            add(link);
+        };
+        addLink("License", "LICENSE");
+        addLink("Third-party licenses", "THIRD_PARTY_LICENSES.txt");
+    });
 
+    add(CreateStdDialogButtonSizer(wxOK));
     SetSizerAndFit(currentSizer());
     Centre();
 }
 
 auto AboutDialog::loadReadme() const -> wxString {
-    const auto readmePath = m_ctx.getConfigManager().absolute("ide/readme.txt");
+    const auto readmePath = m_ctx.getConfigManager().absolute("readme.txt");
     wxString content;
     wxFile file(readmePath);
     if (!file.IsOpened()) {

@@ -21,6 +21,7 @@ target_sources(fbide_lib
     compiler/CompilerManager.cpp
     compiler/RunCommand.cpp
     config/ConfigManager.cpp
+    config/ConfigStrategy.cpp
     config/FileHistory.cpp
     config/Theme.cpp
     config/Value.cpp
@@ -28,6 +29,7 @@ target_sources(fbide_lib
     document/Document.cpp
     document/DocumentIO.cpp
     document/DocumentManager.cpp
+    document/DocumentPath.cpp
     document/DocumentType.cpp
     document/EncodingDetector.cpp
     document/FileSession.cpp
@@ -35,6 +37,7 @@ target_sources(fbide_lib
     editor/AutoIndent.cpp
     editor/CodeTransformer.cpp
     editor/Editor.cpp
+    editor/LineHistory.cpp
     editor/lexilla/FBSciLexer.cpp
     format/FormatDialog.cpp
     format/renderers/HtmlRenderer.cpp
@@ -55,15 +58,18 @@ target_sources(fbide_lib
     sidebar/SymbolBrowserPanel.cpp
     ui/ArtiProvider.cpp
     ui/CompilerLog.cpp
+    ui/DocumentTypeMenu.cpp
     ui/EncodingMenu.cpp
     ui/OutputConsole.cpp
     ui/UIManager.cpp
     ui/controls/BBCodeText.cpp
     ui/controls/ColorPicker.cpp
     ui/controls/Panel.cpp
+    ui/controls/SmartBoxSizer.cpp
     ui/utilities/FileDropTarget.cpp
 
     PUBLIC FILE_SET HEADERS FILES
+    ui/controls/SmartBoxSizer.hpp
     about/AboutDialog.hpp
     analyses/intellisense/IntellisenseService.hpp
     analyses/lexer/KeywordTables.hpp
@@ -86,6 +92,7 @@ target_sources(fbide_lib
     compiler/QuoteUtils.hpp
     compiler/RunCommand.hpp
     config/ConfigManager.hpp
+    config/ConfigStrategy.hpp
     config/FileHistory.hpp
     config/Theme.hpp
     config/ThemeCategory.hpp
@@ -93,6 +100,7 @@ target_sources(fbide_lib
     config/Version.hpp
     document/Document.hpp
     document/DocumentManager.hpp
+    document/DocumentPath.hpp
     document/DocumentType.hpp
     document/EncodingDetector.hpp
     document/FileSession.hpp
@@ -100,6 +108,7 @@ target_sources(fbide_lib
     editor/AutoIndent.hpp
     editor/CodeTransformer.hpp
     editor/Editor.hpp
+    editor/LineHistory.hpp
     editor/lexilla/CharCategory.hpp
     editor/lexilla/FBSciLexer.hpp
     format/FormatDialog.hpp
@@ -124,6 +133,7 @@ target_sources(fbide_lib
     sidebar/SymbolBrowserPanel.hpp
     ui/ArtiProvider.hpp
     ui/CompilerLog.hpp
+    ui/DocumentTypeMenu.hpp
     ui/EncodingMenu.hpp
     ui/OutputConsole.hpp
     ui/UIManager.hpp

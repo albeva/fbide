@@ -13,15 +13,6 @@ using namespace fbide;
 
 namespace {
 
-/// Lowercase first char — locale keys use lowerFirst(#Name).
-auto lowerFirst(const std::string_view name) -> wxString {
-    wxString out = wxString::FromAscii(name.data(), name.size());
-    if (not out.empty()) {
-        out[0] = wxTolower(out[0]);
-    }
-    return out;
-}
-
 /// 16×16 swatch filled with `c` and outlined, for menu item bitmaps.
 auto makeSwatch(const wxColour& c) -> wxBitmap {
     constexpr int size = 16;
@@ -53,18 +44,20 @@ ColorPicker::ColorPicker(wxWindow* parent, const Theme& theme, const Value& tr,
 , m_inheritTooltip(std::move(inheritTooltip)) {}
 
 void ColorPicker::create() {
-    currentOptions() = { .border = 0 };
+    if (auto* smart = wxDynamicCast(currentSizer(), SmartBoxSizer)) {
+        smart->setOptions({ .margin = false });
+    }
 
-    m_lbl = label(m_labelText, {});
-    hbox({ .center = true, .border = 0 }, [&] {
-        m_chkInherit = make_unowned<wxCheckBox>(currentParent(), ID_CHK_INHERIT, wxEmptyString);
+    const auto lbl = label(m_labelText);
+    hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
+        m_chkInherit = checkBox(wxEmptyString, {}, ID_CHK_INHERIT);
         if (not m_inheritTooltip.empty()) {
             m_chkInherit->SetToolTip(m_inheritTooltip);
         }
-        currentSizer()->Add(m_chkInherit, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder());
-        m_btn = button(wxString {}, { .proportion = 1, .space = false }, ID_BTN_COLOR);
+        m_btn = button(wxEmptyString, {}, ID_BTN_COLOR);
+        m_btn->SetMinSize(wxSize(110, -1));
     });
-    connect(m_lbl, m_btn);
+    connect(lbl, m_btn);
 
     SetSizer(currentSizer());
 }
@@ -82,6 +75,8 @@ void ColorPicker::setColors(const wxColour& color, const wxColour& defaultColor)
     if (effective.IsOk()) {
         applyColor(effective);
     }
+
+    Fit();
     Layout();
 }
 
@@ -89,20 +84,38 @@ auto ColorPicker::getColor() const -> wxColour {
     if (m_chkInherit->IsShown() && m_chkInherit->IsChecked()) {
         return wxNullColour;
     }
-    return m_btn->GetBackgroundColour();
+    return m_currentColor;
 }
 
 void ColorPicker::applyColor(const wxColour& c) {
-    m_btn->SetBackgroundColour(c);
-    m_btn->SetToolTip(c.GetAsString(wxC2S_HTML_SYNTAX));
-    m_btn->Refresh();
+    // Plain button with a colour swatch as its bitmap and the hex
+    // value as its label. The previous version forced the button's
+    // background colour to `c`, which fought the native style and
+    // rendered inconsistently across platforms / themes.
+    m_currentColor = c;
+    const auto hex = c.GetAsString(wxC2S_HTML_SYNTAX);
+    m_btn->SetBitmap(makeSwatch(c));
+    m_btn->SetLabel(hex);
+    m_btn->SetToolTip(hex);
 }
 
 void ColorPicker::openColourDialog() {
     wxColourData data;
-    data.SetColour(m_btn->GetBackgroundColour());
+    data.SetColour(m_currentColor);
     if (wxColourDialog dlg(this, &data); dlg.ShowModal() == wxID_OK) {
         applyColor(dlg.GetColourData().GetColour());
+    }
+}
+
+void ColorPicker::copyHexToClipboard() const {
+    if (not m_currentColor.IsOk()) {
+        return;
+    }
+    if (wxTheClipboard->Open()) {
+        wxTheClipboard->SetData(
+            make_unowned<wxTextDataObject>(m_currentColor.GetAsString(wxC2S_HTML_SYNTAX))
+        );
+        wxTheClipboard->Close();
     }
 }
 
@@ -119,14 +132,16 @@ void ColorPicker::onButtonClick(wxCommandEvent&) {
     std::unordered_map<int, wxColour> colorMap;
 
     const int chooseId = NewControlId();
+    const int copyHexId = NewControlId();
     menu.Append(chooseId, m_tr.get_or("chooseColor", "Choose color..."));
+    menu.Append(copyHexId, m_tr.get_or("copyHex", "Copy hex value"));
     menu.AppendSeparator();
 
     auto* copyMenu = new wxMenu;
     const wxString fgLabel = m_tr.get_or("foreground", "Foreground");
     const wxString bgLabel = m_tr.get_or("background", "Background");
 
-    const auto addCategory = [&](const SettingsCategory cat, const std::string_view rawName) {
+    const auto addCategory = [&](const SettingsCategory cat) {
         const auto entry = readCategory(m_theme, cat);
         const bool hasFg = entry.colors.foreground.IsOk();
         const bool hasBg = entry.colors.background.IsOk();
@@ -151,16 +166,20 @@ void ColorPicker::onButtonClick(wxCommandEvent&) {
             sub->Append(item);
             colorMap[id] = entry.colors.background;
         }
-        const auto keyName = lowerFirst(rawName);
-        const auto label = m_tr.get_or("categories." + keyName, keyName);
+        // Locale key mirrors the ThemePage category tree (see
+        // `getSettingsCategoryLabelKey`) so the submenu labels reuse
+        // the translations the tree already ships in every locale,
+        // instead of falling back to raw enum-derived strings like
+        // `keywordTypes` / `numberPP`.
+        const auto sv = getSettingsCategoryLabelKey(cat);
+        const wxString key = wxString::FromAscii(sv.data(), sv.size());
+        const auto label = m_tr.get_or("categories." + key, key);
         copyMenu->AppendSubMenu(sub, label);
     };
 
-    // clang-format off
-    #define ADD_CAT(NAME, ...) addCategory(SettingsCategory::NAME, #NAME);
-        DEFINE_SETTINGS_CATEGORY(ADD_CAT)
-    #undef ADD_CAT
-    // clang-format on
+    for (const auto cat : kSettingsCategories) {
+        addCategory(cat);
+    }
 
     menu.AppendSubMenu(copyMenu, m_tr.get_or("copyFrom", "Copy from"));
 
@@ -170,6 +189,10 @@ void ColorPicker::onButtonClick(wxCommandEvent&) {
     }
     if (sel == chooseId) {
         openColourDialog();
+        return;
+    }
+    if (sel == copyHexId) {
+        copyHexToClipboard();
         return;
     }
     if (const auto it = colorMap.find(sel); it != colorMap.end()) {

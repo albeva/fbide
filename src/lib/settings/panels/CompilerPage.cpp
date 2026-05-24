@@ -10,6 +10,7 @@
 #include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentPath.hpp"
 #include "help/HelpManager.hpp"
 using namespace fbide;
 
@@ -26,19 +27,13 @@ CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 }
 
 void CompilerPage::create() {
-    vbox(tr("dialogs.settings.compiler.compilerAndPaths"), { .proportion = 1, .border = 0 }, [&] {
-        compilerPath();
-        spacer();
-        compilerCommand();
-        spacer();
-        runCommand();
+    compilerPath();
+    compilerCommand();
+    runCommand();
 #ifdef __WXMSW__
-        spacer();
-        helpFile();
+    helpFile();
 #endif
-        spacer();
-        placeholderTable();
-    });
+    placeholderTable();
     SetSizerAndFit(currentSizer());
 }
 
@@ -135,11 +130,11 @@ void CompilerPage::placeholderTable() {
     m_placeholderTitle = text(trOr("dialogs.settings.compiler.placeholders.title", "Placeholders (click to insert)"), {});
     const auto list = make_unowned<wxListCtrl>(
         currentParent(), wxID_ANY,
-        wxDefaultPosition, wxDefaultSize,
+        wxDefaultPosition, wxSize(-1, 100),
         wxLC_REPORT | wxLC_SINGLE_SEL
     );
     list->AppendColumn(trOr("dialogs.settings.compiler.placeholders.placeholder", "Placeholder"), wxLIST_FORMAT_LEFT, 120);
-    list->AppendColumn(trOr("dialogs.settings.compiler.placeholders.expansion", "Expansion"), wxLIST_FORMAT_LEFT, 400);
+    list->AppendColumn(trOr("dialogs.settings.compiler.placeholders.expansion", "Expansion"), wxLIST_FORMAT_LEFT, -1);
     list->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& evt) {
         int flags = 0;
         const long item = m_placeholderList->HitTest(evt.GetPosition(), flags);
@@ -214,7 +209,7 @@ void CompilerPage::refreshPlaceholders() {
         wxString fbc = m_compilerPath;
         if (fbc.empty()) {
 #ifdef __WXMSW__
-            fbc = "C:\\path\\to\\fbc.exe";
+            fbc = R"(C:\path\to\fbc.exe)";
 #else
             fbc = "/path/to/fbc";
 #endif
@@ -243,9 +238,15 @@ void CompilerPage::insertPlaceholder(const wxString& placeholder) {
 auto CompilerPage::getSampleSourcePath() const -> wxString {
     if (auto* doc = getContext().getDocumentManager().getActive(); doc != nullptr && !doc->isNew()) {
         const auto& path = doc->getFilePath();
-        const auto ext = wxFileName(path).GetExt().Lower();
+        auto ext = path.extension().string();
+        if (!ext.empty() && ext.front() == '.') {
+            ext.erase(0, 1);
+        }
+        std::ranges::transform(ext, ext.begin(), [](const unsigned char ch) {
+            return static_cast<char>(std::tolower(ch));
+        });
         if (ext == "bas" || ext == "bi") {
-            return path;
+            return toWxString(path);
         }
     }
 #ifdef __WXMSW__
@@ -266,7 +267,7 @@ auto CompilerPage::makeFileEntry(wxString& value, const wxString& labelText) -> 
     const auto lbl = text(labelText, {});
     Unowned<wxButton> btn;
     Unowned<wxTextCtrl> tf;
-    hbox({ .center = true, .border = 0 }, [&] {
+    hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
         tf = textField(value, { .proportion = 1 });
         connect(lbl, tf);
         btn = button("...", {});

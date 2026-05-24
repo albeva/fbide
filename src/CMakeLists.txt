@@ -17,13 +17,26 @@ if (WIN32)
 elseif (APPLE)
     # macos bundle executable
     add_executable(fbide MACOSX_BUNDLE)
-    # attach Info.plist
-    set_target_properties(fbide PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${PROJECT_SOURCE_DIR}/src/lib/rc/Info.plist)
-    # copy resources/ide to the Bundle
-    file(GLOB_RECURSE IDE_RESOURCES ${PROJECT_SOURCE_DIR}/resources/ide/*)
+
+    # Info.plist
+    set(FBIDE_INFO_PLIST ${CMAKE_BINARY_DIR}/configured_files/macos/Info.plist)
+    set_source_files_properties(${FBIDE_INFO_PLIST}
+        PROPERTIES MACOSX_PACKAGE_LOCATION "."
+    )
+    target_sources(fbide PRIVATE ${FBIDE_INFO_PLIST})
+
+    # App icons
+    set(FBIDE_MACOS_ICON ${PROJECT_SOURCE_DIR}/src/lib/rc/fbide.icns)
+    set_source_files_properties(${FBIDE_MACOS_ICON}
+        PROPERTIES MACOSX_PACKAGE_LOCATION Resources
+    )
+    target_sources(fbide PRIVATE ${FBIDE_MACOS_ICON})
+
+    # copy resources/pristine to the Bundle
+    file(GLOB_RECURSE IDE_RESOURCES ${PROJECT_SOURCE_DIR}/resources/pristine/*)
     foreach (FILE ${IDE_RESOURCES})
         file(RELATIVE_PATH REL_PATH
-            ${PROJECT_SOURCE_DIR}/resources/ide
+            ${PROJECT_SOURCE_DIR}/resources/pristine
             ${FILE}
         )
         get_filename_component(REL_DIR ${REL_PATH} DIRECTORY)

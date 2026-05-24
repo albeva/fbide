@@ -33,16 +33,34 @@ public:
     /// Enumerate every fixed-width system font — used only by this panel.
     [[nodiscard]] static auto getAllFixedWidthFonts() -> std::vector<wxString>;
 
-    /// Static layout descriptor for the category tree.
+    /// Static layout descriptor for the category tree. A node is
+    /// either bound to a `SettingsCategory` (clickable to edit
+    /// colours) or it's a folder with a hand-written `labelKey`
+    /// (`keywords`, `margins`, etc. — those don't map 1:1 to any
+    /// category). For category-bound nodes the locale key is
+    /// derived from `getSettingsCategoryLabelKey`, so the tree
+    /// always matches what ColorPicker's "Copy from" submenu
+    /// shows. The label falls back to the locale key itself when
+    /// the lookup is missing.
     struct TreeNode {
-        wxString labelKey;                        ///< Locale key under `categories.`
-        wxString fallbackLabel;                   ///< Used if locale key missing.
-        std::optional<SettingsCategory> category; ///< Empty for folder nodes.
+        std::optional<SettingsCategory> category;
+        wxString labelKey; ///< Folder-only; empty when `category` is set.
         std::vector<TreeNode> children;
+
+        /// Category-bound node — label key derived from the enum.
+        // NOLINTNEXTLINE(google-explicit-constructor)
+        TreeNode(const SettingsCategory cat, std::vector<TreeNode> kids = {})
+        : category(cat)
+        , children(std::move(kids)) {}
+
+        /// Folder node — no category, explicit locale key.
+        // NOLINTNEXTLINE(google-explicit-constructor)
+        TreeNode(wxString key, std::vector<TreeNode> kids = {})
+        : labelKey(std::move(key))
+        , children(std::move(kids)) {}
     };
 
 private:
-
     /// Locale lookup with optional default — wraps `m_tr.get_or`.
     auto tr(const wxString& path, const wxString& def = wxEmptyString) const -> wxString;
 
@@ -79,8 +97,10 @@ private:
     void loadCategory();
     /// Push the editor widgets back into the working theme's category entry.
     void saveCategory();
-    /// Refresh the right-pane title from the current category.
-    void updateTitle();
+    /// Load the four diff-state pickers from the working theme.
+    void loadChangesCategory();
+    /// Push the four diff-state pickers back into the working theme.
+    void saveChangesCategory();
     /// Enable/disable category-specific widgets (e.g. font fields).
     void applyCapability();
     /// Persist the active theme path back to config.
@@ -104,7 +124,14 @@ private:
     Unowned<wxStaticText> m_lblFont;          ///< Font label.
     Unowned<wxStaticText> m_lblFontSize;      ///< Font-size label.
 
-    wxStaticBoxSizer* m_themeBox = nullptr; ///< Right-pane group box.
+    // Diff-state pickers — shown only when the "Changes" tree node is
+    // selected. The standard fg/bg pickers are hidden in that case.
+    Unowned<ColorPicker> m_changesAddedPicker;
+    Unowned<ColorPicker> m_changesModifiedPicker;
+    Unowned<ColorPicker> m_changesRemovedPicker;
+    Unowned<ColorPicker> m_changesBackgroundPicker;
+
+    wxStaticText* m_themeLabel = nullptr; ///< Right-pane group box.
 
     /// Index offset between the theme dropdown selection and `m_themeFiles`
     /// (slot 0 is the synthetic "New theme..." entry).

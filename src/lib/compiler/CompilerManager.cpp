@@ -12,6 +12,7 @@
 #include "document/Document.hpp"
 #include "document/DocumentIO.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentPath.hpp"
 #include "editor/Editor.hpp"
 #include "settings/SettingsDialog.hpp"
 #include "ui/CompilerLog.hpp"
@@ -34,7 +35,7 @@ void CompilerManager::compile() {
     }
 
     m_task = std::make_unique<BuildTask>(m_ctx, doc);
-    m_task->compile(doc->getFilePath());
+    m_task->compile(toWxString(doc->getFilePath()));
 }
 
 void CompilerManager::compileAndRun() {
@@ -44,7 +45,7 @@ void CompilerManager::compileAndRun() {
     }
 
     m_task = std::make_unique<BuildTask>(m_ctx, doc);
-    m_task->compileAndRun(doc->getFilePath(), false);
+    m_task->compileAndRun(toWxString(doc->getFilePath()), false);
 }
 
 void CompilerManager::run() {
@@ -78,19 +79,23 @@ void CompilerManager::quickRun() {
 
     // Determine temp folder from current file or IDE path
     const auto& filePath = doc->getFilePath();
-    const auto tempFolder = filePath.empty()
-                              ? wxGetCwd() + "/"
-                              : wxPathOnly(filePath) + "/";
+    std::filesystem::path tempFolder;
+    if (filePath.empty()) {
+        std::error_code ec;
+        tempFolder = std::filesystem::current_path(ec);
+    } else {
+        tempFolder = filePath.parent_path();
+    }
 
     // Save content to temp file — preserve doc encoding so the compiler
     // sees bytes matching what the user sees.
-    const auto tempFile = tempFolder + BuildTask::TEMPNAME;
+    const auto tempFile = tempFolder / BuildTask::TEMPNAME;
     if (DocumentIO::save(tempFile, doc->getEditor()->GetText(), doc->getEncoding(), doc->getEolMode()) != DocumentIO::SaveResult::Success) {
         return;
     }
 
     m_task = std::make_unique<BuildTask>(m_ctx, doc);
-    m_task->compileAndRun(tempFile, true);
+    m_task->compileAndRun(toWxString(tempFile), true);
 }
 
 void CompilerManager::killProcess() {

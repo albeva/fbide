@@ -492,6 +492,25 @@ void App::openFiles(const wxArrayString& files) {
     }
 }
 
+#ifdef __WXOSX__
+void App::MacOpenFiles(const wxArrayString& fileNames) {
+    // macOS can deliver the open-document event while OnInit is
+    // still running (when Finder launches FBIde fresh by double-
+    // clicking a .bas/.bi/.fbs file): the Apple event is queued
+    // before m_context is built. Re-dispatch through CallAfter so
+    // the actual file open runs on a later event-loop tick, by
+    // which point OnInit has finished and the document manager
+    // exists. When fired against an already-running instance
+    // (Dock-drop, open-with on a running app), this is a one-tick
+    // detour at worst.
+    CallAfter([this, fileNames]() {
+        if (m_context) {
+            openFiles(fileNames);
+        }
+    });
+}
+#endif
+
 void App::scheduleRestart(std::function<void()> commitConfig) {
     CallAfter([this, commit = std::move(commitConfig)]() {
         // Snapshot the open documents to an OS temp file. The new

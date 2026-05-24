@@ -44,6 +44,11 @@ void writeCategory(Theme& theme, const SettingsCategory cat, const Theme::Entry&
             DEFINE_THEME_EXTRA_PROPERTY(EXTRA_CASE)
         #undef EXTRA_CASE
         // clang-format on
+    case SettingsCategory::Changes:
+        // ThemePage branches before this call — `Changes` has its own
+        // saver `saveChangesCategory` that writes four wxColours
+        // directly.
+        std::unreachable();
     default:
         std::unreachable();
     }
@@ -51,48 +56,54 @@ void writeCategory(Theme& theme, const SettingsCategory cat, const Theme::Entry&
 
 auto categoryTreeLayout() -> std::vector<ThemePage::TreeNode> {
     using SC = SettingsCategory;
+    // Category-bound nodes are spelled `{ SC::Foo, { ... } }` and their
+    // locale key is derived from the enum via `getSettingsCategoryLabelKey`.
+    // Folder nodes use `{ "folderKey", { ... } }` (string literal picks
+    // the wxString constructor) for the labels that don't correspond to
+    // a single category.
     // clang-format off
     return {
-        { "default", "Default", SC::Default, {
-            { "comments",          "Comments",           SC::Comment,          {} },
-            { "multilineComments", "Multiline comments", SC::MultilineComment, {} },
-            { "identifier",        "Identifier",         SC::Identifier,       {} },
-            { "number",            "Number",             SC::Number,           {} },
-            { "string",            "String",             SC::String, {
-                { "unterminated", "Unterminated", SC::StringOpen, {} },
-            } },
-            { "operator",          "Operator",           SC::Operator,         {} },
-            { "label",             "Label",              SC::Label,            {} },
-            { "error",             "Error",              SC::Error,            {} },
-            { "keywords", "Keywords", std::nullopt, {
-                { "core",              "Core",      SC::Keywords,         {} },
-                { "types",             "Types",     SC::KeywordTypes,     {} },
-                { "operators",         "Operators", SC::KeywordOperators, {} },
-                { "defines",           "Defines",   SC::KeywordConstants, {} },
-                { "library",           "Library",   SC::KeywordLibrary,   {} },
-                { "custom",            "Custom",    SC::KeywordCustom,    {} },
-            } },
-            { "margins", "Margins", std::nullopt, {
-                { "lineNumbers", "Line numbers", SC::LineNumber, {} },
-                { "fold",        "Fold",         SC::FoldMargin, {} },
-            } },
-            { "selection", "Selection", SC::Selection, {} },
-            { "brace", "Brace", std::nullopt, {
-                { "match",    "Match",    SC::Brace,    {} },
-                { "mismatch", "Mismatch", SC::BadBrace, {} },
-            } },
-        } },
-        { "asm", "Asm", std::nullopt, {
-            { "instructions", "Instructions", SC::KeywordAsm1, {} },
-            { "registers",    "Registers",    SC::KeywordAsm2, {} },
-        } },
-        { "preprocessor", "Preprocessor", SC::Preprocessor, {
-            { "directives",   "Directives", SC::KeywordPP,    {} },
-            { "ppIdentifier", "Identifier", SC::IdentifierPP, {} },
-            { "ppNumber",     "Number",     SC::NumberPP,     {} },
-            { "ppString",     "String",     SC::StringPP,     {} },
-            { "ppOperator",   "Operator",   SC::OperatorPP,   {} },
-        } },
+        { SC::Default, {
+            { SC::Comment          },
+            { SC::MultilineComment },
+            { SC::Identifier       },
+            { SC::Number           },
+            { SC::String, {
+                { SC::StringOpen },
+            }},
+            { SC::Operator         },
+            { SC::Label            },
+            { SC::Error            },
+            { "keywords", {
+                { SC::Keywords         },
+                { SC::KeywordTypes     },
+                { SC::KeywordOperators },
+                { SC::KeywordConstants },
+                { SC::KeywordLibrary   },
+                { SC::KeywordCustom    },
+            }},
+            { "margins", {
+                { SC::LineNumber },
+                { SC::FoldMargin },
+                { SC::Changes    },
+            }},
+            { SC::Selection },
+            { "brace", {
+                { SC::Brace    },
+                { SC::BadBrace },
+            }},
+        }},
+        { "asm", {
+            { SC::KeywordAsm1 },
+            { SC::KeywordAsm2 },
+        }},
+        { SC::Preprocessor, {
+            { SC::KeywordPP    },
+            { SC::IdentifierPP },
+            { SC::NumberPP     },
+            { SC::StringPP     },
+            { SC::OperatorPP   },
+        }},
     };
     // clang-format on
 }
@@ -105,10 +116,10 @@ auto categoryTreeLayout() -> std::vector<ThemePage::TreeNode> {
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(ThemePage, Panel)
-    EVT_CHOICE             (ThemePage::ID_THEME_CHOICE,   ThemePage::onSelectTheme)
-    EVT_BUTTON             (ThemePage::ID_SAVE_THEME,     ThemePage::onSaveTheme)
-    EVT_TREE_SEL_CHANGING  (ThemePage::ID_CATEGORY_TREE,  ThemePage::onCategorySelChanging)
-    EVT_TREE_SEL_CHANGED   (ThemePage::ID_CATEGORY_TREE,  ThemePage::onCategorySelChanged)
+    EVT_CHOICE            (ThemePage::ID_THEME_CHOICE,   ThemePage::onSelectTheme)
+    EVT_BUTTON            (ThemePage::ID_SAVE_THEME,     ThemePage::onSaveTheme)
+    EVT_TREE_SEL_CHANGING (ThemePage::ID_CATEGORY_TREE,  ThemePage::onCategorySelChanging)
+    EVT_TREE_SEL_CHANGED  (ThemePage::ID_CATEGORY_TREE,  ThemePage::onCategorySelChanged)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -155,8 +166,8 @@ auto ThemePage::tr(const wxString& path, const wxString& def) const -> wxString 
 void ThemePage::create() {
     createTopRow();
 
-    hbox(m_activeTheme, { .proportion = 1, .border = 0 }, [&] {
-        m_themeBox = wxDynamicCast(currentSizer(), wxStaticBoxSizer);
+    hbox({ .proportion = 1, .margin = false }, [&] {
+        m_themeLabel = currentNamedLabel();
         createCategoryList();
         createLeftPanel();
         separator();
@@ -164,24 +175,16 @@ void ThemePage::create() {
     });
     SetSizerAndFit(currentSizer());
 
-    updateTitle();
-
-    // Pre-load the Default row before triggering the tree's selection
-    // event. SelectItem fires SEL_CHANGED → saveCategory() → loadCategory()
-    // — saveCategory reads from the picker widgets, so they need to hold
-    // Default's colours first; otherwise it clobbers Default with the
-    // picker's null/empty initial state. Layout guarantees the first
-    // top-level child of the (hidden) root is the Default node.
     m_selectedRow = +SettingsCategory::Default;
     loadCategory();
-    wxTreeItemIdValue cookie;
+    wxTreeItemIdValue cookie = nullptr;
     if (const auto first = m_typeTree->GetFirstChild(m_typeTree->GetRootItem(), cookie); first.IsOk()) {
         m_typeTree->SelectItem(first);
     }
 }
 
 void ThemePage::createTopRow() {
-    hbox(tr("name"), { .center = true, .border = 0 }, [&] {
+    hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
         m_themeFiles = getContext().getConfigManager().getAllThemes();
         wxArrayString names;
         names.reserve(m_themeFiles.size() + 1);
@@ -214,7 +217,16 @@ void ThemePage::createTopRow() {
 
 void ThemePage::addTreeNode(const wxTreeItemId parent, const std::vector<TreeNode>& nodes) {
     for (const auto& node : nodes) {
-        const auto label = tr("categories." + node.labelKey, node.fallbackLabel);
+        const wxString key = node.category
+                               ? [&] {
+                                     const auto sv = getSettingsCategoryLabelKey(*node.category);
+                                     return wxString::FromAscii(sv.data(), sv.size());
+                                 }()
+                               : node.labelKey;
+        // Fall back to the key itself if the locale lookup is missing —
+        // the user sees the raw key (e.g. "comments") rather than a
+        // mystery blank, which makes missing translations obvious.
+        const auto label = tr("categories." + key, key);
         const auto id = m_typeTree->AppendItem(parent, label);
         if (node.category) {
             m_treeCategories.emplace(id.GetID(), *node.category);
@@ -229,7 +241,7 @@ void ThemePage::addTreeNode(const wxTreeItemId parent, const std::vector<TreeNod
 void ThemePage::createCategoryList() {
     m_typeTree = make_unowned<wxTreeCtrl>(
         currentParent(), ID_CATEGORY_TREE,
-        wxDefaultPosition, wxSize(180, 320),
+        wxDefaultPosition, wxSize(180, 200),
         wxTR_HAS_BUTTONS | wxTR_HIDE_ROOT | wxTR_LINES_AT_ROOT | wxTR_FULL_ROW_HIGHLIGHT
     );
 
@@ -242,7 +254,7 @@ void ThemePage::createCategoryList() {
 }
 
 void ThemePage::createLeftPanel() {
-    vbox({ .proportion = 2, .border = 0 }, [this] {
+    vbox({ .proportion = 2, .margin = false }, [this] {
         const auto addPicker = [&](const wxString& labelText, const wxString& tooltip = {}) -> Unowned<ColorPicker> {
             auto picker = make_unowned<ColorPicker>(currentParent(), m_theme, m_tr, labelText, tooltip);
             picker->create();
@@ -252,22 +264,28 @@ void ThemePage::createLeftPanel() {
 
         const auto inheritTip = tr("inheritColor");
         m_fgPicker = addPicker(tr("foreground"), inheritTip);
-        spacer();
         m_bgPicker = addPicker(tr("background"), inheritTip);
-        spacer();
         m_separatorPicker = addPicker(tr("separator"));
-        spacer();
+
+        m_changesBackgroundPicker = addPicker(tr("changesBackground", "Background"));
+        m_changesBackgroundPicker->Hide();
+        m_changesAddedPicker = addPicker(tr("changesAdded", "Added"));
+        m_changesAddedPicker->Hide();
+        m_changesModifiedPicker = addPicker(tr("changesModified", "Modified"));
+        m_changesModifiedPicker->Hide();
+        m_changesRemovedPicker = addPicker(tr("changesRemoved", "Removed"));
+        m_changesRemovedPicker->Hide();
 
         m_lblFont = text(tr("font"), {});
         m_fontChoice = make_unowned<wxChoice>(currentParent(), wxID_ANY);
         m_fontChoice->Append(getAllFixedWidthFonts());
-        add(m_fontChoice);
+        add(m_fontChoice, { .expand = false });
         connect(m_lblFont, m_fontChoice);
     });
 }
 
 void ThemePage::createRightPanel() {
-    vbox({ .proportion = 1, .border = 0 }, [&] {
+    vbox({ .proportion = 1, .margin = false }, [&] {
         m_fontOptionsLabel = text(tr("fontOptions"), {});
 
         m_chkBold = checkBox(tr("bold"));
@@ -298,7 +316,6 @@ void ThemePage::onSelectTheme(wxCommandEvent& event) {
         m_activeTheme = "";
     }
 
-    updateTitle();
     if (not isUnsavedNewTheme()) {
         m_theme = {};
         m_theme.load(m_activeTheme);
@@ -310,11 +327,19 @@ void ThemePage::onSaveTheme(wxCommandEvent&) {
     saveCategory();
 
     if (isUnsavedNewTheme()) {
+        // saveNewTheme writes the theme at `themesWriteDir() / name`
+        // already; no second save needed.
         saveNewTheme(false);
-        updateTitle();
+    } else {
+        // Route existing-theme saves through `themesWriteDir()` —
+        // under READONLY this is `<UserDataDir>/themes/`, so edits to
+        // a bundled theme land in the user copy (which then shadows
+        // the bundle via the two-dir merge in `getAllThemes`). Same-
+        // name file in portable mode is a no-op redirect.
+        auto& cm = getContext().getConfigManager();
+        const wxString target = cm.themesWriteDir() / wxFileName(m_theme.getPath()).GetFullName();
+        m_theme.save(target);
     }
-
-    m_theme.save();
 
     const auto currentThemeName = getContext().getTheme().getPath();
     if (m_activeTheme == currentThemeName) {
@@ -339,7 +364,7 @@ void ThemePage::saveNewTheme(const bool setActive) {
         return;
     }
 
-    const wxFileName path(getContext().getConfigManager().getIdeDir() / "themes" / name + ".ini");
+    const wxFileName path(getContext().getConfigManager().themesWriteDir() / name + ".ini");
     if (not path.IsOk()) {
         wxMessageBox(wxString::Format(tr("invalidFilename"), path.GetFullPath()));
         return;
@@ -395,6 +420,14 @@ void ThemePage::onCategorySelChanged(wxTreeEvent& event) {
 
 void ThemePage::loadCategory() {
     const auto cat = static_cast<SettingsCategory>(m_selectedRow);
+
+    if (cat == SettingsCategory::Changes) {
+        applyCapability();
+        loadChangesCategory();
+        GetSizer()->Layout();
+        return;
+    }
+
     const auto cap = capabilityOf(cat);
     const auto view = readCategory(m_theme, cat);
     const auto& defaultColors = m_theme.get(ThemeCategory::Default).colors;
@@ -425,6 +458,12 @@ void ThemePage::loadCategory() {
 
 void ThemePage::saveCategory() {
     const auto cat = static_cast<SettingsCategory>(m_selectedRow);
+
+    if (cat == SettingsCategory::Changes) {
+        saveChangesCategory();
+        return;
+    }
+
     const auto cap = capabilityOf(cat);
 
     Theme::Entry view;
@@ -456,6 +495,7 @@ void ThemePage::saveCategory() {
 void ThemePage::applyCapability() {
     const auto cat = static_cast<SettingsCategory>(m_selectedRow);
     const auto cap = capabilityOf(cat);
+    const bool isChanges = cat == SettingsCategory::Changes;
 
     m_fgPicker->Show(cap.foreground);
     m_bgPicker->Show(cap.background);
@@ -473,15 +513,37 @@ void ThemePage::applyCapability() {
     m_lblFontSize->Show(cap.fontSize);
     m_spinFontSize->Show(cap.fontSize);
 
+    // Diff-state pickers replace the standard fg/bg pickers when the
+    // Changes node is selected. Same spacer-trailing rule applies.
+    m_changesAddedPicker->Show(isChanges);
+    m_changesModifiedPicker->Show(isChanges);
+    m_changesRemovedPicker->Show(isChanges);
+    m_changesBackgroundPicker->Show(isChanges);
+
     Layout();
+}
+
+void ThemePage::loadChangesCategory() {
+    // All four colours carry a concrete value after Theme::load — the
+    // seedChangesPaletteDefaults step bakes any missing slot from the
+    // hard-coded RGB defaults (Added/Modified/Removed) or the fold
+    // margin background (Background). No "inherit" fallback is wired
+    // because there's no tiered inheritance to point at.
+    m_changesAddedPicker->setColors(m_theme.getChangesAdded());
+    m_changesModifiedPicker->setColors(m_theme.getChangesModified());
+    m_changesRemovedPicker->setColors(m_theme.getChangesRemoved());
+    m_changesBackgroundPicker->setColors(m_theme.getChangesBackground());
+}
+
+void ThemePage::saveChangesCategory() {
+    m_theme.setChangesAdded(m_changesAddedPicker->getColor());
+    m_theme.setChangesModified(m_changesModifiedPicker->getColor());
+    m_theme.setChangesRemoved(m_changesRemovedPicker->getColor());
+    m_theme.setChangesBackground(m_changesBackgroundPicker->getColor());
 }
 
 void ThemePage::syncActiveThemeConfig() {
     auto& cm = getContext().getConfigManager();
     cm.config()["theme"] = cm.relative(m_theme.getPath());
     cm.save(ConfigManager::Category::Config);
-}
-
-void ThemePage::updateTitle() {
-    m_themeBox->GetStaticBox()->SetLabel(m_themeChoice->GetStringSelection());
 }
