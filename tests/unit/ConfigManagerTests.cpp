@@ -71,6 +71,15 @@ auto overlayBasename() -> wxString {
     fn.SetName(fn.GetName() + ".local");
     return fn.GetFullName();
 }
+
+/// Normalise a directory path so mixed `/` and `\` separators compare
+/// equal across platforms — ConfigManager returns native-separator
+/// paths (backslashes on Windows) while tests build expected strings
+/// with `/`. wxFileName::DirName parses both forms and re-emits in the
+/// native form, so wrapping both sides removes the slash skew.
+auto normDir(const wxString& path) -> wxString {
+    return wxFileName::DirName(path).GetPath();
+}
 } // namespace
 
 // gtest fixtures are referenced by TEST_F macro expansion and
@@ -313,7 +322,7 @@ TEST_F(ConfigManagerTests, GetAllThemesUserDirWinsOnBasenameCollision) {
 
     const auto themes = cm.getAllThemes();
     ASSERT_EQ(themes.size(), 1);
-    EXPECT_EQ(wxFileName(themes.at(0)).GetPath(), tmp.path() + "/userdata/themes");
+    EXPECT_EQ(wxFileName(themes.at(0)).GetPath(), normDir(tmp.path() + "/userdata/themes"));
 }
 
 TEST_F(ConfigManagerTests, ThemePathReadOnlyPrefersUserOverride) {
@@ -326,7 +335,7 @@ TEST_F(ConfigManagerTests, ThemePathReadOnlyPrefersUserOverride) {
 
     EXPECT_EQ(
         wxFileName(cm.themePath("themes/dark.ini")).GetPath(),
-        tmp.path() + "/userdata/themes"
+        normDir(tmp.path() + "/userdata/themes")
     );
 }
 
@@ -339,7 +348,7 @@ TEST_F(ConfigManagerTests, ThemePathReadOnlyFallsBackToBundleWhenUserMissing) {
 
     EXPECT_EQ(
         wxFileName(cm.themePath("themes/dark.ini")).GetPath(),
-        ideDir + "/themes"
+        normDir(ideDir + "/themes")
     );
 }
 
@@ -354,7 +363,7 @@ TEST_F(ConfigManagerTests, ThemePathPortableIgnoresUserDir) {
 
     EXPECT_EQ(
         wxFileName(cm.themePath("themes/dark.ini")).GetPath(),
-        ideDir + "/themes"
+        normDir(ideDir + "/themes")
     );
 }
 
@@ -415,14 +424,14 @@ TEST_F(ConfigManagerTests, ThemesWriteDirRoutesByReadOnly) {
     // Portable
     {
         const ConfigManager cm(tmp.path(), ideDir, "");
-        EXPECT_EQ(cm.themesWriteDir(), ideDir + "/themes");
+        EXPECT_EQ(normDir(cm.themesWriteDir()), normDir(ideDir + "/themes"));
     }
 
     // READONLY routes to user dir
     tmp.write("ide/READONLY", "");
     {
         const ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
-        EXPECT_EQ(cm.themesWriteDir(), tmp.path() + "/userdata/themes");
+        EXPECT_EQ(normDir(cm.themesWriteDir()), normDir(tmp.path() + "/userdata/themes"));
     }
 }
 
