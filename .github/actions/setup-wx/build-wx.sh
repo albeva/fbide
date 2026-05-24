@@ -13,10 +13,14 @@
 # are installed by the action step before invoking this script —
 # keeping the dependency list in YAML where Dependabot can see it.
 #
-# macOS: osx_cocoa toolkit; the dist is a universal binary covering
-# both arm64 and x86_64. CMAKE_OSX_DEPLOYMENT_TARGET sets the runtime
-# floor — must match LSMinimumSystemVersion in fbide's Info.plist
+# macOS: osx_cocoa toolkit, single-arch build keyed on WX_ARCH
+# (arm64 | x86_64). FBIde's macOS DMG bundles Homebrew libc++, which
+# is per-arch, so per-arch wx dists drive per-arch DMGs.
+# CMAKE_OSX_DEPLOYMENT_TARGET sets the runtime floor — must match
+# LSMinimumSystemVersion in fbide's Info.plist
 # (configured_files/Info.plist.in).
+# CC / CXX come in via the environment (job-level brew-installed
+# Homebrew clang); CMake honours them automatically.
 set -euo pipefail
 
 # IPO is always off for the Linux/GCC wx build — known wx + GCC LTO
@@ -31,10 +35,11 @@ mkdir -p "${WX_BUILD_DIR}" "${WX_DIST_DIR}"
 # the resulting libs match FBIde's link footprint on both platforms.
 case "$(uname -s)" in
     Darwin)
+        : "${WX_ARCH:?WX_ARCH must be set on macOS (arm64 | x86_64)}"
         TOOLKIT_ARGS=(
             -DwxBUILD_TOOLKIT=osx_cocoa
-            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+            -DCMAKE_OSX_ARCHITECTURES="${WX_ARCH}"
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
         )
         ;;
     *)

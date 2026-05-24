@@ -3,16 +3,18 @@
 # conventional drag-to-Applications layout.
 #
 # Usage:
-#   build-dmg.sh <app-path> <version> [output-dir]
+#   build-dmg.sh <app-path> <version> <arch> [output-dir]
 #
 # Args:
 #   app-path    path to the .app bundle (e.g. bin/fbide.app)
 #   version     fbide version string for the volume / file name
 #               (e.g. 0.5.0 or 0.5.0.rc-3)
+#   arch        target architecture (arm64 | x86_64) — embedded in
+#               the file name so per-arch DMGs don't collide
 #   output-dir  optional, default `.` — where the .dmg is written
 #
 # Output:
-#   <output-dir>/fbide-<version>-macos.dmg
+#   <output-dir>/fbide-<version>-macos-<arch>.dmg
 #
 # Implementation notes:
 # - hdiutil is the system tool; no homebrew dependency.
@@ -30,14 +32,23 @@
 
 set -euo pipefail
 
-if [ $# -lt 2 ] || [ $# -gt 3 ]; then
-    echo "usage: $0 <app-path> <version> [output-dir]" >&2
+if [ $# -lt 3 ] || [ $# -gt 4 ]; then
+    echo "usage: $0 <app-path> <version> <arch> [output-dir]" >&2
     exit 2
 fi
 
 APP_PATH="$1"
 VERSION="$2"
-OUT_DIR="${3:-.}"
+ARCH="$3"
+OUT_DIR="${4:-.}"
+
+case "$ARCH" in
+    arm64|x86_64) ;;
+    *)
+        echo "error: arch must be arm64 or x86_64, got '$ARCH'" >&2
+        exit 1
+        ;;
+esac
 
 if [ ! -d "$APP_PATH" ]; then
     echo "error: '$APP_PATH' is not a directory" >&2
@@ -49,8 +60,8 @@ if [ ! -f "$APP_PATH/Contents/Info.plist" ]; then
 fi
 
 APP_NAME="$(basename "$APP_PATH")"
-DMG_NAME="fbide-${VERSION}-macos.dmg"
-VOL_NAME="FBIde ${VERSION}"
+DMG_NAME="fbide-${VERSION}-macos-${ARCH}.dmg"
+VOL_NAME="FBIde ${VERSION} ${ARCH}"
 
 mkdir -p "$OUT_DIR"
 DMG_OUT="$(cd "$OUT_DIR" && pwd)/$DMG_NAME"

@@ -7,7 +7,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>com.freebasic.fbide</string>
+    <string>net.freebasic.fbide</string>
     <key>CFBundleName</key>
     <string>FBIde</string>
     <key>CFBundleDisplayName</key>
@@ -37,18 +37,25 @@
     <true/>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright (c) 2026 Albert Varaksin. MIT License.</string>
-    <!-- Floor matches CI: anything older than Big Sur won't have the
-         frameworks wxWidgets 3.3 + the C++23 toolchain expect. -->
+    <!-- Floor matches CI: Sonoma is the lowest macOS that Homebrew
+         still ships pre-built LLVM bottles for. FBIde uses Homebrew
+         clang's libc++ to get the C++23 stdlib (std::ranges::contains
+         etc.), so we cap the supported floor at the same line. -->
     <key>LSMinimumSystemVersion</key>
-    <string>11.0</string>
+    <string>14.0</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.developer-tools</string>
-    <!-- Associate FreeBASIC source / include / script files with FBIde.
-         `Editor` role lets the system show "Open with FBIde" in Finder
-         and use FBIde as the default opener if the user picks it.
-         `LSHandlerRank=Default` claims us as the canonical handler,
-         which the Launch Services database honours unless the user has
-         already chosen a different default. -->
+    <!-- Two document types declared:
+           1. FreeBASIC source — .bas (program), .bi (header). Role
+              `Editor` because the user authors / edits these.
+           2. FBIde session — .fbs. Role `Owner` because the format is
+              FBIde's own (machine-managed workspace state, not
+              hand-edited prose). `Owner` tells Launch Services that
+              FBIde is the canonical creator of this type.
+         Both register at `LSHandlerRank=Default`, which claims FBIde
+         as the system handler unless the user has already chosen a
+         different default. Splitting the two types lets each get its
+         own icon later (currently both reuse fbide.icns). -->
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
@@ -58,12 +65,25 @@
             <array>
                 <string>bas</string>
                 <string>bi</string>
-                <string>fbs</string>
             </array>
             <key>CFBundleTypeRole</key>
             <string>Editor</string>
             <key>LSHandlerRank</key>
             <string>Default</string>
+            <key>CFBundleTypeIconFile</key>
+            <string>fbide</string>
+        </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>FBIde session</string>
+            <key>CFBundleTypeExtensions</key>
+            <array>
+                <string>fbs</string>
+            </array>
+            <key>CFBundleTypeRole</key>
+            <string>Owner</string>
+            <key>LSHandlerRank</key>
+            <string>Owner</string>
             <key>CFBundleTypeIconFile</key>
             <string>fbide</string>
         </dict>

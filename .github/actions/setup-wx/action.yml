@@ -20,11 +20,11 @@ inputs:
     default: Release
   arch:
     description: >
-      Target architecture (x64 | x86). Must match the architecture the
-      MSVC dev environment was set up for — wx and FBIde need to compile
-      for the same arch. Cache key partitions by arch so the x86 and x64
-      caches do not collide. Ignored on Linux (host arch only) and on
-      macOS (the dist is always a universal arm64+x86_64 build).
+      Target architecture. Windows: x64 | x86 (must match the MSVC dev
+      environment). macOS: arm64 | x86_64 (single-arch builds — bundles
+      Homebrew libc++ which is per-arch). Linux ignores this (host arch
+      only). Cache key partitions by arch so per-arch caches don't
+      collide.
     required: false
     default: x64
 
@@ -50,9 +50,11 @@ runs:
             DIST_LEAF="${{ inputs.arch }}"
             ;;
           macOS)
-            # Universal arm64+x86_64 build — single cache, no arch leaf.
-            TOOLCHAIN="osx_cocoa"
-            DIST_LEAF="macos"
+            # Single-arch wx builds keyed on the input arch — the
+            # downstream FBIde build bundles Homebrew libc++, which
+            # ships per-arch, so a single universal dist isn't viable.
+            TOOLCHAIN="osx_cocoa/${{ inputs.arch }}"
+            DIST_LEAF="macos-${{ inputs.arch }}"
             ;;
           *)
             TOOLCHAIN="gtk3"
@@ -64,12 +66,11 @@ runs:
         echo "wx-build=${WORK}/build/${TOOLCHAIN}/${{ inputs.build-type }}" >> "$GITHUB_OUTPUT"
         echo "wx-root=${WORK}/dist/${DIST_LEAF}" >> "$GITHUB_OUTPUT"
 
-    # Cache key includes arch + build-type so x64/x86 and Debug/Release
-    # caches do not collide. The `arch` input is ignored on macOS and
-    # Linux (the dist is host-arch / universal); padding the key with it
-    # there is harmless — it's a constant per OS so the cache still hits.
-    # hashFiles() perturbs the key whenever the action or either build
-    # script changes, so manual invalidation is rarely needed.
+    # Cache key includes arch + build-type so per-arch and per-config
+    # caches do not collide. Linux ignores the arch (host only); macOS
+    # and Windows both partition by arch. hashFiles() perturbs the key
+    # whenever the action or either build script changes, so manual
+    # invalidation is rarely needed.
     - name: Restore wxWidgets cache
       id: cache
       uses: actions/cache/restore@v5
@@ -122,6 +123,7 @@ runs:
         WX_BUILD_DIR: ${{ steps.paths.outputs.wx-build }}
         WX_DIST_DIR: ${{ steps.paths.outputs.wx-root }}
         WX_BUILD_TYPE: ${{ inputs.build-type }}
+        WX_ARCH: ${{ inputs.arch }}
       run: bash "${{ github.action_path }}/build-wx.sh"
 
     - name: Save wxWidgets cache
