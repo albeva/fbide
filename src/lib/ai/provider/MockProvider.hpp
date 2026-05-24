@@ -46,12 +46,13 @@ private:
     /// Timer tick — emit the next chunk, or finish the request.
     void onTick(wxTimerEvent& event);
 
-    wxTimer m_timer;                ///< Drives chunked emission.
-    std::vector<wxString> m_chunks; ///< Canned reply, pre-sliced into chunks.
-    std::size_t m_index = 0;        ///< Index of the next chunk to emit.
-    ChunkHandler m_onChunk;         ///< Streaming delta callback.
-    ResponseHandler m_onComplete;   ///< Pending completion callback.
-    bool m_busy = false;            ///< True while emitting.
+    wxTimer m_timer;              ///< Drives chunked emission.
+    wxString m_reply;             ///< Full canned reply for the in-flight request.
+    std::size_t m_cursor = 0;     ///< Characters of `m_reply` already emitted.
+    std::size_t m_chunkSize = 0;  ///< Characters to emit per tick (= reply.length() for `fast`).
+    ChunkHandler m_onChunk;       ///< Streaming delta callback.
+    ResponseHandler m_onComplete; ///< Pending completion callback.
+    bool m_busy = false;          ///< True while emitting.
 };
 
 } // namespace fbide::ai

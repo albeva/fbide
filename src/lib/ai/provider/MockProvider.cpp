@@ -463,21 +463,16 @@ void MockProvider::send(const AiRequest& request, ChunkHandler onChunk, Response
         return;
     }
 
-    // Slice the canned reply into small chunks so the streaming UI path
-    // is exercised just like a real provider. `allf` / `all fast` skip
-    // the slicing and emit the whole reply in one chunk for paste-style
-    // performance comparison against the streamed path.
+    // Stream the canned reply chunk-by-chunk to exercise the same UI
+    // path as a real provider. `allf` / `all fast` emit the whole
+    // reply in a single chunk so paste-style performance can be
+    // compared against the streamed path. The cursor pattern avoids
+    // pre-slicing the reply into a vector of small wxStrings (the
+    // `all` reply runs into hundreds of allocations otherwise).
     const auto picked = pickReply(request);
-    const wxString& reply = picked.text;
-    m_chunks.clear();
-    if (picked.fast) {
-        m_chunks.push_back(reply);
-    } else {
-        for (std::size_t pos = 0; pos < reply.length(); pos += kChunkChars) {
-            m_chunks.push_back(reply.Mid(pos, kChunkChars));
-        }
-    }
-    m_index = 0;
+    m_reply = picked.text;
+    m_cursor = 0;
+    m_chunkSize = picked.fast ? m_reply.length() : kChunkChars;
     m_onChunk = std::move(onChunk);
     m_onComplete = std::move(onComplete);
     m_busy = true;
@@ -485,13 +480,15 @@ void MockProvider::send(const AiRequest& request, ChunkHandler onChunk, Response
 }
 
 void MockProvider::onTick(wxTimerEvent& /*event*/) {
-    if (m_index < m_chunks.size()) {
-        m_onChunk(m_chunks[m_index++]);
+    if (m_cursor < m_reply.length()) {
+        m_onChunk(m_reply.Mid(m_cursor, m_chunkSize));
+        m_cursor += m_chunkSize;
         return;
     }
 
     m_timer.Stop();
     m_busy = false;
+    m_reply.clear();
     m_onChunk = nullptr;
     if (auto handler = std::exchange(m_onComplete, nullptr)) {
         handler(AiResponse { .ok = true, .text = {}, .error = {} });
