@@ -97,20 +97,38 @@ auto ColorPicker::getColor() const -> wxColour {
     if (m_chkInherit->IsShown() && m_chkInherit->IsChecked()) {
         return wxNullColour;
     }
-    return m_btn->GetBackgroundColour();
+    return m_currentColor;
 }
 
 void ColorPicker::applyColor(const wxColour& c) {
-    m_btn->SetBackgroundColour(c);
-    m_btn->SetToolTip(c.GetAsString(wxC2S_HTML_SYNTAX));
-    m_btn->Refresh();
+    // Plain button with a colour swatch as its bitmap and the hex
+    // value as its label. The previous version forced the button's
+    // background colour to `c`, which fought the native style and
+    // rendered inconsistently across platforms / themes.
+    m_currentColor = c;
+    const auto hex = c.GetAsString(wxC2S_HTML_SYNTAX);
+    m_btn->SetBitmap(makeSwatch(c));
+    m_btn->SetLabel(hex);
+    m_btn->SetToolTip(hex);
 }
 
 void ColorPicker::openColourDialog() {
     wxColourData data;
-    data.SetColour(m_btn->GetBackgroundColour());
+    data.SetColour(m_currentColor);
     if (wxColourDialog dlg(this, &data); dlg.ShowModal() == wxID_OK) {
         applyColor(dlg.GetColourData().GetColour());
+    }
+}
+
+void ColorPicker::copyHexToClipboard() const {
+    if (not m_currentColor.IsOk()) {
+        return;
+    }
+    if (wxTheClipboard->Open()) {
+        wxTheClipboard->SetData(
+            make_unowned<wxTextDataObject>(m_currentColor.GetAsString(wxC2S_HTML_SYNTAX))
+        );
+        wxTheClipboard->Close();
     }
 }
 
@@ -127,7 +145,9 @@ void ColorPicker::onButtonClick(wxCommandEvent&) {
     std::unordered_map<int, wxColour> colorMap;
 
     const int chooseId = NewControlId();
+    const int copyHexId = NewControlId();
     menu.Append(chooseId, m_tr.get_or("chooseColor", "Choose color..."));
+    menu.Append(copyHexId, m_tr.get_or("copyHex", "Copy hex value"));
     menu.AppendSeparator();
 
     auto* copyMenu = new wxMenu;
@@ -178,6 +198,10 @@ void ColorPicker::onButtonClick(wxCommandEvent&) {
     }
     if (sel == chooseId) {
         openColourDialog();
+        return;
+    }
+    if (sel == copyHexId) {
+        copyHexToClipboard();
         return;
     }
     if (const auto it = colorMap.find(sel); it != colorMap.end()) {

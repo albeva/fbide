@@ -50,12 +50,16 @@ private:
     void applyColor(const wxColour& c);
     /// Open the platform colour dialog and apply the chosen colour.
     void openColourDialog();
+    /// Copy the current colour's hex string to the system clipboard.
+    void copyHexToClipboard() const;
 
     const Theme& m_theme;             ///< Active theme — source for "Copy from" entries.
     const Value& m_tr;                ///< Locale subtree for translations.
     wxString m_labelText;             ///< Label text shown next to the swatch.
     wxString m_inheritTooltip;        ///< Tooltip on the inherit checkbox.
     wxColour m_defaultColor;          ///< Fallback colour used when "inherit" is ticked.
+    wxColour m_currentColor;          ///< Currently displayed colour — source of truth, no longer
+                                      ///< piggy-backed on the button's background colour.
     Unowned<wxStaticText> m_lbl;      ///< Label widget.
     Unowned<wxCheckBox> m_chkInherit; ///< Inherit checkbox.
     Unowned<wxButton> m_btn;          ///< Swatch button.
