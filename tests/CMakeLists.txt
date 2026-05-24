@@ -33,6 +33,7 @@ add_executable(tests
     unit/LineHistoryTests.cpp
     unit/ReFormatterTests.cpp
     unit/StyleLexerTests.cpp
+    unit/ProviderFactoryTests.cpp
     unit/RunCommandTests.cpp
     unit/StreamParsersTests.cpp
     unit/SymbolBrowserFilterTests.cpp
