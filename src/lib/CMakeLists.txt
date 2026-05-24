@@ -7,6 +7,7 @@ target_sources(fbide_lib
     ai/AiContext.cpp
     ai/AiManager.cpp
     ai/ContextTagBar.cpp
+    ai/ProviderFactory.cpp
     ai/chat/AiChatView.cpp
     ai/chat/CodeActionBar.cpp
     ai/chat/CodeHighlighter.cpp
@@ -96,6 +97,7 @@ target_sources(fbide_lib
     ai/AiManager.hpp
     ai/AiTypes.hpp
     ai/ContextTagBar.hpp
+    ai/ProviderFactory.hpp
     ai/chat/AiChatView.hpp
     ai/chat/CodeActionBar.hpp
     ai/chat/CodeHighlighter.hpp

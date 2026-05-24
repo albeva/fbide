@@ -5,27 +5,11 @@
 // https://github.com/albeva/fbide
 //
 #include "AiManager.hpp"
+#include "ProviderFactory.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "provider/AnthropicProvider.hpp"
-#include "provider/ClaudeCliProvider.hpp"
-#include "provider/GeminiProvider.hpp"
-#include "provider/MockProvider.hpp"
-#include "provider/OllamaProvider.hpp"
 using namespace fbide;
 using namespace fbide::ai;
-
-namespace {
-// Defaults applied when the matching `[ai]` key is absent. Declared as
-// arrays (not `const char*`) so they bind to `Value::value_or`'s string-
-// literal overload rather than the `bool` one.
-constexpr char kDefaultAnthropicModel[] = "claude-sonnet-4-6";
-constexpr char kDefaultOllamaModel[] = "llama3.2";
-constexpr char kDefaultOllamaEndpoint[] = "http://localhost:11434";
-constexpr char kDefaultClaudeModel[] = "sonnet";
-constexpr char kDefaultClaudePath[] = "claude";
-constexpr char kDefaultGeminiModel[] = "gemini-2.5-flash";
-} // namespace
 
 AiManager::AiManager(Context& ctx)
 : m_ctx(ctx) {
@@ -61,30 +45,10 @@ AiManager::AiManager(Context& ctx)
     if (const auto overridePrompt = config.at("systemPrompt").as<wxString>()) {
         m_systemPrompt = *overridePrompt;
     }
-    const auto provider = config.at("provider").value_or("anthropic");
 
-    if (provider == "ollama") {
-        m_model = config.at("model").value_or(kDefaultOllamaModel);
-        const auto endpoint = config.at("endpoint").value_or(kDefaultOllamaEndpoint);
-        m_provider = std::make_unique<OllamaProvider>(endpoint);
-    } else if (provider == "claude-cli") {
-        m_model = config.at("model").value_or(kDefaultClaudeModel);
-        const auto path = config.at("claudePath").value_or(kDefaultClaudePath);
-        m_provider = std::make_unique<ClaudeCliProvider>(path);
-    } else if (provider == "gemini") {
-        m_model = config.at("model").value_or(kDefaultGeminiModel);
-        if (const auto key = config.at("key").as<wxString>(); key && !key->empty()) {
-            m_provider = std::make_unique<GeminiProvider>(*key);
-        }
-    } else if (provider == "mock") {
-        // Offline test provider — no model, no key.
-        m_provider = std::make_unique<MockProvider>();
-    } else {
-        m_model = config.at("model").value_or(kDefaultAnthropicModel);
-        if (const auto key = config.at("key").as<wxString>(); key && !key->empty()) {
-            m_provider = std::make_unique<AnthropicProvider>(*key);
-        }
-    }
+    auto selection = makeProvider(config.at("provider").value_or("anthropic"), config);
+    m_provider = std::move(selection.provider);
+    m_model = std::move(selection.model);
 }
 
 void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChunk, AiProvider::ResponseHandler onComplete) {
