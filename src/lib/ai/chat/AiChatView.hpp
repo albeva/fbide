@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "BlockScrollController.hpp"
 #include "ChatSelection.hpp"
 #include "CodeActionBar.hpp"
 #include "markdown/MarkdownDocument.hpp"
@@ -216,24 +217,12 @@ private:
 
     bool m_wrapCodeBlocks = true; ///< Cached `[markdown] wrapCodeBlocks` value; passed to layouts.
 
-    // Per-block horizontal-scroll drag state. Active when
-    // `m_dragScrollMessageIndex >= 0`.
-    int m_dragScrollMessageIndex = -1;
-    std::size_t m_dragScrollBlockIndex = 0;
-    int m_dragScrollStartOffset = 0;
-    int m_dragScrollStartMouseX = 0;
+    /// Per-block horizontal scrollbar state (drag, hover, h-wheel
+    /// accumulator) — see BlockScrollController.
+    BlockScrollController m_blockScroll;
 
-    // Per-block scrollbar hover state — paints the thumb with a higher
-    // alpha when the pointer hovers its track or the bar is being
-    // dragged. `m_hoverScrollMessageIndex < 0` means no hover.
-    int m_hoverScrollMessageIndex = -1;
-    std::size_t m_hoverScrollBlockIndex = 0;
-    /// Horizontal-wheel accumulator — same fractional-carry trick as
-    /// `m_wheelPixelAccum` so trackpad fine swipes don't get rounded
-    /// away.
-    int m_hwheelPixelAccum = 0;
     int m_bodyLineHeight = 0;  ///< Body-font line height — sets the per-notch wheel scroll amount.
-    int m_wheelPixelAccum = 0; ///< Fractional remainder carried between wheel events.
+    int m_wheelPixelAccum = 0; ///< Fractional remainder carried between wheel events (vertical).
     /// True when an image-cache "ready" notification has already scheduled
     /// a deferred relayout via `CallAfter`. Subsequent notifications in
     /// the same event-loop tick coalesce into the pending one instead of

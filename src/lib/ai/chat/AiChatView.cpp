@@ -520,13 +520,8 @@ void AiChatView::paintMessage(
     // the bubble's content rect (independent of the block's text-only
     // inner padding); the thumb's size and position still derive from
     // block content vs. natural width. Skipped entirely when wrap is on.
-    constexpr int kScrollbarHeight = 6;
-    constexpr int kScrollbarMinThumb = 24;
-    constexpr unsigned char kScrollbarTrackAlpha = 60;
-    constexpr unsigned char kScrollbarThumbAlpha = 160;
-    constexpr unsigned char kScrollbarThumbActiveAlpha = 220;
-    const bool dragActive = std::cmp_equal(m_dragScrollMessageIndex, messageIndex);
-    const bool hoverActive = std::cmp_equal(m_hoverScrollMessageIndex, messageIndex);
+    const bool dragActive = std::cmp_equal(m_blockScroll.dragMessageIndex(), messageIndex);
+    const bool hoverActive = std::cmp_equal(m_blockScroll.hoverMessageIndex(), messageIndex);
     const auto drawScrollbar = [&](const int blockY,
                                    const int blockHeight,
                                    const int blockContentWidth,
@@ -537,27 +532,26 @@ void AiChatView::paintMessage(
             return;
         }
         const int trackX = contentLeft;
-        const int trackY = contentTop + blockY + blockHeight - kScrollbarHeight;
+        const int trackY = contentTop + blockY + blockHeight - BlockScrollController::kHeight;
         const int trackW = message.contentWidth;
-        const double ratio = static_cast<double>(blockContentWidth) / static_cast<double>(blockNaturalWidth);
-        const int thumbW = std::max(kScrollbarMinThumb, static_cast<int>(trackW * ratio));
+        const int thumbW = BlockScrollController::thumbWidth(trackW, blockContentWidth, blockNaturalWidth);
         const int maxScroll = blockNaturalWidth - blockContentWidth;
         const int travel = std::max(0, trackW - thumbW);
         const int thumbX = trackX + (maxScroll > 0 ? (scroll * travel / maxScroll) : 0);
-        const unsigned char thumbAlpha = active ? kScrollbarThumbActiveAlpha : kScrollbarThumbAlpha;
+        const unsigned char thumbAlpha = active ? BlockScrollController::kThumbActiveAlpha : BlockScrollController::kThumbAlpha;
         gc.SetPen(*wxTRANSPARENT_PEN);
-        gc.SetBrush(wxBrush(wxColour(pal.text.Red(), pal.text.Green(), pal.text.Blue(), kScrollbarTrackAlpha)));
-        gc.DrawRectangle(trackX, trackY, trackW, kScrollbarHeight);
+        gc.SetBrush(wxBrush(wxColour(pal.text.Red(), pal.text.Green(), pal.text.Blue(), BlockScrollController::kTrackAlpha)));
+        gc.DrawRectangle(trackX, trackY, trackW, BlockScrollController::kHeight);
         gc.SetBrush(wxBrush(wxColour(pal.text.Red(), pal.text.Green(), pal.text.Blue(), thumbAlpha)));
-        gc.DrawRectangle(thumbX, trackY, thumbW, kScrollbarHeight);
+        gc.DrawRectangle(thumbX, trackY, thumbW, BlockScrollController::kHeight);
     };
     for (std::size_t i = 0; i < laid.scrollBlocks.size(); i++) {
         const auto& block = laid.scrollBlocks.at(i);
         if (block.wrapped) {
             continue;
         }
-        const bool active = (dragActive && m_dragScrollBlockIndex == i)
-                         || (hoverActive && m_hoverScrollBlockIndex == i);
+        const bool active = (dragActive && m_blockScroll.dragBlock() == i)
+                         || (hoverActive && m_blockScroll.hoverBlock() == i);
         drawScrollbar(block.y, block.height, block.contentWidth, block.naturalWidth, message.blockScroll.at(i), active);
     }
 
@@ -810,19 +804,8 @@ void AiChatView::onMouseWheel(wxMouseEvent& event) {
     // trick as vertical scroll so macOS trackpad momentum tails don't
     // get rounded away.
     if (event.GetWheelAxis() == wxMOUSE_WHEEL_HORIZONTAL) {
-        const int wheelDelta = event.GetWheelDelta();
-        if (wheelDelta <= 0) {
-            event.Skip();
-            return;
-        }
         if (const auto target = overflowingBlockAt(event.GetPosition())) {
-            constexpr int kHorizPxPerNotch = 60;
-            constexpr int kDamperNum = 9;
-            constexpr int kDamperDen = 10;
-            const int divisor = wheelDelta * kDamperDen;
-            m_hwheelPixelAccum += event.GetWheelRotation() * kHorizPxPerNotch * kDamperNum;
-            const int pixels = m_hwheelPixelAccum / divisor;
-            m_hwheelPixelAccum -= pixels * divisor;
+            const int pixels = m_blockScroll.accumulateHorizontalWheel(event.GetWheelDelta(), event.GetWheelRotation());
             if (pixels == 0) {
                 return;
             }
@@ -920,8 +903,6 @@ auto AiChatView::scrollbarAt(const wxPoint& clientPoint) -> std::optional<Scroll
     // track at the bottom of each overflowing non-wrapped block; the
     // thumb width / position is proportional to contentWidth /
     // naturalWidth and the current scroll offset.
-    constexpr int kScrollbarHeight = 6;
-    constexpr int kScrollbarMinThumb = 24;
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
 
     for (std::size_t mi = 0; mi < m_items.size(); mi++) {
@@ -937,16 +918,15 @@ auto AiChatView::scrollbarAt(const wxPoint& clientPoint) -> std::optional<Scroll
             // Track stretches edge-to-edge across the bubble interior —
             // matches what `paintMessage` draws.
             const int trackX = contentLeftPx;
-            const int trackY = contentTopPx + block.y + block.height - kScrollbarHeight;
+            const int trackY = contentTopPx + block.y + block.height - BlockScrollController::kHeight;
             const int trackW = item.contentWidth;
-            if (clientPoint.y < trackY || clientPoint.y >= trackY + kScrollbarHeight) {
+            if (clientPoint.y < trackY || clientPoint.y >= trackY + BlockScrollController::kHeight) {
                 continue;
             }
             if (clientPoint.x < trackX || clientPoint.x >= trackX + trackW) {
                 continue;
             }
-            const double ratio = static_cast<double>(block.contentWidth) / static_cast<double>(block.naturalWidth);
-            const int thumbW = std::max(kScrollbarMinThumb, static_cast<int>(trackW * ratio));
+            const int thumbW = BlockScrollController::thumbWidth(trackW, block.contentWidth, block.naturalWidth);
             const int maxScroll = block.naturalWidth - block.contentWidth;
             const int travel = std::max(0, trackW - thumbW);
             const int thumbX = trackX + (maxScroll > 0 ? (item.blockScroll.at(i) * travel / maxScroll) : 0);
@@ -1076,21 +1056,13 @@ void AiChatView::onMotion(wxMouseEvent& event) {
     // coordinates and update the offset. Runs ahead of every other
     // motion handler so a drag started on a track keeps tracking even
     // when the pointer leaves the track.
-    if (m_dragScrollMessageIndex >= 0 && event.LeftIsDown()) {
-        const std::size_t mi = static_cast<std::size_t>(m_dragScrollMessageIndex);
+    if (m_blockScroll.isDragging() && event.LeftIsDown()) {
+        const std::size_t mi = m_blockScroll.dragMessage();
         if (mi < m_items.size()) {
-            const std::size_t idx = m_dragScrollBlockIndex;
+            const std::size_t idx = m_blockScroll.dragBlock();
             const auto& block = m_items.at(mi).document.laid().scrollBlocks.at(idx);
-            const int maxScroll = std::max(0, block.naturalWidth - block.contentWidth);
-            if (maxScroll > 0) {
-                const double ratio = static_cast<double>(block.contentWidth) / static_cast<double>(block.naturalWidth);
-                const int trackW = block.contentWidth;
-                const int thumbW = std::max(24, static_cast<int>(trackW * ratio));
-                const int travel = std::max(1, trackW - thumbW);
-                const int deltaPx = pos.x - m_dragScrollStartMouseX;
-                const int newOffset = m_dragScrollStartOffset + (deltaPx * maxScroll / travel);
-                setBlockScrollOffset(mi, idx, newOffset);
-            }
+            const int newOffset = m_blockScroll.translateDrag(pos.x, block.contentWidth, block.contentWidth, block.naturalWidth);
+            setBlockScrollOffset(mi, idx, newOffset);
         }
         event.Skip();
         return;
@@ -1111,16 +1083,9 @@ void AiChatView::onMotion(wxMouseEvent& event) {
     // pointer. Cursor becomes a plain arrow over the track so the
     // I-beam doesn't suggest text selection there.
     const auto sbHit = scrollbarAt(pos);
-    const int prevHoverMsg = m_hoverScrollMessageIndex;
-    const std::size_t prevHoverBlock = m_hoverScrollBlockIndex;
-    if (sbHit) {
-        m_hoverScrollMessageIndex = static_cast<int>(sbHit->messageIndex);
-        m_hoverScrollBlockIndex = sbHit->blockIndex;
-    } else {
-        m_hoverScrollMessageIndex = -1;
-    }
-    const bool hoverChanged = (prevHoverMsg != m_hoverScrollMessageIndex)
-                           || (m_hoverScrollMessageIndex >= 0 && prevHoverBlock != m_hoverScrollBlockIndex);
+    const bool hoverChanged = sbHit
+                                ? m_blockScroll.setHover(sbHit->messageIndex, sbHit->blockIndex)
+                                : m_blockScroll.clearHover();
     if (hoverChanged) {
         Refresh();
     }
@@ -1183,10 +1148,12 @@ void AiChatView::onLeftDown(wxMouseEvent& event) {
             const int jumpOffset = (newThumbX - hit->trackX) * hit->maxScroll / travel;
             setBlockScrollOffset(hit->messageIndex, hit->blockIndex, jumpOffset);
         }
-        m_dragScrollMessageIndex = static_cast<int>(hit->messageIndex);
-        m_dragScrollBlockIndex = hit->blockIndex;
-        m_dragScrollStartOffset = m_items.at(hit->messageIndex).blockScroll.at(hit->blockIndex);
-        m_dragScrollStartMouseX = pos.x;
+        m_blockScroll.beginDrag(
+            hit->messageIndex,
+            hit->blockIndex,
+            m_items.at(hit->messageIndex).blockScroll.at(hit->blockIndex),
+            pos.x
+        );
         if (!HasCapture()) {
             CaptureMouse();
         }
@@ -1225,8 +1192,8 @@ void AiChatView::onLeftDown(wxMouseEvent& event) {
 }
 
 void AiChatView::onLeftUp(wxMouseEvent& event) {
-    if (m_dragScrollMessageIndex >= 0) {
-        m_dragScrollMessageIndex = -1;
+    if (m_blockScroll.isDragging()) {
+        m_blockScroll.endDrag();
         if (HasCapture()) {
             ReleaseMouse();
         }
@@ -1287,8 +1254,7 @@ void AiChatView::onLeaveWindow(wxMouseEvent& event) {
     }
     // Drop scrollbar hover highlight when pointer leaves the window
     // entirely so the active-thumb tint doesn't linger.
-    if (m_hoverScrollMessageIndex >= 0) {
-        m_hoverScrollMessageIndex = -1;
+    if (m_blockScroll.clearHover()) {
         Refresh();
     }
     event.Skip();

@@ -10,6 +10,7 @@ target_sources(fbide_lib
     ai/Patch.cpp
     ai/ProviderFactory.cpp
     ai/chat/AiChatView.cpp
+    ai/chat/BlockScrollController.cpp
     ai/chat/ChatSelection.cpp
     ai/chat/CodeActionBar.cpp
     ai/chat/CodeHighlighter.cpp
@@ -102,6 +103,7 @@ target_sources(fbide_lib
     ai/Patch.hpp
     ai/ProviderFactory.hpp
     ai/chat/AiChatView.hpp
+    ai/chat/BlockScrollController.hpp
     ai/chat/ChatSelection.hpp
     ai/chat/CodeActionBar.hpp
     ai/chat/CodeHighlighter.hpp
