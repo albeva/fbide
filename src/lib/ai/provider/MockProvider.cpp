@@ -26,6 +26,7 @@ const auto kHelpReply = wxString::FromUTF8(
 - `long` — long multi-section reply.
 - `text` — plain prose, no markdown.
 - `fb` — FreeBASIC code sample.
+- `bigcode` — long FreeBASIC sample (~70 lines, several wide lines).
 - `json` — JSON code sample.
 - `table` — markdown table.
 - `emoji` — text with emoji.
@@ -34,6 +35,7 @@ const auto kHelpReply = wxString::FromUTF8(
 - `images` — inline images from the FBIde screenshot gallery.
 - `patch` — SEARCH/REPLACE proposal card.
 - `all` — every reply above, concatenated with rules.
+- `allf` / `all fast` — same as `all`, dumped instantly (no streaming).
 
 Anything else gets the default mixed reply.
 )"
@@ -62,6 +64,110 @@ next n
 ```
 
 `Dim` declares the loop variables; the body advances the pair `(a, b)` each step.
+)"
+);
+
+const auto kBigCodeReply = wxString::FromUTF8(
+    R"(A longer **FreeBASIC** sample — single-file linked-list implementation,
+~70 lines. Useful for exercising tall code-block layout, the action
+bar's attached-↔-pinned transition while scrolling, and horizontal
+overflow when `wrapCodeBlocks = false`.
+
+```freebasic
+'' Linked-list demo — append, prepend, iterate, free.
+'' Single-file FreeBASIC; the long literal at the bottom keeps a
+'' line long enough to force horizontal overflow when wrapping is
+'' disabled in the markdown view.
+
+#include once "crt/stdlib.bi"
+
+type Node
+    value as integer
+    nxt   as Node ptr
+end type
+
+type List
+    head as Node ptr
+    tail as Node ptr
+    size as integer
+end type
+
+sub list_init(byref lst as List)
+    lst.head = 0
+    lst.tail = 0
+    lst.size = 0
+end sub
+
+sub list_append(byref lst as List, byval value as integer)
+    dim as Node ptr node_ = callocate(sizeof(Node))
+    node_->value = value
+    node_->nxt   = 0
+    if lst.tail = 0 then
+        lst.head = node_
+        lst.tail = node_
+    else
+        lst.tail->nxt = node_
+        lst.tail = node_
+    end if
+    lst.size += 1
+end sub
+
+sub list_prepend(byref lst as List, byval value as integer)
+    dim as Node ptr node_ = callocate(sizeof(Node))
+    node_->value = value
+    node_->nxt   = lst.head
+    lst.head = node_
+    if lst.tail = 0 then
+        lst.tail = node_
+    end if
+    lst.size += 1
+end sub
+
+sub list_print(byref lst as List)
+    dim as Node ptr cur = lst.head
+    do while cur <> 0
+        print using "###"; cur->value;
+        if cur->nxt <> 0 then print " -> ";
+        cur = cur->nxt
+    loop
+    print
+end sub
+
+sub list_free(byref lst as List)
+    dim as Node ptr cur = lst.head
+    do while cur <> 0
+        dim as Node ptr nxt = cur->nxt
+        deallocate cur
+        cur = nxt
+    loop
+    lst.head = 0
+    lst.tail = 0
+    lst.size = 0
+end sub
+
+'' --- demo -----------------------------------------------------------------
+dim as List numbers
+list_init(numbers)
+for n as integer = 1 to 12
+    list_append(numbers, n * n)
+next n
+list_prepend(numbers, -1)
+print "list size: " & numbers.size
+list_print(numbers)
+'' Long single-statement line so horizontal scroll has something to scroll past — keep this on one line so it overflows the bubble width when wrapping is disabled.
+print "first squared plus last squared = " & (numbers.head->value + numbers.tail->value)
+'' Deliberately wide diagnostic line — exercises horizontal overflow in [markdown] wrapCodeBlocks=false mode and the scrollbar's thumb travel.
+print "[diagnostic] node="; numbers.head; " head_value="; numbers.head->value; " tail="; numbers.tail; " tail_value="; numbers.tail->value; " size="; numbers.size; " bytes_per_node="; sizeof(Node)
+'' Another deliberately wide formatted line — long ascii table row with many columns to demonstrate horizontal scroll behaviour in the chat code-block renderer.
+print using "| ###### | ###### | ###### | ###### | ###### | ###### | ###### | ###### | ###### | ###### |"; 1; 4; 9; 16; 25; 36; 49; 64; 81; 100
+'' Long string literal — equally good for showing that string-token horizontal scrolling works without breaking the syntax-highlighted run boundaries.
+dim as string note = "This is a deliberately long string literal — it should stay on a single visual line in horizontal-scroll mode, and only wrap when [markdown] wrapCodeBlocks=true. Use it to stress the wrap / no-wrap layout switch."
+print note
+list_free(numbers)
+```
+
+`callocate` zero-fills the allocation, so we don't have to memset the
+node fields by hand; `deallocate` frees them on tear-down.
 )"
 );
 
@@ -253,6 +359,7 @@ const auto kAllReply
     + kShortReply + "\n\n---\n\n"
     + kTextReply + "\n\n---\n\n"
     + kFbReply + "\n---\n\n"
+    + kBigCodeReply + "\n---\n\n"
     + kJsonReply + "\n---\n\n"
     + kTableReply + "\n---\n\n"
     + kEmojiReply + "\n---\n\n"
@@ -292,51 +399,66 @@ auto normalise(const wxString& text) -> wxString {
 
 /// Pick a canned reply based on the user's last message. Unknown
 /// prompts get the default mixed reply.
-auto pickReply(const AiRequest& request) -> const wxString& {
+/// Picked reply + whether to stream it. The `all` family lets the
+/// caller opt out of the chunked emission used to exercise the
+/// streaming render path — `allf` / `all fast` dump the whole thing
+/// in one chunk so the renderer sees it instantly.
+struct PickedReply {
+    const wxString* text = nullptr;
+    bool fast = false;
+};
+
+auto pickReply(const AiRequest& request) -> PickedReply {
     if (request.messages.empty()) {
-        return kDefaultReply;
+        return { .text = &kDefaultReply };
     }
     const wxString key = normalise(request.messages.back().content);
+    if (key == "allf" || key == "all fast") {
+        return { .text = &kAllReply, .fast = true };
+    }
     if (key == "help" || key == "list" || key == "?") {
-        return kHelpReply;
+        return { .text = &kHelpReply };
     }
     if (key == "short") {
-        return kShortReply;
+        return { .text = &kShortReply };
     }
     if (key == "long") {
-        return kLongReply;
+        return { .text = &kLongReply };
     }
     if (key == "text") {
-        return kTextReply;
+        return { .text = &kTextReply };
     }
     if (key == "fb" || key == "freebasic") {
-        return kFbReply;
+        return { .text = &kFbReply };
+    }
+    if (key == "bigcode" || key == "big" || key == "long fb") {
+        return { .text = &kBigCodeReply };
     }
     if (key == "json") {
-        return kJsonReply;
+        return { .text = &kJsonReply };
     }
     if (key == "table") {
-        return kTableReply;
+        return { .text = &kTableReply };
     }
     if (key == "emoji") {
-        return kEmojiReply;
+        return { .text = &kEmojiReply };
     }
     if (key == "tasks" || key == "todo") {
-        return kTasksReply;
+        return { .text = &kTasksReply };
     }
     if (key == "setext" || key == "headings") {
-        return kSetextReply;
+        return { .text = &kSetextReply };
     }
     if (key == "images" || key == "gallery") {
-        return kImagesReply;
+        return { .text = &kImagesReply };
     }
     if (key == "patch") {
-        return kPatchReply;
+        return { .text = &kPatchReply };
     }
     if (key == "all") {
-        return kAllReply;
+        return { .text = &kAllReply };
     }
-    return kDefaultReply;
+    return { .text = &kDefaultReply };
 }
 
 } // namespace
@@ -353,11 +475,18 @@ void MockProvider::send(const AiRequest& request, ChunkHandler onChunk, Response
     }
 
     // Slice the canned reply into small chunks so the streaming UI path
-    // is exercised just like a real provider.
-    const wxString& reply = pickReply(request);
+    // is exercised just like a real provider. `allf` / `all fast` skip
+    // the slicing and emit the whole reply in one chunk for paste-style
+    // performance comparison against the streamed path.
+    const PickedReply picked = pickReply(request);
+    const wxString& reply = *picked.text;
     m_chunks.clear();
-    for (std::size_t pos = 0; pos < reply.length(); pos += kChunkChars) {
-        m_chunks.push_back(reply.Mid(pos, kChunkChars));
+    if (picked.fast) {
+        m_chunks.push_back(reply);
+    } else {
+        for (std::size_t pos = 0; pos < reply.length(); pos += kChunkChars) {
+            m_chunks.push_back(reply.Mid(pos, kChunkChars));
+        }
     }
     m_index = 0;
     m_onChunk = std::move(onChunk);

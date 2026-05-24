@@ -45,10 +45,8 @@ auto faded(const wxBitmap& bitmap, const double factor) -> wxBitmap {
 } // namespace
 
 CodeActionBar::CodeActionBar(wxWindow* parent, Context& ctx)
-: wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_SIMPLE) {
+: wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE) {
     wxPanel::SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
-    wxPanel::SetDoubleBuffered(true); // flicker-free button hover repaints
-
     const auto& art = ctx.getUIManager().getArtProvider();
 
     const auto sizer = make_unowned<wxBoxSizer>(wxHORIZONTAL);
@@ -62,19 +60,11 @@ CodeActionBar::CodeActionBar(wxWindow* parent, Context& ctx)
     addButton(sizer, art.getBitmap(CommandId::Accept), ID_PatchApply, "Apply this edit", m_patchButtons);
     addButton(sizer, art.getBitmap(CommandId::Reject), ID_PatchReject, "Reject this edit", m_patchButtons);
     sizer->AddSpacer(kSidePadding);
-
     SetSizer(sizer);
-
-    // Hide the proposal set initially; CodeSample is the default mode and
-    // matches the historical layout. Fit() sizes the bar to just the
-    // visible buttons.
-    for (auto* button : m_patchButtons) {
-        button->Hide();
-    }
-    Layout();
-    Fit();
-
     Bind(wxEVT_LEAVE_WINDOW, &CodeActionBar::onLeave, this);
+
+    m_mode = Mode::PatchProposal;
+    setMode(Mode::CodeSample);
 }
 
 void CodeActionBar::setMode(const Mode mode) {
