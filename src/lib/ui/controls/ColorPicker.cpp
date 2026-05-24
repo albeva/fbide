@@ -81,6 +81,8 @@ void ColorPicker::setColors(const wxColour& color, const wxColour& defaultColor)
     if (effective.IsOk()) {
         applyColor(effective);
     }
+
+    Fit();
     Layout();
 }
 
