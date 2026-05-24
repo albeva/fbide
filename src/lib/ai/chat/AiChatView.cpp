@@ -59,9 +59,6 @@ constexpr int kBubbleRadius = 10;
 constexpr double kBubbleMaxFraction = 0.95;
 // Smallest content width a bubble shrinks to.
 constexpr int kMinBubbleContent = 60;
-// Inset of the action bar from the code block's top-right corner.
-constexpr int kActionBarInset = 4;
-
 /// True when `lang` (a fence tag) denotes FreeBASIC. Requires an explicit
 /// tag — an untagged ```...``` fence is NOT assumed to be FreeBASIC.
 /// Untagged blocks rendered as model output are typically shell commands,
@@ -732,8 +729,7 @@ void AiChatView::showActionBar(const int messageIndex, const int blockIndex, con
         hideActionBar();
         return;
     }
-    m_barMessage = messageIndex;
-    m_barIndex = blockIndex;
+    m_barPlacement.setAnchor(messageIndex, blockIndex);
     m_actionBar->setMode(mode);
 
     const auto& item = m_items[static_cast<std::size_t>(messageIndex)];
@@ -742,46 +738,22 @@ void AiChatView::showActionBar(const int messageIndex, const int blockIndex, con
     // the block's kind, but the geometry comes from the same field set
     // either way.
     const auto& block = item.document.laid().scrollBlocks[static_cast<std::size_t>(blockIndex)];
-    const int blockY = block.y;
 
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
-    const int codeRight = item.bubble.x + kBubblePad + item.contentWidth;
-    const int codeTopClient = item.bubble.y + kBubblePad + blockY - originY;
+    const int codeRightDoc = item.bubble.x + kBubblePad + item.contentWidth;
+    const int codeTopDoc = item.bubble.y + kBubblePad + block.y;
+    const auto position = ActionBarPlacement::computePosition(
+        codeRightDoc, codeTopDoc, originY, GetPosition().y, m_actionBar->GetSize()
+    );
 
-    const wxSize barSize = m_actionBar->GetSize();
-    const int xClient = codeRight - barSize.GetWidth() - kActionBarInset;
-
-    // Attached when the snippet's top edge is inside the visible area; the
-    // bar tracks the code block and scrolls with the content. Detached when
-    // the top has scrolled above the viewport — pin the bar just below the
-    // scroll surface's own top so it stays visible while the user scrolls
-    // through a long snippet.
-    const bool attached = codeTopClient >= 0;
-
-    int x = 0;
-    int y = 0;
-    if (attached) {
-        // Position tracks the snippet in scroll-surface client coordinates.
-        x = xClient;
-        y = codeTopClient + kActionBarInset;
-    } else {
-        // Pin to the top of the visible area. ScreenToClient/ClientToScreen
-        // is identity here — kept explicit to mark this as a coordinate
-        // translation, not a stray offset.
-        const wxPoint inPanel = ScreenToClient(ClientToScreen(wxPoint(xClient, 0)));
-        x = inPanel.x;
-        y = GetPosition().y + kActionBarInset;
-    }
-
-    m_actionBar->Move(x, y);
+    m_actionBar->Move(position.x, position.y);
     if (!m_actionBar->IsShown()) {
         m_actionBar->Show();
     }
 }
 
 void AiChatView::hideActionBar() {
-    m_barMessage = -1;
-    m_barIndex = -1;
+    m_barPlacement.clearAnchor();
     if (m_actionBar != nullptr && m_actionBar->IsShown()) {
         m_actionBar->Hide();
     }
@@ -789,12 +761,12 @@ void AiChatView::hideActionBar() {
 
 void AiChatView::onScroll(wxScrollWinEvent& event) {
     event.Skip(); // let wxScrolled perform the actual scroll first
-    if (m_barMessage >= 0 && m_barIndex >= 0) {
+    if (m_barPlacement.active()) {
         // Reposition the action bar inline — the block's top edge may
         // have crossed in / out of the viewport, switching the bar between
         // the attached and detached modes. Done synchronously so we don't
         // queue an extra paint cycle per scroll tick.
-        showActionBar(m_barMessage, m_barIndex, m_actionBar->mode());
+        showActionBar(m_barPlacement.messageIndex(), m_barPlacement.blockIndex(), m_actionBar->mode());
     }
 }
 
@@ -875,8 +847,8 @@ void AiChatView::onMouseWheel(wxMouseEvent& event) {
     // action-bar reposition never runs from here. Without this call the
     // bar drifts off its block (it gets scrolled along with the content
     // as a child window) and the action bar lingers at a stale Y.
-    if (m_barMessage >= 0 && m_barIndex >= 0) {
-        showActionBar(m_barMessage, m_barIndex, m_actionBar->mode());
+    if (m_barPlacement.active()) {
+        showActionBar(m_barPlacement.messageIndex(), m_barPlacement.blockIndex(), m_actionBar->mode());
     }
 }
 
@@ -1109,7 +1081,7 @@ void AiChatView::onMotion(wxMouseEvent& event) {
     // bubble, so the search cost is negligible.
     const auto [codeMi, codeIdx] = codeBlockAt(pos);
     if (codeMi >= 0) {
-        if (codeMi != m_barMessage || codeIdx != m_barIndex
+        if (codeMi != m_barPlacement.messageIndex() || codeIdx != m_barPlacement.blockIndex()
             || m_actionBar->mode() != CodeActionBar::Mode::CodeSample
             || !m_actionBar->IsShown()) {
             showActionBar(codeMi, codeIdx, CodeActionBar::Mode::CodeSample);
@@ -1119,7 +1091,7 @@ void AiChatView::onMotion(wxMouseEvent& event) {
     }
     const auto [patchMi, patchIdx] = patchBlockAt(pos);
     if (patchMi >= 0) {
-        if (patchMi != m_barMessage || patchIdx != m_barIndex
+        if (patchMi != m_barPlacement.messageIndex() || patchIdx != m_barPlacement.blockIndex()
             || m_actionBar->mode() != CodeActionBar::Mode::PatchProposal
             || !m_actionBar->IsShown()) {
             showActionBar(patchMi, patchIdx, CodeActionBar::Mode::PatchProposal);
@@ -1269,11 +1241,11 @@ void AiChatView::onBarLeave(wxCommandEvent& /*event*/) {
 }
 
 void AiChatView::onCopyCode(wxCommandEvent& /*event*/) {
-    if (m_barMessage < 0 || m_barIndex < 0) {
+    if (!m_barPlacement.active()) {
         return;
     }
-    const auto& message = m_items[static_cast<std::size_t>(m_barMessage)];
-    const wxString code = resolveCodeBlockText(message.document.markdown(), static_cast<std::size_t>(m_barIndex));
+    const auto& message = m_items[static_cast<std::size_t>(m_barPlacement.messageIndex())];
+    const wxString code = resolveCodeBlockText(message.document.markdown(), static_cast<std::size_t>(m_barPlacement.blockIndex()));
     if (wxTheClipboard->Open()) {
         wxTheClipboard->SetData(make_unowned<wxTextDataObject>(code));
         wxTheClipboard->Close();
@@ -1281,11 +1253,11 @@ void AiChatView::onCopyCode(wxCommandEvent& /*event*/) {
 }
 
 void AiChatView::onInsertCode(wxCommandEvent& /*event*/) {
-    if (m_barMessage < 0 || m_barIndex < 0) {
+    if (!m_barPlacement.active()) {
         return;
     }
-    const auto& message = m_items[static_cast<std::size_t>(m_barMessage)];
-    const wxString code = resolveCodeBlockText(message.document.markdown(), static_cast<std::size_t>(m_barIndex));
+    const auto& message = m_items[static_cast<std::size_t>(m_barPlacement.messageIndex())];
+    const wxString code = resolveCodeBlockText(message.document.markdown(), static_cast<std::size_t>(m_barPlacement.blockIndex()));
     auto* document = m_ctx.getDocumentManager().getActive();
     if (document == nullptr) {
         // No open document — drop the snippet into a fresh one.
@@ -1299,11 +1271,11 @@ void AiChatView::onInsertCode(wxCommandEvent& /*event*/) {
 }
 
 void AiChatView::onRunCode(wxCommandEvent& /*event*/) {
-    if (m_barMessage < 0 || m_barIndex < 0) {
+    if (!m_barPlacement.active()) {
         return;
     }
-    const auto& message = m_items[static_cast<std::size_t>(m_barMessage)];
-    const wxString code = resolveCodeBlockText(message.document.markdown(), static_cast<std::size_t>(m_barIndex));
+    const auto& message = m_items[static_cast<std::size_t>(m_barPlacement.messageIndex())];
+    const wxString code = resolveCodeBlockText(message.document.markdown(), static_cast<std::size_t>(m_barPlacement.blockIndex()));
     // Open the snippet as a new document and quick-run it (compile to a temp
     // file and execute) — the same path as the Run command.
     m_ctx.getDocumentManager().newFile().getEditor()->SetText(code);
@@ -1337,12 +1309,12 @@ void AiChatView::autoApplyPatches() {
 }
 
 void AiChatView::onApplyPatch(wxCommandEvent& /*event*/) {
-    if (m_barMessage < 0 || m_barIndex < 0) {
+    if (!m_barPlacement.active()) {
         return;
     }
-    const auto& patch = m_items[static_cast<std::size_t>(m_barMessage)]
+    const auto& patch = m_items[static_cast<std::size_t>(m_barPlacement.messageIndex())]
                             .document.laid()
-                            .scrollBlocks[static_cast<std::size_t>(m_barIndex)];
+                            .scrollBlocks[static_cast<std::size_t>(m_barPlacement.blockIndex())];
     if (!m_ctx.getAiManager().applyPatch(patch.patchSearch, patch.patchReplace)) {
         wxLogStatus("Patch couldn't be applied — SEARCH text not found or no active document.");
         return;

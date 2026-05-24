@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "ActionBarPlacement.hpp"
 #include "BlockScrollController.hpp"
 #include "ChatSelection.hpp"
 #include "CodeActionBar.hpp"
@@ -211,8 +212,7 @@ private:
     std::vector<LaidMessage> m_items;                           ///< One laid-out bubble per message.
     int m_layoutWidth = -1;                                     ///< View width m_items were built for.
     int m_totalHeight = 0;                                      ///< Stacked height of all bubbles.
-    int m_barMessage = -1;                                      ///< Message the action bar targets.
-    int m_barIndex = -1;                                        ///< Code or patch block index — see `m_actionBar->mode()`.
+    ActionBarPlacement m_barPlacement;                          ///< Action bar anchor + placement math.
     ChatSelection m_selection;                                  ///< Selection state across the conversation.
 
     bool m_wrapCodeBlocks = true; ///< Cached `[markdown] wrapCodeBlocks` value; passed to layouts.

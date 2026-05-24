@@ -9,6 +9,7 @@ target_sources(fbide_lib
     ai/ContextTagBar.cpp
     ai/Patch.cpp
     ai/ProviderFactory.cpp
+    ai/chat/ActionBarPlacement.cpp
     ai/chat/AiChatView.cpp
     ai/chat/BlockScrollController.cpp
     ai/chat/ChatSelection.cpp
@@ -102,6 +103,7 @@ target_sources(fbide_lib
     ai/ContextTagBar.hpp
     ai/Patch.hpp
     ai/ProviderFactory.hpp
+    ai/chat/ActionBarPlacement.hpp
     ai/chat/AiChatView.hpp
     ai/chat/BlockScrollController.hpp
     ai/chat/ChatSelection.hpp
