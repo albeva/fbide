@@ -6,48 +6,36 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "AiProvider.hpp"
+#include "WebStreamProvider.hpp"
 
 namespace fbide::ai {
 
 /**
  * AI provider backed by a local Ollama server (`/api/chat`).
  *
- * Talks to Ollama over `wxWebRequest`, no API key. The reply is streamed:
- * Ollama returns newline-delimited JSON, one chunk per line, delivered
- * incrementally. Free and offline — the model runs on the user's machine.
- * Handles one in-flight request at a time.
+ * Inherits `WebStreamProvider` for the HTTP + streaming + busy-state
+ * scaffolding. No API key — the server is whatever the user configured
+ * locally; the model runs on the user's machine.
  *
  * **Threading:** UI thread only.
  */
-class OllamaProvider final : public wxEvtHandler, public AiProvider {
+class OllamaProvider final : public WebStreamProvider {
 public:
     NO_COPY_AND_MOVE(OllamaProvider)
 
     /// Construct with the Ollama server base URL (e.g. `http://localhost:11434`).
     explicit OllamaProvider(wxString endpoint);
-    ~OllamaProvider() override;
 
-    /// Send `request` to the Ollama chat endpoint. See `AiProvider::send`.
-    void send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) override;
+protected:
+    [[nodiscard]] auto buildUrl(const AiRequest& request) const -> wxString override;
+    void applyHeaders(wxWebRequest& request) const override;
+    [[nodiscard]] auto buildBody(const AiRequest& request) const -> std::string override;
+    void parseLine(std::string_view line, const StreamDeltaSink& onDelta, const StreamErrorSink& onError) const override;
+    [[nodiscard]] auto httpErrorMessage(int status) const -> wxString override;
+    [[nodiscard]] auto requestFailedMessage(const wxString& detail) const -> wxString override;
 
 private:
-    /// `wxWebRequest` state transition — terminal states finish the request.
-    void onRequestState(wxWebRequestEvent& event);
-    /// Incoming response body chunk — buffered and parsed for NDJSON deltas.
-    void onRequestData(wxWebRequestEvent& event);
-    /// Parse whatever complete NDJSON lines are buffered, emitting deltas.
-    void consumeBuffer();
-    /// Invoke the completion handler exactly once and reset request state.
-    void finish(AiResponse response);
-
-    wxString m_endpoint;          ///< Ollama server base URL (no trailing slash).
-    wxWebRequest m_request;       ///< Current request — one at a time.
-    ChunkHandler m_onChunk;       ///< Streaming delta callback.
-    ResponseHandler m_onComplete; ///< Pending completion callback.
-    std::string m_buffer;         ///< Unparsed NDJSON bytes.
-    wxString m_streamError;       ///< Error reported in a response chunk.
-    bool m_busy = false;          ///< True while a request is in flight.
+    wxString m_endpoint; ///< Ollama server base URL (no trailing slash).
 };
 
 } // namespace fbide::ai

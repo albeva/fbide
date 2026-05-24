@@ -22,6 +22,7 @@ target_sources(fbide_lib
     ai/provider/MockProvider.cpp
     ai/provider/OllamaProvider.cpp
     ai/provider/StreamParsers.cpp
+    ai/provider/WebStreamProvider.cpp
     analyses/intellisense/IntellisenseService.cpp
     analyses/lexer/KeywordTables.cpp
     analyses/lexer/MemoryDocument.cpp
@@ -111,6 +112,7 @@ target_sources(fbide_lib
     ai/provider/MockProvider.hpp
     ai/provider/OllamaProvider.hpp
     ai/provider/StreamParsers.hpp
+    ai/provider/WebStreamProvider.hpp
     analyses/intellisense/IntellisenseService.hpp
     analyses/lexer/KeywordTables.hpp
     analyses/lexer/MemoryDocument.hpp

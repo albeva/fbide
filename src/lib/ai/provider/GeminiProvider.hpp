@@ -6,48 +6,36 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "AiProvider.hpp"
+#include "WebStreamProvider.hpp"
 
 namespace fbide::ai {
 
 /**
  * AI provider backed by the Google Gemini API (Generative Language API).
  *
- * Uses `wxWebRequest` with server-sent-events streaming
- * (`streamGenerateContent?alt=sse`): the reply text is delivered
- * incrementally. Authenticated with an API key (`x-goog-api-key`
- * header). Handles one in-flight request at a time.
+ * Inherits `WebStreamProvider` for the HTTP + streaming + busy-state
+ * scaffolding. Authentication uses the `x-goog-api-key` header; the
+ * URL is constructed per-model from `streamGenerateContent?alt=sse`.
  *
  * **Threading:** UI thread only.
  */
-class GeminiProvider final : public wxEvtHandler, public AiProvider {
+class GeminiProvider final : public WebStreamProvider {
 public:
     NO_COPY_AND_MOVE(GeminiProvider)
 
     /// Construct with the Google AI Studio API key.
     explicit GeminiProvider(wxString apiKey);
-    ~GeminiProvider() override;
 
-    /// Send `request` to the Gemini API. See `AiProvider::send`.
-    void send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) override;
+protected:
+    [[nodiscard]] auto buildUrl(const AiRequest& request) const -> wxString override;
+    void applyHeaders(wxWebRequest& request) const override;
+    [[nodiscard]] auto buildBody(const AiRequest& request) const -> std::string override;
+    void parseLine(std::string_view line, const StreamDeltaSink& onDelta, const StreamErrorSink& onError) const override;
+    [[nodiscard]] auto httpErrorMessage(int status) const -> wxString override;
+    [[nodiscard]] auto unauthorizedMessage() const -> wxString override;
 
 private:
-    /// `wxWebRequest` state transition — terminal states finish the request.
-    void onRequestState(wxWebRequestEvent& event);
-    /// Incoming response body chunk — buffered and parsed for SSE deltas.
-    void onRequestData(wxWebRequestEvent& event);
-    /// Parse whatever complete SSE lines are buffered, emitting text deltas.
-    void consumeBuffer();
-    /// Invoke the completion handler exactly once and reset request state.
-    void finish(AiResponse response);
-
-    wxString m_apiKey;            ///< Gemini API key.
-    wxWebRequest m_request;       ///< Current request — one at a time.
-    ChunkHandler m_onChunk;       ///< Streaming delta callback.
-    ResponseHandler m_onComplete; ///< Pending completion callback.
-    std::string m_buffer;         ///< Unparsed SSE bytes.
-    wxString m_streamError;       ///< Error reported in a response chunk.
-    bool m_busy = false;          ///< True while a request is in flight.
+    wxString m_apiKey; ///< Gemini API key.
 };
 
 } // namespace fbide::ai
