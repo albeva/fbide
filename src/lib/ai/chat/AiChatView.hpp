@@ -187,16 +187,10 @@ private:
     /// All three share the resolved point size so faces line up.
     void resolveFonts();
 
-    /// Apply a parsed SEARCH/REPLACE block to the active document.
-    /// Returns `true` on success, `false` when the SEARCH text could not
-    /// be located (e.g. the buffer changed since the proposal arrived).
-    /// Wraps a single Scintilla undo action so one Ctrl-Z reverts it.
-    auto applyPatch(const markdown::LaidScrollBlock& patch) -> bool;
-
-    /// Walk every laid patch block and apply any not previously seen
-    /// (success or failure both counted). Driven by the live-edit toggle
-    /// from `setMessages` — every chunk reparse rebuilds the doc, so we
-    /// need a stable key to skip already-handled blocks.
+    /// Walk every laid patch block and ask `AiManager` to apply any
+    /// not previously attempted. Driven by the live-edit toggle from
+    /// `setMessages` — every chunk reparse rebuilds the doc, so the
+    /// manager's applied-set is what skips already-handled blocks.
     void autoApplyPatches();
 
     Context& m_ctx;                                             ///< Application context.
@@ -237,12 +231,8 @@ private:
     /// `m_wheelPixelAccum` so trackpad fine swipes don't get rounded
     /// away.
     int m_hwheelPixelAccum = 0;
-    std::unordered_set<std::string> m_appliedPatches; ///< UTF-8 keys of patches already
-                                                      ///< auto-applied (or attempted) this
-                                                      ///< session — guards live-edit against
-                                                      ///< double-apply across reparses.
-    int m_bodyLineHeight = 0;                         ///< Body-font line height — sets the per-notch wheel scroll amount.
-    int m_wheelPixelAccum = 0;                        ///< Fractional remainder carried between wheel events.
+    int m_bodyLineHeight = 0;  ///< Body-font line height — sets the per-notch wheel scroll amount.
+    int m_wheelPixelAccum = 0; ///< Fractional remainder carried between wheel events.
     /// True when an image-cache "ready" notification has already scheduled
     /// a deferred relayout via `CallAfter`. Subsequent notifications in
     /// the same event-loop tick coalesce into the pending one instead of

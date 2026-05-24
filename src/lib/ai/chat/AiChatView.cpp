@@ -8,7 +8,6 @@
 #include "CodeActionBar.hpp"
 #include "CodeHighlighter.hpp"
 #include "ai/AiManager.hpp"
-#include "ai/Patch.hpp"
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
@@ -70,14 +69,6 @@ constexpr int kActionBarInset = 4;
 /// tried to colour them.
 auto isFreeBasicTag(const wxString& lang) -> bool {
     return lang == "freebasic" || lang == "fb" || lang == "basic" || lang == "bas";
-}
-
-/// Stable UTF-8 key for a parsed SEARCH/REPLACE block — used by the
-/// "already applied" set so live-edit and the manual apply path agree
-/// on which proposals have been handled. Marker separator is anything
-/// that can't appear in real source-file text.
-auto patchKey(const LaidScrollBlock& patch) -> std::string {
-    return (patch.patchSearch + wxString("\n>>>\n") + patch.patchReplace).utf8_string();
 }
 
 /// True when `url` uses a scheme we are willing to hand to the OS.
@@ -583,22 +574,21 @@ void AiChatView::paintMessage(
     // the chat thread distinguishes resolved cards from still-actionable
     // ones at a glance. Drawn after content so it dims (rather than
     // hides) the underlying strips and text.
-    if (!m_appliedPatches.empty()) {
-        const wxColour windowText = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
-        const wxColour overlay(windowText.Red(), windowText.Green(), windowText.Blue(), 90);
+    const auto& manager = m_ctx.getAiManager();
+    const wxColour windowText = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
+    const wxColour overlay(windowText.Red(), windowText.Green(), windowText.Blue(), 90);
+    for (const auto& block : laid.scrollBlocks) {
+        if (block.kind != LaidScrollBlock::Kind::Patch
+            || !manager.isPatchApplied(block.patchSearch, block.patchReplace)) {
+            continue;
+        }
+        const int patchY = contentTop + block.y;
+        if (patchY + block.height < updateTop || patchY > updateBottom) {
+            continue;
+        }
         gc.SetPen(*wxTRANSPARENT_PEN);
         gc.SetBrush(wxBrush(overlay));
-        for (const auto& block : laid.scrollBlocks) {
-            if (block.kind != LaidScrollBlock::Kind::Patch
-                || !m_appliedPatches.contains(patchKey(block))) {
-                continue;
-            }
-            const int patchY = contentTop + block.y;
-            if (patchY + block.height < updateTop || patchY > updateBottom) {
-                continue;
-            }
-            gc.DrawRectangle(contentLeft, patchY, message.contentWidth, block.height);
-        }
+        gc.DrawRectangle(contentLeft, patchY, message.contentWidth, block.height);
     }
 }
 
@@ -1397,42 +1387,20 @@ void AiChatView::onRunCode(wxCommandEvent& /*event*/) {
     m_ctx.getCompilerManager().quickRun();
 }
 
-auto AiChatView::applyPatch(const LaidScrollBlock& patch) -> bool {
-    auto* document = m_ctx.getDocumentManager().getActive();
-    if (document == nullptr) {
-        return false;
-    }
-    auto* editor = document->getEditor();
-
-    // Pure matching with the trailing-newline fallback lives in
-    // findPatchMatch — see PatchTests for the contract.
-    const auto sourceUtf8 = editor->GetText().utf8_string();
-    const auto match = findPatchMatch(sourceUtf8, patch.patchSearch, patch.patchReplace);
-    if (match.offset < 0) {
-        return false;
-    }
-
-    editor->BeginUndoAction();
-    editor->SetTargetStart(match.offset);
-    editor->SetTargetEnd(match.offset + match.length);
-    editor->ReplaceTarget(match.replacement);
-    editor->EndUndoAction();
-    return true;
-}
-
 void AiChatView::autoApplyPatches() {
+    auto& manager = m_ctx.getAiManager();
     for (const auto& item : m_items) {
         for (const auto& block : item.document.laid().scrollBlocks) {
             if (block.kind != LaidScrollBlock::Kind::Patch) {
                 continue;
             }
-            if (!m_appliedPatches.insert(patchKey(block)).second) {
+            if (manager.isPatchApplied(block.patchSearch, block.patchReplace)) {
                 continue; // already handled this proposal
             }
-            // Apply may fail (e.g. SEARCH text not in the buffer) — the
-            // hash is still inserted above, so we don't retry every
-            // reparse. The proposal card remains visible for inspection.
-            (void)applyPatch(block);
+            // Apply may fail (e.g. SEARCH text not in the buffer); pass
+            // `recordAlways=true` so the manager still notes the attempt
+            // and live-edit doesn't retry it on the next streamed chunk.
+            (void)manager.applyPatch(block.patchSearch, block.patchReplace, true);
         }
     }
 }
@@ -1444,12 +1412,10 @@ void AiChatView::onApplyPatch(wxCommandEvent& /*event*/) {
     const auto& patch = m_items[static_cast<std::size_t>(m_barMessage)]
                             .document.laid()
                             .scrollBlocks[static_cast<std::size_t>(m_barIndex)];
-    if (!applyPatch(patch)) {
+    if (!m_ctx.getAiManager().applyPatch(patch.patchSearch, patch.patchReplace)) {
         wxLogStatus("Patch couldn't be applied — SEARCH text not found or no active document.");
         return;
     }
-    // Record so live-edit doesn't try to apply it again on the next reparse.
-    m_appliedPatches.insert(patchKey(patch));
     hideActionBar();
     Refresh(); // pick up the new "applied" overlay on the card
 }

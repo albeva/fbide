@@ -5,9 +5,13 @@
 // https://github.com/albeva/fbide
 //
 #include "AiManager.hpp"
+#include "Patch.hpp"
 #include "ProviderFactory.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
+#include "document/Document.hpp"
+#include "document/DocumentManager.hpp"
+#include "editor/Editor.hpp"
 using namespace fbide;
 using namespace fbide::ai;
 
@@ -122,4 +126,41 @@ void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChu
             onComplete(std::move(response));
         }
     );
+}
+
+auto AiManager::patchKey(const wxString& search, const wxString& replace) -> std::string {
+    // Newline-padded separator that won't collide with real source text.
+    return (search + wxString("\n>>>\n") + replace).utf8_string();
+}
+
+auto AiManager::applyPatch(const wxString& search, const wxString& replace, const bool recordAlways) -> bool {
+    auto* document = m_ctx.getDocumentManager().getActive();
+    if (document == nullptr) {
+        if (recordAlways) {
+            m_appliedPatches.insert(patchKey(search, replace));
+        }
+        return false;
+    }
+
+    auto* editor = document->getEditor();
+    const auto sourceUtf8 = editor->GetText().utf8_string();
+    const auto match = findPatchMatch(sourceUtf8, search, replace);
+    if (match.offset < 0) {
+        if (recordAlways) {
+            m_appliedPatches.insert(patchKey(search, replace));
+        }
+        return false;
+    }
+
+    editor->BeginUndoAction();
+    editor->SetTargetStart(match.offset);
+    editor->SetTargetEnd(match.offset + match.length);
+    editor->ReplaceTarget(match.replacement);
+    editor->EndUndoAction();
+    m_appliedPatches.insert(patchKey(search, replace));
+    return true;
+}
+
+auto AiManager::isPatchApplied(const wxString& search, const wxString& replace) const -> bool {
+    return m_appliedPatches.contains(patchKey(search, replace));
 }

@@ -65,15 +65,37 @@ public:
     [[nodiscard]] auto isLiveEdit() const -> bool { return m_liveEdit; }
     void setLiveEdit(const bool on) { m_liveEdit = on; }
 
+    /// Apply a SEARCH/REPLACE patch to the active document, wrapping
+    /// the edit in a Scintilla undo action. Returns `true` on success,
+    /// `false` when no document is active or the SEARCH text was not
+    /// located.
+    ///
+    /// `recordAlways` selects how the attempt is folded into the
+    /// applied-set:
+    /// - `false` (manual button): record only on success, so the user
+    ///   can fix the buffer and retry a failed apply.
+    /// - `true` (live-edit): record every attempt so a failed apply
+    ///   doesn't retry on every streamed chunk.
+    auto applyPatch(const wxString& search, const wxString& replace, bool recordAlways = false) -> bool;
+
+    /// True when `(search, replace)` has already been attempted this
+    /// session. Drives the chat view's "applied" overlay.
+    [[nodiscard]] auto isPatchApplied(const wxString& search, const wxString& replace) const -> bool;
+
 private:
-    Context& m_ctx;                         ///< Application context.
-    std::unique_ptr<AiProvider> m_provider; ///< Active backend (null until configured).
-    std::vector<AiMessage> m_history;       ///< Conversation messages.
-    AiContext m_context;                    ///< Files attached as context.
-    wxString m_model;                       ///< Model name sent with each request.
-    wxString m_systemPrompt;                ///< Configured system prompt (may be empty).
-    bool m_agentMode = false;               ///< Agent mode toggle state.
-    bool m_liveEdit = false;                ///< Live-edit auto-apply toggle state.
+    /// Stable UTF-8 key for a `(search, replace)` pair — implementation
+    /// detail of the applied-set.
+    [[nodiscard]] static auto patchKey(const wxString& search, const wxString& replace) -> std::string;
+
+    Context& m_ctx;                                   ///< Application context.
+    std::unique_ptr<AiProvider> m_provider;           ///< Active backend (null until configured).
+    std::vector<AiMessage> m_history;                 ///< Conversation messages.
+    AiContext m_context;                              ///< Files attached as context.
+    wxString m_model;                                 ///< Model name sent with each request.
+    wxString m_systemPrompt;                          ///< Configured system prompt (may be empty).
+    std::unordered_set<std::string> m_appliedPatches; ///< Keys of patches already attempted this session.
+    bool m_agentMode = false;                         ///< Agent mode toggle state.
+    bool m_liveEdit = false;                          ///< Live-edit auto-apply toggle state.
 };
 
 } // namespace fbide::ai
