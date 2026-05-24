@@ -79,6 +79,17 @@ auto patchKey(const LaidScrollBlock& patch) -> std::string {
     return (patch.patchSearch + wxString("\n>>>\n") + patch.patchReplace).utf8_string();
 }
 
+/// True when `url` uses a scheme we are willing to hand to the OS.
+/// `wxLaunchDefaultBrowser` passes the URL to the platform handler,
+/// which would happily honour `file://`, `vbscript:`, etc. for a model
+/// reply that embeds a hostile link. Whitelist the safe schemes.
+auto isSafeLinkUrl(const wxString& url) -> bool {
+    const wxString lower = url.Lower();
+    return lower.StartsWith("http://")
+        || lower.StartsWith("https://")
+        || lower.StartsWith("mailto:");
+}
+
 /// Linear blend of two colours — `t` of 0 yields `a`, 1 yields `b`.
 auto blend(const wxColour& a, const wxColour& b, const double t) -> wxColour {
     const auto mix = [t](const unsigned char from, const unsigned char to) {
@@ -1203,7 +1214,11 @@ void AiChatView::onLeftDown(wxMouseEvent& event) {
 
     const wxString url = linkAt(pos);
     if (!url.empty()) {
-        wxLaunchDefaultBrowser(url);
+        if (isSafeLinkUrl(url)) {
+            wxLaunchDefaultBrowser(url);
+        } else {
+            wxLogStatus("Refused to open link with unsafe scheme: %s", url);
+        }
         event.Skip();
         return;
     }
