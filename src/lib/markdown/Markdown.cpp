@@ -520,10 +520,10 @@ void stripCr(wxString& line) {
 /// (to feed to md4c) or a fully-closed SEARCH/REPLACE patch block ready
 /// to drop into the document.
 struct PatchScanSegment {
-    enum class Kind : std::uint8_t { Markdown,
+    enum class Kind : std::uint8_t { Prose,
         Patch };
-    Kind kind = Kind::Markdown;
-    wxString markdown; ///< Populated for `Markdown`.
+    Kind kind = Kind::Prose;
+    wxString markdown; ///< Populated for `Prose`.
     MdBlock patch;     ///< Populated for `Patch`.
 };
 
@@ -535,18 +535,25 @@ struct PatchScanSegment {
 /// underline.
 auto splitPatchBlocks(const wxString& text) -> std::vector<PatchScanSegment> {
     std::vector<PatchScanSegment> out;
+    // Pre-reserve every accumulator at the full input length. The total
+    // bytes deposited across all accumulators can't exceed `text.length()`,
+    // so this upper bound is generous but cheap, and it turns each `+=`
+    // from a reallocate-and-copy into a single memcpy — the difference
+    // between O(N²) and O(N) on long streaming replies.
+    const std::size_t cap = text.length();
     wxString mdAccum;
+    mdAccum.reserve(cap);
     const auto flushMarkdown = [&] {
         if (mdAccum.empty()) {
             return;
         }
-        out.push_back({ .kind = PatchScanSegment::Kind::Markdown,
+        out.push_back({ .kind = PatchScanSegment::Kind::Prose,
             .markdown = std::move(mdAccum),
             .patch = {} });
-        // Re-initialise the moved-from accumulator to a known-empty
-        // state for the next chunk; `clear()` on a moved-from wxString
-        // would trip clang-tidy's use-after-move.
+        // Re-initialise the moved-from accumulator and restore capacity
+        // so subsequent appends stay alloc-free for the rest of the scan.
         mdAccum = wxString {};
+        mdAccum.reserve(cap);
     };
 
     enum class State : std::uint8_t { Markdown,
@@ -556,6 +563,8 @@ auto splitPatchBlocks(const wxString& text) -> std::vector<PatchScanSegment> {
     wxString patchTarget;
     wxString patchSearch;
     wxString patchReplace;
+    patchSearch.reserve(cap);
+    patchReplace.reserve(cap);
 
     std::size_t pos = 0;
     while (pos < text.length()) {
@@ -657,7 +666,7 @@ auto fbide::markdown::parseMarkdown(const wxString& text) -> MdDoc {
     // the patches into the final doc as they arrive.
     MdDoc result;
     for (auto& segment : splitPatchBlocks(text)) {
-        if (segment.kind == PatchScanSegment::Kind::Markdown) {
+        if (segment.kind == PatchScanSegment::Kind::Prose) {
             MdDoc sub = parseSegment(segment.markdown);
             for (auto& block : sub.blocks) {
                 result.blocks.push_back(std::move(block));

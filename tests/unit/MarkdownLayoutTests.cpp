@@ -124,7 +124,8 @@ TEST_F(MarkdownLayoutTests, CodeBlockHasPaddingStripsAndCodeLines) {
 
 TEST_F(MarkdownLayoutTests, CodeBlockRegionIsRecorded) {
     const auto doc = layout("text\n\n```fb\nab\ncd\n```", 500);
-    ASSERT_EQ(doc.codeBlocks.size(), 1U);
+    const auto codes = codeBlocks(doc);
+    ASSERT_EQ(codes.size(), 1U);
     // Snippet body and language live on the source markdown — resolved on
     // demand via `resolveCodeBlockText`. The laid block only carries the
     // y/height the painter and hit-tester need.
@@ -139,8 +140,8 @@ TEST_F(MarkdownLayoutTests, CodeBlockRegionIsRecorded) {
             codeBottom = line.y + line.height;
         }
     }
-    EXPECT_EQ(doc.codeBlocks[0].y, codeTop);
-    EXPECT_EQ(doc.codeBlocks[0].height, codeBottom - codeTop);
+    EXPECT_EQ(codes[0]->y, codeTop);
+    EXPECT_EQ(codes[0]->height, codeBottom - codeTop);
 }
 
 TEST_F(MarkdownLayoutTests, CodeRunsAreMonospaceAndIndentedByPadding) {
@@ -233,10 +234,11 @@ TEST_F(MarkdownLayoutTests, ReadyImageBecomesItsOwnImageLine) {
     const auto doc = layoutWithImages("![cat](https://e.org/c.png)", 500, resolver);
     ASSERT_EQ(doc.lines.size(), 1U);
     EXPECT_EQ(doc.lines[0].kind, LineKind::Image);
-    EXPECT_EQ(doc.lines[0].image.drawWidth, 100);
-    EXPECT_EQ(doc.lines[0].image.drawHeight, 40);
-    EXPECT_EQ(doc.lines[0].image.url, "https://e.org/c.png");
-    EXPECT_EQ(doc.lines[0].image.alt, "cat");
+    ASSERT_NE(doc.lines[0].image, nullptr);
+    EXPECT_EQ(doc.lines[0].image->drawWidth, 100);
+    EXPECT_EQ(doc.lines[0].image->drawHeight, 40);
+    EXPECT_EQ(doc.lines[0].image->url, "https://e.org/c.png");
+    EXPECT_EQ(doc.lines[0].image->alt, "cat");
     ASSERT_EQ(doc.links.size(), 1U);
     EXPECT_EQ(doc.links[0].url, "https://e.org/c.png");
     // The image line has one hit-test run carrying the link id, no text.
@@ -257,8 +259,9 @@ TEST_F(MarkdownLayoutTests, WideImageScalesProportionallyToFitWidth) {
     const auto doc = layoutWithImages("![big](https://e.org/b.png)", 400, resolver);
     ASSERT_EQ(doc.lines.size(), 1U);
     EXPECT_EQ(doc.lines[0].kind, LineKind::Image);
-    EXPECT_EQ(doc.lines[0].image.drawWidth, 400);
-    EXPECT_EQ(doc.lines[0].image.drawHeight, 100);
+    ASSERT_NE(doc.lines[0].image, nullptr);
+    EXPECT_EQ(doc.lines[0].image->drawWidth, 400);
+    EXPECT_EQ(doc.lines[0].image->drawHeight, 100);
 }
 
 TEST_F(MarkdownLayoutTests, LoadingImageRendersAsPlaceholderProseLine) {
@@ -376,11 +379,12 @@ TEST_F(MarkdownLayoutTests, PatchBlockRegionIsRecorded) {
         ">>>>>>> REPLACE\n",
         500
     );
-    ASSERT_EQ(doc.patchBlocks.size(), 1U);
-    EXPECT_EQ(doc.patchBlocks[0].search, "a\n");
-    EXPECT_EQ(doc.patchBlocks[0].replace, "b\n");
-    EXPECT_EQ(doc.patchBlocks[0].y, doc.lines.front().y);
-    EXPECT_EQ(doc.patchBlocks[0].height,
+    const auto patches = patchBlocks(doc);
+    ASSERT_EQ(patches.size(), 1U);
+    EXPECT_EQ(patches[0]->patchSearch, "a\n");
+    EXPECT_EQ(patches[0]->patchReplace, "b\n");
+    EXPECT_EQ(patches[0]->y, doc.lines.front().y);
+    EXPECT_EQ(patches[0]->height,
         doc.lines.back().y + doc.lines.back().height - doc.lines.front().y);
 }
 
@@ -393,8 +397,9 @@ TEST_F(MarkdownLayoutTests, PatchBlockCarriesTargetThrough) {
         ">>>>>>> REPLACE\n",
         500
     );
-    ASSERT_EQ(doc.patchBlocks.size(), 1U);
-    EXPECT_EQ(doc.patchBlocks[0].target, "foo.bas");
+    const auto patches = patchBlocks(doc);
+    ASSERT_EQ(patches.size(), 1U);
+    EXPECT_EQ(patches[0]->patchTarget, "foo.bas");
 }
 
 // ---------------------------------------------------------------------------
@@ -427,14 +432,15 @@ TEST_F(MarkdownLayoutTests, NoWrapCodeBlockEmitsOneLinePerSourceLine) {
     // and the block's naturalWidth grows past contentWidth.
     const auto doc = layoutNoWrap("```\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nbb\n```\n", /*width=*/120);
     EXPECT_EQ(countCodeLines(doc), 2U);
-    ASSERT_EQ(doc.codeBlocks.size(), 1U);
-    EXPECT_FALSE(doc.codeBlocks[0].wrapped);
-    EXPECT_GT(doc.codeBlocks[0].naturalWidth, doc.codeBlocks[0].contentWidth);
+    const auto codes = codeBlocks(doc);
+    ASSERT_EQ(codes.size(), 1U);
+    EXPECT_FALSE(codes[0]->wrapped);
+    EXPECT_GT(codes[0]->naturalWidth, codes[0]->contentWidth);
 }
 
 TEST_F(MarkdownLayoutTests, NoWrapCodeBlockTagsLinesWithBlockIndex) {
     const auto doc = layoutNoWrap("```\nhello world\n```\n", /*width=*/500);
-    ASSERT_EQ(doc.codeBlocks.size(), 1U);
+    ASSERT_EQ(codeBlocks(doc).size(), 1U);
     bool sawTagged = false;
     for (const auto& line : doc.lines) {
         if (line.kind == LineKind::Code) {
@@ -449,9 +455,10 @@ TEST_F(MarkdownLayoutTests, WrappedCodeBlockHasNaturalWidthEqualToContent) {
     // The default (wrap=true) path records contentWidth as the natural
     // width too — the view skips the scrollbar for this block.
     const auto doc = layout("```\nshort\n```\n", /*width=*/500);
-    ASSERT_EQ(doc.codeBlocks.size(), 1U);
-    EXPECT_TRUE(doc.codeBlocks[0].wrapped);
-    EXPECT_EQ(doc.codeBlocks[0].naturalWidth, doc.codeBlocks[0].contentWidth);
+    const auto codes = codeBlocks(doc);
+    ASSERT_EQ(codes.size(), 1U);
+    EXPECT_TRUE(codes[0]->wrapped);
+    EXPECT_EQ(codes[0]->naturalWidth, codes[0]->contentWidth);
 }
 
 TEST_F(MarkdownLayoutTests, NoWrapPatchBlockOverflowsNaturalWidth) {
@@ -463,9 +470,12 @@ TEST_F(MarkdownLayoutTests, NoWrapPatchBlockOverflowsNaturalWidth) {
         ">>>>>>> REPLACE\n",
         /*width=*/120
     );
-    ASSERT_EQ(doc.patchBlocks.size(), 1U);
-    EXPECT_FALSE(doc.patchBlocks[0].wrapped);
-    EXPECT_GT(doc.patchBlocks[0].naturalWidth, doc.patchBlocks[0].contentWidth);
+    const auto patches = patchBlocks(doc);
+    ASSERT_EQ(patches.size(), 1U);
+    EXPECT_FALSE(patches[0]->wrapped);
+    EXPECT_GT(patches[0]->naturalWidth, patches[0]->contentWidth);
+    // The patch block sits at scrollBlocks index 0 (no other scroll
+    // blocks above it in this document).
     for (const auto& line : doc.lines) {
         if (line.kind == LineKind::PatchSearch || line.kind == LineKind::PatchReplace) {
             EXPECT_EQ(line.blockIndex, 0);

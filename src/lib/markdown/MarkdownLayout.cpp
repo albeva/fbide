@@ -162,8 +162,8 @@ void appendWords(
 }
 
 /// Carries the layout state while walking the document's blocks.
-struct Engine {
-    NO_COPY_AND_MOVE(Engine)
+struct LayoutEngine {
+    NO_COPY_AND_MOVE(LayoutEngine)
 
     const MdDoc& m_doc;
     const int m_width;
@@ -176,7 +176,13 @@ struct Engine {
     LaidOutDoc m_out {};
     int m_yPos = 0; ///< Running vertical cursor.
 
-    Engine(
+    /// Scratch buffer for `flattenInto` on non-table blocks — keeps its
+    /// capacity across blocks so each paragraph/heading/list item pays
+    /// no fresh allocation for its WrapItems vector. Table cells own
+    /// their own vectors (they all live concurrently) and don't share.
+    std::vector<WrapItem> m_flatten;
+
+    LayoutEngine(
         const MdDoc& doc,
         const int width,
         const TextMeasurer& measurer,
@@ -205,9 +211,9 @@ struct Engine {
     /// runs are registered in `out.links` and tagged with their id. Image
     /// inlines produce an `Image` WrapItem the wrapper turns into a
     /// dedicated `LineKind::Image` line (or a placeholder when not ready).
-    auto flatten(const std::vector<MdInline>& inlines, const int baseSizeDelta, const bool baseBold)
-        -> std::vector<WrapItem> {
-        std::vector<WrapItem> items;
+    void flattenInto(std::vector<WrapItem>& items, const std::vector<MdInline>& inlines,
+        const int baseSizeDelta, const bool baseBold) {
+        items.clear();
         for (const auto& inl : inlines) {
             if (inl.kind == MdInlineKind::HardBreak) {
                 items.push_back({ .type = WrapItem::Type::HardBreak });
@@ -238,7 +244,6 @@ struct Engine {
             }
             appendWords(items, inl.text, style, colour, linkId);
         }
-        return items;
     }
 
     /// Resolve `inl` (an Image inline) and append a single WrapItem of type
@@ -284,12 +289,14 @@ struct Engine {
             line.y = m_yPos;
             line.height = drawHeight;
             line.quoteDepth = quoteDepth;
-            line.image.bitmap = item.image.bitmap;
-            line.image.url = item.image.url;
-            line.image.alt = item.text;
-            line.image.drawWidth = drawWidth;
-            line.image.drawHeight = drawHeight;
-            line.image.x = contentLeft;
+            line.image = std::make_unique<PaintLine::ImageContent>(PaintLine::ImageContent {
+                .bitmap = item.image.bitmap,
+                .url = item.image.url,
+                .alt = item.text,
+                .drawWidth = drawWidth,
+                .drawHeight = drawHeight,
+                .x = contentLeft,
+            });
             // Hit-test region for click handling.
             line.runs.push_back({ .text = {},
                 .style = {},
@@ -441,6 +448,14 @@ struct Engine {
             .linkId = -1 };
     }
 
+    /// Code-line layout mode. `Soft` wraps long lines onto multiple
+    /// PaintLines at token boundaries (or per-character within an
+    /// overlong token); `None` keeps every source line on a single
+    /// PaintLine and lets the view's per-block horizontal scrollbar
+    /// re-present the overflow.
+    enum class CodeWrap : std::uint8_t { Soft,
+        None };
+
     /// Soft-wrap one highlighted code line into one or more PaintLines of
     /// `kind` (Code for fences, PatchSearch/PatchReplace for proposals).
     /// Wrapping prefers token boundaries; a token wider than the available
@@ -456,7 +471,7 @@ struct Engine {
         const int charWidth,
         const int quoteDepth,
         const bool themed,
-        const bool noWrap = false
+        const CodeWrap wrapMode
     ) {
         PaintLine line;
         line.kind = kind;
@@ -470,7 +485,7 @@ struct Engine {
         // measured at their natural widths and laid out left-to-right
         // past the right edge. Horizontal scroll on the view side
         // re-presents the overflow.
-        if (noWrap) {
+        if (wrapMode == CodeWrap::None) {
             for (const auto& codeRun : codeLine) {
                 if (codeRun.text.empty()) {
                     continue;
@@ -567,7 +582,7 @@ struct Engine {
         const int rightEdge = std::max(codeLeft + charWidth, m_width - kCodePadding);
         const int contX = codeLeft + (kCodeWrapIndent * charWidth);
         const int contentWidth = rightEdge - codeLeft;
-        const std::size_t blockIndex = m_out.codeBlocks.size();
+        const std::size_t blockIndex = m_out.scrollBlocks.size();
         const std::size_t lineStart = m_out.lines.size();
 
         // Top padding strip — an empty Code line the painter fills with the
@@ -583,7 +598,7 @@ struct Engine {
             emitCodeLine(
                 codeLine, LineKind::Code, codeLeft, contX, rightEdge,
                 lineHeight, charWidth, block.quoteDepth, themed,
-                /*noWrap=*/!m_wrapCodeBlocks
+                m_wrapCodeBlocks ? CodeWrap::Soft : CodeWrap::None
             );
         }
 
@@ -609,7 +624,8 @@ struct Engine {
             }
         }
 
-        m_out.codeBlocks.push_back({ .y = blockTop,
+        m_out.scrollBlocks.push_back({ .kind = LaidScrollBlock::Kind::Code,
+            .y = blockTop,
             .height = m_yPos - blockTop,
             .contentLeft = codeLeft,
             .contentWidth = contentWidth,
@@ -662,7 +678,7 @@ struct Engine {
         const int rightEdge = std::max(codeLeft + charWidth, m_width - kCodePadding);
         const int contX = codeLeft + (kCodeWrapIndent * charWidth);
         const int contentWidth = rightEdge - codeLeft;
-        const std::size_t blockIndex = m_out.patchBlocks.size();
+        const std::size_t blockIndex = m_out.scrollBlocks.size();
         const std::size_t lineStart = m_out.lines.size();
 
         const auto emitStrip = [&](const wxString& text, const LineKind kind) {
@@ -676,7 +692,7 @@ struct Engine {
                 emitCodeLine(
                     codeLine, kind, codeLeft, contX, rightEdge,
                     lineHeight, charWidth, block.quoteDepth, false,
-                    /*noWrap=*/!m_wrapCodeBlocks
+                    m_wrapCodeBlocks ? CodeWrap::Soft : CodeWrap::None
                 );
             }
             m_out.lines.push_back({ .kind = kind,
@@ -703,15 +719,16 @@ struct Engine {
             }
         }
 
-        m_out.patchBlocks.push_back({ .target = block.patchTarget,
-            .search = block.patchSearch,
-            .replace = block.patchReplace,
+        m_out.scrollBlocks.push_back({ .kind = LaidScrollBlock::Kind::Patch,
             .y = blockTop,
             .height = m_yPos - blockTop,
             .contentLeft = codeLeft,
             .contentWidth = contentWidth,
             .naturalWidth = naturalWidth,
-            .wrapped = m_wrapCodeBlocks });
+            .wrapped = m_wrapCodeBlocks,
+            .patchTarget = block.patchTarget,
+            .patchSearch = block.patchSearch,
+            .patchReplace = block.patchReplace });
     }
 
     /// Emit a horizontal rule line.
@@ -861,7 +878,7 @@ struct Engine {
             cellItems.at(rowIdx).resize(columnCount);
             const auto& row = block.rows.at(rowIdx);
             for (std::size_t col = 0; col < row.cells.size() && col < columnCount; col++) {
-                cellItems.at(rowIdx).at(col) = flatten(row.cells.at(col).inlines, 0, false);
+                flattenInto(cellItems.at(rowIdx).at(col), row.cells.at(col).inlines, 0, false);
             }
         }
 
@@ -967,8 +984,9 @@ struct Engine {
             switch (block.kind) {
             case MdBlockKind::Paragraph:
                 blockGap();
+                flattenInto(m_flatten, block.inlines, 0, false);
                 emitWrapped(
-                    flatten(block.inlines, 0, false),
+                    m_flatten,
                     block.quoteDepth * kQuoteIndent,
                     std::nullopt,
                     block.quoteDepth
@@ -976,8 +994,9 @@ struct Engine {
                 break;
             case MdBlockKind::Heading:
                 blockGap();
+                flattenInto(m_flatten, block.inlines, headingSizeDelta(block.headingLevel), true);
                 emitWrapped(
-                    flatten(block.inlines, headingSizeDelta(block.headingLevel), true),
+                    m_flatten,
                     block.quoteDepth * kQuoteIndent,
                     std::nullopt,
                     block.quoteDepth
@@ -990,7 +1009,8 @@ struct Engine {
                 if (block.listMarker) {
                     marker = makeMarker(block, left);
                 }
-                emitWrapped(flatten(block.inlines, 0, false), left, marker, block.quoteDepth);
+                flattenInto(m_flatten, block.inlines, 0, false);
+                emitWrapped(m_flatten, left, marker, block.quoteDepth);
                 break;
             }
             case MdBlockKind::CodeFence:
@@ -1023,7 +1043,7 @@ auto fbide::markdown::layoutMarkdown(
     const ImageResolver& resolveImage,
     const bool wrapCodeBlocks
 ) -> LaidOutDoc {
-    Engine engine {
+    LayoutEngine engine {
         doc,
         width,
         measurer,

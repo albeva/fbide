@@ -18,7 +18,7 @@ engine and paint primitives.
         │ MarkdownLayout.{hpp,cpp}  — layout engine          │
         │   layoutMarkdown(doc, width, …) -> LaidOutDoc      │
         │   types: TextStyle, PaintLine, PaintRun,           │
-        │          MarkdownPalette, LaidCodeBlock, …         │
+        │          MarkdownPalette, LaidScrollBlock, …       │
         │                                                    │
         │ MarkdownImageCache.{hpp,cpp} — async image cache   │
         │   wxWebRequest + LRU eviction                      │

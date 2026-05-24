@@ -52,6 +52,13 @@ public:
     /// rebuilds even if the text is the same.
     void clear();
 
+    /// Force the next `setMarkdown` to re-parse + re-layout even if its
+    /// inputs match the cached state. Use after palette / highlighter /
+    /// wrap-mode changes invalidate the cached output without changing
+    /// the source text. Cheaper than `clear()` — keeps the stored
+    /// markdown so the next `setMarkdown` can pass it straight through.
+    void invalidate() { m_width = -1; }
+
     [[nodiscard]] auto markdown() const -> const wxString& { return m_markdown; }
     [[nodiscard]] auto laid() const -> const LaidOutDoc& { return m_laid; }
     [[nodiscard]] auto width() const -> int { return m_width; }

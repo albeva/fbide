@@ -94,8 +94,9 @@ struct PaintLine {
     /// only at the actual row start, not between wrapped lines.
     bool tableRowStart = false;
     /// Image-line only: bitmap, click target, alt label and the
-    /// scaled draw rect. Packed in a struct so designated initializers
-    /// elsewhere don't have to list every image field.
+    /// scaled draw rect. Allocated lazily via `unique_ptr` so prose
+    /// lines (the overwhelming majority) carry just one pointer rather
+    /// than a full wxBitmap + 2 wxStrings + 5 ints of empty payload.
     struct ImageContent {
         wxBitmap bitmap;
         wxString url; ///< Source URL — also the click target.
@@ -104,10 +105,11 @@ struct PaintLine {
         int drawHeight = 0;
         int x = 0; ///< Left offset of the image rect inside the bubble.
     };
-    ImageContent image {};
-    /// Index into `LaidOutDoc::codeBlocks` when this line belongs to a
-    /// fenced code block, into `patchBlocks` when it belongs to a
-    /// SEARCH/REPLACE proposal, or -1 for anything else. Lets the
+    std::unique_ptr<ImageContent> image;
+    /// Index into `LaidOutDoc::scrollBlocks` when this line belongs to
+    /// a fenced code block or a SEARCH/REPLACE proposal, or -1 for
+    /// anything else. The line's `kind` distinguishes Code vs
+    /// PatchSearch vs PatchReplace for paint purposes. Lets the
     /// painter / hit-tester resolve the containing block in O(1)
     /// without scanning the block list per line.
     int blockIndex = -1;
@@ -118,36 +120,30 @@ struct LinkTarget {
     wxString url;
 };
 
-/// A laid-out fenced code block — its rectangle within the document. The
-/// view places a toolbar over it; when the user clicks an action, the
-/// snippet body is resolved on demand from the source markdown via
-/// `resolveCodeBlockText` so the laid-out doc doesn't carry a duplicate
-/// copy of every snippet.
-struct LaidCodeBlock {
-    int y = 0;            ///< Top offset within the document (includes padding).
-    int height = 0;       ///< Total height including padding strips.
-    int contentLeft = 0;  ///< Left edge of the text area inside the block (document coords).
-    int contentWidth = 0; ///< Visible width of the text area — what's not scrolled is clipped to this.
-    int naturalWidth = 0; ///< Right edge of the widest run minus `contentLeft`. Equals
-                          ///< `contentWidth` when the block was laid out with wrapping
-                          ///< on; larger when wrapping is off and lines overflow.
-    bool wrapped = true;  ///< Layout-mode flag — false when the block was laid out
-                          ///< with horizontal scroll instead of soft wrap.
-};
-
-/// A laid-out SEARCH/REPLACE proposal — its region within the document
-/// plus the raw search/replace strings, so the view can place an action
-/// bar (Apply / Reject) over it and resolve the edit when applied.
-struct LaidPatchBlock {
-    wxString target;      ///< Optional target path from the SEARCH header.
-    wxString search;      ///< Verbatim SEARCH text.
-    wxString replace;     ///< Verbatim REPLACE text.
-    int y = 0;            ///< Top offset within the document (includes padding).
-    int height = 0;       ///< Total height including padding strips.
-    int contentLeft = 0;  ///< Left edge of the text area inside the block.
-    int contentWidth = 0; ///< Visible width of the text area.
-    int naturalWidth = 0; ///< Width of the widest line — see `LaidCodeBlock::naturalWidth`.
-    bool wrapped = true;  ///< Same meaning as `LaidCodeBlock::wrapped`.
+/// A laid-out block that owns a content rectangle — fenced code block or
+/// SEARCH/REPLACE proposal. Both have identical geometry; the patch fields
+/// (`patchTarget` / `patchSearch` / `patchReplace`) carry the verbatim
+/// strings the view needs to resolve an Apply, and stay empty for Code
+/// blocks. The view places its toolbar / Apply-Reject bar over the
+/// block's rect; for code snippets the body is re-resolved on demand
+/// from the source markdown via `resolveCodeBlockText` so the laid doc
+/// doesn't keep a duplicate copy.
+struct LaidScrollBlock {
+    enum class Kind : std::uint8_t { Code,
+        Patch };
+    Kind kind = Kind::Code;
+    int y = 0;             ///< Top offset within the document (includes padding).
+    int height = 0;        ///< Total height including padding strips.
+    int contentLeft = 0;   ///< Left edge of the text area inside the block (document coords).
+    int contentWidth = 0;  ///< Visible width of the text area — what's not scrolled is clipped to this.
+    int naturalWidth = 0;  ///< Right edge of the widest run minus `contentLeft`. Equals
+                           ///< `contentWidth` when the block was laid out with wrapping
+                           ///< on; larger when wrapping is off and lines overflow.
+    bool wrapped = true;   ///< Layout-mode flag — false when the block was laid out
+                           ///< with horizontal scroll instead of soft wrap.
+    wxString patchTarget;  ///< Patch only: optional target path from the SEARCH header.
+    wxString patchSearch;  ///< Patch only: verbatim SEARCH text.
+    wxString patchReplace; ///< Patch only: verbatim REPLACE text.
 };
 
 /// Colours the layout and painter need that are not carried on code runs.
@@ -170,10 +166,12 @@ struct MarkdownPalette {
 struct LaidOutDoc {
     std::vector<PaintLine> lines;
     std::vector<LinkTarget> links;
-    std::vector<LaidCodeBlock> codeBlocks;   ///< Fenced code-block regions.
-    std::vector<LaidPatchBlock> patchBlocks; ///< SEARCH/REPLACE proposal regions.
-    int width = 0;                           ///< Width the document was laid out for.
-    int height = 0;                          ///< Total stacked height.
+    /// Fenced code blocks and SEARCH/REPLACE proposals in document order —
+    /// each carries a `kind` discriminator. `PaintLine::blockIndex` points
+    /// here for lines that belong to one of these blocks.
+    std::vector<LaidScrollBlock> scrollBlocks;
+    int width = 0;  ///< Width the document was laid out for.
+    int height = 0; ///< Total stacked height.
 };
 
 /// Highlights a fenced code block — `code` body, `lang` fence tag — into

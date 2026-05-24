@@ -70,6 +70,30 @@ inline auto splitHighlight(const wxString& code, const wxString& /*lang*/) -> st
     return lines;
 }
 
+/// Collect pointers to every `LaidScrollBlock` of the given kind, in
+/// document order. The unified vector keeps code and patch blocks
+/// interleaved; tests that target one kind use these wrappers to keep
+/// assertions terse.
+inline auto codeBlocks(const markdown::LaidOutDoc& doc) -> std::vector<const markdown::LaidScrollBlock*> {
+    std::vector<const markdown::LaidScrollBlock*> out;
+    for (const auto& block : doc.scrollBlocks) {
+        if (block.kind == markdown::LaidScrollBlock::Kind::Code) {
+            out.push_back(&block);
+        }
+    }
+    return out;
+}
+
+inline auto patchBlocks(const markdown::LaidOutDoc& doc) -> std::vector<const markdown::LaidScrollBlock*> {
+    std::vector<const markdown::LaidScrollBlock*> out;
+    for (const auto& block : doc.scrollBlocks) {
+        if (block.kind == markdown::LaidScrollBlock::Kind::Patch) {
+            out.push_back(&block);
+        }
+    }
+    return out;
+}
+
 /// Stable palette for layout tests. Colours are arbitrary but distinct
 /// so painter-side debugging is easier; layout assertions don't depend
 /// on the values.

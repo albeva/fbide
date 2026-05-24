@@ -113,6 +113,17 @@ private:
     [[nodiscard]] auto hitTest(const wxPoint& clientPoint) -> SelectionPosition;
 
     void relayout();
+    /// Invalidate the document's cached layout, re-lay, and refresh.
+    /// Used by paths that change a layout input (palette, highlighter,
+    /// wrap mode, fonts) without changing the source text.
+    void rebuild();
+    /// Paint the per-block horizontal scrollbar overlay on top of any
+    /// non-wrapped code / patch blocks visible in `update`. Drawn after
+    /// the line pass so the thumb / track sit over the block's bottom
+    /// padding strip. No-op for fully-wrapped layouts.
+    void paintScrollbars(wxGCDC& gc, const wxRect& update,
+        int contentTop, int contentLeft, int contentWidth,
+        const MarkdownPalette& palette) const;
     void resolveFonts();
     /// Bind the cache's "ready" callback so a finished image download
     /// schedules a coalesced relayout. Re-invoked whenever the cache
@@ -122,11 +133,10 @@ private:
     [[nodiscard]] auto linkAt(const wxPoint& clientPoint) const -> wxString;
 
     /// Per-block horizontal-scroll-bar hit test. Result identifies the
-    /// block (code vs patch + index) and exposes the scrollbar geometry
-    /// so callers can compare against the thumb position. Empty when
-    /// the click misses every scrollbar.
+    /// scroll block (index into `LaidOutDoc::scrollBlocks`) and exposes
+    /// the scrollbar geometry so callers can compare against the thumb
+    /// position. Empty when the click misses every scrollbar.
     struct ScrollbarTarget {
-        bool isPatch = false;
         std::size_t blockIndex = 0;
         int maxScroll = 0;
         int trackX = 0;
@@ -136,10 +146,10 @@ private:
         int thumbW = 0;
     };
     [[nodiscard]] auto scrollbarAt(const wxPoint& clientPoint) -> std::optional<ScrollbarTarget>;
-    /// Current scroll offset for a code or patch block.
-    [[nodiscard]] auto blockScrollOffset(bool isPatch, std::size_t index) const -> int;
+    /// Current horizontal-scroll offset for a scroll block.
+    [[nodiscard]] auto blockScrollOffset(std::size_t index) const -> int;
     /// Clamp + write a new scroll offset. No-op when unchanged.
-    void setBlockScrollOffset(bool isPatch, std::size_t index, int offset);
+    void setBlockScrollOffset(std::size_t index, int offset);
 
     wxString m_markdown; ///< Source text. `setMarkdown` writes this; `relayout` reads it.
     MarkdownDocument m_document;
@@ -158,16 +168,13 @@ private:
     Selection m_selection;        ///< Current rendered-text selection.
     bool m_dragSelecting = false; ///< True while the left mouse button is held during a drag.
 
-    bool m_wrapCodeBlocks = true;        ///< Layout mode for code / patch blocks.
-    std::vector<int> m_codeBlockScroll;  ///< Per-codeBlocks horizontal scroll offset (px).
-    std::vector<int> m_patchBlockScroll; ///< Per-patchBlocks horizontal scroll offset (px).
-    int m_dragScrollBlockIndex = -1;     ///< Block being scroll-dragged, or -1.
-    bool m_dragScrollIsPatch = false;    ///< Drag target is a patch block (vs code).
-    int m_dragScrollStartOffset = 0;     ///< Scroll offset at drag start.
-    int m_dragScrollStartMouseX = 0;     ///< Client-x at drag start.
-    int m_hoverScrollBlockIndex = -1;    ///< Block whose scrollbar the pointer hovers, or -1.
-    bool m_hoverScrollIsPatch = false;   ///< Hover target is a patch block (vs code).
-    int m_hwheelPixelAccum = 0;          ///< Horizontal-wheel fractional carry.
+    bool m_wrapCodeBlocks = true;     ///< Layout mode for code / patch blocks.
+    std::vector<int> m_blockScroll;   ///< Per-scrollBlocks horizontal scroll offset (px).
+    int m_dragScrollBlockIndex = -1;  ///< Block being scroll-dragged, or -1.
+    int m_dragScrollStartOffset = 0;  ///< Scroll offset at drag start.
+    int m_dragScrollStartMouseX = 0;  ///< Client-x at drag start.
+    int m_hoverScrollBlockIndex = -1; ///< Block whose scrollbar the pointer hovers, or -1.
+    int m_hwheelPixelAccum = 0;       ///< Horizontal-wheel fractional carry.
 
     wxDECLARE_EVENT_TABLE();
 };

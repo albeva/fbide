@@ -33,5 +33,4 @@ void MarkdownDocument::clear() {
     m_markdown.clear();
     m_laid = LaidOutDoc {};
     m_width = -1;
-    m_wrapCodeBlocks = true;
 }

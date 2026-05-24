@@ -155,15 +155,15 @@ void fbide::markdown::paintLineBackground(
         }
         return;
     }
-    if (line.kind == LineKind::Image && line.image.bitmap.IsOk()) {
+    if (line.kind == LineKind::Image && line.image != nullptr && line.image->bitmap.IsOk()) {
         // Draw through the underlying wxGraphicsContext — `wxGCDC::DrawBitmap`
         // has no scaled-target overload, but the graphics context does.
         gc.GetGraphicsContext()->DrawBitmap(
-            line.image.bitmap,
-            contentLeft + line.image.x,
+            line.image->bitmap,
+            contentLeft + line.image->x,
             lineTop,
-            line.image.drawWidth,
-            line.image.drawHeight
+            line.image->drawWidth,
+            line.image->drawHeight
         );
         // The line's lone PaintRun is an empty hit-test region for the
         // click handler — `paintLineText` skips empty runs, so the
@@ -375,20 +375,7 @@ auto fbide::markdown::extractSelectedText(
         return {};
     }
     const auto [startPos, endPos] = selection.range();
-    // Upper-bound on the result length: every selected run's text plus
-    // one `\n` per line boundary in the range. Cheap to compute and
-    // saves a handful of reallocations on long select-all operations.
-    std::size_t budget = 0;
-    for (std::size_t li = startPos.lineIndex; li <= endPos.lineIndex && li < doc.lines.size(); li++) {
-        for (const auto& run : doc.lines.at(li).runs) {
-            budget += run.text.length();
-        }
-        if (li > startPos.lineIndex) {
-            budget++; // newline between lines
-        }
-    }
     wxString out;
-    out.reserve(budget);
     for (std::size_t li = startPos.lineIndex; li <= endPos.lineIndex && li < doc.lines.size(); li++) {
         const auto& line = doc.lines.at(li);
         if (li > startPos.lineIndex) {
