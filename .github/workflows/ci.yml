@@ -480,7 +480,13 @@ jobs:
           else
             BREW=(/opt/homebrew/bin/brew)
           fi
-          "${BREW[@]}" install llvm dylibbundler
+          # --overwrite lets brew take precedence over files the runner
+          # already ships under /usr/local/bin (notably the Python
+          # idle3 / pip3 symlinks the x86_64 brew install of LLVM
+          # transitively wants to lay down). Without it the link step
+          # fails the entire install. Harmless on /opt/homebrew where
+          # there's nothing to overwrite.
+          "${BREW[@]}" install --overwrite llvm dylibbundler
           LLVM_PREFIX="$("${BREW[@]}" --prefix llvm)"
           echo "CC=${LLVM_PREFIX}/bin/clang" >> "$GITHUB_ENV"
           echo "CXX=${LLVM_PREFIX}/bin/clang++" >> "$GITHUB_ENV"
@@ -493,12 +499,22 @@ jobs:
           # _LIBCPP_DISABLE_AVAILABILITY is required for newer C++23
           # stdlib symbols (std::ranges::contains etc.) — Homebrew
           # libc++ marks them as "unavailable on this OS" through
-          # availability annotations otherwise. CMake honours CXXFLAGS
-          # / LDFLAGS on first configure (seeds CMAKE_*_FLAGS_INIT —
-          # note CMake doesn't read CPPFLAGS, so the -D belongs in
-          # CXXFLAGS), so both the wx and fbide configures pick them
-          # up.
-          echo "CXXFLAGS=-D_LIBCPP_DISABLE_AVAILABILITY" >> "$GITHUB_ENV"
+          # availability annotations otherwise.
+          # The explicit -I for libc++'s include dir is a counter-
+          # workaround for wxWidgets' macOS CMake, which adds
+          # `-I${SDK}/usr/include` to its compile commands. That raw
+          # -I gets searched before clang's libc++ headers and ends
+          # up resolving `#include <stddef.h>` from libc++'s
+          # `<cstddef>` to Apple's stddef.h instead of libc++'s
+          # wrapper. libc++ then errors out ("didn't find libc++'s
+          # <stddef.h>"). Placing the libc++ include path in CXXFLAGS
+          # (which CMake feeds in via CMAKE_CXX_FLAGS_INIT, ahead of
+          # per-target -I flags) restores the correct search order.
+          # CMake honours CXXFLAGS / LDFLAGS on first configure
+          # (seeds CMAKE_*_FLAGS_INIT — note CMake doesn't read
+          # CPPFLAGS, so the -D belongs in CXXFLAGS), so both the wx
+          # and fbide configures pick them up.
+          echo "CXXFLAGS=-D_LIBCPP_DISABLE_AVAILABILITY -I${LLVM_PREFIX}/include/c++/v1" >> "$GITHUB_ENV"
           echo "LDFLAGS=-L${LLVM_PREFIX}/lib/c++ -L${LLVM_PREFIX}/lib/unwind -lunwind" >> "$GITHUB_ENV"
 
       - name: Set up wxWidgets (osx_cocoa, ${{ matrix.arch }})
