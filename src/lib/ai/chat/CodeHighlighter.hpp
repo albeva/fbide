@@ -44,6 +44,15 @@ using CodeLine = std::vector<CodeRun>;
     int tabWidth = 4
 ) -> std::vector<CodeLine>;
 
+namespace detail {
+    /// Custom deleter for `std::unique_ptr<Scintilla::ILexer5>` — calls the
+    /// Scintilla `Release()` method (Scintilla uses ref-counted lexers, not
+    /// `delete`able ones).
+    struct LexerReleaser {
+        void operator()(Scintilla::ILexer5* lexer) const noexcept;
+    };
+} // namespace detail
+
 /// FreeBASIC syntax highlighter for chat code blocks. Owns one configured
 /// FBSciLexer instance, reused across calls — the same colouring path as the
 /// editor, but rendered to coloured runs rather than to styled Scintilla text.
@@ -63,8 +72,8 @@ public:
         -> std::vector<CodeLine>;
 
 private:
-    Context& m_ctx;              ///< Application context — config + theme.
-    Scintilla::ILexer5* m_lexer; ///< Reused FreeBASIC lexer; Release()d in the dtor.
+    Context& m_ctx;                                                     ///< Application context — config + theme.
+    std::unique_ptr<Scintilla::ILexer5, detail::LexerReleaser> m_lexer; ///< Reused FreeBASIC lexer.
 };
 
 } // namespace fbide::ai

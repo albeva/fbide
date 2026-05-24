@@ -145,17 +145,19 @@ auto fbide::ai::highlightCode(const std::vector<lexer::Token>& tokens, const The
     return lines;
 }
 
+void detail::LexerReleaser::operator()(Scintilla::ILexer5* lexer) const noexcept {
+    if (lexer != nullptr) {
+        lexer->Release();
+    }
+}
+
 CodeHighlighter::CodeHighlighter(Context& ctx)
 : m_ctx(ctx)
 , m_lexer(FBSciLexer::Create()) {
     lexer::configureFbWordlists(*m_lexer, m_ctx.getConfigManager().keywords().at("groups"));
 }
 
-CodeHighlighter::~CodeHighlighter() {
-    if (m_lexer != nullptr) {
-        m_lexer->Release();
-    }
-}
+CodeHighlighter::~CodeHighlighter() = default;
 
 auto CodeHighlighter::highlight(const wxString& code, const bool reformat) const -> std::vector<CodeLine> {
     const auto utf8 = code.utf8_string();
