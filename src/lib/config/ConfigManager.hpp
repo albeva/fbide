@@ -91,6 +91,12 @@ public:
     /// `wxFileName::Mkdir(..., wxPATH_MKDIR_FULL)` is idempotent.
     [[nodiscard]] auto themesWriteDir() const -> wxString;
 
+    /// Path to the recent-file-history INI, created parent dir if missing.
+    /// Under READONLY this lives under `<UserDataDir>/`; otherwise next to
+    /// the bundle in `<ideDir>/`. The `.local.ini` suffix marks it as
+    /// user-local state, never shipped with the bundle.
+    [[nodiscard]] auto historyPath() const -> std::filesystem::path;
+
     /// Platform default config file name.
     [[nodiscard]] static auto getPlatformConfigFileName() -> wxString;
 

@@ -36,7 +36,6 @@ CMakeSettings.json
 
 # Custom files
 .clangd
-resources/ide/history.ini
 *.chm
 tests/cmake_test_*
 *.local.ini
