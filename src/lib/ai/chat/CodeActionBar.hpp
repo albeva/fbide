@@ -66,7 +66,7 @@ private:
     /// Add one flat icon button with window id `id` to `sizer`, and
     /// remember it under `group` so `setMode` can show / hide the set.
     void addButton(
-        Mode* mode,
+        Mode mode,
         const wxBitmap& icon,
         int id,
         const wxString& tip

@@ -28,8 +28,15 @@ constexpr int kButtonPadding = 2;
 // Opacity of an idle (non-hovered) icon.
 constexpr double kMutedAlpha = 0.4;
 
-auto kCodeSample = CodeActionBar::Mode::CodeSample;
-auto PatchProposal = CodeActionBar::Mode::PatchProposal;
+// Convert mode enum to void* value
+constexpr auto toVoidPtr(CodeActionBar::Mode mode) -> void* {
+    return reinterpret_cast<void*>(static_cast<std::intptr_t>(mode));
+}
+
+// Convert void* to Mode value
+constexpr auto toMode(void* data) -> CodeActionBar::Mode {
+    return static_cast<CodeActionBar::Mode>(reinterpret_cast<std::intptr_t>(data));
+}
 
 /// A dimmed copy of `bitmap` — its alpha scaled by `factor` so an idle icon
 /// reads as muted next to the hovered one.
@@ -53,12 +60,12 @@ CodeActionBar::CodeActionBar(wxWindow* parent, Context& ctx)
     wxPanel::SetBackgroundStyle(wxBG_STYLE_PAINT);
 
     const auto& art = ctx.getUIManager().getArtProvider();
-    SetSizer(new SmartBoxSizer(SmartBoxSizer::Options { .gap = kButtonPadding }, wxHORIZONTAL));
-    addButton(&kCodeSample, art.getBitmap(CommandId::Copy), ID_CodeCopy, "Copy code");
-    addButton(&kCodeSample, art.getBitmap(CommandId::Paste), ID_CodeInsert, "Insert into editor");
-    addButton(&kCodeSample, art.getBitmap(CommandId::QuickRun), ID_CodeRun, "Compile && run");
-    addButton(&PatchProposal, art.getBitmap(CommandId::Accept), ID_PatchApply, "Apply this edit");
-    addButton(&PatchProposal, art.getBitmap(CommandId::Reject), ID_PatchReject, "Reject this edit");
+    SetSizer(new SmartBoxSizer({ .gap = kButtonPadding, .alignment = SmartBoxSizer::Alignment::Center }, wxHORIZONTAL));
+    addButton(Mode::CodeSample, art.getBitmap(CommandId::Copy), ID_CodeCopy, "Copy code");
+    addButton(Mode::CodeSample, art.getBitmap(CommandId::Paste), ID_CodeInsert, "Insert into editor");
+    addButton(Mode::CodeSample, art.getBitmap(CommandId::QuickRun), ID_CodeRun, "Compile && run");
+    addButton(Mode::PatchProposal, art.getBitmap(CommandId::Accept), ID_PatchApply, "Apply this edit");
+    addButton(Mode::PatchProposal, art.getBitmap(CommandId::Reject), ID_PatchReject, "Reject this edit");
 
     m_mode = Mode::PatchProposal;
     setMode(Mode::CodeSample);
@@ -80,9 +87,7 @@ void CodeActionBar::setMode(const Mode mode) {
 
     for (const auto* child : GetSizer()->GetChildren()) {
         if (auto* button = wxDynamicCast(child->GetWindow(), wxBitmapButton)) {
-            if (void* data = button->GetClientData()) {
-                button->Show(*static_cast<Mode*>(data) == m_mode);
-            }
+            button->Show(toMode(button->GetClientData()) == m_mode);
         }
     }
 
@@ -91,7 +96,7 @@ void CodeActionBar::setMode(const Mode mode) {
 }
 
 void CodeActionBar::addButton(
-    Mode* mode,
+    const Mode mode,
     const wxBitmap& icon,
     const int id,
     const wxString& tip
@@ -106,7 +111,7 @@ void CodeActionBar::addButton(
     button->SetBitmapFocus(icon);
     button->SetBitmapPressed(icon);
     button->SetToolTip(tip);
-    button->SetClientData(mode);
+    button->SetClientData(toVoidPtr(mode));
     GetSizer()->Add(button);
 }
 
