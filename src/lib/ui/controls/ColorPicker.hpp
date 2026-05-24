@@ -60,7 +60,6 @@ private:
     wxColour m_defaultColor;          ///< Fallback colour used when "inherit" is ticked.
     wxColour m_currentColor;          ///< Currently displayed colour — source of truth, no longer
                                       ///< piggy-backed on the button's background colour.
-    Unowned<wxStaticText> m_lbl;      ///< Label widget.
     Unowned<wxCheckBox> m_chkInherit; ///< Inherit checkbox.
     Unowned<wxButton> m_btn;          ///< Swatch button.
 

@@ -49,21 +49,15 @@ void ColorPicker::create() {
         smart->setOptions({ .margin = false });
     }
 
-    // Wrap our content in an explicit border-less vbox — the
-    // SmartBoxSizer root would otherwise apply the default margin
-    // around every child of the picker itself.
-    vbox({ .margin = false }, [&] {
-        m_lbl = label(m_labelText);
-        hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
-            m_chkInherit = make_unowned<wxCheckBox>(currentParent(), ID_CHK_INHERIT, wxEmptyString);
-            if (not m_inheritTooltip.empty()) {
-                m_chkInherit->SetToolTip(m_inheritTooltip);
-            }
-            currentSizer()->Add(m_chkInherit, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, defaultBorder());
-            m_btn = button(wxString {}, { .proportion = 1 }, ID_BTN_COLOR);
-        });
+    const auto lbl = label(m_labelText);
+    hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
+        m_chkInherit = checkBox(wxEmptyString, {}, ID_CHK_INHERIT);
+        if (not m_inheritTooltip.empty()) {
+            m_chkInherit->SetToolTip(m_inheritTooltip);
+        }
+        m_btn = button(wxEmptyString, {}, ID_BTN_COLOR);
     });
-    connect(m_lbl, m_btn);
+    connect(lbl, m_btn);
 
     SetSizer(currentSizer());
 }

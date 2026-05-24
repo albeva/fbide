@@ -76,7 +76,7 @@ public:
     /// the base for the actual minimum-size computation.
     auto CalcMin() -> wxSize override;
 
-    /// Update options. Call view Layout after setting this.
+    /// Update options. Call view Fit() and Layout() after setting this.
     void setOptions(const Options options) { m_options = options; }
 
 private:
