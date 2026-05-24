@@ -167,7 +167,7 @@ void ThemePage::create() {
     createTopRow();
 
     hbox(m_activeTheme, { .proportion = 1, .margin = false }, [&] {
-        m_themeBox = wxDynamicCast(currentParent(), wxStaticBox);
+        m_themeLabel = currentNamedLabel();
         createCategoryList();
         createLeftPanel();
         separator();
@@ -553,5 +553,5 @@ void ThemePage::syncActiveThemeConfig() {
 }
 
 void ThemePage::updateTitle() {
-    m_themeBox->SetLabel(m_themeChoice->GetStringSelection());
+    m_themeLabel->SetLabel(m_themeChoice->GetStringSelection());
 }

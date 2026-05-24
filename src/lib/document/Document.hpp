@@ -136,7 +136,7 @@ private:
     /// Page resized — re-evaluate whether the minimap still fits.
     void onContainerSize(wxSizeEvent& event);
     /// Show/hide the minimap based on the current page width.
-    void updateMinimapVisibility()const;
+    void updateMinimapVisibility() const;
     /// Create the minimap widget and dock it into the page layout.
     void createMinimap();
     /// Destroy the minimap widget and drop it from the page layout.

@@ -133,7 +133,7 @@ private:
     Unowned<ColorPicker> m_changesRemovedPicker;
     Unowned<ColorPicker> m_changesBackgroundPicker;
 
-    wxStaticBox* m_themeBox = nullptr; ///< Right-pane group box.
+    wxStaticText* m_themeLabel = nullptr; ///< Right-pane group box.
 
     /// Index offset between the theme dropdown selection and `m_themeFiles`
     /// (slot 0 is the synthetic "New theme..." entry).
