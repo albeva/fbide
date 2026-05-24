@@ -42,6 +42,13 @@ public:
     /// `onComplete` runs exactly once at the end (success or error).
     /// Implementations reject overlapping calls with an error response.
     virtual void send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) = 0;
+
+    /// Drop any per-conversation state the backend carries (resume ids,
+    /// session tokens, cached system prompts). Called by `AiManager`
+    /// when the conversation is cleared so the next message starts a
+    /// fresh exchange on the backend's side. Default is no-op — most
+    /// providers carry no per-conversation state.
+    virtual void resetSession() {}
 };
 
 } // namespace fbide::ai

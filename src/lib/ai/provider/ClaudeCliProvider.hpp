@@ -43,6 +43,10 @@ public:
     /// Send `request` via the Claude CLI. See `AiProvider::send`.
     void send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) override;
 
+    /// Drop the active `--resume` session id so the next `send` starts
+    /// a fresh CLI conversation. Called from `AiManager::clear`.
+    void resetSession() override { m_sessionId.clear(); }
+
 private:
     /// Handle one stdout line (a JSON stream event) from the CLI.
     void handleLine(const wxString& line, const ChunkHandler& onChunk);

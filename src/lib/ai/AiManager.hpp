@@ -47,11 +47,16 @@ public:
     [[nodiscard]] auto history() const -> const std::vector<AiMessage>& { return m_history; }
 
     /// Drop the conversation history. Also drops the applied-patch set
-    /// so a new conversation can re-apply textually identical proposals
-    /// (e.g. when reproducing the same prompt against a fresh buffer).
+    /// (so a new conversation can re-apply textually identical
+    /// proposals) and notifies the active provider — Claude CLI uses
+    /// the hook to forget its `--resume` session id so the next message
+    /// starts a fresh exchange on the backend.
     void clear() {
         m_history.clear();
         m_appliedPatches.clear();
+        if (m_provider != nullptr) {
+            m_provider->resetSession();
+        }
     }
 
     /// The set of files/items attached to the conversation as context.

@@ -29,11 +29,10 @@ void ClaudeCliProvider::send(const AiRequest& request, ChunkHandler onChunk, Res
         return;
     }
 
-    // A conversation back to a single message is a fresh start — drop any
-    // stale resume id (e.g. after the history was cleared).
-    if (request.messages.size() <= 1) {
-        m_sessionId.clear();
-    }
+    // `AiManager::clear()` calls `reset()` to drop the session id —
+    // overlapping calls between providers don't share state, so we
+    // trust the manager's signal rather than re-deriving "fresh
+    // conversation" from `messages.size()`.
 
     // --resume keeps the prior turns in the CLI session, so only the
     // newest message needs to be sent. It goes on stdin, not argv, so its
