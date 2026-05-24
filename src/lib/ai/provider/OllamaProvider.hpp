@@ -6,8 +6,6 @@
 //
 #pragma once
 #include "pch.hpp"
-#include <string>
-#include <wx/webrequest.h>
 #include "AiProvider.hpp"
 
 namespace fbide::ai {

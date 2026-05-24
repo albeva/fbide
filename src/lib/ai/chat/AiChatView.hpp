@@ -6,8 +6,6 @@
 //
 #pragma once
 #include "pch.hpp"
-#include <unordered_set>
-#include <wx/scrolwin.h>
 #include "CodeActionBar.hpp"
 #include "markdown/MarkdownDocument.hpp"
 #include "markdown/MarkdownImageCache.hpp"
