@@ -53,13 +53,12 @@ CodeActionBar::CodeActionBar(wxWindow* parent, Context& ctx)
     wxPanel::SetBackgroundStyle(wxBG_STYLE_PAINT);
 
     const auto& art = ctx.getUIManager().getArtProvider();
-    const auto buttons = make_unowned<SmartBoxSizer>(SmartBoxSizer::Options { .gap = kButtonPadding }, wxHORIZONTAL);
-    addButton(buttons, &kCodeSample, art.getBitmap(CommandId::Copy), ID_CodeCopy, "Copy code");
-    addButton(buttons, &kCodeSample, art.getBitmap(CommandId::Paste), ID_CodeInsert, "Insert into editor");
-    addButton(buttons, &kCodeSample, art.getBitmap(CommandId::QuickRun), ID_CodeRun, "Compile && run");
-    addButton(buttons, &PatchProposal, art.getBitmap(CommandId::Accept), ID_PatchApply, "Apply this edit");
-    addButton(buttons, &PatchProposal, art.getBitmap(CommandId::Reject), ID_PatchReject, "Reject this edit");
-    SetSizer(buttons);
+    SetSizer(new SmartBoxSizer(SmartBoxSizer::Options { .gap = kButtonPadding }, wxHORIZONTAL));
+    addButton(&kCodeSample, art.getBitmap(CommandId::Copy), ID_CodeCopy, "Copy code");
+    addButton(&kCodeSample, art.getBitmap(CommandId::Paste), ID_CodeInsert, "Insert into editor");
+    addButton(&kCodeSample, art.getBitmap(CommandId::QuickRun), ID_CodeRun, "Compile && run");
+    addButton(&PatchProposal, art.getBitmap(CommandId::Accept), ID_PatchApply, "Apply this edit");
+    addButton(&PatchProposal, art.getBitmap(CommandId::Reject), ID_PatchReject, "Reject this edit");
 
     m_mode = Mode::PatchProposal;
     setMode(Mode::CodeSample);
@@ -92,7 +91,6 @@ void CodeActionBar::setMode(const Mode mode) {
 }
 
 void CodeActionBar::addButton(
-    wxSizer* sizer,
     Mode* mode,
     const wxBitmap& icon,
     const int id,
@@ -108,8 +106,8 @@ void CodeActionBar::addButton(
     button->SetBitmapFocus(icon);
     button->SetBitmapPressed(icon);
     button->SetToolTip(tip);
-    button->SetClientData(static_cast<void*>(mode));
-    sizer->Add(button);
+    button->SetClientData(mode);
+    GetSizer()->Add(button);
 }
 
 void CodeActionBar::onLeave(wxMouseEvent& event) {
