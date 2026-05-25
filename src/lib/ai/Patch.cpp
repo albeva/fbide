@@ -15,16 +15,6 @@ auto endsWithNewline(const wxString& text) -> bool {
     return text.EndsWith("\n");
 }
 
-/// Find `needle` in `haystack` as raw UTF-8 bytes, returning the byte
-/// offset or `std::string::npos`.
-auto findUtf8(const std::string_view haystack, const wxString& needle) -> std::size_t {
-    const auto needleUtf8 = needle.utf8_string();
-    if (needleUtf8.empty()) {
-        return std::string::npos;
-    }
-    return haystack.find(needleUtf8);
-}
-
 } // namespace
 
 auto fbide::ai::findPatchMatch(
@@ -36,10 +26,17 @@ auto fbide::ai::findPatchMatch(
         return {};
     }
 
-    if (const auto pos = findUtf8(source, search); pos != std::string::npos) {
+    // Convert the search text to UTF-8 once and work in std::string land
+    // for the rest of the function. The trailing-newline retry then
+    // becomes a `pop_back()` on the byte buffer rather than a fresh
+    // wxString-to-UTF-8 round trip — the original code paid up to four
+    // `utf8_string()` calls (find + length, twice).
+    auto needle = search.utf8_string();
+
+    if (const auto pos = source.find(needle); pos != std::string::npos) {
         return PatchMatch {
             .offset = static_cast<int>(pos),
-            .length = static_cast<int>(search.utf8_string().size()),
+            .length = static_cast<int>(needle.size()),
             .replacement = replacement,
         };
     }
@@ -47,20 +44,20 @@ auto fbide::ai::findPatchMatch(
     // Trailing-newline retry — only when the search has a trailing `\n`
     // to drop. Replacement loses its trailing `\n` only when it also has
     // one (an EOL-less replacement stays as the model wrote it).
-    if (!endsWithNewline(search)) {
+    if (needle.empty() || needle.back() != '\n') {
         return {};
     }
-    wxString trimmedSearch = search;
-    trimmedSearch.RemoveLast();
+    needle.pop_back();
+
     wxString trimmedReplacement = replacement;
     if (endsWithNewline(replacement)) {
         trimmedReplacement.RemoveLast();
     }
 
-    if (const auto pos = findUtf8(source, trimmedSearch); pos != std::string::npos) {
+    if (const auto pos = source.find(needle); pos != std::string::npos) {
         return PatchMatch {
             .offset = static_cast<int>(pos),
-            .length = static_cast<int>(trimmedSearch.utf8_string().size()),
+            .length = static_cast<int>(needle.size()),
             .replacement = std::move(trimmedReplacement),
         };
     }
