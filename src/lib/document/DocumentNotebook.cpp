@@ -39,19 +39,20 @@ constexpr long kNotebookStyle = wxAUI_NB_TOP
 constexpr int kTabCloseOthersId = wxID_HIGHEST + 100;
 constexpr int kTabShowInBrowserId = wxID_HIGHEST + 101;
 constexpr int kTabReloadFromDiskId = wxID_HIGHEST + 102;
+const int kNotebookId = ::wxNewId();
 } // namespace
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(DocumentNotebook, wxAuiNotebook)
-    EVT_AUINOTEBOOK_PAGE_CLOSE(wxID_ANY,      DocumentNotebook::onPageClose)
-    EVT_AUINOTEBOOK_PAGE_CHANGED(wxID_ANY,    DocumentNotebook::onPageChanged)
-    EVT_AUINOTEBOOK_BG_DCLICK(wxID_ANY,       DocumentNotebook::onBgDClick)
-    EVT_AUINOTEBOOK_TAB_RIGHT_DOWN(wxID_ANY,  DocumentNotebook::onTabRightDown)
+    EVT_AUINOTEBOOK_PAGE_CLOSE(kNotebookId,     DocumentNotebook::onPageClose)
+    EVT_AUINOTEBOOK_PAGE_CHANGED(kNotebookId,   DocumentNotebook::onPageChanged)
+    EVT_AUINOTEBOOK_BG_DCLICK(kNotebookId,      DocumentNotebook::onBgDClick)
+    EVT_AUINOTEBOOK_TAB_RIGHT_DOWN(kNotebookId, DocumentNotebook::onTabRightDown)
 wxEND_EVENT_TABLE()
 // clang-format on
 
 DocumentNotebook::DocumentNotebook(wxWindow* parent, Context& ctx)
-: wxAuiNotebook(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, kNotebookStyle)
+: wxAuiNotebook(parent, kNotebookId, wxDefaultPosition, wxDefaultSize, kNotebookStyle)
 , m_ctx(ctx) {}
 
 // ---------------------------------------------------------------------------
