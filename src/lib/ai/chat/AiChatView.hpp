@@ -22,6 +22,7 @@ class Context;
 } // namespace fbide
 
 namespace fbide::ai {
+class AiManager;
 class CodeHighlighter;
 
 /// One conversation message handed to the chat view.
@@ -47,7 +48,7 @@ class AiChatView final : public wxScrolled<wxWindow> {
 public:
     NO_COPY_AND_MOVE(AiChatView)
 
-    AiChatView(wxWindow* parent, Context& ctx);
+    AiChatView(wxWindow* parent, Context& ctx, AiManager& manager);
     ~AiChatView() override;
 
     /// Replace the whole conversation and re-render.
@@ -55,6 +56,12 @@ public:
 
     /// Re-read theme/keyword config, then re-lay and repaint.
     void refreshTheme();
+
+    /// Drop every cached layout and repaint — call after a chat-side
+    /// policy input that the layout cache key doesn't capture (most
+    /// importantly the live-edit toggle, since the collapse predicate
+    /// reads `AiManager::isLiveEdit()` directly).
+    void refreshCollapsePolicy();
 
 private:
     /// A message laid out inside its bubble. `document` owns the parsed +
@@ -108,7 +115,59 @@ private:
     void onRunCode(wxCommandEvent& event);
     void onApplyPatch(wxCommandEvent& event);
     void onRejectPatch(wxCommandEvent& event);
+    void onBlockCollapse(wxCommandEvent& event);
+    void onBlockExpand(wxCommandEvent& event);
     void onBarLeave(wxCommandEvent& event);
+
+    /// Toggle the user's collapse override for the anchored block and
+    /// re-lay it. Both action-bar handlers share this — the only
+    /// difference is the target state.
+    void setAnchoredBlockCollapsed(bool collapsed);
+
+    /// Resolve the effective collapse state for a fenced code / patch
+    /// block. Applies the chat's policy (patches collapse when
+    /// live-edit is on OR when the patch is already applied; code
+    /// blocks stay expanded unless the user toggled them).
+    [[nodiscard]] auto isBlockCollapsed(
+        markdown::LaidScrollBlock::Kind kind,
+        const wxString& lang,
+        const wxString& contentA,
+        const wxString& contentB
+    ) const -> bool;
+
+    /// Stable hash for a block's content. Patches use the
+    /// `(search, replace)` pair (matches `AiManager::patchKey` so the
+    /// applied-set lookups line up). Code blocks fold `(text, lang)`.
+    [[nodiscard]] static auto blockKey(
+        markdown::LaidScrollBlock::Kind kind,
+        const wxString& lang,
+        const wxString& contentA,
+        const wxString& contentB
+    ) -> std::size_t;
+
+    /// Resolve a fence-language tag (`freebasic`, `json`, …) or a
+    /// patch target path (`editor.bas`) to its user-facing display
+    /// name (`FreeBASIC`, `JSON`). Looks up the type's localised
+    /// string via `ctx.tr("statusbar.type.<key>")` — same path the
+    /// status bar uses, so the names stay in sync.
+    ///
+    /// For patches with an empty `lang` (the SEARCH header carried no
+    /// target), falls back to the manager's pinned edit-target file
+    /// extension — patches in agent mode apply against that file, so
+    /// labelling them with its filetype is meaningful.
+    ///
+    /// Returns empty when nothing resolves; the painter then drops
+    /// the wide-tier summary rather than echoing a raw tag.
+    [[nodiscard]] auto resolveLanguageDisplayName(
+        markdown::LaidScrollBlock::Kind kind,
+        const wxString& lang
+    ) const -> wxString;
+
+    /// Force every laid document to re-run its layout pass on the next
+    /// `relayout()` call. Used after a collapse-policy input changes —
+    /// the cache key doesn't capture predicate state, so a manual
+    /// invalidation is the cleanest way to keep paints in sync.
+    void invalidateAllLayouts();
 
     /// Re-lay every message for the current view width.
     void relayout();
@@ -166,12 +225,28 @@ private:
     /// Clamp + write a per-block scroll offset and request a repaint.
     void setBlockScrollOffset(std::size_t messageIndex, std::size_t index, int offset);
 
-    /// Show the action bar over block `blockIndex` of `messageIndex`, with
-    /// `mode` selecting which button set the bar presents. Bar tracks the
-    /// block while its top edge is visible, then pins to the top of the
-    /// visible area once the block has scrolled past. A negative index
-    /// hides it.
-    void showActionBar(int messageIndex, int blockIndex, CodeActionBar::Mode mode);
+    /// Show the action bar over block `blockIndex` of `messageIndex`,
+    /// with `buttons` selecting which icons appear. The host derives
+    /// the mask from the block's kind + collapse state + 1-liner-ness;
+    /// the bar just shows whatever bits are set. Bar tracks the block
+    /// while its top edge is visible, then pins to the top of the
+    /// visible area once the block has scrolled past. A negative
+    /// index hides it.
+    void showActionBar(int messageIndex, int blockIndex, std::uint8_t buttons);
+
+    /// Compute the `CodeActionBar::Button` bitmask for the laid block
+    /// at `(mi, bi)`. Encapsulates the policy ("collapsed strips
+    /// show only Expand; one-liners get no toggle at all") so the
+    /// hover dispatch and the collapse / expand handlers stay in
+    /// sync without each re-deriving the rules.
+    [[nodiscard]] auto buttonsFor(std::size_t mi, std::size_t bi) const -> std::uint8_t;
+
+    /// True when the laid block holds enough content that hiding its
+    /// body actually saves screen real-estate. Strict 1-line code
+    /// fences and `1+1`-line patches return false — collapsing them
+    /// trades a one-line body for a one-line strip, so the toggle is
+    /// hidden in the action bar.
+    [[nodiscard]] static auto isCollapsibleBlock(const markdown::LaidScrollBlock& block) -> bool;
     void hideActionBar();
 
     [[nodiscard]] auto palette() const -> markdown::MarkdownPalette;
@@ -199,6 +274,7 @@ private:
     void autoApplyPatches();
 
     Context& m_ctx;                                             ///< Application context.
+    AiManager& m_manager;                                       ///< Owning chat tab's AI manager.
     std::unique_ptr<CodeHighlighter> m_highlighter;             ///< FreeBASIC code highlighter.
     std::unique_ptr<markdown::MarkdownImageCache> m_imageCache; ///< Inline-image download cache.
     Unowned<CodeActionBar> m_actionBar;                         ///< Floating per-code-block toolbar.
@@ -233,6 +309,12 @@ private:
     /// font would become stale. `mutable` so the const measurement path
     /// can populate it on first miss.
     mutable std::vector<markdown::MeasurementEntry> m_measurerCache;
+
+    /// Per-block user override for the collapsed-vs-expanded state.
+    /// Keyed by content hash (`blockKey`) so the toggle survives
+    /// re-layouts and applies to identical blocks across re-renders.
+    /// Absent key = follow the default policy; present key wins.
+    std::unordered_map<std::size_t, bool> m_collapseOverrides;
 
     wxDECLARE_EVENT_TABLE();
 };

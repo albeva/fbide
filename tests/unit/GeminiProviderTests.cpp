@@ -16,9 +16,15 @@ class CapturingSink final : public StreamLineConsumer {
 public:
     void onDelta(const wxString& delta) override { deltas.push_back(delta); }
     void onError(const wxString& message) override { error = message; }
+    void onUsage(int inputTokens, int outputTokens) override {
+        usageInput = inputTokens;
+        usageOutput = outputTokens;
+    }
 
     std::vector<wxString> deltas;
     wxString error;
+    int usageInput = 0;
+    int usageOutput = 0;
 };
 
 } // namespace
@@ -109,4 +115,31 @@ TEST(GeminiProvider, ParseSkipsPartsWithoutText) {
     );
     ASSERT_EQ(1U, sink.deltas.size());
     EXPECT_EQ("after", sink.deltas.at(0));
+}
+
+// ---------------------------------------------------------------------------
+// Usage reporting — Gemini sends `usageMetadata` on streamed chunks.
+// ---------------------------------------------------------------------------
+
+TEST(GeminiProvider, ParseEmitsUsageFromUsageMetadata) {
+    CapturingSink sink;
+    GeminiProvider::parseStreamLine(
+        R"(data: {"candidates":[{"content":{"parts":[{"text":"hi"}]}}],)"
+        R"("usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":4,"totalTokenCount":16}})",
+        sink
+    );
+    EXPECT_EQ(12, sink.usageInput);
+    EXPECT_EQ(4, sink.usageOutput);
+    ASSERT_EQ(1U, sink.deltas.size());
+    EXPECT_EQ("hi", sink.deltas.at(0));
+}
+
+TEST(GeminiProvider, ParseSkipsUsageWhenAllZero) {
+    CapturingSink sink;
+    GeminiProvider::parseStreamLine(
+        R"(data: {"usageMetadata":{"promptTokenCount":0,"candidatesTokenCount":0}})",
+        sink
+    );
+    EXPECT_EQ(0, sink.usageInput);
+    EXPECT_EQ(0, sink.usageOutput);
 }

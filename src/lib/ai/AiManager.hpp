@@ -32,11 +32,20 @@ class AiManager final {
 public:
     NO_COPY_AND_MOVE(AiManager)
 
-    /// Build from config — creates a provider when an API key is present.
-    explicit AiManager(Context& ctx);
+    /// Build from `[ai.<configName>]` plus globals under `[ai]`.
+    /// `configName` is the section name in the preferences; an empty
+    /// string yields an unconfigured manager (`isReady()` stays false).
+    /// A provider is created only when its required credentials are present.
+    AiManager(Context& ctx, wxString configName);
     ~AiManager() = default;
 
-    /// True once a provider is configured (API key present).
+    /// Identifier of the `[ai.<name>]` section this manager was built
+    /// from. Empty for the synthetic placeholder used when no provider
+    /// is configured. Used by the registry to look up by name and to
+    /// persist `[ai] active` on tab switches.
+    [[nodiscard]] auto configName() const -> const wxString& { return m_configName; }
+
+    /// True once a provider is configured (required credentials present).
     [[nodiscard]] auto isReady() const -> bool { return m_provider != nullptr; }
 
     /// Append `text` as a user message and send the whole conversation to
@@ -160,6 +169,7 @@ private:
     [[nodiscard]] auto isToolExposed(const wxString& toolName) const -> bool;
 
     Context& m_ctx;                                   ///< Application context.
+    wxString m_configName;                            ///< `[ai.<name>]` section name (empty for the unconfigured placeholder).
     std::unique_ptr<AiProvider> m_provider;           ///< Active backend (null until configured).
     std::vector<AiMessage> m_history;                 ///< Conversation messages.
     AiContext m_context;                              ///< Files attached as context.

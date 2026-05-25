@@ -16,9 +16,15 @@ class CapturingSink final : public StreamLineConsumer {
 public:
     void onDelta(const wxString& delta) override { deltas.push_back(delta); }
     void onError(const wxString& message) override { error = message; }
+    void onUsage(int inputTokens, int outputTokens) override {
+        usageInput = inputTokens;
+        usageOutput = outputTokens;
+    }
 
     std::vector<wxString> deltas;
     wxString error;
+    int usageInput = 0;
+    int usageOutput = 0;
 };
 
 } // namespace
@@ -70,4 +76,26 @@ TEST(OllamaProvider, ParseEmptyMessageContentEmitsEmptyDelta) {
     OllamaProvider::parseStreamLine(R"({"message":{"role":"assistant","content":""}})", sink);
     ASSERT_EQ(1U, sink.deltas.size());
     EXPECT_EQ("", sink.deltas.at(0));
+}
+
+// ---------------------------------------------------------------------------
+// Usage reporting — emitted on the terminal `done: true` chunk.
+// ---------------------------------------------------------------------------
+
+TEST(OllamaProvider, ParseEmitsUsageOnDoneChunk) {
+    CapturingSink sink;
+    OllamaProvider::parseStreamLine(
+        R"({"message":{"role":"assistant","content":""},"done":true,)"
+        R"("prompt_eval_count":42,"eval_count":17})",
+        sink
+    );
+    EXPECT_EQ(42, sink.usageInput);
+    EXPECT_EQ(17, sink.usageOutput);
+}
+
+TEST(OllamaProvider, ParseSkipsUsageWhenCountsMissing) {
+    CapturingSink sink;
+    OllamaProvider::parseStreamLine(R"({"message":{"role":"assistant","content":"hi"}})", sink);
+    EXPECT_EQ(0, sink.usageInput);
+    EXPECT_EQ(0, sink.usageOutput);
 }

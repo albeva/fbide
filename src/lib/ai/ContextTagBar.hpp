@@ -7,11 +7,8 @@
 #pragma once
 #include "pch.hpp"
 
-namespace fbide {
-class Context;
-} // namespace fbide
-
 namespace fbide::ai {
+class AiManager;
 
 /// Emitted by `ContextTagBar` after a tag is removed, so the host can
 /// re-lay its sizer (the bar's height changes / it may hide).
@@ -31,8 +28,9 @@ class ContextTagBar final : public wxPanel {
 public:
     NO_COPY_AND_MOVE(ContextTagBar)
 
-    /// Build the bar as a child of `parent`.
-    ContextTagBar(wxWindow* parent, Context& ctx);
+    /// Build the bar as a child of `parent`. `manager` is the chat tab's
+    /// owning `AiManager` whose `AiContext` this bar reflects.
+    ContextTagBar(wxWindow* parent, AiManager& manager);
 
     /// Rebuild the chips from the current AI context; show / hide the bar.
     void refresh();
@@ -41,7 +39,7 @@ private:
     /// Drop the context item at `index`, rebuild, and notify the host.
     void removeItem(std::size_t index);
 
-    Context& m_ctx; ///< Application context — reaches the AI context.
+    AiManager& m_manager; ///< The chat tab's AI manager — source of the context items.
 };
 
 } // namespace fbide::ai

@@ -241,7 +241,12 @@ auto MarkdownView::palette() -> MarkdownPalette {
         .tableHeaderBg = blend(windowBg, windowText, kTableHeaderBgBlend),
         .patchSearchBg = blend(windowBg, patchRed, kPatchHalfBlend),
         .patchReplaceBg = blend(windowBg, patchGreen, kPatchHalfBlend),
-        .patchFg = windowText };
+        .patchFg = windowText,
+        // No editor theme to source diff colours from — use the
+        // built-in patch palette so collapsed strips still pick up
+        // green / red git-style accents.
+        .added = patchGreen,
+        .removed = patchRed };
 }
 
 void MarkdownView::onSize(wxSizeEvent& event) {

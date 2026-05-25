@@ -67,6 +67,8 @@ enum class CommandId : wxWindowID {
     AiRefactor,
     Accept,
     Reject,
+    Collapse, ///< Chat-side toggle — hide a code / patch block's body.
+    Expand,   ///< Chat-side toggle — restore a collapsed block's body.
 
     /// Dynamic slots for externally configured Help menu links.
     /// Range reserved for wxEVT_MENU dispatch via EVT_MENU_RANGE.

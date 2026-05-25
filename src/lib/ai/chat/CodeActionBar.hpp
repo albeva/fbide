@@ -21,6 +21,8 @@ enum CodeActionId : int {
     ID_CodeRun,                     ///< Compile and run the code.
     ID_PatchApply,                  ///< Apply a SEARCH/REPLACE proposal.
     ID_PatchReject,                 ///< Reject a SEARCH/REPLACE proposal.
+    ID_BlockCollapse,               ///< Hide the block body, leaving just the summary strip.
+    ID_BlockExpand,                 ///< Restore the full block body from a collapsed strip.
 };
 
 /// Emitted by `CodeActionBar` when the pointer genuinely leaves the bar.
@@ -40,12 +42,20 @@ wxDECLARE_EVENT(EVT_CODE_BAR_LEAVE, wxCommandEvent);
  */
 class CodeActionBar final : public wxPanel {
 public:
-    /// Which set of buttons the bar currently presents. Driven by the
-    /// host based on what is under the cursor — a fenced code block
-    /// (CodeSample) or a SEARCH/REPLACE proposal (PatchProposal).
-    enum class Mode : std::uint8_t {
-        CodeSample,    ///< Copy / Insert / Run.
-        PatchProposal, ///< Apply / Reject.
+    /// Per-button visibility bit. The host (typically `AiChatView`)
+    /// composes a bitmask of buttons it wants visible and feeds it to
+    /// `setButtons`; everything else hides. This decouples the bar
+    /// from the host's "is the anchored block a code block? a patch?
+    /// collapsed? a one-liner?" decision tree — the bar just shows
+    /// what it's told.
+    enum Button : std::uint8_t {
+        Copy = 1 << 0,     ///< Copy code to clipboard.
+        Insert = 1 << 1,   ///< Insert code into the active editor.
+        Run = 1 << 2,      ///< Compile + run code.
+        Apply = 1 << 3,    ///< Apply SEARCH/REPLACE patch.
+        Reject = 1 << 4,   ///< Dismiss the patch proposal.
+        Collapse = 1 << 5, ///< Hide the block body, leaving a summary strip.
+        Expand = 1 << 6,   ///< Restore a collapsed block's body.
     };
 
     NO_COPY_AND_MOVE(CodeActionBar)
@@ -53,20 +63,21 @@ public:
     /// Build the bar as a child of `parent`, loading its icons from `ctx`.
     CodeActionBar(wxWindow* parent, Context& ctx);
 
-    /// Switch which button group is visible. Hides the inactive group,
-    /// re-runs the layout, and resizes the bar to fit. No-op when the
-    /// mode is already current.
-    void setMode(Mode mode);
+    /// Show the buttons whose `Button` bit is set in `buttons`; hide
+    /// the rest. Re-runs the layout and resizes the bar to fit. No-op
+    /// when `buttons` is already the active mask.
+    void setButtons(std::uint8_t buttons);
 
-    /// Current mode — useful for the host's hover dispatch to skip
-    /// redundant reconfiguration.
-    [[nodiscard]] auto mode() const -> Mode { return m_mode; }
+    /// Current visibility mask — the host uses this to skip
+    /// redundant reconfiguration during hover dispatch.
+    [[nodiscard]] auto buttons() const -> std::uint8_t { return m_buttons; }
 
 private:
-    /// Add one flat icon button with window id `id` to `sizer`, and
-    /// remember it under `group` so `setMode` can show / hide the set.
+    /// Add one flat icon button to the bar. The `Button` bit is stored
+    /// as the button's `wxWindow::ClientData` so `setButtons` can
+    /// mask-test it without a side table.
     void addButton(
-        Mode mode,
+        Button button,
         const wxBitmap& icon,
         int id,
         const wxString& tip
@@ -81,7 +92,7 @@ private:
     /// cleanly (avoids the `wxBORDER_SIMPLE` ghost-line artefact).
     void onPaint(wxPaintEvent& event);
 
-    Mode m_mode = Mode::CodeSample;        ///< Current visible set.
+    std::uint8_t m_buttons = 0; ///< Currently-visible buttons (`Button` bitmask).
 
     wxDECLARE_EVENT_TABLE();
 };

@@ -56,6 +56,8 @@ void ClaudeCliProvider::send(const AiRequest& request, ChunkHandler onChunk, Too
     m_isError = false;
     m_resultText.clear();
     m_pendingSessionId.clear();
+    m_inputTokens = 0;
+    m_outputTokens = 0;
     // Park the caller's handlers on the provider so the AsyncProcess
     // lambdas capture only `this` and stay within std::function's SBO
     // instead of heap-allocating per send.
@@ -98,11 +100,19 @@ void ClaudeCliProvider::handleLine(const wxString& line) {
             }
         }
     } else if (type == "result") {
-        // Terminal event — carries the final status and the resume id.
+        // Terminal event — carries the final status, resume id and the
+        // per-turn token accounting. Older CLI builds may omit `usage`;
+        // the counts then stay at zero and the chat view hides the
+        // per-turn footer.
         m_sawResult = true;
         m_isError = event.value("is_error", false);
         m_resultText = wxString::FromUTF8(event.value("result", ""));
         m_pendingSessionId = wxString::FromUTF8(event.value("session_id", ""));
+        if (const auto usageIt = event.find("usage");
+            usageIt != event.end() && usageIt->is_object()) {
+            m_inputTokens = usageIt->value("input_tokens", 0);
+            m_outputTokens = usageIt->value("output_tokens", 0);
+        }
     }
 }
 
@@ -139,5 +149,7 @@ auto ClaudeCliProvider::buildResponse(const ProcessResult& result) -> AiResponse
     // Fallback for a CLI build that streams no partial deltas — AiManager
     // prefers the streamed text and uses this only when nothing streamed.
     response.text = m_resultText;
+    response.inputTokens = m_inputTokens;
+    response.outputTokens = m_outputTokens;
     return response;
 }

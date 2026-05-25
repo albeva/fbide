@@ -10,6 +10,7 @@
 #include "DocumentTypeMenu.hpp"
 #include "EncodingMenu.hpp"
 #include "ai/AiChatPanel.hpp"
+#include "ai/AiManagerRegistry.hpp"
 #include "app/Context.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
@@ -33,6 +34,7 @@ using namespace fbide::ai;
 namespace {
 constexpr auto appName = "FBIde";
 const int DocumentTabsId = wxNewId();
+const int AiNotebookId = wxNewId();
 } // namespace
 
 // clang-format off
@@ -41,6 +43,7 @@ wxBEGIN_EVENT_TABLE(UIManager, wxEvtHandler)
     EVT_AUINOTEBOOK_PAGE_CLOSE(DocumentTabsId,   UIManager::onPageClose)
     EVT_AUINOTEBOOK_PAGE_CHANGED(DocumentTabsId, UIManager::onPageChanged)
     EVT_AUINOTEBOOK_BG_DCLICK(DocumentTabsId,    UIManager::onNotebookDblClick)
+    EVT_AUINOTEBOOK_PAGE_CHANGED(AiNotebookId,   UIManager::onAiPageChanged)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -606,8 +609,27 @@ void UIManager::createLayout() {
     browserEntry->binds.push_back(&m_aui);
     m_ctx.getSideBarManager().attach(m_sideBar.get());
 
-    // AI chat pane (right, hidden by default)
-    m_aiChatPanel = make_unowned<AiChatPanel>(m_frame, m_ctx);
+    // AI chat pane (right, hidden by default) — a wxAuiNotebook with one
+    // page per configured provider. The notebook itself owns the panels
+    // (wx parent/child); we cache observer pointers in `m_aiChatPanels`
+    // so `getAiChatPanel()` doesn't have to round-trip through wx every
+    // time a code action fires.
+    m_aiNotebook = make_unowned<wxAuiNotebook>(
+        m_frame, AiNotebookId,
+        wxDefaultPosition, wxDefaultSize,
+        wxAUI_NB_TOP | wxAUI_NB_SCROLL_BUTTONS
+    );
+
+    auto& registry = m_ctx.getAiRegistry();
+    m_aiChatPanels.reserve(registry.count());
+    for (const auto& aiEntry : registry.entries()) {
+        auto* panel = new AiChatPanel(m_aiNotebook.get(), m_ctx, *aiEntry.manager);
+        m_aiNotebook->AddPage(panel, aiEntry.displayName);
+        m_aiChatPanels.push_back(panel);
+    }
+    if (!m_aiChatPanels.empty()) {
+        m_aiNotebook->SetSelection(registry.activeIndex());
+    }
 
     auto* aiEntry = m_ctx.getCommandManager().find(+CommandId::AiChat);
     if (aiEntry == nullptr) {
@@ -615,7 +637,7 @@ void UIManager::createLayout() {
         return;
     }
     m_aui.AddPane(
-        m_aiChatPanel.get(),
+        m_aiNotebook.get(),
         wxAuiPaneInfo()
             .Name(aiEntry->name)
             .Caption(m_ctx.tr("panels.aichat.title"))
@@ -627,7 +649,19 @@ void UIManager::createLayout() {
 }
 
 auto UIManager::getAiChatPanel() -> AiChatPanel& {
-    return *m_aiChatPanel;
+    // Returns the panel currently in the foreground tab. The registry
+    // tracks which manager is active in lockstep with the notebook's
+    // selection, so the two views stay in sync.
+    const auto index = m_ctx.getAiRegistry().activeIndex();
+    return *m_aiChatPanels.at(index);
+}
+
+void UIManager::onAiPageChanged(wxAuiNotebookEvent& event) {
+    const int selection = event.GetSelection();
+    if (selection < 0) {
+        return;
+    }
+    m_ctx.getAiRegistry().setActiveIndex(static_cast<std::size_t>(selection), /*persist=*/true);
 }
 
 void UIManager::showEditorContextMenu(Editor* editor) {
@@ -754,6 +788,8 @@ void UIManager::updateSettings() {
     for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {
         doc->updateSettings();
     }
-    // Re-render the AI chat so its code snippets pick up the new theme.
-    m_aiChatPanel->refreshTheme();
+    // Re-render every AI chat tab so its code snippets pick up the new theme.
+    for (auto* panel : m_aiChatPanels) {
+        panel->refreshTheme();
+    }
 }

@@ -11,6 +11,7 @@
 namespace fbide {
 namespace ai {
     class AiManager;
+    class AiManagerRegistry;
 }
 class App;
 class CommandManager;
@@ -118,10 +119,17 @@ public:
     /// Const overload of `getHelpManager`.
     [[nodiscard]] auto getHelpManager() const -> const HelpManager& { return *m_helpManager; }
 
-    /// Access the AI manager (chat provider + conversation).
-    [[nodiscard]] auto getAiManager() -> ai::AiManager& { return *m_aiManager; }
+    /// Access the AI manager backing the currently active chat tab.
+    /// Forwards to `AiManagerRegistry::active()`; call sites that need
+    /// to enumerate or address a specific tab go through the registry.
+    [[nodiscard]] auto getAiManager() -> ai::AiManager&;
     /// Const overload of `getAiManager`.
-    [[nodiscard]] auto getAiManager() const -> const ai::AiManager& { return *m_aiManager; }
+    [[nodiscard]] auto getAiManager() const -> const ai::AiManager&;
+
+    /// Access the registry of AI managers (one per configured provider).
+    [[nodiscard]] auto getAiRegistry() -> ai::AiManagerRegistry& { return *m_aiRegistry; }
+    /// Const overload of `getAiRegistry`.
+    [[nodiscard]] auto getAiRegistry() const -> const ai::AiManagerRegistry& { return *m_aiRegistry; }
 
 private:
     App& m_app;                                     ///< Owning application.
@@ -136,7 +144,7 @@ private:
     std::unique_ptr<FileSession> m_fileSession;         ///< Session `.fbs` load/save.
     std::unique_ptr<CompilerManager> m_compilerManager; ///< Compile/run lifecycle.
     std::unique_ptr<HelpManager> m_helpManager;         ///< Help dispatcher.
-    std::unique_ptr<ai::AiManager> m_aiManager;         ///< AI chat provider + conversation.
+    std::unique_ptr<ai::AiManagerRegistry> m_aiRegistry; ///< AI chat managers (one per configured provider).
     std::unique_ptr<CommandManager> m_commandManager;   ///< Command table + dispatch (last).
 };
 

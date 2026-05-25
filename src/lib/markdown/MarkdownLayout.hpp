@@ -44,14 +44,16 @@ public:
 
 /// Kind of a laid-out line — selects background and decoration when painting.
 enum class LineKind : std::uint8_t {
-    Prose,        ///< Wrapped prose / heading / list item.
-    Code,         ///< A code-block line (or its padding) — painted on the code bg.
-    Rule,         ///< A horizontal rule — no runs.
-    TableHeader,  ///< Header row of a table — painted with a subtle tint.
-    TableBody,    ///< Body row of a table — painted on the prose background.
-    PatchSearch,  ///< Line in a SEARCH/REPLACE proposal's SEARCH half — red tint.
-    PatchReplace, ///< Line in a SEARCH/REPLACE proposal's REPLACE half — green tint.
-    Image,        ///< Embedded image — `image*` fields on PaintLine are set.
+    Prose,          ///< Wrapped prose / heading / list item.
+    Code,           ///< A code-block line (or its padding) — painted on the code bg.
+    Rule,           ///< A horizontal rule — no runs.
+    TableHeader,    ///< Header row of a table — painted with a subtle tint.
+    TableBody,      ///< Body row of a table — painted on the prose background.
+    PatchSearch,    ///< Line in a SEARCH/REPLACE proposal's SEARCH half — red tint.
+    PatchReplace,   ///< Line in a SEARCH/REPLACE proposal's REPLACE half — green tint.
+    Image,          ///< Embedded image — `image*` fields on PaintLine are set.
+    CollapsedBlock, ///< Sole line of a collapsed code / patch block — painter reads
+                    ///< the summary strings from the containing `LaidScrollBlock`.
 };
 
 /// One column of a laid-out table row. Carries the column's geometry
@@ -141,9 +143,38 @@ struct LaidScrollBlock {
                            ///< on; larger when wrapping is off and lines overflow.
     bool wrapped = true;   ///< Layout-mode flag — false when the block was laid out
                            ///< with horizontal scroll instead of soft wrap.
-    wxString patchTarget;  ///< Patch only: optional target path from the SEARCH header.
-    wxString patchSearch;  ///< Patch only: verbatim SEARCH text.
-    wxString patchReplace; ///< Patch only: verbatim REPLACE text.
+    bool collapsed = false; ///< True when the block was laid out as a single summary
+                            ///< strip; the painter reads `summary*` and ignores the
+                            ///< usual content lines. Default false so existing call
+                            ///< sites (MarkdownView, tests) keep the expanded shape.
+    bool themed = false;    ///< Mirrors what `emitCode` used for `TextStyle::themed` —
+                            ///< true for FreeBASIC fences so the editor-theme
+                            ///< monospace font is used. Lets the painter pick the
+                            ///< same face when drawing a collapsed strip without
+                            ///< re-deriving the predicate from `codeLang`.
+    /// Responsive summary text for collapsed blocks. The painter picks the
+    /// widest version that fits the strip's content width — keeping the
+    /// fallback chain (narrow → mid → wide) inside the laid doc so the
+    /// painter doesn't have to re-derive line counts / language at paint.
+    /// All three stay empty when `collapsed` is false.
+    /// Components the painter assembles into the responsive summary
+    /// strip. Storing them structured (instead of three precomputed
+    /// strings) lets the painter apply git-style colouring to the
+    /// `+added` / `-removed` tokens and rebuild the language label
+    /// from a host-supplied display name lookup.
+    struct CollapsedSummary {
+        wxString languageDisplay; ///< Resolved language label — e.g. `FreeBASIC`. Empty when unknown.
+        int added = 0;            ///< Code: total source lines. Patch: REPLACE-side line count.
+        int removed = 0;          ///< Code: 0 (no diff baseline). Patch: SEARCH-side line count.
+    };
+    CollapsedSummary summary; ///< Populated only when `collapsed` is true.
+    wxString codeText;      ///< Code only: verbatim fenced text — kept so callers
+                            ///< can compute stable identity hashes across
+                            ///< re-layouts without re-parsing the markdown source.
+    wxString codeLang;      ///< Code only: lower-cased fence tag (empty when none).
+    wxString patchTarget;   ///< Patch only: optional target path from the SEARCH header.
+    wxString patchSearch;   ///< Patch only: verbatim SEARCH text.
+    wxString patchReplace;  ///< Patch only: verbatim REPLACE text.
 };
 
 /// Colours the layout and painter need that are not carried on code runs.
@@ -160,6 +191,8 @@ struct MarkdownPalette {
     wxColour patchSearchBg;  ///< SEARCH half of a patch proposal — red tint.
     wxColour patchReplaceBg; ///< REPLACE half of a patch proposal — green tint.
     wxColour patchFg;        ///< Text colour for patch SEARCH/REPLACE lines.
+    wxColour added;          ///< Foreground for git-style `+N` tokens (green).
+    wxColour removed;        ///< Foreground for git-style `-N` tokens (red).
 };
 
 /// A fully laid-out document — stacked, wrapped lines plus link targets.
@@ -197,6 +230,44 @@ struct ImageInfo {
 /// relayout when the underlying cache transitions to Ready/Failed.
 using ImageResolver = std::function<ImageInfo(const wxString& url)>;
 
+/// Resolve a fence language tag (e.g. `freebasic`, `json`) to a
+/// user-facing display name (e.g. `FreeBASIC`, `JSON`). Optional —
+/// when omitted, the layout drops the wide-tier summary.
+///
+/// `kind` tells the resolver whether the call is for a fenced code
+/// block (`Code`) or a patch (`Patch`), so a host can supply
+/// different fallbacks for the two. For patches the `lang` argument
+/// is the patch target (filename / path) when one was parsed out of
+/// the SEARCH header; when empty, a host with a pinned edit target
+/// can fall back to the target's filetype so collapsed strips still
+/// read as `FreeBASIC +10 -30` rather than the bare counts.
+using LanguageDisplayResolver = std::function<wxString(
+    LaidScrollBlock::Kind kind,
+    const wxString& lang
+)>;
+
+/// Decide whether a fenced code block / patch proposal should be laid out
+/// collapsed (a single summary strip) instead of with its full body.
+///
+/// Called once per block during the layout pass. `kind` distinguishes the
+/// two cases; for `Code` blocks `lang` is the fence tag and `contentA`
+/// is the raw code body (`contentB` is empty). For `Patch` blocks
+/// `lang` is the optional `patchTarget`, `contentA` is the SEARCH text
+/// and `contentB` is the REPLACE text. Returning `true` makes the layout
+/// emit a one-line `CollapsedBlock` row instead of the full block; the
+/// summary strings are computed by the layout itself from the same
+/// content.
+///
+/// Empty default = no collapsing — keeps non-chat callers (the markdown
+/// view, tests) on the historical fully-expanded shape with zero
+/// per-call boilerplate.
+using BlockCollapsedQuery = std::function<bool(
+    LaidScrollBlock::Kind kind,
+    const wxString& lang,
+    const wxString& contentA,
+    const wxString& contentB
+)>;
+
 /// Lay `doc` out into stacked, wrapped lines fitting `width` pixels. Code
 /// blocks are highlighted through `highlightFence`; prose colours come from
 /// `palette`; all measurement goes through `measurer`. Image inlines are
@@ -209,7 +280,9 @@ using ImageResolver = std::function<ImageInfo(const wxString& url)>;
     const MarkdownPalette& palette,
     const CodeFenceHighlighter& highlightFence,
     const ImageResolver& resolveImage = {},
-    bool wrapCodeBlocks = true
+    bool wrapCodeBlocks = true,
+    const BlockCollapsedQuery& isCollapsed = {},
+    const LanguageDisplayResolver& resolveLanguageDisplay = {}
 ) -> LaidOutDoc;
 
 } // namespace fbide::markdown

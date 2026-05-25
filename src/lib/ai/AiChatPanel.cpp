@@ -65,17 +65,18 @@ auto activeIncludes(const Document* doc) -> std::vector<std::filesystem::path> {
 }
 } // namespace
 
-AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
+AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx, AiManager& manager)
 : wxPanel(parent, wxID_ANY)
-, m_ctx(ctx) {
+, m_ctx(ctx)
+, m_manager(manager) {
     const auto sizer = make_unowned<wxBoxSizer>(wxVERTICAL);
 
-    m_output = make_unowned<AiChatView>(this, m_ctx);
+    m_output = make_unowned<AiChatView>(this, m_ctx, m_manager);
     sizer->Add(m_output, wxSizerFlags(1).Expand().Border(wxALL, 4));
 
     // Tag strip — sits between the conversation and the input, hidden when
     // nothing is attached.
-    m_tagBar = make_unowned<ContextTagBar>(this, m_ctx);
+    m_tagBar = make_unowned<ContextTagBar>(this, m_manager);
     sizer->Add(m_tagBar, wxSizerFlags().Expand().Border(wxLEFT | wxRIGHT, 4));
 
     m_input = make_unowned<wxTextCtrl>(
@@ -133,7 +134,7 @@ void AiChatPanel::refreshTheme() const {
 void AiChatPanel::onSend(wxCommandEvent& /*event*/) {
     if (m_busy) {
         // The button doubles as cancel while a request is in flight.
-        m_ctx.getAiManager().cancel();
+        m_manager.cancel();
         return;
     }
     const auto text = m_input->GetValue();
@@ -160,7 +161,7 @@ void AiChatPanel::submitPrompt(const wxString& text) {
     m_send->SetLabel("Cancel");
     m_renderTimer.Start(kRenderThrottleMs);
 
-    m_ctx.getAiManager().sendMessage(
+    m_manager.sendMessage(
         text,
         [this](const wxString& /*delta*/) {
             // The manager owns the accumulator; the panel only needs to
@@ -264,7 +265,7 @@ void AiChatPanel::onAddContext(wxCommandEvent& /*event*/) {
         return;
     }
 
-    auto& context = m_ctx.getAiManager().context();
+    auto& context = m_manager.context();
     if (selection == ID_AttachActive) {
         attachDocument(active);
     } else if (selection == ID_AttachBrowse) {
@@ -296,7 +297,7 @@ void AiChatPanel::attachDocument(Document* doc) const {
         return;
     }
     // Snapshot the editor's current text — including any unsaved edits.
-    m_ctx.getAiManager().context().add(
+    m_manager.context().add(
         std::make_unique<BufferContextItem>(doc->getTitle(), doc->getEditor()->GetText())
     );
 }
@@ -307,7 +308,7 @@ void AiChatPanel::onTagsChanged(wxCommandEvent& /*event*/) {
 
 void AiChatPanel::onAgentToggle(wxCommandEvent& /*event*/) {
     const bool on = m_agentToggle->GetValue();
-    auto& aiManager = m_ctx.getAiManager();
+    auto& aiManager = m_manager;
     aiManager.setAgentMode(on);
     m_liveEdit->Enable(on);
     m_allowCompile->Enable(on);
@@ -333,11 +334,15 @@ void AiChatPanel::onAgentToggle(wxCommandEvent& /*event*/) {
 }
 
 void AiChatPanel::onLiveEditToggle(wxCommandEvent& /*event*/) {
-    m_ctx.getAiManager().setLiveEdit(m_liveEdit->GetValue());
+    m_manager.setLiveEdit(m_liveEdit->GetValue());
+    // The view's collapse policy reads `manager.isLiveEdit()` per
+    // block; the layout cache won't notice the flip on its own, so a
+    // manual nudge is needed for landed patches to switch shape.
+    m_output->refreshCollapsePolicy();
 }
 
 void AiChatPanel::onAllowCompileToggle(wxCommandEvent& /*event*/) {
-    m_ctx.getAiManager().setAllowCompile(m_allowCompile->GetValue());
+    m_manager.setAllowCompile(m_allowCompile->GetValue());
 }
 
 namespace {
@@ -383,7 +388,7 @@ void appendUsageSummary(wxString& out, const int inputTokens, const int outputTo
 
 void AiChatPanel::renderConversation() {
     std::vector<ChatViewMessage> messages;
-    for (const auto& message : m_ctx.getAiManager().history()) {
+    for (const auto& message : m_manager.history()) {
         // Synthetic user turns that only carry tool_result blocks are
         // not user-typed prose — hide them from the chat view. The
         // assistant's follow-up reply already shows what the model
@@ -407,7 +412,7 @@ void AiChatPanel::renderConversation() {
         // `streaming` flag tells the view's auto-apply not to touch any
         // patch blocks inside this bubble until they're fully formed. The
         // pending text is owned by the manager — see AiManager::pendingReply.
-        const auto& pending = m_ctx.getAiManager().pendingReply();
+        const auto& pending = m_manager.pendingReply();
         messages.push_back({
             .fromUser = false,
             .streaming = true,

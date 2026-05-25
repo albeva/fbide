@@ -172,6 +172,8 @@ struct LayoutEngine {
     const CodeFenceHighlighter& m_highlightFence;
     const ImageResolver& m_resolveImage;
     const bool m_wrapCodeBlocks;
+    const BlockCollapsedQuery& m_isCollapsed;
+    const LanguageDisplayResolver& m_resolveLanguageDisplay;
 
     LaidOutDoc m_out {};
     int m_yPos = 0; ///< Running vertical cursor.
@@ -189,7 +191,9 @@ struct LayoutEngine {
         const MarkdownPalette& palette,
         const CodeFenceHighlighter& highlightFence,
         const ImageResolver& resolveImage,
-        const bool wrapCodeBlocks
+        const bool wrapCodeBlocks,
+        const BlockCollapsedQuery& isCollapsed,
+        const LanguageDisplayResolver& resolveLanguageDisplay
     )
     : m_doc(doc)
     , m_width(width)
@@ -197,7 +201,9 @@ struct LayoutEngine {
     , m_palette(palette)
     , m_highlightFence(highlightFence)
     , m_resolveImage(resolveImage)
-    , m_wrapCodeBlocks(wrapCodeBlocks) {}
+    , m_wrapCodeBlocks(wrapCodeBlocks)
+    , m_isCollapsed(isCollapsed)
+    , m_resolveLanguageDisplay(resolveLanguageDisplay) {}
 
     /// Insert the inter-block gap (skipped before the first block).
     void blockGap() {
@@ -566,9 +572,132 @@ struct LayoutEngine {
         m_yPos += lineHeight;
     }
 
+    /// Count source lines in `text`. Matches `toCodeLines` semantics —
+    /// a trailing newline does NOT add a phantom blank row, so the
+    /// summary numbers stay in sync with what an expanded view would
+    /// show.
+    [[nodiscard]] static auto countLines(const wxString& text) -> int {
+        if (text.empty()) {
+            return 0;
+        }
+        int newlines = 0;
+        for (const wxUniChar ch : text) {
+            if (ch == '\n') {
+                newlines++;
+            }
+        }
+        return text.EndsWith("\n") ? newlines : newlines + 1;
+    }
+
+    /// Resolve a language tag (code fence tag, or a patch target for
+    /// patches) to its user-facing display name through the host
+    /// resolver. `kind` lets the host pick different fallbacks for
+    /// code vs. patch (most importantly: a patch with no target can
+    /// fall back to a pinned edit-target's filetype). Returns empty
+    /// when no resolver is set or the host couldn't translate the
+    /// tag — the painter then drops the wide tier.
+    [[nodiscard]] auto resolveLanguageDisplay(LaidScrollBlock::Kind kind, const wxString& lang) const -> wxString {
+        if (!m_resolveLanguageDisplay) {
+            return {};
+        }
+        return m_resolveLanguageDisplay(kind, lang);
+    }
+
+    /// Emit a single-line summary strip in place of a full code / patch
+    /// block. `lang` is the fence tag (code) or empty (patch). The
+    /// summary is stored on the laid block as structured parts so the
+    /// painter can apply git-style colouring at draw time. The block's
+    /// geometry mirrors `emitCode` so hit-tests and the floating action
+    /// bar continue to work — only the body is hidden.
+    void emitCollapsedBlock(
+        const LaidScrollBlock::Kind kind,
+        const int quoteDepth,
+        const wxString& lang,
+        const wxString& contentA,
+        const wxString& contentB,
+        const wxString& patchTarget
+    ) {
+        blockGap();
+        const int blockTop = m_yPos;
+        const int left = quoteDepth * kQuoteIndent;
+        // Patch blocks have no fence tag of their own — patches in
+        // FBIde edit FreeBASIC source by convention, so the strip
+        // uses the themed font to match what the expanded form
+        // would have shown.
+        const bool themed = kind == LaidScrollBlock::Kind::Patch || isFreeBasicTag(lang);
+        const TextStyle mono { .monospace = true, .themed = themed };
+        const int monoLineHeight = m_measurer.lineHeight(mono);
+
+        const int codeLeft = left + kCodePadding;
+        const int rightEdge = std::max(codeLeft + 1, m_width - kCodePadding);
+        const int contentWidth = rightEdge - codeLeft;
+        const std::size_t blockIndex = m_out.scrollBlocks.size();
+
+        // Match a one-line expanded block's geometry: top padding +
+        // one mono line + bottom padding. Keeps the visual weight of
+        // collapse vs. expand identical for the user — toggling no
+        // longer makes the strip suddenly thinner than the code it
+        // replaces.
+        const int totalHeight = monoLineHeight + (2 * kCodePadding);
+        // No PaintRuns — the painter dispatches `CollapsedBlock`
+        // lines to `paintCollapsedSummary` which talks to the DC
+        // directly. The host's "widest line" pass that drives bubble
+        // width thus sees zero contribution here; it's the host's
+        // job (in `relayout`) to keep the bubble from shrinking when
+        // its only width contributor switches into collapsed form.
+        m_out.lines.push_back({ .kind = LineKind::CollapsedBlock,
+            .y = m_yPos,
+            .height = totalHeight,
+            .quoteDepth = quoteDepth,
+            .runs = {},
+            .blockIndex = static_cast<int>(blockIndex) });
+        m_yPos += totalHeight;
+
+        // Structured summary — the painter assembles + colours at draw
+        // time. For patches the language label comes from the patch
+        // target (if any); the resolver may transform it into a typed
+        // name like `FreeBASIC` for `.bas` targets.
+        LaidScrollBlock::CollapsedSummary summary;
+        if (kind == LaidScrollBlock::Kind::Patch) {
+            summary.removed = countLines(contentA);
+            summary.added = countLines(contentB);
+            summary.languageDisplay = resolveLanguageDisplay(kind, patchTarget);
+        } else {
+            summary.added = countLines(contentA);
+            summary.removed = 0;
+            summary.languageDisplay = resolveLanguageDisplay(kind, lang);
+        }
+
+        m_out.scrollBlocks.push_back({ .kind = kind,
+            .y = blockTop,
+            .height = m_yPos - blockTop,
+            .contentLeft = codeLeft,
+            .contentWidth = contentWidth,
+            .naturalWidth = contentWidth,
+            .wrapped = true,
+            .collapsed = true,
+            .themed = themed,
+            .summary = std::move(summary),
+            .codeText = kind == LaidScrollBlock::Kind::Code ? contentA : wxString {},
+            .codeLang = kind == LaidScrollBlock::Kind::Code ? lang : wxString {},
+            .patchTarget = patchTarget,
+            .patchSearch = kind == LaidScrollBlock::Kind::Patch ? contentA : wxString {},
+            .patchReplace = kind == LaidScrollBlock::Kind::Patch ? contentB : wxString {} });
+    }
+
     /// Emit a fenced code block: a padded background strip carrying the
     /// highlighted code, soft-wrapped to the available width.
     void emitCode(const MdBlock& block) {
+        // Collapsed shape — defer to the summary strip emitter when the
+        // host (typically the chat view) requests it for this block.
+        if (m_isCollapsed
+            && m_isCollapsed(LaidScrollBlock::Kind::Code, block.codeLang, block.codeText, wxString {})) {
+            emitCollapsedBlock(
+                LaidScrollBlock::Kind::Code, block.quoteDepth,
+                block.codeLang, block.codeText, wxString {}, wxString {}
+            );
+            return;
+        }
         blockGap();
         const int blockTop = m_yPos;
         const int left = block.quoteDepth * kQuoteIndent;
@@ -630,7 +759,10 @@ struct LayoutEngine {
             .contentLeft = codeLeft,
             .contentWidth = contentWidth,
             .naturalWidth = naturalWidth,
-            .wrapped = m_wrapCodeBlocks });
+            .wrapped = m_wrapCodeBlocks,
+            .themed = themed,
+            .codeText = block.codeText,
+            .codeLang = block.codeLang });
     }
 
     /// Split `text` (verbatim, '\n'-separated) into one CodeLine per source
@@ -667,6 +799,16 @@ struct LayoutEngine {
     /// reuses `emitCodeLine` with PatchSearch / PatchReplace kinds; the
     /// painter draws the tint band on the line background.
     void emitPatch(const MdBlock& block) {
+        // Collapsed shape — `lang` is empty for patches (they have no
+        // fence tag); the wide-form summary uses `patchTarget` instead.
+        if (m_isCollapsed
+            && m_isCollapsed(LaidScrollBlock::Kind::Patch, wxString {}, block.patchSearch, block.patchReplace)) {
+            emitCollapsedBlock(
+                LaidScrollBlock::Kind::Patch, block.quoteDepth,
+                wxString {}, block.patchSearch, block.patchReplace, block.patchTarget
+            );
+            return;
+        }
         blockGap();
         const int blockTop = m_yPos;
         const int left = block.quoteDepth * kQuoteIndent;
@@ -1041,7 +1183,9 @@ auto fbide::markdown::layoutMarkdown(
     const MarkdownPalette& palette,
     const CodeFenceHighlighter& highlightFence,
     const ImageResolver& resolveImage,
-    const bool wrapCodeBlocks
+    const bool wrapCodeBlocks,
+    const BlockCollapsedQuery& isCollapsed,
+    const LanguageDisplayResolver& resolveLanguageDisplay
 ) -> LaidOutDoc {
     LayoutEngine engine {
         doc,
@@ -1050,7 +1194,9 @@ auto fbide::markdown::layoutMarkdown(
         palette,
         highlightFence,
         resolveImage,
-        wrapCodeBlocks
+        wrapCodeBlocks,
+        isCollapsed,
+        resolveLanguageDisplay
     };
     engine.run();
     return std::move(engine.m_out);

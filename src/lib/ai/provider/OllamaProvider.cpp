@@ -36,6 +36,16 @@ auto borrowString(const json& node, const char* key) -> std::string_view {
     return *str;
 }
 
+/// Read an integer at `key` from `node`. Returns 0 when absent or the
+/// value isn't an integer-coercible number.
+auto borrowInt(const json& node, const char* key) -> int {
+    const auto it = node.find(key);
+    if (it == node.end() || !it->is_number_integer()) {
+        return 0;
+    }
+    return it->get<int>();
+}
+
 } // namespace
 
 OllamaProvider::OllamaProvider(wxString endpoint)
@@ -69,6 +79,16 @@ void OllamaProvider::parseStreamLine(const std::string_view line, StreamLineCons
     if (messageIt != chunk.end() && messageIt->is_object()) {
         const auto content = borrowString(*messageIt, "content");
         sink.onDelta(wxString::FromUTF8(content.data(), content.size()));
+    }
+    // The terminal chunk (`done: true`) carries the per-turn token
+    // accounting — `prompt_eval_count` for input, `eval_count` for
+    // output. Streamed deltas don't include either, so the sink only
+    // gets a single update right at the end. The keys live next to
+    // `message` at the top level of the chunk, not inside it.
+    const auto prompt = borrowInt(chunk, "prompt_eval_count");
+    const auto eval = borrowInt(chunk, "eval_count");
+    if (prompt > 0 || eval > 0) {
+        sink.onUsage(prompt, eval);
     }
 }
 

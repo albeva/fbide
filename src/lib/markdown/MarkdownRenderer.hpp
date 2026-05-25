@@ -237,4 +237,23 @@ void paintLineText(
     PaintRunState& state
 );
 
+/// Paint a collapsed code / patch strip's summary. Uses the same
+/// monospace face an expanded one-line block would have used —
+/// `themedFont` when `block.themed` (the editor-theme monospace, for
+/// FreeBASIC fences and for patches), else `monoFont`. The block's
+/// `summary` parts drive the wide / narrow tier choice; the painter
+/// picks whichever fits the strip's content width. Called by the
+/// host's paint loop only for lines whose kind is `LineKind::CollapsedBlock`.
+void paintCollapsedSummary(
+    wxGCDC& gc,
+    const PaintLine& line,
+    const LaidScrollBlock& block,
+    int contentLeft,
+    int lineTop,
+    int contentWidth,
+    const wxFont& monoFont,
+    const wxFont& themedFont,
+    const MarkdownPalette& palette
+);
+
 } // namespace fbide::markdown

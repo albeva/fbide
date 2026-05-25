@@ -63,6 +63,8 @@ private:
     wxString m_resultText;        ///< `result` text of the in-flight request.
     ChunkHandler m_onChunk;       ///< Streaming delta callback for the in-flight request.
     ResponseHandler m_onComplete; ///< Pending completion callback.
+    int m_inputTokens = 0;        ///< Input tokens reported on the `result` event.
+    int m_outputTokens = 0;       ///< Output tokens reported on the `result` event.
     bool m_sawResult = false;     ///< A `result` event was seen this request.
     bool m_isError = false;       ///< The `result` event reported an error.
     bool m_busy = false;          ///< True while a CLI invocation is in flight.

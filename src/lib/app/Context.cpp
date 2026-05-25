@@ -6,6 +6,7 @@
 //
 #include "app/Context.hpp"
 #include "ai/AiManager.hpp"
+#include "ai/AiManagerRegistry.hpp"
 #include "command/CommandManager.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
@@ -28,10 +29,18 @@ Context::Context(App& app, const wxString& binaryPath, const wxString& idePath, 
 , m_fileSession(std::make_unique<FileSession>(*this))
 , m_compilerManager(std::make_unique<CompilerManager>(*this))
 , m_helpManager(std::make_unique<HelpManager>(*this))
-, m_aiManager(std::make_unique<AiManager>(*this))
+, m_aiRegistry(std::make_unique<AiManagerRegistry>(*this))
 , m_commandManager(std::make_unique<CommandManager>(*this)) {}
 
 Context::~Context() = default;
+
+auto Context::getAiManager() -> AiManager& {
+    return m_aiRegistry->active();
+}
+
+auto Context::getAiManager() const -> const AiManager& {
+    return m_aiRegistry->active();
+}
 
 auto Context::tr(const wxString& path) -> wxString {
     return m_configManager->locale().get_or(path, "");

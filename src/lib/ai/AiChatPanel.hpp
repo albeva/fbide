@@ -14,6 +14,7 @@ class Document;
 
 namespace fbide::ai {
 class AiChatView;
+class AiManager;
 class ContextTagBar;
 
 /**
@@ -36,8 +37,14 @@ class AiChatPanel final : public wxPanel {
 public:
     NO_COPY_AND_MOVE(AiChatPanel)
 
-    /// Build the panel and its controls as a child of `parent`.
-    AiChatPanel(wxWindow* parent, Context& ctx);
+    /// Build the panel and its controls as a child of `parent`. `manager`
+    /// is the AI manager backing this tab — owned by `AiManagerRegistry`,
+    /// out-lives the panel.
+    AiChatPanel(wxWindow* parent, Context& ctx, AiManager& manager);
+
+    /// The AI manager driving this tab's conversation.
+    [[nodiscard]] auto manager() -> AiManager& { return m_manager; }
+    [[nodiscard]] auto manager() const -> const AiManager& { return m_manager; }
 
     /// Send `text` to the model as a chat message and render the reply.
     /// Used by the send button and by editor code actions. No-op when a
@@ -93,6 +100,7 @@ private:
     void renderConversation();
 
     Context& m_ctx;                        ///< Application context.
+    AiManager& m_manager;                  ///< AI manager backing this tab's conversation.
     Unowned<AiChatView> m_output;          ///< Conversation view (custom-painted).
     Unowned<ContextTagBar> m_tagBar;       ///< Attached-context tag strip.
     Unowned<wxTextCtrl> m_input;           ///< Message input box.

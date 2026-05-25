@@ -14,6 +14,7 @@
 #include "config/Theme.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentType.hpp"
 #include "editor/Editor.hpp"
 #include "markdown/Markdown.hpp"
 #include "markdown/MarkdownLayout.hpp"
@@ -106,13 +107,16 @@ wxBEGIN_EVENT_TABLE(AiChatView, wxScrolled)
     EVT_BUTTON(ID_CodeRun, AiChatView::onRunCode)
     EVT_BUTTON(ID_PatchApply, AiChatView::onApplyPatch)
     EVT_BUTTON(ID_PatchReject, AiChatView::onRejectPatch)
+    EVT_BUTTON(ID_BlockCollapse, AiChatView::onBlockCollapse)
+    EVT_BUTTON(ID_BlockExpand, AiChatView::onBlockExpand)
     EVT_COMMAND(wxID_ANY, EVT_CODE_BAR_LEAVE, AiChatView::onBarLeave)
 wxEND_EVENT_TABLE()
 // clang-format on
 
-AiChatView::AiChatView(wxWindow* parent, Context& ctx)
+AiChatView::AiChatView(wxWindow* parent, Context& ctx, AiManager& manager)
 : wxScrolled(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxVSCROLL | wxCLIP_CHILDREN)
-, m_ctx(ctx) {
+, m_ctx(ctx)
+, m_manager(manager) {
     wxScrolled::SetBackgroundStyle(wxBG_STYLE_PAINT);
     // Pixel-granular scroll so high-rate input devices (trackpads, smooth
     // wheels) don't snap to a coarser step.
@@ -186,7 +190,7 @@ void AiChatView::setMessages(std::vector<ChatViewMessage> messages) {
     Scroll(0, m_totalHeight); // keep pinned to the newest — wxScrolled clamps to the max
     Refresh();
 
-    if (m_ctx.getAiManager().isLiveEdit()) {
+    if (m_manager.isLiveEdit()) {
         autoApplyPatches();
     }
 }
@@ -197,6 +201,13 @@ void AiChatView::refreshTheme() {
     resolveFonts();
     rebuildBubbleBrushes();
     m_layoutWidth = -1;
+    hideActionBar();
+    relayout();
+    Refresh();
+}
+
+void AiChatView::refreshCollapsePolicy() {
+    invalidateAllLayouts();
     hideActionBar();
     relayout();
     Refresh();
@@ -298,8 +309,26 @@ void AiChatView::relayout() {
         const auto highlight = [this, reformat](const wxString& code, const wxString& lang) {
             return highlightFence(code, lang, reformat);
         };
+        // Per-block collapse query — the policy lives on the view
+        // (manager.isLiveEdit / manager.isPatchApplied / user override
+        // map) so the layout stays agnostic and a re-laid bubble
+        // matches whatever the chat currently shows. User messages
+        // never carry tool patches and rarely have collapsed code, but
+        // we pass the predicate uniformly so a manual toggle works on
+        // either side.
+        const auto isCollapsed = [this](
+            markdown::LaidScrollBlock::Kind kind,
+            const wxString& lang,
+            const wxString& contentA,
+            const wxString& contentB
+        ) {
+            return isBlockCollapsed(kind, lang, contentA, contentB);
+        };
+        const auto resolveLang = [this](markdown::LaidScrollBlock::Kind kind, const wxString& lang) {
+            return resolveLanguageDisplayName(kind, lang);
+        };
         const bool documentRebuilt = item.document.setMarkdown(
-            message.markdown, maxContent, measurer, pal, highlight, resolveImage, wrapCodeBlocks
+            message.markdown, maxContent, measurer, pal, highlight, resolveImage, wrapCodeBlocks, isCollapsed, resolveLang
         );
         if (documentRebuilt) {
             // Shrink the bubble to its widest line — wrapping was done
@@ -324,7 +353,15 @@ void AiChatView::relayout() {
                 }
                 widest = std::max(widest, lineRight);
             }
-            item.contentWidth = std::clamp(widest, kMinBubbleContent, maxContent);
+            // Bubble width is monotone within a conversation — content
+            // grows as the model streams in, but we never let a
+            // re-layout snap a bubble inward. The main case the user
+            // cares about is collapsing a code / patch block: the
+            // strip contributes no width of its own, and without this
+            // floor the bubble would jump narrower as if the body had
+            // been deleted. New content (streamed text, a wider block
+            // appearing) still grows the bubble normally.
+            item.contentWidth = std::clamp(std::max(widest, item.contentWidth), kMinBubbleContent, maxContent);
         }
 
         // Sync the per-block scroll vector to the laid doc's block count,
@@ -504,7 +541,30 @@ void AiChatView::paintMessage(
         if (hasSelection) {
             markdown::paintSelectionHighlight(gc, line, lineIdx, contentLeft - scrollX, lineTop, message.contentWidth, nextLineY, m_selection.data(), highlightColour, measurer);
         }
-        markdown::paintLineText(gc, line, contentLeft - scrollX, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
+        if (line.kind == markdown::LineKind::CollapsedBlock
+            && line.blockIndex >= 0
+            && static_cast<std::size_t>(line.blockIndex) < laid.scrollBlocks.size()) {
+            // CollapsedBlock lines bypass `paintLineText`; their
+            // summary is assembled by `paintCollapsedSummary`, which
+            // talks to the DC directly (different font, colour-coded
+            // count tokens). The DC's font + foreground after that
+            // call no longer match `runState`'s cached values, so a
+            // following prose run whose colour happens to equal the
+            // stale cache would skip its `SetTextForeground` and
+            // inherit the red `-N` foreground. Invalidate the cache
+            // so the next prose line force-re-sets both.
+            markdown::paintCollapsedSummary(
+                gc,
+                line,
+                laid.scrollBlocks.at(static_cast<std::size_t>(line.blockIndex)),
+                contentLeft, lineTop, message.contentWidth,
+                m_monoFont, m_themedFont, pal
+            );
+            runState.styleSet = false;
+            runState.colourSet = false;
+        } else {
+            markdown::paintLineText(gc, line, contentLeft - scrollX, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
+        }
 
         if (clipped) {
             gc.DestroyClippingRegion();
@@ -556,7 +616,7 @@ void AiChatView::paintMessage(
     // the chat thread distinguishes resolved cards from still-actionable
     // ones at a glance. Drawn after content so it dims (rather than
     // hides) the underlying strips and text.
-    const auto& manager = m_ctx.getAiManager();
+    const auto& manager = m_manager;
     const wxColour windowText = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
     const wxColour overlay(windowText.Red(), windowText.Green(), windowText.Blue(), 90);
     for (const auto& block : laid.scrollBlocks) {
@@ -608,6 +668,11 @@ auto AiChatView::palette() const -> MarkdownPalette {
         .patchSearchBg = blend(theme.background({}), theme.getChangesRemoved(), 0.30),
         .patchReplaceBg = blend(theme.background({}), theme.getChangesAdded(), 0.30),
         .patchFg = theme.getChangesForeground(),
+        // Git-style accent colours for `+N` / `-N` tokens in collapsed
+        // summaries — reuse the theme's diff palette so a tuned theme
+        // keeps the colour story consistent across patches and strips.
+        .added = theme.getChangesAdded(),
+        .removed = theme.getChangesRemoved(),
     };
 }
 
@@ -724,13 +789,16 @@ auto AiChatView::patchBlockAt(const wxPoint& clientPoint) const -> std::pair<int
     return { -1, -1 };
 }
 
-void AiChatView::showActionBar(const int messageIndex, const int blockIndex, const CodeActionBar::Mode mode) {
-    if (messageIndex < 0 || blockIndex < 0) {
+void AiChatView::showActionBar(const int messageIndex, const int blockIndex, const std::uint8_t buttons) {
+    if (messageIndex < 0 || blockIndex < 0 || buttons == 0) {
+        // Nothing to show — either no anchor, or the host decided
+        // every button is filtered out (e.g. a 1-liner with no
+        // toggle and a kind that doesn't appear here).
         hideActionBar();
         return;
     }
     m_barPlacement.setAnchor(messageIndex, blockIndex);
-    m_actionBar->setMode(mode);
+    m_actionBar->setButtons(buttons);
 
     const auto& item = m_items[static_cast<std::size_t>(messageIndex)];
     // `blockIndex` indexes into the unified scrollBlocks vector — the
@@ -759,14 +827,80 @@ void AiChatView::hideActionBar() {
     }
 }
 
+auto AiChatView::isCollapsibleBlock(const markdown::LaidScrollBlock& block) -> bool {
+    // Counts here mirror the layout's `countLines` (trailing newline
+    // is not a phantom row). One-line code fences and `1+1` patches
+    // gain nothing from a collapsed strip — the strip itself is one
+    // line — so the host hides the toggle in the action bar.
+    const auto countLines = [](const wxString& text) {
+        if (text.empty()) {
+            return 0;
+        }
+        int newlines = 0;
+        for (const wxUniChar ch : text) {
+            if (ch == '\n') {
+                newlines++;
+            }
+        }
+        return text.EndsWith("\n") ? newlines : newlines + 1;
+    };
+    if (block.kind == markdown::LaidScrollBlock::Kind::Patch) {
+        return countLines(block.patchSearch) > 1 || countLines(block.patchReplace) > 1;
+    }
+    return countLines(block.codeText) > 1;
+}
+
+auto AiChatView::buttonsFor(const std::size_t mi, const std::size_t bi) const -> std::uint8_t {
+    if (mi >= m_items.size()) {
+        return 0;
+    }
+    const auto& blocks = m_items.at(mi).document.laid().scrollBlocks;
+    if (bi >= blocks.size()) {
+        return 0;
+    }
+    const auto& block = blocks.at(bi);
+
+    // Collapsed strips reduce to a single button — the user wants to
+    // see the body, nothing else. Even one-liners reach this path
+    // when the user has explicitly collapsed them via an override;
+    // we let them expand back out of that state.
+    if (block.collapsed) {
+        return CodeActionBar::Expand;
+    }
+
+    std::uint8_t mask = 0;
+    if (block.kind == markdown::LaidScrollBlock::Kind::Patch) {
+        mask |= CodeActionBar::Apply | CodeActionBar::Reject;
+    } else {
+        mask |= CodeActionBar::Copy | CodeActionBar::Insert;
+        // Compile && run only makes sense for FreeBASIC fences — the
+        // run path feeds the snippet into `quickRun`, which calls
+        // `fbc`. The `themed` flag is what the layout set from
+        // `isFreeBasicTag(codeLang)`, so it's the canonical "this is
+        // FreeBASIC source" signal without re-encoding the alias
+        // list here.
+        if (block.themed) {
+            mask |= CodeActionBar::Run;
+        }
+    }
+    // Collapse toggle only when the block is big enough that hiding
+    // its body actually saves space. One-liners stay expanded and
+    // the host never offers a toggle for them.
+    if (isCollapsibleBlock(block)) {
+        mask |= CodeActionBar::Collapse;
+    }
+    return mask;
+}
+
 void AiChatView::onScroll(wxScrollWinEvent& event) {
     event.Skip(); // let wxScrolled perform the actual scroll first
     if (m_barPlacement.active()) {
         // Reposition the action bar inline — the block's top edge may
-        // have crossed in / out of the viewport, switching the bar between
-        // the attached and detached modes. Done synchronously so we don't
-        // queue an extra paint cycle per scroll tick.
-        showActionBar(m_barPlacement.messageIndex(), m_barPlacement.blockIndex(), m_actionBar->mode());
+        // have crossed in / out of the viewport, switching the bar
+        // between the attached and detached modes. Done synchronously
+        // so we don't queue an extra paint cycle per scroll tick.
+        // Visibility mask doesn't change under us; reuse it.
+        showActionBar(m_barPlacement.messageIndex(), m_barPlacement.blockIndex(), m_actionBar->buttons());
     }
 }
 
@@ -867,7 +1001,7 @@ void AiChatView::onMouseWheel(wxMouseEvent& event) {
     // bar drifts off its block (it gets scrolled along with the content
     // as a child window) and the action bar lingers at a stale Y.
     if (m_barPlacement.active()) {
-        showActionBar(m_barPlacement.messageIndex(), m_barPlacement.blockIndex(), m_actionBar->mode());
+        showActionBar(m_barPlacement.messageIndex(), m_barPlacement.blockIndex(), m_actionBar->buttons());
     }
 }
 
@@ -1096,24 +1230,30 @@ void AiChatView::onMotion(wxMouseEvent& event) {
     }
 
     // Try a code block first; if none is hit, fall through to patch
-    // proposals. Most replies have at most one of either kind in a given
-    // bubble, so the search cost is negligible.
+    // proposals. `buttonsFor` encodes the block-kind + collapsed-state
+    // + 1-liner policy so the bar's `setButtons` just renders the
+    // computed set without re-deriving rules.
+    const auto resolve = [this](const int mi, const int bi) {
+        return std::pair { static_cast<std::size_t>(mi), buttonsFor(static_cast<std::size_t>(mi), static_cast<std::size_t>(bi)) };
+    };
     const auto [codeMi, codeIdx] = codeBlockAt(pos);
     if (codeMi >= 0) {
+        const auto [_, mask] = resolve(codeMi, codeIdx);
         if (codeMi != m_barPlacement.messageIndex() || codeIdx != m_barPlacement.blockIndex()
-            || m_actionBar->mode() != CodeActionBar::Mode::CodeSample
+            || m_actionBar->buttons() != mask
             || !m_actionBar->IsShown()) {
-            showActionBar(codeMi, codeIdx, CodeActionBar::Mode::CodeSample);
+            showActionBar(codeMi, codeIdx, mask);
         }
         event.Skip();
         return;
     }
     const auto [patchMi, patchIdx] = patchBlockAt(pos);
     if (patchMi >= 0) {
+        const auto [_, mask] = resolve(patchMi, patchIdx);
         if (patchMi != m_barPlacement.messageIndex() || patchIdx != m_barPlacement.blockIndex()
-            || m_actionBar->mode() != CodeActionBar::Mode::PatchProposal
+            || m_actionBar->buttons() != mask
             || !m_actionBar->IsShown()) {
-            showActionBar(patchMi, patchIdx, CodeActionBar::Mode::PatchProposal);
+            showActionBar(patchMi, patchIdx, mask);
         }
         event.Skip();
         return;
@@ -1302,7 +1442,7 @@ void AiChatView::onRunCode(wxCommandEvent& /*event*/) {
 }
 
 void AiChatView::autoApplyPatches() {
-    auto& manager = m_ctx.getAiManager();
+    auto& manager = m_manager;
     for (const auto& item : m_items) {
         // Skip the in-flight bubble — its patch blocks may have partial
         // SEARCH text that would match the wrong spot in the buffer; the
@@ -1334,16 +1474,165 @@ void AiChatView::onApplyPatch(wxCommandEvent& /*event*/) {
     const auto& patch = m_items[static_cast<std::size_t>(m_barPlacement.messageIndex())]
                             .document.laid()
                             .scrollBlocks[static_cast<std::size_t>(m_barPlacement.blockIndex())];
-    if (!m_ctx.getAiManager().applyPatch(patch.patchSearch, patch.patchReplace)) {
+    if (!m_manager.applyPatch(patch.patchSearch, patch.patchReplace)) {
         wxLogStatus("Patch couldn't be applied — SEARCH text not found or no active document.");
         return;
     }
-    hideActionBar();
-    Refresh(); // pick up the new "applied" overlay on the card
+    // Applied patches join the manager's applied set — the collapse
+    // policy reads from that set, so a manual Apply needs to drop the
+    // cached layout to take effect (the markdown text hasn't moved,
+    // which is what `setMarkdown`'s cache compares).
+    refreshCollapsePolicy();
 }
 
 void AiChatView::onRejectPatch(wxCommandEvent& /*event*/) {
     // No editor mutation — just dismiss the bar. The proposal card stays
     // visible in the chat history as an audit trail.
     hideActionBar();
+}
+
+void AiChatView::onBlockCollapse(wxCommandEvent& /*event*/) {
+    setAnchoredBlockCollapsed(true);
+}
+
+void AiChatView::onBlockExpand(wxCommandEvent& /*event*/) {
+    setAnchoredBlockCollapsed(false);
+}
+
+void AiChatView::setAnchoredBlockCollapsed(const bool collapsed) {
+    if (!m_barPlacement.active()) {
+        return;
+    }
+    const auto mi = static_cast<std::size_t>(m_barPlacement.messageIndex());
+    const auto bi = static_cast<std::size_t>(m_barPlacement.blockIndex());
+    if (mi >= m_items.size()) {
+        return;
+    }
+    const auto& blocks = m_items.at(mi).document.laid().scrollBlocks;
+    if (bi >= blocks.size()) {
+        return;
+    }
+    const auto& block = blocks.at(bi);
+    // The override key must match what the layout pass produced for
+    // this block — same `(kind, lang, contentA, contentB)` quadruple.
+    // Both shapes (code / patch) cached their content on `block` so we
+    // can recompute the key without re-parsing the markdown.
+    const auto key = block.kind == markdown::LaidScrollBlock::Kind::Patch
+                       ? blockKey(block.kind, wxString {}, block.patchSearch, block.patchReplace)
+                       : blockKey(block.kind, block.codeLang, block.codeText, wxString {});
+    m_collapseOverrides[key] = collapsed;
+    invalidateAllLayouts();
+    relayout();
+    // Keep the bar anchored on the same block so the user can toggle
+    // back without re-hovering — `buttonsFor` re-computes the
+    // visible set from the laid block's new `collapsed` flag so the
+    // Collapse / Expand toggle switches in place.
+    if (m_barPlacement.active()) {
+        showActionBar(
+            m_barPlacement.messageIndex(),
+            m_barPlacement.blockIndex(),
+            buttonsFor(mi, bi)
+        );
+    }
+    Refresh();
+}
+
+auto AiChatView::isBlockCollapsed(
+    const markdown::LaidScrollBlock::Kind kind,
+    const wxString& lang,
+    const wxString& contentA,
+    const wxString& contentB
+) const -> bool {
+    const auto key = blockKey(kind, lang, contentA, contentB);
+    if (const auto it = m_collapseOverrides.find(key); it != m_collapseOverrides.end()) {
+        return it->second;
+    }
+    // Default policy:
+    //   patch  → collapsed when live-edit is on (suppresses flicker
+    //            during streaming auto-apply) OR when the patch has
+    //            already been applied this session (manual Apply).
+    //   code   → expanded; non-patch code blocks have no auto-apply
+    //            flicker to hide, so the user opts in via the toggle.
+    if (kind == markdown::LaidScrollBlock::Kind::Patch) {
+        if (m_manager.isLiveEdit()) {
+            return true;
+        }
+        if (m_manager.isPatchApplied(contentA, contentB)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+auto AiChatView::resolveLanguageDisplayName(
+    const markdown::LaidScrollBlock::Kind kind,
+    const wxString& lang
+) const -> wxString {
+    // Look up `statusbar.type.<key>` in the active locale. Path keys
+    // use dots (the Value tree splits on `.`), matching how the
+    // status bar itself resolves these strings.
+    const auto displayFor = [this](DocumentType type) -> wxString {
+        const auto key = std::string(documentTypeKey(type));
+        return m_ctx.tr(wxString { "statusbar.type." } + wxString::FromUTF8(key.data(), key.size()));
+    };
+
+    // Two input shapes:
+    //  - a fence tag (`freebasic`, `json`, …) for code blocks;
+    //  - a patch target path (e.g. `editor.bas`) for patches.
+    if (!lang.empty()) {
+        auto tag = lang;
+        tag.MakeLower();
+        // Aliases that aren't `DocumentType` keys themselves — `fb` /
+        // `bas` / `basic` all collapse to FreeBASIC, matching the
+        // layout's `isFreeBasicTag` predicate so the themed font and
+        // the summary label agree.
+        if (tag == "fb" || tag == "bas" || tag == "basic") {
+            return displayFor(DocumentType::FreeBASIC);
+        }
+        if (const auto type = documentTypeFromKey(tag.utf8_string())) {
+            return displayFor(*type);
+        }
+        // Path-shaped — let the extension drive the resolution. Common
+        // for patches whose SEARCH header includes a filename.
+        if (lang.Contains(".") || lang.Contains("/") || lang.Contains("\\")) {
+            const auto type = documentTypeFromPath(toPath(lang));
+            if (auto display = displayFor(type); !display.empty()) {
+                return display;
+            }
+        }
+        return {}; // raw tag — don't echo it, let the painter drop the wide tier
+    }
+
+    // Patches with an empty `lang` carried no target in their SEARCH
+    // header — fall back to the pinned edit target so the label tracks
+    // the file the patch will actually apply to. Code blocks without
+    // a fence tag get no fallback (they may not be source code at all).
+    if (kind == markdown::LaidScrollBlock::Kind::Patch) {
+        if (const auto* target = m_manager.context().editTarget()) {
+            return displayFor(documentTypeFromPath(target->path()));
+        }
+    }
+    return {};
+}
+
+auto AiChatView::blockKey(
+    const markdown::LaidScrollBlock::Kind kind,
+    const wxString& lang,
+    const wxString& contentA,
+    const wxString& contentB
+) -> std::size_t {
+    const std::size_t a = std::hash<std::string> {}(contentA.utf8_string());
+    const std::size_t b = std::hash<std::string> {}(contentB.utf8_string());
+    const std::size_t kindHash = static_cast<std::size_t>(kind);
+    const std::size_t langHash = std::hash<std::string> {}(lang.utf8_string());
+    return hashCombine(hashCombine(hashCombine(kindHash, langHash), a), b);
+}
+
+void AiChatView::invalidateAllLayouts() {
+    // The cache key on MarkdownDocument doesn't capture predicate state,
+    // so a policy flip (collapse override, live-edit toggle, patch
+    // applied) needs an explicit nudge to make `setMarkdown` rebuild.
+    for (auto& item : m_items) {
+        item.document.invalidate();
+    }
 }

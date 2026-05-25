@@ -14,7 +14,9 @@ auto MarkdownDocument::setMarkdown(
     const MarkdownPalette& palette,
     const CodeFenceHighlighter& highlightFence,
     const ImageResolver& resolveImage,
-    const bool wrapCodeBlocks
+    const bool wrapCodeBlocks,
+    const BlockCollapsedQuery& isCollapsed,
+    const LanguageDisplayResolver& resolveLanguageDisplay
 ) -> bool {
     // Cache check — same content + same width AND same wrap mode means the
     // previous layout is reusable. Saves both the markdown parse and the
@@ -25,7 +27,7 @@ auto MarkdownDocument::setMarkdown(
     m_markdown = markdown;
     m_width = contentWidth;
     m_wrapCodeBlocks = wrapCodeBlocks;
-    m_laid = layoutMarkdown(parseMarkdown(markdown), contentWidth, measurer, palette, highlightFence, resolveImage, wrapCodeBlocks);
+    m_laid = layoutMarkdown(parseMarkdown(markdown), contentWidth, measurer, palette, highlightFence, resolveImage, wrapCodeBlocks, isCollapsed, resolveLanguageDisplay);
     return true;
 }
 

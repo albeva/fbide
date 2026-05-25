@@ -133,6 +133,9 @@ private:
     void onPageChanged(wxAuiNotebookEvent& event);
     /// Notebook double-click — open file dialog when clicking blank tab area.
     void onNotebookDblClick(wxAuiNotebookEvent& event);
+    /// AI chat notebook tab changed — update the active manager and
+    /// persist the choice to `[ai] active`.
+    void onAiPageChanged(wxAuiNotebookEvent& event);
     /// Status-bar click — open EOL/encoding pickers on the relevant fields.
     void onStatusBarClick(wxMouseEvent& event);
 
@@ -181,7 +184,8 @@ private:
     Unowned<wxAuiToolBar> m_auiToolbar;           ///< AUI-managed toolbar pane.
     Unowned<wxAuiNotebook> m_notebook;            ///< Document tabs.
     Unowned<wxAuiNotebook> m_sideBar;             ///< Sidebar (Browser/Subs) notebook.
-    Unowned<ai::AiChatPanel> m_aiChatPanel;       ///< AI chat pane (right, hidden by default).
+    Unowned<wxAuiNotebook> m_aiNotebook;          ///< AI chat notebook (right, hidden by default) — one tab per configured provider.
+    std::vector<ai::AiChatPanel*> m_aiChatPanels; ///< AI chat panels keyed by tab index — wx-parented, observed only.
     std::vector<wxMenuItem*> m_externalLinkItems; ///< Live menu items in the dynamic external-links submenu.
 
     // Document-level commands toggled by `applyState`. Edit commands here

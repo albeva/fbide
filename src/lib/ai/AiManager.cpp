@@ -19,8 +19,9 @@
 using namespace fbide;
 using namespace fbide::ai;
 
-AiManager::AiManager(Context& ctx)
-: m_ctx(ctx) {
+AiManager::AiManager(Context& ctx, wxString configName)
+: m_ctx(ctx)
+, m_configName(std::move(configName)) {
     // read_file is always registered — it is read-only and bounded.
     // apply_patch is gated at request-build time on agent mode (it
     // edits the pinned target). compile lands in Phase 5 with its own
@@ -35,27 +36,23 @@ AiManager::AiManager(Context& ctx)
     // AI config in the preferences uses a named-config layout:
     //
     //   [ai]
-    //   active       = <config-name>     selects which config below to use
+    //   active       = <config-name>     default tab in the chat notebook
     //   systemPrompt = <system prompt>   optional default system prompt
+    //   enable_tools = true|false        global tool-use kill switch
     //
-    //   [ai/<config-name>]               one section per named config
+    //   [ai/<config-name>]               one section per provider — each
+    //                                    section becomes its own tab in
+    //                                    the chat notebook
     //   provider     = anthropic | ollama | lm-studio | claude-cli | gemini | mock
     //   model        = <model name>
+    //   name         = <display name>    optional — overrides the tab label
     //   key          = <API key>         (anthropic + gemini — plaintext,
     //                  see docs/ai-chat-plan.md; OS keychain is deferred;
     //                  lm-studio accepts one but does not require it)
     //   endpoint     = <base URL>        (ollama + lm-studio only)
     //   claudePath   = <path to claude>  (claude-cli only)
     //   systemPrompt = <system prompt>   optional — overrides [ai] systemPrompt
-    //
-    // Only the `active` config is used. There is no hot-reload — the
-    // provider is resolved once here, at construction.
     const auto& root = m_ctx.getConfigManager().config();
-
-    const auto active = root.at("ai.active").as<wxString>();
-    if (!active || active->empty()) {
-        return; // No active config — `isReady()` stays false.
-    }
 
     // `[ai] systemPrompt` is the default; an `[ai/<name>] systemPrompt`
     // overrides it for that config. Nothing is baked in when both absent.
@@ -65,7 +62,13 @@ AiManager::AiManager(Context& ctx)
     // when running against a model that mis-handles tool_use blocks).
     m_enableTools = root.at("ai.enable_tools").as<bool>().value_or(true);
 
-    const auto& config = root.at("ai." + *active);
+    if (m_configName.empty()) {
+        return; // No section bound — `isReady()` stays false.
+    }
+    const auto& config = root.at("ai." + m_configName);
+    if (!config) {
+        return; // Section missing from config — `isReady()` stays false.
+    }
     if (const auto overridePrompt = config.at("systemPrompt").as<wxString>()) {
         m_systemPrompt = *overridePrompt;
     }

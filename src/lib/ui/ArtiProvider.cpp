@@ -30,7 +30,9 @@ ArtiProvider::ArtiProvider()
     { CommandId::Result, XPM::output_xpm },
     { CommandId::Browser, XPM::browse_xpm },
     { CommandId::Accept, XPM::accept_xpm },
-    { CommandId::Reject, XPM::reject_xpm }
+    { CommandId::Reject, XPM::reject_xpm },
+    { CommandId::Collapse, XPM::collapse_xpm },
+    { CommandId::Expand, XPM::expand_xpm }
 }
 , m_symbolIcons {
     { SymbolKind::Sub, XPM::sym_sub_xpm },

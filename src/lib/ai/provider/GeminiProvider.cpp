@@ -30,6 +30,17 @@ auto borrowString(const json& node, const char* key) -> std::string_view {
     return *str;
 }
 
+/// Read an integer at `key` from `node`. Returns 0 when absent or the
+/// value isn't an integer-coercible number — matches `value(key, 0)`
+/// without throwing when the type doesn't line up.
+auto borrowInt(const json& node, const char* key) -> int {
+    const auto it = node.find(key);
+    if (it == node.end() || !it->is_number_integer()) {
+        return 0;
+    }
+    return it->get<int>();
+}
+
 /// Read `error.message` from a payload that carries either an object
 /// or a bare value. Falls back to a generic string.
 auto extractErrorMessage(const json& error) -> wxString {
@@ -69,6 +80,18 @@ void GeminiProvider::parseStreamLine(const std::string_view line, StreamLineCons
     if (payload.contains("error")) {
         sink.onError(extractErrorMessage(payload["error"]));
         return;
+    }
+    // Gemini reports running token counts in `usageMetadata` on each
+    // streamed chunk — the final chunk has the totals. The sink keeps
+    // the latest non-zero values, so emitting on every chunk that
+    // carries them is harmless.
+    if (const auto usageIt = payload.find("usageMetadata");
+        usageIt != payload.end() && usageIt->is_object()) {
+        const auto prompt = borrowInt(*usageIt, "promptTokenCount");
+        const auto candidates = borrowInt(*usageIt, "candidatesTokenCount");
+        if (prompt > 0 || candidates > 0) {
+            sink.onUsage(prompt, candidates);
+        }
     }
     if (!payload.contains("candidates") || !payload["candidates"].is_array() || payload["candidates"].empty()) {
         return;

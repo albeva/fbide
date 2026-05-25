@@ -6,6 +6,7 @@ target_sources(fbide_lib
     ai/AiChatPanel.cpp
     ai/AiContext.cpp
     ai/AiManager.cpp
+    ai/AiManagerRegistry.cpp
     ai/AiTypes.cpp
     ai/ToolDispatchLoop.cpp
     ai/tools/ApplyPatchTool.cpp
@@ -105,6 +106,7 @@ target_sources(fbide_lib
     ai/AiChatPanel.hpp
     ai/AiContext.hpp
     ai/AiManager.hpp
+    ai/AiManagerRegistry.hpp
     ai/AiTypes.hpp
     ai/ContextTagBar.hpp
     ai/Patch.hpp

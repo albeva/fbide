@@ -102,7 +102,9 @@ void fbide::markdown::paintLineBackground(
     const int contentWidth,
     const MarkdownPalette& palette
 ) {
-    if (line.kind == LineKind::Code) {
+    if (line.kind == LineKind::Code || line.kind == LineKind::CollapsedBlock) {
+        // Collapsed strips share the code background — the painter then
+        // draws the summary text on top via `paintCollapsedSummary`.
         gc.SetBrush(wxBrush(palette.codeBg));
         gc.SetPen(*wxTRANSPARENT_PEN);
         gc.DrawRectangle(contentLeft, lineTop, contentWidth, line.height);
@@ -449,5 +451,103 @@ void fbide::markdown::paintLineText(
             state.colourSet = true;
         }
         gc.DrawText(run.text, contentLeft + run.x, baseline - ascent);
+    }
+}
+
+void fbide::markdown::paintCollapsedSummary(
+    wxGCDC& gc,
+    const PaintLine& line,
+    const LaidScrollBlock& block,
+    const int contentLeft,
+    const int lineTop,
+    const int /*contentWidth*/,
+    const wxFont& monoFont,
+    const wxFont& themedFont,
+    const MarkdownPalette& palette
+) {
+    // Same monospace face an expanded one-line block would have used —
+    // the strip then sits at the same visual weight as the code it
+    // replaces.
+    gc.SetFont(block.themed ? themedFont : monoFont);
+
+    // Leading edge sits flush with the block's content edge — same X
+    // an expanded code line would start at — so the summary text
+    // doesn't appear to indent more than the body it replaces.
+    const int innerLeft = contentLeft + block.contentLeft;
+    const int innerRight = contentLeft + block.contentLeft + block.contentWidth;
+    const int available = std::max(0, innerRight - innerLeft);
+
+    // Build the strip as a chain of `(text, colour)` runs. Two width
+    // tiers: a "wide" variant that prepends the resolved language
+    // name (e.g. `FreeBASIC +10 -30`), and a "narrow" fallback that
+    // shows just the counts. The painter picks whichever fits the
+    // strip's content width. The runs are assembled at draw time so
+    // a theme tweak (or a resized bubble) takes effect immediately
+    // without a re-layout.
+    struct Run {
+        wxString text;
+        wxColour colour;
+    };
+    const auto blendMuted = [](const wxColour& a, const wxColour& b) {
+        return wxColour(
+            static_cast<unsigned char>((a.Red() + b.Red()) / 2),
+            static_cast<unsigned char>((a.Green() + b.Green()) / 2),
+            static_cast<unsigned char>((a.Blue() + b.Blue()) / 2)
+        );
+    };
+    const wxColour muted = blendMuted(palette.text, palette.codeBg);
+
+    const auto& summary = block.summary;
+    const bool isPatch = block.kind == LaidScrollBlock::Kind::Patch;
+
+    // Count tokens. For code blocks the SEARCH baseline doesn't exist,
+    // so `-N` is suppressed — `+34` alone reads as "added" without
+    // dragging in a meaningless `-0`.
+    std::vector<Run> counts;
+    counts.push_back({ .text = wxString::Format("+%d", summary.added), .colour = palette.added });
+    if (isPatch) {
+        counts.push_back({ .text = " ", .colour = muted });
+        counts.push_back({ .text = wxString::Format("-%d", summary.removed), .colour = palette.removed });
+    }
+
+    // Wide tier — `<Language> +N -M`. Only built when the host
+    // resolved a display name; otherwise we fall through to the
+    // narrow form rather than echoing the raw fence tag.
+    std::vector<Run> wide;
+    if (!summary.languageDisplay.empty()) {
+        wide.push_back({ .text = summary.languageDisplay + wxString { " " }, .colour = muted });
+        wide.insert(wide.end(), counts.begin(), counts.end());
+    }
+
+    const auto runsWidth = [&gc](const std::vector<Run>& runs) {
+        int total = 0;
+        for (const auto& run : runs) {
+            total += gc.GetTextExtent(run.text).GetWidth();
+        }
+        return total;
+    };
+
+    const std::vector<Run>* chosen = &counts;
+    if (!wide.empty() && runsWidth(wide) <= available) {
+        chosen = &wide;
+    }
+
+    // Vertically centre the runs in the strip; advance the pen left to
+    // right, switching the brush only when the colour actually
+    // changes (the muted space after the green `+N` is the common
+    // case).
+    const wxCoord textHeight = gc.GetTextExtent("Ag").GetHeight();
+    const int textTop = lineTop + ((line.height - textHeight) / 2);
+    int penX = innerLeft;
+    wxColour current;
+    bool currentSet = false;
+    for (const auto& run : *chosen) {
+        if (!currentSet || run.colour != current) {
+            gc.SetTextForeground(run.colour);
+            current = run.colour;
+            currentSet = true;
+        }
+        gc.DrawText(run.text, penX, textTop);
+        penX += gc.GetTextExtent(run.text).GetWidth();
     }
 }

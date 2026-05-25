@@ -38,6 +38,12 @@ public:
     /// differ from the cached state and a re-parse + re-layout was
     /// performed; false when the cached layout was reusable. Callers
     /// use the return value to decide whether to invalidate paint.
+    ///
+    /// `isCollapsed`, when set, is consulted per fenced code / patch
+    /// block to decide whether to lay it out collapsed (a single
+    /// summary strip). The cache key includes only the markdown text
+    /// and width — callers that change collapse state independently of
+    /// the source text must call `invalidate()` to force a re-layout.
     auto setMarkdown(
         const wxString& markdown,
         int contentWidth,
@@ -45,7 +51,9 @@ public:
         const MarkdownPalette& palette,
         const CodeFenceHighlighter& highlightFence,
         const ImageResolver& resolveImage = {},
-        bool wrapCodeBlocks = true
+        bool wrapCodeBlocks = true,
+        const BlockCollapsedQuery& isCollapsed = {},
+        const LanguageDisplayResolver& resolveLanguageDisplay = {}
     ) -> bool;
 
     /// Drop the cached state — `setMarkdown` after `clear` always

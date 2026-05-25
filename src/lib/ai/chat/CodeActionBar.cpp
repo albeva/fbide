@@ -28,14 +28,14 @@ constexpr int kButtonPadding = 2;
 // Opacity of an idle (non-hovered) icon.
 constexpr double kMutedAlpha = 0.4;
 
-// Convert mode enum to void* value
-constexpr auto toVoidPtr(CodeActionBar::Mode mode) -> void* {
-    return reinterpret_cast<void*>(static_cast<std::intptr_t>(mode));
+// Pack a Button bit into the `void* ClientData` slot.
+constexpr auto toVoidPtr(const std::uint8_t bit) -> void* {
+    return reinterpret_cast<void*>(static_cast<std::intptr_t>(bit));
 }
 
-// Convert void* to Mode value
-constexpr auto toMode(void* data) -> CodeActionBar::Mode {
-    return static_cast<CodeActionBar::Mode>(reinterpret_cast<std::intptr_t>(data));
+// Unpack a Button bit from the `void* ClientData` slot.
+constexpr auto toBit(void* data) -> std::uint8_t {
+    return static_cast<std::uint8_t>(reinterpret_cast<std::intptr_t>(data));
 }
 
 /// A dimmed copy of `bitmap` — its alpha scaled by `factor` so an idle icon
@@ -60,15 +60,18 @@ CodeActionBar::CodeActionBar(wxWindow* parent, Context& ctx)
     wxPanel::SetBackgroundStyle(wxBG_STYLE_PAINT);
 
     const auto& art = ctx.getUIManager().getArtProvider();
-    SetSizer(new SmartBoxSizer({ .gap = kButtonPadding, .alignment = SmartBoxSizer::Alignment::Center }, wxHORIZONTAL));
-    addButton(Mode::CodeSample, art.getBitmap(CommandId::Copy), ID_CodeCopy, "Copy code");
-    addButton(Mode::CodeSample, art.getBitmap(CommandId::Paste), ID_CodeInsert, "Insert into editor");
-    addButton(Mode::CodeSample, art.getBitmap(CommandId::QuickRun), ID_CodeRun, "Compile && run");
-    addButton(Mode::PatchProposal, art.getBitmap(CommandId::Accept), ID_PatchApply, "Apply this edit");
-    addButton(Mode::PatchProposal, art.getBitmap(CommandId::Reject), ID_PatchReject, "Reject this edit");
 
-    m_mode = Mode::PatchProposal;
-    setMode(Mode::CodeSample);
+    SetSizer(new SmartBoxSizer({ .gap = kButtonPadding, .alignment = SmartBoxSizer::Alignment::Center }, wxHORIZONTAL));
+    addButton(Copy, art.getBitmap(CommandId::Copy), ID_CodeCopy, "Copy code");
+    addButton(Insert, art.getBitmap(CommandId::Paste), ID_CodeInsert, "Insert into editor");
+    addButton(Run, art.getBitmap(CommandId::QuickRun), ID_CodeRun, "Compile && run");
+    addButton(Apply, art.getBitmap(CommandId::Accept), ID_PatchApply, "Apply this edit");
+    addButton(Reject, art.getBitmap(CommandId::Reject), ID_PatchReject, "Reject this edit");
+    addButton(Collapse, art.getBitmap(CommandId::Collapse), ID_BlockCollapse, "Collapse this block");
+    addButton(Expand, art.getBitmap(CommandId::Expand), ID_BlockExpand, "Expand this block");
+
+    m_buttons = 0xFF;
+    setButtons(0);
 }
 
 void CodeActionBar::onPaint(wxPaintEvent& /*event*/) {
@@ -79,40 +82,39 @@ void CodeActionBar::onPaint(wxPaintEvent& /*event*/) {
     dc.DrawRectangle(r);
 }
 
-void CodeActionBar::setMode(const Mode mode) {
-    if (m_mode == mode) {
+void CodeActionBar::setButtons(const std::uint8_t buttons) {
+    if (m_buttons == buttons) {
         return;
     }
-    m_mode = mode;
-
+    m_buttons = buttons;
     for (const auto* child : GetSizer()->GetChildren()) {
         if (auto* button = wxDynamicCast(child->GetWindow(), wxBitmapButton)) {
-            button->Show(toMode(button->GetClientData()) == m_mode);
+            const std::uint8_t bit = toBit(button->GetClientData());
+            button->Show((bit & m_buttons) != 0);
         }
     }
-
     Layout();
     Fit();
 }
 
 void CodeActionBar::addButton(
-    const Mode mode,
+    const Button button,
     const wxBitmap& icon,
     const int id,
     const wxString& tip
 ) {
     // Idle shows a muted icon; mouse-over / focus / pressed show it full. The
     // button keeps its own id — its wxEVT_BUTTON propagates to the host.
-    const auto button = make_unowned<wxBitmapButton>(
+    const auto bitmapButton = make_unowned<wxBitmapButton>(
         this, id, faded(icon, kMutedAlpha), wxDefaultPosition, wxDefaultSize,
         wxBU_EXACTFIT | wxBORDER_NONE
     );
-    button->SetBitmapCurrent(icon);
-    button->SetBitmapFocus(icon);
-    button->SetBitmapPressed(icon);
-    button->SetToolTip(tip);
-    button->SetClientData(toVoidPtr(mode));
-    GetSizer()->Add(button);
+    bitmapButton->SetBitmapCurrent(icon);
+    bitmapButton->SetBitmapFocus(icon);
+    bitmapButton->SetBitmapPressed(icon);
+    bitmapButton->SetToolTip(tip);
+    bitmapButton->SetClientData(toVoidPtr(static_cast<std::uint8_t>(button)));
+    GetSizer()->Add(bitmapButton);
 }
 
 void CodeActionBar::onLeave(wxMouseEvent& event) {

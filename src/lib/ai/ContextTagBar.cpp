@@ -7,7 +7,6 @@
 #include "ContextTagBar.hpp"
 #include "AiContext.hpp"
 #include "AiManager.hpp"
-#include "app/Context.hpp"
 using namespace fbide;
 using namespace fbide::ai;
 
@@ -22,9 +21,9 @@ constexpr int kChipGap = 4;
 constexpr int kChipPad = 3;
 } // namespace
 
-ContextTagBar::ContextTagBar(wxWindow* parent, Context& ctx)
+ContextTagBar::ContextTagBar(wxWindow* parent, AiManager& manager)
 : wxPanel(parent, wxID_ANY)
-, m_ctx(ctx) {
+, m_manager(manager) {
     SetSizer(make_unowned<wxBoxSizer>(wxHORIZONTAL));
     refresh();
 }
@@ -33,7 +32,7 @@ void ContextTagBar::refresh() {
     wxSizer* sizer = GetSizer();
     sizer->Clear(true); // delete the previous chip windows
 
-    const auto& items = m_ctx.getAiManager().context().items();
+    const auto& items = m_manager.context().items();
     for (std::size_t index = 0; index < items.size(); index++) {
         // One chip: a bordered panel with the file name and a close button.
         auto chip = make_unowned<wxPanel>(
@@ -62,7 +61,7 @@ void ContextTagBar::refresh() {
 }
 
 void ContextTagBar::removeItem(const std::size_t index) {
-    m_ctx.getAiManager().context().removeAt(index);
+    m_manager.context().removeAt(index);
     refresh();
 
     wxCommandEvent event(EVT_CONTEXT_TAGS_CHANGED, GetId());
