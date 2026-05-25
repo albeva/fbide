@@ -13,6 +13,7 @@ class App;
 class CommandManager;
 class CompilerManager;
 class DocumentManager;
+class EditorSearchService;
 class FileHistory;
 class FileSession;
 class HelpManager;
@@ -115,6 +116,11 @@ public:
     /// Const overload of `getHelpManager`.
     [[nodiscard]] auto getHelpManager() const -> const HelpManager& { return *m_helpManager; }
 
+    /// Access the editor-search service (Find / Replace / Goto Line).
+    [[nodiscard]] auto getEditorSearchService() -> EditorSearchService& { return *m_editorSearchService; }
+    /// Const overload of `getEditorSearchService`.
+    [[nodiscard]] auto getEditorSearchService() const -> const EditorSearchService& { return *m_editorSearchService; }
+
 private:
     App& m_app;                                     ///< Owning application.
     std::unique_ptr<ConfigManager> m_configManager; ///< INI store + path resolver.
@@ -127,8 +133,9 @@ private:
     std::unique_ptr<DocumentManager> m_documentManager; ///< Open documents + tabs.
     std::unique_ptr<FileSession> m_fileSession;         ///< Session `.fbs` load/save.
     std::unique_ptr<CompilerManager> m_compilerManager; ///< Compile/run lifecycle.
-    std::unique_ptr<HelpManager> m_helpManager;         ///< Help dispatcher.
-    std::unique_ptr<CommandManager> m_commandManager;   ///< Command table + dispatch (last).
+    std::unique_ptr<HelpManager> m_helpManager;                 ///< Help dispatcher.
+    std::unique_ptr<EditorSearchService> m_editorSearchService; ///< Editor Find / Replace / Goto Line.
+    std::unique_ptr<CommandManager> m_commandManager;           ///< Command table + dispatch (last).
 };
 
 } // namespace fbide

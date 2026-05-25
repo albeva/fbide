@@ -32,6 +32,36 @@ public:
     /// reference and used to reach the active document and the main
     /// frame each time a dialog is needed.
     explicit EditorSearchService(Context& ctx);
+
+    /// Show the Find dialog, pre-filled from the active editor's
+    /// current selection or word-under-cursor.
+    void showFind();
+
+    /// Show the Replace dialog, pre-filled the same way.
+    void showReplace();
+
+    /// Repeat the last find against the active editor. Falls back to
+    /// `showFind()` when no previous search text exists.
+    void findNext();
+
+    /// Prompt the user for a line number / `line:col` / `e`-for-end
+    /// expression and jump to it in the active editor.
+    void gotoLine();
+
+private:
+    /// Shared dialog launcher for Find / Replace.
+    void showFindDialog(bool replace);
+
+    void onFindDialog(wxFindDialogEvent& event);
+    void onFindDialogNext(wxFindDialogEvent& event);
+    void onReplaceDialog(wxFindDialogEvent& event);
+    void onReplaceAllDialog(wxFindDialogEvent& event);
+    void onFindDialogClose(wxFindDialogEvent& event);
+
+    Context& m_ctx;
+    wxFindReplaceData m_findData { wxFR_DOWN };
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide
