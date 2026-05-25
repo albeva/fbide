@@ -129,12 +129,10 @@ private:
     /// predicate at every gating call site.
     [[nodiscard]] auto toolsEnabled() const -> bool;
 
-    /// Per-tool gating predicate. read_file is always exposed; future
-    /// gates land here as Phase 3 (apply_patch ↔ agent mode) and
-    /// Phase 5 (compile ↔ agent + allow_compile). Static for now
-    /// because no toggles are consulted yet; becomes a member when
-    /// `m_agentMode` or `m_allowCompile` enter the predicate.
-    [[nodiscard]] static auto isToolExposed(const wxString& toolName) -> bool;
+    /// Per-tool gating predicate. read_file is always exposed;
+    /// apply_patch needs agent mode on; compile needs agent mode +
+    /// allow-compile (Phase 5). Anything else is denied by default.
+    [[nodiscard]] auto isToolExposed(const wxString& toolName) const -> bool;
 
     Context& m_ctx;                                   ///< Application context.
     std::unique_ptr<AiProvider> m_provider;           ///< Active backend (null until configured).

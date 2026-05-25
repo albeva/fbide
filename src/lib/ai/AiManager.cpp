@@ -12,6 +12,7 @@
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "editor/Editor.hpp"
+#include "tools/ApplyPatchTool.hpp"
 #include "tools/ReadFileTool.hpp"
 using namespace fbide;
 using namespace fbide::ai;
@@ -19,9 +20,15 @@ using namespace fbide::ai;
 AiManager::AiManager(Context& ctx)
 : m_ctx(ctx) {
     // read_file is always registered — it is read-only and bounded.
-    // apply_patch and compile land in Phase 3 and Phase 5 respectively,
-    // each gated by a runtime toggle (agent mode / allow-compile).
+    // apply_patch is gated at request-build time on agent mode (it
+    // edits the pinned target). compile lands in Phase 5 with its own
+    // gate (agent mode + allow-compile toggle).
     m_tools.add(std::make_unique<ReadFileTool>(ctx.getDocumentManager()));
+    m_tools.add(std::make_unique<ApplyPatchTool>(ApplyPatchTool::Hooks {
+        .isAgentMode = [this] { return m_agentMode; },
+        .hasEditTarget = [this] { return m_context.editTarget() != nullptr; },
+        .applyPatch = [this](const wxString& search, const wxString& replace) { return applyPatch(search, replace, /*recordAlways=*/true); },
+    }));
 
     // AI config in the preferences uses a named-config layout:
     //
@@ -80,11 +87,19 @@ auto AiManager::toolsEnabled() const -> bool {
     return m_enableTools && m_provider != nullptr && m_provider->supportsTools();
 }
 
-auto AiManager::isToolExposed(const wxString& toolName) -> bool {
-    // Per-tool gating. read_file is always available; apply_patch and
-    // compile gate on toggles that land in later phases. Anything
-    // else (future tools) is denied by default — fail-safe.
-    return toolName == "read_file";
+auto AiManager::isToolExposed(const wxString& toolName) const -> bool {
+    // Per-tool gating. read_file is always available; apply_patch
+    // gates on agent mode (the tool itself enforces edit-target
+    // pinned at invoke time, since the model may try it speculatively).
+    // compile lands in Phase 5 with its own toggle. Anything else
+    // (future tools) is denied by default — fail-safe.
+    if (toolName == ReadFileTool::kName) {
+        return true;
+    }
+    if (toolName == ApplyPatchTool::kName) {
+        return m_agentMode;
+    }
+    return false;
 }
 
 auto AiManager::buildRequest() const -> AiRequest {
@@ -108,28 +123,45 @@ auto AiManager::buildRequest() const -> AiRequest {
         request.system.push_back({ .text = m_systemPrompt, .cacheable = true });
     }
     if (m_agentMode && m_context.editTarget() != nullptr) {
-        request.system.push_back({
-            .text = "Agent mode is on. When the user asks for changes to the edit "
-                    "target file, reply with one or more SEARCH/REPLACE blocks "
-                    "instead of describing the change. Each block looks like this, "
-                    "with markers on their own lines:\n\n"
-                    "<<<<<<< SEARCH\n"
-                    "<exact text from the edit target to find>\n"
-                    "=======\n"
-                    "<text to replace it with>\n"
-                    ">>>>>>> REPLACE\n\n"
-                    "Rules:\n"
-                    "- The SEARCH text must match the edit target byte-for-byte, "
-                    "including indentation and trailing whitespace.\n"
-                    "- Keep each block as small as is needed for an unambiguous "
-                    "match; do not include unchanged context above or below.\n"
-                    "- Multiple independent edits in the same reply each get their "
-                    "own block. Emit them in source order.\n"
-                    "- Prose around the blocks is fine, but the edits themselves "
-                    "must appear in this exact format — not as fenced code or a "
-                    "diff.",
-            .cacheable = true,
-        });
+        // When the active provider supports tools, the model uses the
+        // apply_patch tool instead of emitting SEARCH/REPLACE blocks
+        // in prose — drop the rubric so the model isn't told to do
+        // both. Non-tool providers still get the rubric since the
+        // stream-parsed path is the only way they can propose edits.
+        if (toolsEnabled()) {
+            request.system.push_back({
+                .text = "Agent mode is on. When the user asks for changes to the "
+                        "edit target file, call the `apply_patch` tool with a "
+                        "SEARCH/REPLACE pair instead of describing the change. "
+                        "The search text must match the edit target byte-for-byte, "
+                        "including indentation. Keep each patch as small as is "
+                        "needed for an unambiguous match.",
+                .cacheable = true,
+            });
+        } else {
+            request.system.push_back({
+                .text = "Agent mode is on. When the user asks for changes to the edit "
+                        "target file, reply with one or more SEARCH/REPLACE blocks "
+                        "instead of describing the change. Each block looks like this, "
+                        "with markers on their own lines:\n\n"
+                        "<<<<<<< SEARCH\n"
+                        "<exact text from the edit target to find>\n"
+                        "=======\n"
+                        "<text to replace it with>\n"
+                        ">>>>>>> REPLACE\n\n"
+                        "Rules:\n"
+                        "- The SEARCH text must match the edit target byte-for-byte, "
+                        "including indentation and trailing whitespace.\n"
+                        "- Keep each block as small as is needed for an unambiguous "
+                        "match; do not include unchanged context above or below.\n"
+                        "- Multiple independent edits in the same reply each get their "
+                        "own block. Emit them in source order.\n"
+                        "- Prose around the blocks is fine, but the edits themselves "
+                        "must appear in this exact format — not as fenced code or a "
+                        "diff.",
+                .cacheable = true,
+            });
+        }
     }
     for (auto& block : m_context.buildBlocks()) {
         request.system.push_back(std::move(block));
