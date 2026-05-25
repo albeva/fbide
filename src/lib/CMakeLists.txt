@@ -29,6 +29,7 @@ target_sources(fbide_lib
     document/Document.cpp
     document/DocumentIO.cpp
     document/DocumentManager.cpp
+    document/DocumentNotebook.cpp
     document/DocumentPath.cpp
     document/DocumentType.cpp
     document/EncodingDetector.cpp
@@ -100,6 +101,7 @@ target_sources(fbide_lib
     config/Version.hpp
     document/Document.hpp
     document/DocumentManager.hpp
+    document/DocumentNotebook.hpp
     document/DocumentPath.hpp
     document/DocumentType.hpp
     document/EncodingDetector.hpp
