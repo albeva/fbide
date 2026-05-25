@@ -78,7 +78,13 @@ public:
     [[nodiscard]] auto getMainFrame() -> wxFrame* { return m_frame; }
 
     /// Get the document notebook.
-    [[nodiscard]] auto getNotebook() -> wxAuiNotebook* { return m_notebook; }
+    ///
+    /// Transitional forwarder — the document notebook is now owned by
+    /// `DocumentManager` (see `DocumentNotebook`). Existing callers
+    /// reach for `UIManager::getNotebook()`; they'll be migrated to
+    /// `getDocumentManager().notebook()` in a follow-up step, after
+    /// which this accessor is removed.
+    [[nodiscard]] auto getNotebook() -> wxAuiNotebook*;
 
     /// Set the document-level UI state (None, FocusedUnknownFile, FocusedValidSourceFile).
     /// Compiler state takes precedence when active.
@@ -117,12 +123,6 @@ private:
 
     /// Frame close — defers to `DocumentManager::prepareToQuit`.
     void onClose(wxCloseEvent& event);
-    /// Notebook page close — route to `DocumentManager::closeFile`.
-    void onPageClose(wxAuiNotebookEvent& event);
-    /// Notebook page changed — refresh active document state.
-    void onPageChanged(wxAuiNotebookEvent& event);
-    /// Notebook double-click — open file dialog when clicking blank tab area.
-    void onNotebookDblClick(wxAuiNotebookEvent& event);
     /// Status-bar click — open EOL/encoding pickers on the relevant fields.
     void onStatusBarClick(wxMouseEvent& event);
 
@@ -169,7 +169,6 @@ private:
     Unowned<OutputConsole> m_console;             ///< Build/run output pane.
     Unowned<wxFrame> m_frame;                     ///< Top-level frame.
     Unowned<wxAuiToolBar> m_auiToolbar;           ///< AUI-managed toolbar pane.
-    Unowned<wxAuiNotebook> m_notebook;            ///< Document tabs.
     Unowned<wxAuiNotebook> m_sideBar;             ///< Sidebar (Browser/Subs) notebook.
     std::vector<wxMenuItem*> m_externalLinkItems; ///< Live menu items in the dynamic external-links submenu.
 
