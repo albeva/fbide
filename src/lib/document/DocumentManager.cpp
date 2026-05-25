@@ -684,15 +684,14 @@ void DocumentManager::updateActiveTabTitle() const {
 }
 
 void DocumentManager::refreshTitleFor(const Document& doc) const {
-    // Tab text + frame title in lockstep. Mirrors the historical
-    // `updateTabTitle(doc)` behaviour: any time a document's metadata
-    // changes (save / save-as / reload / encoding flip) both surfaces
-    // are refreshed regardless of whether `doc` happens to be the
-    // active tab. The frame-title side has the historical quirk of
-    // tracking whichever doc was most recently passed in; preserved
-    // intentionally to keep this step a pure refactor.
+    // Tab text always reflects the doc; frame title only when the doc
+    // is the focused tab. Without the active-only guard, saveAllFiles
+    // walks the whole modified set and leaves the frame title pointing
+    // at whichever doc was saved last rather than the visible one.
     m_notebook->updateTitle(doc);
-    m_ctx.getUIManager().setTitle(doc.isNew() ? doc.getTitle() : toWxString(doc.getFilePath()));
+    if (&doc == getActive()) {
+        m_ctx.getUIManager().setTitle(doc.getFrameTitle());
+    }
 }
 
 // ---------------------------------------------------------------------------
