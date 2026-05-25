@@ -157,9 +157,6 @@ public:
     /// Find document by its editor widget.
     [[nodiscard]] auto findByEditor(const wxWindow* editor) const -> Document*;
 
-    /// Find document by its notebook page (the container panel).
-    [[nodiscard]] auto findByPage(const wxWindow* page) const -> Document*;
-
     /// Show or hide the minimap on every open document.
     void setMinimapVisible(bool visible);
 
@@ -185,14 +182,11 @@ private:
     /// Config-derived default EOL mode used for freshly opened files.
     [[nodiscard]] auto defaultEolMode() const -> EolMode;
 
-    /// Find notebook page index for a document.
-    [[nodiscard]] auto findPageIndex(const Document& doc) const -> int;
-
-    /// Update notebook tab title for a document.
-    void updateTabTitle(const Document& doc) const;
-
-    /// Get the notebook from UIManager.
-    [[nodiscard]] auto getNotebook() const -> wxAuiNotebook*;
+    /// Refresh the tab text + frame title for `doc`. Combined helper
+    /// because the historical `updateTabTitle` did both; preserved as
+    /// one entry point so callers don't have to re-derive the title
+    /// derivation rule.
+    void refreshTitleFor(const Document& doc) const;
 
     /// Open find or replace dialog.
     void showFindDialog(bool replace);
@@ -211,9 +205,6 @@ private:
     void onReplaceAllDialog(wxFindDialogEvent& event);
     /// Find/replace dialog closing — clear the modal pointer.
     void onFindDialogClose(wxFindDialogEvent& event);
-
-    /// Tab-strip context menu — show actions for the right-clicked tab.
-    void onTabRightDown(wxAuiNotebookEvent& event);
 
     /// Intellisense result delivery (worker thread → UI thread).
     void onIntellisenseResult(wxThreadEvent& event);
