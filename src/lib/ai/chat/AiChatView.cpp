@@ -18,6 +18,7 @@
 #include "editor/Editor.hpp"
 #include "markdown/Markdown.hpp"
 #include "markdown/MarkdownLayout.hpp"
+#include "ui/UIManager.hpp"
 using namespace fbide;
 using namespace fbide::ai;
 using namespace fbide::markdown;
@@ -810,11 +811,11 @@ void AiChatView::showActionBar(const int messageIndex, const int blockIndex, con
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
     const int codeRightDoc = item.bubble.x + kBubblePad + item.contentWidth;
     const int codeTopDoc = item.bubble.y + kBubblePad + block.y;
-    const auto position = ActionBarPlacement::computePosition(
+    const auto [x, y] = ActionBarPlacement::computePosition(
         codeRightDoc, codeTopDoc, originY, GetPosition().y, m_actionBar->GetSize()
     );
 
-    m_actionBar->Move(position.x, position.y);
+    m_actionBar->Move(x, y);
     if (!m_actionBar->IsShown()) {
         m_actionBar->Show();
     }
@@ -893,6 +894,8 @@ auto AiChatView::buttonsFor(const std::size_t mi, const std::size_t bi) const ->
 }
 
 void AiChatView::onScroll(wxScrollWinEvent& event) {
+    const FreezeLock thaw { this };
+
     event.Skip(); // let wxScrolled perform the actual scroll first
     if (m_barPlacement.active()) {
         // Reposition the action bar inline — the block's top edge may

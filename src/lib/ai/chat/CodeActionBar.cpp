@@ -58,6 +58,10 @@ CodeActionBar::CodeActionBar(wxWindow* parent, Context& ctx)
 : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE) {
     wxPanel::SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
     wxPanel::SetBackgroundStyle(wxBG_STYLE_PAINT);
+    // Parent view sets an I-beam cursor over message bubbles. On MSW the
+    // child panel inherits that cursor unless it sets its own — force an
+    // arrow here so hovering the bar / its buttons doesn't show I-beam.
+    wxPanel::SetCursor(wxCursor(wxCURSOR_ARROW));
 
     const auto& art = ctx.getUIManager().getArtProvider();
 

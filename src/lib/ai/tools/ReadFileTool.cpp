@@ -42,7 +42,7 @@ auto isUnder(const std::filesystem::path& child, const std::filesystem::path& ro
     if (childStr == rootStr) {
         return true;
     }
-    return childStr.starts_with(rootStr + std::filesystem::path::preferred_separator);
+    return childStr.starts_with(rootStr + static_cast<char>(std::filesystem::path::preferred_separator));
 }
 
 /// True when `path` contains a `..` segment that would walk above its
