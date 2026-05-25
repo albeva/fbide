@@ -47,7 +47,12 @@ inline constexpr int kDefaultMaxTokens = 1024;
 /// its own wire format.
 struct AiRequest {
     wxString model;                    ///< Model identifier.
-    wxString system;                   ///< Optional system prompt.
+    std::vector<AiContent> system;     ///< Optional system prompt, one block per
+                                       ///< section. Providers that support prompt
+                                       ///< caching emit a cache breakpoint after
+                                       ///< each cacheable block; the rest fold
+                                       ///< the vector back to a string via
+                                       ///< `joinSystem`.
     std::vector<AiMessage> messages;   ///< Conversation, oldest first.
     int maxTokens = kDefaultMaxTokens; ///< Reply length cap.
 };

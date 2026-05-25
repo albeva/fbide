@@ -4,11 +4,13 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
+#include <nlohmann/json.hpp>
 #include <gtest/gtest.h>
 #include "ai/AiTypes.hpp"
 #include "ai/provider/AnthropicProvider.hpp"
 using namespace fbide;
 using namespace fbide::ai;
+using json = nlohmann::json;
 
 namespace {
 
@@ -105,4 +107,109 @@ TEST(AnthropicProvider, ParseErrorFallsBackToDefaultWhenMessageMissing) {
     CapturingSink sink;
     AnthropicProvider::parseStreamLine(R"(data: {"type":"error","error":"oops"})", sink);
     EXPECT_EQ("Unknown API error.", sink.error);
+}
+
+// ---------------------------------------------------------------------------
+// buildBody — system serialisation + prompt caching
+// ---------------------------------------------------------------------------
+
+TEST(AnthropicProvider, AdvertisesPromptCachingSupport) {
+    const AnthropicProvider provider("k");
+    EXPECT_TRUE(provider.supportsPromptCaching());
+}
+
+TEST(AnthropicProviderBuildBody, OmitsSystemWhenAllBlocksEmpty) {
+    const AnthropicProvider provider("k");
+    AiRequest request {
+        .model = "claude-sonnet-4-6",
+        .system = {},
+        .messages = { { .role = AiRole::User, .content = "hi" } },
+    };
+    const auto body = json::parse(AnthropicProvider::serializeBody(request));
+    EXPECT_FALSE(body.contains("system"));
+}
+
+TEST(AnthropicProviderBuildBody, EmitsStringFormWhenNoBlocksAreCacheable) {
+    const AnthropicProvider provider("k");
+    AiRequest request {
+        .model = "claude-sonnet-4-6",
+        .system = {
+            { .text = "alpha", .cacheable = false },
+            { .text = "beta", .cacheable = false },
+        },
+        .messages = { { .role = AiRole::User, .content = "hi" } },
+    };
+    const auto body = json::parse(AnthropicProvider::serializeBody(request));
+    ASSERT_TRUE(body["system"].is_string());
+    EXPECT_EQ("alpha\n\nbeta", body["system"].get<std::string>());
+}
+
+TEST(AnthropicProviderBuildBody, EmitsArrayFormWithCacheControlWhenAnyBlockIsCacheable) {
+    const AnthropicProvider provider("k");
+    AiRequest request {
+        .model = "claude-sonnet-4-6",
+        .system = {
+            { .text = "base prompt", .cacheable = true },
+            { .text = "buffer snapshot", .cacheable = false },
+        },
+        .messages = { { .role = AiRole::User, .content = "hi" } },
+    };
+    const auto body = json::parse(AnthropicProvider::serializeBody(request));
+    ASSERT_TRUE(body["system"].is_array());
+    ASSERT_EQ(2U, body["system"].size());
+
+    EXPECT_EQ("text", body["system"][0]["type"].get<std::string>());
+    EXPECT_EQ("base prompt", body["system"][0]["text"].get<std::string>());
+    ASSERT_TRUE(body["system"][0].contains("cache_control"));
+    EXPECT_EQ("ephemeral", body["system"][0]["cache_control"]["type"].get<std::string>());
+
+    EXPECT_EQ("buffer snapshot", body["system"][1]["text"].get<std::string>());
+    EXPECT_FALSE(body["system"][1].contains("cache_control"));
+}
+
+TEST(AnthropicProviderBuildBody, SkipsEmptyBlocksInArrayForm) {
+    const AnthropicProvider provider("k");
+    AiRequest request {
+        .model = "claude-sonnet-4-6",
+        .system = {
+            { .text = "first", .cacheable = true },
+            { .text = "", .cacheable = true },
+            { .text = "third", .cacheable = false },
+        },
+        .messages = { { .role = AiRole::User, .content = "hi" } },
+    };
+    const auto body = json::parse(AnthropicProvider::serializeBody(request));
+    ASSERT_TRUE(body["system"].is_array());
+    ASSERT_EQ(2U, body["system"].size());
+    EXPECT_EQ("first", body["system"][0]["text"].get<std::string>());
+    EXPECT_EQ("third", body["system"][1]["text"].get<std::string>());
+}
+
+TEST(AnthropicProviderBuildBody, CapsCacheControlMarkersAtFour) {
+    const AnthropicProvider provider("k");
+    AiRequest request {
+        .model = "claude-sonnet-4-6",
+        .system = {
+            { .text = "one", .cacheable = true },
+            { .text = "two", .cacheable = true },
+            { .text = "three", .cacheable = true },
+            { .text = "four", .cacheable = true },
+            { .text = "five", .cacheable = true },
+        },
+        .messages = { { .role = AiRole::User, .content = "hi" } },
+    };
+    const auto body = json::parse(AnthropicProvider::serializeBody(request));
+    ASSERT_TRUE(body["system"].is_array());
+    ASSERT_EQ(5U, body["system"].size());
+    int markers = 0;
+    for (const auto& entry : body["system"]) {
+        if (entry.contains("cache_control")) {
+            ++markers;
+        }
+    }
+    EXPECT_EQ(AnthropicProvider::kMaxCacheBreakpoints, markers);
+    // First four get markers; the fifth does not.
+    EXPECT_TRUE(body["system"][0].contains("cache_control"));
+    EXPECT_TRUE(body["system"][3].contains("cache_control"));
+    EXPECT_FALSE(body["system"][4].contains("cache_control"));
 }

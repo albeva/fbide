@@ -65,12 +65,11 @@ private:
     std::filesystem::path m_path;
 };
 
-/// Extract the body text appended by a context item — strips the
+/// Extract the body text emitted by a context item — strips the
 /// `--- File: ... ---` header and the surrounding newlines so tests
 /// can assert against the content alone.
-auto appendedBody(const AiContextItem& item) -> wxString {
-    wxString out;
-    item.appendTo(out);
+auto itemBody(const AiContextItem& item) -> wxString {
+    const auto& out = item.toBlock().text;
     // The header line is `\n--- ... ---\n`, body follows, then a `\n`.
     const auto firstNl = out.find('\n', 1); // skip the leading \n
     if (firstNl == wxString::npos) {
@@ -201,7 +200,7 @@ TEST(AiContextRemoveAt, RemovingTheLastItemLeavesItEmpty) {
 TEST(FileContextItemCache, FirstCallReadsTheFile) {
     const TempFile file("hello world");
     const FileContextItem item(file.path());
-    EXPECT_EQ("hello world", appendedBody(item));
+    EXPECT_EQ("hello world", itemBody(item));
 }
 
 TEST(FileContextItemCache, CacheHitReturnsStaleContentWhenMtimeUnchanged) {
@@ -210,14 +209,14 @@ TEST(FileContextItemCache, CacheHitReturnsStaleContentWhenMtimeUnchanged) {
     // changed since the last read".
     const TempFile file("first");
     const FileContextItem item(file.path());
-    ASSERT_EQ("first", appendedBody(item));
+    ASSERT_EQ("first", itemBody(item));
 
     const auto pinned = file.mtime();
     file.write("second");
     file.setMtime(pinned);
 
     // Cache hit — same mtime, returns the cached "first".
-    EXPECT_EQ("first", appendedBody(item));
+    EXPECT_EQ("first", itemBody(item));
 }
 
 TEST(FileContextItemCache, MtimeChangeForcesReread) {
@@ -229,12 +228,12 @@ TEST(FileContextItemCache, MtimeChangeForcesReread) {
 
     const TempFile file("first");
     const FileContextItem item(file.path());
-    ASSERT_EQ("first", appendedBody(item));
+    ASSERT_EQ("first", itemBody(item));
 
     file.write("second");
     file.setMtime(file.mtime() + kMtimeBumpForward);
 
-    EXPECT_EQ("second", appendedBody(item));
+    EXPECT_EQ("second", itemBody(item));
 }
 
 TEST(FileContextItemCache, MtimeMovingBackwardsForcesReread) {
@@ -245,17 +244,17 @@ TEST(FileContextItemCache, MtimeMovingBackwardsForcesReread) {
 
     const TempFile file("first");
     const FileContextItem item(file.path());
-    ASSERT_EQ("first", appendedBody(item));
+    ASSERT_EQ("first", itemBody(item));
 
     file.write("second");
     file.setMtime(file.mtime() - kMtimeBumpBackward);
 
-    EXPECT_EQ("second", appendedBody(item));
+    EXPECT_EQ("second", itemBody(item));
 }
 
 TEST(FileContextItemCache, MissingFileFallsBackToPlaceholder) {
     const FileContextItem item("/path/does/not/exist.txt");
-    EXPECT_EQ("<could not read file>", appendedBody(item));
+    EXPECT_EQ("<could not read file>", itemBody(item));
 }
 
 TEST(FileContextItemCache, DeletedFileAfterFirstReadFallsBackOnSecondCall) {
@@ -263,9 +262,64 @@ TEST(FileContextItemCache, DeletedFileAfterFirstReadFallsBackOnSecondCall) {
     // the second call evicts the cache and returns the placeholder.
     auto file = std::make_unique<TempFile>("initial");
     const FileContextItem item(file->path());
-    ASSERT_EQ("initial", appendedBody(item));
+    ASSERT_EQ("initial", itemBody(item));
 
     file.reset(); // remove the file
 
-    EXPECT_EQ("<could not read file>", appendedBody(item));
+    EXPECT_EQ("<could not read file>", itemBody(item));
+}
+
+// ---------------------------------------------------------------------------
+// toBlock() cacheable flag — drives prompt caching on supported providers
+// ---------------------------------------------------------------------------
+
+TEST(ContextBlockCacheable, FileItemIsCacheable) {
+    const TempFile file("content");
+    const FileContextItem item(file.path());
+    EXPECT_TRUE(item.toBlock().cacheable);
+}
+
+TEST(ContextBlockCacheable, EditTargetItemIsCacheable) {
+    const TempFile file("content");
+    const EditTargetItem item(file.path());
+    EXPECT_TRUE(item.toBlock().cacheable);
+}
+
+TEST(ContextBlockCacheable, BufferItemIsNotCacheable) {
+    const BufferContextItem item("tab.bas", "DIM x AS INTEGER");
+    EXPECT_FALSE(item.toBlock().cacheable);
+}
+
+// ---------------------------------------------------------------------------
+// AiContext::buildBlocks — one block per item, in insertion order
+// ---------------------------------------------------------------------------
+
+TEST(AiContextBuildBlocks, EmptyContextYieldsNoBlocks) {
+    const AiContext context;
+    EXPECT_TRUE(context.buildBlocks().empty());
+}
+
+TEST(AiContextBuildBlocks, EmitsOneBlockPerItemInInsertionOrder) {
+    AiContext context;
+    context.add(std::make_unique<BufferContextItem>("one.bas", "alpha"));
+    context.add(std::make_unique<BufferContextItem>("two.bas", "beta"));
+
+    const auto blocks = context.buildBlocks();
+    ASSERT_EQ(2U, blocks.size());
+    EXPECT_NE(wxString::npos, blocks.at(0).text.find("one.bas"));
+    EXPECT_NE(wxString::npos, blocks.at(0).text.find("alpha"));
+    EXPECT_NE(wxString::npos, blocks.at(1).text.find("two.bas"));
+    EXPECT_NE(wxString::npos, blocks.at(1).text.find("beta"));
+}
+
+TEST(AiContextBuildBlocks, PreservesPerItemCacheableFlag) {
+    AiContext context;
+    const TempFile file("disk-content");
+    context.add(std::make_unique<FileContextItem>(file.path()));
+    context.add(std::make_unique<BufferContextItem>("tab.bas", "live-edit"));
+
+    const auto blocks = context.buildBlocks();
+    ASSERT_EQ(2U, blocks.size());
+    EXPECT_TRUE(blocks.at(0).cacheable);  // file
+    EXPECT_FALSE(blocks.at(1).cacheable); // buffer
 }

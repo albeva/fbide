@@ -106,9 +106,9 @@ auto GeminiProvider::buildBody(const AiRequest& request) const -> std::string {
         });
     }
     body["contents"] = std::move(contents);
-    if (!request.system.empty()) {
+    if (const auto system = joinSystem(request.system); !system.empty()) {
         body["systemInstruction"] = {
-            { "parts", json::array({ json { { "text", request.system.utf8_string() } } }) },
+            { "parts", json::array({ json { { "text", system.utf8_string() } } }) },
         };
     }
     return body.dump();

@@ -92,13 +92,43 @@ void AnthropicProvider::applyHeaders(wxWebRequest& request) const {
     request.SetHeader("anthropic-version", kAnthropicVersion);
 }
 
-auto AnthropicProvider::buildBody(const AiRequest& request) const -> std::string {
+auto AnthropicProvider::serializeBody(const AiRequest& request) -> std::string {
     json body;
     body["model"] = request.model.utf8_string();
     body["max_tokens"] = request.maxTokens;
     body["stream"] = true;
-    if (!request.system.empty()) {
-        body["system"] = request.system.utf8_string();
+    // If any block is cacheable, emit the array form with cache_control
+    // breakpoints (up to `kMaxCacheBreakpoints`) on the first cacheable
+    // blocks. Otherwise collapse to the simple string form — keeps the
+    // wire identical to the pre-caching path for short prompts.
+    auto hasCacheable = std::ranges::any_of(request.system, [](const AiContent& block) {
+        return block.cacheable && !block.text.empty();
+    });
+    if (hasCacheable) {
+        auto systemArray = json::array();
+        int budget = kMaxCacheBreakpoints;
+        for (const auto& block : request.system) {
+            if (block.text.empty()) {
+                continue;
+            }
+            json entry {
+                { "type", "text" },
+                { "text", block.text.utf8_string() },
+            };
+            if (block.cacheable && budget > 0) {
+                entry["cache_control"] = { { "type", "ephemeral" } };
+                budget--;
+            }
+            systemArray.push_back(std::move(entry));
+        }
+        if (!systemArray.empty()) {
+            body["system"] = std::move(systemArray);
+        }
+    } else {
+        const auto joined = joinSystem(request.system);
+        if (!joined.empty()) {
+            body["system"] = joined.utf8_string();
+        }
     }
     auto messages = json::array();
     for (const auto& msg : request.messages) {
@@ -109,6 +139,10 @@ auto AnthropicProvider::buildBody(const AiRequest& request) const -> std::string
     }
     body["messages"] = std::move(messages);
     return body.dump();
+}
+
+auto AnthropicProvider::buildBody(const AiRequest& request) const -> std::string {
+    return serializeBody(request);
 }
 
 void AnthropicProvider::parseLine(const std::string_view line, StreamLineConsumer& sink) const {

@@ -47,8 +47,8 @@ void ClaudeCliProvider::send(const AiRequest& request, ChunkHandler onChunk, Res
     if (!m_sessionId.empty()) {
         command += " --resume " + quoteArg(m_sessionId);
     }
-    if (!request.system.empty()) {
-        command += " --append-system-prompt " + quoteArg(request.system);
+    if (const auto system = joinSystem(request.system); !system.empty()) {
+        command += " --append-system-prompt " + quoteArg(system);
     }
 
     // Reset the per-request state collected from the stream events.
@@ -65,7 +65,7 @@ void ClaudeCliProvider::send(const AiRequest& request, ChunkHandler onChunk, Res
 
     AsyncProcess::exec(
         command, {}, /*redirect=*/true,
-        [this](ProcessResult result) {
+        [this](const ProcessResult& result) {
             m_busy = false;
             auto onDone = std::exchange(m_onComplete, nullptr);
             const auto response = buildResponse(result);

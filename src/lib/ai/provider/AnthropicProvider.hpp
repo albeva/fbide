@@ -36,6 +36,22 @@ public:
     /// dispatch can be exercised without spinning up a real request.
     static void parseStreamLine(std::string_view line, StreamLineConsumer& sink);
 
+    /// Anthropic Messages API supports prompt caching with cache_control
+    /// breakpoints on system content blocks.
+    [[nodiscard]] auto supportsPromptCaching() const -> bool override { return true; }
+
+    /// Maximum number of cache_control breakpoints Anthropic accepts in
+    /// one request — currently 4 across system + messages.
+    static constexpr int kMaxCacheBreakpoints = 4;
+
+    /// Static helper that serialises `request` into the JSON body string
+    /// the API expects. The protected `buildBody` override delegates
+    /// here; exposing the static lets tests assert the wire shape
+    /// (system as string vs array, cache_control placement) without
+    /// constructing an `AnthropicProvider` instance or spinning up a
+    /// real request.
+    [[nodiscard]] static auto serializeBody(const AiRequest& request) -> std::string;
+
 protected:
     [[nodiscard]] auto buildUrl(const AiRequest& request) const -> wxString override;
     void applyHeaders(wxWebRequest& request) const override;

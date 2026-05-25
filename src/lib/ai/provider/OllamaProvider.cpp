@@ -86,10 +86,10 @@ auto OllamaProvider::buildBody(const AiRequest& request) const -> std::string {
     body["model"] = request.model.utf8_string();
     body["stream"] = true;
     auto messages = json::array();
-    if (!request.system.empty()) {
+    if (const auto system = joinSystem(request.system); !system.empty()) {
         messages.push_back({
             { "role", "system" },
-            { "content", request.system.utf8_string() },
+            { "content", system.utf8_string() },
         });
     }
     for (const auto& msg : request.messages) {

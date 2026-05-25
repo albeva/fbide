@@ -72,20 +72,21 @@ void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChu
     request.messages = m_history;
 
     // System prompt = the configured prompt (if any), the agent-mode
-    // instructions (when on), and the attached files. Built fresh on
-    // every send so the model always sees current file content and
-    // current mode. Empty when none of the three are set.
+    // instructions (when on), and the attached context items. Built
+    // fresh on every send so the model always sees current file content
+    // and current mode. Empty when none of the three are set.
     //
-    // Built as a vector of structured blocks so Phase 1 can hand the
-    // vector to providers that support prompt caching; here in Phase 0
-    // the vector is immediately flattened back into the wxString
-    // `request.system` to keep the wire format unchanged.
-    std::vector<AiContent> systemBlocks;
+    // The base prompt and agent rubric are marked cacheable — they
+    // change rarely between turns. Attached items carry their own
+    // cacheable flag (true for on-disk files, false for buffer
+    // snapshots). Providers that support prompt caching attach a
+    // cache_control breakpoint per cacheable block; others fold the
+    // vector back to a string via `joinSystem`.
     if (!m_systemPrompt.empty()) {
-        systemBlocks.push_back({ .text = m_systemPrompt, .cacheable = false });
+        request.system.push_back({ .text = m_systemPrompt, .cacheable = true });
     }
     if (m_agentMode && m_context.editTarget() != nullptr) {
-        systemBlocks.push_back({
+        request.system.push_back({
             .text = "Agent mode is on. When the user asks for changes to the edit "
                     "target file, reply with one or more SEARCH/REPLACE blocks "
                     "instead of describing the change. Each block looks like this, "
@@ -105,16 +106,12 @@ void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChu
                     "- Prose around the blocks is fine, but the edits themselves "
                     "must appear in this exact format — not as fenced code or a "
                     "diff.",
-            .cacheable = false,
+            .cacheable = true,
         });
     }
-    if (!m_context.empty()) {
-        systemBlocks.push_back({
-            .text = wxString { "The user has attached the following files as context:\n" } + m_context.buildText(),
-            .cacheable = false,
-        });
+    for (auto& block : m_context.buildBlocks()) {
+        request.system.push_back(std::move(block));
     }
-    request.system = joinSystem(systemBlocks);
 
     // Park the caller's handlers + the accumulator on the manager so
     // the lambdas below capture only `this`. A multi-capture lambda

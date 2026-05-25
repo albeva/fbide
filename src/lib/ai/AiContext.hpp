@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "AiTypes.hpp"
 
 namespace fbide::ai {
 
@@ -22,9 +23,13 @@ public:
     AiContextItem() = default;
     virtual ~AiContextItem() = default;
 
-    /// Append this item's context text to `out`. Content is gathered
-    /// fresh at call time (snapshot when the message is sent).
-    virtual void appendTo(wxString& out) const = 0;
+    /// Render this item as one `AiContent` block. Content is gathered
+    /// fresh at call time (snapshot when the message is sent). The
+    /// `cacheable` flag is true for on-disk content (files, edit
+    /// targets) and false for buffer snapshots that mutate per
+    /// keystroke — providers that support prompt caching use the
+    /// flag to attach a cache breakpoint.
+    [[nodiscard]] virtual auto toBlock() const -> AiContent = 0;
 
     /// Short label for the context list in the UI.
     [[nodiscard]] virtual auto label() const -> wxString = 0;
@@ -41,7 +46,7 @@ public:
     /// etc.) convert at their own boundary via `toPath()`.
     explicit FileContextItem(std::filesystem::path path);
 
-    void appendTo(wxString& out) const override;
+    [[nodiscard]] auto toBlock() const -> AiContent override;
     [[nodiscard]] auto label() const -> wxString override;
 
 private:
@@ -66,7 +71,7 @@ class EditTargetItem final : public AiContextItem {
 public:
     explicit EditTargetItem(std::filesystem::path path);
 
-    void appendTo(wxString& out) const override;
+    [[nodiscard]] auto toBlock() const -> AiContent override;
     [[nodiscard]] auto label() const -> wxString override;
 
     /// Absolute path of the pinned file — used by the chat view to
@@ -93,7 +98,7 @@ public:
     /// Construct with a display `label` (the tab title) and captured `content`.
     BufferContextItem(wxString label, wxString content);
 
-    void appendTo(wxString& out) const override;
+    [[nodiscard]] auto toBlock() const -> AiContent override;
     [[nodiscard]] auto label() const -> wxString override;
 
 private:
@@ -124,8 +129,9 @@ public:
     /// The attached items, in order.
     [[nodiscard]] auto items() const -> const std::vector<std::unique_ptr<AiContextItem>>& { return m_items; }
 
-    /// Build the combined context text from every item.
-    [[nodiscard]] auto buildText() const -> wxString;
+    /// Build the combined context as one `AiContent` block per item, in
+    /// insertion order. Empty when no items are attached.
+    [[nodiscard]] auto buildBlocks() const -> std::vector<AiContent>;
 
     /// The pinned edit target, or nullptr when none. Walk is linear over
     /// the items list — there is at most one in practice (single-pinned).

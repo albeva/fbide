@@ -49,6 +49,13 @@ public:
     /// fresh exchange on the backend's side. Default is no-op — most
     /// providers carry no per-conversation state.
     virtual void resetSession() {}
+
+    /// True when the backend attaches cache breakpoints to cacheable
+    /// system blocks so a follow-up turn reuses the cached prefix at
+    /// reduced cost. Default false — providers without caching collapse
+    /// the structured system to a flat string via `joinSystem` and
+    /// re-bill the full prompt on every turn.
+    [[nodiscard]] virtual auto supportsPromptCaching() const -> bool { return false; }
 };
 
 } // namespace fbide::ai

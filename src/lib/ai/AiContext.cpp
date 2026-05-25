@@ -11,14 +11,18 @@ using namespace fbide::ai;
 FileContextItem::FileContextItem(std::filesystem::path path)
 : m_path(std::move(path)) {}
 
-void FileContextItem::appendTo(wxString& out) const {
-    // Append in pieces — `out += "x" + pathWx + "y"` would allocate two
+auto FileContextItem::toBlock() const -> AiContent {
+    // Build in pieces — `text = "x" + pathWx + "y"` would allocate two
     // intermediate wxStrings before the final assignment.
-    out += "\n--- File: ";
-    out += toWx(m_path);
-    out += " ---\n";
-    out += readContent();
-    out += "\n";
+    wxString text;
+    text += "\n--- File: ";
+    text += toWx(m_path);
+    text += " ---\n";
+    text += readContent();
+    text += "\n";
+    // On-disk content is cacheable — the file changes only when the
+    // user edits and saves, not between back-to-back chat turns.
+    return { .text = std::move(text), .cacheable = true };
 }
 
 auto FileContextItem::readContent() const -> wxString {
@@ -55,14 +59,16 @@ auto FileContextItem::label() const -> wxString {
 EditTargetItem::EditTargetItem(std::filesystem::path path)
 : m_path(std::move(path)) {}
 
-void EditTargetItem::appendTo(wxString& out) const {
+auto EditTargetItem::toBlock() const -> AiContent {
     // A distinct header so the model recognises this file as the one it
     // is allowed to modify, not merely context to read.
-    out += "\n--- Edit target: ";
-    out += toWx(m_path);
-    out += " ---\n";
-    out += readContent();
-    out += "\n";
+    wxString text;
+    text += "\n--- Edit target: ";
+    text += toWx(m_path);
+    text += " ---\n";
+    text += readContent();
+    text += "\n";
+    return { .text = std::move(text), .cacheable = true };
 }
 
 auto EditTargetItem::readContent() const -> wxString {
@@ -93,20 +99,25 @@ auto EditTargetItem::readContent() const -> wxString {
 }
 
 auto EditTargetItem::label() const -> wxString {
-    // Pencil glyph marks the edit target apart from read-only context.
-    return wxString(wxUniChar(0x270E)) + " " + toWx(m_path.filename());
+    // Pencil glyph (U+270E) marks the edit target apart from read-only
+    // context items in the chip strip.
+    static constexpr int kPencilGlyph = 0x270E;
+    return wxString(wxUniChar(kPencilGlyph)) + " " + toWx(m_path.filename());
 }
 
 BufferContextItem::BufferContextItem(wxString label, wxString content)
 : m_label(std::move(label))
 , m_content(std::move(content)) {}
 
-void BufferContextItem::appendTo(wxString& out) const {
-    out += "\n--- File: ";
-    out += m_label;
-    out += " ---\n";
-    out += m_content;
-    out += "\n";
+auto BufferContextItem::toBlock() const -> AiContent {
+    wxString text;
+    text += "\n--- File: ";
+    text += m_label;
+    text += " ---\n";
+    text += m_content;
+    text += "\n";
+    // Buffer snapshots mutate per keystroke — not cacheable.
+    return { .text = std::move(text), .cacheable = false };
 }
 
 auto BufferContextItem::label() const -> wxString {
@@ -123,12 +134,13 @@ void AiContext::removeAt(const std::size_t index) {
     }
 }
 
-auto AiContext::buildText() const -> wxString {
-    wxString out;
+auto AiContext::buildBlocks() const -> std::vector<AiContent> {
+    std::vector<AiContent> blocks;
+    blocks.reserve(m_items.size());
     for (const auto& item : m_items) {
-        item->appendTo(out);
+        blocks.push_back(item->toBlock());
     }
-    return out;
+    return blocks;
 }
 
 auto AiContext::editTarget() const -> const EditTargetItem* {

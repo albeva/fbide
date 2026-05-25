@@ -36,4 +36,4 @@ CheckOptions:
   - key: misc-include-cleaner.UnusedIncludes
     value: 'false'
   - key: cppcoreguidelines-pro-bounds-avoid-unchecked-container-access.ExcludeClasses
-    value: '::fbide::Value;::std::unordered_map;::std::map'
+    value: '::fbide::Value;::std::unordered_map;::std::map;::nlohmann::basic_json'
