@@ -77,15 +77,6 @@ public:
     /// Get the main frame.
     [[nodiscard]] auto getMainFrame() -> wxFrame* { return m_frame; }
 
-    /// Get the document notebook.
-    ///
-    /// Transitional forwarder — the document notebook is now owned by
-    /// `DocumentManager` (see `DocumentNotebook`). Existing callers
-    /// reach for `UIManager::getNotebook()`; they'll be migrated to
-    /// `getDocumentManager().notebook()` in a follow-up step, after
-    /// which this accessor is removed.
-    [[nodiscard]] auto getNotebook() -> wxAuiNotebook*;
-
     /// Set the document-level UI state (None, FocusedUnknownFile, FocusedValidSourceFile).
     /// Compiler state takes precedence when active.
     void setDocumentState(UIState state);
