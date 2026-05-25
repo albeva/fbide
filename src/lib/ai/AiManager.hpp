@@ -100,20 +100,22 @@ public:
     [[nodiscard]] auto isPatchApplied(const wxString& search, const wxString& replace) const -> bool;
 
 private:
-    /// 64-bit hash key for a `(search, replace)` pair. In-memory only,
-    /// so `std::hash`'s run-to-run instability is harmless. Collisions
-    /// degrade live-edit (one patch may be silently skipped because its
-    /// hash matches an earlier one) without corrupting any data, so the
-    /// trade-off vs. storing the full text is one-sided.
-    [[nodiscard]] static auto patchKey(const wxString& search, const wxString& replace) -> std::uint64_t;
+    /// `std::size_t` hash key for a `(search, replace)` pair. In-memory
+    /// only, so `std::hash`'s run-to-run instability is harmless.
+    /// Collisions degrade live-edit (one patch may be silently skipped
+    /// because its hash matches an earlier one) without corrupting any
+    /// data, so the trade-off vs. storing the full text is one-sided.
+    /// Returns `size_t` rather than `uint64_t` so it stays the natural
+    /// width on both 32- and 64-bit targets.
+    [[nodiscard]] static auto patchKey(const wxString& search, const wxString& replace) -> std::size_t;
 
-    Context& m_ctx;                                     ///< Application context.
-    std::unique_ptr<AiProvider> m_provider;             ///< Active backend (null until configured).
-    std::vector<AiMessage> m_history;                   ///< Conversation messages.
-    AiContext m_context;                                ///< Files attached as context.
-    wxString m_model;                                   ///< Model name sent with each request.
-    wxString m_systemPrompt;                            ///< Configured system prompt (may be empty).
-    std::unordered_set<std::uint64_t> m_appliedPatches; ///< Hashes of patches already attempted this session.
+    Context& m_ctx;                                   ///< Application context.
+    std::unique_ptr<AiProvider> m_provider;           ///< Active backend (null until configured).
+    std::vector<AiMessage> m_history;                 ///< Conversation messages.
+    AiContext m_context;                              ///< Files attached as context.
+    wxString m_model;                                 ///< Model name sent with each request.
+    wxString m_systemPrompt;                          ///< Configured system prompt (may be empty).
+    std::unordered_set<std::size_t> m_appliedPatches; ///< Hashes of patches already attempted this session.
 
     // In-flight request state. Stored as members rather than captured by
     // the lambdas handed to the provider, so each lambda captures only

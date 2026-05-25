@@ -91,6 +91,7 @@
 
 // fbide
 #include "utils/DeferHandler.hpp"
+#include "utils/HashCombine.hpp"
 #include "utils/Macros.hpp"
 #include "utils/NoCopy.hpp"
 #include "utils/Unowned.hpp"

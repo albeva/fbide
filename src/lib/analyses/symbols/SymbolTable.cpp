@@ -13,15 +13,6 @@ using namespace fbide::lexer;
 
 namespace {
 
-/// Boost-style hash combiner. The golden-ratio mixing constant is sized to
-/// `std::size_t` so the function compiles on both 32-bit and 64-bit targets:
-/// the 64-bit constant overflows a 32-bit `size_t`, so pick the matching
-/// width at compile time.
-auto hashCombine(const std::size_t seed, const std::size_t value) -> std::size_t {
-    constexpr std::size_t kMix = sizeof(std::size_t) >= 8 ? 0x9e3779b97f4a7c15ULL : 0x9e3779b9UL;
-    return seed ^ (value + kMix + (seed << 6) + (seed >> 2));
-}
-
 auto hashVector(std::size_t seed, const SymbolKind kind, const std::vector<Symbol>& vec) -> std::size_t {
     seed = hashCombine(seed, std::hash<std::size_t> {}(vec.size()));
     seed = hashCombine(seed, std::hash<SymbolKind> {}(kind));

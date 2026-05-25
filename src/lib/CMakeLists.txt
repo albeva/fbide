@@ -194,6 +194,7 @@ target_sources(fbide_lib
     ui/controls/Panel.hpp
     ui/utilities/FileDropTarget.hpp
     utils/DeferHandler.hpp
+    utils/HashCombine.hpp
     utils/Macros.hpp
     utils/NoCopy.hpp
     utils/Unowned.hpp
