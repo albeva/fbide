@@ -12,20 +12,40 @@ FileContextItem::FileContextItem(std::filesystem::path path)
 : m_path(std::move(path)) {}
 
 void FileContextItem::appendTo(wxString& out) const {
-    const auto pathWx = toWx(m_path);
-    wxString content;
-    if (wxFFile file(pathWx, "rb"); file.IsOpened()) {
-        file.ReadAll(&content, wxConvUTF8);
-    } else {
-        content = "<could not read file>";
-    }
     // Append in pieces — `out += "x" + pathWx + "y"` would allocate two
     // intermediate wxStrings before the final assignment.
     out += "\n--- File: ";
-    out += pathWx;
+    out += toWx(m_path);
     out += " ---\n";
-    out += content;
+    out += readContent();
     out += "\n";
+}
+
+auto FileContextItem::readContent() const -> wxString {
+    std::error_code ec;
+    const auto mtime = std::filesystem::last_write_time(m_path, ec);
+    if (ec) {
+        // Stat failed — file missing, permission denied, etc. Drop the
+        // cache so a subsequent send retries (the user may have just
+        // restored the file).
+        m_cacheValid = false;
+        m_cachedContent.clear();
+        return "<could not read file>";
+    }
+    if (m_cacheValid && m_cachedMtime == mtime) {
+        return m_cachedContent;
+    }
+
+    wxString content;
+    if (wxFFile file(toWx(m_path), "rb"); file.IsOpened() && file.ReadAll(&content, wxConvUTF8)) {
+        m_cachedContent = content;
+        m_cachedMtime = mtime;
+        m_cacheValid = true;
+        return content;
+    }
+    m_cacheValid = false;
+    m_cachedContent.clear();
+    return "<could not read file>";
 }
 
 auto FileContextItem::label() const -> wxString {
@@ -36,21 +56,40 @@ EditTargetItem::EditTargetItem(std::filesystem::path path)
 : m_path(std::move(path)) {}
 
 void EditTargetItem::appendTo(wxString& out) const {
-    const auto pathWx = toWx(m_path);
-    wxString content;
-    if (wxFFile file(pathWx, "rb"); file.IsOpened()) {
-        file.ReadAll(&content, wxConvUTF8);
-    } else {
-        content = "<could not read file>";
-    }
     // A distinct header so the model recognises this file as the one it
-    // is allowed to modify, not merely context to read. Pieces appended
-    // separately — see `FileContextItem::appendTo` for the rationale.
+    // is allowed to modify, not merely context to read.
     out += "\n--- Edit target: ";
-    out += pathWx;
+    out += toWx(m_path);
     out += " ---\n";
-    out += content;
+    out += readContent();
     out += "\n";
+}
+
+auto EditTargetItem::readContent() const -> wxString {
+    // Mirror of FileContextItem::readContent — see that for the cache
+    // semantics. Kept verbatim rather than factored out because the
+    // header format around the call site differs.
+    std::error_code ec;
+    const auto mtime = std::filesystem::last_write_time(m_path, ec);
+    if (ec) {
+        m_cacheValid = false;
+        m_cachedContent.clear();
+        return "<could not read file>";
+    }
+    if (m_cacheValid && m_cachedMtime == mtime) {
+        return m_cachedContent;
+    }
+
+    wxString content;
+    if (wxFFile file(toWx(m_path), "rb"); file.IsOpened() && file.ReadAll(&content, wxConvUTF8)) {
+        m_cachedContent = content;
+        m_cachedMtime = mtime;
+        m_cacheValid = true;
+        return content;
+    }
+    m_cacheValid = false;
+    m_cachedContent.clear();
+    return "<could not read file>";
 }
 
 auto EditTargetItem::label() const -> wxString {

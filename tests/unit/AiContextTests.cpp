@@ -24,6 +24,65 @@ auto editTargetCount(const AiContext& context) -> std::size_t {
     return count;
 }
 
+/// RAII temp file for the FileContextItem cache tests. Cleans up on
+/// destruction; supports overwrite + mtime pin so the cache-hit case
+/// can be exercised without filesystem race-condition flakiness.
+class TempFile {
+public:
+    explicit TempFile(const std::string& initial) {
+        // Atomic counter disambiguates concurrent test temp files
+        // without leaning on pointer-to-int reinterpret_cast.
+        static std::atomic<std::size_t> counter { 0 };
+        const auto stamp = std::to_string(counter.fetch_add(1, std::memory_order_relaxed));
+        m_path = std::filesystem::temp_directory_path() / ("fbide-aictx-" + stamp + ".txt");
+        write(initial);
+    }
+    ~TempFile() {
+        std::error_code ec;
+        std::filesystem::remove(m_path, ec);
+    }
+    TempFile(const TempFile&) = delete;
+    TempFile(TempFile&&) = delete;
+    auto operator=(const TempFile&) -> TempFile& = delete;
+    auto operator=(TempFile&&) -> TempFile& = delete;
+
+    [[nodiscard]] auto path() const -> const std::filesystem::path& { return m_path; }
+
+    void write(const std::string& content) const {
+        std::ofstream stream(m_path);
+        stream << content;
+    }
+
+    [[nodiscard]] auto mtime() const -> std::filesystem::file_time_type {
+        return std::filesystem::last_write_time(m_path);
+    }
+
+    void setMtime(std::filesystem::file_time_type time) const {
+        std::filesystem::last_write_time(m_path, time);
+    }
+
+private:
+    std::filesystem::path m_path;
+};
+
+/// Extract the body text appended by a context item — strips the
+/// `--- File: ... ---` header and the surrounding newlines so tests
+/// can assert against the content alone.
+auto appendedBody(const AiContextItem& item) -> wxString {
+    wxString out;
+    item.appendTo(out);
+    // The header line is `\n--- ... ---\n`, body follows, then a `\n`.
+    const auto firstNl = out.find('\n', 1); // skip the leading \n
+    if (firstNl == wxString::npos) {
+        return {};
+    }
+    auto rest = out.SubString(firstNl + 1, out.size() - 1);
+    if (rest.EndsWith("\n")) {
+        rest.RemoveLast();
+    }
+    return rest;
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -133,4 +192,80 @@ TEST(AiContextRemoveAt, RemovingTheLastItemLeavesItEmpty) {
     context.add(std::make_unique<FileContextItem>("/path/only.bas"));
     context.removeAt(0);
     EXPECT_TRUE(context.empty());
+}
+
+// ---------------------------------------------------------------------------
+// FileContextItem mtime-keyed content cache
+// ---------------------------------------------------------------------------
+
+TEST(FileContextItemCache, FirstCallReadsTheFile) {
+    const TempFile file("hello world");
+    const FileContextItem item(file.path());
+    EXPECT_EQ("hello world", appendedBody(item));
+}
+
+TEST(FileContextItemCache, CacheHitReturnsStaleContentWhenMtimeUnchanged) {
+    // Pin the mtime: write A, snapshot mtime, write B, restore mtime.
+    // The cached read of A should win because the mtime says "nothing
+    // changed since the last read".
+    const TempFile file("first");
+    const FileContextItem item(file.path());
+    ASSERT_EQ("first", appendedBody(item));
+
+    const auto pinned = file.mtime();
+    file.write("second");
+    file.setMtime(pinned);
+
+    // Cache hit — same mtime, returns the cached "first".
+    EXPECT_EQ("first", appendedBody(item));
+}
+
+TEST(FileContextItemCache, MtimeChangeForcesReread) {
+    using namespace std::chrono_literals;
+    // Bump the mtime by a day so it's distinctly different — some
+    // filesystems have coarse mtime resolution and a same-second
+    // write may not register as new.
+    constexpr auto kMtimeBumpForward = 24h;
+
+    const TempFile file("first");
+    const FileContextItem item(file.path());
+    ASSERT_EQ("first", appendedBody(item));
+
+    file.write("second");
+    file.setMtime(file.mtime() + kMtimeBumpForward);
+
+    EXPECT_EQ("second", appendedBody(item));
+}
+
+TEST(FileContextItemCache, MtimeMovingBackwardsForcesReread) {
+    // Backup-restore tools can move mtime backwards; the cache must
+    // treat that as a change too (compare via `!=`, not `<`).
+    using namespace std::chrono_literals;
+    constexpr auto kMtimeBumpBackward = 48h;
+
+    const TempFile file("first");
+    const FileContextItem item(file.path());
+    ASSERT_EQ("first", appendedBody(item));
+
+    file.write("second");
+    file.setMtime(file.mtime() - kMtimeBumpBackward);
+
+    EXPECT_EQ("second", appendedBody(item));
+}
+
+TEST(FileContextItemCache, MissingFileFallsBackToPlaceholder) {
+    const FileContextItem item("/path/does/not/exist.txt");
+    EXPECT_EQ("<could not read file>", appendedBody(item));
+}
+
+TEST(FileContextItemCache, DeletedFileAfterFirstReadFallsBackOnSecondCall) {
+    // The cache holds the first read's content, but a stat failure on
+    // the second call evicts the cache and returns the placeholder.
+    auto file = std::make_unique<TempFile>("initial");
+    const FileContextItem item(file->path());
+    ASSERT_EQ("initial", appendedBody(item));
+
+    file.reset(); // remove the file
+
+    EXPECT_EQ("<could not read file>", appendedBody(item));
 }

@@ -30,8 +30,10 @@ public:
     [[nodiscard]] virtual auto label() const -> wxString = 0;
 };
 
-/// A single file attached as context. Its content is read fresh each
-/// time `appendTo` is called.
+/// A single file attached as context. Its content is cached and
+/// re-read only when the file's mtime changes — so a chat session that
+/// sends 10 messages with a 100 KB include attached doesn't re-do the
+/// disk I/O ten times.
 class FileContextItem final : public AiContextItem {
 public:
     /// Construct for the file at `path`. Stored as `std::filesystem::path`
@@ -43,7 +45,16 @@ public:
     [[nodiscard]] auto label() const -> wxString override;
 
 private:
-    std::filesystem::path m_path; ///< Absolute path of the attached file.
+    /// Read the file, using the cached content when the path's mtime
+    /// matches the previous read. Returns "<could not read file>" and
+    /// invalidates the cache on stat or read failure so the next call
+    /// retries (the user may have just dropped the file in place).
+    [[nodiscard]] auto readContent() const -> wxString;
+
+    std::filesystem::path m_path;                          ///< Absolute path of the attached file.
+    mutable wxString m_cachedContent;                      ///< Last-read file content; empty when invalid.
+    mutable std::filesystem::file_time_type m_cachedMtime; ///< mtime of the read that produced `m_cachedContent`.
+    mutable bool m_cacheValid = false;                     ///< True when `m_cachedContent` matches the file's current mtime.
 };
 
 /// The conversation's edit target — the file the model is allowed to
@@ -63,7 +74,15 @@ public:
     [[nodiscard]] auto path() const -> const std::filesystem::path& { return m_path; }
 
 private:
+    /// See `FileContextItem::readContent`. Same mtime-cache contract;
+    /// duplicated rather than shared via a base helper because both
+    /// items also need to format their headers differently.
+    [[nodiscard]] auto readContent() const -> wxString;
+
     std::filesystem::path m_path;
+    mutable wxString m_cachedContent;
+    mutable std::filesystem::file_time_type m_cachedMtime;
+    mutable bool m_cacheValid = false;
 };
 
 /// An in-memory buffer attached as context — a snapshot of an editor's text
