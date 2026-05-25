@@ -30,6 +30,7 @@ target_sources(fbide_lib
     ai/provider/AnthropicProvider.cpp
     ai/provider/ClaudeCliProvider.cpp
     ai/provider/GeminiProvider.cpp
+    ai/provider/LmStudioProvider.cpp
     ai/provider/MockProvider.cpp
     ai/provider/OllamaProvider.cpp
     ai/provider/WebStreamProvider.cpp
@@ -124,6 +125,7 @@ target_sources(fbide_lib
     ai/provider/AnthropicProvider.hpp
     ai/provider/ClaudeCliProvider.hpp
     ai/provider/GeminiProvider.hpp
+    ai/provider/LmStudioProvider.hpp
     ai/provider/MockProvider.hpp
     ai/provider/OllamaProvider.hpp
     ai/provider/WebStreamProvider.hpp

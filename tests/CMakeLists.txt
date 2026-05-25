@@ -40,6 +40,7 @@ add_executable(tests
     unit/EncodingDetectorTests.cpp
     unit/FBSciLexerTests.cpp
     unit/GeminiProviderTests.cpp
+    unit/LmStudioProviderTests.cpp
     unit/MarkdownTests.cpp
     unit/LineHistoryTests.cpp
     unit/PatchTests.cpp

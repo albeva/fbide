@@ -9,6 +9,7 @@
 #include "provider/AnthropicProvider.hpp"
 #include "provider/ClaudeCliProvider.hpp"
 #include "provider/GeminiProvider.hpp"
+#include "provider/LmStudioProvider.hpp"
 #include "provider/MockProvider.hpp"
 #include "provider/OllamaProvider.hpp"
 using namespace fbide;
@@ -24,6 +25,8 @@ constexpr char kDefaultOllamaEndpoint[] = "http://localhost:11434";
 constexpr char kDefaultClaudeModel[] = "sonnet";
 constexpr char kDefaultClaudePath[] = "claude";
 constexpr char kDefaultGeminiModel[] = "gemini-2.5-flash";
+constexpr char kDefaultLmStudioEndpoint[] = "http://localhost:1234";
+constexpr char kDefaultLmStudioModel[] = "local-model";
 } // namespace
 
 auto fbide::ai::makeProvider(const wxString& kind, const Value& config) -> ProviderSelection {
@@ -32,6 +35,16 @@ auto fbide::ai::makeProvider(const wxString& kind, const Value& config) -> Provi
         return {
             .provider = std::make_unique<OllamaProvider>(endpoint),
             .model = config.at("model").value_or(kDefaultOllamaModel),
+        };
+    }
+    if (kind == "lm-studio") {
+        const auto endpoint = config.at("endpoint").value_or(kDefaultLmStudioEndpoint);
+        // `key` is optional — LM Studio doesn't validate by default,
+        // but a user running it behind a proxy may add a bearer token.
+        const auto apiKey = config.at("key").value_or("");
+        return {
+            .provider = std::make_unique<LmStudioProvider>(endpoint, apiKey),
+            .model = config.at("model").value_or(kDefaultLmStudioModel),
         };
     }
     if (kind == "claude-cli") {

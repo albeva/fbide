@@ -39,11 +39,12 @@ AiManager::AiManager(Context& ctx)
     //   systemPrompt = <system prompt>   optional default system prompt
     //
     //   [ai/<config-name>]               one section per named config
-    //   provider     = anthropic | ollama | claude-cli | gemini | mock
+    //   provider     = anthropic | ollama | lm-studio | claude-cli | gemini | mock
     //   model        = <model name>
     //   key          = <API key>         (anthropic + gemini — plaintext,
-    //                  see docs/ai-chat-plan.md; OS keychain is deferred)
-    //   endpoint     = <Ollama base URL> (ollama only)
+    //                  see docs/ai-chat-plan.md; OS keychain is deferred;
+    //                  lm-studio accepts one but does not require it)
+    //   endpoint     = <base URL>        (ollama + lm-studio only)
     //   claudePath   = <path to claude>  (claude-cli only)
     //   systemPrompt = <system prompt>   optional — overrides [ai] systemPrompt
     //

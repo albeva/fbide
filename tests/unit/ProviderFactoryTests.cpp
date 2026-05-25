@@ -10,6 +10,7 @@
 #include "ai/provider/AnthropicProvider.hpp"
 #include "ai/provider/ClaudeCliProvider.hpp"
 #include "ai/provider/GeminiProvider.hpp"
+#include "ai/provider/LmStudioProvider.hpp"
 #include "ai/provider/MockProvider.hpp"
 #include "ai/provider/OllamaProvider.hpp"
 #include "config/Value.hpp"
@@ -35,6 +36,12 @@ TEST(MakeProvider, OllamaProducesOllamaProvider) {
     const Value config;
     const auto selection = makeProvider("ollama", config);
     EXPECT_TRUE(isInstanceOf<OllamaProvider>(selection.provider.get()));
+}
+
+TEST(MakeProvider, LmStudioProducesLmStudioProvider) {
+    const Value config;
+    const auto selection = makeProvider("lm-studio", config);
+    EXPECT_TRUE(isInstanceOf<LmStudioProvider>(selection.provider.get()));
 }
 
 TEST(MakeProvider, ClaudeCliProducesClaudeCliProvider) {
@@ -115,6 +122,11 @@ TEST(MakeProvider, OllamaDefaultModelApplied) {
     EXPECT_EQ("llama3.2", makeProvider("ollama", config).model);
 }
 
+TEST(MakeProvider, LmStudioDefaultModelApplied) {
+    const Value config;
+    EXPECT_EQ("local-model", makeProvider("lm-studio", config).model);
+}
+
 TEST(MakeProvider, ClaudeCliDefaultModelApplied) {
     const Value config;
     EXPECT_EQ("sonnet", makeProvider("claude-cli", config).model);
@@ -173,6 +185,16 @@ TEST(MakeProvider, OllamaAcceptsCustomEndpoint) {
     config["endpoint"] = "http://192.168.1.100:11434";
     const auto selection = makeProvider("ollama", config);
     EXPECT_TRUE(isInstanceOf<OllamaProvider>(selection.provider.get()));
+}
+
+TEST(MakeProvider, LmStudioAcceptsCustomEndpointAndKey) {
+    Value config;
+    config["endpoint"] = "http://192.168.1.50:1234";
+    config["key"] = "lm-studio-bearer";
+    config["model"] = "qwen2.5-coder";
+    const auto selection = makeProvider("lm-studio", config);
+    EXPECT_TRUE(isInstanceOf<LmStudioProvider>(selection.provider.get()));
+    EXPECT_EQ("qwen2.5-coder", selection.model);
 }
 
 TEST(MakeProvider, ClaudeCliAcceptsCustomPath) {

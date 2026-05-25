@@ -25,9 +25,10 @@ struct ProviderSelection {
 /// Build a provider from an `[ai/<name>]` config section.
 ///
 /// `kind` is the section's `provider` field (anthropic / ollama /
-/// claude-cli / gemini / mock); an unrecognised kind defaults to
-/// anthropic. Providers that require an API key (anthropic, gemini)
-/// return a null `provider` when the `key` field is missing or empty.
+/// lm-studio / claude-cli / gemini / mock); an unrecognised kind
+/// defaults to anthropic. Providers that require an API key (anthropic,
+/// gemini) return a null `provider` when the `key` field is missing or
+/// empty.
 [[nodiscard]] auto makeProvider(const wxString& kind, const Value& config) -> ProviderSelection;
 
 } // namespace fbide::ai
