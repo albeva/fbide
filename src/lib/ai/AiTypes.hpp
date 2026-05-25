@@ -16,10 +16,44 @@ enum class AiRole : std::uint8_t {
     Assistant
 };
 
-/// One message in an AI conversation.
+/// One model-invocable tool exposed in a request. Tools are declared by
+/// the host, the model returns a `tool_use` block, the host executes the
+/// tool and feeds the result back as a `tool_result` block in the next
+/// turn. `inputSchemaJson` is the raw JSON-schema string that constrains
+/// the model's `argumentsJson` — providers embed it verbatim.
+struct AiTool {
+    wxString name;            ///< Identifier the model invokes by.
+    wxString description;     ///< Model-visible purpose / usage hint.
+    wxString inputSchemaJson; ///< JSON-schema describing arguments.
+};
+
+/// One tool call requested by the model in an assistant message. The
+/// host runs the named tool with `argumentsJson` (raw JSON) and replies
+/// with an `AiToolResult` carrying the same `id` in `toolUseId`.
+struct AiToolCall {
+    wxString id;            ///< Provider-issued correlation id (round-trips in the result).
+    wxString name;          ///< Tool name from the registry.
+    wxString argumentsJson; ///< Raw JSON arguments object.
+};
+
+/// One tool result the host sends back to the model after running a
+/// tool. `content` is the text the model sees; `isError = true` lets
+/// the model retry intelligently (e.g. ask the user to pin a file).
+struct AiToolResult {
+    wxString toolUseId;   ///< Echoes the originating `AiToolCall::id`.
+    wxString content;     ///< Result text presented to the model.
+    bool isError = false; ///< True when the tool failed — model gets a structured failure cue.
+};
+
+/// One message in an AI conversation. `toolCalls` is populated on
+/// assistant messages that include `tool_use` blocks; `toolResults` on
+/// user messages that respond to them. Both stay empty for normal
+/// chat turns.
 struct AiMessage {
-    AiRole role;      ///< Who authored the message.
-    wxString content; ///< Message text.
+    AiRole role;                           ///< Who authored the message.
+    wxString content;                      ///< Message text (may be empty if only tool blocks are present).
+    std::vector<AiToolCall> toolCalls;     ///< Assistant-side: tool_use blocks the model emitted.
+    std::vector<AiToolResult> toolResults; ///< User-side: tool_result blocks the host fed back.
 };
 
 /// One block of the system prompt. The `cacheable` flag is a hint to
@@ -54,6 +88,9 @@ struct AiRequest {
                                        ///< the vector back to a string via
                                        ///< `joinSystem`.
     std::vector<AiMessage> messages;   ///< Conversation, oldest first.
+    std::vector<AiTool> tools;         ///< Tools exposed to the model. Empty when
+                                       ///< tools are disabled or the active
+                                       ///< provider does not support them.
     int maxTokens = kDefaultMaxTokens; ///< Reply length cap.
 };
 
