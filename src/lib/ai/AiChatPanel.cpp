@@ -319,12 +319,45 @@ void AiChatPanel::onLiveEditToggle(wxCommandEvent& /*event*/) {
     m_ctx.getAiManager().setLiveEdit(m_liveEdit->GetValue());
 }
 
+namespace {
+/// Append a markdown-formatted tool-call strip to `out` for each call
+/// in `calls`. Each line is a blockquote so it renders distinct from
+/// the surrounding prose without inventing a new bubble kind.
+void appendToolCallSummary(wxString& out, const std::vector<AiToolCall>& calls) {
+    if (calls.empty()) {
+        return;
+    }
+    if (!out.empty() && !out.EndsWith("\n")) {
+        out += "\n";
+    }
+    out += "\n";
+    for (const auto& call : calls) {
+        out += "> `";
+        out += call.name;
+        out += "(";
+        out += call.argumentsJson;
+        out += ")`\n";
+    }
+}
+} // namespace
+
 void AiChatPanel::renderConversation() {
     std::vector<ChatViewMessage> messages;
     for (const auto& message : m_ctx.getAiManager().history()) {
+        // Synthetic user turns that only carry tool_result blocks are
+        // not user-typed prose — hide them from the chat view. The
+        // assistant's follow-up reply already shows what the model
+        // did with the tool output.
+        if (message.role == AiRole::User
+            && message.content.empty()
+            && !message.toolResults.empty()) {
+            continue;
+        }
+        wxString markdown = message.content;
+        appendToolCallSummary(markdown, message.toolCalls);
         messages.push_back({
             .fromUser = message.role == AiRole::User,
-            .markdown = message.content,
+            .markdown = markdown,
         });
     }
     if (m_busy) {
