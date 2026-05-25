@@ -9,6 +9,7 @@
 #include "AiContext.hpp"
 #include "AiTypes.hpp"
 #include "provider/AiProvider.hpp"
+#include "tools/ToolRegistry.hpp"
 
 namespace fbide {
 class Context;
@@ -113,6 +114,7 @@ private:
     std::unique_ptr<AiProvider> m_provider;           ///< Active backend (null until configured).
     std::vector<AiMessage> m_history;                 ///< Conversation messages.
     AiContext m_context;                              ///< Files attached as context.
+    ToolRegistry m_tools;                             ///< Model-invocable tools (read_file in P2; apply_patch + compile later).
     wxString m_model;                                 ///< Model name sent with each request.
     wxString m_systemPrompt;                          ///< Configured system prompt (may be empty).
     std::unordered_set<std::size_t> m_appliedPatches; ///< Hashes of patches already attempted this session.

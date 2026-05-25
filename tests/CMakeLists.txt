@@ -18,6 +18,8 @@ add_executable(tests
     unit/AiContextTests.cpp
     unit/AiTypesTests.cpp
     unit/AnthropicProviderTests.cpp
+    unit/ReadFileToolTests.cpp
+    unit/ToolRegistryTests.cpp
     unit/AutoIndentTests.cpp
     unit/BasicTests.cpp
     unit/MarkdownDocumentTests.cpp

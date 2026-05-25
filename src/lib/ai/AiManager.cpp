@@ -12,11 +12,17 @@
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "editor/Editor.hpp"
+#include "tools/ReadFileTool.hpp"
 using namespace fbide;
 using namespace fbide::ai;
 
 AiManager::AiManager(Context& ctx)
 : m_ctx(ctx) {
+    // read_file is always registered — it is read-only and bounded.
+    // apply_patch and compile land in Phase 3 and Phase 5 respectively,
+    // each gated by a runtime toggle (agent mode / allow-compile).
+    m_tools.add(std::make_unique<ReadFileTool>(ctx.getDocumentManager()));
+
     // AI config in the preferences uses a named-config layout:
     //
     //   [ai]
