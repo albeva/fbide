@@ -17,6 +17,7 @@
 #include "document/DocumentPath.hpp"
 #include "document/FileSession.hpp"
 #include "editor/Editor.hpp"
+#include "editor/EditorSearchService.hpp"
 #include "format/FormatDialog.hpp"
 #include "help/HelpManager.hpp"
 #include "settings/SettingsDialog.hpp"
@@ -346,19 +347,19 @@ void CommandManager::onUncomment(wxCommandEvent&) {
 }
 
 void CommandManager::onFind(wxCommandEvent&) {
-    m_ctx.getDocumentManager().showFind();
+    m_ctx.getEditorSearchService().showFind();
 }
 
 void CommandManager::onFindNext(wxCommandEvent&) {
-    m_ctx.getDocumentManager().findNext();
+    m_ctx.getEditorSearchService().findNext();
 }
 
 void CommandManager::onReplace(wxCommandEvent&) {
-    m_ctx.getDocumentManager().showReplace();
+    m_ctx.getEditorSearchService().showReplace();
 }
 
 void CommandManager::onGotoLine(wxCommandEvent&) {
-    m_ctx.getDocumentManager().gotoLine();
+    m_ctx.getEditorSearchService().gotoLine();
 }
 
 void CommandManager::onSettings(wxCommandEvent&) {
