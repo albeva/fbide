@@ -140,9 +140,26 @@ void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChu
 }
 
 auto AiManager::patchKey(const wxString& search, const wxString& replace) -> std::uint64_t {
-    // Newline-padded separator that won't collide with real source text.
-    const auto combined = (search + wxString("\n>>>\n") + replace).utf8_string();
-    return std::hash<std::string> {}(combined);
+    // Hash each piece's UTF-8 bytes separately and combine. The previous
+    // form allocated a wxString concat AND a UTF-8 string of it just to
+    // produce a 64-bit value — for multi-KB patches that's two big
+    // allocations on every isPatchApplied check. Hashing the pieces
+    // independently and folding them keeps the allocations to two small
+    // std::strings (one per piece).
+    //
+    // Combine constant is the 64-bit variant of boost::hash_combine's
+    // golden-ratio mixer; order-sensitive so (search, replace) and
+    // (replace, search) don't collide.
+    constexpr std::uint64_t kMix = 0x9e3779b97f4a7c15ULL;
+    const auto searchHash = std::hash<std::string> {}(search.utf8_string());
+    const auto replaceHash = std::hash<std::string> {}(replace.utf8_string());
+    std::uint64_t seed = searchHash;
+    // Shift constants 6 and 2 are part of boost::hash_combine's recipe — they
+    // aren't meaningful enough to name and naming would obscure that this is
+    // the standard mixer.
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers)
+    seed ^= replaceHash + kMix + (seed << 6) + (seed >> 2);
+    return seed;
 }
 
 auto AiManager::applyPatch(const wxString& search, const wxString& replace, const bool recordAlways) -> bool {
