@@ -73,6 +73,15 @@ public:
     /// Cleared at the start of each turn and at termination.
     [[nodiscard]] auto pendingReply() const -> const wxString& { return m_accumulator; }
 
+    /// Cancel the in-flight conversation. Forwards to the provider's
+    /// `cancel()`, which fires the normal `onComplete` path with an
+    /// error response — `finish` handles the rest. No-op when no
+    /// `run` is in progress.
+    void cancel();
+
+    /// True between `run` and the final `onDone` invocation.
+    [[nodiscard]] auto isRunning() const -> bool { return m_running; }
+
 private:
     void sendNextTurn();
     void onTurnComplete(AiResponse response);

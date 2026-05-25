@@ -115,6 +115,18 @@ void ToolDispatchLoop::invokeNextTool() {
     });
 }
 
+void ToolDispatchLoop::cancel() {
+    if (!m_running) {
+        return;
+    }
+    // Forward to the provider — its cancellation will eventually fire
+    // the response handler with an error, which routes through
+    // `onTurnComplete` → `finish` like any other failed turn. No need
+    // to mutate state here; double-cancel is idempotent because the
+    // provider's own cancel is a no-op when idle.
+    m_provider.cancel();
+}
+
 void ToolDispatchLoop::finish(AiResponse response) {
     auto onDone = std::exchange(m_onDone, nullptr);
     m_onChunk = nullptr;

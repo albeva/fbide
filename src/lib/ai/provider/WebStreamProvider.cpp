@@ -131,6 +131,15 @@ void WebStreamProvider::onRequestState(wxWebRequestEvent& event) {
     }
 }
 
+void WebStreamProvider::cancel() {
+    if (!m_busy) {
+        return;
+    }
+    if (m_request.IsOk() && m_request.GetState() == wxWebRequest::State_Active) {
+        m_request.Cancel();
+    }
+}
+
 void WebStreamProvider::finish(AiResponse response) {
     m_busy = false;
     m_buffer.clear();

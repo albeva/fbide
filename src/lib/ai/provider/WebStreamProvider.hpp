@@ -77,6 +77,13 @@ public:
     /// via `supportsTools()` (Anthropic does, Gemini/Ollama don't yet).
     void send(const AiRequest& request, ChunkHandler onChunk, ToolCallHandler onToolCall, ResponseHandler onComplete) final;
 
+    /// Cancel the in-flight `wxWebRequest`. The State_Cancelled
+    /// transition that follows fires `finish` with the standard
+    /// "Request cancelled." error, so no callback is invoked here —
+    /// avoids the double-`onComplete` that a synchronous invoke would
+    /// race against the queued state event.
+    void cancel() final;
+
 protected:
     /// Build the absolute URL for `request`. Called once at the start of
     /// every `send`. `request.model` is the only field most providers

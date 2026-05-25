@@ -59,6 +59,14 @@ public:
     /// providers carry no per-conversation state.
     virtual void resetSession() {}
 
+    /// Abort the in-flight request, if any. Implementations should
+    /// eventually fire the `ResponseHandler` once with `ok = false`
+    /// and a `"cancelled"` error so the host's accounting (history,
+    /// dispatch loop, UI) unwinds through the normal completion path.
+    /// Default no-op — providers that do not yet support cancellation
+    /// (or have no in-flight state to cancel) inherit this.
+    virtual void cancel() {}
+
     /// True when the backend attaches cache breakpoints to cacheable
     /// system blocks so a follow-up turn reuses the cached prefix at
     /// reduced cost. Default false — providers without caching collapse

@@ -74,6 +74,21 @@ public:
         }
     }
 
+    /// Abort the in-flight conversation, if any. Routes through the
+    /// dispatch loop, which forwards to the provider. The caller's
+    /// `onComplete` (passed to `sendMessage`) fires with
+    /// `ok = false, error = "Request cancelled."` so the chat panel
+    /// can re-enable its input.
+    void cancel() {
+        if (m_loop) {
+            m_loop->cancel();
+        }
+    }
+
+    /// True while a `sendMessage` is still being processed (provider
+    /// in flight, or tool dispatch between rounds).
+    [[nodiscard]] auto isBusy() const -> bool { return m_loop && m_loop->isRunning(); }
+
     /// The set of files/items attached to the conversation as context.
     [[nodiscard]] auto context() -> AiContext& { return m_context; }
     [[nodiscard]] auto context() const -> const AiContext& { return m_context; }

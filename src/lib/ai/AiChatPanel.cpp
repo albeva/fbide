@@ -126,6 +126,11 @@ void AiChatPanel::refreshTheme() const {
 }
 
 void AiChatPanel::onSend(wxCommandEvent& /*event*/) {
+    if (m_busy) {
+        // The button doubles as cancel while a request is in flight.
+        m_ctx.getAiManager().cancel();
+        return;
+    }
     const auto text = m_input->GetValue();
     if (text.empty()) {
         return;
@@ -143,7 +148,11 @@ void AiChatPanel::submitPrompt(const wxString& text) {
     m_lastError.clear();
     m_busy = true;
     m_dirty = false;
-    m_send->Disable();
+    // Re-label the send button as Cancel — the click handler routes
+    // based on `m_busy`. Stays enabled so the user can abort a hung
+    // request rather than waiting for the network timeout.
+    m_sendLabel = m_send->GetLabel();
+    m_send->SetLabel("Cancel");
     m_renderTimer.Start(kRenderThrottleMs);
 
     m_ctx.getAiManager().sendMessage(
@@ -158,7 +167,7 @@ void AiChatPanel::submitPrompt(const wxString& text) {
             m_renderTimer.Stop();
             m_busy = false;
             m_dirty = false;
-            m_send->Enable();
+            m_send->SetLabel(m_sendLabel);
             if (!response.ok) {
                 m_lastError = response.error;
             }

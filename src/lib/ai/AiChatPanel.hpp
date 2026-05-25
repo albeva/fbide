@@ -93,7 +93,8 @@ private:
     Unowned<wxButton> m_addContext;        ///< "+" attach-context button.
     Unowned<wxToggleButton> m_agentToggle; ///< Chat ↔ Agent mode toggle.
     Unowned<wxCheckBox> m_liveEdit;        ///< Auto-apply patches while streaming.
-    Unowned<wxButton> m_send;              ///< Send button.
+    Unowned<wxButton> m_send;              ///< Send/Cancel button — label toggles based on `m_busy`.
+    wxString m_sendLabel;                  ///< Cached idle-state label so the cancel→send swap restores the localised text.
     wxString m_lastError;                  ///< Last request error, shown until the next send.
     wxTimer m_renderTimer;                 ///< Throttles re-render while streaming.
     bool m_busy = false;                   ///< True while a request is in flight.
