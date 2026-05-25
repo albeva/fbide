@@ -42,6 +42,13 @@ public:
     /// move the call into its owner's queue without copying.
     // NOLINTNEXTLINE(performance-unnecessary-value-param)
     virtual void onToolCall(AiToolCall /*call*/) {}
+
+    /// Report a usage snapshot from the stream. Called as values
+    /// arrive — `inputTokens` lands on `message_start`,
+    /// `outputTokens` updates on each `message_delta`. The host keeps
+    /// the latest values and attaches them to the final response.
+    /// Default no-op for providers without usage reporting.
+    virtual void onUsage(int /*inputTokens*/, int /*outputTokens*/) {}
 };
 
 /**
@@ -144,6 +151,7 @@ private:
         void onDelta(const wxString& delta) override;
         void onError(const wxString& message) override;
         void onToolCall(AiToolCall call) override;
+        void onUsage(int inputTokens, int outputTokens) override;
 
     private:
         WebStreamProvider& m_owner;
@@ -156,6 +164,8 @@ private:
     std::string m_buffer;         ///< Unparsed response bytes.
     std::size_t m_consumed = 0;   ///< Cursor into `m_buffer` — bytes already parsed.
     wxString m_streamError;       ///< Error reported via a stream event.
+    int m_inputTokens = 0;        ///< Latest input-token count reported via the stream.
+    int m_outputTokens = 0;       ///< Latest output-token count reported via the stream.
     Sink m_sink { *this };        ///< Adaptor passed to `parseLine`.
     bool m_busy = false;          ///< True while a request is in flight.
 };

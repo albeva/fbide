@@ -77,6 +77,30 @@ void AnthropicProvider::parseStreamLine(const std::string_view line, ToolUseStat
         // so concurrent requests on the same provider (one at a time,
         // but reused) start fresh.
         states.clear();
+        // `message_start` carries the input-token count up front;
+        // output tokens grow with each `message_delta` afterwards.
+        const auto messageIt = payload.find("message");
+        if (messageIt != payload.end() && messageIt->is_object()) {
+            const auto usageIt = messageIt->find("usage");
+            if (usageIt != messageIt->end() && usageIt->is_object()) {
+                const auto input = usageIt->value("input_tokens", 0);
+                const auto output = usageIt->value("output_tokens", 0);
+                sink.onUsage(input, output);
+            }
+        }
+        return;
+    }
+    if (type == "message_delta") {
+        // Final usage roll-up — output tokens are cumulative; the last
+        // delta carries the total. Anthropic also lets `input_tokens`
+        // update here for cache breakdowns; pass both through and let
+        // the sink ignore zero updates.
+        const auto usageIt = payload.find("usage");
+        if (usageIt != payload.end() && usageIt->is_object()) {
+            const auto input = usageIt->value("input_tokens", 0);
+            const auto output = usageIt->value("output_tokens", 0);
+            sink.onUsage(input, output);
+        }
         return;
     }
     if (type == "content_block_start") {

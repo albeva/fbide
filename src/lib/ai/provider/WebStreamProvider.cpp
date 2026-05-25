@@ -55,6 +55,8 @@ void WebStreamProvider::send(const AiRequest& request, ChunkHandler onChunk, Too
     m_buffer.clear();
     m_consumed = 0;
     m_streamError.clear();
+    m_inputTokens = 0;
+    m_outputTokens = 0;
     m_busy = true;
     m_request.Start();
 }
@@ -101,6 +103,17 @@ void WebStreamProvider::Sink::onToolCall(AiToolCall call) {
     }
 }
 
+void WebStreamProvider::Sink::onUsage(const int inputTokens, const int outputTokens) {
+    // Keep the latest non-zero snapshot — providers emit input on
+    // message_start and grow output on every message_delta.
+    if (inputTokens > 0) {
+        m_owner.m_inputTokens = inputTokens;
+    }
+    if (outputTokens > 0) {
+        m_owner.m_outputTokens = outputTokens;
+    }
+}
+
 void WebStreamProvider::onRequestState(wxWebRequestEvent& event) {
     switch (event.GetState()) {
     case wxWebRequest::State_Completed: {
@@ -113,6 +126,11 @@ void WebStreamProvider::onRequestState(wxWebRequestEvent& event) {
         } else {
             response.ok = true;
         }
+        // Carry the per-request usage snapshot back to the caller —
+        // the dispatch loop forwards it onto the assistant message
+        // it appends to history.
+        response.inputTokens = m_inputTokens;
+        response.outputTokens = m_outputTokens;
         finish(std::move(response));
         break;
     }

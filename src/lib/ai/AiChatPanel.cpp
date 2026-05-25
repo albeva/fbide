@@ -348,6 +348,25 @@ void appendToolCallSummary(wxString& out, const std::vector<AiToolCall>& calls) 
         out += ")`\n";
     }
 }
+
+/// Append a small `↑in ↓out` footer to `out` when the message has
+/// non-zero token counts. The italic styling pushes the footer into
+/// the visual background since it's mostly a cost / debugging hint.
+void appendUsageSummary(wxString& out, const int inputTokens, const int outputTokens) {
+    if (inputTokens <= 0 && outputTokens <= 0) {
+        return;
+    }
+    if (!out.empty() && !out.EndsWith("\n")) {
+        out += "\n";
+    }
+    out += "\n_";
+    out += wxString::FromUTF8("\xe2\x86\x91"); // up arrow
+    out += " " + wxString::Format("%d", inputTokens);
+    out += " ";
+    out += wxString::FromUTF8("\xe2\x86\x93"); // down arrow
+    out += " " + wxString::Format("%d", outputTokens);
+    out += "_";
+}
 } // namespace
 
 void AiChatPanel::renderConversation() {
@@ -364,6 +383,7 @@ void AiChatPanel::renderConversation() {
         }
         wxString markdown = message.content;
         appendToolCallSummary(markdown, message.toolCalls);
+        appendUsageSummary(markdown, message.inputTokens, message.outputTokens);
         messages.push_back({
             .fromUser = message.role == AiRole::User,
             .markdown = markdown,

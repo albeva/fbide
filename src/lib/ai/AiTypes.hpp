@@ -48,12 +48,16 @@ struct AiToolResult {
 /// One message in an AI conversation. `toolCalls` is populated on
 /// assistant messages that include `tool_use` blocks; `toolResults` on
 /// user messages that respond to them. Both stay empty for normal
-/// chat turns.
+/// chat turns. `inputTokens` / `outputTokens` are populated on
+/// assistant turns when the provider reports usage — the chat view
+/// renders them as a per-turn footer.
 struct AiMessage {
     AiRole role;                           ///< Who authored the message.
     wxString content;                      ///< Message text (may be empty if only tool blocks are present).
     std::vector<AiToolCall> toolCalls;     ///< Assistant-side: tool_use blocks the model emitted.
     std::vector<AiToolResult> toolResults; ///< User-side: tool_result blocks the host fed back.
+    int inputTokens = 0;                   ///< Assistant-side usage: input tokens billed for this turn.
+    int outputTokens = 0;                  ///< Assistant-side usage: output tokens billed for this turn.
 };
 
 /// One block of the system prompt. The `cacheable` flag is a hint to
@@ -96,9 +100,11 @@ struct AiRequest {
 
 /// Provider-neutral response.
 struct AiResponse {
-    bool ok = false; ///< True when `text` holds a valid reply.
-    wxString text;   ///< Assistant reply (set when `ok`).
-    wxString error;  ///< Human-readable failure reason (set when not `ok`).
+    bool ok = false;      ///< True when `text` holds a valid reply.
+    wxString text;        ///< Assistant reply (set when `ok`).
+    wxString error;       ///< Human-readable failure reason (set when not `ok`).
+    int inputTokens = 0;  ///< Tokens billed as input. 0 when the provider doesn't report usage.
+    int outputTokens = 0; ///< Tokens billed as output. 0 when the provider doesn't report usage.
 };
 
 } // namespace fbide::ai

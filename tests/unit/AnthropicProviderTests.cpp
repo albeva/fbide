@@ -14,18 +14,29 @@ using json = nlohmann::json;
 
 namespace {
 
-/// Capture both deltas, tool calls, and the last error a parser emits.
-/// Non-copyable / non-movable (inherits `StreamLineConsumer`'s deletes);
-/// tests construct one on the stack and assert against it in place.
+/// Capture both deltas, tool calls, usage, and the last error a parser
+/// emits. Non-copyable / non-movable (inherits `StreamLineConsumer`'s
+/// deletes); tests construct one on the stack and assert against it
+/// in place.
 class CapturingSink final : public StreamLineConsumer {
 public:
     void onDelta(const wxString& delta) override { deltas.push_back(delta); }
     void onError(const wxString& message) override { error = message; }
     void onToolCall(AiToolCall call) override { toolCalls.push_back(std::move(call)); }
+    void onUsage(int input, int output) override {
+        if (input > 0) {
+            inputTokens = input;
+        }
+        if (output > 0) {
+            outputTokens = output;
+        }
+    }
 
     std::vector<wxString> deltas;
     std::vector<AiToolCall> toolCalls;
     wxString error;
+    int inputTokens = 0;
+    int outputTokens = 0;
 };
 
 } // namespace
@@ -368,6 +379,43 @@ TEST(AnthropicProviderToolUse, InterleavedTextAndToolUseBlocksBothEmit) {
     EXPECT_EQ("thinking...", sink.deltas.at(0));
     ASSERT_EQ(1U, sink.toolCalls.size());
     EXPECT_EQ("read_file", sink.toolCalls.at(0).name);
+}
+
+// ---------------------------------------------------------------------------
+// Usage parsing
+// ---------------------------------------------------------------------------
+
+TEST(AnthropicProviderUsage, MessageStartReportsInputTokens) {
+    CapturingSink sink;
+    AnthropicProvider::parseStreamLine(
+        R"(data: {"type":"message_start","message":{"id":"m","usage":{"input_tokens":123}}})",
+        sink
+    );
+    EXPECT_EQ(123, sink.inputTokens);
+    EXPECT_EQ(0, sink.outputTokens);
+}
+
+TEST(AnthropicProviderUsage, MessageDeltaReportsOutputTokens) {
+    CapturingSink sink;
+    AnthropicProvider::parseStreamLine(
+        R"(data: {"type":"message_delta","usage":{"output_tokens":42}})",
+        sink
+    );
+    EXPECT_EQ(42, sink.outputTokens);
+}
+
+TEST(AnthropicProviderUsage, LatestNonZeroOutputWinsAcrossDeltas) {
+    CapturingSink sink;
+    // Stream-style cumulative growth: each message_delta carries the
+    // running total. Sink keeps the latest non-zero values.
+    AnthropicProvider::parseStreamLine(
+        R"(data: {"type":"message_start","message":{"id":"m","usage":{"input_tokens":10}}})",
+        sink
+    );
+    AnthropicProvider::parseStreamLine(R"(data: {"type":"message_delta","usage":{"output_tokens":5}})", sink);
+    AnthropicProvider::parseStreamLine(R"(data: {"type":"message_delta","usage":{"output_tokens":12}})", sink);
+    EXPECT_EQ(10, sink.inputTokens);
+    EXPECT_EQ(12, sink.outputTokens);
 }
 
 TEST(AnthropicProviderToolUse, MessageStartClearsDanglingState) {

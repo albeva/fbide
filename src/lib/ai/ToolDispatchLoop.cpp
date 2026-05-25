@@ -58,12 +58,17 @@ void ToolDispatchLoop::onTurnComplete(AiResponse response) {
     }
     // Append the assistant turn. Text comes from the streamed
     // accumulator (preferred) or the response's text field (non-
-    // streaming providers).
+    // streaming providers). Token usage rides on the response for
+    // providers that report it; absent providers leave the counts
+    // at zero and the chat view simply hides the strip.
     const wxString full = m_accumulator.empty() ? response.text : m_accumulator;
     m_history->push_back({
         .role = AiRole::Assistant,
         .content = full,
         .toolCalls = m_pendingCalls,
+        .toolResults = {},
+        .inputTokens = response.inputTokens,
+        .outputTokens = response.outputTokens,
     });
 
     if (m_pendingCalls.empty()) {
