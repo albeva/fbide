@@ -16,6 +16,7 @@ FetchContent_MakeAvailable(googletest)
 add_executable(tests
     unit/main.cpp
     unit/AiContextTests.cpp
+    unit/AiTypesTests.cpp
     unit/AnthropicProviderTests.cpp
     unit/AutoIndentTests.cpp
     unit/BasicTests.cpp

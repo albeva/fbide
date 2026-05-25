@@ -22,14 +22,34 @@ struct AiMessage {
     wxString content; ///< Message text.
 };
 
+/// One block of the system prompt. The `cacheable` flag is a hint to
+/// providers that support prompt caching (currently only Anthropic) —
+/// stable content (base prompt, file context) is marked true so the
+/// provider can attach a cache breakpoint; volatile content (open-tab
+/// buffer snapshots) stays false. Providers without caching ignore the
+/// flag and concatenate via `joinSystem`.
+struct AiContent {
+    wxString text;
+    bool cacheable = false;
+};
+
+/// Concatenate `blocks` with `"\n\n"` separators, skipping empty
+/// blocks. Used by providers that lack prompt caching to collapse the
+/// structured form back to a single string.
+[[nodiscard]] auto joinSystem(const std::vector<AiContent>& blocks) -> wxString;
+
+/// Default cap on assistant reply length. Providers map this onto their
+/// `max_tokens` (or equivalent) request field.
+inline constexpr int kDefaultMaxTokens = 1024;
+
 /// Provider-neutral request: a model name plus the conversation so far.
 /// Carries no vendor-specific fields — each `AiProvider` maps this onto
 /// its own wire format.
 struct AiRequest {
-    wxString model;                  ///< Model identifier.
-    wxString system;                 ///< Optional system prompt.
-    std::vector<AiMessage> messages; ///< Conversation, oldest first.
-    int maxTokens = 1024;            ///< Reply length cap.
+    wxString model;                    ///< Model identifier.
+    wxString system;                   ///< Optional system prompt.
+    std::vector<AiMessage> messages;   ///< Conversation, oldest first.
+    int maxTokens = kDefaultMaxTokens; ///< Reply length cap.
 };
 
 /// Provider-neutral response.

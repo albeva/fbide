@@ -6,6 +6,7 @@ target_sources(fbide_lib
     ai/AiChatPanel.cpp
     ai/AiContext.cpp
     ai/AiManager.cpp
+    ai/AiTypes.cpp
     ai/ContextTagBar.cpp
     ai/Patch.cpp
     ai/ProviderFactory.cpp

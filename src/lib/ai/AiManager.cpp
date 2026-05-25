@@ -75,37 +75,46 @@ void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChu
     // instructions (when on), and the attached files. Built fresh on
     // every send so the model always sees current file content and
     // current mode. Empty when none of the three are set.
-    request.system = m_systemPrompt;
+    //
+    // Built as a vector of structured blocks so Phase 1 can hand the
+    // vector to providers that support prompt caching; here in Phase 0
+    // the vector is immediately flattened back into the wxString
+    // `request.system` to keep the wire format unchanged.
+    std::vector<AiContent> systemBlocks;
+    if (!m_systemPrompt.empty()) {
+        systemBlocks.push_back({ .text = m_systemPrompt, .cacheable = false });
+    }
     if (m_agentMode && m_context.editTarget() != nullptr) {
-        if (!request.system.empty()) {
-            request.system += "\n\n";
-        }
-        request.system += "Agent mode is on. When the user asks for changes to the edit "
-                          "target file, reply with one or more SEARCH/REPLACE blocks "
-                          "instead of describing the change. Each block looks like this, "
-                          "with markers on their own lines:\n\n"
-                          "<<<<<<< SEARCH\n"
-                          "<exact text from the edit target to find>\n"
-                          "=======\n"
-                          "<text to replace it with>\n"
-                          ">>>>>>> REPLACE\n\n"
-                          "Rules:\n"
-                          "- The SEARCH text must match the edit target byte-for-byte, "
-                          "including indentation and trailing whitespace.\n"
-                          "- Keep each block as small as is needed for an unambiguous "
-                          "match; do not include unchanged context above or below.\n"
-                          "- Multiple independent edits in the same reply each get their "
-                          "own block. Emit them in source order.\n"
-                          "- Prose around the blocks is fine, but the edits themselves "
-                          "must appear in this exact format — not as fenced code or a "
-                          "diff.";
+        systemBlocks.push_back({
+            .text = "Agent mode is on. When the user asks for changes to the edit "
+                    "target file, reply with one or more SEARCH/REPLACE blocks "
+                    "instead of describing the change. Each block looks like this, "
+                    "with markers on their own lines:\n\n"
+                    "<<<<<<< SEARCH\n"
+                    "<exact text from the edit target to find>\n"
+                    "=======\n"
+                    "<text to replace it with>\n"
+                    ">>>>>>> REPLACE\n\n"
+                    "Rules:\n"
+                    "- The SEARCH text must match the edit target byte-for-byte, "
+                    "including indentation and trailing whitespace.\n"
+                    "- Keep each block as small as is needed for an unambiguous "
+                    "match; do not include unchanged context above or below.\n"
+                    "- Multiple independent edits in the same reply each get their "
+                    "own block. Emit them in source order.\n"
+                    "- Prose around the blocks is fine, but the edits themselves "
+                    "must appear in this exact format — not as fenced code or a "
+                    "diff.",
+            .cacheable = false,
+        });
     }
     if (!m_context.empty()) {
-        if (!request.system.empty()) {
-            request.system += "\n\n";
-        }
-        request.system += "The user has attached the following files as context:\n" + m_context.buildText();
+        systemBlocks.push_back({
+            .text = wxString { "The user has attached the following files as context:\n" } + m_context.buildText(),
+            .cacheable = false,
+        });
     }
+    request.system = joinSystem(systemBlocks);
 
     // Park the caller's handlers + the accumulator on the manager so
     // the lambdas below capture only `this`. A multi-capture lambda
