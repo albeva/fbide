@@ -16,12 +16,33 @@ constexpr auto kEndpoint = "https://api.anthropic.com/v1/messages";
 constexpr auto kAnthropicVersion = "2023-06-01";
 constexpr std::string_view kSsePrefix = "data:";
 
+/// Borrow the string at `key` from `node` as a view over nlohmann's
+/// internal storage. Returns an empty view when the key is absent or
+/// the value isn't a string — matches the semantics of
+/// `node.value(key, "")` but skips the std::string copy that the
+/// by-value form makes. Used on the per-token hot path so each
+/// streamed delta allocates only the wxString.
+auto borrowString(const json& node, const char* key) -> std::string_view {
+    const auto it = node.find(key);
+    if (it == node.end()) {
+        return {};
+    }
+    const auto* str = it->get_ptr<const json::string_t*>();
+    if (str == nullptr) {
+        return {};
+    }
+    return *str;
+}
+
 /// Read `error.message` from a payload that carries either an object
 /// (`{"message":"...", ...}`) or a bare value. Falls back to a generic
 /// string so the user always gets something readable.
 auto extractErrorMessage(const json& error) -> wxString {
     if (error.is_object()) {
-        return wxString::FromUTF8(error.value("message", "Unknown API error."));
+        const auto message = borrowString(error, "message");
+        if (!message.empty()) {
+            return wxString::FromUTF8(message.data(), message.size());
+        }
     }
     return "Unknown API error.";
 }
@@ -50,11 +71,12 @@ void AnthropicProvider::parseStreamLine(const std::string_view line, StreamLineC
     if (payload.is_discarded()) {
         return;
     }
-    const auto type = payload.value("type", "");
+    const auto type = borrowString(payload, "type");
     if (type == "content_block_delta") {
         const auto& delta = payload["delta"];
-        if (delta.is_object() && delta.value("type", "") == "text_delta") {
-            sink.onDelta(wxString::FromUTF8(delta.value("text", "")));
+        if (delta.is_object() && borrowString(delta, "type") == "text_delta") {
+            const auto text = borrowString(delta, "text");
+            sink.onDelta(wxString::FromUTF8(text.data(), text.size()));
         }
     } else if (type == "error") {
         sink.onError(extractErrorMessage(payload["error"]));

@@ -20,6 +20,22 @@ auto trimTrailingSlash(wxString endpoint) -> wxString {
     return endpoint;
 }
 
+/// Borrow the string at `key` from `node` as a view over nlohmann's
+/// internal storage. Returns an empty view when the key is absent or
+/// the value isn't a string. Used on the per-token hot path so each
+/// streamed delta allocates only the wxString.
+auto borrowString(const json& node, const char* key) -> std::string_view {
+    const auto it = node.find(key);
+    if (it == node.end()) {
+        return {};
+    }
+    const auto* str = it->get_ptr<const json::string_t*>();
+    if (str == nullptr) {
+        return {};
+    }
+    return *str;
+}
+
 } // namespace
 
 OllamaProvider::OllamaProvider(wxString endpoint)
@@ -43,11 +59,16 @@ void OllamaProvider::parseStreamLine(const std::string_view line, StreamLineCons
         return;
     }
     if (chunk.contains("error")) {
-        sink.onError(wxString::FromUTF8(chunk.value("error", "Unknown Ollama error.")));
+        const auto message = borrowString(chunk, "error");
+        sink.onError(message.empty()
+                         ? wxString { "Unknown Ollama error." }
+                         : wxString::FromUTF8(message.data(), message.size()));
         return;
     }
-    if (chunk.contains("message") && chunk["message"].is_object()) {
-        sink.onDelta(wxString::FromUTF8(chunk["message"].value("content", "")));
+    const auto messageIt = chunk.find("message");
+    if (messageIt != chunk.end() && messageIt->is_object()) {
+        const auto content = borrowString(*messageIt, "content");
+        sink.onDelta(wxString::FromUTF8(content.data(), content.size()));
     }
 }
 
