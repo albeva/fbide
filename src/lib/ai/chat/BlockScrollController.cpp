@@ -59,8 +59,16 @@ auto BlockScrollController::acquireWheelAxis(const WheelAxis axis) -> bool {
         m_lockedAxis = axis;
         m_hasLockedAxis = true;
     }
+    if (m_lockedAxis != axis) {
+        // Off-axis event during a locked gesture. Don't refresh the
+        // idle timer — otherwise a continuous trackpad momentum tail
+        // (which can run hundreds of ms after the user lifts their
+        // fingers) would keep the lock alive forever, and the next
+        // off-axis gesture would never get a chance to take over.
+        return false;
+    }
     m_lastWheelTime = now;
-    return m_lockedAxis == axis;
+    return true;
 }
 
 void BlockScrollController::beginDrag(const std::size_t messageIndex, const std::size_t blockIndex, const int startOffset, const int startMouseX) {

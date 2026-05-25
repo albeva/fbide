@@ -68,14 +68,18 @@ public:
     static constexpr auto kGestureIdle = std::chrono::milliseconds(150);
 
     /// Axis-lock check for the wheel handler. The first event of a
-    /// fresh gesture (no other event within `kGestureIdle`) adopts
+    /// fresh gesture (no on-axis event within `kGestureIdle`) adopts
     /// `axis` as the gesture's locked direction and returns `true`.
     /// Subsequent off-axis events return `false` so the caller can
     /// suppress them — keeps a vertical trackpad scroll from
     /// accidentally jiggling a code/patch block sideways and vice
-    /// versa. Every call refreshes the gesture-idle timer regardless
-    /// of return value: off-axis drift in the middle of a real gesture
-    /// is still "the gesture is in progress".
+    /// versa.
+    ///
+    /// Only ACCEPTED events refresh the gesture-idle timer. macOS
+    /// emits a long momentum tail after a flick; if off-axis events
+    /// refreshed the timer too, the user's next gesture would never
+    /// out-wait the previous lock and the off-axis trackpad direction
+    /// would stay suppressed indefinitely.
     auto acquireWheelAxis(WheelAxis axis) -> bool;
 
     // Drag bookkeeping ------------------------------------------------
