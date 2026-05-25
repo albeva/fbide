@@ -94,7 +94,6 @@ private:
     Unowned<wxToggleButton> m_agentToggle; ///< Chat ↔ Agent mode toggle.
     Unowned<wxCheckBox> m_liveEdit;        ///< Auto-apply patches while streaming.
     Unowned<wxButton> m_send;              ///< Send button.
-    wxString m_streaming;                  ///< Partial assistant reply while streaming.
     wxString m_lastError;                  ///< Last request error, shown until the next send.
     wxTimer m_renderTimer;                 ///< Throttles re-render while streaming.
     bool m_busy = false;                   ///< True while a request is in flight.

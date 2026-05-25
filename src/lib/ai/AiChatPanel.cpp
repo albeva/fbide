@@ -141,7 +141,6 @@ void AiChatPanel::submitPrompt(const wxString& text) {
     }
 
     m_lastError.clear();
-    m_streaming.clear();
     m_busy = true;
     m_dirty = false;
     m_send->Disable();
@@ -149,9 +148,10 @@ void AiChatPanel::submitPrompt(const wxString& text) {
 
     m_ctx.getAiManager().sendMessage(
         text,
-        [this](const wxString& delta) {
-            // Accumulate; the throttle timer drives the actual re-render.
-            m_streaming += delta;
+        [this](const wxString& /*delta*/) {
+            // The manager owns the accumulator; the panel only needs to
+            // know that fresh text arrived so the throttle timer triggers
+            // a re-render on the next tick.
             m_dirty = true;
         },
         [this](const AiResponse& response) {
@@ -162,8 +162,6 @@ void AiChatPanel::submitPrompt(const wxString& text) {
             if (!response.ok) {
                 m_lastError = response.error;
             }
-            // The reply now lives in the history — drop the partial copy.
-            m_streaming.clear();
             renderConversation();
         }
     );
@@ -333,11 +331,13 @@ void AiChatPanel::renderConversation() {
         // The streaming reply is not in the history yet — show the partial
         // text as it arrives, or a placeholder until the first chunk. The
         // `streaming` flag tells the view's auto-apply not to touch any
-        // patch blocks inside this bubble until they're fully formed.
+        // patch blocks inside this bubble until they're fully formed. The
+        // pending text is owned by the manager — see AiManager::pendingReply.
+        const auto& pending = m_ctx.getAiManager().pendingReply();
         messages.push_back({
             .fromUser = false,
             .streaming = true,
-            .markdown = m_streaming.empty() ? wxString::FromUTF8("_Thinking…_") : m_streaming,
+            .markdown = pending.empty() ? wxString::FromUTF8("_Thinking…_") : pending,
         });
     }
     if (!m_lastError.empty()) {

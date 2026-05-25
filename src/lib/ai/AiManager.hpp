@@ -46,6 +46,13 @@ public:
     /// The conversation so far, oldest message first.
     [[nodiscard]] auto history() const -> const std::vector<AiMessage>& { return m_history; }
 
+    /// Partial reply text accumulated for the in-flight request. Empty
+    /// between requests and after `clear()`. The chat panel reads this
+    /// to render the streaming bubble — having the manager be the
+    /// single owner of the accumulator avoids a second growing
+    /// wxString duplicate on the panel side.
+    [[nodiscard]] auto pendingReply() const -> const wxString& { return m_pendingAccumulator; }
+
     /// Drop the conversation history. Also drops the applied-patch set
     /// (so a new conversation can re-apply textually identical
     /// proposals) and notifies the active provider — Claude CLI uses
