@@ -73,6 +73,12 @@ private:
     /// while agent mode is on (the control is disabled otherwise).
     void onLiveEditToggle(wxCommandEvent& event);
 
+    /// Toggle handler for the "Allow compile" checkbox — flips the
+    /// AiManager state. Only meaningful while agent mode is on (the
+    /// control is disabled otherwise). Never persisted: each session
+    /// starts with the checkbox unchecked.
+    void onAllowCompileToggle(wxCommandEvent& event);
+
     /// `EVT_CONTEXT_TAGS_CHANGED` from the tag bar — re-lay the panel.
     void onTagsChanged(wxCommandEvent& event);
 
@@ -93,6 +99,7 @@ private:
     Unowned<wxButton> m_addContext;        ///< "+" attach-context button.
     Unowned<wxToggleButton> m_agentToggle; ///< Chat ↔ Agent mode toggle.
     Unowned<wxCheckBox> m_liveEdit;        ///< Auto-apply patches while streaming.
+    Unowned<wxCheckBox> m_allowCompile;    ///< Opt-in (per session) for the compile tool.
     Unowned<wxButton> m_send;              ///< Send/Cancel button — label toggles based on `m_busy`.
     wxString m_sendLabel;                  ///< Cached idle-state label so the cancel→send swap restores the localised text.
     wxString m_lastError;                  ///< Last request error, shown until the next send.

@@ -40,6 +40,18 @@ public:
     /// Compile the active document.
     void compile();
 
+    /// Headless compile entry point — runs the compile without prompting
+    /// to save the document and fires `handler` with the result. Used
+    /// by the AI compile tool. The caller is responsible for the
+    /// "is the document saved?" check; this just shells out.
+    ///
+    /// Replaces any in-flight `m_task` — the displaced task's
+    /// destructor fires its own subscribers (if any) with a
+    /// cancellation result. The new task is owned by the manager so
+    /// the user can still kill it via `killProcess`.
+    using HeadlessHandler = std::function<void(bool ok, wxArrayString output)>;
+    void compileHeadless(Document& doc, HeadlessHandler handler);
+
     /// Compile and run the active document.
     void compileAndRun();
 

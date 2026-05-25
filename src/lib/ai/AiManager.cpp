@@ -8,11 +8,13 @@
 #include "Patch.hpp"
 #include "ProviderFactory.hpp"
 #include "app/Context.hpp"
+#include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "editor/Editor.hpp"
 #include "tools/ApplyPatchTool.hpp"
+#include "tools/CompileTool.hpp"
 #include "tools/ReadFileTool.hpp"
 using namespace fbide;
 using namespace fbide::ai;
@@ -83,6 +85,16 @@ AiManager::AiManager(Context& ctx)
     }
 }
 
+void AiManager::cancel() {
+    // Kill any AI-initiated compile first — its completion handler
+    // fires the cancellation result that the dispatch loop is waiting
+    // on, so the loop unwinds through the normal tool-result path.
+    m_ctx.getCompilerManager().killProcess();
+    if (m_loop) {
+        m_loop->cancel();
+    }
+}
+
 auto AiManager::toolsEnabled() const -> bool {
     return m_enableTools && m_provider != nullptr && m_provider->supportsTools();
 }
@@ -91,13 +103,17 @@ auto AiManager::isToolExposed(const wxString& toolName) const -> bool {
     // Per-tool gating. read_file is always available; apply_patch
     // gates on agent mode (the tool itself enforces edit-target
     // pinned at invoke time, since the model may try it speculatively).
-    // compile lands in Phase 5 with its own toggle. Anything else
-    // (future tools) is denied by default — fail-safe.
+    // compile gates on agent mode AND the "Allow compile" toggle
+    // (opt-in per session). Anything else (future tools) is denied
+    // by default — fail-safe.
     if (toolName == ReadFileTool::kName) {
         return true;
     }
     if (toolName == ApplyPatchTool::kName) {
         return m_agentMode;
+    }
+    if (toolName == CompileTool::kName) {
+        return m_agentMode && m_allowCompile;
     }
     return false;
 }
@@ -188,6 +204,8 @@ void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChu
     }
 
     m_history.push_back({ .role = AiRole::User, .content = text });
+    // Reset per-turn counters that gate tool calls (compile cap).
+    m_compileCount = 0;
 
     m_loop->run(
         &m_history,

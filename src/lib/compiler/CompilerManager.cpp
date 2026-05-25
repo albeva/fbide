@@ -38,6 +38,12 @@ void CompilerManager::compile() {
     m_task->compile(toWxString(doc->getFilePath()));
 }
 
+void CompilerManager::compileHeadless(Document& doc, HeadlessHandler handler) {
+    m_task = std::make_unique<BuildTask>(m_ctx, &doc);
+    m_task->setCompletionHandler(std::move(handler));
+    m_task->compile(toWxString(doc.getFilePath()));
+}
+
 void CompilerManager::compileAndRun() {
     auto* doc = getActiveDocument();
     if (doc == nullptr || !ensureSaved(*doc)) {

@@ -28,6 +28,16 @@ public:
     /// @param doc The document being compiled, or nullptr.
     BuildTask(Context& ctx, Document* doc);
 
+    /// Fire after `onCompileFinished` runs with `(ok, raw fbc output)`.
+    /// Set before `compile` so the headless paths (AI compile tool)
+    /// can subscribe. If the task is destroyed while running (e.g.
+    /// replaced by another compile), the handler still fires once
+    /// with `ok = false` and `["[cancelled]"]` so subscribers don't
+    /// hang waiting for a result.
+    using CompletionHandler = std::function<void(bool ok, wxArrayString output)>;
+    ~BuildTask();
+    void setCompletionHandler(CompletionHandler handler) { m_completion = std::move(handler); }
+
     /// Compile the given source file asynchronously.
     void compile(const wxString& sourceFile);
 
@@ -93,6 +103,9 @@ private:
     wxString m_compiledFile;           ///< Path of the produced executable (set on success).
     wxArrayString m_compilerLog;       ///< Captured compiler output (for the log dialog).
     AsyncProcess* m_process = nullptr; ///< In-flight async process (self-deleting).
+    CompletionHandler m_completion;    ///< Optional subscriber for headless compile callers (AI tool).
+    wxArrayString m_lastOutput;        ///< Raw fbc stdout/stderr captured for the completion handler.
+    bool m_completionFired = false;    ///< Tracks whether the handler has already fired so the dtor doesn't double-fire.
 };
 
 } // namespace fbide

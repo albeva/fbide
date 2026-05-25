@@ -75,15 +75,14 @@ public:
     }
 
     /// Abort the in-flight conversation, if any. Routes through the
-    /// dispatch loop, which forwards to the provider. The caller's
-    /// `onComplete` (passed to `sendMessage`) fires with
+    /// dispatch loop (which forwards to the provider) AND kills any
+    /// AI-triggered compile in flight — `BuildTask`'s destructor /
+    /// the kill path fires its completion handler with a cancellation
+    /// result, so the dispatch loop unwinds through the normal path.
+    /// The caller's `onComplete` (passed to `sendMessage`) fires with
     /// `ok = false, error = "Request cancelled."` so the chat panel
     /// can re-enable its input.
-    void cancel() {
-        if (m_loop) {
-            m_loop->cancel();
-        }
-    }
+    void cancel();
 
     /// True while a `sendMessage` is still being processed (provider
     /// in flight, or tool dispatch between rounds).
@@ -104,6 +103,17 @@ public:
     /// proposals manual.
     [[nodiscard]] auto isLiveEdit() const -> bool { return m_liveEdit; }
     void setLiveEdit(const bool on) { m_liveEdit = on; }
+
+    /// Allow-compile — when true (and agent mode is on), the `compile`
+    /// tool is exposed to the model. Never persisted; reset to false
+    /// on every session start.
+    [[nodiscard]] auto isAllowCompile() const -> bool { return m_allowCompile; }
+    void setAllowCompile(const bool on) { m_allowCompile = on; }
+
+    /// Maximum `compile` tool invocations per `sendMessage`. Prevents
+    /// a model that keeps hitting compile errors from looping
+    /// indefinitely within a single user message.
+    static constexpr int kMaxCompilesPerTurn = 3;
 
     /// Apply a SEARCH/REPLACE patch to the active document, wrapping
     /// the edit in a Scintilla undo action. Returns `true` on success,
@@ -159,9 +169,11 @@ private:
     wxString m_systemPrompt;                          ///< Configured system prompt (may be empty).
     std::unordered_set<std::size_t> m_appliedPatches; ///< Hashes of patches already attempted this session.
 
-    bool m_enableTools = true; ///< `[ai] enable_tools` — kill switch for the entire tool-use machinery.
-    bool m_agentMode = false;  ///< Agent mode toggle state.
-    bool m_liveEdit = false;   ///< Live-edit auto-apply toggle state.
+    bool m_enableTools = true;   ///< `[ai] enable_tools` — kill switch for the entire tool-use machinery.
+    bool m_agentMode = false;    ///< Agent mode toggle state.
+    bool m_liveEdit = false;     ///< Live-edit auto-apply toggle state.
+    bool m_allowCompile = false; ///< Session-only "Allow compile" toggle — opt-in every time, never persisted.
+    int m_compileCount = 0;      ///< `compile` tool invocations within the current `sendMessage` — reset per top-level call.
 };
 
 } // namespace fbide::ai

@@ -9,6 +9,7 @@ target_sources(fbide_lib
     ai/AiTypes.cpp
     ai/ToolDispatchLoop.cpp
     ai/tools/ApplyPatchTool.cpp
+    ai/tools/CompileTool.cpp
     ai/tools/ReadFileTool.cpp
     ai/tools/ToolRegistry.cpp
     ai/ContextTagBar.cpp

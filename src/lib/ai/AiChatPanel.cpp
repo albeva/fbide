@@ -95,12 +95,16 @@ AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
     m_liveEdit = make_unowned<wxCheckBox>(this, wxID_ANY, "live-edit");
     m_liveEdit->SetToolTip("Apply proposed edits as they stream in");
     m_liveEdit->Disable(); // only meaningful while agent mode is on
+    m_allowCompile = make_unowned<wxCheckBox>(this, wxID_ANY, "allow compile");
+    m_allowCompile->SetToolTip("Let the AI trigger a build (opt-in every session, never persisted)");
+    m_allowCompile->Disable(); // only meaningful while agent mode is on
     m_send = make_unowned<wxButton>(this, wxID_ANY, m_ctx.tr("panels.aichat.send"));
 
     const auto row = make_unowned<wxBoxSizer>(wxHORIZONTAL);
     row->Add(m_addContext, wxSizerFlags().Centre());
     row->Add(m_agentToggle, wxSizerFlags().Centre().Border(wxLEFT, 4));
     row->Add(m_liveEdit, wxSizerFlags().Centre().Border(wxLEFT, 4));
+    row->Add(m_allowCompile, wxSizerFlags().Centre().Border(wxLEFT, 4));
     row->AddStretchSpacer(1);
     row->Add(m_send, wxSizerFlags().Centre());
     sizer->Add(row, wxSizerFlags().Expand().Border(wxALL, 4));
@@ -111,6 +115,7 @@ AiChatPanel::AiChatPanel(wxWindow* parent, Context& ctx)
     m_addContext->Bind(wxEVT_BUTTON, &AiChatPanel::onAddContext, this);
     m_agentToggle->Bind(wxEVT_TOGGLEBUTTON, &AiChatPanel::onAgentToggle, this);
     m_liveEdit->Bind(wxEVT_CHECKBOX, &AiChatPanel::onLiveEditToggle, this);
+    m_allowCompile->Bind(wxEVT_CHECKBOX, &AiChatPanel::onAllowCompileToggle, this);
     m_input->Bind(wxEVT_TEXT, &AiChatPanel::onInputText, this);
     m_input->Bind(wxEVT_KEY_DOWN, &AiChatPanel::onInputKeyDown, this);
     Bind(EVT_CONTEXT_TAGS_CHANGED, &AiChatPanel::onTagsChanged, this);
@@ -305,12 +310,15 @@ void AiChatPanel::onAgentToggle(wxCommandEvent& /*event*/) {
     auto& aiManager = m_ctx.getAiManager();
     aiManager.setAgentMode(on);
     m_liveEdit->Enable(on);
+    m_allowCompile->Enable(on);
     if (!on) {
-        // Live-edit only makes sense in agent mode — clear its state so
-        // the user re-opting in starts from off rather than a remembered
-        // checked box.
+        // Live-edit and allow-compile only make sense in agent mode —
+        // clear their state so re-opting in starts from off rather
+        // than remembered.
         m_liveEdit->SetValue(false);
         aiManager.setLiveEdit(false);
+        m_allowCompile->SetValue(false);
+        aiManager.setAllowCompile(false);
     }
     if (on && aiManager.context().editTarget() == nullptr) {
         // No edit target pinned yet — auto-pin the active document so
@@ -326,6 +334,10 @@ void AiChatPanel::onAgentToggle(wxCommandEvent& /*event*/) {
 
 void AiChatPanel::onLiveEditToggle(wxCommandEvent& /*event*/) {
     m_ctx.getAiManager().setLiveEdit(m_liveEdit->GetValue());
+}
+
+void AiChatPanel::onAllowCompileToggle(wxCommandEvent& /*event*/) {
+    m_ctx.getAiManager().setAllowCompile(m_allowCompile->GetValue());
 }
 
 namespace {

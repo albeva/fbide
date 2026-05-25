@@ -22,6 +22,26 @@ BuildTask::BuildTask(Context& ctx, Document* doc)
 : m_ctx(ctx)
 , m_doc(doc) {}
 
+BuildTask::~BuildTask() {
+    // Subscribers (the AI compile tool) need a result even when the
+    // task is replaced mid-flight — without this, the dispatch loop
+    // would hang waiting for a tool result that never arrives. Fire
+    // a cancellation result if we never completed naturally.
+    // `noexcept` because we're in a destructor; if the handler throws,
+    // swallow rather than terminate — the only real-world consumer is
+    // the AI compile tool, which uses captured lambdas that don't
+    // throw on the cancellation path.
+    if (m_completion && !m_completionFired) {
+        try {
+            wxArrayString cancelled;
+            cancelled.Add("[cancelled]");
+            m_completion(false, std::move(cancelled));
+        } catch (...) { // NOLINT(bugprone-empty-catch)
+        }
+        m_completionFired = true;
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -92,6 +112,10 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
 }
 
 void BuildTask::onCompileFinished(const ProcessResult& result) {
+    // Snapshot the raw output for the completion handler before
+    // anything else touches it — `showErrors` may reformat for the
+    // UI console, but the handler wants what fbc actually wrote.
+    m_lastOutput = result.output;
     // Log and show errors. Show the console pane *before* populating it
     if (!result.output.empty()) {
         m_compilerLog.Add("");
@@ -108,6 +132,10 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
         m_ctx.getCompilerManager().refreshCompilerLog();
         setStatus("status.compileFailed");
         cleanupTempFiles();
+        if (m_completion) {
+            m_completion(false, m_lastOutput);
+            m_completionFired = true;
+        }
         return;
     }
 
@@ -127,6 +155,11 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
 
     if (m_shouldRun) {
         run(m_compiledFile, m_isQuickRun);
+    }
+
+    if (m_completion) {
+        m_completion(true, m_lastOutput);
+        m_completionFired = true;
     }
 }
 
