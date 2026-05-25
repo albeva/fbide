@@ -113,3 +113,83 @@ TEST(FindPatchMatch, MultilineSearchMatches) {
     EXPECT_EQ(static_cast<int>(search.utf8_string().size()), match.length);
     EXPECT_EQ("rewritten\n", match.replacement);
 }
+
+// ---------------------------------------------------------------------------
+// MatchKind reporting
+// ---------------------------------------------------------------------------
+
+TEST(FindPatchMatch, ExactMatchReportsExactKind) {
+    const auto match = findPatchMatch("hello", "hello", "x");
+    EXPECT_EQ(MatchKind::Exact, match.kind);
+}
+
+TEST(FindPatchMatch, TrimmedNewlineMatchReportsTrimmedKind) {
+    const auto match = findPatchMatch("last line", "last line\n", "x\n");
+    ASSERT_GE(match.offset, 0);
+    EXPECT_EQ(MatchKind::TrimmedNewline, match.kind);
+}
+
+// ---------------------------------------------------------------------------
+// Whitespace-normalised line match — the indentation-drift escape hatch
+// ---------------------------------------------------------------------------
+
+TEST(FindPatchMatch, NormalisedWhitespaceMatchesLeadingIndentationDrift) {
+    // Source uses 2-space indent; model emitted 4-space. Should match
+    // line-by-line after normalisation.
+    const std::string source = "Sub Foo\n  Print 1\n  Print 2\nEnd Sub\n";
+    const wxString search = "    Print 1\n    Print 2\n";
+    const wxString replacement = "  Print 3\n";
+    const auto match = findPatchMatch(source, search, replacement);
+    ASSERT_GE(match.offset, 0);
+    EXPECT_EQ(MatchKind::NormalizedWhitespace, match.kind);
+    // The replaced span covers both source lines including their EOLs.
+    const std::string_view sourceView = source;
+    EXPECT_EQ("  Print 1\n  Print 2\n",
+        std::string(sourceView.substr(static_cast<std::size_t>(match.offset), static_cast<std::size_t>(match.length))));
+    // Replacement passes through verbatim — caller decides whether to
+    // re-indent before substitution.
+    EXPECT_EQ("  Print 3\n", match.replacement);
+}
+
+TEST(FindPatchMatch, NormalisedWhitespaceMatchesTrailingWhitespaceDrift) {
+    // Model added trailing space the source doesn't have.
+    const std::string source = "alpha\nbeta\n";
+    const wxString search = "alpha  \nbeta\n";
+    const wxString replacement = "gamma\n";
+    const auto match = findPatchMatch(source, search, replacement);
+    ASSERT_GE(match.offset, 0);
+    EXPECT_EQ(MatchKind::NormalizedWhitespace, match.kind);
+}
+
+TEST(FindPatchMatch, NormalisedWhitespaceDoesNotMatchDifferentLines) {
+    // Whitespace normalisation should not let "ab" match "cd" — the
+    // line contents themselves still need to be equal.
+    const std::string source = "alpha\n";
+    const wxString search = "beta\n";
+    const wxString replacement = "x\n";
+    const auto match = findPatchMatch(source, search, replacement);
+    EXPECT_LT(match.offset, 0);
+}
+
+TEST(FindPatchMatch, NormalisedWhitespaceMatchInMiddleOfFile) {
+    // Source has 2-space indent; search uses 4-space. Exact and
+    // trimmed-newline both miss; normalisation hits.
+    const std::string source = "header\n  middle line\nfooter\n";
+    const wxString search = "    middle line\n";
+    const wxString replacement = "x\n";
+    const auto match = findPatchMatch(source, search, replacement);
+    ASSERT_GE(match.offset, 0);
+    EXPECT_EQ(MatchKind::NormalizedWhitespace, match.kind);
+    // Should select the source line including its 2-space leading indent.
+    const std::string_view sourceView = source;
+    EXPECT_EQ("  middle line\n",
+        std::string(sourceView.substr(static_cast<std::size_t>(match.offset), static_cast<std::size_t>(match.length))));
+}
+
+TEST(FindPatchMatch, ExactMatchWinsBeforeNormalisationKicksIn) {
+    // When the exact form already matches, normalisation must not be
+    // consulted — the kind stays `Exact`.
+    const auto match = findPatchMatch("  abc\n", "  abc\n", "x\n");
+    ASSERT_GE(match.offset, 0);
+    EXPECT_EQ(MatchKind::Exact, match.kind);
+}
