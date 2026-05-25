@@ -13,6 +13,7 @@
 namespace fbide {
 class Context;
 class CodeTransformer;
+class DocumentNotebook;
 class IntellisenseService;
 
 /**
@@ -84,6 +85,19 @@ public:
 
     /// Close every document except `keep`. Returns false if user cancelled.
     auto closeOtherFiles(const Document& keep) -> bool;
+
+    /// Two-phase init — `UIManager::createLayout` calls this once the
+    /// main frame exists. Constructs the `DocumentNotebook` widget
+    /// (wx-parented to `parent`, owned by the wx tree) and stashes
+    /// the non-owning pointer for subsequent `notebook()` lookups.
+    /// Returns a reference so the caller can dock the new widget
+    /// without a follow-up lookup.
+    auto createNotebook(wxWindow* parent) -> DocumentNotebook&;
+
+    /// The document tab strip. Must be called after `createNotebook`.
+    [[nodiscard]] auto notebook() -> DocumentNotebook& { return *m_notebook; }
+    /// Const overload of `notebook`.
+    [[nodiscard]] auto notebook() const -> const DocumentNotebook& { return *m_notebook; }
 
     /// Bind tab-strip events on the document notebook. Call from UIManager
     /// once the notebook exists.
@@ -210,6 +224,7 @@ private:
 
     Context& m_ctx;                                     ///< Application context.
     wxFindReplaceData m_findData { wxFR_DOWN };         ///< Find/replace dialog state.
+    Unowned<DocumentNotebook> m_notebook;               ///< Tab strip — wx-parented to the frame; created by `createNotebook`.
     std::vector<std::unique_ptr<Document>> m_documents; ///< Open documents in tab order.
     std::unique_ptr<CodeTransformer> m_codeTransformer; ///< Shared on-type transformer.
     /// Declared last so destruction runs first — worker thread stops and

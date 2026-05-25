@@ -7,6 +7,7 @@
 #include "DocumentManager.hpp"
 #include "Document.hpp"
 #include "DocumentIO.hpp"
+#include "DocumentNotebook.hpp"
 #include "DocumentPath.hpp"
 #include "FileSession.hpp"
 #include "analyses/intellisense/IntellisenseService.hpp"
@@ -47,6 +48,11 @@ DocumentManager::DocumentManager(Context& ctx)
 }
 
 DocumentManager::~DocumentManager() = default;
+
+auto DocumentManager::createNotebook(wxWindow* parent) -> DocumentNotebook& {
+    m_notebook = make_unowned<DocumentNotebook>(parent);
+    return *m_notebook;
+}
 
 auto DocumentManager::defaultEncoding() const -> TextEncoding {
     const auto& editor = m_ctx.getConfigManager().config().at("editor");
