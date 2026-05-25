@@ -50,6 +50,14 @@ public:
     /// Get display title for tab (filename or "Untitled").
     [[nodiscard]] auto getTitle() const -> wxString;
 
+    /// Title for the application frame caption. Saved documents
+    /// surface the full filesystem path so the user can tell similarly
+    /// named files apart at a glance; untitled documents fall back to
+    /// the tab title. Centralised here so the chat-side tab-change
+    /// handler and the document-side save/reload helpers agree on
+    /// the rule without each restating it.
+    [[nodiscard]] auto getFrameTitle() const -> wxString;
+
     /// Get document type.
     [[nodiscard]] auto getType() const -> DocumentType { return m_type; }
 

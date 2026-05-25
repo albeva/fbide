@@ -190,6 +190,10 @@ auto Document::getTitle() const -> wxString {
     return title;
 }
 
+auto Document::getFrameTitle() const -> wxString {
+    return isNew() ? getTitle() : toWxString(m_filePath);
+}
+
 auto Document::isModified() const -> bool {
     return m_metaModified || m_editor->GetModify();
 }

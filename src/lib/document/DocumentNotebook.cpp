@@ -141,7 +141,7 @@ void DocumentNotebook::onPageChanged(wxAuiNotebookEvent& event) {
     }
     doc->getEditor()->SetFocus();
     m_ctx.getSideBarManager().showSymbolsFor(doc);
-    m_ctx.getUIManager().setTitle(doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath()));
+    m_ctx.getUIManager().setTitle(doc->getFrameTitle());
 }
 
 void DocumentNotebook::onBgDClick(wxAuiNotebookEvent& event) {
