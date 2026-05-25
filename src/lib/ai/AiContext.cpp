@@ -19,7 +19,11 @@ void FileContextItem::appendTo(wxString& out) const {
     } else {
         content = "<could not read file>";
     }
-    out += "\n--- File: " + pathWx + " ---\n";
+    // Append in pieces — `out += "x" + pathWx + "y"` would allocate two
+    // intermediate wxStrings before the final assignment.
+    out += "\n--- File: ";
+    out += pathWx;
+    out += " ---\n";
     out += content;
     out += "\n";
 }
@@ -40,8 +44,11 @@ void EditTargetItem::appendTo(wxString& out) const {
         content = "<could not read file>";
     }
     // A distinct header so the model recognises this file as the one it
-    // is allowed to modify, not merely context to read.
-    out += "\n--- Edit target: " + pathWx + " ---\n";
+    // is allowed to modify, not merely context to read. Pieces appended
+    // separately — see `FileContextItem::appendTo` for the rationale.
+    out += "\n--- Edit target: ";
+    out += pathWx;
+    out += " ---\n";
     out += content;
     out += "\n";
 }
@@ -56,7 +63,9 @@ BufferContextItem::BufferContextItem(wxString label, wxString content)
 , m_content(std::move(content)) {}
 
 void BufferContextItem::appendTo(wxString& out) const {
-    out += "\n--- File: " + m_label + " ---\n";
+    out += "\n--- File: ";
+    out += m_label;
+    out += " ---\n";
     out += m_content;
     out += "\n";
 }
