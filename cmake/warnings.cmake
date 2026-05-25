@@ -42,6 +42,11 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES ".*Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL
         -Wcast-align
         -Wunused
         -Wdouble-promotion
+        # C++20 designated initializers are explicitly allowed to leave
+        # trailing members default-initialized; LLVM 22 warns by default,
+        # other toolchains don't. The project uses partial designated
+        # init throughout — re-enable the leniency.
+        -Wno-missing-designated-field-initializers
     )
 
     # GCC-specific warnings
