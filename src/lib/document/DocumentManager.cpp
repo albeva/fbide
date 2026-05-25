@@ -548,36 +548,13 @@ void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
 }
 
 void DocumentManager::syncEditCommands() {
-    auto& cmd = m_ctx.getCommandManager();
-    const auto setForceDisabled = [&cmd](const CommandId id, const bool state) {
-        if (auto* entry = cmd.find(+id)) {
-            entry->setForceDisabled(state);
-        }
-    };
-
-    auto* doc = getActive();
-    const auto* editor = (doc != nullptr) ? doc->getEditor() : nullptr;
-    if (editor == nullptr) {
-        // No editor — leave broad `enabled` to applyState; clear our mask.
-        setForceDisabled(CommandId::Undo, false);
-        setForceDisabled(CommandId::Redo, false);
-        setForceDisabled(CommandId::Cut, false);
-        setForceDisabled(CommandId::Copy, false);
-        setForceDisabled(CommandId::Paste, false);
-        setForceDisabled(CommandId::SelectAll, false);
-        return;
-    }
-
-    const bool hasSelection = editor->GetSelectionEnd() > editor->GetSelectionStart();
-    const bool hasText = editor->GetTextLength() > 0;
-    const bool readOnly = editor->GetReadOnly();
-
-    setForceDisabled(CommandId::Undo, !editor->CanUndo());
-    setForceDisabled(CommandId::Redo, !editor->CanRedo());
-    setForceDisabled(CommandId::Cut, !(hasSelection && !readOnly));
-    setForceDisabled(CommandId::Copy, !hasSelection);
-    setForceDisabled(CommandId::Paste, !editor->CanPaste());
-    setForceDisabled(CommandId::SelectAll, !hasText);
+    // Thin forwarder — `CommandManager::syncEditCommands(doc)` owns
+    // the actual mask logic and the list of edit `CommandId`s. This
+    // entry point exists so callers that already hold a
+    // DocumentManager reference (Editor, UIManager, DocumentNotebook)
+    // don't have to chain through Context for the common
+    // "sync against the active doc" case.
+    m_ctx.getCommandManager().syncEditCommands(getActive());
 }
 
 // ---------------------------------------------------------------------------

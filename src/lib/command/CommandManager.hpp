@@ -11,6 +11,7 @@
 
 namespace fbide {
 class Context;
+class Document;
 
 /**
  * Owns the application-wide command table and routes `wxEVT_MENU`
@@ -72,6 +73,16 @@ public:
     /// `config.commands` subtree (keyed by command name) and propagate
     /// it through the bound controls.
     void initializeCommands();
+
+    /// Refresh the per-editor enable mask on Undo / Redo / Cut / Copy /
+    /// Paste / Select All. Callers pass the focused `Document` (or
+    /// `nullptr` when no document is focused); the editor is read
+    /// off the document so callers don't need to know the editor
+    /// surface. `nullptr` clears the mask so `applyState` reverts
+    /// to its broad gate. Belongs here because the `CommandId` set
+    /// being toggled is part of the command table's own contract,
+    /// not the document layer's.
+    void syncEditCommands(const Document* active);
 
 private:
     /// Catch-all wxEVT_MENU pre-dispatch. Keeps `wxITEM_CHECK` entries'
