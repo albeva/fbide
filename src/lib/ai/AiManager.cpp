@@ -129,6 +129,9 @@ void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChu
                 m_pendingOnChunk(delta);
             }
         },
+        // Phase 2.4 plumbs the tool-call handler through the signature;
+        // the dispatch loop that consumes calls lands in P2.9.
+        [](const AiToolCall& /*call*/) {},
         [this](AiResponse response) {
             if (response.ok) {
                 // Prefer the streamed text; fall back to a non-streamed reply.

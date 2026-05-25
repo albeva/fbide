@@ -33,6 +33,15 @@ public:
     /// (not the HTTP status — that lands in `httpErrorMessage`). At
     /// most one error per request typically; later calls overwrite.
     virtual void onError(const wxString& message) = 0;
+
+    /// Hand off one fully-assembled `tool_use` block parsed from the
+    /// stream. Default no-op — only providers that emit tool calls
+    /// override (currently Anthropic). The host loop dispatches the
+    /// call after the response completes; ordering within a turn
+    /// matches the stream's arrival order. By value so the sink can
+    /// move the call into its owner's queue without copying.
+    // NOLINTNEXTLINE(performance-unnecessary-value-param)
+    virtual void onToolCall(AiToolCall /*call*/) {}
 };
 
 /**
@@ -48,6 +57,11 @@ public:
  *
  * **Threading:** UI thread only.
  */
+// Multiple inheritance: `wxEvtHandler` (event sink for wxWebRequest
+// state/data events) plus the `AiProvider` interface. Both have
+// non-pure-virtual members; the combination is intentional because
+// `wxWebRequest`'s event binding requires a `wxEvtHandler` subclass.
+// NOLINTNEXTLINE(misc-multiple-inheritance)
 class WebStreamProvider
 : public wxEvtHandler,
   public AiProvider {
@@ -58,7 +72,10 @@ public:
     ~WebStreamProvider() override;
 
     /// Send `request` to the configured endpoint. See `AiProvider::send`.
-    void send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) final;
+    /// Tool support is provider-specific — base `WebStreamProvider`
+    /// forwards `onToolCall` only when the concrete provider opted in
+    /// via `supportsTools()` (Anthropic does, Gemini/Ollama don't yet).
+    void send(const AiRequest& request, ChunkHandler onChunk, ToolCallHandler onToolCall, ResponseHandler onComplete) final;
 
 protected:
     /// Build the absolute URL for `request`. Called once at the start of
@@ -119,6 +136,7 @@ private:
         ~Sink() override = default;
         void onDelta(const wxString& delta) override;
         void onError(const wxString& message) override;
+        void onToolCall(AiToolCall call) override;
 
     private:
         WebStreamProvider& m_owner;
@@ -126,6 +144,7 @@ private:
 
     wxWebRequest m_request;       ///< Current request — one at a time.
     ChunkHandler m_onChunk;       ///< Streaming delta callback.
+    ToolCallHandler m_onToolCall; ///< Tool-use callback (no-op for providers without tools).
     ResponseHandler m_onComplete; ///< Pending completion callback.
     std::string m_buffer;         ///< Unparsed response bytes.
     std::size_t m_consumed = 0;   ///< Cursor into `m_buffer` — bytes already parsed.

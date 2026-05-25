@@ -40,8 +40,10 @@ public:
     /// if it is on PATH).
     explicit ClaudeCliProvider(wxString claudePath);
 
-    /// Send `request` via the Claude CLI. See `AiProvider::send`.
-    void send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) override;
+    /// Send `request` via the Claude CLI. See `AiProvider::send`. The
+    /// tool-call handler is ignored — Claude CLI's stream-json output
+    /// does not expose tool_use events at this layer.
+    void send(const AiRequest& request, ChunkHandler onChunk, ToolCallHandler onToolCall, ResponseHandler onComplete) override;
 
     /// Drop the active `--resume` session id so the next `send` starts
     /// a fresh CLI conversation. Called from `AiManager::clear`.

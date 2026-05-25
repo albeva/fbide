@@ -34,8 +34,9 @@ public:
 
     MockProvider();
 
-    /// Stream the canned example reply. See `AiProvider::send`.
-    void send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) override;
+    /// Stream the canned example reply. See `AiProvider::send`. The
+    /// tool-call handler is ignored — Mock has no tool-use path.
+    void send(const AiRequest& request, ChunkHandler onChunk, ToolCallHandler onToolCall, ResponseHandler onComplete) override;
 
     /// Map `request`'s last message onto the matching canned reply.
     /// Anything that doesn't match a known command falls through to the

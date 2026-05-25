@@ -457,7 +457,7 @@ MockProvider::MockProvider() {
     Bind(wxEVT_TIMER, &MockProvider::onTick, this);
 }
 
-void MockProvider::send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) {
+void MockProvider::send(const AiRequest& request, ChunkHandler onChunk, ToolCallHandler /*onToolCall*/, ResponseHandler onComplete) {
     if (m_busy) {
         onComplete(AiResponse { .ok = false, .text = {}, .error = "A request is already in progress." });
         return;

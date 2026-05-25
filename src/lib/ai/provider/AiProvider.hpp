@@ -29,6 +29,13 @@ public:
     /// they arrive. Always on the UI thread.
     using ChunkHandler = std::function<void(const wxString& delta)>;
 
+    /// Tool-call callback — invoked once per fully-assembled `tool_use`
+    /// block from the model. The host (typically `AiManager`) collects
+    /// these and dispatches them after the response completes. Always
+    /// on the UI thread. Providers that don't support tools never
+    /// invoke this handler.
+    using ToolCallHandler = std::function<void(AiToolCall)>;
+
     /// Completion callback — invoked exactly once when the reply finishes
     /// or fails. Always on the UI thread. On a streamed success the text
     /// has already been delivered through the `ChunkHandler`, so
@@ -39,9 +46,11 @@ public:
     virtual ~AiProvider() = default;
 
     /// Send `request`. `onChunk` receives reply text incrementally;
-    /// `onComplete` runs exactly once at the end (success or error).
-    /// Implementations reject overlapping calls with an error response.
-    virtual void send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) = 0;
+    /// `onToolCall` is fired once per assembled `tool_use` block (no-op
+    /// on providers without tool support); `onComplete` runs exactly
+    /// once at the end (success or error). Implementations reject
+    /// overlapping calls with an error response.
+    virtual void send(const AiRequest& request, ChunkHandler onChunk, ToolCallHandler onToolCall, ResponseHandler onComplete) = 0;
 
     /// Drop any per-conversation state the backend carries (resume ids,
     /// session tokens, cached system prompts). Called by `AiManager`
@@ -56,6 +65,12 @@ public:
     /// the structured system to a flat string via `joinSystem` and
     /// re-bill the full prompt on every turn.
     [[nodiscard]] virtual auto supportsPromptCaching() const -> bool { return false; }
+
+    /// True when the backend can serialise `AiRequest::tools` and parse
+    /// `tool_use` blocks back from the response. Default false — when
+    /// false, `AiManager` skips the tool array and never sees
+    /// `AiToolCall` events from this provider.
+    [[nodiscard]] virtual auto supportsTools() const -> bool { return false; }
 };
 
 } // namespace fbide::ai

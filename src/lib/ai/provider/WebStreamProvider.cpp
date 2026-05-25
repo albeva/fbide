@@ -30,7 +30,7 @@ WebStreamProvider::~WebStreamProvider() {
     }
 }
 
-void WebStreamProvider::send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) {
+void WebStreamProvider::send(const AiRequest& request, ChunkHandler onChunk, ToolCallHandler onToolCall, ResponseHandler onComplete) {
     if (m_busy) {
         onComplete(AiResponse { .ok = false, .text = {}, .error = "A request is already in progress." });
         return;
@@ -50,6 +50,7 @@ void WebStreamProvider::send(const AiRequest& request, ChunkHandler onChunk, Res
     m_request.SetStorage(wxWebRequest::Storage_None);
 
     m_onChunk = std::move(onChunk);
+    m_onToolCall = std::move(onToolCall);
     m_onComplete = std::move(onComplete);
     m_buffer.clear();
     m_consumed = 0;
@@ -94,6 +95,12 @@ void WebStreamProvider::Sink::onError(const wxString& message) {
     m_owner.m_streamError = message;
 }
 
+void WebStreamProvider::Sink::onToolCall(AiToolCall call) {
+    if (m_owner.m_onToolCall) {
+        m_owner.m_onToolCall(std::move(call));
+    }
+}
+
 void WebStreamProvider::onRequestState(wxWebRequestEvent& event) {
     switch (event.GetState()) {
     case wxWebRequest::State_Completed: {
@@ -129,6 +136,7 @@ void WebStreamProvider::finish(AiResponse response) {
     m_buffer.clear();
     m_consumed = 0;
     m_onChunk = nullptr;
+    m_onToolCall = nullptr;
     if (auto handler = std::exchange(m_onComplete, nullptr)) {
         handler(std::move(response));
     }

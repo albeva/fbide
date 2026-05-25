@@ -19,7 +19,7 @@ constexpr int kStderrSnippetLength = 300;
 ClaudeCliProvider::ClaudeCliProvider(wxString claudePath)
 : m_claudePath(std::move(claudePath)) {}
 
-void ClaudeCliProvider::send(const AiRequest& request, ChunkHandler onChunk, ResponseHandler onComplete) {
+void ClaudeCliProvider::send(const AiRequest& request, ChunkHandler onChunk, ToolCallHandler /*onToolCall*/, ResponseHandler onComplete) {
     if (m_busy) {
         onComplete(AiResponse { .ok = false, .text = {}, .error = "A request is already in progress." });
         return;
