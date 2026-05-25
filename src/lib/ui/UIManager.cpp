@@ -197,14 +197,6 @@ void UIManager::refreshAuiArt() const {
     }
 }
 
-auto UIManager::getNotebook() -> wxAuiNotebook* {
-    // Transitional forwarder — the notebook is owned by
-    // `DocumentManager` (see `DocumentNotebook`). FileSession still
-    // reaches for this helper; step F migrates the last consumers
-    // and this method goes away.
-    return &m_ctx.getDocumentManager().notebook();
-}
-
 void UIManager::configureMenuBar() {
     try {
         auto& cmd = m_ctx.getCommandManager();

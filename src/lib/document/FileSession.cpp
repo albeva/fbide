@@ -7,6 +7,7 @@
 #include "FileSession.hpp"
 #include "Document.hpp"
 #include "DocumentManager.hpp"
+#include "DocumentNotebook.hpp"
 #include "DocumentPath.hpp"
 #include "TextEncoding.hpp"
 #include "app/Context.hpp"
@@ -107,9 +108,8 @@ auto FileSession::save(const wxString& path) -> bool {
     wxFileConfig cfg(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
 
     const auto sessionDir = toFsPath(path).parent_path();
-    const auto* notebook = m_ctx.getUIManager().getNotebook();
     cfg.Write("/session/version", Version);
-    cfg.Write("/session/selectedTab", notebook->GetSelection());
+    cfg.Write("/session/selectedTab", m_ctx.getDocumentManager().notebook().GetSelection());
 
     size_t fileIndex = 0;
     for (const auto& doc : dm.getDocuments()) {
@@ -291,9 +291,9 @@ void FileSession::loadV3(const wxString& path) {
     cfg.SetPath("/session");
     long selectedTab = 0;
     cfg.Read("selectedTab", &selectedTab, 0L);
-    auto* notebook = m_ctx.getUIManager().getNotebook();
-    if (selectedTab >= 0 && static_cast<size_t>(selectedTab) < notebook->GetPageCount()) {
-        notebook->SetSelection(static_cast<size_t>(selectedTab));
+    auto& notebook = m_ctx.getDocumentManager().notebook();
+    if (selectedTab >= 0 && static_cast<size_t>(selectedTab) < notebook.GetPageCount()) {
+        notebook.SetSelection(static_cast<size_t>(selectedTab));
     }
 }
 
@@ -336,8 +336,8 @@ void FileSession::loadLegacy(const wxString& path) {
         }
     }
 
-    auto* notebook = m_ctx.getUIManager().getNotebook();
-    if (selectedTab < notebook->GetPageCount()) {
-        notebook->SetSelection(selectedTab);
+    auto& notebook = m_ctx.getDocumentManager().notebook();
+    if (selectedTab < notebook.GetPageCount()) {
+        notebook.SetSelection(selectedTab);
     }
 }
