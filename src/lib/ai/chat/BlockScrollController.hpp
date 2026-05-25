@@ -64,8 +64,12 @@ public:
 
     /// Idle threshold between events within a single trackpad gesture.
     /// Two events farther apart in time count as belonging to separate
-    /// gestures, so the axis lock resets.
-    static constexpr auto kGestureIdle = std::chrono::milliseconds(150);
+    /// gestures, so the axis lock resets. Tuned low (60 ms) so a quick
+    /// switch from vertical to horizontal swipe — or vice versa —
+    /// takes effect within one frame; trackpad gestures themselves
+    /// emit events at roughly 8 ms cadence, so a real continuous
+    /// gesture stays well inside this window.
+    static constexpr auto kGestureIdle = std::chrono::milliseconds(60);
 
     /// Axis-lock check for the wheel handler. The first event of a
     /// fresh gesture (no on-axis event within `kGestureIdle`) adopts
