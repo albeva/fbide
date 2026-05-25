@@ -538,15 +538,12 @@ void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
     if (!contains(result.owner)) {
         return;
     }
-    // contains() takes const Document*; cast away to call setter.
-    auto* doc = const_cast<Document*>(result.owner); // NOLINT(cppcoreguidelines-pro-type-const-cast)
-
-    doc->setSymbolTable(result.symbols);
+    result.owner->setSymbolTable(result.symbols);
 
     // Push to the sidebar only when this document is the active one — the
     // tree always reflects the focused editor.
-    if (doc == getActive()) {
-        m_ctx.getSideBarManager().showSymbolsFor(doc);
+    if (result.owner == getActive()) {
+        m_ctx.getSideBarManager().showSymbolsFor(result.owner);
     }
 }
 
