@@ -7,9 +7,33 @@
 #pragma once
 #include "pch.hpp"
 #include "AiProvider.hpp"
-#include "StreamParsers.hpp"
 
 namespace fbide::ai {
+
+/**
+ * Sink interface for `WebStreamProvider::parseLine` implementations.
+ *
+ * Avoids the per-line `std::function` construction that a callback-pair
+ * API would force at every loop iteration. `WebStreamProvider` itself
+ * implements this interface (privately) and just passes `*this` to the
+ * parser; tests subclass it directly.
+ */
+class StreamLineConsumer {
+public:
+    NO_COPY_AND_MOVE(StreamLineConsumer)
+
+    StreamLineConsumer() = default;
+    virtual ~StreamLineConsumer() = default;
+
+    /// Append `delta` to the in-flight reply. Called once per text
+    /// fragment in a streamed line (Gemini parts emit multiple).
+    virtual void onDelta(const wxString& delta) = 0;
+
+    /// Report a stream-level error from the provider's response shape
+    /// (not the HTTP status — that lands in `httpErrorMessage`). At
+    /// most one error per request typically; later calls overwrite.
+    virtual void onError(const wxString& message) = 0;
+};
 
 /**
  * Common scaffolding for AI providers that talk to an HTTPS endpoint over
@@ -24,7 +48,9 @@ namespace fbide::ai {
  *
  * **Threading:** UI thread only.
  */
-class WebStreamProvider : public wxEvtHandler, public AiProvider {
+class WebStreamProvider
+: public wxEvtHandler,
+  public AiProvider {
 public:
     NO_COPY_AND_MOVE(WebStreamProvider)
 
@@ -49,10 +75,10 @@ protected:
     /// `wxWebRequest::SetData` is handled by the base.
     [[nodiscard]] virtual auto buildBody(const AiRequest& request) const -> std::string = 0;
 
-    /// Parse one already-split line of streamed response into delta /
-    /// error events. The base has stripped a trailing `\r` from `line`
-    /// (so the SSE hosts don't need to repeat the strip).
-    virtual void parseLine(std::string_view line, const StreamDeltaSink& onDelta, const StreamErrorSink& onError) const = 0;
+    /// Parse one already-split line of streamed response, dispatching
+    /// delta / error events through `sink`. The base has stripped a
+    /// trailing `\r` from `line` so SSE hosts don't need to repeat it.
+    virtual void parseLine(std::string_view line, StreamLineConsumer& sink) const = 0;
 
     /// Human-readable error string for an HTTP non-2xx status code.
     [[nodiscard]] virtual auto httpErrorMessage(int status) const -> wxString = 0;
@@ -80,12 +106,30 @@ private:
     /// Invoke the completion handler exactly once and reset request state.
     void finish(AiResponse response);
 
+    /// Adaptor that forwards parser events into the owning provider's
+    /// in-flight callback / error state. Lives as a member so the
+    /// `parseLine` call can pass a `StreamLineConsumer&` without
+    /// publicly exposing the consumer interface on `WebStreamProvider`.
+    class Sink final : public StreamLineConsumer {
+    public:
+        NO_COPY_AND_MOVE(Sink)
+        explicit Sink(WebStreamProvider& owner)
+        : m_owner(owner) {}
+        ~Sink() override = default;
+        void onDelta(const wxString& delta) override;
+        void onError(const wxString& message) override;
+
+    private:
+        WebStreamProvider& m_owner;
+    };
+
     wxWebRequest m_request;       ///< Current request — one at a time.
     ChunkHandler m_onChunk;       ///< Streaming delta callback.
     ResponseHandler m_onComplete; ///< Pending completion callback.
     std::string m_buffer;         ///< Unparsed response bytes.
     std::size_t m_consumed = 0;   ///< Cursor into `m_buffer` — bytes already parsed.
     wxString m_streamError;       ///< Error reported via a stream event.
+    Sink m_sink { *this };        ///< Adaptor passed to `parseLine`.
     bool m_busy = false;          ///< True while a request is in flight.
 };
 

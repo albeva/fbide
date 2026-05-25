@@ -64,7 +64,6 @@ void WebStreamProvider::onRequestData(wxWebRequestEvent& event) {
 }
 
 void WebStreamProvider::consumeBuffer() {
-    const auto onError = [this](const wxString& message) { m_streamError = message; };
     while (true) {
         const auto pos = m_buffer.find('\n', m_consumed);
         if (pos == std::string::npos) {
@@ -74,7 +73,7 @@ void WebStreamProvider::consumeBuffer() {
         if (!line.empty() && line.back() == '\r') {
             line.remove_suffix(1);
         }
-        parseLine(line, m_onChunk, onError);
+        parseLine(line, m_sink);
         m_consumed = pos + 1;
     }
     // Compact the prefix once we've consumed enough — keeps total memory
@@ -83,6 +82,16 @@ void WebStreamProvider::consumeBuffer() {
         m_buffer.erase(0, m_consumed);
         m_consumed = 0;
     }
+}
+
+void WebStreamProvider::Sink::onDelta(const wxString& delta) {
+    if (m_owner.m_onChunk) {
+        m_owner.m_onChunk(delta);
+    }
+}
+
+void WebStreamProvider::Sink::onError(const wxString& message) {
+    m_owner.m_streamError = message;
 }
 
 void WebStreamProvider::onRequestState(wxWebRequestEvent& event) {

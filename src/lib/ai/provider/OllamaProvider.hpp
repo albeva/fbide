@@ -26,11 +26,20 @@ public:
     /// Construct with the Ollama server base URL (e.g. `http://localhost:11434`).
     explicit OllamaProvider(wxString endpoint);
 
+    /// Map `AiRole` onto Ollama's `messages[].role`. Exposed for tests.
+    /// Ollama carries the system prompt as a `system`-role message in
+    /// the array, so System gets its own mapping (unlike Anthropic).
+    [[nodiscard]] static auto roleToString(AiRole role) -> const char*;
+
+    /// Parse one NDJSON line from Ollama's `/api/chat` stream into
+    /// delta / error events through `sink`. Exposed for tests.
+    static void parseStreamLine(std::string_view line, StreamLineConsumer& sink);
+
 protected:
     [[nodiscard]] auto buildUrl(const AiRequest& request) const -> wxString override;
     void applyHeaders(wxWebRequest& request) const override;
     [[nodiscard]] auto buildBody(const AiRequest& request) const -> std::string override;
-    void parseLine(std::string_view line, const StreamDeltaSink& onDelta, const StreamErrorSink& onError) const override;
+    void parseLine(std::string_view line, StreamLineConsumer& sink) const override;
     [[nodiscard]] auto httpErrorMessage(int status) const -> wxString override;
     [[nodiscard]] auto requestFailedMessage(const wxString& detail) const -> wxString override;
 

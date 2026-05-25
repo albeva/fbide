@@ -16,10 +16,12 @@ FetchContent_MakeAvailable(googletest)
 add_executable(tests
     unit/main.cpp
     unit/AiContextTests.cpp
+    unit/AnthropicProviderTests.cpp
     unit/AutoIndentTests.cpp
     unit/BasicTests.cpp
     unit/MarkdownDocumentTests.cpp
     unit/MockProviderTests.cpp
+    unit/OllamaProviderTests.cpp
     unit/MarkdownImageCacheTests.cpp
     unit/MarkdownLayoutTests.cpp
     unit/MarkdownSelectionTests.cpp
@@ -31,6 +33,7 @@ add_executable(tests
     unit/DocumentPathTests.cpp
     unit/EncodingDetectorTests.cpp
     unit/FBSciLexerTests.cpp
+    unit/GeminiProviderTests.cpp
     unit/MarkdownTests.cpp
     unit/LineHistoryTests.cpp
     unit/PatchTests.cpp
@@ -38,7 +41,6 @@ add_executable(tests
     unit/StyleLexerTests.cpp
     unit/ProviderFactoryTests.cpp
     unit/RunCommandTests.cpp
-    unit/StreamParsersTests.cpp
     unit/SymbolBrowserFilterTests.cpp
     unit/SymbolTableTests.cpp
     unit/TextEncodingTests.cpp

@@ -11,12 +11,55 @@ using namespace fbide::ai;
 using json = nlohmann::json;
 
 namespace {
+
 constexpr auto kEndpoint = "https://api.anthropic.com/v1/messages";
 constexpr auto kAnthropicVersion = "2023-06-01";
+constexpr std::string_view kSsePrefix = "data:";
+
+/// Read `error.message` from a payload that carries either an object
+/// (`{"message":"...", ...}`) or a bare value. Falls back to a generic
+/// string so the user always gets something readable.
+auto extractErrorMessage(const json& error) -> wxString {
+    if (error.is_object()) {
+        return wxString::FromUTF8(error.value("message", "Unknown API error."));
+    }
+    return "Unknown API error.";
+}
+
 } // namespace
 
 AnthropicProvider::AnthropicProvider(wxString apiKey)
 : m_apiKey(std::move(apiKey)) {}
+
+auto AnthropicProvider::roleToString(const AiRole role) -> const char* {
+    switch (role) {
+    case AiRole::Assistant:
+        return "assistant";
+    case AiRole::User:
+    case AiRole::System:
+        break;
+    }
+    return "user";
+}
+
+void AnthropicProvider::parseStreamLine(const std::string_view line, StreamLineConsumer& sink) {
+    if (!line.starts_with(kSsePrefix)) {
+        return;
+    }
+    const auto payload = json::parse(line.substr(kSsePrefix.size()), nullptr, false);
+    if (payload.is_discarded()) {
+        return;
+    }
+    const auto type = payload.value("type", "");
+    if (type == "content_block_delta") {
+        const auto& delta = payload["delta"];
+        if (delta.is_object() && delta.value("type", "") == "text_delta") {
+            sink.onDelta(wxString::FromUTF8(delta.value("text", "")));
+        }
+    } else if (type == "error") {
+        sink.onError(extractErrorMessage(payload["error"]));
+    }
+}
 
 auto AnthropicProvider::buildUrl(const AiRequest& /*request*/) const -> wxString {
     return kEndpoint;
@@ -38,7 +81,7 @@ auto AnthropicProvider::buildBody(const AiRequest& request) const -> std::string
     auto messages = json::array();
     for (const auto& msg : request.messages) {
         messages.push_back({
-            { "role", anthropicRoleToString(msg.role) },
+            { "role", roleToString(msg.role) },
             { "content", msg.content.utf8_string() },
         });
     }
@@ -46,12 +89,8 @@ auto AnthropicProvider::buildBody(const AiRequest& request) const -> std::string
     return body.dump();
 }
 
-void AnthropicProvider::parseLine(
-    const std::string_view line,
-    const StreamDeltaSink& onDelta,
-    const StreamErrorSink& onError
-) const {
-    parseAnthropicLine(line, onDelta, onError);
+void AnthropicProvider::parseLine(const std::string_view line, StreamLineConsumer& sink) const {
+    parseStreamLine(line, sink);
 }
 
 auto AnthropicProvider::httpErrorMessage(const int status) const -> wxString {

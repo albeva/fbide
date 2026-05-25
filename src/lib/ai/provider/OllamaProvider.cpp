@@ -25,6 +25,32 @@ auto trimTrailingSlash(wxString endpoint) -> wxString {
 OllamaProvider::OllamaProvider(wxString endpoint)
 : m_endpoint(trimTrailingSlash(std::move(endpoint))) {}
 
+auto OllamaProvider::roleToString(const AiRole role) -> const char* {
+    switch (role) {
+    case AiRole::System:
+        return "system";
+    case AiRole::Assistant:
+        return "assistant";
+    case AiRole::User:
+        break;
+    }
+    return "user";
+}
+
+void OllamaProvider::parseStreamLine(const std::string_view line, StreamLineConsumer& sink) {
+    const auto chunk = json::parse(line, nullptr, false);
+    if (chunk.is_discarded()) {
+        return;
+    }
+    if (chunk.contains("error")) {
+        sink.onError(wxString::FromUTF8(chunk.value("error", "Unknown Ollama error.")));
+        return;
+    }
+    if (chunk.contains("message") && chunk["message"].is_object()) {
+        sink.onDelta(wxString::FromUTF8(chunk["message"].value("content", "")));
+    }
+}
+
 auto OllamaProvider::buildUrl(const AiRequest& /*request*/) const -> wxString {
     return m_endpoint + "/api/chat";
 }
@@ -47,7 +73,7 @@ auto OllamaProvider::buildBody(const AiRequest& request) const -> std::string {
     }
     for (const auto& msg : request.messages) {
         messages.push_back({
-            { "role", ollamaRoleToString(msg.role) },
+            { "role", roleToString(msg.role) },
             { "content", msg.content.utf8_string() },
         });
     }
@@ -55,12 +81,8 @@ auto OllamaProvider::buildBody(const AiRequest& request) const -> std::string {
     return body.dump();
 }
 
-void OllamaProvider::parseLine(
-    const std::string_view line,
-    const StreamDeltaSink& onDelta,
-    const StreamErrorSink& onError
-) const {
-    parseOllamaLine(line, onDelta, onError);
+void OllamaProvider::parseLine(const std::string_view line, StreamLineConsumer& sink) const {
+    parseStreamLine(line, sink);
 }
 
 auto OllamaProvider::httpErrorMessage(const int status) const -> wxString {
