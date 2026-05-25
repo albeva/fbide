@@ -107,8 +107,16 @@ private:
     wxString m_model;                                   ///< Model name sent with each request.
     wxString m_systemPrompt;                            ///< Configured system prompt (may be empty).
     std::unordered_set<std::uint64_t> m_appliedPatches; ///< Hashes of patches already attempted this session.
-    bool m_agentMode = false;                           ///< Agent mode toggle state.
-    bool m_liveEdit = false;                            ///< Live-edit auto-apply toggle state.
+
+    // In-flight request state. Stored as members rather than captured by
+    // the lambdas handed to the provider, so each lambda captures only
+    // `this` (SBO-friendly) and doesn't heap-allocate the std::function.
+    wxString m_pendingAccumulator;               ///< Streamed deltas so far for the in-flight request.
+    AiProvider::ChunkHandler m_pendingOnChunk;   ///< Forwarded to the caller as deltas arrive.
+    AiProvider::ResponseHandler m_pendingOnDone; ///< Forwarded to the caller on completion.
+
+    bool m_agentMode = false; ///< Agent mode toggle state.
+    bool m_liveEdit = false;  ///< Live-edit auto-apply toggle state.
 };
 
 } // namespace fbide::ai

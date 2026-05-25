@@ -107,23 +107,34 @@ void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChu
         request.system += "The user has attached the following files as context:\n" + m_context.buildText();
     }
 
-    // Accumulate the streamed deltas so the full reply can be stored in
-    // the history once the request completes.
-    auto accumulated = std::make_shared<wxString>();
+    // Park the caller's handlers + the accumulator on the manager so
+    // the lambdas below capture only `this`. A multi-capture lambda
+    // (onChunk + accumulator + onComplete) blows past std::function's
+    // SBO and heap-allocates the function object on every send.
+    m_pendingAccumulator.clear();
+    m_pendingOnChunk = std::move(onChunk);
+    m_pendingOnDone = std::move(onComplete);
 
     m_provider->send(
         request,
-        [onChunk = std::move(onChunk), accumulated](const wxString& delta) {
-            *accumulated += delta;
-            onChunk(delta);
+        [this](const wxString& delta) {
+            m_pendingAccumulator += delta;
+            if (m_pendingOnChunk) {
+                m_pendingOnChunk(delta);
+            }
         },
-        [this, accumulated, onComplete = std::move(onComplete)](AiResponse response) {
+        [this](AiResponse response) {
             if (response.ok) {
                 // Prefer the streamed text; fall back to a non-streamed reply.
-                const wxString& full = accumulated->empty() ? response.text : *accumulated;
+                const wxString& full = m_pendingAccumulator.empty() ? response.text : m_pendingAccumulator;
                 m_history.push_back({ .role = AiRole::Assistant, .content = full });
             }
-            onComplete(std::move(response));
+            auto done = std::exchange(m_pendingOnDone, nullptr);
+            m_pendingOnChunk = nullptr;
+            m_pendingAccumulator.clear();
+            if (done) {
+                done(std::move(response));
+            }
         }
     );
 }

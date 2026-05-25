@@ -49,18 +49,21 @@ public:
 
 private:
     /// Handle one stdout line (a JSON stream event) from the CLI.
-    void handleLine(const wxString& line, const ChunkHandler& onChunk);
+    /// Emits text deltas through `m_onChunk` when the line carries one.
+    void handleLine(const wxString& line);
 
     /// Build the final response once the process has exited.
     auto buildResponse(const ProcessResult& result) -> AiResponse;
 
-    wxString m_claudePath;       ///< Path to the `claude` executable.
-    wxString m_sessionId;        ///< Resume id for the running conversation.
-    wxString m_pendingSessionId; ///< Session id from the in-flight request.
-    wxString m_resultText;       ///< `result` text of the in-flight request.
-    bool m_sawResult = false;    ///< A `result` event was seen this request.
-    bool m_isError = false;      ///< The `result` event reported an error.
-    bool m_busy = false;         ///< True while a CLI invocation is in flight.
+    wxString m_claudePath;        ///< Path to the `claude` executable.
+    wxString m_sessionId;         ///< Resume id for the running conversation.
+    wxString m_pendingSessionId;  ///< Session id from the in-flight request.
+    wxString m_resultText;        ///< `result` text of the in-flight request.
+    ChunkHandler m_onChunk;       ///< Streaming delta callback for the in-flight request.
+    ResponseHandler m_onComplete; ///< Pending completion callback.
+    bool m_sawResult = false;     ///< A `result` event was seen this request.
+    bool m_isError = false;       ///< The `result` event reported an error.
+    bool m_busy = false;          ///< True while a CLI invocation is in flight.
 };
 
 } // namespace fbide::ai

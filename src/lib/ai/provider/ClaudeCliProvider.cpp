@@ -56,22 +56,30 @@ void ClaudeCliProvider::send(const AiRequest& request, ChunkHandler onChunk, Res
     m_isError = false;
     m_resultText.clear();
     m_pendingSessionId.clear();
+    // Park the caller's handlers on the provider so the AsyncProcess
+    // lambdas capture only `this` and stay within std::function's SBO
+    // instead of heap-allocating per send.
+    m_onChunk = std::move(onChunk);
+    m_onComplete = std::move(onComplete);
     m_busy = true;
 
     AsyncProcess::exec(
         command, {}, /*redirect=*/true,
-        [this, onComplete = std::move(onComplete)](ProcessResult result) {
+        [this](ProcessResult result) {
             m_busy = false;
-            onComplete(buildResponse(result));
+            auto onDone = std::exchange(m_onComplete, nullptr);
+            const auto response = buildResponse(result);
+            m_onChunk = nullptr;
+            if (onDone) {
+                onDone(response);
+            }
         },
         prompt,
-        [this, onChunk = std::move(onChunk)](const wxString& line) {
-            handleLine(line, onChunk);
-        }
+        [this](const wxString& line) { handleLine(line); }
     );
 }
 
-void ClaudeCliProvider::handleLine(const wxString& line, const ChunkHandler& onChunk) {
+void ClaudeCliProvider::handleLine(const wxString& line) {
     const auto event = json::parse(line.utf8_string(), nullptr, false);
     if (event.is_discarded()) {
         return;
@@ -84,7 +92,9 @@ void ClaudeCliProvider::handleLine(const wxString& line, const ChunkHandler& onC
         if (inner.is_object() && inner.value("type", "") == "content_block_delta") {
             const auto& delta = inner["delta"];
             if (delta.is_object() && delta.value("type", "") == "text_delta") {
-                onChunk(wxString::FromUTF8(delta.value("text", "")));
+                if (m_onChunk) {
+                    m_onChunk(wxString::FromUTF8(delta.value("text", "")));
+                }
             }
         }
     } else if (type == "result") {
