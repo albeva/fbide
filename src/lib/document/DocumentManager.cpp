@@ -50,7 +50,7 @@ DocumentManager::DocumentManager(Context& ctx)
 DocumentManager::~DocumentManager() = default;
 
 auto DocumentManager::createNotebook(wxWindow* parent) -> DocumentNotebook& {
-    m_notebook = make_unowned<DocumentNotebook>(parent);
+    m_notebook = make_unowned<DocumentNotebook>(parent, m_ctx);
     return *m_notebook;
 }
 
