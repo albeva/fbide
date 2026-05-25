@@ -108,6 +108,12 @@ public:
     /// Set window title. This is prefixed with "FBIde - ", when non empty.
     void setTitle(const wxString& title);
 
+    /// Wipe every document-scoped status-bar field (line:col, type, EOL,
+    /// encoding). The field-index schema lives in `createStatusBar` and
+    /// shouldn't leak to callers; `DocumentManager::closeFile` calls
+    /// this when the last tab closes.
+    void clearDocumentStatus();
+
 private:
     /// Set every command in `range` to disabled — helper for `applyState`.
     void disable(const std::ranges::range auto& range) const;

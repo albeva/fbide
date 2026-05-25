@@ -485,13 +485,10 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
 
     // Update UI state when no documents remain
     if (m_documents.empty()) {
-        m_ctx.getUIManager().setDocumentState(UIState::None);
-        m_ctx.getUIManager().setTitle(wxEmptyString);
-        auto* frame = m_ctx.getUIManager().getMainFrame();
-        frame->SetStatusText("", 1);
-        frame->SetStatusText("", 2);
-        frame->SetStatusText("", 3);
-        frame->SetStatusText("", 4);
+        auto& ui = m_ctx.getUIManager();
+        ui.setDocumentState(UIState::None);
+        ui.setTitle(wxEmptyString);
+        ui.clearDocumentStatus();
     }
 
     return true;
