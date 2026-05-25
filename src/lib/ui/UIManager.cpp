@@ -637,6 +637,20 @@ void UIManager::setTitle(const wxString& title) {
     }
 }
 
+void UIManager::clearDocumentStatus() {
+    // Field 0 (welcome / status message) belongs to the IDE, not to a
+    // document — left alone. Fields 1..4 are the per-document strip
+    // populated by `Editor::updateStatusBar` (line:col / type / EOL /
+    // encoding); they're stale once the last document closes.
+    auto* bar = m_frame->GetStatusBar();
+    if (bar == nullptr) {
+        return;
+    }
+    for (int field = 1; field <= 4; field++) {
+        bar->SetStatusText(wxEmptyString, field);
+    }
+}
+
 void UIManager::disable(const std::ranges::range auto& range) const {
     // Route every state change through CommandEntry. The entry's
     // visitor handles each bound control type (menu item, AUI toolbar
