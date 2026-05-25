@@ -171,11 +171,11 @@ private:
 
     // Document-level commands toggled by `applyState`. Edit commands here
     // (Undo, Redo, Cut, Copy, Paste, SelectAll) get their broad "is there
-    // an editor" gate from applyState; DocumentManager::syncEditCommands
+    // an editor" gate from applyState; CommandManager::syncEditCommands
     // applies the fine-grained mask (CanUndo, has selection, clipboard,
     // etc.) via CommandEntry::setForceDisabled.
     /// Commands toggled by `applyState`. Edit commands here pick up their
-    /// fine-grained mask separately via `DocumentManager::syncEditCommands`.
+    /// fine-grained mask separately via `CommandManager::syncEditCommands`.
     static constexpr std::array mutableIds = {
         CommandId::Save,
         CommandId::SaveAs,

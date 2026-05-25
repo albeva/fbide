@@ -163,6 +163,39 @@ void CommandManager::initializeCommands() {
     }
 }
 
+void CommandManager::syncEditCommands(const Document* active) {
+    const auto setForceDisabled = [this](const CommandId id, const bool state) {
+        if (auto* entry = find(+id)) {
+            entry->setForceDisabled(state);
+        }
+    };
+
+    const auto* editor = (active != nullptr) ? active->getEditor() : nullptr;
+    if (editor == nullptr) {
+        // No editor — leave the broad enable to `applyState`; clear
+        // every per-editor mask bit so previously-disabled commands
+        // aren't stuck off.
+        setForceDisabled(CommandId::Undo, false);
+        setForceDisabled(CommandId::Redo, false);
+        setForceDisabled(CommandId::Cut, false);
+        setForceDisabled(CommandId::Copy, false);
+        setForceDisabled(CommandId::Paste, false);
+        setForceDisabled(CommandId::SelectAll, false);
+        return;
+    }
+
+    const bool hasSelection = editor->GetSelectionEnd() > editor->GetSelectionStart();
+    const bool hasText = editor->GetTextLength() > 0;
+    const bool readOnly = editor->GetReadOnly();
+
+    setForceDisabled(CommandId::Undo, !editor->CanUndo());
+    setForceDisabled(CommandId::Redo, !editor->CanRedo());
+    setForceDisabled(CommandId::Cut, !(hasSelection && !readOnly));
+    setForceDisabled(CommandId::Copy, !hasSelection);
+    setForceDisabled(CommandId::Paste, !editor->CanPaste());
+    setForceDisabled(CommandId::SelectAll, !hasText);
+}
+
 void CommandManager::onAnyEvent(wxCommandEvent& event) {
     event.Skip();
     const auto thaw = m_ctx.getUIManager().freeze();
