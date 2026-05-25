@@ -32,6 +32,7 @@ target_sources(fbide_lib
     document/DocumentNotebook.cpp
     document/DocumentPath.cpp
     document/DocumentType.cpp
+    document/DocumentTypeMenu.cpp
     document/EncodingDetector.cpp
     document/FileSession.cpp
     document/TextEncoding.cpp
@@ -59,7 +60,6 @@ target_sources(fbide_lib
     sidebar/SymbolBrowserPanel.cpp
     ui/ArtiProvider.cpp
     ui/CompilerLog.cpp
-    ui/DocumentTypeMenu.cpp
     ui/EncodingMenu.cpp
     ui/OutputConsole.cpp
     ui/UIManager.cpp
@@ -104,6 +104,7 @@ target_sources(fbide_lib
     document/DocumentNotebook.hpp
     document/DocumentPath.hpp
     document/DocumentType.hpp
+    document/DocumentTypeMenu.hpp
     document/EncodingDetector.hpp
     document/FileSession.hpp
     document/TextEncoding.hpp
@@ -135,7 +136,6 @@ target_sources(fbide_lib
     sidebar/SymbolBrowserPanel.hpp
     ui/ArtiProvider.hpp
     ui/CompilerLog.hpp
-    ui/DocumentTypeMenu.hpp
     ui/EncodingMenu.hpp
     ui/OutputConsole.hpp
     ui/UIManager.hpp

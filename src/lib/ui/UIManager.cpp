@@ -7,7 +7,6 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "UIManager.hpp"
 #include "CompilerLog.hpp"
-#include "DocumentTypeMenu.hpp"
 #include "EncodingMenu.hpp"
 #include "app/Context.hpp"
 #include "command/CommandId.hpp"
@@ -18,6 +17,7 @@
 #include "document/DocumentManager.hpp"
 #include "document/DocumentNotebook.hpp"
 #include "document/DocumentPath.hpp"
+#include "document/DocumentTypeMenu.hpp"
 #include "editor/Editor.hpp"
 #include "rc/icons.hpp"
 #include "sidebar/SideBarManager.hpp"
