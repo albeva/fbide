@@ -99,10 +99,6 @@ public:
     /// Const overload of `notebook`.
     [[nodiscard]] auto notebook() const -> const DocumentNotebook& { return *m_notebook; }
 
-    /// Bind tab-strip events on the document notebook. Call from UIManager
-    /// once the notebook exists.
-    void attachNotebook();
-
     /// Refresh enable/disable state of edit commands (Undo, Redo, Cut, Copy,
     /// Paste, SelectAll) from the active editor. Called whenever the editor
     /// state may have changed (focus, modification, selection).

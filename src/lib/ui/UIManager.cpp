@@ -16,6 +16,7 @@
 #include "config/FileHistory.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentNotebook.hpp"
 #include "document/DocumentPath.hpp"
 #include "editor/Editor.hpp"
 #include "rc/icons.hpp"
@@ -30,15 +31,11 @@ using namespace fbide;
 
 namespace {
 constexpr auto appName = "FBIde";
-const int DocumentTabsId = wxNewId();
 } // namespace
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(UIManager, wxEvtHandler)
     EVT_CLOSE(UIManager::onClose)
-    EVT_AUINOTEBOOK_PAGE_CLOSE(DocumentTabsId,   UIManager::onPageClose)
-    EVT_AUINOTEBOOK_PAGE_CHANGED(DocumentTabsId, UIManager::onPageChanged)
-    EVT_AUINOTEBOOK_BG_DCLICK(DocumentTabsId,    UIManager::onNotebookDblClick)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -133,7 +130,6 @@ void UIManager::createMainFrame() {
     configureToolBar();
     createStatusBar();
     createLayout();
-    m_ctx.getDocumentManager().attachNotebook();
     m_ctx.getCommandManager().initializeCommands();
 
     refreshAuiArt();
@@ -186,10 +182,8 @@ void UIManager::refreshAuiArt() const {
     if (auto* art = m_aui.GetArtProvider()) {
         art->UpdateColoursFromSystem();
     }
-    if (m_notebook != nullptr) {
-        if (auto* art = m_notebook->GetArtProvider()) {
-            art->UpdateColoursFromSystem();
-        }
+    if (auto* art = m_ctx.getDocumentManager().notebook().GetArtProvider()) {
+        art->UpdateColoursFromSystem();
     }
     if (m_sideBar != nullptr) {
         if (auto* art = m_sideBar->GetArtProvider()) {
@@ -203,42 +197,12 @@ void UIManager::refreshAuiArt() const {
     }
 }
 
-void UIManager::onPageClose(wxAuiNotebookEvent& event) {
-    // Always veto — DocumentManager handles the actual page deletion
-    event.Veto();
-
-    const auto pageIdx = event.GetSelection();
-    if (pageIdx == wxNOT_FOUND) {
-        return;
-    }
-
-    const auto* page = m_notebook->GetPage(static_cast<size_t>(pageIdx));
-    auto& docManager = m_ctx.getDocumentManager();
-    if (auto* doc = docManager.findByPage(page)) {
-        docManager.closeFile(*doc);
-    }
-}
-
-void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
-    event.Skip();
-    const auto sel = event.GetSelection();
-    if (sel == wxNOT_FOUND) {
-        m_ctx.getSideBarManager().showSymbolsFor(nullptr);
-        setTitle(wxEmptyString);
-        return;
-    }
-    auto* page = m_notebook->GetPage(static_cast<size_t>(sel));
-    auto* doc = m_ctx.getDocumentManager().findByPage(page);
-    if (doc != nullptr) {
-        doc->getEditor()->SetFocus();
-    }
-    m_ctx.getSideBarManager().showSymbolsFor(doc);
-    setTitle(doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath()));
-}
-
-void UIManager::onNotebookDblClick(wxAuiNotebookEvent& event) {
-    event.Skip();
-    m_ctx.getDocumentManager().newFile();
+auto UIManager::getNotebook() -> wxAuiNotebook* {
+    // Transitional forwarder — the notebook is owned by
+    // `DocumentManager` (see `DocumentNotebook`). FileSession still
+    // reaches for this helper; step F migrates the last consumers
+    // and this method goes away.
+    return &m_ctx.getDocumentManager().notebook();
 }
 
 void UIManager::configureMenuBar() {
@@ -543,15 +507,12 @@ void UIManager::onStatusBarClick(wxMouseEvent& event) {
 }
 
 void UIManager::createLayout() {
-    // Document notebook (center)
-    m_notebook = make_unowned<wxAuiNotebook>(
-        m_frame, DocumentTabsId,
-        wxDefaultPosition, wxDefaultSize,
-        wxAUI_NB_TOP | wxAUI_NB_TAB_SPLIT | wxAUI_NB_TAB_MOVE | wxAUI_NB_SCROLL_BUTTONS | wxAUI_NB_CLOSE_ON_ALL_TABS | wxAUI_NB_MIDDLE_CLICK_CLOSE
-    );
-
+    // Document notebook (centre). Owned by the wx tree, managed by
+    // DocumentManager via Unowned<DocumentNotebook>; UIManager just
+    // docks it here and never touches it again.
+    auto& documentNotebook = m_ctx.getDocumentManager().createNotebook(m_frame);
     m_aui.AddPane(
-        m_notebook.get(),
+        &documentNotebook,
         wxAuiPaneInfo()
             .Name("notebook")
             .CenterPane()

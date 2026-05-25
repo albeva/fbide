@@ -534,11 +534,6 @@ auto DocumentManager::closeOtherFiles(const Document& keep) -> bool {
     return true;
 }
 
-void DocumentManager::attachNotebook() {
-    auto* notebook = getNotebook();
-    notebook->Bind(wxEVT_AUINOTEBOOK_TAB_RIGHT_DOWN, &DocumentManager::onTabRightDown, this);
-}
-
 void DocumentManager::submitIntellisense(Document* doc, wxString content) {
     if (m_intellisense != nullptr) {
         m_intellisense->submit(doc, std::move(content));
@@ -794,7 +789,12 @@ auto DocumentManager::findPageIndex(const Document& doc) const -> int {
 }
 
 auto DocumentManager::getNotebook() const -> wxAuiNotebook* {
-    return m_ctx.getUIManager().getNotebook();
+    // DocumentNotebook inherits wxAuiNotebook publicly; the implicit
+    // pointer conversion gives existing callers the same type they
+    // used to get from UIManager. Step E migrates internal call
+    // sites onto the typed `m_notebook->...` directly and drops
+    // this helper entirely.
+    return m_notebook.get();
 }
 
 void DocumentManager::updateActiveTabTitle() const {
