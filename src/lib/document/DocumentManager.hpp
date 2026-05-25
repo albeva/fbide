@@ -23,7 +23,7 @@ class IntellisenseService;
  * `IntellisenseService`.
  *
  * **Owns:** `m_documents` (vector of `unique_ptr<Document>`),
- * `m_codeTransformer`, `m_intellisense`, `m_findData`.
+ * `m_codeTransformer`, `m_intellisense`.
  * **Owned by:** `Context`.
  * **Threading:** UI thread only. The intellisense worker is owned
  * here but lives on its own thread (see @ref analyses).
@@ -164,18 +164,6 @@ public:
     [[nodiscard]] auto getDocuments() const
         -> std::span<const std::unique_ptr<Document>> { return m_documents; }
 
-    /// Show the Find dialog (pre-filled from active editor).
-    void showFind();
-
-    /// Show the Replace dialog (pre-filled from active editor).
-    void showReplace();
-
-    /// Repeat the last find operation.
-    void findNext();
-
-    /// Show the Goto Line dialog.
-    void gotoLine();
-
 private:
     /// Config-derived default encoding used for freshly opened files.
     [[nodiscard]] auto defaultEncoding() const -> TextEncoding;
@@ -188,37 +176,20 @@ private:
     /// derivation rule.
     void refreshTitleFor(const Document& doc) const;
 
-    /// Open find or replace dialog.
-    void showFindDialog(bool replace);
-
     /// If the saved file is a loaded IDE config, reload it and refresh
     /// editor settings (same chain as SettingsDialog::applyChanges).
     void reloadConfigIfMatches(const wxString& path) const;
 
-    /// Find dialog: kick off a find with the latest entered text.
-    void onFindDialog(wxFindDialogEvent& event);
-    /// Find dialog: repeat the last find from the current caret.
-    void onFindDialogNext(wxFindDialogEvent& event);
-    /// Replace dialog: replace the current selection then find next.
-    void onReplaceDialog(wxFindDialogEvent& event);
-    /// Replace dialog: replace every match across the active document.
-    void onReplaceAllDialog(wxFindDialogEvent& event);
-    /// Find/replace dialog closing — clear the modal pointer.
-    void onFindDialogClose(wxFindDialogEvent& event);
-
     /// Intellisense result delivery (worker thread → UI thread).
     void onIntellisenseResult(wxThreadEvent& event);
 
-    Context& m_ctx;                                     ///< Application context.
-    wxFindReplaceData m_findData { wxFR_DOWN };         ///< Find/replace dialog state.
-    Unowned<DocumentNotebook> m_notebook;               ///< Tab strip — wx-parented to the frame; created by `createNotebook`.
+    Context& m_ctx;                       ///< Application context.
+    Unowned<DocumentNotebook> m_notebook; ///< Tab strip — wx-parented to the frame; created by `createNotebook`.
     std::vector<std::unique_ptr<Document>> m_documents; ///< Open documents in tab order.
     std::unique_ptr<CodeTransformer> m_codeTransformer; ///< Shared on-type transformer.
     /// Declared last so destruction runs first — worker thread stops and
     /// joins before the documents and transformer it might race with go away.
     std::unique_ptr<IntellisenseService> m_intellisense;
-
-    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide
