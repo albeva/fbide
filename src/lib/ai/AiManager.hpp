@@ -8,6 +8,7 @@
 #include "pch.hpp"
 #include "AiContext.hpp"
 #include "AiTypes.hpp"
+#include "ToolDispatchLoop.hpp"
 #include "provider/AiProvider.hpp"
 #include "tools/ToolRegistry.hpp"
 
@@ -49,10 +50,16 @@ public:
 
     /// Partial reply text accumulated for the in-flight request. Empty
     /// between requests and after `clear()`. The chat panel reads this
-    /// to render the streaming bubble — having the manager be the
-    /// single owner of the accumulator avoids a second growing
-    /// wxString duplicate on the panel side.
-    [[nodiscard]] auto pendingReply() const -> const wxString& { return m_pendingAccumulator; }
+    /// to render the streaming bubble — the loop owns the accumulator
+    /// (it spans multiple rounds when tool dispatch kicks in), this
+    /// is just a stable read-only forward.
+    [[nodiscard]] auto pendingReply() const -> const wxString& {
+        if (m_loop) {
+            return m_loop->pendingReply();
+        }
+        static const wxString kEmpty;
+        return kEmpty;
+    }
 
     /// Drop the conversation history. Also drops the applied-patch set
     /// (so a new conversation can re-apply textually identical
@@ -110,24 +117,38 @@ private:
     /// width on both 32- and 64-bit targets.
     [[nodiscard]] static auto patchKey(const wxString& search, const wxString& replace) -> std::size_t;
 
+    /// Build the request for the next dispatch turn — system blocks
+    /// from the configured prompt + agent rubric + attached context,
+    /// the current conversation history, and the gated tool list.
+    /// Re-evaluated by the dispatch loop before every send so changes
+    /// to context / toggles between rounds take effect.
+    [[nodiscard]] auto buildRequest() const -> AiRequest;
+
+    /// True when the active provider supports tools AND the global
+    /// `[ai] enable_tools` flag is on. Cheaper than recomputing the
+    /// predicate at every gating call site.
+    [[nodiscard]] auto toolsEnabled() const -> bool;
+
+    /// Per-tool gating predicate. read_file is always exposed; future
+    /// gates land here as Phase 3 (apply_patch ↔ agent mode) and
+    /// Phase 5 (compile ↔ agent + allow_compile). Static for now
+    /// because no toggles are consulted yet; becomes a member when
+    /// `m_agentMode` or `m_allowCompile` enter the predicate.
+    [[nodiscard]] static auto isToolExposed(const wxString& toolName) -> bool;
+
     Context& m_ctx;                                   ///< Application context.
     std::unique_ptr<AiProvider> m_provider;           ///< Active backend (null until configured).
     std::vector<AiMessage> m_history;                 ///< Conversation messages.
     AiContext m_context;                              ///< Files attached as context.
     ToolRegistry m_tools;                             ///< Model-invocable tools (read_file in P2; apply_patch + compile later).
+    std::unique_ptr<ToolDispatchLoop> m_loop;         ///< Multi-round dispatch driver (null until a provider is configured).
     wxString m_model;                                 ///< Model name sent with each request.
     wxString m_systemPrompt;                          ///< Configured system prompt (may be empty).
     std::unordered_set<std::size_t> m_appliedPatches; ///< Hashes of patches already attempted this session.
 
-    // In-flight request state. Stored as members rather than captured by
-    // the lambdas handed to the provider, so each lambda captures only
-    // `this` (SBO-friendly) and doesn't heap-allocate the std::function.
-    wxString m_pendingAccumulator;               ///< Streamed deltas so far for the in-flight request.
-    AiProvider::ChunkHandler m_pendingOnChunk;   ///< Forwarded to the caller as deltas arrive.
-    AiProvider::ResponseHandler m_pendingOnDone; ///< Forwarded to the caller on completion.
-
-    bool m_agentMode = false; ///< Agent mode toggle state.
-    bool m_liveEdit = false;  ///< Live-edit auto-apply toggle state.
+    bool m_enableTools = true; ///< `[ai] enable_tools` — kill switch for the entire tool-use machinery.
+    bool m_agentMode = false;  ///< Agent mode toggle state.
+    bool m_liveEdit = false;   ///< Live-edit auto-apply toggle state.
 };
 
 } // namespace fbide::ai

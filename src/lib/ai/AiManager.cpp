@@ -50,6 +50,10 @@ AiManager::AiManager(Context& ctx)
     // `[ai] systemPrompt` is the default; an `[ai/<name>] systemPrompt`
     // overrides it for that config. Nothing is baked in when both absent.
     m_systemPrompt = root.at("ai.systemPrompt").as<wxString>().value_or(wxString {});
+    // `[ai] enable_tools` — set to false to keep the model out of the
+    // tool path entirely (useful when debugging the chat surface or
+    // when running against a model that mis-handles tool_use blocks).
+    m_enableTools = root.at("ai.enable_tools").as<bool>().value_or(true);
 
     const auto& config = root.at("ai." + *active);
     if (const auto overridePrompt = config.at("systemPrompt").as<wxString>()) {
@@ -59,28 +63,40 @@ AiManager::AiManager(Context& ctx)
     auto selection = makeProvider(config.at("provider").value_or("anthropic"), config);
     m_provider = std::move(selection.provider);
     m_model = std::move(selection.model);
+
+    // Loop is created only when a provider is configured — it borrows
+    // a reference, and we don't want to hold one to a null provider.
+    if (m_provider != nullptr) {
+        m_loop = std::make_unique<ToolDispatchLoop>(
+            *m_provider,
+            [this](AiToolCall call, Tool::ResultHandler handler) {
+                m_tools.invoke(std::move(call), std::move(handler));
+            }
+        );
+    }
 }
 
-void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChunk, AiProvider::ResponseHandler onComplete) {
-    if (m_provider == nullptr) {
-        onComplete(AiResponse {
-            .ok = false,
-            .text = {},
-            .error = "No AI provider configured. Check the [ai] section in the preferences.",
-        });
-        return;
-    }
+auto AiManager::toolsEnabled() const -> bool {
+    return m_enableTools && m_provider != nullptr && m_provider->supportsTools();
+}
 
-    m_history.push_back({ .role = AiRole::User, .content = text });
+auto AiManager::isToolExposed(const wxString& toolName) -> bool {
+    // Per-tool gating. read_file is always available; apply_patch and
+    // compile gate on toggles that land in later phases. Anything
+    // else (future tools) is denied by default — fail-safe.
+    return toolName == "read_file";
+}
 
+auto AiManager::buildRequest() const -> AiRequest {
     AiRequest request;
     request.model = m_model;
     request.messages = m_history;
 
     // System prompt = the configured prompt (if any), the agent-mode
     // instructions (when on), and the attached context items. Built
-    // fresh on every send so the model always sees current file content
-    // and current mode. Empty when none of the three are set.
+    // fresh on every dispatch turn so the model always sees current
+    // file content and current mode. Empty when none of the three
+    // are set.
     //
     // The base prompt and agent rubric are marked cacheable — they
     // change rarely between turns. Attached items carry their own
@@ -119,38 +135,33 @@ void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChu
         request.system.push_back(std::move(block));
     }
 
-    // Park the caller's handlers + the accumulator on the manager so
-    // the lambdas below capture only `this`. A multi-capture lambda
-    // (onChunk + accumulator + onComplete) blows past std::function's
-    // SBO and heap-allocates the function object on every send.
-    m_pendingAccumulator.clear();
-    m_pendingOnChunk = std::move(onChunk);
-    m_pendingOnDone = std::move(onComplete);
-
-    m_provider->send(
-        request,
-        [this](const wxString& delta) {
-            m_pendingAccumulator += delta;
-            if (m_pendingOnChunk) {
-                m_pendingOnChunk(delta);
-            }
-        },
-        // Phase 2.4 plumbs the tool-call handler through the signature;
-        // the dispatch loop that consumes calls lands in P2.9.
-        [](const AiToolCall& /*call*/) {},
-        [this](AiResponse response) {
-            if (response.ok) {
-                // Prefer the streamed text; fall back to a non-streamed reply.
-                const wxString& full = m_pendingAccumulator.empty() ? response.text : m_pendingAccumulator;
-                m_history.push_back({ .role = AiRole::Assistant, .content = full });
-            }
-            auto done = std::exchange(m_pendingOnDone, nullptr);
-            m_pendingOnChunk = nullptr;
-            m_pendingAccumulator.clear();
-            if (done) {
-                done(std::move(response));
+    if (toolsEnabled()) {
+        for (auto& descriptor : m_tools.descriptors()) {
+            if (isToolExposed(descriptor.name)) {
+                request.tools.push_back(std::move(descriptor));
             }
         }
+    }
+    return request;
+}
+
+void AiManager::sendMessage(const wxString& text, AiProvider::ChunkHandler onChunk, AiProvider::ResponseHandler onComplete) {
+    if (m_provider == nullptr || m_loop == nullptr) {
+        onComplete(AiResponse {
+            .ok = false,
+            .text = {},
+            .error = "No AI provider configured. Check the [ai] section in the preferences.",
+        });
+        return;
+    }
+
+    m_history.push_back({ .role = AiRole::User, .content = text });
+
+    m_loop->run(
+        &m_history,
+        [this] { return buildRequest(); },
+        std::move(onChunk),
+        std::move(onComplete)
     );
 }
 

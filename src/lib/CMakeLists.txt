@@ -7,6 +7,7 @@ target_sources(fbide_lib
     ai/AiContext.cpp
     ai/AiManager.cpp
     ai/AiTypes.cpp
+    ai/ToolDispatchLoop.cpp
     ai/tools/ReadFileTool.cpp
     ai/tools/ToolRegistry.cpp
     ai/ContextTagBar.cpp
