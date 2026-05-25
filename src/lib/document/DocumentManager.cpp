@@ -25,9 +25,6 @@ using namespace fbide;
 
 namespace {
 constexpr auto SESSION_EXT = "fbs";
-const wxWindowID kTabCloseOthersId = wxNewId();
-const wxWindowID kTabShowInBrowserId = wxNewId();
-const wxWindowID kTabReloadFromDiskId = wxNewId();
 } // namespace
 
 // clang-format off
@@ -72,9 +69,8 @@ auto DocumentManager::defaultEolMode() const -> EolMode {
 
 auto DocumentManager::newFile(DocumentType type) -> Document& {
     const auto thaw = m_ctx.getUIManager().freeze();
-    auto* notebook = getNotebook();
-    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(notebook, m_ctx, type));
-    notebook->AddPage(doc.getPage(), doc.getTitle(), true);
+    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_notebook.get(), m_ctx, type));
+    m_notebook->addPage(doc);
     return doc;
 }
 
@@ -178,10 +174,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
 
     // Check if already open
     if (auto* existing = findByPath(canonical)) {
-        const auto idx = findPageIndex(*existing);
-        if (idx != wxNOT_FOUND) {
-            getNotebook()->SetSelection(static_cast<size_t>(idx));
-        }
+        m_notebook->selectDocument(*existing);
         return existing;
     }
 
@@ -195,7 +188,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
 
     const auto thaw = m_ctx.getUIManager().freeze();
     const auto type = documentTypeFromPath(canonical);
-    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(getNotebook(), m_ctx, type));
+    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_notebook.get(), m_ctx, type));
 
     // don't reformat code on file load
     auto* editor = doc.getEditor();
@@ -210,8 +203,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     doc.setFilePath(canonical);
     doc.setModified(false);
 
-    auto* notebook = getNotebook();
-    notebook->AddPage(doc.getPage(), doc.getTitle(), true);
+    m_notebook->addPage(doc);
 
     m_ctx.getFileHistory().addFile(canonicalWx);
 
@@ -266,7 +258,7 @@ void DocumentManager::reloadWithEncoding(Document& doc, const TextEncoding encod
     doc.setEolMode(loaded->eolMode);
     doc.setModified(false);
     doc.updateModTime();
-    updateTabTitle(doc);
+    refreshTitleFor(doc);
     editor->updateStatusBar();
 }
 
@@ -297,7 +289,7 @@ auto DocumentManager::saveFile(Document& doc) -> bool {
 
     doc.setModified(false);
     doc.updateModTime();
-    updateTabTitle(doc);
+    refreshTitleFor(doc);
     reloadConfigIfMatches(toWxString(doc.getFilePath()));
     return true;
 }
@@ -374,7 +366,7 @@ auto DocumentManager::saveFileAs(Document& doc) -> bool {
     doc.setFilePath(newPath);
     doc.setModified(false);
     doc.updateModTime();
-    updateTabTitle(doc);
+    refreshTitleFor(doc);
     reloadConfigIfMatches(toWxString(newPath));
 
     if (clash != nullptr && clash != &doc) {
@@ -430,7 +422,7 @@ void DocumentManager::reloadFromDisk(Document& doc) {
     editor->EmptyUndoBuffer();
     doc.setModified(false);
     doc.updateModTime();
-    updateTabTitle(doc);
+    refreshTitleFor(doc);
     editor->updateStatusBar();
 
     submitIntellisense(&doc, loaded->text);
@@ -477,10 +469,7 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
         }
     }
 
-    if (const auto idx = findPageIndex(doc); idx != wxNOT_FOUND) {
-        getNotebook()->DeletePage(static_cast<size_t>(idx));
-    }
-
+    m_notebook->removePage(doc);
     std::erase_if(m_documents, [&doc](const auto& ptr) { return ptr.get() == &doc; });
 
     // Sidebar: reflect post-close state. PAGE_CHANGED isn't always fired
@@ -597,76 +586,6 @@ void DocumentManager::syncEditCommands() {
     setForceDisabled(CommandId::SelectAll, !hasText);
 }
 
-void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
-    event.Skip();
-    auto* notebook = getNotebook();
-    const auto pageIdx = event.GetSelection();
-    if (pageIdx == wxNOT_FOUND) {
-        return;
-    }
-    const auto* page = notebook->GetPage(static_cast<size_t>(pageIdx));
-    auto* doc = findByPage(page);
-    if (doc == nullptr) {
-        return;
-    }
-
-    // Activate the right-clicked tab so commands dispatched via CommandIds
-    // act on it (Undo/Cut/etc target the active editor).
-    notebook->SetSelection(static_cast<size_t>(pageIdx));
-    syncEditCommands();
-
-    auto& cmd = m_ctx.getCommandManager();
-    const auto entryEnabled = [&cmd](const CommandId id) -> bool {
-        const auto* entry = cmd.find(+id);
-        return entry != nullptr && entry->isEnabled();
-    };
-
-    const bool hasOthers = m_documents.size() > 1;
-    const bool hasPath = !doc->isNew();
-    const auto path = doc->getFilePath();
-    Document* docPtr = doc;
-
-    std::error_code fsEc;
-    const bool fileOnDisk = hasPath && std::filesystem::exists(path, fsEc);
-
-    wxMenu menu;
-    menu.Append(+CommandId::Close, m_ctx.tr("commands.close.name"));
-    menu.Append(kTabCloseOthersId, m_ctx.tr("tabContext.closeOthers"))
-        ->Enable(hasOthers);
-    menu.AppendSeparator();
-    menu.Append(kTabShowInBrowserId, m_ctx.tr("tabContext.showInBrowser"))
-        ->Enable(hasPath);
-    menu.Append(kTabReloadFromDiskId, m_ctx.tr("tabContext.reloadFromDisk"))
-        ->Enable(fileOnDisk);
-    menu.AppendSeparator();
-    menu.Append(+CommandId::Undo, m_ctx.tr("commands.undo.name"))
-        ->Enable(entryEnabled(CommandId::Undo));
-    menu.Append(+CommandId::Redo, m_ctx.tr("commands.redo.name"))
-        ->Enable(entryEnabled(CommandId::Redo));
-    menu.AppendSeparator();
-    menu.Append(+CommandId::Cut, m_ctx.tr("commands.cut.name"))
-        ->Enable(entryEnabled(CommandId::Cut));
-    menu.Append(+CommandId::Copy, m_ctx.tr("commands.copy.name"))
-        ->Enable(entryEnabled(CommandId::Copy));
-    menu.Append(+CommandId::Paste, m_ctx.tr("commands.paste.name"))
-        ->Enable(entryEnabled(CommandId::Paste));
-    menu.Append(+CommandId::SelectAll, m_ctx.tr("commands.selectAll.name"))
-        ->Enable(entryEnabled(CommandId::SelectAll));
-
-    menu.Bind(wxEVT_MENU, [this, docPtr](const wxCommandEvent&) { closeOtherFiles(*docPtr); }, kTabCloseOthersId);
-    menu.Bind(wxEVT_MENU, [this, path](const wxCommandEvent&) {
-        if (auto* entry = m_ctx.getCommandManager().find(+CommandId::Browser)) {
-            entry->setChecked(true);
-        }
-        m_ctx.getSideBarManager().locateFile(toWxString(path)); }, kTabShowInBrowserId);
-    menu.Bind(wxEVT_MENU, [this, docPtr](const wxCommandEvent&) {
-        if (contains(docPtr)) {
-            reloadFromDisk(*docPtr);
-        } }, kTabReloadFromDiskId);
-
-    notebook->PopupMenu(&menu);
-}
-
 // ---------------------------------------------------------------------------
 // Life cycle
 // ---------------------------------------------------------------------------
@@ -697,9 +616,7 @@ auto DocumentManager::prepareToQuit() -> bool {
     while (!m_documents.empty()) {
         auto& doc = *m_documents.back();
         doc.setModified(false);
-        if (const auto idx = findPageIndex(doc); idx != wxNOT_FOUND) {
-            getNotebook()->DeletePage(static_cast<size_t>(idx));
-        }
+        m_notebook->removePage(doc);
         m_documents.pop_back();
     }
 
@@ -708,23 +625,14 @@ auto DocumentManager::prepareToQuit() -> bool {
 }
 
 auto DocumentManager::getActive() const -> Document* {
-    const auto* notebook = getNotebook();
-    const auto sel = notebook->GetSelection();
-    if (sel == wxNOT_FOUND) {
-        return nullptr;
-    }
-    const auto* page = notebook->GetPage(static_cast<size_t>(sel));
-    return findByPage(page);
+    return m_notebook->activeDocument();
 }
 
 void DocumentManager::setActive(Document* document) {
     if (!contains(document) || document == getActive()) {
         return;
     }
-    const auto idx = findPageIndex(*document);
-    if (idx != wxNOT_FOUND) {
-        getNotebook()->SetSelection(static_cast<size_t>(idx));
-    }
+    m_notebook->selectDocument(*document);
 }
 
 auto DocumentManager::findByPath(const wxString& path) const -> Document* {
@@ -759,15 +667,6 @@ auto DocumentManager::findByEditor(const wxWindow* editor) const -> Document* {
     return nullptr;
 }
 
-auto DocumentManager::findByPage(const wxWindow* page) const -> Document* {
-    for (auto& doc : m_documents) {
-        if (doc->getPage() == page) {
-            return doc.get();
-        }
-    }
-    return nullptr;
-}
-
 void DocumentManager::setMinimapVisible(const bool visible) {
     for (const auto& doc : m_documents) {
         doc->showMinimap(visible);
@@ -778,37 +677,22 @@ auto DocumentManager::contains(const Document* doc) const -> bool {
     return doc != nullptr && std::ranges::contains(m_documents, doc, &std::unique_ptr<Document>::get);
 }
 
-auto DocumentManager::findPageIndex(const Document& doc) const -> int {
-    const auto* notebook = m_ctx.getUIManager().getNotebook();
-    for (size_t idx = 0; idx < notebook->GetPageCount(); idx++) {
-        if (notebook->GetPage(idx) == doc.getPage()) {
-            return static_cast<int>(idx);
-        }
-    }
-    return wxNOT_FOUND;
-}
-
-auto DocumentManager::getNotebook() const -> wxAuiNotebook* {
-    // DocumentNotebook inherits wxAuiNotebook publicly; the implicit
-    // pointer conversion gives existing callers the same type they
-    // used to get from UIManager. Step E migrates internal call
-    // sites onto the typed `m_notebook->...` directly and drops
-    // this helper entirely.
-    return m_notebook.get();
-}
-
 void DocumentManager::updateActiveTabTitle() const {
     if (const auto* doc = getActive()) {
-        updateTabTitle(*doc);
+        refreshTitleFor(*doc);
     }
 }
 
-void DocumentManager::updateTabTitle(const Document& doc) const {
-    const auto idx = findPageIndex(doc);
-    if (idx != wxNOT_FOUND) {
-        getNotebook()->SetPageText(static_cast<size_t>(idx), doc.getTitle());
-        m_ctx.getUIManager().setTitle(doc.isNew() ? doc.getTitle() : toWxString(doc.getFilePath()));
-    }
+void DocumentManager::refreshTitleFor(const Document& doc) const {
+    // Tab text + frame title in lockstep. Mirrors the historical
+    // `updateTabTitle(doc)` behaviour: any time a document's metadata
+    // changes (save / save-as / reload / encoding flip) both surfaces
+    // are refreshed regardless of whether `doc` happens to be the
+    // active tab. The frame-title side has the historical quirk of
+    // tracking whichever doc was most recently passed in; preserved
+    // intentionally to keep this step a pure refactor.
+    m_notebook->updateTitle(doc);
+    m_ctx.getUIManager().setTitle(doc.isNew() ? doc.getTitle() : toWxString(doc.getFilePath()));
 }
 
 // ---------------------------------------------------------------------------
