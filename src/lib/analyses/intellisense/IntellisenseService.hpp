@@ -17,7 +17,7 @@ class FBSciLexer;
 
 /// Result delivered to the sink wxEvtHandler when a parse finishes.
 struct IntellisenseResult {
-    const Document* owner;                      ///< Tag the worker received with the task.
+    Document* owner;                            ///< Tag the worker received with the task — opaque to the worker, mutable on the UI thread (e.g. `setSymbolTable`).
     std::shared_ptr<const SymbolTable> symbols; ///< Pooled symbol table, freshly populated.
 };
 
