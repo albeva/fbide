@@ -100,3 +100,7 @@ auto AnthropicProvider::httpErrorMessage(const int status) const -> wxString {
 auto AnthropicProvider::unauthorizedMessage() const -> wxString {
     return "Unauthorized - check the Anthropic API key.";
 }
+
+auto AnthropicProvider::requestFailedMessage(const wxString& detail) const -> wxString {
+    return "Anthropic request failed: " + detail;
+}

@@ -105,3 +105,7 @@ auto GeminiProvider::httpErrorMessage(const int status) const -> wxString {
 auto GeminiProvider::unauthorizedMessage() const -> wxString {
     return "Unauthorized - check the Gemini API key.";
 }
+
+auto GeminiProvider::requestFailedMessage(const wxString& detail) const -> wxString {
+    return "Gemini request failed: " + detail;
+}

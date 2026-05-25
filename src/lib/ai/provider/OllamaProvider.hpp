@@ -41,6 +41,7 @@ protected:
     [[nodiscard]] auto buildBody(const AiRequest& request) const -> std::string override;
     void parseLine(std::string_view line, StreamLineConsumer& sink) const override;
     [[nodiscard]] auto httpErrorMessage(int status) const -> wxString override;
+    [[nodiscard]] auto unauthorizedMessage() const -> wxString override;
     [[nodiscard]] auto requestFailedMessage(const wxString& detail) const -> wxString override;
 
 private:

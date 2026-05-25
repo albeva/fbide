@@ -89,6 +89,12 @@ auto OllamaProvider::httpErrorMessage(const int status) const -> wxString {
     return wxString::Format("Ollama error (HTTP %d).", status);
 }
 
+auto OllamaProvider::unauthorizedMessage() const -> wxString {
+    // Ollama doesn't authenticate by default — a 401 means something is
+    // sitting in front of the server (reverse proxy, ingress, etc).
+    return "Ollama returned Unauthorized — is a proxy in front of the server requiring credentials?";
+}
+
 auto OllamaProvider::requestFailedMessage(const wxString& detail) const -> wxString {
     // Most Ollama "request failed" outcomes are "no server listening" —
     // surface that hint so the user doesn't have to guess.

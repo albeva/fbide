@@ -124,14 +124,6 @@ void WebStreamProvider::onRequestState(wxWebRequestEvent& event) {
     }
 }
 
-auto WebStreamProvider::unauthorizedMessage() const -> wxString {
-    return "Unauthorized.";
-}
-
-auto WebStreamProvider::requestFailedMessage(const wxString& detail) const -> wxString {
-    return "Request failed: " + detail;
-}
-
 void WebStreamProvider::finish(AiResponse response) {
     m_busy = false;
     m_buffer.clear();

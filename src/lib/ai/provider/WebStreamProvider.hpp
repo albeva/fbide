@@ -84,15 +84,16 @@ protected:
     [[nodiscard]] virtual auto httpErrorMessage(int status) const -> wxString = 0;
 
     /// Message used when the server returns HTTP 401 / Unauthorized.
-    /// Defaults to a generic string; providers that authenticate (API
-    /// key, etc.) override to surface the relevant credential hint.
-    [[nodiscard]] virtual auto unauthorizedMessage() const -> wxString;
+    /// Pure virtual so every provider names its credential source —
+    /// the user needs a hint at where to look, not just "Unauthorized."
+    [[nodiscard]] virtual auto unauthorizedMessage() const -> wxString = 0;
 
     /// Message used when `wxWebRequest` reports State_Failed (DNS,
-    /// connection, TLS …). The base appends the raw description from
-    /// `wxWebRequestEvent::GetErrorDescription`; providers can override
-    /// to add a service-specific hint.
-    [[nodiscard]] virtual auto requestFailedMessage(const wxString& detail) const -> wxString;
+    /// TLS, etc). Pure virtual so every provider can fold in the
+    /// service-specific hint that turns a generic network failure
+    /// into actionable feedback. `detail` is the raw description
+    /// from `wxWebRequestEvent::GetErrorDescription`.
+    [[nodiscard]] virtual auto requestFailedMessage(const wxString& detail) const -> wxString = 0;
 
 private:
     /// `wxWebRequest` state transition — terminal states finish the request.
