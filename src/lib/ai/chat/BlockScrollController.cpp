@@ -52,6 +52,17 @@ auto BlockScrollController::accumulateHorizontalWheel(const int wheelDelta, cons
     return pixels;
 }
 
+auto BlockScrollController::acquireWheelAxis(const WheelAxis axis) -> bool {
+    const auto now = std::chrono::steady_clock::now();
+    if (!m_hasLockedAxis || (now - m_lastWheelTime) > kGestureIdle) {
+        // Fresh gesture — adopt this event's axis as the lock.
+        m_lockedAxis = axis;
+        m_hasLockedAxis = true;
+    }
+    m_lastWheelTime = now;
+    return m_lockedAxis == axis;
+}
+
 void BlockScrollController::beginDrag(const std::size_t messageIndex, const std::size_t blockIndex, const int startOffset, const int startMouseX) {
     m_dragMessageIndex = static_cast<int>(messageIndex);
     m_dragBlockIndex = blockIndex;

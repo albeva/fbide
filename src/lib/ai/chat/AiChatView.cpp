@@ -771,12 +771,37 @@ void AiChatView::onScroll(wxScrollWinEvent& event) {
 }
 
 void AiChatView::onMouseWheel(wxMouseEvent& event) {
+    const auto wheelAxis = event.GetWheelAxis();
+    const bool isHoriz = wheelAxis == wxMOUSE_WHEEL_HORIZONTAL;
+    const bool isVert = wheelAxis == wxMOUSE_WHEEL_VERTICAL;
+    if (!isHoriz && !isVert) {
+        event.Skip();
+        return;
+    }
+
+    // Axis lock — when the pointer is over an overflowing block during
+    // a continuous trackpad gesture, only the gesture's dominant axis
+    // is allowed through. Suppresses off-axis drift that would
+    // otherwise jiggle a code/patch block sideways during a vertical
+    // conversation scroll, or move the conversation while the user is
+    // clearly scrolling a block horizontally. Resolved once per event
+    // so `overflowingBlockAt` is called at most a single time.
+    const auto target = overflowingBlockAt(event.GetPosition());
+    if (target.has_value()) {
+        const auto axis = isHoriz
+                            ? BlockScrollController::WheelAxis::Horizontal
+                            : BlockScrollController::WheelAxis::Vertical;
+        if (!m_blockScroll.acquireWheelAxis(axis)) {
+            return;
+        }
+    }
+
     // Horizontal trackpad swipe — route directly to the overflowing
     // block under the pointer. Uses the same fractional accumulator
     // trick as vertical scroll so macOS trackpad momentum tails don't
     // get rounded away.
-    if (event.GetWheelAxis() == wxMOUSE_WHEEL_HORIZONTAL) {
-        if (const auto target = overflowingBlockAt(event.GetPosition())) {
+    if (isHoriz) {
+        if (target.has_value()) {
             const int pixels = m_blockScroll.accumulateHorizontalWheel(event.GetWheelDelta(), event.GetWheelRotation());
             if (pixels == 0) {
                 return;
@@ -791,25 +816,19 @@ void AiChatView::onMouseWheel(wxMouseEvent& event) {
         event.Skip();
         return;
     }
-    // Vertical wheel only past here — horizontal already handled above.
-    if (event.GetWheelAxis() != wxMOUSE_WHEEL_VERTICAL) {
-        event.Skip();
-        return;
-    }
+
     // Shift + vertical wheel over an overflowing non-wrapped code /
     // patch block scrolls that block horizontally instead of the
     // conversation — mirrors the browser convention. Plain wheel
     // keeps its conversation-scroll behaviour even over a block.
-    if (event.ShiftDown()) {
-        if (const auto target = overflowingBlockAt(event.GetPosition())) {
-            constexpr int kScrollbarWheelStep = 40;
-            const int rotation = event.GetWheelRotation();
-            const int delta = (rotation > 0 ? -1 : 1) * kScrollbarWheelStep;
-            const auto& item = m_items.at(target->messageIndex);
-            const int current = item.blockScroll.at(target->blockIndex);
-            setBlockScrollOffset(target->messageIndex, target->blockIndex, current + delta);
-            return;
-        }
+    if (event.ShiftDown() && target.has_value()) {
+        constexpr int kScrollbarWheelStep = 40;
+        const int rotation = event.GetWheelRotation();
+        const int delta = (rotation > 0 ? -1 : 1) * kScrollbarWheelStep;
+        const auto& item = m_items.at(target->messageIndex);
+        const int current = item.blockScroll.at(target->blockIndex);
+        setBlockScrollOffset(target->messageIndex, target->blockIndex, current + delta);
+        return;
     }
 
     // Rotation-to-pixels with a fractional accumulator. The default

@@ -56,6 +56,28 @@ public:
     /// fraction hasn't crossed the per-tick threshold yet.
     [[nodiscard]] auto accumulateHorizontalWheel(int wheelDelta, int wheelRotation) -> int;
 
+    /// Axis of a wheel event for the axis-lock check below.
+    enum class WheelAxis : std::uint8_t {
+        Horizontal,
+        Vertical
+    };
+
+    /// Idle threshold between events within a single trackpad gesture.
+    /// Two events farther apart in time count as belonging to separate
+    /// gestures, so the axis lock resets.
+    static constexpr auto kGestureIdle = std::chrono::milliseconds(150);
+
+    /// Axis-lock check for the wheel handler. The first event of a
+    /// fresh gesture (no other event within `kGestureIdle`) adopts
+    /// `axis` as the gesture's locked direction and returns `true`.
+    /// Subsequent off-axis events return `false` so the caller can
+    /// suppress them — keeps a vertical trackpad scroll from
+    /// accidentally jiggling a code/patch block sideways and vice
+    /// versa. Every call refreshes the gesture-idle timer regardless
+    /// of return value: off-axis drift in the middle of a real gesture
+    /// is still "the gesture is in progress".
+    auto acquireWheelAxis(WheelAxis axis) -> bool;
+
     // Drag bookkeeping ------------------------------------------------
     void beginDrag(std::size_t messageIndex, std::size_t blockIndex, int startOffset, int startMouseX);
     void endDrag();
@@ -82,6 +104,11 @@ private:
     int m_hoverMessageIndex = -1;
     std::size_t m_hoverBlockIndex = 0;
     int m_hwheelPixelAccum = 0;
+
+    /// Axis-lock state — see `acquireWheelAxis`.
+    bool m_hasLockedAxis = false;
+    WheelAxis m_lockedAxis = WheelAxis::Horizontal;
+    std::chrono::steady_clock::time_point m_lastWheelTime;
 };
 
 } // namespace fbide::ai
