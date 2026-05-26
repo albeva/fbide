@@ -31,21 +31,29 @@ auto defaultEolModeFromConfig(Context& ctx) -> EolMode {
 
 } // namespace
 
-Document::Document(wxWindow* parent, Context& ctx, const DocumentType type)
+Document::Document(Context& ctx, const DocumentType type)
 : m_ctx(ctx)
 , m_type(type)
-, m_panel(make_unowned<EditorPanel>(parent, ctx, type))
 , m_encoding(defaultEncodingFromConfig(ctx))
-, m_eolMode(defaultEolModeFromConfig(ctx)) {
-    m_panel->getEditor()->SetEOLMode(m_eolMode.toStc());
+, m_eolMode(defaultEolModeFromConfig(ctx)) {}
+
+void Document::attachView(EditorPanel* panel) {
+    m_panel = panel;
+    if (panel != nullptr) {
+        panel->getEditor()->SetEOLMode(m_eolMode.toStc());
+    }
+}
+
+void Document::detachView() {
+    m_panel = nullptr;
 }
 
 auto Document::getEditor() -> Editor* {
-    return m_panel->getEditor();
+    return m_panel != nullptr ? m_panel->getEditor() : nullptr;
 }
 
 auto Document::getEditor() const -> const Editor* {
-    return m_panel->getEditor();
+    return m_panel != nullptr ? m_panel->getEditor() : nullptr;
 }
 
 auto Document::getPage() -> wxWindow* {
@@ -57,11 +65,15 @@ auto Document::getPage() const -> const wxWindow* {
 }
 
 void Document::showMinimap(const bool enabled) {
-    m_panel->showMinimap(enabled);
+    if (m_panel != nullptr) {
+        m_panel->showMinimap(enabled);
+    }
 }
 
 void Document::updateSettings() {
-    m_panel->updateSettings();
+    if (m_panel != nullptr) {
+        m_panel->updateSettings();
+    }
 }
 
 void Document::setFilePath(const std::filesystem::path& path) {
@@ -72,7 +84,9 @@ void Document::setFilePath(const std::filesystem::path& path) {
         const auto newType = documentTypeFromPath(path);
         if (newType != m_type) {
             m_type = newType;
-            m_panel->getEditor()->setDocType(newType);
+            if (m_panel != nullptr) {
+                m_panel->getEditor()->setDocType(newType);
+            }
         }
     }
     updateModTime();
@@ -84,13 +98,18 @@ void Document::setType(const DocumentType type) {
         return;
     }
     m_type = type;
-    m_panel->getEditor()->setDocType(type);
+    if (m_panel != nullptr) {
+        m_panel->getEditor()->setDocType(type);
+    }
 
     auto& dm = m_ctx.getDocumentManager();
     if (type == DocumentType::FreeBASIC) {
         // Re-enter the FreeBASIC pipeline — submit the current buffer for
-        // intellisense so the symbol browser populates.
-        dm.submitIntellisense(this, m_panel->getEditor()->GetText());
+        // intellisense so the symbol browser populates. View-less
+        // documents have no buffer; skip until a view attaches.
+        if (m_panel != nullptr) {
+            dm.submitIntellisense(this, m_panel->getEditor()->GetText());
+        }
     } else {
         // Leaving FreeBASIC: drop any in-flight intellisense work, release
         // the symbol table (frees the shared_ptr — workers may still hold
@@ -119,12 +138,14 @@ auto Document::getFrameTitle() const -> wxString {
 }
 
 auto Document::isModified() const -> bool {
-    return m_metaModified || m_panel->isModified();
+    return m_metaModified || (m_panel != nullptr && m_panel->isModified());
 }
 
 void Document::setModified(const bool modified) {
     if (!modified) {
-        m_panel->markSaved();
+        if (m_panel != nullptr) {
+            m_panel->markSaved();
+        }
         m_metaModified = false;
     }
 }
@@ -142,9 +163,13 @@ void Document::setEolMode(const EolMode mode) {
         return;
     }
     m_eolMode = mode;
-    auto* editor = m_panel->getEditor();
-    editor->ConvertEOLs(mode.toStc());
-    editor->SetEOLMode(mode.toStc());
+    if (m_panel != nullptr) {
+        auto* editor = m_panel->getEditor();
+        editor->ConvertEOLs(mode.toStc());
+        editor->SetEOLMode(mode.toStc());
+    }
+    // View-less: the new mode is applied via `attachView` next time
+    // a panel is paired with this document.
 }
 
 auto Document::checkExternalChange() const -> bool {
@@ -160,6 +185,10 @@ auto Document::checkExternalChange() const -> bool {
 }
 
 auto Document::getKeywordAtCursor() const -> wxString {
+    // No view → no cursor → nothing under it.
+    if (m_panel == nullptr) {
+        return {};
+    }
     // wxSTC's position / word boundary helpers aren't const; the
     // original implementation reached through the non-const editor
     // accessor — preserved here.

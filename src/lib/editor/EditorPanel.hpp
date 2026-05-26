@@ -12,6 +12,7 @@ class wxStyledTextCtrlMiniMap;
 
 namespace fbide {
 class Context;
+class Document;
 class Editor;
 
 /**
@@ -37,10 +38,17 @@ class EditorPanel final : public wxPanel {
 public:
     NO_COPY_AND_MOVE(EditorPanel)
 
-    /// Build the panel as a child of `parent`. Reads minimap defaults
-    /// (width + initial visibility) from config, constructs the
-    /// editor, and lays everything out.
-    EditorPanel(wxWindow* parent, Context& ctx, DocumentType type);
+    /// Build the panel as a child of `parent`, hosting the editor for
+    /// `doc`. Reads minimap defaults (width + initial visibility)
+    /// from config, constructs the editor, lays everything out, and
+    /// publishes the back-link via `doc.attachView(this)` so the
+    /// model knows where its presenting view is.
+    EditorPanel(wxWindow* parent, Context& ctx, DocumentType type, Document& doc);
+
+    /// Notifies `m_doc` to drop its back-link. wx parent-driven
+    /// destruction (notebook page close) routes through this so
+    /// `Document::m_panel` doesn't dangle.
+    ~EditorPanel() override;
 
     /// The hosted editor widget. Non-null for the lifetime of the
     /// panel — the editor is wx-parented to the panel and destroyed
@@ -78,6 +86,7 @@ private:
     /// Destroy the minimap widget and drop it from the layout.
     void destroyMinimap();
 
+    Document& m_doc;                            ///< Back reference — used to publish / clear the view link.
     Unowned<Editor> m_editor;                   ///< Editor widget — child of this panel.
     Unowned<wxStyledTextCtrlMiniMap> m_minimap; ///< Minimap — lazily created; null while disabled.
     int m_minimapWidth;                         ///< Minimap width in px — `editor.minimapWidth` config key.

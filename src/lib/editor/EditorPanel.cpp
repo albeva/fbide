@@ -9,6 +9,7 @@
 #include "Editor.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
+#include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
@@ -32,8 +33,9 @@ auto minimapEnabledFromConfig(Context& ctx) -> bool {
 
 } // namespace
 
-EditorPanel::EditorPanel(wxWindow* parent, Context& ctx, const DocumentType type)
+EditorPanel::EditorPanel(wxWindow* parent, Context& ctx, const DocumentType type, Document& doc)
 : wxPanel(parent, wxID_ANY)
+, m_doc(doc)
 , m_editor(
       make_unowned<Editor>(
           this, ctx.getConfigManager(), ctx.getTheme(),
@@ -55,6 +57,14 @@ EditorPanel::EditorPanel(wxWindow* parent, Context& ctx, const DocumentType type
     // Auto-hide the minimap when the page becomes too narrow.
     Bind(wxEVT_SIZE, &EditorPanel::onSize, this);
     updateMinimapVisibility();
+
+    // Publish the back-link last — by the time the document looks at
+    // its view, the editor is fully wired and ready.
+    m_doc.attachView(this);
+}
+
+EditorPanel::~EditorPanel() {
+    m_doc.detachView();
 }
 
 void EditorPanel::showMinimap(const bool enabled) {

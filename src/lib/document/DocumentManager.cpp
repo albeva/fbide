@@ -19,6 +19,7 @@
 #include "config/FileHistory.hpp"
 #include "editor/CodeTransformer.hpp"
 #include "editor/Editor.hpp"
+#include "editor/EditorPanel.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
@@ -59,7 +60,11 @@ auto DocumentManager::defaultEolMode() const -> EolMode {
 
 auto DocumentManager::newFile(DocumentType type) -> Document& {
     const auto thaw = m_ctx.getUIManager().freeze();
-    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_notebook.get(), m_ctx, type));
+    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx, type));
+    // Constructing the EditorPanel publishes the back-link via
+    // `doc.attachView(this)` from its constructor — `make_unowned`
+    // creates the panel as a wx-parented child of the notebook.
+    static_cast<void>(make_unowned<EditorPanel>(m_notebook.get(), m_ctx, type, doc));
     m_notebook->addPage(doc);
     return doc;
 }
@@ -178,7 +183,9 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
 
     const auto thaw = m_ctx.getUIManager().freeze();
     const auto type = documentTypeFromPath(canonical);
-    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_notebook.get(), m_ctx, type));
+    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx, type));
+    // EditorPanel ctor publishes the view back-link onto the document.
+    static_cast<void>(make_unowned<EditorPanel>(m_notebook.get(), m_ctx, type, doc));
 
     // don't reformat code on file load
     auto* editor = doc.getEditor();
