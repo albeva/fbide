@@ -60,6 +60,20 @@ public:
     /// Access the shared background intellisense worker.
     [[nodiscard]] auto getIntellisense() -> IntellisenseService& { return *m_intellisense; }
 
+    /// Resolve `path` to an open document, opening it if necessary.
+    /// Lookup rules, in order:
+    ///   1. Already-open `Document` whose path matches → return it
+    ///      (no file I/O, no duplicate tab).
+    ///   2. *(Persistent, future)* The path is a member of an open
+    ///      persistent project → open it and bind to that project.
+    ///   3. Fallback: `DocumentManager::openFile` — creates a fresh
+    ///      tab which, if the type is FreeBASIC, gets its own
+    ///      Ephemeral project via the standard openFile flow.
+    /// Returns `nullptr` only when even rule 3 fails (file missing,
+    /// load error, etc.). Today rule 2 is unreachable; the hook is
+    /// in the right place for Persistent projects to slot in later.
+    auto resolveOrOpen(const std::filesystem::path& path) -> Document*;
+
     /// Allocate an Ephemeral project bound to `doc`. Preconditions:
     /// the document must be unbound (`getProject() == nullptr`) and
     /// FreeBASIC (`getType() == FreeBASIC`). The current path stored

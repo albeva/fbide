@@ -237,24 +237,27 @@ void CompilerManager::promptMissingCompiler() {
 // ---------------------------------------------------------------------------
 
 void CompilerManager::goToError(const int line, const wxString& fileName) {
-    auto& docManager = m_ctx.getDocumentManager();
+    auto& workspace = m_ctx.getWorkspaceManager();
 
     auto* doc = [&] -> Document* {
         const auto isTemp = wxFileNameFromPath(fileName) == BuildTask::TEMPNAME;
-        if (m_task == nullptr) {
-            return isTemp ? nullptr : docManager.openFile(toFsPath(fileName));
+        if (isTemp) {
+            // FBIDETEMP only makes sense while a quick-run is in flight —
+            // map it back to the project's primary source so the user
+            // navigates into the buffer they typed, not a temp file.
+            if (m_task != nullptr && m_task->isQuickRun()) {
+                auto* project = m_task->getProject();
+                return project != nullptr ? project->getPrimarySource() : nullptr;
+            }
+            return nullptr;
         }
-        if (isTemp && m_task->isQuickRun()) {
-            auto* project = m_task->getProject();
-            return project != nullptr ? project->getPrimarySource() : nullptr;
-        }
-        return docManager.openFile(toFsPath(fileName));
+        return workspace.resolveOrOpen(toFsPath(fileName));
     }();
     if (doc == nullptr) {
         return;
     }
 
-    docManager.setActive(doc);
+    m_ctx.getDocumentManager().setActive(doc);
     doc->getEditor()->navigateToLine(line);
 }
 

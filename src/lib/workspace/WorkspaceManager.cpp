@@ -19,6 +19,24 @@ WorkspaceManager::WorkspaceManager(Context& ctx)
 
 WorkspaceManager::~WorkspaceManager() = default;
 
+auto WorkspaceManager::resolveOrOpen(const std::filesystem::path& path) -> Document* {
+    auto& docManager = m_ctx.getDocumentManager();
+
+    // Rule 1: file is already open — return the existing tab.
+    if (auto* existing = docManager.findByPath(path)) {
+        return existing;
+    }
+
+    // Rule 2 (future, Persistent projects): if `path` is a member of
+    // any open persistent project, open the file and bind it to that
+    // project before returning. No persistent projects exist yet, so
+    // this rule is unreachable in the current phase.
+
+    // Rule 3: ordinary openFile path — creates a tab and, when the
+    // detected type is FreeBASIC, an Ephemeral project to host it.
+    return docManager.openFile(path);
+}
+
 auto WorkspaceManager::createEphemeral(Document& doc) -> Project& {
     assert(doc.getProject() == nullptr && "document already bound to a project");
     assert(doc.getType() == DocumentType::FreeBASIC && "ephemeral projects only host FreeBASIC documents");
