@@ -35,7 +35,7 @@ Document::Document(Context& ctx, const DocumentType type)
 , m_encoding(defaultEncodingFromConfig(ctx))
 , m_eolMode(defaultEolModeFromConfig(ctx)) {}
 
-void Document::attachView(EditorPanel* panel) {
+void Document::attachView(EditorPanel* panel) { // REVIEW: attached view should be any wxWindow view, not just EditorPane;
     m_panel = panel;
     if (panel != nullptr) {
         panel->getEditor()->SetEOLMode(m_eolMode.toStc());
@@ -54,11 +54,11 @@ auto Document::getEditor() const -> const Editor* {
     return m_panel != nullptr ? m_panel->getEditor() : nullptr;
 }
 
-auto Document::getPage() -> wxWindow* {
+auto Document::getPage() -> wxWindow* { // REVIEW: Rename to getView
     return m_panel.get();
 }
 
-auto Document::getPage() const -> const wxWindow* {
+auto Document::getPage() const -> const wxWindow* { // REVIEW: Rename to getView
     return m_panel.get();
 }
 
@@ -108,6 +108,7 @@ void Document::setType(const DocumentType type) {
     }
 }
 
+// REVIEW: We don't need callbacks. Just get the documentManager from ctx, and call intellisense directly.
 void Document::onTypeChanged(DocumentTypeChangedHandler handler) {
     m_onTypeChanged = std::move(handler);
 }
@@ -130,13 +131,11 @@ auto Document::isModified() const -> bool {
     return m_metaModified || (m_panel != nullptr && m_panel->isModified());
 }
 
-void Document::setModified(const bool modified) {
-    if (!modified) {
-        if (m_panel != nullptr) {
-            m_panel->markSaved();
-        }
-        m_metaModified = false;
+void Document::markSaved() {
+    if (m_panel != nullptr) {
+        m_panel->markSaved();
     }
+    m_metaModified = false;
 }
 
 void Document::setEncoding(const TextEncoding encoding) {
@@ -157,8 +156,6 @@ void Document::setEolMode(const EolMode mode) {
         editor->ConvertEOLs(mode.toStc());
         editor->SetEOLMode(mode.toStc());
     }
-    // View-less: the new mode is applied via `attachView` next time
-    // a panel is paired with this document.
 }
 
 auto Document::checkExternalChange() const -> bool {
@@ -173,7 +170,7 @@ auto Document::checkExternalChange() const -> bool {
     return m_modTime != std::filesystem::file_time_type {} && currentModTime != m_modTime;
 }
 
-auto Document::getKeywordAtCursor() const -> wxString {
+auto Document::getKeywordAtCursor() const -> wxString { // REVIEW: This belongs in the Editor
     // No view → no cursor → nothing under it.
     if (m_panel == nullptr) {
         return {};

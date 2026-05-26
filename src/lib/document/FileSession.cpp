@@ -81,7 +81,7 @@ auto resolveStoredPath(const wxString& storedPath,
 FileSession::FileSession(Context& ctx)
 : m_ctx(ctx) {}
 
-void FileSession::load(const wxString& path, const bool addToHistory) {
+void FileSession::load(const wxString& path, const bool addToHistory) { // REVIEW: Should be fs::path
     if (!wxFileExists(path)) {
         return;
     }
@@ -96,7 +96,7 @@ void FileSession::load(const wxString& path, const bool addToHistory) {
     }
 }
 
-auto FileSession::save(const wxString& path) -> bool {
+auto FileSession::save(const wxString& path) -> bool { // REVIEW: Should be fs::path
     const auto& dm = m_ctx.getDocumentManager();
 
     // Pure path snapshot — modified buffers are NOT auto-saved here.
@@ -261,7 +261,7 @@ void FileSession::loadV3(const wxString& path) {
             }
         }
         // setEncoding / setEolMode flip the meta-dirty flag — clear.
-        doc->setModified(false);
+        doc->markSaved();
 
         long scroll = 0;
         long cursor = 0;

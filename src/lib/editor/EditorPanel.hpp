@@ -91,6 +91,8 @@ private:
     Unowned<wxStyledTextCtrlMiniMap> m_minimap; ///< Minimap — lazily created; null while disabled.
     int m_minimapWidth;                         ///< Minimap width in px — `editor.minimapWidth` config key.
     bool m_minimapEnabled;                      ///< Minimap toggle state — `commands.viewMinimap`.
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide

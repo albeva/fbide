@@ -14,6 +14,10 @@
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
+wxBEGIN_EVENT_TABLE(EditorPanel, wxPanel)
+    EVT_SIZE(EditorPanel::onSize)
+wxEND_EVENT_TABLE()
+
 namespace {
 
 /// Default minimap pixel width when no config override is set.
@@ -54,8 +58,6 @@ EditorPanel::EditorPanel(wxWindow* parent, Context& ctx, const DocumentType type
         createMinimap();
     }
 
-    // Auto-hide the minimap when the page becomes too narrow.
-    Bind(wxEVT_SIZE, &EditorPanel::onSize, this);
     updateMinimapVisibility();
 
     // Publish the back-link last — by the time the document looks at
@@ -80,11 +82,11 @@ void EditorPanel::showMinimap(const bool enabled) {
     updateMinimapVisibility();
 }
 
-auto EditorPanel::isModified() const -> bool {
+auto EditorPanel::isModified() const -> bool { // REVIEW: Unnecassery, callees should just get the editor directly
     return m_editor->GetModify();
 }
 
-void EditorPanel::markSaved() {
+void EditorPanel::markSaved() { // REVIEW: Unnecassery, callees should just get the editor directly
     m_editor->SetSavePoint();
 }
 

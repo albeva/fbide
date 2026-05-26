@@ -12,8 +12,6 @@
 #include "FileSession.hpp"
 #include "analyses/intellisense/IntellisenseService.hpp"
 #include "app/Context.hpp"
-#include "command/CommandEntry.hpp"
-#include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
@@ -62,10 +60,7 @@ auto DocumentManager::newFile(DocumentType type) -> Document& {
     const auto thaw = m_ctx.getUIManager().freeze();
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx, type));
     registerDocumentHooks(doc);
-    // Constructing the EditorPanel publishes the back-link via
-    // `doc.attachView(this)` from its constructor — `make_unowned`
-    // creates the panel as a wx-parented child of the notebook.
-    static_cast<void>(make_unowned<EditorPanel>(m_notebook.get(), m_ctx, type, doc));
+    make_unowned<EditorPanel>(m_notebook.get(), m_ctx, type, doc);
     m_notebook->addPage(doc);
     return doc;
 }
@@ -146,7 +141,7 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
     return nullptr;
 }
 
-auto DocumentManager::openFile(const wxString& filePath) -> Document* {
+auto DocumentManager::openFile(const wxString& filePath) -> Document* { // REVIEW: should only use std::filesystem::path variant.
     return openFile(toFsPath(filePath));
 }
 
@@ -163,7 +158,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     const auto canonicalWx = toWxString(canonical);
 
     // Session files are loaded separately
-    if (auto ext = canonical.extension().string(); ext.size() > 1 && ext.substr(1) == SESSION_EXT) {
+    if (const auto ext = canonical.extension().string(); ext.size() > 1 && ext.substr(1) == SESSION_EXT) {
         m_ctx.getFileSession().load(canonicalWx);
         return nullptr;
     }
@@ -184,10 +179,10 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
 
     const auto thaw = m_ctx.getUIManager().freeze();
     const auto type = documentTypeFromPath(canonical);
+
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx, type));
     registerDocumentHooks(doc);
-    // EditorPanel ctor publishes the view back-link onto the document.
-    static_cast<void>(make_unowned<EditorPanel>(m_notebook.get(), m_ctx, type, doc));
+    make_unowned<EditorPanel>(m_notebook.get(), m_ctx, type, doc);
 
     // don't reformat code on file load
     auto* editor = doc.getEditor();
@@ -200,7 +195,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     doc.setEncoding(loaded->encoding);
     doc.setEolMode(loaded->eolMode);
     doc.setFilePath(canonical);
-    doc.setModified(false);
+    doc.markSaved();
 
     m_notebook->addPage(doc);
 
@@ -211,17 +206,13 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     return &doc;
 }
 
-namespace {
-
-void reportSaveFailure(const DocumentIO::SaveResult result, Context& ctx, const TextEncoding encoding) {
+void DocumentManager::reportSaveFailure(const DocumentIO::SaveResult result, const TextEncoding encoding) const {
     if (result == DocumentIO::SaveResult::EncodingError) {
-        wxLogError(ctx.tr("messages.saveEncodingError"), encoding.toString().data());
+        wxLogError(m_ctx.tr("messages.saveEncodingError"), encoding.toString().data());
     } else if (result == DocumentIO::SaveResult::IOError) {
-        wxLogError("%s", ctx.tr("messages.saveIoError"));
+        wxLogError("%s", m_ctx.tr("messages.saveIoError"));
     }
 }
-
-} // namespace
 
 void DocumentManager::reloadWithEncoding(Document& doc, const TextEncoding encoding) {
     if (doc.isNew()) {
@@ -255,7 +246,7 @@ void DocumentManager::reloadWithEncoding(Document& doc, const TextEncoding encod
     editor->EmptyUndoBuffer();
     doc.setEncoding(encoding);
     doc.setEolMode(loaded->eolMode);
-    doc.setModified(false);
+    doc.markSaved();
     doc.updateModTime();
     refreshTitleFor(doc);
     editor->updateStatusBar();
@@ -282,11 +273,11 @@ auto DocumentManager::saveFile(Document& doc) -> bool {
 
     const auto result = DocumentIO::save(doc.getFilePath(), doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode());
     if (result != DocumentIO::SaveResult::Success) {
-        reportSaveFailure(result, m_ctx, doc.getEncoding());
+        reportSaveFailure(result, doc.getEncoding());
         return false;
     }
 
-    doc.setModified(false);
+    doc.markSaved();
     doc.updateModTime();
     refreshTitleFor(doc);
     reloadConfigIfMatches(toWxString(doc.getFilePath()));
@@ -358,12 +349,12 @@ auto DocumentManager::saveFileAs(Document& doc) -> bool {
 
     const auto result = DocumentIO::save(newPath, doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode());
     if (result != DocumentIO::SaveResult::Success) {
-        reportSaveFailure(result, m_ctx, doc.getEncoding());
+        reportSaveFailure(result, doc.getEncoding());
         return false;
     }
 
     doc.setFilePath(newPath);
-    doc.setModified(false);
+    doc.markSaved();
     doc.updateModTime();
     refreshTitleFor(doc);
     reloadConfigIfMatches(toWxString(newPath));
@@ -372,7 +363,7 @@ auto DocumentManager::saveFileAs(Document& doc) -> bool {
         // Two tabs showing the same file is redundant. The user already
         // confirmed the overwrite, so close the mirror tab without
         // re-prompting about its now-stale buffer.
-        clash->setModified(false);
+        clash->markSaved();
         closeFile(*clash);
     }
     return true;
@@ -411,6 +402,8 @@ void DocumentManager::reloadFromDisk(Document& doc) {
 
     // Keep the document's existing EOL — convert the loaded text to match
     // it so the editor stays in the user-chosen line-ending mode.
+
+    // REVIEW: these lines are duplicated in several places, add new method loadFile(doc, DocumentIO::LoadResult)
     auto* editor = doc.getEditor();
     const auto eol = doc.getEolMode().toStc();
     editor->disableTransforms(true);
@@ -419,7 +412,7 @@ void DocumentManager::reloadFromDisk(Document& doc) {
     editor->SetEOLMode(eol);
     editor->ConvertEOLs(eol);
     editor->EmptyUndoBuffer();
-    doc.setModified(false);
+    doc.markSaved();
     doc.updateModTime();
     refreshTitleFor(doc);
     editor->updateStatusBar();
@@ -478,9 +471,7 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
 
     // Trim the IntellisenseService SymbolTable pool: the closed doc's
     // shared_ptr just released, so any pool slot it held is now idle.
-    if (m_intellisense != nullptr) {
-        m_intellisense->prune();
-    }
+    m_intellisense->prune();
 
     // Update UI state when no documents remain
     if (m_documents.empty()) {
@@ -519,6 +510,7 @@ auto DocumentManager::closeOtherFiles(const Document& keep) -> bool {
     return true;
 }
 
+// REVIEW: Remove this, Document can just call DocumentManager directly, it has context.
 void DocumentManager::registerDocumentHooks(Document& doc) {
     doc.onTypeChanged([this](Document& target, const DocumentType previous) {
         handleTypeChanged(target, previous);
@@ -530,7 +522,7 @@ void DocumentManager::handleTypeChanged(Document& doc, DocumentType /*previous*/
         // Re-enter the FreeBASIC pipeline — submit the current buffer
         // for intellisense so the symbol browser populates. View-less
         // documents have no buffer; skip until a view attaches.
-        if (auto* editor = doc.getEditor(); editor != nullptr) {
+        if (const auto* editor = doc.getEditor(); editor != nullptr) {
             submitIntellisense(&doc, editor->GetText());
         }
         return;
@@ -546,16 +538,12 @@ void DocumentManager::handleTypeChanged(Document& doc, DocumentType /*previous*/
     }
 }
 
-void DocumentManager::submitIntellisense(Document* doc, wxString content) {
-    if (m_intellisense != nullptr) {
-        m_intellisense->submit(doc, std::move(content));
-    }
+void DocumentManager::submitIntellisense(Document* doc, const wxString& content) {
+    m_intellisense->submit(doc, content);
 }
 
 void DocumentManager::cancelIntellisense(const Document* doc) {
-    if (m_intellisense != nullptr) {
-        m_intellisense->cancel(doc);
-    }
+    m_intellisense->cancel(doc);
 }
 
 void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
@@ -612,7 +600,7 @@ auto DocumentManager::prepareToQuit() -> bool {
     // Discard all — close without prompting (already saved or user said NO)
     while (!m_documents.empty()) {
         auto& doc = *m_documents.back();
-        doc.setModified(false);
+        doc.markSaved();
         m_notebook->removePage(doc);
         m_documents.pop_back();
     }
@@ -690,4 +678,3 @@ void DocumentManager::refreshTitleFor(const Document& doc) const {
         m_ctx.getUIManager().setTitle(doc.getFrameTitle());
     }
 }
-
