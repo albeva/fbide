@@ -163,9 +163,10 @@ public:
     /// the view's editor buffer-dirty state when a view is attached.
     [[nodiscard]] auto isModified() const -> bool;
 
-    /// Set modified state. Also clears the encoding-change dirty flag
-    /// when called with `false` (e.g. after successful save).
-    void setModified(bool modified);
+    /// Mark the document as clean — clears the editor's dirty flag
+    /// (via the view's save point) and the encoding-change meta-dirty
+    /// flag. Call after a successful save, load, or reload.
+    void markSaved();
 
     /// Check if file was modified externally since last load/save.
     [[nodiscard]] auto checkExternalChange() const -> bool;
@@ -212,6 +213,7 @@ private:
     /// view's modify flag in isModified() so encoding-only edits still
     /// show as dirty.
     bool m_metaModified = false;
+    // REVIEW: I think SymbolTable is really property of Editor, not the document itself.
     std::shared_ptr<const SymbolTable> m_symbolTable; ///< Latest intellisense result for this document.
     DocumentTypeChangedHandler m_onTypeChanged;       ///< Observer for `setType` transitions; empty by default.
     Unowned<ProjectNode> m_projectNode = nullptr;     ///< Project-tree back-link; populated by project code.

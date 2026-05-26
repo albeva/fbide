@@ -7,6 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "Document.hpp"
+#include "DocumentIO.hpp"
 #include "DocumentType.hpp"
 #include "TextEncoding.hpp"
 
@@ -107,7 +108,7 @@ public:
     /// Submit a snapshot for background intellisense parsing. Latest-wins:
     /// any pending submission for any document is replaced. Result lands
     /// asynchronously via EVT_INTELLISENSE_RESULT.
-    void submitIntellisense(Document* doc, wxString content);
+    void submitIntellisense(Document* doc, const wxString& content);
 
     /// Cancel any pending or in-flight intellisense work for `doc`. Called
     /// from `closeFile` before erasing the document.
@@ -189,6 +190,10 @@ private:
     /// Submits / cancels intellisense and refreshes the sidebar so the
     /// document model can stay agnostic about who's listening.
     void handleTypeChanged(Document& doc, DocumentType previous);
+
+    /// Surface a `DocumentIO::SaveResult` failure to the user as a
+    /// localised error message. No-op on `Success`.
+    void reportSaveFailure(DocumentIO::SaveResult result, TextEncoding encoding) const;
 
     /// Intellisense result delivery (worker thread → UI thread).
     void onIntellisenseResult(wxThreadEvent& event);
