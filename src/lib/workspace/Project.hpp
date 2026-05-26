@@ -60,20 +60,18 @@ public:
         /// projects — never mix IDs between instances.
         using Id = IdentifierBase<Node>;
 
-        /// A file node. The on-disk path is optional so untitled documents
-        /// (new buffer, never saved) have a valid node before they have a
-        /// path; the path is filled in by `Project::setNodePath` on Save As.
+        /// A file node. The `Document*` back-link is populated when the
+        /// file is open in a tab; null when the tab is closed (a
+        /// persistent project keeps the node around regardless).
         struct File final {
-            std::optional<std::filesystem::path> path;
             Document* doc = nullptr;
         };
 
-        /// A folder node. Folders may be **virtual** (`path == nullopt`) —
-        /// a Visual-Studio-style "filter" with no on-disk counterpart —
-        /// or backed by a real directory. Children are referenced by ID
-        /// so re-parenting and serialisation stay simple.
+        /// A folder node. Children are referenced by ID so re-parenting
+        /// and serialisation stay simple. A folder with a null `Node::path`
+        /// is **virtual** — a Visual-Studio-style "filter" with no on-disk
+        /// counterpart.
         struct Folder final {
-            std::optional<std::filesystem::path> path;
             std::string name;
             std::vector<Id> children;
         };
@@ -82,6 +80,12 @@ public:
 
         Id id;     ///< Self-identifier (matches the map key in `Project::m_nodes`).
         Id parent; ///< Parent folder's ID; invalid for the root.
+        /// On-disk location of this node. `nullopt` for untitled files
+        /// (new buffer, never saved) and for virtual folders. Both
+        /// `File` and `Folder` share the same path semantics, so the
+        /// field lives here rather than being duplicated on each arm
+        /// of `Entry`.
+        std::optional<std::filesystem::path> path;
         Entry entry;
     };
 
