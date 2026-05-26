@@ -14,6 +14,7 @@
 #include "command/CommandManager.hpp"
 #include "editor/Editor.hpp"
 #include "sidebar/SideBarManager.hpp"
+#include "workspace/WorkspaceManager.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
@@ -134,6 +135,7 @@ void DocumentNotebook::onPageClose(wxAuiNotebookEvent& event) {
 void DocumentNotebook::onPageChanged(wxAuiNotebookEvent& event) {
     event.Skip();
     auto* doc = activeDocument();
+    m_ctx.getWorkspaceManager().setActiveDocument(doc);
     if (doc == nullptr) {
         m_ctx.getSideBarManager().showSymbolsFor(nullptr);
         m_ctx.getUIManager().setTitle(wxEmptyString);
