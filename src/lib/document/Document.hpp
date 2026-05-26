@@ -8,14 +8,12 @@
 #include "pch.hpp"
 #include "DocumentType.hpp"
 #include "TextEncoding.hpp"
-#include "analyses/symbols/SymbolTable.hpp"
 
 namespace fbide {
 class Context;
 class Document;
 class DocumentTypeChangedEvent;
 class Editor;
-class EditorPanel;
 class ProjectNode;
 
 /// Fired by `Document::setType` after the type transition is committed
@@ -81,19 +79,22 @@ public:
     /// commits a transition (typically the `DocumentManager`).
     explicit Document(Context& ctx, DocumentType type = DocumentType::FreeBASIC, wxEvtHandler* sink = nullptr);
 
-    /// Attach `panel` as this document's hosting view. Pushes the
-    /// document's current EOL state into the panel's editor so a
+    /// Publish the view back-link. `view` is the wxWindow that hosts
+    /// the document on screen (a notebook page); `editor` is its
+    /// editor widget if the view hosts one (`EditorPanel` does;
+    /// future image/markdown panels may not). When an editor is
+    /// supplied the document's current EOL is pushed into it so a
     /// pre-set encoding/EOL choice is reflected before any text
-    /// loads. Typically called from `EditorPanel`'s constructor.
-    void attachView(EditorPanel* panel);
+    /// loads. Typically called from the view's constructor.
+    void attachView(wxWindow* view, Editor* editor = nullptr);
 
-    /// Drop the view back-link. `EditorPanel`'s destructor calls this
-    /// so wx-parent-driven destruction of the panel (notebook page
-    /// close) leaves the document with a clean `nullptr` slot.
+    /// Drop both view back-links. The view's destructor calls this so
+    /// wx-parent-driven teardown (notebook page close) leaves the
+    /// document with clean `nullptr` slots.
     void detachView();
 
     /// True when a view is currently attached.
-    [[nodiscard]] auto hasView() const -> bool { return m_panel != nullptr; }
+    [[nodiscard]] auto hasView() const -> bool { return m_view != nullptr; }
 
     /// Get the file path. Empty if untitled. Returned as `std::filesystem::path`
     /// — callers that hand it to a wx API should wrap with `toWxString(...)`.
@@ -130,20 +131,19 @@ public:
     /// derived from the file path.
     [[nodiscard]] auto isTypeOverridden() const -> bool { return m_typeOverridden; }
 
-    /// The editor widget hosted by this document's view. Forwarded
-    /// from `EditorPanel` for the convenience of code that already
-    /// holds a `Document*`. Will return `nullptr` in a future phase
-    /// where documents may exist without an attached view.
-    [[nodiscard]] auto getEditor() -> Editor*;
+    /// The editor widget hosted by this document's view, or `nullptr`
+    /// when the document has no view, or its view doesn't host an
+    /// editor (a future image/markdown panel, for example).
+    [[nodiscard]] auto getEditor() -> Editor* { return m_editor.get(); }
     /// Const overload of `getEditor`.
-    [[nodiscard]] auto getEditor() const -> const Editor*;
+    [[nodiscard]] auto getEditor() const -> const Editor* { return m_editor.get(); }
 
-    /// Get the notebook page — the `EditorPanel` instance itself
-    /// (which IS a `wxPanel`). Returned as `wxWindow*` so the
-    /// notebook can dock it without knowing the concrete view kind.
-    [[nodiscard]] auto getPage() -> wxWindow*;
-    /// Const overload of `getPage`.
-    [[nodiscard]] auto getPage() const -> const wxWindow*;
+    /// The notebook page hosting this document, as a generic
+    /// `wxWindow*`. Used by the notebook for tab management — concrete
+    /// view kind (`EditorPanel`, etc.) stays opaque at this layer.
+    [[nodiscard]] auto getView() -> wxWindow* { return m_view.get(); }
+    /// Const overload of `getView`.
+    [[nodiscard]] auto getView() const -> const wxWindow* { return m_view.get(); }
 
     /// Enable or disable the minimap. Effective visibility also depends
     /// on the page being wide enough — see `EditorPanel::updateMinimapVisibility`.
@@ -154,11 +154,6 @@ public:
 
     /// Record the path of the freshly compiled executable.
     void setCompiledPath(const wxString& path) { m_compiledFile = path; }
-
-    /// Get the keyword at the cursor position.
-    /// For FreeBASIC documents, includes '#' prefix for preprocessor directives.
-    /// Returns empty string if no word at cursor.
-    [[nodiscard]] auto getKeywordAtCursor() const -> wxString;
 
     /// Is this a new (never saved) document?
     [[nodiscard]] auto isNew() const -> bool { return m_filePath.empty(); }
@@ -192,18 +187,8 @@ public:
     /// Update stored modification time from file on disk.
     void updateModTime();
 
-    /// Latest symbol table produced by IntellisenseService for this document.
-    /// May be null until the first parse completes.
-    [[nodiscard]] auto getSymbolTable() const
-        -> std::shared_ptr<const SymbolTable> { return m_symbolTable; }
-
-    /// Set the latest symbol table. Called by DocumentManager from the
-    /// IntellisenseService result handler on the UI thread.
-    void setSymbolTable(std::shared_ptr<const SymbolTable> table) {
-        m_symbolTable = std::move(table);
-    }
-
-    /// Update document controls settings. Forwards to the view.
+    /// Update document controls settings. Forwards to the view when
+    /// the view is an `EditorPanel`; no-op for other view kinds.
     void updateSettings();
 
     /// The project tree node this document is backed by, if any.
@@ -223,7 +208,8 @@ private:
     std::filesystem::path m_filePath;          ///< Absolute path on disk; empty for new documents.
     DocumentType m_type;                       ///< Document type — drives lexer + theme dispatch.
     bool m_typeOverridden = false;             ///< True when the user explicitly picked the type.
-    Unowned<EditorPanel> m_panel;              ///< View back-link — wx-parented to the notebook.
+    Unowned<wxWindow> m_view;                  ///< Generic view back-link — wx-parented to the notebook.
+    Unowned<Editor> m_editor;                  ///< Typed editor pointer when the view hosts one; null otherwise.
     std::filesystem::file_time_type m_modTime; ///< Last on-disk mtime — backs `checkExternalChange`.
     TextEncoding m_encoding;                   ///< Bytes-to-text codec used on save.
     EolMode m_eolMode;                         ///< Line-ending convention applied on save.
@@ -231,10 +217,8 @@ private:
     /// view's modify flag in isModified() so encoding-only edits still
     /// show as dirty.
     bool m_metaModified = false;
-    // REVIEW: I think SymbolTable is really property of Editor, not the document itself.
-    std::shared_ptr<const SymbolTable> m_symbolTable; ///< Latest intellisense result for this document.
-    wxEvtHandler* m_sink = nullptr;                   ///< Sink for `EVT_DOCUMENT_TYPE_CHANGED`; null = no observer.
-    Unowned<ProjectNode> m_projectNode = nullptr;     ///< Project-tree back-link; populated by project code.
+    wxEvtHandler* m_sink = nullptr;               ///< Sink for `EVT_DOCUMENT_TYPE_CHANGED`; null = no observer.
+    Unowned<ProjectNode> m_projectNode = nullptr; ///< Project-tree back-link; populated by project code.
 };
 
 } // namespace fbide

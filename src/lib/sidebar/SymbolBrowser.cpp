@@ -288,7 +288,12 @@ SymbolBrowser::SymbolBrowser(Context& ctx, wxWindow* parent)
 }
 
 void SymbolBrowser::setSymbols(const Document* doc) {
-    const auto table = doc != nullptr ? doc->getSymbolTable() : nullptr;
+    std::shared_ptr<const SymbolTable> table;
+    if (doc != nullptr) {
+        if (const auto* editor = doc->getEditor()) {
+            table = editor->getSymbolTable();
+        }
+    }
     if (table == m_currentTable) {
         return;
     }

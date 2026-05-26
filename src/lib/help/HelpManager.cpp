@@ -9,6 +9,7 @@
 #include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
+#include "editor/Editor.hpp"
 #include "ui/UIManager.hpp"
 #include "ui/controls/Layout.hpp"
 using namespace fbide;
@@ -90,7 +91,9 @@ HelpManager::HelpManager(Context& ctx)
 void HelpManager::open() {
     wxString query;
     if (const auto* doc = m_ctx.getDocumentManager().getActive()) {
-        query = doc->getKeywordAtCursor();
+        if (const auto* editor = doc->getEditor()) {
+            query = editor->getKeywordAtCursor();
+        }
     }
 
 #ifdef __WXMSW__

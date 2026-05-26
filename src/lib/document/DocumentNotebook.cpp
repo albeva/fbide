@@ -60,7 +60,7 @@ DocumentNotebook::DocumentNotebook(wxWindow* parent, Context& ctx)
 // ---------------------------------------------------------------------------
 
 void DocumentNotebook::addPage(Document& doc, const bool select) {
-    AddPage(doc.getPage(), doc.getTitle(), select);
+    AddPage(doc.getView(), doc.getTitle(), select);
 }
 
 void DocumentNotebook::removePage(Document& doc) {
@@ -98,7 +98,7 @@ auto DocumentNotebook::documentForPage(const wxWindow* page) const -> Document* 
         return nullptr;
     }
     for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {
-        if (doc->getPage() == page) {
+        if (doc->getView() == page) {
             return doc.get();
         }
     }
@@ -107,7 +107,7 @@ auto DocumentNotebook::documentForPage(const wxWindow* page) const -> Document* 
 
 auto DocumentNotebook::findIndex(const Document& doc) const -> int {
     for (size_t idx = 0; idx < GetPageCount(); idx++) {
-        if (GetPage(idx) == doc.getPage()) {
+        if (GetPage(idx) == doc.getView()) {
             return static_cast<int>(idx);
         }
     }

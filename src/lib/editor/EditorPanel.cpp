@@ -62,7 +62,7 @@ EditorPanel::EditorPanel(wxWindow* parent, Context& ctx, const DocumentType type
 
     // Publish the back-link last — by the time the document looks at
     // its view, the editor is fully wired and ready.
-    m_doc.attachView(this);
+    m_doc.attachView(this, m_editor);
 }
 
 EditorPanel::~EditorPanel() {
@@ -80,14 +80,6 @@ void EditorPanel::showMinimap(const bool enabled) {
         destroyMinimap();
     }
     updateMinimapVisibility();
-}
-
-auto EditorPanel::isModified() const -> bool { // REVIEW: Unnecassery, callees should just get the editor directly
-    return m_editor->GetModify();
-}
-
-void EditorPanel::markSaved() { // REVIEW: Unnecassery, callees should just get the editor directly
-    m_editor->SetSavePoint();
 }
 
 void EditorPanel::updateSettings() {

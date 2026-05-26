@@ -525,7 +525,9 @@ void DocumentManager::onDocumentTypeChanged(DocumentTypeChangedEvent& event) {
     // a reference until they finish, which is fine), and clear the
     // sub/function browser if this is the active document.
     cancelIntellisense(&doc);
-    doc.setSymbolTable(nullptr);
+    if (auto* editor = doc.getEditor()) {
+        editor->setSymbolTable(nullptr);
+    }
     if (getActive() == &doc) {
         m_ctx.getSideBarManager().showSymbolsFor(nullptr);
     }
@@ -545,7 +547,9 @@ void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
     if (!contains(result.owner)) {
         return;
     }
-    result.owner->setSymbolTable(result.symbols);
+    if (auto* editor = result.owner->getEditor()) {
+        editor->setSymbolTable(result.symbols);
+    }
 
     // Push to the sidebar only when this document is the active one — the
     // tree always reflects the focused editor.
