@@ -9,6 +9,7 @@
 #include "utils/Identifier.hpp"
 
 namespace fbide {
+class Context;
 class Document;
 
 /**
@@ -129,13 +130,45 @@ public:
     /// project) are skipped.
     [[nodiscard]] auto getDocuments() const -> std::vector<Document*>;
 
+    // --- Build / run state ---------------------------------------------
+    //
+    // `Project` is the sole gateway for build inputs. For `Ephemeral`
+    // projects every getter forwards to `ConfigManager` at call time,
+    // preserving today's "settings change applies to the next build"
+    // behaviour. `Persistent` projects (future) will store their own
+    // values; callers don't need to care which mode they're talking
+    // to.
+
+    /// Path of the most recently compiled executable produced for this
+    /// project. Empty until the first successful compile.
+    [[nodiscard]] auto getCompiledFile() const -> wxString { return m_compiledFile; }
+
+    /// Record the path of the freshly compiled executable.
+    void setCompiledFile(const wxString& path) { m_compiledFile = path; }
+
+    /// FreeBASIC compile command template (with `<$fbc>` / `<$file>`
+    /// meta-tags). Ephemeral: forwards to `compiler.compileCommand` in
+    /// `ConfigManager`.
+    [[nodiscard]] auto getCompileTemplate(Context& ctx) const -> wxString;
+
+    /// Absolute, resolved path to the FreeBASIC compiler binary (`fbc`).
+    /// Ephemeral: forwards to `compiler.path` in `ConfigManager`, resolved
+    /// against the IDE's `AppDir`. Returned empty when unset.
+    [[nodiscard]] auto getCompilerPath(Context& ctx) const -> wxString;
+
+    /// Run command template (with `<$file>` / `<$terminal>` / `<$param>`
+    /// meta-tags). Ephemeral: forwards to `compiler.runCommand` in
+    /// `ConfigManager`.
+    [[nodiscard]] auto getRunTemplate(Context& ctx) const -> wxString;
+
 private:
     /// Allocate a new node identifier. Monotonic per project instance;
     /// values start at 1 (0 is the invalid sentinel).
     auto allocateNodeId() -> Node::Id;
 
-    Id m_id;     ///< Project identity (assigned at construction).
-    Mode m_mode; ///< Ephemeral or Persistent.
+    Id m_id;         ///< Project identity (assigned at construction).
+    Mode m_mode;     ///< Ephemeral or Persistent.
+    wxString m_compiledFile;                                      ///< Path of the most recently compiled executable.
     std::unordered_map<Node::Id, Node> m_nodes;                   ///< Owning storage for every node in the project.
     std::unordered_map<std::filesystem::path, Node::Id> m_byPath; ///< Path → node lookup index (file & folder nodes with a real path).
     Node::Id m_root;                                              ///< The virtual root folder under which top-level entries live.

@@ -172,12 +172,6 @@ public:
     /// on the page being wide enough — see `EditorPanel::updateMinimapVisibility`.
     void showMinimap(bool enabled);
 
-    /// Path of the most recently compiled executable.
-    [[nodiscard]] auto getCompiledFile() const -> wxString { return m_compiledFile; }
-
-    /// Record the path of the freshly compiled executable.
-    void setCompiledPath(const wxString& path) { m_compiledFile = path; }
-
     /// Is this a new (never saved) document?
     [[nodiscard]] auto isNew() const -> bool { return getFilePath().empty(); }
 
@@ -237,7 +231,6 @@ public:
 
 private:
     Context& m_ctx;                            ///< Application context.
-    wxString m_compiledFile;                   ///< Path of the most recently compiled executable.
     Source m_source;                           ///< Path (unbound) or node ID (project-bound); see `Source`.
     Project* m_project = nullptr;              ///< Owning project; non-null iff `m_source` holds `Node::Id`.
     DocumentType m_type;                       ///< Document type — drives lexer + theme dispatch.

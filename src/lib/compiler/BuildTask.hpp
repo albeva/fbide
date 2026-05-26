@@ -10,9 +10,9 @@
 
 namespace fbide {
 class Context;
-class Document;
+class Project;
 
-/// Handles the compile-and-run lifecycle for a single document.
+/// Handles the compile-and-run lifecycle for a single project.
 ///
 /// All compilation and execution is asynchronous via AsyncProcess.
 /// Created by CompilerManager for each compile/run operation.
@@ -25,8 +25,8 @@ public:
 
     /// Create a compile process.
     /// @param ctx Application context.
-    /// @param doc The document being compiled, or nullptr.
-    BuildTask(Context& ctx, Document* doc);
+    /// @param project The project being compiled, or nullptr.
+    BuildTask(Context& ctx, Project* project);
 
     /// Compile the given source file asynchronously.
     void compile(const wxString& sourceFile);
@@ -49,8 +49,10 @@ public:
     /// Get the compiled executable path from the last successful compile.
     [[nodiscard]] auto getCompiledFile() const -> const wxString& { return m_compiledFile; }
 
-    /// Get the document if still valid, or nullptr.
-    [[nodiscard]] auto getDocument() const -> Document*;
+    /// Get the project if still valid, or nullptr. Validated through
+    /// `WorkspaceManager::contains` so callers don't need to track
+    /// project lifetime independently.
+    [[nodiscard]] auto getProject() const -> Project*;
 
     /// Kill this task
     void kill();
@@ -84,7 +86,7 @@ private:
     void setStatus(const wxString& path) const;
 
     Context& m_ctx;                    ///< Application context.
-    Document* m_doc;                   ///< Document this task is bound to (nullable).
+    Project* m_project;                ///< Project this task is bound to (nullable).
     bool m_running = false;            ///< True while a process is in flight.
     bool m_shouldRun = false;          ///< True when a successful compile should chain into run.
     bool m_isQuickRun = false;         ///< True for QuickRun (compile to temp file + run).
