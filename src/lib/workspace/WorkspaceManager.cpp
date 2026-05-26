@@ -56,16 +56,15 @@ auto WorkspaceManager::createEphemeral(Document& doc) -> Project& {
     const auto nodeId = project->addFile(std::move(path), &doc);
     doc.bindToProject(*project, nodeId);
 
-    auto& ref = *project;
-    m_projects.emplace(ref.getId(), std::move(project));
-    return ref;
+    return *m_projects.emplace(project->getId(), std::move(project)).first->second;
 }
 
 void WorkspaceManager::destroyEphemeral(Document& doc) {
     auto* project = doc.getProject();
-    assert(project != nullptr && project->isEphemeral() && "destroyEphemeral called without an ephemeral project");
-    doc.unbindFromProject();
-    closeProject(*project);
+    if (project != nullptr && project->isEphemeral()) {
+        doc.unbindFromProject();
+        closeProject(*project);
+    }
 }
 
 void WorkspaceManager::closeProject(Project& project) {
@@ -105,7 +104,7 @@ void WorkspaceManager::onDocumentTypeChanged(Document& doc) {
     // FreeBASIC-flavoured project along. Persistent projects survive
     // type changes — their non-source assets (images, Info.plist, …)
     // legitimately live under non-FreeBASIC types.
-    if (auto* project = doc.getProject(); project != nullptr && project->isEphemeral()) {
+    if (const auto* project = doc.getProject(); project != nullptr && project->isEphemeral()) {
         destroyEphemeral(doc);
     }
 }
