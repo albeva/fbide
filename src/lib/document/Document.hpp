@@ -8,13 +8,13 @@
 #include "pch.hpp"
 #include "DocumentType.hpp"
 #include "TextEncoding.hpp"
+#include "workspace/Project.hpp"
 
 namespace fbide {
 class Context;
 class Document;
 class DocumentTypeChangedEvent;
 class Editor;
-class ProjectNode;
 
 /// Fired by `Document::setType` after the type transition is committed
 /// and the view (if any) has been updated. The event carries the
@@ -70,6 +70,17 @@ private:
  */
 class Document final {
 public:
+    /// Where this document's on-disk identity lives. When the document
+    /// is unbound from any project, the path is stored directly in
+    /// `m_source` as a `std::filesystem::path` (empty for untitled).
+    /// When the document is bound to a project, the path lives on the
+    /// project's `Node::FileEntry` and `m_source` carries the node's
+    /// `Project::Node::Id`; the `m_project` back-link tells us where
+    /// to look it up. Invariant held by `bindToProject` /
+    /// `unbindFromProject`: `m_project != nullptr` iff `m_source`
+    /// holds `Project::Node::Id`.
+    using Source = std::variant<std::filesystem::path, Project::Node::Id>;
+
     NO_COPY_AND_MOVE(Document)
 
     /// Create a new document. View-less by default — call
@@ -96,12 +107,24 @@ public:
     /// True when a view is currently attached.
     [[nodiscard]] auto hasView() const -> bool { return m_view != nullptr; }
 
-    /// Get the file path. Empty if untitled. Returned as `std::filesystem::path`
-    /// — callers that hand it to a wx API should wrap with `toWxString(...)`.
-    [[nodiscard]] auto getFilePath() const -> const std::filesystem::path& { return m_filePath; }
+    /// Get the file path. Empty if untitled. Returned by value because
+    /// when the document is project-bound the path lives on the project's
+    /// node and would otherwise require returning a reference to a
+    /// potentially-absent `optional` slot — by-value is cheap for
+    /// `std::filesystem::path` and avoids that hazard. Callers that
+    /// hand it to a wx API should wrap with `toWxString(...)`.
+    [[nodiscard]] auto getFilePath() const -> std::filesystem::path;
 
-    /// Set the file path.
+    /// Set the file path. When the document is project-bound, the path
+    /// mutation is forwarded to `Project::setNodePath` so the project's
+    /// path index stays in sync.
     void setFilePath(const std::filesystem::path& path);
+
+    /// Raw access to the source variant. Useful for the workspace
+    /// lifecycle code that needs to read the *kind* of source (bound
+    /// or unbound) before deciding what to do, without paying for the
+    /// `getFilePath()` resolution.
+    [[nodiscard]] auto getSource() const -> const Source& { return m_source; }
 
     /// Get display title for tab (filename or "Untitled").
     [[nodiscard]] auto getTitle() const -> wxString;
@@ -156,7 +179,7 @@ public:
     void setCompiledPath(const wxString& path) { m_compiledFile = path; }
 
     /// Is this a new (never saved) document?
-    [[nodiscard]] auto isNew() const -> bool { return m_filePath.empty(); }
+    [[nodiscard]] auto isNew() const -> bool { return getFilePath().empty(); }
 
     /// Get the text encoding used on save.
     [[nodiscard]] auto getEncoding() const -> TextEncoding { return m_encoding; }
@@ -191,21 +214,32 @@ public:
     /// the view is an `EditorPanel`; no-op for other view kinds.
     void updateSettings();
 
-    /// The project tree node this document is backed by, if any.
-    /// Stays `nullptr` until the project layer attaches one — the
-    /// document layer itself never dereferences this back-link;
-    /// project code walks documents → nodes for tree refreshes.
-    [[nodiscard]] auto projectNode() const -> ProjectNode* { return m_projectNode; }
+    /// The project this document is bound to, or `nullptr` when it
+    /// lives outside any project (non-FreeBASIC docs in the current
+    /// phase; eventually any doc the user hasn't added to a persistent
+    /// project). Lifetime: the project always outlives the bound
+    /// document — the `WorkspaceManager` teardown protocol calls
+    /// `unbindFromProject` before destroying a project.
+    [[nodiscard]] auto getProject() const -> Project* { return m_project; }
 
-    /// Set (or clear, with `nullptr`) the project-node back-link.
-    /// Called from the project layer when a document is bound to a
-    /// tree entry; ownership lives on the project side.
-    void setProjectNode(ProjectNode* node) { m_projectNode = node; }
+    /// Bind this document to a project under the given node ID. The
+    /// path currently held in `m_source` is **not** propagated here —
+    /// the caller is expected to have stored it on the project's
+    /// `Node::FileEntry` first (typically via `Project::addFile`).
+    /// After this call, `getFilePath()` resolves through the project.
+    void bindToProject(Project& project, Project::Node::Id id);
+
+    /// Detach this document from its project, atomically copying the
+    /// path out of the project's node back into `m_source` so
+    /// `getFilePath()` keeps returning the same value either side of
+    /// the transition. Safe to call when already unbound (no-op).
+    void unbindFromProject();
 
 private:
     Context& m_ctx;                            ///< Application context.
     wxString m_compiledFile;                   ///< Path of the most recently compiled executable.
-    std::filesystem::path m_filePath;          ///< Absolute path on disk; empty for new documents.
+    Source m_source;                           ///< Path (unbound) or node ID (project-bound); see `Source`.
+    Project* m_project = nullptr;              ///< Owning project; non-null iff `m_source` holds `Node::Id`.
     DocumentType m_type;                       ///< Document type — drives lexer + theme dispatch.
     bool m_typeOverridden = false;             ///< True when the user explicitly picked the type.
     Unowned<wxWindow> m_view;                  ///< Generic view back-link — wx-parented to the notebook.
@@ -217,8 +251,7 @@ private:
     /// view's modify flag in isModified() so encoding-only edits still
     /// show as dirty.
     bool m_metaModified = false;
-    wxEvtHandler* m_sink = nullptr;               ///< Sink for `EVT_DOCUMENT_TYPE_CHANGED`; null = no observer.
-    Unowned<ProjectNode> m_projectNode = nullptr; ///< Project-tree back-link; populated by project code.
+    wxEvtHandler* m_sink = nullptr; ///< Sink for `EVT_DOCUMENT_TYPE_CHANGED`; null = no observer.
 };
 
 } // namespace fbide

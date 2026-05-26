@@ -78,7 +78,7 @@ void CompilerManager::quickRun() {
     }
 
     // Determine temp folder from current file or IDE path
-    const auto& filePath = doc->getFilePath();
+    const auto filePath = doc->getFilePath();
     std::filesystem::path tempFolder;
     if (filePath.empty()) {
         std::error_code ec;
