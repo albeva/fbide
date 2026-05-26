@@ -82,10 +82,7 @@ public:
         Id id;     ///< Self-identifier (matches the map key in `Project::m_nodes`).
         Id parent; ///< Parent folder's ID; invalid for the root.
         /// On-disk location of this node. `nullopt` for untitled files
-        /// (new buffer, never saved) and for virtual folders. Both
-        /// `File` and `Folder` share the same path semantics, so the
-        /// field lives here rather than being duplicated on each arm
-        /// of `Entry`.
+        /// (new buffer, never saved) and for virtual folders.
         std::optional<std::filesystem::path> path;
         Entry entry;
     };
@@ -166,8 +163,8 @@ private:
     /// values start at 1 (0 is the invalid sentinel).
     auto allocateNodeId() -> Node::Id;
 
-    Id m_id;         ///< Project identity (assigned at construction).
-    Mode m_mode;     ///< Ephemeral or Persistent.
+    Id m_id;                                                      ///< Project identity (assigned at construction).
+    Mode m_mode;                                                  ///< Ephemeral or Persistent.
     wxString m_compiledFile;                                      ///< Path of the most recently compiled executable.
     std::unordered_map<Node::Id, Node> m_nodes;                   ///< Owning storage for every node in the project.
     std::unordered_map<std::filesystem::path, Node::Id> m_byPath; ///< Path → node lookup index (file & folder nodes with a real path).
