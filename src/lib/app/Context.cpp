@@ -15,6 +15,7 @@
 #include "help/HelpManager.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
+#include "workspace/WorkspaceManager.hpp"
 using namespace fbide;
 
 Context::Context(App& app, const wxString& binaryPath, const wxString& idePath, const wxString& configPath)
@@ -24,6 +25,7 @@ Context::Context(App& app, const wxString& binaryPath, const wxString& idePath, 
 , m_uiManager(std::make_unique<UIManager>(*this))
 , m_sideBarManager(std::make_unique<SideBarManager>(*this))
 , m_documentManager(std::make_unique<DocumentManager>(*this))
+, m_workspaceManager(std::make_unique<WorkspaceManager>())
 , m_fileSession(std::make_unique<FileSession>(*this))
 , m_compilerManager(std::make_unique<CompilerManager>(*this))
 , m_helpManager(std::make_unique<HelpManager>(*this))

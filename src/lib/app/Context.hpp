@@ -19,6 +19,7 @@ class FileSession;
 class HelpManager;
 class SideBarManager;
 class UIManager;
+class WorkspaceManager;
 
 /**
  * Service locator for the application's long-lived managers.
@@ -96,6 +97,11 @@ public:
     /// Const overload of `getDocumentManager`.
     [[nodiscard]] auto getDocumentManager() const -> const DocumentManager& { return *m_documentManager; }
 
+    /// Access the workspace manager (open projects, active-project tracking).
+    [[nodiscard]] auto getWorkspaceManager() -> WorkspaceManager& { return *m_workspaceManager; }
+    /// Const overload of `getWorkspaceManager`.
+    [[nodiscard]] auto getWorkspaceManager() const -> const WorkspaceManager& { return *m_workspaceManager; }
+
     /// Access the session manager (`.fbs` load/save).
     [[nodiscard]] auto getFileSession() -> FileSession& { return *m_fileSession; }
     /// Const overload of `getFileSession`.
@@ -131,7 +137,12 @@ private:
     // pointer to a wxAuiNotebook owned by the frame which UIManager destroys.
     std::unique_ptr<SideBarManager> m_sideBarManager;   ///< Browser/Subs sidebar.
     std::unique_ptr<DocumentManager> m_documentManager; ///< Open documents + tabs.
-    std::unique_ptr<FileSession> m_fileSession;         ///< Session `.fbs` load/save.
+    // WorkspaceManager is declared after DocumentManager so its destructor runs
+    // first. Once `IntellisenseService` moves in (Phase 3 of the project
+    // refactor), the worker must stop and join before the documents it may
+    // race with go away.
+    std::unique_ptr<WorkspaceManager> m_workspaceManager; ///< Open projects + active-project tracking.
+    std::unique_ptr<FileSession> m_fileSession;           ///< Session `.fbs` load/save.
     std::unique_ptr<CompilerManager> m_compilerManager; ///< Compile/run lifecycle.
     std::unique_ptr<HelpManager> m_helpManager;                 ///< Help dispatcher.
     std::unique_ptr<EditorSearchService> m_editorSearchService; ///< Editor Find / Replace / Goto Line.
