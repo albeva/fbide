@@ -34,30 +34,27 @@ TEST(ProjectIdTest, DefaultIsInvalid) {
     EXPECT_FALSE(static_cast<bool>(id));
 }
 
-TEST(ProjectIdTest, ExplicitValueIsValid) {
-    const auto uuid = Uuid::generate();
-    const Project::Id id { uuid };
+TEST(ProjectIdTest, GeneratedIsValid) {
+    const auto id = Project::Id::generate();
     EXPECT_TRUE(static_cast<bool>(id));
-    EXPECT_EQ(id.value(), uuid);
 }
 
-TEST(ProjectIdTest, EqualityWithSameUuid) {
-    const auto uuid = Uuid::generate();
-    const Project::Id lhs { uuid };
-    const Project::Id rhs { uuid };
-    EXPECT_EQ(lhs, rhs);
-}
-
-TEST(ProjectIdTest, InequalityForDistinctUuids) {
-    const Project::Id lhs { Uuid::generate() };
-    const Project::Id rhs { Uuid::generate() };
+TEST(ProjectIdTest, GeneratedAreUnique) {
+    const auto lhs = Project::Id::generate();
+    const auto rhs = Project::Id::generate();
     EXPECT_NE(lhs, rhs);
+}
+
+TEST(ProjectIdTest, CopyIsEqual) {
+    const auto original = Project::Id::generate();
+    const auto copy = original;
+    EXPECT_EQ(original, copy);
 }
 
 TEST(ProjectIdTest, Hashable) {
     std::unordered_map<Project::Id, int> map;
-    const Project::Id first { Uuid::generate() };
-    const Project::Id second { Uuid::generate() };
+    const auto first = Project::Id::generate();
+    const auto second = Project::Id::generate();
     map[first] = 1;
     map[second] = 2;
     EXPECT_EQ(map[first], 1);
@@ -69,23 +66,21 @@ TEST(ProjectNodeIdTest, DefaultIsInvalid) {
     EXPECT_FALSE(static_cast<bool>(id));
 }
 
-TEST(ProjectNodeIdTest, EqualityWithSameUuid) {
-    const auto uuid = Uuid::generate();
-    const Project::Node::Id lhs { uuid };
-    const Project::Node::Id rhs { uuid };
-    EXPECT_EQ(lhs, rhs);
+TEST(ProjectNodeIdTest, GeneratedIsValid) {
+    const auto id = Project::Node::Id::generate();
+    EXPECT_TRUE(static_cast<bool>(id));
 }
 
-TEST(ProjectNodeIdTest, InequalityForDistinctUuids) {
-    const Project::Node::Id lhs { Uuid::generate() };
-    const Project::Node::Id rhs { Uuid::generate() };
+TEST(ProjectNodeIdTest, GeneratedAreUnique) {
+    const auto lhs = Project::Node::Id::generate();
+    const auto rhs = Project::Node::Id::generate();
     EXPECT_NE(lhs, rhs);
 }
 
 TEST(ProjectNodeIdTest, Hashable) {
     std::unordered_map<Project::Node::Id, int> map;
-    const Project::Node::Id first { Uuid::generate() };
-    const Project::Node::Id second { Uuid::generate() };
+    const auto first = Project::Node::Id::generate();
+    const auto second = Project::Node::Id::generate();
     map[first] = 1;
     map[second] = 2;
     EXPECT_EQ(map[first], 1);

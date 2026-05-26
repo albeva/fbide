@@ -12,7 +12,7 @@
 using namespace fbide;
 
 Project::Project(const Mode mode)
-: m_id(Uuid::generate())
+: m_id(Id::generate())
 , m_mode(mode) {
     // Synthesise the virtual root folder so every top-level entry has a
     // valid parent. The root is never path-indexed and carries no name.
@@ -102,7 +102,7 @@ auto Project::getDocuments() const -> std::vector<Document*> {
 }
 
 auto Project::allocateNodeId() -> Node::Id {
-    return Node::Id { Uuid::generate() };
+    return Node::Id::generate();
 }
 
 // --- Build / run gateway ---------------------------------------------------
