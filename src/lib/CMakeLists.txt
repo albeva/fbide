@@ -70,6 +70,7 @@ target_sources(fbide_lib
     ui/controls/Panel.cpp
     ui/controls/SmartBoxSizer.cpp
     ui/utilities/FileDropTarget.cpp
+    workspace/Project.cpp
 
     PUBLIC FILE_SET HEADERS FILES
     ui/controls/SmartBoxSizer.hpp
@@ -149,6 +150,7 @@ target_sources(fbide_lib
     ui/controls/Layout.hpp
     ui/controls/Panel.hpp
     ui/utilities/FileDropTarget.hpp
+    workspace/Project.hpp
     utils/DeferHandler.hpp
     utils/Macros.hpp
     utils/NoCopy.hpp

@@ -25,6 +25,7 @@ add_executable(tests
     unit/EncodingDetectorTests.cpp
     unit/FBSciLexerTests.cpp
     unit/LineHistoryTests.cpp
+    unit/ProjectTests.cpp
     unit/ReFormatterTests.cpp
     unit/StyleLexerTests.cpp
     unit/RunCommandTests.cpp
