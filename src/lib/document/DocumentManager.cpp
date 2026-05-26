@@ -61,6 +61,7 @@ auto DocumentManager::defaultEolMode() const -> EolMode {
 auto DocumentManager::newFile(DocumentType type) -> Document& {
     const auto thaw = m_ctx.getUIManager().freeze();
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx, type));
+    registerDocumentHooks(doc);
     // Constructing the EditorPanel publishes the back-link via
     // `doc.attachView(this)` from its constructor — `make_unowned`
     // creates the panel as a wx-parented child of the notebook.
@@ -184,6 +185,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     const auto thaw = m_ctx.getUIManager().freeze();
     const auto type = documentTypeFromPath(canonical);
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx, type));
+    registerDocumentHooks(doc);
     // EditorPanel ctor publishes the view back-link onto the document.
     static_cast<void>(make_unowned<EditorPanel>(m_notebook.get(), m_ctx, type, doc));
 
@@ -515,6 +517,33 @@ auto DocumentManager::closeOtherFiles(const Document& keep) -> bool {
         }
     }
     return true;
+}
+
+void DocumentManager::registerDocumentHooks(Document& doc) {
+    doc.onTypeChanged([this](Document& target, const DocumentType previous) {
+        handleTypeChanged(target, previous);
+    });
+}
+
+void DocumentManager::handleTypeChanged(Document& doc, DocumentType /*previous*/) {
+    if (doc.getType() == DocumentType::FreeBASIC) {
+        // Re-enter the FreeBASIC pipeline — submit the current buffer
+        // for intellisense so the symbol browser populates. View-less
+        // documents have no buffer; skip until a view attaches.
+        if (auto* editor = doc.getEditor(); editor != nullptr) {
+            submitIntellisense(&doc, editor->GetText());
+        }
+        return;
+    }
+    // Leaving FreeBASIC: drop any in-flight intellisense work, release
+    // the symbol table (frees the shared_ptr — workers may still hold
+    // a reference until they finish, which is fine), and clear the
+    // sub/function browser if this is the active document.
+    cancelIntellisense(&doc);
+    doc.setSymbolTable(nullptr);
+    if (getActive() == &doc) {
+        m_ctx.getSideBarManager().showSymbolsFor(nullptr);
+    }
 }
 
 void DocumentManager::submitIntellisense(Document* doc, wxString content) {

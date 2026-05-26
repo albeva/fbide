@@ -12,8 +12,17 @@
 
 namespace fbide {
 class Context;
+class Document;
 class Editor;
 class EditorPanel;
+
+/// Signature for `Document::onTypeChanged` handlers. Fired *after*
+/// the type has changed and the view (if any) has been updated;
+/// `previous` is the old `DocumentType` so observers can detect
+/// transitions in either direction (entering FreeBASIC vs. leaving
+/// it). Receives the document by reference — guaranteed alive for
+/// the duration of the call.
+using DocumentTypeChangedHandler = std::function<void(Document& doc, DocumentType previous)>;
 
 /**
  * One open file (or untitled buffer) — the data model: file path,
@@ -86,8 +95,17 @@ public:
     /// Override the document type (user picked from the status bar menu).
     /// Sticky across Save / Save As until the document is closed — the
     /// override flag is per-instance, only persisted via FileSession.
-    /// Reapplies editor settings (lexer + theme).
+    /// Reapplies editor settings (lexer + theme), then fires
+    /// `onTypeChanged` so subscribers (DocumentManager) can run the
+    /// cross-cutting side effects (intellisense submit/cancel, sidebar
+    /// refresh) without `Document` having to know about them.
     void setType(DocumentType type);
+
+    /// Register the handler fired by `setType` whenever the type
+    /// actually changes (no-op when the requested type already matches).
+    /// Replaces any previously-registered handler — single subscriber
+    /// for now; revisit when a second listener legitimately appears.
+    void onTypeChanged(DocumentTypeChangedHandler handler);
 
     /// True when the type was set explicitly via `setType` rather than
     /// derived from the file path.
@@ -183,6 +201,7 @@ private:
     /// show as dirty.
     bool m_metaModified = false;
     std::shared_ptr<const SymbolTable> m_symbolTable; ///< Latest intellisense result for this document.
+    DocumentTypeChangedHandler m_onTypeChanged;       ///< Observer for `setType` transitions; empty by default.
 };
 
 } // namespace fbide

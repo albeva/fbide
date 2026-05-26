@@ -6,13 +6,11 @@
 //
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "Document.hpp"
-#include "DocumentManager.hpp"
 #include "DocumentPath.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "editor/Editor.hpp"
 #include "editor/EditorPanel.hpp"
-#include "sidebar/SideBarManager.hpp"
 using namespace fbide;
 
 namespace {
@@ -97,30 +95,21 @@ void Document::setType(const DocumentType type) {
     if (type == m_type) {
         return;
     }
+    const auto previous = m_type;
     m_type = type;
     if (m_panel != nullptr) {
         m_panel->getEditor()->setDocType(type);
     }
-
-    auto& dm = m_ctx.getDocumentManager();
-    if (type == DocumentType::FreeBASIC) {
-        // Re-enter the FreeBASIC pipeline — submit the current buffer for
-        // intellisense so the symbol browser populates. View-less
-        // documents have no buffer; skip until a view attaches.
-        if (m_panel != nullptr) {
-            dm.submitIntellisense(this, m_panel->getEditor()->GetText());
-        }
-    } else {
-        // Leaving FreeBASIC: drop any in-flight intellisense work, release
-        // the symbol table (frees the shared_ptr — workers may still hold
-        // a reference until they finish, which is fine), and clear the
-        // sub/function browser if this is the active document.
-        dm.cancelIntellisense(this);
-        m_symbolTable = nullptr;
-        if (dm.getActive() == this) {
-            m_ctx.getSideBarManager().showSymbolsFor(nullptr);
-        }
+    // Cross-cutting side effects (intellisense submit/cancel, sidebar
+    // refresh) live on the subscriber side — `DocumentManager`
+    // registers the handler at document creation time.
+    if (m_onTypeChanged) {
+        m_onTypeChanged(*this, previous);
     }
+}
+
+void Document::onTypeChanged(DocumentTypeChangedHandler handler) {
+    m_onTypeChanged = std::move(handler);
 }
 
 auto Document::getTitle() const -> wxString {
