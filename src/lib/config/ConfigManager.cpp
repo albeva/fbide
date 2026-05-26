@@ -419,7 +419,7 @@ void ConfigManager::setCategoryPath(const Category category, const wxString& pat
     }
 
     const auto key = getCategoryName(category);
-    config()[wxString { key.data(), key.size() }] = relative(path);
+    config()[wxString { key.data(), key.size() }] = toWx(relative(toPath(path)));
 
     load(category);
 }
@@ -661,6 +661,9 @@ void ConfigManager::save(const Category category) const {
     cfg.Save(outStream, wxConvUTF8);
 }
 
+// REVIEW: This was a neat idea, but it is inconsistent and causes issues as not all options are properly reloaded.
+//         Instead of reloading in place, trigger app-relaunch, same as when settings change the langauge.
+//         use scheduleRestart on the app.
 auto ConfigManager::reloadIfKnown(const wxString& path) -> bool {
     const auto target = toPath(path);
     for (std::size_t index = 0; index < CAT_COUNT; index++) {
@@ -748,16 +751,8 @@ auto ConfigManager::filePatterns(const std::initializer_list<std::string_view> k
 // Path handling
 // ---------------------------------------------------------------------------
 
-auto ConfigManager::getAppDir() const -> wxString {
-    return toWx(m_appDir);
-}
-
-auto ConfigManager::getIdeDir() const -> wxString {
-    return toWx(m_ideDir);
-}
-
-auto ConfigManager::absolute(const wxString& pathName) const -> wxString {
-    return toWx(absolutePath(toPath(pathName)));
+auto ConfigManager::absolute(const fs::path& pathName) const -> fs::path {
+    return absolutePath(pathName);
 }
 
 auto ConfigManager::absolutePath(const fs::path& rel) const -> fs::path {
@@ -804,8 +799,8 @@ namespace {
 }
 } // namespace
 
-auto ConfigManager::relative(const wxString& path) const -> wxString {
-    const auto abs = absolutePath(toPath(path));
+auto ConfigManager::relative(const fs::path& path) const -> fs::path {
+    const auto abs = absolutePath(path);
     // Candidate base dirs, in priority order:
     // - m_ideDir       — bundle resources.
     // - m_userDataDir  — writable equivalent of ide/. A path like
@@ -817,7 +812,7 @@ auto ConfigManager::relative(const wxString& path) const -> wxString {
     //                    side-by-side layouts.
     for (const auto* base : { &m_ideDir, &m_userDataDir, &m_appDir }) {
         if (const auto rel = makeRelative(*base, abs)) {
-            return toWx(rel->generic_string());
+            return *rel;
         }
     }
     return path;

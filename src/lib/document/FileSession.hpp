@@ -47,7 +47,7 @@ public:
     explicit FileSession(Context& ctx);
 
     /// Load a session file, dispatching on detected format.
-    void load(const wxString& path, bool addToHistory = true);
+    void load(const std::filesystem::path& path, bool addToHistory = true);
 
     /// Snapshot the currently open documents as a v3 session file.
     ///
@@ -56,7 +56,7 @@ public:
     /// disk first should drive a user-facing save / close flow (e.g.
     /// `DocumentManager::closeAllFiles`) before calling this. Returns
     /// `false` only on I/O failure when writing the session file.
-    [[nodiscard]] auto save(const wxString& path) -> bool;
+    [[nodiscard]] auto save(const std::filesystem::path& path) -> bool;
 
     /// File dialog → load selected session.
     void showLoadDialog();
@@ -66,9 +66,9 @@ public:
 
 private:
     /// Load the v3 INI format.
-    void loadV3(const wxString& path);
+    void loadV3(const std::filesystem::path& path);
     /// Load the v0.1/v0.2 legacy text format.
-    void loadLegacy(const wxString& path);
+    void loadLegacy(const std::filesystem::path& path);
 
     Context& m_ctx; ///< Application context.
 };

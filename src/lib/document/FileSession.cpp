@@ -24,8 +24,8 @@ constexpr auto FILE_GROUP_PREFIX = "file_";
 
 /// Cheap format probe: if the first non-blank line starts with '[' the file
 /// is v3 INI, otherwise fall back to the legacy text parser.
-auto isIniFormat(const wxString& path) -> bool {
-    wxTextFile file(path);
+auto isIniFormat(const std::filesystem::path& path) -> bool {
+    wxTextFile file(toWxString(path));
     if (!file.Open()) {
         return false;
     }
@@ -81,8 +81,9 @@ auto resolveStoredPath(const wxString& storedPath,
 FileSession::FileSession(Context& ctx)
 : m_ctx(ctx) {}
 
-void FileSession::load(const wxString& path, const bool addToHistory) { // REVIEW: Should be fs::path
-    if (!wxFileExists(path)) {
+void FileSession::load(const std::filesystem::path& path, const bool addToHistory) {
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec)) {
         return;
     }
     if (isIniFormat(path)) {
@@ -96,7 +97,7 @@ void FileSession::load(const wxString& path, const bool addToHistory) { // REVIE
     }
 }
 
-auto FileSession::save(const wxString& path) -> bool { // REVIEW: Should be fs::path
+auto FileSession::save(const std::filesystem::path& path) -> bool {
     const auto& dm = m_ctx.getDocumentManager();
 
     // Pure path snapshot — modified buffers are NOT auto-saved here.
@@ -107,7 +108,7 @@ auto FileSession::save(const wxString& path) -> bool { // REVIEW: Should be fs::
 
     wxFileConfig cfg(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
 
-    const auto sessionDir = toFsPath(path).parent_path();
+    const auto sessionDir = path.parent_path();
     cfg.Write("/session/version", Version);
     cfg.Write("/session/selectedTab", m_ctx.getDocumentManager().notebook().GetSelection());
 
@@ -153,9 +154,10 @@ auto FileSession::save(const wxString& path) -> bool { // REVIEW: Should be fs::
         fileIndex++;
     }
 
-    wxFFileOutputStream outStream(path);
+    const auto pathWx = toWxString(path);
+    wxFFileOutputStream outStream(pathWx);
     if (!outStream.IsOk()) {
-        wxLogError("Failed to open '%s' for writing", path);
+        wxLogError("Failed to open '%s' for writing", pathWx);
         return false;
     }
     cfg.Save(outStream, wxConvUTF8);
@@ -171,7 +173,7 @@ void FileSession::showLoadDialog() {
         wxFD_FILE_MUST_EXIST
     );
     if (dlg.ShowModal() == wxID_OK) {
-        load(dlg.GetPath());
+        load(toFsPath(dlg.GetPath()));
     }
 }
 
@@ -189,21 +191,22 @@ void FileSession::showSaveDialog() {
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
     );
     if (dlg.ShowModal() == wxID_OK) {
-        (void)save(dlg.GetPath());
+        (void)save(toFsPath(dlg.GetPath()));
     }
 }
 
-void FileSession::loadV3(const wxString& path) {
-    wxFFileInputStream stream(path);
+void FileSession::loadV3(const std::filesystem::path& path) {
+    const auto pathWx = toWxString(path);
+    wxFFileInputStream stream(pathWx);
     if (!stream.IsOk()) {
-        wxLogError("Failed to open session '%s' for reading", path);
+        wxLogError("Failed to open session '%s' for reading", pathWx);
         return;
     }
     wxFileConfig cfg(stream, wxConvUTF8);
 
     const auto thaw = m_ctx.getUIManager().freeze();
     auto& dm = m_ctx.getDocumentManager();
-    const auto sessionDir = toFsPath(path).parent_path();
+    const auto sessionDir = path.parent_path();
 
     // Collect file groups. wxFileConfig's iteration order is not guaranteed,
     // so sort — zero-padded names yield insertion order.
@@ -297,8 +300,8 @@ void FileSession::loadV3(const wxString& path) {
     }
 }
 
-void FileSession::loadLegacy(const wxString& path) {
-    wxTextFile file(path);
+void FileSession::loadLegacy(const std::filesystem::path& path) {
+    wxTextFile file(toWxString(path));
     if (!file.Open() || file.GetLineCount() == 0) {
         return;
     }
@@ -314,15 +317,15 @@ void FileSession::loadLegacy(const wxString& path) {
     file[isV2 ? 1 : 0].ToULong(&selectedTab);
 
     for (size_t i = startLine; i < file.GetLineCount(); i++) {
-        const auto filePath = file[i];
-        if (filePath.empty() || !wxFileExists(filePath)) {
+        const wxString filePathWx = file[i];
+        if (filePathWx.empty() || !wxFileExists(filePathWx)) {
             if (isV2) {
                 i += 2; // skip scroll / cursor lines
             }
             continue;
         }
 
-        auto* doc = dm.openFile(filePath);
+        auto* doc = dm.openFile(toFsPath(filePathWx));
         if (doc != nullptr && isV2 && i + 2 < file.GetLineCount()) {
             unsigned long scroll = 0;
             unsigned long cursor = 0;

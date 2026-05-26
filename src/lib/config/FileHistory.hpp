@@ -22,10 +22,11 @@ public:
     void save();
 
     /// Add a file to the history.
-    void addFile(const wxString& path);
+    void addFile(const std::filesystem::path& path);
 
-    /// Get a file from history
-    auto getFile(std::size_t idx) const -> std::optional<wxString>;
+    /// Get a file from history. Returns nullopt when the index is out
+    /// of range or the file no longer exists on disk.
+    [[nodiscard]] auto getFile(std::size_t idx) const -> std::optional<std::filesystem::path>;
 
     /// Get the underlying wxFileHistory for menu integration.
     [[nodiscard]] auto getHistory() -> wxFileHistory& { return m_history; }

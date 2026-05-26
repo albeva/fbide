@@ -38,17 +38,17 @@ void FileHistory::save() {
     ini.Save(stream);
 }
 
-void FileHistory::addFile(const wxString& path) {
-    m_history.AddFileToHistory(path);
+void FileHistory::addFile(const std::filesystem::path& path) {
+    m_history.AddFileToHistory(toWxString(path));
 }
 
-auto FileHistory::getFile(const std::size_t idx) const -> std::optional<wxString> {
+auto FileHistory::getFile(const std::size_t idx) const -> std::optional<std::filesystem::path> {
     if (idx >= m_history.GetCount()) {
         return {};
     }
-    auto file = m_history.GetHistoryFile(idx);
+    const auto file = m_history.GetHistoryFile(idx);
     if (not wxFileExists(file)) {
         return {};
     }
-    return file;
+    return toFsPath(file);
 }

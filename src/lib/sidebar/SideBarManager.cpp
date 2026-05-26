@@ -12,6 +12,7 @@
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentPath.hpp"
 using namespace fbide;
 
 namespace {
@@ -93,5 +94,5 @@ void SideBarManager::onFileActivated(wxTreeEvent& event) {
     if (path.IsEmpty()) {
         return;
     }
-    m_ctx.getDocumentManager().openFile(path);
+    m_ctx.getDocumentManager().openFile(toFsPath(path));
 }

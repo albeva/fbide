@@ -14,6 +14,7 @@
 #include "config/Version.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentPath.hpp"
 #include "document/FileSession.hpp"
 #include "ui/UIManager.hpp"
 #ifdef __WXMSW__
@@ -291,7 +292,7 @@ auto App::OnInit() -> bool {
     openFiles(cli.files);
     if (!cli.loadSession.IsEmpty()) {
         const auto isTemp = isInsideTempDir(cli.loadSession);
-        m_context->getFileSession().load(cli.loadSession, not isTemp);
+        m_context->getFileSession().load(toFsPath(cli.loadSession), not isTemp);
         if (isTemp) {
             wxRemoveFile(cli.loadSession);
         }
@@ -486,7 +487,7 @@ auto App::getFbidePath() -> wxString {
 void App::openFiles(const wxArrayString& files) {
     auto& docManager = m_context->getDocumentManager();
     for (const auto& file : files) {
-        docManager.openFile(file);
+        docManager.openFile(toFsPath(file));
     }
 }
 
@@ -517,7 +518,7 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
         // resources dir) keeps the spec-compliant session lifecycle
         // local to OS scratch space.
         const auto sessionPath = wxFileName::CreateTempFileName("fbide_session");
-        if (!m_context->getFileSession().save(sessionPath)) {
+        if (!m_context->getFileSession().save(toFsPath(sessionPath))) {
             // FileSession's own modified-file save loop was cancelled.
             wxRemoveFile(sessionPath);
             return;
@@ -575,7 +576,7 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
 void App::showSplash() {
     if (m_context->getConfigManager().config().get_or("general.splashScreen", true)) {
         wxImage::AddHandler(make_unowned<wxPNGHandler>());
-        const auto splashPath = m_context->getConfigManager().absolute("splash.png");
+        const auto splashPath = toWxString(m_context->getConfigManager().absolute("splash.png"));
         if (const wxBitmap bmp(splashPath, wxBITMAP_TYPE_PNG); bmp.IsOk()) {
             make_unowned<wxSplashScreen>(
                 bmp,

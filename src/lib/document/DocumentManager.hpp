@@ -52,11 +52,6 @@ public:
     auto newFile(DocumentType type = DocumentType::FreeBASIC) -> Document&;
 
     /// Open a file. Returns existing document if already open, or nullptr on failure.
-    auto openFile(const wxString& filePath) -> Document*;
-
-    /// fs::path overload — used by `openInclude` and other code that already
-    /// operates on `std::filesystem::path` and would otherwise need to round-trip
-    /// through `wxString`. Same semantics as the `wxString` overload.
     auto openFile(const std::filesystem::path& filePath) -> Document*;
 
     /// Resolve and open an `#include` path requested from `origin`.

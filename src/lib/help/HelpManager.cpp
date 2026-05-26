@@ -139,7 +139,7 @@ auto HelpManager::openChm(const wxString& query) -> bool {
         return false;
     }
 
-    const auto helpPath = m_ctx.getConfigManager().absolute(helpFile);
+    const auto helpPath = toWxString(m_ctx.getConfigManager().absolute(toFsPath(helpFile)));
     if (!wxFileExists(helpPath)) {
         return false;
     }

@@ -8,6 +8,7 @@
 #include <cmake/config.hpp>
 #include "Context.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentPath.hpp"
 #include "ui/UIManager.hpp"
 
 using namespace fbide;
@@ -30,7 +31,7 @@ public:
         // Open the file if one was provided
         if (!data.IsEmpty()) {
             auto& docManager = m_ctx.getDocumentManager();
-            docManager.openFile(data);
+            docManager.openFile(toFsPath(data));
         }
 
         // Bring the main frame to front
