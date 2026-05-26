@@ -183,14 +183,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx, type, this));
     make_unowned<EditorPanel>(m_notebook.get(), m_ctx, type, doc);
 
-    // don't reformat code on file load
-    auto* editor = doc.getEditor();
-    editor->disableTransforms(true);
-    editor->SetText(loaded->text);
-    editor->disableTransforms(false);
-    editor->SetEOLMode(loaded->eolMode.toStc());
-    editor->ConvertEOLs(loaded->eolMode.toStc());
-    editor->EmptyUndoBuffer();
+    loadFile(doc, loaded->text, loaded->eolMode);
     doc.setEncoding(loaded->encoding);
     doc.setEolMode(loaded->eolMode);
     doc.setFilePath(canonical);
@@ -211,6 +204,17 @@ void DocumentManager::reportSaveFailure(const DocumentIO::SaveResult result, con
     } else if (result == DocumentIO::SaveResult::IOError) {
         wxLogError("%s", m_ctx.tr("messages.saveIoError"));
     }
+}
+
+void DocumentManager::loadFile(Document& doc, const wxString& text, const EolMode eol) const {
+    auto* editor = doc.getEditor();
+    const auto stcEol = eol.toStc();
+    editor->disableTransforms(true);
+    editor->SetText(text);
+    editor->disableTransforms(false);
+    editor->SetEOLMode(stcEol);
+    editor->ConvertEOLs(stcEol);
+    editor->EmptyUndoBuffer();
 }
 
 void DocumentManager::reloadWithEncoding(Document& doc, const TextEncoding encoding) {
@@ -236,19 +240,13 @@ void DocumentManager::reloadWithEncoding(Document& doc, const TextEncoding encod
         return;
     }
 
-    auto* editor = doc.getEditor();
-    editor->disableTransforms(true);
-    editor->SetText(loaded->text);
-    editor->disableTransforms(false);
-    editor->SetEOLMode(loaded->eolMode.toStc());
-    editor->ConvertEOLs(loaded->eolMode.toStc());
-    editor->EmptyUndoBuffer();
+    loadFile(doc, loaded->text, loaded->eolMode);
     doc.setEncoding(encoding);
     doc.setEolMode(loaded->eolMode);
     doc.markSaved();
     doc.updateModTime();
     refreshTitleFor(doc);
-    editor->updateStatusBar();
+    doc.getEditor()->updateStatusBar();
 }
 
 auto DocumentManager::saveFile(Document& doc) -> bool {
@@ -400,21 +398,13 @@ void DocumentManager::reloadFromDisk(Document& doc) {
     }
 
     // Keep the document's existing EOL — convert the loaded text to match
-    // it so the editor stays in the user-chosen line-ending mode.
-
-    // REVIEW: these lines are duplicated in several places, add new method loadFile(doc, DocumentIO::LoadResult)
-    auto* editor = doc.getEditor();
-    const auto eol = doc.getEolMode().toStc();
-    editor->disableTransforms(true);
-    editor->SetText(loaded->text);
-    editor->disableTransforms(false);
-    editor->SetEOLMode(eol);
-    editor->ConvertEOLs(eol);
-    editor->EmptyUndoBuffer();
+    // it so the editor stays in the user-chosen line-ending mode (loaded
+    // EOL is the detected one, which may differ).
+    loadFile(doc, loaded->text, doc.getEolMode());
     doc.markSaved();
     doc.updateModTime();
     refreshTitleFor(doc);
-    editor->updateStatusBar();
+    doc.getEditor()->updateStatusBar();
 
     submitIntellisense(&doc, loaded->text);
 }
