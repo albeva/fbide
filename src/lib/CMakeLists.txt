@@ -152,6 +152,7 @@ target_sources(fbide_lib
     ui/utilities/FileDropTarget.hpp
     workspace/Project.hpp
     utils/DeferHandler.hpp
+    utils/Identifier.hpp
     utils/Macros.hpp
     utils/NoCopy.hpp
     utils/Unowned.hpp

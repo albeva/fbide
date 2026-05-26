@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "utils/Identifier.hpp"
 
 namespace fbide {
 class Document;
@@ -47,21 +48,7 @@ public:
     /// Opaque strong-typed handle for a `Project` instance. Distinct from
     /// `Node::Id` to prevent accidental mixing at call sites. `0` is the
     /// invalid sentinel; `bool(id)` reports validity.
-    class Id final {
-    public:
-        using Underlying = std::size_t;
-
-        constexpr Id() = default;
-        constexpr explicit Id(const Underlying value)
-        : m_value(value) {}
-
-        [[nodiscard]] constexpr auto value() const -> Underlying { return m_value; }
-        constexpr auto operator<=>(const Id&) const = default;
-        explicit constexpr operator bool() const { return m_value != 0; }
-
-    private:
-        Underlying m_value = 0;
-    };
+    using Id = IdentifierBase<Project>;
 
     /// One entry in the project tree — either a file or a folder. Stored
     /// in `Project::m_nodes`, indexed by `Node::Id`. Children of a
@@ -71,21 +58,7 @@ public:
         /// Opaque strong-typed handle for a node within a single project.
         /// IDs are unique within their owning project but **not** across
         /// projects — never mix IDs between instances.
-        class Id final {
-        public:
-            using Underlying = std::size_t;
-
-            constexpr Id() = default;
-            constexpr explicit Id(const Underlying value)
-            : m_value(value) {}
-
-            [[nodiscard]] constexpr auto value() const -> Underlying { return m_value; }
-            constexpr auto operator<=>(const Id&) const = default;
-            explicit constexpr operator bool() const { return m_value != 0; }
-
-        private:
-            Underlying m_value = 0;
-        };
+        using Id = IdentifierBase<Node>;
 
         /// A file node. The on-disk path is optional so untitled documents
         /// (new buffer, never saved) have a valid node before they have a
@@ -153,51 +126,16 @@ public:
     [[nodiscard]] auto getDocuments() const -> std::vector<Document*>;
 
 private:
-    /// In-class hasher for `Node::Id`. Required because libc++ eagerly
-    /// instantiates `std::hash<Node::Id>` to validate the Hash template
-    /// argument of `std::unordered_map<Node::Id, …>` at class-definition
-    /// time — before the trailing `std::hash` specialisation in this
-    /// header is visible. Keeping the hasher in-class side-steps the
-    /// instantiation-before-specialisation ordering issue while leaving
-    /// the trailing `std::hash` specialisation available for external
-    /// callers (e.g. `WorkspaceManager`, tests).
-    struct NodeIdHasher final {
-        auto operator()(const Node::Id& id) const noexcept -> std::size_t {
-            return std::hash<Node::Id::Underlying> {}(id.value());
-        }
-    };
-
     /// Allocate a new node identifier. Monotonic per project instance;
     /// values start at 1 (0 is the invalid sentinel).
     auto allocateNodeId() -> Node::Id;
 
     Id m_id;     ///< Project identity (assigned at construction).
     Mode m_mode; ///< Ephemeral or Persistent.
-    std::unordered_map<Node::Id, Node, NodeIdHasher> m_nodes;     ///< Owning storage for every node in the project.
+    std::unordered_map<Node::Id, Node> m_nodes;                   ///< Owning storage for every node in the project.
     std::unordered_map<std::filesystem::path, Node::Id> m_byPath; ///< Path → node lookup index (file & folder nodes with a real path).
     Node::Id m_root;                                              ///< The virtual root folder under which top-level entries live.
     Node::Id::Underlying m_nextNodeId = 1;                        ///< Monotonic ID allocator; values start at 1.
 };
 
 } // namespace fbide
-
-// Hash specialisations so the opaque ID types can be used as keys in
-// `std::unordered_map` / `std::unordered_set`. Defined immediately after
-// the public class so any TU including the header gets the specialisation.
-namespace std {
-
-template<>
-struct hash<fbide::Project::Id> {
-    auto operator()(const fbide::Project::Id& id) const noexcept -> size_t {
-        return hash<fbide::Project::Id::Underlying> {}(id.value());
-    }
-};
-
-template<>
-struct hash<fbide::Project::Node::Id> {
-    auto operator()(const fbide::Project::Node::Id& id) const noexcept -> size_t {
-        return hash<fbide::Project::Node::Id::Underlying> {}(id.value());
-    }
-};
-
-} // namespace std
