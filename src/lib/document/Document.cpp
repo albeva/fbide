@@ -63,8 +63,22 @@ void Document::updateSettings() {
     }
 }
 
+auto Document::getFilePath() const -> std::filesystem::path {
+    if (std::holds_alternative<std::filesystem::path>(m_source)) {
+        return std::get<std::filesystem::path>(m_source);
+    }
+    return m_project->getNodePath(std::get<Project::Node::Id>(m_source));
+}
+
 void Document::setFilePath(const std::filesystem::path& path) {
-    m_filePath = path;
+    // Mutation routes through the project when bound so the project's
+    // path index (`m_byPath`) stays in sync; unbound documents own
+    // their path outright.
+    if (std::holds_alternative<std::filesystem::path>(m_source)) {
+        std::get<std::filesystem::path>(m_source) = path;
+    } else {
+        m_project->setNodePath(std::get<Project::Node::Id>(m_source), path);
+    }
     // Only re-derive type from the new path when the user hasn't
     // explicitly overridden it — Save As shouldn't stomp a manual choice.
     if (!m_typeOverridden) {
@@ -77,6 +91,22 @@ void Document::setFilePath(const std::filesystem::path& path) {
         }
     }
     updateModTime();
+}
+
+void Document::bindToProject(Project& project, const Project::Node::Id id) {
+    m_project = &project;
+    m_source = id;
+}
+
+void Document::unbindFromProject() {
+    // Copy the path out of the project BEFORE clearing the back-link
+    // so `getFilePath()` keeps returning the same value either side of
+    // the transition.
+    if (m_project != nullptr && std::holds_alternative<Project::Node::Id>(m_source)) {
+        const auto id = std::get<Project::Node::Id>(m_source);
+        m_source = m_project->getNodePath(id);
+    }
+    m_project = nullptr;
 }
 
 void Document::setType(const DocumentType type) {
@@ -102,7 +132,7 @@ void Document::setType(const DocumentType type) {
 auto Document::getTitle() const -> wxString {
     wxString title = isNew()
                        ? m_ctx.tr("document.untitled")
-                       : toWxString(m_filePath.filename());
+                       : toWxString(getFilePath().filename());
     if (isModified()) {
         title = "[*] " + title;
     }
@@ -110,7 +140,7 @@ auto Document::getTitle() const -> wxString {
 }
 
 auto Document::getFrameTitle() const -> wxString {
-    return isNew() ? getTitle() : toWxString(m_filePath);
+    return isNew() ? getTitle() : toWxString(getFilePath());
 }
 
 auto Document::isModified() const -> bool {
@@ -148,7 +178,7 @@ auto Document::checkExternalChange() const -> bool {
         return false;
     }
     std::error_code ec;
-    const auto currentModTime = std::filesystem::last_write_time(m_filePath, ec);
+    const auto currentModTime = std::filesystem::last_write_time(getFilePath(), ec);
     if (ec) {
         return false;
     }
@@ -161,6 +191,6 @@ void Document::updateModTime() {
         return;
     }
     std::error_code ec;
-    const auto time = std::filesystem::last_write_time(m_filePath, ec);
+    const auto time = std::filesystem::last_write_time(getFilePath(), ec);
     m_modTime = ec ? std::filesystem::file_time_type {} : time;
 }

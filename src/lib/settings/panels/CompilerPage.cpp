@@ -237,7 +237,7 @@ void CompilerPage::insertPlaceholder(const wxString& placeholder) {
 
 auto CompilerPage::getSampleSourcePath() const -> wxString {
     if (auto* doc = getContext().getDocumentManager().getActive(); doc != nullptr && !doc->isNew()) {
-        const auto& path = doc->getFilePath();
+        const auto path = doc->getFilePath();
         auto ext = path.extension().string();
         if (!ext.empty() && ext.front() == '.') {
             ext.erase(0, 1);
