@@ -38,42 +38,28 @@ Document::Document(Context& ctx, const DocumentType type, wxEvtHandler* sink)
 , m_eolMode(defaultEolModeFromConfig(ctx))
 , m_sink(sink) {}
 
-void Document::attachView(EditorPanel* panel) { // REVIEW: attached view should be any wxWindow view, not just EditorPane;
-    m_panel = panel;
-    if (panel != nullptr) {
-        panel->getEditor()->SetEOLMode(m_eolMode.toStc());
+void Document::attachView(wxWindow* view, Editor* editor) {
+    m_view = view;
+    m_editor = editor;
+    if (editor != nullptr) {
+        editor->SetEOLMode(m_eolMode.toStc());
     }
 }
 
 void Document::detachView() {
-    m_panel = nullptr;
-}
-
-auto Document::getEditor() -> Editor* {
-    return m_panel != nullptr ? m_panel->getEditor() : nullptr;
-}
-
-auto Document::getEditor() const -> const Editor* {
-    return m_panel != nullptr ? m_panel->getEditor() : nullptr;
-}
-
-auto Document::getPage() -> wxWindow* { // REVIEW: Rename to getView
-    return m_panel.get();
-}
-
-auto Document::getPage() const -> const wxWindow* { // REVIEW: Rename to getView
-    return m_panel.get();
+    m_view = nullptr;
+    m_editor = nullptr;
 }
 
 void Document::showMinimap(const bool enabled) {
-    if (m_panel != nullptr) {
-        m_panel->showMinimap(enabled);
+    if (auto* panel = dynamic_cast<EditorPanel*>(m_view.get())) {
+        panel->showMinimap(enabled);
     }
 }
 
 void Document::updateSettings() {
-    if (m_panel != nullptr) {
-        m_panel->updateSettings();
+    if (auto* panel = dynamic_cast<EditorPanel*>(m_view.get())) {
+        panel->updateSettings();
     }
 }
 
@@ -85,8 +71,8 @@ void Document::setFilePath(const std::filesystem::path& path) {
         const auto newType = documentTypeFromPath(path);
         if (newType != m_type) {
             m_type = newType;
-            if (m_panel != nullptr) {
-                m_panel->getEditor()->setDocType(newType);
+            if (m_editor != nullptr) {
+                m_editor->setDocType(newType);
             }
         }
     }
@@ -100,8 +86,8 @@ void Document::setType(const DocumentType type) {
     }
     const auto previous = m_type;
     m_type = type;
-    if (m_panel != nullptr) {
-        m_panel->getEditor()->setDocType(type);
+    if (m_editor != nullptr) {
+        m_editor->setDocType(type);
     }
     // Cross-cutting side effects (intellisense submit/cancel, sidebar
     // refresh) live on the subscriber side — `DocumentManager` binds
@@ -128,12 +114,12 @@ auto Document::getFrameTitle() const -> wxString {
 }
 
 auto Document::isModified() const -> bool {
-    return m_metaModified || (m_panel != nullptr && m_panel->isModified());
+    return m_metaModified || (m_editor != nullptr && m_editor->GetModify());
 }
 
 void Document::markSaved() {
-    if (m_panel != nullptr) {
-        m_panel->markSaved();
+    if (m_editor != nullptr) {
+        m_editor->SetSavePoint();
     }
     m_metaModified = false;
 }
@@ -151,10 +137,9 @@ void Document::setEolMode(const EolMode mode) {
         return;
     }
     m_eolMode = mode;
-    if (m_panel != nullptr) {
-        auto* editor = m_panel->getEditor();
-        editor->ConvertEOLs(mode.toStc());
-        editor->SetEOLMode(mode.toStc());
+    if (m_editor != nullptr) {
+        m_editor->ConvertEOLs(mode.toStc());
+        m_editor->SetEOLMode(mode.toStc());
     }
 }
 
@@ -168,33 +153,6 @@ auto Document::checkExternalChange() const -> bool {
         return false;
     }
     return m_modTime != std::filesystem::file_time_type {} && currentModTime != m_modTime;
-}
-
-auto Document::getKeywordAtCursor() const -> wxString { // REVIEW: This belongs in the Editor
-    // No view → no cursor → nothing under it.
-    if (m_panel == nullptr) {
-        return {};
-    }
-    // wxSTC's position / word boundary helpers aren't const; the
-    // original implementation reached through the non-const editor
-    // accessor — preserved here.
-    auto* editor = m_panel->getEditor();
-    const auto pos = editor->GetCurrentPos();
-    const auto start = editor->WordStartPosition(pos, true);
-    const auto end = editor->WordEndPosition(pos, true);
-    auto keyword = editor->GetTextRange(start, end).Strip(wxString::both);
-    keyword.MakeLower();
-
-    if (keyword.empty()) {
-        return {};
-    }
-
-    // Include '#' for preprocessor directives like #IFDEF
-    if (m_type == DocumentType::FreeBASIC && start > 0 && editor->GetCharAt(start - 1) == '#') {
-        keyword = "#" + keyword;
-    }
-
-    return keyword;
 }
 
 void Document::updateModTime() {

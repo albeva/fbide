@@ -62,15 +62,6 @@ public:
     /// remain) — see `updateMinimapVisibility`.
     void showMinimap(bool enabled);
 
-    /// True when the editor's wxSTC buffer carries unsaved changes
-    /// since the last `SetSavePoint`. Decoupled from `Document` so
-    /// callers that hold an `EditorPanel*` (without going through
-    /// the document) can ask the question directly.
-    [[nodiscard]] auto isModified() const -> bool;
-
-    /// Clear the editor's dirty flag — call after a successful save.
-    void markSaved();
-
     /// Re-apply editor settings (font, theme, keywords) after a
     /// config / theme reload. Also rebuilds the minimap's editor
     /// binding so its rendering picks up the new colours.

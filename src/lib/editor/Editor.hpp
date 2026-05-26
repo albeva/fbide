@@ -7,6 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "LineHistory.hpp"
+#include "analyses/symbols/SymbolTable.hpp"
 #include "config/Theme.hpp"
 #include "document/DocumentType.hpp"
 
@@ -71,6 +72,20 @@ public:
 
     /// Get word under the cursor, or selected text if any.
     [[nodiscard]] auto getWordAtCursor() -> wxString;
+
+    /// Keyword under the cursor, lower-cased. For FreeBASIC documents
+    /// preprocessor directives keep their leading '#' (e.g. `#ifdef`).
+    /// Returns empty when no word straddles the caret.
+    [[nodiscard]] auto getKeywordAtCursor() const -> wxString;
+
+    /// Latest symbol table produced by IntellisenseService for this
+    /// editor's buffer. May be null until the first parse completes
+    /// (or after a leave-FreeBASIC transition clears it).
+    [[nodiscard]] auto getSymbolTable() const -> std::shared_ptr<const SymbolTable> { return m_symbolTable; }
+
+    /// Set the latest symbol table. Called by DocumentManager from the
+    /// IntellisenseService result handler on the UI thread.
+    void setSymbolTable(std::shared_ptr<const SymbolTable> table) { m_symbolTable = std::move(table); }
 
     /// Find next occurrence of text. Returns true if found.
     auto findNext(const wxString& text, int flags, bool forward = true) -> bool;
@@ -226,6 +241,9 @@ private:
     /// Restart on each text-changing modify event; on fire submits a
     /// snapshot to DocumentManager::submitIntellisense.
     wxTimer m_intellisenseTimer;
+    /// Latest intellisense result for this editor's buffer. Dies with
+    /// the editor; reopening a file re-parses from disk.
+    std::shared_ptr<const SymbolTable> m_symbolTable;
 
     wxDECLARE_EVENT_TABLE();
 };

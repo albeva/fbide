@@ -90,12 +90,6 @@ Editor::Editor(
     applySettings();
     m_intellisenseTimer.SetOwner(this);
 
-    // Establish an initial baseline for the change tracker. Scintilla
-    // only fires `SAVEPOINTREACHED` on a *transition* into the clean
-    // state, so a brand-new editor (e.g. File → New) never gets one;
-    // without this seed, modify events would land on an empty
-    // `LineHistory` and produce no markers. A subsequent file load
-    // re-baselines through the SAVEPOINTREACHED path.
     if (!m_preview && m_changeTracking) {
         resnapshotChangeTracker();
     }
@@ -572,8 +566,6 @@ void Editor::updateLineNumberMarginWidth() {
 void Editor::setDocType(const DocumentType type) {
     m_docType = type;
     applySettings();
-    // Status bar (type label) and menu-enable state (Compile/Run, etc.)
-    // both depend on the document type — refresh both now that it changed.
     updateStatusBar();
     updateDocumentState();
 }
@@ -594,6 +586,28 @@ auto Editor::getWordAtCursor() -> wxString {
         return GetTextRange(start, end);
     }
     return {};
+}
+
+auto Editor::getKeywordAtCursor() const -> wxString {
+    // wxSTC's position / word boundary helpers aren't const, so cast away
+    // const for the duration of this read-only query.
+    auto* self = const_cast<Editor*>(this);
+    const auto pos = self->GetCurrentPos();
+    const auto start = self->WordStartPosition(pos, true);
+    const auto end = self->WordEndPosition(pos, true);
+    auto keyword = self->GetTextRange(start, end).Strip(wxString::both);
+    keyword.MakeLower();
+
+    if (keyword.empty()) {
+        return {};
+    }
+
+    // Include '#' for preprocessor directives like #IFDEF
+    if (m_docType == DocumentType::FreeBASIC && start > 0 && self->GetCharAt(start - 1) == '#') {
+        keyword = "#" + keyword;
+    }
+
+    return keyword;
 }
 
 auto Editor::findNext(const wxString& text, const int flags, const bool forward) -> bool {
@@ -960,7 +974,7 @@ void Editor::onHotSpotClick(wxStyledTextEvent& event) {
         return;
     }
 
-    const auto symbols = doc->getSymbolTable();
+    const auto symbols = getSymbolTable();
     if (symbols == nullptr) {
         return;
     }
