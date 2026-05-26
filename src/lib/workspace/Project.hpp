@@ -81,9 +81,11 @@ public:
 
         Id id;     ///< Self-identifier (matches the map key in `Project::m_nodes`).
         Id parent; ///< Parent folder's ID; invalid for the root.
-        /// On-disk location of this node. `nullopt` for untitled files
-        /// (new buffer, never saved) and for virtual folders.
-        std::optional<std::filesystem::path> path;
+        /// On-disk location of this node. Empty for untitled files
+        /// (new buffer, never saved) and for virtual folders — matches
+        /// `Document::getFilePath()`'s convention so the two layers
+        /// stay consistent.
+        std::filesystem::path path;
         Entry entry;
     };
 
@@ -100,12 +102,12 @@ public:
     /// Convenience: true when `getMode() == Mode::Ephemeral`.
     [[nodiscard]] auto isEphemeral() const -> bool { return m_mode == Mode::Ephemeral; }
 
-    /// Insert a file node under the project root. `path` may be nullopt
+    /// Insert a file node under the project root. `path` may be empty
     /// for an untitled document; bind it later via `setNodePath`. `doc`
     /// is the optional `Document*` back-link (the project never
     /// dereferences it).
     /// @returns The new node's identifier.
-    auto addFile(std::optional<std::filesystem::path> path, Document* doc = nullptr) -> Node::Id;
+    auto addFile(std::filesystem::path path, Document* doc = nullptr) -> Node::Id;
 
     /// Path stored on the given file or folder node. Returns an empty
     /// path when the node has none (untitled file, virtual folder).

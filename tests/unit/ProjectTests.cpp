@@ -125,7 +125,7 @@ TEST_F(ProjectTest, AddFileWithPathYieldsValidNodeId) {
 
 TEST_F(ProjectTest, AddFileUntitledHasEmptyPath) {
     Project project { Project::Mode::Ephemeral };
-    const auto id = project.addFile(std::nullopt);
+    const auto id = project.addFile({});
     EXPECT_TRUE(static_cast<bool>(id));
     EXPECT_TRUE(project.getNodePath(id).empty());
 }
@@ -139,7 +139,7 @@ TEST_F(ProjectTest, AddFileNodeIdsAreUnique) {
 
 TEST_F(ProjectTest, SetNodePathSetsPathOnUntitledNode) {
     Project project { Project::Mode::Ephemeral };
-    const auto id = project.addFile(std::nullopt);
+    const auto id = project.addFile({});
     project.setNodePath(id, fs::path { "/tmp/saved.bas" });
     EXPECT_EQ(project.getNodePath(id), fs::path { "/tmp/saved.bas" });
 }

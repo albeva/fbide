@@ -43,13 +43,14 @@ auto WorkspaceManager::createEphemeral(Document& doc) -> Project& {
 
     // Lift the path out of the document BEFORE binding — `bindToProject`
     // overwrites the source variant with the node ID, so the project's
-    // node must already carry the path by then.
-    std::optional<std::filesystem::path> path;
-    if (const auto& src = doc.getSource();
-        std::holds_alternative<std::filesystem::path>(src)) {
-        if (const auto& candidate = std::get<std::filesystem::path>(src); !candidate.empty()) {
-            path = candidate;
-        }
+    // node must already carry the path by then. The precondition above
+    // (`doc.getProject() == nullptr`) implies the variant holds the
+    // path arm (Document::bindToProject / unbindFromProject invariant),
+    // so the `holds_alternative` check is defensive rather than load-
+    // bearing.
+    std::filesystem::path path;
+    if (const auto& src = doc.getSource(); std::holds_alternative<std::filesystem::path>(src)) {
+        path = std::get<std::filesystem::path>(src);
     }
 
     auto project = std::make_unique<Project>(Project::Mode::Ephemeral);
