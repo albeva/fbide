@@ -87,19 +87,17 @@ public:
     /// own bookkeeping completes.
     void onDocumentTypeChanged(Document& doc);
 
-    /// The currently-active project, or `nullptr` when the active
-    /// document has no project bound to it.
-    [[nodiscard]] auto getActiveProject() const -> Project* { return m_activeProject; }
-
-    /// Recompute the active project from `doc`. Called by
-    /// `DocumentNotebook` on tab change. `nullptr` doc clears the
-    /// active project; otherwise it's `doc->getProject()`.
-    void setActiveDocument(Document* doc);
+    /// The currently-active project, or `nullptr` when no document is
+    /// active or the active document has no project bound to it.
+    /// Resolved lazily through `DocumentManager::getActive()` —
+    /// keeping the value cached invited stale-pointer bugs when a
+    /// type-change destroyed-then-recreated the ephemeral project
+    /// without an intervening tab change to refresh the cache.
+    [[nodiscard]] auto getActiveProject() const -> Project*;
 
 private:
     Context& m_ctx;
     std::unordered_map<Project::Id, std::unique_ptr<Project>> m_projects;
-    Project* m_activeProject = nullptr;
     /// Declared last so destruction runs first — worker thread stops
     /// and joins before the projects and documents it might race with
     /// go away.
