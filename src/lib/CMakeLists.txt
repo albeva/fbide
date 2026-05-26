@@ -70,6 +70,7 @@ target_sources(fbide_lib
     ui/controls/Panel.cpp
     ui/controls/SmartBoxSizer.cpp
     ui/utilities/FileDropTarget.cpp
+    utils/Uuid.cpp
     workspace/Project.cpp
     workspace/WorkspaceManager.cpp
 
@@ -159,12 +160,13 @@ target_sources(fbide_lib
     utils/NoCopy.hpp
     utils/Unowned.hpp
     utils/Utils.hpp
+    utils/Uuid.hpp
     utils/ValueRestorer.hpp
 )
 
 # target settings
 target_link_libraries(fbide_lib
-    PRIVATE compiler_options compiler_warnings
+    PRIVATE compiler_options compiler_warnings Boost::uuid
 )
 linkWxWidgets(fbide_lib)
 

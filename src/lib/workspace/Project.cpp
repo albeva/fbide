@@ -11,19 +11,8 @@
 
 using namespace fbide;
 
-namespace {
-/// Process-wide monotonic allocator for `Project::Id`. Project creation
-/// is constrained to the UI thread today, but an atomic costs nothing
-/// and keeps the contract robust if that ever changes. Encapsulated in
-/// a function-local static so it doesn't appear as a non-const global.
-auto allocateProjectId() -> Project::Id::Underlying {
-    static std::atomic<Project::Id::Underlying> counter { 0 };
-    return ++counter;
-}
-} // namespace
-
 Project::Project(const Mode mode)
-: m_id(allocateProjectId())
+: m_id(Uuid::generate())
 , m_mode(mode) {
     // Synthesise the virtual root folder so every top-level entry has a
     // valid parent. The root is never path-indexed and carries no name.
@@ -113,7 +102,7 @@ auto Project::getDocuments() const -> std::vector<Document*> {
 }
 
 auto Project::allocateNodeId() -> Node::Id {
-    return Node::Id { m_nextNodeId++ };
+    return Node::Id { Uuid::generate() };
 }
 
 // --- Build / run gateway ---------------------------------------------------

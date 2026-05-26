@@ -32,53 +32,64 @@ constexpr std::uintptr_t kFakeDocMiddle  = 0x1234;
 TEST(ProjectIdTest, DefaultIsInvalid) {
     constexpr Project::Id id;
     EXPECT_FALSE(static_cast<bool>(id));
-    EXPECT_EQ(id.value(), 0U);
 }
 
 TEST(ProjectIdTest, ExplicitValueIsValid) {
-    constexpr Project::Id id { 42 };
+    const auto uuid = Uuid::generate();
+    const Project::Id id { uuid };
     EXPECT_TRUE(static_cast<bool>(id));
-    EXPECT_EQ(id.value(), 42U);
+    EXPECT_EQ(id.value(), uuid);
 }
 
-TEST(ProjectIdTest, EqualityAndOrdering) {
-    constexpr Project::Id lhs { 1 };
-    constexpr Project::Id rhs { 1 };
-    constexpr Project::Id other { 2 };
+TEST(ProjectIdTest, EqualityWithSameUuid) {
+    const auto uuid = Uuid::generate();
+    const Project::Id lhs { uuid };
+    const Project::Id rhs { uuid };
     EXPECT_EQ(lhs, rhs);
-    EXPECT_NE(lhs, other);
-    EXPECT_LT(lhs, other);
+}
+
+TEST(ProjectIdTest, InequalityForDistinctUuids) {
+    const Project::Id lhs { Uuid::generate() };
+    const Project::Id rhs { Uuid::generate() };
+    EXPECT_NE(lhs, rhs);
 }
 
 TEST(ProjectIdTest, Hashable) {
     std::unordered_map<Project::Id, int> map;
-    map[Project::Id { 1 }] = 1;
-    map[Project::Id { 2 }] = 2;
-    EXPECT_EQ(map[Project::Id { 1 }], 1);
-    EXPECT_EQ(map[Project::Id { 2 }], 2);
+    const Project::Id first { Uuid::generate() };
+    const Project::Id second { Uuid::generate() };
+    map[first] = 1;
+    map[second] = 2;
+    EXPECT_EQ(map[first], 1);
+    EXPECT_EQ(map[second], 2);
 }
 
 TEST(ProjectNodeIdTest, DefaultIsInvalid) {
     constexpr Project::Node::Id id;
     EXPECT_FALSE(static_cast<bool>(id));
-    EXPECT_EQ(id.value(), 0U);
 }
 
-TEST(ProjectNodeIdTest, EqualityAndOrdering) {
-    constexpr Project::Node::Id lhs { 5 };
-    constexpr Project::Node::Id rhs { 5 };
-    constexpr Project::Node::Id other { 9 };
+TEST(ProjectNodeIdTest, EqualityWithSameUuid) {
+    const auto uuid = Uuid::generate();
+    const Project::Node::Id lhs { uuid };
+    const Project::Node::Id rhs { uuid };
     EXPECT_EQ(lhs, rhs);
-    EXPECT_NE(lhs, other);
-    EXPECT_LT(lhs, other);
+}
+
+TEST(ProjectNodeIdTest, InequalityForDistinctUuids) {
+    const Project::Node::Id lhs { Uuid::generate() };
+    const Project::Node::Id rhs { Uuid::generate() };
+    EXPECT_NE(lhs, rhs);
 }
 
 TEST(ProjectNodeIdTest, Hashable) {
     std::unordered_map<Project::Node::Id, int> map;
-    map[Project::Node::Id { 1 }] = 1;
-    map[Project::Node::Id { 2 }] = 2;
-    EXPECT_EQ(map[Project::Node::Id { 1 }], 1);
-    EXPECT_EQ(map[Project::Node::Id { 2 }], 2);
+    const Project::Node::Id first { Uuid::generate() };
+    const Project::Node::Id second { Uuid::generate() };
+    map[first] = 1;
+    map[second] = 2;
+    EXPECT_EQ(map[first], 1);
+    EXPECT_EQ(map[second], 2);
 }
 
 // --- Project construction --------------------------------------------------
