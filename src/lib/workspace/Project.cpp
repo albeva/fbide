@@ -21,7 +21,7 @@ Project::Project(const Mode mode)
     m_nodes.emplace(rootId, Node {
         .id = rootId,
         .parent = {},
-        .path = std::nullopt,
+        .path = {},
         .entry = Node::Folder {
             .name = {},
             .children = {},
@@ -29,14 +29,14 @@ Project::Project(const Mode mode)
     });
 }
 
-auto Project::addFile(std::optional<std::filesystem::path> path, Document* doc) -> Node::Id {
+auto Project::addFile(std::filesystem::path path, Document* doc) -> Node::Id {
     const auto id = allocateNodeId();
 
     // Index by path *before* moving it into the node — m_byPath is the
     // lookup index for resolveOrOpen-style queries; only real (non-empty)
     // paths participate.
-    if (path.has_value() && !path->empty()) {
-        m_byPath.emplace(*path, id);
+    if (!path.empty()) {
+        m_byPath.emplace(path, id);
     }
 
     m_nodes.emplace(id, Node {
@@ -57,7 +57,7 @@ auto Project::getNodePath(const Node::Id id) const -> std::filesystem::path {
     if (it == m_nodes.end()) {
         return {};
     }
-    return it->second.path.value_or(std::filesystem::path {});
+    return it->second.path;
 }
 
 void Project::setNodePath(const Node::Id id, const std::filesystem::path& path) {
@@ -68,11 +68,11 @@ void Project::setNodePath(const Node::Id id, const std::filesystem::path& path) 
 
     // Re-key the path index: drop the old key (if any) before inserting
     // the new one, otherwise two entries point at the same node.
-    if (it->second.path.has_value() && !it->second.path->empty()) {
-        m_byPath.erase(*it->second.path);
+    if (!it->second.path.empty()) {
+        m_byPath.erase(it->second.path);
     }
 
-    it->second.path = path.empty() ? std::optional<std::filesystem::path> {} : std::optional { path };
+    it->second.path = path;
 
     if (!path.empty()) {
         m_byPath.emplace(path, id);
