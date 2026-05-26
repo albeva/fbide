@@ -62,6 +62,9 @@ auto DocumentManager::newFile(DocumentType type) -> Document& {
     const auto thaw = m_ctx.getUIManager().freeze();
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx, type, this));
     make_unowned<EditorPanel>(m_notebook.get(), m_ctx, type, doc);
+    if (type == DocumentType::FreeBASIC) {
+        m_ctx.getWorkspaceManager().createEphemeral(doc);
+    }
     m_notebook->addPage(doc);
     return doc;
 }
@@ -184,6 +187,14 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     doc.setEolMode(loaded->eolMode);
     doc.setFilePath(canonical);
     doc.markSaved();
+
+    // Bind to an ephemeral project before the tab is published, so any
+    // observer that looks up the doc's project from the page-change
+    // callback (e.g. setActiveDocument) sees the binding already in
+    // place. addPage triggers PAGE_CHANGED on the notebook.
+    if (doc.getType() == DocumentType::FreeBASIC) {
+        m_ctx.getWorkspaceManager().createEphemeral(doc);
+    }
 
     m_notebook->addPage(doc);
 
@@ -456,6 +467,14 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
         }
     }
 
+    // Close commit. Tear down the ephemeral project bound to this doc
+    // (if any) — its single source is going away with the tab.
+    // Persistent projects survive document close; their file node
+    // simply releases the `Document*` back-link.
+    if (auto* project = doc.getProject(); project != nullptr && project->isEphemeral()) {
+        m_ctx.getWorkspaceManager().destroyEphemeral(doc);
+    }
+
     m_notebook->removePage(doc);
     std::erase_if(m_documents, [&doc](const auto& ptr) { return ptr.get() == &doc; });
 
@@ -507,6 +526,13 @@ auto DocumentManager::closeOtherFiles(const Document& keep) -> bool {
 
 void DocumentManager::onDocumentTypeChanged(DocumentTypeChangedEvent& event) {
     auto& doc = *event.getDocument();
+
+    // Sync the project binding to the new type *first* so downstream
+    // bookkeeping (intellisense, sidebar) sees the document in its
+    // post-transition project state. Ephemeral projects appear /
+    // disappear here; persistent projects are untouched.
+    m_ctx.getWorkspaceManager().onDocumentTypeChanged(doc);
+
     if (doc.getType() == DocumentType::FreeBASIC) {
         // Re-enter the FreeBASIC pipeline — submit the current buffer
         // for intellisense so the symbol browser populates. View-less

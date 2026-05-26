@@ -18,11 +18,14 @@ class IntellisenseService;
  * `IntellisenseService`, and the bookkeeping for which project (if any)
  * the user is currently focused on.
  *
- * Phase 3 adds the `IntellisenseService` ownership; project lifecycle
- * (`createEphemeral` / `destroyEphemeral` / `closeProject`), liveness
- * (`contains`), and file resolution (`resolveOrOpen`) arrive in later
- * phases — nothing yet creates projects, so the collection stays empty
- * and `getActiveProject()` always returns `nullptr`.
+ * Phase 5 wires up the Ephemeral project lifecycle: every FreeBASIC
+ * document is bound to a one-source Ephemeral project on creation
+ * (`createEphemeral`), unbound and destroyed on type-out
+ * (`destroyEphemeral`), and active-project tracking follows the
+ * notebook's active tab via `setActiveDocument`. Persistent projects,
+ * `closeProject` for user-initiated closure, and the `contains`
+ * liveness probe round out the surface area even though their
+ * Persistent-side use cases arrive later.
  *
  * **Owns:** `m_projects` (every open `Project`) and `m_intellisense`
  * (the background lex/parse worker shared across all FreeBASIC docs).
@@ -57,18 +60,54 @@ public:
     /// Access the shared background intellisense worker.
     [[nodiscard]] auto getIntellisense() -> IntellisenseService& { return *m_intellisense; }
 
+    /// Allocate an Ephemeral project bound to `doc`. Preconditions:
+    /// the document must be unbound (`getProject() == nullptr`) and
+    /// FreeBASIC (`getType() == FreeBASIC`). The current path stored
+    /// in the document is lifted onto the project's single file node
+    /// before the document is rebound to that node — `getFilePath()`
+    /// returns the same value either side of the call.
+    auto createEphemeral(Document& doc) -> Project&;
+
+    /// Tear down the Ephemeral project bound to `doc`. Unbinds the
+    /// document first (so its path is restored to the variant) and
+    /// then routes through `closeProject` for the actual cleanup.
+    /// Precondition: `doc.getProject()` must be a non-null Ephemeral
+    /// project — the caller is expected to check first.
+    void destroyEphemeral(Document& doc);
+
+    /// Close a project of any mode: unbind every bound document, ask
+    /// `DocumentManager` to close their open tabs, then drop the
+    /// project. Iteration skips documents whose back-link has already
+    /// drifted away (unbound out-of-band by other code), since closing
+    /// those isn't this project's responsibility.
+    void closeProject(Project& project);
+
+    /// Is `project` currently owned by this manager? Liveness probe
+    /// for callers (e.g. `BuildTask` in Phase 6) holding long-lived
+    /// `Project*` references.
+    [[nodiscard]] auto contains(const Project* project) const -> bool;
+
+    /// React to a document's type having just been set. Brings the
+    /// project binding back in sync with the new type:
+    /// - FreeBASIC + no project        → `createEphemeral(doc)`.
+    /// - non-FreeBASIC + ephemeral     → `destroyEphemeral(doc)`.
+    /// - Persistent projects           → untouched (their members
+    ///   survive type changes).
+    /// Called by `DocumentManager::onDocumentTypeChanged` after its
+    /// own bookkeeping completes.
+    void onDocumentTypeChanged(Document& doc);
+
     /// The currently-active project, or `nullptr` when the active
-    /// document has no project bound to it (always `nullptr` until
-    /// Phase 5 wires the lifecycle).
+    /// document has no project bound to it.
     [[nodiscard]] auto getActiveProject() const -> Project* { return m_activeProject; }
 
     /// Recompute the active project from `doc`. Called by
-    /// `DocumentManager` on tab change. Stub in this phase — once
-    /// documents start carrying a `Project*` back-link (Phase 4 / 5),
-    /// this resolves to `doc != nullptr ? doc->getProject() : nullptr`.
+    /// `DocumentNotebook` on tab change. `nullptr` doc clears the
+    /// active project; otherwise it's `doc->getProject()`.
     void setActiveDocument(Document* doc);
 
 private:
+    Context& m_ctx;
     std::unordered_map<Project::Id, std::unique_ptr<Project>> m_projects;
     Project* m_activeProject = nullptr;
     /// Declared last so destruction runs first — worker thread stops
