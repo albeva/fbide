@@ -67,7 +67,11 @@ auto Document::getFilePath() const -> std::filesystem::path {
     if (std::holds_alternative<std::filesystem::path>(m_source)) {
         return std::get<std::filesystem::path>(m_source);
     }
-    return m_project->getNodePath(std::get<Project::Node::Id>(m_source));
+    if (m_project != nullptr) {
+        return m_project->getNodePath(std::get<Project::Node::Id>(m_source));
+    }
+    wxLogError("File source is project node, but has no project associated");
+    return {};
 }
 
 void Document::setFilePath(const std::filesystem::path& path) {
