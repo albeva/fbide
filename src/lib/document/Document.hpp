@@ -10,22 +10,28 @@
 #include "TextEncoding.hpp"
 #include "analyses/symbols/SymbolTable.hpp"
 
-class wxStyledTextCtrlMiniMap;
-
 namespace fbide {
 class Context;
 class Editor;
+class EditorPanel;
 
 /**
- * One open file (or untitled buffer): editor widget plus the metadata
- * that lets us round-trip to disk — path, type, encoding, EOL,
- * mod-time, latest symbol table.
+ * One open file (or untitled buffer) — the data model: file path,
+ * type, encoding, EOL, mod-time, latest symbol table.
  *
- * **Owns:** the wx-parented container panel (`Unowned<wxPanel>`) that
- * holds the `Editor` widget and the experimental minimap, plus the
- * `shared_ptr<const SymbolTable>` published by intellisense.
+ * Pairs with an `EditorPanel` view that hosts the actual `Editor`
+ * widget + the optional minimap; `Document` keeps a non-owning back
+ * link to the panel and forwards editor-shaped queries through it
+ * for the convenience of call sites that today reach for
+ * `doc->getEditor()`. Later phases drop the construct-time view
+ * requirement and let documents exist without an open tab (project
+ * tree).
+ *
+ * **Owns:** the model state listed below plus the
+ * `shared_ptr<const SymbolTable>` published by intellisense. Does
+ * NOT own the `EditorPanel` view in the wx sense — the panel is
+ * wx-parented to the notebook.
  * **Owned by:** `DocumentManager` via `unique_ptr<Document>`.
- * **Lifetime:** matches the notebook tab.
  *
  * `m_metaModified` tracks encoding/EOL changes separately from the
  * editor's own dirty bit so metadata-only edits round-trip through
@@ -37,7 +43,9 @@ class Document final {
 public:
     NO_COPY_AND_MOVE(Document)
 
-    /// Create a new document. Editor is created as child of parent.
+    /// Create a new document. Constructs an `EditorPanel` view as a
+    /// child of `parent`. The view-less construction path arrives in
+    /// the next phase.
     Document(wxWindow* parent, Context& ctx, DocumentType type = DocumentType::FreeBASIC);
 
     /// Get the file path. Empty if untitled. Returned as `std::filesystem::path`
@@ -71,18 +79,23 @@ public:
     /// derived from the file path.
     [[nodiscard]] auto isTypeOverridden() const -> bool { return m_typeOverridden; }
 
-    /// Get the editor widget.
-    [[nodiscard]] auto getEditor() -> Editor* { return m_editor; }
+    /// The editor widget hosted by this document's view. Forwarded
+    /// from `EditorPanel` for the convenience of code that already
+    /// holds a `Document*`. Will return `nullptr` in a future phase
+    /// where documents may exist without an attached view.
+    [[nodiscard]] auto getEditor() -> Editor*;
     /// Const overload of `getEditor`.
-    [[nodiscard]] auto getEditor() const -> const Editor* { return m_editor; }
+    [[nodiscard]] auto getEditor() const -> const Editor*;
 
-    /// Get the notebook page — the container panel holding editor + minimap.
-    [[nodiscard]] auto getPage() -> wxWindow* { return m_container; }
+    /// Get the notebook page — the `EditorPanel` instance itself
+    /// (which IS a `wxPanel`). Returned as `wxWindow*` so the
+    /// notebook can dock it without knowing the concrete view kind.
+    [[nodiscard]] auto getPage() -> wxWindow*;
     /// Const overload of `getPage`.
-    [[nodiscard]] auto getPage() const -> const wxWindow* { return m_container; }
+    [[nodiscard]] auto getPage() const -> const wxWindow*;
 
     /// Enable or disable the minimap. Effective visibility also depends
-    /// on the page being wide enough — see `updateMinimapVisibility`.
+    /// on the page being wide enough — see `EditorPanel::updateMinimapVisibility`.
     void showMinimap(bool enabled);
 
     /// Path of the most recently compiled executable.
@@ -113,7 +126,8 @@ public:
     /// applies to wxSTC for future inserts. Marks document dirty.
     void setEolMode(EolMode mode);
 
-    /// Is the document modified?
+    /// Is the document modified? Combines the meta-dirty flag with
+    /// the view's editor buffer-dirty state when a view is attached.
     [[nodiscard]] auto isModified() const -> bool;
 
     /// Set modified state. Also clears the encoding-change dirty flag
@@ -137,34 +151,22 @@ public:
         m_symbolTable = std::move(table);
     }
 
-    /// Update document controls settings
+    /// Update document controls settings. Forwards to the view.
     void updateSettings();
 
 private:
-    /// Page resized — re-evaluate whether the minimap still fits.
-    void onContainerSize(wxSizeEvent& event);
-    /// Show/hide the minimap based on the current page width.
-    void updateMinimapVisibility() const;
-    /// Create the minimap widget and dock it into the page layout.
-    void createMinimap();
-    /// Destroy the minimap widget and drop it from the page layout.
-    void destroyMinimap();
-
-    Context& m_ctx;                             ///< Application context.
-    wxString m_compiledFile;                    ///< Path of the most recently compiled executable.
-    std::filesystem::path m_filePath;           ///< Absolute path on disk; empty for new documents.
-    DocumentType m_type;                        ///< Document type — drives lexer + theme dispatch.
-    bool m_typeOverridden = false;              ///< True when the user explicitly picked the type.
-    Unowned<wxPanel> m_container;               ///< wx-parented notebook page — holds editor + minimap.
-    Unowned<Editor> m_editor;                   ///< Editor widget, child of m_container.
-    Unowned<wxStyledTextCtrlMiniMap> m_minimap; ///< Minimap — lazily created; null while disabled.
-    int m_minimapWidth;                         ///< Minimap width in px — `editor.minimapWidth` config key.
-    bool m_minimapEnabled;                      ///< Minimap toggle state — `commands.viewMinimap`.
-    std::filesystem::file_time_type m_modTime;  ///< Last on-disk mtime — backs `checkExternalChange`.
-    TextEncoding m_encoding;                    ///< Bytes-to-text codec used on save.
-    EolMode m_eolMode;                          ///< Line-ending convention applied on save.
-    /// Set when encoding is changed; cleared on save. OR'd with editor's
-    /// modify flag in isModified() so encoding-only edits still show as dirty.
+    Context& m_ctx;                            ///< Application context.
+    wxString m_compiledFile;                   ///< Path of the most recently compiled executable.
+    std::filesystem::path m_filePath;          ///< Absolute path on disk; empty for new documents.
+    DocumentType m_type;                       ///< Document type — drives lexer + theme dispatch.
+    bool m_typeOverridden = false;             ///< True when the user explicitly picked the type.
+    Unowned<EditorPanel> m_panel;              ///< View back-link — wx-parented to the notebook.
+    std::filesystem::file_time_type m_modTime; ///< Last on-disk mtime — backs `checkExternalChange`.
+    TextEncoding m_encoding;                   ///< Bytes-to-text codec used on save.
+    EolMode m_eolMode;                         ///< Line-ending convention applied on save.
+    /// Set when encoding is changed; cleared on save. OR'd with the
+    /// view's modify flag in isModified() so encoding-only edits still
+    /// show as dirty.
     bool m_metaModified = false;
     std::shared_ptr<const SymbolTable> m_symbolTable; ///< Latest intellisense result for this document.
 };
