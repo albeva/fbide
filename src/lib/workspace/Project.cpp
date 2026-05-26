@@ -17,15 +17,6 @@ auto allocateProjectId() -> Project::Id::Underlying {
     static std::atomic<Project::Id::Underlying> counter { 0 };
     return ++counter;
 }
-
-/// Extract the optional path stored on a node's variant entry — both
-/// `File` and `Folder` carry an `optional<path>` for the same reason
-/// (untitled / virtual). Returns an empty `path` when the entry has none.
-auto pathOf(const Project::Node::Entry& entry) -> std::filesystem::path {
-    return std::visit([](const auto& alt) -> std::filesystem::path {
-        return alt.path.value_or(std::filesystem::path {});
-    }, entry);
-}
 } // namespace
 
 Project::Project(const Mode mode)
@@ -38,8 +29,8 @@ Project::Project(const Mode mode)
     m_nodes.emplace(rootId, Node {
         .id = rootId,
         .parent = {},
+        .path = std::nullopt,
         .entry = Node::Folder {
-            .path = std::nullopt,
             .name = {},
             .children = {},
         },
@@ -49,7 +40,7 @@ Project::Project(const Mode mode)
 auto Project::addFile(std::optional<std::filesystem::path> path, Document* doc) -> Node::Id {
     const auto id = allocateNodeId();
 
-    // Index by path *before* moving it into the entry — m_byPath is the
+    // Index by path *before* moving it into the node — m_byPath is the
     // lookup index for resolveOrOpen-style queries; only real (non-empty)
     // paths participate.
     if (path.has_value() && !path->empty()) {
@@ -59,10 +50,8 @@ auto Project::addFile(std::optional<std::filesystem::path> path, Document* doc) 
     m_nodes.emplace(id, Node {
         .id = id,
         .parent = m_root,
-        .entry = Node::File {
-            .path = std::move(path),
-            .doc = doc,
-        },
+        .path = std::move(path),
+        .entry = Node::File { .doc = doc },
     });
 
     // Maintain the root's children list so tree-walking code can iterate
@@ -76,7 +65,7 @@ auto Project::getNodePath(const Node::Id id) const -> std::filesystem::path {
     if (it == m_nodes.end()) {
         return {};
     }
-    return pathOf(it->second.entry);
+    return it->second.path.value_or(std::filesystem::path {});
 }
 
 void Project::setNodePath(const Node::Id id, const std::filesystem::path& path) {
@@ -87,14 +76,11 @@ void Project::setNodePath(const Node::Id id, const std::filesystem::path& path) 
 
     // Re-key the path index: drop the old key (if any) before inserting
     // the new one, otherwise two entries point at the same node.
-    const auto old = pathOf(it->second.entry);
-    if (!old.empty()) {
-        m_byPath.erase(old);
+    if (it->second.path.has_value() && !it->second.path->empty()) {
+        m_byPath.erase(*it->second.path);
     }
 
-    std::visit([&](auto& alt) {
-        alt.path = path.empty() ? std::optional<std::filesystem::path> {} : std::optional { path };
-    }, it->second.entry);
+    it->second.path = path.empty() ? std::optional<std::filesystem::path> {} : std::optional { path };
 
     if (!path.empty()) {
         m_byPath.emplace(path, id);
