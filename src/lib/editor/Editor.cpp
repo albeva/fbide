@@ -912,10 +912,13 @@ void Editor::updateDocumentState() const {
     if (m_uiManager == nullptr) {
         return;
     }
-    const auto state = m_docType == DocumentType::FreeBASIC
-                         ? UIState::FocusedValidSourceFile
-                         : UIState::FocusedUnknownFile;
-    m_uiManager->setDocumentState(state);
+    // Doc-bound commands (Save / Comment / Subs / Format / …) follow
+    // the active document's type. Build commands follow the active
+    // *project*'s capabilities — refresh both because focus changes
+    // can collide with active-tab switches that didn't fire their
+    // own page-change event yet.
+    m_uiManager->syncDocCommands();
+    m_uiManager->syncBuildCommands();
 }
 
 void Editor::onFocus(wxFocusEvent& event) {

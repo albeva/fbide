@@ -490,7 +490,8 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
     // Update UI state when no documents remain
     if (m_documents.empty()) {
         auto& ui = m_ctx.getUIManager();
-        ui.setDocumentState(UIState::None);
+        ui.syncDocCommands();
+        ui.syncBuildCommands();
         ui.setTitle(wxEmptyString);
         ui.clearDocumentStatus();
     }
@@ -532,6 +533,11 @@ void DocumentManager::onDocumentTypeChanged(DocumentTypeChangedEvent& event) {
     // post-transition project state. Ephemeral projects appear /
     // disappear here; persistent projects are untouched.
     m_ctx.getWorkspaceManager().onDocumentTypeChanged(doc);
+
+    // Build commands follow project capabilities — the type change
+    // may have just created or torn down the active ephemeral
+    // project, so the toolbar needs a refresh either way.
+    m_ctx.getUIManager().syncBuildCommands();
 
     if (doc.getType() == DocumentType::FreeBASIC) {
         // Re-enter the FreeBASIC pipeline — submit the current buffer
@@ -624,7 +630,9 @@ auto DocumentManager::prepareToQuit() -> bool {
         m_documents.pop_back();
     }
 
-    m_ctx.getUIManager().setDocumentState(UIState::None);
+    auto& ui = m_ctx.getUIManager();
+    ui.syncDocCommands();
+    ui.syncBuildCommands();
     return true;
 }
 

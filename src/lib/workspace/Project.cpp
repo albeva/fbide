@@ -150,3 +150,17 @@ auto Project::getRunTemplate(Context& ctx) const -> wxString {
         "compiler.runCommand", R"(<$terminal> "<$file>" <$param>)"
     );
 }
+
+auto Project::getCapabilities() const -> Capabilities {
+    // Ephemeral projects host exactly one source file and always
+    // produce a runnable executable — every capability applies.
+    // Persistent projects (future) will derive this from their stored
+    // output kind (Executable / Library / StaticLib / …).
+    assert(isEphemeral() && "Persistent project capabilities not implemented yet");
+    return static_cast<Capabilities>(
+        static_cast<Capabilities>(Capability::Compile)
+        | static_cast<Capabilities>(Capability::CompileAndRun)
+        | static_cast<Capabilities>(Capability::Run)
+        | static_cast<Capabilities>(Capability::QuickRun)
+    );
+}
