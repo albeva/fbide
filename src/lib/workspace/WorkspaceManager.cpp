@@ -70,9 +70,6 @@ void WorkspaceManager::closeProject(Project& project) {
         }
     }
     m_projects.erase(project.getId());
-    if (m_activeProject == &project) {
-        m_activeProject = nullptr;
-    }
 }
 
 auto WorkspaceManager::contains(const Project* project) const -> bool {
@@ -99,6 +96,7 @@ void WorkspaceManager::onDocumentTypeChanged(Document& doc) {
     }
 }
 
-void WorkspaceManager::setActiveDocument(Document* doc) {
-    m_activeProject = doc != nullptr ? doc->getProject() : nullptr;
+auto WorkspaceManager::getActiveProject() const -> Project* {
+    const auto* doc = m_ctx.getDocumentManager().getActive();
+    return doc != nullptr ? doc->getProject() : nullptr;
 }
