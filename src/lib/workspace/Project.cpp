@@ -72,7 +72,7 @@ auto Project::getNodePath(const Node::Id id) const -> std::filesystem::path {
 }
 
 void Project::setNodePath(const Node::Id id, const std::filesystem::path& path) {
-    auto it = m_nodes.find(id);
+    const auto it = m_nodes.find(id);
     if (it == m_nodes.end()) {
         return;
     }
@@ -93,7 +93,7 @@ void Project::setNodePath(const Node::Id id, const std::filesystem::path& path) 
 auto Project::getPrimarySource() const -> Document* {
     assert(m_mode == Mode::Ephemeral && "getPrimarySource is ephemeral-only");
 
-    for (const auto& [id, node] : m_nodes) {
+    for (const auto& node : m_nodes | std::views::values) {
         if (const auto* file = std::get_if<Node::File>(&node.entry)) {
             return file->doc;
         }
@@ -104,7 +104,7 @@ auto Project::getPrimarySource() const -> Document* {
 auto Project::getDocuments() const -> std::vector<Document*> {
     std::vector<Document*> result;
     result.reserve(m_nodes.size());
-    for (const auto& [id, node] : m_nodes) {
+    for (const auto& node : m_nodes | std::views::values) {
         if (const auto* file = std::get_if<Node::File>(&node.entry); file != nullptr && file->doc != nullptr) {
             result.push_back(file->doc);
         }

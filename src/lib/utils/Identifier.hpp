@@ -66,16 +66,12 @@ private:
 
 } // namespace fbide
 
-namespace std {
-
 /// Partial specialisation that makes any `IdentifierBase<Tag, Underlying>`
 /// hashable. Forwards to `std::hash<Underlying>` so the hash quality
 /// follows whatever the underlying integer hash provides.
 template<typename Tag, std::integral Underlying>
-struct hash<fbide::IdentifierBase<Tag, Underlying>> {
+struct std::hash<fbide::IdentifierBase<Tag, Underlying>> {
     auto operator()(const fbide::IdentifierBase<Tag, Underlying>& id) const noexcept -> size_t {
         return hash<Underlying> {}(id.value());
     }
 };
-
-} // namespace std
