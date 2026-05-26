@@ -202,8 +202,8 @@ TEST_F(ProjectTest, GetDocumentsEmptyOnFreshProject) {
 TEST_F(ProjectTest, EphemeralAdvertisesAllCapabilities) {
     const Project project { Project::Mode::Ephemeral };
     const auto caps = project.getCapabilities();
-    EXPECT_TRUE(caps & static_cast<Project::Capabilities>(Project::Capability::Compile));
-    EXPECT_TRUE(caps & static_cast<Project::Capabilities>(Project::Capability::CompileAndRun));
-    EXPECT_TRUE(caps & static_cast<Project::Capabilities>(Project::Capability::Run));
-    EXPECT_TRUE(caps & static_cast<Project::Capabilities>(Project::Capability::QuickRun));
+    EXPECT_TRUE(caps & +Project::Capability::Compile);
+    EXPECT_TRUE(caps & +Project::Capability::CompileAndRun);
+    EXPECT_TRUE(caps & +Project::Capability::Run);
+    EXPECT_TRUE(caps & +Project::Capability::QuickRun);
 }

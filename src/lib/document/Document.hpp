@@ -46,20 +46,13 @@ private:
 
 /**
  * One open file (or untitled buffer) — the data model: file path,
- * type, encoding, EOL, mod-time, latest symbol table.
+ * type, encoding, EOL, mod-time.
  *
  * Pairs with an `EditorPanel` view that hosts the actual `Editor`
  * widget + the optional minimap; `Document` keeps a non-owning back
- * link to the panel and forwards editor-shaped queries through it
- * for the convenience of call sites that today reach for
- * `doc->getEditor()`. Later phases drop the construct-time view
- * requirement and let documents exist without an open tab (project
- * tree).
+ * link to the panel. The `EditorPanel` is wx-parented to the
+ * notebook — `Document` does not own it.
  *
- * **Owns:** the model state listed below plus the
- * `shared_ptr<const SymbolTable>` published by intellisense. Does
- * NOT own the `EditorPanel` view in the wx sense — the panel is
- * wx-parented to the notebook.
  * **Owned by:** `DocumentManager` via `unique_ptr<Document>`.
  *
  * `m_metaModified` tracks encoding/EOL changes separately from the

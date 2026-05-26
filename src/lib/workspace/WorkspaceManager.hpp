@@ -14,9 +14,14 @@ class Document;
 class IntellisenseService;
 
 /**
- * Owns every open `Project` in the IDE, the shared background
- * `IntellisenseService`, and the bookkeeping for which project (if any)
- * the user is currently focused on.
+ * Owns every open `Project` and the shared background
+ * `IntellisenseService`; resolves the active project lazily from the
+ * active document.
+ *
+ * **Destruction order:** declared after `DocumentManager` in `Context`
+ * so it tears down first — the intellisense worker must stop and join
+ * before the documents it may race with go away. Inside this class,
+ * `m_intellisense` is the last field for the same reason.
  */
 class WorkspaceManager final {
 public:
@@ -73,8 +78,8 @@ public:
     void closeProject(Project& project);
 
     /// Is `project` currently owned by this manager? Liveness probe
-    /// for callers (e.g. `BuildTask` in Phase 6) holding long-lived
-    /// `Project*` references.
+    /// for callers (e.g. `BuildTask`) holding long-lived `Project*`
+    /// references across async work.
     [[nodiscard]] auto contains(const Project* project) const -> bool;
 
     /// React to a document's type having just been set. Brings the

@@ -604,11 +604,11 @@ void UIManager::syncBuildCommands() {
     // disabled.
     setEnabled(CommandId::KillProcess, false);
     const auto* project = m_ctx.getWorkspaceManager().getActiveProject();
-    const auto caps = project != nullptr ? project->getCapabilities() : Project::Capabilities {};
-    setEnabled(CommandId::Compile, (caps & static_cast<Project::Capabilities>(Project::Capability::Compile)) != 0);
-    setEnabled(CommandId::CompileAndRun, (caps & static_cast<Project::Capabilities>(Project::Capability::CompileAndRun)) != 0);
-    setEnabled(CommandId::Run, (caps & static_cast<Project::Capabilities>(Project::Capability::Run)) != 0);
-    setEnabled(CommandId::QuickRun, (caps & static_cast<Project::Capabilities>(Project::Capability::QuickRun)) != 0);
+    const std::uint8_t caps = project != nullptr ? project->getCapabilities() : 0U;
+    setEnabled(CommandId::Compile, (caps & +Project::Capability::Compile) != 0);
+    setEnabled(CommandId::CompileAndRun, (caps & +Project::Capability::CompileAndRun) != 0);
+    setEnabled(CommandId::Run, (caps & +Project::Capability::Run) != 0);
+    setEnabled(CommandId::QuickRun, (caps & +Project::Capability::QuickRun) != 0);
 }
 
 void UIManager::setCompilerState(const UIState state) {
