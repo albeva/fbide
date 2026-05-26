@@ -9,6 +9,7 @@
 #include "config/ConfigManager.hpp"
 #include "config/Value.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentPath.hpp"
 
 using namespace fbide;
 
@@ -27,7 +28,7 @@ auto FileDropTarget::OnDropFiles(wxCoord /*x*/, wxCoord /*y*/, const wxArrayStri
         if (!isSupported(path)) {
             continue;
         }
-        if (docManager.openFile(path) != nullptr) {
+        if (docManager.openFile(toFsPath(path)) != nullptr) {
             opened = true;
         }
     }

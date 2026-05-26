@@ -409,8 +409,8 @@ TEST_F(ConfigManagerTests, RelativeOfUserDataPathStripsUserDataPrefix) {
     const ConfigManager cm(tmp.path(), ideDir, "", tmp.path() + "/userdata");
 
     EXPECT_EQ(
-        cm.relative(tmp.path() + "/userdata/themes/modern-dark.ini"),
-        "themes/modern-dark.ini"
+        cm.relative(std::filesystem::path { tmp.path().ToStdString() + "/userdata/themes/modern-dark.ini" }),
+        std::filesystem::path { "themes/modern-dark.ini" }
     );
 }
 

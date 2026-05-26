@@ -132,7 +132,7 @@ auto CompilerManager::resolveCompilerBinary() const -> wxString {
         return {};
     }
     wxFileName path(configured);
-    path.MakeAbsolute(m_ctx.getConfigManager().getAppDir());
+    path.MakeAbsolute(toWxString(m_ctx.getConfigManager().getAppDir()));
     auto resolved = path.GetFullPath();
     if (resolved.IsEmpty() || !wxIsExecutable(resolved)) {
         return {};
@@ -228,12 +228,12 @@ void CompilerManager::goToError(const int line, const wxString& fileName) {
     auto* doc = [&] -> Document* {
         const auto isTemp = wxFileNameFromPath(fileName) == BuildTask::TEMPNAME;
         if (m_task == nullptr) {
-            return isTemp ? nullptr : docManager.openFile(fileName);
+            return isTemp ? nullptr : docManager.openFile(toFsPath(fileName));
         }
         if (isTemp && m_task->isQuickRun()) {
             return m_task->getDocument();
         }
-        return docManager.openFile(fileName);
+        return docManager.openFile(toFsPath(fileName));
     }();
     if (doc == nullptr) {
         return;

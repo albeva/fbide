@@ -153,14 +153,14 @@ public:
     // -----------------------------------------------------------------------
 
     /// Resolve `pathName` to an absolute path against `appDir`.
-    [[nodiscard]] auto absolute(const wxString& pathName) const -> wxString;
+    [[nodiscard]] auto absolute(const std::filesystem::path& pathName) const -> std::filesystem::path;
     /// Make `path` relative to `appDir` if possible.
-    [[nodiscard]] auto relative(const wxString& path) const -> wxString;
+    [[nodiscard]] auto relative(const std::filesystem::path& path) const -> std::filesystem::path;
 
     /// Application directory (resolved from `appPath` argument).
-    [[nodiscard]] auto getAppDir() const -> wxString;
+    [[nodiscard]] auto getAppDir() const -> const std::filesystem::path& { return m_appDir; }
     /// IDE resources directory (e.g. `<appDir>/ide` by default).
-    [[nodiscard]] auto getIdeDir() const -> wxString;
+    [[nodiscard]] auto getIdeDir() const -> const std::filesystem::path& { return m_ideDir; }
 
     // -----------------------------------------------------------------------
     // Category accessors — return a reference to the category root Value.

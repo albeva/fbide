@@ -9,6 +9,7 @@
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/Theme.hpp"
+#include "document/DocumentPath.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
@@ -544,6 +545,6 @@ void ThemePage::saveChangesCategory() {
 
 void ThemePage::syncActiveThemeConfig() {
     auto& cm = getContext().getConfigManager();
-    cm.config()["theme"] = cm.relative(m_theme.getPath());
+    cm.config()["theme"] = toWxString(cm.relative(toFsPath(m_theme.getPath())));
     cm.save(ConfigManager::Category::Config);
 }

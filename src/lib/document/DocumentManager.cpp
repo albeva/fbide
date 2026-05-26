@@ -82,7 +82,7 @@ void DocumentManager::openFile() {
     wxArrayString paths;
     dlg.GetPaths(paths);
     for (const auto& path : paths) {
-        openFile(path);
+        openFile(toFsPath(path));
     }
 }
 
@@ -120,7 +120,7 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
     if (!compilerPathStr.empty()) {
         auto fbc = toFsPath(compilerPathStr);
         if (fbc.is_relative()) {
-            fbc = toFsPath(m_ctx.getConfigManager().getAppDir()) / fbc;
+            fbc = m_ctx.getConfigManager().getAppDir() / fbc;
         }
         if (auto* doc = tryOpen(fbc.parent_path() / "inc" / req)) {
             return doc;
@@ -141,10 +141,6 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
     return nullptr;
 }
 
-auto DocumentManager::openFile(const wxString& filePath) -> Document* { // REVIEW: should only use std::filesystem::path variant.
-    return openFile(toFsPath(filePath));
-}
-
 auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Document* {
     std::error_code ec;
     if (!std::filesystem::exists(filePath, ec)) {
@@ -155,11 +151,10 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     // filesystems (macOS/Windows: `fbgfx.bi` vs `FBGFX.bi`), resolves symlinks,
     // and ensures the stored path is identity-comparable for findByPath.
     const auto canonical = canonicalizePath(filePath);
-    const auto canonicalWx = toWxString(canonical);
 
     // Session files are loaded separately
     if (const auto ext = canonical.extension().string(); ext.size() > 1 && ext.substr(1) == SESSION_EXT) {
-        m_ctx.getFileSession().load(canonicalWx);
+        m_ctx.getFileSession().load(canonical);
         return nullptr;
     }
 
@@ -173,7 +168,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     // child of the notebook). Config-derived defaults seed detection.
     const auto loaded = DocumentIO::load(canonical, defaultEncoding(), defaultEolMode());
     if (!loaded.has_value()) {
-        wxLogError(m_ctx.tr("messages.loadFailed"), canonicalWx);
+        wxLogError(m_ctx.tr("messages.loadFailed"), toWxString(canonical));
         return nullptr;
     }
 
@@ -191,7 +186,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
 
     m_notebook->addPage(doc);
 
-    m_ctx.getFileHistory().addFile(canonicalWx);
+    m_ctx.getFileHistory().addFile(canonical);
 
     // Initial parse: bypass throttle, submit immediately.
     submitIntellisense(&doc, loaded->text);

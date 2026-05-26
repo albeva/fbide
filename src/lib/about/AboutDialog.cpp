@@ -9,6 +9,7 @@
 #include "cmake/config.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentPath.hpp"
 #include "ui/controls/BBCodeText.hpp"
 namespace XPM {
 #include "rc/fbide.xpm"
@@ -67,7 +68,7 @@ void AboutDialog::create() {
                 currentParent(), wxID_ANY, label, file
             );
             link->Bind(wxEVT_HYPERLINK, [this, file](wxHyperlinkEvent&) {
-                const auto path = m_ctx.getConfigManager().absolute(file);
+                const auto path = m_ctx.getConfigManager().absolute(toFsPath(file));
                 m_ctx.getDocumentManager().openFile(path);
                 EndModal(wxID_OK);
             });
@@ -83,7 +84,7 @@ void AboutDialog::create() {
 }
 
 auto AboutDialog::loadReadme() const -> wxString {
-    const auto readmePath = m_ctx.getConfigManager().absolute("readme.txt");
+    const auto readmePath = toWxString(m_ctx.getConfigManager().absolute("readme.txt"));
     wxString content;
     wxFile file(readmePath);
     if (!file.IsOpened()) {
