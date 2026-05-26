@@ -17,6 +17,8 @@
 #include "settings/SettingsDialog.hpp"
 #include "ui/CompilerLog.hpp"
 #include "ui/UIManager.hpp"
+#include "workspace/Project.hpp"
+#include "workspace/WorkspaceManager.hpp"
 using namespace fbide;
 
 CompilerManager::CompilerManager(Context& ctx)
@@ -29,32 +31,40 @@ CompilerManager::~CompilerManager() = default;
 // ---------------------------------------------------------------------------
 
 void CompilerManager::compile() {
-    auto* doc = getActiveDocument();
-    if (doc == nullptr || !ensureSaved(*doc)) {
+    auto* project = getActiveProject();
+    if (project == nullptr || !ensureSaved(*project)) {
         return;
     }
-
-    m_task = std::make_unique<BuildTask>(m_ctx, doc);
-    m_task->compile(toWxString(doc->getFilePath()));
-}
-
-void CompilerManager::compileAndRun() {
-    auto* doc = getActiveDocument();
-    if (doc == nullptr || !ensureSaved(*doc)) {
-        return;
-    }
-
-    m_task = std::make_unique<BuildTask>(m_ctx, doc);
-    m_task->compileAndRun(toWxString(doc->getFilePath()), false);
-}
-
-void CompilerManager::run() {
-    auto* doc = getActiveDocument();
+    auto* doc = project->getPrimarySource();
     if (doc == nullptr) {
         return;
     }
 
-    const auto exe = doc->getCompiledFile();
+    m_task = std::make_unique<BuildTask>(m_ctx, project);
+    m_task->compile(toWxString(doc->getFilePath()));
+}
+
+void CompilerManager::compileAndRun() {
+    auto* project = getActiveProject();
+    if (project == nullptr || !ensureSaved(*project)) {
+        return;
+    }
+    auto* doc = project->getPrimarySource();
+    if (doc == nullptr) {
+        return;
+    }
+
+    m_task = std::make_unique<BuildTask>(m_ctx, project);
+    m_task->compileAndRun(toWxString(doc->getFilePath()), false);
+}
+
+void CompilerManager::run() {
+    auto* project = getActiveProject();
+    if (project == nullptr) {
+        return;
+    }
+
+    const auto exe = project->getCompiledFile();
     if (exe.empty() || !wxFileExists(exe)) {
         const auto res = wxMessageBox(
             m_ctx.tr("messages.compileFirst"), m_ctx.tr("messages.compileQuestion"),
@@ -67,12 +77,16 @@ void CompilerManager::run() {
         return;
     }
 
-    m_task = std::make_unique<BuildTask>(m_ctx, doc);
+    m_task = std::make_unique<BuildTask>(m_ctx, project);
     m_task->run(exe, false);
 }
 
 void CompilerManager::quickRun() {
-    auto* doc = getActiveDocument();
+    auto* project = getActiveProject();
+    if (project == nullptr) {
+        return;
+    }
+    auto* doc = project->getPrimarySource();
     if (doc == nullptr) {
         return;
     }
@@ -94,7 +108,7 @@ void CompilerManager::quickRun() {
         return;
     }
 
-    m_task = std::make_unique<BuildTask>(m_ctx, doc);
+    m_task = std::make_unique<BuildTask>(m_ctx, project);
     m_task->compileAndRun(toWxString(tempFile), true);
 }
 
@@ -231,7 +245,8 @@ void CompilerManager::goToError(const int line, const wxString& fileName) {
             return isTemp ? nullptr : docManager.openFile(toFsPath(fileName));
         }
         if (isTemp && m_task->isQuickRun()) {
-            return m_task->getDocument();
+            auto* project = m_task->getProject();
+            return project != nullptr ? project->getPrimarySource() : nullptr;
         }
         return docManager.openFile(toFsPath(fileName));
     }();
@@ -247,33 +262,37 @@ void CompilerManager::goToError(const int line, const wxString& fileName) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-auto CompilerManager::getActiveDocument() -> Document* {
+auto CompilerManager::getActiveProject() -> Project* {
     if (m_task && m_task->isRunning()) {
         return nullptr;
     }
-
-    auto* doc = m_ctx.getDocumentManager().getActive();
-    if (doc == nullptr || doc->getType() != DocumentType::FreeBASIC) {
-        return nullptr;
-    }
-    return doc;
+    return m_ctx.getWorkspaceManager().getActiveProject();
 }
 
-auto CompilerManager::ensureSaved(Document& doc) -> bool {
-    if (!doc.isModified()) {
-        return !doc.isNew();
-    }
+auto CompilerManager::ensureSaved(Project& project) -> bool {
+    // Walk every currently-bound document and ensure it's saved.
+    // For Ephemeral projects this is a single doc; Persistent projects
+    // (future) will iterate over every modified member.
+    return std::ranges::all_of(project.getDocuments(), [this](Document* doc) {
+        if (doc == nullptr) {
+            return true;
+        }
+        if (!doc->isModified()) {
+            // An unmodified, untitled document hasn't been saved at all
+            // — that's still a blocker for compile.
+            return !doc->isNew();
+        }
 
-    const auto res = wxMessageBox(
-        m_ctx.tr("messages.saveFile"),
-        m_ctx.tr("messages.saveFileTitle"),
-        wxICON_EXCLAMATION | wxYES_NO
-    );
-    if (res != wxYES) {
-        return false;
-    }
-
-    return m_ctx.getDocumentManager().saveFile(doc);
+        const auto res = wxMessageBox(
+            m_ctx.tr("messages.saveFile"),
+            m_ctx.tr("messages.saveFileTitle"),
+            wxICON_EXCLAMATION | wxYES_NO
+        );
+        if (res != wxYES) {
+            return false;
+        }
+        return m_ctx.getDocumentManager().saveFile(*doc);
+    });
 }
 
 void CompilerManager::setStatus(const wxString& path) const {

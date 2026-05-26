@@ -16,11 +16,13 @@
 #include "editor/Editor.hpp"
 #include "ui/OutputConsole.hpp"
 #include "ui/UIManager.hpp"
+#include "workspace/Project.hpp"
+#include "workspace/WorkspaceManager.hpp"
 using namespace fbide;
 
-BuildTask::BuildTask(Context& ctx, Document* doc)
+BuildTask::BuildTask(Context& ctx, Project* project)
 : m_ctx(ctx)
-, m_doc(doc) {}
+, m_project(project) {}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -71,8 +73,12 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
         return;
     }
 
-    // Build command
-    const auto cmdStr = CompileCommand::makeDefault(sourceFile).build(m_ctx);
+    // Build command. Compile template + compiler path come from the
+    // project (which forwards to ConfigManager for ephemeral builds);
+    // CompileCommand stays a pure string-substitution helper.
+    const auto compileTemplate = m_project->getCompileTemplate(m_ctx);
+    const auto compilerPath = m_project->getCompilerPath(m_ctx);
+    const auto cmdStr = CompileCommand::makeDefault(sourceFile).build(compileTemplate, compilerPath);
 
     m_compilerLog.Empty();
     m_compilerLog.Add("[bold]Command executed:[/bold]");
@@ -120,9 +126,10 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
     appendSystemInfo();
     m_ctx.getCompilerManager().refreshCompilerLog();
 
-    // Update document's compiled file path
-    if (auto* doc = getDocument()) {
-        doc->setCompiledPath(m_compiledFile);
+    // Record the produced executable on the project so subsequent
+    // run() invocations (without a fresh compile) can find it.
+    if (auto* project = getProject()) {
+        project->setCompiledFile(m_compiledFile);
     }
 
     if (m_shouldRun) {
@@ -145,8 +152,10 @@ void BuildTask::onRunFinished(const ProcessResult& result) {
     frame->Raise();
     frame->SetFocus();
 
-    if (auto* doc = getDocument()) {
-        doc->getEditor()->SetFocus();
+    if (auto* project = getProject()) {
+        if (auto* doc = project->getPrimarySource(); doc != nullptr && doc->getEditor() != nullptr) {
+            doc->getEditor()->SetFocus();
+        }
     }
 }
 
@@ -253,7 +262,14 @@ auto BuildTask::deriveExecutablePath(const wxString& sourceFile) -> wxString {
 }
 
 auto BuildTask::buildRunCommand(const wxString& executablePath) const -> wxString {
-    return RunCommand::makeDefault(executablePath).build(m_ctx);
+    // Run template comes from the project; terminal launcher remains
+    // IDE-global (it's a host-level setting) and runtime parameters
+    // remain a CompilerManager-owned, user-supplied value.
+    return RunCommand::makeDefault(executablePath).build(
+        m_project->getRunTemplate(m_ctx),
+        m_ctx.getConfigManager().getTerminalLauncher(),
+        m_ctx.getCompilerManager().getParameters()
+    );
 }
 
 void BuildTask::appendSystemInfo() {
@@ -293,9 +309,9 @@ void BuildTask::cleanupTempFiles() {
     m_buildDir.clear();
 }
 
-auto BuildTask::getDocument() const -> Document* {
-    if (m_doc != nullptr && m_ctx.getDocumentManager().contains(m_doc)) {
-        return m_doc;
+auto BuildTask::getProject() const -> Project* {
+    if (m_project != nullptr && m_ctx.getWorkspaceManager().contains(m_project)) {
+        return m_project;
     }
     return nullptr;
 }

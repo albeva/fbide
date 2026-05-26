@@ -9,8 +9,8 @@
 
 namespace fbide {
 class BuildTask;
-class Document;
 class Context;
+class Project;
 
 /**
  * Owns FBIde's relationship with `fbc`: the compile / run / quickrun
@@ -94,11 +94,13 @@ public:
     void setParameters(const wxString& params) { m_parameters = params; }
 
 private:
-    /// Get active FreeBASIC document, or nullptr if unavailable.
-    [[nodiscard]] auto getActiveDocument() -> Document*;
+    /// Get the active project to build, or nullptr if unavailable
+    /// (no active project, or a build is already in-flight).
+    [[nodiscard]] auto getActiveProject() -> Project*;
 
-    /// Ensure document is saved. Returns false if user cancelled.
-    auto ensureSaved(Document& doc) -> bool;
+    /// Ensure every bound document in `project` is saved. Returns
+    /// false if any save was cancelled or skipped.
+    auto ensureSaved(Project& project) -> bool;
 
     /// Set status bar text from locale path (empty for none).
     void setStatus(const wxString& path) const;

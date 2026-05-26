@@ -5,6 +5,9 @@
 // https://github.com/albeva/fbide
 //
 #include "Project.hpp"
+#include "app/Context.hpp"
+#include "config/ConfigManager.hpp"
+#include "document/DocumentPath.hpp"
 
 using namespace fbide;
 
@@ -111,4 +114,34 @@ auto Project::getDocuments() const -> std::vector<Document*> {
 
 auto Project::allocateNodeId() -> Node::Id {
     return Node::Id { m_nextNodeId++ };
+}
+
+// --- Build / run gateway ---------------------------------------------------
+
+auto Project::getCompileTemplate(Context& ctx) const -> wxString {
+    // Ephemeral projects read through ConfigManager so settings edits
+    // take effect immediately on the next build. Persistent projects
+    // (future) will return a stored override instead.
+    assert(isEphemeral() && "Persistent project compile-options not implemented yet");
+    return ctx.getConfigManager().config().at("compiler").get_or(
+        "compileCommand", R"("<$fbc>" "<$file>")"
+    );
+}
+
+auto Project::getCompilerPath(Context& ctx) const -> wxString {
+    assert(isEphemeral() && "Persistent project compile-options not implemented yet");
+    const wxString configured = ctx.getConfigManager().config().at("compiler").get_or("path", "");
+    if (configured.IsEmpty()) {
+        return {};
+    }
+    wxFileName path(configured);
+    path.MakeAbsolute(toWxString(ctx.getConfigManager().getAppDir()));
+    return path.GetFullPath();
+}
+
+auto Project::getRunTemplate(Context& ctx) const -> wxString {
+    assert(isEphemeral() && "Persistent project compile-options not implemented yet");
+    return ctx.getConfigManager().config().get_or(
+        "compiler.runCommand", R"(<$terminal> "<$file>" <$param>)"
+    );
 }
