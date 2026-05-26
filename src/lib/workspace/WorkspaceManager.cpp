@@ -58,10 +58,11 @@ void WorkspaceManager::destroyEphemeral(Document& doc) {
 }
 
 void WorkspaceManager::closeProject(Project& project) {
-    // Snapshot the bound documents up-front — closeFile mutates the
-    // DocumentManager's document list which would otherwise invalidate
-    // mid-iteration views. Skip entries whose back-link has already
-    // drifted away (unbound out-of-band); those are not our concern.
+    // `destroyEphemeral` pre-unbinds the doc before calling here, so
+    // that doc still appears in `getDocuments()` (the FileEntry::doc
+    // pointer is intact) but its back-link is null. The `==` guard
+    // skips it — closing such a doc would re-enter `destroyEphemeral`
+    // and bounce off this same logic.
     auto& docManager = m_ctx.getDocumentManager();
     for (auto* document : project.getDocuments()) {
         if (document->getView() != nullptr && document->getProject() == &project) {

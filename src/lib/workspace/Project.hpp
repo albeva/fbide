@@ -59,7 +59,6 @@ public:
         Run           = 1U << 2,
         QuickRun      = 1U << 3,
     };
-    using Capabilities = std::underlying_type_t<Capability>;
 
     /// Opaque strong-typed handle for a `Project` instance. Distinct from
     /// `Node::Id` to prevent accidental mixing at call sites. `0` is the
@@ -188,7 +187,7 @@ public:
     /// projects unconditionally expose every action (single-file
     /// executable). Persistent projects will compute this from their
     /// stored output kind.
-    [[nodiscard]] auto getCapabilities() const -> Capabilities;
+    [[nodiscard]] auto getCapabilities() const -> std::uint8_t;
 
 private:
     /// Allocate a fresh node identifier. Backed by `Uuid::generate()`
@@ -196,12 +195,22 @@ private:
     /// when project files are merged in version control.
     [[nodiscard]] static auto allocateNodeId() -> Node::Id;
 
-    Id m_id;                                                      ///< Project identity (assigned at construction).
-    Mode m_mode;                                                  ///< Ephemeral or Persistent.
-    std::filesystem::path m_artefact;                             ///< Path of the most recently produced build artefact (exe / lib / …).
-    std::unordered_map<Node::Id, Node> m_nodes;                   ///< Owning storage for every node in the project.
-    std::unordered_map<std::filesystem::path, Node::Id> m_byPath; ///< Path → node lookup index (file & folder nodes with a real path).
-    Node::Id m_root;                                              ///< The virtual root folder under which top-level entries live.
+    Id m_id;                                    ///< Project identity (assigned at construction).
+    Mode m_mode;                                ///< Ephemeral or Persistent.
+    std::filesystem::path m_artefact;           ///< Path of the most recently produced build artefact (exe / lib / …).
+    std::unordered_map<Node::Id, Node> m_nodes; ///< Owning storage for every node in the project.
+    /// Path → node lookup index for "does this on-disk path belong to a
+    /// project?" queries — e.g. when a user opens a file that's a member
+    /// of an open Persistent project, we want to bind the new document
+    /// to that project rather than spawn an ephemeral one.
+    std::unordered_map<std::filesystem::path, Node::Id> m_byPath;
+    Node::Id m_root; ///< The virtual root folder under which top-level entries live.
 };
+
+/// Underlying-type cast for `Project::Capability` — matches the same
+/// `+EnumValue` idiom used elsewhere in the codebase (see `CommandId`).
+FBIDE_INLINE constexpr auto operator+(const Project::Capability& cap) -> std::uint8_t {
+    return static_cast<std::uint8_t>(cap);
+}
 
 } // namespace fbide
