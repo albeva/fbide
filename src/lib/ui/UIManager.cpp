@@ -454,7 +454,7 @@ void UIManager::onStatusBarClick(wxMouseEvent& event) {
     wxRect rect;
 
     if (bar->GetFieldRect(2, rect) && rect.Contains(pos)) {
-        auto menu = DocumentTypeMenu::build(m_ctx, doc->getType());
+        const auto menu = DocumentTypeMenu::build(m_ctx, doc->getType());
         menu->Bind(wxEVT_MENU, [this, doc](const wxCommandEvent& evt) {
             if (const auto type = DocumentTypeMenu::typeFromId(evt.GetId())) {
                 doc->setType(*type);
@@ -479,7 +479,7 @@ void UIManager::onStatusBarClick(wxMouseEvent& event) {
     }
 
     if (bar->GetFieldRect(4, rect) && rect.Contains(pos)) {
-        auto menu = EncodingMenu::buildEncodingMenu(
+        const auto menu = EncodingMenu::buildEncodingMenu(
             doc->getEncoding(),
             m_ctx.tr("statusbar.encoding.reloadWithEncoding")
         );
