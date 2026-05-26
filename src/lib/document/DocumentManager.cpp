@@ -31,6 +31,7 @@ DocumentManager::DocumentManager(Context& ctx)
 , m_codeTransformer(std::make_unique<CodeTransformer>(ctx.getConfigManager()))
 , m_intellisense(std::make_unique<IntellisenseService>(ctx, this)) {
     Bind(EVT_INTELLISENSE_RESULT, &DocumentManager::onIntellisenseResult, this);
+    Bind(EVT_DOCUMENT_TYPE_CHANGED, &DocumentManager::onDocumentTypeChanged, this);
 }
 
 DocumentManager::~DocumentManager() = default;
@@ -58,8 +59,7 @@ auto DocumentManager::defaultEolMode() const -> EolMode {
 
 auto DocumentManager::newFile(DocumentType type) -> Document& {
     const auto thaw = m_ctx.getUIManager().freeze();
-    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx, type));
-    registerDocumentHooks(doc);
+    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx, type, this));
     make_unowned<EditorPanel>(m_notebook.get(), m_ctx, type, doc);
     m_notebook->addPage(doc);
     return doc;
@@ -180,8 +180,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     const auto thaw = m_ctx.getUIManager().freeze();
     const auto type = documentTypeFromPath(canonical);
 
-    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx, type));
-    registerDocumentHooks(doc);
+    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx, type, this));
     make_unowned<EditorPanel>(m_notebook.get(), m_ctx, type, doc);
 
     // don't reformat code on file load
@@ -510,14 +509,8 @@ auto DocumentManager::closeOtherFiles(const Document& keep) -> bool {
     return true;
 }
 
-// REVIEW: Remove this, Document can just call DocumentManager directly, it has context.
-void DocumentManager::registerDocumentHooks(Document& doc) {
-    doc.onTypeChanged([this](Document& target, const DocumentType previous) {
-        handleTypeChanged(target, previous);
-    });
-}
-
-void DocumentManager::handleTypeChanged(Document& doc, DocumentType /*previous*/) {
+void DocumentManager::onDocumentTypeChanged(DocumentTypeChangedEvent& event) {
+    auto& doc = *event.getDocument();
     if (doc.getType() == DocumentType::FreeBASIC) {
         // Re-enter the FreeBASIC pipeline — submit the current buffer
         // for intellisense so the symbol browser populates. View-less
