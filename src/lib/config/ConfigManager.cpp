@@ -426,9 +426,9 @@ void ConfigManager::setCategoryPath(const Category category, const wxString& pat
 
 void ConfigManager::reloadConfig(const wxString& configPath) {
     // Runtime equivalent of `--config=PATH` — flip to explicit mode so
-    // subsequent strategy rebuilds (sub-categories, reloadIfKnown) stay
-    // `Direct`. Sub-categories already loaded under prior mode are
-    // unaffected here; full sub-category rebind is task #13 territory.
+    // subsequent strategy rebuilds (sub-categories) stay `Direct`.
+    // Sub-categories already loaded under prior mode are unaffected
+    // here; full sub-category rebind is task #13 territory.
     m_explicitConfig = true;
     auto& entry = m_categories.at(static_cast<std::size_t>(Category::Config));
     entry.strategy = buildStrategy(Category::Config, absolutePath(toPath(configPath)));
@@ -661,42 +661,19 @@ void ConfigManager::save(const Category category) const {
     cfg.Save(outStream, wxConvUTF8);
 }
 
-// REVIEW: This was a neat idea, but it is inconsistent and causes issues as not all options are properly reloaded.
-//         Instead of reloading in place, trigger app-relaunch, same as when settings change the langauge.
-//         use scheduleRestart on the app.
-auto ConfigManager::reloadIfKnown(const wxString& path) -> bool {
-    const auto target = toPath(path);
+auto ConfigManager::isKnownConfig(const fs::path& path) const -> bool {
     for (std::size_t index = 0; index < CAT_COUNT; index++) {
         const auto& entry = m_categories.at(index);
-        // Trigger reload when the user touches either side of the
-        // layered pair — the bundle base (rare; usually requires elevated
-        // perms inside a bundle) or the writable overlay.
-        const bool baseMatch = samePath(target, entry.strategy.basePath());
+        // Match either side of the layered pair — bundle base or
+        // writable overlay; the user could have edited either.
+        const bool baseMatch = samePath(path, entry.strategy.basePath());
         const bool overlayMatch = entry.strategy.usesOverlay()
-                               && samePath(target, entry.strategy.overlayPath());
+                               && samePath(path, entry.strategy.overlayPath());
         if (baseMatch || overlayMatch) {
-            load(entry.category);
-            // if this was config, then reload all other files as well.
-            if (entry.category == Category::Config) {
-                for (std::size_t sub = 1; sub < CAT_COUNT; sub++) {
-                    load(m_categories.at(sub).category);
-                }
-                if (const auto themeRel = config().get_or("theme", ""); !themeRel.empty()) {
-                    m_theme.load(themePath(themeRel));
-                }
-            }
             return true;
         }
     }
-
-    // Theme reload requires a copied path — Theme::load(path) resets the
-    // object and then assigns the incoming path back into m_themePath.
-    if (const auto currentThemePath = m_theme.getPath(); samePath(target, toPath(currentThemePath))) {
-        m_theme.load(currentThemePath);
-        return true;
-    }
-
-    return false;
+    return samePath(path, toPath(m_theme.getPath()));
 }
 
 auto ConfigManager::get(Category category) -> Value& {

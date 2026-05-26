@@ -11,6 +11,7 @@
 #include "DocumentPath.hpp"
 #include "FileSession.hpp"
 #include "analyses/intellisense/IntellisenseService.hpp"
+#include "app/App.hpp"
 #include "app/Context.hpp"
 #include "command/CommandManager.hpp"
 #include "config/ConfigManager.hpp"
@@ -272,7 +273,7 @@ auto DocumentManager::saveFile(Document& doc) -> bool {
     doc.markSaved();
     doc.updateModTime();
     refreshTitleFor(doc);
-    reloadConfigIfMatches(toWxString(doc.getFilePath()));
+    promptRestartIfConfig(doc.getFilePath());
     return true;
 }
 
@@ -349,7 +350,7 @@ auto DocumentManager::saveFileAs(Document& doc) -> bool {
     doc.markSaved();
     doc.updateModTime();
     refreshTitleFor(doc);
-    reloadConfigIfMatches(toWxString(newPath));
+    promptRestartIfConfig(newPath);
 
     if (clash != nullptr && clash != &doc) {
         // Two tabs showing the same file is redundant. The user already
@@ -404,12 +405,22 @@ void DocumentManager::reloadFromDisk(Document& doc) {
     submitIntellisense(&doc, loaded->text);
 }
 
-void DocumentManager::reloadConfigIfMatches(const wxString& path) const {
-    // Reload the config tree only — menu/toolbar/sidebar text is not
-    // refreshed in place. Layout / locale tweaks land on the next FBIde
-    // launch (matches the language-change restart flow).
-    if (m_ctx.getConfigManager().reloadIfKnown(path)) {
-        m_ctx.getUIManager().updateSettings();
+void DocumentManager::promptRestartIfConfig(const std::filesystem::path& path) const {
+    // Saving an in-place edit of one of FBIde's own config files (theme,
+    // shortcuts, keywords, etc.) only takes effect on the next launch —
+    // hot-reloading was unreliable. Offer a restart, mirroring the
+    // language-change flow in GeneralPage.
+    if (!m_ctx.getConfigManager().isKnownConfig(path)) {
+        return;
+    }
+    const auto answer = wxMessageBox(
+        m_ctx.tr("messages.configRestartMessage"),
+        m_ctx.tr("messages.configRestartTitle"),
+        wxYES_NO | wxICON_QUESTION,
+        m_ctx.getUIManager().getMainFrame()
+    );
+    if (answer == wxYES) {
+        m_ctx.getApp().scheduleRestart();
     }
 }
 
