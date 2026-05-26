@@ -13,6 +13,7 @@
 #include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentPath.hpp"
 #include "editor/Editor.hpp"
 #include "ui/OutputConsole.hpp"
 #include "ui/UIManager.hpp"
@@ -129,7 +130,7 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
     // Record the produced executable on the project so subsequent
     // run() invocations (without a fresh compile) can find it.
     if (auto* project = getProject()) {
-        project->setCompiledFile(m_compiledFile);
+        project->setArtefact(toFsPath(m_compiledFile));
     }
 
     if (m_shouldRun) {

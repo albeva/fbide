@@ -64,8 +64,9 @@ void CompilerManager::run() {
         return;
     }
 
-    const auto exe = project->getCompiledFile();
-    if (exe.empty() || !wxFileExists(exe)) {
+    const auto& artefact = project->getArtefact();
+    std::error_code ec;
+    if (artefact.empty() || !std::filesystem::exists(artefact, ec)) {
         const auto res = wxMessageBox(
             m_ctx.tr("messages.compileFirst"), m_ctx.tr("messages.compileQuestion"),
             wxYES_NO | wxICON_QUESTION
@@ -78,7 +79,7 @@ void CompilerManager::run() {
     }
 
     m_task = std::make_unique<BuildTask>(m_ctx, project);
-    m_task->run(exe, false);
+    m_task->run(toWxString(artefact), false);
 }
 
 void CompilerManager::quickRun() {

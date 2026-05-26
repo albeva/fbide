@@ -160,12 +160,14 @@ public:
     // values; callers don't need to care which mode they're talking
     // to.
 
-    /// Path of the most recently compiled executable produced for this
-    /// project. Empty until the first successful compile.
-    [[nodiscard]] auto getCompiledFile() const -> wxString { return m_compiledFile; }
+    /// Path of the most recently produced build artefact (executable,
+    /// library, …) for this project. Empty until the first successful
+    /// build. "Artefact" matches the term most build systems use for
+    /// build output — `Compile` doesn't always yield an executable.
+    [[nodiscard]] auto getArtefact() const -> const std::filesystem::path& { return m_artefact; }
 
-    /// Record the path of the freshly compiled executable.
-    void setCompiledFile(const wxString& path) { m_compiledFile = path; }
+    /// Record the path of the freshly produced build artefact.
+    void setArtefact(std::filesystem::path path) { m_artefact = std::move(path); }
 
     /// FreeBASIC compile command template (with `<$fbc>` / `<$file>`
     /// meta-tags). Ephemeral: forwards to `compiler.compileCommand` in
@@ -196,7 +198,7 @@ private:
 
     Id m_id;                                                      ///< Project identity (assigned at construction).
     Mode m_mode;                                                  ///< Ephemeral or Persistent.
-    wxString m_compiledFile;                                      ///< Path of the most recently compiled executable.
+    std::filesystem::path m_artefact;                             ///< Path of the most recently produced build artefact (exe / lib / …).
     std::unordered_map<Node::Id, Node> m_nodes;                   ///< Owning storage for every node in the project.
     std::unordered_map<std::filesystem::path, Node::Id> m_byPath; ///< Path → node lookup index (file & folder nodes with a real path).
     Node::Id m_root;                                              ///< The virtual root folder under which top-level entries live.
