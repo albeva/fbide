@@ -191,6 +191,13 @@ private:
     /// localised error message. No-op on `Success`.
     void reportSaveFailure(DocumentIO::SaveResult result, TextEncoding encoding) const;
 
+    /// Push loaded text into `doc`'s editor, applying `eol` (sets STC's
+    /// EOL mode and converts existing line endings to match). Suppresses
+    /// on-type transforms during the SetText and clears the undo buffer.
+    /// Used by `openFile`, `reloadWithEncoding`, and `reloadFromDisk` —
+    /// each picks the EOL appropriate to its intent (loaded vs. existing).
+    void loadFile(Document& doc, const wxString& text, EolMode eol) const;
+
     /// Intellisense result delivery (worker thread → UI thread).
     void onIntellisenseResult(wxThreadEvent& event);
 
