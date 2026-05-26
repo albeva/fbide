@@ -17,30 +17,6 @@ class IntellisenseService;
  * Owns every open `Project` in the IDE, the shared background
  * `IntellisenseService`, and the bookkeeping for which project (if any)
  * the user is currently focused on.
- *
- * Phase 5 wires up the Ephemeral project lifecycle: every FreeBASIC
- * document is bound to a one-source Ephemeral project on creation
- * (`createEphemeral`), unbound and destroyed on type-out
- * (`destroyEphemeral`), and active-project tracking follows the
- * notebook's active tab via `setActiveDocument`. Persistent projects,
- * `closeProject` for user-initiated closure, and the `contains`
- * liveness probe round out the surface area even though their
- * Persistent-side use cases arrive later.
- *
- * **Owns:** `m_projects` (every open `Project`) and `m_intellisense`
- * (the background lex/parse worker shared across all FreeBASIC docs).
- * **Owned by:** `Context`.
- * **Threading:** UI thread only. The intellisense worker lives here
- * but runs on its own thread; `WorkspaceManager` itself doesn't cross
- * threads.
- * **Field order in `Context`:** declared *after* `DocumentManager` so
- * destruction runs *before* it — the intellisense worker must stop
- * and join before the documents it might race with go away.
- * **Field order inside this class:** `m_intellisense` is declared
- * *last* so its destructor (which joins the worker) runs *first*,
- * before the project map it might post results about goes away.
- *
- * See @ref project-refactor.
  */
 class WorkspaceManager final {
 public:
