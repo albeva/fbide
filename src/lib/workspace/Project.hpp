@@ -159,9 +159,10 @@ public:
     [[nodiscard]] auto getRunTemplate(Context& ctx) const -> wxString;
 
 private:
-    /// Allocate a new node identifier. Monotonic per project instance;
-    /// values start at 1 (0 is the invalid sentinel).
-    auto allocateNodeId() -> Node::Id;
+    /// Allocate a fresh node identifier. Backed by `Uuid::generate()`
+    /// so IDs survive serialisation round-trips and stay unambiguous
+    /// when project files are merged in version control.
+    [[nodiscard]] static auto allocateNodeId() -> Node::Id;
 
     Id m_id;                                                      ///< Project identity (assigned at construction).
     Mode m_mode;                                                  ///< Ephemeral or Persistent.
@@ -169,7 +170,6 @@ private:
     std::unordered_map<Node::Id, Node> m_nodes;                   ///< Owning storage for every node in the project.
     std::unordered_map<std::filesystem::path, Node::Id> m_byPath; ///< Path → node lookup index (file & folder nodes with a real path).
     Node::Id m_root;                                              ///< The virtual root folder under which top-level entries live.
-    Node::Id::Underlying m_nextNodeId = 1;                        ///< Monotonic ID allocator; values start at 1.
 };
 
 } // namespace fbide

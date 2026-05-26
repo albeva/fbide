@@ -32,6 +32,7 @@ add_executable(tests
     unit/SymbolBrowserFilterTests.cpp
     unit/SymbolTableTests.cpp
     unit/TextEncodingTests.cpp
+    unit/UuidTests.cpp
     unit/ThemeTests.cpp
     unit/ValueDiffTests.cpp
     unit/ValueMergeTests.cpp
