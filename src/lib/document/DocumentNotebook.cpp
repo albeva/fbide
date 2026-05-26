@@ -134,14 +134,19 @@ void DocumentNotebook::onPageClose(wxAuiNotebookEvent& event) {
 void DocumentNotebook::onPageChanged(wxAuiNotebookEvent& event) {
     event.Skip();
     auto* doc = activeDocument();
+    auto& ui = m_ctx.getUIManager();
+    // Tab change shifts both the active document and (potentially)
+    // the active project, so both command dimensions need a refresh.
+    ui.syncDocCommands();
+    ui.syncBuildCommands();
     if (doc == nullptr) {
         m_ctx.getSideBarManager().showSymbolsFor(nullptr);
-        m_ctx.getUIManager().setTitle(wxEmptyString);
+        ui.setTitle(wxEmptyString);
         return;
     }
     doc->getEditor()->SetFocus();
     m_ctx.getSideBarManager().showSymbolsFor(doc);
-    m_ctx.getUIManager().setTitle(doc->getFrameTitle());
+    ui.setTitle(doc->getFrameTitle());
 }
 
 void DocumentNotebook::onBgDClick(wxAuiNotebookEvent& event) {

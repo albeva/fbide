@@ -22,6 +22,8 @@
 #include "rc/icons.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "utilities/FileDropTarget.hpp"
+#include "workspace/Project.hpp"
+#include "workspace/WorkspaceManager.hpp"
 #ifndef __WXMSW__
 namespace XPM {
 #include "rc/appicon.xpm"
@@ -139,7 +141,10 @@ void UIManager::createMainFrame() {
     // sidebar, console) so pane lookup by name succeeds.
     loadAuiPerspective();
 
-    applyState(UIState::None);
+    // Initial command state: no active document and no active project,
+    // so both sync passes disable everything that needs them.
+    syncDocCommands();
+    syncBuildCommands();
     m_aui.Update();
 
     // Create the compiler log dialog up-front, hidden. BuildTask
@@ -558,52 +563,57 @@ void UIManager::createLayout() {
     m_ctx.getSideBarManager().attach(m_sideBar.get());
 }
 
-void UIManager::setDocumentState(const UIState state) {
-    m_documentState = state;
-    applyState(m_compilerState != UIState::None ? m_compilerState : m_documentState);
+void UIManager::syncDocCommands() {
+    const auto* doc = m_ctx.getDocumentManager().getActive();
+
+    // Broad gate: every non-build mutable command requires an active
+    // document. No doc → disable the lot.
+    const bool hasDoc = doc != nullptr;
+    for (const auto id : mutableIds) {
+        setEnabled(id, hasDoc);
+    }
+
+    // FB-only edit operations (Comment / Uncomment / Format / Subs)
+    // only make sense on a FreeBASIC buffer — disable when the active
+    // document is some other type.
+    if (hasDoc && doc->getType() != DocumentType::FreeBASIC) {
+        for (const auto id : kFreeBasicEditCommandIds) {
+            setEnabled(id, false);
+        }
+    }
+
+    // Fine-grained Undo / Redo / Cut / Copy / Paste / SelectAll mask
+    // (CanUndo, has selection, clipboard contents, …) runs after the
+    // broad enable so the mask isn't stomped.
     m_ctx.getDocumentManager().syncEditCommands();
+}
+
+void UIManager::syncBuildCommands() {
+    // Compiler in flight: build set frozen, KillProcess is the only
+    // route out. Overrides project capabilities.
+    if (m_compilerState != UIState::None) {
+        for (const auto id : kBuildCommandIds) {
+            setEnabled(id, false);
+        }
+        setEnabled(CommandId::KillProcess, true);
+        return;
+    }
+
+    // Compiler idle: every build command reflects the active project's
+    // declared capabilities. No active project → all build commands
+    // disabled.
+    setEnabled(CommandId::KillProcess, false);
+    const auto* project = m_ctx.getWorkspaceManager().getActiveProject();
+    const auto caps = project != nullptr ? project->getCapabilities() : Project::Capabilities {};
+    setEnabled(CommandId::Compile, (caps & static_cast<Project::Capabilities>(Project::Capability::Compile)) != 0);
+    setEnabled(CommandId::CompileAndRun, (caps & static_cast<Project::Capabilities>(Project::Capability::CompileAndRun)) != 0);
+    setEnabled(CommandId::Run, (caps & static_cast<Project::Capabilities>(Project::Capability::Run)) != 0);
+    setEnabled(CommandId::QuickRun, (caps & static_cast<Project::Capabilities>(Project::Capability::QuickRun)) != 0);
 }
 
 void UIManager::setCompilerState(const UIState state) {
     m_compilerState = state;
-    applyState(m_compilerState != UIState::None ? m_compilerState : m_documentState);
-    m_ctx.getDocumentManager().syncEditCommands();
-}
-
-void UIManager::applyState(const UIState state) const {
-    switch (state) {
-    case UIState::None: {
-        disable(mutableIds);
-        break;
-    }
-    case UIState::FocusedUnknownFile:
-        disable(std::array {
-            CommandId::Comment,
-            CommandId::Uncomment,
-            CommandId::Format,
-            CommandId::Subs,
-            CommandId::Compile,
-            CommandId::CompileAndRun,
-            CommandId::Run,
-            CommandId::QuickRun,
-            CommandId::KillProcess,
-        });
-        break;
-    case UIState::FocusedValidSourceFile:
-        disable(std::array {
-            CommandId::KillProcess,
-        });
-        break;
-    case UIState::Compiling:
-    case UIState::Running:
-        disable(std::array {
-            CommandId::Compile,
-            CommandId::CompileAndRun,
-            CommandId::Run,
-            CommandId::QuickRun,
-        });
-        break;
-    }
+    syncBuildCommands();
 }
 
 void UIManager::showConsole(const bool show) {
@@ -651,21 +661,12 @@ void UIManager::clearDocumentStatus() {
     }
 }
 
-void UIManager::disable(const std::ranges::range auto& range) const {
+void UIManager::setEnabled(const CommandId id, const bool enabled) const {
     // Route every state change through CommandEntry. The entry's
     // visitor handles each bound control type (menu item, AUI toolbar
     // tool), so this loop stays control-agnostic.
-    //
-    // Semantics (preserved from the previous direct-poke version):
-    // commands listed in `range` get disabled, every other mutable id
-    // is left enabled.
-    auto& cmd = m_ctx.getCommandManager();
-    for (const auto menuId : mutableIds) {
-        auto* entry = cmd.find(+menuId);
-        if (entry == nullptr) {
-            continue;
-        }
-        entry->setEnabled(!std::ranges::contains(range, menuId));
+    if (auto* entry = m_ctx.getCommandManager().find(+id); entry != nullptr) {
+        entry->setEnabled(enabled);
     }
 }
 

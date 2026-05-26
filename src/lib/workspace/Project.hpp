@@ -46,6 +46,21 @@ public:
         Persistent ///< User-created, present on disk; may host many files and non-source assets.
     };
 
+    /// Build / run actions a project supports — bitfield used by
+    /// `UIManager::syncBuildCommands` to gate the matching toolbar /
+    /// menu commands. A library-output Persistent project, for
+    /// example, will return `Compile` only; an executable returns all
+    /// four. Ephemeral projects are always single-file executables and
+    /// therefore expose every capability.
+    enum class Capability : std::uint8_t {
+        None          = 0,
+        Compile       = 1U << 0,
+        CompileAndRun = 1U << 1,
+        Run           = 1U << 2,
+        QuickRun      = 1U << 3,
+    };
+    using Capabilities = std::underlying_type_t<Capability>;
+
     /// Opaque strong-typed handle for a `Project` instance. Distinct from
     /// `Node::Id` to prevent accidental mixing at call sites. `0` is the
     /// invalid sentinel; `bool(id)` reports validity.
@@ -166,6 +181,12 @@ public:
     /// meta-tags). Ephemeral: forwards to `compiler.runCommand` in
     /// `ConfigManager`.
     [[nodiscard]] auto getRunTemplate(Context& ctx) const -> wxString;
+
+    /// Bitfield of `Capability` values this project supports. Ephemeral
+    /// projects unconditionally expose every action (single-file
+    /// executable). Persistent projects will compute this from their
+    /// stored output kind.
+    [[nodiscard]] auto getCapabilities() const -> Capabilities;
 
 private:
     /// Allocate a fresh node identifier. Backed by `Uuid::generate()`

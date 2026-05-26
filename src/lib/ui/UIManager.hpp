@@ -77,12 +77,25 @@ public:
     /// Get the main frame.
     [[nodiscard]] auto getMainFrame() -> wxFrame* { return m_frame; }
 
-    /// Set the document-level UI state (None, FocusedUnknownFile, FocusedValidSourceFile).
-    /// Compiler state takes precedence when active.
-    void setDocumentState(UIState state);
+    /// Recompute the enable / disable state of non-build mutable
+    /// commands based on the active document. Disables everything
+    /// when no document is active; disables FB-only edit operations
+    /// (Comment / Uncomment / Format / Subs) when the active document
+    /// is not FreeBASIC. Also chains into `DocumentManager::syncEditCommands`
+    /// for the fine-grained Undo / Redo / Cut / Copy / Paste / SelectAll mask.
+    void syncDocCommands();
+
+    /// Recompute the enable / disable state of build commands
+    /// (Compile / CompileAndRun / Run / QuickRun / KillProcess) from
+    /// the active `Project`'s capabilities. When the compiler state is
+    /// `Compiling` or `Running`, all build commands are frozen and
+    /// `KillProcess` is enabled regardless of capabilities.
+    void syncBuildCommands();
 
     /// Set the compiler-level UI state (None, Compiling, Running).
-    /// When not None, overrides the document state.
+    /// Drives status-bar feedback for long-running jobs and overrides
+    /// `syncBuildCommands` to freeze the build set while a process is
+    /// in flight.
     void setCompilerState(UIState state);
 
     /// Force editors to update settings.
@@ -115,8 +128,9 @@ public:
     void clearDocumentStatus();
 
 private:
-    /// Set every command in `range` to disabled — helper for `applyState`.
-    void disable(const std::ranges::range auto& range) const;
+    /// Set the enabled flag on a single command. No-op when the
+    /// command id has no registered entry.
+    void setEnabled(CommandId id, bool enabled) const;
 
     /// Frame close — defers to `DocumentManager::prepareToQuit`.
     void onClose(wxCloseEvent& event);
@@ -138,8 +152,6 @@ private:
     void createLayout();
     /// Sync the output-console pane's visibility with the `viewResult` command.
     void syncConsoleState(bool visible) const;
-    /// Apply broad enable/disable for `mutableIds[]` based on `state`.
-    void applyState(UIState state) const;
     /// Re-read system colours into every wxAUI art provider (dock,
     /// notebook tabs, toolbar). Called once after the layout is
     /// built; SetAppearance only re-paints native widgets, AUI's
@@ -158,8 +170,7 @@ private:
     void loadAuiPerspective();
 
     Context& m_ctx;                               ///< Application context.
-    UIState m_documentState = UIState::None;      ///< Document-side state slot.
-    UIState m_compilerState = UIState::None;      ///< Compiler-side state slot (overrides document).
+    UIState m_compilerState = UIState::None;      ///< Compiler-side state slot (overrides build capabilities).
     wxAuiManager m_aui;                           ///< AUI dock manager for the frame.
     std::unique_ptr<ArtiProvider> m_artProvider;  ///< Icon/bitmap dispatch for menus + toolbar.
     Unowned<CompilerLog> m_compilerLog;           ///< Compiler-log dialog (wx-parented, hidden until shown).
@@ -169,13 +180,19 @@ private:
     Unowned<wxAuiNotebook> m_sideBar;             ///< Sidebar (Browser/Subs) notebook.
     std::vector<wxMenuItem*> m_externalLinkItems; ///< Live menu items in the dynamic external-links submenu.
 
-    // Document-level commands toggled by `applyState`. Edit commands here
-    // (Undo, Redo, Cut, Copy, Paste, SelectAll) get their broad "is there
-    // an editor" gate from applyState; CommandManager::syncEditCommands
+    // Document-level commands toggled by `syncDocCommands`. Edit commands
+    // here (Undo, Redo, Cut, Copy, Paste, SelectAll) get their broad "is
+    // there an editor" gate from syncDocCommands; `CommandManager::syncEditCommands`
     // applies the fine-grained mask (CanUndo, has selection, clipboard,
-    // etc.) via CommandEntry::setForceDisabled.
-    /// Commands toggled by `applyState`. Edit commands here pick up their
-    /// fine-grained mask separately via `CommandManager::syncEditCommands`.
+    // etc.) via `CommandEntry::setForceDisabled`.
+    //
+    // Build commands (Compile / CompileAndRun / Run / QuickRun /
+    // KillProcess) are intentionally NOT here — they are driven by
+    // `syncBuildCommands` from the active `Project`'s capabilities
+    // plus `m_compilerState`. FB-only edit operations (Comment /
+    // Uncomment / Format / Subs) live in `kFreeBasicEditCommandIds`
+    // below and get an extra disable pass when the active document
+    // is not FreeBASIC.
     static constexpr std::array mutableIds = {
         CommandId::Save,
         CommandId::SaveAs,
@@ -203,14 +220,28 @@ private:
         // CommandId::Result,
         CommandId::CompilerLog,
         CommandId::Subs,
+        CommandId::CmdPrompt,
+        CommandId::Parameters,
+        CommandId::ShowExitCode,
+    };
+
+    /// FB-only edit operations — disabled when the active document
+    /// isn't FreeBASIC. Subset of `mutableIds`.
+    static constexpr std::array kFreeBasicEditCommandIds = {
+        CommandId::Comment,
+        CommandId::Uncomment,
+        CommandId::Format,
+        CommandId::Subs,
+    };
+
+    /// Build / run command set — driven by `syncBuildCommands` rather
+    /// than by `mutableIds` membership, so the active project's
+    /// capabilities can gate each one independently.
+    static constexpr std::array kBuildCommandIds = {
         CommandId::Compile,
         CommandId::CompileAndRun,
         CommandId::Run,
         CommandId::QuickRun,
-        CommandId::KillProcess,
-        CommandId::CmdPrompt,
-        CommandId::Parameters,
-        CommandId::ShowExitCode
     };
 
     wxDECLARE_EVENT_TABLE();

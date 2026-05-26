@@ -8,14 +8,18 @@
 
 namespace fbide {
 
-/// Unified UI state that determines which menus and toolbar items are enabled.
-/// Set via UIManager::setState(). Higher states take precedence.
-enum class UIState {
-    None,                   // No document open — everything disabled
-    FocusedUnknownFile,     // Non-compilable document focused (HTML, text)
-    FocusedValidSourceFile, // FreeBASIC document focused — can compile/run
-    Compiling,              // Compiler running — run menus disabled
-    Running,                // Executable running — run menus disabled
+/// Compiler-dimension UI state — drives the override behaviour of
+/// `UIManager::syncBuildCommands` and the status-bar feedback for
+/// long-running compile / run jobs.
+///
+/// Build-command availability outside a compile (`None`) is sourced
+/// from `Project::getCapabilities()` on the active project, not from
+/// this enum. Edit-command availability is driven by the active
+/// `Document` via `UIManager::syncDocCommands`.
+enum class UIState : std::uint8_t {
+    None,      ///< No compile / run in flight; build commands reflect project capabilities.
+    Compiling, ///< Compiler process active; build commands frozen, KillProcess enabled.
+    Running,   ///< User executable active; build commands frozen, KillProcess enabled.
 };
 
 } // namespace fbide
