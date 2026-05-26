@@ -143,10 +143,11 @@ public:
     /// Save the category's Value tree to its backing file.
     void save(Category category) const;
 
-    /// Reload any loaded config category or the active theme whose backing
-    /// file matches `path`. Returns true when a reload occurred. Use to
-    /// hot-refresh IDE state after the user edits a config file in-place.
-    auto reloadIfKnown(const wxString& path) -> bool;
+    /// True when `path` matches the backing file (base or overlay) of
+    /// any loaded config category, or the active theme. Use to decide
+    /// whether saving a file should prompt for a restart so its new
+    /// contents take effect on the next launch.
+    [[nodiscard]] auto isKnownConfig(const std::filesystem::path& path) const -> bool;
 
     // -----------------------------------------------------------------------
     // Path management

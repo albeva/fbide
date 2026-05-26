@@ -172,9 +172,10 @@ private:
     /// derivation rule.
     void refreshTitleFor(const Document& doc) const;
 
-    /// If the saved file is a loaded IDE config, reload it and refresh
-    /// editor settings (same chain as SettingsDialog::applyChanges).
-    void reloadConfigIfMatches(const wxString& path) const;
+    /// When the saved file is a loaded IDE config (theme / shortcuts /
+    /// keywords / etc.), prompt the user to restart FBIde so the
+    /// changes take effect. Mirrors the language-change restart flow.
+    void promptRestartIfConfig(const std::filesystem::path& path) const;
 
     /// Side-effect bundle fired when a document's type changes —
     /// EVT_DOCUMENT_TYPE_CHANGED handler. Submits / cancels
