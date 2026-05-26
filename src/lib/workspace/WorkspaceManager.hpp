@@ -9,33 +9,33 @@
 #include "Project.hpp"
 
 namespace fbide {
+class Context;
 class Document;
+class IntellisenseService;
 
 /**
- * Owns every open `Project` in the IDE and tracks which one (if any)
+ * Owns every open `Project` in the IDE, the shared background
+ * `IntellisenseService`, and the bookkeeping for which project (if any)
  * the user is currently focused on.
  *
- * This phase ships the skeleton only — the manager is a member of
- * `Context`, all `Project`s live in `m_projects`, and the active-project
- * accessor is hooked up — but nothing yet creates projects, so the
- * collection stays empty at runtime and `getActiveProject()` always
- * returns `nullptr`. Behaviour preservation, not surface area, is the
- * Phase 2 goal.
+ * Phase 3 adds the `IntellisenseService` ownership; project lifecycle
+ * (`createEphemeral` / `destroyEphemeral` / `closeProject`), liveness
+ * (`contains`), and file resolution (`resolveOrOpen`) arrive in later
+ * phases — nothing yet creates projects, so the collection stays empty
+ * and `getActiveProject()` always returns `nullptr`.
  *
- * Subsequent phases grow the API: Phase 3 absorbs the shared
- * `IntellisenseService` from `DocumentManager`; Phase 5 adds
- * `createEphemeral` / `destroyEphemeral` / `closeProject` and the
- * lifecycle wiring; Phase 6 adds `contains` for `BuildTask` liveness
- * probes; Phase 7 adds `resolveOrOpen` for the error-navigation path.
- *
- * **Owns:** `m_projects` (every open `Project`).
+ * **Owns:** `m_projects` (every open `Project`) and `m_intellisense`
+ * (the background lex/parse worker shared across all FreeBASIC docs).
  * **Owned by:** `Context`.
- * **Threading:** UI thread only. (Phase 3 onwards the intellisense
- * worker lives here but runs on its own thread.)
+ * **Threading:** UI thread only. The intellisense worker lives here
+ * but runs on its own thread; `WorkspaceManager` itself doesn't cross
+ * threads.
  * **Field order in `Context`:** declared *after* `DocumentManager` so
- * destruction runs *before* it — once `IntellisenseService` moves in
- * (Phase 3), the worker must join before the documents it might race
- * with go away.
+ * destruction runs *before* it — the intellisense worker must stop
+ * and join before the documents it might race with go away.
+ * **Field order inside this class:** `m_intellisense` is declared
+ * *last* so its destructor (which joins the worker) runs *first*,
+ * before the project map it might post results about goes away.
  *
  * See @ref project-refactor.
  */
@@ -43,15 +43,19 @@ class WorkspaceManager final {
 public:
     NO_COPY_AND_MOVE(WorkspaceManager)
 
-    /// Construct an empty workspace. The application `Context` will be
-    /// passed in starting at Phase 3 when `IntellisenseService` moves
-    /// in and Phase 5 wires up project lifecycle — neither needs it
-    /// yet, so the ctor stays argument-free for now.
-    WorkspaceManager() = default;
+    /// Construct an empty workspace bound to the application `Context`
+    /// and spin up the background intellisense worker. The worker
+    /// posts results to the `DocumentManager` as its sink (already
+    /// constructed by the time `Context` reaches this line).
+    explicit WorkspaceManager(Context& ctx);
 
-    /// Default destructor — `Project` is complete via the header include,
-    /// so `unique_ptr<Project>` teardown can stay inline.
-    ~WorkspaceManager() = default;
+    /// Out-of-line so the destructor sees the full `IntellisenseService`
+    /// definition when `m_intellisense` tears down (the type is only
+    /// forward-declared in this header).
+    ~WorkspaceManager();
+
+    /// Access the shared background intellisense worker.
+    [[nodiscard]] auto getIntellisense() -> IntellisenseService& { return *m_intellisense; }
 
     /// The currently-active project, or `nullptr` when the active
     /// document has no project bound to it (always `nullptr` until
@@ -67,6 +71,10 @@ public:
 private:
     std::unordered_map<Project::Id, std::unique_ptr<Project>> m_projects;
     Project* m_activeProject = nullptr;
+    /// Declared last so destruction runs first — worker thread stops
+    /// and joins before the projects and documents it might race with
+    /// go away.
+    std::unique_ptr<IntellisenseService> m_intellisense;
 };
 
 } // namespace fbide

@@ -13,6 +13,7 @@
 #include "analyses/intellisense/IntellisenseService.hpp"
 #include "app/App.hpp"
 #include "app/Context.hpp"
+#include "workspace/WorkspaceManager.hpp"
 #include "command/CommandManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
@@ -29,8 +30,7 @@ constexpr auto SESSION_EXT = "fbs";
 
 DocumentManager::DocumentManager(Context& ctx)
 : m_ctx(ctx)
-, m_codeTransformer(std::make_unique<CodeTransformer>(ctx.getConfigManager()))
-, m_intellisense(std::make_unique<IntellisenseService>(ctx, this)) {
+, m_codeTransformer(std::make_unique<CodeTransformer>(ctx.getConfigManager())) {
     Bind(EVT_INTELLISENSE_RESULT, &DocumentManager::onIntellisenseResult, this);
     Bind(EVT_DOCUMENT_TYPE_CHANGED, &DocumentManager::onDocumentTypeChanged, this);
 }
@@ -466,7 +466,7 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
 
     // Trim the IntellisenseService SymbolTable pool: the closed doc's
     // shared_ptr just released, so any pool slot it held is now idle.
-    m_intellisense->prune();
+    m_ctx.getWorkspaceManager().getIntellisense().prune();
 
     // Update UI state when no documents remain
     if (m_documents.empty()) {
@@ -530,11 +530,11 @@ void DocumentManager::onDocumentTypeChanged(DocumentTypeChangedEvent& event) {
 }
 
 void DocumentManager::submitIntellisense(Document* doc, const wxString& content) {
-    m_intellisense->submit(doc, content);
+    m_ctx.getWorkspaceManager().getIntellisense().submit(doc, content);
 }
 
 void DocumentManager::cancelIntellisense(const Document* doc) {
-    m_intellisense->cancel(doc);
+    m_ctx.getWorkspaceManager().getIntellisense().cancel(doc);
 }
 
 void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {

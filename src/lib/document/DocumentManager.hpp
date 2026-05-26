@@ -15,7 +15,6 @@ namespace fbide {
 class Context;
 class CodeTransformer;
 class DocumentNotebook;
-class IntellisenseService;
 
 /**
  * Owns every open `Document`, drives the open / save / close
@@ -23,14 +22,13 @@ class IntellisenseService;
  * dialog, the shared on-type `CodeTransformer`, and the background
  * `IntellisenseService`.
  *
- * **Owns:** `m_documents` (vector of `unique_ptr<Document>`),
- * `m_codeTransformer`, `m_intellisense`.
+ * **Owns:** `m_documents` (vector of `unique_ptr<Document>`) and
+ * `m_codeTransformer`.
  * **Owned by:** `Context`.
- * **Threading:** UI thread only. The intellisense worker is owned
- * here but lives on its own thread (see @ref analyses).
- * **Field order:** `m_intellisense` is declared *last* so its
- * destructor (which joins the worker) runs *first* — before the
- * documents and transformer it might race with go away.
+ * **Threading:** UI thread only. The shared `IntellisenseService` lives
+ * on `WorkspaceManager` (see @ref analyses); `DocumentManager` only
+ * forwards `submitIntellisense` / `cancelIntellisense` / pool prune
+ * calls through it.
  *
  * See @ref documents.
  */
@@ -40,7 +38,8 @@ public:
 
     /// Construct without populating any documents.
     explicit DocumentManager(Context& ctx);
-    /// Stop the intellisense worker (declared first so destruction runs first).
+    /// Out-of-line so the destructor sees the full `CodeTransformer`
+    /// definition (only forward-declared in this header).
     ~DocumentManager() override;
 
     /// Shared on-type transformer (auto-indent + keyword case). Single
@@ -201,9 +200,6 @@ private:
     Unowned<DocumentNotebook> m_notebook; ///< Tab strip — wx-parented to the frame; created by `createNotebook`.
     std::vector<std::unique_ptr<Document>> m_documents; ///< Open documents in tab order.
     std::unique_ptr<CodeTransformer> m_codeTransformer; ///< Shared on-type transformer.
-    /// Declared last so destruction runs first — worker thread stops and
-    /// joins before the documents and transformer it might race with go away.
-    std::unique_ptr<IntellisenseService> m_intellisense;
 };
 
 } // namespace fbide
