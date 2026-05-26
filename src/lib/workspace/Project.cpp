@@ -14,19 +14,23 @@ using namespace fbide;
 Project::Project(const Mode mode)
 : m_id(Id::generate())
 , m_mode(mode) {
-    // Synthesise the virtual root folder so every top-level entry has a
-    // valid parent. The root is never path-indexed and carries no name.
-    const auto rootId = allocateNodeId();
-    m_root = rootId;
-    m_nodes.emplace(rootId, Node {
-        .id = rootId,
-        .parent = {},
-        .path = {},
-        .entry = Node::Folder {
-            .name = {},
-            .children = {},
-        },
-    });
+    if (mode == Mode::Persistent) {
+        // Persistent projects host arbitrary trees; synthesise a virtual
+        // root folder so top-level entries have a valid parent. The
+        // root is never path-indexed and carries no name. Ephemeral
+        // projects skip this — their single `File` becomes the root.
+        const auto rootId = allocateNodeId();
+        m_root = rootId;
+        m_nodes.emplace(rootId, Node {
+            .id = rootId,
+            .parent = {},
+            .path = {},
+            .entry = Node::Folder {
+                .name = {},
+                .children = {},
+            },
+        });
+    }
 }
 
 auto Project::addFile(std::filesystem::path path, Document* doc) -> Node::Id {
@@ -39,16 +43,29 @@ auto Project::addFile(std::filesystem::path path, Document* doc) -> Node::Id {
         m_byPath.emplace(path, id);
     }
 
-    m_nodes.emplace(id, Node {
-        .id = id,
-        .parent = m_root,
-        .path = std::move(path),
-        .entry = Node::File { .doc = doc },
-    });
-
-    // Maintain the root's children list so tree-walking code can iterate
-    // in insertion order even though m_nodes itself is unordered.
-    std::get<Node::Folder>(m_nodes.at(m_root).entry).children.push_back(id);
+    if (m_mode == Mode::Ephemeral) {
+        // Ephemeral projects host exactly one source — the file IS the
+        // root, with no parent and no enclosing folder.
+        assert(!m_root && "Ephemeral projects host exactly one file");
+        m_nodes.emplace(id, Node {
+            .id = id,
+            .parent = {},
+            .path = std::move(path),
+            .entry = Node::File { .doc = doc },
+        });
+        m_root = id;
+    } else {
+        // Persistent: attach to the existing root folder. Maintain the
+        // root's children list so tree-walking code can iterate in
+        // insertion order even though `m_nodes` itself is unordered.
+        m_nodes.emplace(id, Node {
+            .id = id,
+            .parent = m_root,
+            .path = std::move(path),
+            .entry = Node::File { .doc = doc },
+        });
+        std::get<Node::Folder>(m_nodes.at(m_root).entry).children.push_back(id);
+    }
     return id;
 }
 
@@ -82,12 +99,11 @@ void Project::setNodePath(const Node::Id id, const std::filesystem::path& path) 
 auto Project::getPrimarySource() const -> Document* {
     assert(m_mode == Mode::Ephemeral && "getPrimarySource is ephemeral-only");
 
-    for (const auto& node : m_nodes | std::views::values) {
-        if (const auto* file = std::get_if<Node::File>(&node.entry)) {
-            return file->doc;
-        }
+    // Ephemeral: the file IS the root. Empty until `addFile` runs.
+    if (!m_root) {
+        return nullptr;
     }
-    return nullptr;
+    return std::get<Node::File>(m_nodes.at(m_root).entry).doc;
 }
 
 auto Project::getDocuments() const -> std::vector<Document*> {
