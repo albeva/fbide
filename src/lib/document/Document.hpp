@@ -15,6 +15,7 @@ class Context;
 class Document;
 class Editor;
 class EditorPanel;
+class ProjectNode;
 
 /// Signature for `Document::onTypeChanged` handlers. Fired *after*
 /// the type has changed and the view (if any) has been updated;
@@ -186,6 +187,17 @@ public:
     /// Update document controls settings. Forwards to the view.
     void updateSettings();
 
+    /// The project tree node this document is backed by, if any.
+    /// Stays `nullptr` until the project layer attaches one — the
+    /// document layer itself never dereferences this back-link;
+    /// project code walks documents → nodes for tree refreshes.
+    [[nodiscard]] auto projectNode() const -> ProjectNode* { return m_projectNode; }
+
+    /// Set (or clear, with `nullptr`) the project-node back-link.
+    /// Called from the project layer when a document is bound to a
+    /// tree entry; ownership lives on the project side.
+    void setProjectNode(ProjectNode* node) { m_projectNode = node; }
+
 private:
     Context& m_ctx;                            ///< Application context.
     wxString m_compiledFile;                   ///< Path of the most recently compiled executable.
@@ -202,6 +214,7 @@ private:
     bool m_metaModified = false;
     std::shared_ptr<const SymbolTable> m_symbolTable; ///< Latest intellisense result for this document.
     DocumentTypeChangedHandler m_onTypeChanged;       ///< Observer for `setType` transitions; empty by default.
+    Unowned<ProjectNode> m_projectNode = nullptr;     ///< Project-tree back-link; populated by project code.
 };
 
 } // namespace fbide
