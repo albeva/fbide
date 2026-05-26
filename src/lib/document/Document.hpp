@@ -43,10 +43,24 @@ class Document final {
 public:
     NO_COPY_AND_MOVE(Document)
 
-    /// Create a new document. Constructs an `EditorPanel` view as a
-    /// child of `parent`. The view-less construction path arrives in
-    /// the next phase.
-    Document(wxWindow* parent, Context& ctx, DocumentType type = DocumentType::FreeBASIC);
+    /// Create a new document. View-less by default — call
+    /// `attachView()` (typically driven by `EditorPanel`'s ctor) to
+    /// pair the document with a hosted editor.
+    explicit Document(Context& ctx, DocumentType type = DocumentType::FreeBASIC);
+
+    /// Attach `panel` as this document's hosting view. Pushes the
+    /// document's current EOL state into the panel's editor so a
+    /// pre-set encoding/EOL choice is reflected before any text
+    /// loads. Typically called from `EditorPanel`'s constructor.
+    void attachView(EditorPanel* panel);
+
+    /// Drop the view back-link. `EditorPanel`'s destructor calls this
+    /// so wx-parent-driven destruction of the panel (notebook page
+    /// close) leaves the document with a clean `nullptr` slot.
+    void detachView();
+
+    /// True when a view is currently attached.
+    [[nodiscard]] auto hasView() const -> bool { return m_panel != nullptr; }
 
     /// Get the file path. Empty if untitled. Returned as `std::filesystem::path`
     /// — callers that hand it to a wx API should wrap with `toWxString(...)`.
