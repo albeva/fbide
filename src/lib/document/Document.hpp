@@ -120,12 +120,6 @@ public:
     /// path index stays in sync.
     void setFilePath(const std::filesystem::path& path);
 
-    /// Raw access to the source variant. Useful for the workspace
-    /// lifecycle code that needs to read the *kind* of source (bound
-    /// or unbound) before deciding what to do, without paying for the
-    /// `getFilePath()` resolution.
-    [[nodiscard]] auto getSource() const -> const Source& { return m_source; }
-
     /// Get display title for tab (filename or "Untitled").
     [[nodiscard]] auto getTitle() const -> wxString;
 
