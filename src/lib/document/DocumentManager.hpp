@@ -181,15 +181,11 @@ private:
     /// editor settings (same chain as SettingsDialog::applyChanges).
     void reloadConfigIfMatches(const wxString& path) const;
 
-    /// Register cross-cutting hooks on a freshly-created document —
-    /// today this means subscribing to `onTypeChanged` so intellisense
-    /// + sidebar refresh fire when the user re-types a buffer.
-    void registerDocumentHooks(Document& doc);
-
-    /// Side-effect bundle fired when a document's type changes.
-    /// Submits / cancels intellisense and refreshes the sidebar so the
-    /// document model can stay agnostic about who's listening.
-    void handleTypeChanged(Document& doc, DocumentType previous);
+    /// Side-effect bundle fired when a document's type changes —
+    /// EVT_DOCUMENT_TYPE_CHANGED handler. Submits / cancels
+    /// intellisense and refreshes the sidebar so the document model
+    /// can stay agnostic about who's listening.
+    void onDocumentTypeChanged(DocumentTypeChangedEvent& event);
 
     /// Surface a `DocumentIO::SaveResult` failure to the user as a
     /// localised error message. No-op on `Success`.

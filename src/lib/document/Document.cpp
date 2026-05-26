@@ -13,6 +13,8 @@
 #include "editor/EditorPanel.hpp"
 using namespace fbide;
 
+wxDEFINE_EVENT(fbide::EVT_DOCUMENT_TYPE_CHANGED, DocumentTypeChangedEvent);
+
 namespace {
 
 auto defaultEncodingFromConfig(Context& ctx) -> TextEncoding {
@@ -29,11 +31,12 @@ auto defaultEolModeFromConfig(Context& ctx) -> EolMode {
 
 } // namespace
 
-Document::Document(Context& ctx, const DocumentType type)
+Document::Document(Context& ctx, const DocumentType type, wxEvtHandler* sink)
 : m_ctx(ctx)
 , m_type(type)
 , m_encoding(defaultEncodingFromConfig(ctx))
-, m_eolMode(defaultEolModeFromConfig(ctx)) {}
+, m_eolMode(defaultEolModeFromConfig(ctx))
+, m_sink(sink) {}
 
 void Document::attachView(EditorPanel* panel) { // REVIEW: attached view should be any wxWindow view, not just EditorPane;
     m_panel = panel;
@@ -101,16 +104,13 @@ void Document::setType(const DocumentType type) {
         m_panel->getEditor()->setDocType(type);
     }
     // Cross-cutting side effects (intellisense submit/cancel, sidebar
-    // refresh) live on the subscriber side — `DocumentManager`
-    // registers the handler at document creation time.
-    if (m_onTypeChanged) {
-        m_onTypeChanged(*this, previous);
+    // refresh) live on the subscriber side — `DocumentManager` binds
+    // to EVT_DOCUMENT_TYPE_CHANGED at construction so this synchronous
+    // dispatch routes straight into its handler.
+    if (m_sink != nullptr) {
+        DocumentTypeChangedEvent evt { this, previous };
+        m_sink->ProcessEvent(evt);
     }
-}
-
-// REVIEW: We don't need callbacks. Just get the documentManager from ctx, and call intellisense directly.
-void Document::onTypeChanged(DocumentTypeChangedHandler handler) {
-    m_onTypeChanged = std::move(handler);
 }
 
 auto Document::getTitle() const -> wxString {
