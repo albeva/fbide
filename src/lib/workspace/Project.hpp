@@ -89,8 +89,11 @@ public:
         Entry entry;
     };
 
-    /// Construct an empty project of the given mode. A virtual root
-    /// folder is created automatically.
+    /// Construct an empty project of the given mode. Persistent
+    /// projects get a virtual root folder so subsequent `addFile`
+    /// calls have somewhere to attach; Ephemeral projects skip that
+    /// — their single source `File` *is* the root, populated by the
+    /// first (and only) `addFile`.
     explicit Project(Mode mode);
 
     /// Project identity — unique across the running process.
@@ -102,9 +105,13 @@ public:
     /// Convenience: true when `getMode() == Mode::Ephemeral`.
     [[nodiscard]] auto isEphemeral() const -> bool { return m_mode == Mode::Ephemeral; }
 
-    /// Insert a file node under the project root. `path` may be empty
-    /// for an untitled document; bind it later via `setNodePath`. `doc`
-    /// is the optional `Document*` back-link (the project never
+    /// Insert a file node into the project. For **Ephemeral** projects
+    /// the new node becomes the root (precondition: no file has been
+    /// added yet — Ephemeral projects host exactly one source). For
+    /// **Persistent** projects the node is attached as a child of the
+    /// existing virtual root folder. `path` may be empty for an
+    /// untitled document; bind it later via `setNodePath`. `doc` is
+    /// the optional `Document*` back-link (the project never
     /// dereferences it).
     /// @returns The new node's identifier.
     auto addFile(std::filesystem::path path, Document* doc = nullptr) -> Node::Id;
