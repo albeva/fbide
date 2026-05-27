@@ -23,10 +23,13 @@ public:
     /// Canonical filename for the QuickRun temp source.
     static constexpr auto TEMPNAME = "FBIDETEMP.BAS";
 
-    /// Create a compile process.
-    /// @param ctx Application context.
-    /// @param project The project being compiled, or nullptr.
-    BuildTask(Context& ctx, Project* project);
+    /// Create a compile process bound to `project`. The raw pointer is
+    /// stored, but every post-construction access goes through
+    /// `getProject` which validates liveness via
+    /// `WorkspaceManager::contains` (a safe pointer-set scan, never
+    /// dereferenced) so a teardown mid-flight returns null instead of
+    /// landing on a freed instance.
+    BuildTask(Context& ctx, Project& project);
 
     /// Compile the given source file asynchronously.
     void compile(const wxString& sourceFile);
@@ -49,9 +52,10 @@ public:
     /// Get the compiled executable path from the last successful compile.
     [[nodiscard]] auto getCompiledFile() const -> const wxString& { return m_compiledFile; }
 
-    /// Get the project if still valid, or nullptr. Validated through
-    /// `WorkspaceManager::contains` so callers don't need to track
-    /// project lifetime independently.
+    /// Resolve the bound project, or `nullptr` if it has been torn down
+    /// since this task was constructed. Liveness checked via
+    /// `WorkspaceManager::contains` so callers can use the returned
+    /// pointer without a separate validity check.
     [[nodiscard]] auto getProject() const -> Project*;
 
     /// Kill this task
@@ -86,7 +90,7 @@ private:
     void setStatus(const wxString& path) const;
 
     Context& m_ctx;                    ///< Application context.
-    Project* m_project;                ///< Project this task is bound to (nullable).
+    Project* m_project;                ///< Project this task is bound to (validated via WorkspaceManager).
     bool m_running = false;            ///< True while a process is in flight.
     bool m_shouldRun = false;          ///< True when a successful compile should chain into run.
     bool m_isQuickRun = false;         ///< True for QuickRun (compile to temp file + run).

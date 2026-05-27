@@ -21,9 +21,9 @@
 #include "workspace/WorkspaceManager.hpp"
 using namespace fbide;
 
-BuildTask::BuildTask(Context& ctx, Project* project)
+BuildTask::BuildTask(Context& ctx, Project& project)
 : m_ctx(ctx)
-, m_project(project) {}
+, m_project(&project) {}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -42,6 +42,12 @@ void BuildTask::compileAndRun(const wxString& sourceFile, const bool quickRun) {
 }
 
 void BuildTask::run(const wxString& executablePath, const bool quickRun) {
+    if (getProject() == nullptr) {
+        // Project torn down between compile and run — bail without
+        // launching a process so we don't fire off a malformed command.
+        return;
+    }
+
     m_compiledFile = executablePath;
     m_isQuickRun = quickRun;
 
@@ -60,6 +66,11 @@ void BuildTask::run(const wxString& executablePath, const bool quickRun) {
 // ---------------------------------------------------------------------------
 
 void BuildTask::startCompiler(const wxString& sourceFile) {
+    auto* project = getProject();
+    if (project == nullptr) {
+        return;
+    }
+
     m_sourceFile = sourceFile;
     m_buildDir = wxPathOnly(sourceFile);
 
@@ -68,17 +79,19 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     ui.getOutputConsole().clear();
 
     // Validate compiler — getFbcVersion() checks path and caches the result
-    const auto& fbcVersion = m_ctx.getCompilerManager().getFbcVersion();
+    auto& compilerManager = m_ctx.getCompilerManager();
+    const auto& fbcVersion = compilerManager.getFbcVersion();
     if (fbcVersion.empty()) {
-        m_ctx.getCompilerManager().promptMissingCompiler();
+        compilerManager.promptMissingCompiler();
         return;
     }
 
-    // Build command. Compile template + compiler path come from the
-    // project (which forwards to ConfigManager for ephemeral builds);
-    // CompileCommand stays a pure string-substitution helper.
-    const auto compileTemplate = m_project->getCompileTemplate(m_ctx);
-    const auto compilerPath = m_project->getCompilerPath(m_ctx);
+    // Build command. Compile template comes from the project (forwarded
+    // to ConfigManager for ephemeral builds); compiler path is an
+    // IDE-global setting owned by CompilerManager. CompileCommand stays
+    // a pure string-substitution helper.
+    const auto compileTemplate = project->getCompileTemplate();
+    const auto compilerPath = compilerManager.resolveCompilerBinary();
     const auto cmdStr = CompileCommand::makeDefault(sourceFile).build(compileTemplate, compilerPath);
 
     m_compilerLog.Empty();
@@ -265,12 +278,12 @@ auto BuildTask::deriveExecutablePath(const wxString& sourceFile) -> wxString {
 auto BuildTask::buildRunCommand(const wxString& executablePath) const -> wxString {
     // Run template comes from the project; terminal launcher remains
     // IDE-global (it's a host-level setting) and runtime parameters
-    // remain a CompilerManager-owned, user-supplied value.
-    return RunCommand::makeDefault(executablePath).build(
-        m_project->getRunTemplate(m_ctx),
-        m_ctx.getConfigManager().getTerminalLauncher(),
-        m_ctx.getCompilerManager().getParameters()
-    );
+    // remain a CompilerManager-owned, user-supplied value. Callers
+    // pre-validate that the project is alive (see `run`); reaching here
+    // with a null project would indicate a teardown race.
+    auto* project = getProject();
+    assert(project != nullptr && "buildRunCommand called after project teardown");
+    return RunCommand::makeDefault(executablePath).build(project->getRunTemplate(), m_ctx.getConfigManager().getTerminalLauncher(), m_ctx.getCompilerManager().getParameters());
 }
 
 void BuildTask::appendSystemInfo() {
@@ -311,10 +324,7 @@ void BuildTask::cleanupTempFiles() {
 }
 
 auto BuildTask::getProject() const -> Project* {
-    if (m_project != nullptr && m_ctx.getWorkspaceManager().contains(m_project)) {
-        return m_project;
-    }
-    return nullptr;
+    return m_ctx.getWorkspaceManager().contains(m_project) ? m_project : nullptr;
 }
 
 void BuildTask::kill() {

@@ -40,7 +40,7 @@ void CompilerManager::compile() {
         return;
     }
 
-    m_task = std::make_unique<BuildTask>(m_ctx, project);
+    m_task = std::make_unique<BuildTask>(m_ctx, *project);
     m_task->compile(toWxString(doc->getFilePath()));
 }
 
@@ -54,7 +54,7 @@ void CompilerManager::compileAndRun() {
         return;
     }
 
-    m_task = std::make_unique<BuildTask>(m_ctx, project);
+    m_task = std::make_unique<BuildTask>(m_ctx, *project);
     m_task->compileAndRun(toWxString(doc->getFilePath()), false);
 }
 
@@ -78,7 +78,7 @@ void CompilerManager::run() {
         return;
     }
 
-    m_task = std::make_unique<BuildTask>(m_ctx, project);
+    m_task = std::make_unique<BuildTask>(m_ctx, *project);
     m_task->run(toWxString(artefact), false);
 }
 
@@ -109,7 +109,7 @@ void CompilerManager::quickRun() {
         return;
     }
 
-    m_task = std::make_unique<BuildTask>(m_ctx, project);
+    m_task = std::make_unique<BuildTask>(m_ctx, *project);
     m_task->compileAndRun(toWxString(tempFile), true);
 }
 

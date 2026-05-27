@@ -77,9 +77,16 @@ public:
     /// those isn't this project's responsibility.
     void closeProject(Project& project);
 
-    /// Is `project` currently owned by this manager? Liveness probe
-    /// for callers (e.g. `BuildTask`) holding long-lived `Project*`
-    /// references across async work.
+    /// Resolve `id` to a live `Project*`, or `nullptr` if no project
+    /// with that id is currently owned. Exposed for the serialisation
+    /// boundary and external references — internal callers hold
+    /// `Project*` directly and validate liveness via `contains` instead.
+    [[nodiscard]] auto find(Project::Id id) -> Project*;
+
+    /// Liveness probe for a raw `Project*` held across async work.
+    /// Safe to call with a stale (possibly destroyed) pointer — does
+    /// not dereference `project`. Returns true when the pointer still
+    /// names an owned project.
     [[nodiscard]] auto contains(const Project* project) const -> bool;
 
     /// React to a document's type having just been set. Brings the

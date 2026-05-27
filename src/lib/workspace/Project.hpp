@@ -9,7 +9,7 @@
 #include "utils/Identifier.hpp"
 
 namespace fbide {
-class Context;
+class ConfigManager;
 class Document;
 
 /**
@@ -25,10 +25,14 @@ class Document;
  *   on-disk; can group many files and own non-source assets (images,
  *   `Info.plist`, etc.). Survives type changes of its members.
  *
- * Files (and folders, eventually) are arranged in a flat node arena keyed
- * by `Node::Id`; folder children are stored as IDs rather than pointers
- * so re-parenting is O(1), persistence is trivial, and there is exactly
- * one source of truth for the tree shape.
+ * Files (and folders, eventually) are arranged in a flat node arena.
+ * `m_nodes` owns each `Node` via `unique_ptr` — keyed by `Node::Id` so
+ * the per-node identity round-trips through serialisation — but every
+ * intra-tree reference (`Node::parent`, `Folder::children`, `m_root`,
+ * the `m_byPath` index, the back-link in `Document::Source`) is a raw
+ * `Node*`. The unique_ptr storage guarantees the pointers stay valid
+ * for the node's lifetime; IDs are kept for serialisation, debug
+ * output, and the occasional temp-file name.
  *
  * `Document*` back-links are stored opaquely — `Project` never
  * dereferences them. Lifetime coupling between a `Project` and its bound
@@ -53,11 +57,10 @@ public:
     /// four. Ephemeral projects are always single-file executables and
     /// therefore expose every capability.
     enum class Capability : std::uint8_t {
-        None          = 0,
-        Compile       = 1U << 0,
+        Compile = 1U << 0,
         CompileAndRun = 1U << 1,
-        Run           = 1U << 2,
-        QuickRun      = 1U << 3,
+        Run = 1U << 2,
+        QuickRun = 1U << 3,
     };
 
     /// Opaque strong-typed handle for a `Project` instance. Distinct from
@@ -65,14 +68,16 @@ public:
     /// invalid sentinel; `bool(id)` reports validity.
     using Id = IdentifierBase<Project>;
 
-    /// One entry in the project tree — either a file or a folder. Stored
-    /// in `Project::m_nodes`, indexed by `Node::Id`. Children of a
-    /// `Folder` are referenced by ID, not pointer.
+    /// One entry in the project tree — either a file or a folder. Owned
+    /// by `Project::m_nodes` via `unique_ptr`. Intra-tree references
+    /// (`parent`, `children`) are non-owning `Node*` whose validity is
+    /// pinned by that owning map.
     class Node final {
     public:
-        /// Opaque strong-typed handle for a node within a single project.
-        /// IDs are unique within their owning project but **not** across
-        /// projects — never mix IDs between instances.
+        /// Opaque strong-typed handle for a node. UUID-backed so values
+        /// round-trip through serialisation; primarily exposed for
+        /// persistence and debug output — internal references prefer
+        /// the direct `Node*`.
         using Id = IdentifierBase<Node>;
 
         /// A file node. The `Document*` back-link is populated when the
@@ -82,19 +87,19 @@ public:
             Document* doc = nullptr;
         };
 
-        /// A folder node. Children are referenced by ID so re-parenting
-        /// and serialisation stay simple. A folder with a null `Node::path`
-        /// is **virtual** — a Visual-Studio-style "filter" with no on-disk
-        /// counterpart.
+        /// A folder node. Children are non-owning pointers into the
+        /// owning `Project::m_nodes` map. A folder with an empty
+        /// `Node::path` is **virtual** — a Visual-Studio-style "filter"
+        /// with no on-disk counterpart.
         struct Folder final {
             std::string name;
-            std::vector<Id> children;
+            std::vector<Node*> children;
         };
 
         using Entry = std::variant<File, Folder>;
 
-        Id id;     ///< Self-identifier (matches the map key in `Project::m_nodes`).
-        Id parent; ///< Parent folder's ID; invalid for the root.
+        Id id;                  ///< Stable identity (matches the map key in `Project::m_nodes`).
+        Node* parent = nullptr; ///< Parent folder, or null for the root.
         /// On-disk location of this node. Empty for untitled files
         /// (new buffer, never saved) and for virtual folders — matches
         /// `Document::getFilePath()`'s convention so the two layers
@@ -107,8 +112,10 @@ public:
     /// projects get a virtual root folder so subsequent `addFile`
     /// calls have somewhere to attach; Ephemeral projects skip that
     /// — their single source `File` *is* the root, populated by the
-    /// first (and only) `addFile`.
-    explicit Project(Mode mode);
+    /// first (and only) `addFile`. The `ConfigManager` reference is
+    /// stored and used by the build-input getters; Persistent projects
+    /// (future) will also use it as the fallback for unset overrides.
+    Project(ConfigManager& config, Mode mode);
 
     /// Project identity — unique across the running process.
     [[nodiscard]] auto getId() const -> Id { return m_id; }
@@ -120,24 +127,42 @@ public:
     [[nodiscard]] auto isEphemeral() const -> bool { return m_mode == Mode::Ephemeral; }
 
     /// Insert a file node into the project. For **Ephemeral** projects
-    /// the new node becomes the root (precondition: no file has been
-    /// added yet — Ephemeral projects host exactly one source). For
-    /// **Persistent** projects the node is attached as a child of the
-    /// existing virtual root folder. `path` may be empty for an
-    /// untitled document; bind it later via `setNodePath`. `doc` is
-    /// the optional `Document*` back-link (the project never
-    /// dereferences it).
-    /// @returns The new node's identifier.
-    auto addFile(std::filesystem::path path, Document* doc = nullptr) -> Node::Id;
+    /// `parent` must be null and no file may have been added yet — the
+    /// new node becomes the root. For **Persistent** projects `parent`
+    /// must be a folder owned by this project (typically `getRoot()` or
+    /// a deeper folder). `path` may be empty for an untitled document;
+    /// bind it later via `setNodePath`. `doc` is the optional
+    /// `Document*` back-link (the project never dereferences it).
+    /// @returns The new node, owned by the project; the pointer stays
+    /// valid until the node is explicitly removed.
+    auto addFile(Node* parent, std::filesystem::path path, Document* doc = nullptr) -> Node*;
 
-    /// Path stored on the given file or folder node. Returns an empty
-    /// path when the node has none (untitled file, virtual folder).
-    [[nodiscard]] auto getNodePath(Node::Id id) const -> std::filesystem::path;
+    /// Resolve an ID back to a live node — useful at the serialisation
+    /// boundary or when external references (saved sessions, error
+    /// reports referring to a node by ID, …) need to land back on a
+    /// concrete pointer. Returns null for an unknown id.
+    [[nodiscard]] auto findNode(Node::Id id) -> Node*;
 
-    /// Replace the path stored on the given node and re-key `m_byPath`.
-    /// Use after a Save As to keep the project's path index in sync with
+    /// Const overload of `findNode`.
+    [[nodiscard]] auto findNode(Node::Id id) const -> const Node*;
+
+    /// Replace the path stored on `node` and re-key `m_byPath`. Use
+    /// after a Save As to keep the project's path index in sync with
     /// the document's new on-disk identity.
-    void setNodePath(Node::Id id, const std::filesystem::path& path);
+    void setNodePath(Node* node, const std::filesystem::path& path);
+
+    /// Drop the `Document*` back-link on the given file node. Used by
+    /// `Document::unbindFromProject` so the project-side and document-
+    /// side views of "is this doc bound" stay symmetric — without this
+    /// call, `getDocuments()` would still report the unbound doc.
+    void clearNodeDocument(Node* node);
+
+    /// Root of the project tree. For Persistent projects this is the
+    /// synthesised virtual folder; for Ephemeral projects it is the
+    /// single `File` node (null until `addFile` runs).
+    [[nodiscard]] auto getRoot() -> Node* { return m_root; }
+    /// Const overload of `getRoot`.
+    [[nodiscard]] auto getRoot() const -> const Node* { return m_root; }
 
     /// The single bound document of an Ephemeral project. Returns nullptr
     /// if no file has been added or no document is bound.
@@ -153,11 +178,11 @@ public:
     // --- Build / run state ---------------------------------------------
     //
     // `Project` is the sole gateway for build inputs. For `Ephemeral`
-    // projects every getter forwards to `ConfigManager` at call time,
-    // preserving today's "settings change applies to the next build"
-    // behaviour. `Persistent` projects (future) will store their own
-    // values; callers don't need to care which mode they're talking
-    // to.
+    // projects every getter forwards to the injected `ConfigManager` at
+    // call time, preserving today's "settings change applies to the
+    // next build" behaviour. `Persistent` projects (future) will store
+    // their own values; callers don't need to care which mode they're
+    // talking to.
 
     /// Path of the most recently produced build artefact (executable,
     /// library, …) for this project. Empty until the first successful
@@ -171,17 +196,12 @@ public:
     /// FreeBASIC compile command template (with `<$fbc>` / `<$file>`
     /// meta-tags). Ephemeral: forwards to `compiler.compileCommand` in
     /// `ConfigManager`.
-    [[nodiscard]] auto getCompileTemplate(Context& ctx) const -> wxString;
-
-    /// Absolute, resolved path to the FreeBASIC compiler binary (`fbc`).
-    /// Ephemeral: forwards to `compiler.path` in `ConfigManager`, resolved
-    /// against the IDE's `AppDir`. Returned empty when unset.
-    [[nodiscard]] auto getCompilerPath(Context& ctx) const -> wxString;
+    [[nodiscard]] auto getCompileTemplate() const -> wxString;
 
     /// Run command template (with `<$file>` / `<$terminal>` / `<$param>`
     /// meta-tags). Ephemeral: forwards to `compiler.runCommand` in
     /// `ConfigManager`.
-    [[nodiscard]] auto getRunTemplate(Context& ctx) const -> wxString;
+    [[nodiscard]] auto getRunTemplate() const -> wxString;
 
     /// Bitfield of `Capability` values this project supports. Ephemeral
     /// projects unconditionally expose every action (single-file
@@ -190,21 +210,20 @@ public:
     [[nodiscard]] auto getCapabilities() const -> std::uint8_t;
 
 private:
-    /// Allocate a fresh node identifier. Backed by `Uuid::generate()`
-    /// so IDs survive serialisation round-trips and stay unambiguous
-    /// when project files are merged in version control.
-    [[nodiscard]] static auto allocateNodeId() -> Node::Id;
-
-    Id m_id;                                    ///< Project identity (assigned at construction).
-    Mode m_mode;                                ///< Ephemeral or Persistent.
-    std::filesystem::path m_artefact;           ///< Path of the most recently produced build artefact (exe / lib / …).
-    std::unordered_map<Node::Id, Node> m_nodes; ///< Owning storage for every node in the project.
+    ConfigManager& m_config;          ///< Source of build inputs for Ephemeral; fallback for Persistent.
+    Id m_id;                          ///< Project identity (assigned at construction).
+    Mode m_mode;                      ///< Ephemeral or Persistent.
+    std::filesystem::path m_artefact; ///< Path of the most recently produced build artefact (exe / lib / …).
+    /// Owning storage for every node. unique_ptr pins each node's
+    /// address so the cross-tree raw pointers stay valid; the Id key
+    /// gives us a stable handle for serialisation round-trips.
+    std::unordered_map<Node::Id, std::unique_ptr<Node>> m_nodes;
     /// Path → node lookup index for "does this on-disk path belong to a
     /// project?" queries — e.g. when a user opens a file that's a member
     /// of an open Persistent project, we want to bind the new document
     /// to that project rather than spawn an ephemeral one.
-    std::unordered_map<std::filesystem::path, Node::Id> m_byPath;
-    Node::Id m_root; ///< The virtual root folder under which top-level entries live.
+    std::unordered_map<std::filesystem::path, Node*> m_byPath;
+    Node* m_root = nullptr; ///< Project tree root (virtual folder for Persistent; single file for Ephemeral).
 };
 
 /// Underlying-type cast for `Project::Capability` — matches the same

@@ -67,10 +67,9 @@ auto Document::getFilePath() const -> std::filesystem::path {
     if (std::holds_alternative<std::filesystem::path>(m_source)) {
         return std::get<std::filesystem::path>(m_source);
     }
-    if (m_project != nullptr) {
-        return m_project->getNodePath(std::get<Project::Node::Id>(m_source));
+    if (auto* node = std::get<Project::Node*>(m_source); node != nullptr) {
+        return node->path;
     }
-    wxLogError("File source is project node, but has no project associated");
     return {};
 }
 
@@ -80,8 +79,11 @@ void Document::setFilePath(const std::filesystem::path& path) {
     // their path outright.
     if (std::holds_alternative<std::filesystem::path>(m_source)) {
         std::get<std::filesystem::path>(m_source) = path;
+    } else if (m_project != nullptr) {
+        m_project->setNodePath(std::get<Project::Node*>(m_source), path);
     } else {
-        m_project->setNodePath(std::get<Project::Node::Id>(m_source), path);
+        wxLogError("Document::setFilePath: source is project node, but no project bound");
+        return;
     }
     // Only re-derive type from the new path when the user hasn't
     // explicitly overridden it — Save As shouldn't stomp a manual choice.
@@ -97,18 +99,21 @@ void Document::setFilePath(const std::filesystem::path& path) {
     updateModTime();
 }
 
-void Document::bindToProject(Project& project, const Project::Node::Id id) {
+void Document::bindToProject(Project& project, Project::Node* node) {
+    assert(node != nullptr);
     m_project = &project;
-    m_source = id;
+    m_source = node;
 }
 
 void Document::unbindFromProject() {
     // Copy the path out of the project BEFORE clearing the back-link
     // so `getFilePath()` keeps returning the same value either side of
-    // the transition.
-    if (m_project != nullptr && std::holds_alternative<Project::Node::Id>(m_source)) {
-        const auto id = std::get<Project::Node::Id>(m_source);
-        m_source = m_project->getNodePath(id);
+    // the transition. Also drop the project-side `File::doc` back-link
+    // so `Project::getDocuments()` stops reporting this doc.
+    if (m_project != nullptr && std::holds_alternative<Project::Node*>(m_source)) {
+        auto* node = std::get<Project::Node*>(m_source);
+        m_source = node->path;
+        m_project->clearNodeDocument(node);
     }
     m_project = nullptr;
 }

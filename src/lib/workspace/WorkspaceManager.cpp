@@ -42,9 +42,9 @@ auto WorkspaceManager::createEphemeral(Document& doc) -> Project& {
     assert(doc.getType() == DocumentType::FreeBASIC && "ephemeral projects only host FreeBASIC documents");
 
     std::filesystem::path path = doc.getFilePath();
-    auto project = std::make_unique<Project>(Project::Mode::Ephemeral);
-    const auto nodeId = project->addFile(std::move(path), &doc);
-    doc.bindToProject(*project, nodeId);
+    auto project = std::make_unique<Project>(m_ctx.getConfigManager(), Project::Mode::Ephemeral);
+    auto* node = project->addFile(nullptr, std::move(path), &doc);
+    doc.bindToProject(*project, node);
 
     return *m_projects.emplace(project->getId(), std::move(project)).first->second;
 }
@@ -58,14 +58,13 @@ void WorkspaceManager::destroyEphemeral(Document& doc) {
 }
 
 void WorkspaceManager::closeProject(Project& project) {
-    // `destroyEphemeral` pre-unbinds the doc before calling here, so
-    // that doc still appears in `getDocuments()` (the FileEntry::doc
-    // pointer is intact) but its back-link is null. The `==` guard
-    // skips it — closing such a doc would re-enter `destroyEphemeral`
-    // and bounce off this same logic.
+    // `Document::unbindFromProject` clears the project-side `File::doc`
+    // back-link, so `getDocuments()` won't include any doc that was
+    // pre-unbound (e.g. by `destroyEphemeral` before it dispatched here).
+    // The remaining loop body unbinds and closes any still-bound docs.
     auto& docManager = m_ctx.getDocumentManager();
     for (auto* document : project.getDocuments()) {
-        if (document->getView() != nullptr && document->getProject() == &project) {
+        if (document->getView() != nullptr) {
             document->unbindFromProject();
             docManager.closeFile(*document);
         }
@@ -73,11 +72,21 @@ void WorkspaceManager::closeProject(Project& project) {
     m_projects.erase(project.getId());
 }
 
+auto WorkspaceManager::find(const Project::Id id) -> Project* {
+    const auto it = m_projects.find(id);
+    return it != m_projects.end() ? it->second.get() : nullptr;
+}
+
 auto WorkspaceManager::contains(const Project* project) const -> bool {
     if (project == nullptr) {
         return false;
     }
-    return m_projects.contains(project->getId());
+    // Scan owning storage directly — never dereference `project`, which
+    // may already have been destroyed by the time a stale pointer reaches
+    // us. Project counts are small (single-digit typical) so the linear
+    // walk is cheaper than maintaining a parallel pointer set.
+    return std::ranges::any_of(m_projects | std::views::values,
+        [project](const auto& owned) { return owned.get() == project; });
 }
 
 void WorkspaceManager::onDocumentTypeChanged(Document& doc) {
