@@ -14,6 +14,7 @@
 #include <concepts>
 #include <cstddef>
 #include <cstring>
+#include <expected>
 #include <filesystem>
 #include <fstream>
 #include <functional>

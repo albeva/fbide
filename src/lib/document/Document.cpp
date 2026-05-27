@@ -80,7 +80,7 @@ void Document::setFilePath(const std::filesystem::path& path) {
     if (std::holds_alternative<std::filesystem::path>(m_source)) {
         std::get<std::filesystem::path>(m_source) = path;
     } else if (m_project != nullptr) {
-        m_project->setNodePath(std::get<Project::Node*>(m_source), path);
+        m_project->setFilePath(std::get<Project::Node*>(m_source), path);
     } else {
         wxLogError("Document::setFilePath: source is project node, but no project bound");
         return;
