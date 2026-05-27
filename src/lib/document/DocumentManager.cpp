@@ -61,7 +61,7 @@ auto DocumentManager::defaultEolMode() const -> EolMode {
 
 auto DocumentManager::newFile(DocumentType type) -> Document& {
     const auto thaw = m_ctx.getUIManager().freeze();
-    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx, type, this));
+    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx.getConfigManager(), type, this));
     make_unowned<EditorPanel>(m_notebook.get(), m_ctx, type, doc);
     if (type == DocumentType::FreeBASIC) {
         m_ctx.getWorkspaceManager().createEphemeral(doc);
@@ -180,7 +180,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     const auto thaw = m_ctx.getUIManager().freeze();
     const auto type = documentTypeFromPath(canonical);
 
-    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx, type, this));
+    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx.getConfigManager(), type, this));
     make_unowned<EditorPanel>(m_notebook.get(), m_ctx, type, doc);
 
     loadFile(doc, loaded->text, loaded->eolMode);

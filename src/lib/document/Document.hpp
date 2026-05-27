@@ -11,7 +11,7 @@
 #include "workspace/Project.hpp"
 
 namespace fbide {
-class Context;
+class ConfigManager;
 class Document;
 class DocumentTypeChangedEvent;
 class Editor;
@@ -83,7 +83,9 @@ public:
     /// pair the document with a hosted editor. `sink`, if non-null,
     /// receives `EVT_DOCUMENT_TYPE_CHANGED` whenever `setType`
     /// commits a transition (typically the `DocumentManager`).
-    explicit Document(Context& ctx, DocumentType type = DocumentType::FreeBASIC, wxEvtHandler* sink = nullptr);
+    /// `config` supplies the encoding/EOL defaults and the locale
+    /// table used to format the "Untitled" tab title.
+    explicit Document(ConfigManager& config, DocumentType type = DocumentType::FreeBASIC, wxEvtHandler* sink = nullptr);
 
     /// Publish the view back-link. `view` is the wxWindow that hosts
     /// the document on screen (a notebook page); `editor` is its
@@ -219,7 +221,7 @@ public:
     void unbindFromProject();
 
 private:
-    Context& m_ctx;                            ///< Application context.
+    ConfigManager& m_config;                   ///< Source of encoding/EOL defaults and the locale table.
     Source m_source;                           ///< Path (unbound) or node ID (project-bound); see `Source`.
     Project* m_project = nullptr;              ///< Owning project; non-null iff `m_source` holds `Project::Node*`.
     DocumentType m_type;                       ///< Document type — drives lexer + theme dispatch.

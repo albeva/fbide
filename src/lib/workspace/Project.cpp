@@ -20,12 +20,6 @@ auto currentWorkingPath() -> std::filesystem::path {
     return ec ? std::filesystem::path {} : cwd;
 }
 
-// Root folder name derived from the directory's leaf — empty when
-// the root has no path.
-auto rootFolderName(const std::filesystem::path& path) -> std::string {
-    return path.empty() ? std::string {} : path.filename().string();
-}
-
 } // namespace
 
 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
@@ -33,7 +27,7 @@ Project::Project(ConfigManager& config, const Mode mode)
 : m_config(config)
 , m_id(Id::generate())
 , m_mode(mode) {
-    m_path = rootFolderName(currentWorkingPath());
+    m_path = currentWorkingPath();
 
     if (mode == Mode::Persistent) {
         const auto id = Node::Id::generate();
@@ -56,45 +50,42 @@ auto Project::addFile(Document* doc, Node* parent) -> Node* {
         assert(m_nodes.contains(parent->id) && "parent should be part of this project");
     }
 
-    // create teh file node
     auto node = std::make_unique<Node>(Node {
         .id = Node::Id::generate(),
-        .parent = nullptr,
+        .parent = parent,
         .path = std::move(path),
         .entry = Node::File { .doc = doc },
     });
     auto* ptr = node.get();
 
-    // Ephemeral projects only have a single file as a root
+    // Ephemeral: file becomes the root, no parent. Persistent: resolve parent
+    // (defaulting to m_root) and validate before allocating.
     if (m_mode == Mode::Ephemeral) {
         assert(m_root == nullptr && "Ephemeral project should have no root");
-        assert(parent == nullptr && "Ephemeral projct file should not have a parent");
+        assert(parent == nullptr && "Ephemeral project file should not have a parent");
+
         m_root = ptr;
         m_path = hasPath ? ptr->path.parent_path() : currentWorkingPath();
     } else {
         if (parent == nullptr) {
             parent = m_root;
-            assert(m_root != nullptr && m_root->isFolder() && "root should be a folder node");
         }
+        assert(parent != nullptr && parent->isFolder() && "parent must be a folder node");
 
-        // document has a path
         if (hasPath) {
             if (not isUnderRoot(path)) {
                 return nullptr; // REVIEW: should return an error
             }
-
             if (m_pathMap.contains(path)) {
                 return nullptr; // REVIEW: should return an error? existing node?
             }
         }
 
-        // create the node
         parent->getFolder()->children.push_back(ptr);
     }
 
     m_nodes.emplace(ptr->id, std::move(node));
     doc->bindToProject(this, ptr);
-
     if (hasPath) {
         m_pathMap.emplace(ptr->path, ptr);
     }
@@ -113,14 +104,16 @@ auto Project::findNode(const Node::Id id) const -> const Node* {
 }
 
 auto Project::isUnderRoot(const std::filesystem::path& candidate) const -> bool {
-    // Empty candidate (untitled file) or empty root (unsaved Persistent /
-    // Ephemeral pre-init) — no meaningful constraint to enforce.
-    if (candidate.empty() || m_root->path.empty()) {
+    // Empty candidate (untitled file) or no anchor yet (Ephemeral pre-first-
+    // addFile, fresh Persistent before loader sets the root) — no meaningful
+    // constraint to enforce.
+    const auto* rootPath = (m_root != nullptr && !m_root->path.empty()) ? &m_root->path : nullptr;
+    if (candidate.empty() || rootPath == nullptr) {
         return true;
     }
     // Lexical comparison only — symlink resolution would require a
     // canonicalisation step that can fail on paths that don't exist yet.
-    const auto rel = candidate.lexically_relative(m_root->path);
+    const auto rel = candidate.lexically_relative(*rootPath);
     return !rel.empty() && !rel.native().starts_with("..");
 }
 
@@ -145,7 +138,7 @@ auto Project::setFilePath(Node* file, const std::filesystem::path& newPath) -> s
 void Project::setNodePath(Node* node, const std::filesystem::path& newPath) {
     assert(node != nullptr);
 
-    // m_byPath is the *file* lookup index — folders aren't openable so
+    // m_pathMap is the *file* lookup index — folders aren't openable so
     // they don't participate. Re-key it only when this is a file node.
     const bool isFile = node->isFile();
 
@@ -209,14 +202,12 @@ auto Project::addFolder(Node* parent, std::string name) -> Node* {
         .path = {},
         .entry = Node::Folder { .name = std::move(name), .children = {} },
     });
-    const auto nodeId = node->id;
     auto* nodePtr = node.get();
-    m_nodes.emplace(nodeId, std::move(node));
+    m_nodes.emplace(node->id, std::move(node));
     parent->getFolder()->children.push_back(nodePtr);
     return nodePtr;
 }
 
-// NOLINTNEXTLINE(performance-unnecessary-value-param)
 auto Project::addRealFolder(Node* parent, std::filesystem::path path) -> std::expected<Node*, Error> {
     assert(m_mode == Mode::Persistent && "folders are Persistent-only");
     if (parent == nullptr) {
@@ -384,7 +375,7 @@ void Project::deleteSubtreeFromDisk(Node* node, std::error_code& firstErr) {
     // Recurse into children first — covers virtual folders whose
     // descendants own real paths, and real folders whose descendants
     // sit outside their parent's directory.
-    if (auto* folder = node->getFolder()) {
+    if (const auto* folder = node->getFolder()) {
         for (auto* child : folder->children) {
             deleteSubtreeFromDisk(child, firstErr);
         }
@@ -477,11 +468,15 @@ auto Project::getDocuments() const -> std::vector<Document*> {
 
 auto Project::getSources() const -> std::vector<Document*> {
     if (isEphemeral()) {
-        return { m_root->getFile()->doc };
+        if (m_root == nullptr) {
+            return {};
+        }
+        auto* doc = m_root->getFile()->doc;
+        return doc != nullptr ? std::vector<Document*> { doc } : std::vector<Document*> {};
     }
     std::vector<Document*> result;
     for (const auto& node : m_nodes | std::views::values) {
-        if (const auto* file = node->getFile()) {
+        if (const auto* file = node->getFile(); file != nullptr && file->doc != nullptr) {
             if (node->path.extension() == ".bas") {
                 result.push_back(file->doc);
             }

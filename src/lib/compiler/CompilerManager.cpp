@@ -56,7 +56,7 @@ void CompilerManager::compileAndRun() {
     if (sources.empty()) {
         return;
     }
-    assert(sources.size() > 1 && "currently only one file can be compiled");
+    assert(sources.size() == 1 && "currently only one file can be compiled");
 
     m_task = std::make_unique<BuildTask>(m_ctx, *project);
     m_task->compileAndRun(toWxString(sources.front()->getFilePath()), false);
