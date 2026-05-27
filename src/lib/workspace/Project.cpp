@@ -27,6 +27,7 @@ auto rootFolderName(const std::filesystem::path& path) -> std::string {
 
 } // namespace
 
+// NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
 Project::Project(ConfigManager& config, const Mode mode)
 : m_config(config)
 , m_id(Id::generate())
@@ -51,6 +52,8 @@ Project::Project(ConfigManager& config, const Mode mode)
     m_root = m_nodes.emplace(rootId, std::move(root)).first->second.get();
 }
 
+// `path` taken by value so callers can move-in; moved into the Node below.
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 auto Project::addFile(Node* parent, std::filesystem::path path, Document* doc) -> Node* {
     if (parent == nullptr) {
         parent = m_root;
@@ -68,6 +71,10 @@ auto Project::addFile(Node* parent, std::filesystem::path path, Document* doc) -
             m_root->path = path.parent_path();
             m_root->getFolder()->name = rootFolderName(m_root->path);
         }
+    } else {
+        // Persistent: all members must live under the project root.
+        // No-op while root is empty (loader hasn't set one yet).
+        assert(isUnderRoot(path) && "Persistent file must live under project root");
     }
 
     if (!path.empty()) {
@@ -102,9 +109,35 @@ auto Project::findNode(const Node::Id id) const -> const Node* {
     return it != m_nodes.end() ? it->second.get() : nullptr;
 }
 
-void Project::setFilePath(Node* file, const std::filesystem::path& newPath) {
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
+void Project::setProjectRoot(std::filesystem::path path) {
+    m_root->path = std::move(path);
+    m_root->getFolder()->name = rootFolderName(m_root->path);
+}
+
+auto Project::isUnderRoot(const std::filesystem::path& candidate) const -> bool {
+    // Empty candidate (untitled file) or empty root (unsaved Persistent /
+    // Ephemeral pre-init) — no meaningful constraint to enforce.
+    if (candidate.empty() || m_root->path.empty()) {
+        return true;
+    }
+    // Lexical comparison only — symlink resolution would require a
+    // canonicalisation step that can fail on paths that don't exist yet.
+    const auto rel = candidate.lexically_relative(m_root->path);
+    return !rel.empty() && !rel.native().starts_with("..");
+}
+
+auto Project::setFilePath(Node* file, const std::filesystem::path& newPath) -> std::expected<void, Error> {
     assert(file != nullptr);
     assert(file->isFile() && "setFilePath is file-only; use renameNode for folders");
+
+    // Persistent projects keep all members under the project root —
+    // Save As to elsewhere is a UI-layer error. Ephemeral projects
+    // skip the check because their root moves to accommodate.
+    if (m_mode == Mode::Persistent && !isUnderRoot(newPath)) {
+        return std::unexpected(Error::OutOfTree);
+    }
+
     setNodePath(file, newPath);
     if (m_mode == Mode::Ephemeral) {
         // Keep the root folder's path/name aligned with the file's
@@ -113,6 +146,7 @@ void Project::setFilePath(Node* file, const std::filesystem::path& newPath) {
         m_root->path = newPath.empty() ? currentWorkingPath() : newPath.parent_path();
         m_root->getFolder()->name = rootFolderName(m_root->path);
     }
+    return {};
 }
 
 void Project::setNodePath(Node* node, const std::filesystem::path& path) {
@@ -166,6 +200,7 @@ auto isValidLeafName(const std::string& name) -> bool {
 
 } // namespace
 
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 auto Project::addFolder(Node* parent, std::string name) -> Node* {
     assert(m_mode == Mode::Persistent && "folders are Persistent-only");
     if (parent == nullptr) {
@@ -187,6 +222,7 @@ auto Project::addFolder(Node* parent, std::string name) -> Node* {
     return nodePtr;
 }
 
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 auto Project::addRealFolder(Node* parent, std::filesystem::path path) -> std::expected<Node*, Error> {
     assert(m_mode == Mode::Persistent && "folders are Persistent-only");
     if (parent == nullptr) {
@@ -195,6 +231,7 @@ auto Project::addRealFolder(Node* parent, std::filesystem::path path) -> std::ex
     assert(parent != nullptr);
     assert(parent->isFolder() && "parent must be a folder");
     assert(!path.empty() && "addRealFolder requires a path");
+    assert(isUnderRoot(path) && "Persistent folder must live under project root");
 
     std::error_code ec;
     if (std::filesystem::exists(path, ec)) {
@@ -267,8 +304,8 @@ auto Project::moveNode(Node* node, Node* newParent, const std::size_t index) -> 
     assert(newParent->isFolder() && "newParent must be a folder");
 
     // Cycle prevention: walking newParent's ancestry must never reach node.
-    for (const auto* p = newParent; p != nullptr; p = p->parent) {
-        assert(p != node && "moveNode would create a cycle");
+    for (const auto* cursor = newParent; cursor != nullptr; cursor = cursor->parent) {
+        assert(cursor != node && "moveNode would create a cycle");
     }
 
     auto& oldChildren = node->parent->getFolder()->children;
@@ -318,6 +355,7 @@ auto Project::moveNode(Node* node, Node* newParent, const std::size_t index) -> 
     return {};
 }
 
+// NOLINTNEXTLINE(performance-unnecessary-value-param)
 auto Project::renameNode(Node* node, std::string newName) -> std::expected<void, Error> {
     assert(node != nullptr);
 

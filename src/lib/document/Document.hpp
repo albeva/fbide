@@ -36,6 +36,8 @@ public:
     [[nodiscard]] auto getPreviousType() const -> DocumentType { return m_previous; }
 
     [[nodiscard]] auto Clone() const -> wxEvent* override {
+        // wxEvent::Clone contract: caller (wxWidgets event loop) takes ownership.
+        // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
         return new DocumentTypeChangedEvent(*this);
     }
 
