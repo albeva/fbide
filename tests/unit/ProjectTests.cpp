@@ -193,10 +193,48 @@ TEST_F(ProjectTest, AddFileNodesAreUnique) {
     EXPECT_NE(first, second);
 }
 
-TEST_F(ProjectTest, EphemeralRootIsTheAddedFile) {
+TEST_F(ProjectTest, EphemeralRootIsFolderHostingTheFile) {
     auto project = makeProject(Project::Mode::Ephemeral);
-    auto* node = project.addFile(nullptr, fs::path { "/tmp/main.bas" });
-    EXPECT_EQ(project.getRoot(), node);
+    auto* file = project.addFile(nullptr, fs::path { "/tmp/main.bas" });
+    auto* root = project.getRoot();
+    ASSERT_NE(root, nullptr);
+    EXPECT_TRUE(root->isFolder());
+    EXPECT_EQ(file->parent, root);
+    const auto& children = root->getFolder()->children;
+    ASSERT_EQ(children.size(), 1U);
+    EXPECT_EQ(children.front(), file);
+}
+
+TEST_F(ProjectTest, EphemeralRootPathFollowsSavedFile) {
+    auto project = makeProject(Project::Mode::Ephemeral);
+    project.addFile(nullptr, fs::path { "/foo/bar/baz.bas" });
+    EXPECT_EQ(project.getRoot()->path, fs::path { "/foo/bar" });
+    EXPECT_EQ(project.getRoot()->getFolder()->name, "bar");
+}
+
+TEST_F(ProjectTest, EphemeralRootPathFallsBackToCwdForUntitled) {
+    auto project = makeProject(Project::Mode::Ephemeral);
+    project.addFile(nullptr, {});
+    std::error_code ec;
+    const auto cwd = fs::current_path(ec);
+    ASSERT_FALSE(ec);
+    EXPECT_EQ(project.getRoot()->path, cwd);
+}
+
+TEST_F(ProjectTest, EphemeralSetFilePathUpdatesRoot) {
+    auto project = makeProject(Project::Mode::Ephemeral);
+    auto* file = project.addFile(nullptr, fs::path { "/old/a.bas" });
+    project.setFilePath(file, fs::path { "/new/b.bas" });
+    EXPECT_EQ(project.getRoot()->path, fs::path { "/new" });
+    EXPECT_EQ(project.getRoot()->getFolder()->name, "new");
+}
+
+TEST_F(ProjectTest, PersistentRootIsEmptyFolder) {
+    const auto project = makeProject(Project::Mode::Persistent);
+    auto* root = project.getRoot();
+    ASSERT_NE(root, nullptr);
+    EXPECT_TRUE(root->isFolder());
+    EXPECT_TRUE(root->path.empty());
 }
 
 TEST_F(ProjectTest, PersistentChildIsLinkedUnderRoot) {
@@ -206,7 +244,7 @@ TEST_F(ProjectTest, PersistentChildIsLinkedUnderRoot) {
     auto* child = project.addFile(root, fs::path { "/tmp/a.bas" });
     ASSERT_NE(child, nullptr);
     EXPECT_EQ(child->parent, root);
-    const auto& children = std::get<Project::Node::Folder>(root->entry).children;
+    const auto& children = root->getFolder()->children;
     ASSERT_EQ(children.size(), 1U);
     EXPECT_EQ(children.front(), child);
 }
@@ -314,7 +352,7 @@ TEST_F(ProjectTest, AddFolderVirtualUnderRoot) {
     auto* folder = project.addFolder(project.getRoot(), "Sources");
     ASSERT_NE(folder, nullptr);
     EXPECT_TRUE(folder->path.empty());
-    EXPECT_EQ(std::get<Project::Node::Folder>(folder->entry).name, "Sources");
+    EXPECT_EQ(folder->getFolder()->name, "Sources");
     EXPECT_EQ(folder->parent, project.getRoot());
 }
 
@@ -323,7 +361,7 @@ TEST_F(ProjectTest, AddFolderNested) {
     auto* outer = project.addFolder(project.getRoot(), "outer");
     auto* inner = project.addFolder(outer, "inner");
     EXPECT_EQ(inner->parent, outer);
-    const auto& outerChildren = std::get<Project::Node::Folder>(outer->entry).children;
+    const auto& outerChildren = outer->getFolder()->children;
     ASSERT_EQ(outerChildren.size(), 1U);
     EXPECT_EQ(outerChildren.front(), inner);
 }
@@ -378,7 +416,7 @@ TEST_F(ProjectTest, RemoveFileDetachesFromParent) {
     const auto result = project.removeNode(file);
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(project.findNode(fileId), nullptr);
-    EXPECT_TRUE(std::get<Project::Node::Folder>(root->entry).children.empty());
+    EXPECT_TRUE(root->getFolder()->children.empty());
 }
 
 TEST_F(ProjectTest, RemoveFolderIsRecursive) {
@@ -442,7 +480,7 @@ TEST_F(ProjectTest, MoveReordersWithinSameParent) {
     auto* c = project.addFile(root, fs::path { "/tmp/c.bas" });
     // [a, b, c] → move a to last
     ASSERT_TRUE(project.moveNode(a, root, 2).has_value());
-    const auto& children = std::get<Project::Node::Folder>(root->entry).children;
+    const auto& children = root->getFolder()->children;
     ASSERT_EQ(children.size(), 3U);
     EXPECT_EQ(children[0], b);
     EXPECT_EQ(children[1], c);
@@ -457,8 +495,8 @@ TEST_F(ProjectTest, MoveReparentsBetweenVirtualFolders) {
 
     ASSERT_TRUE(project.moveNode(file, lib, 0).has_value());
     EXPECT_EQ(file->parent, lib);
-    EXPECT_TRUE(std::get<Project::Node::Folder>(src->entry).children.empty());
-    const auto& libChildren = std::get<Project::Node::Folder>(lib->entry).children;
+    EXPECT_TRUE(src->getFolder()->children.empty());
+    const auto& libChildren = lib->getFolder()->children;
     ASSERT_EQ(libChildren.size(), 1U);
     EXPECT_EQ(libChildren.front(), file);
     // Virtual parents: file path is untouched.
@@ -508,7 +546,7 @@ TEST_F(ProjectTest, RenameVirtualFolder) {
     auto project = makeProject(Project::Mode::Persistent);
     auto* folder = project.addFolder(project.getRoot(), "old");
     ASSERT_TRUE(project.renameNode(folder, "new").has_value());
-    EXPECT_EQ(std::get<Project::Node::Folder>(folder->entry).name, "new");
+    EXPECT_EQ(folder->getFolder()->name, "new");
     EXPECT_TRUE(folder->path.empty());
 }
 
@@ -536,7 +574,7 @@ TEST_F(ProjectTest, RenameRealFolderUpdatesDescendantPaths) {
 
     ASSERT_TRUE(project.renameNode(folder, "source").has_value());
     EXPECT_EQ(folder->path, base / "source");
-    EXPECT_EQ(std::get<Project::Node::Folder>(folder->entry).name, "source");
+    EXPECT_EQ(folder->getFolder()->name, "source");
     EXPECT_EQ(file->path, base / "source" / "foo.bas");
     EXPECT_TRUE(fs::exists(base / "source" / "foo.bas"));
 }
@@ -570,4 +608,69 @@ TEST_F(ProjectTest, RenameRejectsNameWithSeparator) {
     const auto result = project.renameNode(folder, "sub/folder");
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), Project::Error::InvalidName);
+}
+
+// --- nullptr parent defaults to root --------------------------------------
+
+TEST_F(ProjectTest, AddFolderNullParentDefaultsToRoot) {
+    auto project = makeProject(Project::Mode::Persistent);
+    auto* folder = project.addFolder(nullptr, "X");
+    EXPECT_EQ(folder->parent, project.getRoot());
+}
+
+TEST_F(ProjectTest, AddRealFolderNullParentDefaultsToRoot) {
+    auto project = makeProject(Project::Mode::Persistent);
+    const auto dir = fs::path(m_tmp.path().ToStdString()) / "auto";
+    auto* folder = project.addRealFolder(nullptr, dir).value();
+    EXPECT_EQ(folder->parent, project.getRoot());
+}
+
+// --- moveNode auto-mv via closest real ancestor ---------------------------
+
+TEST_F(ProjectTest, MoveIntoVirtualWalksUpToRealAncestor) {
+    auto project = makeProject(Project::Mode::Persistent);
+    const auto base = fs::path(m_tmp.path().ToStdString());
+    fs::create_directory(base / "lib");
+    { std::ofstream { base / "foo.bas" } << "x"; }
+
+    auto* realLib = project.addRealFolder(nullptr, base / "lib").value();
+    auto* virtualGroup = project.addFolder(realLib, "Group");
+    auto* file = project.addFile(nullptr, base / "foo.bas");
+
+    ASSERT_TRUE(project.moveNode(file, virtualGroup, 0).has_value());
+    EXPECT_EQ(file->path, base / "lib" / "foo.bas");
+    EXPECT_TRUE(fs::exists(base / "lib" / "foo.bas"));
+    EXPECT_FALSE(fs::exists(base / "foo.bas"));
+}
+
+TEST_F(ProjectTest, MoveIntoFullyVirtualAncestrySkipsDiskMove) {
+    auto project = makeProject(Project::Mode::Persistent);
+    const auto base = fs::path(m_tmp.path().ToStdString());
+    const auto filePath = base / "stays.bas";
+    { std::ofstream { filePath } << "x"; }
+
+    // Persistent root has empty path until a loader sets it. The whole
+    // ancestry of `nest` is virtual, so the move skips fs::rename.
+    auto* outer = project.addFolder(nullptr, "Outer");
+    auto* nest = project.addFolder(outer, "Nest");
+    auto* file = project.addFile(nullptr, filePath);
+
+    ASSERT_TRUE(project.moveNode(file, nest, 0).has_value());
+    EXPECT_EQ(file->path, filePath);
+    EXPECT_TRUE(fs::exists(filePath));
+}
+
+// --- removeNode disk-delete walks descendants -----------------------------
+
+TEST_F(ProjectTest, RemoveVirtualFolderDeletesRealDescendantsOnDisk) {
+    auto project = makeProject(Project::Mode::Persistent);
+    const auto base = fs::path(m_tmp.path().ToStdString());
+    const auto filePath = base / "buried.bas";
+    { std::ofstream { filePath } << "x"; }
+
+    auto* virtualGroup = project.addFolder(nullptr, "VG");
+    project.addFile(virtualGroup, filePath);
+
+    ASSERT_TRUE(project.removeNode(virtualGroup, /*deleteOnDisk=*/true).has_value());
+    EXPECT_FALSE(fs::exists(filePath));
 }
