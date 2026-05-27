@@ -13,7 +13,6 @@
 #include "analyses/intellisense/IntellisenseService.hpp"
 #include "app/App.hpp"
 #include "app/Context.hpp"
-#include "workspace/WorkspaceManager.hpp"
 #include "command/CommandManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
@@ -22,6 +21,7 @@
 #include "editor/EditorPanel.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
+#include "workspace/WorkspaceManager.hpp"
 using namespace fbide;
 
 namespace {
@@ -357,19 +357,22 @@ auto DocumentManager::saveFileAs(Document& doc) -> bool {
         return false;
     }
 
+    // Close any clashing tab BEFORE retargeting `doc`. For Persistent
+    // projects, that doc's project node still owns `newPath` in the
+    // project's path index; if we set our doc's path first,
+    // Project::setFilePath would collide. Closing it first releases
+    // the index entry (or, for Ephemeral, tears the whole project
+    // down) so the retarget is unambiguous.
+    if (clash != nullptr && clash != &doc) {
+        clash->markSaved();
+        closeFile(*clash);
+    }
+
     doc.setFilePath(newPath);
     doc.markSaved();
     doc.updateModTime();
     refreshTitleFor(doc);
     promptRestartIfConfig(newPath);
-
-    if (clash != nullptr && clash != &doc) {
-        // Two tabs showing the same file is redundant. The user already
-        // confirmed the overwrite, so close the mirror tab without
-        // re-prompting about its now-stale buffer.
-        clash->markSaved();
-        closeFile(*clash);
-    }
     return true;
 }
 

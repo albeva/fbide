@@ -25,6 +25,14 @@ class Document;
  *   on-disk; can group many files and own non-source assets (images,
  *   `Info.plist`, etc.). Survives type changes of its members.
  *
+ * Every project has a single `Folder` root node that names the project's
+ * on-disk anchor:
+ *
+ * - **Ephemeral**: the directory containing the single source file
+ *   (falls back to cwd while the file is untitled; updated on save).
+ * - **Persistent**: the directory containing the project file (empty
+ *   during in-process creation; set by the loader).
+ *
  * Files (and folders, eventually) are arranged in a flat node arena.
  * `m_nodes` owns each `Node` via `unique_ptr` — keyed by `Node::Id` so
  * the per-node identity round-trips through serialisation — but every
@@ -110,6 +118,36 @@ public:
 
         using Entry = std::variant<File, Folder>;
 
+        /// Checks that node holds a Folder
+        [[nodiscard]] auto isFolder() const -> bool {
+            return std::holds_alternative<Folder>(entry);
+        }
+
+        /// If node contains a Folder, get a pointer to it, nullptr otherwise
+        [[nodiscard]] auto getFolder() -> Folder* {
+            return std::get_if<Folder>(&entry);
+        }
+
+        /// Const overload of `getFolder`.
+        [[nodiscard]] auto getFolder() const -> const Folder* {
+            return std::get_if<Folder>(&entry);
+        }
+
+        /// Checks that node holds a File
+        [[nodiscard]] auto isFile() const -> bool {
+            return std::holds_alternative<File>(entry);
+        }
+
+        /// If node contains a File, get a pointer to it, nullptr otherwise
+        [[nodiscard]] auto getFile() -> File* {
+            return std::get_if<File>(&entry);
+        }
+
+        /// Const overload of `getFile`.
+        [[nodiscard]] auto getFile() const -> const File* {
+            return std::get_if<File>(&entry);
+        }
+
         Id id;                  ///< Stable identity (matches the map key in `Project::m_nodes`).
         Node* parent = nullptr; ///< Parent folder, or null for the root.
         /// On-disk location of this node. Empty for untitled files
@@ -138,31 +176,34 @@ public:
     /// Convenience: true when `getMode() == Mode::Ephemeral`.
     [[nodiscard]] auto isEphemeral() const -> bool { return m_mode == Mode::Ephemeral; }
 
-    /// Insert a file node into the project. For **Ephemeral** projects
-    /// `parent` must be null and no file may have been added yet — the
-    /// new node becomes the root. For **Persistent** projects `parent`
-    /// must be a folder owned by this project (typically `getRoot()` or
-    /// a deeper folder). `path` may be empty for an untitled document;
-    /// bind it later via `setNodePath`. `doc` is the optional
-    /// `Document*` back-link (the project never dereferences it).
+    /// Insert a file node into the project. `parent` may be `nullptr`,
+    /// which defaults to `getRoot()`. For **Ephemeral** projects only
+    /// one file may be added and it must sit under the root. For
+    /// **Persistent** projects `parent` (or its default) must be a
+    /// folder owned by this project. `path` may be empty for an
+    /// untitled document; bind it later via `setFilePath`. `doc` is the
+    /// optional `Document*` back-link (the project never dereferences
+    /// it).
     /// @returns The new node, owned by the project; the pointer stays
     /// valid until the node is explicitly removed.
     auto addFile(Node* parent, std::filesystem::path path, Document* doc = nullptr) -> Node*;
 
     /// Bulk add — convenience for "user dropped N files into folder X".
     /// Each path is added with no `Document*` back-link; iteration order
-    /// matches the input span. Persistent only.
+    /// matches the input span. `parent == nullptr` defaults to
+    /// `getRoot()`. Persistent only.
     auto addFiles(Node* parent, std::span<const std::filesystem::path> paths) -> std::vector<Node*>;
 
     /// Insert a virtual folder (Visual-Studio-style "filter" with no
     /// on-disk counterpart). `name` may be any string; collision with
     /// sibling names is allowed (virtual folders are display-only).
-    /// Persistent only.
+    /// `parent == nullptr` defaults to `getRoot()`. Persistent only.
     auto addFolder(Node* parent, std::string name) -> Node*;
 
-    /// Insert a real folder mapped to an on-disk directory. The directory
-    /// is created if missing (`fs::create_directory` recursively). The
-    /// new folder's `name` mirrors `path.filename()`. Persistent only.
+    /// Insert a real folder mapped to an on-disk directory. The
+    /// directory is created if missing (`fs::create_directories`). The
+    /// new folder's `name` mirrors `path.filename()`. `parent ==
+    /// nullptr` defaults to `getRoot()`. Persistent only.
     /// @returns the new folder, or `Error::IoError` / `Error::Clash`
     /// when the disk side cannot be set up.
     auto addRealFolder(Node* parent, std::filesystem::path path) -> std::expected<Node*, Error>;
@@ -214,7 +255,18 @@ public:
     /// an untitled file is first saved. The new path may live anywhere
     /// on disk — there's no in-place constraint. Does not touch the
     /// file on disk; the caller has just written it.
-    /// For in-place rename with disk side-effects, use `renameNode`.
+    ///
+    /// Related ops at a glance:
+    ///   - `setFilePath(file, newPath)` — *retarget* a file's identity
+    ///     to a path the caller has just produced on disk (Save As /
+    ///     first save). No disk side-effect; the new path may live
+    ///     anywhere.
+    ///   - `renameNode(node, newName)` — *in-place* rename of a file
+    ///     or folder; performs the `fs::rename` itself. `newName` is
+    ///     a single path component (no separators).
+    ///   - `moveNode(node, newParent, index)` — reparent or reorder;
+    ///     for real-under-real moves, does the `fs::rename` to follow
+    ///     the new tree position.
     void setFilePath(Node* file, const std::filesystem::path& newPath);
 
     /// Drop the `Document*` back-link on the given file node. Used by
@@ -223,15 +275,15 @@ public:
     /// call, `getDocuments()` would still report the unbound doc.
     void clearNodeDocument(Node* node);
 
-    /// Root of the project tree. For Persistent projects this is the
-    /// synthesised virtual folder; for Ephemeral projects it is the
-    /// single `File` node (null until `addFile` runs).
+    /// Root of the project tree — always a `Folder` node representing
+    /// the project's on-disk anchor directory. Always non-null.
     [[nodiscard]] auto getRoot() -> Node* { return m_root; }
     /// Const overload of `getRoot`.
     [[nodiscard]] auto getRoot() const -> const Node* { return m_root; }
 
-    /// The single bound document of an Ephemeral project. Returns nullptr
-    /// if no file has been added or no document is bound.
+    /// The single bound document of an Ephemeral project — resolved as
+    /// the `Document*` back-link on the root's lone child file. Returns
+    /// nullptr if no file has been added or no document is bound.
     /// **Defined only for `Mode::Ephemeral`** — asserts otherwise.
     [[nodiscard]] auto getPrimarySource() const -> Document*;
 
@@ -287,6 +339,14 @@ private:
     /// then erase from `m_nodes`. The caller is responsible for first
     /// removing `node` from its parent's children list.
     void destroySubtree(Node* node);
+
+    /// Recursively unlink the on-disk artifacts of `node` and its
+    /// descendants. Virtual folders contribute nothing of their own
+    /// but their real-pathed descendants are still removed. First
+    /// `std::error_code` to fail (if any) is written to `firstErr`;
+    /// subsequent failures are ignored so cleanup makes maximum
+    /// progress.
+    void deleteSubtreeFromDisk(Node* node, std::error_code& firstErr);
 
     /// Rewrite path-bearing descendants of `folder` so paths that lived
     /// under `oldPrefix` now live under `newPrefix`. Used after a real
