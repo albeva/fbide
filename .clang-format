@@ -2,6 +2,7 @@
 BasedOnStyle: WebKit
 Language: Cpp
 Standard: c++20
+ColumnLimit: 0
 AlignAfterOpenBracket: false
 AlignOperands: AlignAfterOperator
 BreakBeforeBraces: Attach

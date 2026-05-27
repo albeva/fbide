@@ -6,6 +6,7 @@
 //
 #include "Project.hpp"
 #include "config/ConfigManager.hpp"
+#include "document/Document.hpp"
 
 using namespace fbide;
 
@@ -32,73 +33,73 @@ Project::Project(ConfigManager& config, const Mode mode)
 : m_config(config)
 , m_id(Id::generate())
 , m_mode(mode) {
-    // Both modes carry a single Folder root that represents the
-    // project's on-disk anchor — the directory containing the file
-    // (Ephemeral) or the directory containing the project file
-    // (Persistent). Ephemeral falls back to cwd while no file has been
-    // added; Persistent stays path-less until a loader supplies one.
-    std::filesystem::path rootPath;
-    if (mode == Mode::Ephemeral) {
-        rootPath = currentWorkingPath();
+    m_path = rootFolderName(currentWorkingPath());
+
+    if (mode == Mode::Persistent) {
+        const auto id = Node::Id::generate();
+        auto root = std::make_unique<Node>(Node {
+            .id = id,
+            .parent = nullptr,
+            .path = {},
+            .entry = Node::Folder { .name = "", .children = {} },
+        });
+        m_root = m_nodes.emplace(id, std::move(root)).first->second.get();
     }
-    auto rootName = rootFolderName(rootPath);
-    auto root = std::make_unique<Node>(Node {
-        .id = Node::Id::generate(),
-        .parent = nullptr,
-        .path = std::move(rootPath),
-        .entry = Node::Folder { .name = std::move(rootName), .children = {} },
-    });
-    const auto rootId = root->id;
-    m_root = m_nodes.emplace(rootId, std::move(root)).first->second.get();
 }
 
 // `path` taken by value so callers can move-in; moved into the Node below.
-// NOLINTNEXTLINE(performance-unnecessary-value-param)
-auto Project::addFile(Node* parent, std::filesystem::path path, Document* doc) -> Node* {
-    if (parent == nullptr) {
-        parent = m_root;
-    }
-    assert(parent != nullptr && "no parent");
-    assert(parent->isFolder() && "parent must be a folder");
+auto Project::addFile(Document* doc, Node* parent) -> Node* {
+    const auto path = doc->getFilePath();
+    const auto hasPath = not path.empty();
 
-    if (m_mode == Mode::Ephemeral) {
-        // Ephemeral hosts exactly one file, attached directly under root.
-        assert(parent == m_root && "Ephemeral file lives directly under root");
-        assert(m_root->getFolder()->children.empty() && "Ephemeral hosts exactly one file");
-        // Root folder mirrors the file's containing directory once the
-        // file is saved; until then it keeps the cwd from construction.
-        if (!path.empty()) {
-            m_root->path = path.parent_path();
-            m_root->getFolder()->name = rootFolderName(m_root->path);
-        }
-    } else {
-        // Persistent: all members must live under the project root.
-        // No-op while root is empty (loader hasn't set one yet).
-        assert(isUnderRoot(path) && "Persistent file must live under project root");
+    if (parent != nullptr) {
+        assert(m_nodes.contains(parent->id) && "parent should be part of this project");
     }
 
-    if (!path.empty()) {
-        // m_byPath must stay one-key-one-node — a collision would mask
-        // one of the entries and silently break "is this path mine?"
-        // queries. Trap in debug.
-        assert(!m_byPath.contains(path) && "duplicate path in project node index");
-    }
-
+    // create teh file node
     auto node = std::make_unique<Node>(Node {
         .id = Node::Id::generate(),
-        .parent = parent,
+        .parent = nullptr,
         .path = std::move(path),
         .entry = Node::File { .doc = doc },
     });
-    const auto nodeId = node->id;
-    auto* nodePtr = m_nodes.emplace(nodeId, std::move(node)).first->second.get();
-    if (!nodePtr->path.empty()) {
-        m_byPath.emplace(nodePtr->path, nodePtr);
+    auto* ptr = node.get();
+
+    // Ephemeral projects only have a single file as a root
+    if (m_mode == Mode::Ephemeral) {
+        assert(m_root == nullptr && "Ephemeral project should have no root");
+        assert(parent == nullptr && "Ephemeral projct file should not have a parent");
+        m_root = ptr;
+        m_path = hasPath ? ptr->path.parent_path() : currentWorkingPath();
+    } else {
+        if (parent == nullptr) {
+            parent = m_root;
+            assert(m_root != nullptr && m_root->isFolder() && "root should be a folder node");
+        }
+
+        // document has a path
+        if (hasPath) {
+            if (not isUnderRoot(path)) {
+                return nullptr; // REVIEW: should return an error
+            }
+
+            if (m_pathMap.contains(path)) {
+                return nullptr; // REVIEW: should return an error? existing node?
+            }
+        }
+
+        // create the node
+        parent->getFolder()->children.push_back(ptr);
     }
-    parent->getFolder()->children.push_back(nodePtr);
-    // Seed status + lastSeenModTime from current on-disk state.
-    refreshStatus(nodePtr);
-    return nodePtr;
+
+    m_nodes.emplace(ptr->id, std::move(node));
+    doc->bindToProject(this, ptr);
+
+    if (hasPath) {
+        m_pathMap.emplace(ptr->path, ptr);
+    }
+
+    return ptr;
 }
 
 auto Project::findNode(const Node::Id id) -> Node* {
@@ -111,12 +112,6 @@ auto Project::findNode(const Node::Id id) const -> const Node* {
     return it != m_nodes.end() ? it->second.get() : nullptr;
 }
 
-// NOLINTNEXTLINE(performance-unnecessary-value-param)
-void Project::setProjectRoot(std::filesystem::path path) {
-    m_root->path = std::move(path);
-    m_root->getFolder()->name = rootFolderName(m_root->path);
-}
-
 auto Project::isUnderRoot(const std::filesystem::path& candidate) const -> bool {
     // Empty candidate (untitled file) or empty root (unsaved Persistent /
     // Ephemeral pre-init) — no meaningful constraint to enforce.
@@ -127,53 +122,6 @@ auto Project::isUnderRoot(const std::filesystem::path& candidate) const -> bool 
     // canonicalisation step that can fail on paths that don't exist yet.
     const auto rel = candidate.lexically_relative(m_root->path);
     return !rel.empty() && !rel.native().starts_with("..");
-}
-
-auto Project::refreshStatus(Node* node) -> Node::Status {
-    assert(node != nullptr);
-
-    // Virtual folders and untitled files have no on-disk presence to
-    // verify — they're always Healthy.
-    if (node->path.empty()) {
-        node->status = Node::Status::Healthy;
-        node->lastSeenModTime = {};
-        return node->status;
-    }
-
-    std::error_code ec;
-    if (!std::filesystem::exists(node->path, ec)) {
-        node->status = Node::Status::Missing;
-        return node->status;
-    }
-
-    if (node->isFile()) {
-        const auto currentMtime = std::filesystem::last_write_time(node->path, ec);
-        if (ec) {
-            // Stat failed even though exists() said yes — race or
-            // permission flap. Treat as Missing rather than guessing.
-            node->status = Node::Status::Missing;
-        } else if (node->lastSeenModTime == std::filesystem::file_time_type {}) {
-            // First sighting — adopt the current mtime as the baseline.
-            node->lastSeenModTime = currentMtime;
-            node->status = Node::Status::Healthy;
-        } else if (currentMtime != node->lastSeenModTime) {
-            node->status = Node::Status::ExternalModified;
-        } else {
-            node->status = Node::Status::Healthy;
-        }
-    } else {
-        // Folder existence is enough — directory mtimes shift for
-        // unrelated reasons (inode creates / deletes inside) and would
-        // generate false positives.
-        node->status = Node::Status::Healthy;
-    }
-    return node->status;
-}
-
-void Project::refreshAll() {
-    for (const auto& nodePtr : m_nodes | std::views::values) {
-        refreshStatus(nodePtr.get());
-    }
 }
 
 auto Project::setFilePath(Node* file, const std::filesystem::path& newPath) -> std::expected<void, Error> {
@@ -189,16 +137,12 @@ auto Project::setFilePath(Node* file, const std::filesystem::path& newPath) -> s
 
     setNodePath(file, newPath);
     if (m_mode == Mode::Ephemeral) {
-        // Keep the root folder's path/name aligned with the file's
-        // containing directory; if the file becomes untitled, fall
-        // back to cwd so the root still names a real directory.
-        m_root->path = newPath.empty() ? currentWorkingPath() : newPath.parent_path();
-        m_root->getFolder()->name = rootFolderName(m_root->path);
+        m_path = newPath.empty() ? currentWorkingPath() : newPath.parent_path();
     }
     return {};
 }
 
-void Project::setNodePath(Node* node, const std::filesystem::path& path) {
+void Project::setNodePath(Node* node, const std::filesystem::path& newPath) {
     assert(node != nullptr);
 
     // m_byPath is the *file* lookup index — folders aren't openable so
@@ -206,17 +150,14 @@ void Project::setNodePath(Node* node, const std::filesystem::path& path) {
     const bool isFile = node->isFile();
 
     if (isFile && !node->path.empty()) {
-        m_byPath.erase(node->path);
+        m_pathMap.erase(node->path);
     }
-    node->path = path;
-    if (isFile && !path.empty()) {
-        assert(!m_byPath.contains(path) && "duplicate path in project node index");
-        m_byPath.emplace(path, node);
+
+    node->path = newPath;
+    if (isFile && !newPath.empty()) {
+        assert(!m_pathMap.contains(newPath) && "duplicate path in project node index");
+        m_pathMap.emplace(newPath, node);
     }
-    // Re-anchor the on-disk baseline against the new path: previous
-    // mtime is meaningless after a move/rename.
-    node->lastSeenModTime = {};
-    refreshStatus(node);
 }
 
 void Project::clearNodeDocument(Node* node) {
@@ -312,17 +253,7 @@ auto Project::addRealFolder(Node* parent, std::filesystem::path path) -> std::ex
     auto* nodePtr = node.get();
     m_nodes.emplace(nodeId, std::move(node));
     parent->getFolder()->children.push_back(nodePtr);
-    refreshStatus(nodePtr);
     return nodePtr;
-}
-
-auto Project::addFiles(Node* parent, std::span<const std::filesystem::path> paths) -> std::vector<Node*> {
-    std::vector<Node*> result;
-    result.reserve(paths.size());
-    for (const auto& path : paths) {
-        result.push_back(addFile(parent, path));
-    }
-    return result;
 }
 
 auto Project::removeNode(Node* node, const bool deleteOnDisk) -> std::expected<void, Error> {
@@ -409,7 +340,6 @@ auto Project::moveNode(Node* node, Node* newParent, const std::size_t index) -> 
     return {};
 }
 
-// NOLINTNEXTLINE(performance-unnecessary-value-param)
 auto Project::renameNode(Node* node, std::string newName) -> std::expected<void, Error> {
     assert(node != nullptr);
 
@@ -481,7 +411,7 @@ void Project::destroySubtree(Node* node) {
 
     // Tear down children first so any path-index entries they own go
     // away in the right order.
-    if (auto* folder = node->getFolder()) {
+    if (const auto* folder = node->getFolder()) {
         // Snapshot — destroying children would otherwise invalidate
         // the live `children` vector we're iterating.
         const auto children = folder->children;
@@ -490,7 +420,7 @@ void Project::destroySubtree(Node* node) {
         }
     }
     if (!node->path.empty() && node->isFile()) {
-        m_byPath.erase(node->path);
+        m_pathMap.erase(node->path);
     }
     m_nodes.erase(node->id);
 }
@@ -534,25 +464,27 @@ void Project::rewriteSubtreePaths(Node* folder, const std::filesystem::path& old
     }
 }
 
-auto Project::getPrimarySource() const -> Document* {
-    assert(m_mode == Mode::Ephemeral && "getPrimarySource is ephemeral-only");
-
-    // Ephemeral: root is always present (created in ctor); the single
-    // source file is its first (and only) child once addFile has run.
-    const auto& children = m_root->getFolder()->children;
-    if (children.empty()) {
-        return nullptr;
-    }
-    const auto* file = children.front()->getFile();
-    return file != nullptr ? file->doc : nullptr;
-}
-
 auto Project::getDocuments() const -> std::vector<Document*> {
     std::vector<Document*> result;
     result.reserve(m_nodes.size());
     for (const auto& nodePtr : m_nodes | std::views::values) {
         if (const auto* file = nodePtr->getFile(); file != nullptr && file->doc != nullptr) {
             result.push_back(file->doc);
+        }
+    }
+    return result;
+}
+
+auto Project::getSources() const -> std::vector<Document*> {
+    if (isEphemeral()) {
+        return { m_root->getFile()->doc };
+    }
+    std::vector<Document*> result;
+    for (const auto& node : m_nodes | std::views::values) {
+        if (const auto* file = node->getFile()) {
+            if (node->path.extension() == ".bas") {
+                result.push_back(file->doc);
+            }
         }
     }
     return result;

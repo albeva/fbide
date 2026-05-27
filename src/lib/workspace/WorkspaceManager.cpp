@@ -37,16 +37,14 @@ auto WorkspaceManager::resolveOrOpen(const std::filesystem::path& path) -> Docum
     return docManager.openFile(path);
 }
 
-auto WorkspaceManager::createEphemeral(Document& doc) -> Project& {
+auto WorkspaceManager::createEphemeral(Document& doc) -> Project* {
     assert(doc.getProject() == nullptr && "document already bound to a project");
     assert(doc.getType() == DocumentType::FreeBASIC && "ephemeral projects only host FreeBASIC documents");
 
-    std::filesystem::path path = doc.getFilePath();
     auto project = std::make_unique<Project>(m_ctx.getConfigManager(), Project::Mode::Ephemeral);
-    auto* node = project->addFile(nullptr, std::move(path), &doc);
-    doc.bindToProject(*project, node);
+    project->addFile(&doc);
 
-    return *m_projects.emplace(project->getId(), std::move(project)).first->second;
+    return m_projects.emplace(project->getId(), std::move(project)).first->second.get();
 }
 
 void WorkspaceManager::destroyEphemeral(Document& doc) {

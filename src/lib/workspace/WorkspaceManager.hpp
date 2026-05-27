@@ -61,7 +61,7 @@ public:
     /// in the document is lifted onto the project's single file node
     /// before the document is rebound to that node — `getFilePath()`
     /// returns the same value either side of the call.
-    auto createEphemeral(Document& doc) -> Project&;
+    auto createEphemeral(Document& doc) -> Project*;
 
     /// Tear down the Ephemeral project bound to `doc`. Unbinds the
     /// document first (so its path is restored to the variant) and

@@ -35,13 +35,15 @@ void CompilerManager::compile() {
     if (project == nullptr || !ensureSaved(*project)) {
         return;
     }
-    auto* doc = project->getPrimarySource();
-    if (doc == nullptr) {
+
+    const auto sources = project->getSources();
+    if (sources.empty()) {
         return;
     }
+    assert(sources.size() == 1 && "currently only one file can be compiled");
 
     m_task = std::make_unique<BuildTask>(m_ctx, *project);
-    m_task->compile(toWxString(doc->getFilePath()));
+    m_task->compile(toWxString(sources.front()->getFilePath()));
 }
 
 void CompilerManager::compileAndRun() {
@@ -49,13 +51,15 @@ void CompilerManager::compileAndRun() {
     if (project == nullptr || !ensureSaved(*project)) {
         return;
     }
-    auto* doc = project->getPrimarySource();
-    if (doc == nullptr) {
+
+    const auto sources = project->getSources();
+    if (sources.empty()) {
         return;
     }
+    assert(sources.size() > 1 && "currently only one file can be compiled");
 
     m_task = std::make_unique<BuildTask>(m_ctx, *project);
-    m_task->compileAndRun(toWxString(doc->getFilePath()), false);
+    m_task->compileAndRun(toWxString(sources.front()->getFilePath()), false);
 }
 
 void CompilerManager::run() {
@@ -87,10 +91,14 @@ void CompilerManager::quickRun() {
     if (project == nullptr) {
         return;
     }
-    auto* doc = project->getPrimarySource();
-    if (doc == nullptr) {
+    const auto sources = project->getSources();
+    if (sources.empty()) {
         return;
     }
+    assert(sources.size() == 1 && "Currently only 1 source supported");
+    auto* doc = sources.front();
+
+    // TODO: following logic should all be part of ephemeral project settings. Not set here.
 
     // Determine temp folder from current file or IDE path
     const auto filePath = doc->getFilePath();
@@ -241,14 +249,20 @@ void CompilerManager::goToError(const int line, const wxString& fileName) {
     auto& workspace = m_ctx.getWorkspaceManager();
 
     auto* doc = [&] -> Document* {
-        const auto isTemp = wxFileNameFromPath(fileName) == BuildTask::TEMPNAME;
-        if (isTemp) {
+        if (wxFileNameFromPath(fileName) == BuildTask::TEMPNAME) {
             // FBIDETEMP only makes sense while a quick-run is in flight —
             // map it back to the project's primary source so the user
             // navigates into the buffer they typed, not a temp file.
             if (m_task != nullptr && m_task->isQuickRun()) {
-                auto* project = m_task->getProject();
-                return project != nullptr ? project->getPrimarySource() : nullptr;
+                // TODO: project should have this info set properly, with run target.
+                if (const auto* project = m_task->getProject()) {
+                    const auto sources = project->getSources();
+                    if (sources.empty()) {
+                        return nullptr;
+                    }
+                    assert (sources.size() == 1 && "Multi file not supported");
+                    return sources.front();
+                }
             }
             return nullptr;
         }

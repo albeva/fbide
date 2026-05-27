@@ -107,9 +107,10 @@ void Document::setFilePath(const std::filesystem::path& path) {
     updateModTime();
 }
 
-void Document::bindToProject(Project& project, Project::Node* node) {
-    assert(node != nullptr);
-    m_project = &project;
+void Document::bindToProject(Project* project, Project::Node* node) {
+    assert(project != nullptr && "Project should not be nil");
+    assert(node != nullptr && "Node should not be nil");
+    m_project = project;
     m_source = node;
 }
 

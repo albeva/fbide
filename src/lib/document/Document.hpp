@@ -210,7 +210,7 @@ public:
     /// caller is expected to have stored it on the project's node
     /// first (typically via `Project::addFile`). After this call,
     /// `getFilePath()` resolves through the project.
-    void bindToProject(Project& project, Project::Node* node);
+    void bindToProject(Project* project, Project::Node* node);
 
     /// Detach this document from its project, atomically copying the
     /// path out of the project's node back into `m_source` so

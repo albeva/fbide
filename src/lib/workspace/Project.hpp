@@ -25,13 +25,15 @@ class Document;
  *   on-disk; can group many files and own non-source assets (images,
  *   `Info.plist`, etc.). Survives type changes of its members.
  *
- * Every project has a single `Folder` root node that names the project's
- * on-disk anchor:
+ * Root shape depends on the mode:
  *
- * - **Ephemeral**: the directory containing the single source file
- *   (falls back to cwd while the file is untitled; updated on save).
- * - **Persistent**: the directory containing the project file (empty
- *   during in-process creation; set by the loader).
+ * - **Ephemeral**: the single source `File` node *is* the root — there
+ *   is no enclosing folder. The file's own path doubles as the
+ *   project's on-disk anchor (empty while the buffer is untitled;
+ *   set on save). `getRoot()` is null until the file is added.
+ * - **Persistent**: a `Folder` root names the directory containing
+ *   the project file (empty during in-process creation; set by the
+ *   loader) and hosts the file/folder tree underneath.
  *
  * Files (and folders, eventually) are arranged in a flat node arena.
  * `m_nodes` owns each `Node` via `unique_ptr` — keyed by `Node::Id` so
@@ -102,24 +104,6 @@ public:
         /// the direct `Node*`.
         using Id = IdentifierBase<Node>;
 
-        /// On-disk classification of a node, cached by `Project::refresh*`.
-        ///   - `Healthy`            — path exists and (for files)
-        ///                            mtime matches `lastSeenModTime`.
-        ///                            Also the value for nodes without
-        ///                            a disk presence (untitled file,
-        ///                            virtual folder).
-        ///   - `Missing`            — path is non-empty but the file
-        ///                            or directory no longer exists.
-        ///   - `ExternalModified`   — file only: exists on disk but
-        ///                            mtime drifted from
-        ///                            `lastSeenModTime`. Folders never
-        ///                            carry this status.
-        enum class Status : std::uint8_t {
-            Healthy,
-            Missing,
-            ExternalModified,
-        };
-
         /// A file node. The `Document*` back-link is populated when the
         /// file is open in a tab; null when the tab is closed (a
         /// persistent project keeps the node around regardless).
@@ -168,23 +152,17 @@ public:
             return std::get_if<File>(&entry);
         }
 
-        Id id;                  ///< Stable identity (matches the map key in `Project::m_nodes`).
-        Node* parent = nullptr; ///< Parent folder, or null for the root.
+        /// Stable identity (matches the map key in `Project::m_nodes`).
+        Id id;
+        /// Parent folder, or null for the root.
+        Node* parent = nullptr;
         /// On-disk location of this node. Empty for untitled files
         /// (new buffer, never saved) and for virtual folders — matches
         /// `Document::getFilePath()`'s convention so the two layers
         /// stay consistent.
         std::filesystem::path path;
+        /// File or Folder
         Entry entry;
-        /// Last on-disk classification recorded by `Project::refreshStatus`.
-        /// Defaults to `Healthy` for newly-added nodes; callers refresh
-        /// explicitly on demand (project load, focus-time check, future
-        /// filesystem watcher).
-        Status status = Status::Healthy;
-        /// Last observed mtime of the file on disk. Files only; zero
-        /// for folders and for nodes that have never been stat'd. Used
-        /// by `refreshStatus` to decide ExternalModified vs Healthy.
-        std::filesystem::file_time_type lastSeenModTime;
     };
 
     /// Construct an empty project of the given mode. Persistent
@@ -205,23 +183,16 @@ public:
     /// Convenience: true when `getMode() == Mode::Ephemeral`.
     [[nodiscard]] auto isEphemeral() const -> bool { return m_mode == Mode::Ephemeral; }
 
-    /// Insert a file node into the project. `parent` may be `nullptr`,
-    /// which defaults to `getRoot()`. For **Ephemeral** projects only
-    /// one file may be added and it must sit under the root. For
-    /// **Persistent** projects `parent` (or its default) must be a
-    /// folder owned by this project. `path` may be empty for an
-    /// untitled document; bind it later via `setFilePath`. `doc` is the
-    /// optional `Document*` back-link (the project never dereferences
-    /// it).
+    /// Insert a file node into the project. For **Ephemeral** projects
+    /// the first (and only) `addFile` call *becomes* the root — pass
+    /// `parent == nullptr`. For **Persistent** projects `parent` may
+    /// be `nullptr` (defaults to `getRoot()`) or any folder owned by
+    /// this project. `path` may be empty for an untitled document;
+    /// bind it later via `setFilePath`. `doc` is the optional
+    /// `Document*` back-link (the project never dereferences it).
     /// @returns The new node, owned by the project; the pointer stays
     /// valid until the node is explicitly removed.
-    auto addFile(Node* parent, std::filesystem::path path, Document* doc = nullptr) -> Node*;
-
-    /// Bulk add — convenience for "user dropped N files into folder X".
-    /// Each path is added with no `Document*` back-link; iteration order
-    /// matches the input span. `parent == nullptr` defaults to
-    /// `getRoot()`. Persistent only.
-    auto addFiles(Node* parent, std::span<const std::filesystem::path> paths) -> std::vector<Node*>;
+    auto addFile(Document* doc, Node* parent = nullptr) -> Node*;
 
     /// Insert a virtual folder (Visual-Studio-style "filter" with no
     /// on-disk counterpart). `name` may be any string; collision with
@@ -285,9 +256,8 @@ public:
     /// disk; the caller has just written it.
     ///
     /// Mode-specific behaviour:
-    ///   - **Ephemeral**: always succeeds; the project root tracks the
-    ///     file's containing directory, so the new path can sit
-    ///     anywhere — the root simply moves with it.
+    ///   - **Ephemeral**: always succeeds; the file *is* the root, so
+    ///     the new path can sit anywhere — the root moves with it.
     ///   - **Persistent**: rejects with `Error::OutOfTree` when the
     ///     new path doesn't sit under `getRoot()->path` (so projects
     ///     stay self-contained). Always succeeds while the project
@@ -311,8 +281,10 @@ public:
     /// call, `getDocuments()` would still report the unbound doc.
     void clearNodeDocument(Node* node);
 
-    /// Root of the project tree — always a `Folder` node representing
-    /// the project's on-disk anchor directory. Always non-null.
+    /// Root of the project tree. For **Persistent** this is always a
+    /// `Folder` representing the project's on-disk anchor directory.
+    /// For **Ephemeral** this is the single `File` node — null until
+    /// `addFile` is called.
     [[nodiscard]] auto getRoot() -> Node* { return m_root; }
     /// Const overload of `getRoot`.
     [[nodiscard]] auto getRoot() const -> const Node* { return m_root; }
@@ -331,31 +303,14 @@ public:
     /// (no symlink resolution).
     [[nodiscard]] auto isUnderRoot(const std::filesystem::path& candidate) const -> bool;
 
-    /// Re-classify a node against the on-disk state and update its
-    /// `Status` / `lastSeenModTime` fields. For folders this is
-    /// Missing-or-Healthy; for files it also distinguishes
-    /// `ExternalModified` when the disk mtime differs from
-    /// `lastSeenModTime`. Nodes with an empty path stay `Healthy`
-    /// (no disk presence to check).
-    /// @returns the new `Status` (also stored on the node).
-    auto refreshStatus(Node* node) -> Node::Status;
-
-    /// Walk the whole tree and call `refreshStatus` on every node.
-    /// Cheap enough for small projects (single-digit ms per stat);
-    /// avoid in hot paths once project sizes grow.
-    void refreshAll();
-
-    /// The single bound document of an Ephemeral project — resolved as
-    /// the `Document*` back-link on the root's lone child file. Returns
-    /// nullptr if no file has been added or no document is bound.
-    /// **Defined only for `Mode::Ephemeral`** — asserts otherwise.
-    [[nodiscard]] auto getPrimarySource() const -> Document*;
-
     /// Snapshot of every currently-bound document in the project. Iteration
     /// order is unspecified — callers that care about a specific order must
     /// sort the result. Unbound file nodes (closed tabs of a persistent
     /// project) are skipped.
     [[nodiscard]] auto getDocuments() const -> std::vector<Document*>;
+
+    /// Get list of sources to be compiled (*.bas) files
+    [[nodiscard]] auto getSources() const -> std::vector<Document*>;
 
     // --- Build / run state ---------------------------------------------
     //
@@ -421,10 +376,16 @@ private:
     /// can keep its own path.
     void rewriteSubtreePaths(Node* folder, const std::filesystem::path& oldPrefix, const std::filesystem::path& newPrefix);
 
-    ConfigManager& m_config;          ///< Source of build inputs for Ephemeral; fallback for Persistent.
-    Id m_id;                          ///< Project identity (assigned at construction).
-    Mode m_mode;                      ///< Ephemeral or Persistent.
-    std::filesystem::path m_artefact; ///< Path of the most recently produced build artefact (exe / lib / …).
+    /// Source of build inputs for Ephemeral; fallback for Persistent.
+    ConfigManager& m_config;
+    /// Project identity (assigned at construction).
+    Id m_id;
+    /// Project mode
+    Mode m_mode;
+    /// Project root path
+    std::filesystem::path m_path;
+    /// Path of the most recently produced build artefact (exe / lib / …).
+    std::filesystem::path m_artefact;
     /// Owning storage for every node. unique_ptr pins each node's
     /// address so the cross-tree raw pointers stay valid; the Id key
     /// gives us a stable handle for serialisation round-trips.
@@ -433,8 +394,9 @@ private:
     /// project?" queries — e.g. when a user opens a file that's a member
     /// of an open Persistent project, we want to bind the new document
     /// to that project rather than spawn an ephemeral one.
-    std::unordered_map<std::filesystem::path, Node*> m_byPath;
-    Node* m_root = nullptr; ///< Project tree root (virtual folder for Persistent; single file for Ephemeral).
+    std::unordered_map<std::filesystem::path, Node*> m_pathMap;
+    /// Project tree root (virtual folder for Persistent; single file for Ephemeral).
+    Node* m_root = nullptr;
 };
 
 /// Underlying-type cast for `Project::Capability` — matches the same
