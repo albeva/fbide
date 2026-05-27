@@ -63,6 +63,18 @@ public:
         QuickRun = 1U << 3,
     };
 
+    /// Failure modes for the disk-touching tree operations
+    /// (`addRealFolder`, `removeNode` with `deleteOnDisk`, `moveNode`
+    /// on real-under-real, `renameNode` on real nodes). Returned via
+    /// `std::expected`. `Clash` is recoverable (caller picks a new
+    /// name); `IoError` and `InvalidName` are usually fatal for the
+    /// attempted op.
+    enum class Error : std::uint8_t {
+        Clash,       ///< Target path / name already exists on disk.
+        IoError,     ///< Filesystem operation failed (permissions, missing parent, etc.).
+        InvalidName, ///< newName is empty or contains a path separator.
+    };
+
     /// Opaque strong-typed handle for a `Project` instance. Distinct from
     /// `Node::Id` to prevent accidental mixing at call sites. `0` is the
     /// invalid sentinel; `bool(id)` reports validity.
@@ -137,6 +149,57 @@ public:
     /// valid until the node is explicitly removed.
     auto addFile(Node* parent, std::filesystem::path path, Document* doc = nullptr) -> Node*;
 
+    /// Bulk add — convenience for "user dropped N files into folder X".
+    /// Each path is added with no `Document*` back-link; iteration order
+    /// matches the input span. Persistent only.
+    auto addFiles(Node* parent, std::span<const std::filesystem::path> paths) -> std::vector<Node*>;
+
+    /// Insert a virtual folder (Visual-Studio-style "filter" with no
+    /// on-disk counterpart). `name` may be any string; collision with
+    /// sibling names is allowed (virtual folders are display-only).
+    /// Persistent only.
+    auto addFolder(Node* parent, std::string name) -> Node*;
+
+    /// Insert a real folder mapped to an on-disk directory. The directory
+    /// is created if missing (`fs::create_directory` recursively). The
+    /// new folder's `name` mirrors `path.filename()`. Persistent only.
+    /// @returns the new folder, or `Error::IoError` / `Error::Clash`
+    /// when the disk side cannot be set up.
+    auto addRealFolder(Node* parent, std::filesystem::path path) -> std::expected<Node*, Error>;
+
+    /// Remove a node from the project. For folders this recursively
+    /// removes the whole subtree. Tree mutation is always performed;
+    /// when `deleteOnDisk` is true, the node's on-disk artifact (and
+    /// its descendants') is also removed via `fs::remove_all`. Disk
+    /// failure is reported via the return value but does not roll back
+    /// the tree change — once unbound from the project, it stays
+    /// unbound.
+    /// Preconditions (asserted): `node` is not the root; no file in the
+    /// subtree has a bound `Document*` (callers close tabs first).
+    auto removeNode(Node* node, bool deleteOnDisk = false) -> std::expected<void, Error>;
+
+    /// Reparent or reorder `node` so it sits at position `index` of
+    /// `newParent.children` after the move. Same-parent moves
+    /// reorder; different-parent moves reparent. When both `node` and
+    /// `newParent` are real (non-empty path), the on-disk artifact is
+    /// also moved via `fs::rename` and all descendant paths in the
+    /// tree are rewritten to follow.
+    /// Preconditions (asserted): `node` is not the root; `newParent`
+    /// is a folder; `newParent` is not `node` nor a descendant of
+    /// `node`; `index` is within range.
+    auto moveNode(Node* node, Node* newParent, std::size_t index) -> std::expected<void, Error>;
+
+    /// Rename `node` in place. Semantics depend on node kind:
+    ///   - Virtual folder: update `Folder::name`; always succeeds.
+    ///   - Real folder: rename the directory on disk; update the
+    ///     folder's path; rewrite every descendant's cached path to
+    ///     reflect the new parent prefix; refresh `m_byPath`.
+    ///   - File: rename the file on disk (basename portion); update
+    ///     `path`; refresh `m_byPath`.
+    /// `newName` is the new basename — it must be non-empty and must
+    /// not contain a path separator (`/` or `\`).
+    auto renameNode(Node* node, std::string newName) -> std::expected<void, Error>;
+
     /// Resolve an ID back to a live node — useful at the serialisation
     /// boundary or when external references (saved sessions, error
     /// reports referring to a node by ID, …) need to land back on a
@@ -146,10 +209,13 @@ public:
     /// Const overload of `findNode`.
     [[nodiscard]] auto findNode(Node::Id id) const -> const Node*;
 
-    /// Replace the path stored on `node` and re-key `m_byPath`. Use
-    /// after a Save As to keep the project's path index in sync with
-    /// the document's new on-disk identity.
-    void setNodePath(Node* node, const std::filesystem::path& path);
+    /// Update the path stored on a **file** node and re-key `m_byPath`.
+    /// Use after a Save As writes the document to a new path, or when
+    /// an untitled file is first saved. The new path may live anywhere
+    /// on disk — there's no in-place constraint. Does not touch the
+    /// file on disk; the caller has just written it.
+    /// For in-place rename with disk side-effects, use `renameNode`.
+    void setFilePath(Node* file, const std::filesystem::path& newPath);
 
     /// Drop the `Document*` back-link on the given file node. Used by
     /// `Document::unbindFromProject` so the project-side and document-
@@ -210,6 +276,26 @@ public:
     [[nodiscard]] auto getCapabilities() const -> std::uint8_t;
 
 private:
+    /// Internal path mutation — polymorphic over file/folder nodes.
+    /// Files re-key `m_byPath`; folders only update the stored path
+    /// (folders don't participate in the file index). Used by
+    /// `setFilePath` (the public file-only wrapper), `moveNode`,
+    /// `renameNode`, and `rewriteSubtreePaths`.
+    void setNodePath(Node* node, const std::filesystem::path& newPath);
+
+    /// Tear down `node` and every descendant: clear path-index entries,
+    /// then erase from `m_nodes`. The caller is responsible for first
+    /// removing `node` from its parent's children list.
+    void destroySubtree(Node* node);
+
+    /// Rewrite path-bearing descendants of `folder` so paths that lived
+    /// under `oldPrefix` now live under `newPrefix`. Used after a real
+    /// folder rename or move. Descendants whose path doesn't sit under
+    /// `oldPrefix` are left alone — the project tracks paths
+    /// independently, so an unrelated file logically under a folder
+    /// can keep its own path.
+    void rewriteSubtreePaths(Node* folder, const std::filesystem::path& oldPrefix, const std::filesystem::path& newPrefix);
+
     ConfigManager& m_config;          ///< Source of build inputs for Ephemeral; fallback for Persistent.
     Id m_id;                          ///< Project identity (assigned at construction).
     Mode m_mode;                      ///< Ephemeral or Persistent.
