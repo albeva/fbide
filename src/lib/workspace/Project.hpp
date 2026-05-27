@@ -102,6 +102,24 @@ public:
         /// the direct `Node*`.
         using Id = IdentifierBase<Node>;
 
+        /// On-disk classification of a node, cached by `Project::refresh*`.
+        ///   - `Healthy`            — path exists and (for files)
+        ///                            mtime matches `lastSeenModTime`.
+        ///                            Also the value for nodes without
+        ///                            a disk presence (untitled file,
+        ///                            virtual folder).
+        ///   - `Missing`            — path is non-empty but the file
+        ///                            or directory no longer exists.
+        ///   - `ExternalModified`   — file only: exists on disk but
+        ///                            mtime drifted from
+        ///                            `lastSeenModTime`. Folders never
+        ///                            carry this status.
+        enum class Status : std::uint8_t {
+            Healthy,
+            Missing,
+            ExternalModified,
+        };
+
         /// A file node. The `Document*` back-link is populated when the
         /// file is open in a tab; null when the tab is closed (a
         /// persistent project keeps the node around regardless).
@@ -158,6 +176,15 @@ public:
         /// stay consistent.
         std::filesystem::path path;
         Entry entry;
+        /// Last on-disk classification recorded by `Project::refreshStatus`.
+        /// Defaults to `Healthy` for newly-added nodes; callers refresh
+        /// explicitly on demand (project load, focus-time check, future
+        /// filesystem watcher).
+        Status status = Status::Healthy;
+        /// Last observed mtime of the file on disk. Files only; zero
+        /// for folders and for nodes that have never been stat'd. Used
+        /// by `refreshStatus` to decide ExternalModified vs Healthy.
+        std::filesystem::file_time_type lastSeenModTime;
     };
 
     /// Construct an empty project of the given mode. Persistent
@@ -303,6 +330,20 @@ public:
     /// constraint can be meaningfully checked yet. Lexical comparison
     /// (no symlink resolution).
     [[nodiscard]] auto isUnderRoot(const std::filesystem::path& candidate) const -> bool;
+
+    /// Re-classify a node against the on-disk state and update its
+    /// `Status` / `lastSeenModTime` fields. For folders this is
+    /// Missing-or-Healthy; for files it also distinguishes
+    /// `ExternalModified` when the disk mtime differs from
+    /// `lastSeenModTime`. Nodes with an empty path stay `Healthy`
+    /// (no disk presence to check).
+    /// @returns the new `Status` (also stored on the node).
+    auto refreshStatus(Node* node) -> Node::Status;
+
+    /// Walk the whole tree and call `refreshStatus` on every node.
+    /// Cheap enough for small projects (single-digit ms per stat);
+    /// avoid in hot paths once project sizes grow.
+    void refreshAll();
 
     /// The single bound document of an Ephemeral project — resolved as
     /// the `Document*` back-link on the root's lone child file. Returns

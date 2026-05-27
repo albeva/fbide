@@ -28,6 +28,7 @@ namespace {
 constexpr auto SESSION_EXT = "fbs";
 } // namespace
 
+// NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
 DocumentManager::DocumentManager(Context& ctx)
 : m_ctx(ctx)
 , m_codeTransformer(std::make_unique<CodeTransformer>(ctx.getConfigManager())) {
@@ -336,6 +337,19 @@ auto DocumentManager::saveFileAs(Document& doc) -> bool {
 
     const auto newPath = canonicalizePath(toFsPath(dlg.GetPath()));
 
+    // Persistent projects keep all members under their root — Save As
+    // to outside the project folder is a user error. Ephemeral projects
+    // accept any path (their root follows the file).
+    if (const auto* project = doc.getProject(); project != nullptr && !project->isUnderRoot(newPath)) {
+        wxMessageBox(
+            m_ctx.tr("messages.saveOutOfTreeMessage"),
+            m_ctx.tr("messages.saveOutOfTreeTitle"),
+            wxOK | wxICON_EXCLAMATION,
+            m_ctx.getUIManager().getMainFrame()
+        );
+        return false;
+    }
+
     // Guard against overwriting a file that is already loaded in another
     // tab — the on-disk content would diverge from the open buffer.
     auto* clash = findByPath(newPath);
@@ -643,6 +657,9 @@ auto DocumentManager::getActive() const -> Document* {
     return m_notebook->activeDocument();
 }
 
+// Semantically mutating (changes the active tab) even though
+// notebook access goes through Unowned<>'s pointer operators.
+// NOLINTNEXTLINE(readability-make-member-function-const)
 void DocumentManager::setActive(Document* document) {
     if (!contains(document) || document == getActive()) {
         return;
