@@ -5,95 +5,99 @@
 // https://github.com/albeva/fbide
 //
 #include "Project.hpp"
-#include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
-#include "document/DocumentPath.hpp"
 
 using namespace fbide;
 
-Project::Project(const Mode mode)
-: m_id(Id::generate())
+Project::Project(ConfigManager& config, const Mode mode)
+: m_config(config)
+, m_id(Id::generate())
 , m_mode(mode) {
     if (mode == Mode::Persistent) {
         // Persistent projects host arbitrary trees; synthesise a virtual
-        // root folder so top-level entries have a valid parent. The
-        // root is never path-indexed and carries no name. Ephemeral
+        // root folder so top-level entries have a valid parent. Ephemeral
         // projects skip this — their single `File` becomes the root.
-        const auto rootId = allocateNodeId();
-        m_root = rootId;
-        m_nodes.emplace(rootId, Node {
-            .id = rootId,
-            .parent = {},
+        auto root = std::make_unique<Node>(Node {
+            .id = Node::Id::generate(),
+            .parent = nullptr,
             .path = {},
             .entry = Node::Folder {
                 .name = {},
                 .children = {},
             },
         });
+        const auto rootId = root->id;
+        m_root = root.get();
+        m_nodes.emplace(rootId, std::move(root));
     }
 }
 
-auto Project::addFile(std::filesystem::path path, Document* doc) -> Node::Id {
-    const auto id = allocateNodeId();
-
-    // Index by path *before* moving it into the node — m_byPath is the
-    // lookup index for resolveOrOpen-style queries; only real (non-empty)
-    // paths participate.
-    if (!path.empty()) {
-        m_byPath.emplace(path, id);
+auto Project::addFile(Node* parent, std::filesystem::path path, Document* doc) -> Node* {
+    if (m_mode == Mode::Ephemeral) {
+        assert(parent == nullptr && "Ephemeral projects do not take a parent");
+        assert(m_root == nullptr && "Ephemeral projects host exactly one file");
+    } else {
+        assert(parent != nullptr && "Persistent file requires a parent folder");
+        assert(std::holds_alternative<Node::Folder>(parent->entry) && "parent must be a folder");
     }
+
+    if (!path.empty()) {
+        // m_byPath must stay one-key-one-node — a collision would mask
+        // one of the entries and silently break "is this path mine?"
+        // queries. Trap in debug.
+        assert(!m_byPath.contains(path) && "duplicate path in project node index");
+    }
+
+    auto node = std::make_unique<Node>(Node {
+        .id = Node::Id::generate(),
+        .parent = parent,
+        .path = std::move(path),
+        .entry = Node::File { .doc = doc },
+    });
+    const auto nodeId = node->id;
+    auto* nodePtr = node.get();
+    if (!nodePtr->path.empty()) {
+        m_byPath.emplace(nodePtr->path, nodePtr);
+    }
+    m_nodes.emplace(nodeId, std::move(node));
 
     if (m_mode == Mode::Ephemeral) {
-        // Ephemeral projects host exactly one source — the file IS the
-        // root, with no parent and no enclosing folder.
-        assert(!m_root && "Ephemeral projects host exactly one file");
-        m_nodes.emplace(id, Node {
-            .id = id,
-            .parent = {},
-            .path = std::move(path),
-            .entry = Node::File { .doc = doc },
-        });
-        m_root = id;
+        m_root = nodePtr;
     } else {
-        // Persistent: attach to the existing root folder. Maintain the
-        // root's children list so tree-walking code can iterate in
-        // insertion order even though `m_nodes` itself is unordered.
-        m_nodes.emplace(id, Node {
-            .id = id,
-            .parent = m_root,
-            .path = std::move(path),
-            .entry = Node::File { .doc = doc },
-        });
-        std::get<Node::Folder>(m_nodes.at(m_root).entry).children.push_back(id);
+        std::get<Node::Folder>(parent->entry).children.push_back(nodePtr);
     }
-    return id;
+    return nodePtr;
 }
 
-auto Project::getNodePath(const Node::Id id) const -> std::filesystem::path {
+auto Project::findNode(const Node::Id id) -> Node* {
     const auto it = m_nodes.find(id);
-    if (it == m_nodes.end()) {
-        return {};
-    }
-    return it->second.path;
+    return it != m_nodes.end() ? it->second.get() : nullptr;
 }
 
-void Project::setNodePath(const Node::Id id, const std::filesystem::path& path) {
+auto Project::findNode(const Node::Id id) const -> const Node* {
     const auto it = m_nodes.find(id);
-    if (it == m_nodes.end()) {
-        wxLogWarning("Project::setNodePath called with unknown node id");
-        return;
-    }
+    return it != m_nodes.end() ? it->second.get() : nullptr;
+}
+
+void Project::setNodePath(Node* node, const std::filesystem::path& path) {
+    assert(node != nullptr);
 
     // Re-key the path index: drop the old key (if any) before inserting
-    // the new one, otherwise two entries point at the same node.
-    if (!it->second.path.empty()) {
-        m_byPath.erase(it->second.path);
+    // the new one. Collisions on the new key are an upstream caller bug.
+    if (!node->path.empty()) {
+        m_byPath.erase(node->path);
     }
-
-    it->second.path = path;
-
+    node->path = path;
     if (!path.empty()) {
-        m_byPath.emplace(path, id);
+        assert(!m_byPath.contains(path) && "duplicate path in project node index");
+        m_byPath.emplace(path, node);
+    }
+}
+
+void Project::clearNodeDocument(Node* node) {
+    assert(node != nullptr);
+    if (auto* file = std::get_if<Node::File>(&node->entry)) {
+        file->doc = nullptr;
     }
 }
 
@@ -101,55 +105,36 @@ auto Project::getPrimarySource() const -> Document* {
     assert(m_mode == Mode::Ephemeral && "getPrimarySource is ephemeral-only");
 
     // Ephemeral: the file IS the root. Empty until `addFile` runs.
-    if (!m_root) {
+    if (m_root == nullptr) {
         return nullptr;
     }
-    return std::get<Node::File>(m_nodes.at(m_root).entry).doc;
+    return std::get<Node::File>(m_root->entry).doc;
 }
 
 auto Project::getDocuments() const -> std::vector<Document*> {
     std::vector<Document*> result;
     result.reserve(m_nodes.size());
-    for (const auto& node : m_nodes | std::views::values) {
-        if (const auto* file = std::get_if<Node::File>(&node.entry); file != nullptr && file->doc != nullptr) {
+    for (const auto& nodePtr : m_nodes | std::views::values) {
+        if (const auto* file = std::get_if<Node::File>(&nodePtr->entry); file != nullptr && file->doc != nullptr) {
             result.push_back(file->doc);
         }
     }
     return result;
 }
 
-auto Project::allocateNodeId() -> Node::Id {
-    return Node::Id::generate();
-}
-
 // --- Build / run gateway ---------------------------------------------------
 
-auto Project::getCompileTemplate(Context& ctx) const -> wxString {
+auto Project::getCompileTemplate() const -> wxString {
     // Ephemeral projects read through ConfigManager so settings edits
     // take effect immediately on the next build. Persistent projects
     // (future) will return a stored override instead.
     assert(isEphemeral() && "Persistent project compile-options not implemented yet");
-    return ctx.getConfigManager().config().at("compiler").get_or(
-        "compileCommand", R"("<$fbc>" "<$file>")"
-    );
+    return m_config.config().at("compiler").get_or("compileCommand", R"("<$fbc>" "<$file>")");
 }
 
-auto Project::getCompilerPath(Context& ctx) const -> wxString {
+auto Project::getRunTemplate() const -> wxString {
     assert(isEphemeral() && "Persistent project compile-options not implemented yet");
-    const wxString configured = ctx.getConfigManager().config().at("compiler").get_or("path", "");
-    if (configured.IsEmpty()) {
-        return {};
-    }
-    wxFileName path(configured);
-    path.MakeAbsolute(toWxString(ctx.getConfigManager().getAppDir()));
-    return path.GetFullPath();
-}
-
-auto Project::getRunTemplate(Context& ctx) const -> wxString {
-    assert(isEphemeral() && "Persistent project compile-options not implemented yet");
-    return ctx.getConfigManager().config().get_or(
-        "compiler.runCommand", R"(<$terminal> "<$file>" <$param>)"
-    );
+    return m_config.config().get_or("compiler.runCommand", R"(<$terminal> "<$file>" <$param>)");
 }
 
 auto Project::getCapabilities() const -> std::uint8_t {

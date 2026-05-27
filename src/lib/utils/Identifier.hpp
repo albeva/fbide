@@ -5,8 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #pragma once
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_hash.hpp>
 
 namespace fbide {
 

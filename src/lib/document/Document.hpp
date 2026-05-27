@@ -67,12 +67,12 @@ public:
     /// is unbound from any project, the path is stored directly in
     /// `m_source` as a `std::filesystem::path` (empty for untitled).
     /// When the document is bound to a project, the path lives on the
-    /// project's `Node::FileEntry` and `m_source` carries the node's
-    /// `Project::Node::Id`; the `m_project` back-link tells us where
-    /// to look it up. Invariant held by `bindToProject` /
-    /// `unbindFromProject`: `m_project != nullptr` iff `m_source`
-    /// holds `Project::Node::Id`.
-    using Source = std::variant<std::filesystem::path, Project::Node::Id>;
+    /// project's `Node` and `m_source` carries a non-owning `Node*`
+    /// pinned by the project's `unique_ptr` storage; the `m_project`
+    /// back-link names the owning project. Invariant held by
+    /// `bindToProject` / `unbindFromProject`: `m_project != nullptr`
+    /// iff `m_source` holds `Project::Node*`.
+    using Source = std::variant<std::filesystem::path, Project::Node*>;
 
     NO_COPY_AND_MOVE(Document)
 
@@ -203,12 +203,12 @@ public:
     /// `unbindFromProject` before destroying a project.
     [[nodiscard]] auto getProject() const -> Project* { return m_project; }
 
-    /// Bind this document to a project under the given node ID. The
-    /// path currently held in `m_source` is **not** propagated here —
-    /// the caller is expected to have stored it on the project's
-    /// `Node::FileEntry` first (typically via `Project::addFile`).
-    /// After this call, `getFilePath()` resolves through the project.
-    void bindToProject(Project& project, Project::Node::Id id);
+    /// Bind this document to a project under the given node. The path
+    /// currently held in `m_source` is **not** propagated here — the
+    /// caller is expected to have stored it on the project's node
+    /// first (typically via `Project::addFile`). After this call,
+    /// `getFilePath()` resolves through the project.
+    void bindToProject(Project& project, Project::Node* node);
 
     /// Detach this document from its project, atomically copying the
     /// path out of the project's node back into `m_source` so
@@ -219,7 +219,7 @@ public:
 private:
     Context& m_ctx;                            ///< Application context.
     Source m_source;                           ///< Path (unbound) or node ID (project-bound); see `Source`.
-    Project* m_project = nullptr;              ///< Owning project; non-null iff `m_source` holds `Node::Id`.
+    Project* m_project = nullptr;              ///< Owning project; non-null iff `m_source` holds `Project::Node*`.
     DocumentType m_type;                       ///< Document type — drives lexer + theme dispatch.
     bool m_typeOverridden = false;             ///< True when the user explicitly picked the type.
     Unowned<wxWindow> m_view;                  ///< Generic view back-link — wx-parented to the notebook.

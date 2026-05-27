@@ -27,6 +27,10 @@
 #include <variant>
 #include <vector>
 
+// boost
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_hash.hpp>
+
 // wxWidgets
 #include <wx/wx.h>
 
