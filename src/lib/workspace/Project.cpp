@@ -96,6 +96,8 @@ auto Project::addFile(Node* parent, std::filesystem::path path, Document* doc) -
         m_byPath.emplace(nodePtr->path, nodePtr);
     }
     parent->getFolder()->children.push_back(nodePtr);
+    // Seed status + lastSeenModTime from current on-disk state.
+    refreshStatus(nodePtr);
     return nodePtr;
 }
 
@@ -125,6 +127,53 @@ auto Project::isUnderRoot(const std::filesystem::path& candidate) const -> bool 
     // canonicalisation step that can fail on paths that don't exist yet.
     const auto rel = candidate.lexically_relative(m_root->path);
     return !rel.empty() && !rel.native().starts_with("..");
+}
+
+auto Project::refreshStatus(Node* node) -> Node::Status {
+    assert(node != nullptr);
+
+    // Virtual folders and untitled files have no on-disk presence to
+    // verify — they're always Healthy.
+    if (node->path.empty()) {
+        node->status = Node::Status::Healthy;
+        node->lastSeenModTime = {};
+        return node->status;
+    }
+
+    std::error_code ec;
+    if (!std::filesystem::exists(node->path, ec)) {
+        node->status = Node::Status::Missing;
+        return node->status;
+    }
+
+    if (node->isFile()) {
+        const auto currentMtime = std::filesystem::last_write_time(node->path, ec);
+        if (ec) {
+            // Stat failed even though exists() said yes — race or
+            // permission flap. Treat as Missing rather than guessing.
+            node->status = Node::Status::Missing;
+        } else if (node->lastSeenModTime == std::filesystem::file_time_type {}) {
+            // First sighting — adopt the current mtime as the baseline.
+            node->lastSeenModTime = currentMtime;
+            node->status = Node::Status::Healthy;
+        } else if (currentMtime != node->lastSeenModTime) {
+            node->status = Node::Status::ExternalModified;
+        } else {
+            node->status = Node::Status::Healthy;
+        }
+    } else {
+        // Folder existence is enough — directory mtimes shift for
+        // unrelated reasons (inode creates / deletes inside) and would
+        // generate false positives.
+        node->status = Node::Status::Healthy;
+    }
+    return node->status;
+}
+
+void Project::refreshAll() {
+    for (const auto& nodePtr : m_nodes | std::views::values) {
+        refreshStatus(nodePtr.get());
+    }
 }
 
 auto Project::setFilePath(Node* file, const std::filesystem::path& newPath) -> std::expected<void, Error> {
@@ -164,6 +213,10 @@ void Project::setNodePath(Node* node, const std::filesystem::path& path) {
         assert(!m_byPath.contains(path) && "duplicate path in project node index");
         m_byPath.emplace(path, node);
     }
+    // Re-anchor the on-disk baseline against the new path: previous
+    // mtime is meaningless after a move/rename.
+    node->lastSeenModTime = {};
+    refreshStatus(node);
 }
 
 void Project::clearNodeDocument(Node* node) {
@@ -259,6 +312,7 @@ auto Project::addRealFolder(Node* parent, std::filesystem::path path) -> std::ex
     auto* nodePtr = node.get();
     m_nodes.emplace(nodeId, std::move(node));
     parent->getFolder()->children.push_back(nodePtr);
+    refreshStatus(nodePtr);
     return nodePtr;
 }
 

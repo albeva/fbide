@@ -721,6 +721,101 @@ TEST_F(ProjectTest, EphemeralSetFilePathNeverRejectsOutOfTree) {
     EXPECT_EQ(project.getRoot()->path, fs::path { "/over/there" });
 }
 
+// --- NodeStatus / refreshStatus -------------------------------------------
+
+TEST_F(ProjectTest, AddFileSeedsStatusHealthyForExistingFile) {
+    auto project = makeProject(Project::Mode::Persistent);
+    const auto path = fs::path(m_tmp.path().ToStdString()) / "real.bas";
+    { std::ofstream { path } << "x"; }
+
+    auto* file = project.addFile(nullptr, path);
+    EXPECT_EQ(file->status, Project::Node::Status::Healthy);
+    EXPECT_NE(file->lastSeenModTime, std::filesystem::file_time_type {});
+}
+
+TEST_F(ProjectTest, AddFileSeedsStatusMissingForNonexistentPath) {
+    auto project = makeProject(Project::Mode::Persistent);
+    auto* file = project.addFile(nullptr, fs::path { "/does/not/exist.bas" });
+    EXPECT_EQ(file->status, Project::Node::Status::Missing);
+}
+
+TEST_F(ProjectTest, RefreshStatusFlagsExternalModification) {
+    auto project = makeProject(Project::Mode::Persistent);
+    const auto path = fs::path(m_tmp.path().ToStdString()) / "watch.bas";
+    { std::ofstream { path } << "original"; }
+
+    auto* file = project.addFile(nullptr, path);
+    ASSERT_EQ(file->status, Project::Node::Status::Healthy);
+
+    // Bump mtime explicitly — sleep would be flaky on coarse filesystems.
+    const auto bumped = std::filesystem::last_write_time(path)
+                      + std::chrono::seconds(1);
+    std::filesystem::last_write_time(path, bumped);
+
+    EXPECT_EQ(project.refreshStatus(file), Project::Node::Status::ExternalModified);
+    EXPECT_EQ(file->status, Project::Node::Status::ExternalModified);
+}
+
+TEST_F(ProjectTest, RefreshStatusFlagsExternalDeletion) {
+    auto project = makeProject(Project::Mode::Persistent);
+    const auto path = fs::path(m_tmp.path().ToStdString()) / "fragile.bas";
+    { std::ofstream { path } << "x"; }
+
+    auto* file = project.addFile(nullptr, path);
+    ASSERT_EQ(file->status, Project::Node::Status::Healthy);
+
+    std::filesystem::remove(path);
+    EXPECT_EQ(project.refreshStatus(file), Project::Node::Status::Missing);
+}
+
+TEST_F(ProjectTest, RefreshStatusVirtualFolderAlwaysHealthy) {
+    auto project = makeProject(Project::Mode::Persistent);
+    auto* folder = project.addFolder(nullptr, "Group");
+    EXPECT_EQ(project.refreshStatus(folder), Project::Node::Status::Healthy);
+}
+
+TEST_F(ProjectTest, RefreshStatusRealFolderMissingWhenDeleted) {
+    auto project = makeProject(Project::Mode::Persistent);
+    const auto dir = fs::path(m_tmp.path().ToStdString()) / "dir";
+    fs::create_directory(dir);
+
+    auto* folder = project.addRealFolder(nullptr, dir).value();
+    ASSERT_EQ(folder->status, Project::Node::Status::Healthy);
+
+    std::filesystem::remove(dir);
+    EXPECT_EQ(project.refreshStatus(folder), Project::Node::Status::Missing);
+}
+
+TEST_F(ProjectTest, RefreshAllUpdatesEveryNode) {
+    auto project = makeProject(Project::Mode::Persistent);
+    const auto path = fs::path(m_tmp.path().ToStdString()) / "x.bas";
+    { std::ofstream { path } << "x"; }
+
+    auto* file = project.addFile(nullptr, path);
+    auto* virt = project.addFolder(nullptr, "VG");
+    std::filesystem::remove(path);
+
+    project.refreshAll();
+    EXPECT_EQ(file->status, Project::Node::Status::Missing);
+    EXPECT_EQ(virt->status, Project::Node::Status::Healthy);
+}
+
+TEST_F(ProjectTest, SetFilePathReanchorsMtime) {
+    auto project = makeProject(Project::Mode::Ephemeral);
+    const auto base = fs::path(m_tmp.path().ToStdString());
+    { std::ofstream { base / "a.bas" } << "x"; }
+    { std::ofstream { base / "b.bas" } << "y"; }
+
+    auto* file = project.addFile(nullptr, base / "a.bas");
+    const auto firstMtime = file->lastSeenModTime;
+
+    ASSERT_TRUE(project.setFilePath(file, base / "b.bas").has_value());
+    EXPECT_EQ(file->status, Project::Node::Status::Healthy);
+    // mtime should reflect b.bas now (different file → at least
+    // not pointing at a.bas's stamp unless they're identical).
+    EXPECT_NE(file->lastSeenModTime, std::filesystem::file_time_type {});
+}
+
 // --- removeNode disk-delete walks descendants -----------------------------
 
 TEST_F(ProjectTest, RemoveVirtualFolderDeletesRealDescendantsOnDisk) {
