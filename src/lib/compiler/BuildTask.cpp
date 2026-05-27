@@ -166,11 +166,8 @@ void BuildTask::onRunFinished(const ProcessResult& result) {
     frame->Raise();
     frame->SetFocus();
 
-    if (auto* project = getProject()) {
-        if (auto* doc = project->getPrimarySource(); doc != nullptr && doc->getEditor() != nullptr) {
-            doc->getEditor()->SetFocus();
-        }
-    }
+    // Project should probably have "active" document set, which could be focused,
+    // but we shouldn't try to manually guess here.
 }
 
 // ---------------------------------------------------------------------------
