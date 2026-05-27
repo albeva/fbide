@@ -289,13 +289,6 @@ public:
     /// Const overload of `getRoot`.
     [[nodiscard]] auto getRoot() const -> const Node* { return m_root; }
 
-    /// Set the project root directory and refresh the root folder's
-    /// display name. Used by the project loader (Persistent) once the
-    /// project file's location is known. Tests use it to exercise the
-    /// under-root constraint. No-op for an Ephemeral project — its
-    /// root tracks the bound file's parent dir automatically.
-    void setProjectRoot(std::filesystem::path path);
-
     /// Is `candidate` a path that lives under the project root? Empty
     /// candidate or empty root short-circuits to `true` — used by the
     /// "untitled Ephemeral" and "fresh Persistent" cases where no
@@ -349,7 +342,7 @@ public:
 
 private:
     /// Internal path mutation — polymorphic over file/folder nodes.
-    /// Files re-key `m_byPath`; folders only update the stored path
+    /// Files re-key `m_pathMap`; folders only update the stored path
     /// (folders don't participate in the file index). Used by
     /// `setFilePath` (the public file-only wrapper), `moveNode`,
     /// `renameNode`, and `rewriteSubtreePaths`.

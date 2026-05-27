@@ -7,7 +7,6 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "Document.hpp"
 #include "DocumentPath.hpp"
-#include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "editor/Editor.hpp"
 #include "editor/EditorPanel.hpp"
@@ -17,25 +16,25 @@ wxDEFINE_EVENT(fbide::EVT_DOCUMENT_TYPE_CHANGED, DocumentTypeChangedEvent);
 
 namespace {
 
-auto defaultEncodingFromConfig(Context& ctx) -> TextEncoding {
-    const auto& editor = ctx.getConfigManager().config().at("editor");
+auto defaultEncodingFromConfig(ConfigManager& config) -> TextEncoding {
+    const auto& editor = config.config().at("editor");
     const auto key = editor.get_or("encoding", "UTF-8");
     return TextEncoding::parse(key.ToStdString()).value_or(TextEncoding::UTF8);
 }
 
-auto defaultEolModeFromConfig(Context& ctx) -> EolMode {
-    const auto& editor = ctx.getConfigManager().config().at("editor");
+auto defaultEolModeFromConfig(ConfigManager& config) -> EolMode {
+    const auto& editor = config.config().at("editor");
     const auto key = editor.get_or("eolMode", "LF");
     return EolMode::parse(key.ToStdString()).value_or(EolMode::LF);
 }
 
 } // namespace
 
-Document::Document(Context& ctx, const DocumentType type, wxEvtHandler* sink)
-: m_ctx(ctx)
+Document::Document(ConfigManager& config, const DocumentType type, wxEvtHandler* sink)
+: m_config(config)
 , m_type(type)
-, m_encoding(defaultEncodingFromConfig(ctx))
-, m_eolMode(defaultEolModeFromConfig(ctx))
+, m_encoding(defaultEncodingFromConfig(config))
+, m_eolMode(defaultEolModeFromConfig(config))
 , m_sink(sink) {}
 
 void Document::attachView(wxWindow* view, Editor* editor) {
@@ -149,7 +148,7 @@ void Document::setType(const DocumentType type) {
 
 auto Document::getTitle() const -> wxString {
     wxString title = isNew()
-                       ? m_ctx.tr("document.untitled")
+                       ? m_config.locale().get_or("document.untitled", "")
                        : toWxString(getFilePath().filename());
     if (isModified()) {
         title = "[*] " + title;
