@@ -73,14 +73,16 @@ public:
 
     /// Failure modes for the disk-touching tree operations
     /// (`addRealFolder`, `removeNode` with `deleteOnDisk`, `moveNode`
-    /// on real-under-real, `renameNode` on real nodes). Returned via
-    /// `std::expected`. `Clash` is recoverable (caller picks a new
-    /// name); `IoError` and `InvalidName` are usually fatal for the
-    /// attempted op.
+    /// on real-under-real, `renameNode` on real nodes, `setFilePath`
+    /// on Persistent). Returned via `std::expected`. `Clash` and
+    /// `OutOfTree` are recoverable (caller picks a new name / path);
+    /// `IoError` and `InvalidName` are usually fatal for the attempted
+    /// op.
     enum class Error : std::uint8_t {
         Clash,       ///< Target path / name already exists on disk.
         IoError,     ///< Filesystem operation failed (permissions, missing parent, etc.).
         InvalidName, ///< newName is empty or contains a path separator.
+        OutOfTree,   ///< Target path lives outside the project root (Persistent only).
     };
 
     /// Opaque strong-typed handle for a `Project` instance. Distinct from
@@ -252,22 +254,29 @@ public:
 
     /// Update the path stored on a **file** node and re-key `m_byPath`.
     /// Use after a Save As writes the document to a new path, or when
-    /// an untitled file is first saved. The new path may live anywhere
-    /// on disk — there's no in-place constraint. Does not touch the
-    /// file on disk; the caller has just written it.
+    /// an untitled file is first saved. Does not touch the file on
+    /// disk; the caller has just written it.
+    ///
+    /// Mode-specific behaviour:
+    ///   - **Ephemeral**: always succeeds; the project root tracks the
+    ///     file's containing directory, so the new path can sit
+    ///     anywhere — the root simply moves with it.
+    ///   - **Persistent**: rejects with `Error::OutOfTree` when the
+    ///     new path doesn't sit under `getRoot()->path` (so projects
+    ///     stay self-contained). Always succeeds while the project
+    ///     root is empty (loader hasn't set one yet).
     ///
     /// Related ops at a glance:
     ///   - `setFilePath(file, newPath)` — *retarget* a file's identity
     ///     to a path the caller has just produced on disk (Save As /
-    ///     first save). No disk side-effect; the new path may live
-    ///     anywhere.
+    ///     first save). No disk side-effect.
     ///   - `renameNode(node, newName)` — *in-place* rename of a file
     ///     or folder; performs the `fs::rename` itself. `newName` is
     ///     a single path component (no separators).
     ///   - `moveNode(node, newParent, index)` — reparent or reorder;
     ///     for real-under-real moves, does the `fs::rename` to follow
     ///     the new tree position.
-    void setFilePath(Node* file, const std::filesystem::path& newPath);
+    auto setFilePath(Node* file, const std::filesystem::path& newPath) -> std::expected<void, Error>;
 
     /// Drop the `Document*` back-link on the given file node. Used by
     /// `Document::unbindFromProject` so the project-side and document-
@@ -280,6 +289,20 @@ public:
     [[nodiscard]] auto getRoot() -> Node* { return m_root; }
     /// Const overload of `getRoot`.
     [[nodiscard]] auto getRoot() const -> const Node* { return m_root; }
+
+    /// Set the project root directory and refresh the root folder's
+    /// display name. Used by the project loader (Persistent) once the
+    /// project file's location is known. Tests use it to exercise the
+    /// under-root constraint. No-op for an Ephemeral project — its
+    /// root tracks the bound file's parent dir automatically.
+    void setProjectRoot(std::filesystem::path path);
+
+    /// Is `candidate` a path that lives under the project root? Empty
+    /// candidate or empty root short-circuits to `true` — used by the
+    /// "untitled Ephemeral" and "fresh Persistent" cases where no
+    /// constraint can be meaningfully checked yet. Lexical comparison
+    /// (no symlink resolution).
+    [[nodiscard]] auto isUnderRoot(const std::filesystem::path& candidate) const -> bool;
 
     /// The single bound document of an Ephemeral project — resolved as
     /// the `Document*` back-link on the root's lone child file. Returns
@@ -309,6 +332,7 @@ public:
     [[nodiscard]] auto getArtefact() const -> const std::filesystem::path& { return m_artefact; }
 
     /// Record the path of the freshly produced build artefact.
+    // NOLINTNEXTLINE(performance-unnecessary-value-param)
     void setArtefact(std::filesystem::path path) { m_artefact = std::move(path); }
 
     /// FreeBASIC compile command template (with `<$fbc>` / `<$file>`

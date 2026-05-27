@@ -80,7 +80,15 @@ void Document::setFilePath(const std::filesystem::path& path) {
     if (std::holds_alternative<std::filesystem::path>(m_source)) {
         std::get<std::filesystem::path>(m_source) = path;
     } else if (m_project != nullptr) {
-        m_project->setFilePath(std::get<Project::Node*>(m_source), path);
+        const auto result = m_project->setFilePath(std::get<Project::Node*>(m_source), path);
+        if (!result.has_value()) {
+            // Project rejected the path (typically OutOfTree for a
+            // Persistent project). The caller should have validated
+            // upstream — bail without updating the Document's own
+            // invariants so state stays consistent.
+            wxLogError("Document::setFilePath: project rejected new path");
+            return;
+        }
     } else {
         wxLogError("Document::setFilePath: source is project node, but no project bound");
         return;

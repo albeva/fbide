@@ -660,6 +660,67 @@ TEST_F(ProjectTest, MoveIntoFullyVirtualAncestrySkipsDiskMove) {
     EXPECT_TRUE(fs::exists(filePath));
 }
 
+// --- isUnderRoot / setProjectRoot / OutOfTree -----------------------------
+
+TEST_F(ProjectTest, IsUnderRootEmptyRootAcceptsEverything) {
+    const auto project = makeProject(Project::Mode::Persistent);
+    EXPECT_TRUE(project.isUnderRoot(fs::path { "/anywhere/foo.bas" }));
+    EXPECT_TRUE(project.isUnderRoot({}));
+}
+
+TEST_F(ProjectTest, IsUnderRootAcceptsPathsBelowRoot) {
+    auto project = makeProject(Project::Mode::Persistent);
+    project.setProjectRoot(fs::path { "/proj" });
+    EXPECT_TRUE(project.isUnderRoot(fs::path { "/proj/main.bas" }));
+    EXPECT_TRUE(project.isUnderRoot(fs::path { "/proj/sub/dir/x.bas" }));
+    EXPECT_TRUE(project.isUnderRoot(fs::path { "/proj" })); // root itself counts as under
+}
+
+TEST_F(ProjectTest, IsUnderRootRejectsSiblingPrefixMatch) {
+    auto project = makeProject(Project::Mode::Persistent);
+    project.setProjectRoot(fs::path { "/proj" });
+    EXPECT_FALSE(project.isUnderRoot(fs::path { "/projx/x.bas" }));
+    EXPECT_FALSE(project.isUnderRoot(fs::path { "/elsewhere/y.bas" }));
+}
+
+TEST_F(ProjectTest, SetProjectRootUpdatesNameToo) {
+    auto project = makeProject(Project::Mode::Persistent);
+    project.setProjectRoot(fs::path { "/foo/MyProj" });
+    EXPECT_EQ(project.getRoot()->path, fs::path { "/foo/MyProj" });
+    EXPECT_EQ(project.getRoot()->getFolder()->name, "MyProj");
+}
+
+TEST_F(ProjectTest, PersistentSetFilePathRejectsOutOfTree) {
+    auto project = makeProject(Project::Mode::Persistent);
+    project.setProjectRoot(fs::path { "/proj" });
+    auto* file = project.addFile(nullptr, fs::path { "/proj/main.bas" });
+
+    const auto result = project.setFilePath(file, fs::path { "/elsewhere/main.bas" });
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), Project::Error::OutOfTree);
+    // On rejection the node's path is unchanged.
+    EXPECT_EQ(file->path, fs::path { "/proj/main.bas" });
+}
+
+TEST_F(ProjectTest, PersistentSetFilePathAcceptsUnderRoot) {
+    auto project = makeProject(Project::Mode::Persistent);
+    project.setProjectRoot(fs::path { "/proj" });
+    auto* file = project.addFile(nullptr, fs::path { "/proj/main.bas" });
+
+    ASSERT_TRUE(project.setFilePath(file, fs::path { "/proj/sub/renamed.bas" }).has_value());
+    EXPECT_EQ(file->path, fs::path { "/proj/sub/renamed.bas" });
+}
+
+TEST_F(ProjectTest, EphemeralSetFilePathNeverRejectsOutOfTree) {
+    auto project = makeProject(Project::Mode::Ephemeral);
+    auto* file = project.addFile(nullptr, fs::path { "/here/foo.bas" });
+    // Even moving to a totally different directory works — Ephemeral
+    // root follows the file.
+    ASSERT_TRUE(project.setFilePath(file, fs::path { "/over/there/bar.bas" }).has_value());
+    EXPECT_EQ(file->path, fs::path { "/over/there/bar.bas" });
+    EXPECT_EQ(project.getRoot()->path, fs::path { "/over/there" });
+}
+
 // --- removeNode disk-delete walks descendants -----------------------------
 
 TEST_F(ProjectTest, RemoveVirtualFolderDeletesRealDescendantsOnDisk) {

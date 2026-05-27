@@ -15,6 +15,7 @@ Checks: '-*,
     -*-easily-swappable-parameters,
     -*-avoid-pragma-once,
     -hicpp-signed-bitwise,
+    -readability-convert-member-functions-to-static,
     '
 WarningsAsErrors: '*'
 CheckOptions:
