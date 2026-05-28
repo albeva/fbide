@@ -95,6 +95,53 @@ public:
     [[nodiscard]] auto normalizeForStorage(const wxString& pickedSlug) const
         -> std::optional<wxString>;
 
+    // ---------------------------------------------------------------
+    // CRUD — every mutation reloads the in-memory cache so the next
+    // read sees the new state. Callers are responsible for persisting
+    // via `ConfigManager::save(Category::Config)` once their edit
+    // session is complete.
+    // ---------------------------------------------------------------
+
+    /// Allocate a fresh `cfg-N` slug and create an empty user-defined
+    /// configuration with the given display name. Returns the slug.
+    auto createFromCanonical(const wxString& displayName) -> wxString;
+
+    /// Deep-copy the overrides + base of `sourceSlug` into a fresh
+    /// `cfg-N` slot with the given display name. Returns the new slug.
+    /// `sourceSlug` may be the canonical default — the copy will then
+    /// have no overrides and `base=` empty (inherits from canonical).
+    auto copy(const wxString& sourceSlug, const wxString& displayName) -> wxString;
+
+    /// Remove a user-defined configuration. Any other config whose
+    /// `base=` was the removed slug is re-parented to canonical
+    /// (`base=` key cleared). If `compiler.active` was the removed
+    /// slug, it is cleared too. Removing canonical is rejected — pass
+    /// any other slug. Returns true on success.
+    auto remove(const wxString& slug) -> bool;
+
+    /// Update a configuration's display name (`name=` key). No-op for
+    /// canonical default. Returns true if the config existed.
+    auto rename(const wxString& slug, const wxString& displayName) -> bool;
+
+    /// Change a configuration's base. Rejects self-base and any base
+    /// that is a transitive descendant of `slug` (would create a
+    /// cycle). Returns true on success.
+    auto setBase(const wxString& slug, const wxString& newBaseSlug) -> bool;
+
+    /// Set or clear a single field override. `nullopt` removes the
+    /// key entirely (the field will inherit from the base); a non-
+    /// empty optional writes the value (an empty string still
+    /// counts as an explicit override).
+    auto setOverride(const wxString& slug, CompilerField field, const std::optional<wxString>& value) -> bool;
+
+    /// Set `compiler.active`. Passing `"default"` clears the key.
+    void setActiveSlug(const wxString& slug);
+
+    /// Slugs that may legally be the base of `slug` (excludes the
+    /// slug itself and all of its transitive descendants). Canonical
+    /// `"default"` is always included.
+    [[nodiscard]] auto validBasesFor(const wxString& slug) const -> std::vector<wxString>;
+
 private:
     ConfigManager& m_cfg;
     /// Canonical at index 0, user configs follow.

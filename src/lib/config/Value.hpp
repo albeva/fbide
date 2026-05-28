@@ -83,6 +83,13 @@ public:
     /// vector — use the returned Value& immediately (assign or chain).
     [[nodiscard]] auto operator[](const wxString& path) -> Value&;
 
+    /// Remove the child at `path`. Returns true if a child existed and
+    /// was removed. Intermediate missing groups make this a no-op.
+    /// Use this when "absent key" carries semantic meaning distinct
+    /// from "key present with empty value" (e.g. compiler-config
+    /// inheritance — see `docs/compiler-configurations.md`).
+    auto erase(const wxString& path) -> bool;
+
     // -------------------------------------------------------------------
     // Typed reads
     // -------------------------------------------------------------------

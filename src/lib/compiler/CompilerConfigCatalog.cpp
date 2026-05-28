@@ -237,6 +237,201 @@ auto CompilerConfigCatalog::normalizeForStorage(const wxString& pickedSlug) cons
     return pickedSlug;
 }
 
+namespace {
+auto compilerFieldKey(CompilerField field) -> wxString {
+    switch (field) {
+    case CompilerField::Path:
+        return "path";
+    case CompilerField::CompileCommand:
+        return "compileCommand";
+    case CompilerField::RunCommand:
+        return "runCommand";
+    case CompilerField::Terminal:
+        return "terminal";
+    }
+    return wxString {};
+}
+} // namespace
+
+auto CompilerConfigCatalog::createFromCanonical(const wxString& displayName) -> wxString {
+    auto& compiler = m_cfg.config()["compiler"];
+    // nextSlugIndex defaults to 1 — first user config is cfg-1.
+    auto next = compiler.get_or("nextSlugIndex", 1);
+    auto slug = wxString::Format("cfg-%d", next);
+    compiler["nextSlugIndex"] = next + 1;
+    compiler[slug]["name"] = displayName;
+    reload();
+    return slug;
+}
+
+auto CompilerConfigCatalog::copy(const wxString& sourceSlug, const wxString& displayName) -> wxString {
+    auto& compiler = m_cfg.config()["compiler"];
+    auto next = compiler.get_or("nextSlugIndex", 1);
+    auto slug = wxString::Format("cfg-%d", next);
+    compiler["nextSlugIndex"] = next + 1;
+
+    auto& dest = compiler[slug];
+    dest["name"] = displayName;
+    if (sourceSlug != kCanonicalCompilerSlug) {
+        const auto& source = compiler.at(sourceSlug);
+        if (source.isTable()) {
+            for (const auto& [key, child] : source.entries()) {
+                if (key == "name") {
+                    continue; // displayName already written
+                }
+                if (child->isString()) {
+                    dest[key] = child->value_or(wxString {});
+                }
+            }
+        }
+    }
+    reload();
+    return slug;
+}
+
+auto CompilerConfigCatalog::remove(const wxString& slug) -> bool {
+    if (slug == kCanonicalCompilerSlug) {
+        wxLogWarning("Cannot remove canonical default compiler configuration.");
+        return false;
+    }
+    auto& compiler = m_cfg.config()["compiler"];
+    if (!static_cast<bool>(compiler.at(slug))) {
+        return false;
+    }
+    // Re-parent any user config whose `base=` was the removed slug.
+    // Walk the in-memory entries directly; this catches every child
+    // before we erase the target.
+    if (compiler.isTable()) {
+        for (const auto& [otherSlug, child] : compiler.entries()) {
+            if (otherSlug == slug || !child->isTable()) {
+                continue;
+            }
+            const auto baseValue = child->get_or("base", wxString {});
+            if (baseValue == slug) {
+                compiler[otherSlug].erase("base");
+            }
+        }
+    }
+    if (compiler.get_or("active", wxString {}) == slug) {
+        compiler.erase("active");
+    }
+    compiler.erase(slug);
+    reload();
+    return true;
+}
+
+auto CompilerConfigCatalog::rename(const wxString& slug, const wxString& displayName) -> bool {
+    if (slug == kCanonicalCompilerSlug) {
+        return false;
+    }
+    auto& compiler = m_cfg.config()["compiler"];
+    if (!static_cast<bool>(compiler.at(slug))) {
+        return false;
+    }
+    compiler[slug]["name"] = displayName;
+    reload();
+    return true;
+}
+
+auto CompilerConfigCatalog::setBase(const wxString& slug, const wxString& newBaseSlug) -> bool {
+    if (slug == kCanonicalCompilerSlug) {
+        wxLogWarning("Cannot set a base for the canonical default configuration.");
+        return false;
+    }
+    if (slug == newBaseSlug) {
+        wxLogWarning("Refusing to set '%s' as its own base.", slug);
+        return false;
+    }
+    // Reject if newBaseSlug is a descendant of slug — would create a cycle.
+    const auto bases = validBasesFor(slug);
+    if (newBaseSlug != kCanonicalCompilerSlug
+        && std::ranges::find(bases, newBaseSlug) == bases.end()) {
+        wxLogWarning("Refusing to set '%s' as base of '%s' — would create a cycle.", newBaseSlug, slug);
+        return false;
+    }
+    auto& compiler = m_cfg.config()["compiler"];
+    if (newBaseSlug == kCanonicalCompilerSlug || newBaseSlug.IsEmpty()) {
+        compiler[slug].erase("base");
+    } else {
+        compiler[slug]["base"] = newBaseSlug;
+    }
+    reload();
+    return true;
+}
+
+auto CompilerConfigCatalog::setOverride(
+    const wxString& slug,
+    CompilerField field,
+    const std::optional<wxString>& value
+) -> bool {
+    auto& compiler = m_cfg.config()["compiler"];
+    if (slug != kCanonicalCompilerSlug && !static_cast<bool>(compiler.at(slug))) {
+        return false;
+    }
+    auto& section = (slug == kCanonicalCompilerSlug) ? compiler : compiler[slug];
+    const auto key = compilerFieldKey(field);
+    if (!value.has_value()) {
+        section.erase(key);
+    } else {
+        section[key] = *value;
+    }
+    reload();
+    return true;
+}
+
+void CompilerConfigCatalog::setActiveSlug(const wxString& slug) {
+    auto& compiler = m_cfg.config()["compiler"];
+    if (slug == kCanonicalCompilerSlug || slug.IsEmpty()) {
+        compiler.erase("active");
+    } else {
+        compiler["active"] = slug;
+    }
+    reload();
+}
+
+auto CompilerConfigCatalog::validBasesFor(const wxString& slug) const -> std::vector<wxString> {
+    // A slug's valid bases are every catalog slug except the slug
+    // itself and every descendant (transitive child) of it. Canonical
+    // default is always a valid base.
+    std::unordered_set<wxString> excluded { slug };
+
+    // Build a child-of map: parent slug → list of children.
+    std::unordered_map<wxString, std::vector<wxString>> childrenOf;
+    for (const auto& cfg : m_configs) {
+        if (cfg.slug == kCanonicalCompilerSlug) {
+            continue;
+        }
+        const auto baseValue = m_cfg.config().at("compiler").at(cfg.slug).get_or("base", wxString {});
+        const auto parent = baseValue.IsEmpty() ? wxString { kCanonicalCompilerSlug } : baseValue;
+        childrenOf[parent].push_back(cfg.slug);
+    }
+
+    // BFS from slug downward to mark all descendants.
+    std::vector<wxString> queue { slug };
+    while (!queue.empty()) {
+        auto current = queue.back();
+        queue.pop_back();
+        auto it = childrenOf.find(current);
+        if (it == childrenOf.end()) {
+            continue;
+        }
+        for (const auto& child : it->second) {
+            if (excluded.insert(child).second) {
+                queue.push_back(child);
+            }
+        }
+    }
+
+    std::vector<wxString> out;
+    out.reserve(m_configs.size());
+    for (const auto& cfg : m_configs) {
+        if (!excluded.contains(cfg.slug)) {
+            out.push_back(cfg.slug);
+        }
+    }
+    return out;
+}
+
 auto CompilerConfigCatalog::activeSlug() const -> wxString {
     auto stored = m_cfg.config().get_or("compiler.active", wxString {});
     if (stored.IsEmpty()) {

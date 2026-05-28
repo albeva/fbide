@@ -360,6 +360,166 @@ TEST_F(CompilerConfigCatalogTests, NormalizeMatchingActiveYieldsNullopt) {
 // all() ordering — canonical first, then user configs sorted by the
 // numeric suffix of the cfg-N slug (so cfg-10 sorts after cfg-2).
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// CRUD — create / copy / remove / rename / setBase / setOverride / setActiveSlug
+// ---------------------------------------------------------------------------
+
+TEST_F(CompilerConfigCatalogTests, CreateAllocatesSequentialSlugs) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp, "[compiler]\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+
+    EXPECT_EQ(catalog.createFromCanonical("First"), "cfg-1");
+    EXPECT_EQ(catalog.createFromCanonical("Second"), "cfg-2");
+    EXPECT_EQ(cm->config().get_or("compiler.nextSlugIndex", -1), 3);
+
+    ASSERT_NE(catalog.find("cfg-1"), nullptr);
+    EXPECT_EQ(catalog.find("cfg-1")->displayName, "First");
+}
+
+TEST_F(CompilerConfigCatalogTests, CreateNeverReusesSlugAfterRemove) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp, "[compiler]\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+    catalog.createFromCanonical("First");                 // cfg-1
+    catalog.createFromCanonical("Second");                // cfg-2
+    catalog.remove("cfg-1");
+    EXPECT_EQ(catalog.createFromCanonical("Third"), "cfg-3");
+}
+
+TEST_F(CompilerConfigCatalogTests, CopyDuplicatesOverridesAndBase) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "compileCommand=base-compile\n"
+        "[compiler/cfg-1]\n"
+        "name=Source\n"
+        "compileCommand=cfg1-compile\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+    const auto newSlug = catalog.copy("cfg-1", "Copy");
+
+    const auto* copied = catalog.find(newSlug);
+    ASSERT_NE(copied, nullptr);
+    EXPECT_EQ(copied->displayName, "Copy");
+    EXPECT_EQ(copied->compileCommand, "cfg1-compile");
+}
+
+TEST_F(CompilerConfigCatalogTests, RemoveReParentsDependentsToDefault) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "[compiler/cfg-1]\n"
+        "name=Parent\n"
+        "[compiler/cfg-2]\n"
+        "name=Child\n"
+        "base=cfg-1\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+    catalog.remove("cfg-1");
+
+    // cfg-2 keeps existing but its base= key was cleared (inherit from canonical).
+    ASSERT_NE(catalog.find("cfg-2"), nullptr);
+    EXPECT_FALSE(bool(cm->config().at("compiler.cfg-2.base")))
+        << "base= key should be removed (= inherit from canonical default)";
+}
+
+TEST_F(CompilerConfigCatalogTests, RemoveClearsActiveWhenItMatched) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "active=cfg-1\n"
+        "[compiler/cfg-1]\n"
+        "name=Going\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+    catalog.remove("cfg-1");
+
+    EXPECT_EQ(catalog.activeSlug(), "default");
+    EXPECT_FALSE(bool(cm->config().at("compiler.active")));
+}
+
+TEST_F(CompilerConfigCatalogTests, SetBaseRejectsSelfAndDescendant) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "[compiler/cfg-1]\n"
+        "name=A\n"
+        "[compiler/cfg-2]\n"
+        "name=B\n"
+        "base=cfg-1\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+
+    const wxLogNull noLog;
+    EXPECT_FALSE(catalog.setBase("cfg-1", "cfg-1")) << "self-base must be rejected";
+    EXPECT_FALSE(catalog.setBase("cfg-1", "cfg-2")) << "descendant-base must be rejected";
+    EXPECT_TRUE(catalog.setBase("cfg-2", "default")) << "moving back to canonical is fine";
+}
+
+TEST_F(CompilerConfigCatalogTests, SetOverrideNulloptRemovesKey) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "[compiler/cfg-1]\n"
+        "name=A\n"
+        "compileCommand=override-me\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+    catalog.setOverride("cfg-1", CompilerField::CompileCommand, std::nullopt);
+
+    EXPECT_FALSE(bool(cm->config().at("compiler.cfg-1.compileCommand")));
+}
+
+TEST_F(CompilerConfigCatalogTests, SetActiveSlugDefaultClearsKey) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "active=cfg-1\n"
+        "[compiler/cfg-1]\n"
+        "name=A\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+    catalog.setActiveSlug("default");
+
+    EXPECT_FALSE(bool(cm->config().at("compiler.active")));
+}
+
+TEST_F(CompilerConfigCatalogTests, ValidBasesExcludesSelfAndDescendants) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "[compiler/cfg-1]\n"
+        "name=A\n"
+        "[compiler/cfg-2]\n"
+        "name=B\n"
+        "base=cfg-1\n"
+        "[compiler/cfg-3]\n"
+        "name=C\n"
+        "base=cfg-2\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+    const auto bases = catalog.validBasesFor("cfg-1");
+
+    // Self (cfg-1) and descendants (cfg-2, cfg-3) are excluded.
+    // Default remains a valid choice.
+    EXPECT_NE(std::ranges::find(bases, "default"), bases.end());
+    EXPECT_EQ(std::ranges::find(bases, "cfg-1"), bases.end());
+    EXPECT_EQ(std::ranges::find(bases, "cfg-2"), bases.end());
+    EXPECT_EQ(std::ranges::find(bases, "cfg-3"), bases.end());
+}
+
 TEST_F(CompilerConfigCatalogTests, AllOrdersCanonicalFirstThenByNumericSlug) {
     const TempDir tmp;
     auto cm = makeConfig(tmp,

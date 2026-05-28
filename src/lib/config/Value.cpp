@@ -128,6 +128,43 @@ auto Value::at(const wxString& path) const -> const Value& {
     return *cur;
 }
 
+auto Value::erase(const wxString& path) -> bool {
+    if (path.empty()) {
+        return false;
+    }
+    // Walk to the parent of the leaf key.
+    auto* cur = this;
+    std::size_t start = 0;
+    wxString leafKey;
+    while (start <= path.length()) {
+        const auto dot = path.find(PATH_SEP, start);
+        const auto end = (dot == wxString::npos) ? path.length() : dot;
+        if (end == start) {
+            return false;
+        }
+        const auto segment = path.SubString(start, end - 1);
+        if (dot == wxString::npos) {
+            leafKey = segment;
+            break;
+        }
+        auto* group = std::get_if<Table>(&cur->m_data);
+        if (group == nullptr) {
+            return false;
+        }
+        const auto it = group->find(segment);
+        if (it == group->end()) {
+            return false;
+        }
+        cur = it->second.get();
+        start = dot + 1;
+    }
+    auto* group = std::get_if<Table>(&cur->m_data);
+    if (group == nullptr) {
+        return false;
+    }
+    return group->erase(leafKey) > 0;
+}
+
 auto Value::operator[](const wxString& path) -> Value& {
     if (path.empty()) {
         return *this;
