@@ -167,7 +167,7 @@ void GeneralPage::create() {
     SetSizerAndFit(currentSizer());
 }
 
-void GeneralPage::apply() {
+auto GeneralPage::apply() -> bool {
     auto& cfgManager = getContext().getConfigManager();
     auto& cfg = cfgManager.config();
     auto& editor = cfg["editor"];
@@ -205,7 +205,7 @@ void GeneralPage::apply() {
         if (answer != wxYES) {
             // Revert the in-memory selection — config stays unchanged.
             m_language = currentLocaleFileName(cfg);
-            return;
+            return true;
         }
 
         // Hand the restart over to App. The locale-path swap is
@@ -219,4 +219,5 @@ void GeneralPage::apply() {
             );
         });
     }
+    return true;
 }
