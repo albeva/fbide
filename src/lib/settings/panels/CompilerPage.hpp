@@ -57,7 +57,6 @@ private:
     void selectSlug(const wxString& slug);
 
     // Event handlers — matched against the event table in the .cpp.
-    void onListSelected(wxCommandEvent& event);
     void onAddClicked(wxCommandEvent& event);
     void onCopyClicked(wxCommandEvent& event);
     void onRemoveClicked(wxCommandEvent& event);
@@ -69,6 +68,11 @@ private:
     /// on tick-on (so an accidental tick can be undone) and restores
     /// from the memory map on tick-off.
     void onInheritToggled(wxCommandEvent& event);
+    /// User picked a different node in the configuration tree —
+    /// commits the current right-pane state and loads the new
+    /// selection. Programmatic re-selections (after Add / Copy / etc.)
+    /// no-op when the slug already matches `m_selectedSlug`.
+    void onTreeSelChanged(wxTreeEvent& event);
 
     /// Locale subtree for `[dialogs/settings/compiler]` — see `tr()`.
     const Value& m_locale;
@@ -81,10 +85,16 @@ private:
     /// Slug currently shown in the right pane; empty if nothing selected.
     wxString m_selectedSlug;
 
-    Unowned<wxListBox> m_configList;
+    Unowned<wxTreeCtrl> m_configTree;
     Unowned<wxBitmapButton> m_addButton;
     Unowned<wxBitmapButton> m_copyButton;
     Unowned<wxBitmapButton> m_removeButton;
+
+    /// Reverse maps to bridge between `wxTreeItemId`s (which the tree
+    /// gives us in events) and slugs (the catalog key). Both rebuild
+    /// inside `refreshList()`.
+    std::unordered_map<wxTreeItemIdValue, wxString> m_treeSlugs;
+    std::unordered_map<wxString, wxTreeItemId> m_slugItems;
 
     Unowned<wxStaticText> m_nameLabel;
     Unowned<wxTextCtrl> m_nameField;
