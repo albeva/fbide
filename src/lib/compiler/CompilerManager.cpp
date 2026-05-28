@@ -282,6 +282,12 @@ auto CompilerManager::ensureSaved(Document& doc) -> bool {
 
 void CompilerManager::setDocumentConfiguration(Document& doc, const wxString& pickedSlug) {
     doc.setConfiguration(m_catalog->normalizeForStorage(pickedSlug));
+    // Both the toolbar combobox and the status-bar field need to
+    // reflect the new selection. The combobox already shows the picked
+    // entry (it's the source of the event when picked from there); for
+    // the status-bar popup path the click closes the menu and nothing
+    // else would otherwise push the new label.
+    pushStatusBarLabel();
 }
 
 // ---------------------------------------------------------------------------
