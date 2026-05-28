@@ -89,6 +89,8 @@ auto CompilerPage::catalog() const -> CompilerConfigCatalog& {
 void CompilerPage::create() {
     buildConfigurationsGroup();
     buildHelpGroup();
+    SetSizerAndFit(currentSizer());
+
     refreshList();
     // Open with the active configuration selected — that's the entry
     // the user is most likely to want to inspect or tweak.
@@ -97,7 +99,6 @@ void CompilerPage::create() {
         m_configList->SetSelection(idx);
     }
     loadSelectedConfig();
-    SetSizerAndFit(currentSizer());
 }
 
 void CompilerPage::apply() {
@@ -153,18 +154,22 @@ void CompilerPage::buildLeftPane() {
 }
 
 void CompilerPage::buildRightPane() {
-    vbox({ .proportion = 2, .margin = false }, [&] {
+    vbox({ .proportion = 1, .margin = false }, [&] {
         // Name + slug.
-        m_nameLabel = text(tr("dialogs.settings.compiler.name"));
-        m_nameField = textField();
-        connect(m_nameLabel, m_nameField);
-        m_nameField->Bind(wxEVT_TEXT, [this](wxCommandEvent&) { onNameChanged(); });
+        vbox({ .margin = false }, [&] {
+            m_nameLabel = text(tr("dialogs.settings.compiler.name"));
+            m_nameField = textField();
+            connect(m_nameLabel, m_nameField);
+            m_nameField->Bind(wxEVT_TEXT, [this](wxCommandEvent&) { onNameChanged(); });
+        });
 
         // Base dropdown.
-        m_baseLabel = text(tr("dialogs.settings.compiler.base"));
-        m_baseChoice = choice(wxArrayString {});
-        connect(m_baseLabel, m_baseChoice);
-        m_baseChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent&) { onBaseChanged(); });
+        hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
+            m_baseLabel = text(tr("dialogs.settings.compiler.base"), { .expand = false });
+            m_baseChoice = choice(wxArrayString {}, { .expand = false });
+            connect(m_baseLabel, m_baseChoice);
+            m_baseChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent&) { onBaseChanged(); });
+        });
 
         // Active checkbox.
         m_activeCheckbox = checkBox(tr("dialogs.settings.compiler.activeForNewFiles"));
@@ -275,7 +280,8 @@ void CompilerPage::loadSelectedConfig() {
     const auto& cfgSection = isCanonical
                                ? getContext().getConfigManager().config().at("compiler")
                                : getContext().getConfigManager().config().at("compiler").at(cfg->slug);
-    auto loadField = [&](InheritableField* widget, CompilerField field) {
+
+    auto loadField = [&](InheritableField* widget, const CompilerField field) {
         const auto key = fieldKeyOf(field);
         const auto resolved = fieldValueOf(*cfg, field);
         const bool overridden = cfgSection.contains(key);
@@ -289,14 +295,15 @@ void CompilerPage::loadSelectedConfig() {
             widget->setInherited(!overridden);
         }
     };
-    loadField(m_pathField.get(), CompilerField::Path);
-    loadField(m_compileField.get(), CompilerField::CompileCommand);
-    loadField(m_runField.get(), CompilerField::RunCommand);
-    loadField(m_terminalField.get(), CompilerField::Terminal);
+    loadField(m_pathField, CompilerField::Path);
+    loadField(m_compileField, CompilerField::CompileCommand);
+    loadField(m_runField, CompilerField::RunCommand);
+    loadField(m_terminalField, CompilerField::Terminal);
 
     m_removeButton->Enable(!isCanonical);
     m_copyButton->Enable(true);
-    Layout();
+
+    GetSizer()->Layout();
 }
 
 void CompilerPage::commitFieldOverrides() {

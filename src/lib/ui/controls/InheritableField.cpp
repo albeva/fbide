@@ -25,7 +25,7 @@ wxBEGIN_EVENT_TABLE(InheritableField, wxPanel)
 wxEND_EVENT_TABLE()
 // clang-format on
 
-InheritableField::InheritableField(wxWindow* parent, Kind kind, wxString labelText, wxString inheritTooltip)
+InheritableField::InheritableField(wxWindow* parent, const Kind kind, wxString labelText, wxString inheritTooltip)
 : Layout(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL)
 , m_kind(kind)
 , m_labelText(std::move(labelText))
@@ -36,16 +36,16 @@ void InheritableField::create() {
         smart->setOptions({ .margin = false });
     }
 
+    const auto lbl = label(m_labelText);
     hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
-        m_chkInherit = checkBox(wxEmptyString, {}, ID_CHK_INHERIT);
+        m_chkInherit = checkBox(wxEmptyString, { .expand = false }, ID_CHK_INHERIT);
         if (!m_inheritTooltip.IsEmpty()) {
             m_chkInherit->SetToolTip(m_inheritTooltip);
         }
-        const auto lbl = label(m_labelText);
-        m_field = textField({ .proportion = 1 }, ID_TXT_FIELD);
+        m_field = textField({ .proportion = 1, .expand = false }, ID_TXT_FIELD);
         connect(lbl, m_field);
         if (m_kind == Kind::Path) {
-            m_browse = button("...", {}, ID_BTN_BROWSE);
+            m_browse = button("...", { .expand = false }, ID_BTN_BROWSE);
         }
     });
 
@@ -84,7 +84,7 @@ void InheritableField::setResolvedValue(const wxString& value) {
     refreshDisplay();
 }
 
-void InheritableField::setInheritCheckboxVisible(bool visible) {
+void InheritableField::setInheritCheckboxVisible(const bool visible) {
     m_chkInherit->Show(visible);
     if (!visible) {
         // Hidden → no inheritance possible. Force unticked so
@@ -92,7 +92,7 @@ void InheritableField::setInheritCheckboxVisible(bool visible) {
         m_chkInherit->SetValue(false);
     }
     refreshDisplay();
-    Layout();
+    GetSizer()->Layout();
 }
 
 void InheritableField::refreshDisplay() {
