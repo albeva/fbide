@@ -10,22 +10,23 @@
 
 namespace fbide {
 
-/// Settings widget that mirrors `ColorPicker`'s "[ ] override" semantics
-/// for a single inheritable text field — checkbox + label + text input
+/// Settings widget mirroring `ColorPicker`'s inherit-tickbox semantics
+/// for a single text field — checkbox + label + text input
 /// (+ optional Browse button for path fields).
 ///
-/// When the override checkbox is unticked the field is disabled and
-/// shows the resolved/inherited value greyed; ticking it enables
-/// editing and seeds the input with the resolved value so the user
-/// doesn't start from a blank slate. Used by the compiler configuration
-/// settings panel to round-trip per-field overrides via the catalog.
+/// Ticked = inherit (field disabled, shows the resolved/inherited value
+/// greyed); unticked = custom (field enabled, user supplies an
+/// override value). `setInheritCheckboxVisible(false)` hides the tickbox
+/// entirely — the field then behaves as a plain editable input, used
+/// for the canonical Default configuration where there is no base to
+/// inherit from.
 class InheritableField final : public Layout<wxPanel> {
 public:
     NO_COPY_AND_MOVE(InheritableField)
 
     enum class Kind : std::uint8_t { Text, Path };
 
-    InheritableField(wxWindow* parent, Kind kind, wxString labelText);
+    InheritableField(wxWindow* parent, Kind kind, wxString labelText, wxString inheritTooltip = {});
 
     /// Build the layout. Call once after construction (mirrors
     /// `ColorPicker`'s two-phase init).
@@ -35,28 +36,27 @@ public:
     /// update. Does not mutate the stored override value.
     void setInherited(bool inherited);
 
-    /// True when the override checkbox is unticked.
+    /// True when the inherit checkbox is ticked (or false when the
+    /// checkbox is hidden via `setInheritCheckboxVisible(false)`).
     [[nodiscard]] auto isInherited() const noexcept -> bool;
 
-    /// Set the value held for the "override on" state. Visible
-    /// immediately if the checkbox is ticked.
+    /// Set the value to display + persist when the inherit checkbox is
+    /// unticked (override mode).
     void setOverrideValue(const wxString& value);
 
-    /// The value to persist when the checkbox is ticked.
+    /// Current value to persist when the inherit checkbox is unticked.
     [[nodiscard]] auto overrideValue() const -> wxString;
 
     /// Set the resolved/inherited value — what gets shown greyed in the
-    /// disabled field while the checkbox is unticked.
+    /// disabled field while the inherit checkbox is ticked.
     void setResolvedValue(const wxString& value);
 
-private:
-    enum ControlId : int {
-        ID_CHK_OVERRIDE = wxID_HIGHEST + 1,
-        ID_TXT_FIELD,
-        ID_BTN_BROWSE,
-    };
+    /// Show or hide the inherit checkbox. When hidden the field behaves
+    /// as a plain editable input — `isInherited()` always returns false.
+    void setInheritCheckboxVisible(bool visible);
 
-    void onOverrideToggle(wxCommandEvent& event);
+private:
+    void onInheritToggle(wxCommandEvent& event);
     void onTextChanged(wxCommandEvent& event);
     void onBrowseClick(wxCommandEvent& event);
 
@@ -66,9 +66,10 @@ private:
 
     Kind m_kind;
     wxString m_labelText;
+    wxString m_inheritTooltip;
     wxString m_resolvedValue; ///< Displayed (greyed) when inheriting.
     wxString m_overrideValue; ///< Persisted when overriding.
-    Unowned<wxCheckBox> m_chkOverride;
+    Unowned<wxCheckBox> m_chkInherit;
     Unowned<wxTextCtrl> m_field;
     Unowned<wxButton> m_browse; ///< Only constructed for `Kind::Path`.
 

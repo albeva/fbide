@@ -62,8 +62,10 @@ private:
     Unowned<wxButton> m_copyButton;
     Unowned<wxButton> m_removeButton;
 
+    Unowned<wxStaticText> m_nameLabel;
     Unowned<wxTextCtrl> m_nameField;
     Unowned<wxStaticText> m_slugLabel;
+    Unowned<wxStaticText> m_baseLabel;
     Unowned<wxChoice> m_baseChoice;
     Unowned<wxCheckBox> m_activeCheckbox;
 
