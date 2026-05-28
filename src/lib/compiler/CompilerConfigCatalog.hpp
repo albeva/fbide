@@ -79,6 +79,22 @@ public:
     /// A missing-slug fallback emits a `wxLogWarning`.
     [[nodiscard]] auto activeSlug() const -> wxString;
 
+    /// Resolve which configuration to use for a document whose pinned
+    /// slug is `pinnedSlug` (matches `Document::getConfiguration()`):
+    ///   - has value, slug exists → that configuration
+    ///   - has value, slug missing → active configuration (warning)
+    ///   - empty → active configuration
+    /// If even the active slug fails to resolve, falls back to canonical.
+    [[nodiscard]] auto resolveByPinnedSlug(const std::optional<wxString>& pinnedSlug) const
+        -> const ResolvedCompilerConfig&;
+
+    /// Normalisation for the "picked from toolbar" event: returns
+    /// `nullopt` when `pickedSlug` matches the active slug (so the
+    /// document follows the active), otherwise the slug verbatim
+    /// (pinned).
+    [[nodiscard]] auto normalizeForStorage(const wxString& pickedSlug) const
+        -> std::optional<wxString>;
+
 private:
     ConfigManager& m_cfg;
     /// Canonical at index 0, user configs follow.

@@ -22,7 +22,9 @@ using namespace fbide;
 BuildTask::BuildTask(Context& ctx, Document* doc)
 : m_ctx(ctx)
 , m_doc(doc)
-, m_config(ctx.getCompilerManager().catalog().canonical()) {}
+, m_config(ctx.getCompilerManager().catalog().resolveByPinnedSlug(
+      doc != nullptr ? doc->getConfiguration() : std::nullopt
+  )) {}
 
 // ---------------------------------------------------------------------------
 // Public API

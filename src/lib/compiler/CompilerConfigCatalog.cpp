@@ -208,6 +208,35 @@ auto CompilerConfigCatalog::all() const -> std::span<const ResolvedCompilerConfi
     return m_configs;
 }
 
+auto CompilerConfigCatalog::resolveByPinnedSlug(const std::optional<wxString>& pinnedSlug) const
+    -> const ResolvedCompilerConfig& {
+    if (pinnedSlug.has_value()) {
+        if (const auto* cfg = find(*pinnedSlug)) {
+            return *cfg;
+        }
+        wxLogWarning(
+            "Document pinned to compiler configuration '%s', which is not defined; "
+            "using active configuration.",
+            *pinnedSlug
+        );
+    }
+    if (const auto* cfg = find(activeSlug())) {
+        return *cfg;
+    }
+    // activeSlug() already guarantees a canonical fallback, but be
+    // defensive — find on a freshly-reloaded catalog never misses
+    // "default", so this is unreachable in practice.
+    return canonical();
+}
+
+auto CompilerConfigCatalog::normalizeForStorage(const wxString& pickedSlug) const
+    -> std::optional<wxString> {
+    if (pickedSlug == activeSlug()) {
+        return std::nullopt;
+    }
+    return pickedSlug;
+}
+
 auto CompilerConfigCatalog::activeSlug() const -> wxString {
     auto stored = m_cfg.config().get_or("compiler.active", wxString {});
     if (stored.IsEmpty()) {

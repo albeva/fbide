@@ -99,6 +99,11 @@ public:
     [[nodiscard]] auto catalog() -> CompilerConfigCatalog& { return *m_catalog; }
     [[nodiscard]] auto catalog() const -> const CompilerConfigCatalog& { return *m_catalog; }
 
+    /// Apply the "matches active → empty" normalisation and store the
+    /// resulting optional on the document. The combobox event handler
+    /// is the only caller.
+    void setDocumentConfiguration(Document& doc, const wxString& pickedSlug);
+
 private:
     /// Get active FreeBASIC document, or nullptr if unavailable.
     [[nodiscard]] auto getActiveDocument() -> Document*;
