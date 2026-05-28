@@ -104,6 +104,7 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .id = +CommandId::Compile,          .name="compile" },
         CommandEntry { .id = +CommandId::CompileAndRun,    .name="compileAndRun" },
         CommandEntry { .id = +CommandId::CompilerLog,      .name="compilerLog" },
+        CommandEntry { .id = +CommandId::Configuration,    .name="configuration", .kind = wxITEM_DROPDOWN },
         CommandEntry { .id = +CommandId::Copy,             .name="copy" },
         CommandEntry { .id = +CommandId::Cut,              .name="cut" },
         CommandEntry { .id = +CommandId::FileHistory,      .name="fileHistory" },

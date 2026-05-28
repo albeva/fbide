@@ -12,6 +12,7 @@
 #include "app/Context.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
+#include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "document/Document.hpp"
@@ -224,6 +225,7 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
     const auto sel = event.GetSelection();
     if (sel == wxNOT_FOUND) {
         m_ctx.getSideBarManager().showSymbolsFor(nullptr);
+        m_ctx.getCompilerManager().onActiveDocumentChanged(nullptr);
         setTitle(wxEmptyString);
         return;
     }
@@ -233,6 +235,7 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
         doc->getEditor()->SetFocus();
     }
     m_ctx.getSideBarManager().showSymbolsFor(doc);
+    m_ctx.getCompilerManager().onActiveDocumentChanged(doc);
     setTitle(doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath()));
 }
 
@@ -426,6 +429,20 @@ void UIManager::configureToolBar() {
             auto name = locale.get_or("name", "");
             name.Replace("&", "");
             const auto help = locale.get_or("help", "");
+
+            // Configuration is a custom control (combobox), not a tool
+            // button. CompilerManager owns the widget; UIManager just
+            // hosts it. Skips the bitmap lookup, kind dispatch, and
+            // bind-chain because none of those apply to a combobox.
+            if (entry->id == +CommandId::Configuration && entry->kind == wxITEM_DROPDOWN) {
+                if (createTools) {
+                    m_auiToolbar->AddControl(
+                        m_ctx.getCompilerManager().createConfigurationCombo(m_auiToolbar.get()),
+                        name
+                    );
+                }
+                continue;
+            }
 
             // Reconfigure path (locale change etc.) — refresh tooltips,
             // skip re-add.

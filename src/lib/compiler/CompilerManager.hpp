@@ -104,6 +104,20 @@ public:
     /// is the only caller.
     void setDocumentConfiguration(Document& doc, const wxString& pickedSlug);
 
+    /// Create the toolbar configuration combobox. Called once by
+    /// `UIManager::configureToolBar` when it sees the reserved
+    /// `CommandId::Configuration` entry. Toolbar takes ownership.
+    [[nodiscard]] auto createConfigurationCombo(wxAuiToolBar* parent) -> wxComboBox*;
+
+    /// Re-populate the combobox from the catalog. Call after a settings
+    /// dialog OK that mutated the catalog.
+    void refreshConfigurationCombo();
+
+    /// Notify the manager that the active document changed (or there
+    /// is no active document — pass `nullptr`). Updates the combobox
+    /// selection and enabled state.
+    void onActiveDocumentChanged(Document* doc);
+
 private:
     /// Get active FreeBASIC document, or nullptr if unavailable.
     [[nodiscard]] auto getActiveDocument() -> Document*;
@@ -114,11 +128,22 @@ private:
     /// Set status bar text from locale path (empty for none).
     void setStatus(const wxString& path) const;
 
+    /// Rebuild the combobox entries (slugs + display names) from the
+    /// current catalog state.
+    void populateConfigurationCombo();
+
+    /// React to the user picking an entry in the toolbar combobox —
+    /// apply the normalisation and store on the active document.
+    void onConfigurationComboSelected();
+
     Context& m_ctx;                                       ///< Application context.
     std::unique_ptr<CompilerConfigCatalog> m_catalog;     ///< Resolved view of `[compiler]` + `[compiler/*]`.
     std::unique_ptr<BuildTask> m_task;                    ///< In-flight task (`nullptr` when idle).
     wxString m_parameters;                                ///< Runtime parameters set via the Parameters dialog.
     wxString m_fbcVersion;                                ///< Cached `fbc --version` output (empty until probed).
+    wxComboBox* m_configCombo = nullptr;                  ///< Toolbar-owned widget; non-null after configureToolBar.
+    std::vector<wxString> m_configComboSlugs;             ///< Parallel to combobox items: slug per position.
+    Document* m_lastActiveDoc = nullptr;                  ///< Last document the combobox was synced to.
 };
 
 } // namespace fbide
