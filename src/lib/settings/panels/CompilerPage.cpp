@@ -35,7 +35,7 @@ auto fieldValueOf(const ResolvedCompilerConfig& cfg, CompilerField field) -> wxS
     return wxString {};
 }
 
-auto fieldKeyOf(CompilerField field) -> wxString {
+auto fieldKeyOf(const CompilerField field) -> wxString {
     switch (field) {
     case CompilerField::Path:
         return "path";
@@ -51,7 +51,7 @@ auto fieldKeyOf(CompilerField field) -> wxString {
 
 /// Find the list-position of `slug` in `entries`, iterating rather
 /// than indexing so the bounds check doesn't trip clang-tidy.
-auto indexBySlug(std::span<const ResolvedCompilerConfig> entries, const wxString& slug) -> int {
+auto indexBySlug(const std::span<const ResolvedCompilerConfig> entries, const wxString& slug) -> int {
     int idx = 0;
     for (const auto& cfg : entries) {
         if (cfg.slug == slug) {
@@ -63,7 +63,7 @@ auto indexBySlug(std::span<const ResolvedCompilerConfig> entries, const wxString
 }
 
 /// Inverse: return the entry at `index`, or `nullptr` when out of range.
-auto entryByIndex(std::span<const ResolvedCompilerConfig> entries, int index) -> const ResolvedCompilerConfig* {
+auto entryByIndex(const std::span<const ResolvedCompilerConfig> entries, const int index) -> const ResolvedCompilerConfig* {
     if (index < 0) {
         return nullptr;
     }
@@ -123,16 +123,14 @@ void CompilerPage::focusCompilerPath() {
 // ---------------------------------------------------------------------------
 
 void CompilerPage::buildConfigurationsGroup() {
-    vbox(tr("dialogs.settings.compiler.configurations"), { .proportion = 1 }, [&] {
-        hbox({ .proportion = 1, .margin = false }, [&] {
-            buildLeftPane();
-            buildRightPane();
-        });
+    hbox(tr("dialogs.settings.compiler.configurations"), { .proportion = 1, .margin = false }, [&] {
+        buildLeftPane();
+        buildRightPane();
     });
 }
 
 void CompilerPage::buildLeftPane() {
-    vbox({ .proportion = 1, .margin = false }, [&] {
+    vbox({ .margin = false }, [&] {
         m_configList = make_unowned<wxListBox>(
             currentParent(), wxID_ANY,
             wxDefaultPosition, wxDefaultSize,
@@ -158,11 +156,9 @@ void CompilerPage::buildRightPane() {
     vbox({ .proportion = 2, .margin = false }, [&] {
         // Name + slug.
         m_nameLabel = text(tr("dialogs.settings.compiler.name"));
-        m_nameField = textField({});
+        m_nameField = textField();
         connect(m_nameLabel, m_nameField);
         m_nameField->Bind(wxEVT_TEXT, [this](wxCommandEvent&) { onNameChanged(); });
-
-        m_slugLabel = text(wxEmptyString);
 
         // Base dropdown.
         m_baseLabel = text(tr("dialogs.settings.compiler.base"));
@@ -249,7 +245,6 @@ void CompilerPage::loadSelectedConfig() {
     if (!isCanonical) {
         m_nameField->ChangeValue(cfg->displayName);
     }
-    m_slugLabel->SetLabel(wxString::Format("%s: %s", tr("dialogs.settings.compiler.slug"), cfg->slug));
 
     m_baseLabel->Show(!isCanonical);
     m_baseChoice->Show(!isCanonical);
@@ -278,8 +273,8 @@ void CompilerPage::loadSelectedConfig() {
     // (or `[compiler]` for canonical) section carries the key. Resolved
     // values come from the catalog so they reflect the chain correctly.
     const auto& cfgSection = isCanonical
-        ? getContext().getConfigManager().config().at("compiler")
-        : getContext().getConfigManager().config().at("compiler").at(cfg->slug);
+                               ? getContext().getConfigManager().config().at("compiler")
+                               : getContext().getConfigManager().config().at("compiler").at(cfg->slug);
     auto loadField = [&](InheritableField* widget, CompilerField field) {
         const auto key = fieldKeyOf(field);
         const auto resolved = fieldValueOf(*cfg, field);
@@ -310,8 +305,8 @@ void CompilerPage::commitFieldOverrides() {
     }
     auto commit = [&](InheritableField* widget, CompilerField field) {
         const auto value = widget->isInherited()
-            ? std::optional<wxString> {}
-            : std::optional<wxString> { widget->overrideValue() };
+                             ? std::optional<wxString> {}
+                             : std::optional<wxString> { widget->overrideValue() };
         catalog().setOverride(m_selectedSlug, field, value);
     };
     commit(m_pathField.get(), CompilerField::Path);
