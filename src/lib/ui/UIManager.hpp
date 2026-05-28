@@ -185,6 +185,7 @@ private:
     Unowned<wxAuiNotebook> m_notebook;            ///< Document tabs.
     Unowned<wxAuiNotebook> m_sideBar;             ///< Sidebar (Browser/Subs) notebook.
     Unowned<wxAuiNotebook> m_aiNotebook;          ///< AI chat notebook (right, hidden by default) — one tab per configured provider.
+    bool m_aiNotebookReady = false;               ///< Gate to suppress spurious PAGE_CHANGED during AddPage / SetSelection init.
     std::vector<ai::AiChatPanel*> m_aiChatPanels; ///< AI chat panels keyed by tab index — wx-parented, observed only.
     std::vector<wxMenuItem*> m_externalLinkItems; ///< Live menu items in the dynamic external-links submenu.
 

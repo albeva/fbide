@@ -232,13 +232,13 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
         setTitle(wxEmptyString);
         return;
     }
-    auto* page = m_notebook->GetPage(static_cast<size_t>(sel));
+    const auto* page = m_notebook->GetPage(static_cast<size_t>(sel));
     auto* doc = m_ctx.getDocumentManager().findByPage(page);
     if (doc != nullptr) {
         doc->getEditor()->SetFocus();
+        m_ctx.getSideBarManager().showSymbolsFor(doc);
+        setTitle(doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath()));
     }
-    m_ctx.getSideBarManager().showSymbolsFor(doc);
-    setTitle(doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath()));
 }
 
 void UIManager::onNotebookDblClick(wxAuiNotebookEvent& event) {
@@ -630,6 +630,7 @@ void UIManager::createLayout() {
     if (!m_aiChatPanels.empty()) {
         m_aiNotebook->SetSelection(registry.activeIndex());
     }
+    m_aiNotebookReady = true;
 
     auto* aiEntry = m_ctx.getCommandManager().find(+CommandId::AiChat);
     if (aiEntry == nullptr) {
@@ -657,6 +658,13 @@ auto UIManager::getAiChatPanel() -> AiChatPanel& {
 }
 
 void UIManager::onAiPageChanged(wxAuiNotebookEvent& event) {
+    // wxAuiNotebook fires PAGE_CHANGED during AddPage (first page auto-selects)
+    // before we apply the loaded `[ai] active` via SetSelection. Without the
+    // gate, that spurious event overwrites the persisted choice with index 0
+    // on every launch.
+    if (!m_aiNotebookReady) {
+        return;
+    }
     const int selection = event.GetSelection();
     if (selection < 0) {
         return;
