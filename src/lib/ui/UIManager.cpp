@@ -45,6 +45,7 @@ wxEND_EVENT_TABLE()
 
 UIManager::UIManager(Context& ctx)
 : m_ctx(ctx)
+, m_statusBar(ctx)
 , m_artProvider(std::make_unique<ArtiProvider>()) {}
 
 UIManager::~UIManager() {
@@ -490,133 +491,14 @@ void UIManager::configureToolBar() {
     }
 }
 
-namespace {
-/// Status-bar field widths: 5-field layout (no configuration field)
-/// and 6-field layout (configuration sits next to document type). The
-/// active layout is picked by `refreshConfigurationDisplay`.
-constexpr std::array kStatusWidthsNoConfig { -1, 90, 100, 90, 140 };
-constexpr std::array kStatusWidthsWithConfig { -1, 90, 100, 140, 90, 140 };
-/// Field index of the configuration label when the 6-field layout is in
-/// effect — sits adjacent to the document-type field (index 2).
-constexpr int kStatusConfigField = 3;
-} // namespace
-
-void UIManager::createStatusBar() const {
-    // Allocate the widest layout up-front; `refreshConfigurationDisplay`
-    // shrinks back to 5 fields when the preference is off. Building
-    // here-and-now with 6 fields lets the click handler bind once
-    // without having to re-bind after a preference flip.
-    auto* bar = m_frame->CreateStatusBar(static_cast<int>(kStatusWidthsWithConfig.size()));
-    bar->SetStatusWidths(static_cast<int>(kStatusWidthsWithConfig.size()), kStatusWidthsWithConfig.data());
-    m_frame->SetStatusText(m_ctx.tr("common.welcome"));
-
-    bar->Bind(wxEVT_LEFT_DOWN, &UIManager::onStatusBarClick, const_cast<UIManager*>(this));
+void UIManager::createStatusBar() {
+    m_statusBar.create(m_frame);
 }
 
 void UIManager::refreshConfigurationDisplay() {
     const bool inStatusBar = m_ctx.getConfigManager().config().get_or("commands.configurationInStatusBar", false);
-
     m_ctx.getCompilerManager().setConfigurationComboVisible(!inStatusBar);
-
-    if (auto* bar = m_frame->GetStatusBar(); bar != nullptr) {
-        if (inStatusBar) {
-            if (bar->GetFieldsCount() != static_cast<int>(kStatusWidthsWithConfig.size())) {
-                bar->SetFieldsCount(static_cast<int>(kStatusWidthsWithConfig.size()));
-            }
-            bar->SetStatusWidths(static_cast<int>(kStatusWidthsWithConfig.size()), kStatusWidthsWithConfig.data());
-            bar->SetStatusText(m_ctx.getCompilerManager().configurationStatusLabel(), kStatusConfigField);
-        } else {
-            if (bar->GetFieldsCount() != static_cast<int>(kStatusWidthsNoConfig.size())) {
-                bar->SetFieldsCount(static_cast<int>(kStatusWidthsNoConfig.size()));
-            }
-            bar->SetStatusWidths(static_cast<int>(kStatusWidthsNoConfig.size()), kStatusWidthsNoConfig.data());
-        }
-    }
-}
-
-auto UIManager::hasStatusBarConfigField() const -> bool {
-    auto* bar = m_frame->GetStatusBar();
-    return bar != nullptr && bar->GetFieldsCount() == static_cast<int>(kStatusWidthsWithConfig.size());
-}
-
-void UIManager::onStatusBarClick(wxMouseEvent& event) {
-    event.Skip();
-    auto* bar = m_frame->GetStatusBar();
-    if (bar == nullptr) {
-        return;
-    }
-    auto* doc = m_ctx.getDocumentManager().getActive();
-    if (doc == nullptr) {
-        return;
-    }
-
-    const auto pos = event.GetPosition();
-    wxRect rect;
-
-    if (bar->GetFieldRect(2, rect) && rect.Contains(pos)) {
-        auto menu = DocumentTypeMenu::build(m_ctx, doc->getType());
-        menu->Bind(wxEVT_MENU, [this, doc](const wxCommandEvent& evt) {
-            if (const auto type = DocumentTypeMenu::typeFromId(evt.GetId())) {
-                doc->setType(*type);
-                doc->getEditor()->updateStatusBar();
-                m_ctx.getDocumentManager().updateActiveTabTitle();
-            }
-        });
-        bar->PopupMenu(menu.get());
-        return;
-    }
-
-    // Configuration field — present only when the 6-field layout is
-    // active and the document is a FreeBASIC source (the selector
-    // hides for any other document type, mirroring the toolbar combo).
-    const bool hasConfigField = hasStatusBarConfigField();
-    if (hasConfigField
-        && doc->getType() == DocumentType::FreeBASIC
-        && bar->GetFieldRect(kStatusConfigField, rect)
-        && rect.Contains(pos)) {
-        auto menu = m_ctx.getCompilerManager().buildConfigurationMenu();
-        menu->Bind(wxEVT_MENU, [this](const wxCommandEvent& evt) {
-            m_ctx.getCompilerManager().applyConfigurationMenuSelection(evt.GetId());
-        });
-        bar->PopupMenu(menu.get());
-        return;
-    }
-
-    // EOL + encoding fields shift by one when the configuration field
-    // is present.
-    const int eolField = hasConfigField ? 4 : 3;
-    const int encodingField = hasConfigField ? 5 : 4;
-
-    if (bar->GetFieldRect(eolField, rect) && rect.Contains(pos)) {
-        const auto menu = EncodingMenu::buildEolMenu(doc->getEolMode());
-        menu->Bind(wxEVT_MENU, [doc](const wxCommandEvent& evt) {
-            if (const auto mode = EncodingMenu::eolFromId(evt.GetId())) {
-                doc->setEolMode(*mode);
-                doc->getEditor()->updateStatusBar();
-            }
-        });
-        bar->PopupMenu(menu.get());
-        return;
-    }
-
-    if (bar->GetFieldRect(encodingField, rect) && rect.Contains(pos)) {
-        auto menu = EncodingMenu::buildEncodingMenu(
-            doc->getEncoding(),
-            m_ctx.tr("statusbar.encoding.reloadWithEncoding")
-        );
-        menu->Bind(wxEVT_MENU, [this, doc](const wxCommandEvent& evt) {
-            if (const auto enc = EncodingMenu::encodingSaveFromId(evt.GetId())) {
-                doc->setEncoding(*enc);
-                m_ctx.getDocumentManager().updateActiveTabTitle();
-                doc->getEditor()->updateStatusBar();
-                return;
-            }
-            if (const auto enc = EncodingMenu::encodingReloadFromId(evt.GetId())) {
-                m_ctx.getDocumentManager().reloadWithEncoding(*doc, *enc);
-            }
-        });
-        bar->PopupMenu(menu.get());
-    }
+    m_statusBar.applyPreference();
 }
 
 void UIManager::createLayout() {

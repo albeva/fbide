@@ -341,16 +341,7 @@ void CompilerManager::onActiveDocumentChanged(Document* doc) {
 }
 
 void CompilerManager::pushStatusBarLabel() {
-    auto* frame = m_ctx.getUIManager().getMainFrame();
-    if (frame == nullptr) {
-        return;
-    }
-    auto* bar = frame->GetStatusBar();
-    if (bar == nullptr || !m_ctx.getUIManager().hasStatusBarConfigField()) {
-        return;
-    }
-    constexpr int kField = 3;
-    bar->SetStatusText(configurationStatusLabel(), kField);
+    m_ctx.getUIManager().getStatusBar().refreshConfigurationField();
 }
 
 void CompilerManager::populateConfigurationCombo() {

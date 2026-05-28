@@ -62,6 +62,7 @@ target_sources(fbide_lib
     ui/DocumentTypeMenu.cpp
     ui/EncodingMenu.cpp
     ui/OutputConsole.cpp
+    ui/StatusBarHandler.cpp
     ui/UIManager.cpp
     ui/controls/BBCodeText.cpp
     ui/controls/ColorPicker.cpp
@@ -139,6 +140,7 @@ target_sources(fbide_lib
     ui/DocumentTypeMenu.hpp
     ui/EncodingMenu.hpp
     ui/OutputConsole.hpp
+    ui/StatusBarHandler.hpp
     ui/UIManager.hpp
     ui/UIState.hpp
     ui/controls/BBCodeText.hpp

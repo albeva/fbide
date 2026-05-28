@@ -865,28 +865,17 @@ void Editor::updateStatusBar() const {
     if (m_uiManager == nullptr) {
         return;
     }
+    auto& bar = m_uiManager->getStatusBar();
     const auto pos = GetCurrentPos();
-    const auto line = LineFromPosition(pos) + 1;
-    const auto col = GetColumn(pos) + 1;
-    auto* frame = m_uiManager->getMainFrame();
-    frame->SetStatusText(wxString::Format("%d : %d", line, col), 1);
+    bar.setCursor(LineFromPosition(pos) + 1, GetColumn(pos) + 1);
 
     const Document* doc = m_documentManager != nullptr
                             ? m_documentManager->findByEditor(this)
                             : nullptr;
     if (doc != nullptr) {
-        const auto typeKey = documentTypeKey(doc->getType());
-        auto typeLabel = m_uiManager->getContext().tr(wxString("statusbar.type.") + wxString::FromUTF8(typeKey.data(), typeKey.size()));
-        if (typeLabel.empty()) {
-            typeLabel = wxString::FromUTF8(typeKey.data(), typeKey.size());
-        }
-        frame->SetStatusText(typeLabel, 2);
-        frame->SetStatusText(wxString::FromUTF8(doc->getEolMode().toString()), 3);
-        frame->SetStatusText(wxString::FromUTF8(doc->getEncoding().toString()), 4);
+        bar.setDocumentFields(*doc);
     } else {
-        frame->SetStatusText("", 2);
-        frame->SetStatusText("", 3);
-        frame->SetStatusText("", 4);
+        bar.clearDocumentFields();
     }
 }
 
