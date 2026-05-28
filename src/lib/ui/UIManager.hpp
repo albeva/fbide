@@ -8,6 +8,7 @@
 #include "pch.hpp"
 #include "ArtiProvider.hpp"
 #include "OutputConsole.hpp"
+#include "StatusBarHandler.hpp"
 #include "UIState.hpp"
 #include "command/CommandId.hpp"
 
@@ -99,8 +100,12 @@ public:
     /// combobox's visibility. Called once at startup and again from
     /// `updateSettings` so changes take effect without a restart.
     void refreshConfigurationDisplay();
-    /// True when the configuration field is present in the status bar.
-    [[nodiscard]] auto hasStatusBarConfigField() const -> bool;
+
+    /// Access the status-bar handler — used by `Editor` to push line
+    /// / column + per-document fields, and by `CompilerManager` to
+    /// refresh the configuration label on catalog changes.
+    [[nodiscard]] auto getStatusBar() -> StatusBarHandler& { return m_statusBar; }
+    [[nodiscard]] auto getStatusBar() const -> const StatusBarHandler& { return m_statusBar; }
 
     /// Get the output console.
     [[nodiscard]] auto getOutputConsole() -> OutputConsole& { return *m_console; }
@@ -131,9 +136,6 @@ private:
     void onPageChanged(wxAuiNotebookEvent& event);
     /// Notebook double-click — open file dialog when clicking blank tab area.
     void onNotebookDblClick(wxAuiNotebookEvent& event);
-    /// Status-bar click — open EOL/encoding pickers on the relevant fields.
-    void onStatusBarClick(wxMouseEvent& event);
-
     /// Build the main menu bar from `layout.ini` + locale.
     void configureMenuBar();
     /// Recursively populate a single menu by id from layout.
@@ -143,10 +145,9 @@ private:
     /// Append the external-links submenu under Help.
     void generateExternalLinks(wxMenu* menu);
 
-    /// Create the multi-field status bar. The configuration field is
-    /// included when the `commands.configurationInStatusBar` preference
-    /// is on (six fields); otherwise five.
-    void createStatusBar() const;
+    /// Create the multi-field status bar by delegating to
+    /// `StatusBarHandler`.
+    void createStatusBar();
     /// Create AUI panes, document notebook, sidebar notebook, output console.
     void createLayout();
     /// Sync the output-console pane's visibility with the `viewResult` command.
@@ -174,6 +175,7 @@ private:
     UIState m_documentState = UIState::None;      ///< Document-side state slot.
     UIState m_compilerState = UIState::None;      ///< Compiler-side state slot (overrides document).
     wxAuiManager m_aui;                           ///< AUI dock manager for the frame.
+    StatusBarHandler m_statusBar;                 ///< Status-bar field layout, content, and click routing.
     std::unique_ptr<ArtiProvider> m_artProvider;  ///< Icon/bitmap dispatch for menus + toolbar.
     Unowned<CompilerLog> m_compilerLog;           ///< Compiler-log dialog (wx-parented, hidden until shown).
     Unowned<OutputConsole> m_console;             ///< Build/run output pane.
