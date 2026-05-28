@@ -7,6 +7,7 @@
 #include "CompilerManager.hpp"
 #include <wx/richmsgdlg.h>
 #include "BuildTask.hpp"
+#include "CompilerConfigCatalog.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
@@ -20,7 +21,10 @@
 using namespace fbide;
 
 CompilerManager::CompilerManager(Context& ctx)
-: m_ctx(ctx) {}
+: m_ctx(ctx)
+, m_catalog(std::make_unique<CompilerConfigCatalog>(ctx.getConfigManager())) {
+    m_catalog->reload();
+}
 
 CompilerManager::~CompilerManager() = default;
 

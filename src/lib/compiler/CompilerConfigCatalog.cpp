@@ -13,6 +13,14 @@
 using namespace fbide;
 
 namespace {
+/// Fallback templates applied to canonical fields when the corresponding
+/// key is missing from `[compiler]`. Shipped config files set these
+/// explicitly per platform; the constants are a safety net for hand-
+/// edited or corrupt configs. An EMPTY value in the config is *not*
+/// replaced — that's a deliberate override (e.g. "no terminal").
+constexpr auto kDefaultCompileTemplate = R"("<$fbc>" "<$file>")";
+constexpr auto kDefaultRunTemplate = R"(<$terminal> "<$file>" <$param>)";
+
 /// Per-section snapshot used during `reload()`. Holds each overridable
 /// field as an `optional<wxString>` so we can distinguish "key absent
 /// (inherit)" from "key present, value empty (override with empty)".
@@ -37,17 +45,21 @@ auto readOverride(const Value& section, const wxString& key) -> std::optional<wx
     return leaf.value_or(wxString {});
 }
 
-auto parseCanonicalPending(const Value& compilerSection) -> PendingConfig {
-    // Canonical has no notion of inheritance — missing and empty are both
-    // treated as "this is the value, which happens to be empty".
+auto parseCanonicalPending(ConfigManager& cfg) -> PendingConfig {
+    // Canonical is the bottom of the inheritance chain — anything missing
+    // here is the user's last resort, so it gets the platform default
+    // (terminal) or the hardcoded template (compile/run). `get_or` only
+    // returns the default when the key is *absent*; an explicit empty
+    // value is preserved as an empty override.
+    const auto& section = cfg.config().at("compiler");
     return PendingConfig {
         .slug = kCanonicalCompilerSlug,
         .name = "Default",
         .base = wxString {},
-        .path = compilerSection.get_or("path", wxString {}),
-        .runCommand = compilerSection.get_or("runCommand", wxString {}),
-        .compileCommand = compilerSection.get_or("compileCommand", wxString {}),
-        .terminal = compilerSection.get_or("terminal", wxString {}),
+        .path = section.get_or("path", wxString {}),
+        .runCommand = section.get_or("runCommand", wxString { kDefaultRunTemplate }),
+        .compileCommand = section.get_or("compileCommand", wxString { kDefaultCompileTemplate }),
+        .terminal = cfg.getTerminalLauncher(),
     };
 }
 
@@ -159,7 +171,7 @@ void CompilerConfigCatalog::reload() {
     std::unordered_map<wxString, PendingConfig> pending;
     std::vector<wxString> userSlugs;
 
-    pending.emplace(kCanonicalCompilerSlug, parseCanonicalPending(compilerSection));
+    pending.emplace(kCanonicalCompilerSlug, parseCanonicalPending(m_cfg));
 
     if (compilerSection.isTable()) {
         for (const auto& [key, child] : compilerSection.entries()) {

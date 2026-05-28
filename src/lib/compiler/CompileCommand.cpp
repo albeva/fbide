@@ -5,18 +5,16 @@
 // https://github.com/albeva/fbide
 //
 #include "CompileCommand.hpp"
+#include "CompilerConfigCatalog.hpp"
 #include "QuoteUtils.hpp"
-#include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
+#include "utils/PathConversions.hpp"
 using namespace fbide;
 
-auto CompileCommand::build(Context& ctx) const -> wxString {
-    const auto& compiler = ctx.getConfigManager().config().at("compiler");
-    const wxString compileTemplate = compiler.get_or("compileCommand", R"("<$fbc>" "<$file>")");
-    const wxString compilerPath = compiler.get_or("path", "");
-    wxFileName path(compilerPath);
-    path.MakeAbsolute(ctx.getConfigManager().getAppDir());
-    return build(compileTemplate, path.GetFullPath());
+auto CompileCommand::build(const ResolvedCompilerConfig& cfg, const ConfigManager& cm) const -> wxString {
+    wxFileName path { toWxString(cfg.path) };
+    path.MakeAbsolute(cm.getAppDir());
+    return build(cfg.compileCommand, path.GetFullPath());
 }
 
 auto CompileCommand::build(const wxString& compileTemplate, const wxString& compiler) const -> wxString {
