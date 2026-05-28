@@ -158,7 +158,7 @@ void CompilerPage::buildLeftPane() {
         m_configTree = make_unowned<wxTreeCtrl>(
             currentParent(), ID_TREE,
             wxDefaultPosition, wxDefaultSize,
-            wxTR_HAS_BUTTONS | wxTR_LINES_AT_ROOT | wxTR_SINGLE
+            wxTR_HAS_BUTTONS | wxTR_LINES_AT_ROOT | wxTR_SINGLE | wxBORDER_SUNKEN
         );
         add(m_configTree, { .proportion = 1 });
 
