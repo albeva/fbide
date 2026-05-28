@@ -10,6 +10,14 @@
 
 namespace fbide {
 
+/// Fired after the user toggles the inherit checkbox on an
+/// `InheritableField`. The `int` payload carries the new state
+/// (`1` = inheriting, `0` = custom override). `GetEventObject()`
+/// points back at the firing widget. Used by `CompilerPage` to
+/// remember the user's last override value so an accidental tick
+/// can be undone.
+wxDECLARE_EVENT(EVT_INHERIT_TOGGLED, wxCommandEvent);
+
 /// Settings widget mirroring `ColorPicker`'s inherit-tickbox semantics
 /// for a single text field — checkbox + label + text input
 /// (+ optional Browse button for path fields).
