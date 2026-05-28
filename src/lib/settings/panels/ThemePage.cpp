@@ -144,7 +144,7 @@ auto ThemePage::getAllFixedWidthFonts() -> std::vector<wxString> {
 // Apply theme settings
 // ---------------------------------------------------------------------------
 
-void ThemePage::apply() {
+auto ThemePage::apply() -> bool {
     saveCategory();
 
     if (isUnsavedNewTheme()) {
@@ -153,6 +153,7 @@ void ThemePage::apply() {
         getContext().getTheme() = m_theme;
         syncActiveThemeConfig();
     }
+    return true;
 }
 
 auto ThemePage::tr(const wxString& path, const wxString& def) const -> wxString {

@@ -128,6 +128,21 @@ auto Value::at(const wxString& path) const -> const Value& {
     return *cur;
 }
 
+auto Value::clone() const -> Value {
+    Value out;
+    if (const auto* leaf = std::get_if<wxString>(&m_data)) {
+        out.m_data = *leaf;
+    } else if (const auto* group = std::get_if<Table>(&m_data)) {
+        Table copied;
+        copied.reserve(group->size());
+        for (const auto& [key, child] : *group) {
+            copied.emplace(key, std::make_unique<Value>(child->clone()));
+        }
+        out.m_data = std::move(copied);
+    }
+    return out;
+}
+
 auto Value::erase(const wxString& path) -> bool {
     if (path.empty()) {
         return false;

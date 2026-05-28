@@ -12,6 +12,7 @@
 #include "panels/KeywordsPage.hpp"
 #include "panels/ThemePage.hpp"
 #include "ui/UIManager.hpp"
+#include "ui/controls/Panel.hpp"
 using namespace fbide;
 
 SettingsDialog::SettingsDialog(wxWindow* parent, Context& ctx)
@@ -25,23 +26,23 @@ SettingsDialog::SettingsDialog(wxWindow* parent, Context& ctx)
 SettingsDialog::~SettingsDialog() = default;
 
 void SettingsDialog::create(const Page initial) {
-    const auto notebook = make_unowned<wxNotebook>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
+    m_notebook = make_unowned<wxNotebook>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
 
-    m_generalPage = make_unowned<GeneralPage>(m_ctx, notebook);
-    m_themePage = make_unowned<ThemePage>(m_ctx, notebook);
-    m_keywordsPage = make_unowned<KeywordsPage>(m_ctx, notebook);
-    m_compilerPage = make_unowned<CompilerPage>(m_ctx, notebook);
+    m_generalPage = make_unowned<GeneralPage>(m_ctx, m_notebook);
+    m_themePage = make_unowned<ThemePage>(m_ctx, m_notebook);
+    m_keywordsPage = make_unowned<KeywordsPage>(m_ctx, m_notebook);
+    m_compilerPage = make_unowned<CompilerPage>(m_ctx, m_notebook);
 
     m_generalPage->create();
     m_themePage->create();
     m_keywordsPage->create();
     m_compilerPage->create();
 
-    notebook->AddPage(m_generalPage, m_ctx.tr("dialogs.settings.general.title"));
-    notebook->AddPage(m_themePage, m_ctx.tr("dialogs.settings.themes.title"));
-    notebook->AddPage(m_keywordsPage, m_ctx.tr("dialogs.settings.keywords.title"));
-    notebook->AddPage(m_compilerPage, m_ctx.tr("dialogs.settings.compiler.title"));
-    notebook->SetSelection(static_cast<std::size_t>(initial));
+    m_notebook->AddPage(m_generalPage, m_ctx.tr("dialogs.settings.general.title"));
+    m_notebook->AddPage(m_themePage, m_ctx.tr("dialogs.settings.themes.title"));
+    m_notebook->AddPage(m_keywordsPage, m_ctx.tr("dialogs.settings.keywords.title"));
+    m_notebook->AddPage(m_compilerPage, m_ctx.tr("dialogs.settings.compiler.title"));
+    m_notebook->SetSelection(static_cast<std::size_t>(initial));
 
     // Defer initial-page focus until the dialog is shown — calling
     // SetFocus on a not-yet-realised control is a no-op on Windows.
@@ -52,7 +53,7 @@ void SettingsDialog::create(const Page initial) {
     auto* btnSizer = CreateStdDialogButtonSizer(wxOK | wxCANCEL);
 
     const auto mainSizer = make_unowned<wxBoxSizer>(wxVERTICAL);
-    mainSizer->Add(notebook, 1, wxEXPAND | wxALL, 5);
+    mainSizer->Add(m_notebook, 1, wxEXPAND | wxALL, 5);
     mainSizer->Add(btnSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
 
     SetSizerAndFit(mainSizer);
@@ -61,19 +62,81 @@ void SettingsDialog::create(const Page initial) {
     Bind(
         wxEVT_BUTTON,
         [this](wxCommandEvent&) {
-            applyChanges();
-            EndModal(wxID_OK);
+            if (applyChanges()) {
+                EndModal(wxID_OK);
+            }
         },
         wxID_OK
     );
+    Bind(
+        wxEVT_BUTTON,
+        [this](wxCommandEvent&) {
+            cancelChanges();
+            EndModal(wxID_CANCEL);
+        },
+        wxID_CANCEL
+    );
+    // Title-bar close = Cancel — restore on the way out.
+    Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& event) {
+        cancelChanges();
+        event.Skip();
+    });
 }
 
-void SettingsDialog::applyChanges() const {
+auto SettingsDialog::applyChanges() -> bool {
     const auto thaw = m_ctx.getUIManager().freeze();
-    m_generalPage->apply();
-    m_themePage->apply();
-    m_keywordsPage->apply();
-    m_compilerPage->apply();
+
+    // Apply order: currently-selected tab first so any validation
+    // failure surfaces against the page the user has in front of them.
+    // The remaining tabs follow in declaration order.
+    const auto activePage = static_cast<Page>(m_notebook->GetSelection());
+    constexpr std::array<Page, 4> kOrder {
+        Page::General, Page::Theme, Page::Keywords, Page::Compiler
+    };
+
+    auto applyOne = [this](Page page) -> bool {
+        auto* panel = panelAt(page);
+        if (panel != nullptr && !panel->apply()) {
+            m_notebook->SetSelection(static_cast<std::size_t>(page));
+            return false;
+        }
+        return true;
+    };
+
+    if (!applyOne(activePage)) {
+        return false;
+    }
+    for (auto page : kOrder) {
+        if (page == activePage) {
+            continue;
+        }
+        if (!applyOne(page)) {
+            return false;
+        }
+    }
+
     m_ctx.getConfigManager().save(ConfigManager::Category::Config);
     m_ctx.getUIManager().updateSettings();
+    return true;
+}
+
+void SettingsDialog::cancelChanges() const {
+    m_generalPage->cancel();
+    m_themePage->cancel();
+    m_keywordsPage->cancel();
+    m_compilerPage->cancel();
+}
+
+auto SettingsDialog::panelAt(const Page page) const -> Panel* {
+    switch (page) {
+    case Page::General:
+        return m_generalPage;
+    case Page::Theme:
+        return m_themePage;
+    case Page::Keywords:
+        return m_keywordsPage;
+    case Page::Compiler:
+        return m_compilerPage;
+    }
+    return nullptr;
 }

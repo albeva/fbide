@@ -9,14 +9,21 @@
 #include "compiler/CompilerConfigCatalog.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
-#include "help/HelpManager.hpp"
 #include "utils/PathConversions.hpp"
 using namespace fbide;
 
 namespace {
-/// Suffix applied to the active configuration's display name in the
-/// list to make the current default obvious at a glance.
-constexpr auto kActiveSuffix = " (active)";
+/// Stable IDs for this panel's interactive controls. Offset clear of
+/// the InheritableField / ColorPicker ranges so a child control's
+/// event can't accidentally match one of ours via parent-chain
+/// propagation.
+constexpr int ID_LIST = wxID_HIGHEST + 200;
+constexpr int ID_ADD = wxID_HIGHEST + 201;
+constexpr int ID_COPY = wxID_HIGHEST + 202;
+constexpr int ID_REMOVE = wxID_HIGHEST + 203;
+constexpr int ID_NAME = wxID_HIGHEST + 204;
+constexpr int ID_BASE = wxID_HIGHEST + 205;
+constexpr int ID_ACTIVE = wxID_HIGHEST + 206;
 
 /// Lift a `ResolvedCompilerConfig` field into the `wxString` form the
 /// `InheritableField` widget expects. `path` is the only non-string
@@ -77,40 +84,81 @@ auto entryByIndex(const std::span<const ResolvedCompilerConfig> entries, const i
 }
 } // namespace
 
+// clang-format off
+wxBEGIN_EVENT_TABLE(CompilerPage, Panel)
+    EVT_LISTBOX (ID_LIST,   CompilerPage::onListSelected)
+    EVT_BUTTON  (ID_ADD,    CompilerPage::onAddClicked)
+    EVT_BUTTON  (ID_COPY,   CompilerPage::onCopyClicked)
+    EVT_BUTTON  (ID_REMOVE, CompilerPage::onRemoveClicked)
+    EVT_TEXT    (ID_NAME,   CompilerPage::onNameChanged)
+    EVT_CHOICE  (ID_BASE,   CompilerPage::onBaseChanged)
+    EVT_CHECKBOX(ID_ACTIVE, CompilerPage::onActiveToggled)
+wxEND_EVENT_TABLE()
+// clang-format on
+
 CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
-: Panel(ctx, wxID_ANY, parent) {
-    m_helpFile = getContext().getConfigManager().config().get_or("paths.helpFile", "");
-}
+: Panel(ctx, wxID_ANY, parent)
+, m_locale(ctx.getConfigManager().locale().at("dialogs.settings.compiler")) {}
 
 auto CompilerPage::catalog() const -> CompilerConfigCatalog& {
     return getContext().getCompilerManager().catalog();
 }
 
 void CompilerPage::create() {
+    // Snapshot the catalog state up-front. Every edit during the dialog
+    // session mutates the live catalog (so the rest of the UI stays
+    // consistent), and `cancel()` swaps the snapshot back in if the
+    // user bails.
+    m_compilerSnapshot = getContext().getConfigManager().config().at("compiler").clone();
+
     buildConfigurationsGroup();
-    buildHelpGroup();
     SetSizerAndFit(currentSizer());
 
     refreshList();
     // Open with the active configuration selected — that's the entry
     // the user is most likely to want to inspect or tweak.
     m_selectedSlug = catalog().activeSlug();
-    if (const auto idx = indexBySlug(catalog().all(), m_selectedSlug); idx != wxNOT_FOUND) {
-        m_configList->SetSelection(idx);
-    }
+    selectSlug(m_selectedSlug);
     loadSelectedConfig();
 }
 
-void CompilerPage::apply() {
+auto CompilerPage::apply() -> bool {
     commitFieldOverrides();
-    auto& cfg = getContext().getConfigManager().config();
-    const wxString existingHelp = cfg.get_or("paths.helpFile", "");
-    if (m_helpFile != existingHelp) {
-        cfg["paths"]["helpFile"] = m_helpFile;
+
+    // Required name on every user configuration. Trimmed so a
+    // whitespace-only name still counts as empty.
+    for (const auto& cfg : catalog().all()) {
+        if (cfg.slug == kCanonicalCompilerSlug) {
+            continue;
+        }
+        auto trimmed = cfg.displayName;
+        trimmed.Trim().Trim(false);
+        if (trimmed.IsEmpty()) {
+            m_selectedSlug = cfg.slug;
+            selectSlug(cfg.slug);
+            loadSelectedConfig();
+            m_nameField->SetFocus();
+            wxMessageBox(
+                tr("nameRequired"),
+                tr("addTitle"),
+                wxICON_WARNING | wxOK,
+                this
+            );
+            return false;
+        }
     }
-    // resetFbcVersion in case the active config's path changed
-    // (commitFieldOverrides will have written any path override above).
-    getContext().getCompilerManager().resetFbcVersion();
+
+    getContext().getCompilerManager().refreshConfigurationCombo();
+    return true;
+}
+
+void CompilerPage::cancel() {
+    // Restore the original `[compiler]` tree and have everything that
+    // reads it refresh — catalog cache, toolbar combobox.
+    auto& compiler = getContext().getConfigManager().config()["compiler"];
+    compiler = m_compilerSnapshot.clone();
+    getContext().getCompilerManager().catalog().reload();
+    getContext().getCompilerManager().refreshConfigurationCombo();
 }
 
 void CompilerPage::focusCompilerPath() {
@@ -124,7 +172,7 @@ void CompilerPage::focusCompilerPath() {
 // ---------------------------------------------------------------------------
 
 void CompilerPage::buildConfigurationsGroup() {
-    hbox(tr("dialogs.settings.compiler.configurations"), { .proportion = 1, .margin = false }, [&] {
+    hbox(tr("configurations"), { .proportion = 1, .margin = false }, [&] {
         buildLeftPane();
         buildRightPane();
     });
@@ -133,89 +181,62 @@ void CompilerPage::buildConfigurationsGroup() {
 void CompilerPage::buildLeftPane() {
     vbox({ .margin = false }, [&] {
         m_configList = make_unowned<wxListBox>(
-            currentParent(), wxID_ANY,
+            currentParent(), ID_LIST,
             wxDefaultPosition, wxDefaultSize,
             wxArrayString {}, wxLB_SINGLE
         );
-        m_configList->Bind(wxEVT_LISTBOX, [this](wxCommandEvent&) { onListSelected(); });
         add(m_configList, { .proportion = 1 });
 
         hbox({ .margin = false }, [&] {
-            m_addButton = button(tr("dialogs.settings.compiler.add"));
-            m_addButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onAddClicked(); });
-
-            m_copyButton = button(tr("dialogs.settings.compiler.copy"));
-            m_copyButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onCopyClicked(); });
-
-            m_removeButton = button(tr("dialogs.settings.compiler.remove"));
-            m_removeButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { onRemoveClicked(); });
+            auto makeIconButton = [this](int controlId, wxArtID artId, const wxString& tooltipKey) {
+                auto btn = make_unowned<wxBitmapButton>(
+                    currentParent(), controlId,
+                    wxArtProvider::GetBitmap(artId, wxART_BUTTON)
+                );
+                btn->SetToolTip(tr(tooltipKey));
+                add(btn);
+                return btn;
+            };
+            m_addButton = makeIconButton(ID_ADD, wxART_NEW, "add");
+            m_copyButton = makeIconButton(ID_COPY, wxART_COPY, "copy");
+            m_removeButton = makeIconButton(ID_REMOVE, wxART_DELETE, "remove");
         });
     });
 }
 
 void CompilerPage::buildRightPane() {
     vbox({ .proportion = 1, .margin = false }, [&] {
-        // Name + slug.
+        // Name.
         vbox({ .margin = false }, [&] {
-            m_nameLabel = text(tr("dialogs.settings.compiler.name"));
-            m_nameField = textField();
+            m_nameLabel = text(tr("name"));
+            m_nameField = textField({}, ID_NAME);
             connect(m_nameLabel, m_nameField);
-            m_nameField->Bind(wxEVT_TEXT, [this](wxCommandEvent&) { onNameChanged(); });
         });
 
         // Base dropdown.
         hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
-            m_baseLabel = text(tr("dialogs.settings.compiler.base"), { .expand = false });
-            m_baseChoice = choice(wxArrayString {}, { .expand = false });
+            m_baseLabel = text(tr("base"), { .expand = false });
+            m_baseChoice = choice(wxArrayString {}, { .expand = false }, ID_BASE);
             connect(m_baseLabel, m_baseChoice);
-            m_baseChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent&) { onBaseChanged(); });
         });
 
         // Active checkbox.
-        m_activeCheckbox = checkBox(tr("dialogs.settings.compiler.activeForNewFiles"));
-        m_activeCheckbox->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent&) { onActiveToggled(); });
+        m_activeCheckbox = checkBox(tr("activeForNewFiles"), {}, ID_ACTIVE);
 
         // Four inheritable fields. Each is its own panel — add() places
         // it into the surrounding vbox. The tooltip on each row's
         // inherit checkbox matches `ColorPicker`'s convention.
-        const auto inheritTooltip = tr("dialogs.settings.compiler.inheritTooltip");
+        const auto inheritTooltip = tr("inheritTooltip");
         auto buildField = [&](InheritableField::Kind kind, const wxString& labelKey) {
             auto field = make_unowned<InheritableField>(currentParent(), kind, tr(labelKey), inheritTooltip);
             field->create();
             add(field);
             return field;
         };
-        m_pathField = buildField(InheritableField::Kind::Path, "dialogs.settings.compiler.path");
-        m_compileField = buildField(InheritableField::Kind::Text, "dialogs.settings.compiler.compileCommand");
-        m_runField = buildField(InheritableField::Kind::Text, "dialogs.settings.compiler.runCommand");
-        m_terminalField = buildField(InheritableField::Kind::Text, "dialogs.settings.compiler.terminal");
-    });
-}
-
-void CompilerPage::buildHelpGroup() {
-    vbox(tr("dialogs.settings.compiler.help"), { .margin = false }, [&] {
-        const auto lbl = text(tr("dialogs.settings.compiler.helpFile"));
-        Unowned<wxTextCtrl> field;
-        Unowned<wxButton> browse;
-        hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
-            field = textField(m_helpFile, { .proportion = 1 });
-            connect(lbl, field);
-            browse = button("...");
-        });
-        browse->Bind(wxEVT_BUTTON, [this, field](wxCommandEvent&) {
-            wxFileDialog dlg(
-                this, tr("dialogs.settings.compiler.selectHelp"), "", "",
-                getContext().getConfigManager().filePattern("help"),
-                wxFD_FILE_MUST_EXIST
-            );
-            if (dlg.ShowModal() == wxID_OK) {
-                m_helpFile = getContext().getConfigManager().relative(dlg.GetPath());
-#ifdef __WXMSW__
-                HelpManager::verifyHelpFileAccessible(this, m_helpFile);
-#endif
-                field->SetValue(m_helpFile);
-            }
-        });
+        m_pathField = buildField(InheritableField::Kind::Path, "path");
+        m_compileField = buildField(InheritableField::Kind::Text, "compileCommand");
+        m_runField = buildField(InheritableField::Kind::Text, "runCommand");
+        m_terminalField = buildField(InheritableField::Kind::Text, "terminal");
     });
 }
 
@@ -223,15 +244,23 @@ void CompilerPage::buildHelpGroup() {
 // List + editor sync
 // ---------------------------------------------------------------------------
 
+auto CompilerPage::formatListLabel(const wxString& slug, const wxString& name) const -> wxString {
+    if (slug == catalog().activeSlug()) {
+        return wxString::Format("%s (%s)", name, tr("active"));
+    }
+    return name;
+}
+
+void CompilerPage::selectSlug(const wxString& slug) {
+    if (const auto idx = indexBySlug(catalog().all(), slug); idx != wxNOT_FOUND) {
+        m_configList->SetSelection(idx);
+    }
+}
+
 void CompilerPage::refreshList() {
     m_configList->Clear();
-    const auto activeSlug = catalog().activeSlug();
     for (const auto& cfg : catalog().all()) {
-        wxString label = cfg.displayName;
-        if (cfg.slug == activeSlug) {
-            label += kActiveSuffix;
-        }
-        m_configList->Append(label);
+        m_configList->Append(formatListLabel(cfg.slug, cfg.displayName));
     }
 }
 
@@ -316,17 +345,17 @@ void CompilerPage::commitFieldOverrides() {
                              : std::optional<wxString> { widget->overrideValue() };
         catalog().setOverride(m_selectedSlug, field, value);
     };
-    commit(m_pathField.get(), CompilerField::Path);
-    commit(m_compileField.get(), CompilerField::CompileCommand);
-    commit(m_runField.get(), CompilerField::RunCommand);
-    commit(m_terminalField.get(), CompilerField::Terminal);
+    commit(m_pathField, CompilerField::Path);
+    commit(m_compileField, CompilerField::CompileCommand);
+    commit(m_runField, CompilerField::RunCommand);
+    commit(m_terminalField, CompilerField::Terminal);
 }
 
 // ---------------------------------------------------------------------------
 // Events
 // ---------------------------------------------------------------------------
 
-void CompilerPage::onListSelected() {
+void CompilerPage::onListSelected(wxCommandEvent& /*event*/) {
     const auto sel = m_configList->GetSelection();
     if (sel == wxNOT_FOUND) {
         return;
@@ -340,69 +369,50 @@ void CompilerPage::onListSelected() {
     loadSelectedConfig();
 }
 
-void CompilerPage::onAddClicked() {
+void CompilerPage::onAddClicked(wxCommandEvent& /*event*/) {
     commitFieldOverrides();
 
     // Required name — prompt, trim leading/trailing whitespace (including
     // newlines pasted in by accident), reject empty. wxString::Trim
     // honours wxIsspace which treats \n / \r / \t as whitespace.
-    wxTextEntryDialog dlg(
-        this,
-        tr("dialogs.settings.compiler.namePrompt"),
-        tr("dialogs.settings.compiler.addTitle")
-    );
+    wxTextEntryDialog dlg(this, tr("namePrompt"), tr("addTitle"));
     while (dlg.ShowModal() == wxID_OK) {
         auto name = dlg.GetValue();
         name.Trim().Trim(false);
         if (name.IsEmpty()) {
-            wxMessageBox(
-                tr("dialogs.settings.compiler.nameRequired"),
-                tr("dialogs.settings.compiler.addTitle"),
-                wxICON_WARNING | wxOK,
-                this
-            );
+            wxMessageBox(tr("nameRequired"), tr("addTitle"), wxICON_WARNING | wxOK, this);
             dlg.SetValue(wxEmptyString);
             continue;
         }
-        const auto slug = catalog().createFromCanonical(name);
+        m_selectedSlug = catalog().createFromCanonical(name);
         refreshList();
-        m_selectedSlug = slug;
-        if (const auto idx = indexBySlug(catalog().all(), slug); idx != wxNOT_FOUND) {
-            m_configList->SetSelection(idx);
-        }
+        selectSlug(m_selectedSlug);
         loadSelectedConfig();
-        m_nameField->SetFocus();
-        m_nameField->SelectAll();
-        getContext().getCompilerManager().refreshConfigurationCombo();
         return;
     }
 }
 
-void CompilerPage::onCopyClicked() {
+void CompilerPage::onCopyClicked(wxCommandEvent& /*event*/) {
     if (m_selectedSlug.IsEmpty()) {
         return;
     }
     commitFieldOverrides();
     const auto* source = catalog().find(m_selectedSlug);
     const auto sourceName = source != nullptr ? source->displayName : wxString {};
-    const auto newName = sourceName + " " + tr("dialogs.settings.compiler.copySuffix");
-    const auto slug = catalog().copy(m_selectedSlug, newName);
+    const auto newName = sourceName + " " + tr("copySuffix");
+    m_selectedSlug = catalog().copy(m_selectedSlug, newName);
     refreshList();
-    m_selectedSlug = slug;
-    if (const auto idx = indexBySlug(catalog().all(), slug); idx != wxNOT_FOUND) {
-        m_configList->SetSelection(idx);
-    }
+    selectSlug(m_selectedSlug);
     loadSelectedConfig();
-    getContext().getCompilerManager().refreshConfigurationCombo();
 }
 
-void CompilerPage::onRemoveClicked() {
+void CompilerPage::onRemoveClicked(wxCommandEvent& /*event*/) {
     if (m_selectedSlug.IsEmpty() || m_selectedSlug == kCanonicalCompilerSlug) {
         return;
     }
     const auto confirm = wxMessageBox(
-        tr("dialogs.settings.compiler.removeConfirm"),
-        tr("dialogs.settings.compiler.removeTitle"),
+        tr("removeConfirm"),
+        tr("removeTitle"),
         wxICON_QUESTION | wxYES_NO,
         this
     );
@@ -414,10 +424,9 @@ void CompilerPage::onRemoveClicked() {
     m_selectedSlug = kCanonicalCompilerSlug;
     m_configList->SetSelection(0);
     loadSelectedConfig();
-    getContext().getCompilerManager().refreshConfigurationCombo();
 }
 
-void CompilerPage::onNameChanged() {
+void CompilerPage::onNameChanged(wxCommandEvent& /*event*/) {
     if (m_selectedSlug.IsEmpty() || m_selectedSlug == kCanonicalCompilerSlug) {
         return;
     }
@@ -428,15 +437,13 @@ void CompilerPage::onNameChanged() {
     if (sel == wxNOT_FOUND) {
         return;
     }
-    wxString label = m_nameField->GetValue();
-    if (m_selectedSlug == catalog().activeSlug()) {
-        label += kActiveSuffix;
-    }
-    m_configList->SetString(static_cast<unsigned int>(sel), label);
-    getContext().getCompilerManager().refreshConfigurationCombo();
+    m_configList->SetString(
+        static_cast<unsigned int>(sel),
+        formatListLabel(m_selectedSlug, m_nameField->GetValue())
+    );
 }
 
-void CompilerPage::onBaseChanged() {
+void CompilerPage::onBaseChanged(wxCommandEvent& /*event*/) {
     if (m_selectedSlug.IsEmpty() || m_selectedSlug == kCanonicalCompilerSlug) {
         return;
     }
@@ -450,15 +457,11 @@ void CompilerPage::onBaseChanged() {
     loadSelectedConfig();
 }
 
-void CompilerPage::onActiveToggled() {
+void CompilerPage::onActiveToggled(wxCommandEvent& /*event*/) {
     if (m_selectedSlug.IsEmpty()) {
         return;
     }
     catalog().setActiveSlug(m_activeCheckbox->GetValue() ? m_selectedSlug : wxString { kCanonicalCompilerSlug });
     refreshList();
-    // Restore the selection — refreshList wiped it.
-    if (const auto idx = indexBySlug(catalog().all(), m_selectedSlug); idx != wxNOT_FOUND) {
-        m_configList->SetSelection(idx);
-    }
-    getContext().getCompilerManager().refreshConfigurationCombo();
+    selectSlug(m_selectedSlug);
 }

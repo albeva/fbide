@@ -21,8 +21,8 @@ public:
     explicit GeneralPage(Context& ctx, wxWindow* parent);
     /// Build the panel widgets.
     void create() override;
-    /// Commit edits back into `ConfigManager`.
-    void apply() override;
+    /// Commit edits back into `ConfigManager`. Always succeeds.
+    auto apply() -> bool override;
 
 private:
     /// Locale lookup with empty default — sugar over `ConfigManager::locale().get_or`.

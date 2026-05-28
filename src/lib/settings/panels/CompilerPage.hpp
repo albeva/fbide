@@ -7,24 +7,26 @@
 #pragma once
 #include "pch.hpp"
 #include "app/Context.hpp"
+#include "config/Value.hpp"
 #include "ui/controls/InheritableField.hpp"
 #include "ui/controls/Panel.hpp"
 
 namespace fbide {
 class CompilerConfigCatalog;
 
-/// Compiler settings tab — multiple-configuration editor (list on the
-/// left, per-config field editor on the right) plus a CHM help-file
-/// picker. Each catalog mutation (Add / Copy / Remove / rename / base /
-/// active / field overrides) flows through `CompilerConfigCatalog`, so
-/// the toolbar combobox stays in sync as the user edits.
+/// Compiler settings tab — multi-configuration editor: list on the
+/// left, per-config field editor on the right. Edits flow through
+/// `CompilerConfigCatalog`. `[compiler]` is snapshotted on `create()`
+/// and restored on `cancel()` so the user can roll back any
+/// Add / Copy / Remove / Rename / Base / Active / Override.
 class CompilerPage final : public Panel {
 public:
     NO_COPY_AND_MOVE(CompilerPage)
 
     explicit CompilerPage(Context& ctx, wxWindow* parent);
     void create() override;
-    void apply() override;
+    auto apply() -> bool override;
+    void cancel() override;
 
     /// Move keyboard focus to the path field of the active selection.
     /// Used when the dialog is opened from the startup compiler-missing
@@ -32,35 +34,51 @@ public:
     void focusCompilerPath();
 
 private:
-    auto tr(const wxString& path) const -> wxString {
-        return getContext().getConfigManager().locale().get_or(path, path);
+    /// Locale lookup — resolves keys against the cached
+    /// `[dialogs/settings/compiler]` subtree so the full path doesn't
+    /// have to be re-resolved on every call.
+    [[nodiscard]] auto tr(const wxString& key) const -> wxString {
+        return m_locale.get_or(key, key);
     }
     [[nodiscard]] auto catalog() const -> CompilerConfigCatalog&;
 
     void buildConfigurationsGroup();
     void buildLeftPane();
     void buildRightPane();
-    void buildHelpGroup();
 
     void refreshList();
     void loadSelectedConfig();
     void commitFieldOverrides();
+    /// Format the list label for a single configuration — the active
+    /// entry gets a localised " (active)" suffix.
+    [[nodiscard]] auto formatListLabel(const wxString& slug, const wxString& name) const -> wxString;
+    /// Select a slug in the listbox without rebuilding it.
+    void selectSlug(const wxString& slug);
 
-    void onListSelected();
-    void onAddClicked();
-    void onCopyClicked();
-    void onRemoveClicked();
-    void onNameChanged();
-    void onBaseChanged();
-    void onActiveToggled();
+    // Event handlers — matched against the event table in the .cpp.
+    void onListSelected(wxCommandEvent& event);
+    void onAddClicked(wxCommandEvent& event);
+    void onCopyClicked(wxCommandEvent& event);
+    void onRemoveClicked(wxCommandEvent& event);
+    void onNameChanged(wxCommandEvent& event);
+    void onBaseChanged(wxCommandEvent& event);
+    void onActiveToggled(wxCommandEvent& event);
+
+    /// Locale subtree for `[dialogs/settings/compiler]` — see `tr()`.
+    const Value& m_locale;
+
+    /// Snapshot of `[compiler]` captured in `create()`; replayed in
+    /// `cancel()` to undo every CRUD mutation the user performed
+    /// during the dialog session.
+    Value m_compilerSnapshot;
 
     /// Slug currently shown in the right pane; empty if nothing selected.
     wxString m_selectedSlug;
 
     Unowned<wxListBox> m_configList;
-    Unowned<wxButton> m_addButton;
-    Unowned<wxButton> m_copyButton;
-    Unowned<wxButton> m_removeButton;
+    Unowned<wxBitmapButton> m_addButton;
+    Unowned<wxBitmapButton> m_copyButton;
+    Unowned<wxBitmapButton> m_removeButton;
 
     Unowned<wxStaticText> m_nameLabel;
     Unowned<wxTextCtrl> m_nameField;
@@ -76,8 +94,7 @@ private:
     /// Display-name → slug map kept in sync with `m_baseChoice` items.
     std::vector<wxString> m_baseChoiceSlugs;
 
-    /// CHM help file path — relocated from the legacy single-config layout.
-    wxString m_helpFile;
+    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide

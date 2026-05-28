@@ -97,6 +97,11 @@ public:
         return at(path).operator bool();
     }
 
+    /// Deep copy. `Value` is move-only because of the `unique_ptr` in
+    /// `Table`, so callers that want a snapshot (e.g. settings dialogs
+    /// that need to roll back on Cancel) go through `clone()`.
+    [[nodiscard]] auto clone() const -> Value;
+
     // -------------------------------------------------------------------
     // Typed reads
     // -------------------------------------------------------------------
