@@ -118,6 +118,29 @@ public:
     /// selection and enabled state.
     void onActiveDocumentChanged(Document* doc);
 
+    /// Show or hide the toolbar combobox — used when the user toggles
+    /// the "configuration in status bar" preference at runtime.
+    void setConfigurationComboVisible(bool visible);
+
+    /// Resolve the display label for the active document's
+    /// configuration (empty when the active document isn't a
+    /// FreeBASIC source — the status-bar selector hides in that case).
+    [[nodiscard]] auto configurationStatusLabel() const -> wxString;
+
+    /// Build a popup menu listing every catalog entry as a radio item
+    /// (current one checked). Used by the status-bar selector.
+    [[nodiscard]] auto buildConfigurationMenu() const -> std::unique_ptr<wxMenu>;
+
+    /// Apply a status-bar menu selection — same normalisation as the
+    /// toolbar combobox path.
+    void applyConfigurationMenuSelection(int menuId);
+
+    /// First menu-item ID reserved for the status-bar configuration
+    /// popup. Each catalog entry's index is added to the base — used
+    /// by `buildConfigurationMenu` / `applyConfigurationMenuSelection`
+    /// and by `UIManager::onStatusBarClick`.
+    static constexpr int kStatusMenuIdBase = wxID_HIGHEST + 10500;
+
 private:
     /// Get active FreeBASIC document, or nullptr if unavailable.
     [[nodiscard]] auto getActiveDocument() -> Document*;
@@ -135,6 +158,10 @@ private:
     /// React to the user picking an entry in the toolbar combobox —
     /// apply the normalisation and store on the active document.
     void onConfigurationComboSelected();
+
+    /// Mirror the resolved configuration label into the status-bar
+    /// field, when the configuration status-bar layout is active.
+    void pushStatusBarLabel();
 
     Context& m_ctx;                                       ///< Application context.
     std::unique_ptr<CompilerConfigCatalog> m_catalog;     ///< Resolved view of `[compiler]` + `[compiler/*]`.
