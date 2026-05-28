@@ -7,6 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "app/Context.hpp"
+#include "compiler/CompilerConfigCatalog.hpp"
 #include "config/Value.hpp"
 #include "ui/controls/InheritableField.hpp"
 #include "ui/controls/Panel.hpp"
@@ -63,6 +64,11 @@ private:
     void onNameChanged(wxCommandEvent& event);
     void onBaseChanged(wxCommandEvent& event);
     void onActiveToggled(wxCommandEvent& event);
+    /// Triggered by any of the four `InheritableField`s when the user
+    /// toggles its inherit checkbox. Saves the current override value
+    /// on tick-on (so an accidental tick can be undone) and restores
+    /// from the memory map on tick-off.
+    void onInheritToggled(wxCommandEvent& event);
 
     /// Locale subtree for `[dialogs/settings/compiler]` — see `tr()`.
     const Value& m_locale;
@@ -93,6 +99,13 @@ private:
 
     /// Display-name → slug map kept in sync with `m_baseChoice` items.
     std::vector<wxString> m_baseChoiceSlugs;
+
+    /// Per-field memory of the user's last custom override value.
+    /// Populated when the user ticks "inherit" so the value can be
+    /// restored on a subsequent untick. Cleared whenever a different
+    /// configuration is loaded (see `loadSelectedConfig`); naturally
+    /// destroyed when the dialog closes.
+    std::unordered_map<CompilerField, wxString> m_lastOverrideValues;
 
     wxDECLARE_EVENT_TABLE();
 };

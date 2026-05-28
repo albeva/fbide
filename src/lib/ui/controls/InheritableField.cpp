@@ -8,6 +8,9 @@
 #include "InheritableField.hpp"
 using namespace fbide;
 
+// NOLINTNEXTLINE(cert-err58-cpp,bugprone-throwing-static-initialization)
+wxDEFINE_EVENT(fbide::EVT_INHERIT_TOGGLED, wxCommandEvent);
+
 namespace {
 /// Stable IDs for the widget's three child controls. Kept at file
 /// scope so the wxWidgets event-table macros can reference them
@@ -111,10 +114,18 @@ void InheritableField::onInheritToggle(wxCommandEvent& /*event*/) {
     if (!m_chkInherit->GetValue()) {
         // Just unticked (going from inherit → custom). Seed the field
         // with the resolved value so the user has a meaningful starting
-        // point per the design doc, rather than an empty field.
+        // point per the design doc, rather than an empty field. A
+        // listener (e.g. CompilerPage's memory map) can call
+        // `setOverrideValue` from its `EVT_INHERIT_TOGGLED` handler to
+        // restore an earlier value over the top.
         m_overrideValue = m_resolvedValue;
     }
     refreshDisplay();
+
+    wxCommandEvent evt(EVT_INHERIT_TOGGLED, GetId());
+    evt.SetEventObject(this);
+    evt.SetInt(m_chkInherit->GetValue() ? 1 : 0);
+    ProcessWindowEvent(evt);
 }
 
 void InheritableField::onTextChanged(wxCommandEvent& /*event*/) {

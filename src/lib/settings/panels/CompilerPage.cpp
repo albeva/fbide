@@ -93,6 +93,7 @@ wxBEGIN_EVENT_TABLE(CompilerPage, Panel)
     EVT_TEXT    (ID_NAME,   CompilerPage::onNameChanged)
     EVT_CHOICE  (ID_BASE,   CompilerPage::onBaseChanged)
     EVT_CHECKBOX(ID_ACTIVE, CompilerPage::onActiveToggled)
+    EVT_COMMAND (wxID_ANY,  EVT_INHERIT_TOGGLED, CompilerPage::onInheritToggled)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -269,6 +270,9 @@ void CompilerPage::loadSelectedConfig() {
     if (cfg == nullptr) {
         return;
     }
+    // The per-field "last override" memory is per-configuration —
+    // switching configs starts fresh.
+    m_lastOverrideValues.clear();
     const bool isCanonical = (cfg->slug == kCanonicalCompilerSlug);
 
     // Name + base are meaningless for canonical Default — hide them
@@ -468,6 +472,43 @@ void CompilerPage::onBaseChanged(wxCommandEvent& /*event*/) {
     // Resolved values may have shifted (different ancestor); re-read the
     // four fields so inherited displays reflect the new chain.
     loadSelectedConfig();
+}
+
+void CompilerPage::onInheritToggled(wxCommandEvent& event) {
+    auto* widget = wxDynamicCast(event.GetEventObject(), InheritableField);
+    if (widget == nullptr) {
+        return;
+    }
+    // Match the firing widget to its CompilerField. Cheaper than a
+    // string-id detour and the four fields are a closed enum.
+    CompilerField field = CompilerField::Path;
+    if (widget == m_pathField) {
+        field = CompilerField::Path;
+    } else if (widget == m_compileField) {
+        field = CompilerField::CompileCommand;
+    } else if (widget == m_runField) {
+        field = CompilerField::RunCommand;
+    } else if (widget == m_terminalField) {
+        field = CompilerField::Terminal;
+    } else {
+        return;
+    }
+
+    const bool nowInheriting = event.GetInt() != 0;
+    if (nowInheriting) {
+        // User just ticked inherit — remember what they had so an
+        // accidental tick can be undone on the next untick. The
+        // InheritableField doesn't reset its m_overrideValue on the
+        // tick path, so `overrideValue()` still returns their prior
+        // edit at this point.
+        m_lastOverrideValues[field] = widget->overrideValue();
+    } else if (const auto it = m_lastOverrideValues.find(field);
+               it != m_lastOverrideValues.end()) {
+        // User just unticked — restore the prior value over the top
+        // of the InheritableField's default "seed from resolved"
+        // behaviour.
+        widget->setOverrideValue(it->second);
+    }
 }
 
 void CompilerPage::onActiveToggled(wxCommandEvent& /*event*/) {
