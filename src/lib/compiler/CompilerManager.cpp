@@ -280,6 +280,10 @@ auto CompilerManager::ensureSaved(Document& doc) -> bool {
     return m_ctx.getDocumentManager().saveFile(doc);
 }
 
+void CompilerManager::setDocumentConfiguration(Document& doc, const wxString& pickedSlug) {
+    doc.setConfiguration(m_catalog->normalizeForStorage(pickedSlug));
+}
+
 void CompilerManager::setStatus(const wxString& path) const {
     m_ctx.getUIManager().getMainFrame()->SetStatusText(path.empty() ? wxString {} : m_ctx.tr(path));
 }

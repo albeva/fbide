@@ -277,6 +277,86 @@ TEST_F(CompilerConfigCatalogTests, ActiveSlugFallsBackWhenSlugMissing) {
 }
 
 // ---------------------------------------------------------------------------
+// resolveByPinnedSlug — empty optional follows active; explicit slug pins.
+// Missing pinned slug warns and falls back to active. Tested without
+// needing a real `Document`: the catalog API takes the optional directly.
+// ---------------------------------------------------------------------------
+TEST_F(CompilerConfigCatalogTests, ResolveEmptyOptionalFollowsActive) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "active=cfg-1\n"
+        "[compiler/cfg-1]\n"
+        "name=Active\n"
+        "compileCommand=cfg1-compile\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+
+    const auto& resolved = catalog.resolveByPinnedSlug(std::nullopt);
+    EXPECT_EQ(resolved.slug, "cfg-1");
+    EXPECT_EQ(resolved.compileCommand, "cfg1-compile");
+}
+
+TEST_F(CompilerConfigCatalogTests, ResolvePinnedSlugReturnsThatConfig) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "active=cfg-1\n"
+        "[compiler/cfg-1]\n"
+        "name=A\n"
+        "[compiler/cfg-2]\n"
+        "name=B\n"
+        "compileCommand=cfg2-compile\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+
+    const auto& resolved = catalog.resolveByPinnedSlug(std::optional<wxString> { "cfg-2" });
+    EXPECT_EQ(resolved.slug, "cfg-2");
+    EXPECT_EQ(resolved.compileCommand, "cfg2-compile");
+}
+
+TEST_F(CompilerConfigCatalogTests, ResolveMissingPinnedSlugFallsBackToActive) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "active=cfg-1\n"
+        "[compiler/cfg-1]\n"
+        "name=Active\n"
+        "compileCommand=cfg1-compile\n");
+
+    const wxLogNull noLog;
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+
+    const auto& resolved = catalog.resolveByPinnedSlug(std::optional<wxString> { "cfg-gone" });
+    EXPECT_EQ(resolved.slug, "cfg-1");
+    EXPECT_EQ(resolved.compileCommand, "cfg1-compile");
+}
+
+// ---------------------------------------------------------------------------
+// normalizeForStorage — collapses to nullopt when picked == active, so a
+// document re-pinned to the currently-active config becomes "follow active"
+// and tracks future active changes instead of locking to a slug.
+// ---------------------------------------------------------------------------
+TEST_F(CompilerConfigCatalogTests, NormalizeMatchingActiveYieldsNullopt) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "active=cfg-1\n"
+        "[compiler/cfg-1]\n"
+        "name=Active\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+
+    EXPECT_FALSE(catalog.normalizeForStorage("cfg-1").has_value());
+    ASSERT_TRUE(catalog.normalizeForStorage("default").has_value());
+    EXPECT_EQ(*catalog.normalizeForStorage("default"), "default");
+}
+
+// ---------------------------------------------------------------------------
 // all() ordering — canonical first, then user configs sorted by the
 // numeric suffix of the cfg-N slug (so cfg-10 sorts after cfg-2).
 // ---------------------------------------------------------------------------
