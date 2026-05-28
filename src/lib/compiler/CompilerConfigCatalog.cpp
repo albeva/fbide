@@ -295,7 +295,7 @@ auto CompilerConfigCatalog::remove(const wxString& slug) -> bool {
         return false;
     }
     auto& compiler = m_cfg.config()["compiler"];
-    if (!static_cast<bool>(compiler.at(slug))) {
+    if (!compiler.contains(slug)) {
         return false;
     }
     // Re-parent any user config whose `base=` was the removed slug.
@@ -325,7 +325,7 @@ auto CompilerConfigCatalog::rename(const wxString& slug, const wxString& display
         return false;
     }
     auto& compiler = m_cfg.config()["compiler"];
-    if (!static_cast<bool>(compiler.at(slug))) {
+    if (!compiler.contains(slug)) {
         return false;
     }
     compiler[slug]["name"] = displayName;
@@ -365,7 +365,7 @@ auto CompilerConfigCatalog::setOverride(
     const std::optional<wxString>& value
 ) -> bool {
     auto& compiler = m_cfg.config()["compiler"];
-    if (slug != kCanonicalCompilerSlug && !static_cast<bool>(compiler.at(slug))) {
+    if (slug != kCanonicalCompilerSlug && !compiler.contains(slug)) {
         return false;
     }
     auto& section = (slug == kCanonicalCompilerSlug) ? compiler : compiler[slug];

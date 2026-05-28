@@ -426,7 +426,7 @@ TEST_F(CompilerConfigCatalogTests, RemoveReParentsDependentsToDefault) {
 
     // cfg-2 keeps existing but its base= key was cleared (inherit from canonical).
     ASSERT_NE(catalog.find("cfg-2"), nullptr);
-    EXPECT_FALSE(bool(cm->config().at("compiler.cfg-2.base")))
+    EXPECT_FALSE(cm->config().contains("compiler.cfg-2.base"))
         << "base= key should be removed (= inherit from canonical default)";
 }
 
@@ -443,7 +443,7 @@ TEST_F(CompilerConfigCatalogTests, RemoveClearsActiveWhenItMatched) {
     catalog.remove("cfg-1");
 
     EXPECT_EQ(catalog.activeSlug(), "default");
-    EXPECT_FALSE(bool(cm->config().at("compiler.active")));
+    EXPECT_FALSE(cm->config().contains("compiler.active"));
 }
 
 TEST_F(CompilerConfigCatalogTests, SetBaseRejectsSelfAndDescendant) {
@@ -477,7 +477,7 @@ TEST_F(CompilerConfigCatalogTests, SetOverrideNulloptRemovesKey) {
     catalog.reload();
     catalog.setOverride("cfg-1", CompilerField::CompileCommand, std::nullopt);
 
-    EXPECT_FALSE(bool(cm->config().at("compiler.cfg-1.compileCommand")));
+    EXPECT_FALSE(cm->config().contains("compiler.cfg-1.compileCommand"));
 }
 
 TEST_F(CompilerConfigCatalogTests, SetActiveSlugDefaultClearsKey) {
@@ -492,7 +492,7 @@ TEST_F(CompilerConfigCatalogTests, SetActiveSlugDefaultClearsKey) {
     catalog.reload();
     catalog.setActiveSlug("default");
 
-    EXPECT_FALSE(bool(cm->config().at("compiler.active")));
+    EXPECT_FALSE(cm->config().contains("compiler.active"));
 }
 
 TEST_F(CompilerConfigCatalogTests, ValidBasesExcludesSelfAndDescendants) {
