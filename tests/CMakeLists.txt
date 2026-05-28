@@ -18,6 +18,7 @@ add_executable(tests
     unit/AutoIndentTests.cpp
     unit/BasicTests.cpp
     unit/CompileCommandTests.cpp
+    unit/CompilerConfigCatalogTests.cpp
     unit/ConfigManagerTests.cpp
     unit/ConfigStrategyTests.cpp
     unit/DocumentIOTests.cpp

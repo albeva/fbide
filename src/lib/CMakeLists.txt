@@ -18,6 +18,7 @@ target_sources(fbide_lib
     compiler/AsyncProcess.cpp
     compiler/BuildTask.cpp
     compiler/CompileCommand.cpp
+    compiler/CompilerConfigCatalog.cpp
     compiler/CompilerManager.cpp
     compiler/RunCommand.cpp
     config/ConfigManager.cpp
@@ -88,6 +89,7 @@ target_sources(fbide_lib
     compiler/AsyncProcess.hpp
     compiler/BuildTask.hpp
     compiler/CompileCommand.hpp
+    compiler/CompilerConfigCatalog.hpp
     compiler/CompilerManager.hpp
     compiler/QuoteUtils.hpp
     compiler/RunCommand.hpp
