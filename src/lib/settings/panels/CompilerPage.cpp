@@ -157,17 +157,17 @@ void CompilerPage::buildLeftPane() {
 void CompilerPage::buildRightPane() {
     vbox({ .proportion = 2, .margin = false }, [&] {
         // Name + slug.
-        const auto nameLabel = text(tr("dialogs.settings.compiler.name"));
+        m_nameLabel = text(tr("dialogs.settings.compiler.name"));
         m_nameField = textField({});
-        connect(nameLabel, m_nameField);
+        connect(m_nameLabel, m_nameField);
         m_nameField->Bind(wxEVT_TEXT, [this](wxCommandEvent&) { onNameChanged(); });
 
         m_slugLabel = text(wxEmptyString);
 
         // Base dropdown.
-        const auto baseLabel = text(tr("dialogs.settings.compiler.base"));
+        m_baseLabel = text(tr("dialogs.settings.compiler.base"));
         m_baseChoice = choice(wxArrayString {});
-        connect(baseLabel, m_baseChoice);
+        connect(m_baseLabel, m_baseChoice);
         m_baseChoice->Bind(wxEVT_CHOICE, [this](wxCommandEvent&) { onBaseChanged(); });
 
         // Active checkbox.
@@ -175,9 +175,11 @@ void CompilerPage::buildRightPane() {
         m_activeCheckbox->Bind(wxEVT_CHECKBOX, [this](wxCommandEvent&) { onActiveToggled(); });
 
         // Four inheritable fields. Each is its own panel — add() places
-        // it into the surrounding vbox.
+        // it into the surrounding vbox. The tooltip on each row's
+        // inherit checkbox matches `ColorPicker`'s convention.
+        const auto inheritTooltip = tr("dialogs.settings.compiler.inheritTooltip");
         auto buildField = [&](InheritableField::Kind kind, const wxString& labelKey) {
-            auto field = make_unowned<InheritableField>(currentParent(), kind, tr(labelKey));
+            auto field = make_unowned<InheritableField>(currentParent(), kind, tr(labelKey), inheritTooltip);
             field->create();
             add(field);
             return field;
@@ -239,28 +241,35 @@ void CompilerPage::loadSelectedConfig() {
     }
     const bool isCanonical = (cfg->slug == kCanonicalCompilerSlug);
 
-    m_nameField->ChangeValue(cfg->displayName);
-    m_nameField->Enable(!isCanonical);
+    // Name + base are meaningless for canonical Default — hide them
+    // entirely so the layout collapses. (Disabling alone leaves greyed
+    // controls that look like a broken UI state.)
+    m_nameLabel->Show(!isCanonical);
+    m_nameField->Show(!isCanonical);
+    if (!isCanonical) {
+        m_nameField->ChangeValue(cfg->displayName);
+    }
     m_slugLabel->SetLabel(wxString::Format("%s: %s", tr("dialogs.settings.compiler.slug"), cfg->slug));
 
-    // Populate base dropdown.
-    m_baseChoice->Clear();
-    m_baseChoiceSlugs.clear();
-    for (const auto& candidate : catalog().validBasesFor(cfg->slug)) {
-        const auto* candidateCfg = catalog().find(candidate);
-        if (candidateCfg == nullptr) {
-            continue;
+    m_baseLabel->Show(!isCanonical);
+    m_baseChoice->Show(!isCanonical);
+    if (!isCanonical) {
+        m_baseChoice->Clear();
+        m_baseChoiceSlugs.clear();
+        for (const auto& candidate : catalog().validBasesFor(cfg->slug)) {
+            const auto* candidateCfg = catalog().find(candidate);
+            if (candidateCfg == nullptr) {
+                continue;
+            }
+            m_baseChoice->Append(candidateCfg->displayName);
+            m_baseChoiceSlugs.push_back(candidate);
         }
-        m_baseChoice->Append(candidateCfg->displayName);
-        m_baseChoiceSlugs.push_back(candidate);
-    }
-    m_baseChoice->Enable(!isCanonical);
-    const wxString currentBase = isCanonical
-        ? wxString {}
-        : getContext().getConfigManager().config().at("compiler").at(cfg->slug).get_or("base", wxString { kCanonicalCompilerSlug });
-    if (const auto it = std::ranges::find(m_baseChoiceSlugs, currentBase.IsEmpty() ? wxString { kCanonicalCompilerSlug } : currentBase);
-        it != m_baseChoiceSlugs.end()) {
-        m_baseChoice->SetSelection(static_cast<int>(std::distance(m_baseChoiceSlugs.begin(), it)));
+        const auto currentBase = getContext().getConfigManager().config().at("compiler").at(cfg->slug).get_or("base", wxString { kCanonicalCompilerSlug });
+        const auto targetBase = currentBase.IsEmpty() ? wxString { kCanonicalCompilerSlug } : currentBase;
+        if (const auto it = std::ranges::find(m_baseChoiceSlugs, targetBase);
+            it != m_baseChoiceSlugs.end()) {
+            m_baseChoice->SetSelection(static_cast<int>(std::distance(m_baseChoiceSlugs.begin(), it)));
+        }
     }
 
     m_activeCheckbox->SetValue(cfg->slug == catalog().activeSlug());
@@ -273,11 +282,17 @@ void CompilerPage::loadSelectedConfig() {
         : getContext().getConfigManager().config().at("compiler").at(cfg->slug);
     auto loadField = [&](InheritableField* widget, CompilerField field) {
         const auto key = fieldKeyOf(field);
-        const bool overridden = cfgSection.contains(key);
         const auto resolved = fieldValueOf(*cfg, field);
+        const bool overridden = cfgSection.contains(key);
         widget->setResolvedValue(resolved);
         widget->setOverrideValue(overridden ? cfgSection.get_or(key, wxString {}) : resolved);
-        widget->setInherited(!overridden);
+        // Canonical Default has no parent → no inherit checkbox. The
+        // field becomes a plain editable input whose value is always
+        // an explicit override.
+        widget->setInheritCheckboxVisible(!isCanonical);
+        if (!isCanonical) {
+            widget->setInherited(!overridden);
+        }
     };
     loadField(m_pathField.get(), CompilerField::Path);
     loadField(m_compileField.get(), CompilerField::CompileCommand);
@@ -286,6 +301,7 @@ void CompilerPage::loadSelectedConfig() {
 
     m_removeButton->Enable(!isCanonical);
     m_copyButton->Enable(true);
+    Layout();
 }
 
 void CompilerPage::commitFieldOverrides() {
@@ -324,16 +340,40 @@ void CompilerPage::onListSelected() {
 
 void CompilerPage::onAddClicked() {
     commitFieldOverrides();
-    const auto slug = catalog().createFromCanonical(tr("dialogs.settings.compiler.newName"));
-    refreshList();
-    m_selectedSlug = slug;
-    if (const auto idx = indexBySlug(catalog().all(), slug); idx != wxNOT_FOUND) {
-        m_configList->SetSelection(idx);
+
+    // Required name — prompt, trim leading/trailing whitespace (including
+    // newlines pasted in by accident), reject empty. wxString::Trim
+    // honours wxIsspace which treats \n / \r / \t as whitespace.
+    wxTextEntryDialog dlg(
+        this,
+        tr("dialogs.settings.compiler.namePrompt"),
+        tr("dialogs.settings.compiler.addTitle")
+    );
+    while (dlg.ShowModal() == wxID_OK) {
+        auto name = dlg.GetValue();
+        name.Trim().Trim(false);
+        if (name.IsEmpty()) {
+            wxMessageBox(
+                tr("dialogs.settings.compiler.nameRequired"),
+                tr("dialogs.settings.compiler.addTitle"),
+                wxICON_WARNING | wxOK,
+                this
+            );
+            dlg.SetValue(wxEmptyString);
+            continue;
+        }
+        const auto slug = catalog().createFromCanonical(name);
+        refreshList();
+        m_selectedSlug = slug;
+        if (const auto idx = indexBySlug(catalog().all(), slug); idx != wxNOT_FOUND) {
+            m_configList->SetSelection(idx);
+        }
+        loadSelectedConfig();
+        m_nameField->SetFocus();
+        m_nameField->SelectAll();
+        getContext().getCompilerManager().refreshConfigurationCombo();
+        return;
     }
-    loadSelectedConfig();
-    m_nameField->SetFocus();
-    m_nameField->SelectAll();
-    getContext().getCompilerManager().refreshConfigurationCombo();
 }
 
 void CompilerPage::onCopyClicked() {
