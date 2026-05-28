@@ -6,18 +6,12 @@
 //
 #pragma once
 #include "pch.hpp"
+// Re-exported for existing callers — `toFsPath` / `toWxString` now live in
+// `utils/PathConversions.hpp` so they're available everywhere, not just
+// after pulling in document/DocumentPath.hpp.
+#include "utils/PathConversions.hpp"
 
 namespace fbide {
-
-/// Convert a `wxString` to `std::filesystem::path`. Platform-correct:
-/// uses wide chars on Windows and UTF-8 elsewhere — matches the encoding
-/// that `wxString` keeps internally on each platform.
-[[nodiscard]] auto toFsPath(const wxString& s) -> std::filesystem::path;
-
-/// Convert a `std::filesystem::path` to `wxString`. Inverse of `toFsPath`.
-/// Use this only at the boundary where an `fs::path` meets a wx API
-/// (dialog title, log message, tab title, `wxFile` constructor, ...).
-[[nodiscard]] auto toWxString(const std::filesystem::path& p) -> wxString;
 
 /// Canonical form of a filesystem path used for identity comparisons across
 /// the document manager.
