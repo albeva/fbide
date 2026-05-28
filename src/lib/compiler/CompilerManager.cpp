@@ -284,6 +284,83 @@ void CompilerManager::setDocumentConfiguration(Document& doc, const wxString& pi
     doc.setConfiguration(m_catalog->normalizeForStorage(pickedSlug));
 }
 
+// ---------------------------------------------------------------------------
+// Toolbar combobox
+// ---------------------------------------------------------------------------
+
+auto CompilerManager::createConfigurationCombo(wxAuiToolBar* parent) -> wxComboBox* {
+    // wxCB_READONLY: user can only pick from the list, never type.
+    // Fixed width keeps the toolbar layout predictable.
+    constexpr int kWidth = 160;
+    m_configCombo = make_unowned<wxComboBox>(
+        parent, wxID_ANY, wxString {},
+        wxDefaultPosition, wxSize(kWidth, -1),
+        wxArrayString {}, wxCB_READONLY
+    ).get();
+    m_configCombo->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent&) {
+        onConfigurationComboSelected();
+    });
+    populateConfigurationCombo();
+    // Disabled until a FreeBASIC document gains focus.
+    m_configCombo->Disable();
+    return m_configCombo;
+}
+
+void CompilerManager::refreshConfigurationCombo() {
+    if (m_configCombo == nullptr) {
+        return;
+    }
+    populateConfigurationCombo();
+    // Restore selection / enabled state for whichever doc is currently
+    // active — population wiped both.
+    onActiveDocumentChanged(m_lastActiveDoc);
+}
+
+void CompilerManager::onActiveDocumentChanged(Document* doc) {
+    m_lastActiveDoc = doc;
+    if (m_configCombo == nullptr) {
+        return;
+    }
+    if (doc == nullptr || doc->getType() != DocumentType::FreeBASIC) {
+        m_configCombo->Disable();
+        return;
+    }
+    m_configCombo->Enable();
+
+    const auto& resolved = m_catalog->resolveByPinnedSlug(doc->getConfiguration());
+    if (const auto it = std::ranges::find(m_configComboSlugs, resolved.slug);
+        it != m_configComboSlugs.end()) {
+        m_configCombo->SetSelection(
+            static_cast<int>(std::distance(m_configComboSlugs.begin(), it))
+        );
+    }
+}
+
+void CompilerManager::populateConfigurationCombo() {
+    if (m_configCombo == nullptr) {
+        return;
+    }
+    m_configCombo->Freeze();
+    m_configCombo->Clear();
+    m_configComboSlugs.clear();
+    for (const auto& cfg : m_catalog->all()) {
+        m_configCombo->Append(cfg.displayName);
+        m_configComboSlugs.push_back(cfg.slug);
+    }
+    m_configCombo->Thaw();
+}
+
+void CompilerManager::onConfigurationComboSelected() {
+    if (m_lastActiveDoc == nullptr || m_configCombo == nullptr) {
+        return;
+    }
+    const auto sel = m_configCombo->GetSelection();
+    if (sel < 0 || static_cast<std::size_t>(sel) >= m_configComboSlugs.size()) {
+        return;
+    }
+    setDocumentConfiguration(*m_lastActiveDoc, m_configComboSlugs.at(static_cast<std::size_t>(sel)));
+}
+
 void CompilerManager::setStatus(const wxString& path) const {
     m_ctx.getUIManager().getMainFrame()->SetStatusText(path.empty() ? wxString {} : m_ctx.tr(path));
 }
