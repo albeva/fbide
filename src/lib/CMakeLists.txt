@@ -148,6 +148,7 @@ target_sources(fbide_lib
     utils/DeferHandler.hpp
     utils/Macros.hpp
     utils/NoCopy.hpp
+    utils/PathConversions.hpp
     utils/Unowned.hpp
     utils/Utils.hpp
     utils/ValueRestorer.hpp

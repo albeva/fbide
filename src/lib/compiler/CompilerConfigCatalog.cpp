@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include "config/ConfigManager.hpp"
 #include "config/Value.hpp"
+#include "utils/PathConversions.hpp"
 
 using namespace fbide;
 
@@ -24,18 +25,6 @@ struct PendingConfig {
     std::optional<wxString> compileCommand;
     std::optional<wxString> terminal;
 };
-
-/// Convert a `wxString` path to `std::filesystem::path` without round-
-/// tripping through the C-locale narrowing that the default ctor would
-/// perform. On Windows this preserves non-ASCII paths via UTF-16; on
-/// POSIX it preserves UTF-8 bytes verbatim.
-auto wxToPath(const wxString& str) -> std::filesystem::path {
-#ifdef __WXMSW__
-    return std::filesystem::path { str.ToStdWstring() };
-#else
-    return std::filesystem::path { str.utf8_string() };
-#endif
-}
 
 /// Pull a leaf value out of a section without applying inheritance.
 /// `nullopt` means the key was absent (inherit); a present key — even
@@ -147,7 +136,7 @@ auto resolve(
     return ResolvedCompilerConfig {
         .slug = start.slug,
         .displayName = start.name,
-        .path = wxToPath(path.value_or(canonical.path.value_or(wxString {}))),
+        .path = toFsPath(path.value_or(canonical.path.value_or(wxString {}))),
         .runCommand = runCommand.value_or(canonical.runCommand.value_or(wxString {})),
         .compileCommand = compileCommand.value_or(canonical.compileCommand.value_or(wxString {})),
         .terminal = terminal.value_or(canonical.terminal.value_or(wxString {})),
