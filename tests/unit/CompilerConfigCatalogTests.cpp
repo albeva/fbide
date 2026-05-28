@@ -1,0 +1,283 @@
+//
+// FBIde editor for FreeBASIC - https://freebasic.net
+// Copyright (c) 2026 Albert Varaksin
+// Licensed under the MIT License. See LICENSE file for details.
+// https://github.com/albeva/fbide
+//
+#include <wx/dir.h>
+#include <wx/ffile.h>
+#include <wx/filefn.h>
+#include <wx/filename.h>
+#include <gtest/gtest.h>
+#include "compiler/CompilerConfigCatalog.hpp"
+#include "config/ConfigManager.hpp"
+
+using namespace fbide;
+
+namespace {
+/// RAII scratch directory + helper to seed an `ide/` bundle with a single
+/// platform-config INI file. Mirrors the pattern used in
+/// `ConfigManagerTests` — kept local so the two test files don't share a
+/// helper header and accidentally bind together.
+class TempDir final {
+public:
+    TempDir() {
+        const auto base = wxFileName::CreateTempFileName("fbide_catalog_test");
+        wxRemoveFile(base);
+        wxFileName::Mkdir(base, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+        m_path = base;
+    }
+    ~TempDir() {
+        if (!m_path.IsEmpty() && wxDirExists(m_path)) {
+            wxFileName::Rmdir(m_path, wxPATH_RMDIR_RECURSIVE);
+        }
+    }
+    TempDir(const TempDir&) = delete;
+    auto operator=(const TempDir&) -> TempDir& = delete;
+    TempDir(TempDir&&) = delete;
+    auto operator=(TempDir&&) -> TempDir& = delete;
+
+    [[nodiscard]] auto path() const -> const wxString& { return m_path; }
+
+    void write(const wxString& relPath, const wxString& contents) const {
+        const wxString full = m_path + "/" + relPath;
+        const wxFileName fn(full);
+        wxFileName::Mkdir(fn.GetPath(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL);
+        wxFFile out(full, "w");
+        out.Write(contents);
+    }
+
+private:
+    wxString m_path;
+};
+
+/// Build a ConfigManager whose `[compiler]` section is whatever the test
+/// drops into the INI. The bundle layout exactly matches
+/// `seedBundle(...)` in `ConfigManagerTests`.
+auto makeConfig(const TempDir& tmp, const wxString& compilerIni) -> std::unique_ptr<ConfigManager> {
+    const wxString configContents = wxString("version=0.5.0\n") + compilerIni;
+    tmp.write("ide/" + ConfigManager::getPlatformConfigFileName(), configContents);
+    const auto ideDir = tmp.path() + "/ide";
+    return std::make_unique<ConfigManager>(tmp.path(), ideDir, "");
+}
+} // namespace
+
+// gtest fixtures are referenced by TEST_F macro expansion and idiomatically
+// stay at file scope.
+// NOLINTNEXTLINE(misc-use-internal-linkage)
+class CompilerConfigCatalogTests : public testing::Test {};
+
+// ---------------------------------------------------------------------------
+// Canonical-only configuration
+// ---------------------------------------------------------------------------
+TEST_F(CompilerConfigCatalogTests, CanonicalOnlyExposesSingleEntry) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "path=/opt/fbc/bin/fbc\n"
+        "runCommand=run-template\n"
+        "compileCommand=compile-template\n"
+        "terminal=term-launcher\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+
+    EXPECT_EQ(catalog.all().size(), 1U);
+    EXPECT_EQ(catalog.canonical().slug, "default");
+    EXPECT_EQ(catalog.canonical().path, std::filesystem::path { "/opt/fbc/bin/fbc" });
+    EXPECT_EQ(catalog.canonical().runCommand, "run-template");
+    EXPECT_EQ(catalog.canonical().compileCommand, "compile-template");
+    EXPECT_EQ(catalog.canonical().terminal, "term-launcher");
+    EXPECT_EQ(catalog.find("default"), &catalog.canonical());
+    EXPECT_EQ(catalog.find("cfg-1"), nullptr);
+}
+
+// ---------------------------------------------------------------------------
+// User config with overrides — keys present on the child take precedence
+// over canonical values for the corresponding field.
+// ---------------------------------------------------------------------------
+TEST_F(CompilerConfigCatalogTests, UserOverridesReplaceInheritedFields) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "path=/opt/fbc/bin/fbc\n"
+        "runCommand=<$file>\n"
+        "compileCommand=base\n"
+        "terminal=base-term\n"
+        "[compiler/cfg-1]\n"
+        "name=FBC 32bit\n"
+        "compileCommand=override\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+
+    ASSERT_EQ(catalog.all().size(), 2U);
+    const auto* cfg = catalog.find("cfg-1");
+    ASSERT_NE(cfg, nullptr);
+    EXPECT_EQ(cfg->displayName, "FBC 32bit");
+    EXPECT_EQ(cfg->compileCommand, "override");
+    // Un-overridden fields fall through to canonical.
+    EXPECT_EQ(cfg->path, std::filesystem::path { "/opt/fbc/bin/fbc" });
+    EXPECT_EQ(cfg->runCommand, "<$file>");
+    EXPECT_EQ(cfg->terminal, "base-term");
+}
+
+// ---------------------------------------------------------------------------
+// Key-present-but-empty is an override — distinguishable from key-absent.
+// ---------------------------------------------------------------------------
+TEST_F(CompilerConfigCatalogTests, EmptyValueCountsAsOverride) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "terminal=base-term\n"
+        "[compiler/cfg-1]\n"
+        "name=Quiet\n"
+        "terminal=\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+
+    const auto* cfg = catalog.find("cfg-1");
+    ASSERT_NE(cfg, nullptr);
+    EXPECT_TRUE(cfg->terminal.IsEmpty()) << "key present with empty value should override";
+}
+
+// ---------------------------------------------------------------------------
+// Chain resolution: cfg-2 → cfg-1 → canonical. Each level contributes only
+// the fields it overrides; everything else falls through.
+// ---------------------------------------------------------------------------
+TEST_F(CompilerConfigCatalogTests, ChainResolvesThroughMultipleLevels) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "path=canonical-path\n"
+        "runCommand=canonical-run\n"
+        "compileCommand=canonical-compile\n"
+        "terminal=canonical-term\n"
+        "[compiler/cfg-1]\n"
+        "name=FBC 32bit\n"
+        "path=cfg1-path\n"
+        "[compiler/cfg-2]\n"
+        "name=FBC 32bit GUI\n"
+        "base=cfg-1\n"
+        "compileCommand=cfg2-compile\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+
+    const auto* cfg2 = catalog.find("cfg-2");
+    ASSERT_NE(cfg2, nullptr);
+    EXPECT_EQ(cfg2->compileCommand, "cfg2-compile"); // from cfg-2
+    EXPECT_EQ(cfg2->path, std::filesystem::path { "cfg1-path" }); // from cfg-1
+    EXPECT_EQ(cfg2->runCommand, "canonical-run"); // from canonical
+    EXPECT_EQ(cfg2->terminal, "canonical-term"); // from canonical
+}
+
+// ---------------------------------------------------------------------------
+// Cycle / orphan tolerance — resolution falls back to canonical for any
+// field still missing after the walk terminates abnormally. The offending
+// configs remain in the catalog so the settings UI can show and fix them.
+// ---------------------------------------------------------------------------
+TEST_F(CompilerConfigCatalogTests, CycleFallsBackToCanonicalFields) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "compileCommand=canonical-compile\n"
+        "[compiler/cfg-1]\n"
+        "name=A\n"
+        "base=cfg-2\n"
+        "[compiler/cfg-2]\n"
+        "name=B\n"
+        "base=cfg-1\n");
+
+    // wxLogNull silences the cycle warning so the test output stays clean
+    // (the warning itself is asserted by spec; the suppression is just
+    // hygiene).
+    const wxLogNull noLog;
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+
+    const auto* cfg1 = catalog.find("cfg-1");
+    ASSERT_NE(cfg1, nullptr);
+    EXPECT_EQ(cfg1->compileCommand, "canonical-compile");
+}
+
+TEST_F(CompilerConfigCatalogTests, OrphanBaseFallsBackToCanonicalFields) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "runCommand=canonical-run\n"
+        "[compiler/cfg-1]\n"
+        "name=Stray\n"
+        "base=nonexistent\n");
+
+    const wxLogNull noLog;
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+
+    const auto* cfg1 = catalog.find("cfg-1");
+    ASSERT_NE(cfg1, nullptr);
+    EXPECT_EQ(cfg1->runCommand, "canonical-run");
+}
+
+// ---------------------------------------------------------------------------
+// activeSlug — unset, valid, and invalid all map to the documented behavior.
+// ---------------------------------------------------------------------------
+TEST_F(CompilerConfigCatalogTests, ActiveSlugDefaultsToCanonicalWhenUnset) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp, "[compiler]\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+    EXPECT_EQ(catalog.activeSlug(), "default");
+}
+
+TEST_F(CompilerConfigCatalogTests, ActiveSlugReturnsKnownUserSlug) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "active=cfg-1\n"
+        "[compiler/cfg-1]\n"
+        "name=Active\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+    EXPECT_EQ(catalog.activeSlug(), "cfg-1");
+}
+
+TEST_F(CompilerConfigCatalogTests, ActiveSlugFallsBackWhenSlugMissing) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "active=cfg-gone\n");
+
+    const wxLogNull noLog;
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+    EXPECT_EQ(catalog.activeSlug(), "default");
+}
+
+// ---------------------------------------------------------------------------
+// all() ordering — canonical first, then user configs sorted by the
+// numeric suffix of the cfg-N slug (so cfg-10 sorts after cfg-2).
+// ---------------------------------------------------------------------------
+TEST_F(CompilerConfigCatalogTests, AllOrdersCanonicalFirstThenByNumericSlug) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp,
+        "[compiler]\n"
+        "[compiler/cfg-10]\n"
+        "name=Ten\n"
+        "[compiler/cfg-2]\n"
+        "name=Two\n"
+        "[compiler/cfg-1]\n"
+        "name=One\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+
+    std::vector<wxString> slugs;
+    for (const auto& cfg : catalog.all()) {
+        slugs.push_back(cfg.slug);
+    }
+    EXPECT_EQ(slugs, (std::vector<wxString> { "default", "cfg-1", "cfg-2", "cfg-10" }));
+}
