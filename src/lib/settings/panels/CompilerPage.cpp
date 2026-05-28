@@ -310,12 +310,25 @@ void CompilerPage::loadSelectedConfig() {
                                ? getContext().getConfigManager().config().at("compiler")
                                : getContext().getConfigManager().config().at("compiler").at(cfg->slug);
 
+    // What this config would inherit if every field were unset — the
+    // resolved fields of its base. Shown in the disabled input box
+    // while the inherit checkbox is ticked so the user can see exactly
+    // what they're falling back to.
+    const ResolvedCompilerConfig* baseResolved = nullptr;
+    if (!isCanonical) {
+        const auto baseSlug = getContext().getConfigManager().config().at("compiler").at(cfg->slug).get_or("base", wxString { kCanonicalCompilerSlug });
+        const auto targetBaseSlug = baseSlug.IsEmpty() ? wxString { kCanonicalCompilerSlug } : baseSlug;
+        baseResolved = catalog().find(targetBaseSlug);
+    }
+
     auto loadField = [&](InheritableField* widget, const CompilerField field) {
         const auto key = fieldKeyOf(field);
-        const auto resolved = fieldValueOf(*cfg, field);
         const bool overridden = cfgSection.contains(key);
-        widget->setResolvedValue(resolved);
-        widget->setOverrideValue(overridden ? cfgSection.get_or(key, wxString {}) : resolved);
+        const auto inheritedValue = baseResolved != nullptr
+                                      ? fieldValueOf(*baseResolved, field)
+                                      : fieldValueOf(*cfg, field);
+        widget->setResolvedValue(inheritedValue);
+        widget->setOverrideValue(overridden ? cfgSection.get_or(key, wxString {}) : inheritedValue);
         // Canonical Default has no parent → no inherit checkbox. The
         // field becomes a plain editable input whose value is always
         // an explicit override.
