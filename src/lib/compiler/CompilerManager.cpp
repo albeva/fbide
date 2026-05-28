@@ -307,33 +307,50 @@ auto CompilerManager::createConfigurationCombo(wxAuiToolBar* parent) -> wxComboB
 }
 
 void CompilerManager::refreshConfigurationCombo() {
-    if (m_configCombo == nullptr) {
+    if (m_configCombo != nullptr) {
+        populateConfigurationCombo();
+        // Restore selection / enabled state for whichever doc is
+        // currently active — population wiped both.
+        onActiveDocumentChanged(m_lastActiveDoc);
         return;
     }
-    populateConfigurationCombo();
-    // Restore selection / enabled state for whichever doc is currently
-    // active — population wiped both.
-    onActiveDocumentChanged(m_lastActiveDoc);
+    // Even when the combobox doesn't exist (e.g. the user never wired
+    // a `configuration` entry into `layout.toolbar`), the status-bar
+    // selector still needs its label refreshed after the catalog
+    // mutates.
+    pushStatusBarLabel();
 }
 
 void CompilerManager::onActiveDocumentChanged(Document* doc) {
     m_lastActiveDoc = doc;
-    if (m_configCombo == nullptr) {
-        return;
+    if (m_configCombo != nullptr) {
+        if (doc == nullptr || doc->getType() != DocumentType::FreeBASIC) {
+            m_configCombo->Disable();
+        } else {
+            m_configCombo->Enable();
+            const auto& resolved = m_catalog->resolveByPinnedSlug(doc->getConfiguration());
+            if (const auto it = std::ranges::find(m_configComboSlugs, resolved.slug);
+                it != m_configComboSlugs.end()) {
+                m_configCombo->SetSelection(
+                    static_cast<int>(std::distance(m_configComboSlugs.begin(), it))
+                );
+            }
+        }
     }
-    if (doc == nullptr || doc->getType() != DocumentType::FreeBASIC) {
-        m_configCombo->Disable();
-        return;
-    }
-    m_configCombo->Enable();
+    pushStatusBarLabel();
+}
 
-    const auto& resolved = m_catalog->resolveByPinnedSlug(doc->getConfiguration());
-    if (const auto it = std::ranges::find(m_configComboSlugs, resolved.slug);
-        it != m_configComboSlugs.end()) {
-        m_configCombo->SetSelection(
-            static_cast<int>(std::distance(m_configComboSlugs.begin(), it))
-        );
+void CompilerManager::pushStatusBarLabel() {
+    auto* frame = m_ctx.getUIManager().getMainFrame();
+    if (frame == nullptr) {
+        return;
     }
+    auto* bar = frame->GetStatusBar();
+    if (bar == nullptr || !m_ctx.getUIManager().hasStatusBarConfigField()) {
+        return;
+    }
+    constexpr int kField = 3;
+    bar->SetStatusText(configurationStatusLabel(), kField);
 }
 
 void CompilerManager::populateConfigurationCombo() {
@@ -359,6 +376,57 @@ void CompilerManager::onConfigurationComboSelected() {
         return;
     }
     setDocumentConfiguration(*m_lastActiveDoc, m_configComboSlugs.at(static_cast<std::size_t>(sel)));
+}
+
+void CompilerManager::setConfigurationComboVisible(bool visible) {
+    if (m_configCombo == nullptr || m_configCombo->IsShown() == visible) {
+        return;
+    }
+    m_configCombo->Show(visible);
+    if (auto* tb = wxDynamicCast(m_configCombo->GetParent(), wxAuiToolBar)) {
+        tb->Realize();
+    }
+}
+
+auto CompilerManager::configurationStatusLabel() const -> wxString {
+    if (m_lastActiveDoc == nullptr || m_lastActiveDoc->getType() != DocumentType::FreeBASIC) {
+        return wxString {};
+    }
+    return m_catalog->resolveByPinnedSlug(m_lastActiveDoc->getConfiguration()).displayName;
+}
+
+auto CompilerManager::buildConfigurationMenu() const -> std::unique_ptr<wxMenu> {
+    auto menu = std::make_unique<wxMenu>();
+    wxString currentSlug;
+    if (m_lastActiveDoc != nullptr) {
+        currentSlug = m_catalog->resolveByPinnedSlug(m_lastActiveDoc->getConfiguration()).slug;
+    }
+    int idx = 0;
+    for (const auto& cfg : m_catalog->all()) {
+        auto* item = menu->AppendRadioItem(kStatusMenuIdBase + idx, cfg.displayName);
+        if (cfg.slug == currentSlug) {
+            item->Check(true);
+        }
+        ++idx;
+    }
+    return menu;
+}
+
+void CompilerManager::applyConfigurationMenuSelection(int menuId) {
+    if (m_lastActiveDoc == nullptr) {
+        return;
+    }
+    const int offset = menuId - kStatusMenuIdBase;
+    if (offset < 0) {
+        return;
+    }
+    int idx = 0;
+    for (const auto& cfg : m_catalog->all()) {
+        if (idx++ == offset) {
+            setDocumentConfiguration(*m_lastActiveDoc, cfg.slug);
+            return;
+        }
+    }
 }
 
 void CompilerManager::setStatus(const wxString& path) const {

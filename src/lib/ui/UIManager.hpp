@@ -94,6 +94,14 @@ public:
     /// Toggle the output console pane's visibility.
     void showConsole(bool show);
 
+    /// Apply the current `commands.configurationInStatusBar` preference:
+    /// adjust the status-bar field count and toggle the toolbar
+    /// combobox's visibility. Called once at startup and again from
+    /// `updateSettings` so changes take effect without a restart.
+    void refreshConfigurationDisplay();
+    /// True when the configuration field is present in the status bar.
+    [[nodiscard]] auto hasStatusBarConfigField() const -> bool;
+
     /// Get the output console.
     [[nodiscard]] auto getOutputConsole() -> OutputConsole& { return *m_console; }
 
@@ -135,7 +143,9 @@ private:
     /// Append the external-links submenu under Help.
     void generateExternalLinks(wxMenu* menu);
 
-    /// Create the multi-field status bar.
+    /// Create the multi-field status bar. The configuration field is
+    /// included when the `commands.configurationInStatusBar` preference
+    /// is on (six fields); otherwise five.
     void createStatusBar() const;
     /// Create AUI panes, document notebook, sidebar notebook, output console.
     void createLayout();
