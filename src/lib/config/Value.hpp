@@ -90,6 +90,13 @@ public:
     /// inheritance — see `docs/compiler-configurations.md`).
     auto erase(const wxString& path) -> bool;
 
+    /// True when `at(path)` would find a real node. Reads better than
+    /// `static_cast<bool>(at(path))` at call sites that just want to
+    /// check existence.
+    [[nodiscard]] auto contains(const wxString& path) const -> bool {
+        return at(path).operator bool();
+    }
+
     // -------------------------------------------------------------------
     // Typed reads
     // -------------------------------------------------------------------

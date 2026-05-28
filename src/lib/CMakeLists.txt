@@ -65,6 +65,7 @@ target_sources(fbide_lib
     ui/UIManager.cpp
     ui/controls/BBCodeText.cpp
     ui/controls/ColorPicker.cpp
+    ui/controls/InheritableField.cpp
     ui/controls/Panel.cpp
     ui/controls/SmartBoxSizer.cpp
     ui/utilities/FileDropTarget.cpp
@@ -142,6 +143,7 @@ target_sources(fbide_lib
     ui/UIState.hpp
     ui/controls/BBCodeText.hpp
     ui/controls/ColorPicker.hpp
+    ui/controls/InheritableField.hpp
     ui/controls/Layout.hpp
     ui/controls/Panel.hpp
     ui/utilities/FileDropTarget.hpp
