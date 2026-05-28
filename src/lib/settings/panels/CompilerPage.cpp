@@ -17,7 +17,7 @@ namespace {
 /// the InheritableField / ColorPicker ranges so a child control's
 /// event can't accidentally match one of ours via parent-chain
 /// propagation.
-constexpr int ID_LIST = wxID_HIGHEST + 200;
+constexpr int ID_TREE = wxID_HIGHEST + 200;
 constexpr int ID_ADD = wxID_HIGHEST + 201;
 constexpr int ID_COPY = wxID_HIGHEST + 202;
 constexpr int ID_REMOVE = wxID_HIGHEST + 203;
@@ -56,44 +56,18 @@ auto fieldKeyOf(const CompilerField field) -> wxString {
     return wxString {};
 }
 
-/// Find the list-position of `slug` in `entries`, iterating rather
-/// than indexing so the bounds check doesn't trip clang-tidy.
-auto indexBySlug(const std::span<const ResolvedCompilerConfig> entries, const wxString& slug) -> int {
-    int idx = 0;
-    for (const auto& cfg : entries) {
-        if (cfg.slug == slug) {
-            return idx;
-        }
-        ++idx;
-    }
-    return wxNOT_FOUND;
-}
-
-/// Inverse: return the entry at `index`, or `nullptr` when out of range.
-auto entryByIndex(const std::span<const ResolvedCompilerConfig> entries, const int index) -> const ResolvedCompilerConfig* {
-    if (index < 0) {
-        return nullptr;
-    }
-    int idx = 0;
-    for (const auto& cfg : entries) {
-        if (idx++ == index) {
-            return &cfg;
-        }
-    }
-    return nullptr;
-}
 } // namespace
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(CompilerPage, Panel)
-    EVT_LISTBOX (ID_LIST,   CompilerPage::onListSelected)
-    EVT_BUTTON  (ID_ADD,    CompilerPage::onAddClicked)
-    EVT_BUTTON  (ID_COPY,   CompilerPage::onCopyClicked)
-    EVT_BUTTON  (ID_REMOVE, CompilerPage::onRemoveClicked)
-    EVT_TEXT    (ID_NAME,   CompilerPage::onNameChanged)
-    EVT_CHOICE  (ID_BASE,   CompilerPage::onBaseChanged)
-    EVT_CHECKBOX(ID_ACTIVE, CompilerPage::onActiveToggled)
-    EVT_COMMAND (wxID_ANY,  EVT_INHERIT_TOGGLED, CompilerPage::onInheritToggled)
+    EVT_TREE_SEL_CHANGED(ID_TREE,   CompilerPage::onTreeSelChanged)
+    EVT_BUTTON          (ID_ADD,    CompilerPage::onAddClicked)
+    EVT_BUTTON          (ID_COPY,   CompilerPage::onCopyClicked)
+    EVT_BUTTON          (ID_REMOVE, CompilerPage::onRemoveClicked)
+    EVT_TEXT            (ID_NAME,   CompilerPage::onNameChanged)
+    EVT_CHOICE          (ID_BASE,   CompilerPage::onBaseChanged)
+    EVT_CHECKBOX        (ID_ACTIVE, CompilerPage::onActiveToggled)
+    EVT_COMMAND         (wxID_ANY,  EVT_INHERIT_TOGGLED, CompilerPage::onInheritToggled)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -181,15 +155,15 @@ void CompilerPage::buildConfigurationsGroup() {
 
 void CompilerPage::buildLeftPane() {
     vbox({ .margin = false }, [&] {
-        m_configList = make_unowned<wxListBox>(
-            currentParent(), ID_LIST,
+        m_configTree = make_unowned<wxTreeCtrl>(
+            currentParent(), ID_TREE,
             wxDefaultPosition, wxDefaultSize,
-            wxArrayString {}, wxLB_SINGLE
+            wxTR_HAS_BUTTONS | wxTR_LINES_AT_ROOT | wxTR_SINGLE
         );
-        add(m_configList, { .proportion = 1 });
+        add(m_configTree, { .proportion = 1 });
 
         hbox({ .margin = false }, [&] {
-            auto makeIconButton = [this](int controlId, wxArtID artId, const wxString& tooltipKey) {
+            auto makeIconButton = [this](int controlId, const wxArtID& artId, const wxString& tooltipKey) {
                 auto btn = make_unowned<wxBitmapButton>(
                     currentParent(), controlId,
                     wxArtProvider::GetBitmap(artId, wxART_BUTTON)
@@ -253,16 +227,65 @@ auto CompilerPage::formatListLabel(const wxString& slug, const wxString& name) c
 }
 
 void CompilerPage::selectSlug(const wxString& slug) {
-    if (const auto idx = indexBySlug(catalog().all(), slug); idx != wxNOT_FOUND) {
-        m_configList->SetSelection(idx);
+    if (const auto it = m_slugItems.find(slug); it != m_slugItems.end()) {
+        m_configTree->SelectItem(it->second);
+        m_configTree->EnsureVisible(it->second);
     }
 }
 
 void CompilerPage::refreshList() {
-    m_configList->Clear();
-    for (const auto& cfg : catalog().all()) {
-        m_configList->Append(formatListLabel(cfg.slug, cfg.displayName));
+    m_configTree->DeleteAllItems();
+    m_treeSlugs.clear();
+    m_slugItems.clear();
+
+    const auto* canonical = catalog().find(kCanonicalCompilerSlug);
+    if (canonical == nullptr) {
+        return;
     }
+    const auto root = m_configTree->AddRoot(formatListLabel(canonical->slug, canonical->displayName));
+    m_treeSlugs[root.GetID()] = canonical->slug;
+    m_slugItems[canonical->slug] = root;
+
+    // Build a parent → children index so we can walk the tree
+    // depth-first without re-scanning the catalog at every level.
+    std::unordered_map<wxString, std::vector<wxString>> childrenOf;
+    for (const auto& cfg : catalog().all()) {
+        if (cfg.slug == kCanonicalCompilerSlug) {
+            continue;
+        }
+        const auto stored = getContext().getConfigManager().config().at("compiler").at(cfg.slug).get_or("base", wxString { kCanonicalCompilerSlug });
+        const auto parent = stored.IsEmpty() ? wxString { kCanonicalCompilerSlug } : stored;
+        childrenOf[parent].push_back(cfg.slug);
+    }
+
+    std::vector<wxString> stack { wxString { kCanonicalCompilerSlug } };
+    while (!stack.empty()) {
+        const auto parentSlug = stack.back();
+        stack.pop_back();
+        const auto parentIt = m_slugItems.find(parentSlug);
+        if (parentIt == m_slugItems.end()) {
+            continue;
+        }
+        const auto childrenIt = childrenOf.find(parentSlug);
+        if (childrenIt == childrenOf.end()) {
+            continue;
+        }
+        for (const auto& childSlug : childrenIt->second) {
+            const auto* childCfg = catalog().find(childSlug);
+            if (childCfg == nullptr) {
+                continue;
+            }
+            const auto childItem = m_configTree->AppendItem(
+                parentIt->second,
+                formatListLabel(childCfg->slug, childCfg->displayName)
+            );
+            m_treeSlugs[childItem.GetID()] = childSlug;
+            m_slugItems[childSlug] = childItem;
+            stack.push_back(childSlug);
+        }
+    }
+
+    m_configTree->ExpandAll();
 }
 
 void CompilerPage::loadSelectedConfig() {
@@ -372,17 +395,25 @@ void CompilerPage::commitFieldOverrides() {
 // Events
 // ---------------------------------------------------------------------------
 
-void CompilerPage::onListSelected(wxCommandEvent& /*event*/) {
-    const auto sel = m_configList->GetSelection();
-    if (sel == wxNOT_FOUND) {
+void CompilerPage::onTreeSelChanged(wxTreeEvent& event) {
+    event.Skip();
+    const auto item = event.GetItem();
+    if (!item.IsOk()) {
+        return;
+    }
+    const auto it = m_treeSlugs.find(item.GetID());
+    if (it == m_treeSlugs.end()) {
+        return;
+    }
+    // Programmatic SelectItem after Add / Copy / refresh fires this
+    // handler too; if the slug already matches we leave the right-pane
+    // alone (commitFieldOverrides would write the old widget state into
+    // the freshly-created config otherwise).
+    if (it->second == m_selectedSlug) {
         return;
     }
     commitFieldOverrides();
-    const auto* selected = entryByIndex(catalog().all(), sel);
-    if (selected == nullptr) {
-        return;
-    }
-    m_selectedSlug = selected->slug;
+    m_selectedSlug = it->second;
     loadSelectedConfig();
 }
 
@@ -437,9 +468,9 @@ void CompilerPage::onRemoveClicked(wxCommandEvent& /*event*/) {
         return;
     }
     catalog().remove(m_selectedSlug);
-    refreshList();
     m_selectedSlug = kCanonicalCompilerSlug;
-    m_configList->SetSelection(0);
+    refreshList();
+    selectSlug(m_selectedSlug);
     loadSelectedConfig();
 }
 
@@ -448,16 +479,14 @@ void CompilerPage::onNameChanged(wxCommandEvent& /*event*/) {
         return;
     }
     catalog().rename(m_selectedSlug, m_nameField->GetValue());
-    // Just refresh the visible label without rebuilding the whole list
+    // Just refresh the visible label without rebuilding the whole tree
     // (rebuilding would steal the user's edit focus from the field).
-    const auto sel = m_configList->GetSelection();
-    if (sel == wxNOT_FOUND) {
-        return;
+    if (const auto it = m_slugItems.find(m_selectedSlug); it != m_slugItems.end()) {
+        m_configTree->SetItemText(
+            it->second,
+            formatListLabel(m_selectedSlug, m_nameField->GetValue())
+        );
     }
-    m_configList->SetString(
-        static_cast<unsigned int>(sel),
-        formatListLabel(m_selectedSlug, m_nameField->GetValue())
-    );
 }
 
 void CompilerPage::onBaseChanged(wxCommandEvent& /*event*/) {
@@ -469,6 +498,10 @@ void CompilerPage::onBaseChanged(wxCommandEvent& /*event*/) {
         return;
     }
     catalog().setBase(m_selectedSlug, m_baseChoiceSlugs.at(static_cast<std::size_t>(sel)));
+    // Tree structure shifted — the selected node now lives under a
+    // different parent. Rebuild before re-selecting and reloading.
+    refreshList();
+    selectSlug(m_selectedSlug);
     // Resolved values may have shifted (different ancestor); re-read the
     // four fields so inherited displays reflect the new chain.
     loadSelectedConfig();
