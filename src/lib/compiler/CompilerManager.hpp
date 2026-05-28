@@ -9,6 +9,7 @@
 
 namespace fbide {
 class BuildTask;
+class CompilerConfigCatalog;
 class Document;
 class Context;
 
@@ -93,6 +94,11 @@ public:
     /// Set runtime parameters (from the parameters dialog).
     void setParameters(const wxString& params) { m_parameters = params; }
 
+    /// Catalog of available compiler configurations (canonical Default
+    /// plus any user-defined `[compiler/*]` sections).
+    [[nodiscard]] auto catalog() -> CompilerConfigCatalog& { return *m_catalog; }
+    [[nodiscard]] auto catalog() const -> const CompilerConfigCatalog& { return *m_catalog; }
+
 private:
     /// Get active FreeBASIC document, or nullptr if unavailable.
     [[nodiscard]] auto getActiveDocument() -> Document*;
@@ -103,10 +109,11 @@ private:
     /// Set status bar text from locale path (empty for none).
     void setStatus(const wxString& path) const;
 
-    Context& m_ctx;                    ///< Application context.
-    std::unique_ptr<BuildTask> m_task; ///< In-flight task (`nullptr` when idle).
-    wxString m_parameters;             ///< Runtime parameters set via the Parameters dialog.
-    wxString m_fbcVersion;             ///< Cached `fbc --version` output (empty until probed).
+    Context& m_ctx;                                       ///< Application context.
+    std::unique_ptr<CompilerConfigCatalog> m_catalog;     ///< Resolved view of `[compiler]` + `[compiler/*]`.
+    std::unique_ptr<BuildTask> m_task;                    ///< In-flight task (`nullptr` when idle).
+    wxString m_parameters;                                ///< Runtime parameters set via the Parameters dialog.
+    wxString m_fbcVersion;                                ///< Cached `fbc --version` output (empty until probed).
 };
 
 } // namespace fbide

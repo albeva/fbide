@@ -8,7 +8,8 @@
 #include "pch.hpp"
 
 namespace fbide {
-class Context;
+class ConfigManager;
+struct ResolvedCompilerConfig;
 
 /// Builds a command line for the FreeBASIC compiler (fbc).
 ///
@@ -20,8 +21,10 @@ public:
     /// Set the source file to compile.
     void setSourceFile(const wxString& path) { m_sourceFile = path; }
 
-    /// Build the command line using context for the template and compiler path.
-    [[nodiscard]] auto build(Context& ctx) const -> wxString;
+    /// Build the command line for a resolved configuration. The
+    /// compiler path inside `cfg` is resolved against the IDE's
+    /// app directory before substitution.
+    [[nodiscard]] auto build(const ResolvedCompilerConfig& cfg, const ConfigManager& cm) const -> wxString;
 
     /// Build the command line from explicit template and compiler path.
     [[nodiscard]] auto build(const wxString& compileTemplate, const wxString& compiler) const -> wxString;

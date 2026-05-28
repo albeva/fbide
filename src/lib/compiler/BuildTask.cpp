@@ -7,6 +7,7 @@
 #include "BuildTask.hpp"
 #include <cmake/config.hpp>
 #include "CompileCommand.hpp"
+#include "CompilerConfigCatalog.hpp"
 #include "CompilerManager.hpp"
 #include "RunCommand.hpp"
 #include "app/Context.hpp"
@@ -20,7 +21,8 @@ using namespace fbide;
 
 BuildTask::BuildTask(Context& ctx, Document* doc)
 : m_ctx(ctx)
-, m_doc(doc) {}
+, m_doc(doc)
+, m_config(ctx.getCompilerManager().catalog().canonical()) {}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -71,8 +73,10 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
         return;
     }
 
-    // Build command
-    const auto cmdStr = CompileCommand::makeDefault(sourceFile).build(m_ctx);
+    // Build command. The resolved config is captured at task construction
+    // so a mid-build catalog change (e.g. user editing settings) cannot
+    // half-apply across compile and run steps.
+    const auto cmdStr = CompileCommand::makeDefault(sourceFile).build(m_config, m_ctx.getConfigManager());
 
     m_compilerLog.Empty();
     m_compilerLog.Add("[bold]Command executed:[/bold]");
@@ -253,7 +257,7 @@ auto BuildTask::deriveExecutablePath(const wxString& sourceFile) -> wxString {
 }
 
 auto BuildTask::buildRunCommand(const wxString& executablePath) const -> wxString {
-    return RunCommand::makeDefault(executablePath).build(m_ctx);
+    return RunCommand::makeDefault(executablePath).build(m_config, m_ctx.getCompilerManager().getParameters());
 }
 
 void BuildTask::appendSystemInfo() {

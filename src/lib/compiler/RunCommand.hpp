@@ -8,7 +8,7 @@
 #include "pch.hpp"
 
 namespace fbide {
-class Context;
+struct ResolvedCompilerConfig;
 
 /// Builds a run command line from a config template and an executable path.
 ///
@@ -24,8 +24,9 @@ public:
     /// Set the executable path.
     void setExecutable(const wxString& path) { m_executable = path; }
 
-    /// Build the complete command line string using context for config values.
-    [[nodiscard]] auto build(Context& ctx) const -> wxString;
+    /// Build the complete command line string from a resolved
+    /// configuration and runtime parameters.
+    [[nodiscard]] auto build(const ResolvedCompilerConfig& cfg, const wxString& parameters) const -> wxString;
 
     /// Build the complete command line string from explicit values.
     [[nodiscard]] auto build(const wxString& runTemplate, const wxString& terminal = {}, const wxString& parameters = {}) const -> wxString;

@@ -143,6 +143,25 @@ TEST_F(CompilerConfigCatalogTests, EmptyValueCountsAsOverride) {
 }
 
 // ---------------------------------------------------------------------------
+// A missing key on the canonical section falls through to the hard-coded
+// platform template — same fallback the legacy `CompileCommand::build(ctx)`
+// applied via `get_or(..., default)`. Empty-but-present is *not* replaced
+// (covered by `EmptyValueCountsAsOverride`).
+// ---------------------------------------------------------------------------
+TEST_F(CompilerConfigCatalogTests, CanonicalAbsentKeyAppliesDefaultTemplate) {
+    const TempDir tmp;
+    auto cm = makeConfig(tmp, "[compiler]\n");
+
+    CompilerConfigCatalog catalog(*cm);
+    catalog.reload();
+
+    EXPECT_FALSE(catalog.canonical().compileCommand.IsEmpty());
+    EXPECT_FALSE(catalog.canonical().runCommand.IsEmpty());
+    EXPECT_TRUE(catalog.canonical().compileCommand.Contains("<$fbc>"));
+    EXPECT_TRUE(catalog.canonical().runCommand.Contains("<$file>"));
+}
+
+// ---------------------------------------------------------------------------
 // Chain resolution: cfg-2 → cfg-1 → canonical. Each level contributes only
 // the fields it overrides; everything else falls through.
 // ---------------------------------------------------------------------------
