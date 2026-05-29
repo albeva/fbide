@@ -102,7 +102,7 @@ void CompilerManager::quickRun() {
     m_task->compileAndRun(toWxString(tempFile), true);
 }
 
-void CompilerManager::killProcess() {
+void CompilerManager::killProcess() const {
     if (m_task != nullptr && m_task->isRunning()) {
         m_task->kill();
     }
@@ -112,13 +112,13 @@ void CompilerManager::killProcess() {
 // Compiler log
 // ---------------------------------------------------------------------------
 
-void CompilerManager::showCompilerLog() {
+void CompilerManager::showCompilerLog() const {
     auto& log = m_ctx.getUIManager().getCompilerLog();
     log.Show();
     log.Raise();
 }
 
-void CompilerManager::refreshCompilerLog() {
+void CompilerManager::refreshCompilerLog() const {
     if (m_task == nullptr) {
         return;
     }
@@ -171,7 +171,7 @@ void openCompilerSettings(Context& ctx) {
 }
 } // namespace
 
-void CompilerManager::checkCompilerOnStartup() {
+void CompilerManager::checkCompilerOnStartup() const {
     auto& configManager = m_ctx.getConfigManager();
     auto& config = configManager.config();
 
@@ -206,7 +206,7 @@ void CompilerManager::checkCompilerOnStartup() {
     }
 }
 
-void CompilerManager::promptMissingCompiler() {
+void CompilerManager::promptMissingCompiler() const {
     wxRichMessageDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
         m_ctx.tr("messages.missingCompilerMessage"),
@@ -226,7 +226,7 @@ void CompilerManager::promptMissingCompiler() {
 // Error navigation
 // ---------------------------------------------------------------------------
 
-void CompilerManager::goToError(const int line, const wxString& fileName) {
+void CompilerManager::goToError(const int line, const wxString& fileName) const {
     auto& docManager = m_ctx.getDocumentManager();
 
     auto* doc = [&] -> Document* {
@@ -251,7 +251,7 @@ void CompilerManager::goToError(const int line, const wxString& fileName) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-auto CompilerManager::getActiveDocument() -> Document* {
+auto CompilerManager::getActiveDocument() const -> Document* {
     if (m_task && m_task->isRunning()) {
         return nullptr;
     }
@@ -263,7 +263,7 @@ auto CompilerManager::getActiveDocument() -> Document* {
     return doc;
 }
 
-auto CompilerManager::ensureSaved(Document& doc) -> bool {
+auto CompilerManager::ensureSaved(Document& doc) const -> bool {
     if (!doc.isModified()) {
         return !doc.isNew();
     }
@@ -280,7 +280,7 @@ auto CompilerManager::ensureSaved(Document& doc) -> bool {
     return m_ctx.getDocumentManager().saveFile(doc);
 }
 
-void CompilerManager::setDocumentConfiguration(Document& doc, const wxString& pickedSlug) {
+void CompilerManager::setDocumentConfiguration(Document& doc, const wxString& pickedSlug) const {
     doc.setConfiguration(m_catalog->normalizeForStorage(pickedSlug));
     // Both the toolbar combobox and the status-bar field need to
     // reflect the new selection. The combobox already shows the picked
@@ -359,11 +359,11 @@ void CompilerManager::onActiveDocumentChanged(Document* doc) {
     pushStatusBarLabel();
 }
 
-void CompilerManager::pushStatusBarLabel() {
+void CompilerManager::pushStatusBarLabel() const {
     m_ctx.getUIManager().getStatusBar().refreshConfigurationField();
 }
 
-void CompilerManager::populateConfigurationCombo() {
+void CompilerManager::populateConfigurationCombo() const {
     if (m_configCombo == nullptr) {
         return;
     }
@@ -373,7 +373,7 @@ void CompilerManager::populateConfigurationCombo() {
     }
 }
 
-void CompilerManager::onConfigurationComboSelected() {
+void CompilerManager::onConfigurationComboSelected() const {
     if (m_lastActiveDoc == nullptr || m_configCombo == nullptr) {
         return;
     }
@@ -402,7 +402,7 @@ auto CompilerManager::buildConfigurationMenu() const -> std::unique_ptr<wxMenu> 
     return menu;
 }
 
-void CompilerManager::applyConfigurationMenuSelection(int menuId) {
+void CompilerManager::applyConfigurationMenuSelection(const int menuId) const {
     if (m_lastActiveDoc == nullptr) {
         return;
     }
