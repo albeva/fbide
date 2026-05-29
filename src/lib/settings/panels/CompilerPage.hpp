@@ -66,6 +66,8 @@ private:
     void onAddClicked(wxCommandEvent& event);
     void onCopyClicked(wxCommandEvent& event);
     void onRemoveClicked(wxCommandEvent& event);
+    void onMoveUpClicked(wxCommandEvent& event);
+    void onMoveDownClicked(wxCommandEvent& event);
     void onNameChanged(wxCommandEvent& event);
     void onActiveToggled(wxCommandEvent& event);
     void onShowInMenuToggled(wxCommandEvent& event);
@@ -95,6 +97,8 @@ private:
     Unowned<wxBitmapButton> m_addButton;
     Unowned<wxBitmapButton> m_copyButton;
     Unowned<wxBitmapButton> m_removeButton;
+    Unowned<wxBitmapButton> m_moveUpButton;
+    Unowned<wxBitmapButton> m_moveDownButton;
 
     Unowned<wxStaticText> m_nameLabel;
     Unowned<wxTextCtrl> m_nameField;

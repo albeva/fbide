@@ -24,6 +24,8 @@ constexpr int ID_REMOVE = wxID_HIGHEST + 203;
 constexpr int ID_NAME = wxID_HIGHEST + 204;
 constexpr int ID_ACTIVE = wxID_HIGHEST + 205;
 constexpr int ID_SHOW_IN_MENU = wxID_HIGHEST + 206;
+constexpr int ID_MOVE_UP = wxID_HIGHEST + 207;
+constexpr int ID_MOVE_DOWN = wxID_HIGHEST + 208;
 
 /// Width of the left-hand configuration list in device-independent
 /// pixels. Sized to comfortably show "FBC 32bit GUI (active)" without
@@ -55,6 +57,8 @@ wxBEGIN_EVENT_TABLE(CompilerPage, Panel)
     EVT_BUTTON  (ID_ADD,    CompilerPage::onAddClicked)
     EVT_BUTTON  (ID_COPY,   CompilerPage::onCopyClicked)
     EVT_BUTTON  (ID_REMOVE, CompilerPage::onRemoveClicked)
+    EVT_BUTTON  (ID_MOVE_UP,   CompilerPage::onMoveUpClicked)
+    EVT_BUTTON  (ID_MOVE_DOWN, CompilerPage::onMoveDownClicked)
     EVT_TEXT    (ID_NAME,   CompilerPage::onNameChanged)
     EVT_CHECKBOX(ID_ACTIVE, CompilerPage::onActiveToggled)
     EVT_CHECKBOX(ID_SHOW_IN_MENU, CompilerPage::onShowInMenuToggled)
@@ -181,6 +185,8 @@ void CompilerPage::buildLeftPane() {
             m_addButton = makeIconButton(ID_ADD, wxART_NEW, "add");
             m_copyButton = makeIconButton(ID_COPY, wxART_COPY, "copy");
             m_removeButton = makeIconButton(ID_REMOVE, wxART_DELETE, "remove");
+            m_moveUpButton = makeIconButton(ID_MOVE_UP, wxART_GO_UP, "moveUp");
+            m_moveDownButton = makeIconButton(ID_MOVE_DOWN, wxART_GO_DOWN, "moveDown");
         });
     });
 }
@@ -308,6 +314,13 @@ void CompilerPage::loadSelectedConfig() {
 
     m_removeButton->Enable(!isCanonical);
     m_copyButton->Enable(true);
+
+    // Up / Down are disabled for canonical Default (fixed at index 0)
+    // and at the user-list boundaries.
+    const auto selectionIndex = catalog().indexOf(cfg->slug);
+    const auto lastIndex = static_cast<int>(catalog().all().size()) - 1;
+    m_moveUpButton->Enable(!isCanonical && selectionIndex > 1);
+    m_moveDownButton->Enable(!isCanonical && selectionIndex >= 0 && selectionIndex < lastIndex);
 
     GetSizer()->Layout();
 }
@@ -444,6 +457,30 @@ void CompilerPage::onInheritToggled(wxCommandEvent& event) {
         // of the InheritableField's default "seed from resolved"
         // behaviour.
         widget->setOverrideValue(remembered->second);
+    }
+}
+
+void CompilerPage::onMoveUpClicked(wxCommandEvent& /*event*/) {
+    if (m_selectedSlug.IsEmpty() || m_selectedSlug == kCanonicalCompilerSlug) {
+        return;
+    }
+    commitFieldOverrides();
+    if (catalog().moveUp(m_selectedSlug)) {
+        refreshList();
+        selectSlug(m_selectedSlug);
+        loadSelectedConfig();
+    }
+}
+
+void CompilerPage::onMoveDownClicked(wxCommandEvent& /*event*/) {
+    if (m_selectedSlug.IsEmpty() || m_selectedSlug == kCanonicalCompilerSlug) {
+        return;
+    }
+    commitFieldOverrides();
+    if (catalog().moveDown(m_selectedSlug)) {
+        refreshList();
+        selectSlug(m_selectedSlug);
+        loadSelectedConfig();
     }
 }
 

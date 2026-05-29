@@ -179,6 +179,17 @@ public:
     /// configuration's section; default when absent is `true`.
     auto setShowInMenu(const wxString& slug, bool visible) -> bool;
 
+    /// Swap a user-defined configuration with its predecessor in the
+    /// display order. Canonical Default is fixed at index 0 and never
+    /// participates. No-op for the canonical slug, an unknown slug, or
+    /// the first user entry. Returns true when the move actually
+    /// happened.
+    auto moveUp(const wxString& slug) -> bool;
+
+    /// Mirror of `moveUp` — swap with the next user entry, no-op at the
+    /// tail or for canonical.
+    auto moveDown(const wxString& slug) -> bool;
+
 private:
     ConfigManager& m_cfg;
     /// Canonical at index 0, user configs follow.
