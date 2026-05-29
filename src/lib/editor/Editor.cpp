@@ -866,13 +866,12 @@ void Editor::updateStatusBar() const {
         return;
     }
     auto& bar = m_uiManager->getStatusBar();
-    const auto pos = GetCurrentPos();
-    bar.setCursor(LineFromPosition(pos) + 1, GetColumn(pos) + 1);
-
     const Document* doc = m_documentManager != nullptr
                             ? m_documentManager->findByEditor(this)
                             : nullptr;
     if (doc != nullptr) {
+        const auto pos = GetCurrentPos();
+        bar.setCursor(LineFromPosition(pos) + 1, GetColumn(pos) + 1);
         bar.setDocumentFields(*doc);
     } else {
         bar.clearDocumentFields();
