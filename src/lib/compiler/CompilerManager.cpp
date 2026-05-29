@@ -307,9 +307,25 @@ auto CompilerManager::createConfigurationCombo(wxAuiToolBar* parent) -> wxComboB
         onConfigurationComboSelected();
     });
     populateConfigurationCombo();
-    // Disabled until a FreeBASIC document gains focus.
-    m_configCombo->Disable();
+    // Sync to the remembered active document: disabled with no selection
+    // when there's no FreeBASIC document (e.g. at first build), enabled
+    // and selected when the toolbar is rebuilt while one is open.
+    onActiveDocumentChanged(m_lastActiveDoc);
     return m_configCombo;
+}
+
+void CompilerManager::destroyConfigurationCombo() {
+    if (m_configCombo == nullptr) {
+        return;
+    }
+    // Drop the hosting toolbar's item first so it isn't left pointing at
+    // a dead widget, then destroy the combobox (a child of the toolbar).
+    if (auto* tb = wxDynamicCast(m_configCombo->GetParent(), wxAuiToolBar)) {
+        tb->DeleteTool(m_configCombo->GetId());
+        tb->Fit();
+    }
+    m_configCombo->Destroy();
+    m_configCombo = nullptr;
 }
 
 void CompilerManager::refreshConfigurationCombo() {
@@ -351,12 +367,10 @@ void CompilerManager::populateConfigurationCombo() {
     if (m_configCombo == nullptr) {
         return;
     }
-    m_configCombo->Freeze();
     m_configCombo->Clear();
     for (const auto& cfg : m_catalog->all()) {
         m_configCombo->Append(cfg.displayName);
     }
-    m_configCombo->Thaw();
 }
 
 void CompilerManager::onConfigurationComboSelected() {
@@ -365,17 +379,6 @@ void CompilerManager::onConfigurationComboSelected() {
     }
     if (const auto* cfg = m_catalog->at(m_configCombo->GetSelection())) {
         setDocumentConfiguration(*m_lastActiveDoc, cfg->slug);
-    }
-}
-
-void CompilerManager::setConfigurationComboVisible(const bool visible) {
-    if (m_configCombo == nullptr || m_configCombo->IsShown() == visible) {
-        return;
-    }
-    m_configCombo->Show(visible);
-    if (auto* tb = wxDynamicCast(m_configCombo->GetParent(), wxAuiToolBar)) {
-        tb->Fit();
-        tb->Realize();
     }
 }
 

@@ -410,20 +410,32 @@ void UIManager::configureToolBar() {
         const auto& items = cfg.layout().at("toolbar");
         const auto& commands = cfg.locale().at("commands");
 
-        const bool createTools = (m_auiToolbar == nullptr);
+        // The configuration combobox is one of two mutually exclusive
+        // surfaces — when the user routes configurations to the status
+        // bar, the combobox is omitted entirely rather than created and
+        // hidden.
+        const bool inStatusBar = cfg.config().get_or("commands.configurationInStatusBar", false);
+        const bool firstBuild = (m_auiToolbar == nullptr);
 
-        if (createTools) {
+        if (firstBuild) {
             m_auiToolbar = make_unowned<wxAuiToolBar>(
                 m_frame, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                 wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_GRIPPER | wxAUI_TB_OVERFLOW
             );
+        } else {
+            // Rebuild in place (the preference toggled at runtime). Drop
+            // the combobox and every tool, then re-add from layout below
+            // so the combobox lands at its layout position — wxAuiToolBar
+            // has no positional insert. Command→toolbar binds stay valid
+            // (same toolbar object, same tool ids re-added), so we re-sync
+            // each tool's state via update() instead of re-pushing binds.
+            m_ctx.getCompilerManager().destroyConfigurationCombo();
+            m_auiToolbar->Clear();
         }
 
         for (const auto& key : items.asArray()) {
             if (key == "-") {
-                if (createTools) {
-                    m_auiToolbar->AddSeparator();
-                }
+                m_auiToolbar->AddSeparator();
                 continue;
             }
 
@@ -439,26 +451,14 @@ void UIManager::configureToolBar() {
             const auto help = locale.get_or("help", "");
 
             // Configuration is a custom control (combobox), not a tool
-            // button. CompilerManager owns the widget; UIManager just
-            // hosts it. Skips the bitmap lookup, kind dispatch, and
-            // bind-chain because none of those apply to a combobox.
+            // button, and only present in the toolbar-hosted mode.
+            // CompilerManager owns the widget; UIManager just hosts it.
             if (entry->id == +CommandId::Configuration && entry->kind == wxITEM_DROPDOWN) {
-                if (createTools) {
+                if (!inStatusBar) {
                     m_auiToolbar->AddControl(
                         m_ctx.getCompilerManager().createConfigurationCombo(m_auiToolbar.get()),
                         name
                     );
-                }
-                continue;
-            }
-
-            // Reconfigure path (locale change etc.) — refresh tooltips,
-            // skip re-add.
-            if (entry->get<wxAuiToolBar>() != nullptr) {
-                if (auto* item = m_auiToolbar->FindTool(entry->id)) {
-                    item->SetLabel(name);
-                    item->SetShortHelp(help);
-                    item->SetLongHelp(help);
                 }
                 continue;
             }
@@ -471,11 +471,16 @@ void UIManager::configureToolBar() {
 
             m_auiToolbar->AddTool(entry->id, name, bitmap, help, entry->kind);
             m_auiToolbar->SetToolLongHelp(entry->id, help);
-            entry->binds.push_back(m_auiToolbar.get());
+            if (firstBuild) {
+                entry->binds.push_back(m_auiToolbar.get());
+            } else {
+                // Re-sync enabled / checked onto the freshly re-added tool.
+                entry->update();
+            }
         }
 
-        if (createTools) {
-            m_auiToolbar->Realize();
+        m_auiToolbar->Realize();
+        if (firstBuild) {
             m_aui.AddPane(
                 m_auiToolbar.get(),
                 wxAuiPaneInfo()
@@ -488,6 +493,9 @@ void UIManager::configureToolBar() {
                     .CloseButton(false)
                     .PaneBorder(false)
             );
+        } else {
+            m_auiToolbar->Fit();
+            m_aui.Update();
         }
     } catch (const std::exception& ex) {
         wxLogError("Invalid layout config for toolbar: %s", ex.what());
@@ -500,7 +508,16 @@ void UIManager::createStatusBar() {
 
 void UIManager::refreshConfigurationDisplay() {
     const bool inStatusBar = m_ctx.getConfigManager().config().get_or("commands.configurationInStatusBar", false);
-    m_ctx.getCompilerManager().setConfigurationComboVisible(!inStatusBar);
+    // The combobox should exist exactly when configurations are NOT in
+    // the status bar. The initial build already honoured the preference,
+    // so a rebuild is only needed when a runtime toggle leaves the
+    // toolbar out of step — adding or dropping the combobox to match.
+    if (m_ctx.getCompilerManager().hasConfigurationCombo() == inStatusBar) {
+        configureToolBar();
+        CallAfter([this] {
+            m_auiToolbar->Fit();
+        });
+    }
     m_statusBar.applyPreference();
 }
 

@@ -96,8 +96,9 @@ public:
     void showConsole(bool show);
 
     /// Apply the current `commands.configurationInStatusBar` preference:
-    /// adjust the status-bar field count and toggle the toolbar
-    /// combobox's visibility. Called once at startup and again from
+    /// adjust the status-bar field count and add or remove the toolbar
+    /// combobox (rebuilding the toolbar when a runtime toggle leaves it
+    /// out of step). Called once at startup and again from
     /// `updateSettings` so changes take effect without a restart.
     void refreshConfigurationDisplay();
 
@@ -140,7 +141,9 @@ private:
     void configureMenuBar();
     /// Recursively populate a single menu by id from layout.
     void configureMenuItems(wxMenu* menu, const wxString& id, bool addSeparators);
-    /// Build the toolbar from `layout.ini`.
+    /// Build the toolbar from `layout.ini`. Re-entrant: a second call
+    /// rebuilds in place (used when the configuration combobox has to be
+    /// added or removed after a preference toggle).
     void configureToolBar();
     /// Append the external-links submenu under Help.
     void generateExternalLinks(wxMenu* menu);
