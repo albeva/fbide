@@ -31,6 +31,7 @@ struct PendingConfig {
     std::optional<wxString> compileCommand;
     std::optional<wxString> terminal;
     bool showInMenu = true;
+    std::optional<int> order;
 };
 
 /// Pull a leaf value out of a section without applying inheritance.
@@ -64,6 +65,10 @@ auto parseCanonicalPending(ConfigManager& cfg) -> PendingConfig {
 }
 
 auto parseUserPending(const wxString& slug, const Value& section) -> PendingConfig {
+    std::optional<int> order;
+    if (const auto& orderLeaf = section.at("order"); orderLeaf) {
+        order = orderLeaf.value_or(0);
+    }
     return PendingConfig {
         .slug = slug,
         .name = section.get_or("name", wxString {}),
@@ -72,23 +77,27 @@ auto parseUserPending(const wxString& slug, const Value& section) -> PendingConf
         .compileCommand = readOverride(section, "compileCommand"),
         .terminal = readOverride(section, "terminal"),
         .showInMenu = section.get_or("showInMenu", true),
+        .order = order,
     };
 }
 
-/// Sort key for user slugs — `cfg-N` strings sort by their integer
-/// suffix so `cfg-10` comes after `cfg-2`. Slugs that don't fit the
-/// pattern fall back to lexicographic order, after all numeric entries.
-auto slugSortKey(const wxString& slug) -> std::pair<long, wxString> {
+/// Sort key for user configs. Explicit `order=` (written by the
+/// move-up / move-down operations) wins; entries without an `order`
+/// key fall back to the legacy `cfg-N` numeric-suffix order and are
+/// placed *after* every explicit entry. Hand-edited / non-conforming
+/// slugs sort to the very tail.
+auto userSortKey(const PendingConfig& cfg) -> std::tuple<int, long, wxString> {
+    if (cfg.order.has_value()) {
+        return { 0, static_cast<long>(*cfg.order), cfg.slug };
+    }
     constexpr auto kPrefix = "cfg-";
-    if (slug.StartsWith(kPrefix)) {
+    if (cfg.slug.StartsWith(kPrefix)) {
         long number = 0;
-        if (slug.Mid(std::char_traits<char>::length(kPrefix)).ToLong(&number)) {
-            return { number, slug };
+        if (cfg.slug.Mid(std::char_traits<char>::length(kPrefix)).ToLong(&number)) {
+            return { 1, number, cfg.slug };
         }
     }
-    // Push non-conforming slugs after every numeric one — gives a stable
-    // tail when a hand-edited config sneaks in.
-    return { std::numeric_limits<long>::max(), slug };
+    return { 2, std::numeric_limits<long>::max(), cfg.slug };
 }
 
 /// Merge `child` over `canonical`: every field not explicitly set on
@@ -133,7 +142,7 @@ void CompilerConfigCatalog::reload() {
             }
         }
     }
-    std::ranges::sort(users, {}, [](const auto& pending) { return slugSortKey(pending.slug); });
+    std::ranges::sort(users, {}, [](const auto& pending) { return userSortKey(pending); });
 
     m_configs.reserve(1 + users.size());
     m_configs.push_back(resolve(canonical, canonical));
@@ -308,6 +317,57 @@ auto CompilerConfigCatalog::setOverride(
     } else {
         section[key] = *value;
     }
+    reload();
+    return true;
+}
+
+namespace {
+/// Apply a new display order to all user configs by writing explicit
+/// `order=1..N` keys in their post-move positions. Called by moveUp /
+/// moveDown so the next reload picks up the change. Canonical is not
+/// part of `userSlugsInOrder`.
+void persistUserOrder(Value& compiler, std::span<const wxString> userSlugsInOrder) {
+    for (std::size_t i = 0; i < userSlugsInOrder.size(); ++i) {
+        compiler[userSlugsInOrder[i]]["order"] = static_cast<int>(i + 1);
+    }
+}
+} // namespace
+
+auto CompilerConfigCatalog::moveUp(const wxString& slug) -> bool {
+    if (slug == kCanonicalCompilerSlug || find(slug) == nullptr) {
+        return false;
+    }
+    // Skip the canonical entry at index 0 — user slugs start at 1.
+    std::vector<wxString> userSlugs;
+    userSlugs.reserve(m_configs.size() - 1);
+    for (std::size_t i = 1; i < m_configs.size(); ++i) {
+        userSlugs.push_back(m_configs[i].slug);
+    }
+    const auto it = std::ranges::find(userSlugs, slug);
+    if (it == userSlugs.end() || it == userSlugs.begin()) {
+        return false;
+    }
+    std::iter_swap(it, std::prev(it));
+    persistUserOrder(m_cfg.config()["compiler"], userSlugs);
+    reload();
+    return true;
+}
+
+auto CompilerConfigCatalog::moveDown(const wxString& slug) -> bool {
+    if (slug == kCanonicalCompilerSlug || find(slug) == nullptr) {
+        return false;
+    }
+    std::vector<wxString> userSlugs;
+    userSlugs.reserve(m_configs.size() - 1);
+    for (std::size_t i = 1; i < m_configs.size(); ++i) {
+        userSlugs.push_back(m_configs[i].slug);
+    }
+    const auto it = std::ranges::find(userSlugs, slug);
+    if (it == userSlugs.end() || std::next(it) == userSlugs.end()) {
+        return false;
+    }
+    std::iter_swap(it, std::next(it));
+    persistUserOrder(m_cfg.config()["compiler"], userSlugs);
     reload();
     return true;
 }
