@@ -163,14 +163,14 @@ private:
     /// field, when the configuration status-bar layout is active.
     void pushStatusBarLabel();
 
-    Context& m_ctx;                                       ///< Application context.
-    std::unique_ptr<CompilerConfigCatalog> m_catalog;     ///< Resolved view of `[compiler]` + `[compiler/*]`.
-    std::unique_ptr<BuildTask> m_task;                    ///< In-flight task (`nullptr` when idle).
-    wxString m_parameters;                                ///< Runtime parameters set via the Parameters dialog.
-    wxString m_fbcVersion;                                ///< Cached `fbc --version` output (empty until probed).
-    wxComboBox* m_configCombo = nullptr;                  ///< Toolbar-owned widget; non-null after configureToolBar.
-    std::vector<wxString> m_configComboSlugs;             ///< Parallel to combobox items: slug per position.
-    Document* m_lastActiveDoc = nullptr;                  ///< Last document the combobox was synced to.
+    Context& m_ctx;                                   ///< Application context.
+    std::unique_ptr<CompilerConfigCatalog> m_catalog; ///< Resolved view of `[compiler]` + `[compiler/*]`.
+    std::unique_ptr<BuildTask> m_task;                ///< In-flight task (`nullptr` when idle).
+    wxString m_parameters;                            ///< Runtime parameters set via the Parameters dialog.
+    wxString m_fbcVersion;                            ///< Cached `fbc --version` output (empty until probed).
+    wxComboBox* m_configCombo = nullptr;              ///< Toolbar-owned widget; non-null after configureToolBar.
+    std::vector<wxString> m_configComboSlugs;         ///< Parallel to combobox items: slug per position.
+    Document* m_lastActiveDoc = nullptr;              ///< Last document the combobox was synced to.
 };
 
 } // namespace fbide
