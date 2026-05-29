@@ -17,8 +17,9 @@ namespace {
 /// GitHub Releases REST endpoint for this repository. The list form is
 /// used rather than `/releases/latest` because the latter excludes
 /// pre-releases — FBIde ships RC/beta builds, so a pre-release is often
-/// the newest thing there is.
-constexpr auto RELEASES_URL = "https://api.github.com/repos/albeva/fbide/releases?per_page=20";
+/// the newest thing there is. Releases come back newest-first, so one
+/// entry is enough.
+constexpr auto RELEASES_URL = "https://api.github.com/repos/albeva/fbide/releases?per_page=1";
 
 /// Downloads page opened when the user accepts the update alert.
 constexpr auto DOWNLOAD_URL = "https://fbide.freebasic.net/download.html";
@@ -97,27 +98,21 @@ void UpdateManager::onRequestState(wxWebRequestEvent& event) {
 }
 
 void UpdateManager::handleResult(const wxString& body) {
-    // Walk every returned release and keep the highest version, so a
-    // late-published patch on an older line can't masquerade as newest.
+    // GitHub returns releases newest-first, so the single entry we asked
+    // for is the latest release (including pre-releases).
     Version best;
     try {
         const auto json = nlohmann::json::parse(body.utf8_string());
-        if (!json.is_array()) {
-            notifyError("unexpected response shape");
+        if (!json.is_array() || json.empty()) {
+            notifyError("no releases in response");
             return;
         }
-        for (const auto& release : json) {
-            if (release.value("draft", false)) {
-                continue;
-            }
-            const auto tag = wxString::FromUTF8(release.value("tag_name", ""));
-            if (tag.empty()) {
-                continue;
-            }
-            if (const auto version = tagToVersion(tag); version > best) {
-                best = version;
-            }
+        const auto tag = wxString::FromUTF8(json.front().value("tag_name", ""));
+        if (tag.empty()) {
+            notifyError("release has no tag");
+            return;
         }
+        best = tagToVersion(tag);
     } catch (const std::exception& ex) {
         notifyError(wxString::Format("parse error: %s", ex.what()));
         return;
