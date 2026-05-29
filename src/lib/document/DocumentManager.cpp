@@ -14,6 +14,7 @@
 #include "command/CommandEntry.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
+#include "compiler/CompilerConfigCatalog.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
@@ -123,10 +124,14 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
         }
     }
 
-    // 2. Compiler `inc/` folder: <dir-of-fbc>/inc/<path>
-    const auto compilerPathStr = m_ctx.getConfigManager().config().get_or("compiler.path", "");
-    if (!compilerPathStr.empty()) {
-        auto fbc = toFsPath(compilerPathStr);
+    // 2. Compiler `inc/` folder: <dir-of-fbc>/inc/<path>. The fbc binary
+    //    comes from the origin document's active compiler configuration —
+    //    the same compiler a build of that document would invoke — so an
+    //    alternate configuration's headers resolve here, not just the
+    //    canonical compiler.path.
+    const auto& cfg = m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(origin.getConfiguration());
+    if (!cfg.path.empty()) {
+        auto fbc = cfg.path;
         if (fbc.is_relative()) {
             fbc = toFsPath(m_ctx.getConfigManager().getAppDir()) / fbc;
         }
