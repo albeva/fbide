@@ -10,6 +10,7 @@
 #include "app/Context.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
+#include "compiler/CompilerConfigCatalog.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
@@ -460,7 +461,11 @@ void UIManager::configureToolBar() {
             // button, and only present in the toolbar-hosted mode.
             // CompilerManager owns the widget; UIManager just hosts it.
             if (entry->id == +CommandId::Configuration && entry->kind == wxITEM_DROPDOWN) {
-                if (!inStatusBar) {
+                // Combobox only goes in when (a) the user wants
+                // configurations on the toolbar and (b) the catalog
+                // actually has at least one menu-visible config — an
+                // empty combobox is just dead toolbar real estate.
+                if (!inStatusBar && !m_ctx.getCompilerManager().catalog().menuConfigs().empty()) {
                     m_auiToolbar->AddControl(
                         m_ctx.getCompilerManager().createConfigurationCombo(m_auiToolbar.get()),
                         name
@@ -511,11 +516,13 @@ void UIManager::createStatusBar() {
 
 void UIManager::refreshConfigurationDisplay() {
     const bool inStatusBar = m_ctx.getConfigManager().config().get_or("commands.configurationInStatusBar", false);
-    // The combobox should exist exactly when configurations are NOT in
-    // the status bar. The initial build already honoured the preference,
-    // so a rebuild is only needed when a runtime toggle leaves the
-    // toolbar out of step — adding or dropping the combobox to match.
-    if (m_ctx.getCompilerManager().hasConfigurationCombo() == inStatusBar) {
+    const bool hasMenuConfigs = !m_ctx.getCompilerManager().catalog().menuConfigs().empty();
+    // Combobox should exist exactly when (toolbar-hosted mode) AND
+    // (there's something to pick). Rebuild the toolbar whenever the
+    // current state diverges from this — covers both the pref toggle
+    // and the catalog-emptied / catalog-refilled transitions.
+    const bool comboWanted = !inStatusBar && hasMenuConfigs;
+    if (m_ctx.getCompilerManager().hasConfigurationCombo() != comboWanted) {
         configureToolBar();
         resetToolbarSize();
     }

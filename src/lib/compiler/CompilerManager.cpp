@@ -334,13 +334,11 @@ void CompilerManager::refreshConfigurationCombo() {
         // Restore selection / enabled state for whichever doc is
         // currently active — population wiped both.
         onActiveDocumentChanged(m_lastActiveDoc);
-        return;
     }
-    // Even when the combobox doesn't exist (e.g. the user never wired
-    // a `configuration` entry into `layout.toolbar`), the status-bar
-    // selector still needs its label refreshed after the catalog
-    // mutates.
-    pushStatusBarLabel();
+    // Delegate the create/destroy decision to UIManager: combobox or
+    // status-bar field are both surfaces it owns and may need to add or
+    // drop depending on the new catalog state.
+    m_ctx.getUIManager().refreshConfigurationDisplay();
 }
 
 void CompilerManager::onActiveDocumentChanged(Document* doc) {

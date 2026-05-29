@@ -8,6 +8,7 @@
 #include "DocumentTypeMenu.hpp"
 #include "EncodingMenu.hpp"
 #include "app/Context.hpp"
+#include "compiler/CompilerConfigCatalog.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
@@ -41,7 +42,13 @@ void StatusBarHandler::applyPreference() {
     if (m_bar == nullptr) {
         return;
     }
-    m_hasConfigField = m_ctx.getConfigManager().config().get_or("commands.configurationInStatusBar", false);
+    const bool prefOn = m_ctx.getConfigManager().config().get_or("commands.configurationInStatusBar", false);
+    // Empty menu list = nothing to pick from, so the cell would just sit
+    // empty and the click would pop a zero-item menu. Drop it from the
+    // layout entirely until the user marks at least one config visible
+    // again.
+    const bool hasMenuConfigs = !m_ctx.getCompilerManager().catalog().menuConfigs().empty();
+    m_hasConfigField = prefOn && hasMenuConfigs;
     const std::span<const int> widths = m_hasConfigField
                                           ? std::span<const int> { kWidthsWithConfig }
                                           : std::span<const int> { kWidthsNoConfig };
