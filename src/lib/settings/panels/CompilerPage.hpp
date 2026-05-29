@@ -55,6 +55,11 @@ private:
     [[nodiscard]] auto formatListLabel(const wxString& slug, const wxString& name) const -> wxString;
     /// Select a slug in the listbox without rebuilding it.
     void selectSlug(const wxString& slug);
+    /// Render the active configuration's tree node in bold so the
+    /// "active" entry is visually distinct from the currently-selected
+    /// one. Called from `refreshList()` — that covers every code path
+    /// where the active slug or the tree contents can change.
+    void applyActiveBold() const;
 
     // Event handlers — matched against the event table in the .cpp.
     void onAddClicked(wxCommandEvent& event);

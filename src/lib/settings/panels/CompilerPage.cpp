@@ -158,7 +158,7 @@ void CompilerPage::buildLeftPane() {
         m_configTree = make_unowned<wxTreeCtrl>(
             currentParent(), ID_TREE,
             wxDefaultPosition, wxDefaultSize,
-            wxTR_HAS_BUTTONS | wxTR_LINES_AT_ROOT | wxTR_SINGLE | wxBORDER_SUNKEN
+            wxTR_NO_BUTTONS | wxTR_LINES_AT_ROOT | wxTR_SINGLE | wxBORDER_DEFAULT
         );
         add(m_configTree, { .proportion = 1 });
 
@@ -286,6 +286,14 @@ void CompilerPage::refreshList() {
     }
 
     m_configTree->ExpandAll();
+    applyActiveBold();
+}
+
+void CompilerPage::applyActiveBold() const {
+    const auto activeSlug = catalog().activeSlug();
+    for (const auto& [slug, item] : m_slugItems) {
+        m_configTree->SetItemBold(item, slug == activeSlug);
+    }
 }
 
 void CompilerPage::loadSelectedConfig() {
