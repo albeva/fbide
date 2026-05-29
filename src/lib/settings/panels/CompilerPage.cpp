@@ -157,8 +157,8 @@ void CompilerPage::buildLeftPane() {
     vbox({ .margin = false }, [&] {
         m_configTree = make_unowned<wxTreeCtrl>(
             currentParent(), ID_TREE,
-            wxDefaultPosition, wxDefaultSize,
-            wxTR_NO_BUTTONS | wxTR_LINES_AT_ROOT | wxTR_SINGLE | wxBORDER_DEFAULT
+            wxDefaultPosition, wxSize(150, -1),
+            wxTR_NO_BUTTONS | wxTR_SINGLE | wxBORDER_NONE
         );
         add(m_configTree, { .proportion = 1 });
 
