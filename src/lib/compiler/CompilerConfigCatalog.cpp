@@ -30,6 +30,7 @@ struct PendingConfig {
     std::optional<wxString> runCommand;
     std::optional<wxString> compileCommand;
     std::optional<wxString> terminal;
+    bool showInMenu = true;
 };
 
 /// Pull a leaf value out of a section without applying inheritance.
@@ -58,6 +59,7 @@ auto parseCanonicalPending(ConfigManager& cfg) -> PendingConfig {
         .runCommand = section.get_or("runCommand", wxString { kDefaultRunTemplate }),
         .compileCommand = section.get_or("compileCommand", wxString { kDefaultCompileTemplate }),
         .terminal = cfg.getTerminalLauncher(),
+        .showInMenu = section.get_or("showInMenu", true),
     };
 }
 
@@ -69,6 +71,7 @@ auto parseUserPending(const wxString& slug, const Value& section) -> PendingConf
         .runCommand = readOverride(section, "runCommand"),
         .compileCommand = readOverride(section, "compileCommand"),
         .terminal = readOverride(section, "terminal"),
+        .showInMenu = section.get_or("showInMenu", true),
     };
 }
 
@@ -107,6 +110,7 @@ auto resolve(const PendingConfig& child, const PendingConfig& canonical) -> Reso
         .runCommand = pick(child.runCommand, canonical.runCommand),
         .compileCommand = pick(child.compileCommand, canonical.compileCommand),
         .terminal = pick(child.terminal, canonical.terminal),
+        .showInMenu = child.showInMenu,
     };
 }
 
@@ -170,6 +174,17 @@ auto CompilerConfigCatalog::find(const wxString& slug) const -> const ResolvedCo
 
 auto CompilerConfigCatalog::all() const -> std::span<const ResolvedCompilerConfig> {
     return m_configs;
+}
+
+auto CompilerConfigCatalog::menuConfigs(const wxString& alwaysInclude) const -> std::vector<const ResolvedCompilerConfig*> {
+    std::vector<const ResolvedCompilerConfig*> result;
+    result.reserve(m_configs.size());
+    for (const auto& cfg : m_configs) {
+        if (cfg.showInMenu || cfg.slug == alwaysInclude) {
+            result.push_back(&cfg);
+        }
+    }
+    return result;
 }
 
 auto CompilerConfigCatalog::at(int index) const -> const ResolvedCompilerConfig* {
@@ -292,6 +307,23 @@ auto CompilerConfigCatalog::setOverride(
         section.erase(key);
     } else {
         section[key] = *value;
+    }
+    reload();
+    return true;
+}
+
+auto CompilerConfigCatalog::setShowInMenu(const wxString& slug, const bool visible) -> bool {
+    auto& compiler = m_cfg.config()["compiler"];
+    if (slug != kCanonicalCompilerSlug && !compiler.contains(slug)) {
+        return false;
+    }
+    auto& section = (slug == kCanonicalCompilerSlug) ? compiler : compiler[slug];
+    // Default is true — write the key only when it's being set to false
+    // so a fresh config stays clean. Toggling back to true clears it.
+    if (visible) {
+        section.erase("showInMenu");
+    } else {
+        section["showInMenu"] = false;
     }
     reload();
     return true;

@@ -166,6 +166,12 @@ private:
     /// apply the normalisation and store on the active document.
     void onConfigurationComboSelected()const;
 
+    /// Look up a combobox item index by slug — uses the per-item
+    /// `wxStringClientData` set during populate so the lookup is
+    /// independent of the catalog order (the combo only holds
+    /// visible-or-pinned entries, not every catalog entry).
+    [[nodiscard]] auto comboIndexForSlug(const wxString& slug) const -> int;
+
     /// Mirror the resolved configuration label into the status-bar
     /// field, when the configuration status-bar layout is active.
     void pushStatusBarLabel()const;

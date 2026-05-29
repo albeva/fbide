@@ -68,6 +68,7 @@ private:
     void onRemoveClicked(wxCommandEvent& event);
     void onNameChanged(wxCommandEvent& event);
     void onActiveToggled(wxCommandEvent& event);
+    void onShowInMenuToggled(wxCommandEvent& event);
     /// Triggered by any of the four `InheritableField`s when the user
     /// toggles its inherit checkbox. Saves the current override value
     /// on tick-on (so an accidental tick can be undone) and restores
@@ -98,6 +99,7 @@ private:
     Unowned<wxStaticText> m_nameLabel;
     Unowned<wxTextCtrl> m_nameField;
     Unowned<wxCheckBox> m_activeCheckbox;
+    Unowned<wxCheckBox> m_showInMenuCheckbox;
 
     Unowned<InheritableField> m_pathField;
     Unowned<InheritableField> m_compileField;

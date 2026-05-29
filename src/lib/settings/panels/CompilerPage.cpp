@@ -23,6 +23,7 @@ constexpr int ID_COPY = wxID_HIGHEST + 202;
 constexpr int ID_REMOVE = wxID_HIGHEST + 203;
 constexpr int ID_NAME = wxID_HIGHEST + 204;
 constexpr int ID_ACTIVE = wxID_HIGHEST + 205;
+constexpr int ID_SHOW_IN_MENU = wxID_HIGHEST + 206;
 
 /// Width of the left-hand configuration list in device-independent
 /// pixels. Sized to comfortably show "FBC 32bit GUI (active)" without
@@ -56,6 +57,7 @@ wxBEGIN_EVENT_TABLE(CompilerPage, Panel)
     EVT_BUTTON  (ID_REMOVE, CompilerPage::onRemoveClicked)
     EVT_TEXT    (ID_NAME,   CompilerPage::onNameChanged)
     EVT_CHECKBOX(ID_ACTIVE, CompilerPage::onActiveToggled)
+    EVT_CHECKBOX(ID_SHOW_IN_MENU, CompilerPage::onShowInMenuToggled)
     EVT_COMMAND (wxID_ANY,  EVT_INHERIT_TOGGLED, CompilerPage::onInheritToggled)
 wxEND_EVENT_TABLE()
 // clang-format on
@@ -195,6 +197,10 @@ void CompilerPage::buildRightPane() {
         // Active checkbox.
         m_activeCheckbox = checkBox(tr("activeForNewFiles"), {}, ID_ACTIVE);
 
+        // Show-in-menu checkbox — controls whether this configuration
+        // appears in the toolbar combobox / status-bar selector.
+        m_showInMenuCheckbox = checkBox(tr("showInMenu"), {}, ID_SHOW_IN_MENU);
+
         // Four inheritable fields. Each is its own panel — add() places
         // it into the surrounding vbox. The tooltip on each row's
         // inherit checkbox matches `ColorPicker`'s convention.
@@ -262,6 +268,9 @@ void CompilerPage::loadSelectedConfig() {
     const bool isActiveRow = (cfg->slug == catalog().activeSlug());
     m_activeCheckbox->SetValue(isActiveRow);
     m_activeCheckbox->Enable(!isActiveRow);
+
+    // Show-in-menu reflects the per-config visibility flag — default true.
+    m_showInMenuCheckbox->SetValue(cfg->showInMenu);
 
     // Field state: an override is present when the raw `[compiler/<slug>]`
     // (or `[compiler]` for canonical) section carries the key. Resolved
@@ -436,6 +445,13 @@ void CompilerPage::onInheritToggled(wxCommandEvent& event) {
         // behaviour.
         widget->setOverrideValue(remembered->second);
     }
+}
+
+void CompilerPage::onShowInMenuToggled(wxCommandEvent& /*event*/) {
+    if (m_selectedSlug.IsEmpty()) {
+        return;
+    }
+    catalog().setShowInMenu(m_selectedSlug, m_showInMenuCheckbox->GetValue());
 }
 
 void CompilerPage::onActiveToggled(wxCommandEvent& /*event*/) {
