@@ -95,12 +95,14 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
     m_eolMode = editor.get_or("eolMode", "LF");
     m_splashScreen = cfg.get_or("general.splashScreen", true);
     m_configurationInStatusBar = cfg.get_or("commands.configurationInStatusBar", false);
+    m_checkUpdatesOnLoad = cfg.get_or("update.checkOnStartup", true);
     m_language = currentLocaleFileName(cfg);
 }
 
 void GeneralPage::create() {
     hbox(tr("dialogs.settings.general.editorSettings"), { .margin = false }, [&] {
         vbox({ .proportion = 1, .margin = false }, [&] {
+            checkBox(m_syntaxHighlight, tr("dialogs.settings.general.syntaxHighlight"));
             checkBox(m_autoIndent, tr("dialogs.settings.general.autoIndent"));
             checkBox(m_transformKeywords, tr("dialogs.settings.general.transformKeywords"));
             checkBox(m_indentGuide, tr("dialogs.settings.general.indentGuides"));
@@ -117,13 +119,13 @@ void GeneralPage::create() {
         separator();
 
         vbox({ .proportion = 1, .margin = false }, [&] {
-            checkBox(m_syntaxHighlight, tr("dialogs.settings.general.syntaxHighlight"));
             checkBox(m_showLineNumbers, tr("dialogs.settings.general.lineNumbers"));
             checkBox(m_showRightMargin, tr("dialogs.settings.general.rightMargin"));
             checkBox(m_foldMargin, tr("dialogs.settings.general.foldMargin"));
             checkBox(m_changeTracking, tr("dialogs.settings.general.changeTracking"));
             checkBox(m_splashScreen, tr("dialogs.settings.general.splashScreen"));
             checkBox(m_configurationInStatusBar, tr("dialogs.settings.general.configurationInStatusBar"));
+            checkBox(m_checkUpdatesOnLoad, tr("dialogs.settings.general.checkUpdatesOnLoad"));
             spinCtrl(m_tabSize, tr("dialogs.settings.general.tabSize"), 1, 16, {});
             hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
                 text(tr("dialogs.settings.general.eolMode"), { .expand = false });
@@ -190,6 +192,7 @@ auto GeneralPage::apply() -> bool {
     editor["eolMode"] = m_eolMode;
     cfg["general"]["splashScreen"] = m_splashScreen;
     cfg["commands"]["configurationInStatusBar"] = m_configurationInStatusBar;
+    cfg["update"]["checkOnStartup"] = m_checkUpdatesOnLoad;
 
     // Swap locale file if the user picked a different language. Live
     // refresh would have to update every menu/dialog/sidebar string in

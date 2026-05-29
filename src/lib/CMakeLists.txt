@@ -70,6 +70,7 @@ target_sources(fbide_lib
     ui/controls/Panel.cpp
     ui/controls/SmartBoxSizer.cpp
     ui/utilities/FileDropTarget.cpp
+    update/UpdateManager.cpp
 
     PUBLIC FILE_SET HEADERS FILES
     ui/controls/SmartBoxSizer.hpp
@@ -149,6 +150,7 @@ target_sources(fbide_lib
     ui/controls/Layout.hpp
     ui/controls/Panel.hpp
     ui/utilities/FileDropTarget.hpp
+    update/UpdateManager.hpp
     utils/DeferHandler.hpp
     utils/Macros.hpp
     utils/NoCopy.hpp
@@ -163,6 +165,12 @@ target_link_libraries(fbide_lib
     PRIVATE compiler_options compiler_warnings
 )
 linkWxWidgets(fbide_lib)
+
+# nlohmann/json — header-only; added as a SYSTEM include so its headers are
+# exempt from the project's -Werror / /WX warning level.
+target_include_directories(fbide_lib SYSTEM PRIVATE
+    "${nlohmann_json_SOURCE_DIR}/include"
+)
 
 # Scintilla/Lexilla for custom lexer
 if (TARGET lexilla_lexlib)
