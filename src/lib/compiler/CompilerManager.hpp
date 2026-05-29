@@ -104,10 +104,23 @@ public:
     /// is the only caller.
     void setDocumentConfiguration(Document& doc, const wxString& pickedSlug);
 
-    /// Create the toolbar configuration combobox. Called once by
-    /// `UIManager::configureToolBar` when it sees the reserved
-    /// `CommandId::Configuration` entry. Toolbar takes ownership.
+    /// Create the toolbar configuration combobox and sync it to the
+    /// active document. Called by `UIManager::configureToolBar` when it
+    /// sees the reserved `CommandId::Configuration` entry — but only in
+    /// the toolbar-hosted mode (when configurations aren't routed to the
+    /// status bar). Toolbar takes ownership. May run again on a runtime
+    /// preference toggle that rebuilds the toolbar.
     [[nodiscard]] auto createConfigurationCombo(wxAuiToolBar* parent) -> wxComboBox*;
+
+    /// Remove the combobox from its toolbar and destroy the widget.
+    /// No-op when the combobox doesn't exist. Paired with
+    /// `createConfigurationCombo` so only one of the two configuration
+    /// surfaces (toolbar combobox / status-bar selector) is ever
+    /// allocated.
+    void destroyConfigurationCombo();
+
+    /// True when the toolbar combobox currently exists.
+    [[nodiscard]] auto hasConfigurationCombo() const -> bool { return m_configCombo != nullptr; }
 
     /// Re-populate the combobox from the catalog. Call after a settings
     /// dialog OK that mutated the catalog.
@@ -117,10 +130,6 @@ public:
     /// is no active document — pass `nullptr`). Updates the combobox
     /// selection and enabled state.
     void onActiveDocumentChanged(Document* doc);
-
-    /// Show or hide the toolbar combobox — used when the user toggles
-    /// the "configuration in status bar" preference at runtime.
-    void setConfigurationComboVisible(bool visible);
 
     /// Resolve the display label for the active document's
     /// configuration (empty when the active document isn't a
