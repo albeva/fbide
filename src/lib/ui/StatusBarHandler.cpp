@@ -78,6 +78,11 @@ void StatusBarHandler::clearDocumentFields() const {
     if (m_bar == nullptr) {
         return;
     }
+    // Wipe every per-document cell — cursor, type, EOL, encoding, and the
+    // optional configuration cell. Driven by the field-index helpers so
+    // both the 5- and 6-field layouts clear the right cells (the 6-field
+    // layout shifts encoding to index 5, which a hardcoded sweep misses).
+    m_bar->SetStatusText("", cursorField());
     m_bar->SetStatusText("", typeField());
     m_bar->SetStatusText("", eolField());
     m_bar->SetStatusText("", encodingField());

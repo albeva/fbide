@@ -49,7 +49,8 @@ public:
     /// change.
     void setDocumentFields(const Document& doc) const;
 
-    /// Wipe every per-document field — used when there is no active
+    /// Wipe every per-document cell (cursor, type, EOL, encoding, and
+    /// the optional configuration cell) — used when there is no active
     /// document.
     void clearDocumentFields() const;
 

@@ -14,6 +14,7 @@
 #include "command/CommandEntry.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
+#include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "editor/CodeTransformer.hpp"
@@ -482,6 +483,12 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
     // showSymbolsFor handles nullptr (clears) and dedups by shared_ptr.
     m_ctx.getSideBarManager().showSymbolsFor(getActive());
 
+    // Same reason: tell the compiler manager which document is now
+    // active (or none). Otherwise its cached active-document pointer
+    // would dangle and the toolbar combobox / status-bar configuration
+    // cell would keep showing the closed document's selection.
+    m_ctx.getCompilerManager().onActiveDocumentChanged(getActive());
+
     // Trim the IntellisenseService SymbolTable pool: the closed doc's
     // shared_ptr just released, so any pool slot it held is now idle.
     if (m_intellisense != nullptr) {
@@ -492,11 +499,11 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
     if (m_documents.empty()) {
         m_ctx.getUIManager().setDocumentState(UIState::None);
         m_ctx.getUIManager().setTitle(wxEmptyString);
-        auto* frame = m_ctx.getUIManager().getMainFrame();
-        frame->SetStatusText("", 1);
-        frame->SetStatusText("", 2);
-        frame->SetStatusText("", 3);
-        frame->SetStatusText("", 4);
+        // Clear every per-document status-bar cell. Going through the
+        // handler (rather than hardcoded field indices) means the
+        // configuration-in-status-bar layout, which shifts the cells,
+        // gets cleared correctly too.
+        m_ctx.getUIManager().getStatusBar().clearDocumentFields();
     }
 
     return true;
