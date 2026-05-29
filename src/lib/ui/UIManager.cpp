@@ -484,6 +484,7 @@ void UIManager::configureToolBar() {
                     .DockFixed(true)
                     .CloseButton(false)
                     .PaneBorder(false)
+                    .DockFixed(true)
             );
         }
     } catch (const std::exception& ex) {
