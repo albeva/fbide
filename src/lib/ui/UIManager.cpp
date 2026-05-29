@@ -7,8 +7,6 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "UIManager.hpp"
 #include "CompilerLog.hpp"
-#include "DocumentTypeMenu.hpp"
-#include "EncodingMenu.hpp"
 #include "app/Context.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
@@ -19,7 +17,6 @@
 #include "document/DocumentManager.hpp"
 #include "document/DocumentPath.hpp"
 #include "editor/Editor.hpp"
-#include "rc/icons.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "utilities/FileDropTarget.hpp"
 #ifndef __WXMSW__
@@ -183,6 +180,11 @@ void UIManager::loadAuiPerspective() {
     // caller invokes m_aui.Update() once for both the restored layout
     // and any state changes that happened earlier.
     m_aui.LoadPerspective(perspective, false);
+
+    // Ensure toolbar fits the controls.
+    CallAfter([this] {
+        m_auiToolbar->Fit();
+    });
 }
 
 void UIManager::refreshAuiArt() const {
@@ -234,14 +236,15 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
         setTitle(wxEmptyString);
         return;
     }
-    auto* page = m_notebook->GetPage(static_cast<size_t>(sel));
+
+    const auto* page = m_notebook->GetPage(static_cast<size_t>(sel));
     auto* doc = m_ctx.getDocumentManager().findByPage(page);
     if (doc != nullptr) {
         doc->getEditor()->SetFocus();
+        m_ctx.getSideBarManager().showSymbolsFor(doc);
+        m_ctx.getCompilerManager().onActiveDocumentChanged(doc);
+        setTitle(doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath()));
     }
-    m_ctx.getSideBarManager().showSymbolsFor(doc);
-    m_ctx.getCompilerManager().onActiveDocumentChanged(doc);
-    setTitle(doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath()));
 }
 
 void UIManager::onNotebookDblClick(wxAuiNotebookEvent& event) {
@@ -484,7 +487,6 @@ void UIManager::configureToolBar() {
                     .DockFixed(true)
                     .CloseButton(false)
                     .PaneBorder(false)
-                    .DockFixed(true)
             );
         }
     } catch (const std::exception& ex) {

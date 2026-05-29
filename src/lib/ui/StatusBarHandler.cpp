@@ -52,7 +52,7 @@ void StatusBarHandler::applyPreference() {
     refreshConfigurationField();
 }
 
-void StatusBarHandler::setCursor(int line, int column) const {
+void StatusBarHandler::setCursor(const int line, const int column) const {
     if (m_bar == nullptr) {
         return;
     }
