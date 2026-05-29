@@ -14,6 +14,7 @@
 #include "command/CommandEntry.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
+#include "compiler/CompileCommand.hpp"
 #include "compiler/CompilerConfigCatalog.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
@@ -117,19 +118,42 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
         return tryOpen(req);
     }
 
-    // 1. Relative to source file
+    // The origin document's active compiler configuration supplies both
+    // the -i search dirs (its compile command) and the stock inc/ folder
+    // (its fbc binary) — the same compiler a build of this document uses.
+    const auto& cfg = m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(origin.getConfiguration());
+
+    // Search order mirrors fbc's own resolution of `#include "..."`:
+    //   1. the source file's folder,
+    //   2. the -i directories,
+    //   3. the compiler's default inc/,
+    // with the current working directory as a final FBIde-only fallback.
+
+    // 1. Relative to the source file's folder.
     if (!origin.isNew()) {
         if (auto* doc = tryOpen(origin.getFilePath().parent_path() / req)) {
             return doc;
         }
     }
 
-    // 2. Compiler `inc/` folder: <dir-of-fbc>/inc/<path>. The fbc binary
-    //    comes from the origin document's active compiler configuration —
-    //    the same compiler a build of that document would invoke — so an
-    //    alternate configuration's headers resolve here, not just the
-    //    canonical compiler.path.
-    const auto& cfg = m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(origin.getConfiguration());
+    // 2. Directories passed to fbc via -i in the compile command. fbc
+    //    resolves relative ones against its working directory (the source
+    //    file's folder), so do the same; absolute ones apply even to an
+    //    unsaved document.
+    for (const auto& entry : CompileCommand::extractIncludePaths(cfg.compileCommand)) {
+        auto dir = toFsPath(entry);
+        if (dir.is_relative()) {
+            if (origin.isNew()) {
+                continue; // no source folder to anchor a relative -i path
+            }
+            dir = origin.getFilePath().parent_path() / dir;
+        }
+        if (auto* doc = tryOpen(dir / req)) {
+            return doc;
+        }
+    }
+
+    // 3. Compiler `inc/` folder: <dir-of-fbc>/inc/<path>.
     if (!cfg.path.empty()) {
         auto fbc = cfg.path;
         if (fbc.is_relative()) {
@@ -140,7 +164,7 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
         }
     }
 
-    // 3. Current working directory
+    // 4. Current working directory.
     {
         std::error_code ec;
         const auto cwd = std::filesystem::current_path(ec);

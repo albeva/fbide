@@ -32,6 +32,14 @@ public:
     /// Create a command for the given source file.
     [[nodiscard]] static auto makeDefault(const wxString& sourceFile) -> CompileCommand;
 
+    /// Extract the directories passed to fbc via `-i <path>` in a compile
+    /// command template, in order. Mirrors fbc's syntax: `-i` is a
+    /// standalone argument followed by the path, which may be double-quoted
+    /// to embrace spaces. Meta-tags (`<$fbc>` etc.) and other flags are
+    /// ignored — only literal `-i` paths come back. Lets `#include`
+    /// navigation search the same directories the compiler does.
+    [[nodiscard]] static auto extractIncludePaths(const wxString& compileTemplate) -> std::vector<wxString>;
+
 private:
     wxString m_sourceFile; ///< Source file to compile.
 };
