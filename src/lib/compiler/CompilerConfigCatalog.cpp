@@ -50,9 +50,10 @@ auto parseCanonicalPending(ConfigManager& cfg) -> PendingConfig {
     // the default when the key is *absent*; an explicit empty value is
     // preserved as an empty override.
     const auto& section = cfg.config().at("compiler");
+    const auto defaultName = cfg.locale().at("dialogs.settings.compiler").get_or("defaultName", wxString { "Default" });
     return PendingConfig {
         .slug = kCanonicalCompilerSlug,
-        .name = "Default",
+        .name = defaultName,
         .path = section.get_or("path", wxString {}),
         .runCommand = section.get_or("runCommand", wxString { kDefaultRunTemplate }),
         .compileCommand = section.get_or("compileCommand", wxString { kDefaultCompileTemplate }),
