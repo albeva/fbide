@@ -18,6 +18,7 @@ class FileSession;
 class HelpManager;
 class SideBarManager;
 class UIManager;
+class UpdateManager;
 
 /**
  * Service locator for the application's long-lived managers.
@@ -115,6 +116,11 @@ public:
     /// Const overload of `getHelpManager`.
     [[nodiscard]] auto getHelpManager() const -> const HelpManager& { return *m_helpManager; }
 
+    /// Access the update manager (GitHub release check).
+    [[nodiscard]] auto getUpdateManager() -> UpdateManager& { return *m_updateManager; }
+    /// Const overload of `getUpdateManager`.
+    [[nodiscard]] auto getUpdateManager() const -> const UpdateManager& { return *m_updateManager; }
+
 private:
     App& m_app;                                     ///< Owning application.
     std::unique_ptr<ConfigManager> m_configManager; ///< INI store + path resolver.
@@ -128,6 +134,7 @@ private:
     std::unique_ptr<FileSession> m_fileSession;         ///< Session `.fbs` load/save.
     std::unique_ptr<CompilerManager> m_compilerManager; ///< Compile/run lifecycle.
     std::unique_ptr<HelpManager> m_helpManager;         ///< Help dispatcher.
+    std::unique_ptr<UpdateManager> m_updateManager;     ///< GitHub release check.
     std::unique_ptr<CommandManager> m_commandManager;   ///< Command table + dispatch (last).
 };
 

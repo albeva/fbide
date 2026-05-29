@@ -14,6 +14,7 @@
 #include "help/HelpManager.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
+#include "update/UpdateManager.hpp"
 using namespace fbide;
 
 Context::Context(App& app, const wxString& binaryPath, const wxString& idePath, const wxString& configPath)
@@ -26,6 +27,7 @@ Context::Context(App& app, const wxString& binaryPath, const wxString& idePath, 
 , m_fileSession(std::make_unique<FileSession>(*this))
 , m_compilerManager(std::make_unique<CompilerManager>(*this))
 , m_helpManager(std::make_unique<HelpManager>(*this))
+, m_updateManager(std::make_unique<UpdateManager>(*this))
 , m_commandManager(std::make_unique<CommandManager>(*this)) {}
 
 Context::~Context() = default;

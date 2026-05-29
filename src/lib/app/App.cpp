@@ -16,6 +16,7 @@
 #include "document/DocumentManager.hpp"
 #include "document/FileSession.hpp"
 #include "ui/UIManager.hpp"
+#include "update/UpdateManager.hpp"
 #ifdef __WXMSW__
 #include <windows.h>
 #endif
@@ -297,6 +298,7 @@ auto App::OnInit() -> bool {
         }
     }
     m_context->getCompilerManager().checkCompilerOnStartup();
+    m_context->getUpdateManager().checkOnStartup();
     return true;
 }
 
