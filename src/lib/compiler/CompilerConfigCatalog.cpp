@@ -171,6 +171,18 @@ auto CompilerConfigCatalog::all() const -> std::span<const ResolvedCompilerConfi
     return m_configs;
 }
 
+auto CompilerConfigCatalog::at(int index) const -> const ResolvedCompilerConfig* {
+    if (index < 0 || static_cast<std::size_t>(index) >= m_configs.size()) {
+        return nullptr;
+    }
+    return &m_configs[static_cast<std::size_t>(index)];
+}
+
+auto CompilerConfigCatalog::indexOf(const wxString& slug) const -> int {
+    const auto it = std::ranges::find(m_configs, slug, &ResolvedCompilerConfig::slug);
+    return it == m_configs.end() ? -1 : static_cast<int>(it - m_configs.begin());
+}
+
 auto CompilerConfigCatalog::resolveByPinnedSlug(const std::optional<wxString>& pinnedSlug) const -> const ResolvedCompilerConfig& {
     if (pinnedSlug.has_value()) {
         if (const auto* cfg = find(*pinnedSlug)) {
