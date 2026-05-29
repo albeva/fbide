@@ -335,8 +335,7 @@ void CompilerManager::onActiveDocumentChanged(Document* doc) {
         } else {
             m_configCombo->Enable();
             const auto& resolved = m_catalog->resolveByPinnedSlug(doc->getConfiguration());
-            if (const auto it = std::ranges::find(m_configComboSlugs, resolved.slug);
-                it != m_configComboSlugs.end()) {
+            if (const auto it = std::ranges::find(m_configComboSlugs, resolved.slug); it != m_configComboSlugs.end()) {
                 m_configCombo->SetSelection(
                     static_cast<int>(std::distance(m_configComboSlugs.begin(), it))
                 );
@@ -375,12 +374,13 @@ void CompilerManager::onConfigurationComboSelected() {
     setDocumentConfiguration(*m_lastActiveDoc, m_configComboSlugs.at(static_cast<std::size_t>(sel)));
 }
 
-void CompilerManager::setConfigurationComboVisible(bool visible) {
+void CompilerManager::setConfigurationComboVisible(const bool visible) {
     if (m_configCombo == nullptr || m_configCombo->IsShown() == visible) {
         return;
     }
     m_configCombo->Show(visible);
     if (auto* tb = wxDynamicCast(m_configCombo->GetParent(), wxAuiToolBar)) {
+        tb->Fit();
         tb->Realize();
     }
 }
