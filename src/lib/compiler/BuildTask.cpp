@@ -53,7 +53,7 @@ void BuildTask::run(const wxString& executablePath, const bool quickRun) {
     } else {
         m_compilerLog.Empty();
     }
-    m_compilerLog.Add("[bold]Run command:[/bold]");
+    m_compilerLog.Add("[bold]" + m_ctx.tr("dialogs.log.sectionRunCommand") + "[/bold]");
     m_compilerLog.Add(cmdStr);
     m_ctx.getCompilerManager().refreshCompilerLog();
 
@@ -92,7 +92,7 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     const auto cmdStr = CompileCommand::makeDefault(sourceFile).build(m_config, m_ctx.getConfigManager());
 
     m_compilerLog.Empty();
-    m_compilerLog.Add("[bold]Command executed:[/bold]");
+    m_compilerLog.Add("[bold]" + m_ctx.tr("dialogs.log.sectionCommand") + "[/bold]");
     m_compilerLog.Add(cmdStr);
     m_ctx.getCompilerManager().refreshCompilerLog();
 
@@ -112,15 +112,15 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
     // Log and show errors. Show the console pane *before* populating it
     if (!result.output.empty()) {
         m_compilerLog.Add("");
-        m_compilerLog.Add("[bold]Compiler output:[/bold]");
+        m_compilerLog.Add("[bold]" + m_ctx.tr("dialogs.log.sectionOutput") + "[/bold]");
         showErrors(result.output);
     }
 
     m_compilerLog.Add("");
-    m_compilerLog.Add("[bold]Results:[/bold]");
+    m_compilerLog.Add("[bold]" + m_ctx.tr("dialogs.log.sectionResults") + "[/bold]");
 
     if (!result) {
-        m_compilerLog.Add("Compilation failed");
+        m_compilerLog.Add(m_ctx.tr("dialogs.log.failureMessage"));
         appendSystemInfo();
         m_ctx.getCompilerManager().refreshCompilerLog();
         setStatus("status.compileFailed");
@@ -128,11 +128,13 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
         return;
     }
 
-    m_compilerLog.Add("Compilation successful");
+    m_compilerLog.Add(m_ctx.tr("dialogs.log.successMessage"));
     setStatus("status.compileComplete");
 
     m_compiledFile = deriveExecutablePath(m_sourceFile);
-    m_compilerLog.Add("Generated executable: " + m_compiledFile);
+    auto generatedLine = m_ctx.tr("dialogs.log.generatedExecutable");
+    generatedLine.Replace("{path}", m_compiledFile);
+    m_compilerLog.Add(generatedLine);
 
     appendSystemInfo();
     m_ctx.getCompilerManager().refreshCompilerLog();
@@ -149,12 +151,12 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
 
 void BuildTask::onRunFinished(const ProcessResult& result) {
     m_compilerLog.Add("");
-    m_compilerLog.Add("[bold]Results:[/bold]");
+    m_compilerLog.Add("[bold]" + m_ctx.tr("dialogs.log.sectionResults") + "[/bold]");
     if (!result.launched) {
-        m_compilerLog.Add("Execution failed");
+        m_compilerLog.Add(m_ctx.tr("dialogs.log.executionFailed"));
     } else {
-        wxString exitLine;
-        exitLine << "Exit code: " << result.exitCode;
+        auto exitLine = m_ctx.tr("dialogs.log.exitCodeLine");
+        exitLine.Replace("{code}", wxString::Format("%d", result.exitCode));
         m_compilerLog.Add(exitLine);
     }
     m_ctx.getCompilerManager().refreshCompilerLog();
@@ -286,13 +288,13 @@ auto BuildTask::buildRunCommand(const wxString& executablePath) const -> wxStrin
 
 void BuildTask::appendSystemInfo() {
     m_compilerLog.Add("");
-    m_compilerLog.Add("[bold]System:[/bold]");
-    m_compilerLog.Add("FBIde: " + wxString(cmake::project.version));
+    m_compilerLog.Add("[bold]" + m_ctx.tr("dialogs.log.sectionSystem") + "[/bold]");
+    m_compilerLog.Add(m_ctx.tr("dialogs.log.fbidePrefix") + wxString(cmake::project.version));
     const auto& fbcVersion = m_ctx.getCompilerManager().getFbcVersion();
     if (!fbcVersion.empty()) {
-        m_compilerLog.Add("fbc:   " + fbcVersion);
+        m_compilerLog.Add(m_ctx.tr("dialogs.log.fbcPrefix") + fbcVersion);
     }
-    m_compilerLog.Add("OS:    " + wxGetOsDescription());
+    m_compilerLog.Add(m_ctx.tr("dialogs.log.osPrefix") + wxGetOsDescription());
 }
 
 void BuildTask::cleanupTempFiles() {
