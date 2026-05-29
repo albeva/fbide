@@ -1,6 +1,6 @@
 # Changes since 0.5.0-rc.2
 
-- Added multiple compiler configurations — define `[compiler/<slug>]` variants in the platform config (32/64-bit, GUI/console, alternate fbc binaries) with per-field overrides over the canonical `[compiler]` default. Pick per-document via a new toolbar dropdown; the selection is persisted per file in the session. See `docs/compiler-configurations.md`.
+- Added multiple compiler configurations — define `[compiler/<slug>]` variants in the platform config (32/64-bit, GUI/console, alternate fbc binaries) with per-field overrides over the canonical `[compiler]` default. Each user configuration inherits unspecified fields directly from Default. Pick per-document via a new toolbar dropdown; the selection is persisted per file in the session. See `docs/compiler-configurations.md`.
 - Added change tracking (#1)
 - Added a confirm-and-close prompt when Save As targets a file already open in another tab
 - Added basic Markdown syntax highlighting for `.md` / `.markdown` files

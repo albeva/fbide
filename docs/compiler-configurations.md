@@ -1,7 +1,6 @@
 # Multiple Compiler Configurations — Design
 
-Status: spec, not yet implemented.
-Branch: `compiler-configurations`.
+Status: shipped on `compiler-configurations`.
 
 ## Goal
 
@@ -16,8 +15,9 @@ session files.
   removed. Reserved slug `default`. Backward compatible with existing
   `config_{platform}.ini` files.
 - **User-defined configuration** — a named `[compiler/<slug>]` section that
-  inherits from a base configuration (canonical or another user config) and
-  may override any field.
+  may override any field. Unspecified fields fall through to canonical
+  Default. There is no chained inheritance — every user configuration
+  inherits from Default and only from Default.
 - **Active configuration** — the slug stored in `compiler.active`. This is the
   configuration used when a document has no explicit pinned configuration.
   Defaults to canonical Default. Persisted globally, not per-document.
@@ -38,14 +38,12 @@ For any compile/run/quickRun on a document `D`:
    (`catalog.activeSlug()`).
 4. If the active slug itself is missing/invalid → use canonical Default.
 
-The "matches active → empty" normalization is enforced by `CompilerManager`
-when the user picks a value in the toolbar combobox:
+The "matches active → empty" normalization is enforced by the catalog when
+the user picks a value in the toolbar combobox:
 
 ```cpp
-const auto active = catalog.activeSlug();
-doc.setConfiguration(pickedSlug == active
-                       ? std::nullopt
-                       : std::optional{wxString{pickedSlug}});
+const auto stored = catalog.normalizeForStorage(pickedSlug);
+doc.setConfiguration(stored);  // nullopt when pickedSlug == active, else the slug
 ```
 
 This means picking "Default" when active is `cfg-1` stores `"default"`
@@ -65,22 +63,17 @@ is opt-in.
 
 ## Inheritance
 
-- **Unlimited depth.** Example chain: Default → fbc-32 → fbc-32-gui.
-- **Cycle prevention on write** (`setBase`): rejects if `newBase == slug` or
-  if `newBase` is a transitive descendant of `slug`.
-- **Cycle / orphan tolerance on read** (`reload`): a config whose `base` is
-  unknown, or whose chain loops back on itself, resolves field-by-field
-  against canonical Default. The config remains in the catalog (so the UI
-  can show it and let the user fix it). `wxLogWarning` names the slug and
-  reason.
-- **Settings dropdown**: populated by `catalog.validBasesFor(slug)` — excludes
-  self and all transitive descendants. Users can never pick a bad base via UI.
+Single level only — user configuration → canonical Default. No chained
+parents. A user wanting "GUI variant of my 32-bit config" copies the source
+configuration (deep-copy of all overrides) and tweaks. Copying is cheap and
+keeps mental models simple.
+
+Any legacy `base=` key still present from earlier revisions of this feature
+is silently ignored on load. It will not be persisted on the next save.
 
 ## Override semantics (per field)
 
-Per-field override mirrors the theme system:
-
-- Key **absent** under `[compiler/<slug>]` → inherit from base.
+- Key **absent** under `[compiler/<slug>]` → inherit from canonical.
 - Key **present** (even with empty value) → override, used as-is.
 - Settings dialog toggles the key's presence via a checkbox per field.
   Unticking removes the key from the `Value` tree; ConfigManager's overlay
@@ -102,21 +95,19 @@ nextSlugIndex=3                       ; new — monotonic slug counter
 
 [compiler/cfg-1]
 name=FBC 32bit                        ; required, user-facing display name
-base=                                 ; empty/missing => "default"; else parent slug
 path=                                 ; key present, value empty => override with empty string
 compileCommand="<$fbc>" -arch x86 "<$file>"
-; runCommand absent => inherit from base
-; terminal absent => inherit from base
+; runCommand absent => inherit from canonical
+; terminal absent => inherit from canonical
 
 [compiler/cfg-2]
 name=FBC 32bit GUI
-base=cfg-1                            ; chain: cfg-2 → cfg-1 → default
 compileCommand="<$fbc>" -arch x86 -s gui "<$file>"
 ```
 
-Reserved keys inside `[compiler/*]` sections: `name`, `base`, `path`,
-`runCommand`, `compileCommand`, `terminal`. Unknown keys are preserved by
-ConfigManager but ignored.
+Reserved keys inside `[compiler/*]` sections: `name`, `path`, `runCommand`,
+`compileCommand`, `terminal`. Unknown keys are preserved by ConfigManager but
+ignored.
 
 ## Data model
 
@@ -124,7 +115,7 @@ ConfigManager but ignored.
 struct ResolvedCompilerConfig {
     wxString              slug;            // "default" or "cfg-N"
     wxString              displayName;     // "Default" / user-entered name
-    std::filesystem::path path;            // resolved through base chain
+    std::filesystem::path path;            // resolved against canonical
     wxString              runCommand;      // resolved (meta-tags unexpanded)
     wxString              compileCommand;
     wxString              terminal;
@@ -149,10 +140,10 @@ public:
 
     void reload();                                              // re-parse [compiler] + [compiler/*]
 
-    // Lookups (resolved through the base chain, with cycle/orphan fallback):
+    // Lookups (each user config resolved against canonical):
     const ResolvedCompilerConfig& canonical() const;            // slug == "default"
     const ResolvedCompilerConfig* find(wxStringView slug) const;
-    std::vector<std::reference_wrapper<const ResolvedCompilerConfig>> all() const;
+    std::span<const ResolvedCompilerConfig> all() const;
         // canonical first, then user-defined in numeric slug order
 
     // Active selector:
@@ -160,32 +151,25 @@ public:
     void     setActiveSlug(wxStringView slug);                  // writes compiler.active; "default" clears the key
 
     // For Document → effective config (the rule above):
-    const ResolvedCompilerConfig& resolveForDocument(const Document&) const;
+    const ResolvedCompilerConfig& resolveByPinnedSlug(const std::optional<wxString>& pinnedSlug) const;
+    std::optional<wxString>       normalizeForStorage(wxStringView pickedSlug) const;
 
     // CRUD (used by CompilerPage):
     wxString createFromCanonical(const wxString& displayName);  // allocates cfg-N, writes section, returns slug
     wxString copy(wxStringView sourceSlug,
-                  const wxString& displayName);                 // deep copy of overrides + base
-    void     remove(wxStringView slug);                         // canonical rejected; re-parents dependents
-    void     rename(wxStringView slug, const wxString& newDisplayName);
-    void     setBase(wxStringView slug, wxStringView newBaseSlug);
-    void     setOverride(wxStringView slug,
+                  const wxString& displayName);                 // deep copy of overrides
+    bool     remove(wxStringView slug);                         // canonical rejected; clears active if matched
+    bool     rename(wxStringView slug, const wxString& newDisplayName);
+    bool     setOverride(wxStringView slug,
                          CompilerField field,
-                         std::optional<wxString> value);        // nullopt = remove key (inherit)
-
-    // Slugs that may legally be a base for `slug`:
-    std::vector<wxString> validBasesFor(wxStringView slug) const;
+                         const std::optional<wxString>& value); // nullopt = remove key (inherit)
 };
 ```
 
 ### Remove semantics
 
-- Canonical rejected (UI hides the button; assertion in code).
-- Any user-defined config that had the removed slug as `base` is re-parented
-  to `default`.
+- Canonical rejected (UI hides the button; warning logged in code).
 - `compiler.active` cleared to `"default"` if it was the removed slug.
-- Open `Document*` references walked; any with `m_configuration == removedSlug`
-  → cleared to `{}`.
 - Session files on disk are **not** walked; they self-heal on next load
   (catalog `find` returns nullptr, resolution falls back to active, next save
   writes the absent key).
@@ -204,7 +188,7 @@ public:
 ```
 
 Plain getter/setter. The "matches active → empty" normalization lives in
-`CompilerManager`, not here.
+the catalog (`normalizeForStorage`), not here.
 
 ## Session format
 
@@ -227,33 +211,13 @@ Legacy v0.1 / v0.2 readers unchanged (those files never carry compiler config).
 
 ## CommandId + toolbar wiring
 
-- New `CommandId::Configuration` in `CommandId` enum.
-- Registered in `CommandManager::addCommands(...)` with `kind = wxITEM_DROPDOWN`.
-  Naming convention follows existing commands.
-- Locale string under `commands.configuration.name` and `commands.configuration.help`.
-- Bitmap not required (combobox carries its own label) but provide a placeholder
-  for menu rendering if needed.
-
-`layout.toolbar` entry: insert the token `configuration` wherever the user
-wants the combobox. No structural change to layout config — still comma-
-separated string list.
-
-`src/lib/ui/UIManager.cpp::configureToolBar`, replace the existing `AddTool`
-branch with:
-
-```cpp
-if (entry->id == CommandId::Configuration && entry->kind == wxITEM_DROPDOWN) {
-    auto* combo = m_ctx.getCompilerManager().createConfigurationCombo(m_auiToolbar.get());
-    m_auiToolbar->AddControl(combo, name);
-    // No bind chain — combobox is owned and managed by CompilerManager.
-    continue;
-}
-m_auiToolbar->AddTool(entry->id, name, bitmap, help, entry->kind);
-```
-
-The combobox is **not** added to `entry->binds` — it isn't a tool and doesn't
-need the enable/check plumbing in `CommandEntry::apply` (the variant visitor
-at `src/lib/command/CommandEntry.cpp:56`).
+- `CommandId::Configuration` registered with `kind = wxITEM_DROPDOWN`.
+- Locale strings under `commands.configuration.name` and `commands.configuration.help`.
+- `layout.toolbar` entry inserts the `configuration` token wherever the user
+  wants the combobox.
+- `UIManager::configureToolBar` special-cases the `Configuration` command to
+  call `CompilerManager::createConfigurationCombo` instead of `AddTool`. The
+  combobox is not added to `entry->binds`.
 
 ## CompilerManager additions
 
@@ -267,177 +231,86 @@ public:
     CompilerConfigCatalog&       catalog()       { return *m_catalog; }
     const CompilerConfigCatalog& catalog() const { return *m_catalog; }
 
-    // Called by UIManager during toolbar construction.
     wxComboBox* createConfigurationCombo(wxAuiToolBar* parent);
-
-    // Called by UIManager after settings dialog OK (catalog mutations).
     void refreshConfigurationCombo();
-
-    // Called by UIManager from onPageChanged + after document open/create.
     void onActiveDocumentChanged(Document* doc);
 
-    // Used by CompileCommand / RunCommand / quickRun / compileAndRun.
-    const ResolvedCompilerConfig& resolveForActiveDocument() const;
+    void setDocumentConfiguration(Document& doc, const wxString& pickedSlug);
 };
 ```
 
 ### Combobox behavior
 
 - Populates from `catalog().all()`; display strings are `displayName`,
-  per-entry slug carried via `wxComboBox::SetClientData` (or a parallel
-  `std::vector<wxString>` of slugs by index).
+  per-entry slug carried in a parallel `std::vector<wxString>` indexed by row.
 - `wxCB_READONLY` — user picks from the list only.
-- Fixed width (140–180px) so it doesn't flex unpredictably in the toolbar.
-- Disabled when active document isn't a FreeBASIC source (determined by
-  `doc->type()`), or when no document is active.
-- On `wxEVT_COMBOBOX`: look up slug of the selected entry, call the
-  normalizing `setDocumentConfiguration(m_lastActiveDoc, slug)` (the
-  "matches active → empty" rule).
+- Fixed width so it doesn't flex unpredictably in the toolbar.
+- Disabled when active document isn't a FreeBASIC source, or when no
+  document is active.
+- On `wxEVT_COMBOBOX`: look up slug of the selected entry, call
+  `setDocumentConfiguration` (normalises via `catalog.normalizeForStorage`).
 - On `onActiveDocumentChanged(doc)`: set selection to
-  `resolveForDocument(*doc).slug`.
-
-## Active document change hook
-
-`UIManager::onPageChanged` (`src/lib/ui/UIManager.cpp:40`) is the central
-refresh hub — already updates window title, statusbar, toolbar button state,
-sidebar. Add one call:
-
-```cpp
-m_ctx.getCompilerManager().onActiveDocumentChanged(activeDoc);
-```
-
-Programmatic activation via `DocumentManager::setActive` already routes
-through `notebook->SetSelection` which fires `wxEVT_AUINOTEBOOK_PAGE_CHANGED`
-on every platform (verify on macOS — wxAuiNotebook usually does, but
-`ChangeSelection` would not). If the event isn't fired in the programmatic
-path, add an explicit `onActiveDocumentChanged` call there too.
+  `catalog().resolveByPinnedSlug(doc->configuration()).slug`.
 
 ## CompileCommand / RunCommand integration
 
-Refactor `src/lib/compiler/CompileCommand.cpp` and `RunCommand.cpp` to take
-a `const ResolvedCompilerConfig&` instead of reading config directly:
-
-```cpp
-// Before
-wxString CompileCommand::build(Context& ctx) {
-    auto cmd = ctx.getConfigManager().config()
-                  .at("compiler").get_or("compileCommand", DEFAULT);
-    auto path = ctx.getConfigManager().config()
-                  .at("compiler").get_or("path", "");
-    ...
-}
-
-// After
-wxString CompileCommand::build(const ResolvedCompilerConfig& cfg,
-                                const Document& doc) {
-    auto cmd  = cfg.compileCommand.IsEmpty() ? DEFAULT_COMPILE_COMMAND : cfg.compileCommand;
-    auto path = cfg.path;
-    ...
-}
-```
-
-`CompilerManager::compile/compileAndRun/run/quickRun` each resolve once at
-the start of the operation via `m_catalog->resolveForDocument(*doc)` and
-thread the resolved config through `BuildTask`. `BuildTask` gains a
-`ResolvedCompilerConfig` member captured at construction so the resolution
-is stable for the duration of the build (user changing config mid-compile
-doesn't partially apply).
+`CompileCommand::build` / `RunCommand::build` take a `const
+ResolvedCompilerConfig&` instead of reading config directly. `CompilerManager`
+resolves once at the start of each operation via
+`catalog().resolveByPinnedSlug(doc->configuration())` and threads the
+resolved config through `BuildTask`. `BuildTask` captures the
+`ResolvedCompilerConfig` at construction so the resolution is stable for the
+duration of the build (user changing config mid-compile doesn't partially
+apply).
 
 Meta-tag expansion (`<$fbc>`, `<$file>`, etc.) is unchanged — same source
 strings, same expansion, just sourced from `ResolvedCompilerConfig`.
 
-## Settings dialog — `CompilerPage` rewrite
+## Settings dialog — `CompilerPage`
 
-`src/lib/settings/panels/CompilerPage.{hpp,cpp}` replaced. Layout uses the
-project's `vbox`/`hbox` helpers from `src/lib/ui/controls/Layout.hpp` — **no
+`src/lib/settings/panels/CompilerPage.{hpp,cpp}`. Layout uses the project's
+`vbox`/`hbox` helpers from `src/lib/ui/controls/Layout.hpp` — **no
 `wxStaticBoxSizer`**.
 
-```cpp
-vbox(tr("dialogs.settings.compiler.configurations"), { .proportion = 1 }, [&] {
-    hbox({ .proportion = 1, .margin = false }, [&] {
-        // left: list + Add / Copy / Remove buttons
-        vbox({ .proportion = 1, .margin = false }, [&] {
-            add(m_configList);                         // wxListBox
-            hbox({ .margin = false }, [&] {
-                add(m_addButton);
-                add(m_copyButton);
-                add(m_removeButton);
-            });
-        });
-        // right: name / slug / base / active + four InheritableFields
-        vbox({ .proportion = 2, .margin = false }, [&] {
-            // name + slug
-            // base dropdown
-            // "Active for new files" checkbox
-            // InheritableField rows: path, compileCommand, runCommand, terminal
-        });
-    });
-});
+Left: `wxListBox` (single-select). Canonical Default at row 0; user
+configurations follow in numeric slug order. The active row carries a
+localised " (active)" suffix.
 
-vbox(tr("dialogs.settings.compiler.help"), { .margin = false }, [&] {
-    // CHM file picker row (relocated from current location)
-});
-```
+Below the list: Add / Copy / Remove icon buttons. Copy is enabled when any
+row is selected; Remove is disabled for canonical.
 
-### List rendering
+Right: name `wxTextCtrl`, read-only slug static text, "Active for new files"
+`wxCheckBox`, four `InheritableField` rows — Path (`Kind::Path`),
+CompileCommand, RunCommand, Terminal (each `Kind::Text`).
 
-- `wxListBox`, single-select.
-- Canonical Default at row 0, locked (cannot be removed; name not editable).
-- User-defined configs follow, indented by chain depth using leading spaces
-  (no `wxTreeCtrl` — keeps it simple, no expand/collapse state).
-- The active row is rendered **bold** with **" (active)"** suffix (per design).
-  If no active is defined, Default is considered active and gets the marker.
-
-### Buttons
-
-- **Add** — always enabled. Creates a new config inheriting from Default with
-  a placeholder name. Selects the new row, focuses the name field.
-- **Copy** — enabled when a non-canonical row is selected. Deep-copies all
-  overrides and the `base` field; allocates a new slug; opens with name
-  pre-filled "<original> (copy)".
-- **Remove** — enabled when a non-canonical row is selected. Confirms before
-  removing. Re-parenting and active-clearing happen via catalog.
-
-### Right pane
-
-- **Name** — `wxTextCtrl`, disabled for canonical.
-- **Slug** — read-only static text under the name (e.g. `Slug: cfg-1`).
-- **Base** — `wxChoice` populated via `catalog.validBasesFor(slug)`. Hidden
-  for canonical.
-- **Active for new files** — `wxCheckBox`. Mutually exclusive: checking it on
-  a row clears the active on others (via `catalog.setActiveSlug`). Unchecking
-  the only active row sets active back to Default.
-- **Four InheritableField rows** — Path (`Kind::Path`), CompileCommand
-  (`Kind::Text`), RunCommand (`Kind::Text`), Terminal (`Kind::Text`).
+Canonical Default has nothing to inherit from, so its right pane hides the
+name field and renders the four field rows without an inherit checkbox
+(plain editable inputs).
 
 ### Apply / Cancel
 
-- The page maintains a draft state (copy-on-edit) and commits to the catalog
-  only on OK. Cancel discards.
-- Apply: iterate fields per draft config, call
-  `catalog.setOverride(slug, field, inherited ? nullopt : value)`; call
-  `catalog.setActiveSlug` if active changed; call `ConfigManager::save(Category::Config)`.
-- After apply, `SettingsDialog` calls `CompilerManager::refreshConfigurationCombo()`
-  so the toolbar reflects the new state immediately.
+The page snapshots `[compiler]` on `create()` and restores it on `cancel()`
+— that's how every CRUD action is rolled back atomically. `apply()`
+validates that no user configuration has an empty `name=`, then calls
+`CompilerManager::refreshConfigurationCombo()` so the toolbar reflects the
+new state.
 
 ### CHM help
 
-`vbox(tr("dialogs.settings.compiler.help"), { .margin = false }, ...)` below
-the configurations group. Single file picker, reads/writes whatever existing
-config key the current CHM integration uses (behavior unchanged — relocation
-only).
+Below the configurations group, a `vbox(tr("help"), …)` contains the CHM
+file picker. Behaviour unchanged — relocation only.
 
 ## InheritableField widget
 
-`src/lib/settings/widgets/InheritableField.{hpp,cpp}`, modelled on
-`ColorPicker`:
+`src/lib/ui/controls/InheritableField.{hpp,cpp}`, modelled on `ColorPicker`.
 
 ```cpp
-class InheritableField : public wxPanel {
+class InheritableField : public Layout<wxPanel> {
 public:
     enum class Kind { Text, Path };                      // Path adds a Browse button
 
-    InheritableField(wxWindow* parent, Kind kind, const wxString& label);
+    InheritableField(wxWindow* parent, Kind kind, wxString labelText, wxString inheritTooltip = {});
+    void  create();
 
     void  setInherited(bool inherited);                  // toggles checkbox + enables/disables field
     bool  isInherited() const noexcept;
@@ -447,23 +320,20 @@ public:
 
     void  setResolvedValue(const wxString&);             // shown (greyed) while inherited
 
-    // Emits wxEVT_CHECKBOX on the override tickbox + wxEVT_TEXT on the field.
+    void  setInheritCheckboxVisible(bool visible);       // canonical Default hides the checkbox
 };
 ```
 
 Behavior:
 
 - Tickbox unchecked (inherited): field disabled, value shows the resolved
-  value greyed (set the resolved value into the disabled `wxTextCtrl` so the
-  user can see what they're inheriting).
+  (canonical) value greyed so the user can see what they're inheriting.
 - Tickbox checked (override): field enabled, value pre-populated with the
-  current resolved value at the moment of ticking (so the user doesn't lose
-  context).
+  current resolved value at the moment of ticking.
 - Browse button (Path only): `wxFileDialog`, writes result into the override
   field.
-
-Internal layout uses raw sizers only if `ColorPicker` already does (local
-consistency); page-level composition stays on `vbox`/`hbox`.
+- Hidden checkbox (`setInheritCheckboxVisible(false)`): field behaves as a
+  plain editable input, used for canonical Default.
 
 ## Backward compatibility
 
@@ -474,47 +344,29 @@ consistency); page-level composition stays on `vbox`/`hbox`.
   Follow active (defaults to canonical). Identical to today.
 - `compiler.active` and `compiler.nextSlugIndex` absent: treated as `"default"`
   and `1` respectively.
+- `base=` keys persisted by earlier revisions of this feature are ignored.
+  The catalog treats every user config as inheriting directly from canonical.
 - Downgrade safety: a user downgrading to a pre-feature build keeps working.
   `[compiler/*]` sections silently ignored. `compiler.active`/`nextSlugIndex`
   ignored. Session `configuration=` keys ignored.
 
 ## Tests
 
-`tests/unit/`. No UI tests on macOS (per project convention).
+`tests/unit/CompilerConfigCatalogTests.cpp`. No UI tests on macOS (per
+project convention).
 
-- **`CompilerConfigCatalogTests`**:
-  - Parse canonical-only config → one entry, slug `default`.
-  - Parse canonical + `[compiler/cfg-1]` with overrides → resolved fields correct.
-  - Inheritance chain: `cfg-2` (base `cfg-1`) inherits `cfg-1`'s overrides,
-    falls through to canonical for un-overridden fields.
-  - Field-missing vs field-present-empty: empty value is an override
-    (resolved = empty); missing is inheritance.
-  - `setOverride(..., nullopt)` removes the key.
-  - Cycle detection: `setBase` rejects self-base and descendant-base.
-  - Orphan / cycle on reload: resolves to canonical; warning emitted; entry
-    remains in catalog.
-  - `remove()` re-parents dependents to `default` and clears
-    `compiler.active` if it pointed at the removed slug.
-  - Slug allocation: `nextSlugIndex` increments correctly and persists.
-- **`FileSession` round-trip extensions**:
-  - Doc with `m_configuration = "cfg-2"` round-trips.
-  - Absent → `{}`.
-  - Missing-on-load (catalog empty): still loaded into `m_configuration`,
-    validation deferred to first compile.
-- **`CompilerManager::setDocumentConfiguration` normalization**:
-  - Picking active → `{}`.
-  - Picking non-active → slug.
-  - Active flipping (without doc change): empty docs follow the new active.
-
-## Open question (still need to confirm)
-
-The "matches active → empty" rule applied when the canonical Default is
-involved:
-
-- `compiler.active = "default"`, user picks "Default" → `m_configuration = {}`.
-- `compiler.active = "cfg-1"`, user picks "Default" → `m_configuration = "default"` (pinned).
-- `compiler.active = "cfg-1"`, user picks "cfg-1" → `m_configuration = {}`.
-
-Same UI action stores different state depending on active. This is the
-intended semantic per #1 and #8, but worth explicit confirmation since it's
-subtle.
+- Canonical-only config → one entry, slug `default`.
+- Canonical + `[compiler/cfg-1]` with overrides → resolved fields correct,
+  unspecified fields fall through to canonical.
+- Field-missing vs field-present-empty: empty value is an override
+  (resolved = empty); missing is inheritance.
+- Default templates applied when canonical key is absent.
+- `setOverride(..., nullopt)` removes the key.
+- `activeSlug` defaults / valid slug / invalid slug handling.
+- `resolveByPinnedSlug` — empty optional follows active; explicit slug pins;
+  missing pinned falls back to active.
+- `normalizeForStorage` — collapses to nullopt when picked matches active.
+- CRUD: `createFromCanonical` allocates sequential slugs, never reused after
+  remove; `copy` duplicates overrides; `remove` clears `compiler.active` if
+  it pointed at the removed slug; `setActiveSlug("default")` clears the key.
+- `all()` ordering: canonical first, then user configs by numeric slug.
