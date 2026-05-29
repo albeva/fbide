@@ -24,6 +24,7 @@ struct ResolvedCompilerConfig {
     wxString runCommand;        ///< Template for executing the built binary.
     wxString compileCommand;    ///< Template for invoking the compiler.
     wxString terminal;          ///< Terminal-launcher prefix for run targets.
+    bool showInMenu = true;     ///< When false the config is hidden from the toolbar combobox and status-bar menu.
 };
 
 /// Schema-level identity of the four overridable fields.
@@ -98,6 +99,15 @@ public:
     /// suffix of their `cfg-N` slug.
     [[nodiscard]] auto all() const -> std::span<const ResolvedCompilerConfig>;
 
+    /// Subset of `all()` that should appear in the toolbar combobox and
+    /// status-bar selector. Hidden configs (`showInMenu=false`) are
+    /// filtered out, with one exception: `alwaysInclude` — typically the
+    /// active document's pinned slug — is kept even when hidden so the
+    /// selector can still display the current selection. Hidden does
+    /// not mean unusable: a hidden config remains fully functional for
+    /// any document already pinned to it.
+    [[nodiscard]] auto menuConfigs(const wxString& alwaysInclude = {}) const -> std::vector<const ResolvedCompilerConfig*>;
+
     /// Config at position `index` within `all()`, or `nullptr` when the
     /// index is out of range. Lets list widgets that mirror `all()` map
     /// a selection index straight back to a config — no parallel slug
@@ -163,6 +173,11 @@ public:
 
     /// Set `compiler.active`. Passing `"default"` clears the key.
     void setActiveSlug(const wxString& slug);
+
+    /// Toggle whether a configuration appears in the toolbar combobox
+    /// and status-bar selection menu. Persists as `showInMenu=` under the
+    /// configuration's section; default when absent is `true`.
+    auto setShowInMenu(const wxString& slug, bool visible) -> bool;
 
 private:
     ConfigManager& m_cfg;

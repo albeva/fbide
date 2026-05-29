@@ -349,9 +349,13 @@ void CompilerManager::onActiveDocumentChanged(Document* doc) {
         if (doc == nullptr || doc->getType() != DocumentType::FreeBASIC) {
             m_configCombo->Disable();
         } else {
+            // Rebuild so a hidden but currently-selected config gets
+            // injected into the visible list. populateConfigurationCombo
+            // reads the active doc to decide which slug to force-include.
+            populateConfigurationCombo();
             m_configCombo->Enable();
             const auto& resolved = m_catalog->resolveByPinnedSlug(doc->getConfiguration());
-            if (const auto index = m_catalog->indexOf(resolved.slug); index >= 0) {
+            if (const auto index = comboIndexForSlug(resolved.slug); index >= 0) {
                 m_configCombo->SetSelection(index);
             }
         }
@@ -368,17 +372,41 @@ void CompilerManager::populateConfigurationCombo() const {
         return;
     }
     m_configCombo->Clear();
-    for (const auto& cfg : m_catalog->all()) {
-        m_configCombo->Append(cfg.displayName);
+    // Catalog owns the visibility logic — manager just renders what it
+    // hands back. The pinned slug of the active doc is forwarded so a
+    // hidden-but-pinned config still appears in the combo (the catalog
+    // honours it via the alwaysInclude path).
+    const auto keepSlug = m_lastActiveDoc != nullptr && m_lastActiveDoc->getType() == DocumentType::FreeBASIC
+                            ? m_catalog->resolveByPinnedSlug(m_lastActiveDoc->getConfiguration()).slug
+                            : wxString {};
+    for (const auto* cfg : m_catalog->menuConfigs(keepSlug)) {
+        m_configCombo->Append(cfg->displayName, new wxStringClientData(cfg->slug));
     }
+}
+
+auto CompilerManager::comboIndexForSlug(const wxString& slug) const -> int {
+    if (m_configCombo == nullptr) {
+        return -1;
+    }
+    for (unsigned i = 0; i < m_configCombo->GetCount(); ++i) {
+        if (const auto* data = dynamic_cast<wxStringClientData*>(m_configCombo->GetClientObject(i));
+            data != nullptr && data->GetData() == slug) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
 }
 
 void CompilerManager::onConfigurationComboSelected() const {
     if (m_lastActiveDoc == nullptr || m_configCombo == nullptr) {
         return;
     }
-    if (const auto* cfg = m_catalog->at(m_configCombo->GetSelection())) {
-        setDocumentConfiguration(*m_lastActiveDoc, cfg->slug);
+    const auto sel = m_configCombo->GetSelection();
+    if (sel < 0) {
+        return;
+    }
+    if (const auto* data = dynamic_cast<wxStringClientData*>(m_configCombo->GetClientObject(static_cast<unsigned>(sel)))) {
+        setDocumentConfiguration(*m_lastActiveDoc, data->GetData());
     }
 }
 
@@ -394,10 +422,14 @@ auto CompilerManager::buildConfigurationMenu() const -> std::unique_ptr<wxMenu> 
     const auto currentSlug = m_lastActiveDoc != nullptr
                                ? m_catalog->resolveByPinnedSlug(m_lastActiveDoc->getConfiguration()).slug
                                : wxString {};
-    const auto configs = m_catalog->all();
-    for (std::size_t i = 0; i < configs.size(); ++i) {
-        auto* item = menu->AppendRadioItem(kStatusMenuIdBase + static_cast<int>(i), configs[i].displayName);
-        item->Check(configs[i].slug == currentSlug);
+    // Menu item ID = base + the slug's index within `catalog().all()`,
+    // not within the filtered subset — that way the ID still maps back
+    // through `catalog().at()` in `applyConfigurationMenuSelection` even
+    // though some entries were skipped.
+    for (const auto* cfg : m_catalog->menuConfigs(currentSlug)) {
+        const auto catalogIndex = m_catalog->indexOf(cfg->slug);
+        auto* item = menu->AppendRadioItem(kStatusMenuIdBase + catalogIndex, cfg->displayName);
+        item->Check(cfg->slug == currentSlug);
     }
     return menu;
 }
