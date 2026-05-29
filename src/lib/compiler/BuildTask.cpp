@@ -46,9 +46,20 @@ void BuildTask::run(const wxString& executablePath, const bool quickRun) {
     m_compiledFile = executablePath;
     m_isQuickRun = quickRun;
 
+    const auto cmdStr = buildRunCommand(executablePath);
+
+    if (m_shouldRun) {
+        m_compilerLog.Add("");
+    } else {
+        m_compilerLog.Empty();
+    }
+    m_compilerLog.Add("[bold]Run command:[/bold]");
+    m_compilerLog.Add(cmdStr);
+    m_ctx.getCompilerManager().refreshCompilerLog();
+
     m_running = true;
     m_ctx.getUIManager().setCompilerState(UIState::Running);
-    m_process = AsyncProcess::exec(buildRunCommand(executablePath), wxPathOnly(executablePath), false, [&](const ProcessResult& result) {
+    m_process = AsyncProcess::exec(cmdStr, wxPathOnly(executablePath), false, [&](const ProcessResult& result) {
         m_process = nullptr;
         m_ctx.getUIManager().setCompilerState(UIState::None);
         m_running = false;
@@ -137,6 +148,17 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
 }
 
 void BuildTask::onRunFinished(const ProcessResult& result) {
+    m_compilerLog.Add("");
+    m_compilerLog.Add("[bold]Results:[/bold]");
+    if (!result.launched) {
+        m_compilerLog.Add("Execution failed");
+    } else {
+        wxString exitLine;
+        exitLine << "Exit code: " << result.exitCode;
+        m_compilerLog.Add(exitLine);
+    }
+    m_ctx.getCompilerManager().refreshCompilerLog();
+
     if (!result.launched) {
         wxMessageBox(m_ctx.tr("messages.execError"), m_ctx.tr("common.error"), wxICON_ERROR);
     } else if (m_ctx.getConfigManager().config().get_or("commands.showExitCode", false)) {
