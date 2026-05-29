@@ -17,13 +17,17 @@ namespace {
 /// the InheritableField / ColorPicker ranges so a child control's
 /// event can't accidentally match one of ours via parent-chain
 /// propagation.
-constexpr int ID_TREE = wxID_HIGHEST + 200;
+constexpr int ID_LIST = wxID_HIGHEST + 200;
 constexpr int ID_ADD = wxID_HIGHEST + 201;
 constexpr int ID_COPY = wxID_HIGHEST + 202;
 constexpr int ID_REMOVE = wxID_HIGHEST + 203;
 constexpr int ID_NAME = wxID_HIGHEST + 204;
-constexpr int ID_BASE = wxID_HIGHEST + 205;
-constexpr int ID_ACTIVE = wxID_HIGHEST + 206;
+constexpr int ID_ACTIVE = wxID_HIGHEST + 205;
+
+/// Width of the left-hand configuration list in device-independent
+/// pixels. Sized to comfortably show "FBC 32bit GUI (active)" without
+/// horizontal scroll while leaving room for the field editors.
+constexpr int kListWidth = 150;
 
 /// Lift a `ResolvedCompilerConfig` field into the `wxString` form the
 /// `InheritableField` widget expects. `path` is the only non-string
@@ -42,32 +46,17 @@ auto fieldValueOf(const ResolvedCompilerConfig& cfg, CompilerField field) -> wxS
     return wxString {};
 }
 
-auto fieldKeyOf(const CompilerField field) -> wxString {
-    switch (field) {
-    case CompilerField::Path:
-        return "path";
-    case CompilerField::CompileCommand:
-        return "compileCommand";
-    case CompilerField::RunCommand:
-        return "runCommand";
-    case CompilerField::Terminal:
-        return "terminal";
-    }
-    return wxString {};
-}
-
 } // namespace
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(CompilerPage, Panel)
-    EVT_TREE_SEL_CHANGED(ID_TREE,   CompilerPage::onTreeSelChanged)
-    EVT_BUTTON          (ID_ADD,    CompilerPage::onAddClicked)
-    EVT_BUTTON          (ID_COPY,   CompilerPage::onCopyClicked)
-    EVT_BUTTON          (ID_REMOVE, CompilerPage::onRemoveClicked)
-    EVT_TEXT            (ID_NAME,   CompilerPage::onNameChanged)
-    EVT_CHOICE          (ID_BASE,   CompilerPage::onBaseChanged)
-    EVT_CHECKBOX        (ID_ACTIVE, CompilerPage::onActiveToggled)
-    EVT_COMMAND         (wxID_ANY,  EVT_INHERIT_TOGGLED, CompilerPage::onInheritToggled)
+    EVT_LISTBOX (ID_LIST,   CompilerPage::onListSelChanged)
+    EVT_BUTTON  (ID_ADD,    CompilerPage::onAddClicked)
+    EVT_BUTTON  (ID_COPY,   CompilerPage::onCopyClicked)
+    EVT_BUTTON  (ID_REMOVE, CompilerPage::onRemoveClicked)
+    EVT_TEXT    (ID_NAME,   CompilerPage::onNameChanged)
+    EVT_CHECKBOX(ID_ACTIVE, CompilerPage::onActiveToggled)
+    EVT_COMMAND (wxID_ANY,  EVT_INHERIT_TOGGLED, CompilerPage::onInheritToggled)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -77,6 +66,16 @@ CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
 
 auto CompilerPage::catalog() const -> CompilerConfigCatalog& {
     return getContext().getCompilerManager().catalog();
+}
+
+auto CompilerPage::fieldEntries() const
+    -> std::array<std::pair<InheritableField*, CompilerField>, kAllCompilerFields.size()> {
+    return { {
+        { m_pathField, CompilerField::Path },
+        { m_compileField, CompilerField::CompileCommand },
+        { m_runField, CompilerField::RunCommand },
+        { m_terminalField, CompilerField::Terminal },
+    } };
 }
 
 void CompilerPage::create() {
@@ -98,6 +97,11 @@ void CompilerPage::create() {
 }
 
 auto CompilerPage::apply() -> bool {
+    // Commit BEFORE validating: if the user edited a field on the
+    // active row and the name is empty, we still want their edit
+    // preserved when we focus the bad row below. The catalog is the
+    // single source of truth either way — validation only blocks the
+    // dialog from closing, it doesn't roll anything back.
     commitFieldOverrides();
 
     // Required name on every user configuration. Trimmed so a
@@ -155,12 +159,12 @@ void CompilerPage::buildConfigurationsGroup() {
 
 void CompilerPage::buildLeftPane() {
     vbox({ .margin = false }, [&] {
-        m_configTree = make_unowned<wxTreeCtrl>(
-            currentParent(), ID_TREE,
-            wxDefaultPosition, wxSize(150, -1),
-            wxTR_NO_BUTTONS | wxTR_SINGLE | wxBORDER_NONE
+        m_configList = make_unowned<wxListBox>(
+            currentParent(), ID_LIST,
+            wxDefaultPosition, wxSize(kListWidth, -1),
+            wxArrayString {}, wxLB_SINGLE
         );
-        add(m_configTree, { .proportion = 1 });
+        add(m_configList, { .proportion = 1 });
 
         hbox({ .margin = false }, [&] {
             auto makeIconButton = [this](int controlId, const wxArtID& artId, const wxString& tooltipKey) {
@@ -186,13 +190,6 @@ void CompilerPage::buildRightPane() {
             m_nameLabel = text(tr("name"));
             m_nameField = textField({}, ID_NAME);
             connect(m_nameLabel, m_nameField);
-        });
-
-        // Base dropdown.
-        hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
-            m_baseLabel = text(tr("base"), { .expand = false });
-            m_baseChoice = choice(wxArrayString {}, { .expand = false }, ID_BASE);
-            connect(m_baseLabel, m_baseChoice);
         });
 
         // Active checkbox.
@@ -227,72 +224,21 @@ auto CompilerPage::formatListLabel(const wxString& slug, const wxString& name) c
 }
 
 void CompilerPage::selectSlug(const wxString& slug) {
-    if (const auto it = m_slugItems.find(slug); it != m_slugItems.end()) {
-        m_configTree->SelectItem(it->second);
-        m_configTree->EnsureVisible(it->second);
+    const auto it = std::ranges::find(m_listSlugs, slug);
+    if (it == m_listSlugs.end()) {
+        return;
     }
+    const auto index = static_cast<unsigned>(std::distance(m_listSlugs.begin(), it));
+    m_configList->SetSelection(static_cast<int>(index));
 }
 
 void CompilerPage::refreshList() {
-    m_configTree->DeleteAllItems();
-    m_treeSlugs.clear();
-    m_slugItems.clear();
+    m_configList->Clear();
+    m_listSlugs.clear();
 
-    const auto* canonical = catalog().find(kCanonicalCompilerSlug);
-    if (canonical == nullptr) {
-        return;
-    }
-    const auto root = m_configTree->AddRoot(formatListLabel(canonical->slug, canonical->displayName));
-    m_treeSlugs[root.GetID()] = canonical->slug;
-    m_slugItems[canonical->slug] = root;
-
-    // Build a parent → children index so we can walk the tree
-    // depth-first without re-scanning the catalog at every level.
-    std::unordered_map<wxString, std::vector<wxString>> childrenOf;
     for (const auto& cfg : catalog().all()) {
-        if (cfg.slug == kCanonicalCompilerSlug) {
-            continue;
-        }
-        const auto stored = getContext().getConfigManager().config().at("compiler").at(cfg.slug).get_or("base", wxString { kCanonicalCompilerSlug });
-        const auto parent = stored.IsEmpty() ? wxString { kCanonicalCompilerSlug } : stored;
-        childrenOf[parent].push_back(cfg.slug);
-    }
-
-    std::vector<wxString> stack { wxString { kCanonicalCompilerSlug } };
-    while (!stack.empty()) {
-        const auto parentSlug = stack.back();
-        stack.pop_back();
-        const auto parentIt = m_slugItems.find(parentSlug);
-        if (parentIt == m_slugItems.end()) {
-            continue;
-        }
-        const auto childrenIt = childrenOf.find(parentSlug);
-        if (childrenIt == childrenOf.end()) {
-            continue;
-        }
-        for (const auto& childSlug : childrenIt->second) {
-            const auto* childCfg = catalog().find(childSlug);
-            if (childCfg == nullptr) {
-                continue;
-            }
-            const auto childItem = m_configTree->AppendItem(
-                parentIt->second,
-                formatListLabel(childCfg->slug, childCfg->displayName)
-            );
-            m_treeSlugs[childItem.GetID()] = childSlug;
-            m_slugItems[childSlug] = childItem;
-            stack.push_back(childSlug);
-        }
-    }
-
-    m_configTree->ExpandAll();
-    applyActiveBold();
-}
-
-void CompilerPage::applyActiveBold() const {
-    const auto activeSlug = catalog().activeSlug();
-    for (const auto& [slug, item] : m_slugItems) {
-        m_configTree->SetItemBold(item, slug == activeSlug);
+        m_configList->Append(formatListLabel(cfg.slug, cfg.displayName));
+        m_listSlugs.push_back(cfg.slug);
     }
 }
 
@@ -306,76 +252,56 @@ void CompilerPage::loadSelectedConfig() {
     m_lastOverrideValues.clear();
     const bool isCanonical = (cfg->slug == kCanonicalCompilerSlug);
 
-    // Name + base are meaningless for canonical Default — hide them
-    // entirely so the layout collapses. (Disabling alone leaves greyed
-    // controls that look like a broken UI state.)
+    // Name is meaningless for canonical Default — hide it entirely so
+    // the layout collapses. (Disabling alone leaves greyed controls
+    // that look like a broken UI state.)
     m_nameLabel->Show(!isCanonical);
     m_nameField->Show(!isCanonical);
     if (!isCanonical) {
         m_nameField->ChangeValue(cfg->displayName);
     }
 
-    m_baseLabel->Show(!isCanonical);
-    m_baseChoice->Show(!isCanonical);
-    if (!isCanonical) {
-        m_baseChoice->Clear();
-        m_baseChoiceSlugs.clear();
-        for (const auto& candidate : catalog().validBasesFor(cfg->slug)) {
-            const auto* candidateCfg = catalog().find(candidate);
-            if (candidateCfg == nullptr) {
-                continue;
-            }
-            m_baseChoice->Append(candidateCfg->displayName);
-            m_baseChoiceSlugs.push_back(candidate);
-        }
-        const auto currentBase = getContext().getConfigManager().config().at("compiler").at(cfg->slug).get_or("base", wxString { kCanonicalCompilerSlug });
-        const auto targetBase = currentBase.IsEmpty() ? wxString { kCanonicalCompilerSlug } : currentBase;
-        if (const auto it = std::ranges::find(m_baseChoiceSlugs, targetBase);
-            it != m_baseChoiceSlugs.end()) {
-            m_baseChoice->SetSelection(static_cast<int>(std::distance(m_baseChoiceSlugs.begin(), it)));
-        }
-    }
-
-    m_activeCheckbox->SetValue(cfg->slug == catalog().activeSlug());
+    // Active is a "promote this row" tick — the only way to clear an
+    // active row is to promote a different one. Disabling on the
+    // already-active row removes the footgun of unticking-by-accident
+    // (which would otherwise demote the row back to canonical).
+    const bool isActiveRow = (cfg->slug == catalog().activeSlug());
+    m_activeCheckbox->SetValue(isActiveRow);
+    m_activeCheckbox->Enable(!isActiveRow);
 
     // Field state: an override is present when the raw `[compiler/<slug>]`
     // (or `[compiler]` for canonical) section carries the key. Resolved
-    // values come from the catalog so they reflect the chain correctly.
+    // values come from the catalog so they reflect what canonical would
+    // supply if the field were left to inherit.
     const auto& cfgSection = isCanonical
                                ? getContext().getConfigManager().config().at("compiler")
                                : getContext().getConfigManager().config().at("compiler").at(cfg->slug);
 
     // What this config would inherit if every field were unset — the
-    // resolved fields of its base. Shown in the disabled input box
-    // while the inherit checkbox is ticked so the user can see exactly
-    // what they're falling back to.
-    const ResolvedCompilerConfig* baseResolved = nullptr;
-    if (!isCanonical) {
-        const auto baseSlug = getContext().getConfigManager().config().at("compiler").at(cfg->slug).get_or("base", wxString { kCanonicalCompilerSlug });
-        const auto targetBaseSlug = baseSlug.IsEmpty() ? wxString { kCanonicalCompilerSlug } : baseSlug;
-        baseResolved = catalog().find(targetBaseSlug);
-    }
+    // resolved fields of canonical Default. Shown in the disabled
+    // input box while the inherit checkbox is ticked so the user can
+    // see exactly what they're falling back to.
+    const ResolvedCompilerConfig* canonicalCfg = isCanonical ? nullptr : &catalog().canonical();
 
     auto loadField = [&](InheritableField* widget, const CompilerField field) {
-        const auto key = fieldKeyOf(field);
+        const auto key = compilerFieldKey(field);
         const bool overridden = cfgSection.contains(key);
-        const auto inheritedValue = baseResolved != nullptr
-                                      ? fieldValueOf(*baseResolved, field)
+        const auto inheritedValue = canonicalCfg != nullptr
+                                      ? fieldValueOf(*canonicalCfg, field)
                                       : fieldValueOf(*cfg, field);
         widget->setResolvedValue(inheritedValue);
         widget->setOverrideValue(overridden ? cfgSection.get_or(key, wxString {}) : inheritedValue);
-        // Canonical Default has no parent → no inherit checkbox. The
-        // field becomes a plain editable input whose value is always
-        // an explicit override.
+        // Canonical Default has nothing to inherit from → no inherit
+        // checkbox. The field becomes a plain editable input whose
+        // value is always an explicit override.
         widget->setInheritCheckboxVisible(!isCanonical);
         if (!isCanonical) {
             widget->setInherited(!overridden);
         }
     };
-    loadField(m_pathField, CompilerField::Path);
-    loadField(m_compileField, CompilerField::CompileCommand);
-    loadField(m_runField, CompilerField::RunCommand);
-    loadField(m_terminalField, CompilerField::Terminal);
+    for (const auto& [widget, field] : fieldEntries()) {
+        loadField(widget, field);
+    }
 
     m_removeButton->Enable(!isCanonical);
     m_copyButton->Enable(true);
@@ -387,41 +313,34 @@ void CompilerPage::commitFieldOverrides() {
     if (m_selectedSlug.IsEmpty() || catalog().find(m_selectedSlug) == nullptr) {
         return;
     }
-    auto commit = [&](InheritableField* widget, CompilerField field) {
+    for (const auto& [widget, field] : fieldEntries()) {
         const auto value = widget->isInherited()
                              ? std::optional<wxString> {}
                              : std::optional<wxString> { widget->overrideValue() };
         catalog().setOverride(m_selectedSlug, field, value);
-    };
-    commit(m_pathField, CompilerField::Path);
-    commit(m_compileField, CompilerField::CompileCommand);
-    commit(m_runField, CompilerField::RunCommand);
-    commit(m_terminalField, CompilerField::Terminal);
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Events
 // ---------------------------------------------------------------------------
 
-void CompilerPage::onTreeSelChanged(wxTreeEvent& event) {
+void CompilerPage::onListSelChanged(wxCommandEvent& event) {
     event.Skip();
-    const auto item = event.GetItem();
-    if (!item.IsOk()) {
+    const auto sel = m_configList->GetSelection();
+    if (sel == wxNOT_FOUND || static_cast<std::size_t>(sel) >= m_listSlugs.size()) {
         return;
     }
-    const auto it = m_treeSlugs.find(item.GetID());
-    if (it == m_treeSlugs.end()) {
-        return;
-    }
-    // Programmatic SelectItem after Add / Copy / refresh fires this
+    const auto& picked = m_listSlugs[static_cast<std::size_t>(sel)];
+    // Programmatic SetSelection after Add / Copy / refresh fires this
     // handler too; if the slug already matches we leave the right-pane
     // alone (commitFieldOverrides would write the old widget state into
     // the freshly-created config otherwise).
-    if (it->second == m_selectedSlug) {
+    if (picked == m_selectedSlug) {
         return;
     }
     commitFieldOverrides();
-    m_selectedSlug = it->second;
+    m_selectedSlug = picked;
     loadSelectedConfig();
 }
 
@@ -487,32 +406,13 @@ void CompilerPage::onNameChanged(wxCommandEvent& /*event*/) {
         return;
     }
     catalog().rename(m_selectedSlug, m_nameField->GetValue());
-    // Just refresh the visible label without rebuilding the whole tree
+    // Just refresh the visible label without rebuilding the whole list
     // (rebuilding would steal the user's edit focus from the field).
-    if (const auto it = m_slugItems.find(m_selectedSlug); it != m_slugItems.end()) {
-        m_configTree->SetItemText(
-            it->second,
-            formatListLabel(m_selectedSlug, m_nameField->GetValue())
-        );
+    const auto it = std::ranges::find(m_listSlugs, m_selectedSlug);
+    if (it != m_listSlugs.end()) {
+        const auto index = static_cast<unsigned>(std::distance(m_listSlugs.begin(), it));
+        m_configList->SetString(index, formatListLabel(m_selectedSlug, m_nameField->GetValue()));
     }
-}
-
-void CompilerPage::onBaseChanged(wxCommandEvent& /*event*/) {
-    if (m_selectedSlug.IsEmpty() || m_selectedSlug == kCanonicalCompilerSlug) {
-        return;
-    }
-    const auto sel = m_baseChoice->GetSelection();
-    if (sel < 0 || static_cast<std::size_t>(sel) >= m_baseChoiceSlugs.size()) {
-        return;
-    }
-    catalog().setBase(m_selectedSlug, m_baseChoiceSlugs.at(static_cast<std::size_t>(sel)));
-    // Tree structure shifted — the selected node now lives under a
-    // different parent. Rebuild before re-selecting and reloading.
-    refreshList();
-    selectSlug(m_selectedSlug);
-    // Resolved values may have shifted (different ancestor); re-read the
-    // four fields so inherited displays reflect the new chain.
-    loadSelectedConfig();
 }
 
 void CompilerPage::onInheritToggled(wxCommandEvent& event) {
@@ -520,20 +420,15 @@ void CompilerPage::onInheritToggled(wxCommandEvent& event) {
     if (widget == nullptr) {
         return;
     }
-    // Match the firing widget to its CompilerField. Cheaper than a
-    // string-id detour and the four fields are a closed enum.
-    CompilerField field = CompilerField::Path;
-    if (widget == m_pathField) {
-        field = CompilerField::Path;
-    } else if (widget == m_compileField) {
-        field = CompilerField::CompileCommand;
-    } else if (widget == m_runField) {
-        field = CompilerField::RunCommand;
-    } else if (widget == m_terminalField) {
-        field = CompilerField::Terminal;
-    } else {
+    // Match the firing widget to its CompilerField via the shared
+    // entries table — keeps this handler in sync with the load/commit
+    // loops above without re-listing the four fields here.
+    const auto entries = fieldEntries();
+    const auto it = std::ranges::find(entries, widget, &std::pair<InheritableField*, CompilerField>::first);
+    if (it == entries.end()) {
         return;
     }
+    const auto field = it->second;
 
     const bool nowInheriting = event.GetInt() != 0;
     if (nowInheriting) {
@@ -543,20 +438,27 @@ void CompilerPage::onInheritToggled(wxCommandEvent& event) {
         // tick path, so `overrideValue()` still returns their prior
         // edit at this point.
         m_lastOverrideValues[field] = widget->overrideValue();
-    } else if (const auto it = m_lastOverrideValues.find(field);
-               it != m_lastOverrideValues.end()) {
+    } else if (const auto remembered = m_lastOverrideValues.find(field);
+        remembered != m_lastOverrideValues.end()) {
         // User just unticked — restore the prior value over the top
         // of the InheritableField's default "seed from resolved"
         // behaviour.
-        widget->setOverrideValue(it->second);
+        widget->setOverrideValue(remembered->second);
     }
 }
 
 void CompilerPage::onActiveToggled(wxCommandEvent& /*event*/) {
-    if (m_selectedSlug.IsEmpty()) {
+    if (m_selectedSlug.IsEmpty() || !m_activeCheckbox->GetValue()) {
         return;
     }
-    catalog().setActiveSlug(m_activeCheckbox->GetValue() ? m_selectedSlug : wxString { kCanonicalCompilerSlug });
+    // Promotion only: the checkbox is disabled while it's already
+    // checked (see loadSelectedConfig), so this handler only fires on
+    // tick-on. The previous active row is implicitly demoted by
+    // setActiveSlug.
+    catalog().setActiveSlug(m_selectedSlug);
     refreshList();
     selectSlug(m_selectedSlug);
+    // Re-disable the checkbox now that this row owns "active" — the
+    // programmatic re-selection above no-ops the listbox handler.
+    loadSelectedConfig();
 }

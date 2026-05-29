@@ -137,7 +137,7 @@ void InheritableField::onTextChanged(wxCommandEvent& /*event*/) {
 void InheritableField::onBrowseClick(wxCommandEvent& /*event*/) {
     wxFileDialog dlg(
         this, m_labelText, wxString {}, wxString {},
-        "*", wxFD_OPEN | wxFD_FILE_MUST_EXIST
+        "All files (*)|*", wxFD_OPEN | wxFD_FILE_MUST_EXIST
     );
     if (dlg.ShowModal() == wxID_OK) {
         m_overrideValue = dlg.GetPath();

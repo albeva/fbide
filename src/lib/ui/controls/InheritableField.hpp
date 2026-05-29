@@ -32,7 +32,8 @@ class InheritableField final : public Layout<wxPanel> {
 public:
     NO_COPY_AND_MOVE(InheritableField)
 
-    enum class Kind : std::uint8_t { Text, Path };
+    enum class Kind : std::uint8_t { Text,
+        Path };
 
     InheritableField(wxWindow* parent, Kind kind, wxString labelText, wxString inheritTooltip = {});
 
@@ -61,6 +62,11 @@ public:
 
     /// Show or hide the inherit checkbox. When hidden the field behaves
     /// as a plain editable input — `isInherited()` always returns false.
+    ///
+    /// Hiding force-unticks the checkbox and the prior tick state is
+    /// **not** restored on a subsequent show. Callers that flip both
+    /// ways (e.g. CompilerPage switching between canonical and user
+    /// rows) must re-apply `setInherited(...)` after the show.
     void setInheritCheckboxVisible(bool visible);
 
 private:
