@@ -9,6 +9,7 @@
 #include "CommandManager.hpp"
 #include "about/AboutDialog.hpp"
 #include "app/Context.hpp"
+#include "compiler/CompilerConfigCatalog.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
@@ -104,6 +105,7 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .id = +CommandId::Compile,          .name="compile" },
         CommandEntry { .id = +CommandId::CompileAndRun,    .name="compileAndRun" },
         CommandEntry { .id = +CommandId::CompilerLog,      .name="compilerLog" },
+        CommandEntry { .id = +CommandId::Configuration,    .name="configuration", .kind = wxITEM_DROPDOWN },
         CommandEntry { .id = +CommandId::Copy,             .name="copy" },
         CommandEntry { .id = +CommandId::Cut,              .name="cut" },
         CommandEntry { .id = +CommandId::FileHistory,      .name="fileHistory" },
@@ -376,14 +378,24 @@ void CommandManager::onKillProcess(wxCommandEvent&) {
 
 void CommandManager::onCmdPrompt(wxCommandEvent&) {
     wxExecuteEnv env;
-    if (const auto* doc = m_ctx.getDocumentManager().getActive(); doc != nullptr && !doc->isNew()) {
+    const auto* doc = m_ctx.getDocumentManager().getActive();
+    if (doc != nullptr && !doc->isNew()) {
         const auto parent = doc->getFilePath().parent_path();
         std::error_code ec;
         if (std::filesystem::is_directory(parent, ec)) {
             env.cwd = toWxString(parent);
         }
     }
-    wxExecute(ConfigManager::getTerminal(), wxEXEC_ASYNC, nullptr, &env);
+    // Resolve which configuration's terminal launcher to invoke: the
+    // active doc's pinned config when there's a FreeBASIC source open,
+    // otherwise the catalog's active config. Fall back to the platform
+    // default when the resolved terminal field is empty.
+    const auto pinned = (doc != nullptr && doc->getType() == DocumentType::FreeBASIC)
+                          ? doc->getConfiguration()
+                          : std::optional<wxString> {};
+    const auto& cfg = m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(pinned);
+    const auto terminal = cfg.terminal.IsEmpty() ? ConfigManager::getTerminal() : cfg.terminal;
+    wxExecute(terminal, wxEXEC_ASYNC, nullptr, &env);
 }
 
 void CommandManager::onParameters(wxCommandEvent&) {

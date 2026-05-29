@@ -7,6 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "AsyncProcess.hpp"
+#include "CompilerConfigCatalog.hpp"
 
 namespace fbide {
 class Context;
@@ -85,6 +86,7 @@ private:
 
     Context& m_ctx;                    ///< Application context.
     Document* m_doc;                   ///< Document this task is bound to (nullable).
+    ResolvedCompilerConfig m_config;   ///< Snapshot captured at construction — stable across compile + run.
     bool m_running = false;            ///< True while a process is in flight.
     bool m_shouldRun = false;          ///< True when a successful compile should chain into run.
     bool m_isQuickRun = false;         ///< True for QuickRun (compile to temp file + run).

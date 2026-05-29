@@ -94,6 +94,7 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
     m_encoding = editor.get_or("encoding", "UTF-8");
     m_eolMode = editor.get_or("eolMode", "LF");
     m_splashScreen = cfg.get_or("general.splashScreen", true);
+    m_configurationInStatusBar = cfg.get_or("commands.configurationInStatusBar", false);
     m_language = currentLocaleFileName(cfg);
 }
 
@@ -122,6 +123,7 @@ void GeneralPage::create() {
             checkBox(m_foldMargin, tr("dialogs.settings.general.foldMargin"));
             checkBox(m_changeTracking, tr("dialogs.settings.general.changeTracking"));
             checkBox(m_splashScreen, tr("dialogs.settings.general.splashScreen"));
+            checkBox(m_configurationInStatusBar, tr("dialogs.settings.general.configurationInStatusBar"));
             spinCtrl(m_tabSize, tr("dialogs.settings.general.tabSize"), 1, 16, {});
             hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
                 text(tr("dialogs.settings.general.eolMode"), { .expand = false });
@@ -167,7 +169,7 @@ void GeneralPage::create() {
     SetSizerAndFit(currentSizer());
 }
 
-void GeneralPage::apply() {
+auto GeneralPage::apply() -> bool {
     auto& cfgManager = getContext().getConfigManager();
     auto& cfg = cfgManager.config();
     auto& editor = cfg["editor"];
@@ -187,6 +189,7 @@ void GeneralPage::apply() {
     editor["encoding"] = m_encoding;
     editor["eolMode"] = m_eolMode;
     cfg["general"]["splashScreen"] = m_splashScreen;
+    cfg["commands"]["configurationInStatusBar"] = m_configurationInStatusBar;
 
     // Swap locale file if the user picked a different language. Live
     // refresh would have to update every menu/dialog/sidebar string in
@@ -205,7 +208,7 @@ void GeneralPage::apply() {
         if (answer != wxYES) {
             // Revert the in-memory selection — config stays unchanged.
             m_language = currentLocaleFileName(cfg);
-            return;
+            return true;
         }
 
         // Hand the restart over to App. The locale-path swap is
@@ -219,4 +222,5 @@ void GeneralPage::apply() {
             );
         });
     }
+    return true;
 }

@@ -132,6 +132,18 @@ public:
     /// Update document controls settings
     void updateSettings();
 
+    /// Compiler configuration this document is pinned to (slug, e.g.
+    /// `"cfg-1"`). Empty means "follow whatever is currently active" —
+    /// see `docs/compiler-configurations.md`.
+    [[nodiscard]] auto getConfiguration() const noexcept -> const std::optional<wxString>& { return m_configuration; }
+
+    /// Pin the document to a specific configuration, or clear the pin.
+    /// CompilerManager owns the normalisation rule ("matches active →
+    /// empty"); this setter is a dumb assignment. Does NOT mark the
+    /// document modified — configuration lives in the session file, not
+    /// in the document contents.
+    void setConfiguration(std::optional<wxString> slug) noexcept { m_configuration = std::move(slug); }
+
 private:
     /// Page resized — re-evaluate whether the minimap still fits.
     void onContainerSize(wxSizeEvent& event);
@@ -159,6 +171,7 @@ private:
     /// modify flag in isModified() so encoding-only edits still show as dirty.
     bool m_metaModified = false;
     std::shared_ptr<const SymbolTable> m_symbolTable; ///< Latest intellisense result for this document.
+    std::optional<wxString> m_configuration;          ///< Pinned compiler config slug; empty = follow active.
 };
 
 } // namespace fbide
