@@ -95,11 +95,6 @@ private:
     Unowned<wxBitmapButton> m_copyButton;
     Unowned<wxBitmapButton> m_removeButton;
 
-    /// Slug for each row of `m_configList`. Indices line up 1:1 with
-    /// `wxListBox::GetSelection()` so we don't need a wxClientData
-    /// allocation per row.
-    std::vector<wxString> m_listSlugs;
-
     Unowned<wxStaticText> m_nameLabel;
     Unowned<wxTextCtrl> m_nameField;
     Unowned<wxCheckBox> m_activeCheckbox;

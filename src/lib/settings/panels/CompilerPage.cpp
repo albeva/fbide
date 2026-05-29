@@ -224,21 +224,15 @@ auto CompilerPage::formatListLabel(const wxString& slug, const wxString& name) c
 }
 
 void CompilerPage::selectSlug(const wxString& slug) {
-    const auto it = std::ranges::find(m_listSlugs, slug);
-    if (it == m_listSlugs.end()) {
-        return;
+    if (const auto index = catalog().indexOf(slug); index >= 0) {
+        m_configList->SetSelection(index);
     }
-    const auto index = static_cast<unsigned>(std::distance(m_listSlugs.begin(), it));
-    m_configList->SetSelection(static_cast<int>(index));
 }
 
 void CompilerPage::refreshList() {
     m_configList->Clear();
-    m_listSlugs.clear();
-
     for (const auto& cfg : catalog().all()) {
         m_configList->Append(formatListLabel(cfg.slug, cfg.displayName));
-        m_listSlugs.push_back(cfg.slug);
     }
 }
 
@@ -327,20 +321,19 @@ void CompilerPage::commitFieldOverrides() {
 
 void CompilerPage::onListSelChanged(wxCommandEvent& event) {
     event.Skip();
-    const auto sel = m_configList->GetSelection();
-    if (sel == wxNOT_FOUND || static_cast<std::size_t>(sel) >= m_listSlugs.size()) {
+    const auto* cfg = catalog().at(m_configList->GetSelection());
+    if (cfg == nullptr) {
         return;
     }
-    const auto& picked = m_listSlugs[static_cast<std::size_t>(sel)];
     // Programmatic SetSelection after Add / Copy / refresh fires this
     // handler too; if the slug already matches we leave the right-pane
     // alone (commitFieldOverrides would write the old widget state into
     // the freshly-created config otherwise).
-    if (picked == m_selectedSlug) {
+    if (cfg->slug == m_selectedSlug) {
         return;
     }
     commitFieldOverrides();
-    m_selectedSlug = picked;
+    m_selectedSlug = cfg->slug;
     loadSelectedConfig();
 }
 
@@ -408,10 +401,8 @@ void CompilerPage::onNameChanged(wxCommandEvent& /*event*/) {
     catalog().rename(m_selectedSlug, m_nameField->GetValue());
     // Just refresh the visible label without rebuilding the whole list
     // (rebuilding would steal the user's edit focus from the field).
-    const auto it = std::ranges::find(m_listSlugs, m_selectedSlug);
-    if (it != m_listSlugs.end()) {
-        const auto index = static_cast<unsigned>(std::distance(m_listSlugs.begin(), it));
-        m_configList->SetString(index, formatListLabel(m_selectedSlug, m_nameField->GetValue()));
+    if (const auto index = catalog().indexOf(m_selectedSlug); index >= 0) {
+        m_configList->SetString(static_cast<unsigned>(index), formatListLabel(m_selectedSlug, m_nameField->GetValue()));
     }
 }
 

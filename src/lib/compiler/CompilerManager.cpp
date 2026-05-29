@@ -335,10 +335,8 @@ void CompilerManager::onActiveDocumentChanged(Document* doc) {
         } else {
             m_configCombo->Enable();
             const auto& resolved = m_catalog->resolveByPinnedSlug(doc->getConfiguration());
-            if (const auto it = std::ranges::find(m_configComboSlugs, resolved.slug); it != m_configComboSlugs.end()) {
-                m_configCombo->SetSelection(
-                    static_cast<int>(std::distance(m_configComboSlugs.begin(), it))
-                );
+            if (const auto index = m_catalog->indexOf(resolved.slug); index >= 0) {
+                m_configCombo->SetSelection(index);
             }
         }
     }
@@ -355,10 +353,8 @@ void CompilerManager::populateConfigurationCombo() {
     }
     m_configCombo->Freeze();
     m_configCombo->Clear();
-    m_configComboSlugs.clear();
     for (const auto& cfg : m_catalog->all()) {
         m_configCombo->Append(cfg.displayName);
-        m_configComboSlugs.push_back(cfg.slug);
     }
     m_configCombo->Thaw();
 }
@@ -367,11 +363,9 @@ void CompilerManager::onConfigurationComboSelected() {
     if (m_lastActiveDoc == nullptr || m_configCombo == nullptr) {
         return;
     }
-    const auto sel = m_configCombo->GetSelection();
-    if (sel < 0 || static_cast<std::size_t>(sel) >= m_configComboSlugs.size()) {
-        return;
+    if (const auto* cfg = m_catalog->at(m_configCombo->GetSelection())) {
+        setDocumentConfiguration(*m_lastActiveDoc, cfg->slug);
     }
-    setDocumentConfiguration(*m_lastActiveDoc, m_configComboSlugs.at(static_cast<std::size_t>(sel)));
 }
 
 void CompilerManager::setConfigurationComboVisible(const bool visible) {
@@ -394,17 +388,13 @@ auto CompilerManager::configurationStatusLabel() const -> wxString {
 
 auto CompilerManager::buildConfigurationMenu() const -> std::unique_ptr<wxMenu> {
     auto menu = std::make_unique<wxMenu>();
-    wxString currentSlug;
-    if (m_lastActiveDoc != nullptr) {
-        currentSlug = m_catalog->resolveByPinnedSlug(m_lastActiveDoc->getConfiguration()).slug;
-    }
-    int idx = 0;
-    for (const auto& cfg : m_catalog->all()) {
-        auto* item = menu->AppendRadioItem(kStatusMenuIdBase + idx, cfg.displayName);
-        if (cfg.slug == currentSlug) {
-            item->Check(true);
-        }
-        ++idx;
+    const auto currentSlug = m_lastActiveDoc != nullptr
+                               ? m_catalog->resolveByPinnedSlug(m_lastActiveDoc->getConfiguration()).slug
+                               : wxString {};
+    const auto configs = m_catalog->all();
+    for (std::size_t i = 0; i < configs.size(); ++i) {
+        auto* item = menu->AppendRadioItem(kStatusMenuIdBase + static_cast<int>(i), configs[i].displayName);
+        item->Check(configs[i].slug == currentSlug);
     }
     return menu;
 }
@@ -413,19 +403,7 @@ void CompilerManager::applyConfigurationMenuSelection(int menuId) {
     if (m_lastActiveDoc == nullptr) {
         return;
     }
-    const int offset = menuId - kStatusMenuIdBase;
-    if (offset < 0) {
-        return;
+    if (const auto* cfg = m_catalog->at(menuId - kStatusMenuIdBase)) {
+        setDocumentConfiguration(*m_lastActiveDoc, cfg->slug);
     }
-    int idx = 0;
-    for (const auto& cfg : m_catalog->all()) {
-        if (idx++ == offset) {
-            setDocumentConfiguration(*m_lastActiveDoc, cfg.slug);
-            return;
-        }
-    }
-}
-
-void CompilerManager::setStatus(const wxString& path) const {
-    m_ctx.getUIManager().getMainFrame()->SetStatusText(path.empty() ? wxString {} : m_ctx.tr(path));
 }

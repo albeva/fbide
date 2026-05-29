@@ -148,11 +148,9 @@ private:
     /// Ensure document is saved. Returns false if user cancelled.
     auto ensureSaved(Document& doc) -> bool;
 
-    /// Set status bar text from locale path (empty for none).
-    void setStatus(const wxString& path) const;
-
-    /// Rebuild the combobox entries (slugs + display names) from the
-    /// current catalog state.
+    /// Rebuild the combobox display names from the current catalog
+    /// state. Item order mirrors `catalog().all()`, so a selection index
+    /// maps straight back through `catalog().at()`.
     void populateConfigurationCombo();
 
     /// React to the user picking an entry in the toolbar combobox —
@@ -169,7 +167,6 @@ private:
     wxString m_parameters;                            ///< Runtime parameters set via the Parameters dialog.
     wxString m_fbcVersion;                            ///< Cached `fbc --version` output (empty until probed).
     wxComboBox* m_configCombo = nullptr;              ///< Toolbar-owned widget; non-null after configureToolBar.
-    std::vector<wxString> m_configComboSlugs;         ///< Parallel to combobox items: slug per position.
     Document* m_lastActiveDoc = nullptr;              ///< Last document the combobox was synced to.
 };
 

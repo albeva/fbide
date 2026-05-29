@@ -98,6 +98,17 @@ public:
     /// suffix of their `cfg-N` slug.
     [[nodiscard]] auto all() const -> std::span<const ResolvedCompilerConfig>;
 
+    /// Config at position `index` within `all()`, or `nullptr` when the
+    /// index is out of range. Lets list widgets that mirror `all()` map
+    /// a selection index straight back to a config — no parallel slug
+    /// array of their own.
+    [[nodiscard]] auto at(int index) const -> const ResolvedCompilerConfig*;
+
+    /// Position of `slug` within `all()`, or `-1` (matching
+    /// `wxNOT_FOUND`) when absent. Inverse of `at()`; feeds straight
+    /// into `wxControlWithItems::SetSelection`.
+    [[nodiscard]] auto indexOf(const wxString& slug) const -> int;
+
     /// Slug of the active configuration — `compiler.active` from the INI,
     /// or `"default"` when the key is unset or refers to a missing slug.
     /// Resolved during `reload()`; a missing-slug fallback emits one
