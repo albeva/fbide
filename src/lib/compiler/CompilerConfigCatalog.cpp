@@ -171,8 +171,7 @@ auto CompilerConfigCatalog::all() const -> std::span<const ResolvedCompilerConfi
     return m_configs;
 }
 
-auto CompilerConfigCatalog::resolveByPinnedSlug(const std::optional<wxString>& pinnedSlug) const
-    -> const ResolvedCompilerConfig& {
+auto CompilerConfigCatalog::resolveByPinnedSlug(const std::optional<wxString>& pinnedSlug) const -> const ResolvedCompilerConfig& {
     if (pinnedSlug.has_value()) {
         if (const auto* cfg = find(*pinnedSlug)) {
             return *cfg;
@@ -192,8 +191,7 @@ auto CompilerConfigCatalog::resolveByPinnedSlug(const std::optional<wxString>& p
     return canonical();
 }
 
-auto CompilerConfigCatalog::normalizeForStorage(const wxString& pickedSlug) const
-    -> std::optional<wxString> {
+auto CompilerConfigCatalog::normalizeForStorage(const wxString& pickedSlug) const -> std::optional<wxString> {
     if (pickedSlug == activeSlug()) {
         return std::nullopt;
     }
