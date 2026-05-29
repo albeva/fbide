@@ -146,7 +146,6 @@ void UIManager::createMainFrame() {
     // Honour the `commands.configurationInStatusBar` preference up-
     // front so the chrome matches the user's choice the moment the
     // window appears.
-    refreshConfigurationDisplay();
     m_aui.Update();
 
     // Create the compiler log dialog up-front, hidden. BuildTask
@@ -179,12 +178,19 @@ void UIManager::loadAuiPerspective() {
     // update=false: defer the visual refresh — the createMainFrame
     // caller invokes m_aui.Update() once for both the restored layout
     // and any state changes that happened earlier.
-    m_aui.LoadPerspective(perspective, false);
+    m_aui.LoadPerspective(perspective, true);
+    resetToolbarSize();
+}
 
-    // Ensure toolbar fits the controls.
-    CallAfter([this] {
-        m_auiToolbar->Fit();
-    });
+void UIManager::resetToolbarSize() {
+    Bind(wxEVT_IDLE, &UIManager::OnPostRestoreIdle, this);
+}
+
+void UIManager::OnPostRestoreIdle(wxIdleEvent& /*event*/) {
+    Unbind(wxEVT_IDLE, &UIManager::OnPostRestoreIdle, this);
+    m_auiToolbar->InvalidateBestSize();
+    m_auiToolbar->Fit();
+    m_aui.Update();
 }
 
 void UIManager::refreshAuiArt() const {
@@ -493,9 +499,6 @@ void UIManager::configureToolBar() {
                     .CloseButton(false)
                     .PaneBorder(false)
             );
-        } else {
-            m_auiToolbar->Fit();
-            m_aui.Update();
         }
     } catch (const std::exception& ex) {
         wxLogError("Invalid layout config for toolbar: %s", ex.what());
@@ -514,9 +517,7 @@ void UIManager::refreshConfigurationDisplay() {
     // toolbar out of step — adding or dropping the combobox to match.
     if (m_ctx.getCompilerManager().hasConfigurationCombo() == inStatusBar) {
         configureToolBar();
-        CallAfter([this] {
-            m_auiToolbar->Fit();
-        });
+        resetToolbarSize();
     }
     m_statusBar.applyPreference();
 }

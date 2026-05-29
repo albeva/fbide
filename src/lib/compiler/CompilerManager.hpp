@@ -51,16 +51,16 @@ public:
     void quickRun();
 
     /// Kill active compile or run task
-    void killProcess();
+    void killProcess()const;
 
     /// Show compiler log dialog with full output.
-    void showCompilerLog();
+    void showCompilerLog()const;
 
     /// Refresh the compiler log dialog if it exists.
-    void refreshCompilerLog();
+    void refreshCompilerLog()const;
 
     /// Navigate to an error by line number and file name.
-    void goToError(int line, const wxString& fileName);
+    void goToError(int line, const wxString& fileName)const;
 
     /// Get the fbc version string. Validates the compiler path, runs `fbc --version`,
     /// and caches the result. Returns empty string if compiler is not accessible.
@@ -77,13 +77,13 @@ public:
     /// checkbox toggles `alerts.ignore.missingCompilerBinary` so future
     /// launches stay silent. No-op when the binary is reachable or the
     /// ignore flag is set. Call once after the main frame is created.
-    void checkCompilerOnStartup();
+    void checkCompilerOnStartup()const;
 
     /// Show the "compiler not found" prompt without the silence checkbox
     /// (used by the build flow when the user explicitly invokes compile/
     /// run): the alert is always relevant because the user just asked for
     /// the compiler. "Yes" opens the Settings dialog on the Compiler tab.
-    void promptMissingCompiler();
+    void promptMissingCompiler()const;
 
     /// Reset the cached fbc version. Call when compiler path may have changed.
     void resetFbcVersion() { m_fbcVersion.clear(); }
@@ -102,7 +102,7 @@ public:
     /// Apply the "matches active → empty" normalisation and store the
     /// resulting optional on the document. The combobox event handler
     /// is the only caller.
-    void setDocumentConfiguration(Document& doc, const wxString& pickedSlug);
+    void setDocumentConfiguration(Document& doc, const wxString& pickedSlug)const;
 
     /// Create the toolbar configuration combobox and sync it to the
     /// active document. Called by `UIManager::configureToolBar` when it
@@ -142,7 +142,7 @@ public:
 
     /// Apply a status-bar menu selection — same normalisation as the
     /// toolbar combobox path.
-    void applyConfigurationMenuSelection(int menuId);
+    void applyConfigurationMenuSelection(int menuId)const;
 
     /// First menu-item ID reserved for the status-bar configuration
     /// popup. Each catalog entry's index is added to the base — used
@@ -152,23 +152,23 @@ public:
 
 private:
     /// Get active FreeBASIC document, or nullptr if unavailable.
-    [[nodiscard]] auto getActiveDocument() -> Document*;
+    [[nodiscard]] auto getActiveDocument()const -> Document*;
 
     /// Ensure document is saved. Returns false if user cancelled.
-    auto ensureSaved(Document& doc) -> bool;
+    auto ensureSaved(Document& doc)const -> bool;
 
     /// Rebuild the combobox display names from the current catalog
     /// state. Item order mirrors `catalog().all()`, so a selection index
     /// maps straight back through `catalog().at()`.
-    void populateConfigurationCombo();
+    void populateConfigurationCombo()const;
 
     /// React to the user picking an entry in the toolbar combobox —
     /// apply the normalisation and store on the active document.
-    void onConfigurationComboSelected();
+    void onConfigurationComboSelected()const;
 
     /// Mirror the resolved configuration label into the status-bar
     /// field, when the configuration status-bar layout is active.
-    void pushStatusBarLabel();
+    void pushStatusBarLabel()const;
 
     Context& m_ctx;                                   ///< Application context.
     std::unique_ptr<CompilerConfigCatalog> m_catalog; ///< Resolved view of `[compiler]` + `[compiler/*]`.

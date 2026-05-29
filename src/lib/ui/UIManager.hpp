@@ -173,6 +173,8 @@ private:
     /// the config key is missing. Must run after every pane has been added so
     /// pane lookup by name succeeds.
     void loadAuiPerspective();
+    void resetToolbarSize();
+    void OnPostRestoreIdle(wxIdleEvent&);
 
     Context& m_ctx;                               ///< Application context.
     UIState m_documentState = UIState::None;      ///< Document-side state slot.
