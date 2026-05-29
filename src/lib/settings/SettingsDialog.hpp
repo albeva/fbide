@@ -13,6 +13,7 @@ class GeneralPage;
 class ThemePage;
 class KeywordsPage;
 class CompilerPage;
+class Panel;
 
 /// Settings dialog with tabs for General, Themes, Keywords, and Compiler.
 /// Each tab is managed by its own page class.
@@ -38,10 +39,21 @@ public:
     void create(Page initial = Page::General);
 
 private:
-    /// Run every panel's `apply()`, save dirty categories, refresh live UI.
-    void applyChanges() const;
+    /// Run every panel's `apply()` (active page first so its
+    /// validation surfaces immediately), save dirty categories,
+    /// refresh live UI. Returns `false` when any panel rejects its
+    /// input — in that case the offending panel is selected and the
+    /// dialog stays open.
+    [[nodiscard]] auto applyChanges() -> bool;
+
+    /// Walk every panel's `cancel()` to roll back pending edits.
+    void cancelChanges() const;
+
+    /// Resolve a `Page` enum to the underlying panel pointer.
+    [[nodiscard]] auto panelAt(Page page) const -> Panel*;
 
     Context& m_ctx;                       ///< Application context.
+    Unowned<wxNotebook> m_notebook;       ///< Tab notebook owning the panels.
     Unowned<GeneralPage> m_generalPage;   ///< General tab.
     Unowned<ThemePage> m_themePage;       ///< Theme tab.
     Unowned<KeywordsPage> m_keywordsPage; ///< Keywords tab.

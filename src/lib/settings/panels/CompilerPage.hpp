@@ -7,71 +7,117 @@
 #pragma once
 #include "pch.hpp"
 #include "app/Context.hpp"
+#include "compiler/CompilerConfigCatalog.hpp"
+#include "config/Value.hpp"
+#include "ui/controls/InheritableField.hpp"
 #include "ui/controls/Panel.hpp"
 
 namespace fbide {
+class CompilerConfigCatalog;
 
-/// Compiler settings tab — paths and command prototypes.
+/// Compiler settings tab — multi-configuration editor: list on the
+/// left, per-config field editor on the right. Edits flow through
+/// `CompilerConfigCatalog`. `[compiler]` is snapshotted on `create()`
+/// and restored on `cancel()` so the user can roll back any
+/// Add / Copy / Remove / Rename / Active / Override.
 class CompilerPage final : public Panel {
 public:
     NO_COPY_AND_MOVE(CompilerPage)
 
-    /// Construct without populating widgets; `create()` builds the UI.
     explicit CompilerPage(Context& ctx, wxWindow* parent);
-    /// Build the panel widgets.
     void create() override;
-    /// Commit edits back into `ConfigManager`.
-    void apply() override;
+    auto apply() -> bool override;
+    void cancel() override;
 
-    /// Move keyboard focus to the compiler path entry. Used when the
-    /// dialog is opened from the startup compiler-missing prompt so the
-    /// user can start typing the path immediately.
+    /// Move keyboard focus to the path field of the active selection.
+    /// Used when the dialog is opened from the startup compiler-missing
+    /// prompt so the user can start typing the path immediately.
     void focusCompilerPath();
 
 private:
-    /// Locale lookup with empty default — sugar over `ConfigManager::locale().get_or`.
-    auto tr(const wxString& path) const -> wxString {
-        return getContext().getConfigManager().locale().get_or(path, "");
+    /// Locale lookup — resolves keys against the cached
+    /// `[dialogs/settings/compiler]` subtree so the full path doesn't
+    /// have to be re-resolved on every call.
+    [[nodiscard]] auto tr(const wxString& key) const -> wxString {
+        return m_locale.get_or(key, key);
     }
+    [[nodiscard]] auto catalog() const -> CompilerConfigCatalog&;
 
-    /// Build the compiler-path file picker row.
-    void compilerPath();
-    /// Build the compile-command template entry row.
-    void compilerCommand();
-    /// Build the run-command template entry row.
-    void runCommand();
-#ifdef __WXMSW__
-    /// Build the CHM help-file path picker row (Windows only).
-    void helpFile();
-#endif
-    /// Build the placeholder reference list (click-to-insert).
-    void placeholderTable();
-    /// Repopulate the placeholder list for the currently-focused command field.
-    void refreshPlaceholders();
-    /// Insert `placeholder` at the cursor of the most recently focused command field.
-    void insertPlaceholder(const wxString& placeholder);
-    /// Show or hide the placeholder list + its title in unison.
-    void setPlaceholderVisible(bool visible);
-    /// Path used as `<$file>` example — active FB document if any, otherwise a fixed sample.
-    [[nodiscard]] auto getSampleSourcePath() const -> wxString;
+    void buildConfigurationsGroup();
+    void buildLeftPane();
+    void buildRightPane();
 
-    /// Create a labelled text-entry field bound to `value`.
-    auto makeEntryField(wxString& value, const wxString& labelText) -> Unowned<wxTextCtrl>;
-    /// Create a labelled text-entry + Browse button bound to `value`.
-    auto makeFileEntry(wxString& value, const wxString& labelText) -> std::pair<Unowned<wxTextCtrl>, Unowned<wxButton>>;
+    void refreshList();
+    void loadSelectedConfig();
+    void commitFieldOverrides();
+    /// Format the list label for a single configuration — the active
+    /// entry gets a localised " (active)" suffix.
+    [[nodiscard]] auto formatListLabel(const wxString& slug, const wxString& name) const -> wxString;
+    /// Select a slug in the list without rebuilding it.
+    void selectSlug(const wxString& slug);
+    /// Pairs of {widget, enum value} for every overridable field, in
+    /// declaration order. Single source of truth for load / commit /
+    /// inherit-toggle loops so the four fields don't have to be re-listed
+    /// at every call site.
+    [[nodiscard]] auto fieldEntries() const
+        -> std::array<std::pair<InheritableField*, CompilerField>, kAllCompilerFields.size()>;
 
-    wxString m_compilerPath;   ///< `compiler.path` value.
-    wxString m_compileCommand; ///< `compiler.compile` template.
-    wxString m_runCommand;     ///< `compiler.run` template.
-#ifdef __WXMSW__
-    wxString m_helpFile; ///< CHM help-file path (Windows only).
-#endif
-    Unowned<wxTextCtrl> m_compilerPathField {};   ///< Cached compiler-path entry for `focusCompilerPath`.
-    Unowned<wxTextCtrl> m_compileCommandField {}; ///< Cached compile-command entry (target of placeholder inserts).
-    Unowned<wxTextCtrl> m_runCommandField {};     ///< Cached run-command entry (target of placeholder inserts).
-    Unowned<wxStaticText> m_placeholderTitle {};  ///< Heading shown above `m_placeholderList`; hidden together.
-    Unowned<wxListCtrl> m_placeholderList {};     ///< Click-to-insert placeholder reference table.
-    wxTextCtrl* m_lastFocused = nullptr;          ///< Most recently focused command field (insert target).
+    // Event handlers — matched against the event table in the .cpp.
+    void onAddClicked(wxCommandEvent& event);
+    void onCopyClicked(wxCommandEvent& event);
+    void onRemoveClicked(wxCommandEvent& event);
+    void onMoveUpClicked(wxCommandEvent& event);
+    void onMoveDownClicked(wxCommandEvent& event);
+    void onNameChanged(wxCommandEvent& event);
+    void onActiveToggled(wxCommandEvent& event);
+    void onShowInMenuToggled(wxCommandEvent& event);
+    /// Triggered by any of the four `InheritableField`s when the user
+    /// toggles its inherit checkbox. Saves the current override value
+    /// on tick-on (so an accidental tick can be undone) and restores
+    /// from the memory map on tick-off.
+    void onInheritToggled(wxCommandEvent& event);
+    /// User picked a different row in the configuration list — commits
+    /// the current right-pane state and loads the new selection.
+    /// Programmatic re-selections (after Add / Copy / etc.) no-op when
+    /// the slug already matches `m_selectedSlug`.
+    void onListSelChanged(wxCommandEvent& event);
+
+    /// Locale subtree for `[dialogs/settings/compiler]` — see `tr()`.
+    const Value& m_locale;
+
+    /// Snapshot of `[compiler]` captured in `create()`; replayed in
+    /// `cancel()` to undo every CRUD mutation the user performed
+    /// during the dialog session.
+    Value m_compilerSnapshot;
+
+    /// Slug currently shown in the right pane; empty if nothing selected.
+    wxString m_selectedSlug;
+
+    Unowned<wxListBox> m_configList;
+    Unowned<wxBitmapButton> m_addButton;
+    Unowned<wxBitmapButton> m_copyButton;
+    Unowned<wxBitmapButton> m_removeButton;
+    Unowned<wxBitmapButton> m_moveUpButton;
+    Unowned<wxBitmapButton> m_moveDownButton;
+
+    Unowned<wxStaticText> m_nameLabel;
+    Unowned<wxTextCtrl> m_nameField;
+    Unowned<wxCheckBox> m_activeCheckbox;
+    Unowned<wxCheckBox> m_showInMenuCheckbox;
+
+    Unowned<InheritableField> m_pathField;
+    Unowned<InheritableField> m_compileField;
+    Unowned<InheritableField> m_runField;
+    Unowned<InheritableField> m_terminalField;
+
+    /// Per-field memory of the user's last custom override value.
+    /// Populated when the user ticks "inherit" so the value can be
+    /// restored on a subsequent untick. Cleared whenever a different
+    /// configuration is loaded (see `loadSelectedConfig`); naturally
+    /// destroyed when the dialog closes.
+    std::unordered_map<CompilerField, wxString> m_lastOverrideValues;
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide

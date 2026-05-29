@@ -18,12 +18,14 @@ elseif (APPLE)
     # macos bundle executable
     add_executable(fbide MACOSX_BUNDLE)
 
-    # Info.plist
-    set(FBIDE_INFO_PLIST ${CMAKE_BINARY_DIR}/configured_files/macos/Info.plist)
-    set_source_files_properties(${FBIDE_INFO_PLIST}
-        PROPERTIES MACOSX_PACKAGE_LOCATION "."
+    # Info.plist — point CMake's bundle linker step at the pre-configured
+    # template. `MACOSX_BUNDLE_INFO_PLIST` is the only property CMake honours
+    # for the actual Contents/Info.plist; treating the file as a source +
+    # MACOSX_PACKAGE_LOCATION just copies it in and then gets overwritten by
+    # CMake's default empty boilerplate at link time.
+    set_target_properties(fbide PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_BINARY_DIR}/configured_files/macos/Info.plist
     )
-    target_sources(fbide PRIVATE ${FBIDE_INFO_PLIST})
 
     # App icons
     set(FBIDE_MACOS_ICON ${PROJECT_SOURCE_DIR}/src/lib/rc/fbide.icns)

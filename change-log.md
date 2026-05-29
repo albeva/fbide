@@ -1,3 +1,10 @@
+# Changes since 0.5.0-rc.3
+
+- Added multiple compiler configurations.
+- Added configuration selector to toolbar or statusbar (configurable).
+- Include file resolution searchs "-i" from compile command.
+- Show run command in the log
+
 # Changes since 0.5.0-rc.2
 
 - Added change tracking (#1)

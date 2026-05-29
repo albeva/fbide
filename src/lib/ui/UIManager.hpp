@@ -8,6 +8,7 @@
 #include "pch.hpp"
 #include "ArtiProvider.hpp"
 #include "OutputConsole.hpp"
+#include "StatusBarHandler.hpp"
 #include "UIState.hpp"
 #include "command/CommandId.hpp"
 
@@ -94,6 +95,19 @@ public:
     /// Toggle the output console pane's visibility.
     void showConsole(bool show);
 
+    /// Apply the current `commands.configurationInStatusBar` preference:
+    /// adjust the status-bar field count and add or remove the toolbar
+    /// combobox (rebuilding the toolbar when a runtime toggle leaves it
+    /// out of step). Called once at startup and again from
+    /// `updateSettings` so changes take effect without a restart.
+    void refreshConfigurationDisplay();
+
+    /// Access the status-bar handler — used by `Editor` to push line
+    /// / column + per-document fields, and by `CompilerManager` to
+    /// refresh the configuration label on catalog changes.
+    [[nodiscard]] auto getStatusBar() -> StatusBarHandler& { return m_statusBar; }
+    [[nodiscard]] auto getStatusBar() const -> const StatusBarHandler& { return m_statusBar; }
+
     /// Get the output console.
     [[nodiscard]] auto getOutputConsole() -> OutputConsole& { return *m_console; }
 
@@ -123,20 +137,20 @@ private:
     void onPageChanged(wxAuiNotebookEvent& event);
     /// Notebook double-click — open file dialog when clicking blank tab area.
     void onNotebookDblClick(wxAuiNotebookEvent& event);
-    /// Status-bar click — open EOL/encoding pickers on the relevant fields.
-    void onStatusBarClick(wxMouseEvent& event);
-
     /// Build the main menu bar from `layout.ini` + locale.
     void configureMenuBar();
     /// Recursively populate a single menu by id from layout.
     void configureMenuItems(wxMenu* menu, const wxString& id, bool addSeparators);
-    /// Build the toolbar from `layout.ini`.
+    /// Build the toolbar from `layout.ini`. Re-entrant: a second call
+    /// rebuilds in place (used when the configuration combobox has to be
+    /// added or removed after a preference toggle).
     void configureToolBar();
     /// Append the external-links submenu under Help.
     void generateExternalLinks(wxMenu* menu);
 
-    /// Create the multi-field status bar.
-    void createStatusBar() const;
+    /// Create the multi-field status bar by delegating to
+    /// `StatusBarHandler`.
+    void createStatusBar();
     /// Create AUI panes, document notebook, sidebar notebook, output console.
     void createLayout();
     /// Sync the output-console pane's visibility with the `viewResult` command.
@@ -159,11 +173,14 @@ private:
     /// the config key is missing. Must run after every pane has been added so
     /// pane lookup by name succeeds.
     void loadAuiPerspective();
+    void resetToolbarSize();
+    void OnPostRestoreIdle(wxIdleEvent&);
 
     Context& m_ctx;                               ///< Application context.
     UIState m_documentState = UIState::None;      ///< Document-side state slot.
     UIState m_compilerState = UIState::None;      ///< Compiler-side state slot (overrides document).
     wxAuiManager m_aui;                           ///< AUI dock manager for the frame.
+    StatusBarHandler m_statusBar;                 ///< Status-bar field layout, content, and click routing.
     std::unique_ptr<ArtiProvider> m_artProvider;  ///< Icon/bitmap dispatch for menus + toolbar.
     Unowned<CompilerLog> m_compilerLog;           ///< Compiler-log dialog (wx-parented, hidden until shown).
     Unowned<OutputConsole> m_console;             ///< Build/run output pane.
