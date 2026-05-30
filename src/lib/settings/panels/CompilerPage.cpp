@@ -146,9 +146,27 @@ void CompilerPage::cancel() {
     getContext().getCompilerManager().refreshConfigurationCombo();
 }
 
-void CompilerPage::focusCompilerPath() {
-    if (m_pathField != nullptr) {
-        m_pathField->SetFocus();
+void CompilerPage::focusPath(const wxString& path) {
+    // path = "<config-slug>/<field>"; both segments optional.
+    const wxString slug = path.BeforeFirst('/');
+    const wxString fieldKey = path.AfterFirst('/');
+
+    // Select the requested configuration when given and known —
+    // otherwise leave the active selection create() set up.
+    if (!slug.IsEmpty() && catalog().find(slug) != nullptr && slug != m_selectedSlug) {
+        commitFieldOverrides();
+        m_selectedSlug = slug;
+        selectSlug(slug);
+        loadSelectedConfig();
+    }
+
+    // Focus the requested field, defaulting to the compiler path.
+    const auto target = compilerFieldFromKey(fieldKey).value_or(CompilerField::Path);
+    for (const auto& [widget, field] : fieldEntries()) {
+        if (field == target && widget != nullptr) {
+            widget->focusField();
+            return;
+        }
     }
 }
 

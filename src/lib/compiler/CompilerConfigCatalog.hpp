@@ -62,6 +62,18 @@ inline constexpr std::array kAllCompilerFields {
     return wxString {};
 }
 
+/// Inverse of `compilerFieldKey` — resolve an INI key (or settings
+/// deep-link path segment) back to its `CompilerField`. Returns
+/// `nullopt` for an unknown or empty key.
+[[nodiscard]] inline auto compilerFieldFromKey(const wxString& key) -> std::optional<CompilerField> {
+    for (const auto field : kAllCompilerFields) {
+        if (compilerFieldKey(field) == key) {
+            return field;
+        }
+    }
+    return std::nullopt;
+}
+
 /// Read-only view over the compiler configurations declared in
 /// `config_<plat>.ini` — `[compiler]` is the canonical Default, every
 /// `[compiler/<slug>]` is a user-defined entry whose unspecified fields

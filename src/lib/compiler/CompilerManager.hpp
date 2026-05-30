@@ -10,6 +10,7 @@
 namespace fbide {
 class BuildTask;
 class CompilerConfigCatalog;
+struct ResolvedCompilerConfig;
 class Document;
 class Context;
 
@@ -175,6 +176,21 @@ private:
     /// Mirror the resolved configuration label into the status-bar
     /// field, when the configuration status-bar layout is active.
     void pushStatusBarLabel()const;
+
+    /// Validate that `cfg` can compile: a reachable fbc binary and a
+    /// non-empty compile-command template. On the first missing piece
+    /// alert the user and (on confirm) open Settings at that field;
+    /// returns false so the caller aborts the build.
+    [[nodiscard]] auto ensureCompilable(const ResolvedCompilerConfig& cfg) const -> bool;
+
+    /// Validate that `cfg` can run a built executable: a non-empty
+    /// run-command template. Same alert-and-open-settings behaviour.
+    [[nodiscard]] auto ensureRunnable(const ResolvedCompilerConfig& cfg) const -> bool;
+
+    /// Yes/No "configure now?" alert with its own title + message. On
+    /// Yes, open Settings at `target` (a `focusPath` deep-link). Returns
+    /// true when the user chose to open Settings.
+    auto promptConfigure(const wxString& titleKey, const wxString& messageKey, const wxString& target) const -> bool;
 
     Context& m_ctx;                                   ///< Application context.
     std::unique_ptr<CompilerConfigCatalog> m_catalog; ///< Resolved view of `[compiler]` + `[compiler/*]`.

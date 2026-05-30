@@ -25,7 +25,7 @@ SettingsDialog::SettingsDialog(wxWindow* parent, Context& ctx)
 
 SettingsDialog::~SettingsDialog() = default;
 
-void SettingsDialog::create(const Page initial) {
+void SettingsDialog::create(const wxString& target) {
     m_notebook = make_unowned<wxNotebook>(this, wxID_ANY, wxDefaultPosition, wxDefaultSize);
 
     m_generalPage = make_unowned<GeneralPage>(m_ctx, m_notebook);
@@ -42,12 +42,19 @@ void SettingsDialog::create(const Page initial) {
     m_notebook->AddPage(m_themePage, m_ctx.tr("dialogs.settings.themes.title"));
     m_notebook->AddPage(m_keywordsPage, m_ctx.tr("dialogs.settings.keywords.title"));
     m_notebook->AddPage(m_compilerPage, m_ctx.tr("dialogs.settings.compiler.title"));
-    m_notebook->SetSelection(static_cast<std::size_t>(initial));
+    const auto page = pageFromName(target.BeforeFirst('/'));
+    const wxString subPath = target.AfterFirst('/');
+    m_notebook->SetSelection(static_cast<std::size_t>(page));
 
-    // Defer initial-page focus until the dialog is shown — calling
-    // SetFocus on a not-yet-realised control is a no-op on Windows.
-    if (initial == Page::Compiler) {
-        CallAfter([this]() { m_compilerPage->focusCompilerPath(); });
+    // Defer focus until the dialog is shown — calling SetFocus on a
+    // not-yet-realised control is a no-op on Windows. The page decodes
+    // the remaining path itself (e.g. "<config-slug>/<field>").
+    if (!target.IsEmpty()) {
+        CallAfter([this, page, subPath]() {
+            if (auto* panel = panelAt(page)) {
+                panel->focusPath(subPath);
+            }
+        });
     }
 
     auto* btnSizer = CreateStdDialogButtonSizer(wxOK | wxCANCEL);
@@ -139,4 +146,17 @@ auto SettingsDialog::panelAt(const Page page) const -> Panel* {
         return m_compilerPage;
     }
     return nullptr;
+}
+
+auto SettingsDialog::pageFromName(const wxString& name) -> Page {
+    if (name == "compiler") {
+        return Page::Compiler;
+    }
+    if (name == "theme") {
+        return Page::Theme;
+    }
+    if (name == "keywords") {
+        return Page::Keywords;
+    }
+    return Page::General;
 }
