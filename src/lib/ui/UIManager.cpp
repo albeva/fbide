@@ -184,13 +184,16 @@ void UIManager::loadAuiPerspective() {
 }
 
 void UIManager::resetToolbarSize() {
-    Bind(wxEVT_IDLE, &UIManager::OnPostRestoreIdle, this);
-}
+    wxAuiPaneInfo& pane = m_aui.GetPane(m_auiToolbar);
+    if (!pane.IsOk())
+        return;
 
-void UIManager::OnPostRestoreIdle(wxIdleEvent& /*event*/) {
-    Unbind(wxEVT_IDLE, &UIManager::OnPostRestoreIdle, this);
-    m_auiToolbar->InvalidateBestSize();
-    m_auiToolbar->Fit();
+    const wxSize hintSize = m_auiToolbar->GetHintSize(pane.dock_direction);
+    if (pane.best_size != hintSize) {
+        pane.best_size = hintSize;
+        pane.floating_size = wxDefaultSize;
+    }
+    m_auiToolbar->Update();
     m_aui.Update();
 }
 
@@ -467,7 +470,7 @@ void UIManager::configureToolBar() {
                 // empty combobox is just dead toolbar real estate.
                 if (!inStatusBar && !m_ctx.getCompilerManager().catalog().menuConfigs().empty()) {
                     m_auiToolbar->AddControl(
-                        m_ctx.getCompilerManager().createConfigurationCombo(m_auiToolbar.get()),
+                        m_ctx.getCompilerManager().createConfigurationCombo(m_auiToolbar),
                         name
                     );
                 }
@@ -483,7 +486,7 @@ void UIManager::configureToolBar() {
             m_auiToolbar->AddTool(entry->id, name, bitmap, help, entry->kind);
             m_auiToolbar->SetToolLongHelp(entry->id, help);
             if (firstBuild) {
-                entry->binds.push_back(m_auiToolbar.get());
+                entry->binds.push_back(m_auiToolbar);
             } else {
                 // Re-sync enabled / checked onto the freshly re-added tool.
                 entry->update();
@@ -493,7 +496,7 @@ void UIManager::configureToolBar() {
         m_auiToolbar->Realize();
         if (firstBuild) {
             m_aui.AddPane(
-                m_auiToolbar.get(),
+                m_auiToolbar,
                 wxAuiPaneInfo()
                     .Name("toolbar")
                     .ToolbarPane()
@@ -504,6 +507,8 @@ void UIManager::configureToolBar() {
                     .CloseButton(false)
                     .PaneBorder(false)
             );
+        } else {
+            resetToolbarSize();
         }
     } catch (const std::exception& ex) {
         wxLogError("Invalid layout config for toolbar: %s", ex.what());
@@ -524,7 +529,6 @@ void UIManager::refreshConfigurationDisplay() {
     const bool comboWanted = !inStatusBar && hasMenuConfigs;
     if (m_ctx.getCompilerManager().hasConfigurationCombo() != comboWanted) {
         configureToolBar();
-        resetToolbarSize();
     }
     m_statusBar.applyPreference();
 }
