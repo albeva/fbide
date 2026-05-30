@@ -79,13 +79,6 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     auto& ui = m_ctx.getUIManager();
     ui.getOutputConsole().clear();
 
-    // Validate compiler — getFbcVersion() checks path and caches the result
-    const auto& fbcVersion = m_ctx.getCompilerManager().getFbcVersion();
-    if (fbcVersion.empty()) {
-        m_ctx.getCompilerManager().promptMissingCompiler();
-        return;
-    }
-
     // Build command. The resolved config is captured at task construction
     // so a mid-build catalog change (e.g. user editing settings) cannot
     // half-apply across compile and run steps.

@@ -30,6 +30,13 @@ public:
     /// editing (e.g. the compiler-config catalog) override to restore.
     virtual void cancel() {}
 
+    /// Move keyboard focus to a sub-location within this panel,
+    /// addressed by a slash-delimited `path` (the remainder after the
+    /// page segment of a settings deep-link). Default is a no-op;
+    /// panels with addressable fields override. Called by
+    /// `SettingsDialog` after the target tab is shown.
+    virtual void focusPath(const wxString& /*path*/) {}
+
 protected:
     /// Access the application context.
     [[nodiscard]] auto getContext() const -> Context& { return m_ctx; }

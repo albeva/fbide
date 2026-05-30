@@ -29,10 +29,11 @@ public:
     auto apply() -> bool override;
     void cancel() override;
 
-    /// Move keyboard focus to the path field of the active selection.
-    /// Used when the dialog is opened from the startup compiler-missing
-    /// prompt so the user can start typing the path immediately.
-    void focusCompilerPath();
+    /// Deep-link focus. `path` is "<config-slug>/<field>" — both
+    /// optional. A non-empty, existing slug is selected first; the
+    /// field key (see `compilerFieldKey`) chooses which input to focus,
+    /// defaulting to the compiler-path field.
+    void focusPath(const wxString& path) override;
 
 private:
     /// Locale lookup — resolves keys against the cached
