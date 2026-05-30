@@ -283,7 +283,7 @@ void BuildTask::appendSystemInfo() {
     m_compilerLog.Add("");
     m_compilerLog.Add("[bold]" + m_ctx.tr("dialogs.log.sectionSystem") + "[/bold]");
     m_compilerLog.Add(m_ctx.tr("dialogs.log.fbidePrefix") + wxString(cmake::project.version));
-    const auto& fbcVersion = m_ctx.getCompilerManager().getFbcVersion();
+    const auto fbcVersion = m_ctx.getCompilerManager().probeCompilerVersion(m_config.path);
     if (!fbcVersion.empty()) {
         m_compilerLog.Add(m_ctx.tr("dialogs.log.fbcPrefix") + fbcVersion);
     }
