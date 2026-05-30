@@ -38,6 +38,11 @@ void CompilerManager::compile() {
         return;
     }
 
+    const auto& cfg = m_catalog->resolveByPinnedSlug(doc->getConfiguration());
+    if (!ensureCompilable(cfg)) {
+        return;
+    }
+
     m_task = std::make_unique<BuildTask>(m_ctx, doc);
     m_task->compile(toWxString(doc->getFilePath()));
 }
@@ -45,6 +50,11 @@ void CompilerManager::compile() {
 void CompilerManager::compileAndRun() {
     auto* doc = getActiveDocument();
     if (doc == nullptr || !ensureSaved(*doc)) {
+        return;
+    }
+
+    const auto& cfg = m_catalog->resolveByPinnedSlug(doc->getConfiguration());
+    if (!ensureCompilable(cfg) || !ensureRunnable(cfg)) {
         return;
     }
 
@@ -71,6 +81,11 @@ void CompilerManager::run() {
         return;
     }
 
+    const auto& cfg = m_catalog->resolveByPinnedSlug(doc->getConfiguration());
+    if (!ensureRunnable(cfg)) {
+        return;
+    }
+
     m_task = std::make_unique<BuildTask>(m_ctx, doc);
     m_task->run(exe, false);
 }
@@ -78,6 +93,11 @@ void CompilerManager::run() {
 void CompilerManager::quickRun() {
     auto* doc = getActiveDocument();
     if (doc == nullptr) {
+        return;
+    }
+
+    const auto& cfg = m_catalog->resolveByPinnedSlug(doc->getConfiguration());
+    if (!ensureCompilable(cfg) || !ensureRunnable(cfg)) {
         return;
     }
 
@@ -163,10 +183,11 @@ auto CompilerManager::getFbcVersion() -> const wxString& {
 }
 
 namespace {
-/// Open the Settings dialog focused on the Compiler tab.
-void openCompilerSettings(Context& ctx) {
+/// Open the Settings dialog at a compiler deep-link target (page +
+/// optional "<slug>/<field>").
+void openCompilerSettings(Context& ctx, const wxString& target) {
     SettingsDialog settings(ctx.getUIManager().getMainFrame(), ctx);
-    settings.create(SettingsDialog::Page::Compiler);
+    settings.create(target);
     settings.ShowModal();
 }
 } // namespace
@@ -202,15 +223,15 @@ void CompilerManager::checkCompilerOnStartup() const {
     }
 
     if (answer == wxID_YES) {
-        openCompilerSettings(m_ctx);
+        openCompilerSettings(m_ctx, "compiler");
     }
 }
 
-void CompilerManager::promptMissingCompiler() const {
+auto CompilerManager::promptConfigure(const wxString& titleKey, const wxString& messageKey, const wxString& target) const -> bool {
     wxRichMessageDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
-        m_ctx.tr("messages.missingCompilerMessage"),
-        m_ctx.tr("messages.missingCompilerTitle"),
+        m_ctx.tr(messageKey),
+        m_ctx.tr(titleKey),
         wxYES_NO | wxICON_WARNING
     );
     dlg.SetYesNoLabels(
@@ -218,8 +239,41 @@ void CompilerManager::promptMissingCompiler() const {
         m_ctx.tr("messages.missingCompilerSkip")
     );
     if (dlg.ShowModal() == wxID_YES) {
-        openCompilerSettings(m_ctx);
+        openCompilerSettings(m_ctx, target);
+        return true;
     }
+    return false;
+}
+
+void CompilerManager::promptMissingCompiler() const {
+    promptConfigure("messages.missingCompilerTitle", "messages.missingCompilerMessage", "compiler");
+}
+
+auto CompilerManager::ensureCompilable(const ResolvedCompilerConfig& cfg) const -> bool {
+    // 1. fbc binary must be set and reachable. Resolve the (possibly
+    //    relative) configured path against the IDE app dir the same way
+    //    CompileCommand does before invoking it.
+    const auto rawPath = toWxString(cfg.path);
+    wxFileName fbc { rawPath };
+    fbc.MakeAbsolute(m_ctx.getConfigManager().getAppDir());
+    if (rawPath.IsEmpty() || !wxIsExecutable(fbc.GetFullPath())) {
+        promptConfigure("messages.missingCompilerTitle", "messages.missingCompilerMessage", "compiler/" + cfg.slug + "/path");
+        return false;
+    }
+    // 2. Compile-command template must be present.
+    if (cfg.compileCommand.Strip(wxString::both).IsEmpty()) {
+        promptConfigure("messages.missingCompileCommandTitle", "messages.missingCompileCommand", "compiler/" + cfg.slug + "/compileCommand");
+        return false;
+    }
+    return true;
+}
+
+auto CompilerManager::ensureRunnable(const ResolvedCompilerConfig& cfg) const -> bool {
+    if (cfg.runCommand.Strip(wxString::both).IsEmpty()) {
+        promptConfigure("messages.missingRunCommandTitle", "messages.missingRunCommand", "compiler/" + cfg.slug + "/runCommand");
+        return false;
+    }
+    return true;
 }
 
 // ---------------------------------------------------------------------------

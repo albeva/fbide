@@ -23,6 +23,7 @@
 #include "settings/SettingsDialog.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
+#include "update/UpdateManager.hpp"
 using namespace fbide;
 
 // clang-format off
@@ -79,8 +80,9 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     EVT_MENU(+CommandId::Parameters,    CommandManager::onParameters)
 
     // Help
-    EVT_MENU(+CommandId::Help,      CommandManager::onHelp)
-    EVT_MENU(+CommandId::About,     CommandManager::onAbout)
+    EVT_MENU(+CommandId::Help,         CommandManager::onHelp)
+    EVT_MENU(+CommandId::CheckUpdates, CommandManager::onCheckUpdates)
+    EVT_MENU(+CommandId::About,        CommandManager::onAbout)
     EVT_MENU_RANGE(+CommandId::ExternalLinkFirst, +CommandId::ExternalLinkLast, CommandManager::onExternalLink)
 wxEND_EVENT_TABLE()
 // clang-format on
@@ -107,6 +109,7 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .id = +CommandId::CompilerLog,      .name="compilerLog" },
         CommandEntry { .id = +CommandId::Configuration,    .name="configuration", .kind = wxITEM_DROPDOWN },
         CommandEntry { .id = +CommandId::Copy,             .name="copy" },
+        CommandEntry { .id = +CommandId::CheckUpdates,     .name="checkUpdates" },
         CommandEntry { .id = +CommandId::Cut,              .name="cut" },
         CommandEntry { .id = +CommandId::FileHistory,      .name="fileHistory" },
         CommandEntry { .id = +CommandId::Find,             .name="find" },
@@ -413,6 +416,10 @@ void CommandManager::onParameters(wxCommandEvent&) {
 
 void CommandManager::onHelp(wxCommandEvent&) {
     m_ctx.getHelpManager().open();
+}
+
+void CommandManager::onCheckUpdates(wxCommandEvent&) {
+    m_ctx.getUpdateManager().checkManual();
 }
 
 void CommandManager::onAbout(wxCommandEvent&) {

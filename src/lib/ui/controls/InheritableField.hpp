@@ -69,6 +69,10 @@ public:
     /// rows) must re-apply `setInherited(...)` after the show.
     void setInheritCheckboxVisible(bool visible);
 
+    /// Move keyboard focus to the text input (not the inherit
+    /// checkbox or browse button).
+    void focusField();
+
 private:
     void onInheritToggle(wxCommandEvent& event);
     void onTextChanged(wxCommandEvent& event);

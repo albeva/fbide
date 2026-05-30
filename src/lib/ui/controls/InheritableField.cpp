@@ -98,6 +98,12 @@ void InheritableField::setInheritCheckboxVisible(const bool visible) {
     GetSizer()->Layout();
 }
 
+void InheritableField::focusField() {
+    if (m_field != nullptr) {
+        m_field->SetFocus();
+    }
+}
+
 void InheritableField::refreshDisplay() {
     const bool inheriting = isInherited();
     m_field->Enable(!inheriting);
