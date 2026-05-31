@@ -20,6 +20,7 @@ target_sources(fbide_lib
     compiler/CompileCommand.cpp
     compiler/CompilerConfigCatalog.cpp
     compiler/CompilerManager.cpp
+    compiler/FbcAutoDetect.cpp
     compiler/RunCommand.cpp
     config/ConfigManager.cpp
     config/ConfigStrategy.cpp
@@ -94,6 +95,7 @@ target_sources(fbide_lib
     compiler/CompileCommand.hpp
     compiler/CompilerConfigCatalog.hpp
     compiler/CompilerManager.hpp
+    compiler/FbcAutoDetect.hpp
     compiler/QuoteUtils.hpp
     compiler/RunCommand.hpp
     config/ConfigManager.hpp
