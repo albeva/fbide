@@ -5,6 +5,7 @@
 - Added compiler auto detection.
 - Added include file resolution to include "-i" from compile command.
 - Added run command to the log.
+- Added version checker, which shows a message box if there is a new version of fbide.
 - Fixed indent issue with indenting when "operator" and "property" are used as expressions (#94).
 - Fixed console min height (#95).
 
