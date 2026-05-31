@@ -2,8 +2,11 @@
 
 - Added multiple compiler configurations.
 - Added configuration selector to toolbar or statusbar (configurable).
-- Include file resolution searchs "-i" from compile command.
-- Show run command in the log
+- Added compiler auto detection.
+- Added include file resolution to include "-i" from compile command.
+- Added run command to the log.
+- Fixed indent issue with indenting when "operator" and "property" are used as expressions (#94).
+- Fixed console min height (#95).
 
 # Changes since 0.5.0-rc.2
 
