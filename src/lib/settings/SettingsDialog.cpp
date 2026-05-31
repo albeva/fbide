@@ -61,7 +61,27 @@ void SettingsDialog::create(const wxString& target) {
 
     const auto mainSizer = make_unowned<wxBoxSizer>(wxVERTICAL);
     mainSizer->Add(m_notebook, 1, wxEXPAND | wxALL, 5);
+
+#ifdef __WXMSW__
+    // "Auto detect" shares the button row, left-aligned, and is shown only
+    // while the Compiler tab is active. wxID_ANY so it never closes the dialog.
+    m_autoDetectButton = make_unowned<wxButton>(this, wxID_ANY, m_ctx.tr("dialogs.settings.compiler.autoDetect"));
+    const auto buttonRow = make_unowned<wxBoxSizer>(wxHORIZONTAL);
+    buttonRow->Add(m_autoDetectButton, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 5);
+    buttonRow->AddStretchSpacer(1);
+    buttonRow->Add(btnSizer, 0, wxALIGN_CENTER_VERTICAL);
+    mainSizer->Add(buttonRow, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
+
+    m_autoDetectButton->Show(m_notebook->GetSelection() == static_cast<int>(Page::Compiler));
+    m_autoDetectButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { m_compilerPage->autoDetect(); });
+    m_notebook->Bind(wxEVT_NOTEBOOK_PAGE_CHANGED, [this](wxBookCtrlEvent& event) {
+        m_autoDetectButton->Show(event.GetSelection() == static_cast<int>(Page::Compiler));
+        Layout();
+        event.Skip();
+    });
+#else
     mainSizer->Add(btnSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
+#endif
 
     SetSizerAndFit(mainSizer);
     Centre();

@@ -169,6 +169,12 @@ public:
     /// Look up the root `Value` for a category.
     [[nodiscard]] auto get(Category category) -> Value&;
 
+    /// Pristine baseline for a category — the bundle file parsed without
+    /// the user overlay merged in. Unlike `get()`/`config()` this is
+    /// unaffected by user edits, so comparing a current value against it
+    /// reveals whether the user diverged from the shipped default.
+    [[nodiscard]] auto baseline(Category category) -> const Value&;
+
     /// Shortcut for `get(Category::Config)`.
     [[nodiscard]] auto config() -> Value& { return get(Category::Config); }
     /// Shortcut for `get(Category::Locale)`.

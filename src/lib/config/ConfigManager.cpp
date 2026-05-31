@@ -689,6 +689,14 @@ auto ConfigManager::get(Category category) -> Value& {
     return entry.root;
 }
 
+auto ConfigManager::baseline(Category category) -> const Value& {
+    auto& entry = m_categories.at(static_cast<std::size_t>(category));
+    if (entry.category != category) {
+        load(category);
+    }
+    return entry.baseline;
+}
+
 namespace {
 /// Compose a wxFileDialog filter fragment from a description + glob:
 ///     `<desc> (<glob>)|<glob>`

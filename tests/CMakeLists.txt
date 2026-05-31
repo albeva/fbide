@@ -24,6 +24,7 @@ add_executable(tests
     unit/DocumentIOTests.cpp
     unit/DocumentPathTests.cpp
     unit/EncodingDetectorTests.cpp
+    unit/FbcAutoDetectTests.cpp
     unit/FBSciLexerTests.cpp
     unit/LineHistoryTests.cpp
     unit/ReFormatterTests.cpp

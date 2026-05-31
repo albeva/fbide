@@ -66,6 +66,9 @@ private:
     Unowned<ThemePage> m_themePage;       ///< Theme tab.
     Unowned<KeywordsPage> m_keywordsPage; ///< Keywords tab.
     Unowned<CompilerPage> m_compilerPage; ///< Compiler tab.
+#ifdef __WXMSW__
+    Unowned<wxButton> m_autoDetectButton; ///< "Auto detect" on the button row; shown on the Compiler tab only.
+#endif
 };
 
 } // namespace fbide

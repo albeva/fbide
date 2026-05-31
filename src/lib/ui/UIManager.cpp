@@ -694,6 +694,8 @@ void UIManager::disable(const std::ranges::range auto& range) const {
 }
 
 void UIManager::updateSettings() {
+    const auto thaw = freeze();
+
     // Reapply settings to all open editors
     for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {
         doc->updateSettings();
