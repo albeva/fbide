@@ -565,6 +565,7 @@ void UIManager::createLayout() {
             .Caption(m_ctx.tr("panels.results.title"))
             .Bottom()
             .BestSize(-1, 150)
+            .MinSize(-1, 50)
             .Hide()
     );
 

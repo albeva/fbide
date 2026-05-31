@@ -61,6 +61,7 @@ auto parseCanonicalPending(ConfigManager& cfg) -> PendingConfig {
         .compileCommand = section.get_or("compileCommand", wxString { kDefaultCompileTemplate }),
         .terminal = cfg.getTerminalLauncher(),
         .showInMenu = section.get_or("showInMenu", true),
+        .order = {}
     };
 }
 
