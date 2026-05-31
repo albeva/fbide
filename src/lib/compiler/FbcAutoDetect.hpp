@@ -26,10 +26,9 @@ struct FbcVariant final {
 
 /// Auto-detection of an installed FreeBASIC compiler (Windows only).
 ///
-/// The detection cores below are pure and static so they can be unit
-/// tested without real binaries (the `--version` probe is injected). The
-/// interactive `run()` driver — dialogs, PATH search, applying the
-/// result — is added on top of these.
+/// `parseArch` and `buildCompilerValue` are pure and static so they can be
+/// unit tested without real binaries; `run()` drives the interactive flow
+/// (dialogs, PATH search, probing fbc, applying the result) on top of them.
 class FbcAutoDetect final {
 public:
     NO_COPY_AND_MOVE(FbcAutoDetect)
@@ -46,21 +45,9 @@ public:
     /// (an error message is shown in that case).
     auto run(wxWindow* parent) -> std::optional<Value>;
 
-    /// Probe callback: given an fbc executable, return the first line of
-    /// its `--version` output, or empty when the binary cannot be run.
-    /// Injected so `detectVariants` is testable without real compilers.
-    using Probe = std::function<wxString(const std::filesystem::path&)>;
-
     /// Extract the target architecture from an `fbc --version` line.
     /// Returns `nullopt` when neither a 32- nor 64-bit marker is present.
     [[nodiscard]] static auto parseArch(const wxString& versionLine) -> std::optional<FbcArch>;
-
-    /// Find usable fbc variants in `folder`. Candidates are probed in the
-    /// priority order `fbc64.exe`, `fbc32.exe`, `fbc.exe`; a binary is kept
-    /// only when `probe` returns a non-empty version (i.e. it runs) and its
-    /// architecture is not already covered — so a named variant wins over a
-    /// plain `fbc.exe` of the same architecture.
-    [[nodiscard]] static auto detectVariants(const std::filesystem::path& folder, const Probe& probe) -> std::vector<FbcVariant>;
 
     /// Build the `[compiler]` config subtree from detected variants: a
     /// canonical Default (OS-appropriate binary, generic command, hidden

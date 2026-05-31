@@ -62,11 +62,51 @@ auto findInPath() -> std::optional<std::filesystem::path> {
 }
 
 /// Run `<exe> --version` and return its first output line — empty when the
-/// binary cannot be run. Serves as the default `Probe`.
+/// binary cannot be run.
 auto probeVersion(const std::filesystem::path& exe) -> wxString {
     wxArrayString output;
     wxExecute("\"" + toWxString(exe) + "\" --version", output);
     return output.empty() ? wxString {} : output[0];
+}
+
+/// Find usable fbc variants in `folder`: probe fbc64/fbc32/fbc (in priority
+/// order), keep each binary that runs and reports a version, one per
+/// architecture — a named binary wins over a plain fbc.exe of the same arch.
+auto detectVariants(const std::filesystem::path& folder) -> std::vector<FbcVariant> {
+    struct Candidate final {
+        const char* name = nullptr;
+        std::optional<FbcArch> archHint = std::nullopt; ///< Known from the file name; nullopt for plain fbc.exe.
+    };
+    // Named variants first so they win over a plain fbc.exe of the same arch.
+    constexpr std::array<Candidate, 3> candidates { {
+        { .name = "fbc64.exe", .archHint = FbcArch::Win64 },
+        { .name = "fbc32.exe", .archHint = FbcArch::Win32 },
+        { .name = "fbc.exe", .archHint = std::nullopt },
+    } };
+
+    std::vector<FbcVariant> result;
+    const auto haveArch = [&result](FbcArch arch) {
+        return std::ranges::any_of(result, [arch](const FbcVariant& existing) { return existing.arch == arch; });
+    };
+
+    for (const auto& [name, archHint] : candidates) {
+        const auto exe = folder / name;
+        std::error_code ec;
+        if (!std::filesystem::exists(exe, ec)) {
+            continue;
+        }
+        // Must run and report a version — confirms it is a real fbc binary.
+        const auto version = probeVersion(exe);
+        if (version.empty()) {
+            continue;
+        }
+        const auto arch = archHint.has_value() ? archHint : FbcAutoDetect::parseArch(version);
+        if (!arch.has_value() || haveArch(*arch)) {
+            continue;
+        }
+        result.push_back({ .exe = exe, .arch = *arch });
+    }
+    return result;
 }
 
 /// True when the current `[compiler]` config diverges from the shipped
@@ -98,43 +138,6 @@ auto FbcAutoDetect::parseArch(const wxString& versionLine) -> std::optional<FbcA
         return FbcArch::Win32;
     }
     return std::nullopt;
-}
-
-auto FbcAutoDetect::detectVariants(const std::filesystem::path& folder, const Probe& probe) -> std::vector<FbcVariant> {
-    struct Candidate final {
-        const char* name = nullptr;
-        std::optional<FbcArch> archHint = std::nullopt; ///< Known from the file name; nullopt for plain fbc.exe.
-    };
-    // Named variants first so they win over a plain fbc.exe of the same arch.
-     constexpr std::array<Candidate, 3> candidates { {
-        { .name = "fbc64.exe", .archHint = FbcArch::Win64 },
-        { .name = "fbc32.exe", .archHint = FbcArch::Win32 },
-        { .name = "fbc.exe", .archHint = std::nullopt },
-    } };
-
-    std::vector<FbcVariant> result;
-    const auto haveArch = [&result](FbcArch arch) {
-        return std::ranges::any_of(result, [arch](const FbcVariant& existing) { return existing.arch == arch; });
-    };
-
-    for (const auto& [name, archHint] : candidates) {
-        const auto exe = folder / name;
-        std::error_code ec;
-        if (!std::filesystem::exists(exe, ec)) {
-            continue;
-        }
-        // Must run and report a version — confirms it is a real fbc binary.
-        const auto version = probe(exe);
-        if (version.empty()) {
-            continue;
-        }
-        const auto arch = archHint.has_value() ? archHint : parseArch(version);
-        if (!arch.has_value() || haveArch(*arch)) {
-            continue;
-        }
-        result.push_back({ .exe = exe, .arch = *arch });
-    }
-    return result;
 }
 
 auto FbcAutoDetect::buildCompilerValue(std::span<const FbcVariant> variants, bool osIs64) -> Value {
@@ -214,7 +217,6 @@ auto FbcAutoDetect::buildCompilerValue(std::span<const FbcVariant> variants, boo
     return compiler;
 }
 
-
 FbcAutoDetect::FbcAutoDetect(Context& ctx)
 : m_ctx(ctx) {}
 
@@ -269,7 +271,7 @@ auto FbcAutoDetect::run(wxWindow* parent) -> std::optional<Value> {
     }
 
     // 3. Detect variants in the chosen folder; bail when none are usable.
-    const auto variants = detectVariants(*folder, [](const std::filesystem::path& exe) { return probeVersion(exe); });
+    const auto variants = detectVariants(*folder);
     if (variants.empty()) {
         wxMessageBox(tr("autoNoFbc"), tr("autoDetect"), wxICON_ERROR | wxOK, parent);
         return std::nullopt;
