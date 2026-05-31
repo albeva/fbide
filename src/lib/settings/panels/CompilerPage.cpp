@@ -8,6 +8,7 @@
 #include "CompilerPage.hpp"
 #include "compiler/CompilerConfigCatalog.hpp"
 #include "compiler/CompilerManager.hpp"
+#include "compiler/FbcAutoDetect.hpp"
 #include "config/ConfigManager.hpp"
 #include "utils/PathConversions.hpp"
 using namespace fbide;
@@ -168,6 +169,24 @@ void CompilerPage::focusPath(const wxString& path) {
             return;
         }
     }
+}
+
+void CompilerPage::autoDetect() {
+#ifdef __WXMSW__
+    auto generated = FbcAutoDetect(getContext()).run(this);
+    if (!generated.has_value()) {
+        return; // Cancelled, or nothing valid found (error already shown).
+    }
+    // Install the detected `[compiler]` subtree wholesale. The snapshot
+    // create() took still covers rollback if the user later hits Cancel.
+    getContext().getConfigManager().config()["compiler"] = std::move(*generated);
+    catalog().reload();
+    refreshList();
+    m_selectedSlug = catalog().activeSlug();
+    selectSlug(m_selectedSlug);
+    loadSelectedConfig();
+    getContext().getCompilerManager().refreshConfigurationCombo();
+#endif
 }
 
 // ---------------------------------------------------------------------------
