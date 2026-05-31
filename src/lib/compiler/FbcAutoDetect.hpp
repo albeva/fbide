@@ -10,6 +10,8 @@
 
 namespace fbide {
 
+class Context;
+
 #ifdef __WXMSW__
 
 /// Target architecture of an `fbc` build. Windows-only feature, so the
@@ -30,6 +32,20 @@ struct FbcVariant final {
 /// result — is added on top of these.
 class FbcAutoDetect final {
 public:
+    NO_COPY_AND_MOVE(FbcAutoDetect)
+
+    /// Construct against the application context (config + locale).
+    explicit FbcAutoDetect(Context& ctx);
+    ~FbcAutoDetect() = default;
+
+    /// Run the full interactive detection flow: confirm overwrite when the
+    /// current compiler settings differ from the shipped defaults, locate
+    /// fbc (system PATH with a browse option, or a folder picker), detect
+    /// its variants, and build the `[compiler]` subtree to install. Returns
+    /// `nullopt` when the user cancels, or when no valid compiler is found
+    /// (an error message is shown in that case).
+    auto run(wxWindow* parent) -> std::optional<Value>;
+
     /// Probe callback: given an fbc executable, return the first line of
     /// its `--version` output, or empty when the binary cannot be run.
     /// Injected so `detectVariants` is testable without real compilers.
@@ -52,6 +68,9 @@ public:
     /// architecture. The console configuration matching the canonical
     /// architecture is marked active.
     [[nodiscard]] static auto buildCompilerValue(std::span<const FbcVariant> variants, bool osIs64) -> Value;
+
+private:
+    Context& m_ctx;
 };
 
 #endif // __WXMSW__

@@ -5,6 +5,11 @@
 // https://github.com/albeva/fbide
 //
 #include "FbcAutoDetect.hpp"
+#include <wx/dirdlg.h>
+#include <wx/filefn.h>
+#include <wx/richmsgdlg.h>
+#include "app/Context.hpp"
+#include "config/ConfigManager.hpp"
 #include "utils/PathConversions.hpp"
 using namespace fbide;
 
@@ -156,6 +161,123 @@ auto FbcAutoDetect::buildCompilerValue(std::span<const FbcVariant> variants, boo
     }
     compiler["nextSlugIndex"] = next;
     return compiler;
+}
+
+namespace {
+/// Executable names probed for an fbc compiler, in priority order.
+constexpr std::array<const char*, 3> kFbcNames { "fbc.exe", "fbc32.exe", "fbc64.exe" };
+
+/// True when `folder` contains any fbc executable (by name).
+auto folderHasFbc(const std::filesystem::path& folder) -> bool {
+    return std::ranges::any_of(kFbcNames, [&folder](const char* name) {
+        std::error_code ec;
+        return std::filesystem::exists(folder / name, ec);
+    });
+}
+
+/// Search the system PATH for an fbc executable; return its containing
+/// folder, or nullopt when none is on the PATH.
+auto findInPath() -> std::optional<std::filesystem::path> {
+    wxPathList paths;
+    paths.AddEnvList("PATH");
+    for (const auto* name : kFbcNames) {
+        const wxString found = paths.FindAbsoluteValidPath(name);
+        if (!found.empty()) {
+            return toFsPath(found).parent_path();
+        }
+    }
+    return std::nullopt;
+}
+
+/// Run `<exe> --version` and return its first output line — empty when the
+/// binary cannot be run. Serves as the default `Probe`.
+auto probeVersion(const std::filesystem::path& exe) -> wxString {
+    wxArrayString output;
+    wxExecute("\"" + toWxString(exe) + "\" --version", output);
+    return output.empty() ? wxString {} : output[0];
+}
+
+/// True when the current `[compiler]` config diverges from the shipped
+/// pristine defaults: any user-defined configuration, or any of the four
+/// canonical fields edited away from baseline.
+auto hasExistingSettings(ConfigManager& cfg) -> bool {
+    const auto& cur = cfg.config().at("compiler");
+    const auto& base = cfg.baseline(ConfigManager::Category::Config).at("compiler");
+    const bool hasUserConfig = std::ranges::any_of(cur.entries(), [](const auto& entry) {
+        return entry.second->isTable();
+    });
+    if (hasUserConfig) {
+        return true;
+    }
+    constexpr std::array<const char*, 4> fields { "path", "compileCommand", "runCommand", "terminal" };
+    return std::ranges::any_of(fields, [&cur, &base](const char* key) {
+        return cur.get_or(key, wxString {}) != base.get_or(key, wxString {});
+    });
+}
+} // namespace
+
+FbcAutoDetect::FbcAutoDetect(Context& ctx)
+: m_ctx(ctx) {}
+
+auto FbcAutoDetect::run(wxWindow* parent) -> std::optional<Value> {
+    auto& cfg = m_ctx.getConfigManager();
+    const Value& loc = cfg.locale().at("dialogs.settings.compiler");
+    const auto tr = [&loc](const wxString& key) { return loc.get_or(key, key); };
+
+    // 1. Warn before overwriting settings the user has customised.
+    if (hasExistingSettings(cfg)) {
+        const auto answer = wxMessageBox(tr("autoOverwriteConfirm"), tr("autoDetect"), wxYES_NO | wxICON_WARNING, parent);
+        if (answer != wxYES) {
+            return std::nullopt;
+        }
+    }
+
+    // Folder picker that insists on a folder actually containing fbc.
+    const auto browse = [&]() -> std::optional<std::filesystem::path> {
+        for (;;) {
+            wxDirDialog dlg(parent, tr("autoSelectFolder"), wxEmptyString, wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST);
+            if (dlg.ShowModal() != wxID_OK) {
+                return std::nullopt;
+            }
+            auto folder = toFsPath(dlg.GetPath());
+            if (folderHasFbc(folder)) {
+                return folder;
+            }
+            wxMessageBox(tr("autoNoFbc"), tr("autoDetect"), wxICON_ERROR | wxOK, parent);
+        }
+    };
+
+    // 2. Locate fbc: offer a PATH hit (use / browse / cancel), else browse.
+    std::optional<std::filesystem::path> folder;
+    if (const auto inPath = findInPath()) {
+        wxRichMessageDialog dlg(parent, tr("autoFoundInPath"), tr("autoDetect"), wxYES_NO | wxCANCEL | wxICON_QUESTION);
+        dlg.SetYesNoLabels(tr("autoUseFound"), tr("autoBrowse"));
+        switch (dlg.ShowModal()) {
+        case wxID_YES:
+            folder = inPath;
+            break;
+        case wxID_NO:
+            folder = browse();
+            break;
+        default:
+            return std::nullopt; // Cancel
+        }
+    } else {
+        folder = browse();
+    }
+    if (!folder.has_value()) {
+        return std::nullopt;
+    }
+
+    // 3. Detect variants in the chosen folder; bail when none are usable.
+    const auto variants = detectVariants(*folder, [](const std::filesystem::path& exe) { return probeVersion(exe); });
+    if (variants.empty()) {
+        wxMessageBox(tr("autoNoFbc"), tr("autoDetect"), wxICON_ERROR | wxOK, parent);
+        return std::nullopt;
+    }
+
+    // 4. Build the [compiler] subtree to install.
+    return buildCompilerValue(variants, wxIsPlatform64Bit());
 }
 
 #endif // __WXMSW__
