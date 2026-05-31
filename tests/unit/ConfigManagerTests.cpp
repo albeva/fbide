@@ -186,6 +186,25 @@ TEST_F(ConfigManagerTests, DefaultBootOverlayMergesIntoConfigRoot) {
     EXPECT_EQ(cm.config().get_or("editor.theme", wxString { "<missing>" }), "dark");
 }
 
+TEST_F(ConfigManagerTests, BaselineReflectsBundleNotOverlay) {
+    const TempDir tmp;
+    const auto ideDir = seedBundle(tmp,
+        "[editor]\n"
+        "tabSize=4\n");
+    tmp.write("ide/" + overlayBasename(),
+        "[editor]\n"
+        "tabSize=8\n");
+
+    ConfigManager cm(tmp.path(), ideDir, "");
+    // Root reflects the overlay; baseline stays at the shipped bundle value
+    // so callers can detect user divergence from the default.
+    EXPECT_EQ(cm.config().get_or("editor.tabSize", wxString { "<missing>" }), "8");
+    EXPECT_EQ(
+        cm.baseline(ConfigManager::Category::Config).get_or("editor.tabSize", wxString { "<missing>" }),
+        "4"
+    );
+}
+
 TEST_F(ConfigManagerTests, SaveMatchingBaselineProducesNoOverlayFile) {
     const TempDir tmp;
     const auto ideDir = seedBundle(tmp,
