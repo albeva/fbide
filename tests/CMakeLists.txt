@@ -18,11 +18,13 @@ add_executable(tests
     unit/AutoIndentTests.cpp
     unit/BasicTests.cpp
     unit/CompileCommandTests.cpp
+    unit/CompilerConfigCatalogTests.cpp
     unit/ConfigManagerTests.cpp
     unit/ConfigStrategyTests.cpp
     unit/DocumentIOTests.cpp
     unit/DocumentPathTests.cpp
     unit/EncodingDetectorTests.cpp
+    unit/FbcAutoDetectTests.cpp
     unit/FBSciLexerTests.cpp
     unit/LineHistoryTests.cpp
     unit/ReFormatterTests.cpp

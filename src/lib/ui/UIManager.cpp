@@ -7,18 +7,17 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "UIManager.hpp"
 #include "CompilerLog.hpp"
-#include "DocumentTypeMenu.hpp"
-#include "EncodingMenu.hpp"
 #include "app/Context.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
+#include "compiler/CompilerConfigCatalog.hpp"
+#include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/DocumentPath.hpp"
 #include "editor/Editor.hpp"
-#include "rc/icons.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "utilities/FileDropTarget.hpp"
 #ifndef __WXMSW__
@@ -44,6 +43,7 @@ wxEND_EVENT_TABLE()
 
 UIManager::UIManager(Context& ctx)
 : m_ctx(ctx)
+, m_statusBar(ctx)
 , m_artProvider(std::make_unique<ArtiProvider>()) {}
 
 UIManager::~UIManager() {
@@ -144,6 +144,9 @@ void UIManager::createMainFrame() {
     loadAuiPerspective();
 
     applyState(UIState::None);
+    // Honour the `commands.configurationInStatusBar` preference up-
+    // front so the chrome matches the user's choice the moment the
+    // window appears.
     m_aui.Update();
 
     // Create the compiler log dialog up-front, hidden. BuildTask
@@ -176,7 +179,22 @@ void UIManager::loadAuiPerspective() {
     // update=false: defer the visual refresh — the createMainFrame
     // caller invokes m_aui.Update() once for both the restored layout
     // and any state changes that happened earlier.
-    m_aui.LoadPerspective(perspective, false);
+    m_aui.LoadPerspective(perspective, true);
+    resetToolbarSize();
+}
+
+void UIManager::resetToolbarSize() {
+    wxAuiPaneInfo& pane = m_aui.GetPane(m_auiToolbar);
+    if (!pane.IsOk())
+        return;
+
+    const wxSize hintSize = m_auiToolbar->GetHintSize(pane.dock_direction);
+    if (pane.best_size != hintSize) {
+        pane.best_size = hintSize;
+        pane.floating_size = wxDefaultSize;
+    }
+    m_auiToolbar->Update();
+    m_aui.Update();
 }
 
 void UIManager::refreshAuiArt() const {
@@ -224,16 +242,19 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
     const auto sel = event.GetSelection();
     if (sel == wxNOT_FOUND) {
         m_ctx.getSideBarManager().showSymbolsFor(nullptr);
+        m_ctx.getCompilerManager().onActiveDocumentChanged(nullptr);
         setTitle(wxEmptyString);
         return;
     }
-    auto* page = m_notebook->GetPage(static_cast<size_t>(sel));
+
+    const auto* page = m_notebook->GetPage(static_cast<size_t>(sel));
     auto* doc = m_ctx.getDocumentManager().findByPage(page);
     if (doc != nullptr) {
         doc->getEditor()->SetFocus();
+        m_ctx.getSideBarManager().showSymbolsFor(doc);
+        m_ctx.getCompilerManager().onActiveDocumentChanged(doc);
+        setTitle(doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath()));
     }
-    m_ctx.getSideBarManager().showSymbolsFor(doc);
-    setTitle(doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath()));
 }
 
 void UIManager::onNotebookDblClick(wxAuiNotebookEvent& event) {
@@ -399,20 +420,32 @@ void UIManager::configureToolBar() {
         const auto& items = cfg.layout().at("toolbar");
         const auto& commands = cfg.locale().at("commands");
 
-        const bool createTools = (m_auiToolbar == nullptr);
+        // The configuration combobox is one of two mutually exclusive
+        // surfaces — when the user routes configurations to the status
+        // bar, the combobox is omitted entirely rather than created and
+        // hidden.
+        const bool inStatusBar = cfg.config().get_or("commands.configurationInStatusBar", false);
+        const bool firstBuild = (m_auiToolbar == nullptr);
 
-        if (createTools) {
+        if (firstBuild) {
             m_auiToolbar = make_unowned<wxAuiToolBar>(
                 m_frame, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                 wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_GRIPPER | wxAUI_TB_OVERFLOW
             );
+        } else {
+            // Rebuild in place (the preference toggled at runtime). Drop
+            // the combobox and every tool, then re-add from layout below
+            // so the combobox lands at its layout position — wxAuiToolBar
+            // has no positional insert. Command→toolbar binds stay valid
+            // (same toolbar object, same tool ids re-added), so we re-sync
+            // each tool's state via update() instead of re-pushing binds.
+            m_ctx.getCompilerManager().destroyConfigurationCombo();
+            m_auiToolbar->Clear();
         }
 
         for (const auto& key : items.asArray()) {
             if (key == "-") {
-                if (createTools) {
-                    m_auiToolbar->AddSeparator();
-                }
+                m_auiToolbar->AddSeparator();
                 continue;
             }
 
@@ -427,13 +460,19 @@ void UIManager::configureToolBar() {
             name.Replace("&", "");
             const auto help = locale.get_or("help", "");
 
-            // Reconfigure path (locale change etc.) — refresh tooltips,
-            // skip re-add.
-            if (entry->get<wxAuiToolBar>() != nullptr) {
-                if (auto* item = m_auiToolbar->FindTool(entry->id)) {
-                    item->SetLabel(name);
-                    item->SetShortHelp(help);
-                    item->SetLongHelp(help);
+            // Configuration is a custom control (combobox), not a tool
+            // button, and only present in the toolbar-hosted mode.
+            // CompilerManager owns the widget; UIManager just hosts it.
+            if (entry->id == +CommandId::Configuration && entry->kind == wxITEM_DROPDOWN) {
+                // Combobox only goes in when (a) the user wants
+                // configurations on the toolbar and (b) the catalog
+                // actually has at least one menu-visible config — an
+                // empty combobox is just dead toolbar real estate.
+                if (!inStatusBar && !m_ctx.getCompilerManager().catalog().menuConfigs().empty()) {
+                    m_auiToolbar->AddControl(
+                        m_ctx.getCompilerManager().createConfigurationCombo(m_auiToolbar),
+                        name
+                    );
                 }
                 continue;
             }
@@ -446,13 +485,18 @@ void UIManager::configureToolBar() {
 
             m_auiToolbar->AddTool(entry->id, name, bitmap, help, entry->kind);
             m_auiToolbar->SetToolLongHelp(entry->id, help);
-            entry->binds.push_back(m_auiToolbar.get());
+            if (firstBuild) {
+                entry->binds.push_back(m_auiToolbar);
+            } else {
+                // Re-sync enabled / checked onto the freshly re-added tool.
+                entry->update();
+            }
         }
 
-        if (createTools) {
-            m_auiToolbar->Realize();
+        m_auiToolbar->Realize();
+        if (firstBuild) {
             m_aui.AddPane(
-                m_auiToolbar.get(),
+                m_auiToolbar,
                 wxAuiPaneInfo()
                     .Name("toolbar")
                     .ToolbarPane()
@@ -463,83 +507,30 @@ void UIManager::configureToolBar() {
                     .CloseButton(false)
                     .PaneBorder(false)
             );
+        } else {
+            resetToolbarSize();
         }
     } catch (const std::exception& ex) {
         wxLogError("Invalid layout config for toolbar: %s", ex.what());
     }
 }
 
-void UIManager::createStatusBar() const {
-    auto* bar = m_frame->CreateStatusBar(5);
-    // Field 0 = welcome / status message (stretch)
-    // Field 1 = line : column
-    // Field 2 = document type
-    // Field 3 = EOL mode
-    // Field 4 = encoding
-    constexpr int widths[] = { -1, 90, 100, 90, 140 };
-    bar->SetStatusWidths(5, widths);
-    m_frame->SetStatusText(m_ctx.tr("common.welcome"));
-
-    bar->Bind(wxEVT_LEFT_DOWN, &UIManager::onStatusBarClick, const_cast<UIManager*>(this));
+void UIManager::createStatusBar() {
+    m_statusBar.create(m_frame);
 }
 
-void UIManager::onStatusBarClick(wxMouseEvent& event) {
-    event.Skip();
-    auto* bar = m_frame->GetStatusBar();
-    if (bar == nullptr) {
-        return;
+void UIManager::refreshConfigurationDisplay() {
+    const bool inStatusBar = m_ctx.getConfigManager().config().get_or("commands.configurationInStatusBar", false);
+    const bool hasMenuConfigs = !m_ctx.getCompilerManager().catalog().menuConfigs().empty();
+    // Combobox should exist exactly when (toolbar-hosted mode) AND
+    // (there's something to pick). Rebuild the toolbar whenever the
+    // current state diverges from this — covers both the pref toggle
+    // and the catalog-emptied / catalog-refilled transitions.
+    const bool comboWanted = !inStatusBar && hasMenuConfigs;
+    if (m_ctx.getCompilerManager().hasConfigurationCombo() != comboWanted) {
+        configureToolBar();
     }
-    auto* doc = m_ctx.getDocumentManager().getActive();
-    if (doc == nullptr) {
-        return;
-    }
-
-    const auto pos = event.GetPosition();
-    wxRect rect;
-
-    if (bar->GetFieldRect(2, rect) && rect.Contains(pos)) {
-        auto menu = DocumentTypeMenu::build(m_ctx, doc->getType());
-        menu->Bind(wxEVT_MENU, [this, doc](const wxCommandEvent& evt) {
-            if (const auto type = DocumentTypeMenu::typeFromId(evt.GetId())) {
-                doc->setType(*type);
-                doc->getEditor()->updateStatusBar();
-                m_ctx.getDocumentManager().updateActiveTabTitle();
-            }
-        });
-        bar->PopupMenu(menu.get());
-        return;
-    }
-
-    if (bar->GetFieldRect(3, rect) && rect.Contains(pos)) {
-        const auto menu = EncodingMenu::buildEolMenu(doc->getEolMode());
-        menu->Bind(wxEVT_MENU, [doc](const wxCommandEvent& evt) {
-            if (const auto mode = EncodingMenu::eolFromId(evt.GetId())) {
-                doc->setEolMode(*mode);
-                doc->getEditor()->updateStatusBar();
-            }
-        });
-        bar->PopupMenu(menu.get());
-        return;
-    }
-
-    if (bar->GetFieldRect(4, rect) && rect.Contains(pos)) {
-        auto menu = EncodingMenu::buildEncodingMenu(
-            doc->getEncoding(),
-            m_ctx.tr("statusbar.encoding.reloadWithEncoding")
-        );
-        menu->Bind(wxEVT_MENU, [this, doc](const wxCommandEvent& evt) {
-            if (const auto enc = EncodingMenu::encodingSaveFromId(evt.GetId())) {
-                doc->setEncoding(*enc);
-                m_ctx.getDocumentManager().updateActiveTabTitle();
-                doc->getEditor()->updateStatusBar();
-                return;
-            }
-            if (const auto enc = EncodingMenu::encodingReloadFromId(evt.GetId())) {
-                m_ctx.getDocumentManager().reloadWithEncoding(*doc, *enc);
-            }
-        });
-        bar->PopupMenu(menu.get());
-    }
+    m_statusBar.applyPreference();
 }
 
 void UIManager::createLayout() {
@@ -574,6 +565,7 @@ void UIManager::createLayout() {
             .Caption(m_ctx.tr("panels.results.title"))
             .Bottom()
             .BestSize(-1, 150)
+            .MinSize(-1, 50)
             .Hide()
     );
 
@@ -703,8 +695,11 @@ void UIManager::disable(const std::ranges::range auto& range) const {
 }
 
 void UIManager::updateSettings() {
+    const auto thaw = freeze();
+
     // Reapply settings to all open editors
     for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {
         doc->updateSettings();
     }
+    refreshConfigurationDisplay();
 }

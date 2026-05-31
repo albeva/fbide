@@ -7,6 +7,7 @@
 #include "BuildTask.hpp"
 #include <cmake/config.hpp>
 #include "CompileCommand.hpp"
+#include "CompilerConfigCatalog.hpp"
 #include "CompilerManager.hpp"
 #include "RunCommand.hpp"
 #include "app/Context.hpp"
@@ -20,7 +21,10 @@ using namespace fbide;
 
 BuildTask::BuildTask(Context& ctx, Document* doc)
 : m_ctx(ctx)
-, m_doc(doc) {}
+, m_doc(doc)
+, m_config(ctx.getCompilerManager().catalog().resolveByPinnedSlug(
+      doc != nullptr ? doc->getConfiguration() : std::nullopt
+  )) {}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -42,9 +46,20 @@ void BuildTask::run(const wxString& executablePath, const bool quickRun) {
     m_compiledFile = executablePath;
     m_isQuickRun = quickRun;
 
+    const auto cmdStr = buildRunCommand(executablePath);
+
+    if (m_shouldRun) {
+        m_compilerLog.Add("");
+    } else {
+        m_compilerLog.Empty();
+    }
+    m_compilerLog.Add("[bold]" + m_ctx.tr("dialogs.log.sectionRunCommand") + "[/bold]");
+    m_compilerLog.Add(cmdStr);
+    m_ctx.getCompilerManager().refreshCompilerLog();
+
     m_running = true;
     m_ctx.getUIManager().setCompilerState(UIState::Running);
-    m_process = AsyncProcess::exec(buildRunCommand(executablePath), wxPathOnly(executablePath), false, [&](const ProcessResult& result) {
+    m_process = AsyncProcess::exec(cmdStr, wxPathOnly(executablePath), false, [&](const ProcessResult& result) {
         m_process = nullptr;
         m_ctx.getUIManager().setCompilerState(UIState::None);
         m_running = false;
@@ -64,18 +79,13 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     auto& ui = m_ctx.getUIManager();
     ui.getOutputConsole().clear();
 
-    // Validate compiler — getFbcVersion() checks path and caches the result
-    const auto& fbcVersion = m_ctx.getCompilerManager().getFbcVersion();
-    if (fbcVersion.empty()) {
-        m_ctx.getCompilerManager().promptMissingCompiler();
-        return;
-    }
-
-    // Build command
-    const auto cmdStr = CompileCommand::makeDefault(sourceFile).build(m_ctx);
+    // Build command. The resolved config is captured at task construction
+    // so a mid-build catalog change (e.g. user editing settings) cannot
+    // half-apply across compile and run steps.
+    const auto cmdStr = CompileCommand::makeDefault(sourceFile).build(m_config, m_ctx.getConfigManager());
 
     m_compilerLog.Empty();
-    m_compilerLog.Add("[bold]Command executed:[/bold]");
+    m_compilerLog.Add("[bold]" + m_ctx.tr("dialogs.log.sectionCommand") + "[/bold]");
     m_compilerLog.Add(cmdStr);
     m_ctx.getCompilerManager().refreshCompilerLog();
 
@@ -95,15 +105,15 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
     // Log and show errors. Show the console pane *before* populating it
     if (!result.output.empty()) {
         m_compilerLog.Add("");
-        m_compilerLog.Add("[bold]Compiler output:[/bold]");
+        m_compilerLog.Add("[bold]" + m_ctx.tr("dialogs.log.sectionOutput") + "[/bold]");
         showErrors(result.output);
     }
 
     m_compilerLog.Add("");
-    m_compilerLog.Add("[bold]Results:[/bold]");
+    m_compilerLog.Add("[bold]" + m_ctx.tr("dialogs.log.sectionResults") + "[/bold]");
 
     if (!result) {
-        m_compilerLog.Add("Compilation failed");
+        m_compilerLog.Add(m_ctx.tr("dialogs.log.failureMessage"));
         appendSystemInfo();
         m_ctx.getCompilerManager().refreshCompilerLog();
         setStatus("status.compileFailed");
@@ -111,11 +121,13 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
         return;
     }
 
-    m_compilerLog.Add("Compilation successful");
+    m_compilerLog.Add(m_ctx.tr("dialogs.log.successMessage"));
     setStatus("status.compileComplete");
 
     m_compiledFile = deriveExecutablePath(m_sourceFile);
-    m_compilerLog.Add("Generated executable: " + m_compiledFile);
+    auto generatedLine = m_ctx.tr("dialogs.log.generatedExecutable");
+    generatedLine.Replace("{path}", m_compiledFile);
+    m_compilerLog.Add(generatedLine);
 
     appendSystemInfo();
     m_ctx.getCompilerManager().refreshCompilerLog();
@@ -131,6 +143,17 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
 }
 
 void BuildTask::onRunFinished(const ProcessResult& result) {
+    m_compilerLog.Add("");
+    m_compilerLog.Add("[bold]" + m_ctx.tr("dialogs.log.sectionResults") + "[/bold]");
+    if (!result.launched) {
+        m_compilerLog.Add(m_ctx.tr("dialogs.log.executionFailed"));
+    } else {
+        auto exitLine = m_ctx.tr("dialogs.log.exitCodeLine");
+        exitLine.Replace("{code}", wxString::Format("%d", result.exitCode));
+        m_compilerLog.Add(exitLine);
+    }
+    m_ctx.getCompilerManager().refreshCompilerLog();
+
     if (!result.launched) {
         wxMessageBox(m_ctx.tr("messages.execError"), m_ctx.tr("common.error"), wxICON_ERROR);
     } else if (m_ctx.getConfigManager().config().get_or("commands.showExitCode", false)) {
@@ -253,18 +276,18 @@ auto BuildTask::deriveExecutablePath(const wxString& sourceFile) -> wxString {
 }
 
 auto BuildTask::buildRunCommand(const wxString& executablePath) const -> wxString {
-    return RunCommand::makeDefault(executablePath).build(m_ctx);
+    return RunCommand::makeDefault(executablePath).build(m_config, m_ctx.getCompilerManager().getParameters());
 }
 
 void BuildTask::appendSystemInfo() {
     m_compilerLog.Add("");
-    m_compilerLog.Add("[bold]System:[/bold]");
-    m_compilerLog.Add("FBIde: " + wxString(cmake::project.version));
-    const auto& fbcVersion = m_ctx.getCompilerManager().getFbcVersion();
+    m_compilerLog.Add("[bold]" + m_ctx.tr("dialogs.log.sectionSystem") + "[/bold]");
+    m_compilerLog.Add(m_ctx.tr("dialogs.log.fbidePrefix") + wxString(cmake::project.version));
+    const auto fbcVersion = m_ctx.getCompilerManager().probeCompilerVersion(m_config.path);
     if (!fbcVersion.empty()) {
-        m_compilerLog.Add("fbc:   " + fbcVersion);
+        m_compilerLog.Add(m_ctx.tr("dialogs.log.fbcPrefix") + fbcVersion);
     }
-    m_compilerLog.Add("OS:    " + wxGetOsDescription());
+    m_compilerLog.Add(m_ctx.tr("dialogs.log.osPrefix") + wxGetOsDescription());
 }
 
 void BuildTask::cleanupTempFiles() {

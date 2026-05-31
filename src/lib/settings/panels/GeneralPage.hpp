@@ -21,8 +21,8 @@ public:
     explicit GeneralPage(Context& ctx, wxWindow* parent);
     /// Build the panel widgets.
     void create() override;
-    /// Commit edits back into `ConfigManager`.
-    void apply() override;
+    /// Commit edits back into `ConfigManager`. Always succeeds.
+    auto apply() -> bool override;
 
 private:
     /// Locale lookup with empty default — sugar over `ConfigManager::locale().get_or`.
@@ -39,12 +39,14 @@ private:
     bool m_braceHighlight;    ///< Highlight matching braces.
 
     // Right column
-    bool m_syntaxHighlight; ///< Enable syntax highlighting.
-    bool m_showLineNumbers; ///< Show line-number margin.
-    bool m_showRightMargin; ///< Show right margin guide line.
-    bool m_foldMargin;      ///< Show fold margin.
-    bool m_changeTracking;  ///< Show change-tracking (since-save) margin.
-    bool m_splashScreen;    ///< Show splash screen on startup.
+    bool m_syntaxHighlight;          ///< Enable syntax highlighting.
+    bool m_showLineNumbers;          ///< Show line-number margin.
+    bool m_showRightMargin;          ///< Show right margin guide line.
+    bool m_foldMargin;               ///< Show fold margin.
+    bool m_changeTracking;           ///< Show change-tracking (since-save) margin.
+    bool m_splashScreen;             ///< Show splash screen on startup.
+    bool m_configurationInStatusBar; ///< Compiler-config selector lives in the status bar (true) or toolbar (false).
+    bool m_checkUpdatesOnLoad;       ///< Check GitHub for a newer release on startup.
 
     // Bottom row
     int m_edgeColumn;    ///< Right margin column.

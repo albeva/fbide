@@ -14,6 +14,9 @@
 #include "command/CommandEntry.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
+#include "compiler/CompileCommand.hpp"
+#include "compiler/CompilerConfigCatalog.hpp"
+#include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "editor/CodeTransformer.hpp"
@@ -115,17 +118,44 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
         return tryOpen(req);
     }
 
-    // 1. Relative to source file
+    // The origin document's active compiler configuration supplies both
+    // the -i search dirs (its compile command) and the stock inc/ folder
+    // (its fbc binary) — the same compiler a build of this document uses.
+    const auto& cfg = m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(origin.getConfiguration());
+
+    // Search order mirrors fbc's own resolution of `#include "..."`:
+    //   1. the source file's folder,
+    //   2. the -i directories,
+    //   3. the compiler's default inc/,
+    // with the current working directory as a final FBIde-only fallback.
+
+    // 1. Relative to the source file's folder.
     if (!origin.isNew()) {
         if (auto* doc = tryOpen(origin.getFilePath().parent_path() / req)) {
             return doc;
         }
     }
 
-    // 2. Compiler `inc/` folder: <dir-of-fbc>/inc/<path>
-    const auto compilerPathStr = m_ctx.getConfigManager().config().get_or("compiler.path", "");
-    if (!compilerPathStr.empty()) {
-        auto fbc = toFsPath(compilerPathStr);
+    // 2. Directories passed to fbc via -i in the compile command. fbc
+    //    resolves relative ones against its working directory (the source
+    //    file's folder), so do the same; absolute ones apply even to an
+    //    unsaved document.
+    for (const auto& entry : CompileCommand::extractIncludePaths(cfg.compileCommand)) {
+        auto dir = toFsPath(entry);
+        if (dir.is_relative()) {
+            if (origin.isNew()) {
+                continue; // no source folder to anchor a relative -i path
+            }
+            dir = origin.getFilePath().parent_path() / dir;
+        }
+        if (auto* doc = tryOpen(dir / req)) {
+            return doc;
+        }
+    }
+
+    // 3. Compiler `inc/` folder: <dir-of-fbc>/inc/<path>.
+    if (!cfg.path.empty()) {
+        auto fbc = cfg.path;
         if (fbc.is_relative()) {
             fbc = toFsPath(m_ctx.getConfigManager().getAppDir()) / fbc;
         }
@@ -134,7 +164,7 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
         }
     }
 
-    // 3. Current working directory
+    // 4. Current working directory.
     {
         std::error_code ec;
         const auto cwd = std::filesystem::current_path(ec);
@@ -482,6 +512,12 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
     // showSymbolsFor handles nullptr (clears) and dedups by shared_ptr.
     m_ctx.getSideBarManager().showSymbolsFor(getActive());
 
+    // Same reason: tell the compiler manager which document is now
+    // active (or none). Otherwise its cached active-document pointer
+    // would dangle and the toolbar combobox / status-bar configuration
+    // cell would keep showing the closed document's selection.
+    m_ctx.getCompilerManager().onActiveDocumentChanged(getActive());
+
     // Trim the IntellisenseService SymbolTable pool: the closed doc's
     // shared_ptr just released, so any pool slot it held is now idle.
     if (m_intellisense != nullptr) {
@@ -492,11 +528,11 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
     if (m_documents.empty()) {
         m_ctx.getUIManager().setDocumentState(UIState::None);
         m_ctx.getUIManager().setTitle(wxEmptyString);
-        auto* frame = m_ctx.getUIManager().getMainFrame();
-        frame->SetStatusText("", 1);
-        frame->SetStatusText("", 2);
-        frame->SetStatusText("", 3);
-        frame->SetStatusText("", 4);
+        // Clear every per-document status-bar cell. Going through the
+        // handler (rather than hardcoded field indices) means the
+        // configuration-in-status-bar layout, which shifts the cells,
+        // gets cleared correctly too.
+        m_ctx.getUIManager().getStatusBar().clearDocumentFields();
     }
 
     return true;

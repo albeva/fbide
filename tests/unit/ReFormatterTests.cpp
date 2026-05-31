@@ -178,6 +178,28 @@ TEST_F(ReFormatterTests, FunctionPropertySetter) {
         "End Function\n");
 }
 
+TEST_F(ReFormatterTests, OperatorReturnAssignment) {
+    EXPECT_EQ(format(
+                  "Operator MyType.Cast() As Integer\n"
+                  "Operator = 1\n"
+                  "End Operator\n"
+              ),
+        "Operator MyType.Cast() As Integer\n"
+        "    Operator = 1\n"
+        "End Operator\n");
+}
+
+TEST_F(ReFormatterTests, PropertyReturnAssignment) {
+    EXPECT_EQ(format(
+                  "Property Foo As Integer\n"
+                  "Property = 42\n"
+                  "End Property\n"
+              ),
+        "Property Foo As Integer\n"
+        "    Property = 42\n"
+        "End Property\n");
+}
+
 // ---------------------------------------------------------------------------
 // Exit Sub — bare callable keyword with no name following is not a body opener
 // ---------------------------------------------------------------------------

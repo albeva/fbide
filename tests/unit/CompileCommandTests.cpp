@@ -37,3 +37,38 @@ TEST_F(CompileCommandTests, TemplateWithExtraFlags) {
     EXPECT_EQ(cmd.build(R"("<$fbc>" -lang fb "<$file>")", "/usr/bin/fbc"),
         R"("/usr/bin/fbc" -lang fb "main.bas")");
 }
+
+// --- extractIncludePaths ---------------------------------------------------
+
+TEST_F(CompileCommandTests, IncludePaths_DefaultTemplateHasNone) {
+    EXPECT_TRUE(CompileCommand::extractIncludePaths(R"("<$fbc>" "<$file>")").empty());
+}
+
+TEST_F(CompileCommandTests, IncludePaths_QuotedPathWithSpaces) {
+    const auto paths = CompileCommand::extractIncludePaths(R"("<$fbc>" "<$file>" -i "/opt/fb inc")");
+    ASSERT_EQ(paths.size(), 1U);
+    EXPECT_EQ(paths[0], "/opt/fb inc");
+}
+
+TEST_F(CompileCommandTests, IncludePaths_MultipleInOrder) {
+    const auto paths = CompileCommand::extractIncludePaths(R"("<$fbc>" "<$file>" -i ./vendor/inc -i "/abs/two")");
+    ASSERT_EQ(paths.size(), 2U);
+    EXPECT_EQ(paths[0], "./vendor/inc");
+    EXPECT_EQ(paths[1], "/abs/two");
+}
+
+TEST_F(CompileCommandTests, IncludePaths_IgnoresOtherFlagsAndMetaTags) {
+    const auto paths = CompileCommand::extractIncludePaths(R"("<$fbc>" -lang fb "<$file>" -i inc -g)");
+    ASSERT_EQ(paths.size(), 1U);
+    EXPECT_EQ(paths[0], "inc");
+}
+
+TEST_F(CompileCommandTests, IncludePaths_DanglingFlagIgnored) {
+    EXPECT_TRUE(CompileCommand::extractIncludePaths(R"("<$fbc>" "<$file>" -i)").empty());
+}
+
+TEST_F(CompileCommandTests, IncludePaths_GluedFormNotParsed) {
+    // fbc takes the path as a separate argument; the glued -i<path> form is
+    // not valid fbc, so it must not be mistaken for an include directory.
+    EXPECT_TRUE(CompileCommand::extractIncludePaths(R"("<$fbc>" "<$file>" -i"/glued")").empty());
+}

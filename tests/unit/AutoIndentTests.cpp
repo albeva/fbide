@@ -110,6 +110,7 @@ TEST_F(AutoIndentTests, SubFunctionOpen) {
     EXPECT_TRUE(opener("Constructor MyType()"));
     EXPECT_TRUE(opener("Destructor MyType()"));
     EXPECT_TRUE(opener("Operator Cast() As Integer"));
+    EXPECT_TRUE(opener("Operator = (rhs As Integer) As Integer"));
 }
 
 TEST_F(AutoIndentTests, BlockOpenersMisc) {
@@ -156,9 +157,12 @@ TEST_F(AutoIndentTests, TypeAliasDoesNotOpen) {
 }
 
 TEST_F(AutoIndentTests, BareSubFunctionWithoutNameDoesNotOpen) {
-    // `Function = expr` is an assignment to the implicit return name —
-    // no name follows the keyword.
+    // `Function/Operator/Property = expr` assigns the implicit return value —
+    // no name (nor a parameter list) follows the keyword, so it is not a body
+    // definition and must not open a block.
     EXPECT_TRUE(neutral("Function = 10"));
+    EXPECT_TRUE(neutral("Operator = 10"));
+    EXPECT_TRUE(neutral("Property = 10"));
 }
 
 TEST_F(AutoIndentTests, InlineForLoopWithNextDoesNotOpen) {

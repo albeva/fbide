@@ -20,8 +20,22 @@ public:
     Panel(Context& ctx, wxWindowID id, wxWindow* parent);
     /// Build the panel widgets — subclasses implement.
     virtual void create() = 0;
-    /// Commit edits back into config — subclasses implement.
-    virtual void apply() = 0;
+    /// Commit edits back into config — subclasses implement. Returns
+    /// `true` on success; `false` reports a validation error and asks
+    /// `SettingsDialog` to keep the dialog open and select this panel.
+    virtual auto apply() -> bool = 0;
+    /// Discard any pending edits — called by `SettingsDialog` when the
+    /// user clicks Cancel or closes the dialog via the window control.
+    /// Default is a no-op; panels that mutate global state during
+    /// editing (e.g. the compiler-config catalog) override to restore.
+    virtual void cancel() {}
+
+    /// Move keyboard focus to a sub-location within this panel,
+    /// addressed by a slash-delimited `path` (the remainder after the
+    /// page segment of a settings deep-link). Default is a no-op;
+    /// panels with addressable fields override. Called by
+    /// `SettingsDialog` after the target tab is shown.
+    virtual void focusPath(const wxString& /*path*/) {}
 
 protected:
     /// Access the application context.
