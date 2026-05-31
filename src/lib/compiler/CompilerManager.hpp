@@ -19,8 +19,8 @@ class Context;
  * commands, the compiler probe, the runtime parameters, and the
  * single in-flight `BuildTask`.
  *
- * **Owns:** the current `m_task` (`unique_ptr<BuildTask>`), cached
- * `m_fbcVersion`, and runtime `m_parameters`.
+ * **Owns:** the current `m_task` (`unique_ptr<BuildTask>`) and the
+ * runtime `m_parameters`.
  * **Owned by:** `Context`.
  * **Threading:** UI thread only. `BuildTask` spawns `AsyncProcess`,
  * which is async with a UI-thread callback — there is no
@@ -63,9 +63,12 @@ public:
     /// Navigate to an error by line number and file name.
     void goToError(int line, const wxString& fileName)const;
 
-    /// Get the fbc version string. Validates the compiler path, runs `fbc --version`,
-    /// and caches the result. Returns empty string if compiler is not accessible.
-    [[nodiscard]] auto getFbcVersion() -> const wxString&;
+    /// Run `<compiler> --version` for the given compiler path (resolved
+    /// against the IDE appDir) and return the first output line. Empty
+    /// when the path is unset, not executable, or produced no output.
+    /// Not cached — each build probes the compiler of its own resolved
+    /// configuration, so the log reflects the active configuration.
+    [[nodiscard]] auto probeCompilerVersion(const std::filesystem::path& compilerPath) const -> wxString;
 
     /// Resolve `compiler.path` against the IDE's appDir and verify the
     /// binary exists/is executable. Returns the resolved absolute path,
@@ -85,9 +88,6 @@ public:
     /// run): the alert is always relevant because the user just asked for
     /// the compiler. "Yes" opens the Settings dialog on the Compiler tab.
     void promptMissingCompiler()const;
-
-    /// Reset the cached fbc version. Call when compiler path may have changed.
-    void resetFbcVersion() { m_fbcVersion.clear(); }
 
     /// Get runtime parameters for the executable.
     [[nodiscard]] auto getParameters() const -> const wxString& { return m_parameters; }
@@ -196,7 +196,6 @@ private:
     std::unique_ptr<CompilerConfigCatalog> m_catalog; ///< Resolved view of `[compiler]` + `[compiler/*]`.
     std::unique_ptr<BuildTask> m_task;                ///< In-flight task (`nullptr` when idle).
     wxString m_parameters;                            ///< Runtime parameters set via the Parameters dialog.
-    wxString m_fbcVersion;                            ///< Cached `fbc --version` output (empty until probed).
     wxComboBox* m_configCombo = nullptr;              ///< Toolbar-owned widget; non-null after configureToolBar.
     Document* m_lastActiveDoc = nullptr;              ///< Last document the combobox was synced to.
 };

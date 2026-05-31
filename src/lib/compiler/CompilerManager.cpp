@@ -164,22 +164,16 @@ auto CompilerManager::resolveCompilerBinary() const -> wxString {
     return resolved;
 }
 
-auto CompilerManager::getFbcVersion() -> const wxString& {
-    if (not m_fbcVersion.empty()) {
-        return m_fbcVersion;
+auto CompilerManager::probeCompilerVersion(const std::filesystem::path& compilerPath) const -> wxString {
+    wxFileName path(toWxString(compilerPath));
+    path.MakeAbsolute(m_ctx.getConfigManager().getAppDir());
+    const auto resolved = path.GetFullPath();
+    if (resolved.IsEmpty() || !wxIsExecutable(resolved)) {
+        return {};
     }
-
-    const auto compiler = resolveCompilerBinary();
-    if (compiler.IsEmpty()) {
-        return m_fbcVersion;
-    }
-
     wxArrayString output;
-    wxExecute("\"" + compiler + "\" --version", output);
-    if (!output.empty()) {
-        m_fbcVersion = output[0];
-    }
-    return m_fbcVersion;
+    wxExecute("\"" + resolved + "\" --version", output);
+    return output.empty() ? wxString {} : output[0];
 }
 
 namespace {

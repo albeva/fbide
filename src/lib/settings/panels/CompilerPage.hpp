@@ -35,6 +35,12 @@ public:
     /// defaulting to the compiler-path field.
     void focusPath(const wxString& path) override;
 
+    /// Run fbc auto-detection (Windows only) and, when it returns a config,
+    /// install it over `[compiler]`, reload the catalog, and refresh the UI.
+    /// Triggered by the Settings dialog's "Auto detect" button; a no-op on
+    /// platforms without the feature.
+    void autoDetect();
+
 private:
     /// Locale lookup — resolves keys against the cached
     /// `[dialogs/settings/compiler]` subtree so the full path doesn't
