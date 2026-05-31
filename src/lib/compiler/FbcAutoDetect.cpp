@@ -36,134 +36,6 @@ struct SubsystemPlan final {
     bool isConsole;      ///< Console is the one promoted to active.
 };
 
-} // namespace
-
-auto FbcAutoDetect::parseArch(const wxString& versionLine) -> std::optional<FbcArch> {
-    const auto lower = versionLine.Lower();
-    if (lower.Contains("win64") || lower.Contains("64bit")) {
-        return FbcArch::Win64;
-    }
-    if (lower.Contains("win32") || lower.Contains("32bit")) {
-        return FbcArch::Win32;
-    }
-    return std::nullopt;
-}
-
-auto FbcAutoDetect::detectVariants(const std::filesystem::path& folder, const Probe& probe) -> std::vector<FbcVariant> {
-    struct Candidate final {
-        const char* name = nullptr;
-        std::optional<FbcArch> archHint = std::nullopt; ///< Known from the file name; nullopt for plain fbc.exe.
-    };
-    // Named variants first so they win over a plain fbc.exe of the same arch.
-    const std::array<Candidate, 3> candidates { {
-        { .name = "fbc64.exe", .archHint = FbcArch::Win64 },
-        { .name = "fbc32.exe", .archHint = FbcArch::Win32 },
-        { .name = "fbc.exe", .archHint = std::nullopt },
-    } };
-
-    std::vector<FbcVariant> result;
-    const auto haveArch = [&result](FbcArch arch) {
-        return std::ranges::any_of(result, [arch](const FbcVariant& existing) { return existing.arch == arch; });
-    };
-
-    for (const auto& candidate : candidates) {
-        const auto exe = folder / candidate.name;
-        std::error_code ec;
-        if (!std::filesystem::exists(exe, ec)) {
-            continue;
-        }
-        // Must run and report a version — confirms it is a real fbc binary.
-        const auto version = probe(exe);
-        if (version.empty()) {
-            continue;
-        }
-        const auto arch = candidate.archHint.has_value() ? candidate.archHint : parseArch(version);
-        if (!arch.has_value() || haveArch(*arch)) {
-            continue;
-        }
-        result.push_back({ .exe = exe, .arch = *arch });
-    }
-    return result;
-}
-
-auto FbcAutoDetect::buildCompilerValue(std::span<const FbcVariant> variants, bool osIs64) -> Value {
-    // Resolve the binary for each architecture (absent when not installed).
-    std::optional<std::filesystem::path> exe32;
-    std::optional<std::filesystem::path> exe64;
-    for (const auto& variant : variants) {
-        if (variant.arch == FbcArch::Win32) {
-            exe32 = variant.exe;
-        } else {
-            exe64 = variant.exe;
-        }
-    }
-
-    // Canonical architecture: prefer the OS architecture, fall back to the
-    // other when the matching binary is not installed.
-    std::optional<FbcArch> canonicalArch;
-    if (osIs64) {
-        if (exe64.has_value()) {
-            canonicalArch = FbcArch::Win64;
-        } else if (exe32.has_value()) {
-            canonicalArch = FbcArch::Win32;
-        }
-    } else {
-        if (exe32.has_value()) {
-            canonicalArch = FbcArch::Win32;
-        } else if (exe64.has_value()) {
-            canonicalArch = FbcArch::Win64;
-        }
-    }
-
-    Value compiler;
-    if (canonicalArch.has_value()) {
-        const auto& exe = (*canonicalArch == FbcArch::Win64) ? exe64 : exe32;
-        compiler["path"] = toWxString(*exe);
-    }
-    compiler["compileCommand"] = wxString { kDefaultCompile };
-    compiler["runCommand"] = wxString { kDefaultRun };
-    compiler["terminal"] = wxString { kDefaultTerminal };
-    compiler["showInMenu"] = false; // Default is hidden from the menu.
-
-    static constexpr std::array<ArchPlan, 2> kArchOrder { {
-        { .arch = FbcArch::Win32, .target = "win32", .label = "Win32" },
-        { .arch = FbcArch::Win64, .target = "win64", .label = "Win64" },
-    } };
-    static constexpr std::array<SubsystemPlan, 2> kSubsystems { {
-        { .flag = "gui", .label = "GUI", .isConsole = false },
-        { .flag = "console", .label = "Console", .isConsole = true },
-    } };
-
-    int next = 1;
-    wxString activeSlug;
-    for (const auto& archPlan : kArchOrder) {
-        const auto& exe = (archPlan.arch == FbcArch::Win32) ? exe32 : exe64;
-        if (!exe.has_value()) {
-            continue;
-        }
-        for (const auto& sub : kSubsystems) {
-            const auto slug = wxString::Format("cfg-%d", next);
-            auto& cfg = compiler[slug];
-            cfg["name"] = wxString { archPlan.label } + " " + sub.label;
-            cfg["path"] = toWxString(*exe);
-            cfg["compileCommand"] = wxString { R"("<$fbc>" -target )" } + archPlan.target + " -s " + sub.flag + R"( "<$file>")";
-            cfg["showInMenu"] = true;
-            cfg["order"] = next;
-            if (sub.isConsole && canonicalArch.has_value() && archPlan.arch == *canonicalArch) {
-                activeSlug = slug;
-            }
-            ++next;
-        }
-    }
-
-    if (!activeSlug.empty()) {
-        compiler["active"] = activeSlug;
-    }
-    compiler["nextSlugIndex"] = next;
-    return compiler;
-}
-
-namespace {
 /// Executable names probed for an fbc compiler, in priority order.
 constexpr std::array<const char*, 3> kFbcNames { "fbc.exe", "fbc32.exe", "fbc64.exe" };
 
@@ -214,7 +86,134 @@ auto hasExistingSettings(ConfigManager& cfg) -> bool {
         return cur.get_or(key, wxString {}) != base.get_or(key, wxString {});
     });
 }
+
 } // namespace
+
+auto FbcAutoDetect::parseArch(const wxString& versionLine) -> std::optional<FbcArch> {
+    const auto lower = versionLine.Lower();
+    if (lower.Contains("win64") || lower.Contains("64bit")) {
+        return FbcArch::Win64;
+    }
+    if (lower.Contains("win32") || lower.Contains("32bit")) {
+        return FbcArch::Win32;
+    }
+    return std::nullopt;
+}
+
+auto FbcAutoDetect::detectVariants(const std::filesystem::path& folder, const Probe& probe) -> std::vector<FbcVariant> {
+    struct Candidate final {
+        const char* name = nullptr;
+        std::optional<FbcArch> archHint = std::nullopt; ///< Known from the file name; nullopt for plain fbc.exe.
+    };
+    // Named variants first so they win over a plain fbc.exe of the same arch.
+     constexpr std::array<Candidate, 3> candidates { {
+        { .name = "fbc64.exe", .archHint = FbcArch::Win64 },
+        { .name = "fbc32.exe", .archHint = FbcArch::Win32 },
+        { .name = "fbc.exe", .archHint = std::nullopt },
+    } };
+
+    std::vector<FbcVariant> result;
+    const auto haveArch = [&result](FbcArch arch) {
+        return std::ranges::any_of(result, [arch](const FbcVariant& existing) { return existing.arch == arch; });
+    };
+
+    for (const auto& [name, archHint] : candidates) {
+        const auto exe = folder / name;
+        std::error_code ec;
+        if (!std::filesystem::exists(exe, ec)) {
+            continue;
+        }
+        // Must run and report a version — confirms it is a real fbc binary.
+        const auto version = probe(exe);
+        if (version.empty()) {
+            continue;
+        }
+        const auto arch = archHint.has_value() ? archHint : parseArch(version);
+        if (!arch.has_value() || haveArch(*arch)) {
+            continue;
+        }
+        result.push_back({ .exe = exe, .arch = *arch });
+    }
+    return result;
+}
+
+auto FbcAutoDetect::buildCompilerValue(std::span<const FbcVariant> variants, bool osIs64) -> Value {
+    // Resolve the binary for each architecture (absent when not installed).
+    std::optional<std::filesystem::path> exe32;
+    std::optional<std::filesystem::path> exe64;
+    for (const auto& [exe, arch] : variants) {
+        if (arch == FbcArch::Win32) {
+            exe32 = exe;
+        } else {
+            exe64 = exe;
+        }
+    }
+
+    // Canonical architecture: prefer the OS architecture, fall back to the
+    // other when the matching binary is not installed.
+    std::optional<FbcArch> canonicalArch;
+    if (osIs64) {
+        if (exe64.has_value()) {
+            canonicalArch = FbcArch::Win64;
+        } else if (exe32.has_value()) {
+            canonicalArch = FbcArch::Win32;
+        }
+    } else {
+        if (exe32.has_value()) {
+            canonicalArch = FbcArch::Win32;
+        } else if (exe64.has_value()) {
+            canonicalArch = FbcArch::Win64;
+        }
+    }
+
+    Value compiler;
+    if (canonicalArch.has_value()) {
+        const auto& exe = (*canonicalArch == FbcArch::Win64) ? exe64 : exe32;
+        compiler["path"] = toWxString(*exe);
+    }
+    compiler["compileCommand"] = wxString { kDefaultCompile };
+    compiler["runCommand"] = wxString { kDefaultRun };
+    compiler["terminal"] = wxString { kDefaultTerminal };
+    compiler["showInMenu"] = false; // Default is hidden from the menu.
+
+    static constexpr std::array<ArchPlan, 2> kArchOrder { {
+        { .arch = FbcArch::Win32, .target = "win32", .label = "Win32" },
+        { .arch = FbcArch::Win64, .target = "win64", .label = "Win64" },
+    } };
+    static constexpr std::array<SubsystemPlan, 2> kSubsystems { {
+        { .flag = "gui", .label = "GUI", .isConsole = false },
+        { .flag = "console", .label = "Console", .isConsole = true },
+    } };
+
+    int next = 1;
+    wxString activeSlug;
+    for (const auto& archPlan : kArchOrder) {
+        const auto& exe = (archPlan.arch == FbcArch::Win32) ? exe32 : exe64;
+        if (!exe.has_value()) {
+            continue;
+        }
+        for (const auto& [flag, label, isConsole] : kSubsystems) {
+            const auto slug = wxString::Format("cfg-%d", next);
+            auto& cfg = compiler[slug];
+            cfg["name"] = wxString { archPlan.label } + " " + label;
+            cfg["path"] = toWxString(*exe);
+            cfg["compileCommand"] = wxString { R"("<$fbc>" -target )" } + archPlan.target + " -s " + flag + R"( "<$file>")";
+            cfg["showInMenu"] = true;
+            cfg["order"] = next;
+            if (isConsole && canonicalArch.has_value() && archPlan.arch == *canonicalArch) {
+                activeSlug = slug;
+            }
+            ++next;
+        }
+    }
+
+    if (!activeSlug.empty()) {
+        compiler["active"] = activeSlug;
+    }
+    compiler["nextSlugIndex"] = next;
+    return compiler;
+}
+
 
 FbcAutoDetect::FbcAutoDetect(Context& ctx)
 : m_ctx(ctx) {}
