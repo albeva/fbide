@@ -35,11 +35,11 @@ inline auto createFbLexer(const wxString& kwIniPath) -> Scintilla::ILexer5* {
     for (std::size_t i = 0; i < 6; i++) {
         wxString key;
         key.Printf("kw%zu", i + 1);
-        groups[i] = std::string(ini.Read(key, "").Lower().utf8_str());
+        groups[i] = std::string(ini.Read(key, "").utf8_str());
     }
     // KeywordPP slot — prefer kwPP from the .lng, fall back to canonical
     // ppKeywords() table. Either way #ifdef/#endif/etc. style as KeywordPP.
-    auto pp = ini.Read("kwPP", "").Lower();
+    auto pp = ini.Read("kwPP", "");
     if (pp.IsEmpty()) {
         for (const auto& [text, _] : lexer::ppKeywords()) {
             if (!pp.IsEmpty())

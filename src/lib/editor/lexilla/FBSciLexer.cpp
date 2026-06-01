@@ -68,8 +68,15 @@ namespace KeywordTable {
         kAssembly.clear();
     }
 
-    void setWords(const std::string& words, const ThemeCategory cat) {
+    void setWords(std::string words, const ThemeCategory cat) {
         auto& map = getMap(cat);
+
+        // Lowercase the whole range once (ASCII A–Z, matching GetCurrentLowered)
+        // so lookups are case-insensitive and word extraction can emplace
+        // substrings directly — no per-word temporary or re-lowering.
+        for (auto& ch : words) {
+            ch = static_cast<char>(lowerCase(static_cast<unsigned char>(ch)));
+        }
 
         std::size_t i = 0;
         while (i < words.size()) {
@@ -81,7 +88,7 @@ namespace KeywordTable {
                 i++;
             }
             if (i > start) {
-                map.emplace(std::string(words.substr(start, i - start)), cat);
+                map.emplace(words.substr(start, i - start), cat);
             }
         }
     }

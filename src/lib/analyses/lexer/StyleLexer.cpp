@@ -18,7 +18,7 @@ void lexer::setFbKeywords(const Value& kw) {
     std::array<std::string, kThemeKeywordGroupsCount> groups;
     for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
         const auto key = getThemeCategoryName(kThemeKeywordCategories[idx]);
-        groups[idx] = std::string(kw.get_or(wxString(key), "").Lower().utf8_str());
+        groups[idx] = std::string(kw.get_or(wxString(key), "").utf8_str());
     }
     FBSciLexer::setKeywords(groups);
 }
