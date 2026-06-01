@@ -93,6 +93,7 @@ private:
     wxString m_sourceFile;             ///< Source file currently being compiled.
     wxString m_buildDir;               ///< Working directory for the compile/run process.
     wxString m_compiledFile;           ///< Path of the produced executable (set on success).
+    wxString m_fbcVersion;             ///< Active config's fbc version, probed before the async compile.
     wxArrayString m_compilerLog;       ///< Captured compiler output (for the log dialog).
     AsyncProcess* m_process = nullptr; ///< In-flight async process (self-deleting).
 };

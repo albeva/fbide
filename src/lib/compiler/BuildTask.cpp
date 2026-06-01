@@ -89,6 +89,13 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     m_compilerLog.Add(cmdStr);
     m_ctx.getCompilerManager().refreshCompilerLog();
 
+    // Probe the active config's compiler version *before* launching the async
+    // compile. probeCompilerVersion runs a synchronous wxExecute (with its own
+    // nested event loop); calling it from onCompileFinished would re-enter wx's
+    // child-process machinery inside the compile process's OnTerminate handler
+    // and deadlock. appendSystemInfo() reads the cached value instead.
+    m_fbcVersion = m_ctx.getCompilerManager().probeCompilerVersion(m_config.path);
+
     m_running = true;
     m_ctx.getUIManager().setCompilerState(UIState::Compiling);
     setStatus("status.compiling");
@@ -283,9 +290,8 @@ void BuildTask::appendSystemInfo() {
     m_compilerLog.Add("");
     m_compilerLog.Add("[bold]" + m_ctx.tr("dialogs.log.sectionSystem") + "[/bold]");
     m_compilerLog.Add(m_ctx.tr("dialogs.log.fbidePrefix") + wxString(cmake::project.version));
-    const auto fbcVersion = m_ctx.getCompilerManager().probeCompilerVersion(m_config.path);
-    if (!fbcVersion.empty()) {
-        m_compilerLog.Add(m_ctx.tr("dialogs.log.fbcPrefix") + fbcVersion);
+    if (!m_fbcVersion.empty()) {
+        m_compilerLog.Add(m_ctx.tr("dialogs.log.fbcPrefix") + m_fbcVersion);
     }
     m_compilerLog.Add(m_ctx.tr("dialogs.log.osPrefix") + wxGetOsDescription());
 }
