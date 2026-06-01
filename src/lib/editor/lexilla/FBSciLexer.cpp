@@ -6,10 +6,6 @@
 //
 // ReSharper disable CppDFALocalValueEscapesFunction
 #include "FBSciLexer.hpp"
-#include <algorithm>
-#include <map>
-#include <string_view>
-#include <unordered_map>
 #include "CharCategory.hpp"
 // clang-format off
 #include "Scintilla.h"
