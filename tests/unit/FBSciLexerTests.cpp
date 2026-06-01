@@ -16,17 +16,19 @@ class FBSciLexerTests : public testing::Test {
 protected:
     void SetUp() override {
         m_lexer = FBSciLexer::Create();
-        // Set up keyword lists matching fbfull.lng groups
-        // Indices map 1:1 to DEFINE_THEME_KEYWORD_GROUPS order.
-        m_lexer->WordListSet(0, "dim as if then else end sub function type asm");                   // Keyword1
-        m_lexer->WordListSet(1, "integer string single double long byte");                          // Keyword2
-        m_lexer->WordListSet(2, "and or not mod xor");                                              // Keyword3
-        m_lexer->WordListSet(3, "__fb_version__");                                                  // Keyword4
-        m_lexer->WordListSet(4, "");                                                                // KeywordCustom
-        m_lexer->WordListSet(5, "");                                                                // KeywordCustom
-        m_lexer->WordListSet(6, "if ifdef ifndef else elseif endif macro endmacro define include"); // KeywordPP
-        m_lexer->WordListSet(7, "mov push pop ret jmp");                                            // KeywordAsm1
-        m_lexer->WordListSet(8, "eax ebx ecx edx");                                                 // KeywordAsm2
+        // Set up the shared keyword table matching fbfull.lng groups.
+        // Array order maps 1:1 to DEFINE_THEME_KEYWORD_GROUPS order.
+        FBSciLexer::setKeywords({
+            "dim as if then else end sub function type asm",                // Keywords
+            "integer string single double long byte",                       // KeywordTypes
+            "and or not mod xor",                                           // KeywordOperators
+            "__fb_version__",                                               // KeywordConstants
+            "",                                                             // KeywordLibrary
+            "",                                                             // KeywordCustom
+            "if ifdef ifndef else elseif endif macro endmacro define include", // KeywordPP
+            "mov push pop ret jmp",                                         // KeywordAsm1
+            "eax ebx ecx edx",                                             // KeywordAsm2
+        });
         m_lexer->PropertySet("fold", "1");
     }
 

@@ -371,13 +371,8 @@ void Editor::loadLexerTheme() {
 void Editor::applyFreebasicTheme() {
     const auto& theme = m_theme;
 
-    // Apply keywords
-    const auto& groups = m_configManager.keywords().at("groups");
-    for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
-        const auto key = getThemeCategoryName(kThemeKeywordCategories.at(idx));
-        SetKeyWords(static_cast<int>(idx), groups.get_or(wxString(key), "").Lower());
-    }
-
+    // Keywords are classified from FBSciLexer's shared table (built at startup
+    // and on settings change via lexer::setFbKeywords) — no per-editor wordlists.
     for (const auto cat : kThemeCategories) {
         applyStyle(+cat, theme.get(cat), theme);
     }

@@ -7,6 +7,7 @@
 #include "App.hpp"
 #include "Context.hpp"
 #include "InstanceHandler.hpp"
+#include "analyses/lexer/StyleLexer.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
@@ -287,6 +288,9 @@ auto App::OnInit() -> bool {
 
     const auto& configManager = m_context->getConfigManager();
     m_context->getFileHistory().load(configManager.historyPath());
+
+    // Build the shared FB keyword tables before any editor / Intellisense lexes.
+    lexer::setFbKeywords(m_context->getConfigManager().keywords().at("groups"));
 
     m_context->getUIManager().createMainFrame();
     openFiles(cli.files);

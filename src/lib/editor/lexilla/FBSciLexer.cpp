@@ -8,6 +8,8 @@
 #include "FBSciLexer.hpp"
 #include <algorithm>
 #include <map>
+#include <string_view>
+#include <unordered_map>
 #include "CharCategory.hpp"
 // clang-format off
 #include "Scintilla.h"
@@ -21,41 +23,6 @@ namespace {
 
 // region ---------- Metadata ----------
 
-constexpr std::array lexicalClasses {
-    Lexilla::LexicalClass { +ThemeCategory::Default, "state.default", "default", "Default" },
-    Lexilla::LexicalClass { +ThemeCategory::Comment, "state.comment", "comment line", "Single-line comment" },
-    Lexilla::LexicalClass { +ThemeCategory::MultilineComment, "state.comment.block", "comment", "Block comment" },
-    Lexilla::LexicalClass { +ThemeCategory::Number, "state.number", "literal numeric", "Number" },
-    Lexilla::LexicalClass { +ThemeCategory::String, "state.string", "literal string", "String literal" },
-    Lexilla::LexicalClass { +ThemeCategory::StringOpen, "state.string.unclosed", "literal string unclosed", "Unclosed string" },
-    Lexilla::LexicalClass { +ThemeCategory::Identifier, "state.identifier", "identifier", "Identifier" },
-    Lexilla::LexicalClass { +ThemeCategory::Keywords, "state.keyword", "keyword", "Keywords" },
-    Lexilla::LexicalClass { +ThemeCategory::KeywordTypes, "state.keyword.types", "keyword", "Types" },
-    Lexilla::LexicalClass { +ThemeCategory::KeywordOperators, "state.keyword.operators", "keyword", "Operators" },
-    Lexilla::LexicalClass { +ThemeCategory::KeywordConstants, "state.keyword.constants", "keyword", "Defines" },
-    Lexilla::LexicalClass { +ThemeCategory::KeywordLibrary, "state.library", "keyword", "FreeBASIC runtime library" },
-    Lexilla::LexicalClass { +ThemeCategory::KeywordCustom, "state.custom2", "keyword", "User keywords 2" },
-    Lexilla::LexicalClass { +ThemeCategory::KeywordPP, "state.keyword.preprocessor", "keyword", "Preprocessor keyword" },
-    Lexilla::LexicalClass { +ThemeCategory::KeywordAsm1, "state.keyword.asm1", "keyword", "Asm keywords 1" },
-    Lexilla::LexicalClass { +ThemeCategory::KeywordAsm2, "state.keyword.asm2", "keyword", "Asm keywords 2" },
-    Lexilla::LexicalClass { +ThemeCategory::Operator, "state.operator", "operator", "Operator" },
-    Lexilla::LexicalClass { +ThemeCategory::Label, "state.label", "label", "Label" },
-    Lexilla::LexicalClass { +ThemeCategory::Preprocessor, "state.preprocessor", "preprocessor", "Preprocessor" },
-    Lexilla::LexicalClass { +ThemeCategory::NumberPP, "state.number.preprocessor", "literal numeric", "Number in preprocessor" },
-    Lexilla::LexicalClass { +ThemeCategory::StringPP, "state.string.preprocessor", "literal string", "String in preprocessor" },
-    Lexilla::LexicalClass { +ThemeCategory::OperatorPP, "state.operator.preprocessor", "operator", "Operator in preprocessor" },
-    Lexilla::LexicalClass { +ThemeCategory::IdentifierPP, "state.identifier.preprocessor", "identifier", "Identifier in preprocessor" },
-    Lexilla::LexicalClass { +ThemeCategory::Error, "state.error", "errpr", "Syntax error" },
-};
-static_assert(lexicalClasses.size() == kThemeCategoryCount);
-
-constexpr std::array<const char*, kThemeKeywordGroupsCount + 1> wordListDescriptions {
-#define GROUPS(NAME) #NAME,
-    DEFINE_THEME_KEYWORD_GROUPS(GROUPS)
-#undef GROUPS
-        nullptr
-};
-
 struct OptionSet final : Lexilla::OptionSet<FBSciLexer::Options> {
     OptionSet() {
         DefineProperty("fold", &FBSciLexer::Options::fold);
@@ -67,38 +34,70 @@ OptionSet kOptionSet; // NOLINT(*-throwing-static-initialization, *-err58-cpp, *
 
 } // namespace
 
+// region ---------- Keyword tables ----------
+
+namespace {
+
+/// One classification map per lexing context (see `identifyKeyword`).
+namespace KeywordTable {
+    /// Transparent hash so identifiers can be looked up by `string_view` straight
+    /// off the ident buffer — no temporary `std::string` per lookup.
+    struct StringHash final {
+        using is_transparent = void;
+        [[nodiscard]] auto operator()(const std::string_view sv) const noexcept -> std::size_t {
+            return std::hash<std::string_view> {}(sv);
+        }
+    };
+    using KeywordMap = std::unordered_map<std::string, ThemeCategory, StringHash, std::equal_to<>>;
+
+    KeywordMap kFreeBasic;    ///< Groups 0..5 — keywords in ordinary FB code.
+    KeywordMap kPreprocessor; ///< Group 6 — directives valid as the first identifier after `#`.
+    KeywordMap kAssembly;     ///< Groups 7..8 — keywords inside `asm` blocks.
+
+    [[nodiscard]] auto getMap(const ThemeCategory cat) -> KeywordMap& {
+        constexpr auto ppIdx = indexOfKeywordGroup(ThemeCategory::KeywordPP);
+        const auto idx = indexOfKeywordGroup(cat);
+        if (idx < ppIdx) {
+            return kFreeBasic;
+        }
+        if (idx == ppIdx) {
+            return kPreprocessor;
+        }
+        return kAssembly;
+    }
+
+    void clear() {
+        kFreeBasic.clear();
+        kPreprocessor.clear();
+        kAssembly.clear();
+    }
+
+    void setWords(const std::string& words, const ThemeCategory cat) {
+        auto& map = getMap(cat);
+
+        std::size_t i = 0;
+        while (i < words.size()) {
+            while (i < words.size() && static_cast<unsigned char>(words[i]) <= ' ') {
+                i++;
+            }
+            const std::size_t start = i;
+            while (i < words.size() && static_cast<unsigned char>(words[i]) > ' ') {
+                i++;
+            }
+            if (i > start) {
+                map.emplace(std::string(words.substr(start, i - start)), cat);
+            }
+        }
+    }
+} // namespace KeywordTable
+} // namespace
+
+// endregion
+
 // region ---------- Scintilla Boilerplate ----------
 
 FBSciLexer::FBSciLexer()
-: DefaultLexer("freebasic", SCLEX_AUTOMATIC, lexicalClasses.data(), lexicalClasses.size()) {}
-
-auto SCI_METHOD FBSciLexer::DescribeWordListSets() -> const char* {
-    // ReSharper disable once CppVariableCanBeMadeConstexpr
-    static const std::string desc = [] {
-        std::string result;
-        for (const auto* entry : wordListDescriptions) {
-            if (entry == nullptr) {
-                break;
-            }
-            if (!result.empty()) {
-                result += '\n';
-            }
-            result += entry;
-        }
-        return result;
-    }();
-    return desc.c_str();
-}
-
-auto SCI_METHOD FBSciLexer::WordListSet(const int n, const char* wl) -> Sci_Position {
-    const auto idx = static_cast<std::size_t>(n);
-    if (idx < kThemeKeywordGroupsCount) {
-        if (m_wordLists[idx].Set(wl)) { // NOLINT(*-pro-bounds-*)
-            return 0;
-        }
-    }
-    return -1;
-}
+: DefaultLexer("freebasic", SCLEX_AUTOMATIC, nullptr, 0) {}
 
 auto FBSciLexer::PropertySet(const char* key, const char* val) -> Sci_Position {
     if (kOptionSet.PropertySet(&m_options, key, val)) {
@@ -109,6 +108,15 @@ auto FBSciLexer::PropertySet(const char* key, const char* val) -> Sci_Position {
 
 auto FBSciLexer::Create() -> ILexer5* {
     return new FBSciLexer();
+}
+
+void FBSciLexer::setKeywords(const std::array<std::string, kThemeKeywordGroupsCount>& groups) {
+    // Rebuild from scratch — setKeywords replaces the previous configuration
+    // (settings change), it does not add to it.
+    KeywordTable::clear();
+    for (std::size_t idx = 0; idx < groups.size(); idx++) {
+        KeywordTable::setWords(groups[idx], kThemeKeywordCategories[idx]);
+    }
 }
 
 // endregion
@@ -647,16 +655,13 @@ auto FBSciLexer::identifyKeyword() noexcept -> bool {
         }
     }
 
+    // asm blocks classify against the asm map; everything else against the
+    // normal-code map. KeywordPP is never consulted here (only in
+    // lexPreprocessor) — same partition the old per-group range enforced.
     const bool asmContext = m_asmState != AsmState::None;
-    constexpr std::size_t pp = indexOfKeywordGroup(ThemeCategory::KeywordPP);
-    const std::size_t first = asmContext ? pp + 1 : 0;
-    const std::size_t last = asmContext ? kThemeKeywordGroupsCount : pp;
-
-    for (std::size_t index = first; index < last; index++) {
-        if (m_wordLists[index].InList(m_identBuffer.data())) {  // NOLINT(*-pro-bounds-*)
-            m_sc->ChangeState(+kThemeKeywordCategories[index]); // NOLINT(*-pro-bounds-*)
-            break;
-        }
+    const KeywordTable::KeywordMap& map = asmContext ? KeywordTable::kAssembly : KeywordTable::kFreeBasic;
+    if (const auto it = map.find(std::string_view { m_identBuffer.data() }); it != map.end()) {
+        m_sc->ChangeState(+it->second);
     }
     return true;
 }
@@ -761,8 +766,7 @@ void FBSciLexer::lexPreprocessor() noexcept {
         // is preserved across `_` continuation + nested block comments
         // via LineState.
         if (!m_ppDirectiveSeen) {
-            constexpr std::size_t pp = indexOfKeywordGroup(KeywordPP);
-            if (m_wordLists[pp].InList(m_identBuffer.data())) { // NOLINT(*-pro-bounds-avoid-unchecked-container-access)
+            if (KeywordTable::kPreprocessor.contains(std::string_view { m_identBuffer.data() })) {
                 m_sc->ChangeState(+KeywordPP);
             } else {
                 m_sc->ChangeState(+IdentifierPP);

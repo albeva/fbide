@@ -40,14 +40,19 @@ namespace fbide {
  */
 class FBSciLexer final : public Lexilla::DefaultLexer {
 public:
-    /// Default-constructed lexer. Wordlists are populated via `WordListSet`.
+    /// Default-constructed lexer. Keywords come from the shared table set via
+    /// `setKeywords` — there are no per-instance wordlists.
     FBSciLexer();
-    /// Scintilla hook — describe each keyword wordlist slot.
-    const char* SCI_METHOD DescribeWordListSets() override;
-    /// Scintilla hook — install wordlist `n` from a space-separated string.
-    Sci_Position SCI_METHOD WordListSet(int n, const char* wl) override;
     /// Set property
     Sci_Position SCI_METHOD PropertySet(const char* key, const char* val) override;
+
+    /// (Re)build the shared keyword tables from per-group keyword strings
+    /// (space-separated, lowercase; group order matches kThemeKeywordCategories).
+    /// Call once at startup and whenever the user's keyword settings change.
+    /// The new table is published atomically, so this is safe to call from the
+    /// UI thread while a worker-thread lexer runs — in-flight `Lex` calls keep
+    /// using the snapshot they pinned.
+    static void setKeywords(const std::array<std::string, kThemeKeywordGroupsCount>& groups);
 
     /// Scintilla hook — colorize the document range starting at `startPos`.
     void SCI_METHOD Lex(Sci_PositionU startPos, Sci_Position lengthDoc,
@@ -145,7 +150,6 @@ private:
     /// Identifier-buffer capacity.
     static constexpr std::size_t MAX_IDENT_LEN = 128;
 
-    std::array<Lexilla::WordList, kThemeKeywordGroupsCount> m_wordLists; ///< Per-keyword-group wordlists.
     Lexilla::StyleContext* m_sc = nullptr;                               ///< Active Scintilla styling context (per Lex call).
     Lexilla::LexAccessor* m_styler = nullptr;                            ///< Accessor for line/state queries (per Lex call).
     Sci_Position m_line = 0;                                             ///< Current source line being styled.

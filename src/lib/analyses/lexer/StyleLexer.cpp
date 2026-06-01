@@ -5,22 +5,22 @@
 // https://github.com/albeva/fbide
 //
 #include "StyleLexer.hpp"
-// clang-format off
-#include "ILexer.h"
-// clang-format on
+#include <array>
 #include "KeywordTables.hpp"
 #include "VerbatimAnnotator.hpp"
 #include "config/ThemeCategory.hpp"
 #include "config/Value.hpp"
+#include "editor/lexilla/FBSciLexer.hpp"
 using namespace fbide;
 using namespace fbide::lexer;
 
-void lexer::configureFbWordlists(Scintilla::ILexer5& lex, const Value& kw) {
+void lexer::setFbKeywords(const Value& kw) {
+    std::array<std::string, kThemeKeywordGroupsCount> groups;
     for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
         const auto key = getThemeCategoryName(kThemeKeywordCategories[idx]);
-        const auto words = kw.get_or(wxString(key), "").Lower();
-        lex.WordListSet(static_cast<int>(idx), words.utf8_str());
+        groups[idx] = std::string(kw.get_or(wxString(key), "").Lower().utf8_str());
     }
+    FBSciLexer::setKeywords(groups);
 }
 
 namespace {

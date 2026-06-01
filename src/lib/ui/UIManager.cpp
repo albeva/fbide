@@ -7,6 +7,7 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "UIManager.hpp"
 #include "CompilerLog.hpp"
+#include "analyses/lexer/StyleLexer.hpp"
 #include "app/Context.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
@@ -696,6 +697,10 @@ void UIManager::disable(const std::ranges::range auto& range) const {
 
 void UIManager::updateSettings() {
     const auto thaw = freeze();
+
+    // Rebuild the shared FB keyword tables from the updated settings before
+    // re-applying to editors — their recolour then sees the new keywords.
+    lexer::setFbKeywords(m_ctx.getConfigManager().keywords().at("groups"));
 
     // Reapply settings to all open editors
     for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {
