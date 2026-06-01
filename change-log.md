@@ -1,3 +1,7 @@
+# Changes since 0.5.0-rc.4
+
+- Fixed crash on linux and macOS after compiling a file (#104)
+
 # Changes since 0.5.0-rc.3
 
 - Added multiple compiler configurations.
