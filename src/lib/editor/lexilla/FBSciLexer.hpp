@@ -129,7 +129,7 @@ private:
     /// State: Default — dispatch to the right lexer for the next char.
     FBIDE_INLINE void lexDefault() noexcept;
     /// State: single-line comment (`'`).
-    FBIDE_INLINE void lexComment() noexcept;
+    FBIDE_INLINE void lexComment()const noexcept;
     /// State: nested block comment (`/'`).
     FBIDE_INLINE void lexMultilineComment() noexcept;
     /// State: numeric literal.

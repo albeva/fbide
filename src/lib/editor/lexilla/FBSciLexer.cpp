@@ -448,7 +448,7 @@ void FBSciLexer::lexDefault() noexcept {
     }
 }
 
-void FBSciLexer::lexComment() noexcept {
+void FBSciLexer::lexComment() const noexcept {
     if (m_sc->atLineEnd) {
         m_sc->SetState(+ThemeCategory::Default); // no reset!
     }
