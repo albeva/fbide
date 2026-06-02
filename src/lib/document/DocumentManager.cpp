@@ -767,12 +767,22 @@ auto DocumentManager::findByPath(const wxString& path) const -> Document* {
 }
 
 auto DocumentManager::findByPath(const std::filesystem::path& path) const -> Document* {
-    // Stored doc paths are canonical (set via openFile / saveFileAs).
-    // Canonicalize the query once so case-insensitive filesystems, symlinks,
-    // and relative paths all collapse to the same identity.
-    const auto canonical = canonicalizePath(path);
+    // File identity is on-disk sameness, NOT string equality: case-insensitive
+    // filesystems (macOS/Windows), symlinks, 8.3 short names, and relative paths
+    // all alias the same file. std::filesystem::equivalent answers that portably
+    // — `==` misses it, and weakly_canonical's case-folding is implementation-
+    // defined (works under MSVC, not MinGW/libc++).
+    if (path.empty()) {
+        return nullptr;
+    }
+    std::error_code ec;
     for (auto& doc : m_documents) {
-        if (!doc->isNew() && doc->getFilePath() == canonical) {
+        if (doc->isNew()) {
+            continue;
+        }
+        // equivalent needs both paths to exist; a missing query matches nothing
+        // (ec is set, the call returns false), which is the correct answer.
+        if (std::filesystem::equivalent(doc->getFilePath(), path, ec)) {
             return doc.get();
         }
     }

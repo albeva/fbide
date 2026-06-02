@@ -74,7 +74,6 @@ target_sources(fbide_lib
     update/UpdateManager.cpp
 
     PUBLIC FILE_SET HEADERS FILES
-    ui/controls/SmartBoxSizer.hpp
     about/AboutDialog.hpp
     analyses/intellisense/IntellisenseService.hpp
     analyses/lexer/KeywordTables.hpp
@@ -151,6 +150,7 @@ target_sources(fbide_lib
     ui/controls/InheritableField.hpp
     ui/controls/Layout.hpp
     ui/controls/Panel.hpp
+    ui/controls/SmartBoxSizer.hpp
     ui/utilities/FileDropTarget.hpp
     update/UpdateManager.hpp
     utils/DeferHandler.hpp
