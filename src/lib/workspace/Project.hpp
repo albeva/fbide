@@ -79,9 +79,10 @@ public:
         /// serialisation. Internal references prefer the direct `Node*`.
         using Id = IdentifierBase<Node>;
 
-        /// Ordering applied to a folder's children. `Name` is the default
-        /// (and currently only) option; the enum is the extension point for
-        /// future orderings.
+        /// Ordering applied to a folder's children. `Name` (the default and
+        /// currently only option) groups folders before files, then sorts
+        /// each group case-insensitively by name. The enum is the extension
+        /// point for future orderings.
         enum class SortOrder : std::uint8_t {
             Name,
         };

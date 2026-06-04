@@ -15,9 +15,20 @@
 using namespace fbide;
 
 namespace {
-/// Base id for the per-action context-menu items (one id per `Action`).
+/// Id range for the per-action context-menu items (one id per `Action`).
+/// `Remove` is the last `Project::Action`, so it bounds the EVT_MENU_RANGE.
 constexpr int kMenuActionBase = wxID_HIGHEST + 1;
+constexpr int kMenuActionLast = kMenuActionBase + static_cast<int>(Project::Action::Remove);
 } // namespace
+
+// clang-format off
+wxBEGIN_EVENT_TABLE(ProjectTreeView, wxTreeCtrl)
+    EVT_TREE_ITEM_MENU(wxID_ANY, ProjectTreeView::onItemMenu)
+    EVT_TREE_BEGIN_DRAG(wxID_ANY, ProjectTreeView::onBeginDrag)
+    EVT_TREE_END_DRAG(wxID_ANY, ProjectTreeView::onEndDrag)
+    EVT_MENU_RANGE(kMenuActionBase, kMenuActionLast, ProjectTreeView::onMenuAction)
+wxEND_EVENT_TABLE()
+// clang-format on
 
 ProjectTreeView::ProjectTreeView(wxWindow* parent, Context& ctx, Project& project)
 : wxTreeCtrl(
@@ -36,10 +47,6 @@ ProjectTreeView::ProjectTreeView(wxWindow* parent, Context& ctx, Project& projec
     images->Add(art.getBitmap(ProjectIcon::Folder));
     images->Add(art.getBitmap(ProjectIcon::File));
     AssignImageList(images); // tree takes ownership
-
-    Bind(wxEVT_TREE_ITEM_MENU, &ProjectTreeView::onItemMenu, this);
-    Bind(wxEVT_TREE_BEGIN_DRAG, &ProjectTreeView::onBeginDrag, this);
-    Bind(wxEVT_TREE_END_DRAG, &ProjectTreeView::onEndDrag, this);
 
     rebuild();
 }
@@ -154,15 +161,17 @@ void ProjectTreeView::onItemMenu(wxTreeEvent& event) {
 
     wxMenu menu;
     for (const auto action : m_project.contextActions(node)) {
-        const int id = kMenuActionBase + static_cast<int>(action);
-        menu.Append(id, labelFor(action));
-        menu.Bind(
-            wxEVT_MENU,
-            [this, action, node](const wxCommandEvent&) { runAction(action, node); },
-            id
-        );
+        menu.Append(kMenuActionBase + static_cast<int>(action), labelFor(action));
     }
     PopupMenu(&menu);
+}
+
+void ProjectTreeView::onMenuAction(wxCommandEvent& event) {
+    auto* node = nodeFor(GetSelection());
+    if (node == nullptr) {
+        return;
+    }
+    runAction(static_cast<Project::Action>(event.GetId() - kMenuActionBase), node);
 }
 
 void ProjectTreeView::runAction(const Project::Action action, Project::Node* node) {

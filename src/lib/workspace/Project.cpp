@@ -20,8 +20,12 @@ auto isValidLeafName(const std::string& name) -> bool {
         && name.find('\\') == std::string::npos;
 }
 
-// Case-insensitive (ASCII) ordering of two nodes by filename.
+// Ordering for a folder's children: folders before files, then
+// case-insensitive (ASCII) by filename.
 auto nameLess(const Project::Node* lhs, const Project::Node* rhs) -> bool {
+    if (lhs->isFolder() != rhs->isFolder()) {
+        return lhs->isFolder(); // folders before files
+    }
     const auto fold = [](std::string str) {
         for (auto& chr : str) {
             if (chr >= 'A' && chr <= 'Z') {

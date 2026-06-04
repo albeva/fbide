@@ -468,16 +468,19 @@ TEST_F(ProjectTest, RenameRejectsInvalidName) {
 
 // --- sorting ---------------------------------------------------------------
 
-TEST_F(ProjectTest, ChildrenSortedByName) {
+TEST_F(ProjectTest, ChildrenSortedFoldersFirstThenByName) {
     auto project = makePersistent();
     project.addFile(project.getRoot(), "zebra.bas");
     project.addFile(project.getRoot(), "apple.bas");
     project.addFolder(project.getRoot(), "mango");
+    project.addFolder(project.getRoot(), "banana");
     const auto& children = project.getRoot()->getFolder()->children;
-    ASSERT_EQ(children.size(), 3U);
-    EXPECT_EQ(children[0]->name(), "apple.bas");
+    ASSERT_EQ(children.size(), 4U);
+    // Folders first (name-sorted), then files (name-sorted).
+    EXPECT_EQ(children[0]->name(), "banana");
     EXPECT_EQ(children[1]->name(), "mango");
-    EXPECT_EQ(children[2]->name(), "zebra.bas");
+    EXPECT_EQ(children[2]->name(), "apple.bas");
+    EXPECT_EQ(children[3]->name(), "zebra.bas");
 }
 
 // --- contextActions --------------------------------------------------------

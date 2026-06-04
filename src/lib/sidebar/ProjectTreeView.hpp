@@ -55,6 +55,9 @@ private:
 
     // Context menu + actions ----------------------------------------------
     void onItemMenu(wxTreeEvent& event);
+    /// EVT_MENU_RANGE handler for the context-menu items — recovers the
+    /// `Action` from the menu id and the node from the current selection.
+    void onMenuAction(wxCommandEvent& event);
     void runAction(Project::Action action, Project::Node* node);
     void addFolder(Project::Node* parent);
     void addFile(Project::Node* parent, const wxString& extension);
@@ -76,6 +79,8 @@ private:
     std::unordered_map<wxTreeItemId::Type, Project::Node*> m_itemToNode; ///< Tree item → node.
     std::unordered_map<Project::Node*, wxTreeItemId> m_nodeToItem;       ///< Node → tree item.
     wxTreeItemId m_dragItem;                                             ///< Source item of an in-progress drag (invalid when none).
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide
