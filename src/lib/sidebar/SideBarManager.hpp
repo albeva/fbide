@@ -13,6 +13,7 @@ class wxTreeEvent;
 namespace fbide {
 class Context;
 class Document;
+class Project;
 class SymbolBrowserPanel;
 class ProjectTreeView;
 
@@ -66,10 +67,10 @@ public:
     /// box. Bound to the "Show Subs" command (F2).
     void showSymbolBrowser();
 
-    /// Insert the project tree view as the first sidebar tab, select it,
+    /// Insert a tree view of `project` as the first sidebar tab, select it,
     /// and reveal the Browser pane. Called by `WorkspaceManager` when a
-    /// persistent project is loaded; lazily creates the view on first use.
-    void showProjectTree();
+    /// persistent project is loaded.
+    void showProjectTree(Project& project);
 
     /// Delete the project tree view tab (destroying the view). Called by
     /// `WorkspaceManager` when the persistent project closes. No-op when

@@ -42,7 +42,8 @@ ArtiProvider::ArtiProvider()
     { SymbolKind::Enum, XPM::sym_enum_xpm },
     { SymbolKind::Macro, XPM::sym_macro_xpm },
     { SymbolKind::Include, XPM::sym_include_xpm }
-} {}
+}
+, m_projectIcons { { ProjectIcon::Root, XPM::project_root_xpm }, { ProjectIcon::Folder, XPM::project_folder_xpm }, { ProjectIcon::File, XPM::project_file_xpm } } {}
 
 auto ArtiProvider::getBitmap(const CommandId id) const -> wxBitmap {
     const auto it = m_commandIcons.find(id);
@@ -55,6 +56,14 @@ auto ArtiProvider::getBitmap(const CommandId id) const -> wxBitmap {
 auto ArtiProvider::getBitmap(const SymbolKind kind) const -> wxBitmap {
     const auto it = m_symbolIcons.find(kind);
     if (it == m_symbolIcons.end()) {
+        return wxNullBitmap;
+    }
+    return make(it->second);
+}
+
+auto ArtiProvider::getBitmap(const ProjectIcon icon) const -> wxBitmap {
+    const auto it = m_projectIcons.find(icon);
+    if (it == m_projectIcons.end()) {
         return wxNullBitmap;
     }
     return make(it->second);

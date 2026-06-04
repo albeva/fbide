@@ -11,6 +11,11 @@
 namespace fbide {
 enum class SymbolKind : std::uint8_t;
 
+/// Project-tree node icons (root folder, sub-folder, file).
+enum class ProjectIcon : std::uint8_t { Root,
+    Folder,
+    File };
+
 /// Maps command IDs to toolbar/menu bitmaps.
 /// Decoupled from wxArtProvider — owned directly by UIManager.
 class ArtiProvider final {
@@ -23,13 +28,16 @@ public:
     [[nodiscard]] auto getBitmap(CommandId id) const -> wxBitmap;
     /// Bitmap for the given symbol kind. Returns `wxNullBitmap` if unknown.
     [[nodiscard]] auto getBitmap(SymbolKind kind) const -> wxBitmap;
+    /// Bitmap for the given project-tree icon. Returns `wxNullBitmap` if unknown.
+    [[nodiscard]] auto getBitmap(ProjectIcon icon) const -> wxBitmap;
 
 private:
     /// Build a `wxBitmap` from raw XPM data.
     [[nodiscard]] auto make(const char* const* xpm) const -> wxBitmap;
 
-    std::unordered_map<CommandId, const char* const*> m_commandIcons; ///< CommandId → XPM mapping.
-    std::unordered_map<SymbolKind, const char* const*> m_symbolIcons; ///< SymbolKind → XPM mapping.
+    std::unordered_map<CommandId, const char* const*> m_commandIcons;   ///< CommandId → XPM mapping.
+    std::unordered_map<SymbolKind, const char* const*> m_symbolIcons;   ///< SymbolKind → XPM mapping.
+    std::unordered_map<ProjectIcon, const char* const*> m_projectIcons; ///< ProjectIcon → XPM mapping.
 };
 
 } // namespace fbide

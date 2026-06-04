@@ -77,6 +77,7 @@ target_sources(fbide_lib
     ui/utilities/FileDropTarget.cpp
     update/UpdateManager.cpp
     utils/Identifier.cpp
+    utils/PlatformTrash.cpp
     workspace/EphemeralProject.cpp
     workspace/Project.cpp
     workspace/ProjectBase.cpp
@@ -175,6 +176,7 @@ target_sources(fbide_lib
     utils/Macros.hpp
     utils/NoCopy.hpp
     utils/PathConversions.hpp
+    utils/PlatformTrash.hpp
     utils/Unowned.hpp
     utils/Utils.hpp
     utils/ValueRestorer.hpp
@@ -209,3 +211,11 @@ endif ()
 # precompile header
 target_include_directories(fbide_lib PUBLIC "${CMAKE_BINARY_DIR}/configured_files/include")
 target_precompile_headers(fbide_lib PUBLIC pch.hpp)
+
+# macOS move-to-trash is implemented in Objective-C++ (NSFileManager).
+# Compile the .mm only on Apple, skip the C++ PCH for it, and link Foundation.
+if (APPLE)
+    target_sources(fbide_lib PRIVATE utils/PlatformTrash.mm)
+    set_source_files_properties(utils/PlatformTrash.mm PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+    target_link_libraries(fbide_lib PUBLIC "-framework Foundation")
+endif()

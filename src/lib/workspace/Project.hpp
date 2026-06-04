@@ -15,180 +15,162 @@ class CompilerConfigCatalog;
 struct ResolvedCompilerConfig;
 
 /**
- * A persistent, user-created on-disk project: groups one or more source
- * files (and, in the future, other assets) under a folder tree together
- * with the settings needed to build and run them. Survives type changes
- * of its members.
+ * A persistent, user-created on-disk project: a folder tree rooted at a
+ * real directory, holding source files and subfolders the IDE builds and
+ * runs. Survives type changes of its members.
  *
- * Files and folders are arranged in a flat node arena. `m_nodes` owns
- * each `Node` via `unique_ptr` — keyed by `Node::Id` so the per-node
- * identity round-trips through serialisation — but every intra-tree
- * reference (`Node::parent`, `Folder::children`, `m_root`, the
- * `m_pathMap` index, the back-link in `Document::Source`) is a raw
- * `Node*`. The unique_ptr storage guarantees the pointers stay valid for
- * the node's lifetime; IDs are kept for serialisation, debug output, and
- * the occasional temp-file name.
+ * Every node is backed by the filesystem — folders are real directories,
+ * files are real files (there are no "virtual" folders). Nodes live in a
+ * flat arena: `m_nodes` owns each `Node` via `unique_ptr` keyed by
+ * `Node::Id`; every intra-tree reference (`parent`, `children`, `m_root`,
+ * the `m_pathMap` index, the back-link in `Document::Source`) is a raw
+ * `Node*`, valid for the node's lifetime.
  *
- * **Stub for now.** The node tree (folders, move, rename, under-root
- * constraint) is fully implemented; only the build-configuration surface
- * is stubbed — it reports "nothing configurable" until persistent build
- * targets are implemented. Nothing creates a `Project` at runtime yet;
- * `WorkspaceManager` only spawns `EphemeralProject`.
+ * This is the **view-model** for `ProjectTreeView`: it owns all tree
+ * mutation plus the rules (under-root, name clashes, sort order, which
+ * context actions apply). It performs filesystem side-effects (create dir /
+ * file, rename, move, trash) but never touches wxWidgets UI — the view
+ * drives the dialogs and renders the results.
+ *
+ * **Build configuration is still stubbed** — persistent build targets land
+ * later; until then a project reports "nothing configurable".
  */
 class Project final : public ProjectBase {
 public:
-    /// Bound to the single shared compiler-configuration catalog;
-    /// construction creates a virtual root folder ready to receive
-    /// `addFile` / `addFolder`.
-    explicit Project(CompilerConfigCatalog& catalog);
+    /// Bind to the shared compiler-configuration catalog and anchor the tree
+    /// at `rootDir` (the directory that contains the `.fbp` file). The root
+    /// node is created immediately, bound to that directory.
+    Project(CompilerConfigCatalog& catalog, std::filesystem::path rootDir);
 
-    /// Failure modes for the disk-touching tree operations
-    /// (`addRealFolder`, `removeNode` with `deleteOnDisk`, `moveNode` on
-    /// real-under-real, `renameNode` on real nodes, `setFilePath`).
-    /// Returned via `std::expected`. `Clash` and `OutOfTree` are
-    /// recoverable (caller picks a new name / path); `IoError` and
-    /// `InvalidName` are usually fatal for the attempted op.
+    /// Failure modes for the disk-touching tree operations. `Clash` /
+    /// `OutOfTree` are recoverable (caller picks a new name / path or offers
+    /// to add the existing item); `IoError` / `InvalidName` are usually fatal
+    /// for the attempted op.
     enum class Error : std::uint8_t {
         Clash,       ///< Target path / name already exists on disk.
-        IoError,     ///< Filesystem operation failed (permissions, missing parent, etc.).
-        InvalidName, ///< newName is empty or contains a path separator.
+        IoError,     ///< Filesystem operation failed.
+        InvalidName, ///< Name is empty or contains a path separator.
         OutOfTree,   ///< Target path lives outside the project root.
     };
 
-    /// One entry in the project tree — either a file or a folder. Owned
-    /// by `Project::m_nodes` via `unique_ptr`. Intra-tree references
-    /// (`parent`, `children`) are non-owning `Node*` whose validity is
-    /// pinned by that owning map.
+    /// How `removeNode` treats the on-disk artifact.
+    enum class RemoveMode : std::uint8_t {
+        FromProjectOnly, ///< Drop from the tree; leave the file/folder on disk.
+        AndTrash,        ///< Also move the file/folder to the OS trash bin.
+    };
+
+    /// Context-menu actions a node supports. `Project` decides which apply
+    /// (`contextActions`); `ProjectTreeView` renders the labels and runs the
+    /// matching handler. Add a shortcut by extending this enum and the
+    /// `contextActions` switch.
+    enum class Action : std::uint8_t {
+        AddFolder,
+        AddSourceFile,
+        AddHeaderFile,
+        AddExisting,
+        Remove,
+    };
+
+    /// One entry in the project tree — a file or a folder, always backed by a
+    /// real filesystem path. Owned by `Project::m_nodes`.
     class Node final {
     public:
-        /// Opaque strong-typed handle for a node. UUID-backed so values
-        /// round-trip through serialisation; primarily exposed for
-        /// persistence and debug output — internal references prefer
-        /// the direct `Node*`.
+        /// Opaque strong-typed handle; UUID-backed so it round-trips through
+        /// serialisation. Internal references prefer the direct `Node*`.
         using Id = IdentifierBase<Node>;
 
-        /// A file node. The `Document*` back-link is populated when the
-        /// file is open in a tab; null when the tab is closed (the
-        /// project keeps the node around regardless).
+        /// Ordering applied to a folder's children. `Name` is the default
+        /// (and currently only) option; the enum is the extension point for
+        /// future orderings.
+        enum class SortOrder : std::uint8_t {
+            Name,
+        };
+
+        /// A file node. `doc` is populated while the file is open in a tab,
+        /// null otherwise (the node persists regardless).
         struct File final {
             Document* doc = nullptr;
         };
 
-        /// A folder node. Children are non-owning pointers into the
-        /// owning `Project::m_nodes` map. A folder with an empty
-        /// `Node::path` is **virtual** — a Visual-Studio-style "filter"
-        /// with no on-disk counterpart.
+        /// A folder node — a real directory. Children are non-owning pointers
+        /// into `Project::m_nodes`, kept ordered per `sort`.
         struct Folder final {
-            std::string name;
+            SortOrder sort = SortOrder::Name;
             std::vector<Node*> children;
         };
 
         using Entry = std::variant<File, Folder>;
 
-        /// Checks that node holds a Folder
-        [[nodiscard]] auto isFolder() const -> bool {
-            return std::holds_alternative<Folder>(entry);
-        }
+        [[nodiscard]] auto isFolder() const -> bool { return std::holds_alternative<Folder>(entry); }
+        [[nodiscard]] auto getFolder() -> Folder* { return std::get_if<Folder>(&entry); }
+        [[nodiscard]] auto getFolder() const -> const Folder* { return std::get_if<Folder>(&entry); }
+        [[nodiscard]] auto isFile() const -> bool { return std::holds_alternative<File>(entry); }
+        [[nodiscard]] auto getFile() -> File* { return std::get_if<File>(&entry); }
+        [[nodiscard]] auto getFile() const -> const File* { return std::get_if<File>(&entry); }
 
-        /// If node contains a Folder, get a pointer to it, nullptr otherwise
-        [[nodiscard]] auto getFolder() -> Folder* {
-            return std::get_if<Folder>(&entry);
-        }
+        /// Display name — the final path component (folder or file name).
+        [[nodiscard]] auto name() const -> std::string { return path.filename().string(); }
 
-        /// Const overload of `getFolder`.
-        [[nodiscard]] auto getFolder() const -> const Folder* {
-            return std::get_if<Folder>(&entry);
-        }
-
-        /// Checks that node holds a File
-        [[nodiscard]] auto isFile() const -> bool {
-            return std::holds_alternative<File>(entry);
-        }
-
-        /// If node contains a File, get a pointer to it, nullptr otherwise
-        [[nodiscard]] auto getFile() -> File* {
-            return std::get_if<File>(&entry);
-        }
-
-        /// Const overload of `getFile`.
-        [[nodiscard]] auto getFile() const -> const File* {
-            return std::get_if<File>(&entry);
-        }
-
-        /// Stable identity (matches the map key in `Project::m_nodes`).
-        Id id;
-        /// Parent folder, or null for the root.
-        Node* parent = nullptr;
-        /// On-disk location of this node. Empty for untitled files (new
-        /// buffer, never saved) and for virtual folders — matches
-        /// `Document::getFilePath()`'s convention so the two layers stay
-        /// consistent.
-        std::filesystem::path path;
-        /// File or Folder
-        Entry entry;
+        Id id;                      ///< Stable identity (matches the `m_nodes` key).
+        Node* parent = nullptr;     ///< Parent folder, or null for the root.
+        std::filesystem::path path; ///< Real on-disk location (non-empty for project nodes).
+        Entry entry;                ///< File or Folder payload.
     };
 
     // --- Tree management ---------------------------------------------------
 
-    /// Insert a file node under `parent` (`nullptr` defaults to
-    /// `getRoot()`). `path` may be empty for an untitled document; bind
-    /// it later via `setFilePath`. `doc` is the `Document*` back-link
-    /// (never dereferenced). Returns the new node, owned by the project;
-    /// the pointer stays valid until the node is explicitly removed.
-    auto addFile(Document* doc, Node* parent = nullptr) -> Node*;
+    /// Create a new subfolder `name` under `parent` (null → root): makes the
+    /// real directory and adds the node. `Error::Clash` if the directory
+    /// already exists (the caller may `addExisting` it instead).
+    auto addFolder(Node* parent, const std::string& name) -> std::expected<Node*, Error>;
 
-    /// Insert a virtual folder (Visual-Studio-style "filter" with no
-    /// on-disk counterpart). `name` may be any string; collision with
-    /// sibling names is allowed. `parent == nullptr` defaults to `getRoot()`.
-    auto addFolder(Node* parent, const std::string& name) -> Node*;
+    /// Create a new empty file `name` under `parent` (null → root): writes an
+    /// empty file to disk and adds the node. `name` carries the extension
+    /// (the view appends `.bas` / `.bi`). `Error::Clash` if it already exists.
+    auto addFile(Node* parent, const std::string& name) -> std::expected<Node*, Error>;
 
-    /// Insert a real folder mapped to an on-disk directory, created if
-    /// missing (`fs::create_directories`). The new folder's `name`
-    /// mirrors `path.filename()`. `parent == nullptr` defaults to
-    /// `getRoot()`. Returns the new folder, or `Error::IoError` /
-    /// `Error::Clash` when the disk side cannot be set up.
-    auto addRealFolder(Node* parent, std::filesystem::path path) -> std::expected<Node*, Error>;
+    /// Add an existing on-disk file or folder. `path` must live under the
+    /// project root (else `Error::OutOfTree`); missing intermediate folder
+    /// nodes between root and `path` are created automatically. A folder is
+    /// added as a single node — its contents are not pulled in. Returns the
+    /// (possibly pre-existing) leaf node.
+    auto addExisting(const std::filesystem::path& path) -> std::expected<Node*, Error>;
 
-    /// Remove a node from the project. Folders are removed recursively.
-    /// When `deleteOnDisk` is true, the node's on-disk artifact (and its
-    /// descendants') is also removed via `fs::remove_all`; disk failure
-    /// is reported via the return value but does not roll back the tree
-    /// change. Preconditions (asserted): `node` is not the root; no file
-    /// in the subtree has a bound `Document*` (callers close tabs first).
-    auto removeNode(Node* node, bool deleteOnDisk = false) -> std::expected<void, Error>;
+    /// Remove `node` (and its subtree) from the project. `AndTrash` also
+    /// moves the on-disk artifact to the OS trash. Preconditions (asserted):
+    /// not the root; no open document bound in the subtree (caller closes
+    /// tabs first).
+    auto removeNode(Node* node, RemoveMode mode = RemoveMode::FromProjectOnly) -> std::expected<void, Error>;
 
-    /// Reparent or reorder `node` to position `index` of
-    /// `newParent.children`. When both `node` and `newParent` are real
-    /// (non-empty path), the on-disk artifact is moved via `fs::rename`
-    /// and all descendant paths in the tree are rewritten to follow.
-    /// Preconditions (asserted): `node` is not the root; `newParent` is a
-    /// folder, not `node`, and not a descendant of `node`; `index` in range.
-    auto moveNode(Node* node, Node* newParent, std::size_t index) -> std::expected<void, Error>;
+    /// Reparent `node` under `newParent` (a folder): renames the artifact on
+    /// disk and rewrites descendant paths. `Error::Clash` if the destination
+    /// already holds something with that name. Destination stays name-sorted.
+    auto moveNode(Node* node, Node* newParent) -> std::expected<void, Error>;
 
-    /// Rename `node` in place. Virtual folder: update `Folder::name`.
-    /// Real folder: rename the directory, update its path, rewrite every
-    /// descendant's cached path, refresh `m_pathMap`. File: rename the
-    /// file on disk, update `path`, refresh `m_pathMap`. `newName` is the
-    /// new basename — non-empty, no path separator (`/` or `\`).
-    auto renameNode(Node* node, std::string newName) -> std::expected<void, Error>;
+    /// Rename `node` in place (file or folder) on disk and in the tree.
+    /// `newName` is the new basename — non-empty, no path separator.
+    auto renameNode(Node* node, const std::string& newName) -> std::expected<void, Error>;
 
-    /// Resolve an ID back to a live node (serialisation boundary,
-    /// external references). Returns null for an unknown id.
+    /// Resolve an ID back to a live node, or null.
     [[nodiscard]] auto findNode(Node::Id id) -> Node*;
-
     /// Const overload of `findNode`.
     [[nodiscard]] auto findNode(Node::Id id) const -> const Node*;
 
-    /// Update the path stored on a **file** node and re-key `m_pathMap`
-    /// (after a Save As, or first save of an untitled file). Does not
-    /// touch the file on disk; the caller has just written it. Rejects
-    /// with `Error::OutOfTree` when `newPath` doesn't sit under the
-    /// project root (always succeeds while the root is empty).
+    /// Resolve an on-disk path to its node, or null if the path is not part
+    /// of the project.
+    [[nodiscard]] auto findByPath(const std::filesystem::path& path) -> Node*;
+
+    /// Update the path stored on a file node and re-key the path index (after
+    /// a Save As / first save). `Error::OutOfTree` when `newPath` is not under
+    /// the project root.
     auto setFilePath(Node* file, const std::filesystem::path& newPath) -> std::expected<void, Error>;
 
-    /// Drop the `Document*` back-link on the given file node. Used by
-    /// `Document::unbindFromProject` so the project-side and document-side
-    /// views of "is this doc bound" stay symmetric.
+    /// Bind an open document to a file node (when a project file is opened in
+    /// a tab) — sets both sides of the link.
+    void bindDocument(Node* file, Document& doc);
+
+    /// Drop the document back-link on a file node (symmetric with
+    /// `Document::unbindFromProject`).
     void clearNodeDocument(Node* node);
 
     /// Root folder of the project tree (the on-disk anchor directory).
@@ -196,72 +178,61 @@ public:
     /// Const overload of `getRoot`.
     [[nodiscard]] auto getRoot() const -> const Node* { return m_root; }
 
+    /// Context-menu actions applicable to `node` — folders/root get the Add*
+    /// set (root omits Remove); files get Remove.
+    [[nodiscard]] auto contextActions(const Node* node) const -> std::vector<Action>;
+
     // --- ProjectBase interface --------------------------------------------
 
     /// True when `candidate` sits under the project root (empty candidate
-    /// or empty root short-circuits to true). Lexical comparison only.
+    /// short-circuits to true). Lexical comparison only.
     [[nodiscard]] auto isUnderRoot(const std::filesystem::path& candidate) const -> bool override;
 
     /// Every currently-bound document in the tree (unbound file nodes are
-    /// skipped). Iteration order unspecified.
+    /// skipped).
     [[nodiscard]] auto getDocuments() const -> std::vector<Document*> override;
 
     /// Bound `.bas` documents in the tree.
     [[nodiscard]] auto getSources() const -> std::vector<Document*> override;
 
-    // Build configuration — stub (TBD). Persistent projects will carry
-    // their own build targets / selection; until then they report
-    // "nothing configurable" so the UI shows no dropdown and no build
-    // commands for a persistent project.
-
+    // Build configuration — stub (TBD).
     [[nodiscard]] auto getConfigurationSlug() const -> std::optional<wxString> override { return std::nullopt; }
-
     void setConfigurationSlug(std::optional<wxString> /*slug*/) override {}
-
     [[nodiscard]] auto getMenuConfigurations(const wxString& /*alwaysInclude*/) const
         -> std::vector<const ResolvedCompilerConfig*> override {
         return {};
     }
-
     [[nodiscard]] auto getCapabilities() const -> std::uint8_t override { return 0; }
 
 private:
-    /// Create the virtual root folder and make it the tree root.
-    void createVirtualRoot();
+    /// Create the root node bound to `rootDir`.
+    void createRoot(std::filesystem::path rootDir);
 
-    /// Allocate a `File` node for `doc` (with `path`) under `parent`,
-    /// register it in the node arena + path index, and bind the document.
-    [[nodiscard]] auto attachFileNode(Document* doc, Node* parent, const std::filesystem::path& path) -> Node*;
+    /// Allocate a node under `parent`, register it in the arena + path index,
+    /// and append it to the parent's children (caller re-sorts).
+    auto attachNode(Node* parent, std::filesystem::path path, Node::Entry entry) -> Node*;
 
-    /// Internal path mutation — polymorphic over file/folder nodes. Files
-    /// re-key `m_pathMap`; folders only update the stored path. Used by
-    /// `setFilePath`, `moveNode`, `renameNode`, `rewriteSubtreePaths`.
+    /// Find-or-create the folder node for directory `dir` (must exist on disk
+    /// under the root), creating intermediate folder nodes as needed.
+    auto ensureFolderChain(const std::filesystem::path& dir) -> std::expected<Node*, Error>;
+
+    /// Set a node's path and re-key the path index.
     void setNodePath(Node* node, const std::filesystem::path& newPath);
 
-    /// Tear down `node` and every descendant: clear path-index entries,
-    /// then erase from `m_nodes`. Caller first removes `node` from its
-    /// parent's children list.
+    /// Sort a folder's children per its `SortOrder`.
+    void sortChildren(Node* folder);
+
+    /// Tear down `node` and its subtree (clear path-index entries, erase from
+    /// the arena). Caller first unlinks `node` from its parent.
     void destroySubtree(Node* node);
 
-    /// Recursively unlink the on-disk artifacts of `node` and its
-    /// descendants. First `std::error_code` to fail (if any) is written
-    /// to `firstErr`; subsequent failures are ignored so cleanup makes
-    /// maximum progress.
-    void deleteSubtreeFromDisk(Node* node, std::error_code& firstErr);
-
-    /// Rewrite path-bearing descendants of `folder` so paths that lived
-    /// under `oldPrefix` now live under `newPrefix`. Descendants outside
-    /// `oldPrefix` are left alone.
+    /// Rewrite descendant paths under `folder` from `oldPrefix` to `newPrefix`
+    /// after a rename / move of `folder`.
     void rewriteSubtreePaths(Node* folder, const std::filesystem::path& oldPrefix, const std::filesystem::path& newPrefix);
 
-    /// Owning storage for every node; the Id key gives a stable handle
-    /// for serialisation round-trips.
-    std::unordered_map<Node::Id, std::unique_ptr<Node>> m_nodes;
-    /// Path → node lookup index for "does this on-disk path belong to a
-    /// project?" queries.
-    std::unordered_map<std::filesystem::path, Node*> m_pathMap;
-    /// Project tree root (virtual folder anchoring the file/folder tree).
-    Node* m_root = nullptr;
+    std::unordered_map<Node::Id, std::unique_ptr<Node>> m_nodes; ///< Owning node arena.
+    std::unordered_map<std::filesystem::path, Node*> m_pathMap;  ///< Path → node index (all nodes).
+    Node* m_root = nullptr;                                      ///< Tree root (real anchor directory).
 };
 
 } // namespace fbide

@@ -14,6 +14,7 @@
 #include "command/CommandManager.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/DocumentPath.hpp"
+#include "workspace/Project.hpp"
 #include "workspace/WorkspaceManager.hpp"
 using namespace fbide;
 
@@ -79,18 +80,21 @@ void SideBarManager::showSymbolBrowser() {
     m_symbolPanel->focusSearch();
 }
 
-void SideBarManager::showProjectTree() {
+void SideBarManager::showProjectTree(Project& project) {
     if (m_notebook == nullptr) {
         return;
     }
-    if (m_projectTree == nullptr) {
-        // First tab: the project tree is the primary navigator while a
-        // project is open.
-        m_projectTree = make_unowned<ProjectTreeView>(m_notebook);
-        m_notebook->InsertPage(0, m_projectTree, m_ctx.tr("sidebar.tabs.project"), true);
-    } else if (const int page = m_notebook->GetPageIndex(m_projectTree); page != wxNOT_FOUND) {
-        m_notebook->SetSelection(static_cast<size_t>(page));
+    // Drop any stale view (close hides first, so this is belt-and-braces).
+    if (m_projectTree != nullptr) {
+        if (const int page = m_notebook->GetPageIndex(m_projectTree); page != wxNOT_FOUND) {
+            m_notebook->DeletePage(static_cast<size_t>(page));
+        }
+        m_projectTree = nullptr;
     }
+    // First tab: the project tree is the primary navigator while a project
+    // is open.
+    m_projectTree = make_unowned<ProjectTreeView>(m_notebook, m_ctx, project);
+    m_notebook->InsertPage(0, m_projectTree, m_ctx.tr("sidebar.tabs.project"), true);
     // Reveal the sidebar pane (same path the View → Browser toggle uses).
     if (auto* entry = m_ctx.getCommandManager().find(+CommandId::Browser)) {
         entry->setChecked(true);

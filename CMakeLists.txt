@@ -29,6 +29,11 @@ project(
     LANGUAGES CXX
 )
 
+# macOS needs Objective-C++ for the Foundation-backed move-to-trash helper.
+if (APPLE)
+    enable_language(OBJCXX)
+endif()
+
 if (MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 endif()

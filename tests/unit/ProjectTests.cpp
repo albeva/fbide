@@ -4,6 +4,8 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
+#include <algorithm>
+#include <fstream>
 #include <wx/dir.h>
 #include <wx/ffile.h>
 #include <wx/filefn.h>
@@ -21,8 +23,8 @@ namespace fs = std::filesystem;
 
 namespace {
 
-/// RAII scratch directory used to back a `ConfigManager` for tests that
-/// need a `ProjectBase` instance. Auto-cleans on destruction.
+/// RAII scratch directory used as the project root for tests. Auto-cleans
+/// on destruction.
 class TempDir final {
 public:
     TempDir() {
@@ -115,14 +117,11 @@ TEST(ProjectNodeIdTest, Hashable) {
     EXPECT_EQ(map[second], 2);
 }
 
-// --- ProjectBase construction --------------------------------------------------
+// --- Fixture ---------------------------------------------------------------
 
-/// `ProjectBase` takes a `ConfigManager&` so its build-input getters can forward
-/// to the IDE config. The fixture spins up a minimal disk-backed
-/// `ConfigManager` per test, and a doc factory that creates real
-/// `Document` instances (also `ConfigManager`-driven) so the
-/// `ProjectBase`/`Document` binding can be exercised without the wider
-/// `Context` chain.
+/// Spins up a disk-backed `ConfigManager` + `CompilerConfigCatalog` per test
+/// and provides factories for `Project` (rooted at the scratch dir) and
+/// `EphemeralProject`, plus fixture-owned `Document`s for binding tests.
 class ProjectTest : public testing::Test {
 protected:
     void SetUp() override {
@@ -133,17 +132,18 @@ protected:
     }
 
     [[nodiscard]] auto makeEphemeral() -> EphemeralProject { return EphemeralProject { *m_catalog, makeDoc() }; }
-    [[nodiscard]] auto makePersistent() -> Project { return Project { *m_catalog }; }
+    [[nodiscard]] auto makePersistent() -> Project { return Project { *m_catalog, rootDir() }; }
 
-    /// Spawn a Document owned by the fixture so its lifetime outlives the
-    /// project under test. Returned by reference because Documents are
-    /// non-movable.
+    /// Project root for persistent projects under test — the scratch dir.
+    [[nodiscard]] auto rootDir() const -> fs::path { return fs::path { m_tmp.path().ToStdString() }; }
+
+    /// Spawn a fixture-owned Document so its lifetime outlives the project.
     auto makeDoc() -> Document& {
         m_docs.emplace_back(std::make_unique<Document>(*m_config, DocumentType::FreeBASIC, nullptr));
         return *m_docs.back();
     }
 
-    /// Convenience: doc seeded with a file path before any project bind.
+    /// Document seeded with a file path before any project bind.
     auto makeDoc(const fs::path& path) -> Document& {
         auto& doc = makeDoc();
         doc.setFilePath(path);
@@ -155,6 +155,8 @@ protected:
     std::unique_ptr<CompilerConfigCatalog> m_catalog;
     std::vector<std::unique_ptr<Document>> m_docs;
 };
+
+// --- construction ----------------------------------------------------------
 
 TEST_F(ProjectTest, EphemeralMode) {
     const auto project = makeEphemeral();
@@ -191,7 +193,6 @@ TEST_F(ProjectTest, EphemeralSourcesAndDocumentsAreTheBoundDoc) {
 TEST_F(ProjectTest, EphemeralReportsNothingWhenDocUnbound) {
     auto& doc = makeDoc(fs::path { "/tmp/main.bas" });
     const EphemeralProject project { *m_catalog, doc };
-    // Constructed but not bound — the mutual back-link is absent.
     EXPECT_TRUE(project.getDocuments().empty());
     EXPECT_TRUE(project.getSources().empty());
 }
@@ -200,109 +201,346 @@ TEST_F(ProjectTest, EphemeralOwnsPathAndMovesFreely) {
     auto& doc = makeDoc(fs::path { "/here/a.bas" });
     EphemeralProject project { *m_catalog, doc };
     doc.bindToProject(&project);
-    // The project owns the path; the document delegates to it.
     EXPECT_EQ(project.getPath(), fs::path { "/here/a.bas" });
-    // No under-root constraint — saving anywhere is fine.
     EXPECT_TRUE(project.isUnderRoot(fs::path { "/over/there/b.bas" }));
     doc.setFilePath(fs::path { "/over/there/b.bas" });
     EXPECT_EQ(project.getPath(), fs::path { "/over/there/b.bas" });
     EXPECT_EQ(doc.getFilePath(), fs::path { "/over/there/b.bas" });
 }
 
-// --- Persistent root + child linking --------------------------------------
+// --- persistent root -------------------------------------------------------
 
-TEST_F(ProjectTest, PersistentRootIsEmptyFolder) {
+TEST_F(ProjectTest, RootIsFolderAnchoredAtRootDir) {
     const auto project = makePersistent();
     auto* root = project.getRoot();
     ASSERT_NE(root, nullptr);
     EXPECT_TRUE(root->isFolder());
-    EXPECT_TRUE(root->path.empty());
+    EXPECT_EQ(root->path, rootDir());
 }
 
-TEST_F(ProjectTest, PersistentChildIsLinkedUnderRoot) {
+// --- addFolder -------------------------------------------------------------
+
+TEST_F(ProjectTest, AddFolderCreatesRealDirectory) {
     auto project = makePersistent();
-    auto* root = project.getRoot();
-    ASSERT_NE(root, nullptr);
-    auto& doc = makeDoc(fs::path { "/tmp/a.bas" });
-    auto* child = project.addFile(&doc, root);
-    ASSERT_NE(child, nullptr);
-    EXPECT_EQ(child->parent, root);
-    const auto& children = root->getFolder()->children;
-    ASSERT_EQ(children.size(), 1U);
-    EXPECT_EQ(children.front(), child);
+    const auto result = project.addFolder(project.getRoot(), "src");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ((*result)->path, rootDir() / "src");
+    EXPECT_EQ((*result)->parent, project.getRoot());
+    EXPECT_TRUE(fs::is_directory(rootDir() / "src"));
 }
 
-TEST_F(ProjectTest, AddFileNodesAreUnique) {
+TEST_F(ProjectTest, AddFolderClashWhenExists) {
     auto project = makePersistent();
-    auto& a = makeDoc(fs::path { "/tmp/a.bas" });
-    auto& b = makeDoc(fs::path { "/tmp/b.bas" });
-    auto* first = project.addFile(&a, project.getRoot());
-    auto* second = project.addFile(&b, project.getRoot());
-    ASSERT_NE(first, nullptr);
-    ASSERT_NE(second, nullptr);
-    EXPECT_NE(first, second);
+    fs::create_directory(rootDir() / "existing");
+    const auto result = project.addFolder(project.getRoot(), "existing");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), Project::Error::Clash);
 }
 
-// --- addFile binding behaviour --------------------------------------------
-
-TEST_F(ProjectTest, AddFileBindsDocumentToProject) {
+TEST_F(ProjectTest, AddFolderNested) {
     auto project = makePersistent();
-    auto& doc = makeDoc(fs::path { "/tmp/main.bas" });
-    project.addFile(&doc);
-    EXPECT_EQ(doc.getProject(), &project);
-    EXPECT_EQ(doc.getFilePath(), fs::path { "/tmp/main.bas" });
+    auto* outer = project.addFolder(project.getRoot(), "outer").value();
+    auto* inner = project.addFolder(outer, "inner").value();
+    EXPECT_EQ(inner->parent, outer);
+    EXPECT_EQ(inner->path, rootDir() / "outer" / "inner");
+    EXPECT_TRUE(fs::is_directory(rootDir() / "outer" / "inner"));
 }
 
-TEST_F(ProjectTest, AddFileUntitledHasEmptyPath) {
+TEST_F(ProjectTest, AddFolderNullParentDefaultsToRoot) {
     auto project = makePersistent();
-    auto& doc = makeDoc();
-    auto* node = project.addFile(&doc);
-    ASSERT_NE(node, nullptr);
-    EXPECT_TRUE(node->path.empty());
+    auto* folder = project.addFolder(nullptr, "x").value();
+    EXPECT_EQ(folder->parent, project.getRoot());
 }
 
-// --- setFilePath ----------------------------------------------------------
-
-TEST_F(ProjectTest, SetFilePathSetsPathOnUntitledNode) {
+TEST_F(ProjectTest, AddFolderRejectsInvalidName) {
     auto project = makePersistent();
-    auto& doc = makeDoc();
-    auto* node = project.addFile(&doc);
-    ASSERT_TRUE(project.setFilePath(node, fs::path { "/tmp/saved.bas" }).has_value());
-    EXPECT_EQ(node->path, fs::path { "/tmp/saved.bas" });
+    EXPECT_EQ(project.addFolder(project.getRoot(), "").error(), Project::Error::InvalidName);
+    EXPECT_EQ(project.addFolder(project.getRoot(), "a/b").error(), Project::Error::InvalidName);
 }
 
-TEST_F(ProjectTest, SetFilePathReplacesExistingPath) {
+// --- addFile ---------------------------------------------------------------
+
+TEST_F(ProjectTest, AddFileCreatesEmptyFile) {
     auto project = makePersistent();
-    auto& doc = makeDoc(fs::path { "/tmp/old.bas" });
-    auto* node = project.addFile(&doc);
-    ASSERT_TRUE(project.setFilePath(node, fs::path { "/tmp/new.bas" }).has_value());
-    EXPECT_EQ(node->path, fs::path { "/tmp/new.bas" });
+    const auto result = project.addFile(project.getRoot(), "main.bas");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ((*result)->path, rootDir() / "main.bas");
+    EXPECT_TRUE((*result)->isFile());
+    EXPECT_TRUE(fs::is_regular_file(rootDir() / "main.bas"));
 }
 
-// --- findNode -------------------------------------------------------------
+TEST_F(ProjectTest, AddFileClashWhenExists) {
+    auto project = makePersistent();
+    { std::ofstream { rootDir() / "main.bas" } << "x"; }
+    const auto result = project.addFile(project.getRoot(), "main.bas");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), Project::Error::Clash);
+}
+
+TEST_F(ProjectTest, AddFileNullParentDefaultsToRoot) {
+    auto project = makePersistent();
+    auto* file = project.addFile(nullptr, "a.bas").value();
+    EXPECT_EQ(file->parent, project.getRoot());
+}
+
+// --- addExisting -----------------------------------------------------------
+
+TEST_F(ProjectTest, AddExistingFileUnderRoot) {
+    auto project = makePersistent();
+    { std::ofstream { rootDir() / "a.bas" } << "x"; }
+    auto* node = project.addExisting(rootDir() / "a.bas").value();
+    EXPECT_TRUE(node->isFile());
+    EXPECT_EQ(node->parent, project.getRoot());
+    EXPECT_EQ(node->path, rootDir() / "a.bas");
+}
+
+TEST_F(ProjectTest, AddExistingRejectsOutOfTree) {
+    auto project = makePersistent();
+    const auto result = project.addExisting(fs::path { "/somewhere/else/a.bas" });
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), Project::Error::OutOfTree);
+}
+
+TEST_F(ProjectTest, AddExistingCreatesIntermediaryFolders) {
+    auto project = makePersistent();
+    fs::create_directories(rootDir() / "a" / "b");
+    { std::ofstream { rootDir() / "a" / "b" / "c.bas" } << "x"; }
+    auto* node = project.addExisting(rootDir() / "a" / "b" / "c.bas").value();
+    auto* folderB = node->parent;
+    auto* folderA = folderB->parent;
+    EXPECT_EQ(folderB->path, rootDir() / "a" / "b");
+    EXPECT_EQ(folderA->path, rootDir() / "a");
+    EXPECT_EQ(folderA->parent, project.getRoot());
+    EXPECT_TRUE(folderA->isFolder());
+    EXPECT_TRUE(folderB->isFolder());
+}
+
+TEST_F(ProjectTest, AddExistingFolderAddsNodeOnlyNotContents) {
+    auto project = makePersistent();
+    fs::create_directory(rootDir() / "grp");
+    { std::ofstream { rootDir() / "grp" / "inside.bas" } << "x"; }
+    auto* node = project.addExisting(rootDir() / "grp").value();
+    EXPECT_TRUE(node->isFolder());
+    EXPECT_TRUE(node->getFolder()->children.empty());
+}
+
+TEST_F(ProjectTest, AddExistingIdempotent) {
+    auto project = makePersistent();
+    { std::ofstream { rootDir() / "a.bas" } << "x"; }
+    auto* first = project.addExisting(rootDir() / "a.bas").value();
+    auto* second = project.addExisting(rootDir() / "a.bas").value();
+    EXPECT_EQ(first, second);
+}
+
+// --- findNode / findByPath -------------------------------------------------
 
 TEST_F(ProjectTest, FindNodeReturnsAddedNode) {
     auto project = makePersistent();
-    auto& doc = makeDoc(fs::path { "/tmp/main.bas" });
-    auto* node = project.addFile(&doc);
+    auto* node = project.addFile(project.getRoot(), "a.bas").value();
     EXPECT_EQ(project.findNode(node->id), node);
 }
 
 TEST_F(ProjectTest, FindNodeReturnsNullForUnknownId) {
     const auto project = makePersistent();
-    const auto stranger = Project::Node::Id::generate();
-    EXPECT_EQ(project.findNode(stranger), nullptr);
+    EXPECT_EQ(project.findNode(Project::Node::Id::generate()), nullptr);
 }
 
-// --- getDocuments / getSources --------------------------------------------
-
-TEST_F(ProjectTest, GetDocumentsIncludesBound) {
+TEST_F(ProjectTest, FindByPathReturnsNode) {
     auto project = makePersistent();
-    auto& doc = makeDoc(fs::path { "/tmp/main.bas" });
-    project.addFile(&doc);
+    auto* node = project.addFile(project.getRoot(), "a.bas").value();
+    EXPECT_EQ(project.findByPath(rootDir() / "a.bas"), node);
+}
+
+TEST_F(ProjectTest, FindByPathNullForUnknown) {
+    auto project = makePersistent();
+    EXPECT_EQ(project.findByPath(rootDir() / "nope.bas"), nullptr);
+}
+
+// --- removeNode ------------------------------------------------------------
+// NOTE: RemoveMode::AndTrash is intentionally not exercised here — it would
+// move scratch files into the real OS trash bin. Its disk side-effect is
+// platform code validated manually; the tree-side removal is covered below.
+
+TEST_F(ProjectTest, RemoveFileFromProjectOnlyLeavesDisk) {
+    auto project = makePersistent();
+    auto* file = project.addFile(project.getRoot(), "a.bas").value();
+    const auto fileId = file->id;
+    ASSERT_TRUE(project.removeNode(file).has_value());
+    EXPECT_EQ(project.findNode(fileId), nullptr);
+    EXPECT_TRUE(project.getRoot()->getFolder()->children.empty());
+    EXPECT_TRUE(fs::exists(rootDir() / "a.bas"));
+}
+
+TEST_F(ProjectTest, RemoveFolderIsRecursive) {
+    auto project = makePersistent();
+    auto* folder = project.addFolder(project.getRoot(), "grp").value();
+    auto* fileA = project.addFile(folder, "a.bas").value();
+    auto* fileB = project.addFile(folder, "b.bas").value();
+    const auto folderId = folder->id;
+    const auto aId = fileA->id;
+    const auto bId = fileB->id;
+    ASSERT_TRUE(project.removeNode(folder).has_value());
+    EXPECT_EQ(project.findNode(folderId), nullptr);
+    EXPECT_EQ(project.findNode(aId), nullptr);
+    EXPECT_EQ(project.findNode(bId), nullptr);
+}
+
+// --- moveNode --------------------------------------------------------------
+
+TEST_F(ProjectTest, MoveReparentsAndMovesOnDisk) {
+    auto project = makePersistent();
+    auto* src = project.addFolder(project.getRoot(), "src").value();
+    auto* lib = project.addFolder(project.getRoot(), "lib").value();
+    auto* file = project.addFile(src, "foo.bas").value();
+    ASSERT_TRUE(project.moveNode(file, lib).has_value());
+    EXPECT_EQ(file->parent, lib);
+    EXPECT_EQ(file->path, rootDir() / "lib" / "foo.bas");
+    EXPECT_TRUE(fs::exists(rootDir() / "lib" / "foo.bas"));
+    EXPECT_FALSE(fs::exists(rootDir() / "src" / "foo.bas"));
+    EXPECT_TRUE(src->getFolder()->children.empty());
+}
+
+TEST_F(ProjectTest, MoveClashFails) {
+    auto project = makePersistent();
+    auto* src = project.addFolder(project.getRoot(), "src").value();
+    auto* lib = project.addFolder(project.getRoot(), "lib").value();
+    project.addFile(src, "foo.bas");
+    project.addFile(lib, "foo.bas"); // blocker at destination
+    auto* file = project.findByPath(rootDir() / "src" / "foo.bas");
+    ASSERT_NE(file, nullptr);
+    const auto result = project.moveNode(file, lib);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), Project::Error::Clash);
+    EXPECT_EQ(file->parent, src);
+    EXPECT_TRUE(fs::exists(rootDir() / "src" / "foo.bas"));
+}
+
+TEST_F(ProjectTest, MoveFolderRewritesDescendantPaths) {
+    auto project = makePersistent();
+    auto* src = project.addFolder(project.getRoot(), "src").value();
+    auto* dst = project.addFolder(project.getRoot(), "dst").value();
+    auto* inner = project.addFolder(src, "inner").value();
+    auto* file = project.addFile(inner, "x.bas").value();
+    ASSERT_TRUE(project.moveNode(src, dst).has_value());
+    EXPECT_EQ(src->path, rootDir() / "dst" / "src");
+    EXPECT_EQ(inner->path, rootDir() / "dst" / "src" / "inner");
+    EXPECT_EQ(file->path, rootDir() / "dst" / "src" / "inner" / "x.bas");
+    EXPECT_TRUE(fs::exists(rootDir() / "dst" / "src" / "inner" / "x.bas"));
+}
+
+// --- renameNode ------------------------------------------------------------
+
+TEST_F(ProjectTest, RenameFileOnDisk) {
+    auto project = makePersistent();
+    auto* file = project.addFile(project.getRoot(), "old.bas").value();
+    ASSERT_TRUE(project.renameNode(file, "new.bas").has_value());
+    EXPECT_EQ(file->path, rootDir() / "new.bas");
+    EXPECT_TRUE(fs::exists(rootDir() / "new.bas"));
+    EXPECT_FALSE(fs::exists(rootDir() / "old.bas"));
+}
+
+TEST_F(ProjectTest, RenameFolderUpdatesDescendantPaths) {
+    auto project = makePersistent();
+    auto* folder = project.addFolder(project.getRoot(), "old").value();
+    auto* file = project.addFile(folder, "x.bas").value();
+    ASSERT_TRUE(project.renameNode(folder, "new").has_value());
+    EXPECT_EQ(folder->path, rootDir() / "new");
+    EXPECT_EQ(file->path, rootDir() / "new" / "x.bas");
+    EXPECT_TRUE(fs::exists(rootDir() / "new" / "x.bas"));
+}
+
+TEST_F(ProjectTest, RenameClashReportsClash) {
+    auto project = makePersistent();
+    auto* fileA = project.addFile(project.getRoot(), "a.bas").value();
+    project.addFile(project.getRoot(), "b.bas");
+    const auto result = project.renameNode(fileA, "b.bas");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), Project::Error::Clash);
+    EXPECT_EQ(fileA->path, rootDir() / "a.bas");
+}
+
+TEST_F(ProjectTest, RenameRejectsInvalidName) {
+    auto project = makePersistent();
+    auto* folder = project.addFolder(project.getRoot(), "old").value();
+    EXPECT_EQ(project.renameNode(folder, "").error(), Project::Error::InvalidName);
+    EXPECT_EQ(project.renameNode(folder, "sub/folder").error(), Project::Error::InvalidName);
+}
+
+// --- sorting ---------------------------------------------------------------
+
+TEST_F(ProjectTest, ChildrenSortedByName) {
+    auto project = makePersistent();
+    project.addFile(project.getRoot(), "zebra.bas");
+    project.addFile(project.getRoot(), "apple.bas");
+    project.addFolder(project.getRoot(), "mango");
+    const auto& children = project.getRoot()->getFolder()->children;
+    ASSERT_EQ(children.size(), 3U);
+    EXPECT_EQ(children[0]->name(), "apple.bas");
+    EXPECT_EQ(children[1]->name(), "mango");
+    EXPECT_EQ(children[2]->name(), "zebra.bas");
+}
+
+// --- contextActions --------------------------------------------------------
+
+TEST_F(ProjectTest, ContextActionsRootHasAddsNoRemove) {
+    const auto project = makePersistent();
+    const auto actions = project.contextActions(project.getRoot());
+    EXPECT_NE(std::ranges::find(actions, Project::Action::AddFolder), actions.end());
+    EXPECT_NE(std::ranges::find(actions, Project::Action::AddSourceFile), actions.end());
+    EXPECT_NE(std::ranges::find(actions, Project::Action::AddHeaderFile), actions.end());
+    EXPECT_NE(std::ranges::find(actions, Project::Action::AddExisting), actions.end());
+    EXPECT_EQ(std::ranges::find(actions, Project::Action::Remove), actions.end());
+}
+
+TEST_F(ProjectTest, ContextActionsFolderHasAddsAndRemove) {
+    auto project = makePersistent();
+    auto* folder = project.addFolder(project.getRoot(), "f").value();
+    const auto actions = project.contextActions(folder);
+    EXPECT_NE(std::ranges::find(actions, Project::Action::AddFolder), actions.end());
+    EXPECT_NE(std::ranges::find(actions, Project::Action::Remove), actions.end());
+}
+
+TEST_F(ProjectTest, ContextActionsFileHasRemoveOnly) {
+    auto project = makePersistent();
+    auto* file = project.addFile(project.getRoot(), "a.bas").value();
+    const auto actions = project.contextActions(file);
+    ASSERT_EQ(actions.size(), 1U);
+    EXPECT_EQ(actions.front(), Project::Action::Remove);
+}
+
+// --- document binding ------------------------------------------------------
+
+TEST_F(ProjectTest, BindDocumentBindsBothSides) {
+    auto project = makePersistent();
+    auto* file = project.addFile(project.getRoot(), "main.bas").value();
+    auto& doc = makeDoc();
+    project.bindDocument(file, doc);
+    EXPECT_EQ(doc.getProject(), &project);
     const auto docs = project.getDocuments();
     ASSERT_EQ(docs.size(), 1U);
     EXPECT_EQ(docs.front(), &doc);
+}
+
+TEST_F(ProjectTest, GetSourcesFiltersByExtension) {
+    auto project = makePersistent();
+    auto* bas = project.addFile(project.getRoot(), "a.bas").value();
+    auto* txt = project.addFile(project.getRoot(), "notes.txt").value();
+    auto& docBas = makeDoc();
+    auto& docTxt = makeDoc();
+    project.bindDocument(bas, docBas);
+    project.bindDocument(txt, docTxt);
+    const auto sources = project.getSources();
+    ASSERT_EQ(sources.size(), 1U);
+    EXPECT_EQ(sources.front(), &docBas);
+}
+
+TEST_F(ProjectTest, ClearNodeDocumentDropsBackLink) {
+    auto project = makePersistent();
+    auto* file = project.addFile(project.getRoot(), "main.bas").value();
+    auto& doc = makeDoc();
+    project.bindDocument(file, doc);
+    project.clearNodeDocument(file);
+    EXPECT_TRUE(project.getDocuments().empty());
 }
 
 TEST_F(ProjectTest, GetDocumentsEmptyOnFreshProject) {
@@ -310,44 +548,44 @@ TEST_F(ProjectTest, GetDocumentsEmptyOnFreshProject) {
     EXPECT_TRUE(project.getDocuments().empty());
 }
 
-TEST_F(ProjectTest, GetDocumentsSkipsClearedBacklink) {
+// --- setFilePath -----------------------------------------------------------
+
+TEST_F(ProjectTest, SetFilePathRekeysIndex) {
     auto project = makePersistent();
-    auto& a = makeDoc(fs::path { "/tmp/a.bas" });
-    auto& b = makeDoc(fs::path { "/tmp/b.bas" });
-    auto& c = makeDoc(fs::path { "/tmp/c.bas" });
-    auto* nodeA = project.addFile(&a, project.getRoot());
-    project.addFile(&b, project.getRoot());
-    auto* nodeC = project.addFile(&c, project.getRoot());
-    // Drop the back-link on the outer two; only `b` should remain in the list.
-    project.clearNodeDocument(nodeA);
-    project.clearNodeDocument(nodeC);
-    const auto docs = project.getDocuments();
-    ASSERT_EQ(docs.size(), 1U);
-    EXPECT_EQ(docs.front(), &b);
+    auto* file = project.addFile(project.getRoot(), "a.bas").value();
+    ASSERT_TRUE(project.setFilePath(file, rootDir() / "b.bas").has_value());
+    EXPECT_EQ(file->path, rootDir() / "b.bas");
+    EXPECT_EQ(project.findByPath(rootDir() / "b.bas"), file);
+    EXPECT_EQ(project.findByPath(rootDir() / "a.bas"), nullptr);
 }
 
-TEST_F(ProjectTest, GetSourcesPersistentFiltersByExtension) {
+TEST_F(ProjectTest, SetFilePathRejectsOutOfTree) {
     auto project = makePersistent();
-    auto& bas = makeDoc(fs::path { "/tmp/a.bas" });
-    auto& txt = makeDoc(fs::path { "/tmp/notes.txt" });
-    project.addFile(&bas, project.getRoot());
-    project.addFile(&txt, project.getRoot());
-    const auto sources = project.getSources();
-    ASSERT_EQ(sources.size(), 1U);
-    EXPECT_EQ(sources.front(), &bas);
+    auto* file = project.addFile(project.getRoot(), "a.bas").value();
+    const auto result = project.setFilePath(file, fs::path { "/elsewhere/x.bas" });
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), Project::Error::OutOfTree);
 }
 
-// --- clearNodeDocument ----------------------------------------------------
+// --- isUnderRoot -----------------------------------------------------------
 
-TEST_F(ProjectTest, ClearNodeDocumentDropsBackLink) {
-    auto project = makePersistent();
-    auto& doc = makeDoc(fs::path { "/tmp/main.bas" });
-    auto* node = project.addFile(&doc);
-    project.clearNodeDocument(node);
-    EXPECT_TRUE(project.getDocuments().empty());
+TEST_F(ProjectTest, IsUnderRootTrueForChild) {
+    const auto project = makePersistent();
+    EXPECT_TRUE(project.isUnderRoot(rootDir() / "sub" / "a.bas"));
+    EXPECT_TRUE(project.isUnderRoot({}));
 }
 
-// --- capabilities ---------------------------------------------------------
+TEST_F(ProjectTest, IsUnderRootFalseForOutside) {
+    const auto project = makePersistent();
+    EXPECT_FALSE(project.isUnderRoot(fs::path { "/totally/elsewhere/a.bas" }));
+}
+
+TEST_F(ProjectTest, IsUnderRootEphemeralAcceptsEverything) {
+    const auto project = makeEphemeral();
+    EXPECT_TRUE(project.isUnderRoot(fs::path { "/anywhere/foo.bas" }));
+}
+
+// --- capabilities ----------------------------------------------------------
 
 TEST_F(ProjectTest, EphemeralAdvertisesAllCapabilities) {
     const auto project = makeEphemeral();
@@ -358,371 +596,7 @@ TEST_F(ProjectTest, EphemeralAdvertisesAllCapabilities) {
     EXPECT_TRUE(caps & +ProjectBase::Capability::QuickRun);
 }
 
-// --- addFolder / addRealFolder -------------------------------------------
-
-TEST_F(ProjectTest, AddFolderVirtualUnderRoot) {
-    auto project = makePersistent();
-    auto* folder = project.addFolder(project.getRoot(), "Sources");
-    ASSERT_NE(folder, nullptr);
-    EXPECT_TRUE(folder->path.empty());
-    EXPECT_EQ(folder->getFolder()->name, "Sources");
-    EXPECT_EQ(folder->parent, project.getRoot());
-}
-
-TEST_F(ProjectTest, AddFolderNested) {
-    auto project = makePersistent();
-    auto* outer = project.addFolder(project.getRoot(), "outer");
-    auto* inner = project.addFolder(outer, "inner");
-    EXPECT_EQ(inner->parent, outer);
-    const auto& outerChildren = outer->getFolder()->children;
-    ASSERT_EQ(outerChildren.size(), 1U);
-    EXPECT_EQ(outerChildren.front(), inner);
-}
-
-TEST_F(ProjectTest, AddRealFolderCreatesDirectory) {
-    auto project = makePersistent();
-    const auto dir = fs::path(m_tmp.path().ToStdString()) / "fresh";
-    ASSERT_FALSE(fs::exists(dir));
-    const auto result = project.addRealFolder(project.getRoot(), dir);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ((*result)->path, dir);
-    EXPECT_TRUE(fs::is_directory(dir));
-}
-
-TEST_F(ProjectTest, AddRealFolderAcceptsExistingDirectory) {
-    auto project = makePersistent();
-    const auto dir = fs::path(m_tmp.path().ToStdString()) / "existing";
-    fs::create_directory(dir);
-    const auto result = project.addRealFolder(project.getRoot(), dir);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ((*result)->path, dir);
-}
-
-TEST_F(ProjectTest, AddRealFolderRejectsExistingFile) {
-    auto project = makePersistent();
-    const auto path = fs::path(m_tmp.path().ToStdString()) / "afile";
-    { std::ofstream { path } << "hello"; }
-    const auto result = project.addRealFolder(project.getRoot(), path);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), Project::Error::Clash);
-}
-
-// --- removeNode ----------------------------------------------------------
-
-TEST_F(ProjectTest, RemoveFileDetachesFromParent) {
-    auto project = makePersistent();
-    auto* root = project.getRoot();
-    auto& doc = makeDoc(fs::path { "/tmp/a.bas" });
-    auto* file = project.addFile(&doc, root);
-    const auto fileId = file->id;
-    // removeNode asserts the file has no bound document — clear the
-    // back-link first so the project- and document-side state stay symmetric
-    // (real callers go through Document::unbindFromProject first).
-    project.clearNodeDocument(file);
-    const auto result = project.removeNode(file);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(project.findNode(fileId), nullptr);
-    EXPECT_TRUE(root->getFolder()->children.empty());
-}
-
-TEST_F(ProjectTest, RemoveFolderIsRecursive) {
-    auto project = makePersistent();
-    auto* root = project.getRoot();
-    auto* folder = project.addFolder(root, "group");
-    auto& docA = makeDoc(fs::path { "/tmp/a.bas" });
-    auto& docB = makeDoc(fs::path { "/tmp/b.bas" });
-    auto* a = project.addFile(&docA, folder);
-    auto* b = project.addFile(&docB, folder);
-    const auto aId = a->id;
-    const auto bId = b->id;
-    const auto folderId = folder->id;
-
-    project.clearNodeDocument(a);
-    project.clearNodeDocument(b);
-    ASSERT_TRUE(project.removeNode(folder).has_value());
-    EXPECT_EQ(project.findNode(folderId), nullptr);
-    EXPECT_EQ(project.findNode(aId), nullptr);
-    EXPECT_EQ(project.findNode(bId), nullptr);
-}
-
-TEST_F(ProjectTest, RemoveNodeDeletesFromDiskWhenRequested) {
-    auto project = makePersistent();
-    const auto path = fs::path(m_tmp.path().ToStdString()) / "doomed.bas";
-    { std::ofstream { path } << "x"; }
-    ASSERT_TRUE(fs::exists(path));
-
-    auto& doc = makeDoc(path);
-    auto* file = project.addFile(&doc, project.getRoot());
-    project.clearNodeDocument(file);
-    const auto result = project.removeNode(file, /*deleteOnDisk=*/true);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_FALSE(fs::exists(path));
-}
-
-TEST_F(ProjectTest, RemoveNodeLeavesDiskAloneByDefault) {
-    auto project = makePersistent();
-    const auto path = fs::path(m_tmp.path().ToStdString()) / "kept.bas";
-    { std::ofstream { path } << "x"; }
-
-    auto& doc = makeDoc(path);
-    auto* file = project.addFile(&doc, project.getRoot());
-    project.clearNodeDocument(file);
-    ASSERT_TRUE(project.removeNode(file).has_value());
-    EXPECT_TRUE(fs::exists(path));
-}
-
-TEST_F(ProjectTest, RemoveRealFolderDeletesRecursivelyFromDisk) {
-    auto project = makePersistent();
-    const auto dir = fs::path(m_tmp.path().ToStdString()) / "tree";
-    fs::create_directory(dir);
-    { std::ofstream { dir / "a.bas" } << "x"; }
-
-    auto* folder = project.addRealFolder(project.getRoot(), dir).value();
-    auto& doc = makeDoc(dir / "a.bas");
-    auto* file = project.addFile(&doc, folder);
-    project.clearNodeDocument(file);
-
-    ASSERT_TRUE(project.removeNode(folder, /*deleteOnDisk=*/true).has_value());
-    EXPECT_FALSE(fs::exists(dir));
-}
-
-// --- moveNode ------------------------------------------------------------
-
-TEST_F(ProjectTest, MoveReordersWithinSameParent) {
-    auto project = makePersistent();
-    auto* root = project.getRoot();
-    auto& dA = makeDoc(fs::path { "/tmp/a.bas" });
-    auto& dB = makeDoc(fs::path { "/tmp/b.bas" });
-    auto& dC = makeDoc(fs::path { "/tmp/c.bas" });
-    auto* a = project.addFile(&dA, root);
-    auto* b = project.addFile(&dB, root);
-    auto* c = project.addFile(&dC, root);
-    // [a, b, c] → move a to last
-    ASSERT_TRUE(project.moveNode(a, root, 2).has_value());
-    const auto& children = root->getFolder()->children;
-    ASSERT_EQ(children.size(), 3U);
-    EXPECT_EQ(children[0], b);
-    EXPECT_EQ(children[1], c);
-    EXPECT_EQ(children[2], a);
-}
-
-TEST_F(ProjectTest, MoveReparentsBetweenVirtualFolders) {
-    auto project = makePersistent();
-    auto* src = project.addFolder(project.getRoot(), "src");
-    auto* lib = project.addFolder(project.getRoot(), "lib");
-    auto& doc = makeDoc(fs::path { "/tmp/foo.bas" });
-    auto* file = project.addFile(&doc, src);
-
-    ASSERT_TRUE(project.moveNode(file, lib, 0).has_value());
-    EXPECT_EQ(file->parent, lib);
-    EXPECT_TRUE(src->getFolder()->children.empty());
-    const auto& libChildren = lib->getFolder()->children;
-    ASSERT_EQ(libChildren.size(), 1U);
-    EXPECT_EQ(libChildren.front(), file);
-    // Virtual parents: file path is untouched.
-    EXPECT_EQ(file->path, fs::path { "/tmp/foo.bas" });
-}
-
-TEST_F(ProjectTest, MoveAutoMvsFileBetweenRealFolders) {
-    auto project = makePersistent();
-    const auto base = fs::path(m_tmp.path().ToStdString());
-    fs::create_directory(base / "src");
-    fs::create_directory(base / "lib");
-    { std::ofstream { base / "src" / "foo.bas" } << "x"; }
-
-    auto* src = project.addRealFolder(project.getRoot(), base / "src").value();
-    auto* lib = project.addRealFolder(project.getRoot(), base / "lib").value();
-    auto& doc = makeDoc(base / "src" / "foo.bas");
-    auto* file = project.addFile(&doc, src);
-
-    ASSERT_TRUE(project.moveNode(file, lib, 0).has_value());
-    EXPECT_EQ(file->path, base / "lib" / "foo.bas");
-    EXPECT_TRUE(fs::exists(base / "lib" / "foo.bas"));
-    EXPECT_FALSE(fs::exists(base / "src" / "foo.bas"));
-}
-
-TEST_F(ProjectTest, MoveAutoMvClashFails) {
-    auto project = makePersistent();
-    const auto base = fs::path(m_tmp.path().ToStdString());
-    fs::create_directory(base / "src");
-    fs::create_directory(base / "lib");
-    { std::ofstream { base / "src" / "foo.bas" } << "x"; }
-    { std::ofstream { base / "lib" / "foo.bas" } << "y"; } // blocker
-
-    auto* src = project.addRealFolder(project.getRoot(), base / "src").value();
-    auto* lib = project.addRealFolder(project.getRoot(), base / "lib").value();
-    auto& doc = makeDoc(base / "src" / "foo.bas");
-    auto* file = project.addFile(&doc, src);
-
-    const auto result = project.moveNode(file, lib, 0);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), Project::Error::Clash);
-    // Tree unchanged on failure.
-    EXPECT_EQ(file->parent, src);
-    EXPECT_TRUE(fs::exists(base / "src" / "foo.bas"));
-}
-
-// --- renameNode ----------------------------------------------------------
-
-TEST_F(ProjectTest, RenameVirtualFolder) {
-    auto project = makePersistent();
-    auto* folder = project.addFolder(project.getRoot(), "old");
-    ASSERT_TRUE(project.renameNode(folder, "new").has_value());
-    EXPECT_EQ(folder->getFolder()->name, "new");
-    EXPECT_TRUE(folder->path.empty());
-}
-
-TEST_F(ProjectTest, RenameFileOnDisk) {
-    auto project = makePersistent();
-    const auto base = fs::path(m_tmp.path().ToStdString());
-    const auto oldPath = base / "old.bas";
-    { std::ofstream { oldPath } << "x"; }
-
-    auto& doc = makeDoc(oldPath);
-    auto* file = project.addFile(&doc, project.getRoot());
-    ASSERT_TRUE(project.renameNode(file, "new.bas").has_value());
-    EXPECT_EQ(file->path, base / "new.bas");
-    EXPECT_TRUE(fs::exists(base / "new.bas"));
-    EXPECT_FALSE(fs::exists(oldPath));
-}
-
-TEST_F(ProjectTest, RenameRealFolderUpdatesDescendantPaths) {
-    auto project = makePersistent();
-    const auto base = fs::path(m_tmp.path().ToStdString());
-    fs::create_directory(base / "src");
-    { std::ofstream { base / "src" / "foo.bas" } << "x"; }
-
-    auto* folder = project.addRealFolder(project.getRoot(), base / "src").value();
-    auto& doc = makeDoc(base / "src" / "foo.bas");
-    auto* file = project.addFile(&doc, folder);
-
-    ASSERT_TRUE(project.renameNode(folder, "source").has_value());
-    EXPECT_EQ(folder->path, base / "source");
-    EXPECT_EQ(folder->getFolder()->name, "source");
-    EXPECT_EQ(file->path, base / "source" / "foo.bas");
-    EXPECT_TRUE(fs::exists(base / "source" / "foo.bas"));
-}
-
-TEST_F(ProjectTest, RenameClashReportsClash) {
-    auto project = makePersistent();
-    const auto base = fs::path(m_tmp.path().ToStdString());
-    { std::ofstream { base / "a.bas" } << "1"; }
-    { std::ofstream { base / "b.bas" } << "2"; }
-
-    auto& doc = makeDoc(base / "a.bas");
-    auto* file = project.addFile(&doc, project.getRoot());
-    const auto result = project.renameNode(file, "b.bas");
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), Project::Error::Clash);
-    // On failure, file unchanged.
-    EXPECT_EQ(file->path, base / "a.bas");
-    EXPECT_TRUE(fs::exists(base / "a.bas"));
-}
-
-TEST_F(ProjectTest, RenameRejectsEmptyName) {
-    auto project = makePersistent();
-    auto* folder = project.addFolder(project.getRoot(), "old");
-    const auto result = project.renameNode(folder, "");
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), Project::Error::InvalidName);
-}
-
-TEST_F(ProjectTest, RenameRejectsNameWithSeparator) {
-    auto project = makePersistent();
-    auto* folder = project.addFolder(project.getRoot(), "old");
-    const auto result = project.renameNode(folder, "sub/folder");
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), Project::Error::InvalidName);
-}
-
-// --- nullptr parent defaults to root -------------------------------------
-
-TEST_F(ProjectTest, AddFolderNullParentDefaultsToRoot) {
-    auto project = makePersistent();
-    auto* folder = project.addFolder(nullptr, "X");
-    EXPECT_EQ(folder->parent, project.getRoot());
-}
-
-TEST_F(ProjectTest, AddRealFolderNullParentDefaultsToRoot) {
-    auto project = makePersistent();
-    const auto dir = fs::path(m_tmp.path().ToStdString()) / "auto";
-    auto* folder = project.addRealFolder(nullptr, dir).value();
-    EXPECT_EQ(folder->parent, project.getRoot());
-}
-
-TEST_F(ProjectTest, PersistentAddFileNullParentDefaultsToRoot) {
-    auto project = makePersistent();
-    auto& doc = makeDoc(fs::path { "/tmp/a.bas" });
-    auto* file = project.addFile(&doc);
-    ASSERT_NE(file, nullptr);
-    EXPECT_EQ(file->parent, project.getRoot());
-}
-
-// --- moveNode auto-mv via closest real ancestor --------------------------
-
-TEST_F(ProjectTest, MoveIntoVirtualWalksUpToRealAncestor) {
-    auto project = makePersistent();
-    const auto base = fs::path(m_tmp.path().ToStdString());
-    fs::create_directory(base / "lib");
-    { std::ofstream { base / "foo.bas" } << "x"; }
-
-    auto* realLib = project.addRealFolder(nullptr, base / "lib").value();
-    auto* virtualGroup = project.addFolder(realLib, "Group");
-    auto& doc = makeDoc(base / "foo.bas");
-    auto* file = project.addFile(&doc, nullptr);
-
-    ASSERT_TRUE(project.moveNode(file, virtualGroup, 0).has_value());
-    EXPECT_EQ(file->path, base / "lib" / "foo.bas");
-    EXPECT_TRUE(fs::exists(base / "lib" / "foo.bas"));
-    EXPECT_FALSE(fs::exists(base / "foo.bas"));
-}
-
-TEST_F(ProjectTest, MoveIntoFullyVirtualAncestrySkipsDiskMove) {
-    auto project = makePersistent();
-    const auto base = fs::path(m_tmp.path().ToStdString());
-    const auto filePath = base / "stays.bas";
-    { std::ofstream { filePath } << "x"; }
-
-    // Persistent root has empty path. The whole ancestry of `nest` is
-    // virtual, so the move skips fs::rename.
-    auto* outer = project.addFolder(nullptr, "Outer");
-    auto* nest = project.addFolder(outer, "Nest");
-    auto& doc = makeDoc(filePath);
-    auto* file = project.addFile(&doc, nullptr);
-
-    ASSERT_TRUE(project.moveNode(file, nest, 0).has_value());
-    EXPECT_EQ(file->path, filePath);
-    EXPECT_TRUE(fs::exists(filePath));
-}
-
-// --- isUnderRoot ---------------------------------------------------------
-
-TEST_F(ProjectTest, IsUnderRootEmptyRootAcceptsEverything) {
+TEST_F(ProjectTest, PersistentAdvertisesNoCapabilities) {
     const auto project = makePersistent();
-    EXPECT_TRUE(project.isUnderRoot(fs::path { "/anywhere/foo.bas" }));
-    EXPECT_TRUE(project.isUnderRoot({}));
-}
-
-TEST_F(ProjectTest, IsUnderRootEphemeralPreFileAcceptsEverything) {
-    const auto project = makeEphemeral();
-    // m_root is null before the first addFile — isUnderRoot short-circuits
-    // to true rather than null-derefing.
-    EXPECT_TRUE(project.isUnderRoot(fs::path { "/anywhere/foo.bas" }));
-}
-
-// --- removeNode disk-delete walks descendants ---------------------------
-
-TEST_F(ProjectTest, RemoveVirtualFolderDeletesRealDescendantsOnDisk) {
-    auto project = makePersistent();
-    const auto base = fs::path(m_tmp.path().ToStdString());
-    const auto filePath = base / "buried.bas";
-    { std::ofstream { filePath } << "x"; }
-
-    auto* virtualGroup = project.addFolder(nullptr, "VG");
-    auto& doc = makeDoc(filePath);
-    auto* file = project.addFile(&doc, virtualGroup);
-    project.clearNodeDocument(file);
-
-    ASSERT_TRUE(project.removeNode(virtualGroup, /*deleteOnDisk=*/true).has_value());
-    EXPECT_FALSE(fs::exists(filePath));
+    EXPECT_EQ(project.getCapabilities(), 0U);
 }
