@@ -19,6 +19,7 @@ class FileSession;
 class HelpManager;
 class SideBarManager;
 class UIManager;
+class UpdateManager;
 class WorkspaceManager;
 
 /**
@@ -127,6 +128,11 @@ public:
     /// Const overload of `getEditorSearchService`.
     [[nodiscard]] auto getEditorSearchService() const -> const EditorSearchService& { return *m_editorSearchService; }
 
+    /// Access the update manager (GitHub release check).
+    [[nodiscard]] auto getUpdateManager() -> UpdateManager& { return *m_updateManager; }
+    /// Const overload of `getUpdateManager`.
+    [[nodiscard]] auto getUpdateManager() const -> const UpdateManager& { return *m_updateManager; }
+
 private:
     App& m_app;                                     ///< Owning application.
     std::unique_ptr<ConfigManager> m_configManager; ///< INI store + path resolver.
@@ -141,11 +147,12 @@ private:
     // first. Once `IntellisenseService` moves in (Phase 3 of the project
     // refactor), the worker must stop and join before the documents it may
     // race with go away.
-    std::unique_ptr<WorkspaceManager> m_workspaceManager; ///< Open projects + active-project tracking.
-    std::unique_ptr<FileSession> m_fileSession;           ///< Session `.fbs` load/save.
-    std::unique_ptr<CompilerManager> m_compilerManager; ///< Compile/run lifecycle.
+    std::unique_ptr<WorkspaceManager> m_workspaceManager;       ///< Open projects + active-project tracking.
+    std::unique_ptr<FileSession> m_fileSession;                 ///< Session `.fbs` load/save.
+    std::unique_ptr<CompilerManager> m_compilerManager;         ///< Compile/run lifecycle.
     std::unique_ptr<HelpManager> m_helpManager;                 ///< Help dispatcher.
     std::unique_ptr<EditorSearchService> m_editorSearchService; ///< Editor Find / Replace / Goto Line.
+    std::unique_ptr<UpdateManager> m_updateManager;             ///< GitHub release check.
     std::unique_ptr<CommandManager> m_commandManager;           ///< Command table + dispatch (last).
 };
 

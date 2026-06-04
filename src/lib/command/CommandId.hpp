@@ -56,12 +56,14 @@ enum class CommandId : wxWindowID {
     Subs,
     Compile,
     CompileAndRun,
+    Configuration,
     Run,
     QuickRun,
     KillProcess,
     CmdPrompt,
     Parameters,
     ShowExitCode,
+    CheckUpdates,
 
     /// Dynamic slots for externally configured Help menu links.
     /// Range reserved for wxEVT_MENU dispatch via EVT_MENU_RANGE.

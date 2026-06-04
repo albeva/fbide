@@ -7,6 +7,7 @@
 #include "CompilerManager.hpp"
 #include <wx/richmsgdlg.h>
 #include "BuildTask.hpp"
+#include "CompilerConfigCatalog.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
@@ -22,7 +23,10 @@
 using namespace fbide;
 
 CompilerManager::CompilerManager(Context& ctx)
-: m_ctx(ctx) {}
+: m_ctx(ctx)
+, m_catalog(std::make_unique<CompilerConfigCatalog>(ctx.getConfigManager())) {
+    m_catalog->reload();
+}
 
 CompilerManager::~CompilerManager() = default;
 
@@ -42,6 +46,11 @@ void CompilerManager::compile() {
     }
     assert(sources.size() == 1 && "currently only one file can be compiled");
 
+    const auto& cfg = project->getCompilerConfig(*m_catalog);
+    if (!ensureCompilable(cfg)) {
+        return;
+    }
+
     m_task = std::make_unique<BuildTask>(m_ctx, *project);
     m_task->compile(toWxString(sources.front()->getFilePath()));
 }
@@ -57,6 +66,11 @@ void CompilerManager::compileAndRun() {
         return;
     }
     assert(sources.size() == 1 && "currently only one file can be compiled");
+
+    const auto& cfg = project->getCompilerConfig(*m_catalog);
+    if (!ensureCompilable(cfg) || !ensureRunnable(cfg)) {
+        return;
+    }
 
     m_task = std::make_unique<BuildTask>(m_ctx, *project);
     m_task->compileAndRun(toWxString(sources.front()->getFilePath()), false);
@@ -82,6 +96,11 @@ void CompilerManager::run() {
         return;
     }
 
+    const auto& cfg = project->getCompilerConfig(*m_catalog);
+    if (!ensureRunnable(cfg)) {
+        return;
+    }
+
     m_task = std::make_unique<BuildTask>(m_ctx, *project);
     m_task->run(toWxString(artefact), false);
 }
@@ -99,6 +118,11 @@ void CompilerManager::quickRun() {
     auto* doc = sources.front();
 
     // TODO: following logic should all be part of ephemeral project settings. Not set here.
+
+    const auto& cfg = m_catalog->resolveByPinnedSlug(doc->getConfiguration());
+    if (!ensureCompilable(cfg) || !ensureRunnable(cfg)) {
+        return;
+    }
 
     // Determine temp folder from current file or IDE path
     const auto filePath = doc->getFilePath();
@@ -121,7 +145,7 @@ void CompilerManager::quickRun() {
     m_task->compileAndRun(toWxString(tempFile), true);
 }
 
-void CompilerManager::killProcess() {
+void CompilerManager::killProcess() const {
     if (m_task != nullptr && m_task->isRunning()) {
         m_task->kill();
     }
@@ -131,13 +155,13 @@ void CompilerManager::killProcess() {
 // Compiler log
 // ---------------------------------------------------------------------------
 
-void CompilerManager::showCompilerLog() {
+void CompilerManager::showCompilerLog() const {
     auto& log = m_ctx.getUIManager().getCompilerLog();
     log.Show();
     log.Raise();
 }
 
-void CompilerManager::refreshCompilerLog() {
+void CompilerManager::refreshCompilerLog() const {
     if (m_task == nullptr) {
         return;
     }
@@ -163,34 +187,29 @@ auto CompilerManager::resolveCompilerBinary() const -> wxString {
     return resolved;
 }
 
-auto CompilerManager::getFbcVersion() -> const wxString& {
-    if (not m_fbcVersion.empty()) {
-        return m_fbcVersion;
+auto CompilerManager::probeCompilerVersion(const std::filesystem::path& compilerPath) const -> wxString {
+    wxFileName path(toWxString(compilerPath));
+    path.MakeAbsolute(toWxString(m_ctx.getConfigManager().getAppDir()));
+    const auto resolved = path.GetFullPath();
+    if (resolved.IsEmpty() || !wxIsExecutable(resolved)) {
+        return {};
     }
-
-    const auto compiler = resolveCompilerBinary();
-    if (compiler.IsEmpty()) {
-        return m_fbcVersion;
-    }
-
     wxArrayString output;
-    wxExecute("\"" + compiler + "\" --version", output);
-    if (!output.empty()) {
-        m_fbcVersion = output[0];
-    }
-    return m_fbcVersion;
+    wxExecute("\"" + resolved + "\" --version", output);
+    return output.empty() ? wxString {} : output[0];
 }
 
 namespace {
-/// Open the Settings dialog focused on the Compiler tab.
-void openCompilerSettings(Context& ctx) {
+/// Open the Settings dialog at a compiler deep-link target (page +
+/// optional "<slug>/<field>").
+void openCompilerSettings(Context& ctx, const wxString& target) {
     SettingsDialog settings(ctx.getUIManager().getMainFrame(), ctx);
-    settings.create(SettingsDialog::Page::Compiler);
+    settings.create(target);
     settings.ShowModal();
 }
 } // namespace
 
-void CompilerManager::checkCompilerOnStartup() {
+void CompilerManager::checkCompilerOnStartup() const {
     auto& configManager = m_ctx.getConfigManager();
     auto& config = configManager.config();
 
@@ -221,15 +240,15 @@ void CompilerManager::checkCompilerOnStartup() {
     }
 
     if (answer == wxID_YES) {
-        openCompilerSettings(m_ctx);
+        openCompilerSettings(m_ctx, "compiler");
     }
 }
 
-void CompilerManager::promptMissingCompiler() {
+auto CompilerManager::promptConfigure(const wxString& titleKey, const wxString& messageKey, const wxString& target) const -> bool {
     wxRichMessageDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
-        m_ctx.tr("messages.missingCompilerMessage"),
-        m_ctx.tr("messages.missingCompilerTitle"),
+        m_ctx.tr(messageKey),
+        m_ctx.tr(titleKey),
         wxYES_NO | wxICON_WARNING
     );
     dlg.SetYesNoLabels(
@@ -237,15 +256,48 @@ void CompilerManager::promptMissingCompiler() {
         m_ctx.tr("messages.missingCompilerSkip")
     );
     if (dlg.ShowModal() == wxID_YES) {
-        openCompilerSettings(m_ctx);
+        openCompilerSettings(m_ctx, target);
+        return true;
     }
+    return false;
+}
+
+void CompilerManager::promptMissingCompiler() const {
+    promptConfigure("messages.missingCompilerTitle", "messages.missingCompilerMessage", "compiler");
+}
+
+auto CompilerManager::ensureCompilable(const ResolvedCompilerConfig& cfg) const -> bool {
+    // 1. fbc binary must be set and reachable. Resolve the (possibly
+    //    relative) configured path against the IDE app dir the same way
+    //    CompileCommand does before invoking it.
+    const auto rawPath = toWxString(cfg.path);
+    wxFileName fbc { rawPath };
+    fbc.MakeAbsolute(toWxString(m_ctx.getConfigManager().getAppDir()));
+    if (rawPath.IsEmpty() || !wxIsExecutable(fbc.GetFullPath())) {
+        promptConfigure("messages.missingCompilerTitle", "messages.missingCompilerMessage", "compiler/" + cfg.slug + "/path");
+        return false;
+    }
+    // 2. Compile-command template must be present.
+    if (cfg.compileCommand.Strip(wxString::both).IsEmpty()) {
+        promptConfigure("messages.missingCompileCommandTitle", "messages.missingCompileCommand", "compiler/" + cfg.slug + "/compileCommand");
+        return false;
+    }
+    return true;
+}
+
+auto CompilerManager::ensureRunnable(const ResolvedCompilerConfig& cfg) const -> bool {
+    if (cfg.runCommand.Strip(wxString::both).IsEmpty()) {
+        promptConfigure("messages.missingRunCommandTitle", "messages.missingRunCommand", "compiler/" + cfg.slug + "/runCommand");
+        return false;
+    }
+    return true;
 }
 
 // ---------------------------------------------------------------------------
 // Error navigation
 // ---------------------------------------------------------------------------
 
-void CompilerManager::goToError(const int line, const wxString& fileName) {
+void CompilerManager::goToError(const int line, const wxString& fileName) const {
     auto& workspace = m_ctx.getWorkspaceManager();
 
     auto* doc = [&] -> Document* {
@@ -260,7 +312,7 @@ void CompilerManager::goToError(const int line, const wxString& fileName) {
                     if (sources.empty()) {
                         return nullptr;
                     }
-                    assert (sources.size() == 1 && "Multi file not supported");
+                    assert(sources.size() == 1 && "Multi file not supported");
                     return sources.front();
                 }
             }
@@ -313,6 +365,180 @@ auto CompilerManager::ensureSaved(Project& project) -> bool {
     });
 }
 
-void CompilerManager::setStatus(const wxString& path) const {
-    m_ctx.getUIManager().getMainFrame()->SetStatusText(path.empty() ? wxString {} : m_ctx.tr(path));
+void CompilerManager::setProjectConfiguration(Project& project, const wxString& pickedSlug) const {
+    project.setConfigurationSlug(m_catalog->normalizeForStorage(pickedSlug));
+    // Both the toolbar combobox and the status-bar field need to
+    // reflect the new selection. The combobox already shows the picked
+    // entry (it's the source of the event when picked from there); for
+    // the status-bar popup path the click closes the menu and nothing
+    // else would otherwise push the new label.
+    pushStatusBarLabel();
+}
+
+// ---------------------------------------------------------------------------
+// Toolbar combobox
+// ---------------------------------------------------------------------------
+
+auto CompilerManager::createConfigurationCombo(wxAuiToolBar* parent) -> wxComboBox* {
+    // wxCB_READONLY: user can only pick from the list, never type.
+    // Fixed width keeps the toolbar layout predictable.
+    constexpr int kWidth = 160;
+    m_configCombo = make_unowned<wxComboBox>(
+        parent, wxID_ANY, wxString {},
+        wxDefaultPosition, wxSize(kWidth, -1),
+        wxArrayString {}, wxCB_READONLY
+    )
+                        .get();
+    m_configCombo->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent&) {
+        onConfigurationComboSelected();
+    });
+    populateConfigurationCombo();
+    // Sync to the remembered active document: disabled with no selection
+    // when there's no FreeBASIC document (e.g. at first build), enabled
+    // and selected when the toolbar is rebuilt while one is open.
+    onActiveDocumentChanged(m_lastActiveDoc);
+    return m_configCombo;
+}
+
+void CompilerManager::destroyConfigurationCombo() {
+    if (m_configCombo == nullptr) {
+        return;
+    }
+    // Drop the hosting toolbar's item first so it isn't left pointing at
+    // a dead widget, then destroy the combobox (a child of the toolbar).
+    if (auto* tb = wxDynamicCast(m_configCombo->GetParent(), wxAuiToolBar)) {
+        tb->DeleteTool(m_configCombo->GetId());
+        tb->Fit();
+    }
+    m_configCombo->Destroy();
+    m_configCombo = nullptr;
+}
+
+void CompilerManager::refreshConfigurationCombo() {
+    if (m_configCombo != nullptr) {
+        populateConfigurationCombo();
+        // Restore selection / enabled state for whichever doc is
+        // currently active — population wiped both.
+        onActiveDocumentChanged(m_lastActiveDoc);
+    }
+    // Delegate the create/destroy decision to UIManager: combobox or
+    // status-bar field are both surfaces it owns and may need to add or
+    // drop depending on the new catalog state.
+    m_ctx.getUIManager().refreshConfigurationDisplay();
+}
+
+auto CompilerManager::configurationProject() const -> Project* {
+    if (m_lastActiveDoc == nullptr) {
+        return nullptr;
+    }
+    auto* project = m_lastActiveDoc->getProject();
+    return (project != nullptr && project->isEphemeral()) ? project : nullptr;
+}
+
+void CompilerManager::onActiveDocumentChanged(Document* doc) {
+    m_lastActiveDoc = doc;
+    if (m_configCombo != nullptr) {
+        auto* project = configurationProject();
+        if (project == nullptr) {
+            m_configCombo->Disable();
+        } else {
+            // Rebuild so a hidden but currently-selected config gets
+            // injected into the visible list. populateConfigurationCombo
+            // reads the active project to decide which slug to force-include.
+            populateConfigurationCombo();
+            m_configCombo->Enable();
+            const auto& resolved = m_catalog->resolveByPinnedSlug(project->getConfigurationSlug());
+            if (const auto index = comboIndexForSlug(resolved.slug); index >= 0) {
+                m_configCombo->SetSelection(index);
+            }
+        }
+    }
+    pushStatusBarLabel();
+}
+
+void CompilerManager::pushStatusBarLabel() const {
+    m_ctx.getUIManager().getStatusBar().refreshConfigurationField();
+}
+
+void CompilerManager::populateConfigurationCombo() const {
+    if (m_configCombo == nullptr) {
+        return;
+    }
+    m_configCombo->Clear();
+    // The dropdown contents are driven by the active project: Ephemeral
+    // projects pass the catalog's menu-visible compiler configurations
+    // through. The project's pinned slug is forwarded so a
+    // hidden-but-selected entry still appears.
+    auto* project = configurationProject();
+    if (project == nullptr) {
+        return;
+    }
+    const auto keepSlug = m_catalog->resolveByPinnedSlug(project->getConfigurationSlug()).slug;
+    for (const auto* cfg : project->getMenuConfigurations(*m_catalog, keepSlug)) {
+        m_configCombo->Append(cfg->displayName, new wxStringClientData(cfg->slug));
+    }
+}
+
+auto CompilerManager::comboIndexForSlug(const wxString& slug) const -> int {
+    if (m_configCombo == nullptr) {
+        return -1;
+    }
+    for (unsigned i = 0; i < m_configCombo->GetCount(); ++i) {
+        if (const auto* data = dynamic_cast<wxStringClientData*>(m_configCombo->GetClientObject(i));
+            data != nullptr && data->GetData() == slug) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+
+void CompilerManager::onConfigurationComboSelected() const {
+    auto* project = configurationProject();
+    if (project == nullptr || m_configCombo == nullptr) {
+        return;
+    }
+    const auto sel = m_configCombo->GetSelection();
+    if (sel < 0) {
+        return;
+    }
+    if (const auto* data = dynamic_cast<wxStringClientData*>(m_configCombo->GetClientObject(static_cast<unsigned>(sel)))) {
+        setProjectConfiguration(*project, data->GetData());
+    }
+}
+
+auto CompilerManager::configurationStatusLabel() const -> wxString {
+    auto* project = configurationProject();
+    if (project == nullptr) {
+        return wxString {};
+    }
+    return m_catalog->resolveByPinnedSlug(project->getConfigurationSlug()).displayName;
+}
+
+auto CompilerManager::buildConfigurationMenu() const -> std::unique_ptr<wxMenu> {
+    auto menu = std::make_unique<wxMenu>();
+    auto* project = configurationProject();
+    if (project == nullptr) {
+        return menu;
+    }
+    const auto currentSlug = m_catalog->resolveByPinnedSlug(project->getConfigurationSlug()).slug;
+    // Menu item ID = base + the slug's index within `catalog().all()`,
+    // not within the filtered subset — that way the ID still maps back
+    // through `catalog().at()` in `applyConfigurationMenuSelection` even
+    // though some entries were skipped.
+    for (const auto* cfg : project->getMenuConfigurations(*m_catalog, currentSlug)) {
+        const auto catalogIndex = m_catalog->indexOf(cfg->slug);
+        auto* item = menu->AppendRadioItem(kStatusMenuIdBase + catalogIndex, cfg->displayName);
+        item->Check(cfg->slug == currentSlug);
+    }
+    return menu;
+}
+
+void CompilerManager::applyConfigurationMenuSelection(const int menuId) const {
+    auto* project = configurationProject();
+    if (project == nullptr) {
+        return;
+    }
+    if (const auto* cfg = m_catalog->at(menuId - kStatusMenuIdBase)) {
+        setProjectConfiguration(*project, cfg->slug);
+    }
 }

@@ -11,6 +11,8 @@
 namespace fbide {
 class ConfigManager;
 class Document;
+class CompilerConfigCatalog;
+struct ResolvedCompilerConfig;
 
 /**
  * A `Project` groups one or more source files (and, in the future, other
@@ -333,6 +335,33 @@ public:
     /// meta-tags). Ephemeral: forwards to `compiler.runCommand` in
     /// `ConfigManager`.
     [[nodiscard]] auto getRunTemplate() const -> wxString;
+
+    /// Selected compiler-configuration slug — empty means "follow the
+    /// active configuration". This is the project's build-config
+    /// selection that drives both the toolbar/status-bar dropdown and
+    /// the build. Ephemeral: stored on the single bound source document.
+    /// Persistent: not implemented yet (will carry its own selection).
+    [[nodiscard]] auto getConfigurationSlug() const -> std::optional<wxString>;
+
+    /// Set (or clear) the selected configuration slug. The caller owns
+    /// the "matches active → empty" normalisation. Ephemeral: writes
+    /// through to the source document. Persistent: not implemented yet.
+    void setConfigurationSlug(std::optional<wxString> slug);
+
+    /// Resolve this project's compiler configuration against `catalog`
+    /// (the authoritative catalog owned by `CompilerManager`). The
+    /// returned reference is owned by the catalog and stays valid until
+    /// it reloads. Resolves `getConfigurationSlug()` (empty → the active
+    /// configuration). Persistent: not implemented yet.
+    [[nodiscard]] auto getCompilerConfig(const CompilerConfigCatalog& catalog) const -> const ResolvedCompilerConfig&;
+
+    /// Entries to populate the build-configuration dropdown with. The
+    /// dropdown is driven entirely by the project: Ephemeral projects
+    /// pass the catalog's menu-visible compiler configurations through
+    /// unchanged (`alwaysInclude` keeps a hidden-but-selected slug
+    /// visible). Persistent: not implemented yet — will return the
+    /// project's own internally-defined build targets instead.
+    [[nodiscard]] auto getMenuConfigurations(const CompilerConfigCatalog& catalog, const wxString& alwaysInclude) const -> std::vector<const ResolvedCompilerConfig*>;
 
     /// Bitfield of `Capability` values this project supports. Ephemeral
     /// projects unconditionally expose every action (single-file

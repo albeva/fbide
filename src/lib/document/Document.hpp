@@ -207,6 +207,18 @@ public:
     /// `unbindFromProject` before destroying a project.
     [[nodiscard]] auto getProject() const -> Project* { return m_project; }
 
+    /// Compiler configuration this document is pinned to (slug, e.g.
+    /// `"cfg-1"`). Empty means "follow whatever is currently active" —
+    /// see `docs/compiler-configurations.md`.
+    [[nodiscard]] auto getConfiguration() const noexcept -> const std::optional<wxString>& { return m_configuration; }
+
+    /// Pin the document to a specific configuration, or clear the pin.
+    /// CompilerManager owns the normalisation rule ("matches active →
+    /// empty"); this setter is a dumb assignment. Does NOT mark the
+    /// document modified — configuration lives in the session file, not
+    /// in the document contents.
+    void setConfiguration(std::optional<wxString> slug) noexcept { m_configuration = std::move(slug); }
+
     /// Bind this document to a project under the given node. The path
     /// currently held in `m_source` is **not** propagated here — the
     /// caller is expected to have stored it on the project's node
@@ -235,7 +247,8 @@ private:
     /// view's modify flag in isModified() so encoding-only edits still
     /// show as dirty.
     bool m_metaModified = false;
-    wxEvtHandler* m_sink = nullptr; ///< Sink for `EVT_DOCUMENT_TYPE_CHANGED`; null = no observer.
+    wxEvtHandler* m_sink = nullptr;          ///< Sink for `EVT_DOCUMENT_TYPE_CHANGED`; null = no observer.
+    std::optional<wxString> m_configuration; ///< Pinned compiler config slug; empty = follow active.
 };
 
 } // namespace fbide

@@ -131,6 +131,12 @@ auto FileSession::save(const std::filesystem::path& path) -> bool {
             const auto typeKey = documentTypeKey(doc->getType());
             cfg.Write("type", wxString::FromUTF8(typeKey.data(), typeKey.size()));
         }
+        // Pinned compiler config — written only when the doc is pinned
+        // to a non-default configuration. An empty optional means
+        // "follow active", which doesn't need on-disk representation.
+        if (const auto& slug = doc->getConfiguration(); slug.has_value()) {
+            cfg.Write("configuration", *slug);
+        }
 
         // Store code folds
         if (m_ctx.getConfigManager().config().get_or("editor.folderMargin", false)) {
@@ -262,6 +268,14 @@ void FileSession::loadV3(const std::filesystem::path& path) {
             if (const auto type = documentTypeFromKey(typeKey.ToStdString()); type.has_value()) {
                 doc->setType(*type);
             }
+        }
+        // Pinned compiler config. Stored verbatim — validation against
+        // the live catalog is deferred until first compile/run, so
+        // momentarily-missing slugs don't lose the pointer if the user
+        // is about to re-add them.
+        wxString configSlug;
+        if (cfg.Read("configuration", &configSlug) && !configSlug.empty()) {
+            doc->setConfiguration(configSlug);
         }
         // setEncoding / setEolMode flip the meta-dirty flag — clear.
         doc->markSaved();

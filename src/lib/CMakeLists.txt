@@ -18,7 +18,9 @@ target_sources(fbide_lib
     compiler/AsyncProcess.cpp
     compiler/BuildTask.cpp
     compiler/CompileCommand.cpp
+    compiler/CompilerConfigCatalog.cpp
     compiler/CompilerManager.cpp
+    compiler/FbcAutoDetect.cpp
     compiler/RunCommand.cpp
     config/ConfigManager.cpp
     config/ConfigStrategy.cpp
@@ -64,18 +66,20 @@ target_sources(fbide_lib
     ui/CompilerLog.cpp
     ui/EncodingMenu.cpp
     ui/OutputConsole.cpp
+    ui/StatusBarHandler.cpp
     ui/UIManager.cpp
     ui/controls/BBCodeText.cpp
     ui/controls/ColorPicker.cpp
+    ui/controls/InheritableField.cpp
     ui/controls/Panel.cpp
     ui/controls/SmartBoxSizer.cpp
     ui/utilities/FileDropTarget.cpp
+    update/UpdateManager.cpp
     utils/Identifier.cpp
     workspace/Project.cpp
     workspace/WorkspaceManager.cpp
 
     PUBLIC FILE_SET HEADERS FILES
-    ui/controls/SmartBoxSizer.hpp
     about/AboutDialog.hpp
     analyses/intellisense/IntellisenseService.hpp
     analyses/lexer/KeywordTables.hpp
@@ -94,7 +98,9 @@ target_sources(fbide_lib
     compiler/AsyncProcess.hpp
     compiler/BuildTask.hpp
     compiler/CompileCommand.hpp
+    compiler/CompilerConfigCatalog.hpp
     compiler/CompilerManager.hpp
+    compiler/FbcAutoDetect.hpp
     compiler/QuoteUtils.hpp
     compiler/RunCommand.hpp
     config/ConfigManager.hpp
@@ -145,19 +151,24 @@ target_sources(fbide_lib
     ui/CompilerLog.hpp
     ui/EncodingMenu.hpp
     ui/OutputConsole.hpp
+    ui/StatusBarHandler.hpp
     ui/UIManager.hpp
     ui/UIState.hpp
     ui/controls/BBCodeText.hpp
     ui/controls/ColorPicker.hpp
+    ui/controls/InheritableField.hpp
     ui/controls/Layout.hpp
     ui/controls/Panel.hpp
+    ui/controls/SmartBoxSizer.hpp
     ui/utilities/FileDropTarget.hpp
+    update/UpdateManager.hpp
     workspace/Project.hpp
     workspace/WorkspaceManager.hpp
     utils/DeferHandler.hpp
     utils/Identifier.hpp
     utils/Macros.hpp
     utils/NoCopy.hpp
+    utils/PathConversions.hpp
     utils/Unowned.hpp
     utils/Utils.hpp
     utils/ValueRestorer.hpp
@@ -169,6 +180,12 @@ target_link_libraries(fbide_lib
     PUBLIC Boost::uuid
 )
 linkWxWidgets(fbide_lib)
+
+# nlohmann/json — header-only; added as a SYSTEM include so its headers are
+# exempt from the project's -Werror / /WX warning level.
+target_include_directories(fbide_lib SYSTEM PRIVATE
+    "${nlohmann_json_SOURCE_DIR}/include"
+)
 
 # Scintilla/Lexilla for custom lexer
 if (TARGET lexilla_lexlib)

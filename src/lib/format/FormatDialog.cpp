@@ -112,7 +112,7 @@ void FormatDialog::create() {
         MemoryDocument doc;
         doc.Set(std::string_view { m_buffer.data(), m_buffer.length() });
         auto* fb = FBSciLexer::Create();
-        lexer::configureFbWordlists(*fb, m_ctx.getConfigManager().keywords().at("groups"));
+        // Keywords come from the shared table set at startup / on settings change.
         fb->Lex(0, doc.Length(), +ThemeCategory::Default, &doc);
         lexer::MemoryDocStyledSource src(doc);
         lexer::StyleLexer adapter(src);

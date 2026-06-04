@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "Project.hpp"
+#include "compiler/CompilerConfigCatalog.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
 
@@ -498,6 +499,36 @@ auto Project::getCompileTemplate() const -> wxString {
 auto Project::getRunTemplate() const -> wxString {
     assert(isEphemeral() && "Persistent project compile-options not implemented yet");
     return m_config.config().get_or("compiler.runCommand", R"(<$terminal> "<$file>" <$param>)");
+}
+
+auto Project::getConfigurationSlug() const -> std::optional<wxString> {
+    // Ephemeral projects carry their configuration selection on the single
+    // bound source document. Persistent projects (future) will store their
+    // own slug.
+    assert(isEphemeral() && "Persistent project configuration not implemented yet");
+    const auto sources = getSources();
+    return sources.empty() ? std::optional<wxString> {} : sources.front()->getConfiguration();
+}
+
+void Project::setConfigurationSlug(std::optional<wxString> slug) {
+    assert(isEphemeral() && "Persistent project configuration not implemented yet");
+    const auto sources = getSources();
+    if (!sources.empty()) {
+        sources.front()->setConfiguration(std::move(slug));
+    }
+}
+
+auto Project::getCompilerConfig(const CompilerConfigCatalog& catalog) const -> const ResolvedCompilerConfig& {
+    return catalog.resolveByPinnedSlug(getConfigurationSlug());
+}
+
+auto Project::getMenuConfigurations(const CompilerConfigCatalog& catalog, const wxString& alwaysInclude) const
+    -> std::vector<const ResolvedCompilerConfig*> {
+    // Ephemeral projects pass the global compiler configurations through
+    // unchanged. Persistent projects (future) will instead return their
+    // own internally-defined build targets.
+    assert(isEphemeral() && "Persistent project build targets not implemented yet");
+    return catalog.menuConfigs(alwaysInclude);
 }
 
 auto Project::getCapabilities() const -> std::uint8_t {

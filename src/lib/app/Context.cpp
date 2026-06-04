@@ -15,6 +15,7 @@
 #include "help/HelpManager.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
+#include "update/UpdateManager.hpp"
 #include "workspace/WorkspaceManager.hpp"
 using namespace fbide;
 
@@ -30,6 +31,7 @@ Context::Context(App& app, const wxString& binaryPath, const wxString& idePath, 
 , m_compilerManager(std::make_unique<CompilerManager>(*this))
 , m_helpManager(std::make_unique<HelpManager>(*this))
 , m_editorSearchService(std::make_unique<EditorSearchService>(*this))
+, m_updateManager(std::make_unique<UpdateManager>(*this))
 , m_commandManager(std::make_unique<CommandManager>(*this)) {}
 
 Context::~Context() = default;

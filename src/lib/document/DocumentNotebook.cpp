@@ -12,6 +12,7 @@
 #include "command/CommandEntry.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
+#include "compiler/CompilerManager.hpp"
 #include "editor/Editor.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
@@ -139,6 +140,9 @@ void DocumentNotebook::onPageChanged(wxAuiNotebookEvent& event) {
     // the active project, so both command dimensions need a refresh.
     ui.syncDocCommands();
     ui.syncBuildCommands();
+    // Re-sync the compiler-configuration dropdown to the new active
+    // project (tracked via the active document; nullptr disables it).
+    m_ctx.getCompilerManager().onActiveDocumentChanged(doc);
     if (doc == nullptr) {
         m_ctx.getSideBarManager().showSymbolsFor(nullptr);
         ui.setTitle(wxEmptyString);

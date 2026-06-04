@@ -7,6 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "AsyncProcess.hpp"
+#include "CompilerConfigCatalog.hpp"
 
 namespace fbide {
 class Context;
@@ -91,12 +92,14 @@ private:
 
     Context& m_ctx;                    ///< Application context.
     Project* m_project;                ///< Project this task is bound to (validated via WorkspaceManager).
+    ResolvedCompilerConfig m_config;   ///< Snapshot captured at construction — stable across compile + run.
     bool m_running = false;            ///< True while a process is in flight.
     bool m_shouldRun = false;          ///< True when a successful compile should chain into run.
     bool m_isQuickRun = false;         ///< True for QuickRun (compile to temp file + run).
     wxString m_sourceFile;             ///< Source file currently being compiled.
     wxString m_buildDir;               ///< Working directory for the compile/run process.
     wxString m_compiledFile;           ///< Path of the produced executable (set on success).
+    wxString m_fbcVersion;             ///< Active config's fbc version, probed before the async compile.
     wxArrayString m_compilerLog;       ///< Captured compiler output (for the log dialog).
     AsyncProcess* m_process = nullptr; ///< In-flight async process (self-deleting).
 };

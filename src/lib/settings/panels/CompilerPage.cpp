@@ -4,273 +4,542 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
+// ReSharper disable CppMemberFunctionMayBeConst
 #include "CompilerPage.hpp"
-#include "app/Context.hpp"
+#include "compiler/CompilerConfigCatalog.hpp"
 #include "compiler/CompilerManager.hpp"
+#include "compiler/FbcAutoDetect.hpp"
 #include "config/ConfigManager.hpp"
-#include "document/Document.hpp"
-#include "document/DocumentManager.hpp"
-#include "document/DocumentPath.hpp"
-#include "help/HelpManager.hpp"
+#include "utils/PathConversions.hpp"
 using namespace fbide;
 
+namespace {
+/// Stable IDs for this panel's interactive controls. Offset clear of
+/// the InheritableField / ColorPicker ranges so a child control's
+/// event can't accidentally match one of ours via parent-chain
+/// propagation.
+constexpr int ID_LIST = wxID_HIGHEST + 200;
+constexpr int ID_ADD = wxID_HIGHEST + 201;
+constexpr int ID_COPY = wxID_HIGHEST + 202;
+constexpr int ID_REMOVE = wxID_HIGHEST + 203;
+constexpr int ID_NAME = wxID_HIGHEST + 204;
+constexpr int ID_ACTIVE = wxID_HIGHEST + 205;
+constexpr int ID_SHOW_IN_MENU = wxID_HIGHEST + 206;
+constexpr int ID_MOVE_UP = wxID_HIGHEST + 207;
+constexpr int ID_MOVE_DOWN = wxID_HIGHEST + 208;
+
+/// Width of the left-hand configuration list in device-independent
+/// pixels. Sized to comfortably show "FBC 32bit GUI (active)" without
+/// horizontal scroll while leaving room for the field editors.
+constexpr int kListWidth = 150;
+
+/// Lift a `ResolvedCompilerConfig` field into the `wxString` form the
+/// `InheritableField` widget expects. `path` is the only non-string
+/// member; the others are templates we pass verbatim.
+auto fieldValueOf(const ResolvedCompilerConfig& cfg, CompilerField field) -> wxString {
+    switch (field) {
+    case CompilerField::Path:
+        return toWxString(cfg.path);
+    case CompilerField::CompileCommand:
+        return cfg.compileCommand;
+    case CompilerField::RunCommand:
+        return cfg.runCommand;
+    case CompilerField::Terminal:
+        return cfg.terminal;
+    }
+    return wxString {};
+}
+
+} // namespace
+
+// clang-format off
+wxBEGIN_EVENT_TABLE(CompilerPage, Panel)
+    EVT_LISTBOX (ID_LIST,   CompilerPage::onListSelChanged)
+    EVT_BUTTON  (ID_ADD,    CompilerPage::onAddClicked)
+    EVT_BUTTON  (ID_COPY,   CompilerPage::onCopyClicked)
+    EVT_BUTTON  (ID_REMOVE, CompilerPage::onRemoveClicked)
+    EVT_BUTTON  (ID_MOVE_UP,   CompilerPage::onMoveUpClicked)
+    EVT_BUTTON  (ID_MOVE_DOWN, CompilerPage::onMoveDownClicked)
+    EVT_TEXT    (ID_NAME,   CompilerPage::onNameChanged)
+    EVT_CHECKBOX(ID_ACTIVE, CompilerPage::onActiveToggled)
+    EVT_CHECKBOX(ID_SHOW_IN_MENU, CompilerPage::onShowInMenuToggled)
+    EVT_COMMAND (wxID_ANY,  EVT_INHERIT_TOGGLED, CompilerPage::onInheritToggled)
+wxEND_EVENT_TABLE()
+// clang-format on
+
 CompilerPage::CompilerPage(Context& ctx, wxWindow* parent)
-: Panel(ctx, wxID_ANY, parent) {
-    const auto& cfg = getContext().getConfigManager().config();
-    const auto& compiler = cfg.at("compiler");
-    m_compilerPath = compiler.get_or("path", "");
-    m_compileCommand = compiler.get_or("compileCommand", "");
-    m_runCommand = compiler.get_or("runCommand", "");
-#ifdef __WXMSW__
-    m_helpFile = cfg.get_or("paths.helpFile", "");
-#endif
+: Panel(ctx, wxID_ANY, parent)
+, m_locale(ctx.getConfigManager().locale().at("dialogs.settings.compiler")) {}
+
+auto CompilerPage::catalog() const -> CompilerConfigCatalog& {
+    return getContext().getCompilerManager().catalog();
+}
+
+auto CompilerPage::fieldEntries() const
+    -> std::array<std::pair<InheritableField*, CompilerField>, kAllCompilerFields.size()> {
+    return { {
+        { m_pathField, CompilerField::Path },
+        { m_compileField, CompilerField::CompileCommand },
+        { m_runField, CompilerField::RunCommand },
+        { m_terminalField, CompilerField::Terminal },
+    } };
 }
 
 void CompilerPage::create() {
-    compilerPath();
-    compilerCommand();
-    runCommand();
-#ifdef __WXMSW__
-    helpFile();
-#endif
-    placeholderTable();
+    // Snapshot the catalog state up-front. Every edit during the dialog
+    // session mutates the live catalog (so the rest of the UI stays
+    // consistent), and `cancel()` swaps the snapshot back in if the
+    // user bails.
+    m_compilerSnapshot = getContext().getConfigManager().config().at("compiler").clone();
+
+    buildConfigurationsGroup();
     SetSizerAndFit(currentSizer());
+
+    refreshList();
+    // Open with the active configuration selected — that's the entry
+    // the user is most likely to want to inspect or tweak.
+    m_selectedSlug = catalog().activeSlug();
+    selectSlug(m_selectedSlug);
+    loadSelectedConfig();
 }
 
-void CompilerPage::apply() {
-    auto& cfg = getContext().getConfigManager().config();
-    auto& compiler = cfg["compiler"];
-    compiler["compileCommand"] = m_compileCommand;
-    compiler["runCommand"] = m_runCommand;
-#ifdef __WXMSW__
-    cfg["paths"]["helpFile"] = m_helpFile;
-#endif
-    const wxString existing = compiler.get_or("path", "");
-    if (m_compilerPath != existing) {
-        compiler["path"] = m_compilerPath;
-        getContext().getCompilerManager().resetFbcVersion();
+auto CompilerPage::apply() -> bool {
+    // Commit BEFORE validating: if the user edited a field on the
+    // active row and the name is empty, we still want their edit
+    // preserved when we focus the bad row below. The catalog is the
+    // single source of truth either way — validation only blocks the
+    // dialog from closing, it doesn't roll anything back.
+    commitFieldOverrides();
+
+    // Required name on every user configuration. Trimmed so a
+    // whitespace-only name still counts as empty.
+    for (const auto& cfg : catalog().all()) {
+        if (cfg.slug == kCanonicalCompilerSlug) {
+            continue;
+        }
+        auto trimmed = cfg.displayName;
+        trimmed.Trim().Trim(false);
+        if (trimmed.IsEmpty()) {
+            m_selectedSlug = cfg.slug;
+            selectSlug(cfg.slug);
+            loadSelectedConfig();
+            m_nameField->SetFocus();
+            wxMessageBox(
+                tr("nameRequired"),
+                tr("addTitle"),
+                wxICON_WARNING | wxOK,
+                this
+            );
+            return false;
+        }
+    }
+
+    getContext().getCompilerManager().refreshConfigurationCombo();
+    return true;
+}
+
+void CompilerPage::cancel() {
+    // Restore the original `[compiler]` tree and have everything that
+    // reads it refresh — catalog cache, toolbar combobox.
+    auto& compiler = getContext().getConfigManager().config()["compiler"];
+    compiler = m_compilerSnapshot.clone();
+    getContext().getCompilerManager().catalog().reload();
+    getContext().getCompilerManager().refreshConfigurationCombo();
+}
+
+void CompilerPage::focusPath(const wxString& path) {
+    // path = "<config-slug>/<field>"; both segments optional.
+    const wxString slug = path.BeforeFirst('/');
+    const wxString fieldKey = path.AfterFirst('/');
+
+    // Select the requested configuration when given and known —
+    // otherwise leave the active selection create() set up.
+    if (!slug.IsEmpty() && catalog().find(slug) != nullptr && slug != m_selectedSlug) {
+        commitFieldOverrides();
+        m_selectedSlug = slug;
+        selectSlug(slug);
+        loadSelectedConfig();
+    }
+
+    // Focus the requested field, defaulting to the compiler path.
+    const auto target = compilerFieldFromKey(fieldKey).value_or(CompilerField::Path);
+    for (const auto& [widget, field] : fieldEntries()) {
+        if (field == target && widget != nullptr) {
+            widget->focusField();
+            return;
+        }
     }
 }
 
-void CompilerPage::compilerPath() {
-    const auto [tf, btn] = makeFileEntry(m_compilerPath, tr("dialogs.settings.compiler.compilerPath"));
-    m_compilerPathField = tf;
-    tf->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& evt) {
-        setPlaceholderVisible(false);
-        evt.Skip();
+void CompilerPage::autoDetect() {
+#ifdef __WXMSW__
+    auto generated = FbcAutoDetect(getContext()).run(this);
+    if (!generated.has_value()) {
+        return; // Cancelled, or nothing valid found (error already shown).
+    }
+    // Install the detected `[compiler]` subtree wholesale. The snapshot
+    // create() took still covers rollback if the user later hits Cancel.
+    getContext().getConfigManager().config()["compiler"] = std::move(*generated);
+    catalog().reload();
+    refreshList();
+    m_selectedSlug = catalog().activeSlug();
+    selectSlug(m_selectedSlug);
+    loadSelectedConfig();
+    getContext().getCompilerManager().refreshConfigurationCombo();
+#endif
+}
+
+// ---------------------------------------------------------------------------
+// Layout
+// ---------------------------------------------------------------------------
+
+void CompilerPage::buildConfigurationsGroup() {
+    hbox(tr("configurations"), { .proportion = 1, .margin = false }, [&] {
+        buildLeftPane();
+        buildRightPane();
     });
-    btn->Bind(wxEVT_BUTTON, [&, tf](wxCommandEvent&) {
-        wxFileDialog dlg(
-            this, "Select compiler", "", "",
-            getContext().getConfigManager().filePatterns({ "compiler", "all" }),
-            wxFD_FILE_MUST_EXIST
+}
+
+void CompilerPage::buildLeftPane() {
+    vbox({ .margin = false }, [&] {
+        m_configList = make_unowned<wxListBox>(
+            currentParent(), ID_LIST,
+            wxDefaultPosition, wxSize(kListWidth, -1),
+            wxArrayString {}, wxLB_SINGLE
         );
-        if (dlg.ShowModal() == wxID_OK) {
-            m_compilerPath = toWxString(getContext().getConfigManager().relative(toFsPath(dlg.GetPath())));
-        }
-        tf->SetValue(m_compilerPath);
-    });
-}
+        add(m_configList, { .proportion = 1 });
 
-void CompilerPage::focusCompilerPath() {
-    if (m_compilerPathField != nullptr) {
-        m_compilerPathField->SetFocus();
-        m_compilerPathField->SelectAll();
-    }
-}
-
-void CompilerPage::compilerCommand() {
-    m_compileCommandField = makeEntryField(m_compileCommand, tr("dialogs.settings.compiler.compilerCommand"));
-    m_compileCommandField->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& evt) {
-        m_lastFocused = m_compileCommandField;
-        setPlaceholderVisible(true);
-        refreshPlaceholders();
-        evt.Skip();
-    });
-}
-
-void CompilerPage::runCommand() {
-    m_runCommandField = makeEntryField(m_runCommand, tr("dialogs.settings.compiler.runCommand"));
-    m_runCommandField->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& evt) {
-        m_lastFocused = m_runCommandField;
-        setPlaceholderVisible(true);
-        refreshPlaceholders();
-        evt.Skip();
-    });
-}
-
-#ifdef __WXMSW__
-void CompilerPage::helpFile() {
-    const auto [tf, btn] = makeFileEntry(m_helpFile, tr("dialogs.settings.compiler.helpFile"));
-    tf->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& evt) {
-        setPlaceholderVisible(false);
-        evt.Skip();
-    });
-    btn->Bind(wxEVT_BUTTON, [&, tf](wxCommandEvent&) {
-        wxFileDialog dlg(
-            this, "Select help file", "", "",
-            getContext().getConfigManager().filePattern("help"),
-            wxFD_FILE_MUST_EXIST
-        );
-        if (dlg.ShowModal() == wxID_OK) {
-            m_helpFile = toWxString(getContext().getConfigManager().relative(toFsPath(dlg.GetPath())));
-            HelpManager::verifyHelpFileAccessible(this, m_helpFile);
-        }
-        tf->SetValue(m_helpFile);
-    });
-}
-#endif
-
-void CompilerPage::placeholderTable() {
-    const auto trOr = [this](const wxString& key, const wxString& fallback) {
-        const auto val = tr(key);
-        return val.empty() ? fallback : val;
-    };
-
-    m_placeholderTitle = text(trOr("dialogs.settings.compiler.placeholders.title", "Placeholders (click to insert)"), {});
-    const auto list = make_unowned<wxListCtrl>(
-        currentParent(), wxID_ANY,
-        wxDefaultPosition, wxSize(-1, 100),
-        wxLC_REPORT | wxLC_SINGLE_SEL
-    );
-    list->AppendColumn(trOr("dialogs.settings.compiler.placeholders.placeholder", "Placeholder"), wxLIST_FORMAT_LEFT, 120);
-    list->AppendColumn(trOr("dialogs.settings.compiler.placeholders.expansion", "Expansion"), wxLIST_FORMAT_LEFT, -1);
-    list->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent& evt) {
-        int flags = 0;
-        const long item = m_placeholderList->HitTest(evt.GetPosition(), flags);
-        if (item != wxNOT_FOUND && (flags & wxLIST_HITTEST_ONITEM) != 0) {
-            wxListItem info;
-            info.SetId(item);
-            info.SetColumn(0);
-            info.SetMask(wxLIST_MASK_TEXT);
-            m_placeholderList->GetItem(info);
-            insertPlaceholder(info.GetText());
-            return; // do not Skip — default handler would steal focus to the list
-        }
-        evt.Skip();
-    });
-    list->Bind(wxEVT_SIZE, [list](wxSizeEvent& evt) {
-        const int total = list->GetClientSize().GetWidth();
-        const int col0 = list->GetColumnWidth(0);
-        constexpr int padding = 4;
-        const int col1 = std::max(100, total - col0 - padding);
-        list->SetColumnWidth(1, col1);
-        evt.Skip();
-    });
-    add(list, { .proportion = 1 });
-    m_placeholderList = list;
-    m_lastFocused = m_runCommandField;
-    refreshPlaceholders();
-}
-
-void CompilerPage::setPlaceholderVisible(const bool visible) {
-    if (m_placeholderList == nullptr || m_placeholderTitle == nullptr) {
-        return;
-    }
-    if (m_placeholderList->IsShown() == visible) {
-        return;
-    }
-    m_placeholderTitle->Show(visible);
-    m_placeholderList->Show(visible);
-    Layout();
-}
-
-void CompilerPage::refreshPlaceholders() {
-    if (m_placeholderList == nullptr) {
-        return;
-    }
-    m_placeholderList->DeleteAllItems();
-
-    auto append = [this](const wxString& key, const wxString& value) {
-        const auto idx = m_placeholderList->InsertItem(m_placeholderList->GetItemCount(), key);
-        m_placeholderList->SetItem(idx, 1, value);
-    };
-
-    const wxString source = getSampleSourcePath();
-    const bool isRunContext = (m_lastFocused == m_runCommandField);
-
-    if (isRunContext) {
-        wxFileName exe(source);
-        const auto ext = exe.GetExt().Lower();
-        if (ext == "bas" || ext == "bi") {
-#ifdef __WXMSW__
-            exe.SetExt("exe");
-#else
-            exe.SetExt("");
-#endif
-        }
-        append("<$file>", exe.GetFullPath());
-        append("<$file_path>", exe.GetPath());
-        append("<$file_name>", exe.GetName());
-        append("<$file_ext>", exe.GetExt());
-        append("<$param>", getContext().getCompilerManager().getParameters());
-        append("<$terminal>", getContext().getConfigManager().getTerminalLauncher());
-    } else {
-        wxString fbc = m_compilerPath;
-        if (fbc.empty()) {
-#ifdef __WXMSW__
-            fbc = R"(C:\path\to\fbc.exe)";
-#else
-            fbc = "/path/to/fbc";
-#endif
-        }
-        append("<$fbc>", fbc);
-        append("<$file>", source);
-    }
-}
-
-void CompilerPage::insertPlaceholder(const wxString& placeholder) {
-    if (m_lastFocused == nullptr) {
-        return;
-    }
-    m_lastFocused->WriteText(placeholder);
-    // Defer focus restore: native mouse-down on the list may set focus to
-    // the list after our handler returns, so re-focus the text field on
-    // the next event-loop tick to win the race.
-    auto* target = m_lastFocused;
-    CallAfter([target] {
-        if (target != nullptr) {
-            target->SetFocus();
-        }
-    });
-}
-
-auto CompilerPage::getSampleSourcePath() const -> wxString {
-    if (auto* doc = getContext().getDocumentManager().getActive(); doc != nullptr && !doc->isNew()) {
-        const auto path = doc->getFilePath();
-        auto ext = path.extension().string();
-        if (!ext.empty() && ext.front() == '.') {
-            ext.erase(0, 1);
-        }
-        std::ranges::transform(ext, ext.begin(), [](const unsigned char ch) {
-            return static_cast<char>(std::tolower(ch));
+        hbox({ .margin = false }, [&] {
+            auto makeIconButton = [this](int controlId, const wxArtID& artId, const wxString& tooltipKey) {
+                auto btn = make_unowned<wxBitmapButton>(
+                    currentParent(), controlId,
+                    wxArtProvider::GetBitmap(artId, wxART_BUTTON)
+                );
+                btn->SetToolTip(tr(tooltipKey));
+                add(btn);
+                return btn;
+            };
+            m_addButton = makeIconButton(ID_ADD, wxART_NEW, "add");
+            m_copyButton = makeIconButton(ID_COPY, wxART_COPY, "copy");
+            m_removeButton = makeIconButton(ID_REMOVE, wxART_DELETE, "remove");
+            m_moveUpButton = makeIconButton(ID_MOVE_UP, wxART_GO_UP, "moveUp");
+            m_moveDownButton = makeIconButton(ID_MOVE_DOWN, wxART_GO_DOWN, "moveDown");
         });
-        if (ext == "bas" || ext == "bi") {
-            return toWxString(path);
-        }
-    }
-#ifdef __WXMSW__
-    return R"(C:\path\to\example.bas)";
-#else
-    return "/path/to/example.bas";
-#endif
-}
-
-auto CompilerPage::makeEntryField(wxString& value, const wxString& labelText) -> Unowned<wxTextCtrl> {
-    const auto lbl = text(labelText, {});
-    const auto tf = textField(value, {});
-    connect(lbl, tf);
-    return tf;
-}
-
-auto CompilerPage::makeFileEntry(wxString& value, const wxString& labelText) -> std::pair<Unowned<wxTextCtrl>, Unowned<wxButton>> {
-    const auto lbl = text(labelText, {});
-    Unowned<wxButton> btn;
-    Unowned<wxTextCtrl> tf;
-    hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
-        tf = textField(value, { .proportion = 1 });
-        connect(lbl, tf);
-        btn = button("...", {});
     });
-    return std::make_pair(tf, btn);
+}
+
+void CompilerPage::buildRightPane() {
+    vbox({ .proportion = 1, .margin = false }, [&] {
+        // Name.
+        vbox({ .margin = false }, [&] {
+            m_nameLabel = text(tr("name"));
+            m_nameField = textField({}, ID_NAME);
+            connect(m_nameLabel, m_nameField);
+        });
+
+        // Active checkbox.
+        m_activeCheckbox = checkBox(tr("activeForNewFiles"), {}, ID_ACTIVE);
+
+        // Show-in-menu checkbox — controls whether this configuration
+        // appears in the toolbar combobox / status-bar selector.
+        m_showInMenuCheckbox = checkBox(tr("showInMenu"), {}, ID_SHOW_IN_MENU);
+
+        // Four inheritable fields. Each is its own panel — add() places
+        // it into the surrounding vbox. The tooltip on each row's
+        // inherit checkbox matches `ColorPicker`'s convention.
+        const auto inheritTooltip = tr("inheritTooltip");
+        auto buildField = [&](InheritableField::Kind kind, const wxString& labelKey) {
+            auto field = make_unowned<InheritableField>(currentParent(), kind, tr(labelKey), inheritTooltip);
+            field->create();
+            add(field);
+            return field;
+        };
+        m_pathField = buildField(InheritableField::Kind::Path, "path");
+        m_compileField = buildField(InheritableField::Kind::Text, "compileCommand");
+        m_runField = buildField(InheritableField::Kind::Text, "runCommand");
+        m_terminalField = buildField(InheritableField::Kind::Text, "terminal");
+    });
+}
+
+// ---------------------------------------------------------------------------
+// List + editor sync
+// ---------------------------------------------------------------------------
+
+auto CompilerPage::formatListLabel(const wxString& slug, const wxString& name) const -> wxString {
+    if (slug == catalog().activeSlug()) {
+        return wxString::Format("%s (%s)", name, tr("active"));
+    }
+    return name;
+}
+
+void CompilerPage::selectSlug(const wxString& slug) {
+    if (const auto index = catalog().indexOf(slug); index >= 0) {
+        m_configList->SetSelection(index);
+    }
+}
+
+void CompilerPage::refreshList() {
+    m_configList->Clear();
+    for (const auto& cfg : catalog().all()) {
+        m_configList->Append(formatListLabel(cfg.slug, cfg.displayName));
+    }
+}
+
+void CompilerPage::loadSelectedConfig() {
+    const auto* cfg = catalog().find(m_selectedSlug);
+    if (cfg == nullptr) {
+        return;
+    }
+    // The per-field "last override" memory is per-configuration —
+    // switching configs starts fresh.
+    m_lastOverrideValues.clear();
+    const bool isCanonical = (cfg->slug == kCanonicalCompilerSlug);
+
+    // Name is meaningless for canonical Default — hide it entirely so
+    // the layout collapses. (Disabling alone leaves greyed controls
+    // that look like a broken UI state.)
+    m_nameLabel->Show(!isCanonical);
+    m_nameField->Show(!isCanonical);
+    if (!isCanonical) {
+        m_nameField->ChangeValue(cfg->displayName);
+    }
+
+    // Active is a "promote this row" tick — the only way to clear an
+    // active row is to promote a different one. Disabling on the
+    // already-active row removes the footgun of unticking-by-accident
+    // (which would otherwise demote the row back to canonical).
+    const bool isActiveRow = (cfg->slug == catalog().activeSlug());
+    m_activeCheckbox->SetValue(isActiveRow);
+    m_activeCheckbox->Enable(!isActiveRow);
+
+    // Show-in-menu reflects the per-config visibility flag — default true.
+    m_showInMenuCheckbox->SetValue(cfg->showInMenu);
+
+    // Field state: an override is present when the raw `[compiler/<slug>]`
+    // (or `[compiler]` for canonical) section carries the key. Resolved
+    // values come from the catalog so they reflect what canonical would
+    // supply if the field were left to inherit.
+    const auto& cfgSection = isCanonical
+                               ? getContext().getConfigManager().config().at("compiler")
+                               : getContext().getConfigManager().config().at("compiler").at(cfg->slug);
+
+    // What this config would inherit if every field were unset — the
+    // resolved fields of canonical Default. Shown in the disabled
+    // input box while the inherit checkbox is ticked so the user can
+    // see exactly what they're falling back to.
+    const ResolvedCompilerConfig* canonicalCfg = isCanonical ? nullptr : &catalog().canonical();
+
+    auto loadField = [&](InheritableField* widget, const CompilerField field) {
+        const auto key = compilerFieldKey(field);
+        const bool overridden = cfgSection.contains(key);
+        const auto inheritedValue = canonicalCfg != nullptr
+                                      ? fieldValueOf(*canonicalCfg, field)
+                                      : fieldValueOf(*cfg, field);
+        widget->setResolvedValue(inheritedValue);
+        widget->setOverrideValue(overridden ? cfgSection.get_or(key, wxString {}) : inheritedValue);
+        // Canonical Default has nothing to inherit from → no inherit
+        // checkbox. The field becomes a plain editable input whose
+        // value is always an explicit override.
+        widget->setInheritCheckboxVisible(!isCanonical);
+        if (!isCanonical) {
+            widget->setInherited(!overridden);
+        }
+    };
+    for (const auto& [widget, field] : fieldEntries()) {
+        loadField(widget, field);
+    }
+
+    m_removeButton->Enable(!isCanonical);
+    m_copyButton->Enable(true);
+
+    // Up / Down are disabled for canonical Default (fixed at index 0)
+    // and at the user-list boundaries.
+    const auto selectionIndex = catalog().indexOf(cfg->slug);
+    const auto lastIndex = static_cast<int>(catalog().all().size()) - 1;
+    m_moveUpButton->Enable(!isCanonical && selectionIndex > 1);
+    m_moveDownButton->Enable(!isCanonical && selectionIndex >= 0 && selectionIndex < lastIndex);
+
+    GetSizer()->Layout();
+}
+
+void CompilerPage::commitFieldOverrides() {
+    if (m_selectedSlug.IsEmpty() || catalog().find(m_selectedSlug) == nullptr) {
+        return;
+    }
+    for (const auto& [widget, field] : fieldEntries()) {
+        const auto value = widget->isInherited()
+                             ? std::optional<wxString> {}
+                             : std::optional<wxString> { widget->overrideValue() };
+        catalog().setOverride(m_selectedSlug, field, value);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
+
+void CompilerPage::onListSelChanged(wxCommandEvent& event) {
+    event.Skip();
+    const auto* cfg = catalog().at(m_configList->GetSelection());
+    if (cfg == nullptr) {
+        return;
+    }
+    // Programmatic SetSelection after Add / Copy / refresh fires this
+    // handler too; if the slug already matches we leave the right-pane
+    // alone (commitFieldOverrides would write the old widget state into
+    // the freshly-created config otherwise).
+    if (cfg->slug == m_selectedSlug) {
+        return;
+    }
+    commitFieldOverrides();
+    m_selectedSlug = cfg->slug;
+    loadSelectedConfig();
+}
+
+void CompilerPage::onAddClicked(wxCommandEvent& /*event*/) {
+    commitFieldOverrides();
+
+    // Required name — prompt, trim leading/trailing whitespace (including
+    // newlines pasted in by accident), reject empty. wxString::Trim
+    // honours wxIsspace which treats \n / \r / \t as whitespace.
+    wxTextEntryDialog dlg(this, tr("namePrompt"), tr("addTitle"));
+    while (dlg.ShowModal() == wxID_OK) {
+        auto name = dlg.GetValue();
+        name.Trim().Trim(false);
+        if (name.IsEmpty()) {
+            wxMessageBox(tr("nameRequired"), tr("addTitle"), wxICON_WARNING | wxOK, this);
+            dlg.SetValue(wxEmptyString);
+            continue;
+        }
+        m_selectedSlug = catalog().createFromCanonical(name);
+        refreshList();
+        selectSlug(m_selectedSlug);
+        loadSelectedConfig();
+        return;
+    }
+}
+
+void CompilerPage::onCopyClicked(wxCommandEvent& /*event*/) {
+    if (m_selectedSlug.IsEmpty()) {
+        return;
+    }
+    commitFieldOverrides();
+    const auto* source = catalog().find(m_selectedSlug);
+    const auto sourceName = source != nullptr ? source->displayName : wxString {};
+    const auto newName = sourceName + " " + tr("copySuffix");
+    m_selectedSlug = catalog().copy(m_selectedSlug, newName);
+    refreshList();
+    selectSlug(m_selectedSlug);
+    loadSelectedConfig();
+}
+
+void CompilerPage::onRemoveClicked(wxCommandEvent& /*event*/) {
+    if (m_selectedSlug.IsEmpty() || m_selectedSlug == kCanonicalCompilerSlug) {
+        return;
+    }
+    const auto confirm = wxMessageBox(
+        tr("removeConfirm"),
+        tr("removeTitle"),
+        wxICON_QUESTION | wxYES_NO,
+        this
+    );
+    if (confirm != wxYES) {
+        return;
+    }
+    catalog().remove(m_selectedSlug);
+    m_selectedSlug = kCanonicalCompilerSlug;
+    refreshList();
+    selectSlug(m_selectedSlug);
+    loadSelectedConfig();
+}
+
+void CompilerPage::onNameChanged(wxCommandEvent& /*event*/) {
+    if (m_selectedSlug.IsEmpty() || m_selectedSlug == kCanonicalCompilerSlug) {
+        return;
+    }
+    catalog().rename(m_selectedSlug, m_nameField->GetValue());
+    // Just refresh the visible label without rebuilding the whole list
+    // (rebuilding would steal the user's edit focus from the field).
+    if (const auto index = catalog().indexOf(m_selectedSlug); index >= 0) {
+        m_configList->SetString(static_cast<unsigned>(index), formatListLabel(m_selectedSlug, m_nameField->GetValue()));
+    }
+}
+
+void CompilerPage::onInheritToggled(wxCommandEvent& event) {
+    auto* widget = wxDynamicCast(event.GetEventObject(), InheritableField);
+    if (widget == nullptr) {
+        return;
+    }
+    // Match the firing widget to its CompilerField via the shared
+    // entries table — keeps this handler in sync with the load/commit
+    // loops above without re-listing the four fields here.
+    const auto entries = fieldEntries();
+    const auto it = std::ranges::find(entries, widget, &std::pair<InheritableField*, CompilerField>::first);
+    if (it == entries.end()) {
+        return;
+    }
+    const auto field = it->second;
+
+    const bool nowInheriting = event.GetInt() != 0;
+    if (nowInheriting) {
+        // User just ticked inherit — remember what they had so an
+        // accidental tick can be undone on the next untick. The
+        // InheritableField doesn't reset its m_overrideValue on the
+        // tick path, so `overrideValue()` still returns their prior
+        // edit at this point.
+        m_lastOverrideValues[field] = widget->overrideValue();
+    } else if (const auto remembered = m_lastOverrideValues.find(field);
+        remembered != m_lastOverrideValues.end()) {
+        // User just unticked — restore the prior value over the top
+        // of the InheritableField's default "seed from resolved"
+        // behaviour.
+        widget->setOverrideValue(remembered->second);
+    }
+}
+
+void CompilerPage::onMoveUpClicked(wxCommandEvent& /*event*/) {
+    if (m_selectedSlug.IsEmpty() || m_selectedSlug == kCanonicalCompilerSlug) {
+        return;
+    }
+    commitFieldOverrides();
+    if (catalog().moveUp(m_selectedSlug)) {
+        refreshList();
+        selectSlug(m_selectedSlug);
+        loadSelectedConfig();
+    }
+}
+
+void CompilerPage::onMoveDownClicked(wxCommandEvent& /*event*/) {
+    if (m_selectedSlug.IsEmpty() || m_selectedSlug == kCanonicalCompilerSlug) {
+        return;
+    }
+    commitFieldOverrides();
+    if (catalog().moveDown(m_selectedSlug)) {
+        refreshList();
+        selectSlug(m_selectedSlug);
+        loadSelectedConfig();
+    }
+}
+
+void CompilerPage::onShowInMenuToggled(wxCommandEvent& /*event*/) {
+    if (m_selectedSlug.IsEmpty()) {
+        return;
+    }
+    catalog().setShowInMenu(m_selectedSlug, m_showInMenuCheckbox->GetValue());
+}
+
+void CompilerPage::onActiveToggled(wxCommandEvent& /*event*/) {
+    if (m_selectedSlug.IsEmpty() || !m_activeCheckbox->GetValue()) {
+        return;
+    }
+    // Promotion only: the checkbox is disabled while it's already
+    // checked (see loadSelectedConfig), so this handler only fires on
+    // tick-on. The previous active row is implicitly demoted by
+    // setActiveSlug.
+    catalog().setActiveSlug(m_selectedSlug);
+    refreshList();
+    selectSlug(m_selectedSlug);
+    // Re-disable the checkbox now that this row owns "active" — the
+    // programmatic re-selection above no-ops the listbox handler.
+    loadSelectedConfig();
 }

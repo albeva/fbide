@@ -1,3 +1,18 @@
+# Changes since 0.5.0-rc.4
+
+- Fixed crash on linux and macOS after compiling a file (#104)
+
+# Changes since 0.5.0-rc.3
+
+- Added multiple compiler configurations.
+- Added configuration selector to toolbar or statusbar (configurable).
+- Added compiler auto detection.
+- Added include file resolution to include "-i" from compile command.
+- Added run command to the log.
+- Added version checker, which shows a message box if there is a new version of fbide.
+- Fixed indent issue with indenting when "operator" and "property" are used as expressions (#94).
+- Fixed console min height (#95).
+
 # Changes since 0.5.0-rc.2
 
 - Added change tracking (#1)

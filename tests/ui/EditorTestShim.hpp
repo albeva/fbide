@@ -9,6 +9,7 @@
 #include <wx/app.h>
 #include <wx/evtloop.h>
 #include <wx/uiaction.h>
+#include "analyses/lexer/StyleLexer.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/DocumentType.hpp"
 #include "editor/CodeTransformer.hpp"
@@ -47,6 +48,9 @@ public:
           DocumentType::FreeBASIC,
           /*preview=*/false
       )) {
+        // Keywords live in FBSciLexer's shared table (App does this at startup);
+        // the shim has no App, so seed it from the test config before lexing.
+        lexer::setFbKeywords(m_configManager.keywords().at("groups"));
         // EOL is normally configured by Document; the shim doesn't use one,
         // so set LF directly to keep test assertions platform-stable.
         m_editor->SetEOLMode(wxSTC_EOL_LF);

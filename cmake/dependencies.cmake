@@ -41,3 +41,14 @@ function(_fbide_mark_boost_system_recursive dir)
     endforeach()
 endfunction()
 _fbide_mark_boost_system_recursive(${_boost_binary_dir})
+
+# nlohmann/json parses the GitHub Releases API response in the update check.
+# (Config/INI parsing is handled by wxFileConfig — no dependency needed.)
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+)
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+set(JSON_Install OFF CACHE INTERNAL "")
+FetchContent_MakeAvailable(nlohmann_json)
