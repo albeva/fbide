@@ -6,12 +6,19 @@
 //
 #include "WorkspaceManager.hpp"
 #include "EphemeralProject.hpp"
+#include "Project.hpp"
 #include "analyses/intellisense/IntellisenseService.hpp"
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
+#include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentNotebook.hpp"
+#include "document/DocumentPath.hpp"
 #include "document/DocumentType.hpp"
+#include "document/FileSession.hpp"
+#include "sidebar/SideBarManager.hpp"
+#include "ui/UIManager.hpp"
 
 using namespace fbide;
 
@@ -21,22 +28,103 @@ WorkspaceManager::WorkspaceManager(Context& ctx)
 
 WorkspaceManager::~WorkspaceManager() = default;
 
-auto WorkspaceManager::resolveOrOpen(const std::filesystem::path& path) -> Document* {
+auto WorkspaceManager::openFile(const std::filesystem::path& path) -> Document* {
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec)) {
+        return nullptr;
+    }
+    const auto canonical = canonicalizePath(path);
+
+    // Session files load through the session manager, not as a tab.
+    if (canonical.extension() == ".fbs") {
+        m_ctx.getFileSession().load(canonical);
+        return nullptr;
+    }
+    // Project files load a persistent project, not a document tab.
+    if (canonical.extension() == ".fbp") {
+        loadProject(canonical);
+        return nullptr;
+    }
+
     auto& docManager = m_ctx.getDocumentManager();
 
-    // Rule 1: file is already open — return the existing tab.
-    if (auto* existing = docManager.findByPath(path)) {
+    // Already open — surface the existing tab (no file I/O, no duplicate).
+    if (auto* existing = docManager.findByPath(canonical)) {
+        docManager.notebook().selectDocument(*existing);
         return existing;
     }
 
-    // Rule 2 (future, Persistent projects): if `path` is a member of
-    // any open persistent project, open the file and bind it to that
-    // project before returning. No persistent projects exist yet, so
-    // this rule is unreachable in the current phase.
+    // Future (Persistent projects): if `canonical` is a member of the open
+    // project, open it and bind to that project before returning.
 
-    // Rule 3: ordinary openFile path — creates a tab and, when the
-    // detected type is FreeBASIC, an Ephemeral project to host it.
-    return docManager.openFile(path);
+    // Ordinary document open — creates a tab and, for FreeBASIC, an
+    // Ephemeral project to host it.
+    return docManager.openDocument(canonical);
+}
+
+void WorkspaceManager::openFile() {
+    wxFileDialog dlg(
+        m_ctx.getUIManager().getMainFrame(),
+        m_ctx.tr("files.loadTitle"),
+        "",
+        ".bas",
+        m_ctx.getConfigManager().filePatterns(
+            { "fbproject", "freebasic", "properties", "markdown", "batch", "bash", "makefile", "json", "css", "all" }
+        ),
+        wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE
+    );
+
+    if (dlg.ShowModal() != wxID_OK) {
+        return;
+    }
+
+    wxArrayString paths;
+    dlg.GetPaths(paths);
+    for (const auto& path : paths) {
+        openFile(toFsPath(path));
+    }
+}
+
+auto WorkspaceManager::loadProject(const std::filesystem::path& path) -> Project* {
+    // Re-opening the already-open project: keep it, no prompt.
+    if (m_project != nullptr && m_projectPath == path) {
+        return m_project;
+    }
+
+    // A different project is already open — ask what to do with it.
+    if (m_project != nullptr) {
+        wxMessageDialog dlg(
+            m_ctx.getUIManager().getMainFrame(),
+            m_ctx.tr("project.switch.message"),
+            m_ctx.tr("project.switch.title"),
+            wxYES_NO | wxCANCEL | wxICON_QUESTION
+        );
+        dlg.SetYesNoCancelLabels(
+            m_ctx.tr("project.switch.close"),
+            m_ctx.tr("project.switch.newWindow"),
+            m_ctx.tr("project.switch.cancel")
+        );
+        switch (dlg.ShowModal()) {
+        case wxID_YES: // Close the current project, then open the new one below.
+            closeProject(*m_project);
+            break;
+        case wxID_NO: { // Open the new project in a separate window (process).
+            const auto exe = wxStandardPaths::Get().GetExecutablePath();
+            wxExecute("\"" + exe + "\" --new-window \"" + toWxString(path) + "\"");
+            return nullptr;
+        }
+        default: // wxID_CANCEL / dialog dismissed.
+            return nullptr;
+        }
+    }
+
+    auto project = std::make_unique<Project>(m_ctx.getCompilerManager().catalog());
+    m_project = project.get();
+    m_projectPath = path;
+    m_projects.emplace(project->getId(), std::move(project));
+
+    m_ctx.getSideBarManager().showProjectTree();
+    return m_project;
 }
 
 auto WorkspaceManager::createEphemeral(Document& doc) -> ProjectBase* {
@@ -68,6 +156,14 @@ void WorkspaceManager::closeProject(ProjectBase& project) {
             document->unbindFromProject();
             docManager.closeFile(*document);
         }
+    }
+    // If this is the open persistent project, drop our cached handle and
+    // remove its sidebar view *before* the owning unique_ptr is erased
+    // (which would leave `project` dangling).
+    if (&project == m_project) {
+        m_project = nullptr;
+        m_projectPath.clear();
+        m_ctx.getSideBarManager().hideProjectTree();
     }
     m_projects.erase(project.getId());
 }

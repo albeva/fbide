@@ -14,6 +14,7 @@ namespace fbide {
 class Context;
 class Document;
 class SymbolBrowserPanel;
+class ProjectTreeView;
 
 /**
  * Populates the Browser sidebar notebook with tabs (Browse Files,
@@ -65,6 +66,16 @@ public:
     /// box. Bound to the "Show Subs" command (F2).
     void showSymbolBrowser();
 
+    /// Insert the project tree view as the first sidebar tab, select it,
+    /// and reveal the Browser pane. Called by `WorkspaceManager` when a
+    /// persistent project is loaded; lazily creates the view on first use.
+    void showProjectTree();
+
+    /// Delete the project tree view tab (destroying the view). Called by
+    /// `WorkspaceManager` when the persistent project closes. No-op when
+    /// no project tree is shown.
+    void hideProjectTree();
+
 private:
     /// Browse Files tree leaf activated — open the file in a new editor tab.
     void onFileActivated(wxTreeEvent& event);
@@ -73,8 +84,7 @@ private:
     wxAuiNotebook* m_notebook = nullptr;       ///< Non-owning pointer into the sidebar notebook (owned by the frame).
     Unowned<wxGenericDirCtrl> m_dirCtrl;       ///< Browse Files control.
     Unowned<SymbolBrowserPanel> m_symbolPanel; ///< Sub/Function tab (filter box + tree).
-    int m_subFunctionPage = wxNOT_FOUND;       ///< Cached page index of the Sub/Function tab.
-    int m_browseFilesPage = wxNOT_FOUND;       ///< Cached page index of the Browse Files tab.
+    Unowned<ProjectTreeView> m_projectTree;    ///< Project tree tab — present only while a project is open.
 };
 
 } // namespace fbide

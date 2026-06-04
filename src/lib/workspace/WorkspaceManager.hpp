@@ -11,6 +11,7 @@
 namespace fbide {
 class Context;
 class Document;
+class Project;
 class IntellisenseService;
 
 /**
@@ -41,19 +42,33 @@ public:
     /// Access the shared background intellisense worker.
     [[nodiscard]] auto getIntellisense() -> IntellisenseService& { return *m_intellisense; }
 
-    /// Resolve `path` to an open document, opening it if necessary.
-    /// Lookup rules, in order:
-    ///   1. Already-open `Document` whose path matches → return it
-    ///      (no file I/O, no duplicate tab).
-    ///   2. *(Persistent, future)* The path is a member of an open
-    ///      persistent project → open it and bind to that project.
-    ///   3. Fallback: `DocumentManager::openFile` — creates a fresh
-    ///      tab which, if the type is FreeBASIC, gets its own
-    ///      Ephemeral project via the standard openFile flow.
-    /// Returns `nullptr` only when even rule 3 fails (file missing,
-    /// load error, etc.). Today rule 2 is unreachable; the hook is
-    /// in the right place for Persistent projects to slot in later.
-    auto resolveOrOpen(const std::filesystem::path& path) -> Document*;
+    /// The single front door for opening a path. Canonicalises, then
+    /// dispatches by extension:
+    ///   - `.fbs` → load a session (`FileSession::load`); returns nullptr.
+    ///   - `.fbp` → load a persistent project (`loadProject`); returns nullptr.
+    ///   - otherwise → an ordinary document:
+    ///       1. already-open document with that path → select + return it;
+    ///       2. *(future)* a member of the open persistent project → open
+    ///          and bind to it;
+    ///       3. fallback → `DocumentManager::openDocument`, which creates a
+    ///          tab and, for FreeBASIC, an Ephemeral project to host it.
+    /// Returns the document for the ordinary case (nullptr on failure), and
+    /// nullptr for the session / project dispatches.
+    auto openFile(const std::filesystem::path& path) -> Document*;
+
+    /// Show the open-file dialog and route every selected path through
+    /// `openFile`.
+    void openFile();
+
+    /// Load a persistent project from a `.fbp` file. When a different
+    /// project is already open, prompts the user to close it, open the new
+    /// project in a separate window, or cancel. Re-opening the already-open
+    /// project is a no-op that returns it. Returns the loaded project, or
+    /// nullptr when the user cancels or chooses a new window.
+    auto loadProject(const std::filesystem::path& path) -> Project*;
+
+    /// The currently open persistent project, or nullptr when none is open.
+    [[nodiscard]] auto getProject() const -> Project* { return m_project; }
 
     /// Allocate an Ephemeral project bound to `doc`. Preconditions:
     /// the document must be unbound (`getProject() == nullptr`) and
@@ -110,6 +125,11 @@ public:
 private:
     Context& m_ctx;
     std::unordered_map<ProjectBase::Id, std::unique_ptr<ProjectBase>> m_projects;
+    /// The open persistent project (owned in `m_projects`; this is just an
+    /// O(1) handle) and its `.fbp` path for same-file re-open detection.
+    /// Null / empty when no project is open.
+    Project* m_project = nullptr;
+    std::filesystem::path m_projectPath;
     /// Declared last so destruction runs first — worker thread stops
     /// and joins before the projects and documents it might race with
     /// go away.

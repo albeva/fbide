@@ -15,6 +15,7 @@
 #include "config/FileHistory.hpp"
 #include "editor/Editor.hpp"
 #include "ui/UIManager.hpp"
+#include "workspace/WorkspaceManager.hpp"
 using namespace fbide;
 
 namespace {
@@ -213,7 +214,7 @@ void FileSession::loadV3(const std::filesystem::path& path) {
     wxFileConfig cfg(stream, wxConvUTF8);
 
     const auto thaw = m_ctx.getUIManager().freeze();
-    auto& dm = m_ctx.getDocumentManager();
+    auto& workspace = m_ctx.getWorkspaceManager();
     const auto sessionDir = path.parent_path();
 
     // Collect file groups. wxFileConfig's iteration order is not guaranteed,
@@ -243,7 +244,7 @@ void FileSession::loadV3(const std::filesystem::path& path) {
             continue;
         }
 
-        auto* doc = dm.openFile(filePath);
+        auto* doc = workspace.openFile(filePath);
         if (doc == nullptr) {
             continue;
         }
@@ -325,7 +326,7 @@ void FileSession::loadLegacy(const std::filesystem::path& path) {
     }
 
     const auto thaw = m_ctx.getUIManager().freeze();
-    auto& dm = m_ctx.getDocumentManager();
+    auto& workspace = m_ctx.getWorkspaceManager();
 
     constexpr auto v2Header = "<fbide:session:version = \"0.2\"/>";
     const bool isV2 = wxString(file[0]).Trim().Trim(false).Lower() == v2Header;
@@ -343,7 +344,7 @@ void FileSession::loadLegacy(const std::filesystem::path& path) {
             continue;
         }
 
-        auto* doc = dm.openFile(toFsPath(filePathWx));
+        auto* doc = workspace.openFile(toFsPath(filePathWx));
         if (doc != nullptr && isV2 && i + 2 < file.GetLineCount()) {
             unsigned long scroll = 0;
             unsigned long cursor = 0;

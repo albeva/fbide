@@ -12,7 +12,7 @@ namespace fbide {
 class Context;
 
 /// File drop target for the main frame. Accepts files dropped from the
-/// OS file manager and routes them to `DocumentManager::openFile`. Only
+/// OS file manager and routes them to `WorkspaceManager::openFile`. Only
 /// files matching one of the configured `[filePatterns]` globs are
 /// opened; the catch-all `all` (`*.*`) entry is ignored so unrelated
 /// files do not slip through.

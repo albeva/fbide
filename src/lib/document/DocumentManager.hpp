@@ -50,8 +50,13 @@ public:
     /// Create a new empty document and add it as a tab.
     auto newFile(DocumentType type = DocumentType::FreeBASIC) -> Document&;
 
-    /// Open a file. Returns existing document if already open, or nullptr on failure.
-    auto openFile(const std::filesystem::path& filePath) -> Document*;
+    /// Open a document file as a tab: dedup against already-open tabs, load
+    /// from disk, and (for FreeBASIC) bind a fresh Ephemeral project. Session
+    /// (`.fbs`) and project (`.fbp`) files are NOT handled here — the
+    /// dispatcher `WorkspaceManager::openFile` validates the path and routes
+    /// those elsewhere before delegating ordinary documents here. Returns the
+    /// existing document if already open, or nullptr on failure.
+    auto openDocument(const std::filesystem::path& filePath) -> Document*;
 
     /// Resolve and open an `#include` path requested from `origin`.
     /// Search order mirrors fbc's: the `origin` file's directory, then the
@@ -60,9 +65,6 @@ public:
     /// working directory as a fallback.
     /// Returns the opened document, or nullptr if the file cannot be found.
     auto openInclude(const Document& origin, const wxString& includePath) -> Document*;
-
-    /// Show open file dialog and open selected files.
-    void openFile();
 
     /// Save a document. Shows save dialog if untitled. Returns false if cancelled.
     auto saveFile(Document& doc) -> bool;
@@ -198,8 +200,8 @@ private:
     /// Intellisense result delivery (worker thread → UI thread).
     void onIntellisenseResult(wxThreadEvent& event);
 
-    Context& m_ctx;                       ///< Application context.
-    Unowned<DocumentNotebook> m_notebook; ///< Tab strip — wx-parented to the frame; created by `createNotebook`.
+    Context& m_ctx;                                     ///< Application context.
+    Unowned<DocumentNotebook> m_notebook;               ///< Tab strip — wx-parented to the frame; created by `createNotebook`.
     std::vector<std::unique_ptr<Document>> m_documents; ///< Open documents in tab order.
     std::unique_ptr<CodeTransformer> m_codeTransformer; ///< Shared on-type transformer.
 };

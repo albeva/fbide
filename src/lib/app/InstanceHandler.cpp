@@ -10,6 +10,7 @@
 #include "document/DocumentManager.hpp"
 #include "document/DocumentPath.hpp"
 #include "ui/UIManager.hpp"
+#include "workspace/WorkspaceManager.hpp"
 
 using namespace fbide;
 
@@ -30,8 +31,7 @@ public:
     auto OnExec(const wxString& /*topic*/, const wxString& data) -> bool override {
         // Open the file if one was provided
         if (!data.IsEmpty()) {
-            auto& docManager = m_ctx.getDocumentManager();
-            docManager.openFile(toFsPath(data));
+            m_ctx.getWorkspaceManager().openFile(toFsPath(data));
         }
 
         // Bring the main frame to front

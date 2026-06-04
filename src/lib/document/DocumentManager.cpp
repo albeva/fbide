@@ -9,7 +9,6 @@
 #include "DocumentIO.hpp"
 #include "DocumentNotebook.hpp"
 #include "DocumentPath.hpp"
-#include "FileSession.hpp"
 #include "analyses/intellisense/IntellisenseService.hpp"
 #include "app/App.hpp"
 #include "app/Context.hpp"
@@ -26,10 +25,6 @@
 #include "ui/UIManager.hpp"
 #include "workspace/WorkspaceManager.hpp"
 using namespace fbide;
-
-namespace {
-constexpr auto SESSION_EXT = "fbs";
-} // namespace
 
 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
 DocumentManager::DocumentManager(Context& ctx)
@@ -73,27 +68,6 @@ auto DocumentManager::newFile(DocumentType type) -> Document& {
     return doc;
 }
 
-void DocumentManager::openFile() {
-    wxFileDialog dlg(
-        m_ctx.getUIManager().getMainFrame(),
-        m_ctx.tr("files.loadTitle"),
-        "",
-        ".bas",
-        m_ctx.getConfigManager().filePatterns({ "freebasic", "properties", "markdown", "batch", "bash", "makefile", "json", "css", "all" }),
-        wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE
-    );
-
-    if (dlg.ShowModal() != wxID_OK) {
-        return;
-    }
-
-    wxArrayString paths;
-    dlg.GetPaths(paths);
-    for (const auto& path : paths) {
-        openFile(toFsPath(path));
-    }
-}
-
 auto DocumentManager::openInclude(const Document& origin, const wxString& includePath) -> Document* {
     if (includePath.empty()) {
         return nullptr;
@@ -108,7 +82,7 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
         if (!std::filesystem::exists(full, ec)) {
             return nullptr;
         }
-        return openFile(full);
+        return openDocument(full);
     };
 
     const auto req = toFsPath(includePath);
@@ -179,7 +153,7 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
     return nullptr;
 }
 
-auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Document* {
+auto DocumentManager::openDocument(const std::filesystem::path& filePath) -> Document* {
     std::error_code ec;
     if (!std::filesystem::exists(filePath, ec)) {
         return nullptr;
@@ -189,12 +163,6 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     // filesystems (macOS/Windows: `fbgfx.bi` vs `FBGFX.bi`), resolves symlinks,
     // and ensures the stored path is identity-comparable for findByPath.
     const auto canonical = canonicalizePath(filePath);
-
-    // Session files are loaded separately
-    if (const auto ext = canonical.extension().string(); ext.size() > 1 && ext.substr(1) == SESSION_EXT) {
-        m_ctx.getFileSession().load(canonical);
-        return nullptr;
-    }
 
     // Check if already open
     if (auto* existing = findByPath(canonical)) {

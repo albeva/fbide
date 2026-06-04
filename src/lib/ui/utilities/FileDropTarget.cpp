@@ -10,6 +10,7 @@
 #include "config/Value.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/DocumentPath.hpp"
+#include "workspace/WorkspaceManager.hpp"
 
 using namespace fbide;
 
@@ -23,12 +24,12 @@ FileDropTarget::FileDropTarget(Context& ctx)
 
 auto FileDropTarget::OnDropFiles(wxCoord /*x*/, wxCoord /*y*/, const wxArrayString& filenames) -> bool {
     bool opened = false;
-    auto& docManager = m_ctx.getDocumentManager();
+    auto& workspace = m_ctx.getWorkspaceManager();
     for (const auto& path : filenames) {
         if (!isSupported(path)) {
             continue;
         }
-        if (docManager.openFile(toFsPath(path)) != nullptr) {
+        if (workspace.openFile(toFsPath(path)) != nullptr) {
             opened = true;
         }
     }

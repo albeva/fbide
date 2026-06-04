@@ -11,6 +11,7 @@
 #include "document/DocumentManager.hpp"
 #include "document/DocumentPath.hpp"
 #include "ui/controls/BBCodeText.hpp"
+#include "workspace/WorkspaceManager.hpp"
 namespace XPM {
 #include "rc/fbide.xpm"
 }
@@ -69,7 +70,7 @@ void AboutDialog::create() {
             );
             link->Bind(wxEVT_HYPERLINK, [this, file](wxHyperlinkEvent&) {
                 const auto path = m_ctx.getConfigManager().absolute(toFsPath(file));
-                m_ctx.getDocumentManager().openFile(path);
+                m_ctx.getWorkspaceManager().openFile(path);
                 EndModal(wxID_OK);
             });
             add(link);

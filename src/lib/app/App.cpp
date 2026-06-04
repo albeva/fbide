@@ -19,6 +19,7 @@
 #include "document/FileSession.hpp"
 #include "ui/UIManager.hpp"
 #include "update/UpdateManager.hpp"
+#include "workspace/WorkspaceManager.hpp"
 #ifdef __WXMSW__
 #include <windows.h>
 #endif
@@ -491,9 +492,9 @@ auto App::getFbidePath() -> wxString {
 }
 
 void App::openFiles(const wxArrayString& files) {
-    auto& docManager = m_context->getDocumentManager();
+    auto& workspace = m_context->getWorkspaceManager();
     for (const auto& file : files) {
-        docManager.openFile(toFsPath(file));
+        workspace.openFile(toFsPath(file));
     }
 }
 

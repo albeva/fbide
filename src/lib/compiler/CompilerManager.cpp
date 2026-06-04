@@ -316,7 +316,7 @@ void CompilerManager::goToError(const int line, const wxString& fileName) const 
             }
             return nullptr;
         }
-        return workspace.resolveOrOpen(toFsPath(fileName));
+        return workspace.openFile(toFsPath(fileName));
     }();
     if (doc == nullptr) {
         return;

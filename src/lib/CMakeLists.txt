@@ -59,6 +59,7 @@ target_sources(fbide_lib
     settings/panels/GeneralPage.cpp
     settings/panels/KeywordsPage.cpp
     settings/panels/ThemePage.cpp
+    sidebar/ProjectTreeView.cpp
     sidebar/SideBarManager.cpp
     sidebar/SymbolBrowser.cpp
     sidebar/SymbolBrowserPanel.cpp
@@ -146,6 +147,7 @@ target_sources(fbide_lib
     settings/panels/KeywordsPage.hpp
     settings/panels/SettingsCategory.hpp
     settings/panels/ThemePage.hpp
+    sidebar/ProjectTreeView.hpp
     sidebar/SideBarManager.hpp
     sidebar/SymbolBrowser.hpp
     sidebar/SymbolBrowserPanel.hpp

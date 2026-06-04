@@ -25,6 +25,7 @@
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
 #include "update/UpdateManager.hpp"
+#include "workspace/WorkspaceManager.hpp"
 using namespace fbide;
 
 // clang-format off
@@ -232,7 +233,7 @@ void CommandManager::onNew(wxCommandEvent&) {
 }
 
 void CommandManager::onOpen(wxCommandEvent&) {
-    m_ctx.getDocumentManager().openFile();
+    m_ctx.getWorkspaceManager().openFile();
 }
 
 void CommandManager::onSave(wxCommandEvent&) {
@@ -281,7 +282,7 @@ void CommandManager::onSessionSave(wxCommandEvent&) {
 void CommandManager::onFileHistory(wxCommandEvent& event) {
     const auto idx = static_cast<size_t>(event.GetId() - wxID_FILE1);
     if (const auto file = m_ctx.getFileHistory().getFile(idx)) {
-        m_ctx.getDocumentManager().openFile(*file);
+        m_ctx.getWorkspaceManager().openFile(*file);
     }
 }
 
