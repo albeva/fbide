@@ -52,8 +52,9 @@ void assertNoBoundDoc(const Project::Node* node) {
 
 } // namespace
 
-Project::Project(CompilerConfigCatalog& catalog, fs::path rootDir)
-: ProjectBase(catalog) {
+Project::Project(CompilerConfigCatalog& catalog, std::string name, fs::path rootDir)
+: ProjectBase(catalog)
+, m_name(std::move(name)) {
     createRoot(std::move(rootDir));
 }
 

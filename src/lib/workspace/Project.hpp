@@ -37,10 +37,17 @@ struct ResolvedCompilerConfig;
  */
 class Project final : public ProjectBase {
 public:
-    /// Bind to the shared compiler-configuration catalog and anchor the tree
-    /// at `rootDir` (the directory that contains the `.fbp` file). The root
-    /// node is created immediately, bound to that directory.
-    Project(CompilerConfigCatalog& catalog, std::filesystem::path rootDir);
+    /// Bind to the shared compiler-configuration catalog, name the project,
+    /// and anchor the tree at `rootDir` (the directory that contains the
+    /// `.fbp` file). The root node is created immediately, bound to that
+    /// directory.
+    Project(CompilerConfigCatalog& catalog, std::string name, std::filesystem::path rootDir);
+
+    /// The project's display name — shown as the tree root label, independent
+    /// of the root directory's own name. Defaults to the `.fbp` file's stem.
+    [[nodiscard]] auto getName() const -> const std::string& { return m_name; }
+    /// Set the project's display name (display only; no filesystem effect).
+    void setName(std::string name) { m_name = std::move(name); }
 
     /// Failure modes for the disk-touching tree operations. `Clash` /
     /// `OutOfTree` are recoverable (caller picks a new name / path or offers
@@ -198,11 +205,14 @@ public:
 
     // Build configuration — stub (TBD).
     [[nodiscard]] auto getConfigurationSlug() const -> std::optional<wxString> override { return std::nullopt; }
+
     void setConfigurationSlug(std::optional<wxString> /*slug*/) override {}
+
     [[nodiscard]] auto getMenuConfigurations(const wxString& /*alwaysInclude*/) const
         -> std::vector<const ResolvedCompilerConfig*> override {
         return {};
     }
+
     [[nodiscard]] auto getCapabilities() const -> std::uint8_t override { return 0; }
 
 private:
@@ -231,6 +241,7 @@ private:
     /// after a rename / move of `folder`.
     void rewriteSubtreePaths(Node* folder, const std::filesystem::path& oldPrefix, const std::filesystem::path& newPrefix);
 
+    std::string m_name;                                          ///< Project display name (root label).
     std::unordered_map<Node::Id, std::unique_ptr<Node>> m_nodes; ///< Owning node arena.
     std::unordered_map<std::filesystem::path, Node*> m_pathMap;  ///< Path → node index (all nodes).
     Node* m_root = nullptr;                                      ///< Tree root (real anchor directory).

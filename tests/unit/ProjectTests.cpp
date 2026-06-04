@@ -132,7 +132,7 @@ protected:
     }
 
     [[nodiscard]] auto makeEphemeral() -> EphemeralProject { return EphemeralProject { *m_catalog, makeDoc() }; }
-    [[nodiscard]] auto makePersistent() -> Project { return Project { *m_catalog, rootDir() }; }
+    [[nodiscard]] auto makePersistent() -> Project { return Project { *m_catalog, "TestProject", rootDir() }; }
 
     /// Project root for persistent projects under test — the scratch dir.
     [[nodiscard]] auto rootDir() const -> fs::path { return fs::path { m_tmp.path().ToStdString() }; }
@@ -216,6 +216,11 @@ TEST_F(ProjectTest, RootIsFolderAnchoredAtRootDir) {
     ASSERT_NE(root, nullptr);
     EXPECT_TRUE(root->isFolder());
     EXPECT_EQ(root->path, rootDir());
+}
+
+TEST_F(ProjectTest, GetNameReturnsProjectName) {
+    const auto project = makePersistent();
+    EXPECT_EQ(project.getName(), "TestProject");
 }
 
 // --- addFolder -------------------------------------------------------------

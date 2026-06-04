@@ -118,7 +118,7 @@ auto WorkspaceManager::loadProject(const std::filesystem::path& path) -> Project
         }
     }
 
-    auto project = std::make_unique<Project>(m_ctx.getCompilerManager().catalog(), path.parent_path());
+    auto project = std::make_unique<Project>(m_ctx.getCompilerManager().catalog(), path.stem().string(), path.parent_path());
     m_project = project.get();
     m_projectPath = path;
     m_projects.emplace(project->getId(), std::move(project));
