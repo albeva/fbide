@@ -24,7 +24,7 @@
 #include "editor/Editor.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "utilities/FileDropTarget.hpp"
-#include "workspace/Project.hpp"
+#include "workspace/ProjectBase.hpp"
 #include "workspace/WorkspaceManager.hpp"
 #ifndef __WXMSW__
 namespace XPM {
@@ -598,10 +598,10 @@ void UIManager::syncBuildCommands() {
     setEnabled(CommandId::KillProcess, false);
     const auto* project = m_ctx.getWorkspaceManager().getActiveProject();
     const std::uint8_t caps = project != nullptr ? project->getCapabilities() : 0U;
-    setEnabled(CommandId::Compile, (caps & +Project::Capability::Compile) != 0);
-    setEnabled(CommandId::CompileAndRun, (caps & +Project::Capability::CompileAndRun) != 0);
-    setEnabled(CommandId::Run, (caps & +Project::Capability::Run) != 0);
-    setEnabled(CommandId::QuickRun, (caps & +Project::Capability::QuickRun) != 0);
+    setEnabled(CommandId::Compile, (caps & +ProjectBase::Capability::Compile) != 0);
+    setEnabled(CommandId::CompileAndRun, (caps & +ProjectBase::Capability::CompileAndRun) != 0);
+    setEnabled(CommandId::Run, (caps & +ProjectBase::Capability::Run) != 0);
+    setEnabled(CommandId::QuickRun, (caps & +ProjectBase::Capability::QuickRun) != 0);
 }
 
 void UIManager::setCompilerState(const UIState state) {

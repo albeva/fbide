@@ -134,8 +134,10 @@ auto FileSession::save(const std::filesystem::path& path) -> bool {
         // Pinned compiler config — written only when the doc is pinned
         // to a non-default configuration. An empty optional means
         // "follow active", which doesn't need on-disk representation.
-        if (const auto& slug = doc->getConfiguration(); slug.has_value()) {
-            cfg.Write("configuration", *slug);
+        if (const auto* project = doc->getProject(); project != nullptr) {
+            if (const auto slug = project->getConfigurationSlug(); slug.has_value()) {
+                cfg.Write("configuration", *slug);
+            }
         }
 
         // Store code folds
@@ -275,7 +277,9 @@ void FileSession::loadV3(const std::filesystem::path& path) {
         // is about to re-add them.
         wxString configSlug;
         if (cfg.Read("configuration", &configSlug) && !configSlug.empty()) {
-            doc->setConfiguration(configSlug);
+            if (auto* project = doc->getProject(); project != nullptr) {
+                project->setConfigurationSlug(configSlug);
+            }
         }
         // setEncoding / setEolMode flip the meta-dirty flag — clear.
         doc->markSaved();

@@ -119,7 +119,10 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
     // The origin document's active compiler configuration supplies both
     // the -i search dirs (its compile command) and the stock inc/ folder
     // (its fbc binary) — the same compiler a build of this document uses.
-    const auto& cfg = m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(origin.getConfiguration());
+    const auto* originProject = origin.getProject();
+    const auto& cfg = originProject != nullptr
+                        ? originProject->getCompilerConfig()
+                        : m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(std::nullopt);
 
     // Search order mirrors fbc's own resolution of `#include "..."`:
     //   1. the source file's folder,
@@ -404,7 +407,7 @@ auto DocumentManager::saveFileAs(Document& doc) -> bool {
     // Close any clashing tab BEFORE retargeting `doc`. For Persistent
     // projects, that doc's project node still owns `newPath` in the
     // project's path index; if we set our doc's path first,
-    // Project::setFilePath would collide. Closing it first releases
+    // ProjectBase::setFilePath would collide. Closing it first releases
     // the index entry (or, for Ephemeral, tears the whole project
     // down) so the retarget is unambiguous.
     if (clash != nullptr && clash != &doc) {

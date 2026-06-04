@@ -76,7 +76,9 @@ target_sources(fbide_lib
     ui/utilities/FileDropTarget.cpp
     update/UpdateManager.cpp
     utils/Identifier.cpp
+    workspace/EphemeralProject.cpp
     workspace/Project.cpp
+    workspace/ProjectBase.cpp
     workspace/WorkspaceManager.cpp
 
     PUBLIC FILE_SET HEADERS FILES
@@ -162,7 +164,9 @@ target_sources(fbide_lib
     ui/controls/SmartBoxSizer.hpp
     ui/utilities/FileDropTarget.hpp
     update/UpdateManager.hpp
+    workspace/EphemeralProject.hpp
     workspace/Project.hpp
+    workspace/ProjectBase.hpp
     workspace/WorkspaceManager.hpp
     utils/DeferHandler.hpp
     utils/Identifier.hpp

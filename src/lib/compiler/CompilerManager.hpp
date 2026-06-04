@@ -13,7 +13,7 @@ class CompilerConfigCatalog;
 struct ResolvedCompilerConfig;
 class Document;
 class Context;
-class Project;
+class ProjectBase;
 
 /**
  * Owns FBIde's relationship with `fbc`: the compile / run / quickrun
@@ -105,7 +105,7 @@ public:
     /// resulting selection on `project` (ephemeral → its source
     /// document). The configuration dropdown handlers are the only
     /// callers.
-    void setProjectConfiguration(Project& project, const wxString& pickedSlug) const;
+    void setProjectConfiguration(ProjectBase& project, const wxString& pickedSlug) const;
 
     /// Create the toolbar configuration combobox and sync it to the
     /// active document. Called by `UIManager::configureToolBar` when it
@@ -156,18 +156,18 @@ public:
 private:
     /// Get the active project to build, or nullptr if unavailable
     /// (no active project, or a build is already in-flight).
-    [[nodiscard]] auto getActiveProject() -> Project*;
+    [[nodiscard]] auto getActiveProject() -> ProjectBase*;
 
     /// Ensure every bound document in `project` is saved. Returns
     /// false if any save was cancelled or skipped.
-    auto ensureSaved(Project& project) -> bool;
+    auto ensureSaved(ProjectBase& project) -> bool;
 
     /// The project whose compiler configuration the dropdown reflects:
     /// the active document's project when it is an ephemeral (FreeBASIC)
     /// project, else `nullptr`. Persistent projects don't drive the
     /// configuration UI yet. Read live from the active document so the
     /// dropdown always tracks the current build target.
-    [[nodiscard]] auto configurationProject() const -> Project*;
+    [[nodiscard]] auto configurationProject() const -> ProjectBase*;
 
     /// Rebuild the combobox display names from the current catalog
     /// state. Item order mirrors `catalog().all()`, so a selection index

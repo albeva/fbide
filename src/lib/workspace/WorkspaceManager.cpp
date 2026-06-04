@@ -5,8 +5,10 @@
 // https://github.com/albeva/fbide
 //
 #include "WorkspaceManager.hpp"
+#include "EphemeralProject.hpp"
 #include "analyses/intellisense/IntellisenseService.hpp"
 #include "app/Context.hpp"
+#include "compiler/CompilerManager.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/DocumentType.hpp"
@@ -37,12 +39,12 @@ auto WorkspaceManager::resolveOrOpen(const std::filesystem::path& path) -> Docum
     return docManager.openFile(path);
 }
 
-auto WorkspaceManager::createEphemeral(Document& doc) -> Project* {
+auto WorkspaceManager::createEphemeral(Document& doc) -> ProjectBase* {
     assert(doc.getProject() == nullptr && "document already bound to a project");
     assert(doc.getType() == DocumentType::FreeBASIC && "ephemeral projects only host FreeBASIC documents");
 
-    auto project = std::make_unique<Project>(m_ctx.getConfigManager(), Project::Mode::Ephemeral);
-    project->addFile(&doc);
+    auto project = std::make_unique<EphemeralProject>(m_ctx.getCompilerManager().catalog(), doc);
+    doc.bindToProject(project.get());
 
     return m_projects.emplace(project->getId(), std::move(project)).first->second.get();
 }
@@ -55,7 +57,7 @@ void WorkspaceManager::destroyEphemeral(Document& doc) {
     }
 }
 
-void WorkspaceManager::closeProject(Project& project) {
+void WorkspaceManager::closeProject(ProjectBase& project) {
     // `Document::unbindFromProject` clears the project-side `File::doc`
     // back-link, so `getDocuments()` won't include any doc that was
     // pre-unbound (e.g. by `destroyEphemeral` before it dispatched here).
@@ -70,18 +72,18 @@ void WorkspaceManager::closeProject(Project& project) {
     m_projects.erase(project.getId());
 }
 
-auto WorkspaceManager::find(const Project::Id id) -> Project* {
+auto WorkspaceManager::find(const ProjectBase::Id id) -> ProjectBase* {
     const auto it = m_projects.find(id);
     return it != m_projects.end() ? it->second.get() : nullptr;
 }
 
-auto WorkspaceManager::contains(const Project* project) const -> bool {
+auto WorkspaceManager::contains(const ProjectBase* project) const -> bool {
     if (project == nullptr) {
         return false;
     }
     // Scan owning storage directly — never dereference `project`, which
     // may already have been destroyed by the time a stale pointer reaches
-    // us. Project counts are small (single-digit typical) so the linear
+    // us. ProjectBase counts are small (single-digit typical) so the linear
     // walk is cheaper than maintaining a parallel pointer set.
     return std::ranges::any_of(m_projects | std::views::values,
         [project](const auto& owned) { return owned.get() == project; });
@@ -104,7 +106,7 @@ void WorkspaceManager::onDocumentTypeChanged(Document& doc) {
     }
 }
 
-auto WorkspaceManager::getActiveProject() const -> Project* {
+auto WorkspaceManager::getActiveProject() const -> ProjectBase* {
     const auto* doc = m_ctx.getDocumentManager().getActive();
     return doc != nullptr ? doc->getProject() : nullptr;
 }

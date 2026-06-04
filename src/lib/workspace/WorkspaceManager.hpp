@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "Project.hpp"
+#include "ProjectBase.hpp"
 
 namespace fbide {
 class Context;
@@ -14,7 +14,7 @@ class Document;
 class IntellisenseService;
 
 /**
- * Owns every open `Project` and the shared background
+ * Owns every open `ProjectBase` and the shared background
  * `IntellisenseService`; resolves the active project lazily from the
  * active document.
  *
@@ -61,7 +61,7 @@ public:
     /// in the document is lifted onto the project's single file node
     /// before the document is rebound to that node — `getFilePath()`
     /// returns the same value either side of the call.
-    auto createEphemeral(Document& doc) -> Project*;
+    auto createEphemeral(Document& doc) -> ProjectBase*;
 
     /// Tear down the Ephemeral project bound to `doc`. Unbinds the
     /// document first (so its path is restored to the variant) and
@@ -75,19 +75,19 @@ public:
     /// project. Iteration skips documents whose back-link has already
     /// drifted away (unbound out-of-band by other code), since closing
     /// those isn't this project's responsibility.
-    void closeProject(Project& project);
+    void closeProject(ProjectBase& project);
 
-    /// Resolve `id` to a live `Project*`, or `nullptr` if no project
+    /// Resolve `id` to a live `ProjectBase*`, or `nullptr` if no project
     /// with that id is currently owned. Exposed for the serialisation
     /// boundary and external references — internal callers hold
-    /// `Project*` directly and validate liveness via `contains` instead.
-    [[nodiscard]] auto find(Project::Id id) -> Project*;
+    /// `ProjectBase*` directly and validate liveness via `contains` instead.
+    [[nodiscard]] auto find(ProjectBase::Id id) -> ProjectBase*;
 
-    /// Liveness probe for a raw `Project*` held across async work.
+    /// Liveness probe for a raw `ProjectBase*` held across async work.
     /// Safe to call with a stale (possibly destroyed) pointer — does
     /// not dereference `project`. Returns true when the pointer still
     /// names an owned project.
-    [[nodiscard]] auto contains(const Project* project) const -> bool;
+    [[nodiscard]] auto contains(const ProjectBase* project) const -> bool;
 
     /// React to a document's type having just been set. Brings the
     /// project binding back in sync with the new type:
@@ -105,11 +105,11 @@ public:
     /// keeping the value cached invited stale-pointer bugs when a
     /// type-change destroyed-then-recreated the ephemeral project
     /// without an intervening tab change to refresh the cache.
-    [[nodiscard]] auto getActiveProject() const -> Project*;
+    [[nodiscard]] auto getActiveProject() const -> ProjectBase*;
 
 private:
     Context& m_ctx;
-    std::unordered_map<Project::Id, std::unique_ptr<Project>> m_projects;
+    std::unordered_map<ProjectBase::Id, std::unique_ptr<ProjectBase>> m_projects;
     /// Declared last so destruction runs first — worker thread stops
     /// and joins before the projects and documents it might race with
     /// go away.

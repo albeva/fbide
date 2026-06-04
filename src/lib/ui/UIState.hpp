@@ -13,7 +13,7 @@ namespace fbide {
 /// long-running compile / run jobs.
 ///
 /// Build-command availability outside a compile (`None`) is sourced
-/// from `Project::getCapabilities()` on the active project, not from
+/// from `ProjectBase::getCapabilities()` on the active project, not from
 /// this enum. Edit-command availability is driven by the active
 /// `Document` via `UIManager::syncDocCommands`.
 enum class UIState : std::uint8_t {

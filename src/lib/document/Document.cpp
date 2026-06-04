@@ -10,6 +10,7 @@
 #include "config/ConfigManager.hpp"
 #include "editor/Editor.hpp"
 #include "editor/EditorPanel.hpp"
+#include "workspace/EphemeralProject.hpp"
 using namespace fbide;
 
 wxDEFINE_EVENT(fbide::EVT_DOCUMENT_TYPE_CHANGED, DocumentTypeChangedEvent);
@@ -63,34 +64,36 @@ void Document::updateSettings() {
 }
 
 auto Document::getFilePath() const -> std::filesystem::path {
-    if (std::holds_alternative<std::filesystem::path>(m_source)) {
-        return std::get<std::filesystem::path>(m_source);
+    // Persistent project: the path lives on the bound file node.
+    if (const auto* nodeSlot = std::get_if<Project::Node*>(&m_source)) {
+        const auto* node = *nodeSlot;
+        return node != nullptr ? node->path : std::filesystem::path {};
     }
-    if (auto* node = std::get<Project::Node*>(m_source); node != nullptr) {
-        return node->path;
+    // Ephemeral project: the project owns the path.
+    if (m_project != nullptr) {
+        return static_cast<const EphemeralProject*>(m_project)->getPath();
     }
-    return {};
+    // Unbound: the document owns its path.
+    return std::get<std::filesystem::path>(m_source);
 }
 
 void Document::setFilePath(const std::filesystem::path& path) {
-    // Mutation routes through the project when bound so the project's
-    // path index (`m_byPath`) stays in sync; unbound documents own
-    // their path outright.
-    if (std::holds_alternative<std::filesystem::path>(m_source)) {
-        std::get<std::filesystem::path>(m_source) = path;
-    } else if (m_project != nullptr) {
-        const auto result = m_project->setFilePath(std::get<Project::Node*>(m_source), path);
+    // The path's owner depends on the binding: a persistent project keeps
+    // it on the bound file node (and re-keys its path index); an ephemeral
+    // project owns it directly; an unbound document holds it in `m_source`.
+    if (auto* nodeSlot = std::get_if<Project::Node*>(&m_source)) {
+        const auto result = static_cast<Project*>(m_project)->setFilePath(*nodeSlot, path);
         if (!result.has_value()) {
-            // Project rejected the path (typically OutOfTree for a
-            // Persistent project). The caller should have validated
-            // upstream — bail without updating the Document's own
-            // invariants so state stays consistent.
+            // Project rejected the path (typically OutOfTree). The caller
+            // should have validated upstream — bail without mutating so
+            // state stays consistent.
             wxLogError("Document::setFilePath: project rejected new path");
             return;
         }
+    } else if (m_project != nullptr) {
+        static_cast<EphemeralProject*>(m_project)->setPath(path);
     } else {
-        wxLogError("Document::setFilePath: source is project node, but no project bound");
-        return;
+        m_source = path;
     }
     // Only re-derive type from the new path when the user hasn't
     // explicitly overridden it — Save As shouldn't stomp a manual choice.
@@ -106,22 +109,31 @@ void Document::setFilePath(const std::filesystem::path& path) {
     updateModTime();
 }
 
-void Document::bindToProject(Project* project, Project::Node* node) {
+void Document::bindToProject(ProjectBase* project, Project::Node* node) {
     assert(project != nullptr && "Project should not be nil");
-    assert(node != nullptr && "Node should not be nil");
     m_project = project;
-    m_source = node;
+    if (node != nullptr) {
+        // Persistent: the path now lives on the project's file node.
+        m_source = node;
+    }
+    // Ephemeral (node == nullptr): the project captured the path at
+    // construction; the document's `m_source` path slot is left unused
+    // while bound (restored on unbind).
 }
 
 void Document::unbindFromProject() {
-    // Copy the path out of the project BEFORE clearing the back-link
-    // so `getFilePath()` keeps returning the same value either side of
-    // the transition. Also drop the project-side `File::doc` back-link
-    // so `Project::getDocuments()` stops reporting this doc.
-    if (m_project != nullptr && std::holds_alternative<Project::Node*>(m_source)) {
-        auto* node = std::get<Project::Node*>(m_source);
+    // Copy the path out of the project BEFORE clearing the back-link so
+    // `getFilePath()` keeps returning the same value either side of the
+    // transition.
+    if (auto* nodeSlot = std::get_if<Project::Node*>(&m_source)) {
+        // Persistent: lift the path off the node and drop the project-side
+        // `File::doc` back-link so `getDocuments()` stops reporting us.
+        auto* node = *nodeSlot;
         m_source = node->path;
-        m_project->clearNodeDocument(node);
+        static_cast<Project*>(m_project)->clearNodeDocument(node);
+    } else if (m_project != nullptr) {
+        // Ephemeral: lift the path off the project.
+        m_source = static_cast<const EphemeralProject*>(m_project)->getPath();
     }
     m_project = nullptr;
 }

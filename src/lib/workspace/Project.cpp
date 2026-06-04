@@ -5,92 +5,64 @@
 // https://github.com/albeva/fbide
 //
 #include "Project.hpp"
-#include "compiler/CompilerConfigCatalog.hpp"
-#include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
 
 using namespace fbide;
 
-namespace {
-
-// Process cwd, or empty on failure — used as the Ephemeral root path
-// fallback when the project is created around an untitled buffer.
-auto currentWorkingPath() -> std::filesystem::path {
-    std::error_code ec;
-    auto cwd = std::filesystem::current_path(ec);
-    return ec ? std::filesystem::path {} : cwd;
+Project::Project(CompilerConfigCatalog& catalog)
+: ProjectBase(catalog) {
+    createVirtualRoot();
 }
 
-} // namespace
-
-// NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
-Project::Project(ConfigManager& config, const Mode mode)
-: m_config(config)
-, m_id(Id::generate())
-, m_mode(mode) {
-    m_path = currentWorkingPath();
-
-    if (mode == Mode::Persistent) {
-        const auto id = Node::Id::generate();
-        auto root = std::make_unique<Node>(Node {
-            .id = id,
-            .parent = nullptr,
-            .path = {},
-            .entry = Node::Folder { .name = "", .children = {} },
-        });
-        m_root = m_nodes.emplace(id, std::move(root)).first->second.get();
-    }
+void Project::createVirtualRoot() {
+    const auto id = Node::Id::generate();
+    auto root = std::make_unique<Node>(Node {
+        .id = id,
+        .parent = nullptr,
+        .path = {},
+        .entry = Node::Folder { .name = "", .children = {} },
+    });
+    m_root = m_nodes.emplace(id, std::move(root)).first->second.get();
 }
 
-// `path` taken by value so callers can move-in; moved into the Node below.
 auto Project::addFile(Document* doc, Node* parent) -> Node* {
-    const auto path = doc->getFilePath();
-    const auto hasPath = not path.empty();
+    // Persistent tree shape: attach the file under a folder (default
+    // the project root). `EphemeralProject` overrides this for its
+    // single-file-is-root shape.
+    if (parent == nullptr) {
+        parent = m_root;
+    }
+    assert(parent != nullptr && parent->isFolder() && "parent must be a folder node");
 
-    if (parent != nullptr) {
-        assert(m_nodes.contains(parent->id) && "parent should be part of this project");
+    auto path = doc->getFilePath();
+    if (not path.empty()) {
+        if (not isUnderRoot(path)) {
+            return nullptr; // REVIEW: should return an error
+        }
+        if (m_pathMap.contains(path)) {
+            return nullptr; // REVIEW: should return an error? existing node?
+        }
     }
 
+    auto* ptr = attachFileNode(doc, parent, std::move(path));
+    parent->getFolder()->children.push_back(ptr);
+    return ptr;
+}
+
+auto Project::attachFileNode(Document* doc, Node* parent, const std::filesystem::path& path) -> Node* {
+    const auto hasPath = not path.empty();
     auto node = std::make_unique<Node>(Node {
         .id = Node::Id::generate(),
         .parent = parent,
-        .path = std::move(path),
+        .path = path,
         .entry = Node::File { .doc = doc },
     });
     auto* ptr = node.get();
-
-    // Ephemeral: file becomes the root, no parent. Persistent: resolve parent
-    // (defaulting to m_root) and validate before allocating.
-    if (m_mode == Mode::Ephemeral) {
-        assert(m_root == nullptr && "Ephemeral project should have no root");
-        assert(parent == nullptr && "Ephemeral project file should not have a parent");
-
-        m_root = ptr;
-        m_path = hasPath ? ptr->path.parent_path() : currentWorkingPath();
-    } else {
-        if (parent == nullptr) {
-            parent = m_root;
-        }
-        assert(parent != nullptr && parent->isFolder() && "parent must be a folder node");
-
-        if (hasPath) {
-            if (not isUnderRoot(path)) {
-                return nullptr; // REVIEW: should return an error
-            }
-            if (m_pathMap.contains(path)) {
-                return nullptr; // REVIEW: should return an error? existing node?
-            }
-        }
-
-        parent->getFolder()->children.push_back(ptr);
-    }
-
     m_nodes.emplace(ptr->id, std::move(node));
     doc->bindToProject(this, ptr);
     if (hasPath) {
         m_pathMap.emplace(ptr->path, ptr);
     }
-
     return ptr;
 }
 
@@ -123,16 +95,13 @@ auto Project::setFilePath(Node* file, const std::filesystem::path& newPath) -> s
     assert(file->isFile() && "setFilePath is file-only; use renameNode for folders");
 
     // Persistent projects keep all members under the project root —
-    // Save As to elsewhere is a UI-layer error. Ephemeral projects
-    // skip the check because their root moves to accommodate.
-    if (m_mode == Mode::Persistent && !isUnderRoot(newPath)) {
+    // Save As to elsewhere is a UI-layer error. `EphemeralProject`
+    // overrides this so its root moves to accommodate.
+    if (!isUnderRoot(newPath)) {
         return std::unexpected(Error::OutOfTree);
     }
 
     setNodePath(file, newPath);
-    if (m_mode == Mode::Ephemeral) {
-        m_path = newPath.empty() ? currentWorkingPath() : newPath.parent_path();
-    }
     return {};
 }
 
@@ -188,9 +157,7 @@ auto isValidLeafName(const std::string& name) -> bool {
 
 } // namespace
 
-// NOLINTNEXTLINE(performance-unnecessary-value-param)
-auto Project::addFolder(Node* parent, std::string name) -> Node* {
-    assert(m_mode == Mode::Persistent && "folders are Persistent-only");
+auto Project::addFolder(Node* parent, const std::string& name) -> Node* {
     if (parent == nullptr) {
         parent = m_root;
     }
@@ -201,7 +168,7 @@ auto Project::addFolder(Node* parent, std::string name) -> Node* {
         .id = Node::Id::generate(),
         .parent = parent,
         .path = {},
-        .entry = Node::Folder { .name = std::move(name), .children = {} },
+        .entry = Node::Folder { .name = name, .children = {} },
     });
     auto* nodePtr = node.get();
     m_nodes.emplace(node->id, std::move(node));
@@ -210,7 +177,7 @@ auto Project::addFolder(Node* parent, std::string name) -> Node* {
 }
 
 auto Project::addRealFolder(Node* parent, std::filesystem::path path) -> std::expected<Node*, Error> {
-    assert(m_mode == Mode::Persistent && "folders are Persistent-only");
+    assert(!isEphemeral() && "folders are Persistent-only");
     if (parent == nullptr) {
         parent = m_root;
     }
@@ -468,13 +435,8 @@ auto Project::getDocuments() const -> std::vector<Document*> {
 }
 
 auto Project::getSources() const -> std::vector<Document*> {
-    if (isEphemeral()) {
-        if (m_root == nullptr) {
-            return {};
-        }
-        auto* doc = m_root->getFile()->doc;
-        return doc != nullptr ? std::vector<Document*> { doc } : std::vector<Document*> {};
-    }
+    // Persistent default: every bound `.bas` document in the tree.
+    // `EphemeralProject` overrides this to return its single source.
     std::vector<Document*> result;
     for (const auto& node : m_nodes | std::views::values) {
         if (const auto* file = node->getFile(); file != nullptr && file->doc != nullptr) {
@@ -484,58 +446,4 @@ auto Project::getSources() const -> std::vector<Document*> {
         }
     }
     return result;
-}
-
-// --- Build / run gateway ---------------------------------------------------
-
-auto Project::getCompileTemplate() const -> wxString {
-    // Ephemeral projects read through ConfigManager so settings edits
-    // take effect immediately on the next build. Persistent projects
-    // (future) will return a stored override instead.
-    assert(isEphemeral() && "Persistent project compile-options not implemented yet");
-    return m_config.config().at("compiler").get_or("compileCommand", R"("<$fbc>" "<$file>")");
-}
-
-auto Project::getRunTemplate() const -> wxString {
-    assert(isEphemeral() && "Persistent project compile-options not implemented yet");
-    return m_config.config().get_or("compiler.runCommand", R"(<$terminal> "<$file>" <$param>)");
-}
-
-auto Project::getConfigurationSlug() const -> std::optional<wxString> {
-    // Ephemeral projects carry their configuration selection on the single
-    // bound source document. Persistent projects (future) will store their
-    // own slug.
-    assert(isEphemeral() && "Persistent project configuration not implemented yet");
-    const auto sources = getSources();
-    return sources.empty() ? std::optional<wxString> {} : sources.front()->getConfiguration();
-}
-
-void Project::setConfigurationSlug(std::optional<wxString> slug) {
-    assert(isEphemeral() && "Persistent project configuration not implemented yet");
-    const auto sources = getSources();
-    if (!sources.empty()) {
-        sources.front()->setConfiguration(std::move(slug));
-    }
-}
-
-auto Project::getCompilerConfig(const CompilerConfigCatalog& catalog) const -> const ResolvedCompilerConfig& {
-    return catalog.resolveByPinnedSlug(getConfigurationSlug());
-}
-
-auto Project::getMenuConfigurations(const CompilerConfigCatalog& catalog, const wxString& alwaysInclude) const
-    -> std::vector<const ResolvedCompilerConfig*> {
-    // Ephemeral projects pass the global compiler configurations through
-    // unchanged. Persistent projects (future) will instead return their
-    // own internally-defined build targets.
-    assert(isEphemeral() && "Persistent project build targets not implemented yet");
-    return catalog.menuConfigs(alwaysInclude);
-}
-
-auto Project::getCapabilities() const -> std::uint8_t {
-    // Ephemeral projects host exactly one source file and always
-    // produce a runnable executable — every capability applies.
-    // Persistent projects (future) will derive this from their stored
-    // output kind (Executable / Library / StaticLib / …).
-    assert(isEphemeral() && "Persistent project capabilities not implemented yet");
-    return +Capability::Compile | +Capability::CompileAndRun | +Capability::Run | +Capability::QuickRun;
 }

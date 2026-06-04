@@ -18,7 +18,7 @@
 #include "settings/SettingsDialog.hpp"
 #include "ui/CompilerLog.hpp"
 #include "ui/UIManager.hpp"
-#include "workspace/Project.hpp"
+#include "workspace/ProjectBase.hpp"
 #include "workspace/WorkspaceManager.hpp"
 using namespace fbide;
 
@@ -46,7 +46,7 @@ void CompilerManager::compile() {
     }
     assert(sources.size() == 1 && "currently only one file can be compiled");
 
-    const auto& cfg = project->getCompilerConfig(*m_catalog);
+    const auto& cfg = project->getCompilerConfig();
     if (!ensureCompilable(cfg)) {
         return;
     }
@@ -67,7 +67,7 @@ void CompilerManager::compileAndRun() {
     }
     assert(sources.size() == 1 && "currently only one file can be compiled");
 
-    const auto& cfg = project->getCompilerConfig(*m_catalog);
+    const auto& cfg = project->getCompilerConfig();
     if (!ensureCompilable(cfg) || !ensureRunnable(cfg)) {
         return;
     }
@@ -96,7 +96,7 @@ void CompilerManager::run() {
         return;
     }
 
-    const auto& cfg = project->getCompilerConfig(*m_catalog);
+    const auto& cfg = project->getCompilerConfig();
     if (!ensureRunnable(cfg)) {
         return;
     }
@@ -117,9 +117,7 @@ void CompilerManager::quickRun() {
     assert(sources.size() == 1 && "Currently only 1 source supported");
     auto* doc = sources.front();
 
-    // TODO: following logic should all be part of ephemeral project settings. Not set here.
-
-    const auto& cfg = m_catalog->resolveByPinnedSlug(doc->getConfiguration());
+    const auto& cfg = project->getCompilerConfig();
     if (!ensureCompilable(cfg) || !ensureRunnable(cfg)) {
         return;
     }
@@ -332,14 +330,14 @@ void CompilerManager::goToError(const int line, const wxString& fileName) const 
 // Helpers
 // ---------------------------------------------------------------------------
 
-auto CompilerManager::getActiveProject() -> Project* {
+auto CompilerManager::getActiveProject() -> ProjectBase* {
     if (m_task && m_task->isRunning()) {
         return nullptr;
     }
     return m_ctx.getWorkspaceManager().getActiveProject();
 }
 
-auto CompilerManager::ensureSaved(Project& project) -> bool {
+auto CompilerManager::ensureSaved(ProjectBase& project) -> bool {
     // Walk every currently-bound document and ensure it's saved.
     // For Ephemeral projects this is a single doc; Persistent projects
     // (future) will iterate over every modified member.
@@ -365,7 +363,7 @@ auto CompilerManager::ensureSaved(Project& project) -> bool {
     });
 }
 
-void CompilerManager::setProjectConfiguration(Project& project, const wxString& pickedSlug) const {
+void CompilerManager::setProjectConfiguration(ProjectBase& project, const wxString& pickedSlug) const {
     project.setConfigurationSlug(m_catalog->normalizeForStorage(pickedSlug));
     // Both the toolbar combobox and the status-bar field need to
     // reflect the new selection. The combobox already shows the picked
@@ -427,12 +425,13 @@ void CompilerManager::refreshConfigurationCombo() {
     m_ctx.getUIManager().refreshConfigurationDisplay();
 }
 
-auto CompilerManager::configurationProject() const -> Project* {
-    if (m_lastActiveDoc == nullptr) {
-        return nullptr;
-    }
-    auto* project = m_lastActiveDoc->getProject();
-    return (project != nullptr && project->isEphemeral()) ? project : nullptr;
+auto CompilerManager::configurationProject() const -> ProjectBase* {
+    // Driven polymorphically by the active document's project: an
+    // ephemeral project exposes the active compiler configuration; a
+    // persistent project (future) will expose its own targets and report
+    // an empty set until then. A non-FreeBASIC document has no project,
+    // so the dropdown stays hidden.
+    return m_lastActiveDoc != nullptr ? m_lastActiveDoc->getProject() : nullptr;
 }
 
 void CompilerManager::onActiveDocumentChanged(Document* doc) {
@@ -474,7 +473,7 @@ void CompilerManager::populateConfigurationCombo() const {
         return;
     }
     const auto keepSlug = m_catalog->resolveByPinnedSlug(project->getConfigurationSlug()).slug;
-    for (const auto* cfg : project->getMenuConfigurations(*m_catalog, keepSlug)) {
+    for (const auto* cfg : project->getMenuConfigurations(keepSlug)) {
         m_configCombo->Append(cfg->displayName, new wxStringClientData(cfg->slug));
     }
 }
@@ -525,7 +524,7 @@ auto CompilerManager::buildConfigurationMenu() const -> std::unique_ptr<wxMenu> 
     // not within the filtered subset — that way the ID still maps back
     // through `catalog().at()` in `applyConfigurationMenuSelection` even
     // though some entries were skipped.
-    for (const auto* cfg : project->getMenuConfigurations(*m_catalog, currentSlug)) {
+    for (const auto* cfg : project->getMenuConfigurations(currentSlug)) {
         const auto catalogIndex = m_catalog->indexOf(cfg->slug);
         auto* item = menu->AppendRadioItem(kStatusMenuIdBase + catalogIndex, cfg->displayName);
         item->Check(cfg->slug == currentSlug);

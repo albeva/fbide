@@ -427,10 +427,10 @@ void CommandManager::onCmdPrompt(wxCommandEvent&) {
     // active doc's pinned config when there's a FreeBASIC source open,
     // otherwise the catalog's active config. Fall back to the platform
     // default when the resolved terminal field is empty.
-    const auto pinned = (doc != nullptr && doc->getType() == DocumentType::FreeBASIC)
-                          ? doc->getConfiguration()
-                          : std::optional<wxString> {};
-    const auto& cfg = m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(pinned);
+    const auto* docProject = (doc != nullptr) ? doc->getProject() : nullptr;
+    const auto& cfg = docProject != nullptr
+                        ? docProject->getCompilerConfig()
+                        : m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(std::nullopt);
     const auto terminal = cfg.terminal.IsEmpty() ? ConfigManager::getTerminal() : cfg.terminal;
     wxExecute(terminal, wxEXEC_ASYNC, nullptr, &env);
 }

@@ -11,7 +11,7 @@
 
 namespace fbide {
 class Context;
-class Project;
+class ProjectBase;
 
 /// Handles the compile-and-run lifecycle for a single project.
 ///
@@ -30,7 +30,7 @@ public:
     /// `WorkspaceManager::contains` (a safe pointer-set scan, never
     /// dereferenced) so a teardown mid-flight returns null instead of
     /// landing on a freed instance.
-    BuildTask(Context& ctx, Project& project);
+    BuildTask(Context& ctx, ProjectBase& project);
 
     /// Compile the given source file asynchronously.
     void compile(const wxString& sourceFile);
@@ -57,7 +57,7 @@ public:
     /// since this task was constructed. Liveness checked via
     /// `WorkspaceManager::contains` so callers can use the returned
     /// pointer without a separate validity check.
-    [[nodiscard]] auto getProject() const -> Project*;
+    [[nodiscard]] auto getProject() const -> ProjectBase*;
 
     /// Kill this task
     void kill();
@@ -91,7 +91,7 @@ private:
     void setStatus(const wxString& path) const;
 
     Context& m_ctx;                    ///< Application context.
-    Project* m_project;                ///< Project this task is bound to (validated via WorkspaceManager).
+    ProjectBase* m_project;                ///< ProjectBase this task is bound to (validated via WorkspaceManager).
     ResolvedCompilerConfig m_config;   ///< Snapshot captured at construction — stable across compile + run.
     bool m_running = false;            ///< True while a process is in flight.
     bool m_shouldRun = false;          ///< True when a successful compile should chain into run.

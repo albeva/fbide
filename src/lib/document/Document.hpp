@@ -70,10 +70,12 @@ public:
     /// `m_source` as a `std::filesystem::path` (empty for untitled).
     /// When the document is bound to a project, the path lives on the
     /// project's `Node` and `m_source` carries a non-owning `Node*`
-    /// pinned by the project's `unique_ptr` storage; the `m_project`
-    /// back-link names the owning project. Invariant held by
-    /// `bindToProject` / `unbindFromProject`: `m_project != nullptr`
-    /// iff `m_source` holds `Project::Node*`.
+    /// pinned by the project's `unique_ptr` storage. For a document bound
+    /// to an **ephemeral** project the path lives on the project
+    /// (`EphemeralProject::m_path`) and `m_source` holds the (unused)
+    /// path slot. Invariants held by `bindToProject` / `unbindFromProject`:
+    /// `m_source` holds `Project::Node*` iff bound to a persistent
+    /// `Project`; `m_project != nullptr` iff bound to any project.
     using Source = std::variant<std::filesystem::path, Project::Node*>;
 
     NO_COPY_AND_MOVE(Document)
@@ -113,7 +115,7 @@ public:
     [[nodiscard]] auto getFilePath() const -> std::filesystem::path;
 
     /// Set the file path. When the document is project-bound, the path
-    /// mutation is forwarded to `Project::setNodePath` so the project's
+    /// mutation is forwarded to `ProjectBase::setNodePath` so the project's
     /// path index stays in sync.
     void setFilePath(const std::filesystem::path& path);
 
@@ -205,26 +207,14 @@ public:
     /// project). Lifetime: the project always outlives the bound
     /// document — the `WorkspaceManager` teardown protocol calls
     /// `unbindFromProject` before destroying a project.
-    [[nodiscard]] auto getProject() const -> Project* { return m_project; }
-
-    /// Compiler configuration this document is pinned to (slug, e.g.
-    /// `"cfg-1"`). Empty means "follow whatever is currently active" —
-    /// see `docs/compiler-configurations.md`.
-    [[nodiscard]] auto getConfiguration() const noexcept -> const std::optional<wxString>& { return m_configuration; }
-
-    /// Pin the document to a specific configuration, or clear the pin.
-    /// CompilerManager owns the normalisation rule ("matches active →
-    /// empty"); this setter is a dumb assignment. Does NOT mark the
-    /// document modified — configuration lives in the session file, not
-    /// in the document contents.
-    void setConfiguration(std::optional<wxString> slug) noexcept { m_configuration = std::move(slug); }
+    [[nodiscard]] auto getProject() const -> ProjectBase* { return m_project; }
 
     /// Bind this document to a project under the given node. The path
     /// currently held in `m_source` is **not** propagated here — the
     /// caller is expected to have stored it on the project's node
-    /// first (typically via `Project::addFile`). After this call,
+    /// first (typically via `ProjectBase::addFile`). After this call,
     /// `getFilePath()` resolves through the project.
-    void bindToProject(Project* project, Project::Node* node);
+    void bindToProject(ProjectBase* project, Project::Node* node = nullptr);
 
     /// Detach this document from its project, atomically copying the
     /// path out of the project's node back into `m_source` so
@@ -235,7 +225,7 @@ public:
 private:
     ConfigManager& m_config;                   ///< Source of encoding/EOL defaults and the locale table.
     Source m_source;                           ///< Path (unbound) or node ID (project-bound); see `Source`.
-    Project* m_project = nullptr;              ///< Owning project; non-null iff `m_source` holds `Project::Node*`.
+    ProjectBase* m_project = nullptr;          ///< Owning project; non-null iff `m_source` holds `ProjectBase::Node*`.
     DocumentType m_type;                       ///< Document type — drives lexer + theme dispatch.
     bool m_typeOverridden = false;             ///< True when the user explicitly picked the type.
     Unowned<wxWindow> m_view;                  ///< Generic view back-link — wx-parented to the notebook.
@@ -247,8 +237,7 @@ private:
     /// view's modify flag in isModified() so encoding-only edits still
     /// show as dirty.
     bool m_metaModified = false;
-    wxEvtHandler* m_sink = nullptr;          ///< Sink for `EVT_DOCUMENT_TYPE_CHANGED`; null = no observer.
-    std::optional<wxString> m_configuration; ///< Pinned compiler config slug; empty = follow active.
+    wxEvtHandler* m_sink = nullptr; ///< Sink for `EVT_DOCUMENT_TYPE_CHANGED`; null = no observer.
 };
 
 } // namespace fbide

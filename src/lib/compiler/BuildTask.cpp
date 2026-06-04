@@ -18,14 +18,14 @@
 #include "editor/Editor.hpp"
 #include "ui/OutputConsole.hpp"
 #include "ui/UIManager.hpp"
-#include "workspace/Project.hpp"
+#include "workspace/ProjectBase.hpp"
 #include "workspace/WorkspaceManager.hpp"
 using namespace fbide;
 
-BuildTask::BuildTask(Context& ctx, Project& project)
+BuildTask::BuildTask(Context& ctx, ProjectBase& project)
 : m_ctx(ctx)
 , m_project(&project)
-, m_config(project.getCompilerConfig(ctx.getCompilerManager().catalog())) {}
+, m_config(project.getCompilerConfig()) {}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -45,7 +45,7 @@ void BuildTask::compileAndRun(const wxString& sourceFile, const bool quickRun) {
 
 void BuildTask::run(const wxString& executablePath, const bool quickRun) {
     if (getProject() == nullptr) {
-        // Project torn down between compile and run — bail without
+        // ProjectBase torn down between compile and run — bail without
         // launching a process so we don't fire off a malformed command.
         return;
     }
@@ -190,7 +190,7 @@ void BuildTask::onRunFinished(const ProcessResult& result) {
     frame->Raise();
     frame->SetFocus();
 
-    // Project should probably have "active" document set, which could be focused,
+    // ProjectBase should probably have "active" document set, which could be focused,
     // but we shouldn't try to manually guess here.
 }
 
@@ -339,7 +339,7 @@ void BuildTask::cleanupTempFiles() {
     m_buildDir.clear();
 }
 
-auto BuildTask::getProject() const -> Project* {
+auto BuildTask::getProject() const -> ProjectBase* {
     return m_ctx.getWorkspaceManager().contains(m_project) ? m_project : nullptr;
 }
 

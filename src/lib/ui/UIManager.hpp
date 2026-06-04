@@ -88,7 +88,7 @@ public:
 
     /// Recompute the enable / disable state of build commands
     /// (Compile / CompileAndRun / Run / QuickRun / KillProcess) from
-    /// the active `Project`'s capabilities. When the compiler state is
+    /// the active `ProjectBase`'s capabilities. When the compiler state is
     /// `Compiling` or `Running`, all build commands are frozen and
     /// `KillProcess` is enabled regardless of capabilities.
     void syncBuildCommands();
@@ -204,7 +204,7 @@ private:
     //
     // Build commands (Compile / CompileAndRun / Run / QuickRun /
     // KillProcess) are intentionally NOT here — they are driven by
-    // `syncBuildCommands` from the active `Project`'s capabilities
+    // `syncBuildCommands` from the active `ProjectBase`'s capabilities
     // plus `m_compilerState`. FB-only edit operations (Comment /
     // Uncomment / Format / Subs) live in `kFreeBasicEditCommandIds`
     // below and get an extra disable pass when the active document
