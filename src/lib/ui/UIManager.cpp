@@ -604,6 +604,10 @@ void UIManager::syncBuildCommands() {
     setEnabled(CommandId::QuickRun, (caps & +ProjectBase::Capability::QuickRun) != 0);
 }
 
+void UIManager::syncProjectCommands() {
+    setEnabled(CommandId::CloseProject, m_ctx.getWorkspaceManager().getProject() != nullptr);
+}
+
 void UIManager::setCompilerState(const UIState state) {
     m_compilerState = state;
     syncBuildCommands();

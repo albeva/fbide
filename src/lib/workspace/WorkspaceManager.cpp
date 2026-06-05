@@ -132,7 +132,61 @@ auto WorkspaceManager::loadProject(const std::filesystem::path& path) -> Project
 
     m_ctx.getFileHistory().addFile(path);
     m_ctx.getSideBarManager().showProjectTree(*m_project);
+    m_ctx.getUIManager().syncProjectCommands();
     return m_project;
+}
+
+auto WorkspaceManager::newProject() -> Project* {
+    // Replacing an already-open project needs explicit confirmation.
+    if (m_project != nullptr) {
+        wxMessageDialog confirm(
+            m_ctx.getUIManager().getMainFrame(),
+            m_ctx.tr("project.new.message"),
+            m_ctx.tr("project.new.title"),
+            wxYES_NO | wxICON_QUESTION
+        );
+        if (confirm.ShowModal() != wxID_YES) {
+            return nullptr;
+        }
+    }
+
+    // Ask where to write the new project file.
+    wxFileDialog dlg(
+        m_ctx.getUIManager().getMainFrame(),
+        m_ctx.tr("project.new.dialogTitle"),
+        "",
+        "untitled.fbp",
+        m_ctx.getConfigManager().filePatterns({ "fbproject" }),
+        wxFD_SAVE | wxFD_OVERWRITE_PROMPT
+    );
+    if (dlg.ShowModal() != wxID_OK) {
+        return nullptr;
+    }
+    const auto projectFile = toFsPath(dlg.GetPath());
+
+    // Close the current project first (prompts to save its members); abort the
+    // whole operation if the user cancels a save there.
+    if (m_project != nullptr && !closeProject(*m_project)) {
+        return nullptr;
+    }
+
+    // Write an empty project file, then open it through the normal load path
+    // (which registers it, shows the tree, records it in the recent files, and
+    // enables Close Project).
+    const Project draft(
+        m_ctx.getCompilerManager().catalog(), m_ctx.getConfigManager(),
+        projectFile.stem().string(), projectFile.parent_path()
+    );
+    if (const auto saved = draft.saveTo(projectFile); !saved) {
+        wxMessageBox(
+            m_ctx.tr("project.error.saveFailed"),
+            m_ctx.tr("project.error.title"),
+            wxICON_ERROR | wxOK,
+            m_ctx.getUIManager().getMainFrame()
+        );
+        return nullptr;
+    }
+    return loadProject(projectFile);
 }
 
 auto WorkspaceManager::ephemeral() -> EphemeralProject& {
@@ -186,6 +240,7 @@ auto WorkspaceManager::closeProject(Project& project) -> bool {
         m_project = nullptr;
         m_projectPath.clear();
         m_ctx.getSideBarManager().hideProjectTree();
+        m_ctx.getUIManager().syncProjectCommands();
     }
     m_projects.erase(project.getId());
     return true;

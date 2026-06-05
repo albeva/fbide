@@ -93,6 +93,11 @@ public:
     /// `KillProcess` is enabled regardless of capabilities.
     void syncBuildCommands();
 
+    /// Enable / disable the project commands (currently `Close Project`) from
+    /// whether a persistent project is open. Called by `WorkspaceManager` after
+    /// a project is opened or closed.
+    void syncProjectCommands();
+
     /// Set the compiler-level UI state (None, Compiling, Running).
     /// Drives status-bar feedback for long-running jobs and overrides
     /// `syncBuildCommands` to freeze the build set while a process is

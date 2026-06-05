@@ -105,6 +105,10 @@ private:
     void onClose(wxCommandEvent& event);
     /// `Close All` — close every open document.
     void onCloseAll(wxCommandEvent& event);
+    /// `New Project` — create an empty project and open it.
+    void onNewProject(wxCommandEvent& event);
+    /// `Close Project` — close the open project (prompting to save members).
+    void onCloseProject(wxCommandEvent& event);
     /// `New Window` — spawn a second FBIde process via `--new-window`.
     void onNewWindow(wxCommandEvent& event);
     /// `Quit` — close the main frame.

@@ -66,6 +66,12 @@ public:
     /// nullptr when the user cancels or chooses a new window.
     auto loadProject(const std::filesystem::path& path) -> Project*;
 
+    /// Create a brand-new empty project: prompt for the `.fbp` save location,
+    /// then (if a project is already open) confirm and close it first, write the
+    /// empty project file, and open it. Returns the new project, or nullptr when
+    /// the user cancels at any step.
+    auto newProject() -> Project*;
+
     /// The currently open persistent project, or nullptr when none is open.
     [[nodiscard]] auto getProject() const -> Project* { return m_project; }
 

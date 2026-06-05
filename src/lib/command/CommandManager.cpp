@@ -40,6 +40,8 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     EVT_MENU(+CommandId::SaveAll,      CommandManager::onSaveAll)
     EVT_MENU(+CommandId::Close,        CommandManager::onClose)
     EVT_MENU(+CommandId::CloseAll,     CommandManager::onCloseAll)
+    EVT_MENU(+CommandId::NewProject,   CommandManager::onNewProject)
+    EVT_MENU(+CommandId::CloseProject, CommandManager::onCloseProject)
     EVT_MENU(+CommandId::NewWindow,    CommandManager::onNewWindow)
     EVT_MENU(+CommandId::Quit,         CommandManager::onQuit)
     EVT_MENU(+CommandId::SessionLoad,  CommandManager::onSessionLoad)
@@ -104,6 +106,7 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .id = +CommandId::About,            .name="about" },
         CommandEntry { .id = +CommandId::Close,            .name="close" },
         CommandEntry { .id = +CommandId::CloseAll,         .name="closeAll" },
+        CommandEntry { .id = +CommandId::CloseProject,     .name="closeProject", .enabled = false },
         CommandEntry { .id = +CommandId::CmdPrompt,        .name="cmdPrompt" },
         CommandEntry { .id = +CommandId::Comment,          .name="comment" },
         CommandEntry { .id = +CommandId::Compile,          .name="compile" },
@@ -123,6 +126,7 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .id = +CommandId::IndentDecrease,   .name="indentDec" },
         CommandEntry { .id = +CommandId::IndentIncrease,   .name="indentInc" },
         CommandEntry { .id = +CommandId::New,              .name="new" },
+        CommandEntry { .id = +CommandId::NewProject,       .name="newProject" },
         CommandEntry { .id = +CommandId::NewWindow,        .name="newWindow" },
         CommandEntry { .id = +CommandId::Open,             .name="open" },
         CommandEntry { .id = +CommandId::Parameters,       .name="parameters" },
@@ -260,6 +264,17 @@ void CommandManager::onClose(wxCommandEvent&) {
 
 void CommandManager::onCloseAll(wxCommandEvent&) {
     m_ctx.getDocumentManager().closeAllFiles();
+}
+
+void CommandManager::onNewProject(wxCommandEvent&) {
+    m_ctx.getWorkspaceManager().newProject();
+}
+
+void CommandManager::onCloseProject(wxCommandEvent&) {
+    auto& workspace = m_ctx.getWorkspaceManager();
+    if (auto* project = workspace.getProject()) {
+        workspace.closeProject(*project);
+    }
 }
 
 void CommandManager::onNewWindow(wxCommandEvent&) {

@@ -64,6 +64,8 @@ enum class CommandId : wxWindowID {
     Parameters,
     ShowExitCode,
     CheckUpdates,
+    NewProject,
+    CloseProject,
 
     /// Dynamic slots for externally configured Help menu links.
     /// Range reserved for wxEVT_MENU dispatch via EVT_MENU_RANGE.
