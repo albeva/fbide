@@ -67,7 +67,7 @@ auto ProjectTreeView::addNode(const wxTreeItemId& parentItem, Project::Node* nod
     const int icon = iconFor(node);
     // The root shows the project's name; other nodes show their file/folder name.
     const wxString label = (node == m_project.getRoot())
-                             ? wxString::FromUTF8(m_project.getName())
+                             ? m_project.getName()
                              : wxString::FromUTF8(node->name());
     const wxTreeItemId item = parentItem.IsOk()
                                 ? AppendItem(parentItem, label, icon, icon)

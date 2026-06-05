@@ -145,7 +145,16 @@ auto Document::getTitle() const -> wxString {
 }
 
 auto Document::getFrameTitle() const -> wxString {
-    return isNew() ? getTitle() : toWxString(getFilePath());
+    const wxString base = isNew() ? getTitle() : toWxString(getFilePath());
+    // Prefix with the owning project's name when it has one — the persistent
+    // project; the shared ephemeral returns an empty name, so standalone files
+    // show just the path.
+    if (m_project != nullptr) {
+        if (const auto name = m_project->getName(); !name.empty()) {
+            return "[" + name + "] " + base;
+        }
+    }
+    return base;
 }
 
 auto Document::isModified() const -> bool {

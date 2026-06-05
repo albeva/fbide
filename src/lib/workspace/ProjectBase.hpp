@@ -59,6 +59,12 @@ public:
     /// Project identity.
     [[nodiscard]] auto getId() const -> Id { return m_id; }
 
+    /// Display name — shown in the window title bar and as the project-tree
+    /// root label. The persistent `Project` returns its user-facing name; the
+    /// shared `EphemeralProject` returns an empty string (standalone files
+    /// aren't part of a named project).
+    [[nodiscard]] virtual auto getName() const -> wxString = 0;
+
     /// True for `EphemeralProject` (auto-created and torn down with its
     /// single source document); false for the persistent `Project`. Used
     /// by the `WorkspaceManager` lifecycle and `DocumentManager::closeFile`

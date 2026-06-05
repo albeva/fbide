@@ -48,9 +48,11 @@ public:
     /// `Document` definition when the tree tears down.
     ~Project() override;
 
-    /// The project's display name — shown as the tree root label, independent
-    /// of the root directory's own name. Defaults to the `.fbp` file's stem.
-    [[nodiscard]] auto getName() const -> const std::string& { return m_name; }
+    /// The project's display name — shown in the title bar and as the tree root
+    /// label, independent of the root directory's own name. Defaults to the
+    /// `.fbp` file's stem.
+    [[nodiscard]] auto getName() const -> wxString override { return wxString::FromUTF8(m_name); }
+
     /// Set the project's display name (display only; no filesystem effect).
     void setName(std::string name) { m_name = std::move(name); }
 

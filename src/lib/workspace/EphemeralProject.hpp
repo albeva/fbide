@@ -35,6 +35,9 @@ public:
 
     [[nodiscard]] auto isEphemeral() const -> bool override { return true; }
 
+    /// No display name — standalone files aren't part of a named project.
+    [[nodiscard]] auto getName() const -> wxString override { return {}; }
+
     /// Take ownership of a standalone document and bind it to this project.
     /// Returns the (non-owning) pointer for the caller's continued use.
     auto adopt(std::unique_ptr<Document> doc) -> Document*;
