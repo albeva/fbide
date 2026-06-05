@@ -8,6 +8,7 @@
 #include "pch.hpp"
 #include "ProjectBase.hpp"
 #include "utils/Identifier.hpp"
+#include "utils/PathConversions.hpp"
 
 namespace fbide {
 class Document;
@@ -42,7 +43,7 @@ public:
     /// and anchor the tree at `rootDir` (the directory that contains the
     /// `.fbp` file). The root node is created immediately, bound to that
     /// directory.
-    Project(CompilerConfigCatalog& catalog, ConfigManager& config, std::string name, std::filesystem::path rootDir);
+    Project(CompilerConfigCatalog& catalog, ConfigManager& config, wxString name, std::filesystem::path rootDir);
 
     /// Out-of-line so the node-owned `unique_ptr<Document>`s see the full
     /// `Document` definition when the tree tears down.
@@ -51,10 +52,10 @@ public:
     /// The project's display name — shown in the title bar and as the tree root
     /// label, independent of the root directory's own name. Defaults to the
     /// `.fbp` file's stem.
-    [[nodiscard]] auto getName() const -> wxString override { return wxString::FromUTF8(m_name); }
+    [[nodiscard]] auto getName() const -> wxString override { return m_name; }
 
     /// Set the project's display name (display only; no filesystem effect).
-    void setName(std::string name) { m_name = std::move(name); }
+    void setName(wxString name) { m_name = std::move(name); }
 
     /// Failure modes for the disk-touching tree operations. `Clash` /
     /// `OutOfTree` are recoverable (caller picks a new name / path or offers
@@ -132,7 +133,7 @@ public:
         }
 
         /// Display name — the final path component (folder or file name).
-        [[nodiscard]] auto name() const -> std::string { return path.filename().string(); }
+        [[nodiscard]] auto name() const -> wxString { return toWxString(path.filename()); }
 
         Id id;                      ///< Stable identity (matches the `m_nodes` key).
         Node* parent = nullptr;     ///< Parent folder, or null for the root.
@@ -286,7 +287,7 @@ private:
     void autosave() const;
 
     ConfigManager& m_config;                                     ///< Source of document encoding/EOL/type defaults.
-    std::string m_name;                                          ///< Project display name (root label).
+    wxString m_name;                                             ///< Project display name (title bar + tree root label).
     std::filesystem::path m_projectFile;                         ///< `.fbp` path for auto-save (empty = not persisted).
     std::unordered_map<Node::Id, std::unique_ptr<Node>> m_nodes; ///< Owning node arena.
     std::unordered_map<std::filesystem::path, Node*> m_pathMap;  ///< Path → node index (all nodes).

@@ -65,7 +65,7 @@ auto parseNodeId(const std::string& text) -> std::optional<Project::Node::Id> {
 
 } // namespace
 
-Project::Project(CompilerConfigCatalog& catalog, ConfigManager& config, std::string name, fs::path rootDir)
+Project::Project(CompilerConfigCatalog& catalog, ConfigManager& config, wxString name, fs::path rootDir)
 : ProjectBase(catalog)
 , m_config(config)
 , m_name(std::move(name)) {
@@ -448,7 +448,7 @@ auto Project::saveTo(const fs::path& projectFile) const -> std::expected<void, E
     wxFileConfig cfg(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
     cfg.Write("/format", 1L);
     cfg.Write("/version", Version::fbide().asString());
-    cfg.Write("/name", wxString::FromUTF8(m_name));
+    cfg.Write("/name", m_name);
 
     for (const auto& nodePtr : m_nodes | std::views::values) {
         const Node* node = nodePtr.get();
@@ -457,7 +457,7 @@ auto Project::saveTo(const fs::path& projectFile) const -> std::expected<void, E
         }
         const wxString idStr = wxString::FromUTF8(node->id.string());
         const wxString group = node->isFolder() ? "/folders/" : "/files/";
-        cfg.Write(group + idStr, wxString::FromUTF8(node->name()));
+        cfg.Write(group + idStr, node->name());
         if (node->parent != m_root) {
             cfg.Write(group + idStr + "/parent", wxString::FromUTF8(node->parent->id.string()));
         }
@@ -479,8 +479,10 @@ auto Project::loadFrom(const fs::path& projectFile, CompilerConfigCatalog& catal
     }
     wxFileConfig cfg(in, wxConvUTF8);
 
-    const wxString nameWx = cfg.Read("/name", wxEmptyString);
-    auto name = nameWx.empty() ? projectFile.stem().string() : nameWx.utf8_string();
+    wxString name = cfg.Read("/name", wxEmptyString);
+    if (name.empty()) {
+        name = toWxString(projectFile.stem());
+    }
 
     auto project = std::make_unique<Project>(catalog, config, std::move(name), projectFile.parent_path());
     if (const auto built = project->buildFromConfig(cfg); !built) {

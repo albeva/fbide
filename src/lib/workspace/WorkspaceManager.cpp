@@ -175,7 +175,7 @@ auto WorkspaceManager::newProject() -> Project* {
     // enables Close Project).
     const Project draft(
         m_ctx.getCompilerManager().catalog(), m_ctx.getConfigManager(),
-        projectFile.stem().string(), projectFile.parent_path()
+        toWxString(projectFile.stem()), projectFile.parent_path()
     );
     if (const auto saved = draft.saveTo(projectFile); !saved) {
         wxMessageBox(

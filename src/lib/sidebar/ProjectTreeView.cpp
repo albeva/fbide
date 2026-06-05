@@ -68,7 +68,7 @@ auto ProjectTreeView::addNode(const wxTreeItemId& parentItem, Project::Node* nod
     // The root shows the project's name; other nodes show their file/folder name.
     const wxString label = (node == m_project.getRoot())
                              ? m_project.getName()
-                             : wxString::FromUTF8(node->name());
+                             : node->name();
     const wxTreeItemId item = parentItem.IsOk()
                                 ? AppendItem(parentItem, label, icon, icon)
                                 : AddRoot(label, icon, icon);
@@ -94,7 +94,7 @@ void ProjectTreeView::insertChildItem(Project::Node* parent, Project::Node* chil
     const auto index = static_cast<size_t>(pos - children.begin());
 
     const int icon = iconFor(child);
-    const wxString label = wxString::FromUTF8(child->name());
+    const wxString label = child->name();
     const wxTreeItemId item = InsertItem(parentIt->second, index, label, icon, icon);
     m_itemToNode[item.GetID()] = child;
     m_nodeToItem[child] = item;
@@ -311,7 +311,7 @@ void ProjectTreeView::addExisting() {
 void ProjectTreeView::removeNode(Project::Node* node) {
     wxMessageDialog dlg(
         mainFrame(),
-        wxString::Format(m_ctx.tr("project.remove.message"), wxString::FromUTF8(node->name())),
+        wxString::Format(m_ctx.tr("project.remove.message"), node->name()),
         m_ctx.tr("project.remove.title"),
         wxYES_NO | wxCANCEL | wxICON_WARNING
     );
@@ -396,7 +396,7 @@ void ProjectTreeView::onEndDrag(wxTreeEvent& event) {
     if (const auto result = m_project.moveNode(source, newParent); !result) {
         if (result.error() == Project::Error::Clash) {
             wxMessageBox(
-                wxString::Format(m_ctx.tr("project.error.moveClash"), wxString::FromUTF8(source->name())),
+                wxString::Format(m_ctx.tr("project.error.moveClash"), source->name()),
                 m_ctx.tr("project.error.title"),
                 wxICON_WARNING | wxOK,
                 mainFrame()
