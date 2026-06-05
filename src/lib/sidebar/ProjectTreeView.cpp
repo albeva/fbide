@@ -258,7 +258,15 @@ void ProjectTreeView::runAction(const Project::Action action, Project::Node* nod
 void ProjectTreeView::openSettings() {
     ProjectSettingsDialog dlg(mainFrame(), m_ctx, m_project);
     dlg.create();
-    dlg.ShowModal();
+    if (dlg.ShowModal() != wxID_OK) {
+        return;
+    }
+    // Reflect a possible rename: the tree root label and the window title
+    // (which embeds "[project name]") both derive from Project::getName().
+    if (const auto it = m_nodeToItem.find(m_project.getRoot()); it != m_nodeToItem.end()) {
+        SetItemText(it->second, m_project.getName());
+    }
+    m_ctx.getDocumentManager().updateActiveTabTitle();
 }
 
 auto ProjectTreeView::confirmAddExisting(const char* msgKey, const wxString& name) const -> bool {
