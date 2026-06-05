@@ -45,27 +45,28 @@ name=snake game            ; project display name (distinct from root folder nam
 
 ### Folder summary
 
-`<uuid>=<basename>`. Lists every folder in the tree except the implicit
-root. Each entry is a key under the `[folders]` group, iterable via
-`wxFileConfig::GetFirstEntry`.
+`<id>=<basename>`. Lists every folder in the tree except the implicit
+root. `<id>` is the node's `Node::Id` — a short base-62 string (see
+`utils/Identifier.hpp`). Each entry is a key under the `[folders]` group,
+iterable via `wxFileConfig::GetFirstEntry`.
 
 ```ini
 [folders]
-11360570-...=src
-11360571-...=docs
-11360572-...=inc
+aZ3kP9q=src
+b7Kt2mX=docs
+c1Qf8Lp=inc
 ```
 
 ### File summary
 
-`<uuid>=<basename>`. Lists every file in the tree.
+`<id>=<basename>`. Lists every file in the tree.
 
 ```ini
 [files]
-11360573-...=hello.bas
-36EABB30-...=world.bas
-36EABB32-...=main.bas
-36EABB36-...=README.md
+d4Rb9nW=hello.bas
+e8Tz3kP=world.bas
+f2Yh7Qm=main.bas
+g6Lc1Xs=README.md
 ```
 
 ### Per-folder detail
@@ -75,8 +76,8 @@ omit `parent` (implicit root parent). Real folders omit `virtual`
 (real is the default).
 
 ```ini
-[folders/11360572-...]
-parent=11360570-...        ; omit for root-level folders
+[folders/c1Qf8Lp]
+parent=aZ3kP9q             ; omit for root-level folders
 virtual=1                  ; 0 is default; only write when virtual
 ```
 
@@ -87,8 +88,8 @@ type. The project file is the single source of truth for these
 per-file values.
 
 ```ini
-[files/11360573-...]
-parent=11360570-...
+[files/d4Rb9nW]
+parent=aZ3kP9q
 encoding=UTF-8             ; omit when matches editor.encoding
 eol=LF                     ; omit when matches editor.eolMode
 type=freebasic             ; omit when matches detected-from-extension
@@ -130,19 +131,19 @@ this file is meaningless without its sibling `.fbp`.
 ```ini
 format=1
 version=0.6.0
-selectedNode=11360573-...  ; Node::Id of the active tab; empty if none
+selectedNode=d4Rb9nW       ; Node::Id of the active tab; empty if none
 
-[folders/xxx]
+[folders/c1Qf8Lp]
 expanded=0
 
-[files/11360573-...]
+[files/d4Rb9nW]
 scroll=10
 cursor=250
 folds=12,34
 ```
 
-- Keyed by `Project::Node::Id` UUID. No paths; the project file is the
-  source of truth for tree structure.
+- Keyed by `Project::Node::Id` (a short base-62 string). No paths; the
+  project file is the source of truth for tree structure.
 - Stores only UI state — `scroll`, `cursor`, `folds`. Encoding / EOL /
   type live in `.fbp` (one source of truth).
 - Untitled or non-project files are never in this file (they belong to

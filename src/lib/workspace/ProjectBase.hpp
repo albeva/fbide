@@ -50,10 +50,11 @@ public:
         QuickRun = 1U << 3,
     };
 
-    /// Opaque strong-typed handle for a project instance, unique across
-    /// the running process. `0` is the invalid sentinel; `bool(id)`
-    /// reports validity.
-    using Id = IdentifierBase<ProjectBase>;
+    /// Opaque strong-typed handle for a project instance, unique across the
+    /// running process (a monotonic counter; never serialised — a project is
+    /// identified on disk by its file path). `0` is the invalid sentinel;
+    /// `bool(id)` reports validity.
+    using Id = IdentifierBase<ProjectBase, IdKind::Counter>;
 
     /// Project identity.
     [[nodiscard]] auto getId() const -> Id { return m_id; }

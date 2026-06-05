@@ -8,117 +8,121 @@
 
 namespace fbide {
 
-/// Free generator for fresh v4 UUIDs — delegates to Boost's
-/// `random_generator`, which keeps a thread-local PRNG so calls from
-/// different threads don't contend. Defined out-of-line so the heavy
-/// generator headers (`random_generator.hpp` and its `<random>` deps)
-/// stay in the implementation file.
-[[nodiscard]] auto generateUuid() -> boost::uuids::uuid;
+/// How an `IdentifierBase` mints a fresh value in `generate()`.
+enum class IdKind : std::uint8_t {
+    /// Monotonic counter (from 1). Process-unique and compact; for in-process
+    /// handles that are never serialised.
+    Counter,
+    /// Time-seeded random value (high 32 bits = Unix-epoch seconds, low 32 =
+    /// random), rendered as a short base-62 string. Loosely time-ordered, yet
+    /// minted without shared state, so ids created in separate files /
+    /// processes don't collide — safe to merge a serialised tree under version
+    /// control or to compose child projects. Callers that need a hard
+    /// guarantee within a scope re-roll on the rare clash; see
+    /// `Project::makeNodeId`.
+    Random,
+};
 
-/// Canonical 8-4-4-4-12 lowercase-hex string form of a UUID. Out-of-line so
-/// the heavy `uuid_io` header stays in the implementation file.
-[[nodiscard]] auto uuidToString(const boost::uuids::uuid& uuid) -> std::string;
-
-/// Parse a canonical UUID string into a UUID. Throws `std::runtime_error` on
-/// malformed input. Out-of-line so the `string_generator` header stays in the
-/// implementation file.
-[[nodiscard]] auto uuidFromString(std::string_view text) -> boost::uuids::uuid;
+namespace detail {
+    /// Tag-independent operations on the 64-bit value behind every identifier.
+    /// A non-template helper so the heavy `<random>` header and the base-62 codec
+    /// stay in `Identifier.cpp` rather than leaking into this (PCH-wide) header.
+    struct IdValue {
+        /// Fresh id value: a 32-bit Unix timestamp (seconds) in the high half
+        /// and a 32-bit random in the low half — loosely time-ordered, non-zero.
+        [[nodiscard]] static auto random() -> std::uint64_t;
+        /// Next monotonic counter value (starts at 1; process-wide).
+        [[nodiscard]] static auto next() -> std::uint64_t;
+        /// Base-62 (`0-9A-Za-z`) form — compact and separator-free (≤ 11 chars).
+        [[nodiscard]] static auto toString(std::uint64_t value) -> std::string;
+        /// Parse a base-62 string. Throws `std::runtime_error` on an invalid
+        /// character or 64-bit overflow. Round-trips `toString`.
+        [[nodiscard]] static auto fromString(std::string_view text) -> std::uint64_t;
+    };
+} // namespace detail
 
 /**
- * Phantom-type-tagged identifier — a strong-typedef wrapper around a
- * `boost::uuids::uuid` (by default) so IDs of different kinds cannot
- * be silently interchanged.
+ * Phantom-type-tagged identifier — a strong typedef around a `std::uint64_t`
+ * so ids of different kinds cannot be silently interchanged.
  *
- * The `Tag` template parameter exists solely for type distinction;
- * `IdentifierBase<A>` and `IdentifierBase<B>` are unrelated, non-
- * convertible types even when the underlying value happens to be the
- * same. The tag never needs a definition — a forward-declared class
- * suffices.
+ * `Tag` exists solely for type distinction: `IdentifierBase<A>` and
+ * `IdentifierBase<B>` are unrelated, non-convertible types even when the
+ * underlying value matches. The tag never needs a definition — a
+ * forward-declared class suffices.
  *
- * Defaults: `Underlying = boost::uuids::uuid` — the default-constructed
- * underlying value is the conventional invalid sentinel (nil UUID, or
- * zero for integer specialisations). Explicit conversion to `bool`
- * reports validity.
+ * `Kind` selects how `generate()` mints a value (see `IdKind`): a `Counter`
+ * for in-process-only handles, `Random` (the default) for ids that round-trip
+ * through serialisation as base 62.
+ *
+ * The default-constructed value (`0`) is the invalid sentinel; explicit
+ * conversion to `bool` reports validity.
  *
  * Typical usage:
  *
  *     class Project final {
  *     public:
- *         using Id = IdentifierBase<Project>;          // UUID-backed.
+ *         using Id = IdentifierBase<Project, IdKind::Counter>;   // in-process.
  *         class Node final {
  *         public:
- *             using Id = IdentifierBase<Node>;         // UUID-backed.
+ *             using Id = IdentifierBase<Node>;                   // Random; serialised.
  *         };
  *     };
- *     const Project::Id fresh = Project::Id::generate();
+ *     const auto fresh = Project::Node::Id::generate();
+ *     const auto same  = Project::Node::Id { fresh.string() };   // base-62 round-trip
  *
- * `std::hash` is partially-specialised below for every instantiation
- * so identifiers can be used as keys in `std::unordered_map` /
- * `std::unordered_set` out of the box, provided the underlying type
- * itself has a `std::hash` specialisation.
+ * `std::hash` is partially-specialised below for every instantiation so
+ * identifiers can be used as keys in `std::unordered_map` /
+ * `std::unordered_set` out of the box.
  */
-template<typename Tag, typename UnderlyingT = boost::uuids::uuid>
+template<typename Tag, IdKind Kind = IdKind::Random>
 class IdentifierBase final {
 public:
-    using Underlying = UnderlyingT;
-
-    /// Default-construct to the invalid sentinel.
+    /// Default-construct to the invalid sentinel (`0`).
     constexpr IdentifierBase() = default;
 
-    /// Construct from an explicit underlying value. `explicit` so raw
-    /// underlying values don't implicitly become identifiers at call
-    /// sites.
-    constexpr explicit IdentifierBase(Underlying value)
-    : m_value(std::move(value)) {}
+    /// Construct from an explicit value. `explicit` so raw integers don't
+    /// implicitly become identifiers at call sites.
+    constexpr explicit IdentifierBase(std::uint64_t value)
+    : m_value(value) {}
 
-    /// Construct from a canonical UUID string — UUID-backed identifiers only.
-    /// Throws `std::runtime_error` on malformed input. `explicit` to match the
-    /// value constructor (no implicit string → identifier conversions).
-    explicit IdentifierBase(std::string_view text)
-        requires std::is_same_v<UnderlyingT, boost::uuids::uuid>
-    : m_value(uuidFromString(text)) {}
+    /// Construct from a base-62 string (the serialised form). Throws
+    /// `std::runtime_error` on malformed input. `explicit` to match the value
+    /// constructor (no implicit string → identifier conversions).
+    explicit IdentifierBase(const std::string_view text)
+    : m_value(detail::IdValue::fromString(text)) {}
 
-    /// Allocate a fresh identifier. Only enabled when the underlying
-    /// type is `boost::uuids::uuid` — for other underlying types the
-    /// caller is expected to supply the value explicitly.
-    [[nodiscard]] static auto generate() -> IdentifierBase
-        requires std::is_same_v<UnderlyingT, boost::uuids::uuid>
-    {
-        return IdentifierBase { generateUuid() };
+    /// Mint a fresh identifier following the `Kind` policy.
+    [[nodiscard]] static auto generate() -> IdentifierBase {
+        if constexpr (Kind == IdKind::Counter) {
+            return IdentifierBase { detail::IdValue::next() };
+        } else {
+            return IdentifierBase { detail::IdValue::random() };
+        }
     }
 
-    /// Underlying value; useful for serialisation or hashing. Returned
-    /// by const reference so larger underlying types (UUID is 16 bytes)
-    /// don't pay a copy on every read.
-    [[nodiscard]] constexpr auto value() const -> const Underlying& { return m_value; }
+    /// Underlying value; useful for hashing.
+    [[nodiscard]] constexpr auto value() const -> std::uint64_t { return m_value; }
 
-    /// Canonical UUID string form of the underlying value — UUID-backed
-    /// identifiers only. Round-trips with the `std::string_view` constructor.
-    [[nodiscard]] auto string() const -> std::string
-        requires std::is_same_v<UnderlyingT, boost::uuids::uuid>
-    {
-        return uuidToString(m_value);
-    }
+    /// Base-62 string form of the underlying value. Round-trips with the
+    /// `std::string_view` constructor.
+    [[nodiscard]] auto string() const -> std::string { return detail::IdValue::toString(m_value); }
 
     /// Comparable to itself; ordering follows the underlying value.
     constexpr auto operator<=>(const IdentifierBase&) const = default;
 
-    /// Validity probe. `false` only when the underlying value equals
-    /// its default-constructed sentinel.
-    explicit constexpr operator bool() const { return m_value != Underlying {}; }
+    /// Validity probe. `false` only for the default-constructed sentinel.
+    explicit constexpr operator bool() const { return m_value != 0; }
 
 private:
-    Underlying m_value {};
+    std::uint64_t m_value {};
 };
 
 } // namespace fbide
 
-/// Partial specialisation that makes any `IdentifierBase<Tag, Underlying>`
-/// hashable. Forwards to `std::hash<Underlying>` so the hash quality
-/// follows whatever the underlying type's hash provides.
-template<typename Tag, typename Underlying>
-struct std::hash<fbide::IdentifierBase<Tag, Underlying>> {
-    auto operator()(const fbide::IdentifierBase<Tag, Underlying>& id) const noexcept -> size_t {
-        return hash<Underlying> {}(id.value());
+/// Partial specialisation that makes any `IdentifierBase<Tag, Kind>` hashable.
+template<typename Tag, fbide::IdKind Kind>
+struct std::hash<fbide::IdentifierBase<Tag, Kind>> {
+    auto operator()(const fbide::IdentifierBase<Tag, Kind>& id) const noexcept -> size_t {
+        return hash<std::uint64_t> {}(id.value());
     }
 };

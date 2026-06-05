@@ -53,7 +53,7 @@ void assertNoOpenEditor(const Project::Node* node) {
     }
 }
 
-// Parse a UUID string back to a node id; nullopt when malformed (the
+// Parse a base-62 id string back to a node id; nullopt when malformed (the
 // `Node::Id` string constructor throws on bad input).
 auto parseNodeId(const std::string& text) -> std::optional<Project::Node::Id> {
     try {
@@ -78,8 +78,18 @@ auto Project::makeDocument(const fs::path& path) const -> std::unique_ptr<Docume
     return std::make_unique<Document>(m_config, documentTypeFromPath(path), nullptr);
 }
 
+auto Project::makeNodeId() const -> Node::Id {
+    // Random ids practically never collide, but guarantee uniqueness within the
+    // project by re-rolling on the rare clash with an existing node.
+    auto id = Node::Id::generate();
+    while (m_nodes.contains(id)) {
+        id = Node::Id::generate();
+    }
+    return id;
+}
+
 void Project::createRoot(fs::path rootDir) {
-    const auto id = Node::Id::generate();
+    const auto id = makeNodeId();
     auto root = std::make_unique<Node>(Node {
         .id = id,
         .parent = nullptr,
@@ -93,7 +103,7 @@ void Project::createRoot(fs::path rootDir) {
 }
 
 auto Project::attachNode(Node* parent, fs::path path, Node::Entry entry) -> Node* {
-    return attachNode(parent, Node::Id::generate(), std::move(path), std::move(entry));
+    return attachNode(parent, makeNodeId(), std::move(path), std::move(entry));
 }
 
 auto Project::attachNode(Node* parent, const Node::Id id, fs::path path, Node::Entry entry) -> Node* {
@@ -445,11 +455,11 @@ auto Project::saveTo(const fs::path& projectFile) const -> std::expected<void, E
         if (node == m_root) {
             continue;
         }
-        const wxString uuid = wxString::FromUTF8(node->id.string());
+        const wxString idStr = wxString::FromUTF8(node->id.string());
         const wxString group = node->isFolder() ? "/folders/" : "/files/";
-        cfg.Write(group + uuid, wxString::FromUTF8(node->name()));
+        cfg.Write(group + idStr, wxString::FromUTF8(node->name()));
         if (node->parent != m_root) {
-            cfg.Write(group + uuid + "/parent", wxString::FromUTF8(node->parent->id.string()));
+            cfg.Write(group + idStr + "/parent", wxString::FromUTF8(node->parent->id.string()));
         }
     }
 

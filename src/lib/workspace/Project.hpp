@@ -88,9 +88,10 @@ public:
     /// real filesystem path. Owned by `Project::m_nodes`.
     class Node final {
     public:
-        /// Opaque strong-typed handle; UUID-backed so it round-trips through
-        /// serialisation. Internal references prefer the direct `Node*`.
-        using Id = IdentifierBase<Node>;
+        /// Opaque strong-typed handle; a random value rendered as a short
+        /// base-62 string so it round-trips through serialisation without
+        /// colliding across files. Internal references prefer the direct `Node*`.
+        using Id = IdentifierBase<Node, IdKind::Random>;
 
         /// Ordering applied to a folder's children. `Name` (the default and
         /// currently only option) groups folders before files, then sorts
@@ -241,6 +242,10 @@ private:
     /// Create an editor-less `Document` for `path` (type from the extension,
     /// no event sink yet — `DocumentManager` sets the sink when it opens it).
     [[nodiscard]] auto makeDocument(const std::filesystem::path& path) const -> std::unique_ptr<Document>;
+
+    /// Mint a node id that is unique within this project: a random id, re-rolled
+    /// on the (astronomically rare) clash with an existing node.
+    [[nodiscard]] auto makeNodeId() const -> Node::Id;
 
     /// Allocate a node under `parent`, register it in the arena + path index,
     /// and append it to the parent's children (caller re-sorts).

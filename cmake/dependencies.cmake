@@ -1,8 +1,9 @@
-# Boost — used today for `Boost::uuid` (RFC 4122 v4 UUID generation,
-# parsing, comparison, serialisation; consumed by `IdentifierBase` so
-# project / node identifiers survive on-disk round-trips). Header-only
-# components are pulled in lazily via `BOOST_INCLUDE_LIBRARIES` so the
-# configure stays scoped to libraries we actually use.
+# Boost — kept configured and available though FBIde no longer consumes it
+# directly: project / node identifiers are now generated in-house (random
+# base-62 / counter — see `utils/Identifier`). The lightweight, header-only
+# `uuid` library is still pulled via `BOOST_INCLUDE_LIBRARIES` and linked so
+# the dependency stays wired and ready for future use without fetching all of
+# Boost.
 #
 # Fetched from the upstream Boost release tarball — not picked up from
 # a system install (Homebrew / apt) so build environments stay
