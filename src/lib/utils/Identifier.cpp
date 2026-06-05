@@ -43,7 +43,7 @@ auto detail::IdValue::next() -> std::uint64_t {
     return ++counter;
 }
 
-auto detail::IdValue::toString(std::uint64_t value) -> std::string {
+auto detail::IdValue::toString(std::uint64_t value) -> wxString {
     if (value == 0) {
         return "0";
     }
@@ -55,15 +55,15 @@ auto detail::IdValue::toString(std::uint64_t value) -> std::string {
         out.insert(out.begin(), kBase62Alphabet[static_cast<std::size_t>(value % kBase)]);
         value /= kBase;
     }
-    return out;
+    return wxString::FromUTF8(out);
 }
 
-auto detail::IdValue::fromString(const std::string_view text) -> std::uint64_t {
+auto detail::IdValue::fromString(const wxString& text) -> std::uint64_t {
     if (text.empty()) {
         throw std::runtime_error("IdValue::fromString: empty input");
     }
     std::uint64_t value = 0;
-    for (const char chr : text) {
+    for (const char chr : text.utf8_string()) { // base-62 is ASCII
         const auto digit = kBase62Alphabet.find(chr);
         if (digit == std::string_view::npos) {
             throw std::runtime_error("IdValue::fromString: invalid character");

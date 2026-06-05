@@ -55,6 +55,11 @@ UIManager::~UIManager() {
 }
 
 void UIManager::onClose(wxCloseEvent& event) {
+    // Persist the open project's session (open documents, active tab, tree
+    // state) while the editors and tree are still alive — prepareToQuit closes
+    // them below.
+    m_ctx.getWorkspaceManager().saveProjectSession();
+
     // Let DocumentManager handle unsaved documents
     if (!m_ctx.getDocumentManager().prepareToQuit()) {
         event.Veto();

@@ -77,6 +77,11 @@ public:
     /// no project tree is shown.
     void hideProjectTree();
 
+    /// Capture the project tree's expanded folders + selected node into the
+    /// project session. No-op when no project tree is shown. Called by
+    /// `WorkspaceManager::saveProjectSession`.
+    void captureProjectSession();
+
 private:
     /// Browse Files tree leaf activated — open the file in a new editor tab.
     void onFileActivated(wxTreeEvent& event);

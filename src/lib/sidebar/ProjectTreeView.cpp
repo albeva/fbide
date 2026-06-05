@@ -11,6 +11,7 @@
 #include "document/DocumentPath.hpp"
 #include "ui/ArtiProvider.hpp"
 #include "ui/UIManager.hpp"
+#include "workspace/ProjectSession.hpp"
 
 using namespace fbide;
 
@@ -50,6 +51,45 @@ ProjectTreeView::ProjectTreeView(wxWindow* parent, Context& ctx, Project& projec
     AssignImageList(images); // tree takes ownership
 
     rebuild();
+    restoreSession();
+}
+
+void ProjectTreeView::restoreSession() {
+    const auto* session = m_project.session();
+    if (session == nullptr) {
+        return;
+    }
+    for (const auto id : session->expandedFolders()) {
+        if (auto* node = m_project.findNode(id)) {
+            if (const auto it = m_nodeToItem.find(node); it != m_nodeToItem.end()) {
+                Expand(it->second);
+            }
+        }
+    }
+    if (const auto selected = session->selectedNode()) {
+        if (auto* node = m_project.findNode(selected)) {
+            if (const auto it = m_nodeToItem.find(node); it != m_nodeToItem.end()) {
+                SelectItem(it->second);
+            }
+        }
+    }
+}
+
+void ProjectTreeView::captureSession() {
+    auto* session = m_project.session();
+    if (session == nullptr) {
+        return;
+    }
+    std::vector<Project::Node::Id> expanded;
+    for (const auto& [node, item] : m_nodeToItem) {
+        if (node->isFolder() && IsExpanded(item)) {
+            expanded.push_back(node->id);
+        }
+    }
+    session->setExpandedFolders(expanded);
+
+    auto* selected = nodeFor(GetSelection());
+    session->setSelectedNode(selected != nullptr ? selected->id : Project::Node::Id {});
 }
 
 // --- population ------------------------------------------------------------

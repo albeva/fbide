@@ -123,31 +123,41 @@ already uses to find the closest real ancestor for auto-`fs::rename`.
 
 ## `.fbide/session.ini` — per-user runtime state
 
-Auto-managed. Loaded automatically when `.fbp` is opened; saved
-automatically when `.fbp` is saved. Distinct from the standalone
-`.fbs` session format — `.fbs` is user-driven and standalone-meaningful,
-this file is meaningless without its sibling `.fbp`.
+Auto-managed sidecar to the `.fbp`. Loaded when the project is opened;
+saved when the project is closed (manual Close Project, switching to
+another project, or app exit). Distinct from the standalone `.fbs`
+session — `.fbs` is user-driven and standalone-meaningful, this file is
+meaningless without its sibling `.fbp`.
+
+Per-document attributes are written / read by
+`Document::setSessionAttributes` / `loadSessionAttributes` — the same code
+the `.fbs` session uses.
 
 ```ini
-format=1
-version=0.6.0
-selectedNode=d4Rb9nW       ; Node::Id of the active tab; empty if none
-
-[folders/c1Qf8Lp]
-expanded=0
+[session]
+version=1
+open=d4Rb9nW,e8Tz3kP       ; open documents, in tab order (Node::Ids)
+activeDocument=d4Rb9nW     ; focused editor tab; empty if none
+selectedNode=c1Qf8Lp       ; project-tree selection (file or folder); empty if none
+expanded=aZ3kP9q,c1Qf8Lp   ; expanded folder nodes
 
 [files/d4Rb9nW]
 scroll=10
 cursor=250
-folds=12,34
+encoding=UTF-8             ; always written
+eolMode=LF                 ; always written
+type=freebasic            ; only when the user overrode the detected type
+configuration=cfg-2        ; only when pinned to a non-active compiler config
+folds=12,34                ; collapsed lines, only when the fold margin is on
 ```
 
 - Keyed by `Project::Node::Id` (a short base-62 string). No paths; the
   project file is the source of truth for tree structure.
-- Stores only UI state — `scroll`, `cursor`, `folds`. Encoding / EOL /
-  type live in `.fbp` (one source of truth).
+- On load the listed `open` documents are reopened (each restoring its
+  editor state), the `activeDocument` tab is focused, and the tree's
+  expanded folders + selected node are restored.
 - Untitled or non-project files are never in this file (they belong to
-  the standalone session flow).
+  the standalone `.fbs` session flow).
 
 ## Implementation API — proposed
 

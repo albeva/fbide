@@ -116,48 +116,10 @@ auto FileSession::save(const std::filesystem::path& path) -> bool {
         if (doc->isNew() || !doc->hasView()) {
             continue;
         }
-        auto* editor = doc->getEditor();
         const auto group = wxString::Format("/%s%03zu", FILE_GROUP_PREFIX, fileIndex);
         cfg.SetPath(group);
         cfg.Write("path", wxString::FromUTF8(pathForSession(doc->getFilePath(), sessionDir)));
-        cfg.Write("scroll", editor->GetFirstVisibleLine());
-        cfg.Write("cursor", editor->GetCurrentPos());
-        cfg.Write("encoding", wxString(doc->getEncoding().toString()));
-        cfg.Write("eolMode", wxString(doc->getEolMode().toString()));
-        // Only persist the type when the user has explicitly overridden it.
-        // Otherwise it can be re-derived from the path on next load.
-        if (doc->isTypeOverridden()) {
-            const auto typeKey = documentTypeKey(doc->getType());
-            cfg.Write("type", wxString::FromUTF8(typeKey.data(), typeKey.size()));
-        }
-        // Pinned compiler config — written only when the doc is pinned
-        // to a non-default configuration. An empty optional means
-        // "follow active", which doesn't need on-disk representation.
-        if (const auto* project = doc->getProject(); project != nullptr) {
-            if (const auto slug = project->getConfigurationSlug(); slug.has_value()) {
-                cfg.Write("configuration", *slug);
-            }
-        }
-
-        // Store code folds
-        if (m_ctx.getConfigManager().config().get_or("editor.folderMargin", false)) {
-            editor->Colourise(editor->GetEndStyled(), -1);
-            wxString folds;
-            const auto lines = editor->GetLineCount();
-            folds.reserve(static_cast<std::size_t>(std::min(1, lines / 5)));
-            for (int line = 0; line < lines; line++) {
-                if (not editor->GetFoldExpanded(line)) {
-                    if (not folds.empty()) {
-                        folds += ",";
-                    }
-                    folds += std::to_string(line);
-                }
-            }
-            if (not folds.empty()) {
-                cfg.Write("folds", folds);
-            }
-        }
-
+        doc->setSessionAttributes(cfg);
         fileIndex++;
     }
 
@@ -246,65 +208,8 @@ void FileSession::loadV3(const std::filesystem::path& path) {
         if (doc == nullptr) {
             continue;
         }
-        auto* editor = doc->getEditor();
-
-        // Optional metadata — overrides auto-detected values.
-        wxString encKey;
-        if (cfg.Read("encoding", &encKey) && !encKey.empty()) {
-            if (const auto enc = TextEncoding::parse(encKey.ToStdString()); enc.has_value()) {
-                doc->setEncoding(*enc);
-            }
-        }
-        wxString eolKey;
-        if (cfg.Read("eolMode", &eolKey) && !eolKey.empty()) {
-            if (const auto eol = EolMode::parse(eolKey.ToStdString()); eol.has_value()) {
-                doc->setEolMode(*eol);
-            }
-        }
-        // Restore user-overridden document type (e.g. user picked "Bash"
-        // for an extensionless file last session). Auto-detected types
-        // aren't persisted, so absence here means "trust the derived type".
-        wxString typeKey;
-        if (cfg.Read("type", &typeKey) && !typeKey.empty()) {
-            if (const auto type = documentTypeFromKey(typeKey.ToStdString()); type.has_value()) {
-                doc->setType(*type);
-            }
-        }
-        // Pinned compiler config. Stored verbatim — validation against
-        // the live catalog is deferred until first compile/run, so
-        // momentarily-missing slugs don't lose the pointer if the user
-        // is about to re-add them.
-        wxString configSlug;
-        if (cfg.Read("configuration", &configSlug) && !configSlug.empty()) {
-            if (auto* project = doc->getProject(); project != nullptr) {
-                project->setConfigurationSlug(configSlug);
-            }
-        }
-        // setEncoding / setEolMode flip the meta-dirty flag — clear.
-        doc->markSaved();
-
-        long scroll = 0;
-        long cursor = 0;
-        cfg.Read("scroll", &scroll, 0L);
-        cfg.Read("cursor", &cursor, 0L);
-        applyScrollAndCursor(editor, scroll, cursor);
-
-        if (m_ctx.getConfigManager().config().get_or("editor.folderMargin", false)) {
-            wxString folds;
-            if (cfg.Read("folds", &folds)) {
-                editor->Colourise(editor->GetEndStyled(), -1);
-                for (const auto& str : wxSplit(folds, ',')) {
-                    int line;
-                    if (str.ToInt(&line)) {
-                        const auto last = editor->GetLastChild(line, -1);
-                        if (last > line) {
-                            editor->SetFoldExpanded(line, false);
-                            editor->HideLines(line + 1, last);
-                        }
-                    }
-                }
-            }
-        }
+        // cfg's path is the current file group — Document reads its state from it.
+        doc->loadSessionAttributes(cfg);
     }
 
     // Restore selected tab

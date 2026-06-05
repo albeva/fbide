@@ -101,6 +101,22 @@ public:
     /// project is permanent and never closed this way.
     auto closeProject(Project& project) -> bool;
 
+    /// Apply a document's saved per-project session state (scroll, caret,
+    /// folds, encoding, …). No-op unless `doc` is a persistent-project member.
+    /// Called by `DocumentManager` when an editor is opened.
+    void applyDocumentSession(Document& doc);
+
+    /// Capture a document's editor state into its project session. No-op unless
+    /// `doc` is a persistent-project member. Called when an editor closes or its
+    /// type changes.
+    void captureDocumentSession(Document& doc);
+
+    /// Flush the open project's session (open documents, active tab, expanded
+    /// folders, selected node) to its `.fbide/session.ini`. No-op when no
+    /// persistent project is open. Run on project close, project switch, and
+    /// app exit — while the editors and tree are still alive.
+    void saveProjectSession();
+
     /// Resolve `id` to a live `ProjectBase*`, or `nullptr` if no project
     /// with that id is currently owned. Exposed for the serialisation
     /// boundary and external references — internal callers hold
@@ -128,6 +144,11 @@ public:
     void onActiveDocumentChanged(Document* doc);
 
 private:
+    /// Reopen the documents recorded in the just-loaded project's session and
+    /// restore the active tab. The tree's expanded/selected state is restored
+    /// by `ProjectTreeView` on construction.
+    void restoreProjectSession();
+
     Context& m_ctx;
     /// Open persistent projects (currently at most one at a time).
     std::unordered_map<ProjectBase::Id, std::unique_ptr<ProjectBase>> m_projects;

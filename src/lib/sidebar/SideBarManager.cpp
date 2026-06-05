@@ -111,6 +111,12 @@ void SideBarManager::hideProjectTree() {
     m_projectTree = nullptr;
 }
 
+void SideBarManager::captureProjectSession() {
+    if (m_projectTree != nullptr) {
+        m_projectTree->captureSession();
+    }
+}
+
 void SideBarManager::showSymbolsFor(const Document* doc) {
     if (m_symbolPanel != nullptr) {
         m_symbolPanel->setSymbols(doc);

@@ -7,6 +7,7 @@
 #include "WorkspaceManager.hpp"
 #include "EphemeralProject.hpp"
 #include "Project.hpp"
+#include "ProjectSession.hpp"
 #include "analyses/intellisense/IntellisenseService.hpp"
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
@@ -133,6 +134,7 @@ auto WorkspaceManager::loadProject(const std::filesystem::path& path) -> Project
     m_ctx.getFileHistory().addFile(path);
     m_ctx.getSideBarManager().showProjectTree(*m_project);
     m_ctx.getUIManager().syncProjectCommands();
+    restoreProjectSession();
     return m_project;
 }
 
@@ -222,6 +224,11 @@ auto WorkspaceManager::documents() const -> std::vector<Document*> {
 }
 
 auto WorkspaceManager::closeProject(Project& project) -> bool {
+    // Snapshot the session (open documents, active tab, tree state) while the
+    // editors and tree are still alive, before tearing anything down.
+    if (&project == m_project) {
+        saveProjectSession();
+    }
     // Run each open member through the full close pipeline so the user is
     // prompted to save modified files; bail (leaving the project open) on
     // cancel. closeFile keeps a persistent-project document alive (editor-less)
@@ -244,6 +251,81 @@ auto WorkspaceManager::closeProject(Project& project) -> bool {
     }
     m_projects.erase(project.getId());
     return true;
+}
+
+void WorkspaceManager::applyDocumentSession(Document& doc) {
+    auto* node = doc.getNode();
+    if (node == nullptr) {
+        return; // standalone / ephemeral document — no per-project session
+    }
+    if (auto* session = static_cast<Project*>(doc.getProject())->session()) {
+        session->applyTo(doc);
+    }
+}
+
+void WorkspaceManager::captureDocumentSession(Document& doc) {
+    const auto* node = doc.getNode();
+    if (node == nullptr) {
+        return;
+    }
+    if (auto* session = static_cast<Project*>(doc.getProject())->session()) {
+        session->capture(doc);
+    }
+}
+
+void WorkspaceManager::saveProjectSession() {
+    if (m_project == nullptr) {
+        return;
+    }
+    auto* session = m_project->session();
+    if (session == nullptr) {
+        return;
+    }
+    const auto& docManager = m_ctx.getDocumentManager();
+
+    // Capture every open project document (in tab order) and the active tab.
+    std::vector<Project::Node::Id> openIds;
+    for (auto* doc : docManager.documentsInTabOrder()) {
+        if (const auto* node = doc->getNode()) {
+            session->capture(*doc);
+            openIds.push_back(node->id);
+        }
+    }
+    session->setOpenDocuments(openIds);
+
+    auto* active = docManager.getActive();
+    auto* activeNode = active != nullptr ? active->getNode() : nullptr;
+    session->setActiveDocument(activeNode != nullptr ? activeNode->id : Project::Node::Id {});
+
+    // Capture the tree's expanded folders + selected node.
+    m_ctx.getSideBarManager().captureProjectSession();
+
+    session->save();
+}
+
+void WorkspaceManager::restoreProjectSession() {
+    if (m_project == nullptr) {
+        return;
+    }
+    auto* session = m_project->session();
+    if (session == nullptr) {
+        return;
+    }
+    auto& docManager = m_ctx.getDocumentManager();
+    const auto thaw = m_ctx.getUIManager().freeze();
+
+    // Reopen the documents that were open last session, in tab order.
+    for (const auto id : session->openDocuments()) {
+        if (auto* node = m_project->findNode(id); node != nullptr && node->document() != nullptr) {
+            docManager.openEditorFor(*node->document());
+        }
+    }
+    // Restore the focused tab.
+    if (const auto activeId = session->activeDocument()) {
+        if (auto* node = m_project->findNode(activeId); node != nullptr && node->document() != nullptr) {
+            docManager.setActive(node->document());
+        }
+    }
 }
 
 auto WorkspaceManager::find(const ProjectBase::Id id) -> ProjectBase* {

@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "Project.hpp"
+#include "ProjectSession.hpp"
 #include "config/Version.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentType.hpp"
@@ -55,7 +56,7 @@ void assertNoOpenEditor(const Project::Node* node) {
 
 // Parse a base-62 id string back to a node id; nullopt when malformed (the
 // `Node::Id` string constructor throws on bad input).
-auto parseNodeId(const std::string& text) -> std::optional<Project::Node::Id> {
+auto parseNodeId(const wxString& text) -> std::optional<Project::Node::Id> {
     try {
         return Project::Node::Id { text };
     } catch (...) {
@@ -362,6 +363,11 @@ void Project::destroySubtree(Node* node) {
             destroySubtree(child);
         }
     }
+    // Prune the removed node from the session (per-doc state + tree state) so it
+    // doesn't linger in `.fbide/session.ini`.
+    if (m_session != nullptr) {
+        m_session->forget(node->id);
+    }
     if (!node->path.empty()) {
         m_pathMap.erase(node->path);
     }
@@ -455,11 +461,11 @@ auto Project::saveTo(const fs::path& projectFile) const -> std::expected<void, E
         if (node == m_root) {
             continue;
         }
-        const wxString idStr = wxString::FromUTF8(node->id.string());
+        const wxString idStr = node->id.string();
         const wxString group = node->isFolder() ? "/folders/" : "/files/";
         cfg.Write(group + idStr, node->name());
         if (node->parent != m_root) {
-            cfg.Write(group + idStr + "/parent", wxString::FromUTF8(node->parent->id.string()));
+            cfg.Write(group + idStr + "/parent", node->parent->id.string());
         }
     }
 
@@ -489,6 +495,8 @@ auto Project::loadFrom(const fs::path& projectFile, CompilerConfigCatalog& catal
         return std::unexpected(built.error());
     }
     project->m_projectFile = projectFile;
+    project->m_session = std::make_unique<ProjectSession>(projectFile);
+    project->m_session->load();
     return project;
 }
 
@@ -516,13 +524,13 @@ auto Project::buildFromConfig(wxFileConfig& cfg) -> std::expected<void, Error> {
     };
     std::unordered_map<Node::Id, ParsedFolder> parsedFolders;
     for (const auto& uuidWx : folderUuids) {
-        const auto id = parseNodeId(uuidWx.utf8_string());
+        const auto id = parseNodeId(uuidWx);
         if (!id) {
             return std::unexpected(Error::FormatError);
         }
         ParsedFolder parsed { cfg.Read("/folders/" + uuidWx, wxEmptyString).utf8_string(), std::nullopt };
         if (const wxString parentWx = cfg.Read("/folders/" + uuidWx + "/parent", wxEmptyString); !parentWx.empty()) {
-            const auto parentId = parseNodeId(parentWx.utf8_string());
+            const auto parentId = parseNodeId(parentWx);
             if (!parentId) {
                 return std::unexpected(Error::FormatError);
             }
@@ -561,14 +569,14 @@ auto Project::buildFromConfig(wxFileConfig& cfg) -> std::expected<void, Error> {
 
     // Materialise files under their parent folder (or the root).
     for (const auto& uuidWx : fileUuids) {
-        const auto id = parseNodeId(uuidWx.utf8_string());
+        const auto id = parseNodeId(uuidWx);
         if (!id) {
             return std::unexpected(Error::FormatError);
         }
         const auto basename = cfg.Read("/files/" + uuidWx, wxEmptyString).utf8_string();
         Node* parent = m_root;
         if (const wxString parentWx = cfg.Read("/files/" + uuidWx + "/parent", wxEmptyString); !parentWx.empty()) {
-            const auto parentId = parseNodeId(parentWx.utf8_string());
+            const auto parentId = parseNodeId(parentWx);
             if (!parentId) {
                 return std::unexpected(Error::FormatError);
             }

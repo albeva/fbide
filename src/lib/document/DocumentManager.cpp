@@ -210,6 +210,9 @@ void DocumentManager::openEditorFor(Document& doc) {
     }
 
     m_notebook->addPage(doc, true);
+    // Restore any saved per-document session state (project members only;
+    // a no-op for standalone documents).
+    m_ctx.getWorkspaceManager().applyDocumentSession(doc);
     if (doc.getType() == DocumentType::FreeBASIC) {
         submitIntellisense(&doc, content);
     }
@@ -498,6 +501,10 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
         }
     }
 
+    // Capture the document's session state before its editor is torn down —
+    // project members only, so their scroll/cursor/folds survive to next open.
+    m_ctx.getWorkspaceManager().captureDocumentSession(doc);
+
     // Tear down the editor/tab. A standalone document dies with its tab; a
     // persistent project member survives (editor-less) under its node.
     auto* project = doc.getProject();
@@ -564,6 +571,9 @@ void DocumentManager::onDocumentTypeChanged(DocumentTypeChangedEvent& event) {
     // The configuration dropdown tracks that same project, and a type
     // flip fires no page-change event, so re-sync it explicitly.
     m_ctx.getCompilerManager().onActiveDocumentChanged(getActive());
+
+    // Persist the new type (and current editor state) for project members.
+    m_ctx.getWorkspaceManager().captureDocumentSession(doc);
 
     if (doc.getType() == DocumentType::FreeBASIC) {
         // Re-enter the FreeBASIC pipeline — submit the current buffer
@@ -668,6 +678,21 @@ auto DocumentManager::getActive() const -> Document* {
 
 auto DocumentManager::getCount() const -> size_t {
     return m_notebook != nullptr ? static_cast<size_t>(m_notebook->GetPageCount()) : 0;
+}
+
+auto DocumentManager::documentsInTabOrder() const -> std::vector<Document*> {
+    std::vector<Document*> result;
+    if (m_notebook == nullptr) {
+        return result;
+    }
+    const auto count = m_notebook->GetPageCount();
+    result.reserve(count);
+    for (size_t idx = 0; idx < count; idx++) {
+        if (auto* doc = m_notebook->documentForPage(m_notebook->GetPage(idx))) {
+            result.push_back(doc);
+        }
+    }
+    return result;
 }
 
 auto DocumentManager::openDocuments() const -> std::vector<Document*> {

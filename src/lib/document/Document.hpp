@@ -203,11 +203,27 @@ public:
     /// the view is an `EditorPanel`; no-op for other view kinds.
     void updateSettings();
 
+    /// Write this document's session state — caret/scroll, encoding, EOL, an
+    /// explicit type override, the pinned compiler configuration, and code
+    /// folds — into `cfg` at its already-selected path/group. Shared by the
+    /// `.fbs` session and the per-project `.fbide/session.ini`. A view-less
+    /// document writes nothing.
+    void setSessionAttributes(wxConfigBase& cfg);
+
+    /// Read + apply session state previously written by `setSessionAttributes`
+    /// (cfg's path/group already selected by the caller), then `markSaved()`.
+    void loadSessionAttributes(const wxConfigBase& cfg);
+
     /// The project that owns this document — the shared `EphemeralProject`
     /// for a standalone file, or a persistent `Project` for a project member.
     /// Never null once the document is owned (which it is for its whole
     /// lifetime); the owning project always outlives it.
     [[nodiscard]] auto getProject() const -> ProjectBase* { return m_project; }
+
+    /// The persistent-project file node that owns this document, or `nullptr`
+    /// when it isn't bound to a persistent `Project` (standalone/ephemeral).
+    /// Lets session/persistence code key a document by its `Node::Id`.
+    [[nodiscard]] auto getNode() const -> Project::Node*;
 
     /// Bind this document to a project. For a persistent project pass the
     /// owning file `node` (path resolves through it). For the shared

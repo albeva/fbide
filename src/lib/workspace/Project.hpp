@@ -14,6 +14,7 @@ namespace fbide {
 class Document;
 class CompilerConfigCatalog;
 class ConfigManager;
+class ProjectSession;
 struct ResolvedCompilerConfig;
 
 /**
@@ -56,6 +57,10 @@ public:
 
     /// Set the project's display name (display only; no filesystem effect).
     void setName(wxString name) { m_name = std::move(name); }
+
+    /// Per-project session sidecar (`.fbide/session.ini`); `nullptr` for a
+    /// project not loaded from disk. Created and loaded by `loadFrom`.
+    [[nodiscard]] auto session() const -> ProjectSession* { return m_session.get(); }
 
     /// Failure modes for the disk-touching tree operations. `Clash` /
     /// `OutOfTree` are recoverable (caller picks a new name / path or offers
@@ -289,6 +294,7 @@ private:
     ConfigManager& m_config;                                     ///< Source of document encoding/EOL/type defaults.
     wxString m_name;                                             ///< Project display name (title bar + tree root label).
     std::filesystem::path m_projectFile;                         ///< `.fbp` path for auto-save (empty = not persisted).
+    std::unique_ptr<ProjectSession> m_session;                   ///< `.fbide/session.ini` sidecar (null until loaded from disk).
     std::unordered_map<Node::Id, std::unique_ptr<Node>> m_nodes; ///< Owning node arena.
     std::unordered_map<std::filesystem::path, Node*> m_pathMap;  ///< Path → node index (all nodes).
     Node* m_root = nullptr;                                      ///< Tree root (real anchor directory).

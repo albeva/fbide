@@ -34,10 +34,10 @@ namespace detail {
         /// Next monotonic counter value (starts at 1; process-wide).
         [[nodiscard]] static auto next() -> std::uint64_t;
         /// Base-62 (`0-9A-Za-z`) form — compact and separator-free (≤ 11 chars).
-        [[nodiscard]] static auto toString(std::uint64_t value) -> std::string;
+        [[nodiscard]] static auto toString(std::uint64_t value) -> wxString;
         /// Parse a base-62 string. Throws `std::runtime_error` on an invalid
         /// character or 64-bit overflow. Round-trips `toString`.
-        [[nodiscard]] static auto fromString(std::string_view text) -> std::uint64_t;
+        [[nodiscard]] static auto fromString(const wxString& text) -> std::uint64_t;
     };
 } // namespace detail
 
@@ -88,7 +88,7 @@ public:
     /// Construct from a base-62 string (the serialised form). Throws
     /// `std::runtime_error` on malformed input. `explicit` to match the value
     /// constructor (no implicit string → identifier conversions).
-    explicit IdentifierBase(const std::string_view text)
+    explicit IdentifierBase(const wxString& text)
     : m_value(detail::IdValue::fromString(text)) {}
 
     /// Mint a fresh identifier following the `Kind` policy.
@@ -104,8 +104,8 @@ public:
     [[nodiscard]] constexpr auto value() const -> std::uint64_t { return m_value; }
 
     /// Base-62 string form of the underlying value. Round-trips with the
-    /// `std::string_view` constructor.
-    [[nodiscard]] auto string() const -> std::string { return detail::IdValue::toString(m_value); }
+    /// `wxString` constructor.
+    [[nodiscard]] auto string() const -> wxString { return detail::IdValue::toString(m_value); }
 
     /// Comparable to itself; ordering follows the underlying value.
     constexpr auto operator<=>(const IdentifierBase&) const = default;

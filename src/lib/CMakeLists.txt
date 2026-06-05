@@ -81,6 +81,7 @@ target_sources(fbide_lib
     workspace/EphemeralProject.cpp
     workspace/Project.cpp
     workspace/ProjectBase.cpp
+    workspace/ProjectSession.cpp
     workspace/WorkspaceManager.cpp
 
     PUBLIC FILE_SET HEADERS FILES
@@ -170,6 +171,7 @@ target_sources(fbide_lib
     workspace/EphemeralProject.hpp
     workspace/Project.hpp
     workspace/ProjectBase.hpp
+    workspace/ProjectSession.hpp
     workspace/WorkspaceManager.hpp
     utils/DeferHandler.hpp
     utils/Identifier.hpp

@@ -147,6 +147,10 @@ public:
     /// Number of open documents (tabs).
     [[nodiscard]] auto getCount() const -> size_t;
 
+    /// Open documents in left-to-right tab order. Backs session persistence
+    /// that must preserve the visible tab arrangement.
+    [[nodiscard]] auto documentsInTabOrder() const -> std::vector<Document*>;
+
     /// Find document by file path. Returns nullptr if not found.
     [[nodiscard]] auto findByPath(const wxString& path) const -> Document*;
 

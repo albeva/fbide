@@ -29,6 +29,10 @@ public:
     /// Build the tree for `project`, parented to the sidebar notebook.
     ProjectTreeView(wxWindow* parent, Context& ctx, Project& project);
 
+    /// Capture the current expanded folders + selected node into the project's
+    /// session (`.fbide/session.ini`). Called before the project is closed.
+    void captureSession();
+
 private:
     /// Image indices into the tree's image list (order = list order).
     enum Icon : int {
@@ -36,6 +40,9 @@ private:
         IconFolder = 1,
         IconFile = 2,
     };
+
+    /// Restore expanded folders + the selected node from the project's session.
+    void restoreSession();
 
     /// Rebuild the whole tree from the model (used after multi-item or move
     /// operations; loses expansion state).
