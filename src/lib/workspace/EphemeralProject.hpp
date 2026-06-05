@@ -36,7 +36,7 @@ public:
     [[nodiscard]] auto isEphemeral() const -> bool override { return true; }
 
     /// No display name — standalone files aren't part of a named project.
-    [[nodiscard]] auto getName() const -> wxString override { return {}; }
+    [[nodiscard]] auto getName() const -> const wxString& override { return emptyString; }
 
     /// Take ownership of a standalone document and bind it to this project.
     /// Returns the (non-owning) pointer for the caller's continued use.
@@ -73,6 +73,7 @@ public:
     [[nodiscard]] auto getCapabilities() const -> std::uint8_t override;
 
 private:
+    inline static wxString emptyString = {};
     std::vector<std::unique_ptr<Document>> m_documents; ///< Owned standalone documents.
     Document* m_active = nullptr;                       ///< Focused standalone doc (build context); may be null.
     std::optional<wxString> m_configuration;            ///< Shared pinned compiler-config slug; empty = follow active.

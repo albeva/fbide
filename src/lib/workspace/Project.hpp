@@ -52,7 +52,7 @@ public:
     /// The project's display name — shown in the title bar and as the tree root
     /// label, independent of the root directory's own name. Defaults to the
     /// `.fbp` file's stem.
-    [[nodiscard]] auto getName() const -> wxString override { return m_name; }
+    [[nodiscard]] auto getName() const -> const wxString& override { return m_name; }
 
     /// Set the project's display name (display only; no filesystem effect).
     void setName(wxString name) { m_name = std::move(name); }
