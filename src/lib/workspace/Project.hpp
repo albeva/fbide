@@ -58,6 +58,7 @@ public:
         IoError,     ///< Filesystem operation failed.
         InvalidName, ///< Name is empty or contains a path separator.
         OutOfTree,   ///< Target path lives outside the project root.
+        FormatError, ///< `.fbp` could not be parsed (malformed / dangling reference).
     };
 
     /// How `removeNode` treats the on-disk artifact.
@@ -190,6 +191,21 @@ public:
     /// set (root omits Remove); files get Remove.
     [[nodiscard]] auto contextActions(const Node* node) const -> std::vector<Action>;
 
+    // --- Persistence -------------------------------------------------------
+
+    /// Write the project name + folder/file structure to `projectFile` (the
+    /// `.fbp`), overwriting it wholesale. Per-user session state is not
+    /// touched. `Error::IoError` if the file cannot be written.
+    [[nodiscard]] auto saveTo(const std::filesystem::path& projectFile) const -> std::expected<void, Error>;
+
+    /// Construct a project from a `.fbp`: parse the name + structure and
+    /// rebuild the tree (preserving node UUIDs), anchored at
+    /// `projectFile.parent_path()`. Subsequent mutations auto-save back to
+    /// this file. `Error::IoError` when unreadable, `Error::FormatError` when
+    /// the contents are malformed.
+    [[nodiscard]] static auto loadFrom(const std::filesystem::path& projectFile, CompilerConfigCatalog& catalog)
+        -> std::expected<std::unique_ptr<Project>, Error>;
+
     // --- ProjectBase interface --------------------------------------------
 
     /// True when `candidate` sits under the project root (empty candidate
@@ -222,6 +238,9 @@ private:
     /// Allocate a node under `parent`, register it in the arena + path index,
     /// and append it to the parent's children (caller re-sorts).
     auto attachNode(Node* parent, std::filesystem::path path, Node::Entry entry) -> Node*;
+    /// Overload that adopts an explicit `id` — used when loading a `.fbp` so
+    /// node UUIDs round-trip. No filesystem side-effects.
+    auto attachNode(Node* parent, Node::Id id, std::filesystem::path path, Node::Entry entry) -> Node*;
 
     /// Find-or-create the folder node for directory `dir` (must exist on disk
     /// under the root), creating intermediate folder nodes as needed.
@@ -241,7 +260,19 @@ private:
     /// after a rename / move of `folder`.
     void rewriteSubtreePaths(Node* folder, const std::filesystem::path& oldPrefix, const std::filesystem::path& newPrefix);
 
+    /// Recursively sort `folder` and every descendant folder per its `SortOrder`.
+    void sortTree(Node* folder);
+
+    /// Rebuild the tree from a parsed `.fbp` config (folders then files,
+    /// preserving UUIDs). `Error::FormatError` on malformed input.
+    auto buildFromConfig(wxFileConfig& cfg) -> std::expected<void, Error>;
+
+    /// Persist to `m_projectFile` when set (no-op otherwise). Called after
+    /// every successful mutation so the `.fbp` always mirrors the model.
+    void autosave() const;
+
     std::string m_name;                                          ///< Project display name (root label).
+    std::filesystem::path m_projectFile;                         ///< `.fbp` path for auto-save (empty = not persisted).
     std::unordered_map<Node::Id, std::unique_ptr<Node>> m_nodes; ///< Owning node arena.
     std::unordered_map<std::filesystem::path, Node*> m_pathMap;  ///< Path → node index (all nodes).
     Node* m_root = nullptr;                                      ///< Tree root (real anchor directory).

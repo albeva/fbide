@@ -117,6 +117,16 @@ TEST(ProjectNodeIdTest, Hashable) {
     EXPECT_EQ(map[second], 2);
 }
 
+TEST(ProjectNodeIdTest, StringRoundTrip) {
+    const auto id = Project::Node::Id::generate();
+    EXPECT_EQ((Project::Node::Id { id.string() }), id);
+}
+
+TEST(ProjectNodeIdTest, FromStringThrowsOnMalformed) {
+    const auto make = [] { return Project::Node::Id { "not-a-uuid" }; };
+    EXPECT_THROW(make(), std::exception);
+}
+
 // --- Fixture ---------------------------------------------------------------
 
 /// Spins up a disk-backed `ConfigManager` + `CompilerConfigCatalog` per test
@@ -607,4 +617,75 @@ TEST_F(ProjectTest, EphemeralAdvertisesAllCapabilities) {
 TEST_F(ProjectTest, PersistentAdvertisesNoCapabilities) {
     const auto project = makePersistent();
     EXPECT_EQ(project.getCapabilities(), 0U);
+}
+
+// --- .fbp persistence ------------------------------------------------------
+
+TEST_F(ProjectTest, SaveAndReloadPreservesNameTreeAndIds) {
+    const auto fbp = rootDir() / "proj.fbp";
+    Project::Node::Id srcId;
+    Project::Node::Id mainId;
+    Project::Node::Id readmeId;
+    {
+        auto project = makePersistent();
+        project.setName("My Game");
+        auto* src = project.addFolder(project.getRoot(), "src").value();
+        auto* main = project.addFile(src, "main.bas").value();
+        auto* readme = project.addFile(project.getRoot(), "README.md").value();
+        srcId = src->id;
+        mainId = main->id;
+        readmeId = readme->id;
+        ASSERT_TRUE(project.saveTo(fbp).has_value());
+    }
+
+    const auto loaded = Project::loadFrom(fbp, *m_catalog);
+    ASSERT_TRUE(loaded.has_value());
+    auto& project = **loaded;
+
+    EXPECT_EQ(project.getName(), "My Game");
+
+    const auto* src = project.findNode(srcId);
+    ASSERT_NE(src, nullptr);
+    EXPECT_TRUE(src->isFolder());
+    EXPECT_EQ(src->name(), "src");
+    EXPECT_EQ(src->path, rootDir() / "src");
+    EXPECT_EQ(src->parent, project.getRoot());
+
+    const auto* main = project.findNode(mainId);
+    ASSERT_NE(main, nullptr);
+    EXPECT_TRUE(main->isFile());
+    EXPECT_EQ(main->parent, src);
+    EXPECT_EQ(main->path, rootDir() / "src" / "main.bas");
+
+    const auto* readme = project.findNode(readmeId);
+    ASSERT_NE(readme, nullptr);
+    EXPECT_EQ(readme->parent, project.getRoot());
+    EXPECT_EQ(project.findByPath(rootDir() / "src" / "main.bas"), main);
+}
+
+TEST_F(ProjectTest, LoadFromMissingFileIsIoError) {
+    const auto result = Project::loadFrom(rootDir() / "nope.fbp", *m_catalog);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), Project::Error::IoError);
+}
+
+TEST_F(ProjectTest, LoadFromMalformedIsFormatError) {
+    const auto fbp = rootDir() / "bad.fbp";
+    { std::ofstream { fbp } << "[folders]\nnot-a-uuid=src\n"; }
+    const auto result = Project::loadFrom(fbp, *m_catalog);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), Project::Error::FormatError);
+}
+
+TEST_F(ProjectTest, MutationAutoSavesWhenLoaded) {
+    const auto fbp = rootDir() / "auto.fbp";
+    { std::ofstream { fbp } << "format=1\nname=Auto\n"; }
+    auto project = Project::loadFrom(fbp, *m_catalog).value();
+    ASSERT_TRUE(project->addFolder(project->getRoot(), "lib").has_value());
+
+    const auto reloaded = Project::loadFrom(fbp, *m_catalog);
+    ASSERT_TRUE(reloaded.has_value());
+    const auto* root = (*reloaded)->getRoot();
+    ASSERT_EQ(root->getFolder()->children.size(), 1U);
+    EXPECT_EQ(root->getFolder()->children.front()->name(), "lib");
 }

@@ -5,7 +5,9 @@
 // https://github.com/albeva/fbide
 //
 #include "Project.hpp"
+#include "config/Version.hpp"
 #include "document/Document.hpp"
+#include "utils/PathConversions.hpp"
 #include "utils/PlatformTrash.hpp"
 
 using namespace fbide;
@@ -50,6 +52,16 @@ void assertNoBoundDoc(const Project::Node* node) {
     }
 }
 
+// Parse a UUID string back to a node id; nullopt when malformed (the
+// `Node::Id` string constructor throws on bad input).
+auto parseNodeId(const std::string& text) -> std::optional<Project::Node::Id> {
+    try {
+        return Project::Node::Id { text };
+    } catch (...) {
+        return std::nullopt;
+    }
+}
+
 } // namespace
 
 Project::Project(CompilerConfigCatalog& catalog, std::string name, fs::path rootDir)
@@ -73,8 +85,12 @@ void Project::createRoot(fs::path rootDir) {
 }
 
 auto Project::attachNode(Node* parent, fs::path path, Node::Entry entry) -> Node* {
+    return attachNode(parent, Node::Id::generate(), std::move(path), std::move(entry));
+}
+
+auto Project::attachNode(Node* parent, const Node::Id id, fs::path path, Node::Entry entry) -> Node* {
     auto node = std::make_unique<Node>(Node {
-        .id = Node::Id::generate(),
+        .id = id,
         .parent = parent,
         .path = std::move(path),
         .entry = std::move(entry),
@@ -118,6 +134,7 @@ auto Project::addFolder(Node* parent, const std::string& name) -> std::expected<
 
     auto* node = attachNode(parent, path, Node::Folder {});
     sortChildren(parent);
+    autosave();
     return node;
 }
 
@@ -144,6 +161,7 @@ auto Project::addFile(Node* parent, const std::string& name) -> std::expected<No
 
     auto* node = attachNode(parent, path, Node::File {});
     sortChildren(parent);
+    autosave();
     return node;
 }
 
@@ -186,6 +204,7 @@ auto Project::addExisting(const fs::path& path) -> std::expected<Node*, Error> {
     }
     auto* node = attachNode(*parent, path, isDir ? Node::Entry { Node::Folder {} } : Node::Entry { Node::File {} });
     sortChildren(*parent);
+    autosave();
     return node;
 }
 
@@ -206,6 +225,7 @@ auto Project::removeNode(Node* node, const RemoveMode mode) -> std::expected<voi
 
     std::erase(node->parent->getFolder()->children, node);
     destroySubtree(node);
+    autosave();
     return result;
 }
 
@@ -244,6 +264,7 @@ auto Project::moveNode(Node* node, Node* newParent) -> std::expected<void, Error
     node->parent = newParent;
     newParent->getFolder()->children.push_back(node);
     sortChildren(newParent);
+    autosave();
     return {};
 }
 
@@ -269,6 +290,7 @@ auto Project::renameNode(Node* node, const std::string& newName) -> std::expecte
     }
     setNodePath(node, newPath);
     sortChildren(node->parent); // name changed → re-order siblings
+    autosave();
     return {};
 }
 
@@ -399,4 +421,163 @@ auto Project::getSources() const -> std::vector<Document*> {
         }
     }
     return result;
+}
+
+// --- Persistence -----------------------------------------------------------
+
+void Project::sortTree(Node* folder) {
+    sortChildren(folder);
+    for (auto* child : folder->getFolder()->children) {
+        if (child->isFolder()) {
+            sortTree(child);
+        }
+    }
+}
+
+auto Project::saveTo(const fs::path& projectFile) const -> std::expected<void, Error> {
+    wxFileConfig cfg(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
+    cfg.Write("/format", 1L);
+    cfg.Write("/version", Version::fbide().asString());
+    cfg.Write("/name", wxString::FromUTF8(m_name));
+
+    for (const auto& nodePtr : m_nodes | std::views::values) {
+        const Node* node = nodePtr.get();
+        if (node == m_root) {
+            continue;
+        }
+        const wxString uuid = wxString::FromUTF8(node->id.string());
+        const wxString group = node->isFolder() ? "/folders/" : "/files/";
+        cfg.Write(group + uuid, wxString::FromUTF8(node->name()));
+        if (node->parent != m_root) {
+            cfg.Write(group + uuid + "/parent", wxString::FromUTF8(node->parent->id.string()));
+        }
+    }
+
+    wxFFileOutputStream out(toWxString(projectFile));
+    if (!out.IsOk()) {
+        return std::unexpected(Error::IoError);
+    }
+    cfg.Save(out, wxConvUTF8);
+    return {};
+}
+
+auto Project::loadFrom(const fs::path& projectFile, CompilerConfigCatalog& catalog)
+    -> std::expected<std::unique_ptr<Project>, Error> {
+    wxFFileInputStream in(toWxString(projectFile));
+    if (!in.IsOk()) {
+        return std::unexpected(Error::IoError);
+    }
+    wxFileConfig cfg(in, wxConvUTF8);
+
+    const wxString nameWx = cfg.Read("/name", wxEmptyString);
+    auto name = nameWx.empty() ? projectFile.stem().string() : nameWx.utf8_string();
+
+    auto project = std::make_unique<Project>(catalog, std::move(name), projectFile.parent_path());
+    if (const auto built = project->buildFromConfig(cfg); !built) {
+        return std::unexpected(built.error());
+    }
+    project->m_projectFile = projectFile;
+    return project;
+}
+
+auto Project::buildFromConfig(wxFileConfig& cfg) -> std::expected<void, Error> {
+    // Collect folder + file entry names (UUIDs) up front — wxFileConfig's
+    // entry iteration is stateful, so it must not interleave with other reads.
+    const auto collect = [&cfg](const wxString& group) {
+        std::vector<wxString> uuids;
+        cfg.SetPath(group);
+        wxString name;
+        long cookie = 0;
+        for (bool ok = cfg.GetFirstEntry(name, cookie); ok; ok = cfg.GetNextEntry(name, cookie)) {
+            uuids.push_back(name);
+        }
+        cfg.SetPath("/");
+        return uuids;
+    };
+    const auto folderUuids = collect("/folders");
+    const auto fileUuids = collect("/files");
+
+    // Parse folders into id → {basename, optional<parentId>}.
+    struct ParsedFolder {
+        std::string basename;
+        std::optional<Node::Id> parent;
+    };
+    std::unordered_map<Node::Id, ParsedFolder> parsedFolders;
+    for (const auto& uuidWx : folderUuids) {
+        const auto id = parseNodeId(uuidWx.utf8_string());
+        if (!id) {
+            return std::unexpected(Error::FormatError);
+        }
+        ParsedFolder parsed { cfg.Read("/folders/" + uuidWx, wxEmptyString).utf8_string(), std::nullopt };
+        if (const wxString parentWx = cfg.Read("/folders/" + uuidWx + "/parent", wxEmptyString); !parentWx.empty()) {
+            const auto parentId = parseNodeId(parentWx.utf8_string());
+            if (!parentId) {
+                return std::unexpected(Error::FormatError);
+            }
+            parsed.parent = parentId;
+        }
+        parsedFolders.emplace(*id, std::move(parsed));
+    }
+
+    // Materialise folders in dependency order (parents before children),
+    // adopting their UUIDs. A non-empty residue means a cycle or a dangling
+    // parent reference.
+    std::unordered_map<Node::Id, Node*> folderNodes;
+    std::size_t remaining = parsedFolders.size();
+    for (bool progress = true; remaining > 0 && progress;) {
+        progress = false;
+        for (const auto& [id, parsed] : parsedFolders) {
+            if (folderNodes.contains(id)) {
+                continue;
+            }
+            Node* parent = nullptr;
+            if (!parsed.parent) {
+                parent = m_root;
+            } else if (const auto it = folderNodes.find(*parsed.parent); it != folderNodes.end()) {
+                parent = it->second;
+            } else {
+                continue; // parent not built yet
+            }
+            folderNodes.emplace(id, attachNode(parent, id, parent->path / parsed.basename, Node::Folder {}));
+            --remaining;
+            progress = true;
+        }
+    }
+    if (remaining > 0) {
+        return std::unexpected(Error::FormatError);
+    }
+
+    // Materialise files under their parent folder (or the root).
+    for (const auto& uuidWx : fileUuids) {
+        const auto id = parseNodeId(uuidWx.utf8_string());
+        if (!id) {
+            return std::unexpected(Error::FormatError);
+        }
+        const auto basename = cfg.Read("/files/" + uuidWx, wxEmptyString).utf8_string();
+        Node* parent = m_root;
+        if (const wxString parentWx = cfg.Read("/files/" + uuidWx + "/parent", wxEmptyString); !parentWx.empty()) {
+            const auto parentId = parseNodeId(parentWx.utf8_string());
+            if (!parentId) {
+                return std::unexpected(Error::FormatError);
+            }
+            const auto it = folderNodes.find(*parentId);
+            if (it == folderNodes.end()) {
+                return std::unexpected(Error::FormatError); // dangling parent reference
+            }
+            parent = it->second;
+        }
+        attachNode(parent, *id, parent->path / basename, Node::File {});
+    }
+
+    sortTree(m_root);
+    return {};
+}
+
+void Project::autosave() const {
+    if (m_projectFile.empty()) {
+        return;
+    }
+    if (const auto result = saveTo(m_projectFile); !result) {
+        wxLogError("Failed to save project file '%s'", toWxString(m_projectFile));
+    }
 }

@@ -15,6 +15,15 @@ namespace fbide {
 /// stay in the implementation file.
 [[nodiscard]] auto generateUuid() -> boost::uuids::uuid;
 
+/// Canonical 8-4-4-4-12 lowercase-hex string form of a UUID. Out-of-line so
+/// the heavy `uuid_io` header stays in the implementation file.
+[[nodiscard]] auto uuidToString(const boost::uuids::uuid& uuid) -> std::string;
+
+/// Parse a canonical UUID string into a UUID. Throws `std::runtime_error` on
+/// malformed input. Out-of-line so the `string_generator` header stays in the
+/// implementation file.
+[[nodiscard]] auto uuidFromString(std::string_view text) -> boost::uuids::uuid;
+
 /**
  * Phantom-type-tagged identifier — a strong-typedef wrapper around a
  * `boost::uuids::uuid` (by default) so IDs of different kinds cannot
@@ -62,6 +71,13 @@ public:
     constexpr explicit IdentifierBase(Underlying value)
     : m_value(std::move(value)) {}
 
+    /// Construct from a canonical UUID string — UUID-backed identifiers only.
+    /// Throws `std::runtime_error` on malformed input. `explicit` to match the
+    /// value constructor (no implicit string → identifier conversions).
+    explicit IdentifierBase(std::string_view text)
+        requires std::is_same_v<UnderlyingT, boost::uuids::uuid>
+    : m_value(uuidFromString(text)) {}
+
     /// Allocate a fresh identifier. Only enabled when the underlying
     /// type is `boost::uuids::uuid` — for other underlying types the
     /// caller is expected to supply the value explicitly.
@@ -75,6 +91,14 @@ public:
     /// by const reference so larger underlying types (UUID is 16 bytes)
     /// don't pay a copy on every read.
     [[nodiscard]] constexpr auto value() const -> const Underlying& { return m_value; }
+
+    /// Canonical UUID string form of the underlying value — UUID-backed
+    /// identifiers only. Round-trips with the `std::string_view` constructor.
+    [[nodiscard]] auto string() const -> std::string
+        requires std::is_same_v<UnderlyingT, boost::uuids::uuid>
+    {
+        return uuidToString(m_value);
+    }
 
     /// Comparable to itself; ordering follows the underlying value.
     constexpr auto operator<=>(const IdentifierBase&) const = default;

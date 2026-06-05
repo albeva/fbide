@@ -118,10 +118,19 @@ auto WorkspaceManager::loadProject(const std::filesystem::path& path) -> Project
         }
     }
 
-    auto project = std::make_unique<Project>(m_ctx.getCompilerManager().catalog(), path.stem().string(), path.parent_path());
-    m_project = project.get();
+    auto loaded = Project::loadFrom(path, m_ctx.getCompilerManager().catalog());
+    if (!loaded) {
+        wxMessageBox(
+            m_ctx.tr("project.error.loadFailed"),
+            m_ctx.tr("project.error.title"),
+            wxICON_ERROR | wxOK,
+            m_ctx.getUIManager().getMainFrame()
+        );
+        return nullptr;
+    }
+    m_project = loaded->get();
     m_projectPath = path;
-    m_projects.emplace(project->getId(), std::move(project));
+    m_projects.emplace(m_project->getId(), std::move(*loaded));
 
     m_ctx.getSideBarManager().showProjectTree(*m_project);
     return m_project;
