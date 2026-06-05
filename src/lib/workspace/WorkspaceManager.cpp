@@ -11,6 +11,7 @@
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
+#include "config/FileHistory.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/DocumentPath.hpp"
@@ -129,6 +130,7 @@ auto WorkspaceManager::loadProject(const std::filesystem::path& path) -> Project
     m_projectPath = path;
     m_projects.emplace(m_project->getId(), std::move(*loaded));
 
+    m_ctx.getFileHistory().addFile(path);
     m_ctx.getSideBarManager().showProjectTree(*m_project);
     return m_project;
 }
