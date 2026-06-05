@@ -12,56 +12,67 @@ namespace fbide {
 class Document;
 
 /**
- * A throwaway project auto-created for a single standalone FreeBASIC
- * document — preserves the "new tab → type → run" experience. It owns
- * the source file's path (`m_path`, authoritative — the bound `Document`
- * reads it back through `getFilePath`), the selected compiler-config slug
- * (`m_configuration`), and a non-owning back-link to the document. No
- * node tree: there is only ever one file. Lives only while the document
- * stays a FreeBASIC source; `WorkspaceManager` creates it on type-in and
- * tears it down on close / type change.
+ * The single, session-long project that owns every **standalone** document —
+ * any file open in the IDE that isn't a member of a persistent `Project`.
+ * `WorkspaceManager` creates it lazily on first use and never destroys it;
+ * documents come and go inside it, so there is no per-file project churn and
+ * `Document::getProject()` is never null at runtime.
  *
- * Build configuration is the *active* compiler configuration: the
- * selected slug is the project's own, and the dropdown shows the
- * catalog's menu-visible compiler configurations verbatim.
+ * It isn't a "project" in the persistent sense — its build context (sources,
+ * capabilities, compiler-configuration dropdown) reflects the **currently
+ * active** standalone document (`m_active`), so compile / run always target
+ * the focused file. A non-FreeBASIC active document advertises no
+ * capabilities and no build configurations.
  */
 class EphemeralProject final : public ProjectBase {
 public:
-    /// Bind to `doc` against the shared `catalog`, capturing the
-    /// document's current path as the project's authoritative source path.
-    EphemeralProject(CompilerConfigCatalog& catalog, Document& doc);
+    /// Empty container bound to the shared compiler-configuration catalog.
+    explicit EphemeralProject(CompilerConfigCatalog& catalog);
+
+    /// Out-of-line so the owned-document `unique_ptr`s see the full
+    /// `Document` definition when they tear down.
+    ~EphemeralProject() override;
 
     [[nodiscard]] auto isEphemeral() const -> bool override { return true; }
 
-    /// The single source document — reported only while it is still bound
-    /// to this project (mirrors the persistent tree's "File::doc != null"
-    /// so teardown doesn't re-enter via a stale link).
+    /// Take ownership of a standalone document and bind it to this project.
+    /// Returns the (non-owning) pointer for the caller's continued use.
+    auto adopt(std::unique_ptr<Document> doc) -> Document*;
+
+    /// Destroy a document this project owns — called when its tab closes.
+    void remove(Document* doc);
+
+    /// Point the build context at the focused standalone document (or
+    /// `nullptr` when the active document belongs elsewhere). Drives
+    /// `getSources` / `getCapabilities` / `getMenuConfigurations`.
+    void setActive(Document* doc);
+
+    /// Every standalone document currently open — for enumeration / close-all.
     [[nodiscard]] auto getDocuments() const -> std::vector<Document*> override;
+
+    /// The build target: the active document when it is FreeBASIC, else none.
     [[nodiscard]] auto getSources() const -> std::vector<Document*> override;
 
-    /// No tree, no root constraint — the single file moves freely.
+    /// No tree, no root constraint — standalone files move freely.
     [[nodiscard]] auto isUnderRoot(const std::filesystem::path& /*candidate*/) const -> bool override { return true; }
 
-    /// The source file's path — authoritative. The bound `Document`
-    /// delegates `getFilePath` / `setFilePath` here.
-    [[nodiscard]] auto getPath() const -> const std::filesystem::path& { return m_path; }
-    void setPath(const std::filesystem::path& path) { m_path = path; }
-
-    /// The selected compiler-configuration slug — owned by the project.
+    /// Selected compiler-configuration slug — shared across all standalone
+    /// files (empty = follow the active configuration).
     [[nodiscard]] auto getConfigurationSlug() const -> std::optional<wxString> override { return m_configuration; }
     void setConfigurationSlug(std::optional<wxString> slug) override { m_configuration = std::move(slug); }
 
-    /// Pass the catalog's menu-visible compiler configurations through.
+    /// The catalog's menu-visible configurations when the active document is
+    /// FreeBASIC; empty otherwise (no dropdown for a non-FB file).
     [[nodiscard]] auto getMenuConfigurations(const wxString& alwaysInclude) const
         -> std::vector<const ResolvedCompilerConfig*> override;
 
-    /// Single-file executable — every build action applies.
+    /// All four capabilities when the active document is FreeBASIC, none otherwise.
     [[nodiscard]] auto getCapabilities() const -> std::uint8_t override;
 
 private:
-    Document* m_document;                    ///< Bound source document (non-owning).
-    std::filesystem::path m_path;            ///< Authoritative source-file path.
-    std::optional<wxString> m_configuration; ///< Pinned compiler-config slug; empty = follow active.
+    std::vector<std::unique_ptr<Document>> m_documents; ///< Owned standalone documents.
+    Document* m_active = nullptr;                       ///< Focused standalone doc (build context); may be null.
+    std::optional<wxString> m_configuration;            ///< Shared pinned compiler-config slug; empty = follow active.
 };
 
 } // namespace fbide

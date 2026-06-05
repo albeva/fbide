@@ -671,7 +671,7 @@ void UIManager::updateSettings() {
     lexer::setFbKeywords(m_ctx.getConfigManager().keywords().at("groups"));
 
     // Reapply settings to all open editors
-    for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {
+    for (auto* doc : m_ctx.getWorkspaceManager().documents()) {
         doc->updateSettings();
     }
     refreshConfigurationDisplay();

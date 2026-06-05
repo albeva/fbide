@@ -10,7 +10,6 @@
 #include "config/ConfigManager.hpp"
 #include "editor/Editor.hpp"
 #include "editor/EditorPanel.hpp"
-#include "workspace/EphemeralProject.hpp"
 using namespace fbide;
 
 wxDEFINE_EVENT(fbide::EVT_DOCUMENT_TYPE_CHANGED, DocumentTypeChangedEvent);
@@ -69,11 +68,7 @@ auto Document::getFilePath() const -> std::filesystem::path {
         const auto* node = *nodeSlot;
         return node != nullptr ? node->path : std::filesystem::path {};
     }
-    // Ephemeral project: the project owns the path.
-    if (m_project != nullptr) {
-        return static_cast<const EphemeralProject*>(m_project)->getPath();
-    }
-    // Unbound: the document owns its path.
+    // Standalone (shared ephemeral) or untitled: the document owns its path.
     return std::get<std::filesystem::path>(m_source);
 }
 
@@ -90,9 +85,8 @@ void Document::setFilePath(const std::filesystem::path& path) {
             wxLogError("Document::setFilePath: project rejected new path");
             return;
         }
-    } else if (m_project != nullptr) {
-        static_cast<EphemeralProject*>(m_project)->setPath(path);
     } else {
+        // Standalone (shared ephemeral) or untitled: the document owns the path.
         m_source = path;
     }
     // Only re-derive type from the new path when the user hasn't
@@ -116,26 +110,8 @@ void Document::bindToProject(ProjectBase* project, Project::Node* node) {
         // Persistent: the path now lives on the project's file node.
         m_source = node;
     }
-    // Ephemeral (node == nullptr): the project captured the path at
-    // construction; the document's `m_source` path slot is left unused
-    // while bound (restored on unbind).
-}
-
-void Document::unbindFromProject() {
-    // Copy the path out of the project BEFORE clearing the back-link so
-    // `getFilePath()` keeps returning the same value either side of the
-    // transition.
-    if (auto* nodeSlot = std::get_if<Project::Node*>(&m_source)) {
-        // Persistent: lift the path off the node and drop the project-side
-        // `File::doc` back-link so `getDocuments()` stops reporting us.
-        auto* node = *nodeSlot;
-        m_source = node->path;
-        static_cast<Project*>(m_project)->clearNodeDocument(node);
-    } else if (m_project != nullptr) {
-        // Ephemeral: lift the path off the project.
-        m_source = static_cast<const EphemeralProject*>(m_project)->getPath();
-    }
-    m_project = nullptr;
+    // Shared ephemeral (node == nullptr): the document keeps its own path
+    // in `m_source`.
 }
 
 void Document::setType(const DocumentType type) {

@@ -99,8 +99,6 @@ void FileSession::load(const std::filesystem::path& path, const bool addToHistor
 }
 
 auto FileSession::save(const std::filesystem::path& path) -> bool {
-    const auto& dm = m_ctx.getDocumentManager();
-
     // Pure path snapshot — modified buffers are NOT auto-saved here.
     // Callers that need to flush dirty state (Save Session menu, the
     // restart flow) must drive the user-facing save/close prompts
@@ -114,8 +112,8 @@ auto FileSession::save(const std::filesystem::path& path) -> bool {
     cfg.Write("/session/selectedTab", m_ctx.getDocumentManager().notebook().GetSelection());
 
     size_t fileIndex = 0;
-    for (const auto& doc : dm.getDocuments()) {
-        if (doc->isNew()) {
+    for (auto* doc : m_ctx.getWorkspaceManager().documents()) {
+        if (doc->isNew() || !doc->hasView()) {
             continue;
         }
         auto* editor = doc->getEditor();

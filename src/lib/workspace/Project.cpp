@@ -7,6 +7,7 @@
 #include "Project.hpp"
 #include "config/Version.hpp"
 #include "document/Document.hpp"
+#include "document/DocumentType.hpp"
 #include "utils/PathConversions.hpp"
 #include "utils/PlatformTrash.hpp"
 
@@ -39,16 +40,16 @@ auto nameLess(const Project::Node* lhs, const Project::Node* rhs) -> bool {
     return fold(lhs->path.filename().string()) < fold(rhs->path.filename().string());
 }
 
-// Validate that no file in the subtree carries a Document* back-link.
-// removeNode would otherwise leave Document::Source dangling — callers must
+// Validate that no file in the subtree still has an open editor/tab — its
+// EditorPanel back-links the Document we're about to destroy, so callers must
 // close the relevant tabs through DocumentManager first.
-void assertNoBoundDoc(const Project::Node* node) {
+void assertNoOpenEditor(const Project::Node* node) {
     if (const auto* file = node->getFile()) {
-        assert(file->doc == nullptr && "removeNode: file has bound document — close tab first");
+        assert((file->doc == nullptr || !file->doc->hasView()) && "removeNode: file is open — close its tab first");
         return;
     }
     for (const auto* child : node->getFolder()->children) {
-        assertNoBoundDoc(child);
+        assertNoOpenEditor(child);
     }
 }
 
@@ -64,10 +65,17 @@ auto parseNodeId(const std::string& text) -> std::optional<Project::Node::Id> {
 
 } // namespace
 
-Project::Project(CompilerConfigCatalog& catalog, std::string name, fs::path rootDir)
+Project::Project(CompilerConfigCatalog& catalog, ConfigManager& config, std::string name, fs::path rootDir)
 : ProjectBase(catalog)
+, m_config(config)
 , m_name(std::move(name)) {
     createRoot(std::move(rootDir));
+}
+
+Project::~Project() = default;
+
+auto Project::makeDocument(const fs::path& path) const -> std::unique_ptr<Document> {
+    return std::make_unique<Document>(m_config, documentTypeFromPath(path), nullptr);
 }
 
 void Project::createRoot(fs::path rootDir) {
@@ -99,6 +107,11 @@ auto Project::attachNode(Node* parent, const Node::Id id, fs::path path, Node::E
     m_nodes.emplace(ptr->id, std::move(node));
     if (!ptr->path.empty()) {
         m_pathMap.emplace(ptr->path, ptr);
+    }
+    // A file node owns an editor-less document, bound to the node.
+    if (auto* file = ptr->getFile()) {
+        file->doc = makeDocument(ptr->path);
+        file->doc->bindToProject(this, ptr);
     }
     parent->getFolder()->children.push_back(ptr);
     return ptr;
@@ -211,7 +224,7 @@ auto Project::addExisting(const fs::path& path) -> std::expected<Node*, Error> {
 auto Project::removeNode(Node* node, const RemoveMode mode) -> std::expected<void, Error> {
     assert(node != nullptr);
     assert(node != m_root && "cannot remove the project root");
-    assertNoBoundDoc(node);
+    assertNoOpenEditor(node);
 
     // Trash the on-disk subtree first (best-effort). The tree mutation runs
     // either way — once the user asks to remove, the tree should reach the
@@ -319,19 +332,6 @@ auto Project::setFilePath(Node* file, const fs::path& newPath) -> std::expected<
     return {};
 }
 
-void Project::bindDocument(Node* file, Document& doc) {
-    assert(file != nullptr && file->isFile() && "bindDocument target must be a file node");
-    file->getFile()->doc = &doc;
-    doc.bindToProject(this, file);
-}
-
-void Project::clearNodeDocument(Node* node) {
-    assert(node != nullptr);
-    if (auto* file = node->getFile()) {
-        file->doc = nullptr;
-    }
-}
-
 void Project::setNodePath(Node* node, const fs::path& newPath) {
     assert(node != nullptr);
     if (!node->path.empty()) {
@@ -405,7 +405,7 @@ auto Project::getDocuments() const -> std::vector<Document*> {
     result.reserve(m_nodes.size());
     for (const auto& nodePtr : m_nodes | std::views::values) {
         if (const auto* file = nodePtr->getFile(); file != nullptr && file->doc != nullptr) {
-            result.push_back(file->doc);
+            result.push_back(file->doc.get());
         }
     }
     return result;
@@ -416,7 +416,7 @@ auto Project::getSources() const -> std::vector<Document*> {
     for (const auto& node : m_nodes | std::views::values) {
         if (const auto* file = node->getFile(); file != nullptr && file->doc != nullptr) {
             if (node->path.extension() == ".bas") {
-                result.push_back(file->doc);
+                result.push_back(file->doc.get());
             }
         }
     }
@@ -461,7 +461,7 @@ auto Project::saveTo(const fs::path& projectFile) const -> std::expected<void, E
     return {};
 }
 
-auto Project::loadFrom(const fs::path& projectFile, CompilerConfigCatalog& catalog)
+auto Project::loadFrom(const fs::path& projectFile, CompilerConfigCatalog& catalog, ConfigManager& config)
     -> std::expected<std::unique_ptr<Project>, Error> {
     wxFFileInputStream in(toWxString(projectFile));
     if (!in.IsOk()) {
@@ -472,7 +472,7 @@ auto Project::loadFrom(const fs::path& projectFile, CompilerConfigCatalog& catal
     const wxString nameWx = cfg.Read("/name", wxEmptyString);
     auto name = nameWx.empty() ? projectFile.stem().string() : nameWx.utf8_string();
 
-    auto project = std::make_unique<Project>(catalog, std::move(name), projectFile.parent_path());
+    auto project = std::make_unique<Project>(catalog, config, std::move(name), projectFile.parent_path());
     if (const auto built = project->buildFromConfig(cfg); !built) {
         return std::unexpected(built.error());
     }

@@ -141,29 +141,20 @@ protected:
         m_catalog->reload();
     }
 
-    [[nodiscard]] auto makeEphemeral() -> EphemeralProject { return EphemeralProject { *m_catalog, makeDoc() }; }
-    [[nodiscard]] auto makePersistent() -> Project { return Project { *m_catalog, "TestProject", rootDir() }; }
+    [[nodiscard]] auto makeEphemeral() -> EphemeralProject { return EphemeralProject { *m_catalog }; }
+    [[nodiscard]] auto makePersistent() -> Project { return Project { *m_catalog, *m_config, "TestProject", rootDir() }; }
 
     /// Project root for persistent projects under test — the scratch dir.
     [[nodiscard]] auto rootDir() const -> fs::path { return fs::path { m_tmp.path().ToStdString() }; }
 
-    /// Spawn a fixture-owned Document so its lifetime outlives the project.
-    auto makeDoc() -> Document& {
-        m_docs.emplace_back(std::make_unique<Document>(*m_config, DocumentType::FreeBASIC, nullptr));
-        return *m_docs.back();
-    }
-
-    /// Document seeded with a file path before any project bind.
-    auto makeDoc(const fs::path& path) -> Document& {
-        auto& doc = makeDoc();
-        doc.setFilePath(path);
-        return doc;
+    /// A fresh editor-less document of the given type, for adoption tests.
+    [[nodiscard]] auto makeDoc(DocumentType type = DocumentType::FreeBASIC) -> std::unique_ptr<Document> {
+        return std::make_unique<Document>(*m_config, type, nullptr);
     }
 
     TempDir m_tmp;
     std::unique_ptr<ConfigManager> m_config;
     std::unique_ptr<CompilerConfigCatalog> m_catalog;
-    std::vector<std::unique_ptr<Document>> m_docs;
 };
 
 // --- construction ----------------------------------------------------------
@@ -189,33 +180,55 @@ TEST_F(ProjectTest, IdsAreUniquePerInstance) {
     EXPECT_NE(lhs.getId(), rhs.getId());
 }
 
-// --- Ephemeral project: single bound document -----------------------------
+// --- shared ephemeral project ---------------------------------------------
 
-TEST_F(ProjectTest, EphemeralSourcesAndDocumentsAreTheBoundDoc) {
-    auto& doc = makeDoc(fs::path { "/tmp/main.bas" });
-    EphemeralProject project { *m_catalog, doc };
-    doc.bindToProject(&project);
-    EXPECT_EQ(project.getDocuments(), std::vector<Document*> { &doc });
-    EXPECT_EQ(project.getSources(), std::vector<Document*> { &doc });
-    EXPECT_EQ(doc.getFilePath(), fs::path { "/tmp/main.bas" });
+TEST_F(ProjectTest, EphemeralOwnsAdoptedDocuments) {
+    auto project = makeEphemeral();
+    auto* first = project.adopt(makeDoc());
+    auto* second = project.adopt(makeDoc());
+    const auto docs = project.getDocuments();
+    EXPECT_EQ(docs.size(), 2U);
+    EXPECT_EQ(first->getProject(), &project);
+    EXPECT_EQ(second->getProject(), &project);
 }
 
-TEST_F(ProjectTest, EphemeralReportsNothingWhenDocUnbound) {
-    auto& doc = makeDoc(fs::path { "/tmp/main.bas" });
-    const EphemeralProject project { *m_catalog, doc };
+TEST_F(ProjectTest, EphemeralRemoveDestroysDocument) {
+    auto project = makeEphemeral();
+    auto* doc = project.adopt(makeDoc());
+    project.setActive(doc);
+    project.remove(doc);
     EXPECT_TRUE(project.getDocuments().empty());
-    EXPECT_TRUE(project.getSources().empty());
 }
 
-TEST_F(ProjectTest, EphemeralOwnsPathAndMovesFreely) {
-    auto& doc = makeDoc(fs::path { "/here/a.bas" });
-    EphemeralProject project { *m_catalog, doc };
-    doc.bindToProject(&project);
-    EXPECT_EQ(project.getPath(), fs::path { "/here/a.bas" });
-    EXPECT_TRUE(project.isUnderRoot(fs::path { "/over/there/b.bas" }));
-    doc.setFilePath(fs::path { "/over/there/b.bas" });
-    EXPECT_EQ(project.getPath(), fs::path { "/over/there/b.bas" });
-    EXPECT_EQ(doc.getFilePath(), fs::path { "/over/there/b.bas" });
+TEST_F(ProjectTest, EphemeralSourcesAndCapabilitiesFollowActiveFreeBasic) {
+    auto project = makeEphemeral();
+    auto* doc = project.adopt(makeDoc(DocumentType::FreeBASIC));
+    project.setActive(doc);
+    EXPECT_EQ(project.getSources(), std::vector<Document*> { doc });
+    EXPECT_TRUE(project.getCapabilities() & +ProjectBase::Capability::Compile);
+}
+
+TEST_F(ProjectTest, EphemeralNoBuildContextForNonFreeBasicActive) {
+    auto project = makeEphemeral();
+    auto* doc = project.adopt(makeDoc(DocumentType::Text));
+    project.setActive(doc);
+    EXPECT_TRUE(project.getSources().empty());
+    EXPECT_EQ(project.getCapabilities(), 0U);
+}
+
+TEST_F(ProjectTest, EphemeralNoBuildContextWithoutActive) {
+    auto project = makeEphemeral();
+    project.adopt(makeDoc(DocumentType::FreeBASIC));
+    EXPECT_TRUE(project.getSources().empty());
+    EXPECT_EQ(project.getCapabilities(), 0U);
+}
+
+TEST_F(ProjectTest, EphemeralDocumentOwnsItsPath) {
+    auto project = makeEphemeral();
+    auto* doc = project.adopt(makeDoc());
+    doc->setFilePath(fs::path { "/over/there/b.bas" });
+    EXPECT_EQ(doc->getFilePath(), fs::path { "/over/there/b.bas" });
+    EXPECT_TRUE(project.isUnderRoot(fs::path { "/anywhere/x.bas" }));
 }
 
 // --- persistent root -------------------------------------------------------
@@ -526,39 +539,25 @@ TEST_F(ProjectTest, ContextActionsFileHasRemoveOnly) {
     EXPECT_EQ(actions.front(), Project::Action::Remove);
 }
 
-// --- document binding ------------------------------------------------------
+// --- file-node documents ---------------------------------------------------
 
-TEST_F(ProjectTest, BindDocumentBindsBothSides) {
+TEST_F(ProjectTest, GetDocumentsReflectsFileNodes) {
     auto project = makePersistent();
     auto* file = project.addFile(project.getRoot(), "main.bas").value();
-    auto& doc = makeDoc();
-    project.bindDocument(file, doc);
-    EXPECT_EQ(doc.getProject(), &project);
     const auto docs = project.getDocuments();
     ASSERT_EQ(docs.size(), 1U);
-    EXPECT_EQ(docs.front(), &doc);
+    ASSERT_NE(file->document(), nullptr);
+    EXPECT_EQ(docs.front(), file->document());
+    EXPECT_EQ(file->document()->getProject(), &project);
 }
 
 TEST_F(ProjectTest, GetSourcesFiltersByExtension) {
     auto project = makePersistent();
-    auto* bas = project.addFile(project.getRoot(), "a.bas").value();
-    auto* txt = project.addFile(project.getRoot(), "notes.txt").value();
-    auto& docBas = makeDoc();
-    auto& docTxt = makeDoc();
-    project.bindDocument(bas, docBas);
-    project.bindDocument(txt, docTxt);
+    project.addFile(project.getRoot(), "a.bas");
+    project.addFile(project.getRoot(), "notes.txt");
     const auto sources = project.getSources();
     ASSERT_EQ(sources.size(), 1U);
-    EXPECT_EQ(sources.front(), &docBas);
-}
-
-TEST_F(ProjectTest, ClearNodeDocumentDropsBackLink) {
-    auto project = makePersistent();
-    auto* file = project.addFile(project.getRoot(), "main.bas").value();
-    auto& doc = makeDoc();
-    project.bindDocument(file, doc);
-    project.clearNodeDocument(file);
-    EXPECT_TRUE(project.getDocuments().empty());
+    EXPECT_EQ(sources.front()->getFilePath().filename(), "a.bas");
 }
 
 TEST_F(ProjectTest, GetDocumentsEmptyOnFreshProject) {
@@ -605,15 +604,6 @@ TEST_F(ProjectTest, IsUnderRootEphemeralAcceptsEverything) {
 
 // --- capabilities ----------------------------------------------------------
 
-TEST_F(ProjectTest, EphemeralAdvertisesAllCapabilities) {
-    const auto project = makeEphemeral();
-    const auto caps = project.getCapabilities();
-    EXPECT_TRUE(caps & +ProjectBase::Capability::Compile);
-    EXPECT_TRUE(caps & +ProjectBase::Capability::CompileAndRun);
-    EXPECT_TRUE(caps & +ProjectBase::Capability::Run);
-    EXPECT_TRUE(caps & +ProjectBase::Capability::QuickRun);
-}
-
 TEST_F(ProjectTest, PersistentAdvertisesNoCapabilities) {
     const auto project = makePersistent();
     EXPECT_EQ(project.getCapabilities(), 0U);
@@ -638,7 +628,7 @@ TEST_F(ProjectTest, SaveAndReloadPreservesNameTreeAndIds) {
         ASSERT_TRUE(project.saveTo(fbp).has_value());
     }
 
-    const auto loaded = Project::loadFrom(fbp, *m_catalog);
+    const auto loaded = Project::loadFrom(fbp, *m_catalog, *m_config);
     ASSERT_TRUE(loaded.has_value());
     auto& project = **loaded;
 
@@ -664,7 +654,7 @@ TEST_F(ProjectTest, SaveAndReloadPreservesNameTreeAndIds) {
 }
 
 TEST_F(ProjectTest, LoadFromMissingFileIsIoError) {
-    const auto result = Project::loadFrom(rootDir() / "nope.fbp", *m_catalog);
+    const auto result = Project::loadFrom(rootDir() / "nope.fbp", *m_catalog, *m_config);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), Project::Error::IoError);
 }
@@ -672,7 +662,7 @@ TEST_F(ProjectTest, LoadFromMissingFileIsIoError) {
 TEST_F(ProjectTest, LoadFromMalformedIsFormatError) {
     const auto fbp = rootDir() / "bad.fbp";
     { std::ofstream { fbp } << "[folders]\nnot-a-uuid=src\n"; }
-    const auto result = Project::loadFrom(fbp, *m_catalog);
+    const auto result = Project::loadFrom(fbp, *m_catalog, *m_config);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), Project::Error::FormatError);
 }
@@ -680,10 +670,10 @@ TEST_F(ProjectTest, LoadFromMalformedIsFormatError) {
 TEST_F(ProjectTest, MutationAutoSavesWhenLoaded) {
     const auto fbp = rootDir() / "auto.fbp";
     { std::ofstream { fbp } << "format=1\nname=Auto\n"; }
-    auto project = Project::loadFrom(fbp, *m_catalog).value();
+    auto project = Project::loadFrom(fbp, *m_catalog, *m_config).value();
     ASSERT_TRUE(project->addFolder(project->getRoot(), "lib").has_value());
 
-    const auto reloaded = Project::loadFrom(fbp, *m_catalog);
+    const auto reloaded = Project::loadFrom(fbp, *m_catalog, *m_config);
     ASSERT_TRUE(reloaded.has_value());
     const auto* root = (*reloaded)->getRoot();
     ASSERT_EQ(root->getFolder()->children.size(), 1U);

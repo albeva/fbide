@@ -13,9 +13,7 @@
 #include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
-#include "document/DocumentNotebook.hpp"
 #include "document/DocumentPath.hpp"
-#include "document/DocumentType.hpp"
 #include "document/FileSession.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
@@ -48,17 +46,14 @@ auto WorkspaceManager::openFile(const std::filesystem::path& path) -> Document* 
 
     auto& docManager = m_ctx.getDocumentManager();
 
-    // Already open — surface the existing tab (no file I/O, no duplicate).
+    // Known document — already open, or a member of the open persistent
+    // project pre-created at load. Focus it, creating its editor if needed.
     if (auto* existing = docManager.findByPath(canonical)) {
-        docManager.notebook().selectDocument(*existing);
+        docManager.openEditorFor(*existing);
         return existing;
     }
 
-    // Future (Persistent projects): if `canonical` is a member of the open
-    // project, open it and bind to that project before returning.
-
-    // Ordinary document open — creates a tab and, for FreeBASIC, an
-    // Ephemeral project to host it.
+    // Otherwise open it as a standalone document in the shared ephemeral.
     return docManager.openDocument(canonical);
 }
 
@@ -106,7 +101,9 @@ auto WorkspaceManager::loadProject(const std::filesystem::path& path) -> Project
         );
         switch (dlg.ShowModal()) {
         case wxID_YES: // Close the current project, then open the new one below.
-            closeProject(*m_project);
+            if (!closeProject(*m_project)) {
+                return nullptr; // user cancelled a save prompt — keep current project
+            }
             break;
         case wxID_NO: { // Open the new project in a separate window (process).
             const auto exe = wxStandardPaths::Get().GetExecutablePath();
@@ -118,7 +115,7 @@ auto WorkspaceManager::loadProject(const std::filesystem::path& path) -> Project
         }
     }
 
-    auto loaded = Project::loadFrom(path, m_ctx.getCompilerManager().catalog());
+    auto loaded = Project::loadFrom(path, m_ctx.getCompilerManager().catalog(), m_ctx.getConfigManager());
     if (!loaded) {
         wxMessageBox(
             m_ctx.tr("project.error.loadFailed"),
@@ -136,48 +133,66 @@ auto WorkspaceManager::loadProject(const std::filesystem::path& path) -> Project
     return m_project;
 }
 
-auto WorkspaceManager::createEphemeral(Document& doc) -> ProjectBase* {
-    assert(doc.getProject() == nullptr && "document already bound to a project");
-    assert(doc.getType() == DocumentType::FreeBASIC && "ephemeral projects only host FreeBASIC documents");
-
-    auto project = std::make_unique<EphemeralProject>(m_ctx.getCompilerManager().catalog(), doc);
-    doc.bindToProject(project.get());
-
-    return m_projects.emplace(project->getId(), std::move(project)).first->second.get();
+auto WorkspaceManager::ephemeral() -> EphemeralProject& {
+    if (m_ephemeral == nullptr) {
+        // Lazily created — the compiler catalog (owned by CompilerManager) is
+        // not yet available when this WorkspaceManager is constructed.
+        m_ephemeral = std::make_unique<EphemeralProject>(m_ctx.getCompilerManager().catalog());
+    }
+    return *m_ephemeral;
 }
 
-void WorkspaceManager::destroyEphemeral(Document& doc) {
-    auto* project = doc.getProject();
-    if (project != nullptr && project->isEphemeral()) {
-        doc.unbindFromProject();
-        closeProject(*project);
+auto WorkspaceManager::adoptStandalone(std::unique_ptr<Document> doc) -> Document* {
+    return ephemeral().adopt(std::move(doc));
+}
+
+void WorkspaceManager::closeStandalone(Document* doc) {
+    if (m_ephemeral != nullptr) {
+        m_ephemeral->remove(doc);
     }
 }
 
-void WorkspaceManager::closeProject(ProjectBase& project) {
-    // `Document::unbindFromProject` clears the project-side `File::doc`
-    // back-link, so `getDocuments()` won't include any doc that was
-    // pre-unbound (e.g. by `destroyEphemeral` before it dispatched here).
-    // The remaining loop body unbinds and closes any still-bound docs.
+auto WorkspaceManager::documents() const -> std::vector<Document*> {
+    std::vector<Document*> all;
+    if (m_ephemeral != nullptr) {
+        const auto docs = m_ephemeral->getDocuments();
+        all.insert(all.end(), docs.begin(), docs.end());
+    }
+    for (const auto& project : m_projects | std::views::values) {
+        const auto docs = project->getDocuments();
+        all.insert(all.end(), docs.begin(), docs.end());
+    }
+    return all;
+}
+
+auto WorkspaceManager::closeProject(Project& project) -> bool {
+    // Run each open member through the full close pipeline so the user is
+    // prompted to save modified files; bail (leaving the project open) on
+    // cancel. closeFile keeps a persistent-project document alive (editor-less)
+    // under its node — the documents themselves are owned by the project's
+    // nodes and are destroyed with it on erase below. Iterates a snapshot, so
+    // the per-document teardown can't invalidate the loop.
     auto& docManager = m_ctx.getDocumentManager();
     for (auto* document : project.getDocuments()) {
-        if (document->getView() != nullptr) {
-            document->unbindFromProject();
-            docManager.closeFile(*document);
+        if (document->hasView() && !docManager.closeFile(*document)) {
+            return false;
         }
     }
-    // If this is the open persistent project, drop our cached handle and
-    // remove its sidebar view *before* the owning unique_ptr is erased
-    // (which would leave `project` dangling).
+    // Drop the cached handle + sidebar view *before* the owning unique_ptr is
+    // erased (which would leave `project` dangling).
     if (&project == m_project) {
         m_project = nullptr;
         m_projectPath.clear();
         m_ctx.getSideBarManager().hideProjectTree();
     }
     m_projects.erase(project.getId());
+    return true;
 }
 
 auto WorkspaceManager::find(const ProjectBase::Id id) -> ProjectBase* {
+    if (m_ephemeral != nullptr && m_ephemeral->getId() == id) {
+        return m_ephemeral.get();
+    }
     const auto it = m_projects.find(id);
     return it != m_projects.end() ? it->second.get() : nullptr;
 }
@@ -186,32 +201,25 @@ auto WorkspaceManager::contains(const ProjectBase* project) const -> bool {
     if (project == nullptr) {
         return false;
     }
-    // Scan owning storage directly — never dereference `project`, which
-    // may already have been destroyed by the time a stale pointer reaches
-    // us. ProjectBase counts are small (single-digit typical) so the linear
-    // walk is cheaper than maintaining a parallel pointer set.
+    if (project == m_ephemeral.get()) {
+        return true;
+    }
+    // Scan owning storage directly — never dereference `project`, which may
+    // already have been destroyed by the time a stale pointer reaches us.
     return std::ranges::any_of(m_projects | std::views::values,
         [project](const auto& owned) { return owned.get() == project; });
 }
 
-void WorkspaceManager::onDocumentTypeChanged(Document& doc) {
-    if (doc.getType() == DocumentType::FreeBASIC) {
-        if (doc.getProject() == nullptr) {
-            createEphemeral(doc);
-        }
-        return;
-    }
-    // Non-FreeBASIC: drop the ephemeral binding so the user can flip
-    // the doc into HTML / Properties / etc. without dragging a
-    // FreeBASIC-flavoured project along. Persistent projects survive
-    // type changes — their non-source assets (images, Info.plist, …)
-    // legitimately live under non-FreeBASIC types.
-    if (const auto* project = doc.getProject(); project != nullptr && project->isEphemeral()) {
-        destroyEphemeral(doc);
-    }
+auto WorkspaceManager::getActiveProject() const -> ProjectBase* {
+    auto* doc = m_ctx.getDocumentManager().getActive();
+    return doc != nullptr ? doc->getProject() : nullptr;
 }
 
-auto WorkspaceManager::getActiveProject() const -> ProjectBase* {
-    const auto* doc = m_ctx.getDocumentManager().getActive();
-    return doc != nullptr ? doc->getProject() : nullptr;
+void WorkspaceManager::onActiveDocumentChanged(Document* doc) {
+    // Keep the shared ephemeral's build context pointed at the focused
+    // standalone document (drives its capabilities / sources / config); clear
+    // it when the active document belongs to a persistent project or is gone.
+    if (m_ephemeral != nullptr) {
+        m_ephemeral->setActive(doc != nullptr && doc->getProject() == m_ephemeral.get() ? doc : nullptr);
+    }
 }

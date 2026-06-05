@@ -54,6 +54,8 @@ private:
     [[nodiscard]] auto mainFrame() const -> wxWindow*;
 
     // Context menu + actions ----------------------------------------------
+    /// Double-click / Enter on a file node opens (or focuses) its editor.
+    void onItemActivated(wxTreeEvent& event);
     void onItemMenu(wxTreeEvent& event);
     /// EVT_MENU_RANGE handler for the context-menu items — recovers the
     /// `Action` from the menu id and the node from the current selection.

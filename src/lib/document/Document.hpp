@@ -65,17 +65,13 @@ private:
  */
 class Document final {
 public:
-    /// Where this document's on-disk identity lives. When the document
-    /// is unbound from any project, the path is stored directly in
-    /// `m_source` as a `std::filesystem::path` (empty for untitled).
-    /// When the document is bound to a project, the path lives on the
-    /// project's `Node` and `m_source` carries a non-owning `Node*`
-    /// pinned by the project's `unique_ptr` storage. For a document bound
-    /// to an **ephemeral** project the path lives on the project
-    /// (`EphemeralProject::m_path`) and `m_source` holds the (unused)
-    /// path slot. Invariants held by `bindToProject` / `unbindFromProject`:
-    /// `m_source` holds `Project::Node*` iff bound to a persistent
-    /// `Project`; `m_project != nullptr` iff bound to any project.
+    /// Where this document's on-disk identity lives. `m_source` holds a
+    /// `std::filesystem::path` (empty for untitled) for every document
+    /// except those bound to a **persistent** `Project`, where it instead
+    /// carries a non-owning `Project::Node*` and the path lives on that
+    /// node. Standalone documents (owned by the shared `EphemeralProject`)
+    /// keep their own path here. Invariant held by `bindToProject`:
+    /// `m_source` holds `Project::Node*` iff bound to a persistent `Project`.
     using Source = std::variant<std::filesystem::path, Project::Node*>;
 
     NO_COPY_AND_MOVE(Document)
@@ -102,6 +98,12 @@ public:
     /// wx-parent-driven teardown (notebook page close) leaves the
     /// document with clean `nullptr` slots.
     void detachView();
+
+    /// Set (or clear) the sink that receives `EVT_DOCUMENT_TYPE_CHANGED`.
+    /// `DocumentManager` sets itself as the sink when it attaches an editor
+    /// and clears it when the tab closes — an editor-less document fires no
+    /// type-change events.
+    void setSink(wxEvtHandler* sink) { m_sink = sink; }
 
     /// True when a view is currently attached.
     [[nodiscard]] auto hasView() const -> bool { return m_view != nullptr; }
@@ -201,26 +203,16 @@ public:
     /// the view is an `EditorPanel`; no-op for other view kinds.
     void updateSettings();
 
-    /// The project this document is bound to, or `nullptr` when it
-    /// lives outside any project (non-FreeBASIC docs in the current
-    /// phase; eventually any doc the user hasn't added to a persistent
-    /// project). Lifetime: the project always outlives the bound
-    /// document — the `WorkspaceManager` teardown protocol calls
-    /// `unbindFromProject` before destroying a project.
+    /// The project that owns this document — the shared `EphemeralProject`
+    /// for a standalone file, or a persistent `Project` for a project member.
+    /// Never null once the document is owned (which it is for its whole
+    /// lifetime); the owning project always outlives it.
     [[nodiscard]] auto getProject() const -> ProjectBase* { return m_project; }
 
-    /// Bind this document to a project under the given node. The path
-    /// currently held in `m_source` is **not** propagated here — the
-    /// caller is expected to have stored it on the project's node
-    /// first (typically via `ProjectBase::addFile`). After this call,
-    /// `getFilePath()` resolves through the project.
+    /// Bind this document to a project. For a persistent project pass the
+    /// owning file `node` (path resolves through it). For the shared
+    /// ephemeral pass no node — the document keeps its own path in `m_source`.
     void bindToProject(ProjectBase* project, Project::Node* node = nullptr);
-
-    /// Detach this document from its project, atomically copying the
-    /// path out of the project's node back into `m_source` so
-    /// `getFilePath()` keeps returning the same value either side of
-    /// the transition. Safe to call when already unbound (no-op).
-    void unbindFromProject();
 
 private:
     ConfigManager& m_config;                   ///< Source of encoding/EOL defaults and the locale table.

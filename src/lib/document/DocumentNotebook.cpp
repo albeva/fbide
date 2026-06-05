@@ -14,8 +14,10 @@
 #include "command/CommandManager.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "editor/Editor.hpp"
+#include "editor/EditorPanel.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
+#include "workspace/WorkspaceManager.hpp"
 using namespace fbide;
 
 namespace {
@@ -95,13 +97,9 @@ auto DocumentNotebook::activeDocument() const -> Document* {
 }
 
 auto DocumentNotebook::documentForPage(const wxWindow* page) const -> Document* {
-    if (page == nullptr) {
-        return nullptr;
-    }
-    for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {
-        if (doc->getView() == page) {
-            return doc.get();
-        }
+    // Every page is an EditorPanel that back-links its document.
+    if (const auto* panel = dynamic_cast<const EditorPanel*>(page)) {
+        return &panel->getDocument();
     }
     return nullptr;
 }
@@ -136,6 +134,9 @@ void DocumentNotebook::onPageChanged(wxAuiNotebookEvent& event) {
     event.Skip();
     auto* doc = activeDocument();
     auto& ui = m_ctx.getUIManager();
+    // Sync the ephemeral's build context to the new active document *before*
+    // any capability read (syncBuildCommands → getActiveProject → getCapabilities).
+    m_ctx.getWorkspaceManager().onActiveDocumentChanged(doc);
     // Tab change shifts both the active document and (potentially)
     // the active project, so both command dimensions need a refresh.
     ui.syncDocCommands();

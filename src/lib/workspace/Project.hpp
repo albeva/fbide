@@ -12,6 +12,7 @@
 namespace fbide {
 class Document;
 class CompilerConfigCatalog;
+class ConfigManager;
 struct ResolvedCompilerConfig;
 
 /**
@@ -41,7 +42,11 @@ public:
     /// and anchor the tree at `rootDir` (the directory that contains the
     /// `.fbp` file). The root node is created immediately, bound to that
     /// directory.
-    Project(CompilerConfigCatalog& catalog, std::string name, std::filesystem::path rootDir);
+    Project(CompilerConfigCatalog& catalog, ConfigManager& config, std::string name, std::filesystem::path rootDir);
+
+    /// Out-of-line so the node-owned `unique_ptr<Document>`s see the full
+    /// `Document` definition when the tree tears down.
+    ~Project() override;
 
     /// The project's display name — shown as the tree root label, independent
     /// of the root directory's own name. Defaults to the `.fbp` file's stem.
@@ -95,10 +100,10 @@ public:
             Name,
         };
 
-        /// A file node. `doc` is populated while the file is open in a tab,
-        /// null otherwise (the node persists regardless).
+        /// A file node. Owns its `Document` (created editor-less when the node
+        /// is added; the editor is created lazily when the file is opened).
         struct File final {
-            Document* doc = nullptr;
+            std::unique_ptr<Document> doc;
         };
 
         /// A folder node — a real directory. Children are non-owning pointers
@@ -116,6 +121,12 @@ public:
         [[nodiscard]] auto isFile() const -> bool { return std::holds_alternative<File>(entry); }
         [[nodiscard]] auto getFile() -> File* { return std::get_if<File>(&entry); }
         [[nodiscard]] auto getFile() const -> const File* { return std::get_if<File>(&entry); }
+
+        /// The document owned by this file node, or null for a folder.
+        [[nodiscard]] auto document() const -> Document* {
+            const auto* file = getFile();
+            return file != nullptr ? file->doc.get() : nullptr;
+        }
 
         /// Display name — the final path component (folder or file name).
         [[nodiscard]] auto name() const -> std::string { return path.filename().string(); }
@@ -174,14 +185,6 @@ public:
     /// the project root.
     auto setFilePath(Node* file, const std::filesystem::path& newPath) -> std::expected<void, Error>;
 
-    /// Bind an open document to a file node (when a project file is opened in
-    /// a tab) — sets both sides of the link.
-    void bindDocument(Node* file, Document& doc);
-
-    /// Drop the document back-link on a file node (symmetric with
-    /// `Document::unbindFromProject`).
-    void clearNodeDocument(Node* node);
-
     /// Root folder of the project tree (the on-disk anchor directory).
     [[nodiscard]] auto getRoot() -> Node* { return m_root; }
     /// Const overload of `getRoot`.
@@ -203,8 +206,9 @@ public:
     /// `projectFile.parent_path()`. Subsequent mutations auto-save back to
     /// this file. `Error::IoError` when unreadable, `Error::FormatError` when
     /// the contents are malformed.
-    [[nodiscard]] static auto loadFrom(const std::filesystem::path& projectFile, CompilerConfigCatalog& catalog)
-        -> std::expected<std::unique_ptr<Project>, Error>;
+    [[nodiscard]] static auto loadFrom(
+        const std::filesystem::path& projectFile, CompilerConfigCatalog& catalog, ConfigManager& config
+    ) -> std::expected<std::unique_ptr<Project>, Error>;
 
     // --- ProjectBase interface --------------------------------------------
 
@@ -212,11 +216,10 @@ public:
     /// short-circuits to true). Lexical comparison only.
     [[nodiscard]] auto isUnderRoot(const std::filesystem::path& candidate) const -> bool override;
 
-    /// Every currently-bound document in the tree (unbound file nodes are
-    /// skipped).
+    /// Every document in the tree (one per file node).
     [[nodiscard]] auto getDocuments() const -> std::vector<Document*> override;
 
-    /// Bound `.bas` documents in the tree.
+    /// The `.bas` documents in the tree.
     [[nodiscard]] auto getSources() const -> std::vector<Document*> override;
 
     // Build configuration — stub (TBD).
@@ -234,6 +237,10 @@ public:
 private:
     /// Create the root node bound to `rootDir`.
     void createRoot(std::filesystem::path rootDir);
+
+    /// Create an editor-less `Document` for `path` (type from the extension,
+    /// no event sink yet — `DocumentManager` sets the sink when it opens it).
+    [[nodiscard]] auto makeDocument(const std::filesystem::path& path) const -> std::unique_ptr<Document>;
 
     /// Allocate a node under `parent`, register it in the arena + path index,
     /// and append it to the parent's children (caller re-sorts).
@@ -271,6 +278,7 @@ private:
     /// every successful mutation so the `.fbp` always mirrors the model.
     void autosave() const;
 
+    ConfigManager& m_config;                                     ///< Source of document encoding/EOL/type defaults.
     std::string m_name;                                          ///< Project display name (root label).
     std::filesystem::path m_projectFile;                         ///< `.fbp` path for auto-save (empty = not persisted).
     std::unordered_map<Node::Id, std::unique_ptr<Node>> m_nodes; ///< Owning node arena.

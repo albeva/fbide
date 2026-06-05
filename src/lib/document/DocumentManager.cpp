@@ -58,14 +58,11 @@ auto DocumentManager::defaultEolMode() const -> EolMode {
 // ---------------------------------------------------------------------------
 
 auto DocumentManager::newFile(DocumentType type) -> Document& {
-    const auto thaw = m_ctx.getUIManager().freeze();
-    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx.getConfigManager(), type, this));
-    make_unowned<EditorPanel>(m_notebook.get(), m_ctx, type, doc);
-    if (type == DocumentType::FreeBASIC) {
-        m_ctx.getWorkspaceManager().createEphemeral(doc);
-    }
-    m_notebook->addPage(doc);
-    return doc;
+    // The shared ephemeral project owns the document; we create its editor.
+    auto doc = std::make_unique<Document>(m_ctx.getConfigManager(), type, nullptr);
+    auto* ptr = m_ctx.getWorkspaceManager().adoptStandalone(std::move(doc));
+    openEditorFor(*ptr);
+    return *ptr;
 }
 
 auto DocumentManager::openInclude(const Document& origin, const wxString& includePath) -> Document* {
@@ -164,47 +161,63 @@ auto DocumentManager::openDocument(const std::filesystem::path& filePath) -> Doc
     // and ensures the stored path is identity-comparable for findByPath.
     const auto canonical = canonicalizePath(filePath);
 
-    // Check if already open
+    // Already known (open tab, or a member of the open persistent project) —
+    // focus it, creating its editor if needed.
     if (auto* existing = findByPath(canonical)) {
-        m_notebook->selectDocument(*existing);
+        openEditorFor(*existing);
         return existing;
     }
 
-    // Read file first — if it fails, don't create an Editor (dangling
-    // child of the notebook). Config-derived defaults seed detection.
-    const auto loaded = DocumentIO::load(canonical, defaultEncoding(), defaultEolMode());
-    if (!loaded.has_value()) {
+    // Verify it reads before creating anything — no empty tab on failure.
+    if (!DocumentIO::load(canonical, defaultEncoding(), defaultEolMode()).has_value()) {
         wxLogError(m_ctx.tr("messages.loadFailed"), toWxString(canonical));
         return nullptr;
     }
 
-    const auto thaw = m_ctx.getUIManager().freeze();
-    const auto type = documentTypeFromPath(canonical);
+    // Standalone document, owned by the shared ephemeral project.
+    auto doc = std::make_unique<Document>(m_ctx.getConfigManager(), documentTypeFromPath(canonical), nullptr);
+    doc->setFilePath(canonical);
+    auto* ptr = m_ctx.getWorkspaceManager().adoptStandalone(std::move(doc));
+    m_ctx.getFileHistory().addFile(canonical);
+    openEditorFor(*ptr);
+    return ptr;
+}
 
-    auto& doc = *m_documents.emplace_back(std::make_unique<Document>(m_ctx.getConfigManager(), type, this));
-    make_unowned<EditorPanel>(m_notebook.get(), m_ctx, type, doc);
-
-    loadFile(doc, loaded->text, loaded->eolMode);
-    doc.setEncoding(loaded->encoding);
-    doc.setEolMode(loaded->eolMode);
-    doc.setFilePath(canonical);
-    doc.markSaved();
-
-    // Bind to an ephemeral project before the tab is published, so any
-    // observer that looks up the doc's project from the page-change
-    // callback (e.g. setActiveDocument) sees the binding already in
-    // place. addPage triggers PAGE_CHANGED on the notebook.
-    if (doc.getType() == DocumentType::FreeBASIC) {
-        m_ctx.getWorkspaceManager().createEphemeral(doc);
+void DocumentManager::openEditorFor(Document& doc) {
+    // Already open — just focus its tab.
+    if (doc.hasView()) {
+        m_notebook->selectDocument(doc);
+        return;
     }
 
-    m_notebook->addPage(doc);
+    const auto thaw = m_ctx.getUIManager().freeze();
+    make_unowned<EditorPanel>(m_notebook.get(), m_ctx, doc.getType(), doc); // attaches the editor view
+    doc.setSink(this);
 
-    m_ctx.getFileHistory().addFile(canonical);
+    // Populate from disk for a saved document; untitled documents start empty.
+    wxString content;
+    if (!doc.isNew()) {
+        if (const auto loaded = DocumentIO::load(doc.getFilePath(), defaultEncoding(), defaultEolMode())) {
+            loadFile(doc, loaded->text, loaded->eolMode);
+            doc.setEncoding(loaded->encoding);
+            doc.setEolMode(loaded->eolMode);
+            doc.markSaved();
+            doc.updateModTime();
+            content = loaded->text;
+        } else {
+            wxLogError(m_ctx.tr("messages.loadFailed"), toWxString(doc.getFilePath()));
+        }
+    }
 
-    // Initial parse: bypass throttle, submit immediately.
-    submitIntellisense(&doc, loaded->text);
-    return &doc;
+    m_notebook->addPage(doc, true);
+    if (doc.getType() == DocumentType::FreeBASIC) {
+        submitIntellisense(&doc, content);
+    }
+}
+
+void DocumentManager::closeEditor(Document& doc) {
+    m_notebook->removePage(doc); // destroys the EditorPanel → doc.detachView()
+    doc.setSink(nullptr);        // an editor-less document fires no type-change events
 }
 
 void DocumentManager::reportSaveFailure(const DocumentIO::SaveResult result, const TextEncoding encoding) const {
@@ -454,7 +467,7 @@ void DocumentManager::promptRestartIfConfig(const std::filesystem::path& path) c
 }
 
 auto DocumentManager::saveAllFiles() -> bool {
-    for (auto& doc : m_documents) {
+    for (auto* doc : m_ctx.getWorkspaceManager().documents()) {
         if (doc->isModified()) {
             if (!saveFile(*doc)) {
                 return false;
@@ -485,34 +498,30 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
         }
     }
 
-    // Close commit. Tear down the ephemeral project bound to this doc
-    // (if any) — its single source is going away with the tab.
-    // Persistent projects survive document close; their file node
-    // simply releases the `Document*` back-link.
-    if (auto* project = doc.getProject(); project != nullptr && project->isEphemeral()) {
-        m_ctx.getWorkspaceManager().destroyEphemeral(doc);
+    // Tear down the editor/tab. A standalone document dies with its tab; a
+    // persistent project member survives (editor-less) under its node.
+    auto* project = doc.getProject();
+    closeEditor(doc);
+    if (project != nullptr && project->isEphemeral()) {
+        m_ctx.getWorkspaceManager().closeStandalone(&doc); // destroys the document
     }
 
-    m_notebook->removePage(doc);
-    std::erase_if(m_documents, [&doc](const auto& ptr) { return ptr.get() == &doc; });
-
-    // Sidebar: reflect post-close state. PAGE_CHANGED isn't always fired
-    // by AUI when the active page is removed, so push explicitly here.
-    // showSymbolsFor handles nullptr (clears) and dedups by shared_ptr.
+    // Reflect the post-close active document — PAGE_CHANGED isn't always fired
+    // by AUI when the active page is removed, so push explicitly. Refresh the
+    // workspace's ephemeral build context first (it drives the capabilities /
+    // config the consumers below read); showSymbolsFor handles nullptr (clears);
+    // onActiveDocumentChanged avoids a dangling cached pointer in the compiler
+    // manager.
+    m_ctx.getWorkspaceManager().onActiveDocumentChanged(getActive());
     m_ctx.getSideBarManager().showSymbolsFor(getActive());
-
-    // Same reason: tell the compiler manager which document is now
-    // active (or none). Otherwise its cached active-document pointer
-    // would dangle and the toolbar combobox / status-bar configuration
-    // cell would keep showing the closed document's selection.
     m_ctx.getCompilerManager().onActiveDocumentChanged(getActive());
 
-    // Trim the IntellisenseService SymbolTable pool: the closed doc's
-    // shared_ptr just released, so any pool slot it held is now idle.
+    // Trim the IntellisenseService SymbolTable pool — the closed doc's slot is
+    // now idle.
     m_ctx.getWorkspaceManager().getIntellisense().prune();
 
-    // Update UI state when no documents remain
-    if (m_documents.empty()) {
+    // Update UI state when no tabs remain.
+    if (getCount() == 0) {
         auto& ui = m_ctx.getUIManager();
         ui.syncDocCommands();
         ui.syncBuildCommands();
@@ -524,8 +533,9 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
 }
 
 auto DocumentManager::closeAllFiles() -> bool {
-    while (!m_documents.empty()) {
-        if (!closeFile(*m_documents.back())) {
+    // Snapshot the open tabs first — closeFile mutates ownership + notebook.
+    for (auto* doc : openDocuments()) {
+        if (!closeFile(*doc)) {
             return false;
         }
     }
@@ -533,16 +543,9 @@ auto DocumentManager::closeAllFiles() -> bool {
 }
 
 auto DocumentManager::closeOtherFiles(const Document& keep) -> bool {
-    // Snapshot first — closeFile mutates m_documents.
-    std::vector<Document*> targets;
-    targets.reserve(m_documents.size());
-    for (const auto& doc : m_documents) {
-        if (doc.get() != &keep) {
-            targets.push_back(doc.get());
-        }
-    }
-    for (auto* doc : targets) {
-        if (!closeFile(*doc)) {
+    // Snapshot first — closeFile mutates ownership + notebook.
+    for (auto* doc : openDocuments()) {
+        if (doc != &keep && !closeFile(*doc)) {
             return false;
         }
     }
@@ -552,15 +555,11 @@ auto DocumentManager::closeOtherFiles(const Document& keep) -> bool {
 void DocumentManager::onDocumentTypeChanged(DocumentTypeChangedEvent& event) {
     auto& doc = *event.getDocument();
 
-    // Sync the project binding to the new type *first* so downstream
-    // bookkeeping (intellisense, sidebar) sees the document in its
-    // post-transition project state. Ephemeral projects appear /
-    // disappear here; persistent projects are untouched.
-    m_ctx.getWorkspaceManager().onDocumentTypeChanged(doc);
-
-    // Build commands follow project capabilities — the type change
-    // may have just created or torn down the active ephemeral
-    // project, so the toolbar needs a refresh either way.
+    // The shared ephemeral project's capabilities follow the active document's
+    // type, so a flip just needs a build-command + dropdown refresh — there is
+    // no per-document project to create or tear down. Re-point the ephemeral's
+    // build context first so syncBuildCommands sees the new capabilities.
+    m_ctx.getWorkspaceManager().onActiveDocumentChanged(getActive());
     m_ctx.getUIManager().syncBuildCommands();
     // The configuration dropdown tracks that same project, and a type
     // flip fires no page-change event, so re-sync it explicitly.
@@ -649,12 +648,12 @@ auto DocumentManager::prepareToQuit() -> bool {
         }
     }
 
-    // Discard all — close without prompting (already saved or user said NO)
-    while (!m_documents.empty()) {
-        auto& doc = *m_documents.back();
-        doc.markSaved();
-        m_notebook->removePage(doc);
-        m_documents.pop_back();
+    // Discard all — close every open tab without prompting (already saved, or
+    // the user chose not to). Documents are owned by their projects and are
+    // released at Context teardown.
+    for (auto* doc : openDocuments()) {
+        doc->markSaved();
+        closeEditor(*doc);
     }
 
     auto& ui = m_ctx.getUIManager();
@@ -665,6 +664,20 @@ auto DocumentManager::prepareToQuit() -> bool {
 
 auto DocumentManager::getActive() const -> Document* {
     return m_notebook->activeDocument();
+}
+
+auto DocumentManager::getCount() const -> size_t {
+    return m_notebook != nullptr ? static_cast<size_t>(m_notebook->GetPageCount()) : 0;
+}
+
+auto DocumentManager::openDocuments() const -> std::vector<Document*> {
+    std::vector<Document*> result;
+    for (auto* doc : m_ctx.getWorkspaceManager().documents()) {
+        if (doc->hasView()) {
+            result.push_back(doc);
+        }
+    }
+    return result;
 }
 
 // Semantically mutating (changes the active tab) even though
@@ -691,42 +704,47 @@ auto DocumentManager::findByPath(const std::filesystem::path& path) const -> Doc
         return nullptr;
     }
     std::error_code ec;
-    for (auto& doc : m_documents) {
+    for (auto* doc : m_ctx.getWorkspaceManager().documents()) {
         if (doc->isNew()) {
             continue;
         }
         // equivalent needs both paths to exist; a missing query matches nothing
         // (ec is set, the call returns false), which is the correct answer.
         if (std::filesystem::equivalent(doc->getFilePath(), path, ec)) {
-            return doc.get();
+            return doc;
         }
     }
     return nullptr;
 }
 
 auto DocumentManager::getModifiedCount() const -> size_t {
-    return static_cast<size_t>(std::ranges::count_if(m_documents, [](const auto& doc) {
+    const auto docs = m_ctx.getWorkspaceManager().documents();
+    return static_cast<size_t>(std::ranges::count_if(docs, [](const Document* doc) {
         return doc->isModified();
     }));
 }
 
 auto DocumentManager::findByEditor(const wxWindow* editor) const -> Document* {
-    for (auto& doc : m_documents) {
+    for (auto* doc : openDocuments()) {
         if (doc->getEditor() == editor) {
-            return doc.get();
+            return doc;
         }
     }
     return nullptr;
 }
 
 void DocumentManager::setMinimapVisible(const bool visible) {
-    for (const auto& doc : m_documents) {
+    for (auto* doc : openDocuments()) {
         doc->showMinimap(visible);
     }
 }
 
 auto DocumentManager::contains(const Document* doc) const -> bool {
-    return doc != nullptr && std::ranges::contains(m_documents, doc, &std::unique_ptr<Document>::get);
+    if (doc == nullptr) {
+        return false;
+    }
+    const auto docs = m_ctx.getWorkspaceManager().documents();
+    return std::ranges::find(docs, doc) != docs.end();
 }
 
 void DocumentManager::updateActiveTabTitle() const {

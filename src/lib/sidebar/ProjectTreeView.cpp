@@ -23,6 +23,7 @@ constexpr int kMenuActionLast = kMenuActionBase + static_cast<int>(Project::Acti
 
 // clang-format off
 wxBEGIN_EVENT_TABLE(ProjectTreeView, wxTreeCtrl)
+    EVT_TREE_ITEM_ACTIVATED(wxID_ANY, ProjectTreeView::onItemActivated)
     EVT_TREE_ITEM_MENU(wxID_ANY, ProjectTreeView::onItemMenu)
     EVT_TREE_BEGIN_DRAG(wxID_ANY, ProjectTreeView::onBeginDrag)
     EVT_TREE_END_DRAG(wxID_ANY, ProjectTreeView::onEndDrag)
@@ -153,6 +154,17 @@ auto ProjectTreeView::labelFor(const Project::Action action) const -> wxString {
         return m_ctx.tr("project.menu.remove");
     }
     return {};
+}
+
+void ProjectTreeView::onItemActivated(wxTreeEvent& event) {
+    auto* node = nodeFor(event.GetItem());
+    if (node == nullptr || node->isFolder()) {
+        event.Skip(); // let folders expand / collapse
+        return;
+    }
+    if (auto* doc = node->document()) {
+        m_ctx.getDocumentManager().openEditorFor(*doc);
+    }
 }
 
 void ProjectTreeView::onItemMenu(wxTreeEvent& event) {

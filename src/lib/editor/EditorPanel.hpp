@@ -57,6 +57,10 @@ public:
     /// Const overload of `getEditor`.
     [[nodiscard]] auto getEditor() const -> const Editor* { return m_editor; }
 
+    /// The document this panel presents. Lets the notebook map a page back to
+    /// its document without a global document registry.
+    [[nodiscard]] auto getDocument() const -> Document& { return m_doc; }
+
     /// Toggle the minimap. Visibility is also gated on the page
     /// being wide enough (`kMinEditorWidth` of editor area must
     /// remain) — see `updateMinimapVisibility`.

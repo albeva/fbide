@@ -341,7 +341,7 @@ auto CompilerManager::ensureSaved(ProjectBase& project) -> bool {
     // Walk every currently-bound document and ensure it's saved.
     // For Ephemeral projects this is a single doc; Persistent projects
     // (future) will iterate over every modified member.
-    return std::ranges::all_of(project.getDocuments(), [this](Document* doc) {
+    return std::ranges::all_of(project.getSources(), [this](Document* doc) {
         if (doc == nullptr) {
             return true;
         }
@@ -426,12 +426,21 @@ void CompilerManager::refreshConfigurationCombo() {
 }
 
 auto CompilerManager::configurationProject() const -> ProjectBase* {
-    // Driven polymorphically by the active document's project: an
-    // ephemeral project exposes the active compiler configuration; a
-    // persistent project (future) will expose its own targets and report
-    // an empty set until then. A non-FreeBASIC document has no project,
-    // so the dropdown stays hidden.
-    return m_lastActiveDoc != nullptr ? m_lastActiveDoc->getProject() : nullptr;
+    // Driven polymorphically by the active document's project: an ephemeral
+    // project exposes the active compiler configuration; a persistent project
+    // (future) will expose its own targets and report an empty set until then.
+    if (m_lastActiveDoc == nullptr) {
+        return nullptr;
+    }
+    auto* project = m_lastActiveDoc->getProject();
+    // Every standalone document now belongs to the shared ephemeral project,
+    // so a non-FreeBASIC one still reports a (non-null) project. Gate on the
+    // document type, not project != null, or the configuration combobox /
+    // status-bar selector would leak onto non-FB standalone files.
+    if (project != nullptr && project->isEphemeral() && m_lastActiveDoc->getType() != DocumentType::FreeBASIC) {
+        return nullptr;
+    }
+    return project;
 }
 
 void CompilerManager::onActiveDocumentChanged(Document* doc) {

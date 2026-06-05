@@ -17,13 +17,14 @@ class CodeTransformer;
 class DocumentNotebook;
 
 /**
- * Owns every open `Document`, drives the open / save / close
- * pipelines, and brokers cross-cutting state — the find / replace
- * dialog, the shared on-type `CodeTransformer`, and the background
- * `IntellisenseService`.
+ * Drives the open / save / close pipelines and the document notebook,
+ * and brokers cross-cutting state — the shared on-type `CodeTransformer`
+ * and the background `IntellisenseService`.
  *
- * **Owns:** `m_documents` (vector of `unique_ptr<Document>`) and
- * `m_codeTransformer`.
+ * Documents are **not** owned here — every `Document` belongs to a project
+ * (the shared `EphemeralProject` for standalone files, a persistent
+ * `Project` for project members). This class owns only the `CodeTransformer`
+ * and manages editors / tabs over those documents.
  * **Owned by:** `Context`.
  * **Threading:** UI thread only. The shared `IntellisenseService` lives
  * on `WorkspaceManager` (see @ref analyses); `DocumentManager` only
@@ -50,13 +51,23 @@ public:
     /// Create a new empty document and add it as a tab.
     auto newFile(DocumentType type = DocumentType::FreeBASIC) -> Document&;
 
-    /// Open a document file as a tab: dedup against already-open tabs, load
-    /// from disk, and (for FreeBASIC) bind a fresh Ephemeral project. Session
-    /// (`.fbs`) and project (`.fbp`) files are NOT handled here — the
-    /// dispatcher `WorkspaceManager::openFile` validates the path and routes
-    /// those elsewhere before delegating ordinary documents here. Returns the
-    /// existing document if already open, or nullptr on failure.
+    /// Open a standalone document file: dedup against open tabs, create the
+    /// `Document` (owned by the shared ephemeral project) plus its editor, and
+    /// load the content. Session (`.fbs`) / project (`.fbp`) files are routed
+    /// elsewhere by `WorkspaceManager::openFile` before reaching here. Returns
+    /// the document, or nullptr on failure.
     auto openDocument(const std::filesystem::path& filePath) -> Document*;
+
+    /// Ensure `doc` has an editor + tab and focus it: if already open, select
+    /// its tab; otherwise create the editor, load its on-disk content (for
+    /// saved documents), set the type-change sink, and add the tab. The shared
+    /// path for double-clicking a project file and reopening a project member.
+    void openEditorFor(Document& doc);
+
+    /// Tear down `doc`'s editor + tab *without* destroying the document or
+    /// running the close dispatch — used when closing a persistent project,
+    /// whose nodes still own the documents (`WorkspaceManager::closeProject`).
+    void closeEditor(Document& doc);
 
     /// Resolve and open an `#include` path requested from `origin`.
     /// Search order mirrors fbc's: the `origin` file's directory, then the
@@ -133,8 +144,8 @@ public:
     /// Set documents' editor to be currently active editive one
     void setActive(Document* document);
 
-    /// Get document count.
-    [[nodiscard]] auto getCount() const -> size_t { return m_documents.size(); }
+    /// Number of open documents (tabs).
+    [[nodiscard]] auto getCount() const -> size_t;
 
     /// Find document by file path. Returns nullptr if not found.
     [[nodiscard]] auto findByPath(const wxString& path) const -> Document*;
@@ -159,11 +170,10 @@ public:
     /// Show or hide the minimap on every open document.
     void setMinimapVisible(bool visible);
 
-    /// Iterate all open documents (ordering matches tab order at creation).
-    [[nodiscard]] auto getDocuments() const
-        -> std::span<const std::unique_ptr<Document>> { return m_documents; }
-
 private:
+    /// The currently open documents (those with an editor/tab).
+    [[nodiscard]] auto openDocuments() const -> std::vector<Document*>;
+
     /// Config-derived default encoding used for freshly opened files.
     [[nodiscard]] auto defaultEncoding() const -> TextEncoding;
     /// Config-derived default EOL mode used for freshly opened files.
@@ -202,7 +212,6 @@ private:
 
     Context& m_ctx;                                     ///< Application context.
     Unowned<DocumentNotebook> m_notebook;               ///< Tab strip — wx-parented to the frame; created by `createNotebook`.
-    std::vector<std::unique_ptr<Document>> m_documents; ///< Open documents in tab order.
     std::unique_ptr<CodeTransformer> m_codeTransformer; ///< Shared on-type transformer.
 };
 

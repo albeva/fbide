@@ -17,21 +17,18 @@ struct ResolvedCompilerConfig;
  * Abstract interface for a project — the unit the IDE compiles, runs,
  * and exposes in the build-configuration dropdown. Two concrete kinds:
  *
- * - `EphemeralProject` — auto-created for a single standalone FreeBASIC
- *   document; lifetime tied to that document.
+ * - `EphemeralProject` — the single, session-long project that owns every
+ *   standalone document (any file not in a persistent project); its build
+ *   context follows the active standalone document.
  * - `Project` — persistent, user-created, on-disk; owns a file/folder
  *   tree and (eventually) its own build targets.
  *
  * `ProjectBase` carries only what every project shares: identity, the
  * build artefact, a reference to the single shared compiler-configuration
- * catalog, and the polymorphic build/query interface. The whole node tree
- * lives in the persistent `Project`; an ephemeral project just wraps a
- * single `Document*`.
- *
- * `Document*` back-links are stored opaquely — a project never
- * dereferences them. Lifetime coupling between a project and its bound
- * documents is enforced by the `WorkspaceManager` protocol (atomic
- * `Document::bindToProject` / `unbindFromProject` transitions).
+ * catalog, and the polymorphic build/query interface. Each concrete kind
+ * owns its documents (the persistent `Project` via its file nodes, the
+ * `EphemeralProject` via a flat list) and outlives them, so a document's
+ * `getProject()` back-link is valid for the document's whole lifetime.
  */
 class ProjectBase {
 public:
