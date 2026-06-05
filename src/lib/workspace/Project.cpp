@@ -398,7 +398,9 @@ auto Project::contextActions(const Node* node) const -> std::vector<Action> {
             Action::AddHeaderFile,
             Action::AddExisting,
         };
-        if (node != m_root) {
+        if (node == m_root) {
+            actions.push_back(Action::Settings); // root: project settings, never Remove
+        } else {
             actions.push_back(Action::Remove);
         }
         return actions;

@@ -90,6 +90,7 @@ public:
         AddHeaderFile,
         AddExisting,
         Remove,
+        Settings, // root-only: open the project settings dialog
     };
 
     /// One entry in the project tree — a file or a folder, always backed by a

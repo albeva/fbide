@@ -520,6 +520,7 @@ TEST_F(ProjectTest, ContextActionsRootHasAddsNoRemove) {
     EXPECT_NE(std::ranges::find(actions, Project::Action::AddSourceFile), actions.end());
     EXPECT_NE(std::ranges::find(actions, Project::Action::AddHeaderFile), actions.end());
     EXPECT_NE(std::ranges::find(actions, Project::Action::AddExisting), actions.end());
+    EXPECT_NE(std::ranges::find(actions, Project::Action::Settings), actions.end());
     EXPECT_EQ(std::ranges::find(actions, Project::Action::Remove), actions.end());
 }
 
@@ -529,6 +530,8 @@ TEST_F(ProjectTest, ContextActionsFolderHasAddsAndRemove) {
     const auto actions = project.contextActions(folder);
     EXPECT_NE(std::ranges::find(actions, Project::Action::AddFolder), actions.end());
     EXPECT_NE(std::ranges::find(actions, Project::Action::Remove), actions.end());
+    // Settings is a root-only action.
+    EXPECT_EQ(std::ranges::find(actions, Project::Action::Settings), actions.end());
 }
 
 TEST_F(ProjectTest, ContextActionsFileHasRemoveOnly) {

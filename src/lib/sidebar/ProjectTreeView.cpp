@@ -12,14 +12,15 @@
 #include "ui/ArtiProvider.hpp"
 #include "ui/UIManager.hpp"
 #include "workspace/ProjectSession.hpp"
+#include "workspace/settings/ProjectSettingsDialog.hpp"
 
 using namespace fbide;
 
 namespace {
 /// Id range for the per-action context-menu items (one id per `Action`).
-/// `Remove` is the last `Project::Action`, so it bounds the EVT_MENU_RANGE.
+/// `Settings` is the last `Project::Action`, so it bounds the EVT_MENU_RANGE.
 constexpr int kMenuActionBase = wxID_HIGHEST + 1;
-constexpr int kMenuActionLast = kMenuActionBase + static_cast<int>(Project::Action::Remove);
+constexpr int kMenuActionLast = kMenuActionBase + static_cast<int>(Project::Action::Settings);
 } // namespace
 
 // clang-format off
@@ -192,6 +193,8 @@ auto ProjectTreeView::labelFor(const Project::Action action) const -> wxString {
         return m_ctx.tr("project.menu.addExisting");
     case Project::Action::Remove:
         return m_ctx.tr("project.menu.remove");
+    case Project::Action::Settings:
+        return m_ctx.tr("project.menu.settings");
     }
     return {};
 }
@@ -246,7 +249,16 @@ void ProjectTreeView::runAction(const Project::Action action, Project::Node* nod
     case Project::Action::Remove:
         removeNode(node);
         break;
+    case Project::Action::Settings:
+        openSettings();
+        break;
     }
+}
+
+void ProjectTreeView::openSettings() {
+    ProjectSettingsDialog dlg(mainFrame(), m_ctx, m_project);
+    dlg.create();
+    dlg.ShowModal();
 }
 
 auto ProjectTreeView::confirmAddExisting(const char* msgKey, const wxString& name) const -> bool {

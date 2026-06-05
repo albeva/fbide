@@ -72,6 +72,8 @@ private:
     void addFile(Project::Node* parent, const wxString& extension);
     void addExisting();
     void removeNode(Project::Node* node);
+    /// Open the (modal) project settings dialog. Root-node action.
+    void openSettings();
     /// Ask whether to add the already-existing item named `name`. `msgKey` is
     /// the localisation key for the "... already exists, add it?" message.
     [[nodiscard]] auto confirmAddExisting(const char* msgKey, const wxString& name) const -> bool;

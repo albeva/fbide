@@ -83,6 +83,7 @@ target_sources(fbide_lib
     workspace/ProjectBase.cpp
     workspace/ProjectSession.cpp
     workspace/WorkspaceManager.cpp
+    workspace/settings/ProjectSettingsDialog.cpp
 
     PUBLIC FILE_SET HEADERS FILES
     about/AboutDialog.hpp
@@ -173,6 +174,7 @@ target_sources(fbide_lib
     workspace/ProjectBase.hpp
     workspace/ProjectSession.hpp
     workspace/WorkspaceManager.hpp
+    workspace/settings/ProjectSettingsDialog.hpp
     utils/DeferHandler.hpp
     utils/Identifier.hpp
     utils/Macros.hpp
