@@ -107,9 +107,13 @@ public:
     void applyDocumentSession(Document& doc);
 
     /// Capture a document's editor state into its project session. No-op unless
-    /// `doc` is a persistent-project member. Called when an editor closes or its
-    /// type changes.
+    /// `doc` is a persistent-project member. Called when an editor closes.
     void captureDocumentSession(Document& doc);
+
+    /// Re-save the `.fbp` of `doc`'s persistent project (no-op for standalone
+    /// documents). Called when a member's type override changes — that override
+    /// is project data stored in the project file, not the session.
+    void persistProjectFile(Document& doc);
 
     /// Flush the open project's session (open documents, active tab, expanded
     /// folders, selected node) to its `.fbide/session.ini`. No-op when no

@@ -464,9 +464,17 @@ auto Project::saveTo(const fs::path& projectFile) const -> std::expected<void, E
         const wxString idStr = node->id.string();
         const wxString group = node->isFolder() ? "/folders/" : "/files/";
         cfg.Write(group + idStr, node->name());
+        cfg.SetPath(group + idStr);
         if (node->parent != m_root) {
-            cfg.Write(group + idStr + "/parent", node->parent->id.string());
+            cfg.Write("parent", node->parent->id.string());
         }
+        // A file's project-meaningful document state (encoding, EOL, type
+        // override) is versioned in the .fbp so the project builds even without
+        // the per-user session file. Folders have no document.
+        if (const auto* file = node->getFile(); file != nullptr && file->doc != nullptr) {
+            file->doc->setSessionAttributes(cfg, SessionScope::Project);
+        }
+        cfg.SetPath("/");
     }
 
     wxFFileOutputStream out(toWxString(projectFile));
@@ -586,11 +594,22 @@ auto Project::buildFromConfig(wxFileConfig& cfg) -> std::expected<void, Error> {
             }
             parent = it->second;
         }
-        attachNode(parent, *id, parent->path / basename, Node::File {});
+        auto* node = attachNode(parent, *id, parent->path / basename, Node::File {});
+        // Restore the file's project-scope document state (encoding, EOL, type
+        // override) onto its editor-less document.
+        if (auto* doc = node->document()) {
+            cfg.SetPath("/files/" + uuidWx);
+            doc->loadSessionAttributes(cfg, SessionScope::Project);
+            cfg.SetPath("/");
+        }
     }
 
     sortTree(m_root);
     return {};
+}
+
+void Project::save() const {
+    autosave();
 }
 
 void Project::autosave() const {

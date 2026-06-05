@@ -46,6 +46,23 @@ private:
     DocumentType m_previous;
 };
 
+/// Which slice of a document's persistable attributes `set/loadSessionAttributes`
+/// reads or writes — chosen by the persistence target so each value lands in
+/// the right file.
+enum class SessionScope : std::uint8_t {
+    /// Everything (including the pinned compiler configuration). Standalone
+    /// files store all their state in the `.fbs` session — their only
+    /// persistence.
+    Ephemeral,
+    /// Per-user runtime UI state only — scroll, caret, folds. Lives in the
+    /// project's `.fbide/session.ini` (safe to delete / gitignore).
+    Session,
+    /// Project-meaningful, version-controlled state — encoding, EOL, and the
+    /// type override. Lives in the `.fbp` so the project builds without the
+    /// session file.
+    Project,
+};
+
 /**
  * One open file (or untitled buffer) — the data model: file path,
  * type, encoding, EOL, mod-time.
@@ -203,16 +220,16 @@ public:
     /// the view is an `EditorPanel`; no-op for other view kinds.
     void updateSettings();
 
-    /// Write this document's session state — caret/scroll, encoding, EOL, an
-    /// explicit type override, the pinned compiler configuration, and code
-    /// folds — into `cfg` at its already-selected path/group. Shared by the
-    /// `.fbs` session and the per-project `.fbide/session.ini`. A view-less
-    /// document writes nothing.
-    void setSessionAttributes(wxConfigBase& cfg);
+    /// Write this document's persistable attributes into `cfg` at its
+    /// already-selected path/group, limited to `scope` (see `SessionScope`):
+    /// project-scope writes encoding / EOL (when non-default) and the type
+    /// override; runtime-scope writes scroll / caret / folds. Shared by the
+    /// `.fbs` session, the `.fbide/session.ini`, and the `.fbp`.
+    void setSessionAttributes(wxConfigBase& cfg, SessionScope scope);
 
-    /// Read + apply session state previously written by `setSessionAttributes`
-    /// (cfg's path/group already selected by the caller), then `markSaved()`.
-    void loadSessionAttributes(const wxConfigBase& cfg);
+    /// Read + apply the `scope` slice of attributes previously written by
+    /// `setSessionAttributes` (cfg's path/group already selected by the caller).
+    void loadSessionAttributes(const wxConfigBase& cfg, SessionScope scope);
 
     /// The project that owns this document — the shared `EphemeralProject`
     /// for a standalone file, or a persistent `Project` for a project member.

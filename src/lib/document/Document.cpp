@@ -216,101 +216,116 @@ void Document::updateModTime() {
     m_modTime = ec ? std::filesystem::file_time_type {} : time;
 }
 
-void Document::setSessionAttributes(wxConfigBase& cfg) {
-    auto* editor = m_editor.get();
-    if (editor == nullptr) {
-        return; // view-less document — no editor state to capture
+void Document::setSessionAttributes(wxConfigBase& cfg, const SessionScope scope) {
+    // Project-meaningful state (encoding / EOL / type) — versioned in the `.fbp`,
+    // also part of the standalone `.fbs`. Needs no editor.
+    if (scope != SessionScope::Session) {
+        // Only persist encoding / EOL when they differ from the config default —
+        // a default value is re-derived on open, so storing it is just noise.
+        if (m_encoding != defaultEncodingFromConfig(m_config)) {
+            cfg.Write("encoding", wxString(m_encoding.toString()));
+        }
+        if (m_eolMode != defaultEolModeFromConfig(m_config)) {
+            cfg.Write("eolMode", wxString(m_eolMode.toString()));
+        }
+        if (m_typeOverridden) {
+            const auto typeKey = documentTypeKey(m_type);
+            cfg.Write("type", wxString::FromUTF8(typeKey.data(), typeKey.size()));
+        }
     }
-    cfg.Write("scroll", editor->GetFirstVisibleLine());
-    cfg.Write("cursor", editor->GetCurrentPos());
-    cfg.Write("encoding", wxString(m_encoding.toString()));
-    cfg.Write("eolMode", wxString(m_eolMode.toString()));
-    // Persist the type only when the user has overridden it — otherwise it is
-    // re-derived from the path on load.
-    if (m_typeOverridden) {
-        const auto typeKey = documentTypeKey(m_type);
-        cfg.Write("type", wxString::FromUTF8(typeKey.data(), typeKey.size()));
-    }
-    // Pinned compiler configuration (empty optional = "follow active", which
-    // needs no on-disk representation).
-    if (m_project != nullptr) {
+    // Pinned compiler configuration — part of a standalone file's session only;
+    // project files don't persist a per-document configuration. Empty optional
+    // = "follow active", which needs no on-disk representation.
+    if (scope == SessionScope::Ephemeral && m_project != nullptr) {
         if (const auto slug = m_project->getConfigurationSlug(); slug.has_value()) {
             cfg.Write("configuration", *slug);
         }
     }
-    // Collapsed code folds, when the fold margin is enabled.
-    if (m_config.config().get_or("editor.folderMargin", false)) {
-        editor->Colourise(editor->GetEndStyled(), -1);
-        wxString folds;
-        const auto lines = editor->GetLineCount();
-        for (int line = 0; line < lines; line++) {
-            if (!editor->GetFoldExpanded(line)) {
-                if (!folds.empty()) {
-                    folds += ",";
-                }
-                folds += std::to_string(line);
-            }
+    // Per-user runtime UI state (scroll / caret / folds) — needs the editor.
+    if (scope != SessionScope::Project) {
+        auto* editor = m_editor.get();
+        if (editor == nullptr) {
+            return;
         }
-        if (!folds.empty()) {
-            cfg.Write("folds", folds);
+        cfg.Write("scroll", editor->GetFirstVisibleLine());
+        cfg.Write("cursor", editor->GetCurrentPos());
+        if (m_config.config().get_or("editor.folderMargin", false)) {
+            editor->Colourise(editor->GetEndStyled(), -1);
+            wxString folds;
+            const auto lines = editor->GetLineCount();
+            for (int line = 0; line < lines; line++) {
+                if (!editor->GetFoldExpanded(line)) {
+                    if (!folds.empty()) {
+                        folds += ",";
+                    }
+                    folds += std::to_string(line);
+                }
+            }
+            if (!folds.empty()) {
+                cfg.Write("folds", folds);
+            }
         }
     }
 }
 
-void Document::loadSessionAttributes(const wxConfigBase& cfg) {
-    auto* editor = m_editor.get();
-    if (editor == nullptr) {
-        return;
+void Document::loadSessionAttributes(const wxConfigBase& cfg, const SessionScope scope) {
+    if (scope != SessionScope::Session) {
+        wxString encKey;
+        if (cfg.Read("encoding", &encKey) && !encKey.empty()) {
+            if (const auto enc = TextEncoding::parse(encKey.ToStdString())) {
+                setEncoding(*enc);
+            }
+        }
+        wxString eolKey;
+        if (cfg.Read("eolMode", &eolKey) && !eolKey.empty()) {
+            if (const auto eol = EolMode::parse(eolKey.ToStdString())) {
+                setEolMode(*eol);
+            }
+        }
+        wxString typeKey;
+        if (cfg.Read("type", &typeKey) && !typeKey.empty()) {
+            if (const auto type = documentTypeFromKey(typeKey.ToStdString())) {
+                setType(*type);
+            }
+        }
+        // setEncoding / setEolMode flip the meta-dirty flag — clear it.
+        markSaved();
     }
-    // Optional metadata overrides auto-detected values.
-    wxString encKey;
-    if (cfg.Read("encoding", &encKey) && !encKey.empty()) {
-        if (const auto enc = TextEncoding::parse(encKey.ToStdString())) {
-            setEncoding(*enc);
+    // Restore the pinned compiler configuration (standalone sessions only).
+    if (scope == SessionScope::Ephemeral) {
+        wxString configSlug;
+        if (cfg.Read("configuration", &configSlug) && !configSlug.empty()) {
+            if (m_project != nullptr) {
+                m_project->setConfigurationSlug(configSlug);
+            }
         }
     }
-    wxString eolKey;
-    if (cfg.Read("eolMode", &eolKey) && !eolKey.empty()) {
-        if (const auto eol = EolMode::parse(eolKey.ToStdString())) {
-            setEolMode(*eol);
+    if (scope != SessionScope::Project) {
+        auto* editor = m_editor.get();
+        if (editor == nullptr) {
+            return;
         }
-    }
-    // Restore a user-overridden type; auto-detected types aren't persisted.
-    wxString typeKey;
-    if (cfg.Read("type", &typeKey) && !typeKey.empty()) {
-        if (const auto type = documentTypeFromKey(typeKey.ToStdString())) {
-            setType(*type);
-        }
-    }
-    wxString configSlug;
-    if (cfg.Read("configuration", &configSlug) && !configSlug.empty()) {
-        if (m_project != nullptr) {
-            m_project->setConfigurationSlug(configSlug);
-        }
-    }
-    // setEncoding / setEolMode flip the meta-dirty flag — clear it.
-    markSaved();
+        long scroll = 0;
+        long cursor = 0;
+        cfg.Read("scroll", &scroll, 0L);
+        cfg.Read("cursor", &cursor, 0L);
+        editor->ScrollToLine(static_cast<int>(scroll));
+        editor->SetCurrentPos(static_cast<int>(cursor));
+        editor->SetSelectionStart(static_cast<int>(cursor));
+        editor->SetSelectionEnd(static_cast<int>(cursor));
 
-    long scroll = 0;
-    long cursor = 0;
-    cfg.Read("scroll", &scroll, 0L);
-    cfg.Read("cursor", &cursor, 0L);
-    editor->ScrollToLine(static_cast<int>(scroll));
-    editor->SetCurrentPos(static_cast<int>(cursor));
-    editor->SetSelectionStart(static_cast<int>(cursor));
-    editor->SetSelectionEnd(static_cast<int>(cursor));
-
-    if (m_config.config().get_or("editor.folderMargin", false)) {
-        wxString folds;
-        if (cfg.Read("folds", &folds)) {
-            editor->Colourise(editor->GetEndStyled(), -1);
-            for (const auto& str : wxSplit(folds, ',')) {
-                int line = 0;
-                if (str.ToInt(&line)) {
-                    const auto last = editor->GetLastChild(line, -1);
-                    if (last > line) {
-                        editor->SetFoldExpanded(line, false);
-                        editor->HideLines(line + 1, last);
+        if (m_config.config().get_or("editor.folderMargin", false)) {
+            wxString folds;
+            if (cfg.Read("folds", &folds)) {
+                editor->Colourise(editor->GetEndStyled(), -1);
+                for (const auto& str : wxSplit(folds, ',')) {
+                    int line = 0;
+                    if (str.ToInt(&line)) {
+                        const auto last = editor->GetLastChild(line, -1);
+                        if (last > line) {
+                            editor->SetFoldExpanded(line, false);
+                            editor->HideLines(line + 1, last);
+                        }
                     }
                 }
             }

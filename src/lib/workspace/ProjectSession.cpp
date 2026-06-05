@@ -87,7 +87,7 @@ void ProjectSession::applyTo(Document& doc) {
         return;
     }
     m_cfg->SetPath("/files/" + node->id.string());
-    doc.loadSessionAttributes(*m_cfg);
+    doc.loadSessionAttributes(*m_cfg, SessionScope::Session);
     m_cfg->SetPath("/");
 }
 
@@ -97,7 +97,7 @@ void ProjectSession::capture(Document& doc) {
         return;
     }
     m_cfg->SetPath("/files/" + node->id.string());
-    doc.setSessionAttributes(*m_cfg);
+    doc.setSessionAttributes(*m_cfg, SessionScope::Session);
     m_cfg->SetPath("/");
 }
 

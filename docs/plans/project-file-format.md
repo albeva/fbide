@@ -83,17 +83,23 @@ virtual=1                  ; 0 is default; only write when virtual
 
 ### Per-file detail
 
-Only emit fields that diverge from `ConfigManager` defaults or detected
-type. The project file is the single source of truth for these
-per-file values.
+Emitted only when the field is set. The project file is the source of
+truth for project-meaningful per-file values, so the project still builds
+correctly even if the per-user session (`.fbide/session.ini`) is absent.
 
 ```ini
 [files/d4Rb9nW]
 parent=aZ3kP9q
-encoding=UTF-8             ; omit when matches editor.encoding
-eol=LF                     ; omit when matches editor.eolMode
-type=freebasic             ; omit when matches detected-from-extension
+encoding=UTF-16LE          ; only when it differs from the editor default
+eolMode=CRLF              ; only when it differs from the editor default
+type=freebasic             ; only when the user overrode the detected type
 ```
+
+A file's **encoding**, **line endings**, and **type override** are stored
+here (not in the session) because they affect how the file builds and must
+be versioned with the project. Per-user runtime UI state — caret, scroll,
+and folds — lives in `.fbide/session.ini` instead. The compiler
+configuration selection is not persisted for project files.
 
 ### Reserved (future) — `[build]` section
 
@@ -129,9 +135,10 @@ another project, or app exit). Distinct from the standalone `.fbs`
 session — `.fbs` is user-driven and standalone-meaningful, this file is
 meaningless without its sibling `.fbp`.
 
-Per-document attributes are written / read by
-`Document::setSessionAttributes` / `loadSessionAttributes` — the same code
-the `.fbs` session uses.
+Per-document runtime state is written / read by
+`Document::setSessionAttributes` / `loadSessionAttributes` with the
+`SessionScope::Session` slice — the same code the `.fbs` session uses (which
+uses `SessionScope::Ephemeral` to capture everything).
 
 ```ini
 [session]
@@ -144,12 +151,14 @@ expanded=aZ3kP9q,c1Qf8Lp   ; expanded folder nodes
 [files/d4Rb9nW]
 scroll=10
 cursor=250
-encoding=UTF-8             ; always written
-eolMode=LF                 ; always written
-type=freebasic            ; only when the user overrode the detected type
-configuration=cfg-2        ; only when pinned to a non-active compiler config
 folds=12,34                ; collapsed lines, only when the fold margin is on
 ```
+
+Per-file content here is **only** per-user runtime UI state (scroll, caret,
+folds). Project-meaningful state — encoding, line endings, type override —
+lives in the `.fbp`, and the compiler configuration selection isn't
+persisted for project files. So deleting (or gitignoring) `.fbide/` loses
+only window/cursor positions; the project still builds correctly.
 
 - Keyed by `Project::Node::Id` (a short base-62 string). No paths; the
   project file is the source of truth for tree structure.

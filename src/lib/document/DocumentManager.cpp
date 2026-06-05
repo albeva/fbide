@@ -572,8 +572,9 @@ void DocumentManager::onDocumentTypeChanged(DocumentTypeChangedEvent& event) {
     // flip fires no page-change event, so re-sync it explicitly.
     m_ctx.getCompilerManager().onActiveDocumentChanged(getActive());
 
-    // Persist the new type (and current editor state) for project members.
-    m_ctx.getWorkspaceManager().captureDocumentSession(doc);
+    // The type override is project data — persist it to the `.fbp` (project
+    // members only; standalone files store it in their `.fbs` session).
+    m_ctx.getWorkspaceManager().persistProjectFile(doc);
 
     if (doc.getType() == DocumentType::FreeBASIC) {
         // Re-enter the FreeBASIC pipeline — submit the current buffer

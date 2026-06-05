@@ -273,6 +273,12 @@ void WorkspaceManager::captureDocumentSession(Document& doc) {
     }
 }
 
+void WorkspaceManager::persistProjectFile(Document& doc) {
+    if (doc.getNode() != nullptr) { // persistent-project member
+        static_cast<Project*>(doc.getProject())->save();
+    }
+}
+
 void WorkspaceManager::saveProjectSession() {
     if (m_project == nullptr) {
         return;
@@ -301,6 +307,9 @@ void WorkspaceManager::saveProjectSession() {
     m_ctx.getSideBarManager().captureProjectSession();
 
     session->save();
+    // Re-write the .fbp too, so the open documents' project-scope state
+    // (encoding, EOL, type override) is captured before they are torn down.
+    m_project->save();
 }
 
 void WorkspaceManager::restoreProjectSession() {

@@ -119,7 +119,8 @@ auto FileSession::save(const std::filesystem::path& path) -> bool {
         const auto group = wxString::Format("/%s%03zu", FILE_GROUP_PREFIX, fileIndex);
         cfg.SetPath(group);
         cfg.Write("path", wxString::FromUTF8(pathForSession(doc->getFilePath(), sessionDir)));
-        doc->setSessionAttributes(cfg);
+        // Standalone files store everything in the `.fbs` (their only home).
+        doc->setSessionAttributes(cfg, SessionScope::Ephemeral);
         fileIndex++;
     }
 
@@ -209,7 +210,7 @@ void FileSession::loadV3(const std::filesystem::path& path) {
             continue;
         }
         // cfg's path is the current file group — Document reads its state from it.
-        doc->loadSessionAttributes(cfg);
+        doc->loadSessionAttributes(cfg, SessionScope::Ephemeral);
     }
 
     // Restore selected tab

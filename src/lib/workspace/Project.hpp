@@ -210,6 +210,12 @@ public:
     /// touched. `Error::IoError` if the file cannot be written.
     [[nodiscard]] auto saveTo(const std::filesystem::path& projectFile) const -> std::expected<void, Error>;
 
+    /// Re-write the backing `.fbp` (structure + per-file type overrides) to
+    /// disk; no-op when the project has no backing file. Tree mutations trigger
+    /// this internally; a member's type-override change drives it via
+    /// `WorkspaceManager::persistProjectFile`.
+    void save() const;
+
     /// Construct a project from a `.fbp`: parse the name + structure and
     /// rebuild the tree (preserving node UUIDs), anchored at
     /// `projectFile.parent_path()`. Subsequent mutations auto-save back to
