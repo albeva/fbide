@@ -20,10 +20,17 @@ public:
     Panel(Context& ctx, wxWindowID id, wxWindow* parent);
     /// Build the panel widgets — subclasses implement.
     virtual void create() = 0;
-    /// Commit edits back into config — subclasses implement. Returns
-    /// `true` on success; `false` reports a validation error and asks
-    /// `SettingsDialog` to keep the dialog open and select this panel.
-    virtual auto apply() -> bool = 0;
+    /// Validate the pending edits without committing them. Returns
+    /// `true` when the panel is valid; `false` reports a validation
+    /// error and asks `SettingsDialog` to keep the dialog open and
+    /// select this panel. Called for every panel before any `apply()`,
+    /// so a failure on one tab commits nothing on any tab. Default is a
+    /// no-op that always succeeds; panels with required fields override.
+    virtual auto validate() -> bool { return true; }
+    /// Commit edits back into config — subclasses implement. Only
+    /// called after every panel's `validate()` has passed, so it may
+    /// assume its input is valid and must not fail.
+    virtual void apply() = 0;
     /// Discard any pending edits — called by `SettingsDialog` when the
     /// user clicks Cancel or closes the dialog via the window control.
     /// Default is a no-op; panels that mutate global state during

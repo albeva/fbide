@@ -28,7 +28,7 @@ public:
     /// Build the panel widgets.
     void create() override;
     /// Commit edits back into `ConfigManager`. Always succeeds.
-    auto apply() -> bool override;
+    void apply() override;
 
     /// Enumerate every fixed-width system font — used only by this panel.
     [[nodiscard]] static auto getAllFixedWidthFonts() -> std::vector<wxString>;

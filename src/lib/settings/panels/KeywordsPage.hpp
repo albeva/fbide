@@ -23,7 +23,7 @@ public:
     /// Build the panel widgets.
     void create() override;
     /// Commit edits back into `ConfigManager`. Always succeeds.
-    auto apply() -> bool override;
+    void apply() override;
 
 private:
     /// Locale lookup with empty default — sugar over `ConfigManager::locale().get_or`.
