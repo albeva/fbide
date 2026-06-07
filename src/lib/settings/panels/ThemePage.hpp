@@ -28,37 +28,10 @@ public:
     /// Build the panel widgets.
     void create() override;
     /// Commit edits back into `ConfigManager`. Always succeeds.
-    auto apply() -> bool override;
+    void apply() override;
 
     /// Enumerate every fixed-width system font — used only by this panel.
     [[nodiscard]] static auto getAllFixedWidthFonts() -> std::vector<wxString>;
-
-    /// Static layout descriptor for the category tree. A node is
-    /// either bound to a `SettingsCategory` (clickable to edit
-    /// colours) or it's a folder with a hand-written `labelKey`
-    /// (`keywords`, `margins`, etc. — those don't map 1:1 to any
-    /// category). For category-bound nodes the locale key is
-    /// derived from `getSettingsCategoryLabelKey`, so the tree
-    /// always matches what ColorPicker's "Copy from" submenu
-    /// shows. The label falls back to the locale key itself when
-    /// the lookup is missing.
-    struct TreeNode {
-        std::optional<SettingsCategory> category;
-        wxString labelKey; ///< Folder-only; empty when `category` is set.
-        std::vector<TreeNode> children;
-
-        /// Category-bound node — label key derived from the enum.
-        // NOLINTNEXTLINE(google-explicit-constructor)
-        TreeNode(const SettingsCategory cat, std::vector<TreeNode> kids = {})
-        : category(cat)
-        , children(std::move(kids)) {}
-
-        /// Folder node — no category, explicit locale key.
-        // NOLINTNEXTLINE(google-explicit-constructor)
-        TreeNode(wxString key, std::vector<TreeNode> kids = {})
-        : labelKey(std::move(key))
-        , children(std::move(kids)) {}
-    };
 
 private:
     /// Locale lookup with optional default — wraps `m_tr.get_or`.
@@ -69,7 +42,7 @@ private:
     /// Build the category list (left half).
     void createCategoryList();
     /// Add node to the tree
-    void addTreeNode(const wxTreeItemId parent, const std::vector<TreeNode>& nodes);
+    void addTreeNode(const wxTreeItemId parent, const std::vector<SettingsTreeNode>& nodes);
     /// Build the left half of the page.
     void createLeftPanel();
     /// Build the right half (style editor).

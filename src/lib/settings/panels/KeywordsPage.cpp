@@ -8,6 +8,7 @@
 #include "KeywordsPage.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
+#include "utils/PathConversions.hpp"
 #ifdef __WXMSW__
     #include "help/HelpManager.hpp"
 #endif
@@ -147,7 +148,7 @@ void KeywordsPage::buildHelpRow() {
                     wxFD_FILE_MUST_EXIST
                 );
                 if (dlg.ShowModal() == wxID_OK) {
-                    m_helpFile = getContext().getConfigManager().relative(dlg.GetPath());
+                    m_helpFile = toWxString(getContext().getConfigManager().relative(toFsPath(dlg.GetPath())));
                     HelpManager::verifyHelpFileAccessible(this, m_helpFile);
                     m_helpFileField->SetValue(m_helpFile);
                 }
@@ -162,7 +163,7 @@ void KeywordsPage::stashCurrent() {
     m_cases[m_selectedGroup] = static_cast<CaseMode::Value>(m_caseChoice->GetSelection());
 }
 
-auto KeywordsPage::apply() -> bool {
+void KeywordsPage::apply() {
     stashCurrent();
 
     auto& cfg = getContext().getConfigManager();
@@ -182,8 +183,6 @@ auto KeywordsPage::apply() -> bool {
         getContext().getConfigManager().config()["paths"]["helpFile"] = m_helpFile;
     }
 #endif
-
-    return true;
 }
 
 void KeywordsPage::onGroupChanged(const wxCommandEvent& event) {

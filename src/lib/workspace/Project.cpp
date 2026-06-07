@@ -415,7 +415,8 @@ auto Project::isUnderRoot(const fs::path& candidate) const -> bool {
     // Lexical comparison only — symlink resolution would require a
     // canonicalisation step that can fail on paths that don't exist yet.
     const auto rel = candidate.lexically_relative(m_root->path);
-    return !rel.empty() && !rel.native().starts_with("..");
+    static constexpr std::filesystem::path::value_type kParent[] = { '.', '.', '\0' };
+    return !rel.empty() && !rel.native().starts_with(kParent);
 }
 
 auto Project::getDocuments() const -> std::vector<Document*> {

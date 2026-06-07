@@ -36,6 +36,6 @@ Context::Context(App& app, const wxString& binaryPath, const wxString& idePath, 
 
 Context::~Context() = default;
 
-auto Context::tr(const wxString& path) -> wxString {
+auto Context::tr(const wxString& path) const -> wxString {
     return m_configManager->locale().get_or(path, "");
 }

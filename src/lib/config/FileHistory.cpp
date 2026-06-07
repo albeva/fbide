@@ -34,8 +34,11 @@ void FileHistory::save() {
     }
     wxFileConfig ini(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
     m_history.Save(ini);
-    wxFileOutputStream stream(toWxString(m_path));
-    ini.Save(stream);
+    const auto pathWx = toWxString(m_path);
+    wxFileOutputStream stream(pathWx);
+    if (!stream.IsOk() || !ini.Save(stream)) {
+        wxLogError("Failed to save file history '%s'", pathWx);
+    }
 }
 
 void FileHistory::addFile(const std::filesystem::path& path) {

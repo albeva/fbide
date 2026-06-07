@@ -6,17 +6,15 @@
 //
 #include "InstanceHandler.hpp"
 #include <cmake/config.hpp>
+#include "App.hpp"
 #include "Context.hpp"
-#include "document/DocumentManager.hpp"
-#include "document/DocumentPath.hpp"
 #include "ui/UIManager.hpp"
-#include "workspace/WorkspaceManager.hpp"
 
 using namespace fbide;
 
 namespace {
 /// App name serves as communication topic
-wxString kAppName { cmake::project.name };
+const wxString kAppName { cmake::project.name };
 
 // ---------------------------------------------------------------------------
 // Client
@@ -29,9 +27,13 @@ public:
     : m_ctx(ctx) {}
 
     auto OnExec(const wxString& /*topic*/, const wxString& data) -> bool override {
-        // Open the file if one was provided
+        // Open the file if one was provided. Route through App so it is
+        // queued when this arrives during startup (the splash screen's
+        // wxYield can dispatch us before the main frame exists).
         if (!data.IsEmpty()) {
-            m_ctx.getWorkspaceManager().openFile(toFsPath(data));
+            wxArrayString files;
+            files.Add(data);
+            m_ctx.getApp().openFiles(files);
         }
 
         // Bring the main frame to front

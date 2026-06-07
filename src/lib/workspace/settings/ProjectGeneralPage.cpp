@@ -22,7 +22,7 @@ void ProjectGeneralPage::create() {
     SetSizerAndFit(currentSizer());
 }
 
-auto ProjectGeneralPage::apply() -> bool {
+auto ProjectGeneralPage::validate() -> bool {
     auto name = m_name;
     name.Trim().Trim(false);
     if (name.IsEmpty()) {
@@ -34,7 +34,12 @@ auto ProjectGeneralPage::apply() -> bool {
         );
         return false;
     }
+    return true;
+}
+
+void ProjectGeneralPage::apply() {
+    auto name = m_name;
+    name.Trim().Trim(false);
     m_project.setName(name);
     m_project.save();
-    return true;
 }

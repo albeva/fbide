@@ -22,9 +22,11 @@ public:
     ProjectGeneralPage(Context& ctx, wxWindow* parent, Project& project);
     /// Build the page widgets.
     void create() override;
-    /// Validate + persist the name to the project's `.fbp`. Returns `false`
-    /// (keeping the dialog open, field focused) when the name is empty.
-    auto apply() -> bool override;
+    /// Reject an empty name; focuses the field and surfaces a warning.
+    auto validate() -> bool override;
+    /// Persist the name to the project's `.fbp`. Called after a successful
+    /// validate() from every panel in the dialog.
+    void apply() override;
 
 private:
     Project& m_project;              ///< The project being configured.

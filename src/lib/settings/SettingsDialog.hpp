@@ -48,7 +48,7 @@ private:
     /// refresh live UI. Returns `false` when any panel rejects its
     /// input — in that case the offending panel is selected and the
     /// dialog stays open.
-    [[nodiscard]] auto applyChanges() -> bool;
+    [[nodiscard]] auto applyChanges() const -> bool;
 
     /// Walk every panel's `cancel()` to roll back pending edits.
     void cancelChanges() const;

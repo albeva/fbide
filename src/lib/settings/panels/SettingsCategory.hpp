@@ -191,4 +191,90 @@ constexpr auto capabilityOf(const SettingsCategory category) -> SettingsCapabili
     }
 }
 
+// ---------------------------------------------------------------------------
+// Category tree — single source of truth for both ThemePage's left-hand
+// category tree and ColorPicker's "Copy from" submenu, so the two never
+// drift.
+// ---------------------------------------------------------------------------
+
+/// One node in the theme settings category tree. A node either binds a
+/// `SettingsCategory` (a selectable colour entry) or is a folder with a
+/// hand-written `labelKey` (`keywords`, `margins`, … — labels that don't
+/// map 1:1 to a category). Category nodes derive their locale key from
+/// `getSettingsCategoryLabelKey`; folder nodes carry it explicitly. Both
+/// resolve under `dialogs.settings.themes.categories.*`.
+struct SettingsTreeNode final {
+    std::optional<SettingsCategory> category;
+    wxString labelKey; ///< Folder-only; empty when `category` is set.
+    std::vector<SettingsTreeNode> children;
+
+    /// Category-bound node — label key derived from the enum.
+    // NOLINTNEXTLINE(google-explicit-constructor)
+    SettingsTreeNode(const SettingsCategory cat, std::vector<SettingsTreeNode> kids = {})
+    : category(cat)
+    , children(std::move(kids)) {}
+
+    /// Folder node — no category, explicit locale key.
+    // NOLINTNEXTLINE(google-explicit-constructor)
+    SettingsTreeNode(wxString key, std::vector<SettingsTreeNode> kids = {})
+    : labelKey(std::move(key))
+    , children(std::move(kids)) {}
+};
+
+/// The theme settings category tree (folders + category leaves). Drives
+/// ThemePage's tree control and ColorPicker's "Copy from" submenu.
+inline auto settingsCategoryTree() -> std::vector<SettingsTreeNode> {
+    using SC = SettingsCategory;
+    // Category-bound nodes are spelled `{ SC::Foo, { ... } }` and their
+    // locale key is derived from the enum via `getSettingsCategoryLabelKey`.
+    // Folder nodes use `{ "folderKey", { ... } }` (string literal picks the
+    // wxString constructor) for labels that don't correspond to a single
+    // category.
+    // clang-format off
+    return {
+        { SC::Default, {
+            { SC::Comment          },
+            { SC::MultilineComment },
+            { SC::Identifier       },
+            { SC::Number           },
+            { SC::String, {
+                { SC::StringOpen },
+            }},
+            { SC::Operator         },
+            { SC::Label            },
+            { SC::Error            },
+            { "keywords", {
+                { SC::Keywords         },
+                { SC::KeywordTypes     },
+                { SC::KeywordOperators },
+                { SC::KeywordConstants },
+                { SC::KeywordLibrary   },
+                { SC::KeywordCustom    },
+            }},
+            { "margins", {
+                { SC::LineNumber },
+                { SC::FoldMargin },
+                { SC::Changes    },
+            }},
+            { SC::Selection },
+            { "brace", {
+                { SC::Brace    },
+                { SC::BadBrace },
+            }},
+        }},
+        { "asm", {
+            { SC::KeywordAsm1 },
+            { SC::KeywordAsm2 },
+        }},
+        { SC::Preprocessor, {
+            { SC::KeywordPP    },
+            { SC::IdentifierPP },
+            { SC::NumberPP     },
+            { SC::StringPP     },
+            { SC::OperatorPP   },
+        }},
+    };
+    // clang-format on
+}
+
 } // namespace fbide

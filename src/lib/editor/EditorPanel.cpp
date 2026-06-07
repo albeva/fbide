@@ -100,6 +100,8 @@ void EditorPanel::createMinimap() {
         sizer->Add(m_minimap, 0, wxEXPAND);
         sizer->Layout();
     }
+    // Minimap doesn't pick margins up correctly, so force-redefine it
+    m_editor->defineChangesMargin();
 }
 
 void EditorPanel::destroyMinimap() {

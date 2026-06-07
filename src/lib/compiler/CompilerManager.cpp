@@ -159,14 +159,6 @@ void CompilerManager::showCompilerLog() const {
     log.Raise();
 }
 
-void CompilerManager::refreshCompilerLog() const {
-    if (m_task == nullptr) {
-        return;
-    }
-    auto& log = m_ctx.getUIManager().getCompilerLog();
-    log.log(m_task->getCompilerLog());
-}
-
 // ---------------------------------------------------------------------------
 // Compiler version
 // ---------------------------------------------------------------------------

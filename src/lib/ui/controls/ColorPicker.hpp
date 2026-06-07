@@ -7,6 +7,7 @@
 #pragma once
 #include "pch.hpp"
 #include "Layout.hpp"
+#include "settings/panels/SettingsCategory.hpp"
 
 namespace fbide {
 class Theme;
@@ -52,6 +53,15 @@ private:
     void openColourDialog();
     /// Copy the current colour's hex string to the system clipboard.
     void copyHexToClipboard() const;
+
+    /// Recursively build the "Copy from" submenu from the shared
+    /// `settingsCategoryTree()` so it mirrors ThemePage's left-hand tree
+    /// (folders and all) and exposes every palette — including the
+    /// non-syntax ones (line number, selection, fold, brace) and the four
+    /// diff-state colours under `Changes`. `colorMap` accumulates each
+    /// generated menu id → colour across the whole tree.
+    void appendCopyFromNodes(wxMenu& parent, const std::vector<SettingsTreeNode>& nodes,
+        std::unordered_map<int, wxColour>& colorMap) const;
 
     const Theme& m_theme;             ///< Active theme — source for "Copy from" entries.
     const Value& m_tr;                ///< Locale subtree for translations.

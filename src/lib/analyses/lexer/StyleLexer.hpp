@@ -101,6 +101,7 @@ private:
     /// standalone tokens.
     std::size_t m_ppDirectiveIdx = std::numeric_limits<std::size_t>::max();
     std::pair<Sci_PositionU, Sci_PositionU> m_range {}; ///< Active scan range.
+    std::string m_lowerKey;                             ///< Reused lowercase buffer for keyword-table lookups.
 };
 
 } // namespace fbide::lexer

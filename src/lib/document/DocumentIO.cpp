@@ -110,6 +110,16 @@ auto DocumentIO::load(
     }
     const auto detection = EncodingDetector::detect(bytes->data(), bytes->size(), defaultEncoding);
     const auto payload = std::span(*bytes).subspan(detection.hadBom ? detection.encoding.bomLength() : 0);
+
+    if (detection.hadBom) {
+        // A BOM declares the encoding authoritatively: decode in it
+        // (lossily for UTF-8 — invalid bytes survive byte-exact via the
+        // PUA) and keep it, so the file is never reinterpreted as Latin-1
+        // and stripped of its BOM on the next save.
+        auto text = detection.encoding.decodeLossy(payload.data(), payload.size());
+        const auto eol = EncodingDetector::detectEol(text).value_or(defaultEol);
+        return LoadResult { std::move(text), detection.encoding, eol };
+    }
     return decodeAndDetectEol(payload, detection.encoding, defaultEol);
 }
 

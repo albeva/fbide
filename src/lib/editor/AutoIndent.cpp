@@ -312,10 +312,16 @@ auto Decision::decide(const std::vector<Token>& tokens) -> Decision {
 }
 
 auto Decision::decide(Editor& editor, const int prevLine) -> Decision {
+    std::vector<Token> buffer;
+    return decide(editor, prevLine, buffer);
+}
+
+auto Decision::decide(Editor& editor, const int prevLine, std::vector<Token>& buffer) -> Decision {
     const auto start = editor.PositionFromLine(prevLine);
     const auto end = editor.GetLineEndPosition(prevLine);
 
     WxStcStyledSource src { editor };
     StyleLexer adapter(src);
-    return decide(adapter.tokenise({ start, end }));
+    adapter.tokenise(buffer, { start, end });
+    return decide(buffer);
 }

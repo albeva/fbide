@@ -24,7 +24,7 @@ ProjectSettingsDialog::~ProjectSettingsDialog() = default;
 void ProjectSettingsDialog::create() {
     m_notebook = make_unowned<wxNotebook>(this, wxID_ANY);
 
-    m_generalPage = make_unowned<ProjectGeneralPage>(m_ctx, m_notebook, m_project);
+    m_generalPage = make_unowned<ProjectGeneralPage>(m_ctx, m_notebook.get(), m_project);
     m_generalPage->create();
     m_notebook->AddPage(m_generalPage, m_ctx.tr("project.settings.general"));
 
@@ -52,5 +52,9 @@ void ProjectSettingsDialog::create() {
 
 auto ProjectSettingsDialog::applyChanges() -> bool {
     // Single page today; iterate the notebook (active page first) when more land.
-    return m_generalPage->apply();
+    if (!m_generalPage->validate()) {
+        return false;
+    }
+    m_generalPage->apply();
+    return true;
 }

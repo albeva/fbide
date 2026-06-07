@@ -26,7 +26,8 @@ public:
 
     explicit CompilerPage(Context& ctx, wxWindow* parent);
     void create() override;
-    auto apply() -> bool override;
+    auto validate() -> bool override;
+    void apply() override;
     void cancel() override;
 
     /// Deep-link focus. `path` is "<config-slug>/<field>" — both

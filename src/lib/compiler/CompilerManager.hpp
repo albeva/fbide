@@ -26,8 +26,12 @@ class ProjectBase;
  * **Threading:** UI thread only. `BuildTask` spawns `AsyncProcess`,
  * which is async with a UI-thread callback — there is no
  * compiler-side worker.
- * **Single in-flight:** replacing `m_task` deletes the previous task
- * and aborts any process it had spawned. Two builds cannot race.
+ * **Single in-flight:** while a task is running, the active-document
+ * guard reports none, so a new build can't start and `m_task` is only
+ * ever replaced when idle. Two builds cannot race. Shutdown kills an
+ * in-flight build explicitly (`UIManager::onClose` → `killProcess`);
+ * `~BuildTask` then severs the async callback so a late `OnTerminate`
+ * can't touch the freed task.
  *
  * See @ref compiler.
  */
@@ -57,9 +61,6 @@ public:
 
     /// Show compiler log dialog with full output.
     void showCompilerLog() const;
-
-    /// Refresh the compiler log dialog if it exists.
-    void refreshCompilerLog() const;
 
     /// Navigate to an error by line number and file name.
     void goToError(int line, const wxString& fileName) const;

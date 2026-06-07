@@ -103,12 +103,12 @@ void CompilerPage::create() {
     loadSelectedConfig();
 }
 
-auto CompilerPage::apply() -> bool {
-    // Commit BEFORE validating: if the user edited a field on the
-    // active row and the name is empty, we still want their edit
-    // preserved when we focus the bad row below. The catalog is the
-    // single source of truth either way — validation only blocks the
-    // dialog from closing, it doesn't roll anything back.
+auto CompilerPage::validate() -> bool {
+    // Commit the editing fields into the catalog before checking: if
+    // the user edited a field on the active row and left the name
+    // empty, we still want their edit preserved when we focus the bad
+    // row below. The catalog is staged state (restored on `cancel()`),
+    // so committing here has no externally visible effect.
     commitFieldOverrides();
 
     // Required name on every user configuration. Trimmed so a
@@ -133,9 +133,15 @@ auto CompilerPage::apply() -> bool {
             return false;
         }
     }
-
-    getContext().getCompilerManager().refreshConfigurationCombo();
     return true;
+}
+
+void CompilerPage::apply() {
+    // `validate()` already committed the field overrides; commit again
+    // so `apply()` stands on its own. `commitFieldOverrides()` is
+    // idempotent, so the repeat is harmless.
+    commitFieldOverrides();
+    getContext().getCompilerManager().refreshConfigurationCombo();
 }
 
 void CompilerPage::cancel() {

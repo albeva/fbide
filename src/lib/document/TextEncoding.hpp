@@ -103,8 +103,16 @@ public:
     /// Decode `len` bytes at `bytes` with this encoding. Returns `nullopt`
     /// when the codec rejects the input.
     [[nodiscard]] auto decode(const void* bytes, std::size_t len) const -> std::optional<wxString>;
+    /// Decode like `decode`, but never fails: invalid UTF-8 bytes map to
+    /// the Private Use Area, which `encode` reverses byte-exact. Used when
+    /// a BOM has declared the encoding, so a file opens in its real
+    /// encoding instead of being reinterpreted (and reshaped on save).
+    [[nodiscard]] auto decodeLossy(const void* bytes, std::size_t len) const -> wxString;
 
 private:
+    /// Shared decode body; `lossy` selects the PUA-mapping UTF-8 converter.
+    [[nodiscard]] auto decodeWith(const void* bytes, std::size_t len, bool lossy) const -> std::optional<wxString>;
+
     Value m_encoding; ///< Underlying enum value.
 };
 

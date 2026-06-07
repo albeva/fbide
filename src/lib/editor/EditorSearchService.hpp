@@ -60,6 +60,7 @@ private:
 
     Context& m_ctx;
     wxFindReplaceData m_findData { wxFR_DOWN };
+    Unowned<wxFindReplaceDialog> m_findDialog; ///< Live modeless find/replace dialog, or null when none is open.
 
     wxDECLARE_EVENT_TABLE();
 };

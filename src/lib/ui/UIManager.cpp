@@ -66,6 +66,11 @@ void UIManager::onClose(wxCloseEvent& event) {
         return;
     }
 
+    // Kill any in-flight compile/run before teardown. Otherwise the child
+    // outlives its BuildTask: leaked + detached, and a late OnTerminate during
+    // the shutdown event-drain would dereference the freed task.
+    m_ctx.getCompilerManager().killProcess();
+
     saveWindowGeometry();
     // Document tabs are gone at this point — the AUI perspective we
     // capture now reflects only persistent chrome (toolbars, sidebar,
@@ -165,6 +170,13 @@ void UIManager::createMainFrame() {
     m_compilerLog = make_unowned<CompilerLog>(m_frame, m_ctx.tr("dialogs.log.title"));
     m_compilerLog->create(m_ctx);
     m_compilerLog->Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& event) {
+        // Hide instead of destroy on a normal (vetoable) user close, but let
+        // a forced close through — e.g. the macOS dock "Quit", which walks
+        // every top-level window: vetoing it there crashes the shutdown.
+        if (!event.CanVeto()) {
+            event.Skip();
+            return;
+        }
         event.Veto();
         m_compilerLog->Hide();
     });
@@ -189,7 +201,7 @@ void UIManager::loadAuiPerspective() {
     // update=false: defer the visual refresh — the createMainFrame
     // caller invokes m_aui.Update() once for both the restored layout
     // and any state changes that happened earlier.
-    m_aui.LoadPerspective(perspective, true);
+    m_aui.LoadPerspective(perspective, false);
     resetToolbarSize();
 }
 

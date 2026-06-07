@@ -59,7 +59,14 @@ auto SymbolBrowser::kindKeywords(const SymbolKind kind) -> wxString {
     return {};
 }
 
-auto SymbolBrowser::kindLocaleLabel(const SymbolKind kind) const -> wxString {
+auto SymbolBrowser::kindLocaleLabel(const SymbolKind kind) const -> const wxString& {
+    // Memoized at construction — `passesFilter` calls this per symbol per
+    // keystroke, and a live `tr()` lookup each time is wasteful. The locale
+    // never changes mid-session (a language change restarts the IDE).
+    return m_kindLabels[static_cast<std::size_t>(kind)];
+}
+
+auto SymbolBrowser::localeLabelFor(const SymbolKind kind) const -> wxString {
     switch (kind) {
     case SymbolKind::Sub:
         return m_ctx.tr("sidebar.symbols.subs");
@@ -285,6 +292,12 @@ SymbolBrowser::SymbolBrowser(Context& ctx, wxWindow* parent)
         images->Add(art.getBitmap(kind));
     }
     AssignImageList(images);
+
+    // Memoize the localized kind labels once — passesFilter reads them per
+    // symbol per keystroke (see kindLocaleLabel).
+    for (std::size_t i = 0; i < m_kindLabels.size(); i++) {
+        m_kindLabels[i] = localeLabelFor(static_cast<SymbolKind>(i));
+    }
 }
 
 void SymbolBrowser::setSymbols(const Document* doc) {
