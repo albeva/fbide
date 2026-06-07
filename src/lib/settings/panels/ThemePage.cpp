@@ -257,7 +257,7 @@ void ThemePage::createRightPanel() {
 
 void ThemePage::onSelectTheme(wxCommandEvent& event) {
     const auto index = static_cast<std::size_t>(event.GetSelection());
-    if (index > 0) {
+    if (index > 0 && index - FILE_OFFSET < m_themeFiles.size()) {
         m_activeTheme = m_themeFiles[index - FILE_OFFSET];
     } else {
         m_activeTheme = "";
@@ -323,6 +323,7 @@ void ThemePage::saveNewTheme(const bool setActive) {
     }
 
     m_theme.save(path.GetAbsolutePath());
+    m_themeFiles.push_back(m_theme.getPath()); // keep in lockstep with the dropdown entry below
     m_themeChoice->Append(name);
     m_themeChoice->SetStringSelection(name);
     m_activeTheme = m_theme.getPath();

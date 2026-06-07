@@ -1,5 +1,6 @@
 # Changes since 0.5.0-rc.5
 
+- Fixed crash when re-selecting a newly saved theme in Settings.
 - Fixed potential crash on multi-line edits.
 - Fixed properly clean up async tasks when fbide quits.
 - Optimized multi-line edits to avoid re-lexing document from the beginning.
