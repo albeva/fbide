@@ -1,5 +1,6 @@
 # Changes since 0.5.0-rc.5
 
+- Optimized single-line lexing (e.g. auto-indent on Enter) to not allocate whole-document capacity in large files.
 - Fixed compiler log mangling output that contains square-bracket markup (e.g. `[b]`).
 - Fixed potential crash when quitting during an in-flight update check.
 - Fixed Find/Replace dialogs stacking up when reopened; the open one is now raised instead.

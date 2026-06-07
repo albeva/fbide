@@ -135,7 +135,10 @@ void StyleLexer::tokenise(std::vector<Token>& tokens, const Range& range) {
     m_range.second = range.second == 0 ? m_range.second : range.second;
 
     tokens.clear();
-    tokens.reserve(m_src.length() / 5);
+    // Reserve from the resolved scan range, not the whole document: a
+    // single-line lex (e.g. AutoIndent on every Enter) in a large file
+    // would otherwise malloc whole-document capacity for a few tokens.
+    tokens.reserve(std::max<Sci_PositionU>((m_range.second - m_range.first) / 5, 16));
 
     m_pos = m_range.first;
     m_canBeUnary = true;

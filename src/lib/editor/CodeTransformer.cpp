@@ -47,7 +47,7 @@ void CodeTransformer::applySettings() {
 // Action handlers
 // ===========================================================================
 
-void CodeTransformer::onCharAdded(Editor& editor, const int ch) {
+void CodeTransformer::onCharAdded(Editor& editor, const int ch) const {
     if (isWordChar(ch)) {
         return;
     }
@@ -62,7 +62,7 @@ void CodeTransformer::onCharAdded(Editor& editor, const int ch) {
     }
 }
 
-void CodeTransformer::onCaretMoved(Editor& editor, const int oldPos) {
+void CodeTransformer::onCaretMoved(Editor& editor, const int oldPos) const {
     if (!m_transformKeywords || oldPos <= 0) {
         return;
     }
@@ -95,7 +95,7 @@ void CodeTransformer::onCaretMoved(Editor& editor, const int oldPos) {
     editor.SetUndoCollection(true);
 }
 
-void CodeTransformer::onTextInserted(Editor& editor, const int pos, const int length) {
+void CodeTransformer::onTextInserted(Editor& editor, const int pos, const int length) const {
     if (!m_transformKeywords) {
         return;
     }
@@ -124,7 +124,7 @@ void CodeTransformer::applyIndentAndCloser(Editor& editor) const {
     }
     const int prevLine = currLine - 1;
 
-    const auto decision = indent::Decision::decide(editor, prevLine);
+    const auto decision = indent::Decision::decide(editor, prevLine, m_tokenBuffer);
     const int tabSize = editor.GetIndent();
 
     int prevIndent = editor.GetLineIndentation(prevLine);
@@ -215,7 +215,7 @@ auto CodeTransformer::dedentTarget(Editor& editor, const int prevLine) -> int {
     return -1;
 }
 
-void CodeTransformer::applyWordCase(Editor& editor) {
+void CodeTransformer::applyWordCase(Editor& editor) const {
     const int caretPos = editor.GetCurrentPos();
     if (caretPos < 2) {
         return;
@@ -234,7 +234,7 @@ void CodeTransformer::applyWordCase(Editor& editor) {
     transformWordInRange(editor, wordStart, wordEnd);
 }
 
-void CodeTransformer::transformWordInRange(Editor& editor, const int wordStart, const int wordEnd) {
+void CodeTransformer::transformWordInRange(Editor& editor, const int wordStart, const int wordEnd) const {
     const auto style = static_cast<ThemeCategory>(editor.GetStyleAt(wordStart));
     if (!isKeywordCategory(style)) {
         return;
@@ -257,7 +257,7 @@ void CodeTransformer::transformWordInRange(Editor& editor, const int wordStart, 
     editor.SetStyling(wordEnd - wordStart, +style);
 }
 
-void CodeTransformer::transformRange(Editor& editor, const int rangeStart, const int rangeEnd) {
+void CodeTransformer::transformRange(Editor& editor, const int rangeStart, const int rangeEnd) const {
     // Force STC to re-style
     {
         const auto line = editor.LineFromPosition(rangeStart);
@@ -266,15 +266,15 @@ void CodeTransformer::transformRange(Editor& editor, const int rangeStart, const
         editor.Colourise(start, rangeEnd);
     }
 
-    // Tokenize the inserted range
+    // Tokenize the inserted range into the reusable buffer.
     lexer::WxStcStyledSource src(editor);
     lexer::StyleLexer adapter(src);
-    const auto tokens = adapter.tokenise({ rangeStart, rangeEnd });
+    adapter.tokenise(m_tokenBuffer, { rangeStart, rangeEnd });
 
     editor.SetUndoCollection(false);
 
     Sci_PositionU pos = static_cast<Sci_PositionU>(rangeStart);
-    for (const auto& tkn : tokens) {
+    for (const auto& tkn : m_tokenBuffer) {
         const auto len = static_cast<int>(tkn.text.size());
         const int start = static_cast<int>(pos);
         const int end = start + len;
