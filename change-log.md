@@ -1,5 +1,6 @@
 # Changes since 0.5.0-rc.5
 
+- Fixed minimap not using the theme's change-marker colours until the Settings dialog was opened.
 - Fixed BOM-marked files with invalid bytes being reinterpreted as Latin-1 and losing their BOM on save.
 - Fixed on-type case conversion occasionally altering a keyword just past a pasted block.
 - Optimized single-line lexing (e.g. auto-indent on Enter) to not allocate whole-document capacity in large files.
