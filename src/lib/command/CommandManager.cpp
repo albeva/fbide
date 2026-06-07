@@ -170,14 +170,15 @@ void CommandManager::initializeCommands() {
 
 void CommandManager::onAnyEvent(wxCommandEvent& event) {
     event.Skip();
-    const auto thaw = m_ctx.getUIManager().freeze();
 
-    if (auto* entry = find(event.GetId())) {
-        if (entry->kind != wxITEM_CHECK || entry->checked == event.IsChecked()) {
-            return;
-        }
-        entry->setChecked(event.IsChecked());
+    // Only an actual checked-state flip needs to repaint bound controls;
+    // freeze just for that, not on every menu/toolbar click.
+    auto* entry = find(event.GetId());
+    if (entry == nullptr || entry->kind != wxITEM_CHECK || entry->checked == event.IsChecked()) {
+        return;
     }
+    const auto thaw = m_ctx.getUIManager().freeze();
+    entry->setChecked(event.IsChecked());
 }
 
 void CommandManager::onAuiPaneClose(wxAuiManagerEvent& event) {
@@ -340,7 +341,7 @@ void CommandManager::onSettings(wxCommandEvent&) {
 }
 
 void CommandManager::onFormat(wxCommandEvent&) {
-    if (auto* doc = m_ctx.getDocumentManager().getActive(); doc->getEditor() != nullptr) {
+    if (auto* doc = m_ctx.getDocumentManager().getActive(); doc != nullptr && doc->getEditor() != nullptr) {
         FormatDialog dlg(m_ctx.getUIManager().getMainFrame(), m_ctx, doc);
         dlg.create();
         dlg.ShowModal();
@@ -429,9 +430,6 @@ void CommandManager::onAbout(wxCommandEvent&) {
 }
 
 void CommandManager::onExternalLink(wxCommandEvent& event) {
-    if (const auto* menuItem = wxDynamicCast(event.GetClientData(), wxMenuItem)) {
-        wxMessageBox(menuItem->GetHelp());
-    }
     const auto it = m_externalLinks.find(event.GetId());
     if (it == m_externalLinks.end()) {
         return;
@@ -462,7 +460,7 @@ auto CommandManager::registerExternalLink(const wxString& url) -> wxWindowID {
 void CommandManager::addCommands(const std::initializer_list<CommandEntry>& commands) {
     const auto size = m_namedCommands.size() + commands.size();
     m_namedCommands.reserve(size);
-    m_namedCommands.reserve(size);
+    m_idNames.reserve(size);
     for (const auto& cmd : commands) {
         const auto id = cmd.id == 0 || cmd.id == wxID_ANY ? wxNewId() : cmd.id;
         auto& entry = m_namedCommands[cmd.name] = cmd;

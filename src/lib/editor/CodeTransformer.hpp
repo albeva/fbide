@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "analyses/lexer/Token.hpp"
 #include "config/ThemeCategory.hpp"
 #include "format/transformers/case/CaseTransform.hpp"
 
@@ -36,17 +37,17 @@ public:
     void applySettings();
 
     /// Main entry from Editor's EVT_STC_CHARADDED handler.
-    void onCharAdded(Editor& editor, int ch);
+    void onCharAdded(Editor& editor, int ch) const;
 
     /// Called from Editor's EVT_STC_UPDATEUI handler when the caret
     /// changes position. If the caret left an unfinished word (a word
     /// char run ending at `oldPos`), case-normalise that word.
-    void onCaretMoved(Editor& editor, int oldPos);
+    void onCaretMoved(Editor& editor, int oldPos) const;
 
     /// Called from Editor's EVT_STC_MODIFIED handler when a bulk insert
     /// happens (paste, drop, ...). Runs case normalisation across the
     /// pasted range — does NOT touch indentation.
-    void onTextInserted(Editor& editor, int pos, int length);
+    void onTextInserted(Editor& editor, int pos, int length) const;
 
     /// Enable / disable code transformer
     void enable(bool state);
@@ -63,11 +64,11 @@ private:
     /// aligned with an opener at the same indent).
     [[nodiscard]] static auto dedentTarget(Editor& editor, int prevLine) -> int;
     /// Run the keyword-case transform on the word the caret just left.
-    void applyWordCase(Editor& editor);
+    void applyWordCase(Editor& editor) const;
     /// Transform a single word range to its configured case.
-    void transformWordInRange(Editor& editor, int wordStart, int wordEnd);
+    void transformWordInRange(Editor& editor, int wordStart, int wordEnd) const;
     /// Transform every word in `[rangeStart, rangeEnd)` to its configured case.
-    void transformRange(Editor& editor, int rangeStart, int rangeEnd);
+    void transformRange(Editor& editor, int rangeStart, int rangeEnd) const;
     /// Render `words` to the canonical closer text using the active editor's case rules.
     [[nodiscard]] auto renderCloser(std::span<const std::string_view> words) const -> wxString;
 
@@ -75,6 +76,7 @@ private:
     bool m_autoIndent = true;                                         ///< Master toggle for auto-indent.
     bool m_transformKeywords = true;                                  ///< Master toggle for keyword case transform.
     std::array<CaseMode, kThemeKeywordGroupsCount> m_keywordCases {}; ///< Per-keyword-group case mode.
+    mutable std::vector<lexer::Token> m_tokenBuffer;                  ///< Reused token scratch — avoids a per-call vector allocation.
 };
 
 } // namespace fbide

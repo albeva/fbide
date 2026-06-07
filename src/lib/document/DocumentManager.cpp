@@ -767,12 +767,22 @@ auto DocumentManager::findByPath(const wxString& path) const -> Document* {
 }
 
 auto DocumentManager::findByPath(const std::filesystem::path& path) const -> Document* {
-    // Stored doc paths are canonical (set via openFile / saveFileAs).
-    // Canonicalize the query once so case-insensitive filesystems, symlinks,
-    // and relative paths all collapse to the same identity.
-    const auto canonical = canonicalizePath(path);
+    // File identity is on-disk sameness, NOT string equality: case-insensitive
+    // filesystems (macOS/Windows), symlinks, 8.3 short names, and relative paths
+    // all alias the same file. std::filesystem::equivalent answers that portably
+    // — `==` misses it, and weakly_canonical's case-folding is implementation-
+    // defined (works under MSVC, not MinGW/libc++).
+    if (path.empty()) {
+        return nullptr;
+    }
+    std::error_code ec;
     for (auto& doc : m_documents) {
-        if (!doc->isNew() && doc->getFilePath() == canonical) {
+        if (doc->isNew()) {
+            continue;
+        }
+        // equivalent needs both paths to exist; a missing query matches nothing
+        // (ec is set, the call returns false), which is the correct answer.
+        if (std::filesystem::equivalent(doc->getFilePath(), path, ec)) {
             return doc.get();
         }
     }
@@ -889,6 +899,14 @@ void DocumentManager::showFindDialog(const bool replace) {
         return;
     }
 
+    // Single instance: raise the open dialog instead of stacking another.
+    // Find and Replace share the one slot — close it to switch modes.
+    if (m_findDialog != nullptr) {
+        m_findDialog->Raise();
+        m_findDialog->SetFocus();
+        return;
+    }
+
     // Pre-fill with selection or word under cursor
     if (const auto word = doc->getEditor()->getWordAtCursor(); !word.empty()) {
         m_findData.SetFindString(word);
@@ -898,9 +916,9 @@ void DocumentManager::showFindDialog(const bool replace) {
     const int style = replace ? wxFR_REPLACEDIALOG : 0;
     const auto title = replace ? m_ctx.tr("dialogs.replace.title") : m_ctx.tr("dialogs.find.title");
 
-    const auto dlg = make_unowned<wxFindReplaceDialog>(frame, &m_findData, title, style);
-    dlg->PushEventHandler(this);
-    dlg->Show();
+    m_findDialog = make_unowned<wxFindReplaceDialog>(frame, &m_findData, title, style);
+    m_findDialog->PushEventHandler(this);
+    m_findDialog->Show();
 }
 
 void DocumentManager::onFindDialog(wxFindDialogEvent& event) {
@@ -937,4 +955,5 @@ void DocumentManager::onFindDialogClose(wxFindDialogEvent& event) {
         dlg->PopEventHandler();
         dlg->Destroy();
     }
+    m_findDialog = nullptr;
 }

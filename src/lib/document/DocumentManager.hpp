@@ -212,6 +212,7 @@ private:
 
     Context& m_ctx;                                     ///< Application context.
     wxFindReplaceData m_findData { wxFR_DOWN };         ///< Find/replace dialog state.
+    Unowned<wxFindReplaceDialog> m_findDialog;          ///< Live modeless find/replace dialog, or null when none is open.
     std::vector<std::unique_ptr<Document>> m_documents; ///< Open documents in tab order.
     std::unique_ptr<CodeTransformer> m_codeTransformer; ///< Shared on-type transformer.
     /// Declared last so destruction runs first — worker thread stops and

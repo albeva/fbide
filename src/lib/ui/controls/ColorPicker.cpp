@@ -137,51 +137,13 @@ void ColorPicker::onButtonClick(wxCommandEvent&) {
     menu.Append(copyHexId, m_tr.get_or("copyHex", "Copy hex value"));
     menu.AppendSeparator();
 
-    auto* copyMenu = new wxMenu;
-    const wxString fgLabel = m_tr.get_or("foreground", "Foreground");
-    const wxString bgLabel = m_tr.get_or("background", "Background");
-
-    const auto addCategory = [&](const SettingsCategory cat) {
-        const auto entry = readCategory(m_theme, cat);
-        const bool hasFg = entry.colors.foreground.IsOk();
-        const bool hasBg = entry.colors.background.IsOk();
-        if (not hasFg and not hasBg) {
-            return;
-        }
-
-        const auto sub = make_unowned<wxMenu>();
-        if (hasFg) {
-            const int id = NewControlId();
-            const auto hex = entry.colors.foreground.GetAsString(wxC2S_HTML_SYNTAX);
-            const auto item = make_unowned<wxMenuItem>(sub, id, fgLabel + "  " + hex);
-            item->SetBitmap(makeSwatch(entry.colors.foreground));
-            sub->Append(item);
-            colorMap[id] = entry.colors.foreground;
-        }
-        if (hasBg) {
-            const int id = NewControlId();
-            const auto hex = entry.colors.background.GetAsString(wxC2S_HTML_SYNTAX);
-            const auto item = make_unowned<wxMenuItem>(sub, id, bgLabel + "  " + hex);
-            item->SetBitmap(makeSwatch(entry.colors.background));
-            sub->Append(item);
-            colorMap[id] = entry.colors.background;
-        }
-        // Locale key mirrors the ThemePage category tree (see
-        // `getSettingsCategoryLabelKey`) so the submenu labels reuse
-        // the translations the tree already ships in every locale,
-        // instead of falling back to raw enum-derived strings like
-        // `keywordTypes` / `numberPP`.
-        const auto sv = getSettingsCategoryLabelKey(cat);
-        const wxString key = wxString::FromAscii(sv.data(), sv.size());
-        const auto label = m_tr.get_or("categories." + key, key);
-        copyMenu->AppendSubMenu(sub, label);
-    };
-
-    for (const auto cat : kSettingsCategories) {
-        addCategory(cat);
-    }
-
-    menu.AppendSubMenu(copyMenu, m_tr.get_or("copyFrom", "Copy from"));
+    // "Copy from" mirrors ThemePage's category tree (folders + leaves)
+    // from the single shared `settingsCategoryTree()` source, so the two
+    // never drift and every palette — including the diff-state colours —
+    // is reachable. wx takes ownership of the submenu on AppendSubMenu.
+    auto copyMenu = std::make_unique<wxMenu>();
+    appendCopyFromNodes(*copyMenu, settingsCategoryTree(), colorMap);
+    menu.AppendSubMenu(copyMenu.release(), m_tr.get_or("copyFrom", "Copy from"));
 
     const int sel = GetPopupMenuSelectionFromUser(menu);
     if (sel == wxID_NONE) {
@@ -197,5 +159,76 @@ void ColorPicker::onButtonClick(wxCommandEvent&) {
     }
     if (const auto it = colorMap.find(sel); it != colorMap.end()) {
         applyColor(it->second);
+    }
+}
+
+void ColorPicker::appendCopyFromNodes(
+    wxMenu& parent, const std::vector<SettingsTreeNode>& nodes, std::unordered_map<int, wxColour>& colorMap
+) const {
+    const wxString fgLabel = m_tr.get_or("foreground", "Foreground");
+    const wxString bgLabel = m_tr.get_or("background", "Background");
+
+    // Append one "<label>  <hex>" swatch item bound to `colour`; a no-op
+    // for an unset colour so a category that defines only a foreground
+    // (or nothing) doesn't sprout blank entries.
+    const auto addColourItem = [&](wxMenu& sub, const wxString& text, const wxColour& colour) {
+        if (not colour.IsOk()) {
+            return;
+        }
+        const int id = NewControlId();
+        const auto hex = colour.GetAsString(wxC2S_HTML_SYNTAX);
+        const auto item = make_unowned<wxMenuItem>(&sub, id, text + "  " + hex);
+        item->SetBitmap(makeSwatch(colour));
+        sub.Append(item);
+        colorMap[id] = colour;
+    };
+
+    // Submenu label — reuses the same `categories.*` locale keys the
+    // ThemePage tree uses (enum-derived for categories, explicit for
+    // folders) so every locale's existing translations apply.
+    const auto labelFor = [&](const SettingsTreeNode& node) -> wxString {
+        if (node.category) {
+            const auto sv = getSettingsCategoryLabelKey(*node.category);
+            const wxString key = wxString::FromAscii(sv.data(), sv.size());
+            return m_tr.get_or("categories." + key, key);
+        }
+        return m_tr.get_or("categories." + node.labelKey, node.labelKey);
+    };
+
+    for (const auto& node : nodes) {
+        auto sub = std::make_unique<wxMenu>();
+
+        // A category node contributes its own colour(s) first.
+        if (node.category) {
+            if (*node.category == SettingsCategory::Changes) {
+                // Diff palette — four standalone colours, not an fg/bg pair,
+                // so it bypasses `readCategory` (which has no Changes entry).
+                addColourItem(*sub, m_tr.get_or("changesBackground", "Background"), m_theme.getChangesBackground());
+                addColourItem(*sub, m_tr.get_or("changesAdded", "Added"), m_theme.getChangesAdded());
+                addColourItem(*sub, m_tr.get_or("changesModified", "Modified"), m_theme.getChangesModified());
+                addColourItem(*sub, m_tr.get_or("changesRemoved", "Removed"), m_theme.getChangesRemoved());
+            } else {
+                const auto entry = readCategory(m_theme, *node.category);
+                addColourItem(*sub, fgLabel, entry.colors.foreground);
+                addColourItem(*sub, bgLabel, entry.colors.background);
+            }
+        }
+
+        // Children follow — folder contents, or a selectable parent's
+        // sub-styles (Default / String / Preprocessor) — separated from
+        // the node's own colours when both are present.
+        if (not node.children.empty()) {
+            if (sub->GetMenuItemCount() > 0) {
+                sub->AppendSeparator();
+            }
+            appendCopyFromNodes(*sub, node.children, colorMap);
+        }
+
+        // Skip a node that produced nothing rather than show an empty
+        // submenu; `unique_ptr` frees it, wx owns the rest after release.
+        if (sub->GetMenuItemCount() == 0) {
+            continue;
+        }
+        parent.AppendSubMenu(sub.release(), labelFor(node));
     }
 }

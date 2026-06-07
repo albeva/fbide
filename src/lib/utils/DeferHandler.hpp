@@ -21,7 +21,9 @@ public:
     explicit DeferHandler(Callback&& callback) noexcept
     : m_callback(std::forward<Callback>(callback)) {}
 
-    /// Run the captured callable.
+    /// Run the captured callable. The destructor is `noexcept` (correct
+    /// for RAII), so the deferred statement MUST NOT throw — a throwing
+    /// `DEFER(...)` would call `std::terminate`.
     ~DeferHandler() noexcept {
         m_callback();
     }

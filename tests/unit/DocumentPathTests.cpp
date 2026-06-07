@@ -73,12 +73,13 @@ TEST_F(DocumentPathTests, DotDotIsResolved) {
     EXPECT_EQ(canonicalizePath(with_dotdot), canonicalizePath(file));
 }
 
-TEST_F(DocumentPathTests, MixedCaseCollapsesOnCaseInsensitiveFS) {
-    // The bug from issue #87 — macOS/Windows resolve `fbgfx.bi` and
-    // `FBGFX.bi` to the same file. weakly_canonical reflects the on-disk
-    // casing, so both queries must canonicalize to the same string. On
-    // case-sensitive filesystems the second path is a different file and
-    // the test is skipped.
+TEST_F(DocumentPathTests, MixedCaseIsSameFileOnCaseInsensitiveFS) {
+    // Issue #87 — macOS/Windows resolve `fbgfx.bi` and `FBGFX.bi` to the same
+    // file. Document identity uses std::filesystem::equivalent (see
+    // DocumentManager::findByPath), NOT canonical-string equality: case-folding
+    // in weakly_canonical is implementation-defined (MSVC folds to on-disk case,
+    // MinGW/libc++ keep the input case). On a case-sensitive filesystem the
+    // upper-case path is a different file, so the check is skipped.
     const TempDir dir;
     const auto file = dir.touch("Mixed.bi");
 
@@ -89,7 +90,7 @@ TEST_F(DocumentPathTests, MixedCaseCollapsesOnCaseInsensitiveFS) {
         GTEST_SKIP() << "Case-sensitive filesystem — skip case-fold check.";
     }
 
-    EXPECT_EQ(canonicalizePath(upper), canonicalizePath(file));
+    EXPECT_TRUE(std::filesystem::equivalent(file, upper));
 }
 
 TEST_F(DocumentPathTests, SymlinkResolvesToTarget) {

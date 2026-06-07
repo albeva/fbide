@@ -5,22 +5,22 @@
 // https://github.com/albeva/fbide
 //
 #include "StyleLexer.hpp"
-// clang-format off
-#include "ILexer.h"
-// clang-format on
+#include <array>
 #include "KeywordTables.hpp"
 #include "VerbatimAnnotator.hpp"
 #include "config/ThemeCategory.hpp"
 #include "config/Value.hpp"
+#include "editor/lexilla/FBSciLexer.hpp"
 using namespace fbide;
 using namespace fbide::lexer;
 
-void lexer::configureFbWordlists(Scintilla::ILexer5& lex, const Value& kw) {
+void lexer::setFbKeywords(const Value& kw) {
+    std::array<std::string, kThemeKeywordGroupsCount> groups;
     for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
         const auto key = getThemeCategoryName(kThemeKeywordCategories[idx]);
-        const auto words = kw.get_or(wxString(key), "").Lower();
-        lex.WordListSet(static_cast<int>(idx), words.utf8_str());
+        groups[idx] = std::string(kw.get_or(wxString(key), "").utf8_str());
     }
+    FBSciLexer::setKeywords(groups);
 }
 
 namespace {
@@ -29,12 +29,12 @@ auto asciiLower(const char ch) -> char {
     return (ch >= 'A' && ch <= 'Z') ? static_cast<char>(ch + ('a' - 'A')) : ch;
 }
 
-auto toLower(const std::string_view sv) -> std::string {
-    std::string r(sv.size(), '\0');
+/// Lowercase `sv` into `out`, reusing its capacity (no per-call alloc).
+void toLowerInto(std::string& out, const std::string_view sv) {
+    out.resize(sv.size());
     for (std::size_t i = 0; i < sv.size(); i++) {
-        r[i] = asciiLower(sv[i]);
+        out[i] = asciiLower(sv[i]);
     }
-    return r;
 }
 
 /// Longest-match operator dispatch via first-char switch.
@@ -135,7 +135,10 @@ void StyleLexer::tokenise(std::vector<Token>& tokens, const Range& range) {
     m_range.second = range.second == 0 ? m_range.second : range.second;
 
     tokens.clear();
-    tokens.reserve(m_src.length() / 5);
+    // Reserve from the resolved scan range, not the whole document: a
+    // single-line lex (e.g. AutoIndent on every Enter) in a large file
+    // would otherwise malloc whole-document capacity for a few tokens.
+    tokens.reserve(std::max<Sci_PositionU>((m_range.second - m_range.first) / 5, 16));
 
     m_pos = m_range.first;
     m_canBeUnary = true;
@@ -165,7 +168,10 @@ auto StyleLexer::nextStyle() -> std::optional<StyleRange> {
     }
     const auto style = m_src.styleAt(m_pos);
     const auto start = m_pos;
-    while (m_pos < m_src.length() && m_src.styleAt(m_pos) == style) {
+    // Clamp to the requested range, not the whole document: a style run
+    // that crosses rangeEnd must not coalesce past it, or a sub-range lex
+    // (paste / on-type transform) would write beyond the intended range.
+    while (m_pos < m_range.second && m_src.styleAt(m_pos) == style) {
         m_pos++;
     }
     return StyleRange { style, start, m_pos };
@@ -389,10 +395,10 @@ void StyleLexer::emitIdentifier(const StyleRange& r, std::vector<Token>& out) {
 
 void StyleLexer::emitKeyword(const StyleRange& r, TokenKind kind, std::vector<Token>& out) {
     auto text = stringFromRange(r.start, r.end);
-    const auto lower = toLower(text);
+    toLowerInto(m_lowerKey, text);
     auto kwKind = KeywordKind::Other;
     const auto& kw = structuralKeywords();
-    if (const auto it = kw.find(lower); it != kw.end()) {
+    if (const auto it = kw.find(m_lowerKey); it != kw.end()) {
         kwKind = it->second;
     }
     // The structural classifier maps every `asm` to `KeywordKind::Asm`, but
@@ -505,10 +511,10 @@ void StyleLexer::emitPreprocessor(const StyleRange& range, std::vector<Token>& o
 
 void StyleLexer::emitKeywordPP(const StyleRange& range, std::vector<Token>& out) {
     auto text = stringFromRange(range.start, range.end);
-    const auto lower = toLower(text);
+    toLowerInto(m_lowerKey, text);
     KeywordKind kwKind = KeywordKind::PpOther;
     const auto& pp = ppKeywords();
-    if (const auto it = pp.find(lower); it != pp.end()) {
+    if (const auto it = pp.find(m_lowerKey); it != pp.end()) {
         kwKind = it->second;
     }
 

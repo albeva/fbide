@@ -81,8 +81,13 @@ private:
     [[nodiscard]] static auto kindKeywords(SymbolKind kind) -> wxString;
 
     /// Localised group label for a kind (the `sidebar.symbols.*` string) —
-    /// the locale-specific half of a leaf's filter haystack.
-    [[nodiscard]] auto kindLocaleLabel(SymbolKind kind) const -> wxString;
+    /// the locale-specific half of a leaf's filter haystack. Memoized; see
+    /// `m_kindLabels`.
+    [[nodiscard]] auto kindLocaleLabel(SymbolKind kind) const -> const wxString&;
+
+    /// Resolve the localised label for a kind via `tr()` (used once to fill
+    /// `m_kindLabels`).
+    [[nodiscard]] auto localeLabelFor(SymbolKind kind) const -> wxString;
 
     /// Build the lowercased filter haystack for one entry: its (possibly
     /// owner-qualified) `name` plus the kind's english + localised words.
@@ -113,6 +118,9 @@ private:
     Context& m_ctx;                                    ///< Application context.
     std::shared_ptr<const SymbolTable> m_currentTable; ///< Currently rendered symbol table.
     std::vector<wxString> m_filterWords;               ///< Active filter words (lowercased); empty = no filter.
+    /// Memoized localized kind labels, indexed by `SymbolKind`. Filled once
+    /// in the constructor (the locale is fixed for a session).
+    std::array<wxString, static_cast<std::size_t>(SymbolKind::Include) + 1> m_kindLabels;
 
     /// Tree id → entry payload. Rebuilt in `rebuild`, cleared in `clearTree`.
     /// `wxTreeItemId::Type` is the underlying void* the control hands out.

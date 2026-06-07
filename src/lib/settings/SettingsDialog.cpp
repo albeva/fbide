@@ -110,37 +110,42 @@ void SettingsDialog::create(const wxString& target) {
     });
 }
 
-auto SettingsDialog::applyChanges() -> bool {
-    const auto thaw = m_ctx.getUIManager().freeze();
+auto SettingsDialog::applyChanges() const -> bool {
+    // Validate every panel before committing anything. The active tab
+    // is checked first so a failure surfaces against the page in front
+    // of the user; the rest follow in notebook order. No side effects
+    // yet — a failure here leaves every panel's config untouched (this
+    // is what keeps a Compiler error from half-applying Theme/Keywords
+    // or scheduling a restart).
+    auto* const activePage = m_notebook->GetCurrentPage();
 
-    // Apply order: currently-selected tab first so any validation
-    // failure surfaces against the page the user has in front of them.
-    // The remaining tabs follow in declaration order.
-    const auto activePage = static_cast<Page>(m_notebook->GetSelection());
-    constexpr std::array<Page, 4> kOrder {
-        Page::General, Page::Theme, Page::Keywords, Page::Compiler
-    };
-
-    auto applyOne = [this](Page page) -> bool {
-        auto* panel = panelAt(page);
-        if (panel != nullptr && !panel->apply()) {
-            m_notebook->SetSelection(static_cast<std::size_t>(page));
+    const auto validateOne = [this](wxWindow* const win) -> bool {
+        auto* const panel = dynamic_cast<Panel*>(win);
+        if (panel != nullptr && !panel->validate()) {
+            m_notebook->SetSelection(static_cast<std::size_t>(m_notebook->FindPage(panel)));
             return false;
         }
         return true;
     };
 
-    if (!applyOne(activePage)) {
+    if (!validateOne(activePage)) {
         return false;
     }
-    for (auto page : kOrder) {
-        if (page == activePage) {
+    for (auto* const child : m_notebook->GetChildren()) {
+        if (child == activePage) {
             continue;
         }
-        if (!applyOne(page)) {
+        if (!validateOne(child)) {
             return false;
         }
     }
+
+    // All panels valid — commit. apply() can no longer fail.
+    const auto thaw = m_ctx.getUIManager().freeze();
+    m_generalPage->apply();
+    m_themePage->apply();
+    m_keywordsPage->apply();
+    m_compilerPage->apply();
 
     m_ctx.getConfigManager().save(ConfigManager::Category::Config);
     m_ctx.getUIManager().updateSettings();

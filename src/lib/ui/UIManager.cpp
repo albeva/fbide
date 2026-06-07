@@ -7,6 +7,7 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "UIManager.hpp"
 #include "CompilerLog.hpp"
+#include "analyses/lexer/StyleLexer.hpp"
 #include "app/Context.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
@@ -58,6 +59,11 @@ void UIManager::onClose(wxCloseEvent& event) {
         event.Veto();
         return;
     }
+
+    // Kill any in-flight compile/run before teardown. Otherwise the child
+    // outlives its BuildTask: leaked + detached, and a late OnTerminate during
+    // the shutdown event-drain would dereference the freed task.
+    m_ctx.getCompilerManager().killProcess();
 
     saveWindowGeometry();
     // Document tabs are gone at this point — the AUI perspective we
@@ -155,6 +161,13 @@ void UIManager::createMainFrame() {
     m_compilerLog = make_unowned<CompilerLog>(m_frame, m_ctx.tr("dialogs.log.title"));
     m_compilerLog->create(m_ctx);
     m_compilerLog->Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& event) {
+        // Hide instead of destroy on a normal (vetoable) user close, but let
+        // a forced close through — e.g. the macOS dock "Quit", which walks
+        // every top-level window: vetoing it there crashes the shutdown.
+        if (!event.CanVeto()) {
+            event.Skip();
+            return;
+        }
         event.Veto();
         m_compilerLog->Hide();
     });
@@ -179,7 +192,7 @@ void UIManager::loadAuiPerspective() {
     // update=false: defer the visual refresh — the createMainFrame
     // caller invokes m_aui.Update() once for both the restored layout
     // and any state changes that happened earlier.
-    m_aui.LoadPerspective(perspective, true);
+    m_aui.LoadPerspective(perspective, false);
     resetToolbarSize();
 }
 
@@ -696,6 +709,10 @@ void UIManager::disable(const std::ranges::range auto& range) const {
 
 void UIManager::updateSettings() {
     const auto thaw = freeze();
+
+    // Rebuild the shared FB keyword tables from the updated settings before
+    // re-applying to editors — their recolour then sees the new keywords.
+    lexer::setFbKeywords(m_ctx.getConfigManager().keywords().at("groups"));
 
     // Reapply settings to all open editors
     for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {

@@ -25,8 +25,12 @@ class Context;
  * **Threading:** UI thread only. `BuildTask` spawns `AsyncProcess`,
  * which is async with a UI-thread callback — there is no
  * compiler-side worker.
- * **Single in-flight:** replacing `m_task` deletes the previous task
- * and aborts any process it had spawned. Two builds cannot race.
+ * **Single in-flight:** while a task is running, the active-document
+ * guard reports none, so a new build can't start and `m_task` is only
+ * ever replaced when idle. Two builds cannot race. Shutdown kills an
+ * in-flight build explicitly (`UIManager::onClose` → `killProcess`);
+ * `~BuildTask` then severs the async callback so a late `OnTerminate`
+ * can't touch the freed task.
  *
  * See @ref compiler.
  */
@@ -52,16 +56,13 @@ public:
     void quickRun();
 
     /// Kill active compile or run task
-    void killProcess()const;
+    void killProcess() const;
 
     /// Show compiler log dialog with full output.
-    void showCompilerLog()const;
-
-    /// Refresh the compiler log dialog if it exists.
-    void refreshCompilerLog()const;
+    void showCompilerLog() const;
 
     /// Navigate to an error by line number and file name.
-    void goToError(int line, const wxString& fileName)const;
+    void goToError(int line, const wxString& fileName) const;
 
     /// Run `<compiler> --version` for the given compiler path (resolved
     /// against the IDE appDir) and return the first output line. Empty
@@ -81,13 +82,13 @@ public:
     /// checkbox toggles `alerts.ignore.missingCompilerBinary` so future
     /// launches stay silent. No-op when the binary is reachable or the
     /// ignore flag is set. Call once after the main frame is created.
-    void checkCompilerOnStartup()const;
+    void checkCompilerOnStartup() const;
 
     /// Show the "compiler not found" prompt without the silence checkbox
     /// (used by the build flow when the user explicitly invokes compile/
     /// run): the alert is always relevant because the user just asked for
     /// the compiler. "Yes" opens the Settings dialog on the Compiler tab.
-    void promptMissingCompiler()const;
+    void promptMissingCompiler() const;
 
     /// Get runtime parameters for the executable.
     [[nodiscard]] auto getParameters() const -> const wxString& { return m_parameters; }
@@ -103,7 +104,7 @@ public:
     /// Apply the "matches active → empty" normalisation and store the
     /// resulting optional on the document. The combobox event handler
     /// is the only caller.
-    void setDocumentConfiguration(Document& doc, const wxString& pickedSlug)const;
+    void setDocumentConfiguration(Document& doc, const wxString& pickedSlug) const;
 
     /// Create the toolbar configuration combobox and sync it to the
     /// active document. Called by `UIManager::configureToolBar` when it
@@ -143,7 +144,7 @@ public:
 
     /// Apply a status-bar menu selection — same normalisation as the
     /// toolbar combobox path.
-    void applyConfigurationMenuSelection(int menuId)const;
+    void applyConfigurationMenuSelection(int menuId) const;
 
     /// First menu-item ID reserved for the status-bar configuration
     /// popup. Each catalog entry's index is added to the base — used
@@ -153,19 +154,19 @@ public:
 
 private:
     /// Get active FreeBASIC document, or nullptr if unavailable.
-    [[nodiscard]] auto getActiveDocument()const -> Document*;
+    [[nodiscard]] auto getActiveDocument() const -> Document*;
 
     /// Ensure document is saved. Returns false if user cancelled.
-    auto ensureSaved(Document& doc)const -> bool;
+    auto ensureSaved(Document& doc) const -> bool;
 
     /// Rebuild the combobox display names from the current catalog
     /// state. Item order mirrors `catalog().all()`, so a selection index
     /// maps straight back through `catalog().at()`.
-    void populateConfigurationCombo()const;
+    void populateConfigurationCombo() const;
 
     /// React to the user picking an entry in the toolbar combobox —
     /// apply the normalisation and store on the active document.
-    void onConfigurationComboSelected()const;
+    void onConfigurationComboSelected() const;
 
     /// Look up a combobox item index by slug — uses the per-item
     /// `wxStringClientData` set during populate so the lookup is
@@ -175,7 +176,7 @@ private:
 
     /// Mirror the resolved configuration label into the status-bar
     /// field, when the configuration status-bar layout is active.
-    void pushStatusBarLabel()const;
+    void pushStatusBarLabel() const;
 
     /// Validate that `cfg` can compile: a reachable fbc binary and a
     /// non-empty compile-command template. On the first missing piece

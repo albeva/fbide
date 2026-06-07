@@ -17,16 +17,18 @@ class StyleLexerTests : public testing::Test {
 protected:
     void SetUp() override {
         m_lexer = FBSciLexer::Create();
-        // Mirror FBSciLexerTests fixture: realistic wordlists.
-        m_lexer->WordListSet(0, "dim as if then else end sub function type asm");
-        m_lexer->WordListSet(1, "integer string single double long byte");
-        m_lexer->WordListSet(2, "and or not mod xor");
-        m_lexer->WordListSet(3, "__fb_version__");
-        m_lexer->WordListSet(4, "");
-        m_lexer->WordListSet(5, "");
-        m_lexer->WordListSet(6, "if ifdef ifndef else elseif endif macro endmacro define include");
-        m_lexer->WordListSet(7, "mov push pop ret jmp");
-        m_lexer->WordListSet(8, "eax ebx ecx edx");
+        // Mirror FBSciLexerTests fixture: realistic shared keyword table.
+        FBSciLexer::setKeywords({
+            "dim as if then else end sub function type asm",
+            "integer string single double long byte",
+            "and or not mod xor",
+            "__fb_version__",
+            "",
+            "",
+            "if ifdef ifndef else elseif endif macro endmacro define include",
+            "mov push pop ret jmp",
+            "eax ebx ecx edx",
+        });
     }
 
     void TearDown() override {

@@ -41,6 +41,11 @@ struct Decision {
     /// delegates classification to the token-based overload.
     [[nodiscard]] static auto decide(Editor& editor, int prevLine) -> Decision;
 
+    /// As above, but tokenises into a caller-owned `buffer` so a hot
+    /// per-keystroke path can reuse its capacity instead of allocating a
+    /// fresh vector each call.
+    [[nodiscard]] static auto decide(Editor& editor, int prevLine, std::vector<lexer::Token>& buffer) -> Decision;
+
     /// Token-based overload — pure classification, no Editor dependency.
     /// Tokens must be the run for a single source line (Whitespace / Newline
     /// / Comment tokens are tolerated and skipped).

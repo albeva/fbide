@@ -66,10 +66,10 @@ public:
     /// empty string when `tag == Tag::None`.
     [[nodiscard]] static auto tagToString(Tag tag) -> wxString;
 
-    /// True for `0.0.0` (uninitialised) — kept loose, the original
-    /// implementation had the same behaviour.
+    /// False only for the default-constructed `0.0.0` (uninitialised);
+    /// any real version — including `0.x.0` releases — is valid.
     [[nodiscard]] constexpr auto isValid() const noexcept -> bool {
-        return m_major > 0 && m_minor > 0 && m_patch > 0;
+        return *this != Version {};
     }
 
     [[nodiscard]] constexpr auto getMajor() const noexcept -> int { return m_major; }

@@ -64,15 +64,14 @@ Document::Document(wxWindow* parent, Context& ctx, const DocumentType type)
     sizer->Add(m_editor, 1, wxEXPAND);
     m_container->SetSizer(sizer);
 
-    if (m_minimapEnabled) {
-        createMinimap();
-    }
-
     // Auto-hide the minimap when the page becomes too narrow.
     m_container->Bind(wxEVT_SIZE, &Document::onContainerSize, this);
-    updateMinimapVisibility();
-
     m_editor->SetEOLMode(m_eolMode.toStc());
+
+    if (m_minimapEnabled) {
+        createMinimap();
+        updateMinimapVisibility();
+    }
 }
 
 void Document::showMinimap(const bool enabled) {
@@ -92,12 +91,14 @@ void Document::createMinimap() {
     if (m_minimap != nullptr) {
         return;
     }
-    m_minimap = make_unowned<wxStyledTextCtrlMiniMap>(m_container.get(), m_editor.get());
+    m_minimap = make_unowned<wxStyledTextCtrlMiniMap>(m_container, getEditor());
     m_minimap->SetMinSize(wxSize(m_minimapWidth, -1));
     if (auto* sizer = m_container->GetSizer(); sizer != nullptr) {
         sizer->Add(m_minimap, 0, wxEXPAND);
         sizer->Layout();
     }
+    // Minimap doesn't pick margins up correctly, so force-redefine it
+    getEditor()->defineChangesMargin();
 }
 
 void Document::destroyMinimap() {

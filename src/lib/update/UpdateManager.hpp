@@ -38,6 +38,10 @@ public:
     /// Construct and bind the web-request state handler.
     explicit UpdateManager(Context& ctx);
 
+    /// Cancel any in-flight request so a late state event from the
+    /// process-global wxWebSession can't reach this freed handler.
+    ~UpdateManager();
+
     /// Silent startup check. No-ops when `update.checkOnStartup` is off
     /// or a request is already in flight; never shows a "no update" or
     /// error popup.

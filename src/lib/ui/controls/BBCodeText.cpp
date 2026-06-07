@@ -61,6 +61,8 @@ void BBCodeText::parseBBCode(const wxString& text) {
                 SetDefaultStyle(m_bold);
             } else if (tag.Lower() == "/bold") {
                 SetDefaultStyle(m_normal);
+            } else {
+                wxTextCtrl::WriteText('[' + tag + ']');
             }
             tag.clear();
         } else if (inTag) {

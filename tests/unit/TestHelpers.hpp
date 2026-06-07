@@ -28,17 +28,18 @@ inline auto createFbLexer(const wxString& kwIniPath) -> Scintilla::ILexer5* {
     }
     wxFileConfig ini(stream);
     ini.SetPath("/keywords");
+    // Build the shared keyword table (group order matches ThemeCategory).
     // kw1..kw6 map to Keywords / KeywordTypes / KeywordOperators /
-    // KeywordConstants / KeywordLibrary / KeywordCustom in ThemeCategory order.
+    // KeywordConstants / KeywordLibrary / KeywordCustom; asm groups stay empty.
+    std::array<std::string, kThemeKeywordGroupsCount> groups;
     for (std::size_t i = 0; i < 6; i++) {
         wxString key;
         key.Printf("kw%zu", i + 1);
-        const auto value = ini.Read(key, "").Lower();
-        lex->WordListSet(static_cast<int>(i), value.utf8_str());
+        groups[i] = std::string(ini.Read(key, "").utf8_str());
     }
     // KeywordPP slot — prefer kwPP from the .lng, fall back to canonical
     // ppKeywords() table. Either way #ifdef/#endif/etc. style as KeywordPP.
-    auto pp = ini.Read("kwPP", "").Lower();
+    auto pp = ini.Read("kwPP", "");
     if (pp.IsEmpty()) {
         for (const auto& [text, _] : lexer::ppKeywords()) {
             if (!pp.IsEmpty())
@@ -47,7 +48,8 @@ inline auto createFbLexer(const wxString& kwIniPath) -> Scintilla::ILexer5* {
         }
     }
     constexpr std::size_t ppSlot = indexOfKeywordGroup(ThemeCategory::KeywordPP);
-    lex->WordListSet(static_cast<int>(ppSlot), pp.utf8_str());
+    groups[ppSlot] = std::string(pp.utf8_str());
+    FBSciLexer::setKeywords(groups);
     return lex;
 }
 
