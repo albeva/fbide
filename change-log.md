@@ -1,3 +1,9 @@
+# Changes since 0.5.0-rc.5
+
+- Fixed potential crash on multi-line edits.
+- Fixed properly clean up async tasks when fbide quits.
+- Optimized multi-line edits to avoid re-lexing document from the beginning.
+
 # Changes since 0.5.0-rc.4
 
 - Fixed crash on linux and macOS after compiling a file (#104)

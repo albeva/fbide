@@ -60,6 +60,11 @@ void UIManager::onClose(wxCloseEvent& event) {
         return;
     }
 
+    // Kill any in-flight compile/run before teardown. Otherwise the child
+    // outlives its BuildTask: leaked + detached, and a late OnTerminate during
+    // the shutdown event-drain would dereference the freed task.
+    m_ctx.getCompilerManager().killProcess();
+
     saveWindowGeometry();
     // Document tabs are gone at this point — the AUI perspective we
     // capture now reflects only persistent chrome (toolbars, sidebar,

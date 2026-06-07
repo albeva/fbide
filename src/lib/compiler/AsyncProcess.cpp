@@ -9,7 +9,11 @@ using namespace fbide;
 
 auto AsyncProcess::exec(const wxString& command, const wxString& workingDir, const bool redirect, Callback&& callback) -> AsyncProcess* {
     auto* self = new AsyncProcess(std::move(callback));
-    self->exec(command, workingDir, redirect);
+    if (!self->exec(command, workingDir, redirect)) {
+        // Launch failed: `self` already invoked the callback and deleted
+        // itself. Hand back nullptr so the caller's pointer stays honest.
+        return nullptr;
+    }
     return self;
 }
 
@@ -17,11 +21,11 @@ AsyncProcess::AsyncProcess(Callback&& callback)
 : wxProcess(nullptr)
 , m_callback(std::move(callback)) {}
 
-void AsyncProcess::exec(
+auto AsyncProcess::exec(
     const wxString& command,
     const wxString& workingDir,
     const bool redirect
-) {
+) -> bool {
     if (redirect) {
         Redirect();
     }
@@ -33,7 +37,16 @@ void AsyncProcess::exec(
     if (pid == 0) {
         m_callback(ProcessResult {});
         delete this; // NOLINT(*-owning-memory)
+        return false;
     }
+    return true;
+}
+
+void AsyncProcess::detach() {
+    // Sever the termination callback. The callback captures its owner by
+    // reference; once that owner is gone, a still-pending OnTerminate must
+    // not touch it. The object still self-deletes on termination as usual.
+    m_callback = nullptr;
 }
 
 void AsyncProcess::kill() {
@@ -57,7 +70,9 @@ void AsyncProcess::OnTerminate(int /*pid*/, const int status) {
         readStream(GetErrorStream(), result.output);
     }
 
-    m_callback(std::move(result));
+    if (m_callback) {
+        m_callback(std::move(result));
+    }
     delete this; // NOLINT(*-owning-memory)
 }
 

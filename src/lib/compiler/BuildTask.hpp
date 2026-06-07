@@ -29,6 +29,12 @@ public:
     /// @param doc The document being compiled, or nullptr.
     BuildTask(Context& ctx, Document* doc);
 
+    /// Sever any in-flight process's callback before teardown — the callback
+    /// captures `this`, so a late OnTerminate after destruction would be a
+    /// use-after-free. Does not kill the child (shutdown does that explicitly
+    /// via `CompilerManager::killProcess`).
+    ~BuildTask();
+
     /// Compile the given source file asynchronously.
     void compile(const wxString& sourceFile);
 

@@ -26,6 +26,12 @@ BuildTask::BuildTask(Context& ctx, Document* doc)
       doc != nullptr ? doc->getConfiguration() : std::nullopt
   )) {}
 
+BuildTask::~BuildTask() {
+    if (m_process != nullptr) {
+        m_process->detach();
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -89,16 +95,21 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     m_compilerLog.Add(cmdStr);
     m_ctx.getCompilerManager().refreshCompilerLog();
 
+    // Arm the running state *before* the synchronous probe below. The probe
+    // pumps a nested event loop, so a Compile/Run command dispatched inside it
+    // would otherwise see isRunning() == false, pass CompilerManager's re-entry
+    // guard, and replace m_task — freeing the BuildTask whose startCompiler is
+    // still on the stack. Setting it here makes that re-entry a no-op.
+    m_running = true;
+    m_ctx.getUIManager().setCompilerState(UIState::Compiling);
+    setStatus("status.compiling");
+
     // Probe the active config's compiler version *before* launching the async
     // compile. probeCompilerVersion runs a synchronous wxExecute (with its own
     // nested event loop); calling it from onCompileFinished would re-enter wx's
     // child-process machinery inside the compile process's OnTerminate handler
     // and deadlock. appendSystemInfo() reads the cached value instead.
     m_fbcVersion = m_ctx.getCompilerManager().probeCompilerVersion(m_config.path);
-
-    m_running = true;
-    m_ctx.getUIManager().setCompilerState(UIState::Compiling);
-    setStatus("status.compiling");
     m_process = AsyncProcess::exec(cmdStr, m_buildDir, true, [&](const ProcessResult& result) {
         m_process = nullptr;
         setStatus("");
