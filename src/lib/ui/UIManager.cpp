@@ -185,7 +185,7 @@ void UIManager::loadAuiPerspective() {
     // update=false: defer the visual refresh — the createMainFrame
     // caller invokes m_aui.Update() once for both the restored layout
     // and any state changes that happened earlier.
-    m_aui.LoadPerspective(perspective, true);
+    m_aui.LoadPerspective(perspective, false);
     resetToolbarSize();
 }
 

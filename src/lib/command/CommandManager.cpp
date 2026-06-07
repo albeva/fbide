@@ -429,9 +429,6 @@ void CommandManager::onAbout(wxCommandEvent&) {
 }
 
 void CommandManager::onExternalLink(wxCommandEvent& event) {
-    if (const auto* menuItem = wxDynamicCast(event.GetClientData(), wxMenuItem)) {
-        wxMessageBox(menuItem->GetHelp());
-    }
     const auto it = m_externalLinks.find(event.GetId());
     if (it == m_externalLinks.end()) {
         return;
@@ -462,7 +459,7 @@ auto CommandManager::registerExternalLink(const wxString& url) -> wxWindowID {
 void CommandManager::addCommands(const std::initializer_list<CommandEntry>& commands) {
     const auto size = m_namedCommands.size() + commands.size();
     m_namedCommands.reserve(size);
-    m_namedCommands.reserve(size);
+    m_idNames.reserve(size);
     for (const auto& cmd : commands) {
         const auto id = cmd.id == 0 || cmd.id == wxID_ANY ? wxNewId() : cmd.id;
         auto& entry = m_namedCommands[cmd.name] = cmd;

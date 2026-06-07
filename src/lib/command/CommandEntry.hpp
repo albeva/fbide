@@ -38,7 +38,7 @@ struct CommandEntry final {
     /// Remove the first bind of type `T*` (no-op if not present).
     template<typename T>
     void remove() {
-        auto it = std::ranges::find_if(binds, [](const T& x) {
+        auto it = std::ranges::find_if(binds, [](const Bind& x) {
             return std::holds_alternative<T*>(x);
         });
 
