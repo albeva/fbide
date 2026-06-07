@@ -161,6 +161,13 @@ void UIManager::createMainFrame() {
     m_compilerLog = make_unowned<CompilerLog>(m_frame, m_ctx.tr("dialogs.log.title"));
     m_compilerLog->create(m_ctx);
     m_compilerLog->Bind(wxEVT_CLOSE_WINDOW, [this](wxCloseEvent& event) {
+        // Hide instead of destroy on a normal (vetoable) user close, but let
+        // a forced close through — e.g. the macOS dock "Quit", which walks
+        // every top-level window: vetoing it there crashes the shutdown.
+        if (!event.CanVeto()) {
+            event.Skip();
+            return;
+        }
         event.Veto();
         m_compilerLog->Hide();
     });
