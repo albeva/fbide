@@ -125,11 +125,17 @@ so the user lands directly on the Compiler tab.
 
 ## Compiler log dialog
 
-`showCompilerLog` opens a modeless dialog rendering
-`BuildTask::getCompilerLog()`. The log uses a tiny `[bold]...[/bold]`
-markup convention to highlight section headers (system info, command
-line, errors) — `appendSystemInfo` writes the FBIde + fbc + OS
-banner. `refreshCompilerLog` updates the dialog if it's already open.
+`CompilerManager::showCompilerLog` opens a modeless `CompilerLog`
+dialog. The dialog stores content by `CompilerLogSection`
+(`CompilerCommand`, `CompilerOutput`, `CompileResult`, `SystemInfo`,
+`RunCommand`, `RunResult`) and re-renders bold section titles over
+verbatim content on every `add` / `clear`. `BuildTask` populates the
+sections live during the compile + run pipeline:
+`startCompiler` sets `CompilerCommand`; `onCompileFinished` sets
+`CompilerOutput`, `CompileResult`, and `appendSystemInfo` writes the
+FBIde + fbc + OS banner into `SystemInfo`; `run` / `onRunFinished`
+fill `RunCommand` and `RunResult`. The dialog needs no explicit
+refresh hook — each `add` repaints.
 
 ## Recipe: add a new compile-time toggle
 
