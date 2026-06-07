@@ -212,9 +212,13 @@ void Editor::defineChangesMargin() {
         return;
     }
 
-    // Symbol margin with only the two change markers visible. The mask
-    // keeps fold and other markers from leaking onto this strip.
-    SetMarginType(+Margins::Changes, wxSTC_MARGIN_SYMBOL);
+    // Colour margin with only the two change markers visible. The mask
+    // keeps fold and other markers from leaking onto this strip. The
+    // type must be wxSTC_MARGIN_COLOUR (not _SYMBOL): Scintilla honours
+    // SetMarginBackground only for a COLOUR margin — a SYMBOL margin is
+    // painted with STYLE_LINENUMBER's background and ignores the call
+    // (MarginView::PaintMargin). Markers draw on either type (mask-gated).
+    SetMarginType(+Margins::Changes, wxSTC_MARGIN_COLOUR);
     SetMarginMask(+Margins::Changes, kChangeMarkersMask);
     SetMarginWidth(+Margins::Changes, Constants::changeMarginWidth);
     SetMarginSensitive(+Margins::Changes, false);
