@@ -63,29 +63,26 @@ auto needsStyling(const lexer::TokenKind kind) -> bool {
         && kind != lexer::TokenKind::Newline;
 }
 
-auto escapeHtml(std::string_view text) -> std::string {
-    std::string escaped;
-    escaped.reserve(text.size());
+void appendEscaped(std::string& out, std::string_view text) {
     for (const auto ch : text) {
         switch (ch) {
         case '&':
-            escaped += "&amp;";
+            out += "&amp;";
             break;
         case '<':
-            escaped += "&lt;";
+            out += "&lt;";
             break;
         case '>':
-            escaped += "&gt;";
+            out += "&gt;";
             break;
         case '"':
-            escaped += "&quot;";
+            out += "&quot;";
             break;
         default:
-            escaped += ch;
+            out += ch;
             break;
         }
     }
-    return escaped;
 }
 
 } // namespace
@@ -96,31 +93,35 @@ auto HtmlRenderer::render(const std::vector<lexer::Token>& tokens) const -> wxSt
     std::string output;
     output.reserve(getSizeHint() + tokens.size() * 50); // html needs lot of markup
 
-    output += "<pre style=\"background:" + hexColour(defaultBg)
-            + ";color:" + hexColour(defaultFg) + "\">";
+    output += "<pre style=\"background:";
+    output += hexColour(defaultBg);
+    output += ";color:";
+    output += hexColour(defaultFg);
+    output += "\">";
 
     for (const auto& tok : tokens) {
-        const auto escaped = escapeHtml(tok.text);
-
         if (!needsStyling(tok.kind)) {
-            output += escaped;
+            appendEscaped(output, tok.text);
             continue;
         }
 
         const auto& style = m_theme.get(tokenToCategory(tok.kind));
-        std::string css = "color:" + hexColour(m_theme.foreground(style.colors.foreground))
-                        + ";background:" + hexColour(m_theme.background(style.colors.background));
+        output += "<span style=\"color:";
+        output += hexColour(m_theme.foreground(style.colors.foreground));
+        output += ";background:";
+        output += hexColour(m_theme.background(style.colors.background));
         if (style.bold) {
-            css += ";font-weight:bold";
+            output += ";font-weight:bold";
         }
         if (style.italic) {
-            css += ";font-style:italic";
+            output += ";font-style:italic";
         }
         if (style.underlined) {
-            css += ";text-decoration:underline";
+            output += ";text-decoration:underline";
         }
-
-        output += "<span style=\"" + css + "\">" + escaped + "</span>";
+        output += "\">";
+        appendEscaped(output, tok.text);
+        output += "</span>";
     }
 
     output += "</pre>";

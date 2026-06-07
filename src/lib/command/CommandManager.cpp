@@ -170,14 +170,15 @@ void CommandManager::initializeCommands() {
 
 void CommandManager::onAnyEvent(wxCommandEvent& event) {
     event.Skip();
-    const auto thaw = m_ctx.getUIManager().freeze();
 
-    if (auto* entry = find(event.GetId())) {
-        if (entry->kind != wxITEM_CHECK || entry->checked == event.IsChecked()) {
-            return;
-        }
-        entry->setChecked(event.IsChecked());
+    // Only an actual checked-state flip needs to repaint bound controls;
+    // freeze just for that, not on every menu/toolbar click.
+    auto* entry = find(event.GetId());
+    if (entry == nullptr || entry->kind != wxITEM_CHECK || entry->checked == event.IsChecked()) {
+        return;
     }
+    const auto thaw = m_ctx.getUIManager().freeze();
+    entry->setChecked(event.IsChecked());
 }
 
 void CommandManager::onAuiPaneClose(wxAuiManagerEvent& event) {
