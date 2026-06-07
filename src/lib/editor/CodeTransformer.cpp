@@ -259,7 +259,12 @@ void CodeTransformer::transformWordInRange(Editor& editor, const int wordStart, 
 
 void CodeTransformer::transformRange(Editor& editor, const int rangeStart, const int rangeEnd) {
     // Force STC to re-style
-    editor.Colourise(0, rangeEnd);
+    {
+        const auto line = editor.LineFromPosition(rangeStart);
+        const auto pos = editor.PositionFromLine(line);
+        const auto start = std::min(editor.GetEndStyled(), pos);
+        editor.Colourise(start, rangeEnd);
+    }
 
     // Tokenize the inserted range
     lexer::WxStcStyledSource src(editor);
