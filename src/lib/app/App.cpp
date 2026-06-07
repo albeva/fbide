@@ -13,7 +13,6 @@
 #include "config/FileHistory.hpp"
 #include "config/Value.hpp"
 #include "config/Version.hpp"
-#include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/FileSession.hpp"
 #include "ui/UIManager.hpp"
@@ -405,11 +404,11 @@ auto App::parseCli() const -> CliOptions {
     return opts;
 }
 
-void App::showHelp() const {
+void App::showHelp() {
     writeLine(kHelpText);
 }
 
-void App::showVersion() const {
+void App::showVersion() {
     writeLine(wxString::Format(
         "fbide %s (wxWidgets %s)",
         Version::fbide().asString(),
@@ -463,7 +462,7 @@ auto App::resolveCfg(const wxString& spec) const -> wxString {
     // Accept `/` as a path separator alongside `.` for ergonomics.
     key.Replace("/", ".");
 
-    auto& root = m_context->getConfigManager().get(cat);
+    const auto& root = m_context->getConfigManager().get(cat);
     const auto& node = key.IsEmpty() ? root : root.at(key);
 
     if (!enumerate) {
@@ -490,10 +489,24 @@ auto App::getFbidePath() -> wxString {
 }
 
 void App::openFiles(const wxArrayString& files) {
-    auto& docManager = m_context->getDocumentManager();
     for (const auto& file : files) {
+        m_pendingFiles.Add(file);
+    }
+
+    // The notebook only exists once createMainFrame() has run. Files
+    // forwarded by a second instance can arrive during the splash
+    // screen (showSplash's wxYield pumps IPC events), before that —
+    // hold them until OnInit reaches the open call after the frame is
+    // built, which drains the whole queue at once.
+    if (m_context->getUIManager().getMainFrame() == nullptr) {
+        return;
+    }
+
+    auto& docManager = m_context->getDocumentManager();
+    for (const auto& file : m_pendingFiles) {
         docManager.openFile(file);
     }
+    m_pendingFiles.Clear();
 }
 
 #ifdef __WXOSX__
@@ -578,7 +591,7 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
     });
 }
 
-void App::showSplash() {
+void App::showSplash() const {
     if (m_context->getConfigManager().config().get_or("general.splashScreen", true)) {
         wxImage::AddHandler(make_unowned<wxPNGHandler>());
         const auto splashPath = m_context->getConfigManager().absolute("splash.png");

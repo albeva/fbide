@@ -63,6 +63,13 @@ public:
     /// returns false and `commitConfig` is never called.
     void scheduleRestart(std::function<void()> commitConfig = {});
 
+    /// Queue files (from the command line, the IPC server, or OS
+    /// events) and open any the notebook can take right now. Opens that
+    /// arrive before `createMainFrame()` — e.g. a second-instance
+    /// forward during the splash screen — stay queued until OnInit
+    /// drains them once the frame exists.
+    void openFiles(const wxArrayString& files);
+
 private:
     /// Parsed command-line state. Filled by `parseCli` once at startup so the
     /// rest of `OnInit` can branch on it without re-parsing.
@@ -89,22 +96,20 @@ private:
 
     /// Print usage to stdout (attaching the parent console on Windows so
     /// the text reaches the launching shell).
-    void showHelp() const;
+    static void showHelp();
 
     /// Print fbide + wxWidgets version to stdout.
-    void showVersion() const;
+    static void showVersion();
 
     /// Resolve `--cfg=<spec>` (where `<spec>` is `[category:]dotted.key`).
     /// Returns the value as a string, or empty if missing.
     [[nodiscard]] auto resolveCfg(const wxString& spec) const -> wxString;
 
     /// Show splash screen if enabled.
-    void showSplash();
-
-    /// Open files passed on the command line or via OS events.
-    void openFiles(const wxArrayString& files);
+    void showSplash() const;
 
     std::unique_ptr<Context> m_context;                 ///< Application service locator.
+    wxArrayString m_pendingFiles;                       ///< Files awaiting an open until the main frame exists.
     std::unique_ptr<InstanceHandler> m_instanceHandler; ///< Single-instance gate (skipped under `--new-window`).
     bool m_newWindow = false;                           ///< Effective value of `--new-window`.
     bool m_verbose = false;                             ///< Effective value of `--verbose` — replayed on relaunch.
