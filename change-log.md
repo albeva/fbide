@@ -1,5 +1,6 @@
 # Changes since 0.5.0-rc.5
 
+- Fixed Find/Replace dialogs stacking up when reopened; the open one is now raised instead.
 - Fixed crash when a second instance forwards a file during the splash screen.
 - Fixed Settings partially applying (and restarting for a language change) when another tab had an invalid value.
 - Fixed crash when re-selecting a newly saved theme in Settings.

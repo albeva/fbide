@@ -899,6 +899,14 @@ void DocumentManager::showFindDialog(const bool replace) {
         return;
     }
 
+    // Single instance: raise the open dialog instead of stacking another.
+    // Find and Replace share the one slot — close it to switch modes.
+    if (m_findDialog != nullptr) {
+        m_findDialog->Raise();
+        m_findDialog->SetFocus();
+        return;
+    }
+
     // Pre-fill with selection or word under cursor
     if (const auto word = doc->getEditor()->getWordAtCursor(); !word.empty()) {
         m_findData.SetFindString(word);
@@ -908,9 +916,9 @@ void DocumentManager::showFindDialog(const bool replace) {
     const int style = replace ? wxFR_REPLACEDIALOG : 0;
     const auto title = replace ? m_ctx.tr("dialogs.replace.title") : m_ctx.tr("dialogs.find.title");
 
-    const auto dlg = make_unowned<wxFindReplaceDialog>(frame, &m_findData, title, style);
-    dlg->PushEventHandler(this);
-    dlg->Show();
+    m_findDialog = make_unowned<wxFindReplaceDialog>(frame, &m_findData, title, style);
+    m_findDialog->PushEventHandler(this);
+    m_findDialog->Show();
 }
 
 void DocumentManager::onFindDialog(wxFindDialogEvent& event) {
@@ -947,4 +955,5 @@ void DocumentManager::onFindDialogClose(wxFindDialogEvent& event) {
         dlg->PopEventHandler();
         dlg->Destroy();
     }
+    m_findDialog = nullptr;
 }
