@@ -89,8 +89,11 @@ private:
     /// Clean up temp files from quick run.
     void cleanupTempFiles();
 
-    /// Set status bar text from a locale path (empty for none).
+    /// Set status bar text from a locale path.
     void setStatus(const wxString& path) const;
+
+    /// Clear the status bar text (compile / run finished).
+    void clearStatus() const;
 
     Context& m_ctx;                    ///< Application context.
     Document* m_doc;                   ///< Document this task is bound to (nullable).

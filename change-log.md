@@ -1,5 +1,6 @@
 # Changes since 0.5.0-rc.5
 
+- Fixed status bar getting stuck on a stale compile message; it now shows Compiling… / Running … and clears when finished.
 - Fixed crash when quitting from the macOS dock menu (#107).
 - Fixed minimap not using the theme's change-marker colours until the Settings dialog was opened.
 - Fixed BOM-marked files with invalid bytes being reinterpreted as Latin-1 and losing their BOM on save.

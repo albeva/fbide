@@ -67,6 +67,9 @@ void BuildTask::run(const wxString& executablePath, const bool quickRun) {
 
     m_running = true;
     m_ctx.getUIManager().setCompilerState(UIState::Running);
+    auto runningStatus = m_ctx.tr("status.running");
+    runningStatus.Replace("{file}", wxFileName(executablePath).GetFullName());
+    m_ctx.getUIManager().getMainFrame()->SetStatusText(runningStatus);
     m_process = AsyncProcess::exec(cmdStr, wxPathOnly(executablePath), false, [&](const ProcessResult& result) {
         m_process = nullptr;
         m_ctx.getUIManager().setCompilerState(UIState::None);
@@ -112,7 +115,6 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     m_fbcVersion = m_ctx.getCompilerManager().probeCompilerVersion(m_config.path);
     m_process = AsyncProcess::exec(cmdStr, m_buildDir, true, [&](const ProcessResult& result) {
         m_process = nullptr;
-        setStatus("");
         m_ctx.getUIManager().setCompilerState(UIState::None);
         m_running = false;
         onCompileFinished(result);
@@ -139,12 +141,10 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
     if (!result) {
         compilerLog().add(CompilerLogSection::CompileResult, m_ctx.tr("dialogs.log.failureMessage"));
         appendSystemInfo();
-        setStatus("status.compileFailed");
+        clearStatus();
         cleanupTempFiles();
         return;
     }
-
-    setStatus("status.compileComplete");
 
     m_compiledFile = deriveExecutablePath(m_sourceFile);
     auto generatedLine = m_ctx.tr("dialogs.log.generatedExecutable");
@@ -163,10 +163,16 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
 
     if (m_shouldRun) {
         run(m_compiledFile, m_isQuickRun);
+    } else {
+        // Compile-only: nothing more runs, so clear the status line.
+        clearStatus();
     }
 }
 
 void BuildTask::onRunFinished(const ProcessResult& result) {
+    // The program has exited — clear the "Running..." status.
+    clearStatus();
+
     if (!result.launched) {
         compilerLog().add(CompilerLogSection::RunResult, m_ctx.tr("dialogs.log.executionFailed"));
     } else {
@@ -347,5 +353,9 @@ void BuildTask::kill() {
 }
 
 void BuildTask::setStatus(const wxString& path) const {
-    m_ctx.getUIManager().getMainFrame()->SetStatusText(path.empty() ? wxString {} : m_ctx.tr(path));
+    m_ctx.getUIManager().getMainFrame()->SetStatusText(m_ctx.tr(path));
+}
+
+void BuildTask::clearStatus() const {
+    m_ctx.getUIManager().getMainFrame()->SetStatusText(wxEmptyString);
 }
