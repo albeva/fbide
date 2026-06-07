@@ -340,7 +340,7 @@ void CommandManager::onSettings(wxCommandEvent&) {
 }
 
 void CommandManager::onFormat(wxCommandEvent&) {
-    if (auto* doc = m_ctx.getDocumentManager().getActive(); doc->getEditor() != nullptr) {
+    if (auto* doc = m_ctx.getDocumentManager().getActive(); doc != nullptr && doc->getEditor() != nullptr) {
         FormatDialog dlg(m_ctx.getUIManager().getMainFrame(), m_ctx, doc);
         dlg.create();
         dlg.ShowModal();

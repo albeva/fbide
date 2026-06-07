@@ -14,7 +14,7 @@ using namespace fbide;
 
 namespace {
 /// App name serves as communication topic
-wxString kAppName { cmake::project.name };
+const wxString kAppName { cmake::project.name };
 
 // ---------------------------------------------------------------------------
 // Client
