@@ -1,5 +1,6 @@
 # Changes since 0.5.0-rc.5
 
+- Fixed compiler log mangling output that contains square-bracket markup (e.g. `[b]`).
 - Fixed potential crash when quitting during an in-flight update check.
 - Fixed Find/Replace dialogs stacking up when reopened; the open one is now raised instead.
 - Fixed crash when a second instance forwards a file during the splash screen.

@@ -12,6 +12,8 @@
 namespace fbide {
 class Context;
 class Document;
+class CompilerLog;
+enum class CompilerLogSection : std::size_t;
 
 /// Handles the compile-and-run lifecycle for a single document.
 ///
@@ -50,9 +52,6 @@ public:
     /// Is this a quickrun task?
     [[nodiscard]] auto isQuickRun() const -> bool { return m_isQuickRun; }
 
-    /// Get the full compiler log for display.
-    [[nodiscard]] auto getCompilerLog() const -> const wxArrayString& { return m_compilerLog; }
-
     /// Get the compiled executable path from the last successful compile.
     [[nodiscard]] auto getCompiledFile() const -> const wxString& { return m_compiledFile; }
 
@@ -81,8 +80,11 @@ private:
     /// Build the run command from config template and executable path.
     [[nodiscard]] auto buildRunCommand(const wxString& executablePath) const -> wxString;
 
-    /// Append system info (FBIde version, fbc version, OS) to the compiler log.
+    /// Set the system-info section (FBIde version, fbc version, OS).
     void appendSystemInfo();
+
+    /// The compiler-log window — owns the section content and rendering.
+    [[nodiscard]] auto compilerLog() const -> CompilerLog&;
 
     /// Clean up temp files from quick run.
     void cleanupTempFiles();
@@ -100,7 +102,6 @@ private:
     wxString m_buildDir;               ///< Working directory for the compile/run process.
     wxString m_compiledFile;           ///< Path of the produced executable (set on success).
     wxString m_fbcVersion;             ///< Active config's fbc version, probed before the async compile.
-    wxArrayString m_compilerLog;       ///< Captured compiler output (for the log dialog).
     AsyncProcess* m_process = nullptr; ///< In-flight async process (self-deleting).
 };
 

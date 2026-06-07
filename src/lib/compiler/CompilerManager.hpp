@@ -61,9 +61,6 @@ public:
     /// Show compiler log dialog with full output.
     void showCompilerLog() const;
 
-    /// Refresh the compiler log dialog if it exists.
-    void refreshCompilerLog() const;
-
     /// Navigate to an error by line number and file name.
     void goToError(int line, const wxString& fileName) const;
 

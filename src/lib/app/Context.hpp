@@ -68,7 +68,7 @@ public:
 
     /// Translate a locale path to a display string. Returns empty when
     /// the key is missing — never throws.
-    [[nodiscard]] auto tr(const wxString& path) -> wxString;
+    [[nodiscard]] auto tr(const wxString& path) const -> wxString;
 
     /// Access the recent-files store.
     [[nodiscard]] auto getFileHistory() -> FileHistory& { return *m_fileHistory; }
