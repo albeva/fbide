@@ -1,5 +1,6 @@
 # Changes since 0.5.0-rc.5
 
+- Fixed potential crash when quitting during an in-flight update check.
 - Fixed Find/Replace dialogs stacking up when reopened; the open one is now raised instead.
 - Fixed crash when a second instance forwards a file during the splash screen.
 - Fixed Settings partially applying (and restarting for a language change) when another tab had an invalid value.

@@ -42,6 +42,12 @@ UpdateManager::UpdateManager(Context& ctx)
     Bind(wxEVT_WEBREQUEST_STATE, &UpdateManager::onRequestState, this);
 }
 
+UpdateManager::~UpdateManager() {
+    if (m_request.IsOk() && m_request.GetState() == wxWebRequest::State_Active) {
+        m_request.Cancel();
+    }
+}
+
 void UpdateManager::checkOnStartup() {
     if (!m_ctx.getConfigManager().config().get_or("update.checkOnStartup", true)) {
         return;
