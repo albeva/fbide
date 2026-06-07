@@ -176,6 +176,9 @@ auto App::OnExit() -> int {
         wxTheClipboard->Flush();
         wxTheClipboard->Close();
     }
+    // Detach + delete the log target before the stream it borrows dies.
+    delete wxLog::SetActiveTarget(nullptr);
+    m_logStream.reset();
     return wxApp::OnExit();
 }
 
@@ -257,10 +260,12 @@ auto App::OnInit() -> bool {
     // sit in memory waiting to be coalesced. Together these ensure the
     // last few records survive a crash.
     const auto logPath = resolveLogPath(cli.logPath);
-    const auto logStream = make_unowned<std::ofstream>(logPath.ToStdString(), std::ios::app);
-    *logStream << std::unitbuf;
+    // `wxLogStream` borrows the stream without owning it, so App keeps it
+    // alive and tears it down in OnExit after detaching the log target.
+    m_logStream = std::make_unique<std::ofstream>(logPath.ToStdString(), std::ios::app);
+    *m_logStream << std::unitbuf;
     wxLog::SetRepetitionCounting(false);
-    wxLog::SetActiveTarget(new wxLogStream(logStream));
+    wxLog::SetActiveTarget(new wxLogStream(m_logStream.get()));
 
     // Construct context with parsed CLI overrides — `--ide` flows into
     // ConfigManager so subsequent config/locale/theme lookups resolve

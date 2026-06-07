@@ -109,6 +109,7 @@ private:
     void showSplash() const;
 
     std::unique_ptr<Context> m_context;                 ///< Application service locator.
+    std::unique_ptr<std::ofstream> m_logStream;         ///< Backing file for the wxLogStream target (which borrows it).
     wxArrayString m_pendingFiles;                       ///< Files awaiting an open until the main frame exists.
     std::unique_ptr<InstanceHandler> m_instanceHandler; ///< Single-instance gate (skipped under `--new-window`).
     bool m_newWindow = false;                           ///< Effective value of `--new-window`.

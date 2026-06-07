@@ -168,7 +168,10 @@ auto StyleLexer::nextStyle() -> std::optional<StyleRange> {
     }
     const auto style = m_src.styleAt(m_pos);
     const auto start = m_pos;
-    while (m_pos < m_src.length() && m_src.styleAt(m_pos) == style) {
+    // Clamp to the requested range, not the whole document: a style run
+    // that crosses rangeEnd must not coalesce past it, or a sub-range lex
+    // (paste / on-type transform) would write beyond the intended range.
+    while (m_pos < m_range.second && m_src.styleAt(m_pos) == style) {
         m_pos++;
     }
     return StyleRange { style, start, m_pos };

@@ -1,5 +1,6 @@
 # Changes since 0.5.0-rc.5
 
+- Fixed on-type case conversion occasionally altering a keyword just past a pasted block.
 - Optimized single-line lexing (e.g. auto-indent on Enter) to not allocate whole-document capacity in large files.
 - Fixed compiler log mangling output that contains square-bracket markup (e.g. `[b]`).
 - Fixed potential crash when quitting during an in-flight update check.
