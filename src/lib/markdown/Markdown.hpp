@@ -103,45 +103,36 @@ struct MdBlockBase {
     int quoteDepth = 0; ///< Block-quote nesting (0 = not quoted). Common to every kind.
 };
 
+/// CRTP helper binding a concrete block to its `MdBlockKind`: supplies the
+/// `kKind` discriminant that `as<T>()` asserts on and the constructor that
+/// stamps it into the base, so each leaf only declares its own fields.
+template<MdBlockKind K>
+struct MdBlockOf : MdBlockBase {
+    static constexpr auto kKind = K;
+
+    MdBlockOf()
+    : MdBlockBase(K) {}
+};
+
 /// Run of prose.
-struct MdParagraph final : MdBlockBase {
-    static constexpr auto kKind = MdBlockKind::Paragraph;
-
-    MdParagraph()
-
-    : MdBlockBase(kKind) {}
+struct MdParagraph final : MdBlockOf<MdBlockKind::Paragraph> {
     std::vector<MdInline> inlines; ///< Paragraph content.
 };
 
 /// `#`..`######` heading — see `headingLevel`.
-struct MdHeading final : MdBlockBase {
-    static constexpr auto kKind = MdBlockKind::Heading;
-
-    MdHeading()
-    : MdBlockBase(kKind) {}
-
+struct MdHeading final : MdBlockOf<MdBlockKind::Heading> {
     std::vector<MdInline> inlines; ///< Heading content.
     std::uint8_t headingLevel = 0; ///< 1-6.
 };
 
 /// Fenced or indented code block.
-struct MdCodeFence final : MdBlockBase {
-    static constexpr auto kKind = MdBlockKind::CodeFence;
-
-    MdCodeFence()
-    : MdBlockBase(kKind) {}
-
+struct MdCodeFence final : MdBlockOf<MdBlockKind::CodeFence> {
     wxString codeLang; ///< Fence info string, lowercased.
     wxString codeText; ///< Verbatim code, '\n'-separated.
 };
 
 /// One item line of a list — see `list*` fields.
-struct MdListItem final : MdBlockBase {
-    static constexpr auto kKind = MdBlockKind::ListItem;
-
-    MdListItem()
-    : MdBlockBase(kKind) {}
-
+struct MdListItem final : MdBlockOf<MdBlockKind::ListItem> {
     std::vector<MdInline> inlines; ///< Item content.
     int listDepth = 0;             ///< List nesting (1 = top-level list).
     int listOrdinal = 0;           ///< Number for ordered lists.
@@ -152,20 +143,10 @@ struct MdListItem final : MdBlockBase {
 };
 
 /// Horizontal rule (`---`). Carries no content beyond the common fields.
-struct MdRule final : MdBlockBase {
-    static constexpr auto kKind = MdBlockKind::Rule;
-
-    MdRule()
-    : MdBlockBase(kKind) {}
-};
+struct MdRule final : MdBlockOf<MdBlockKind::Rule> {};
 
 /// GFM pipe table — see `rows` / `columnAlignment`.
-struct MdTable final : MdBlockBase {
-    static constexpr auto kKind = MdBlockKind::Table;
-
-    MdTable()
-    : MdBlockBase(kKind) {}
-
+struct MdTable final : MdBlockOf<MdBlockKind::Table> {
     std::vector<MdTableAlignment> columnAlignment; ///< One entry per column.
     std::vector<MdTableRow> rows;                  ///< Header rows first, then body.
     std::uint32_t headerRowCount = 0;              ///< Leading rows in `rows` that are header (usually 1).
@@ -173,12 +154,7 @@ struct MdTable final : MdBlockBase {
 
 /// SEARCH/REPLACE proposal — see `patch*` fields. Only produced for a
 /// fully-closed block; partial blocks mid-stream are silently consumed.
-struct MdPatch final : MdBlockBase {
-    static constexpr auto kKind = MdBlockKind::Patch;
-
-    MdPatch()
-    : MdBlockBase(kKind) {}
-
+struct MdPatch final : MdBlockOf<MdBlockKind::Patch> {
     wxString patchTarget;  ///< Optional target path from the `<<<<<<< SEARCH` header.
     wxString patchSearch;  ///< Verbatim SEARCH text.
     wxString patchReplace; ///< Verbatim REPLACE text.
