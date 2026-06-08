@@ -73,7 +73,6 @@ target_sources(fbide_lib
     ui/OutputConsole.cpp
     ui/StatusBarHandler.cpp
     ui/UIManager.cpp
-    ui/controls/BBCodeText.cpp
     ui/controls/ColorPicker.cpp
     ui/controls/InheritableField.cpp
     ui/controls/Panel.cpp
@@ -161,7 +160,6 @@ target_sources(fbide_lib
     ui/StatusBarHandler.hpp
     ui/UIManager.hpp
     ui/UIState.hpp
-    ui/controls/BBCodeText.hpp
     ui/controls/ColorPicker.hpp
     ui/controls/InheritableField.hpp
     ui/controls/Layout.hpp
