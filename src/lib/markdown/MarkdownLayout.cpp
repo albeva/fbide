@@ -11,6 +11,13 @@ using namespace fbide::markdown;
 
 namespace {
 
+/// Stable hash of a code fence's verbatim text. Stored on the laid block so
+/// hosts can derive a per-block identity across re-layouts without keeping a
+/// duplicate copy of the snippet.
+[[nodiscard]] auto hashCodeText(const wxString& text) -> std::size_t {
+    return std::hash<std::string> {}(text.utf8_string());
+}
+
 // Vertical gap between consecutive blocks.
 constexpr int kBlockGap = 8;
 // Padding inside the code-block background — above, below and left of text.
@@ -667,21 +674,23 @@ struct LayoutEngine {
             summary.languageDisplay = resolveLanguageDisplay(kind, lang);
         }
 
-        m_out.scrollBlocks.push_back({ .kind = kind,
+        const bool isCode = kind == LaidScrollBlock::Kind::Code;
+        m_out.scrollBlocks.push_back({ .summary = std::move(summary),
+            .codeLang = isCode ? lang : wxString {},
+            .patchTarget = patchTarget,
+            .patchSearch = kind == LaidScrollBlock::Kind::Patch ? contentA : wxString {},
+            .patchReplace = kind == LaidScrollBlock::Kind::Patch ? contentB : wxString {},
+            .codeContentHash = isCode ? hashCodeText(contentA) : std::size_t { 0 },
             .y = blockTop,
             .height = m_yPos - blockTop,
             .contentLeft = codeLeft,
             .contentWidth = contentWidth,
             .naturalWidth = contentWidth,
+            .codeLineCount = isCode ? countLines(contentA) : 0,
+            .kind = kind,
             .wrapped = true,
             .collapsed = true,
-            .themed = themed,
-            .summary = std::move(summary),
-            .codeText = kind == LaidScrollBlock::Kind::Code ? contentA : wxString {},
-            .codeLang = kind == LaidScrollBlock::Kind::Code ? lang : wxString {},
-            .patchTarget = patchTarget,
-            .patchSearch = kind == LaidScrollBlock::Kind::Patch ? contentA : wxString {},
-            .patchReplace = kind == LaidScrollBlock::Kind::Patch ? contentB : wxString {} });
+            .themed = themed });
     }
 
     /// Emit a fenced code block: a padded background strip carrying the
@@ -752,16 +761,17 @@ struct LayoutEngine {
             }
         }
 
-        m_out.scrollBlocks.push_back({ .kind = LaidScrollBlock::Kind::Code,
+        m_out.scrollBlocks.push_back({ .codeLang = block.codeLang,
+            .codeContentHash = hashCodeText(block.codeText),
             .y = blockTop,
             .height = m_yPos - blockTop,
             .contentLeft = codeLeft,
             .contentWidth = contentWidth,
             .naturalWidth = naturalWidth,
+            .codeLineCount = countLines(block.codeText),
+            .kind = LaidScrollBlock::Kind::Code,
             .wrapped = m_wrapCodeBlocks,
-            .themed = themed,
-            .codeText = block.codeText,
-            .codeLang = block.codeLang });
+            .themed = themed });
     }
 
     /// Split `text` (verbatim, '\n'-separated) into one CodeLine per source
@@ -1102,6 +1112,8 @@ struct LayoutEngine {
                         alignOffset += std::max(0, innerWidth - wrapped.width);
                     }
                     const int cellXOffset = columns.at(col).x + alignOffset;
+                    // `wrapped` is const, so each run is copied (mutable) before
+                    // its x is shifted and it's appended to the row line.
                     for (auto run : wrapped.runs) {
                         run.x += cellXOffset;
                         line.runs.push_back(std::move(run));

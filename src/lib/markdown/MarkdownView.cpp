@@ -18,6 +18,8 @@ constexpr int kPadding = 8;
 /// A touch of leading on top of the measured font height — matches the
 /// chat view's calculation so wheel-step quantisation lines up.
 constexpr int kBodyLeading = 4;
+/// Alpha for the translucent selection band so backgrounds bleed through.
+constexpr unsigned char kHighlightAlpha = 100;
 
 // Palette-derivation factors. The defaults are visually subtle blends
 // against the system window background; named so the tidy magic-number
@@ -121,13 +123,12 @@ MarkdownView::MarkdownView(wxWindow* parent, const wxWindowID winid)
 MarkdownView::~MarkdownView() = default;
 
 void MarkdownView::setMarkdown(const wxString& markdown) {
-    if (markdown == m_markdown) {
+    if (markdown == m_document.markdown()) {
         return;
     }
     // Content change invalidates any positions the selection held.
     m_selection.clear();
-    m_markdown = markdown;
-    relayout();
+    relayout(markdown);
     Scroll(0, 0);
     Refresh();
 }
@@ -156,7 +157,7 @@ void MarkdownView::installImageCacheListener() {
         m_imageRelayoutPending = true;
         CallAfter([this] {
             m_imageRelayoutPending = false;
-            relayout();
+            relayout(m_document.markdown());
             Refresh();
         });
     });
@@ -183,7 +184,7 @@ void MarkdownView::refreshTheme() {
 
 void MarkdownView::rebuild() {
     m_document.invalidate();
-    relayout();
+    relayout(m_document.markdown());
     Refresh();
 }
 
@@ -202,6 +203,12 @@ void MarkdownView::resolveFonts() {
     wxCoord textHeight = 0;
     dc.GetTextExtent("Ag", &textWidth, &textHeight, nullptr, nullptr, &m_bodyFont);
     m_bodyLineHeight = textHeight + kBodyLeading;
+
+    // Palette + selection-highlight colour depend only on system colours —
+    // cache them so `onPaint` / `relayout` don't rebuild them per call.
+    m_palette = palette();
+    const wxColour sysHighlight = wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT);
+    m_highlightColour = wxColour(sysHighlight.Red(), sysHighlight.Green(), sysHighlight.Blue(), kHighlightAlpha);
 }
 
 auto MarkdownView::palette() -> MarkdownPalette {
@@ -240,7 +247,7 @@ void MarkdownView::onSize(wxSizeEvent& event) {
         anchorOffset = selectionToOffset(laid, m_selection.anchor);
         caretOffset = selectionToOffset(laid, m_selection.caret);
     }
-    relayout();
+    relayout(m_document.markdown());
     if (remap) {
         const auto& laid = m_document.laid();
         // Bias the lower offset toward the start of its line and the
@@ -256,7 +263,7 @@ void MarkdownView::onSize(wxSizeEvent& event) {
     event.Skip();
 }
 
-void MarkdownView::relayout() {
+void MarkdownView::relayout(const wxString& source) {
     const int panelWidth = GetClientSize().GetWidth();
     if (panelWidth <= 0) {
         return;
@@ -288,7 +295,7 @@ void MarkdownView::relayout() {
         return info;
     };
 
-    m_document.setMarkdown(m_markdown, contentWidth, measurer, palette(), m_highlighter, resolveImage, m_wrapCodeBlocks);
+    m_document.setMarkdown(source, contentWidth, measurer, m_palette, m_highlighter, resolveImage, m_wrapCodeBlocks);
 
     // Resize the per-block scroll vector to match the new layout. When
     // the block count is unchanged the previous offsets carry over
@@ -334,7 +341,7 @@ void MarkdownView::onPaint(wxPaintEvent& /*event*/) {
         const int regionTopDoc = originY + update.y;
         const int regionBottomDoc = regionTopDoc + update.height;
 
-        const MarkdownPalette pal = palette();
+        const MarkdownPalette& pal = m_palette;
         const auto& laid = m_document.laid();
         constexpr int contentLeft = kPadding;
         const int contentTop = kPadding - originY;
@@ -352,12 +359,9 @@ void MarkdownView::onPaint(wxPaintEvent& /*event*/) {
         // needs per-character widths to compute the highlight rect, and a
         // fresh DcMeasurer + the shared cache is cheap to build.
         const DcMeasurer measurer(memoryDc, m_bodyFont, m_monoFont, m_themedFont, m_measurerCache);
-        // Translucent selection so code / patch / table backgrounds and
-        // inline images bleed through — drawing solid would obscure them
-        // and the band would read as an opaque blue strip.
-        const wxColour sysHighlight = wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT);
-        constexpr unsigned char kHighlightAlpha = 100;
-        const wxColour highlightColour(sysHighlight.Red(), sysHighlight.Green(), sysHighlight.Blue(), kHighlightAlpha);
+        // Translucent selection (cached in `m_highlightColour`) so code /
+        // patch / table backgrounds and inline images bleed through.
+        const wxColour& highlightColour = m_highlightColour;
 
         PaintRunState runState;
         for (auto it = first; it != laid.lines.end(); ++it) {

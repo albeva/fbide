@@ -76,27 +76,30 @@ struct MdTableRow {
 /// and block-quoting are expressed as integer depths, not nested children,
 /// so the document is a simple linear sequence the layout engine can walk.
 struct MdBlock {
-    MdBlockKind kind = MdBlockKind::Paragraph;
+    // Members are ordered largest-alignment first (vectors, wxString), then
+    // ints, then the small enum / byte / flag bits, so the struct has no
+    // interior padding around the four list flags.
     std::vector<MdInline> inlines;                 ///< Paragraph / Heading / ListItem content.
-    unsigned headingLevel = 0;                     ///< Heading: 1-6.
-    wxString codeLang;                             ///< CodeFence: fence info string, lowercased.
-    wxString codeText;                             ///< CodeFence: verbatim code, '\n'-separated.
-    int quoteDepth = 0;                            ///< Block-quote nesting (0 = not quoted).
-    int listDepth = 0;                             ///< List nesting (0 = not in a list).
-    bool listOrdered = false;                      ///< ListItem: ordered vs bulleted.
-    int listOrdinal = 0;                           ///< ListItem: number for ordered lists.
-    bool listMarker = false;                       ///< ListItem: draw the bullet/number
-                                                   ///< (false for an item's continuation lines).
-    bool isTask = false;                           ///< ListItem: GFM task list item.
-    bool taskChecked = false;                      ///< ListItem: task box ticked (`[x]` / `[X]`).
     std::vector<MdTableAlignment> columnAlignment; ///< Table: one entry per column.
     std::vector<MdTableRow> rows;                  ///< Table: header rows first, then body.
-    std::size_t headerRowCount = 0;                ///< Table: number of leading rows in `rows`
-                                                   ///< that are header (usually 1).
+    wxString codeLang;                             ///< CodeFence: fence info string, lowercased.
+    wxString codeText;                             ///< CodeFence: verbatim code, '\n'-separated.
     wxString patchTarget;                          ///< Patch: optional target path from
                                                    ///< the `<<<<<<< SEARCH` header.
     wxString patchSearch;                          ///< Patch: verbatim SEARCH text.
     wxString patchReplace;                         ///< Patch: verbatim REPLACE text.
+    int quoteDepth = 0;                            ///< Block-quote nesting (0 = not quoted).
+    int listDepth = 0;                             ///< List nesting (0 = not in a list).
+    int listOrdinal = 0;                           ///< ListItem: number for ordered lists.
+    std::uint32_t headerRowCount = 0;              ///< Table: number of leading rows in `rows`
+                                                   ///< that are header (usually 1).
+    MdBlockKind kind = MdBlockKind::Paragraph;
+    std::uint8_t headingLevel = 0; ///< Heading: 1-6.
+    bool listOrdered : 1 = false;  ///< ListItem: ordered vs bulleted.
+    bool listMarker  : 1 = false;  ///< ListItem: draw the bullet/number
+                                   ///< (false for an item's continuation lines).
+    bool isTask      : 1 = false;  ///< ListItem: GFM task list item.
+    bool taskChecked : 1 = false;  ///< ListItem: task box ticked (`[x]` / `[X]`).
 };
 
 /// Parsed markdown document — a flat sequence of blocks.

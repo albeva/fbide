@@ -259,7 +259,7 @@ auto mdEnterBlock(const MD_BLOCKTYPE type, void* detail, void* userData) -> int 
     case MD_BLOCK_H: {
         const auto* hDetail = static_cast<MD_BLOCK_H_DETAIL*>(detail);
         builder.begin(MdBlockKind::Heading);
-        builder.cur.headingLevel = hDetail->level;
+        builder.cur.headingLevel = static_cast<std::uint8_t>(hDetail->level);
         break;
     }
     case MD_BLOCK_CODE: {

@@ -11,11 +11,11 @@ namespace fbide::markdown {
 
 /// One syntax-coloured run within a code line. `text` never spans lines.
 struct CodeRun {
-    wxString text;           ///< Run text — never contains a newline.
-    wxColour colour;         ///< Foreground colour.
-    bool bold = false;       ///< Bold typeface.
-    bool italic = false;     ///< Italic typeface.
-    bool underlined = false; ///< Underlined.
+    wxString text;               ///< Run text — never contains a newline.
+    wxColour colour;             ///< Foreground colour.
+    bool bold       : 1 = false; ///< Bold typeface.
+    bool italic     : 1 = false; ///< Italic typeface.
+    bool underlined : 1 = false; ///< Underlined.
 
     auto operator==(const CodeRun&) const -> bool = default;
 };
