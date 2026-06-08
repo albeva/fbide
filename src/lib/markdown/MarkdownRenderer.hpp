@@ -203,11 +203,11 @@ enum class OffsetBias : std::uint8_t {
 /// in the same paragraph almost always share style / colour; carrying
 /// this across the loop turns `SetFont` from per-run to per-style.
 struct PaintRunState {
+    wxColour currentColour;
     TextStyle currentStyle {};
     wxCoord currentAscent = 0;
-    wxColour currentColour;
-    bool styleSet = false;
-    bool colourSet = false;
+    bool styleSet  : 1 = false;
+    bool colourSet : 1 = false;
 };
 
 /// Paint a single laid-out line's background (code/patch tint strip,

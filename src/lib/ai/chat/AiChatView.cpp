@@ -839,7 +839,10 @@ auto AiChatView::isCollapsibleBlock(const markdown::LaidScrollBlock& block) -> b
     if (block.kind == markdown::LaidScrollBlock::Kind::Patch) {
         return countLines(block.patchSearch) > 1 || countLines(block.patchReplace) > 1;
     }
-    return countLines(block.codeText) > 1;
+    // Code blocks no longer carry their text on the laid block — the layout
+    // pass already counted the lines into `codeLineCount` (same trailing-newline
+    // rule as the patch `countLines` lambda above).
+    return block.codeLineCount > 1;
 }
 
 auto AiChatView::buttonsFor(const std::size_t mi, const std::size_t bi) const -> std::uint8_t {
@@ -1509,11 +1512,14 @@ void AiChatView::setAnchoredBlockCollapsed(const bool collapsed) {
     const auto& block = blocks.at(bi);
     // The override key must match what the layout pass produced for
     // this block — same `(kind, lang, contentA, contentB)` quadruple.
-    // Both shapes (code / patch) cached their content on `block` so we
-    // can recompute the key without re-parsing the markdown.
+    // Patches still cache their verbatim text on `block`; code blocks no
+    // longer do, but carry `codeContentHash` (== hash of the code text)
+    // so the key rebuilds without re-parsing the markdown. The empty
+    // second operand mirrors the layout's `(codeText, "")` pairing.
     const auto key = block.kind == markdown::LaidScrollBlock::Kind::Patch
                        ? blockKey(block.kind, wxString {}, block.patchSearch, block.patchReplace)
-                       : blockKey(block.kind, block.codeLang, block.codeText, wxString {});
+                       : blockKey(block.kind, block.codeLang, block.codeContentHash,
+                             std::hash<std::string> {}(std::string {}));
     m_collapseOverrides[key] = collapsed;
     invalidateAllLayouts();
     relayout();
@@ -1615,11 +1621,20 @@ auto AiChatView::blockKey(
     const wxString& contentA,
     const wxString& contentB
 ) -> std::size_t {
-    const std::size_t a = std::hash<std::string> {}(contentA.utf8_string());
-    const std::size_t b = std::hash<std::string> {}(contentB.utf8_string());
+    return blockKey(kind, lang,
+        std::hash<std::string> {}(contentA.utf8_string()),
+        std::hash<std::string> {}(contentB.utf8_string()));
+}
+
+auto AiChatView::blockKey(
+    const markdown::LaidScrollBlock::Kind kind,
+    const wxString& lang,
+    const std::size_t contentHashA,
+    const std::size_t contentHashB
+) -> std::size_t {
     const std::size_t kindHash = static_cast<std::size_t>(kind);
     const std::size_t langHash = std::hash<std::string> {}(lang.utf8_string());
-    return hashCombine(hashCombine(hashCombine(kindHash, langHash), a), b);
+    return hashCombine(hashCombine(hashCombine(kindHash, langHash), contentHashA), contentHashB);
 }
 
 void AiChatView::invalidateAllLayouts() {

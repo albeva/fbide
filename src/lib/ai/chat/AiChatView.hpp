@@ -147,6 +147,16 @@ private:
         const wxString& contentB
     ) -> std::size_t;
 
+    /// `blockKey` variant taking pre-hashed content. Lets a caller holding a
+    /// laid `LaidScrollBlock` rebuild the key from its stored `codeContentHash`
+    /// (== hash of the code text) without keeping the verbatim text around.
+    [[nodiscard]] static auto blockKey(
+        markdown::LaidScrollBlock::Kind kind,
+        const wxString& lang,
+        std::size_t contentHashA,
+        std::size_t contentHashB
+    ) -> std::size_t;
+
     /// Resolve a fence-language tag (`freebasic`, `json`, …) or a
     /// patch target path (`editor.bas`) to its user-facing display
     /// name (`FreeBASIC`, `JSON`). Looks up the type's localised

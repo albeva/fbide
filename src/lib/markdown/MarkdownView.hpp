@@ -56,7 +56,7 @@ public:
     /// internal cache makes that a no-op).
     void setMarkdown(const wxString& markdown);
 
-    [[nodiscard]] auto markdown() const -> const wxString& { return m_markdown; }
+    [[nodiscard]] auto markdown() const -> const wxString& { return m_document.markdown(); }
 
     /// Inject a custom code-fence highlighter. Pass an empty function
     /// to fall back to the built-in plain highlighter.
@@ -112,7 +112,7 @@ private:
     /// fills in.
     [[nodiscard]] auto hitTest(const wxPoint& clientPoint) -> SelectionPosition;
 
-    void relayout();
+    void relayout(const wxString& source);
     /// Invalidate the document's cached layout, re-lay, and refresh.
     /// Used by paths that change a layout input (palette, highlighter,
     /// wrap mode, fonts) without changing the source text.
@@ -151,8 +151,7 @@ private:
     /// Clamp + write a new scroll offset. No-op when unchanged.
     void setBlockScrollOffset(std::size_t index, int offset);
 
-    wxString m_markdown; ///< Source text. `setMarkdown` writes this; `relayout` reads it.
-    MarkdownDocument m_document;
+    MarkdownDocument m_document; ///< Owns the source text + cached layout (single source of truth).
     std::unique_ptr<MarkdownImageCache> m_imageCache;
     CodeFenceHighlighter m_highlighter;
     mutable std::vector<MeasurementEntry> m_measurerCache;
@@ -161,6 +160,12 @@ private:
     wxFont m_bodyFont;   ///< Base prose font (system GUI font by default).
     wxFont m_monoFont;   ///< Inline `code` and untagged fenced blocks.
     wxFont m_themedFont; ///< Themed code (unused by the default highlighter).
+    /// Palette + selection-highlight colour derived from system colours.
+    /// Cached here (refreshed in `resolveFonts`) so `onPaint` / `relayout`
+    /// don't rebuild them — they only change on a system theme change, which
+    /// routes through `refreshTheme` → `resolveFonts`.
+    MarkdownPalette m_palette;
+    wxColour m_highlightColour;
     int m_layoutWidth = -1;
     int m_bodyLineHeight = 0; ///< Body line-height — drives per-notch wheel scroll.
     int m_wheelPixelAccum = 0;
