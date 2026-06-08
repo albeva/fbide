@@ -731,7 +731,7 @@ auto fbide::markdown::resolveCodeBlockText(const wxString& markdown, const std::
 }
 
 auto fbide::markdown::blockInlines(const MdBlockBase& block) -> const std::vector<MdInline>& {
-    static constexpr std::vector<MdInline> empty;
+    static std::vector<MdInline> empty;
     // Share the single kind switch in `inlinesOf` — it only takes the address
     // of the vector, never mutates, so casting away const here is safe.
     const auto* inlines = inlinesOf(const_cast<MdBlockBase&>(block));

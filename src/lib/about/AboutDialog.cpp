@@ -55,8 +55,14 @@ void AboutDialog::create() {
         // Render the readme as Markdown. FreeBASIC fences are syntax-coloured
         // via CodeHighlighter; other languages fall back to plain monospace.
         m_highlighter = std::make_unique<markdown::CodeHighlighter>(m_ctx);
-        const auto view = make_unowned<markdown::MarkdownView>(currentParent());
+        const auto view = make_unowned<markdown::MarkdownView>(currentParent(), m_ctx);
         view->SetMinSize(wxSize(-1, 240));
+        // Read-only blurb — no selection, edge-to-edge, and blended into
+        // the dialog background rather than the white document colour.
+        // Code fences pick up the editor theme background from `m_ctx`.
+        view->setSelectable(false);
+        view->setContentPadding(0);
+        view->setContentBackground(currentParent()->GetBackgroundColour());
         const auto* highlighter = m_highlighter.get();
         view->setHighlighter(
             [highlighter](const wxString& code, const wxString& lang) {

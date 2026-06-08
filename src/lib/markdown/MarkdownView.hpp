@@ -11,6 +11,10 @@
 #include "markdown/MarkdownLayout.hpp"
 #include "markdown/MarkdownRenderer.hpp"
 
+namespace fbide {
+class Context;
+} // namespace fbide
+
 namespace fbide::markdown {
 
 /// Fired when the user clicks a link inside a `MarkdownView`. The URL is
@@ -48,7 +52,10 @@ class MarkdownView final : public wxScrolled<wxPanel> {
 public:
     NO_COPY_AND_MOVE(MarkdownView)
 
-    explicit MarkdownView(wxWindow* parent, wxWindowID winid = wxID_ANY);
+    /// `ctx` gives the view access to the editor config + theme so the
+    /// palette (notably the fenced-code background) is themed by default,
+    /// without the host wiring colours in.
+    MarkdownView(wxWindow* parent, Context& ctx, wxWindowID winid = wxID_ANY);
     ~MarkdownView() override;
 
     /// Replace the rendered document. Triggers re-parse + re-layout +
@@ -94,6 +101,25 @@ public:
     void setWrapCodeBlocks(bool wrap);
     [[nodiscard]] auto wrapCodeBlocks() const -> bool { return m_wrapCodeBlocks; }
 
+    /// Enable / disable text selection. When `false` the view is purely
+    /// read-only: no drag-select, no double-click word select, no
+    /// Ctrl+A / Ctrl+C, and a plain arrow cursor over text. Links still
+    /// work. Disabling clears any current selection. Default: `true`.
+    void setSelectable(bool selectable);
+    [[nodiscard]] auto selectable() const -> bool { return m_selectable; }
+
+    /// Background colour painted behind the content and used as the
+    /// blend base for derived tints (code background, rules, table
+    /// header). Pass an invalid colour to restore the default (the
+    /// system window colour). Set this to the host's background to blend
+    /// the view seamlessly into a dialog.
+    void setContentBackground(const wxColour& colour);
+
+    /// Padding (px) between the panel edge and the content, applied on
+    /// all four sides. Default: 8. Set to 0 to render edge-to-edge.
+    void setContentPadding(int padding);
+    [[nodiscard]] auto contentPadding() const -> int { return m_contentPadding; }
+
 private:
     void onPaint(wxPaintEvent& event);
     void onSize(wxSizeEvent& event);
@@ -125,11 +151,18 @@ private:
         int contentTop, int contentLeft, int contentWidth,
         const MarkdownPalette& palette) const;
     void resolveFonts();
+    /// Rebuild `m_palette` from the current content background plus the
+    /// editor theme (the fenced-code background comes from the theme).
+    /// Centralised so every palette rebuild stays themed.
+    void rebuildPalette();
+    /// Effective content background — the host override when set, else
+    /// the system window colour.
+    [[nodiscard]] auto backgroundColour() const -> wxColour;
     /// Bind the cache's "ready" callback so a finished image download
     /// schedules a coalesced relayout. Re-invoked whenever the cache
     /// itself is swapped via `setImageCache`.
     void installImageCacheListener();
-    [[nodiscard]] static auto palette() -> MarkdownPalette;
+    [[nodiscard]] static auto palette(const wxColour& windowBg, const wxColour& codeBg) -> MarkdownPalette;
     [[nodiscard]] auto linkAt(const wxPoint& clientPoint) const -> wxString;
 
     /// Per-block horizontal-scroll-bar hit test. Result identifies the
@@ -151,6 +184,7 @@ private:
     /// Clamp + write a new scroll offset. No-op when unchanged.
     void setBlockScrollOffset(std::size_t index, int offset);
 
+    Context& m_ctx;              ///< Editor config + theme — palette source.
     MarkdownDocument m_document; ///< Owns the source text + cached layout (single source of truth).
     std::unique_ptr<MarkdownImageCache> m_imageCache;
     CodeFenceHighlighter m_highlighter;
@@ -172,6 +206,13 @@ private:
     bool m_imageRelayoutPending = false;
     Selection m_selection;        ///< Current rendered-text selection.
     bool m_dragSelecting = false; ///< True while the left mouse button is held during a drag.
+    bool m_selectable = true;     ///< When false, all selection paths are disabled.
+
+    /// Host-supplied content background. Invalid (default) means follow
+    /// the system window colour — see `backgroundColour`.
+    wxColour m_backgroundColour;
+    static constexpr int kDefaultContentPadding = 8;
+    int m_contentPadding = kDefaultContentPadding; ///< Inner padding between the panel edge and content.
 
     bool m_wrapCodeBlocks = true;     ///< Layout mode for code / patch blocks.
     std::vector<int> m_blockScroll;   ///< Per-scrollBlocks horizontal scroll offset (px).

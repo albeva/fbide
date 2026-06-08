@@ -651,12 +651,12 @@ struct LayoutEngine {
         // width thus sees zero contribution here; it's the host's
         // job (in `relayout`) to keep the bubble from shrinking when
         // its only width contributor switches into collapsed form.
-        m_out.lines.push_back({ .kind = LineKind::CollapsedBlock,
+        m_out.lines.push_back({ .runs = {},
             .y = m_yPos,
             .height = totalHeight,
             .quoteDepth = quoteDepth,
-            .runs = {},
-            .blockIndex = static_cast<int>(blockIndex) });
+            .blockIndex = static_cast<int>(blockIndex),
+            .kind = LineKind::CollapsedBlock });
         m_yPos += totalHeight;
 
         // Structured summary — the painter assembles + colours at draw
@@ -724,11 +724,11 @@ struct LayoutEngine {
 
         // Top padding strip — an empty Code line the painter fills with the
         // code background.
-        m_out.lines.push_back({ .kind = LineKind::Code,
+        m_out.lines.push_back({ .runs = {},
             .y = m_yPos,
             .height = kCodePadding,
             .quoteDepth = block.quoteDepth,
-            .runs = {} });
+            .kind = LineKind::Code });
         m_yPos += kCodePadding;
 
         for (const auto& codeLine : codeLines) {
@@ -739,11 +739,11 @@ struct LayoutEngine {
             );
         }
 
-        m_out.lines.push_back({ .kind = LineKind::Code,
+        m_out.lines.push_back({ .runs = {},
             .y = m_yPos,
             .height = kCodePadding,
             .quoteDepth = block.quoteDepth,
-            .runs = {} });
+            .kind = LineKind::Code });
         m_yPos += kCodePadding;
 
         // Tag every line we just emitted with the block index, and
@@ -833,11 +833,11 @@ struct LayoutEngine {
         const std::size_t lineStart = m_out.lines.size();
 
         const auto emitStrip = [&](const wxString& text, const LineKind kind) {
-            m_out.lines.push_back({ .kind = kind,
+            m_out.lines.push_back({ .runs = {},
                 .y = m_yPos,
                 .height = kCodePadding,
                 .quoteDepth = block.quoteDepth,
-                .runs = {} });
+                .kind = kind });
             m_yPos += kCodePadding;
             for (const auto& codeLine : toCodeLines(text, m_palette.patchFg)) {
                 emitCodeLine(
@@ -846,11 +846,11 @@ struct LayoutEngine {
                     m_wrapCodeBlocks ? CodeWrap::Soft : CodeWrap::None
                 );
             }
-            m_out.lines.push_back({ .kind = kind,
+            m_out.lines.push_back({ .runs = {},
                 .y = m_yPos,
                 .height = kCodePadding,
                 .quoteDepth = block.quoteDepth,
-                .runs = {} });
+                .kind = kind });
             m_yPos += kCodePadding;
         };
 
@@ -870,26 +870,26 @@ struct LayoutEngine {
             }
         }
 
-        m_out.scrollBlocks.push_back({ .kind = LaidScrollBlock::Kind::Patch,
+        m_out.scrollBlocks.push_back({ .patchTarget = block.patchTarget,
+            .patchSearch = block.patchSearch,
+            .patchReplace = block.patchReplace,
             .y = blockTop,
             .height = m_yPos - blockTop,
             .contentLeft = codeLeft,
             .contentWidth = contentWidth,
             .naturalWidth = naturalWidth,
-            .wrapped = m_wrapCodeBlocks,
-            .patchTarget = block.patchTarget,
-            .patchSearch = block.patchSearch,
-            .patchReplace = block.patchReplace });
+            .kind = LaidScrollBlock::Kind::Patch,
+            .wrapped = m_wrapCodeBlocks });
     }
 
     /// Emit a horizontal rule line.
     void emitRule(const int quoteDepth) {
         blockGap();
-        m_out.lines.push_back({ .kind = LineKind::Rule,
+        m_out.lines.push_back({ .runs = {},
             .y = m_yPos,
             .height = kRuleHeight,
             .quoteDepth = quoteDepth,
-            .runs = {} });
+            .kind = LineKind::Rule });
         m_yPos += kRuleHeight;
     }
 
