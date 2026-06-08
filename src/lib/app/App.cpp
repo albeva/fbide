@@ -296,6 +296,13 @@ auto App::OnInit() -> bool {
     // Build the shared FB keyword tables before any editor / Intellisense lexes.
     lexer::setFbKeywords(m_context->getConfigManager().keywords().at("groups"));
 
+#ifdef __WXOSX__
+    // Opt out of macOS automatic window tabbing — we manage our own AUI
+    // notebook, so the OS tab bar (and its "Show Tab Bar" View-menu items)
+    // is redundant. Must run before the main frame is ordered front.
+    OSXEnableAutomaticTabbing(false);
+#endif
+
     m_context->getUIManager().createMainFrame();
     openFiles(cli.files);
     if (!cli.loadSession.IsEmpty()) {
