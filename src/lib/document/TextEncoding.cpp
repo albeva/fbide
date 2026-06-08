@@ -70,13 +70,15 @@ constexpr auto infoFor(const EolMode::Value mode) -> const EolModeInfo& {
 }
 
 /// Run `func(conv)` with a wxMBConv suitable for the given encoding.
-/// Stack-allocated converters — cheap and avoids heap.
+/// Stack-allocated converters — cheap and avoids heap. When `lossy`, the
+/// UTF-8 converter maps invalid bytes to the Private Use Area instead of
+/// failing — reversible byte-exact on the way back out.
 template<typename F>
-auto withConverter(const TextEncoding::Value enc, F&& func) {
+auto withConverter(const TextEncoding::Value enc, F&& func, const bool lossy = false) {
     switch (enc) {
     case TextEncoding::UTF8:
     case TextEncoding::UTF8_BOM: {
-        wxMBConvUTF8 conv;
+        wxMBConvUTF8 conv(lossy ? wxMBConvUTF8::MAP_INVALID_UTF8_TO_PUA : 0);
         return func(conv);
     }
     case TextEncoding::UTF16_LE: {
@@ -158,23 +160,37 @@ auto TextEncoding::bomBytes() const -> std::span<const std::byte> {
 }
 
 auto TextEncoding::encode(const wxString& text) const -> std::optional<wxCharBuffer> {
-    return withConverter(m_encoding, [&](wxMBConv& conv) -> std::optional<wxCharBuffer> {
-        if (text.empty()) {
-            return wxCharBuffer { static_cast<size_t>(0) };
-        }
-        const auto wide = text.wc_str();
-        const size_t wideLen = wxWcslen(wide);
-        const size_t outSize = conv.FromWChar(nullptr, 0, wide, wideLen);
-        if (outSize == wxCONV_FAILED) {
-            return std::nullopt;
-        }
-        wxCharBuffer buf(outSize);
-        conv.FromWChar(buf.data(), outSize, wide, wideLen);
-        return buf;
-    });
+    // Lossy so PUA escapes produced by `decodeLossy` map back to their
+    // original bytes — a round-trip of a BOM'd file is byte-exact.
+    return withConverter(
+        m_encoding,
+        [&](wxMBConv& conv) -> std::optional<wxCharBuffer> {
+            if (text.empty()) {
+                return wxCharBuffer { static_cast<size_t>(0) };
+            }
+            const auto wide = text.wc_str();
+            const size_t wideLen = wxWcslen(wide);
+            const size_t outSize = conv.FromWChar(nullptr, 0, wide, wideLen);
+            if (outSize == wxCONV_FAILED) {
+                return std::nullopt;
+            }
+            wxCharBuffer buf(outSize);
+            conv.FromWChar(buf.data(), outSize, wide, wideLen);
+            return buf;
+        },
+        /*lossy*/ true
+    );
 }
 
 auto TextEncoding::decode(const void* bytes, const std::size_t len) const -> std::optional<wxString> {
+    return decodeWith(bytes, len, /*lossy*/ false);
+}
+
+auto TextEncoding::decodeLossy(const void* bytes, const std::size_t len) const -> wxString {
+    return decodeWith(bytes, len, /*lossy*/ true).value_or(wxString {});
+}
+
+auto TextEncoding::decodeWith(const void* bytes, const std::size_t len, const bool lossy) const -> std::optional<wxString> {
     return withConverter(m_encoding, [&](wxMBConv& conv) -> std::optional<wxString> {
         if (len == 0) {
             return wxString {};
@@ -187,7 +203,7 @@ auto TextEncoding::decode(const void* bytes, const std::size_t len) const -> std
         wxWCharBuffer buf(wideLen);
         conv.ToWChar(buf.data(), wideLen, src, len);
         return wxString(buf.data(), wideLen);
-    });
+    }, lossy);
 }
 
 // ---------------------------------------------------------------------------

@@ -137,10 +137,18 @@ auto isBodyDefinition(const std::vector<Token>& tokens) -> bool {
                 continue;
             }
         }
-        // `Operator` is only ever a definition opener — its name is the operator
-        // symbol/keyword that follows, none of which is word-like, so any
-        // following token confirms the definition.
+        // The operator's name is the symbol/keyword after `Operator`. Only
+        // `Operator =` is ambiguous: the equality-operator definition
+        // (`Operator = (lhs, rhs) As T`) versus a return-value assignment
+        // (`Operator = <expr>`, the analog of `Function = <expr>`). Every
+        // definition has a parameter list, so the `=` form is a definition only
+        // when a `(` follows; any other operator name is always a definition.
         if (opener == KeywordKind::Operator) {
+            if (t.operatorKind == OperatorKind::Assign) {
+                return std::ranges::any_of(tokens, [](const auto& token) {
+                    return token.operatorKind == OperatorKind::ParenOpen;
+                });
+            }
             return true;
         }
         if (isWordLike(t.kind)) {
@@ -304,10 +312,16 @@ auto Decision::decide(const std::vector<Token>& tokens) -> Decision {
 }
 
 auto Decision::decide(Editor& editor, const int prevLine) -> Decision {
+    std::vector<Token> buffer;
+    return decide(editor, prevLine, buffer);
+}
+
+auto Decision::decide(Editor& editor, const int prevLine, std::vector<Token>& buffer) -> Decision {
     const auto start = editor.PositionFromLine(prevLine);
     const auto end = editor.GetLineEndPosition(prevLine);
 
     WxStcStyledSource src { editor };
     StyleLexer adapter(src);
-    return decide(adapter.tokenise({ start, end }));
+    adapter.tokenise(buffer, { start, end });
+    return decide(buffer);
 }

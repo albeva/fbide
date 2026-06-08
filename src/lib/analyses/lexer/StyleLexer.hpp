@@ -12,20 +12,18 @@
 #include "Token.hpp"
 #include "config/ThemeCategory.hpp"
 
-namespace Scintilla {
-class ILexer5;
-}
-
 namespace fbide {
 class Value;
 }
 
 namespace fbide::lexer {
 
-/// Apply each keyword group from `kw` (a config `Value` map keyed by
-/// `ThemeCategory` name) to the corresponding FBSciLexer wordlist slot.
-/// Keywords are lowercased so FBSciLexer's case-insensitive lookup matches.
-void configureFbWordlists(Scintilla::ILexer5& lex, const Value& kw);
+/// (Re)build FBSciLexer's shared keyword tables from `kw` (a config `Value`
+/// map keyed by `ThemeCategory` name). Keywords are lowercased so FBSciLexer's
+/// case-insensitive lookup matches. Call once at startup and whenever the
+/// user's keyword settings change — every FBSciLexer instance then classifies
+/// against the same tables, with no per-instance wordlists.
+void setFbKeywords(const Value& kw);
 
 /// One coalesced run of bytes carrying the same FBSciLexer style.
 struct StyleRange {
@@ -103,6 +101,7 @@ private:
     /// standalone tokens.
     std::size_t m_ppDirectiveIdx = std::numeric_limits<std::size_t>::max();
     std::pair<Sci_PositionU, Sci_PositionU> m_range {}; ///< Active scan range.
+    std::string m_lowerKey;                             ///< Reused lowercase buffer for keyword-table lookups.
 };
 
 } // namespace fbide::lexer

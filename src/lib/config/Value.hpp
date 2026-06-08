@@ -83,6 +83,25 @@ public:
     /// vector — use the returned Value& immediately (assign or chain).
     [[nodiscard]] auto operator[](const wxString& path) -> Value&;
 
+    /// Remove the child at `path`. Returns true if a child existed and
+    /// was removed. Intermediate missing groups make this a no-op.
+    /// Use this when "absent key" carries semantic meaning distinct
+    /// from "key present with empty value" (e.g. compiler-config
+    /// inheritance — see `docs/compiler-configurations.md`).
+    auto erase(const wxString& path) -> bool;
+
+    /// True when `at(path)` would find a real node. Reads better than
+    /// `static_cast<bool>(at(path))` at call sites that just want to
+    /// check existence.
+    [[nodiscard]] auto contains(const wxString& path) const -> bool {
+        return at(path).operator bool();
+    }
+
+    /// Deep copy. `Value` is move-only because of the `unique_ptr` in
+    /// `Table`, so callers that want a snapshot (e.g. settings dialogs
+    /// that need to roll back on Cancel) go through `clone()`.
+    [[nodiscard]] auto clone() const -> Value;
+
     // -------------------------------------------------------------------
     // Typed reads
     // -------------------------------------------------------------------

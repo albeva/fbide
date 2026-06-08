@@ -267,7 +267,7 @@ private:
         );
 
         if (not title.empty()) {
-            auto* vsizer = new SmartBoxSizer(SmartBoxSizer::Options {}, wxVERTICAL);
+            const auto vsizer = make_unowned<SmartBoxSizer>(SmartBoxSizer::Options {}, wxVERTICAL);
             add(vsizer, opts);
             m_currentSizer = vsizer;
             m_namedLabel = label(title);

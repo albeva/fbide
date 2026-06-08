@@ -14,7 +14,11 @@ constexpr int kPollIntervalMs = 25;
 
 auto AsyncProcess::exec(const wxString& command, const wxString& workingDir, const bool redirect, Callback&& callback, const wxString& input, LineHandler onLine) -> AsyncProcess* {
     auto* self = new AsyncProcess(std::move(callback));
-    self->exec(command, workingDir, redirect, input, std::move(onLine));
+    if (!self->exec(command, workingDir, redirect, input, std::move(onLine))) {
+        // Launch failed: `self` already invoked the callback and deleted
+        // itself. Hand back nullptr so the caller's pointer stays honest.
+        return nullptr;
+    }
     return self;
 }
 
@@ -25,13 +29,13 @@ AsyncProcess::AsyncProcess(Callback&& callback)
     Bind(wxEVT_TIMER, &AsyncProcess::onPollTimer, this);
 }
 
-void AsyncProcess::exec(
+auto AsyncProcess::exec(
     const wxString& command,
     const wxString& workingDir,
     const bool redirect,
     const wxString& input,
     LineHandler onLine
-) {
+) -> bool {
     m_onLine = std::move(onLine);
 
     if (redirect) {
@@ -45,7 +49,7 @@ void AsyncProcess::exec(
     if (pid == 0) {
         m_callback(ProcessResult {});
         delete this; // NOLINT(*-owning-memory)
-        return;
+        return false;
     }
 
     // Feed the child's stdin, then close it so the process sees EOF. The
@@ -72,6 +76,14 @@ void AsyncProcess::exec(
     if (m_onLine) {
         m_pollTimer.Start(kPollIntervalMs);
     }
+    return true;
+}
+
+void AsyncProcess::detach() {
+    // Sever the termination callback. The callback captures its owner by
+    // reference; once that owner is gone, a still-pending OnTerminate must
+    // not touch it. The object still self-deletes on termination as usual.
+    m_callback = nullptr;
 }
 
 void AsyncProcess::kill() {
@@ -138,7 +150,9 @@ void AsyncProcess::OnTerminate(int /*pid*/, const int status) {
         readStream(GetErrorStream(), result.output);
     }
 
-    m_callback(std::move(result));
+    if (m_callback) {
+        m_callback(std::move(result));
+    }
     delete this; // NOLINT(*-owning-memory)
 }
 

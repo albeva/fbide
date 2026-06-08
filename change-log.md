@@ -1,3 +1,36 @@
+# Changes since 0.5.0-rc.5
+
+- Fixed status bar getting stuck on a stale compile message (#106).
+- Fixed crash when quitting from the macOS dock menu (#107).
+- Fixed minimap not using the theme's change-marker colours until the Settings dialogue was opened.
+- Fixed BOM-marked files with invalid bytes being reinterpreted as Latin-1 and losing their BOM on save.
+- Fixed on-type case conversion, occasionally altering a keyword just past a pasted block.
+- Optimised single-line lexing (e.g. auto-indent on Enter) to not allocate whole-document capacity in large files.
+- Fixed compiler log mangling output that contains square-bracket markup (e.g. `[b]`).
+- Fixed potential crash when quitting during an in-flight update check.
+- Fixed Find/Replace dialogues stacking up when reopened; the open one is now raised instead.
+- Fixed crash when a second instance forwards a file during the splash screen.
+- Fixed Settings partially applying (and restarting for a language change) when another tab had an invalid value.
+- Fixed crash when re-selecting a newly saved theme in Settings.
+- Fixed potential crash on multi-line edits.
+- Fixed properly to clean up async tasks when fbide quits.
+- Optimised multi-line edits to avoid re-lexing the document from the beginning.
+
+# Changes since 0.5.0-rc.4
+
+- Fixed crash on linux and macOS after compiling a file (#104)
+
+# Changes since 0.5.0-rc.3
+
+- Added multiple compiler configurations.
+- Added configuration selector to toolbar or statusbar (configurable).
+- Added compiler auto detection.
+- Added include file resolution to include "-i" from compile command.
+- Added run command to the log.
+- Added version checker, which shows a message box if there is a new version of fbide.
+- Fixed indent issue with indenting when "operator" and "property" are used as expressions (#94).
+- Fixed console min height (#95).
+
 # Changes since 0.5.0-rc.2
 
 - Added change tracking (#1)

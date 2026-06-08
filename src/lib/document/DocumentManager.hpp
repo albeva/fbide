@@ -58,8 +58,10 @@ public:
     auto openFile(const std::filesystem::path& filePath) -> Document*;
 
     /// Resolve and open an `#include` path requested from `origin`.
-    /// Search order: relative to `origin` file's directory, then the
-    /// compiler's `inc/` folder, then the current working directory.
+    /// Search order mirrors fbc's: the `origin` file's directory, then the
+    /// `-i` directories from its active configuration's compile command,
+    /// then that configuration's compiler `inc/` folder, then the current
+    /// working directory as a fallback.
     /// Returns the opened document, or nullptr if the file cannot be found.
     auto openInclude(const Document& origin, const wxString& includePath) -> Document*;
 
@@ -210,6 +212,7 @@ private:
 
     Context& m_ctx;                                     ///< Application context.
     wxFindReplaceData m_findData { wxFR_DOWN };         ///< Find/replace dialog state.
+    Unowned<wxFindReplaceDialog> m_findDialog;          ///< Live modeless find/replace dialog, or null when none is open.
     std::vector<std::unique_ptr<Document>> m_documents; ///< Open documents in tab order.
     std::unique_ptr<CodeTransformer> m_codeTransformer; ///< Shared on-type transformer.
     /// Declared last so destruction runs first — worker thread stops and

@@ -223,9 +223,13 @@ void Editor::defineChangesMargin() {
         return;
     }
 
-    // Symbol margin with only the two change markers visible. The mask
-    // keeps fold and other markers from leaking onto this strip.
-    SetMarginType(+Margins::Changes, wxSTC_MARGIN_SYMBOL);
+    // Colour margin with only the two change markers visible. The mask
+    // keeps fold and other markers from leaking onto this strip. The
+    // type must be wxSTC_MARGIN_COLOUR (not _SYMBOL): Scintilla honours
+    // SetMarginBackground only for a COLOUR margin — a SYMBOL margin is
+    // painted with STYLE_LINENUMBER's background and ignores the call
+    // (MarginView::PaintMargin). Markers draw on either type (mask-gated).
+    SetMarginType(+Margins::Changes, wxSTC_MARGIN_COLOUR);
     SetMarginMask(+Margins::Changes, kChangeMarkersMask);
     SetMarginWidth(+Margins::Changes, Constants::changeMarginWidth);
     SetMarginSensitive(+Margins::Changes, false);
@@ -382,13 +386,8 @@ void Editor::loadLexerTheme() {
 void Editor::applyFreebasicTheme() {
     const auto& theme = m_theme;
 
-    // Apply keywords
-    const auto& groups = m_configManager.keywords().at("groups");
-    for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
-        const auto key = getThemeCategoryName(kThemeKeywordCategories.at(idx));
-        SetKeyWords(static_cast<int>(idx), groups.get_or(wxString(key), "").Lower());
-    }
-
+    // Keywords are classified from FBSciLexer's shared table (built at startup
+    // and on settings change via lexer::setFbKeywords) — no per-editor wordlists.
     for (const auto cat : kThemeCategories) {
         applyStyle(+cat, theme.get(cat), theme);
     }
@@ -876,28 +875,16 @@ void Editor::updateStatusBar() const {
     if (m_uiManager == nullptr) {
         return;
     }
-    const auto pos = GetCurrentPos();
-    const auto line = LineFromPosition(pos) + 1;
-    const auto col = GetColumn(pos) + 1;
-    auto* frame = m_uiManager->getMainFrame();
-    frame->SetStatusText(wxString::Format("%d : %d", line, col), 1);
-
+    auto& bar = m_uiManager->getStatusBar();
     const Document* doc = m_documentManager != nullptr
                             ? m_documentManager->findByEditor(this)
                             : nullptr;
     if (doc != nullptr) {
-        const auto typeKey = documentTypeKey(doc->getType());
-        auto typeLabel = m_uiManager->getContext().tr(wxString("statusbar.type.") + wxString::FromUTF8(typeKey.data(), typeKey.size()));
-        if (typeLabel.empty()) {
-            typeLabel = wxString::FromUTF8(typeKey.data(), typeKey.size());
-        }
-        frame->SetStatusText(typeLabel, 2);
-        frame->SetStatusText(wxString::FromUTF8(doc->getEolMode().toString()), 3);
-        frame->SetStatusText(wxString::FromUTF8(doc->getEncoding().toString()), 4);
+        const auto pos = GetCurrentPos();
+        bar.setCursor(LineFromPosition(pos) + 1, GetColumn(pos) + 1);
+        bar.setDocumentFields(*doc);
     } else {
-        frame->SetStatusText("", 2);
-        frame->SetStatusText("", 3);
-        frame->SetStatusText("", 4);
+        bar.clearDocumentFields();
     }
 }
 

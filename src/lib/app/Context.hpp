@@ -12,7 +12,7 @@ namespace fbide {
 namespace ai {
     class AiManager;
     class AiManagerRegistry;
-}
+} // namespace ai
 class App;
 class CommandManager;
 class CompilerManager;
@@ -22,6 +22,7 @@ class FileSession;
 class HelpManager;
 class SideBarManager;
 class UIManager;
+class UpdateManager;
 
 /**
  * Service locator for the application's long-lived managers.
@@ -71,7 +72,7 @@ public:
 
     /// Translate a locale path to a display string. Returns empty when
     /// the key is missing — never throws.
-    [[nodiscard]] auto tr(const wxString& path) -> wxString;
+    [[nodiscard]] auto tr(const wxString& path) const -> wxString;
 
     /// Access the recent-files store.
     [[nodiscard]] auto getFileHistory() -> FileHistory& { return *m_fileHistory; }
@@ -131,6 +132,11 @@ public:
     /// Const overload of `getAiRegistry`.
     [[nodiscard]] auto getAiRegistry() const -> const ai::AiManagerRegistry& { return *m_aiRegistry; }
 
+    /// Access the update manager (GitHub release check).
+    [[nodiscard]] auto getUpdateManager() -> UpdateManager& { return *m_updateManager; }
+    /// Const overload of `getUpdateManager`.
+    [[nodiscard]] auto getUpdateManager() const -> const UpdateManager& { return *m_updateManager; }
+
 private:
     App& m_app;                                     ///< Owning application.
     std::unique_ptr<ConfigManager> m_configManager; ///< INI store + path resolver.
@@ -139,13 +145,14 @@ private:
     // SideBarManager is declared after UIManager so its destructor runs first
     // (members destroyed in reverse declaration order). It holds a non-owning
     // pointer to a wxAuiNotebook owned by the frame which UIManager destroys.
-    std::unique_ptr<SideBarManager> m_sideBarManager;   ///< Browser/Subs sidebar.
-    std::unique_ptr<DocumentManager> m_documentManager; ///< Open documents + tabs.
-    std::unique_ptr<FileSession> m_fileSession;         ///< Session `.fbs` load/save.
-    std::unique_ptr<CompilerManager> m_compilerManager; ///< Compile/run lifecycle.
-    std::unique_ptr<HelpManager> m_helpManager;         ///< Help dispatcher.
+    std::unique_ptr<SideBarManager> m_sideBarManager;    ///< Browser/Subs sidebar.
+    std::unique_ptr<DocumentManager> m_documentManager;  ///< Open documents + tabs.
+    std::unique_ptr<FileSession> m_fileSession;          ///< Session `.fbs` load/save.
+    std::unique_ptr<CompilerManager> m_compilerManager;  ///< Compile/run lifecycle.
+    std::unique_ptr<HelpManager> m_helpManager;          ///< Help dispatcher.
     std::unique_ptr<ai::AiManagerRegistry> m_aiRegistry; ///< AI chat managers (one per configured provider).
-    std::unique_ptr<CommandManager> m_commandManager;   ///< Command table + dispatch (last).
+    std::unique_ptr<UpdateManager> m_updateManager;      ///< GitHub release check.
+    std::unique_ptr<CommandManager> m_commandManager;    ///< Command table + dispatch (last).
 };
 
 } // namespace fbide

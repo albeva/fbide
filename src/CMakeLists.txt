@@ -18,13 +18,13 @@ elseif (APPLE)
     # macos bundle executable
     add_executable(fbide MACOSX_BUNDLE)
 
-    # Info.plist. Must be set via MACOSX_BUNDLE_INFO_PLIST — adding the
-    # file as a source with MACOSX_PACKAGE_LOCATION leaves CMake's empty
-    # default-template plist in place, which crashes NSOpenSavePanelService
-    # the moment it tries to key NSUserDefaults by an empty CFBundleIdentifier.
-    set(FBIDE_INFO_PLIST ${CMAKE_BINARY_DIR}/configured_files/macos/Info.plist)
+    # Info.plist — point CMake's bundle linker step at the pre-configured
+    # template. `MACOSX_BUNDLE_INFO_PLIST` is the only property CMake honours
+    # for the actual Contents/Info.plist; treating the file as a source +
+    # MACOSX_PACKAGE_LOCATION just copies it in and then gets overwritten by
+    # CMake's default empty boilerplate at link time.
     set_target_properties(fbide PROPERTIES
-        MACOSX_BUNDLE_INFO_PLIST ${FBIDE_INFO_PLIST}
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_BINARY_DIR}/configured_files/macos/Info.plist
     )
 
     # App icons

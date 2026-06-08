@@ -19,7 +19,8 @@ IntellisenseService::IntellisenseService(Context& ctx, wxEvtHandler* sink)
 : m_ctx(ctx)
 , m_sink(sink) {
     m_lexer = static_cast<FBSciLexer*>(FBSciLexer::Create());
-    lexer::configureFbWordlists(*m_lexer, m_ctx.getConfigManager().keywords().at("groups"));
+    // Keywords come from the shared table (built at startup / on settings
+    // change via FBSciLexer::setKeywords) — no per-instance configuration.
 
     if (CreateThread(wxTHREAD_JOINABLE) != wxTHREAD_NO_ERROR) {
         wxLogError("IntellisenseService: failed to create worker thread");

@@ -54,60 +54,6 @@ void writeCategory(Theme& theme, const SettingsCategory cat, const Theme::Entry&
     }
 }
 
-auto categoryTreeLayout() -> std::vector<ThemePage::TreeNode> {
-    using SC = SettingsCategory;
-    // Category-bound nodes are spelled `{ SC::Foo, { ... } }` and their
-    // locale key is derived from the enum via `getSettingsCategoryLabelKey`.
-    // Folder nodes use `{ "folderKey", { ... } }` (string literal picks
-    // the wxString constructor) for the labels that don't correspond to
-    // a single category.
-    // clang-format off
-    return {
-        { SC::Default, {
-            { SC::Comment          },
-            { SC::MultilineComment },
-            { SC::Identifier       },
-            { SC::Number           },
-            { SC::String, {
-                { SC::StringOpen },
-            }},
-            { SC::Operator         },
-            { SC::Label            },
-            { SC::Error            },
-            { "keywords", {
-                { SC::Keywords         },
-                { SC::KeywordTypes     },
-                { SC::KeywordOperators },
-                { SC::KeywordConstants },
-                { SC::KeywordLibrary   },
-                { SC::KeywordCustom    },
-            }},
-            { "margins", {
-                { SC::LineNumber },
-                { SC::FoldMargin },
-                { SC::Changes    },
-            }},
-            { SC::Selection },
-            { "brace", {
-                { SC::Brace    },
-                { SC::BadBrace },
-            }},
-        }},
-        { "asm", {
-            { SC::KeywordAsm1 },
-            { SC::KeywordAsm2 },
-        }},
-        { SC::Preprocessor, {
-            { SC::KeywordPP    },
-            { SC::IdentifierPP },
-            { SC::NumberPP     },
-            { SC::StringPP     },
-            { SC::OperatorPP   },
-        }},
-    };
-    // clang-format on
-}
-
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -215,7 +161,7 @@ void ThemePage::createTopRow() {
     });
 }
 
-void ThemePage::addTreeNode(const wxTreeItemId parent, const std::vector<TreeNode>& nodes) {
+void ThemePage::addTreeNode(const wxTreeItemId parent, const std::vector<SettingsTreeNode>& nodes) {
     for (const auto& node : nodes) {
         const wxString key = node.category
                                ? [&] {
@@ -246,7 +192,7 @@ void ThemePage::createCategoryList() {
     );
 
     const auto root = m_typeTree->AddRoot("(root)");
-    addTreeNode(root, categoryTreeLayout());
+    addTreeNode(root, settingsCategoryTree());
     m_typeTree->ExpandAll();
     m_selectedRow = +SettingsCategory::Default;
 
@@ -312,7 +258,7 @@ void ThemePage::createRightPanel() {
 
 void ThemePage::onSelectTheme(wxCommandEvent& event) {
     const auto index = static_cast<std::size_t>(event.GetSelection());
-    if (index > 0) {
+    if (index > 0 && index - FILE_OFFSET < m_themeFiles.size()) {
         m_activeTheme = m_themeFiles[index - FILE_OFFSET];
     } else {
         m_activeTheme = "";
@@ -378,6 +324,7 @@ void ThemePage::saveNewTheme(const bool setActive) {
     }
 
     m_theme.save(path.GetAbsolutePath());
+    m_themeFiles.push_back(m_theme.getPath()); // keep in lockstep with the dropdown entry below
     m_themeChoice->Append(name);
     m_themeChoice->SetStringSelection(name);
     m_activeTheme = m_theme.getPath();

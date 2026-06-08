@@ -8,6 +8,9 @@
 #include "KeywordsPage.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
+#ifdef __WXMSW__
+    #include "help/HelpManager.hpp"
+#endif
 using namespace fbide;
 
 namespace {
@@ -76,6 +79,9 @@ KeywordsPage::KeywordsPage(Context& ctx, wxWindow* parent)
         m_cases[idx] = CaseMode::parse(cases.get_or(key, "None").ToStdString())
                            .value_or(CaseMode::None);
     }
+#ifdef __WXMSW__
+    m_helpFile = getContext().getConfigManager().config().get_or("paths.helpFile", "");
+#endif
 }
 
 void KeywordsPage::create() {
@@ -118,8 +124,38 @@ void KeywordsPage::create() {
     m_textKeywords->SetFont(font);
 
     add(m_textKeywords, { .proportion = 1 });
+
+#ifdef __WXMSW__
+    buildHelpRow();
+#endif
+
     SetSizerAndFit(currentSizer());
 }
+
+#ifdef __WXMSW__
+void KeywordsPage::buildHelpRow() {
+    vbox(tr("dialogs.settings.compiler.help"), { .margin = false }, [&] {
+        const auto lbl = text(tr("dialogs.settings.compiler.helpFile"));
+        hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
+            m_helpFileField = textField(m_helpFile, { .proportion = 1 });
+            connect(lbl, m_helpFileField);
+            const auto browse = button("...");
+            browse->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+                wxFileDialog dlg(
+                    this, tr("dialogs.settings.compiler.selectHelp"), "", "",
+                    getContext().getConfigManager().filePattern("help"),
+                    wxFD_FILE_MUST_EXIST
+                );
+                if (dlg.ShowModal() == wxID_OK) {
+                    m_helpFile = getContext().getConfigManager().relative(dlg.GetPath());
+                    HelpManager::verifyHelpFileAccessible(this, m_helpFile);
+                    m_helpFileField->SetValue(m_helpFile);
+                }
+            });
+        });
+    });
+}
+#endif
 
 void KeywordsPage::stashCurrent() {
     m_groups[m_selectedGroup] = m_textKeywords->GetValue();
@@ -139,6 +175,13 @@ void KeywordsPage::apply() {
         cases[key] = wxString::FromUTF8(m_cases[idx].toString());
     }
     cfg.save(ConfigManager::Category::Keywords);
+
+#ifdef __WXMSW__
+    const wxString existingHelp = getContext().getConfigManager().config().get_or("paths.helpFile", "");
+    if (m_helpFile != existingHelp) {
+        getContext().getConfigManager().config()["paths"]["helpFile"] = m_helpFile;
+    }
+#endif
 }
 
 void KeywordsPage::onGroupChanged(const wxCommandEvent& event) {

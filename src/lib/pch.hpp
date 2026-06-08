@@ -19,6 +19,7 @@
 #include <fstream>
 #include <functional>
 #include <list>
+#include <map>
 #include <memory>
 #include <optional>
 #include <ranges>

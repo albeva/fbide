@@ -7,15 +7,16 @@
 #include "App.hpp"
 #include "Context.hpp"
 #include "InstanceHandler.hpp"
+#include "analyses/lexer/StyleLexer.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "config/Value.hpp"
 #include "config/Version.hpp"
-#include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/FileSession.hpp"
 #include "ui/UIManager.hpp"
+#include "update/UpdateManager.hpp"
 #ifdef __WXMSW__
 #include <windows.h>
 #endif
@@ -175,6 +176,9 @@ auto App::OnExit() -> int {
         wxTheClipboard->Flush();
         wxTheClipboard->Close();
     }
+    // Detach + delete the log target before the stream it borrows dies.
+    delete wxLog::SetActiveTarget(nullptr);
+    m_logStream.reset();
     return wxApp::OnExit();
 }
 
@@ -264,10 +268,12 @@ auto App::OnInit() -> bool {
     // sit in memory waiting to be coalesced. Together these ensure the
     // last few records survive a crash.
     const auto logPath = resolveLogPath(cli.logPath);
-    const auto logStream = make_unowned<std::ofstream>(logPath.ToStdString(), std::ios::app);
-    *logStream << std::unitbuf;
+    // `wxLogStream` borrows the stream without owning it, so App keeps it
+    // alive and tears it down in OnExit after detaching the log target.
+    m_logStream = std::make_unique<std::ofstream>(logPath.ToStdString(), std::ios::app);
+    *m_logStream << std::unitbuf;
     wxLog::SetRepetitionCounting(false);
-    wxLog::SetActiveTarget(new wxLogStream(logStream));
+    wxLog::SetActiveTarget(new wxLogStream(m_logStream.get()));
 
     // Construct context with parsed CLI overrides — `--ide` flows into
     // ConfigManager so subsequent config/locale/theme lookups resolve
@@ -295,6 +301,9 @@ auto App::OnInit() -> bool {
     const auto& configManager = m_context->getConfigManager();
     m_context->getFileHistory().load(configManager.historyPath());
 
+    // Build the shared FB keyword tables before any editor / Intellisense lexes.
+    lexer::setFbKeywords(m_context->getConfigManager().keywords().at("groups"));
+
     m_context->getUIManager().createMainFrame();
     openFiles(cli.files);
     if (!cli.loadSession.IsEmpty()) {
@@ -305,6 +314,7 @@ auto App::OnInit() -> bool {
         }
     }
     m_context->getCompilerManager().checkCompilerOnStartup();
+    m_context->getUpdateManager().checkOnStartup();
     return true;
 }
 
@@ -407,11 +417,11 @@ auto App::parseCli() const -> CliOptions {
     return opts;
 }
 
-void App::showHelp() const {
+void App::showHelp() {
     writeLine(kHelpText);
 }
 
-void App::showVersion() const {
+void App::showVersion() {
     writeLine(wxString::Format(
         "fbide %s (wxWidgets %s)",
         Version::fbide().asString(),
@@ -465,7 +475,7 @@ auto App::resolveCfg(const wxString& spec) const -> wxString {
     // Accept `/` as a path separator alongside `.` for ergonomics.
     key.Replace("/", ".");
 
-    auto& root = m_context->getConfigManager().get(cat);
+    const auto& root = m_context->getConfigManager().get(cat);
     const auto& node = key.IsEmpty() ? root : root.at(key);
 
     if (!enumerate) {
@@ -492,10 +502,24 @@ auto App::getFbidePath() -> wxString {
 }
 
 void App::openFiles(const wxArrayString& files) {
-    auto& docManager = m_context->getDocumentManager();
     for (const auto& file : files) {
+        m_pendingFiles.Add(file);
+    }
+
+    // The notebook only exists once createMainFrame() has run. Files
+    // forwarded by a second instance can arrive during the splash
+    // screen (showSplash's wxYield pumps IPC events), before that —
+    // hold them until OnInit reaches the open call after the frame is
+    // built, which drains the whole queue at once.
+    if (m_context->getUIManager().getMainFrame() == nullptr) {
+        return;
+    }
+
+    auto& docManager = m_context->getDocumentManager();
+    for (const auto& file : m_pendingFiles) {
         docManager.openFile(file);
     }
+    m_pendingFiles.Clear();
 }
 
 #ifdef __WXOSX__
@@ -580,7 +604,7 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
     });
 }
 
-void App::showSplash() {
+void App::showSplash() const {
     if (m_context->getConfigManager().config().get_or("general.splashScreen", true)) {
         // PNG handler is already registered by `wxInitAllImageHandlers()`
         // in `OnInit`, so the splash can decode its bitmap straight away.

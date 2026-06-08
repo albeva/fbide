@@ -534,5 +534,7 @@ void Theme::save(const wxString& newThemePath) {
 
     // save
     wxFileOutputStream outStream(m_themePath);
-    config.Save(outStream, wxConvUTF8);
+    if (!outStream.IsOk() || !config.Save(outStream, wxConvUTF8)) {
+        wxLogError("Failed to save theme '%s'", m_themePath);
+    }
 }

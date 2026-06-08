@@ -57,6 +57,9 @@ public:
     /// @param onLine   Optional stdout line callback. When set, stdout is
     ///                 streamed line-by-line instead of batched. Requires
     ///                 `redirect`.
+    /// @return The running process, or nullptr if it failed to launch (in
+    ///         which case the callback has already fired and the object is
+    ///         gone — nothing to store).
     static auto exec(
         const wxString& command,
         const wxString& workingDir,
@@ -69,6 +72,12 @@ public:
     /// Kill the process
     void kill();
 
+    /// Sever the termination callback. Call this when the callback's owner
+    /// is about to be destroyed while the process may still be running, so a
+    /// late OnTerminate can't dereference freed memory. The object still
+    /// self-deletes when the process eventually terminates.
+    void detach();
+
 private:
     /// Create an async process.
     /// @param callback Called exactly once when the process terminates (or fails to launch).
@@ -80,13 +89,15 @@ private:
     /// @param redirect   If true, capture stdout/stderr into ProcessResult::output.
     /// @param input      UTF-8 data to write to the child's stdin (then close).
     /// @param onLine     Optional stdout line streaming callback.
-    void exec(
+    /// @return true if launched; false if launch failed (in which case the
+    ///         callback has fired and the object has deleted itself).
+    auto exec(
         const wxString& command,
         const wxString& workingDir,
         bool redirect,
         const wxString& input,
         LineHandler onLine
-    );
+    ) -> bool;
 
     /// wxProcess hook — invoked when the child process exits. Calls `m_callback`
     /// then deletes `this`.

@@ -33,11 +33,13 @@ add_executable(tests
     unit/MarkdownSelectionTests.cpp
     unit/CodeHighlighterTests.cpp
     unit/CompileCommandTests.cpp
+    unit/CompilerConfigCatalogTests.cpp
     unit/ConfigManagerTests.cpp
     unit/ConfigStrategyTests.cpp
     unit/DocumentIOTests.cpp
     unit/DocumentPathTests.cpp
     unit/EncodingDetectorTests.cpp
+    unit/FbcAutoDetectTests.cpp
     unit/FBSciLexerTests.cpp
     unit/GeminiProviderTests.cpp
     unit/LmStudioProviderTests.cpp

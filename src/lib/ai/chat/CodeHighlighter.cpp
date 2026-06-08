@@ -154,7 +154,8 @@ void detail::LexerReleaser::operator()(Scintilla::ILexer5* lexer) const noexcept
 CodeHighlighter::CodeHighlighter(Context& ctx)
 : m_ctx(ctx)
 , m_lexer(FBSciLexer::Create()) {
-    lexer::configureFbWordlists(*m_lexer, m_ctx.getConfigManager().keywords().at("groups"));
+    // Keywords come from the shared table (built at startup / on settings
+    // change via FBSciLexer::setKeywords) — no per-instance configuration.
 }
 
 CodeHighlighter::~CodeHighlighter() = default;

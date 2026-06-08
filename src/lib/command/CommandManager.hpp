@@ -173,6 +173,8 @@ private:
 
     /// `Help` — open the FreeBASIC help (CHM on Windows, web wiki elsewhere).
     void onHelp(wxCommandEvent& event);
+    /// `Check for Updates` — manual GitHub release check.
+    void onCheckUpdates(wxCommandEvent& event);
     /// `About` — show the About dialog.
     void onAbout(wxCommandEvent& event);
     /// External-link menu handler — launches the registered URL.

@@ -22,7 +22,7 @@ public:
     explicit KeywordsPage(Context& ctx, wxWindow* parent);
     /// Build the panel widgets.
     void create() override;
-    /// Commit edits back into `ConfigManager`.
+    /// Commit edits back into `ConfigManager`. Always succeeds.
     void apply() override;
 
 private:
@@ -44,6 +44,13 @@ private:
     std::size_t m_selectedGroup = 0;                                           ///< Index of the currently displayed group.
     std::array<wxString, kThemeKeywordGroupsCount> m_groups {};                ///< Per-group keyword text.
     std::array<CaseMode, kThemeKeywordGroupsCount> m_cases { CaseMode::None }; ///< Per-group case mode.
+#ifdef __WXMSW__
+    /// Build the CHM help-file picker row (Windows only — colocated
+    /// with keywords because tapping F1 opens the keyword page in CHM).
+    void buildHelpRow();
+    wxString m_helpFile;                ///< CHM help-file path.
+    Unowned<wxTextCtrl> m_helpFileField; ///< Bound to `m_helpFile`.
+#endif
 };
 
 } // namespace fbide

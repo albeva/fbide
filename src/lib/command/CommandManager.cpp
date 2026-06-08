@@ -10,6 +10,7 @@
 #include "about/AboutDialog.hpp"
 #include "ai/AiChatPanel.hpp"
 #include "app/Context.hpp"
+#include "compiler/CompilerConfigCatalog.hpp"
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
@@ -23,6 +24,7 @@
 #include "settings/SettingsDialog.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
+#include "update/UpdateManager.hpp"
 using namespace fbide;
 
 // clang-format off
@@ -81,8 +83,9 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     EVT_MENU(+CommandId::Parameters,    CommandManager::onParameters)
 
     // Help
-    EVT_MENU(+CommandId::Help,      CommandManager::onHelp)
-    EVT_MENU(+CommandId::About,     CommandManager::onAbout)
+    EVT_MENU(+CommandId::Help,         CommandManager::onHelp)
+    EVT_MENU(+CommandId::CheckUpdates, CommandManager::onCheckUpdates)
+    EVT_MENU(+CommandId::About,        CommandManager::onAbout)
     EVT_MENU_RANGE(+CommandId::ExternalLinkFirst, +CommandId::ExternalLinkLast, CommandManager::onExternalLink)
 wxEND_EVENT_TABLE()
 // clang-format on
@@ -110,7 +113,9 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .id = +CommandId::Compile,          .name="compile" },
         CommandEntry { .id = +CommandId::CompileAndRun,    .name="compileAndRun" },
         CommandEntry { .id = +CommandId::CompilerLog,      .name="compilerLog" },
+        CommandEntry { .id = +CommandId::Configuration,    .name="configuration", .kind = wxITEM_DROPDOWN },
         CommandEntry { .id = +CommandId::Copy,             .name="copy" },
+        CommandEntry { .id = +CommandId::CheckUpdates,     .name="checkUpdates" },
         CommandEntry { .id = +CommandId::Cut,              .name="cut" },
         CommandEntry { .id = +CommandId::FileHistory,      .name="fileHistory" },
         CommandEntry { .id = +CommandId::Find,             .name="find" },
@@ -171,14 +176,15 @@ void CommandManager::initializeCommands() {
 
 void CommandManager::onAnyEvent(wxCommandEvent& event) {
     event.Skip();
-    const auto thaw = m_ctx.getUIManager().freeze();
 
-    if (auto* entry = find(event.GetId())) {
-        if (entry->kind != wxITEM_CHECK || entry->checked == event.IsChecked()) {
-            return;
-        }
-        entry->setChecked(event.IsChecked());
+    // Only an actual checked-state flip needs to repaint bound controls;
+    // freeze just for that, not on every menu/toolbar click.
+    auto* entry = find(event.GetId());
+    if (entry == nullptr || entry->kind != wxITEM_CHECK || entry->checked == event.IsChecked()) {
+        return;
     }
+    const auto thaw = m_ctx.getUIManager().freeze();
+    entry->setChecked(event.IsChecked());
 }
 
 void CommandManager::onAuiPaneClose(wxAuiManagerEvent& event) {
@@ -341,7 +347,7 @@ void CommandManager::onSettings(wxCommandEvent&) {
 }
 
 void CommandManager::onFormat(wxCommandEvent&) {
-    if (auto* doc = m_ctx.getDocumentManager().getActive(); doc->getEditor() != nullptr) {
+    if (auto* doc = m_ctx.getDocumentManager().getActive(); doc != nullptr && doc->getEditor() != nullptr) {
         FormatDialog dlg(m_ctx.getUIManager().getMainFrame(), m_ctx, doc);
         dlg.create();
         dlg.ShowModal();
@@ -409,14 +415,24 @@ void CommandManager::onKillProcess(wxCommandEvent&) {
 
 void CommandManager::onCmdPrompt(wxCommandEvent&) {
     wxExecuteEnv env;
-    if (const auto* doc = m_ctx.getDocumentManager().getActive(); doc != nullptr && !doc->isNew()) {
+    const auto* doc = m_ctx.getDocumentManager().getActive();
+    if (doc != nullptr && !doc->isNew()) {
         const auto parent = doc->getFilePath().parent_path();
         std::error_code ec;
         if (std::filesystem::is_directory(parent, ec)) {
             env.cwd = toWxString(parent);
         }
     }
-    wxExecute(ConfigManager::getTerminal(), wxEXEC_ASYNC, nullptr, &env);
+    // Resolve which configuration's terminal launcher to invoke: the
+    // active doc's pinned config when there's a FreeBASIC source open,
+    // otherwise the catalog's active config. Fall back to the platform
+    // default when the resolved terminal field is empty.
+    const auto pinned = (doc != nullptr && doc->getType() == DocumentType::FreeBASIC)
+                          ? doc->getConfiguration()
+                          : std::optional<wxString> {};
+    const auto& cfg = m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(pinned);
+    const auto terminal = cfg.terminal.IsEmpty() ? ConfigManager::getTerminal() : cfg.terminal;
+    wxExecute(terminal, wxEXEC_ASYNC, nullptr, &env);
 }
 
 void CommandManager::onParameters(wxCommandEvent&) {
@@ -436,6 +452,10 @@ void CommandManager::onHelp(wxCommandEvent&) {
     m_ctx.getHelpManager().open();
 }
 
+void CommandManager::onCheckUpdates(wxCommandEvent&) {
+    m_ctx.getUpdateManager().checkManual();
+}
+
 void CommandManager::onAbout(wxCommandEvent&) {
     AboutDialog dlg(m_ctx.getUIManager().getMainFrame(), m_ctx);
     dlg.create();
@@ -443,9 +463,6 @@ void CommandManager::onAbout(wxCommandEvent&) {
 }
 
 void CommandManager::onExternalLink(wxCommandEvent& event) {
-    if (const auto* menuItem = wxDynamicCast(event.GetClientData(), wxMenuItem)) {
-        wxMessageBox(menuItem->GetHelp());
-    }
     const auto it = m_externalLinks.find(event.GetId());
     if (it == m_externalLinks.end()) {
         return;
@@ -476,7 +493,7 @@ auto CommandManager::registerExternalLink(const wxString& url) -> wxWindowID {
 void CommandManager::addCommands(const std::initializer_list<CommandEntry>& commands) {
     const auto size = m_namedCommands.size() + commands.size();
     m_namedCommands.reserve(size);
-    m_namedCommands.reserve(size);
+    m_idNames.reserve(size);
     for (const auto& cmd : commands) {
         const auto id = cmd.id == 0 || cmd.id == wxID_ANY ? wxNewId() : cmd.id;
         auto& entry = m_namedCommands[cmd.name] = cmd;

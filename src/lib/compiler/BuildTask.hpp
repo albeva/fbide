@@ -7,10 +7,13 @@
 #pragma once
 #include "pch.hpp"
 #include "AsyncProcess.hpp"
+#include "CompilerConfigCatalog.hpp"
 
 namespace fbide {
 class Context;
 class Document;
+class CompilerLog;
+enum class CompilerLogSection : std::size_t;
 
 /// Handles the compile-and-run lifecycle for a single document.
 ///
@@ -35,6 +38,11 @@ public:
     /// with `ok = false` and `["[cancelled]"]` so subscribers don't
     /// hang waiting for a result.
     using CompletionHandler = std::function<void(bool ok, wxArrayString output)>;
+
+    /// Sever any in-flight process's callback before teardown — the callback
+    /// captures `this`, so a late OnTerminate after destruction would be a
+    /// use-after-free. Does not kill the child (shutdown does that explicitly
+    /// via `CompilerManager::killProcess`).
     ~BuildTask();
     void setCompletionHandler(CompletionHandler handler) { m_completion = std::move(handler); }
 
@@ -52,9 +60,6 @@ public:
 
     /// Is this a quickrun task?
     [[nodiscard]] auto isQuickRun() const -> bool { return m_isQuickRun; }
-
-    /// Get the full compiler log for display.
-    [[nodiscard]] auto getCompilerLog() const -> const wxArrayString& { return m_compilerLog; }
 
     /// Get the compiled executable path from the last successful compile.
     [[nodiscard]] auto getCompiledFile() const -> const wxString& { return m_compiledFile; }
@@ -84,24 +89,31 @@ private:
     /// Build the run command from config template and executable path.
     [[nodiscard]] auto buildRunCommand(const wxString& executablePath) const -> wxString;
 
-    /// Append system info (FBIde version, fbc version, OS) to the compiler log.
+    /// Set the system-info section (FBIde version, fbc version, OS).
     void appendSystemInfo();
+
+    /// The compiler-log window — owns the section content and rendering.
+    [[nodiscard]] auto compilerLog() const -> CompilerLog&;
 
     /// Clean up temp files from quick run.
     void cleanupTempFiles();
 
-    /// Set status bar text from a locale path (empty for none).
+    /// Set status bar text from a locale path.
     void setStatus(const wxString& path) const;
+
+    /// Clear the status bar text (compile / run finished).
+    void clearStatus() const;
 
     Context& m_ctx;                    ///< Application context.
     Document* m_doc;                   ///< Document this task is bound to (nullable).
+    ResolvedCompilerConfig m_config;   ///< Snapshot captured at construction — stable across compile + run.
     bool m_running = false;            ///< True while a process is in flight.
     bool m_shouldRun = false;          ///< True when a successful compile should chain into run.
     bool m_isQuickRun = false;         ///< True for QuickRun (compile to temp file + run).
     wxString m_sourceFile;             ///< Source file currently being compiled.
     wxString m_buildDir;               ///< Working directory for the compile/run process.
     wxString m_compiledFile;           ///< Path of the produced executable (set on success).
-    wxArrayString m_compilerLog;       ///< Captured compiler output (for the log dialog).
+    wxString m_fbcVersion;             ///< Active config's fbc version, probed before the async compile.
     AsyncProcess* m_process = nullptr; ///< In-flight async process (self-deleting).
     CompletionHandler m_completion;    ///< Optional subscriber for headless compile callers (AI tool).
     wxArrayString m_lastOutput;        ///< Raw fbc stdout/stderr captured for the completion handler.

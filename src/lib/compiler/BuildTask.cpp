@@ -7,6 +7,7 @@
 #include "BuildTask.hpp"
 #include <cmake/config.hpp>
 #include "CompileCommand.hpp"
+#include "CompilerConfigCatalog.hpp"
 #include "CompilerManager.hpp"
 #include "RunCommand.hpp"
 #include "app/Context.hpp"
@@ -14,15 +15,31 @@
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "editor/Editor.hpp"
+#include "ui/CompilerLog.hpp"
 #include "ui/OutputConsole.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
+auto BuildTask::compilerLog() const -> CompilerLog& {
+    return m_ctx.getUIManager().getCompilerLog();
+}
+
 BuildTask::BuildTask(Context& ctx, Document* doc)
 : m_ctx(ctx)
-, m_doc(doc) {}
+, m_doc(doc)
+, m_config(ctx.getCompilerManager().catalog().resolveByPinnedSlug(
+      doc != nullptr ? doc->getConfiguration() : std::nullopt
+  )) {}
 
 BuildTask::~BuildTask() {
+    // Sever any in-flight process's callback before teardown — the callback
+    // captures `this`, so a late OnTerminate after destruction would be a
+    // use-after-free. Does not kill the child (shutdown does that explicitly
+    // via `CompilerManager::killProcess`).
+    if (m_process != nullptr) {
+        m_process->detach();
+    }
+
     // Subscribers (the AI compile tool) need a result even when the
     // task is replaced mid-flight — without this, the dispatch loop
     // would hang waiting for a tool result that never arrives. Fire
@@ -62,9 +79,20 @@ void BuildTask::run(const wxString& executablePath, const bool quickRun) {
     m_compiledFile = executablePath;
     m_isQuickRun = quickRun;
 
+    const auto cmdStr = buildRunCommand(executablePath);
+
+    // A standalone run (not chained from a compile) starts a fresh log.
+    if (!m_shouldRun) {
+        compilerLog().clear();
+    }
+    compilerLog().add(CompilerLogSection::RunCommand, cmdStr);
+
     m_running = true;
     m_ctx.getUIManager().setCompilerState(UIState::Running);
-    m_process = AsyncProcess::exec(buildRunCommand(executablePath), wxPathOnly(executablePath), false, [&](const ProcessResult& result) {
+    auto runningStatus = m_ctx.tr("status.running");
+    runningStatus.Replace("{file}", wxFileName(executablePath).GetFullName());
+    m_ctx.getUIManager().getMainFrame()->SetStatusText(runningStatus);
+    m_process = AsyncProcess::exec(cmdStr, wxPathOnly(executablePath), false, [&](const ProcessResult& result) {
         m_process = nullptr;
         m_ctx.getUIManager().setCompilerState(UIState::None);
         m_running = false;
@@ -84,27 +112,31 @@ void BuildTask::startCompiler(const wxString& sourceFile) {
     auto& ui = m_ctx.getUIManager();
     ui.getOutputConsole().clear();
 
-    // Validate compiler — getFbcVersion() checks path and caches the result
-    const auto& fbcVersion = m_ctx.getCompilerManager().getFbcVersion();
-    if (fbcVersion.empty()) {
-        m_ctx.getCompilerManager().promptMissingCompiler();
-        return;
-    }
+    // Build command. The resolved config is captured at task construction
+    // so a mid-build catalog change (e.g. user editing settings) cannot
+    // half-apply across compile and run steps.
+    const auto cmdStr = CompileCommand::makeDefault(sourceFile).build(m_config, m_ctx.getConfigManager());
 
-    // Build command
-    const auto cmdStr = CompileCommand::makeDefault(sourceFile).build(m_ctx);
+    compilerLog().clear();
+    compilerLog().add(CompilerLogSection::CompilerCommand, cmdStr);
 
-    m_compilerLog.Empty();
-    m_compilerLog.Add("[bold]Command executed:[/bold]");
-    m_compilerLog.Add(cmdStr);
-    m_ctx.getCompilerManager().refreshCompilerLog();
-
+    // Arm the running state *before* the synchronous probe below. The probe
+    // pumps a nested event loop, so a Compile/Run command dispatched inside it
+    // would otherwise see isRunning() == false, pass CompilerManager's re-entry
+    // guard, and replace m_task — freeing the BuildTask whose startCompiler is
+    // still on the stack. Setting it here makes that re-entry a no-op.
     m_running = true;
     m_ctx.getUIManager().setCompilerState(UIState::Compiling);
     setStatus("status.compiling");
+
+    // Probe the active config's compiler version *before* launching the async
+    // compile. probeCompilerVersion runs a synchronous wxExecute (with its own
+    // nested event loop); calling it from onCompileFinished would re-enter wx's
+    // child-process machinery inside the compile process's OnTerminate handler
+    // and deadlock. appendSystemInfo() reads the cached value instead.
+    m_fbcVersion = m_ctx.getCompilerManager().probeCompilerVersion(m_config.path);
     m_process = AsyncProcess::exec(cmdStr, m_buildDir, true, [&](const ProcessResult& result) {
         m_process = nullptr;
-        setStatus("");
         m_ctx.getUIManager().setCompilerState(UIState::None);
         m_running = false;
         onCompileFinished(result);
@@ -116,21 +148,26 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
     // anything else touches it — `showErrors` may reformat for the
     // UI console, but the handler wants what fbc actually wrote.
     m_lastOutput = result.output;
-    // Log and show errors. Show the console pane *before* populating it
+    // Capture the compiler output verbatim and route it to the console.
     if (!result.output.empty()) {
-        m_compilerLog.Add("");
-        m_compilerLog.Add("[bold]Compiler output:[/bold]");
+        wxString outputText;
+        for (const auto& line : result.output) {
+            if (line.empty()) {
+                continue;
+            }
+            if (!outputText.empty()) {
+                outputText << "\n";
+            }
+            outputText << line;
+        }
+        compilerLog().add(CompilerLogSection::CompilerOutput, outputText);
         showErrors(result.output);
     }
 
-    m_compilerLog.Add("");
-    m_compilerLog.Add("[bold]Results:[/bold]");
-
     if (!result) {
-        m_compilerLog.Add("Compilation failed");
+        compilerLog().add(CompilerLogSection::CompileResult, m_ctx.tr("dialogs.log.failureMessage"));
         appendSystemInfo();
-        m_ctx.getCompilerManager().refreshCompilerLog();
-        setStatus("status.compileFailed");
+        clearStatus();
         cleanupTempFiles();
         if (m_completion) {
             m_completion(false, m_lastOutput);
@@ -139,14 +176,15 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
         return;
     }
 
-    m_compilerLog.Add("Compilation successful");
-    setStatus("status.compileComplete");
-
     m_compiledFile = deriveExecutablePath(m_sourceFile);
-    m_compilerLog.Add("Generated executable: " + m_compiledFile);
+    auto generatedLine = m_ctx.tr("dialogs.log.generatedExecutable");
+    generatedLine.Replace("{path}", m_compiledFile);
+    compilerLog().add(
+        CompilerLogSection::CompileResult,
+        m_ctx.tr("dialogs.log.successMessage") + "\n" + generatedLine
+    );
 
     appendSystemInfo();
-    m_ctx.getCompilerManager().refreshCompilerLog();
 
     // Update document's compiled file path
     if (auto* doc = getDocument()) {
@@ -155,6 +193,9 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
 
     if (m_shouldRun) {
         run(m_compiledFile, m_isQuickRun);
+    } else {
+        // Compile-only: nothing more runs, so clear the status line.
+        clearStatus();
     }
 
     if (m_completion) {
@@ -164,6 +205,17 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
 }
 
 void BuildTask::onRunFinished(const ProcessResult& result) {
+    // The program has exited — clear the "Running..." status.
+    clearStatus();
+
+    if (!result.launched) {
+        compilerLog().add(CompilerLogSection::RunResult, m_ctx.tr("dialogs.log.executionFailed"));
+    } else {
+        auto exitLine = m_ctx.tr("dialogs.log.exitCodeLine");
+        exitLine.Replace("{code}", wxString::Format("%d", result.exitCode));
+        compilerLog().add(CompilerLogSection::RunResult, exitLine);
+    }
+
     if (!result.launched) {
         wxMessageBox(m_ctx.tr("messages.execError"), m_ctx.tr("common.error"), wxICON_ERROR);
     } else if (m_ctx.getConfigManager().config().get_or("commands.showExitCode", false)) {
@@ -201,8 +253,6 @@ auto BuildTask::showErrors(const wxArrayString& output) -> bool {
         if (line.empty()) {
             continue;
         }
-
-        m_compilerLog.Add(line);
 
         // Try to parse "file(line) error NR: message" format
         const auto braceStart = line.Find('(');
@@ -286,18 +336,18 @@ auto BuildTask::deriveExecutablePath(const wxString& sourceFile) -> wxString {
 }
 
 auto BuildTask::buildRunCommand(const wxString& executablePath) const -> wxString {
-    return RunCommand::makeDefault(executablePath).build(m_ctx);
+    return RunCommand::makeDefault(executablePath).build(m_config, m_ctx.getCompilerManager().getParameters());
 }
 
 void BuildTask::appendSystemInfo() {
-    m_compilerLog.Add("");
-    m_compilerLog.Add("[bold]System:[/bold]");
-    m_compilerLog.Add("FBIde: " + wxString(cmake::project.version));
-    const auto& fbcVersion = m_ctx.getCompilerManager().getFbcVersion();
-    if (!fbcVersion.empty()) {
-        m_compilerLog.Add("fbc:   " + fbcVersion);
+    wxString info = m_ctx.tr("dialogs.log.fbidePrefix") + wxString(cmake::project.version);
+    if (!m_fbcVersion.empty()) {
+        info << "\n"
+             << m_ctx.tr("dialogs.log.fbcPrefix") + m_fbcVersion;
     }
-    m_compilerLog.Add("OS:    " + wxGetOsDescription());
+    info << "\n"
+         << m_ctx.tr("dialogs.log.osPrefix") + wxGetOsDescription();
+    compilerLog().add(CompilerLogSection::SystemInfo, info);
 }
 
 void BuildTask::cleanupTempFiles() {
@@ -340,5 +390,9 @@ void BuildTask::kill() {
 }
 
 void BuildTask::setStatus(const wxString& path) const {
-    m_ctx.getUIManager().getMainFrame()->SetStatusText(path.empty() ? wxString {} : m_ctx.tr(path));
+    m_ctx.getUIManager().getMainFrame()->SetStatusText(m_ctx.tr(path));
+}
+
+void BuildTask::clearStatus() const {
+    m_ctx.getUIManager().getMainFrame()->SetStatusText(wxEmptyString);
 }

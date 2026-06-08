@@ -9,6 +9,8 @@
 
 namespace fbide {
 class BuildTask;
+class CompilerConfigCatalog;
+struct ResolvedCompilerConfig;
 class Document;
 class Context;
 
@@ -17,14 +19,18 @@ class Context;
  * commands, the compiler probe, the runtime parameters, and the
  * single in-flight `BuildTask`.
  *
- * **Owns:** the current `m_task` (`unique_ptr<BuildTask>`), cached
- * `m_fbcVersion`, and runtime `m_parameters`.
+ * **Owns:** the current `m_task` (`unique_ptr<BuildTask>`) and the
+ * runtime `m_parameters`.
  * **Owned by:** `Context`.
  * **Threading:** UI thread only. `BuildTask` spawns `AsyncProcess`,
  * which is async with a UI-thread callback — there is no
  * compiler-side worker.
- * **Single in-flight:** replacing `m_task` deletes the previous task
- * and aborts any process it had spawned. Two builds cannot race.
+ * **Single in-flight:** while a task is running, the active-document
+ * guard reports none, so a new build can't start and `m_task` is only
+ * ever replaced when idle. Two builds cannot race. Shutdown kills an
+ * in-flight build explicitly (`UIManager::onClose` → `killProcess`);
+ * `~BuildTask` then severs the async callback so a late `OnTerminate`
+ * can't touch the freed task.
  *
  * See @ref compiler.
  */
@@ -62,20 +68,20 @@ public:
     void quickRun();
 
     /// Kill active compile or run task
-    void killProcess();
+    void killProcess() const;
 
     /// Show compiler log dialog with full output.
-    void showCompilerLog();
-
-    /// Refresh the compiler log dialog if it exists.
-    void refreshCompilerLog();
+    void showCompilerLog() const;
 
     /// Navigate to an error by line number and file name.
-    void goToError(int line, const wxString& fileName);
+    void goToError(int line, const wxString& fileName) const;
 
-    /// Get the fbc version string. Validates the compiler path, runs `fbc --version`,
-    /// and caches the result. Returns empty string if compiler is not accessible.
-    [[nodiscard]] auto getFbcVersion() -> const wxString&;
+    /// Run `<compiler> --version` for the given compiler path (resolved
+    /// against the IDE appDir) and return the first output line. Empty
+    /// when the path is unset, not executable, or produced no output.
+    /// Not cached — each build probes the compiler of its own resolved
+    /// configuration, so the log reflects the active configuration.
+    [[nodiscard]] auto probeCompilerVersion(const std::filesystem::path& compilerPath) const -> wxString;
 
     /// Resolve `compiler.path` against the IDE's appDir and verify the
     /// binary exists/is executable. Returns the resolved absolute path,
@@ -88,16 +94,13 @@ public:
     /// checkbox toggles `alerts.ignore.missingCompilerBinary` so future
     /// launches stay silent. No-op when the binary is reachable or the
     /// ignore flag is set. Call once after the main frame is created.
-    void checkCompilerOnStartup();
+    void checkCompilerOnStartup() const;
 
     /// Show the "compiler not found" prompt without the silence checkbox
     /// (used by the build flow when the user explicitly invokes compile/
     /// run): the alert is always relevant because the user just asked for
     /// the compiler. "Yes" opens the Settings dialog on the Compiler tab.
-    void promptMissingCompiler();
-
-    /// Reset the cached fbc version. Call when compiler path may have changed.
-    void resetFbcVersion() { m_fbcVersion.clear(); }
+    void promptMissingCompiler() const;
 
     /// Get runtime parameters for the executable.
     [[nodiscard]] auto getParameters() const -> const wxString& { return m_parameters; }
@@ -105,20 +108,109 @@ public:
     /// Set runtime parameters (from the parameters dialog).
     void setParameters(const wxString& params) { m_parameters = params; }
 
+    /// Catalog of available compiler configurations (canonical Default
+    /// plus any user-defined `[compiler/*]` sections).
+    [[nodiscard]] auto catalog() -> CompilerConfigCatalog& { return *m_catalog; }
+    [[nodiscard]] auto catalog() const -> const CompilerConfigCatalog& { return *m_catalog; }
+
+    /// Apply the "matches active → empty" normalisation and store the
+    /// resulting optional on the document. The combobox event handler
+    /// is the only caller.
+    void setDocumentConfiguration(Document& doc, const wxString& pickedSlug) const;
+
+    /// Create the toolbar configuration combobox and sync it to the
+    /// active document. Called by `UIManager::configureToolBar` when it
+    /// sees the reserved `CommandId::Configuration` entry — but only in
+    /// the toolbar-hosted mode (when configurations aren't routed to the
+    /// status bar). Toolbar takes ownership. May run again on a runtime
+    /// preference toggle that rebuilds the toolbar.
+    [[nodiscard]] auto createConfigurationCombo(wxAuiToolBar* parent) -> wxComboBox*;
+
+    /// Remove the combobox from its toolbar and destroy the widget.
+    /// No-op when the combobox doesn't exist. Paired with
+    /// `createConfigurationCombo` so only one of the two configuration
+    /// surfaces (toolbar combobox / status-bar selector) is ever
+    /// allocated.
+    void destroyConfigurationCombo();
+
+    /// True when the toolbar combobox currently exists.
+    [[nodiscard]] auto hasConfigurationCombo() const -> bool { return m_configCombo != nullptr; }
+
+    /// Re-populate the combobox from the catalog. Call after a settings
+    /// dialog OK that mutated the catalog.
+    void refreshConfigurationCombo();
+
+    /// Notify the manager that the active document changed (or there
+    /// is no active document — pass `nullptr`). Updates the combobox
+    /// selection and enabled state.
+    void onActiveDocumentChanged(Document* doc);
+
+    /// Resolve the display label for the active document's
+    /// configuration (empty when the active document isn't a
+    /// FreeBASIC source — the status-bar selector hides in that case).
+    [[nodiscard]] auto configurationStatusLabel() const -> wxString;
+
+    /// Build a popup menu listing every catalog entry as a radio item
+    /// (current one checked). Used by the status-bar selector.
+    [[nodiscard]] auto buildConfigurationMenu() const -> std::unique_ptr<wxMenu>;
+
+    /// Apply a status-bar menu selection — same normalisation as the
+    /// toolbar combobox path.
+    void applyConfigurationMenuSelection(int menuId) const;
+
+    /// First menu-item ID reserved for the status-bar configuration
+    /// popup. Each catalog entry's index is added to the base — used
+    /// by `buildConfigurationMenu` / `applyConfigurationMenuSelection`
+    /// and by `UIManager::onStatusBarClick`.
+    static constexpr int kStatusMenuIdBase = wxID_HIGHEST + 10500;
+
 private:
     /// Get active FreeBASIC document, or nullptr if unavailable.
-    [[nodiscard]] auto getActiveDocument() -> Document*;
+    [[nodiscard]] auto getActiveDocument() const -> Document*;
 
     /// Ensure document is saved. Returns false if user cancelled.
-    auto ensureSaved(Document& doc) -> bool;
+    auto ensureSaved(Document& doc) const -> bool;
 
-    /// Set status bar text from locale path (empty for none).
-    void setStatus(const wxString& path) const;
+    /// Rebuild the combobox display names from the current catalog
+    /// state. Item order mirrors `catalog().all()`, so a selection index
+    /// maps straight back through `catalog().at()`.
+    void populateConfigurationCombo() const;
 
-    Context& m_ctx;                    ///< Application context.
-    std::unique_ptr<BuildTask> m_task; ///< In-flight task (`nullptr` when idle).
-    wxString m_parameters;             ///< Runtime parameters set via the Parameters dialog.
-    wxString m_fbcVersion;             ///< Cached `fbc --version` output (empty until probed).
+    /// React to the user picking an entry in the toolbar combobox —
+    /// apply the normalisation and store on the active document.
+    void onConfigurationComboSelected() const;
+
+    /// Look up a combobox item index by slug — uses the per-item
+    /// `wxStringClientData` set during populate so the lookup is
+    /// independent of the catalog order (the combo only holds
+    /// visible-or-pinned entries, not every catalog entry).
+    [[nodiscard]] auto comboIndexForSlug(const wxString& slug) const -> int;
+
+    /// Mirror the resolved configuration label into the status-bar
+    /// field, when the configuration status-bar layout is active.
+    void pushStatusBarLabel() const;
+
+    /// Validate that `cfg` can compile: a reachable fbc binary and a
+    /// non-empty compile-command template. On the first missing piece
+    /// alert the user and (on confirm) open Settings at that field;
+    /// returns false so the caller aborts the build.
+    [[nodiscard]] auto ensureCompilable(const ResolvedCompilerConfig& cfg) const -> bool;
+
+    /// Validate that `cfg` can run a built executable: a non-empty
+    /// run-command template. Same alert-and-open-settings behaviour.
+    [[nodiscard]] auto ensureRunnable(const ResolvedCompilerConfig& cfg) const -> bool;
+
+    /// Yes/No "configure now?" alert with its own title + message. On
+    /// Yes, open Settings at `target` (a `focusPath` deep-link). Returns
+    /// true when the user chose to open Settings.
+    auto promptConfigure(const wxString& titleKey, const wxString& messageKey, const wxString& target) const -> bool;
+
+    Context& m_ctx;                                   ///< Application context.
+    std::unique_ptr<CompilerConfigCatalog> m_catalog; ///< Resolved view of `[compiler]` + `[compiler/*]`.
+    std::unique_ptr<BuildTask> m_task;                ///< In-flight task (`nullptr` when idle).
+    wxString m_parameters;                            ///< Runtime parameters set via the Parameters dialog.
+    wxComboBox* m_configCombo = nullptr;              ///< Toolbar-owned widget; non-null after configureToolBar.
+    Document* m_lastActiveDoc = nullptr;              ///< Last document the combobox was synced to.
 };
 
 } // namespace fbide

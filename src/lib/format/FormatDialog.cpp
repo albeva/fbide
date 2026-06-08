@@ -112,7 +112,7 @@ void FormatDialog::create() {
         MemoryDocument doc;
         doc.Set(std::string_view { m_buffer.data(), m_buffer.length() });
         auto* fb = FBSciLexer::Create();
-        lexer::configureFbWordlists(*fb, m_ctx.getConfigManager().keywords().at("groups"));
+        // Keywords come from the shared table set at startup / on settings change.
         fb->Lex(0, doc.Length(), +ThemeCategory::Default, &doc);
         lexer::MemoryDocStyledSource src(doc);
         lexer::StyleLexer adapter(src);
@@ -245,11 +245,16 @@ void FormatDialog::updatePreview() {
     m_preview->SetReadOnly(false);
     m_preview->setDocType(m_renderer->getType());
     if (isTransforming()) {
-        auto tokens = m_tokens;
+        // Feed m_tokens by const-ref into the first transform (apply
+        // returns a fresh vector) instead of copying the whole vector up
+        // front. With no transforms (non-FB renderer) m_tokens is used directly.
+        std::vector<lexer::Token> transformed;
+        const std::vector<lexer::Token>* tokens = &m_tokens;
         for (const auto& transform : m_transforms) {
-            tokens = transform->apply(tokens);
+            transformed = transform->apply(*tokens);
+            tokens = &transformed;
         }
-        m_preview->SetText(m_renderer->render(tokens));
+        m_preview->SetText(m_renderer->render(*tokens));
     } else {
         m_preview->SetTextRaw(m_buffer);
     }

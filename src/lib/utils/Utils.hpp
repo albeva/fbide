@@ -15,10 +15,6 @@ FBIDE_INLINE static wxString operator/(const wxString& lhs, const wxString& rhs)
     return wxString(lhs).append(wxFileName::GetPathSeparator()).append(rhs);
 }
 
-FBIDE_INLINE static wxString operator/=(const wxString& lhs, const wxString& rhs) {
-    return wxString(lhs).append(wxFileName::GetPathSeparator()).append(rhs);
-}
-
 /**
  * wxString shorthand. "Hello"_wx
  */

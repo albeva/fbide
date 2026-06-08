@@ -16,6 +16,7 @@
 #include "help/HelpManager.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
+#include "update/UpdateManager.hpp"
 using namespace fbide;
 using namespace fbide::ai;
 
@@ -30,6 +31,7 @@ Context::Context(App& app, const wxString& binaryPath, const wxString& idePath, 
 , m_compilerManager(std::make_unique<CompilerManager>(*this))
 , m_helpManager(std::make_unique<HelpManager>(*this))
 , m_aiRegistry(std::make_unique<AiManagerRegistry>(*this))
+, m_updateManager(std::make_unique<UpdateManager>(*this))
 , m_commandManager(std::make_unique<CommandManager>(*this)) {}
 
 Context::~Context() = default;
@@ -42,6 +44,6 @@ auto Context::getAiManager() const -> const AiManager& {
     return m_aiRegistry->active();
 }
 
-auto Context::tr(const wxString& path) -> wxString {
+auto Context::tr(const wxString& path) const -> wxString {
     return m_configManager->locale().get_or(path, "");
 }

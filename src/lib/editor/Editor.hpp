@@ -104,6 +104,11 @@ public:
     /// Enable / disable code transforms (e.g. during loading)
     void disableTransforms(bool state);
 
+    /// Configure the change-tracking margin — width, mask and the two
+    /// markers (Added / Modified) that the upcoming `LineHistory` will
+    /// drive. Reapplied from `applySettings` so theme changes pick up.
+    void defineChangesMargin();
+
     /// Scintilla marker numbers used by the change-tracking margin.
     /// Public so tests (and any future overlay) can query a line's
     /// state via `MarkerGet(line) & (1 << kAddedMarker)`.
@@ -161,10 +166,6 @@ private:
     void applyEditorSettings();
     /// Configure fold margins + marker colors from the active theme.
     void defineFoldMargins();
-    /// Configure the change-tracking margin — width, mask and the two
-    /// markers (Added / Modified) that the upcoming `LineHistory` will
-    /// drive. Reapplied from `applySettings` so theme changes pick up.
-    void defineChangesMargin();
     /// Apply theme via the per-`DocumentType` dispatch.
     void applyTheme();
     /// Apply a single theme `Entry` to the given Scintilla style id.

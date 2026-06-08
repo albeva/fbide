@@ -5,22 +5,12 @@
 // https://github.com/albeva/fbide
 //
 #include "RunCommand.hpp"
-#include "CompilerManager.hpp"
+#include "CompilerConfigCatalog.hpp"
 #include "QuoteUtils.hpp"
-#include "app/Context.hpp"
-#include "config/ConfigManager.hpp"
 using namespace fbide;
 
-auto RunCommand::build(Context& ctx) const -> wxString {
-    const wxString runTemplate = ctx.getConfigManager().config().get_or(
-        "compiler.runCommand",
-        R"(<$terminal> "<$file>" <$param>)"
-    );
-    return build(
-        runTemplate,
-        ctx.getConfigManager().getTerminalLauncher(),
-        ctx.getCompilerManager().getParameters()
-    );
+auto RunCommand::build(const ResolvedCompilerConfig& cfg, const wxString& parameters) const -> wxString {
+    return build(cfg.runCommand, cfg.terminal, parameters);
 }
 
 auto RunCommand::build(const wxString& runTemplate, const wxString& terminal, const wxString& parameters) const -> wxString {
