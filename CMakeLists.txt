@@ -26,7 +26,7 @@ project(
     VERSION ${FBIDE_VERSION_NUMERIC}
     DESCRIPTION "An open-source IDE for the FreeBASIC compiler"
     HOMEPAGE_URL "https://github.com/albeva/fbide"
-    LANGUAGES CXX
+    LANGUAGES C CXX
 )
 
 if (MSVC)

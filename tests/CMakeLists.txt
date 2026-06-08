@@ -17,6 +17,7 @@ add_executable(tests
     unit/main.cpp
     unit/AutoIndentTests.cpp
     unit/BasicTests.cpp
+    unit/CodeHighlighterTests.cpp
     unit/CompileCommandTests.cpp
     unit/CompilerConfigCatalogTests.cpp
     unit/ConfigManagerTests.cpp
@@ -27,6 +28,11 @@ add_executable(tests
     unit/FbcAutoDetectTests.cpp
     unit/FBSciLexerTests.cpp
     unit/LineHistoryTests.cpp
+    unit/MarkdownDocumentTests.cpp
+    unit/MarkdownImageCacheTests.cpp
+    unit/MarkdownLayoutTests.cpp
+    unit/MarkdownSelectionTests.cpp
+    unit/MarkdownTests.cpp
     unit/ReFormatterTests.cpp
     unit/StyleLexerTests.cpp
     unit/RunCommandTests.cpp
