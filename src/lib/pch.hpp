@@ -39,6 +39,10 @@
 #include <wx/clipbrd.h>
 #include <wx/colordlg.h>
 #include <wx/convauto.h>
+#include <wx/dataobj.h>
+#include <wx/dcbuffer.h>
+#include <wx/dcgraph.h>
+#include <wx/dcmemory.h>
 #include <wx/dir.h>
 #include <wx/fdrepdlg.h>
 #include <wx/file.h>
@@ -46,6 +50,7 @@
 #include <wx/filehistory.h>
 #include <wx/filename.h>
 #include <wx/fontenum.h>
+#include <wx/graphics.h>
 #include <wx/hyperlink.h>
 #include <wx/imaglist.h>
 #include <wx/ipc.h>
@@ -53,6 +58,7 @@
 #include <wx/log.h>
 #include <wx/notebook.h>
 #include <wx/process.h>
+#include <wx/scrolwin.h>
 #include <wx/snglinst.h>
 #include <wx/spinctrl.h>
 #include <wx/splash.h>
@@ -66,6 +72,7 @@
 #include <wx/tokenzr.h>
 #include <wx/treectrl.h>
 #include <wx/txtstrm.h>
+#include <wx/webrequest.h>
 #include <wx/wfstream.h>
 #include <wx/wupdlock.h>
 

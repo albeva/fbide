@@ -26,7 +26,7 @@ project(
     VERSION ${FBIDE_VERSION_NUMERIC}
     DESCRIPTION "An open-source IDE for the FreeBASIC compiler"
     HOMEPAGE_URL "https://github.com/albeva/fbide"
-    LANGUAGES CXX
+    LANGUAGES C CXX
 )
 
 # macOS needs Objective-C++ for the Foundation-backed move-to-trash helper.

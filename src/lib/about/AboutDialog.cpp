@@ -10,7 +10,8 @@
 #include "config/ConfigManager.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/DocumentPath.hpp"
-#include "ui/controls/BBCodeText.hpp"
+#include "markdown/CodeHighlighter.hpp"
+#include "markdown/MarkdownView.hpp"
 #include "workspace/WorkspaceManager.hpp"
 namespace XPM {
 #include "rc/fbide.xpm"
@@ -24,6 +25,8 @@ AboutDialog::AboutDialog(wxWindow* parent, Context& ctx)
       wxDEFAULT_DIALOG_STYLE
   )
 , m_ctx(ctx) {}
+
+AboutDialog::~AboutDialog() = default;
 
 void AboutDialog::create() {
     const auto infoFont = wxFont(wxFontInfo(9).Family(wxFONTFAMILY_TELETYPE));
@@ -51,11 +54,22 @@ void AboutDialog::create() {
 
         separator();
 
-        const auto text = make_unowned<BBCodeText>(
-            currentParent(), wxID_ANY, loadReadme(),
-            wxDefaultPosition, wxSize(-1, 200)
+        // Render the readme as Markdown. FreeBASIC fences are syntax-coloured
+        // via CodeHighlighter; other languages fall back to plain monospace.
+        m_highlighter = std::make_unique<markdown::CodeHighlighter>(m_ctx);
+        const auto view = make_unowned<markdown::MarkdownView>(currentParent());
+        view->SetMinSize(wxSize(-1, 240));
+        const auto* highlighter = m_highlighter.get();
+        view->setHighlighter(
+            [highlighter](const wxString& code, const wxString& lang) {
+                return markdown::isFreeBasicTag(lang)
+                         ? highlighter->highlight(code, false)
+                         : markdown::plainCodeLines(code);
+            }
         );
-        add(text, { .proportion = 1 });
+        view->refreshTheme();
+        view->setMarkdown(loadReadme());
+        add(view, { .proportion = 1 });
     });
 
     // Licence links — click to open the file in the editor and close
@@ -85,24 +99,11 @@ void AboutDialog::create() {
 }
 
 auto AboutDialog::loadReadme() const -> wxString {
-    const auto readmePath = toWxString(m_ctx.getConfigManager().absolute("readme.txt"));
+    const auto readmePath = toWxString(m_ctx.getConfigManager().absolute("readme.md"));
     wxString content;
     wxFile file(readmePath);
-    if (!file.IsOpened()) {
-        return {};
+    if (file.IsOpened()) {
+        file.ReadAll(&content);
     }
-    file.ReadAll(&content);
-
-    wxString bbcode;
-    wxStringTokenizer lines(content, "\n", wxTOKEN_RET_EMPTY);
-    while (lines.HasMoreTokens()) {
-        auto line = lines.GetNextToken();
-        line.Trim();
-        if (!line.empty() && line.Last() == ':') {
-            bbcode += "[bold]" + line + "[/bold]\n";
-        } else {
-            bbcode += line + "\n";
-        }
-    }
-    return bbcode;
+    return content;
 }

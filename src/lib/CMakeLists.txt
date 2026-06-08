@@ -54,6 +54,14 @@ target_sources(fbide_lib
     format/transformers/reformat/Renderer.cpp
     format/transformers/reformat/TreeBuilder.cpp
     help/HelpManager.cpp
+    markdown/CodeFence.cpp
+    markdown/CodeHighlighter.cpp
+    markdown/Markdown.cpp
+    markdown/MarkdownDocument.cpp
+    markdown/MarkdownImageCache.cpp
+    markdown/MarkdownLayout.cpp
+    markdown/MarkdownRenderer.cpp
+    markdown/MarkdownView.cpp
     settings/SettingsDialog.cpp
     settings/panels/CompilerPage.cpp
     settings/panels/GeneralPage.cpp
@@ -69,7 +77,6 @@ target_sources(fbide_lib
     ui/OutputConsole.cpp
     ui/StatusBarHandler.cpp
     ui/UIManager.cpp
-    ui/controls/BBCodeText.cpp
     ui/controls/ColorPicker.cpp
     ui/controls/InheritableField.cpp
     ui/controls/Panel.cpp
@@ -145,6 +152,14 @@ target_sources(fbide_lib
     format/transformers/reformat/Renderer.hpp
     format/transformers/reformat/TreeBuilder.hpp
     help/HelpManager.hpp
+    markdown/CodeFence.hpp
+    markdown/CodeHighlighter.hpp
+    markdown/Markdown.hpp
+    markdown/MarkdownDocument.hpp
+    markdown/MarkdownImageCache.hpp
+    markdown/MarkdownLayout.hpp
+    markdown/MarkdownRenderer.hpp
+    markdown/MarkdownView.hpp
     settings/SettingsDialog.hpp
     settings/panels/CompilerPage.hpp
     settings/panels/GeneralPage.hpp
@@ -162,7 +177,6 @@ target_sources(fbide_lib
     ui/StatusBarHandler.hpp
     ui/UIManager.hpp
     ui/UIState.hpp
-    ui/controls/BBCodeText.hpp
     ui/controls/ColorPicker.hpp
     ui/controls/InheritableField.hpp
     ui/controls/Layout.hpp
@@ -200,6 +214,9 @@ linkWxWidgets(fbide_lib)
 target_include_directories(fbide_lib SYSTEM PRIVATE
     "${nlohmann_json_SOURCE_DIR}/include"
 )
+
+# md4c Markdown parser (static lib; propagates its SYSTEM include dir).
+target_link_libraries(fbide_lib PRIVATE md4c)
 
 # Scintilla/Lexilla for custom lexer
 if (TARGET lexilla_lexlib)
