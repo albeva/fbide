@@ -441,7 +441,7 @@ struct LayoutEngine {
     }
 
     /// Build the bullet / number / checkbox run that prefixes a list item.
-    auto makeMarker(const MdBlock& block, const int contentLeft) const -> PaintRun {
+    auto makeMarker(const MdListItem& block, const int contentLeft) const -> PaintRun {
         wxString text;
         if (block.isTask) {
             // BMP glyphs — render without needing an emoji font.
@@ -695,7 +695,7 @@ struct LayoutEngine {
 
     /// Emit a fenced code block: a padded background strip carrying the
     /// highlighted code, soft-wrapped to the available width.
-    void emitCode(const MdBlock& block) {
+    void emitCode(const MdCodeFence& block) {
         // Collapsed shape — defer to the summary strip emitter when the
         // host (typically the chat view) requests it for this block.
         if (m_isCollapsed
@@ -807,7 +807,7 @@ struct LayoutEngine {
     /// the verbatim SEARCH (red) then REPLACE (green) lines. Soft-wrap
     /// reuses `emitCodeLine` with PatchSearch / PatchReplace kinds; the
     /// painter draws the tint band on the line background.
-    void emitPatch(const MdBlock& block) {
+    void emitPatch(const MdPatch& block) {
         // Collapsed shape — `lang` is empty for patches (they have no
         // fence tag); the wide-form summary uses `patchTarget` instead.
         if (m_isCollapsed
@@ -1009,7 +1009,7 @@ struct LayoutEngine {
     ///   4. Row height = max cell line count * line height. Emit one
     ///      PaintLine per visual line of the row, merging runs from
     ///      every cell into a single line with `tableColumns` set.
-    void emitTable(const MdBlock& block) {
+    void emitTable(const MdTable& block) {
         blockGap();
         if (block.rows.empty() || block.rows.front().cells.empty()) {
             return;
@@ -1133,11 +1133,13 @@ struct LayoutEngine {
 
     /// Lay out every block in document order.
     void run() {
-        for (const auto& block : m_doc.blocks) {
+        for (const auto& blockPtr : m_doc.blocks) {
+            const MdBlockBase& block = *blockPtr;
             switch (block.kind) {
-            case MdBlockKind::Paragraph:
+            case MdBlockKind::Paragraph: {
+                const auto& para = block.as<MdParagraph>();
                 blockGap();
-                flattenInto(m_flatten, block.inlines, 0, false);
+                flattenInto(m_flatten, para.inlines, 0, false);
                 emitWrapped(
                     m_flatten,
                     block.quoteDepth * kQuoteIndent,
@@ -1145,9 +1147,11 @@ struct LayoutEngine {
                     block.quoteDepth
                 );
                 break;
-            case MdBlockKind::Heading:
+            }
+            case MdBlockKind::Heading: {
+                const auto& heading = block.as<MdHeading>();
                 blockGap();
-                flattenInto(m_flatten, block.inlines, headingSizeDelta(block.headingLevel), true);
+                flattenInto(m_flatten, heading.inlines, headingSizeDelta(heading.headingLevel), true);
                 emitWrapped(
                     m_flatten,
                     block.quoteDepth * kQuoteIndent,
@@ -1155,28 +1159,30 @@ struct LayoutEngine {
                     block.quoteDepth
                 );
                 break;
+            }
             case MdBlockKind::ListItem: {
+                const auto& item = block.as<MdListItem>();
                 blockGap();
-                const int left = block.quoteDepth * kQuoteIndent + block.listDepth * kListIndent;
+                const int left = block.quoteDepth * kQuoteIndent + item.listDepth * kListIndent;
                 std::optional<PaintRun> marker;
-                if (block.listMarker) {
-                    marker = makeMarker(block, left);
+                if (item.listMarker) {
+                    marker = makeMarker(item, left);
                 }
-                flattenInto(m_flatten, block.inlines, 0, false);
+                flattenInto(m_flatten, item.inlines, 0, false);
                 emitWrapped(m_flatten, left, marker, block.quoteDepth);
                 break;
             }
             case MdBlockKind::CodeFence:
-                emitCode(block);
+                emitCode(block.as<MdCodeFence>());
                 break;
             case MdBlockKind::Rule:
                 emitRule(block.quoteDepth);
                 break;
             case MdBlockKind::Table:
-                emitTable(block);
+                emitTable(block.as<MdTable>());
                 break;
             case MdBlockKind::Patch:
-                emitPatch(block);
+                emitPatch(block.as<MdPatch>());
                 break;
             }
         }
