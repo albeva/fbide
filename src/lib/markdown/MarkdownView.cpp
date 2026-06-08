@@ -6,7 +6,6 @@
 //
 #include "markdown/MarkdownView.hpp"
 using namespace fbide;
-using namespace fbide::ai;
 using namespace fbide::markdown;
 
 // NOLINTNEXTLINE(cert-err58-cpp, bugprone-throwing-static-initialization)
@@ -62,30 +61,7 @@ auto blend(const wxColour& from, const wxColour& to, const double factor) -> wxC
 /// Hosts that want language-aware highlighting inject one via
 /// `MarkdownView::setHighlighter`.
 auto defaultHighlight(const wxString& code, const wxString& /*lang*/) -> std::vector<CodeLine> {
-    const wxColour fg = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
-    std::vector<CodeLine> lines;
-    CodeLine current;
-    wxString segment;
-    for (const wxUniChar ch : code) {
-        if (ch == '\n') {
-            if (!segment.empty()) {
-                current.push_back({ .text = segment, .colour = fg });
-            }
-            lines.push_back(std::move(current));
-            current = {};
-            segment.clear();
-        } else {
-            segment += ch;
-        }
-    }
-    if (!segment.empty()) {
-        current.push_back({ .text = segment, .colour = fg });
-    }
-    lines.push_back(std::move(current));
-    if (lines.size() > 1 && lines.back().empty()) {
-        lines.pop_back();
-    }
-    return lines;
+    return plainCodeLines(code);
 }
 
 /// Pick a graphics renderer. Same Direct2D-on-Windows preference as the

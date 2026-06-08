@@ -19,11 +19,13 @@ class wxGCDC;
 
 namespace fbide {
 class Context;
+namespace markdown {
+    class CodeHighlighter;
+}
 } // namespace fbide
 
 namespace fbide::ai {
 class AiManager;
-class CodeHighlighter;
 
 /// One conversation message handed to the chat view.
 struct ChatViewMessage {
@@ -260,7 +262,7 @@ private:
     /// else as plain default-coloured lines. `reformat` re-indents/reformats
     /// FreeBASIC code (used for model replies, not the user's own).
     [[nodiscard]] auto highlightFence(const wxString& code, const wxString& lang, bool reformat) const
-        -> std::vector<CodeLine>;
+        -> std::vector<markdown::CodeLine>;
 
     /// Resolve `m_bodyFont` / `m_monoFont` / `m_themedFont` from the
     /// platform default + the optional `[ai] fontSize` config override.
@@ -275,7 +277,7 @@ private:
 
     Context& m_ctx;                                             ///< Application context.
     AiManager& m_manager;                                       ///< Owning chat tab's AI manager.
-    std::unique_ptr<CodeHighlighter> m_highlighter;             ///< FreeBASIC code highlighter.
+    std::unique_ptr<markdown::CodeHighlighter> m_highlighter;   ///< FreeBASIC code highlighter.
     std::unique_ptr<markdown::MarkdownImageCache> m_imageCache; ///< Inline-image download cache.
     Unowned<CodeActionBar> m_actionBar;                         ///< Floating per-code-block toolbar.
     wxBitmap m_buffer;                                          ///< Off-screen paint buffer, reused across paints.

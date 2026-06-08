@@ -6,7 +6,6 @@
 //
 #include "AiChatView.hpp"
 #include "CodeActionBar.hpp"
-#include "CodeHighlighter.hpp"
 #include "ai/AiManager.hpp"
 #include "app/Context.hpp"
 #include "compiler/CompilerManager.hpp"
@@ -16,6 +15,7 @@
 #include "document/DocumentManager.hpp"
 #include "document/DocumentType.hpp"
 #include "editor/Editor.hpp"
+#include "markdown/CodeHighlighter.hpp"
 #include "markdown/Markdown.hpp"
 #include "markdown/MarkdownLayout.hpp"
 #include "ui/UIManager.hpp"
@@ -61,15 +61,6 @@ constexpr int kBubbleRadius = 10;
 constexpr double kBubbleMaxFraction = 0.95;
 // Smallest content width a bubble shrinks to.
 constexpr int kMinBubbleContent = 60;
-/// True when `lang` (a fence tag) denotes FreeBASIC. Requires an explicit
-/// tag — an untagged ```...``` fence is NOT assumed to be FreeBASIC.
-/// Untagged blocks rendered as model output are typically shell commands,
-/// pseudo-code, or generic snippets that the FB lexer would mangle if it
-/// tried to colour them.
-auto isFreeBasicTag(const wxString& lang) -> bool {
-    return lang == "freebasic" || lang == "fb" || lang == "basic" || lang == "bas";
-}
-
 /// True when `url` uses a scheme we are willing to hand to the OS.
 /// `wxLaunchDefaultBrowser` passes the URL to the platform handler,
 /// which would happily honour `file://`, `vbscript:`, etc. for a model
@@ -125,7 +116,7 @@ AiChatView::AiChatView(wxWindow* parent, Context& ctx, AiManager& manager)
 
     resolveFonts();
     rebuildBubbleBrushes();
-    m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
+    m_highlighter = std::make_unique<markdown::CodeHighlighter>(m_ctx);
     m_imageCache = std::make_unique<MarkdownImageCache>();
     // A finished download invalidates the cached layout (the image now
     // has real dimensions to lay out around). Coalesce multiple
@@ -198,7 +189,7 @@ void AiChatView::setMessages(std::vector<ChatViewMessage> messages) {
 
 void AiChatView::refreshTheme() {
     // Keyword groups may have changed — rebuild the configured lexer.
-    m_highlighter = std::make_unique<CodeHighlighter>(m_ctx);
+    m_highlighter = std::make_unique<markdown::CodeHighlighter>(m_ctx);
     resolveFonts();
     rebuildBubbleBrushes();
     m_layoutWidth = -1;
@@ -318,11 +309,11 @@ void AiChatView::relayout() {
         // we pass the predicate uniformly so a manual toggle works on
         // either side.
         const auto isCollapsed = [this](
-            markdown::LaidScrollBlock::Kind kind,
-            const wxString& lang,
-            const wxString& contentA,
-            const wxString& contentB
-        ) {
+                                     markdown::LaidScrollBlock::Kind kind,
+                                     const wxString& lang,
+                                     const wxString& contentA,
+                                     const wxString& contentB
+                                 ) {
             return isBlockCollapsed(kind, lang, contentA, contentB);
         };
         const auto resolveLang = [this](markdown::LaidScrollBlock::Kind kind, const wxString& lang) {
@@ -678,15 +669,15 @@ auto AiChatView::palette() const -> MarkdownPalette {
 }
 
 auto AiChatView::highlightFence(const wxString& code, const wxString& lang, const bool reformat) const
-    -> std::vector<CodeLine> {
+    -> std::vector<markdown::CodeLine> {
     if (isFreeBasicTag(lang)) {
         return m_highlighter->highlight(code, reformat);
     }
 
     // Non-FreeBASIC fence — render as plain, default-coloured lines.
     const wxColour foreground = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
-    std::vector<CodeLine> lines;
-    CodeLine current;
+    std::vector<markdown::CodeLine> lines;
+    markdown::CodeLine current;
     wxString segment;
     for (const wxUniChar ch : code) {
         if (ch == '\n') {

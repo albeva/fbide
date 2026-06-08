@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "ai/chat/CodeHighlighter.hpp"
+#include "markdown/CodeFence.hpp"
 #include "markdown/Markdown.hpp"
 
 namespace fbide::markdown {
@@ -134,15 +134,15 @@ struct LaidScrollBlock {
     enum class Kind : std::uint8_t { Code,
         Patch };
     Kind kind = Kind::Code;
-    int y = 0;             ///< Top offset within the document (includes padding).
-    int height = 0;        ///< Total height including padding strips.
-    int contentLeft = 0;   ///< Left edge of the text area inside the block (document coords).
-    int contentWidth = 0;  ///< Visible width of the text area — what's not scrolled is clipped to this.
-    int naturalWidth = 0;  ///< Right edge of the widest run minus `contentLeft`. Equals
-                           ///< `contentWidth` when the block was laid out with wrapping
-                           ///< on; larger when wrapping is off and lines overflow.
-    bool wrapped = true;   ///< Layout-mode flag — false when the block was laid out
-                           ///< with horizontal scroll instead of soft wrap.
+    int y = 0;              ///< Top offset within the document (includes padding).
+    int height = 0;         ///< Total height including padding strips.
+    int contentLeft = 0;    ///< Left edge of the text area inside the block (document coords).
+    int contentWidth = 0;   ///< Visible width of the text area — what's not scrolled is clipped to this.
+    int naturalWidth = 0;   ///< Right edge of the widest run minus `contentLeft`. Equals
+                            ///< `contentWidth` when the block was laid out with wrapping
+                            ///< on; larger when wrapping is off and lines overflow.
+    bool wrapped = true;    ///< Layout-mode flag — false when the block was laid out
+                            ///< with horizontal scroll instead of soft wrap.
     bool collapsed = false; ///< True when the block was laid out as a single summary
                             ///< strip; the painter reads `summary*` and ignores the
                             ///< usual content lines. Default false so existing call
@@ -168,13 +168,13 @@ struct LaidScrollBlock {
         int removed = 0;          ///< Code: 0 (no diff baseline). Patch: SEARCH-side line count.
     };
     CollapsedSummary summary; ///< Populated only when `collapsed` is true.
-    wxString codeText;      ///< Code only: verbatim fenced text — kept so callers
-                            ///< can compute stable identity hashes across
-                            ///< re-layouts without re-parsing the markdown source.
-    wxString codeLang;      ///< Code only: lower-cased fence tag (empty when none).
-    wxString patchTarget;   ///< Patch only: optional target path from the SEARCH header.
-    wxString patchSearch;   ///< Patch only: verbatim SEARCH text.
-    wxString patchReplace;  ///< Patch only: verbatim REPLACE text.
+    wxString codeText;        ///< Code only: verbatim fenced text — kept so callers
+                              ///< can compute stable identity hashes across
+                              ///< re-layouts without re-parsing the markdown source.
+    wxString codeLang;        ///< Code only: lower-cased fence tag (empty when none).
+    wxString patchTarget;     ///< Patch only: optional target path from the SEARCH header.
+    wxString patchSearch;     ///< Patch only: verbatim SEARCH text.
+    wxString patchReplace;    ///< Patch only: verbatim REPLACE text.
 };
 
 /// Colours the layout and painter need that are not carried on code runs.
@@ -210,7 +210,7 @@ struct LaidOutDoc {
 /// Highlights a fenced code block — `code` body, `lang` fence tag — into
 /// coloured lines. Injected so the layout stays independent of the lexer.
 using CodeFenceHighlighter
-    = std::function<std::vector<ai::CodeLine>(const wxString& code, const wxString& lang)>;
+    = std::function<std::vector<CodeLine>(const wxString& code, const wxString& lang)>;
 
 /// Image lookup result handed to the layout for an `MdInlineKind::Image`.
 /// `Loading` and `Failed` cause the layout to emit a placeholder prose line;

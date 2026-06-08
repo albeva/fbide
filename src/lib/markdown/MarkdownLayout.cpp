@@ -7,7 +7,6 @@
 #include "markdown/MarkdownLayout.hpp"
 #include <optional>
 using namespace fbide;
-using namespace fbide::ai;
 using namespace fbide::markdown;
 
 namespace {

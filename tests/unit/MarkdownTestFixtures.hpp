@@ -44,9 +44,9 @@ public:
 
 /// Trivial fence highlighter — one black run per code line, '\n'-split,
 /// with the trailing blank line dropped (as the real highlighter does).
-inline auto splitHighlight(const wxString& code, const wxString& /*lang*/) -> std::vector<ai::CodeLine> {
-    std::vector<ai::CodeLine> lines;
-    ai::CodeLine current;
+inline auto splitHighlight(const wxString& code, const wxString& /*lang*/) -> std::vector<markdown::CodeLine> {
+    std::vector<markdown::CodeLine> lines;
+    markdown::CodeLine current;
     wxString segment;
     for (const wxUniChar ch : code) {
         if (ch == '\n') {

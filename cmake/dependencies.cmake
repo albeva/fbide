@@ -3,8 +3,8 @@
 # Config/INI parsing is handled by wxFileConfig — no dependency needed.
 # nlohmann/json is used by the AI provider to build request bodies and parse
 # Anthropic API responses, and to parse the GitHub Releases API response in the
-# update check. md4c parses chat markdown into a document model for the
-# custom-painted AI chat view.
+# update check. md4c parses Markdown into a document model for the
+# custom-painted Markdown view (used by the AI chat and the About dialog).
 
 FetchContent_Declare(
     nlohmann_json

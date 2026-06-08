@@ -5,11 +5,11 @@
 // https://github.com/albeva/fbide
 //
 #include <gtest/gtest.h>
-#include "ai/chat/CodeHighlighter.hpp"
 #include "config/Theme.hpp"
+#include "markdown/CodeHighlighter.hpp"
 
 using namespace fbide;
-using namespace fbide::ai;
+using namespace fbide::markdown;
 using lexer::Token;
 using lexer::TokenKind;
 

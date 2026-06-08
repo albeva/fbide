@@ -4,7 +4,7 @@
 // Licensed under the MIT License. See LICENSE file for details.
 // https://github.com/albeva/fbide
 //
-#include "CodeHighlighter.hpp"
+#include "markdown/CodeHighlighter.hpp"
 #include "analyses/lexer/MemoryDocument.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
 #include "analyses/lexer/StyledSource.hpp"
@@ -16,7 +16,7 @@
 #include "format/transformers/case/CaseTransform.hpp"
 #include "format/transformers/reformat/ReFormatter.hpp"
 using namespace fbide;
-using namespace fbide::ai;
+using namespace fbide::markdown;
 
 namespace {
 
@@ -73,7 +73,7 @@ auto needsStyling(const lexer::TokenKind kind) -> bool {
 
 } // namespace
 
-auto fbide::ai::highlightCode(const std::vector<lexer::Token>& tokens, const Theme& theme, const int tabWidth)
+auto fbide::markdown::highlightCode(const std::vector<lexer::Token>& tokens, const Theme& theme, const int tabWidth)
     -> std::vector<CodeLine> {
     const int tabStop = std::max(1, tabWidth);
     std::vector<CodeLine> lines;
