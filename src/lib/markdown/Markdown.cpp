@@ -731,7 +731,7 @@ auto fbide::markdown::resolveCodeBlockText(const wxString& markdown, const std::
 }
 
 auto fbide::markdown::blockInlines(const MdBlockBase& block) -> const std::vector<MdInline>& {
-    static const std::vector<MdInline> empty;
+    static constexpr std::vector<MdInline> empty;
     switch (block.kind) {
     case MdBlockKind::Paragraph:
         return block.as<MdParagraph>().inlines;

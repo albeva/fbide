@@ -78,13 +78,12 @@ struct MdTableRow {
 /// walks. Each concrete kind carries only its own fields, so a plain paragraph
 /// no longer drags the table / code / patch payload around.
 struct MdBlockBase {
-    MdBlockKind kind;   ///< Discriminant — set by each concrete block's constructor.
-    int quoteDepth = 0; ///< Block-quote nesting (0 = not quoted). Common to every kind.
+    NO_COPY_AND_MOVE(MdBlockBase)
 
     explicit MdBlockBase(const MdBlockKind blockKind)
     : kind(blockKind) {}
+
     virtual ~MdBlockBase() = default;
-    NO_COPY_AND_MOVE(MdBlockBase)
 
     /// Checked downcast to a concrete block type. Debug-asserts the kind
     /// matches; callers dispatch on `kind` first, so the cast is always valid.
@@ -93,44 +92,56 @@ struct MdBlockBase {
         wxASSERT(kind == T::kKind);
         return static_cast<T&>(*this);
     }
+
     template<class T>
     [[nodiscard]] auto as() const -> const T& {
         wxASSERT(kind == T::kKind);
         return static_cast<const T&>(*this);
     }
+
+    MdBlockKind kind;   ///< Discriminant — set by each concrete block's constructor.
+    int quoteDepth = 0; ///< Block-quote nesting (0 = not quoted). Common to every kind.
 };
 
 /// Run of prose.
 struct MdParagraph final : MdBlockBase {
-    static constexpr MdBlockKind kKind = MdBlockKind::Paragraph;
+    static constexpr auto kKind = MdBlockKind::Paragraph;
+
     MdParagraph()
+
     : MdBlockBase(kKind) {}
     std::vector<MdInline> inlines; ///< Paragraph content.
 };
 
 /// `#`..`######` heading — see `headingLevel`.
 struct MdHeading final : MdBlockBase {
-    static constexpr MdBlockKind kKind = MdBlockKind::Heading;
+    static constexpr auto kKind = MdBlockKind::Heading;
+
     MdHeading()
     : MdBlockBase(kKind) {}
+
     std::vector<MdInline> inlines; ///< Heading content.
     std::uint8_t headingLevel = 0; ///< 1-6.
 };
 
 /// Fenced or indented code block.
 struct MdCodeFence final : MdBlockBase {
-    static constexpr MdBlockKind kKind = MdBlockKind::CodeFence;
+    static constexpr auto kKind = MdBlockKind::CodeFence;
+
     MdCodeFence()
     : MdBlockBase(kKind) {}
+
     wxString codeLang; ///< Fence info string, lowercased.
     wxString codeText; ///< Verbatim code, '\n'-separated.
 };
 
 /// One item line of a list — see `list*` fields.
 struct MdListItem final : MdBlockBase {
-    static constexpr MdBlockKind kKind = MdBlockKind::ListItem;
+    static constexpr auto kKind = MdBlockKind::ListItem;
+
     MdListItem()
     : MdBlockBase(kKind) {}
+
     std::vector<MdInline> inlines; ///< Item content.
     int listDepth = 0;             ///< List nesting (1 = top-level list).
     int listOrdinal = 0;           ///< Number for ordered lists.
@@ -142,16 +153,19 @@ struct MdListItem final : MdBlockBase {
 
 /// Horizontal rule (`---`). Carries no content beyond the common fields.
 struct MdRule final : MdBlockBase {
-    static constexpr MdBlockKind kKind = MdBlockKind::Rule;
+    static constexpr auto kKind = MdBlockKind::Rule;
+
     MdRule()
     : MdBlockBase(kKind) {}
 };
 
 /// GFM pipe table — see `rows` / `columnAlignment`.
 struct MdTable final : MdBlockBase {
-    static constexpr MdBlockKind kKind = MdBlockKind::Table;
+    static constexpr auto kKind = MdBlockKind::Table;
+
     MdTable()
     : MdBlockBase(kKind) {}
+
     std::vector<MdTableAlignment> columnAlignment; ///< One entry per column.
     std::vector<MdTableRow> rows;                  ///< Header rows first, then body.
     std::uint32_t headerRowCount = 0;              ///< Leading rows in `rows` that are header (usually 1).
@@ -160,9 +174,11 @@ struct MdTable final : MdBlockBase {
 /// SEARCH/REPLACE proposal — see `patch*` fields. Only produced for a
 /// fully-closed block; partial blocks mid-stream are silently consumed.
 struct MdPatch final : MdBlockBase {
-    static constexpr MdBlockKind kKind = MdBlockKind::Patch;
+    static constexpr auto kKind = MdBlockKind::Patch;
+
     MdPatch()
     : MdBlockBase(kKind) {}
+
     wxString patchTarget;  ///< Optional target path from the `<<<<<<< SEARCH` header.
     wxString patchSearch;  ///< Verbatim SEARCH text.
     wxString patchReplace; ///< Verbatim REPLACE text.
