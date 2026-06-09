@@ -17,11 +17,11 @@ on:
     branches: [main]
     paths:
       - 'src/**'
-      - 'resources/pristine/**'
+      - 'resources/ide/**'
       - 'cmake/**'
       - 'CMakeLists.txt'
       - 'configured_files/**'
-      - 'packaging/**'
+      - 'resources/packaging/**'
       - '.github/workflows/ci.yml'
       - '.github/actions/setup-wx/**'
   # Manual trigger lets the workflow run on any branch and pick a build
@@ -377,17 +377,17 @@ jobs:
           # what AppImage tooling expects at the AppDir root.
           cp "${APPDIR}/usr/share/icons/hicolor/256x256/apps/fbide.png" "${APPDIR}/fbide.png"
 
-          install -Dm644 packaging/linux/fbide.desktop \
+          install -Dm644 resources/packaging/linux/fbide.desktop \
             "${APPDIR}/usr/share/applications/fbide.desktop"
-          cp packaging/linux/fbide.desktop "${APPDIR}/fbide.desktop"
+          cp resources/packaging/linux/fbide.desktop "${APPDIR}/fbide.desktop"
 
           # AppStream MetaInfo. The component id (reverse-DNS) doubles as
           # the file's basename — software centres key off the path, so
           # the leaf must match the <id> inside the XML.
-          install -Dm644 packaging/linux/fbide.metainfo.xml \
+          install -Dm644 resources/packaging/linux/fbide.metainfo.xml \
             "${APPDIR}/usr/share/metainfo/io.github.albeva.fbide.metainfo.xml"
 
-          install -Dm755 packaging/linux/AppRun "${APPDIR}/AppRun"
+          install -Dm755 resources/packaging/linux/AppRun "${APPDIR}/AppRun"
 
       - name: Download linuxdeploy
         run: |
@@ -526,7 +526,7 @@ jobs:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           set -eux
-          dmg="$(packaging/macos/build-dmg.sh bin/fbide.app "${VERSION}" "${{ matrix.arch }}" .)"
+          dmg="$(resources/packaging/macos/build-dmg.sh bin/fbide.app "${VERSION}" "${{ matrix.arch }}" .)"
           echo "RELEASE_DMG=$(basename "${dmg}")" >> "$GITHUB_ENV"
 
       - name: Upload release artefact

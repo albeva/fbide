@@ -30,7 +30,7 @@ The SVGs live in resources/svg. Override with --art or the FBIDE_ART_DIR env var
 Inkscape is found on PATH, via INKSCAPE, or at its default Windows install path.
 
 Usage:
-    python scripts/make-doc-icons.py [--art <svg-dir>] [--inkscape <exe>] [--oxipng <exe>]
+    python resources/scripts/make-doc-icons.py [--art <svg-dir>] [--inkscape <exe>] [--oxipng <exe>]
 
 Requires: Inkscape 1.x, Pillow. Optional: oxipng (for optimal size).
 """
@@ -48,7 +48,7 @@ from pathlib import Path
 
 from PIL import Image
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # resources/scripts/ -> repo root
 OUT_DIR = REPO_ROOT / "resources" / "images"  # every generated image lands here
 
 SMALL_SIZES = [16, 24, 32]

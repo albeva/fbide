@@ -34,11 +34,11 @@ elseif (APPLE)
     )
     target_sources(fbide PRIVATE ${FBIDE_MACOS_ICON})
 
-    # copy resources/pristine to the Bundle
-    file(GLOB_RECURSE IDE_RESOURCES ${PROJECT_SOURCE_DIR}/resources/pristine/*)
+    # copy resources/ide to the Bundle
+    file(GLOB_RECURSE IDE_RESOURCES ${PROJECT_SOURCE_DIR}/resources/ide/*)
     foreach (FILE ${IDE_RESOURCES})
         file(RELATIVE_PATH REL_PATH
-            ${PROJECT_SOURCE_DIR}/resources/pristine
+            ${PROJECT_SOURCE_DIR}/resources/ide
             ${FILE}
         )
         get_filename_component(REL_DIR ${REL_PATH} DIRECTORY)

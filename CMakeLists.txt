@@ -88,7 +88,7 @@ endif ()
 #   <prefix>/
 #     fbide(.exe)
 #     ide/
-#       config_*.ini, themes/, locales/, ...   (verbatim from resources/pristine)
+#       config_*.ini, themes/, locales/, ...   (verbatim from resources/ide)
 #
 # `-DBUILD_APPIMAGE=ON` switches to FHS for AppDir staging:
 #   <prefix>/
@@ -101,8 +101,8 @@ endif ()
 # ----------------------------------------------------------------------------
 if (BUILD_APPIMAGE)
     install(TARGETS fbide RUNTIME DESTINATION bin)
-    install(DIRECTORY resources/pristine/ DESTINATION share/fbide/ide)
+    install(DIRECTORY resources/ide/ DESTINATION share/fbide/ide)
 elseif (NOT APPLE)
     install(TARGETS fbide RUNTIME DESTINATION .)
-    install(DIRECTORY resources/pristine/ DESTINATION ide)
+    install(DIRECTORY resources/ide/ DESTINATION ide)
 endif()

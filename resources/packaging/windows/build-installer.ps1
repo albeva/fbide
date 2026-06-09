@@ -5,7 +5,7 @@
 .DESCRIPTION
     Stages the install payload (fbide.exe + ide/) via `cmake --install`,
     resolves the version from CMakeLists (the FBIDE_VERSION_ONLY fast path,
-    same as CI), and compiles packaging/windows/fbide.iss with ISCC.
+    same as CI), and compiles resources/packaging/windows/fbide.iss with ISCC.
 
     fbide must already be built in -BuildDir. Output:
         <OutputDir>/fbide-<version>-win{64,32}-setup.exe
@@ -27,10 +27,10 @@
     Path to ISCC.exe. Default: autodetect (Inno Setup 6 install dir, then PATH).
 
 .EXAMPLE
-    packaging\windows\build-installer.ps1
+    resources\packaging\windows\build-installer.ps1
 
 .EXAMPLE
-    packaging\windows\build-installer.ps1 -BuildDir build\claude\msvc\debug -Arch x64
+    resources\packaging\windows\build-installer.ps1 -BuildDir build\claude\msvc\debug -Arch x64
 #>
 [CmdletBinding()]
 param(
@@ -44,8 +44,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Repo root = two levels up from this script (packaging/windows/).
-$root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+# Repo root = three levels up from this script (resources/packaging/windows/).
+$root = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $iss = Join-Path $PSScriptRoot 'fbide.iss'
 
 # Resolve the build directory to an absolute path.

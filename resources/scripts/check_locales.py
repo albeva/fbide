@@ -6,10 +6,10 @@ has. Keys are identified by their section + name (e.g. "[dialogs/log] title"),
 so the same name under two sections counts as two distinct keys.
 
 Usage:
-    python scripts/check_locales.py                # check every locale
-    python scripts/check_locales.py fr de          # check only fr, de
-    python scripts/check_locales.py --extra        # also report extra keys
-    python scripts/check_locales.py --dir path/to/locales
+    python resources/scripts/check_locales.py                # check every locale
+    python resources/scripts/check_locales.py fr de          # check only fr, de
+    python resources/scripts/check_locales.py --extra        # also report extra keys
+    python resources/scripts/check_locales.py --dir path/to/locales
 
 Exit code is non-zero when any checked locale is missing keys, so this can
 gate CI.
@@ -20,7 +20,7 @@ import argparse
 import sys
 from pathlib import Path
 
-DEFAULT_DIR = Path(__file__).resolve().parent.parent / "resources" / "pristine" / "locales"
+DEFAULT_DIR = Path(__file__).resolve().parent.parent / "ide" / "locales"
 REFERENCE = "en"
 
 
