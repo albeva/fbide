@@ -23,7 +23,7 @@
 #include "utilities/FileDropTarget.hpp"
 #ifndef __WXMSW__
 namespace XPM {
-#include "rc/appicon.xpm"
+#include "appicon.xpm"
 }
 #endif
 using namespace fbide;
@@ -100,7 +100,15 @@ void UIManager::saveWindowGeometry() {
 
 void UIManager::createMainFrame() {
     m_frame = make_unowned<wxFrame>(nullptr, wxID_ANY, appName);
-#ifndef __WXMSW__
+#ifdef __WXMSW__
+    // Windows: build a multi-size bundle from the "appicon" .ico embedded by
+    // app.rc so the title bar (16px) and taskbar (32px) each get a crisp frame.
+    wxIconBundle icons;
+    for (const int size : { 16, 24, 32, 48, 256 }) {
+        icons.AddIcon(wxIcon("appicon", wxBITMAP_TYPE_ICO_RESOURCE, size, size));
+    }
+    m_frame->SetIcons(icons);
+#else
     m_frame->SetIcon(wxICON(XPM::appicon));
 #endif
     m_frame->PushEventHandler(this);

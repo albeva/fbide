@@ -206,4 +206,8 @@ endif ()
 
 # precompile header
 target_include_directories(fbide_lib PUBLIC "${CMAKE_BINARY_DIR}/configured_files/include")
+# Generated image assets (resources/scripts/make-doc-icons.py): the #include'd
+# appicon.xpm, plus app.rc's fbide.ico. PUBLIC so consumers (the fbide exe's RC,
+# tests) get it too.
+target_include_directories(fbide_lib PUBLIC "${PROJECT_SOURCE_DIR}/resources/images")
 target_precompile_headers(fbide_lib PUBLIC pch.hpp)

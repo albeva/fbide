@@ -7,7 +7,7 @@ centers it on a transparent square canvas, losslessly optimizes the PNGs with
 oxipng, then packs the .ico straight from the optimized PNG frames. The installer
 side image is rendered aspect-preserved (it is a tall wizard banner, not square).
 
-Layout under resources/images/ (nothing else is touched). Each multi-size icon
+Layout under resources/images/ (everything lands here). Each multi-size icon
 keeps its packed .ico in the root and its per-size PNGs in a subfolder named
 after it; standalone images sit in the root:
   - <icon>.ico                  packed icon, root  (file-bas, file-bi, file-fbp,
@@ -16,6 +16,7 @@ after it; standalone images sit in the root:
   - installer.ico               setup.exe icon (SetupIconFile); no png set
   - installer-side.png          wizard side image (WizardImageFile), standalone
   - splash.png                  startup splash (shown at native size), standalone
+  - appicon.xpm                 Linux/wx window icon (#include'd C-array image)
 
 Sizes: square icons carry 16/24/32/48/64/256 .ico frames; 128/512/1024 are
 emitted as PNGs only (a Windows .ico tops out at 256) to cover the macOS .icns
@@ -38,6 +39,7 @@ Requires: Inkscape 1.x, Pillow. Optional: oxipng (for optimal size).
 from __future__ import annotations
 
 import argparse
+import itertools
 import os
 import shutil
 import struct
@@ -50,6 +52,13 @@ from PIL import Image
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent  # resources/scripts/ -> repo root
 OUT_DIR = REPO_ROOT / "resources" / "images"  # every generated image lands here
+
+# Printable chars for XPM pixel keys (excludes '"' and '\'); first is the
+# transparent key.
+_XPM_CHARS = (" .+@#$%&*=-;:>,<1234567890"
+              "abcdefghijklmnopqrstuvwxyz"
+              "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+              "^~/()[]{}|!")
 
 SMALL_SIZES = [16, 24, 32]
 LARGE_SIZES = [48, 64, 256]
@@ -168,6 +177,60 @@ def banner_png(
     img.save(dst, format="PNG", optimize=True, compress_level=9)
 
 
+def write_xpm(png: Path, var: str, dst: Path, max_colors: int = 48) -> None:
+    """Emit an XPM C array (`static const char* const <var>[]`) from a PNG.
+    Alpha is 1-bit (>= 128 opaque, else the transparent 'None' colour, since XPM
+    has no partial transparency); the opaque pixels are quantized to at most
+    max_colors so the palette stays small and 1 char/pixel."""
+    with Image.open(png) as src:
+        img = src.convert("RGBA")
+    width, height = img.size
+    mask = img.getchannel("A").point(lambda v: 255 if v >= 128 else 0)
+    # Quantize the opaque pixels over a white backing so the (ignored)
+    # transparent regions don't pull colours into the palette.
+    backed = Image.new("RGB", img.size, (255, 255, 255))
+    backed.paste(img.convert("RGB"), mask=mask)
+    quant = backed.quantize(colors=max_colors, dither=Image.Dither.NONE)
+    pal = quant.getpalette()
+    qpx, mpx = quant.load(), mask.load()
+    grid, colors = [], {}
+    for y in range(height):
+        row = []
+        for x in range(width):
+            if mpx[x, y] == 0:
+                row.append(None)
+            else:
+                idx = qpx[x, y]
+                cell = (pal[idx * 3], pal[idx * 3 + 1], pal[idx * 3 + 2])
+                colors.setdefault(cell, None)
+                row.append(cell)
+        grid.append(row)
+
+    palette = list(colors)
+    ncolors = len(palette) + 1  # + the transparent entry
+    if ncolors <= len(_XPM_CHARS):
+        cpp, keys = 1, list(_XPM_CHARS)
+    else:
+        cpp = 2
+        keys = ["".join(p) for p in itertools.product(_XPM_CHARS, repeat=2)]
+
+    key_of = {None: keys[0]}
+    defs = [f'"{keys[0]} c None"']
+    for i, color in enumerate(palette):
+        key_of[color] = keys[i + 1]
+        defs.append(f'"{keys[i + 1]} c #{color[0]:02X}{color[1]:02X}{color[2]:02X}"')
+    rows = ['"' + "".join(key_of[c] for c in row) + '"' for row in grid]
+
+    body = ",\n".join([f'"{width} {height} {ncolors} {cpp}"', *defs, *rows])
+    dst.write_text(
+        "/* XPM */\n"
+        f"static const char* const {var}[] = {{\n"
+        "/* columns rows colors chars-per-pixel */\n"
+        f"{body}\n}};\n",
+        encoding="ascii",
+    )
+
+
 def flat_png(inkscape: str, svg: Path, group: str, height: int, tmp: Path, dst: Path) -> None:
     """Render a group at `height` px, native aspect, no crop. For full-bleed art."""
     raw = tmp / f"{dst.stem}-raw.png"
@@ -275,6 +338,11 @@ def main() -> int:
             if size in ICO_SIZES:
                 frames.append((size, dst))
         ico_jobs.append((frames, [OUT_DIR / "fbide.ico"], "fbide"))
+
+        # Linux/wx window icon: appicon.xpm from the app icon at 32px.
+        xpm_png = tmp / "appicon-32.png"
+        square_png(inkscape, app_svg, APP_GROUP, 32, tmp, xpm_png)
+        write_xpm(xpm_png, "appicon_xpm", OUT_DIR / "appicon.xpm")
 
         # Installer (setup.exe) icon -> resources/images/installer.ico only. Frames
         # stay in tmp; no .png set is published for it.

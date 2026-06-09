@@ -366,11 +366,9 @@ jobs:
           rm -rf "${APPDIR}"
           cmake --install build/ci --prefix "${APPDIR}/usr"
 
-          # Convert the Windows .ico to PNG for the desktop icon. Pick the
-          # largest frame the .ico contains so HiDPI scaling has source
-          # data; ImageMagick chooses by area.
+          # Desktop icon: the pre-rendered 256px app PNG (resources/images).
           mkdir -p "${APPDIR}/usr/share/icons/hicolor/256x256/apps"
-          convert "src/lib/rc/fbide.ico[0]" -resize 256x256 \
+          cp resources/images/fbide/256.png \
             "${APPDIR}/usr/share/icons/hicolor/256x256/apps/fbide.png"
 
           # Top-level icon + .desktop are what AppRun grep's against and
