@@ -6,6 +6,7 @@
 //
 #include "App.hpp"
 #include "Context.hpp"
+#include "FileAssociations.hpp"
 #include "InstanceHandler.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
 #include "compiler/CompilerManager.hpp"
@@ -304,6 +305,11 @@ auto App::OnInit() -> bool {
 #endif
 
     m_context->getUIManager().createMainFrame();
+#ifdef __WXMSW__
+    // Register per-user associations so .bas/.bi/.fbs show FBIde's icons and
+    // open with FBIde (respects an explicit user default-app choice).
+    FileAssociations::ensureRegistered();
+#endif
     openFiles(cli.files);
     if (!cli.loadSession.IsEmpty()) {
         const auto isTemp = isInsideTempDir(cli.loadSession);

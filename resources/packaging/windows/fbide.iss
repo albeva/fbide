@@ -107,11 +107,11 @@ Root: HKA; Subkey: "Software\Classes\.bi"; ValueType: string; ValueName: ""; Val
 Root: HKA; Subkey: "Software\Classes\FBIde.SourceFile"; ValueType: string; ValueName: ""; ValueData: "FreeBASIC Source File"; Flags: uninsdeletekey; Tasks: assocbas
 Root: HKA; Subkey: "Software\Classes\FBIde.SourceFile\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\fbide.exe,0"; Tasks: assocbas
 Root: HKA; Subkey: "Software\Classes\FBIde.SourceFile\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\fbide.exe"" ""%1"""; Tasks: assocbas
-; FBIde session files (.fbs) -> restored via --load-session, not opened as text.
+; FBIde session files (.fbs) -> opened like any document.
 Root: HKA; Subkey: "Software\Classes\.fbs"; ValueType: string; ValueName: ""; ValueData: "FBIde.SessionFile"; Flags: uninsdeletevalue; Tasks: assocfbs
 Root: HKA; Subkey: "Software\Classes\FBIde.SessionFile"; ValueType: string; ValueName: ""; ValueData: "FBIde Session"; Flags: uninsdeletekey; Tasks: assocfbs
 Root: HKA; Subkey: "Software\Classes\FBIde.SessionFile\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\fbide.exe,0"; Tasks: assocfbs
-Root: HKA; Subkey: "Software\Classes\FBIde.SessionFile\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\fbide.exe"" --load-session ""%1"""; Tasks: assocfbs
+Root: HKA; Subkey: "Software\Classes\FBIde.SessionFile\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\fbide.exe"" ""%1"""; Tasks: assocfbs
 
 [Run]
 Filename: "{app}\fbide.exe"; Description: "{cm:LaunchProgram,FBIde}"; Flags: nowait postinstall skipifsilent

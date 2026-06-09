@@ -12,6 +12,7 @@ target_sources(fbide_lib
     analyses/symbols/SymbolTable.cpp
     app/App.cpp
     app/Context.cpp
+    app/FileAssociations.cpp
     app/InstanceHandler.cpp
     command/CommandEntry.cpp
     command/CommandManager.cpp
