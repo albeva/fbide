@@ -101,17 +101,24 @@ Name: "{group}\{cm:UninstallProgram,FBIde}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\FBIde"; Filename: "{app}\fbide.exe"; Tasks: desktopicon
 
 [Registry]
-; FreeBASIC source files (.bas, .bi) -> open in FBIde as documents.
-Root: HKA; Subkey: "Software\Classes\.bas"; ValueType: string; ValueName: ""; ValueData: "FBIde.SourceFile"; Flags: uninsdeletevalue; Tasks: assocbas
-Root: HKA; Subkey: "Software\Classes\.bi"; ValueType: string; ValueName: ""; ValueData: "FBIde.SourceFile"; Flags: uninsdeletevalue; Tasks: assocbas
-Root: HKA; Subkey: "Software\Classes\FBIde.SourceFile"; ValueType: string; ValueName: ""; ValueData: "FreeBASIC Source File"; Flags: uninsdeletekey; Tasks: assocbas
-Root: HKA; Subkey: "Software\Classes\FBIde.SourceFile\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\fbide.exe,0"; Tasks: assocbas
-Root: HKA; Subkey: "Software\Classes\FBIde.SourceFile\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\fbide.exe"" ""%1"""; Tasks: assocbas
-; FBIde session files (.fbs) -> opened like any document.
-Root: HKA; Subkey: "Software\Classes\.fbs"; ValueType: string; ValueName: ""; ValueData: "FBIde.SessionFile"; Flags: uninsdeletevalue; Tasks: assocfbs
-Root: HKA; Subkey: "Software\Classes\FBIde.SessionFile"; ValueType: string; ValueName: ""; ValueData: "FBIde Session"; Flags: uninsdeletekey; Tasks: assocfbs
-Root: HKA; Subkey: "Software\Classes\FBIde.SessionFile\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\fbide.exe,0"; Tasks: assocfbs
-Root: HKA; Subkey: "Software\Classes\FBIde.SessionFile\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\fbide.exe"" ""%1"""; Tasks: assocfbs
+; Per-type ProgIDs matching the runtime registration (FileAssociations.cpp).
+; The icons are the document icons embedded in fbide.exe (app.rc): index 1 = bas,
+; 2 = bi, 3 = fbs (0 is the app icon).
+; FreeBASIC source (.bas)
+Root: HKA; Subkey: "Software\Classes\.bas"; ValueType: string; ValueName: ""; ValueData: "FBIde.bas"; Flags: uninsdeletevalue; Tasks: assocbas
+Root: HKA; Subkey: "Software\Classes\FBIde.bas"; ValueType: string; ValueName: ""; ValueData: "FreeBASIC Source File"; Flags: uninsdeletekey; Tasks: assocbas
+Root: HKA; Subkey: "Software\Classes\FBIde.bas\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\fbide.exe,1"; Tasks: assocbas
+Root: HKA; Subkey: "Software\Classes\FBIde.bas\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\fbide.exe"" ""%1"""; Tasks: assocbas
+; FreeBASIC header (.bi)
+Root: HKA; Subkey: "Software\Classes\.bi"; ValueType: string; ValueName: ""; ValueData: "FBIde.bi"; Flags: uninsdeletevalue; Tasks: assocbas
+Root: HKA; Subkey: "Software\Classes\FBIde.bi"; ValueType: string; ValueName: ""; ValueData: "FreeBASIC Header File"; Flags: uninsdeletekey; Tasks: assocbas
+Root: HKA; Subkey: "Software\Classes\FBIde.bi\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\fbide.exe,2"; Tasks: assocbas
+Root: HKA; Subkey: "Software\Classes\FBIde.bi\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\fbide.exe"" ""%1"""; Tasks: assocbas
+; FBIde session (.fbs) -> opened like any document.
+Root: HKA; Subkey: "Software\Classes\.fbs"; ValueType: string; ValueName: ""; ValueData: "FBIde.fbs"; Flags: uninsdeletevalue; Tasks: assocfbs
+Root: HKA; Subkey: "Software\Classes\FBIde.fbs"; ValueType: string; ValueName: ""; ValueData: "FBIde Session"; Flags: uninsdeletekey; Tasks: assocfbs
+Root: HKA; Subkey: "Software\Classes\FBIde.fbs\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\fbide.exe,3"; Tasks: assocfbs
+Root: HKA; Subkey: "Software\Classes\FBIde.fbs\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\fbide.exe"" ""%1"""; Tasks: assocfbs
 
 [Run]
 Filename: "{app}\fbide.exe"; Description: "{cm:LaunchProgram,FBIde}"; Flags: nowait postinstall skipifsilent
