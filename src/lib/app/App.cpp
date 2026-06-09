@@ -610,16 +610,35 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
 }
 
 void App::showSplash() const {
-    if (m_context->getConfigManager().config().get_or("general.splashScreen", true)) {
-        wxImage::AddHandler(make_unowned<wxPNGHandler>());
-        const auto splashPath = m_context->getConfigManager().absolute("splash.png");
-        if (const wxBitmap bmp(splashPath, wxBITMAP_TYPE_PNG); bmp.IsOk()) {
-            make_unowned<wxSplashScreen>(
-                bmp,
-                wxSPLASH_CENTRE_ON_SCREEN | wxSPLASH_TIMEOUT,
-                1000, nullptr, wxID_ANY
-            );
-            wxYield();
-        }
+    if (not m_context->getConfigManager().config().get_or("general.splashScreen", true)) {
+        return;
     }
+
+    wxImage::AddHandler(make_unowned<wxPNGHandler>());
+    const auto splashPath = m_context->getConfigManager().absolute("splash.png");
+    wxBitmap bmp { splashPath, wxBITMAP_TYPE_PNG };
+    if (not bmp.IsOk()) {
+        return;
+    }
+
+    {
+        // Use the bundled Arimo font (ide/) so the version looks the same
+        // regardless of installed system fonts.
+        wxFont::AddPrivateFont(m_context->getConfigManager().absolute("Arimo.ttf"));
+
+        wxMemoryDC dc { bmp };
+        dc.SetFont(wxFontInfo(11).FaceName("Arimo"));
+        dc.SetTextForeground(wxColour(210, 210, 210));
+        const auto version = Version::fbide().asString();
+        const auto extent = dc.GetTextExtent(version);
+        constexpr int margin = 10;
+        dc.DrawText(version, margin, bmp.GetHeight() - extent.GetHeight() - margin + 5);
+    }
+
+    make_unowned<wxSplashScreen>(
+        bmp,
+        wxSPLASH_CENTRE_ON_PARENT | wxSPLASH_TIMEOUT,
+        1000, nullptr, wxID_ANY
+    );
+    wxYield();
 }
