@@ -65,6 +65,9 @@ SetupIconFile={#FBIDE_SRC_ROOT}\resources\images\installer.ico
 ; Inno 6.3; the art is authored at the 164:314 wizard aspect.
 WizardImageFile={#FBIDE_SRC_ROOT}\resources\images\installer-side.png
 WizardStyle=modern
+; Modern style disables the Welcome page by default, but that page is where the
+; side image (WizardImageFile) is shown -- re-enable it.
+DisableWelcomePage=no
 Compression=lzma2/max
 SolidCompression=yes
 OutputDir={#FBIDE_OUTPUT_DIR}
