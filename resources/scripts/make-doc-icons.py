@@ -79,9 +79,13 @@ DOC_ICONS = {
     "fbs": ("g5-9", "g5"),
 }
 
-# Application icon: a single group in its own SVG.
+# Application icon. The full logo is used at 48px+; a simpler logo (its own SVG)
+# is used for the small frames (<= APP_SIMPLE_MAX px) where detail is lost.
 APP_SVG = "fbide-icon.svg"
 APP_GROUP = "g276"
+APP_SIMPLE_SVG = "fbide-icon-simple.svg"
+APP_SIMPLE_GROUP = "g2"
+APP_SIMPLE_MAX = 32
 
 # Installer (setup.exe) icon: single group, .ico only.
 INSTALLER_SVG = "fbide-icon-install.svg"
@@ -295,10 +299,11 @@ def main() -> int:
     large_svg = art / "fbide-doc-icons.svg"
     small_svg = art / "fbide-doc-icons-small.svg"
     app_svg = art / APP_SVG
+    app_simple_svg = art / APP_SIMPLE_SVG
     installer_svg = art / INSTALLER_SVG
     side_svg = art / SIDE_SVG
     splash_svg = art / SPLASH_SVG
-    for svg in (large_svg, small_svg, app_svg, installer_svg, side_svg, splash_svg):
+    for svg in (large_svg, small_svg, app_svg, app_simple_svg, installer_svg, side_svg, splash_svg):
         if not svg.exists():
             sys.exit(f"SVG not found: {svg}\nPass --art <dir> or set FBIDE_ART_DIR.")
 
@@ -332,16 +337,19 @@ def main() -> int:
         app_dir.mkdir(exist_ok=True)
         frames = []
         for size in ICO_SIZES + PNG_EXTRA_SIZES:
+            # Small frames use the simpler logo where the full one muddies.
+            svg, gid = ((app_simple_svg, APP_SIMPLE_GROUP) if size <= APP_SIMPLE_MAX
+                        else (app_svg, APP_GROUP))
             dst = app_dir / f"{size}.png"
-            square_png(inkscape, app_svg, APP_GROUP, size, tmp, dst)
+            square_png(inkscape, svg, gid, size, tmp, dst)
             all_pngs.append(dst)
             if size in ICO_SIZES:
                 frames.append((size, dst))
         ico_jobs.append((frames, [OUT_DIR / "fbide.ico"], "fbide"))
 
-        # Linux/wx window icon: appicon.xpm from the app icon at 32px.
+        # Linux/wx window icon: appicon.xpm @32px -> simple logo.
         xpm_png = tmp / "appicon-32.png"
-        square_png(inkscape, app_svg, APP_GROUP, 32, tmp, xpm_png)
+        square_png(inkscape, app_simple_svg, APP_SIMPLE_GROUP, 32, tmp, xpm_png)
         write_xpm(xpm_png, "appicon_xpm", OUT_DIR / "appicon.xpm")
 
         # Installer (setup.exe) icon -> resources/images/installer.ico only. Frames
