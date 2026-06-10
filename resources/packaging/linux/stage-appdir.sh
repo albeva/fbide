@@ -27,13 +27,14 @@ install_file() {
     chmod "$mode" "$dst"
 }
 
-# Document-type icons as "<png-folder>:<icon-name>". The icon name is the MIME
-# type with '/' replaced by '-' (freedesktop convention). Keep this mapping in
-# sync with fbide.xml and fbide.desktop.
+# Document-type icons as "<png-folder>:<icon-name>". The icon names are custom
+# (NOT the "type with / -> -" convention) so KDE doesn't collapse them to a
+# generic icon — see the rationale in fbide.xml. Must match the <icon> names
+# there.
 DOC_ICONS=(
-    "file-bas:text-x-freebasic"
-    "file-bi:text-x-freebasic-header"
-    "file-fbs:application-x-fbide-session"
+    "file-bas:fbide-freebasic-source"
+    "file-bi:fbide-freebasic-header"
+    "file-fbs:fbide-session"
 )
 
 # App icon, every size.

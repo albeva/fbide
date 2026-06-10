@@ -23,13 +23,14 @@ set -euo pipefail
 # has no standard 1024 apps dir so cap at 512. Kept in sync with stage-appdir.sh.
 SIZES=(16 24 32 48 64 128 256 512)
 
-# Document-type icons as "<png-folder>:<icon-name>"; the icon name is the MIME
-# type with '/' replaced by '-'. Kept in sync with fbide.xml / fbide.desktop /
+# Document-type icons as "<png-folder>:<icon-name>"; the icon names are custom
+# (not the "type with / -> -" convention) so KDE doesn't collapse them to a
+# generic icon — see the rationale in fbide.xml. Kept in sync with fbide.xml /
 # stage-appdir.sh.
 DOC_ICONS=(
-    "file-bas:text-x-freebasic"
-    "file-bi:text-x-freebasic-header"
-    "file-fbs:application-x-fbide-session"
+    "file-bas:fbide-freebasic-source"
+    "file-bi:fbide-freebasic-header"
+    "file-fbs:fbide-session"
 )
 
 DESKTOP_NAME="fbide.desktop"

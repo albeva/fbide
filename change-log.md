@@ -5,6 +5,7 @@
 - Added an arm64 (aarch64) Linux AppImage build alongside the existing x86_64 one.
 - Fixed Linux AppImage document and app icons not appearing until the next login.
 - Fixed the Linux AppImage's own icon being low-resolution (now 256px).
+- Fixed .bas/.bi document icons not showing on KDE/Plasma (icon names no longer collapse to the generic text icon).
 - Added a Markdown view; the About dialog now renders a Markdown readme with FreeBASIC code highlighting instead of BBCode.
 - Fixed status bar getting stuck on a stale compile message (#106).
 - Fixed crash when quitting from the macOS dock menu (#107).
