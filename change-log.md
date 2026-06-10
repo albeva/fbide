@@ -1,6 +1,7 @@
 # Changes since 0.5.0-rc.5
 
 - Added a new app icon and distinct document icons for .bas, .bi and .fbs files on macOS.
+- Added .bas, .bi and .fbs file type associations and document icons to the Linux AppImage.
 - Added a Markdown view; the About dialog now renders a Markdown readme with FreeBASIC code highlighting instead of BBCode.
 - Fixed status bar getting stuck on a stale compile message (#106).
 - Fixed crash when quitting from the macOS dock menu (#107).

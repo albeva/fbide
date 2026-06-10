@@ -365,27 +365,8 @@ jobs:
           APPDIR="${GITHUB_WORKSPACE}/AppDir"
           rm -rf "${APPDIR}"
           cmake --install build/ci --prefix "${APPDIR}/usr"
-
-          # Desktop icon: the pre-rendered 256px app PNG (resources/images).
-          mkdir -p "${APPDIR}/usr/share/icons/hicolor/256x256/apps"
-          cp resources/images/fbide/256.png \
-            "${APPDIR}/usr/share/icons/hicolor/256x256/apps/fbide.png"
-
-          # Top-level icon + .desktop are what AppRun grep's against and
-          # what AppImage tooling expects at the AppDir root.
-          cp "${APPDIR}/usr/share/icons/hicolor/256x256/apps/fbide.png" "${APPDIR}/fbide.png"
-
-          install -Dm644 resources/packaging/linux/fbide.desktop \
-            "${APPDIR}/usr/share/applications/fbide.desktop"
-          cp resources/packaging/linux/fbide.desktop "${APPDIR}/fbide.desktop"
-
-          # AppStream MetaInfo. The component id (reverse-DNS) doubles as
-          # the file's basename — software centres key off the path, so
-          # the leaf must match the <id> inside the XML.
-          install -Dm644 resources/packaging/linux/fbide.metainfo.xml \
-            "${APPDIR}/usr/share/metainfo/io.github.albeva.fbide.metainfo.xml"
-
-          install -Dm755 resources/packaging/linux/AppRun "${APPDIR}/AppRun"
+          # App + document icons, .desktop, MIME definitions and metainfo.
+          resources/packaging/linux/stage-appdir.sh "${APPDIR}" "${GITHUB_WORKSPACE}"
 
       - name: Download linuxdeploy
         run: |

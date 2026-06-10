@@ -6,5 +6,6 @@ Comment=An open-source IDE for the FreeBASIC compiler
 Exec=fbide %F
 Icon=fbide
 Categories=Development;IDE;
+MimeType=text/x-freebasic;text/x-freebasic-header;application/x-fbide-session;
 Terminal=false
 StartupNotify=true

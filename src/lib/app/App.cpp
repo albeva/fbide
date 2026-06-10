@@ -7,6 +7,7 @@
 #include "App.hpp"
 #include "Context.hpp"
 #include "FileAssociations.hpp"
+#include "FileAssociationsLinux.hpp"
 #include "InstanceHandler.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
 #include "compiler/CompilerManager.hpp"
@@ -309,6 +310,10 @@ auto App::OnInit() -> bool {
     // Register per-user associations so .bas/.bi/.fbs show FBIde's icons and
     // open with FBIde (respects an explicit user default-app choice).
     FileAssociations::ensureRegistered();
+#elifdef __WXGTK__
+    // AppImage self-integration: publish the desktop entry, MIME types and
+    // icons into ~/.local/share so .bas/.bi/.fbs associate with FBIde.
+    FileAssociationsLinux::ensureRegistered();
 #endif
     openFiles(cli.files);
     if (!cli.loadSession.IsEmpty()) {

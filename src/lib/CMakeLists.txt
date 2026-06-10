@@ -13,6 +13,7 @@ target_sources(fbide_lib
     app/App.cpp
     app/Context.cpp
     app/FileAssociations.cpp
+    app/FileAssociationsLinux.cpp
     app/InstanceHandler.cpp
     command/CommandEntry.cpp
     command/CommandManager.cpp
