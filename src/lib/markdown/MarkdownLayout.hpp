@@ -98,7 +98,10 @@ struct PaintLine {
     /// TableBody) a horizontal divider at the top of the row.
     // NOLINTNEXTLINE(readability-redundant-member-init)
     std::vector<TableColumn> tableColumns {};
-    std::unique_ptr<ImageContent> image;
+    // {} default-initialiser keeps GCC's -Wmissing-field-initializers quiet at
+    // the designated-init sites that omit this member (it lacks one otherwise).
+    // NOLINTNEXTLINE(readability-redundant-member-init)
+    std::unique_ptr<ImageContent> image {};
     int y = 0;          ///< Top offset within the document.
     int height = 0;     ///< Line height in pixels.
     int quoteDepth = 0; ///< Block-quote nesting — the painter draws that many bars.
@@ -150,11 +153,15 @@ struct LaidScrollBlock {
 
     // Members are ordered largest-alignment first (8-byte wxString / size_t,
     // then ints, then the enum + flag bits) so the struct has no interior padding.
-    CollapsedSummary summary; ///< Populated only when `collapsed` is true.
-    wxString codeLang;        ///< Code only: lower-cased fence tag (empty when none).
-    wxString patchTarget;     ///< Patch only: optional target path from the SEARCH header.
-    wxString patchSearch;     ///< Patch only: verbatim SEARCH text.
-    wxString patchReplace;    ///< Patch only: verbatim REPLACE text.
+    // {} default-initialisers keep GCC's -Wmissing-field-initializers quiet at
+    // the designated-init sites that omit these (they lack one otherwise).
+    // NOLINTBEGIN(readability-redundant-member-init)
+    CollapsedSummary summary {}; ///< Populated only when `collapsed` is true.
+    wxString codeLang {};        ///< Code only: lower-cased fence tag (empty when none).
+    wxString patchTarget {};     ///< Patch only: optional target path from the SEARCH header.
+    wxString patchSearch {};     ///< Patch only: verbatim SEARCH text.
+    wxString patchReplace {};    ///< Patch only: verbatim REPLACE text.
+    // NOLINTEND(readability-redundant-member-init)
     /// Code only: hash of the verbatim fenced text, computed once at layout.
     /// Lets hosts derive a stable per-block identity across re-layouts without
     /// keeping a duplicate copy of the snippet — the body itself is re-resolved
