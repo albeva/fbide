@@ -38,6 +38,7 @@ constexpr wchar_t kBulletGlyph = 0x2022;        // U+2022 BULLET — plain list 
 constexpr wchar_t kTaskUncheckedGlyph = 0x2610; // U+2610 BALLOT BOX.
 constexpr wchar_t kTaskCheckedGlyph = 0x2611;   // U+2611 BALLOT BOX WITH CHECK.
 constexpr int kImageGlyph = 0x1F5BC;            // U+1F5BC FRAME WITH PICTURE — image label.
+constexpr wchar_t kEllipsisGlyph = 0x2026;      // U+2026 HORIZONTAL ELLIPSIS — image "loading" suffix.
 
 /// True when `lang` (a fence tag) denotes FreeBASIC. Mirrors the same
 /// rule in AiChatView so layout and paint agree on which fences get the
@@ -325,7 +326,10 @@ struct LayoutEngine {
         const wxString label = wxString(wxUniChar(kImageGlyph)) + " "
                              + (item.text.empty() ? wxString("image") : item.text)
                              + (item.image.state == ImageInfo::State::Loading
-                                     ? wxString(" (loading\xE2\x80\xA6)") // U+2026 horizontal ellipsis
+                                     // Build the ellipsis from its codepoint, not raw UTF-8 bytes:
+                                     // wxString(const char*) decodes via the C locale, which drops
+                                     // non-ASCII under a `C`-locale process and would lose the suffix.
+                                     ? wxString(" (loading") + wxUniChar(kEllipsisGlyph) + ")"
                                      : wxString(" (failed)"));
         constexpr TextStyle style { .underline = true };
         const int width = m_measurer.width(label, style);
