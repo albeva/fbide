@@ -145,12 +145,26 @@ void FileAssociationsLinux::ensureRegistered() {
     // Refresh the freedesktop caches so the new types, handler and icons are
     // picked up. Best-effort and asynchronous — the files above are already in
     // place, the tools may be absent, and none of this should block startup.
+    //
+    // gtk-update-icon-cache only produces a valid cache for a theme dir that
+    // carries an index.theme; run against one without it (our per-user hicolor)
+    // and it writes an empty cache that shadows the loose icons on strict GTK
+    // builds. We don't own hicolor's index.theme, so drop any stale cache and
+    // bump the dir mtime instead — that fires running apps' icon-theme monitors
+    // so the new icons appear without a re-login (the cache step never did).
+    const wxString icons = dataHome + "/icons/hicolor";
     const wxString refresh
         = "update-desktop-database " + shellQuote(appsDir) + " >/dev/null 2>&1; "
                                                              "update-mime-database "
         + shellQuote(dataHome + "/mime") + " >/dev/null 2>&1; "
-                                           "gtk-update-icon-cache -t -f "
-        + shellQuote(dataHome + "/icons/hicolor") + " >/dev/null 2>&1";
+                                           "if [ -f "
+        + shellQuote(icons + "/index.theme") + " ]; then "
+                                               "gtk-update-icon-cache -f -t "
+        + shellQuote(icons) + " >/dev/null 2>&1; "
+                              "else rm -f "
+        + shellQuote(icons + "/icon-theme.cache") + "; "
+                                                    "touch "
+        + shellQuote(icons) + "; fi";
     // wxGTK only exposes the const char*[] form of wxExecute (no
     // wxArrayString overload). Run the script through /bin/sh -c; the buffer
     // outlives the call, which is all the async fork/exec needs.

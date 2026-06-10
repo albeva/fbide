@@ -3,6 +3,8 @@
 - Added a new app icon and distinct document icons for .bas, .bi and .fbs files on macOS.
 - Added .bas, .bi and .fbs file type associations and document icons to the Linux AppImage.
 - Added an arm64 (aarch64) Linux AppImage build alongside the existing x86_64 one.
+- Fixed Linux AppImage document and app icons not appearing until the next login.
+- Fixed the Linux AppImage's own icon being low-resolution (now 256px).
 - Added a Markdown view; the About dialog now renders a Markdown readme with FreeBASIC code highlighting instead of BBCode.
 - Fixed status bar getting stuck on a stale compile message (#106).
 - Fixed crash when quitting from the macOS dock menu (#107).

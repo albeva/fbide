@@ -411,7 +411,12 @@ jobs:
         run: |
           set -eux
           export PATH="${GITHUB_WORKSPACE}:${PATH}"
-          ./linuxdeploy --appdir AppDir --plugin gtk --output appimage
+          # Pass the 256px icon explicitly so linuxdeploy makes .DirIcon (the
+          # AppImage's own icon, used by thumbnailers / AppImageLauncher) crisp.
+          # Auto-discovery otherwise picks a small hicolor size (64px).
+          ./linuxdeploy --appdir AppDir \
+            --icon-file resources/images/fbide/256.png --icon-filename fbide \
+            --plugin gtk --output appimage
           test -f "${LDAI_OUTPUT}"
           echo "RELEASE_APPIMAGE=${LDAI_OUTPUT}" >> "$GITHUB_ENV"
 
