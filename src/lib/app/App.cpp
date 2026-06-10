@@ -627,12 +627,19 @@ void App::showSplash() const {
     }
 
     {
+        wxFontInfo fontInfo { 11 };
+#if wxUSE_PRIVATE_FONTS
         // Use the bundled Arimo font (ide/) so the version looks the same
-        // regardless of installed system fonts.
-        wxFont::AddPrivateFont(m_context->getConfigManager().absolute("Arimo.ttf"));
+        // regardless of installed system fonts. Unavailable on wx builds
+        // without private-font support (e.g. some wxGTK configs); there we
+        // fall back to the default face.
+        if (wxFont::AddPrivateFont(m_context->getConfigManager().absolute("Arimo.ttf"))) {
+            fontInfo.FaceName("Arimo");
+        }
+#endif
 
         wxMemoryDC dc { bmp };
-        dc.SetFont(wxFontInfo(11).FaceName("Arimo"));
+        dc.SetFont(fontInfo);
         dc.SetTextForeground(wxColour(210, 210, 210));
         const auto version = Version::fbide().asString();
         const auto extent = dc.GetTextExtent(version);
