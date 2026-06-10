@@ -79,7 +79,7 @@ Editor::Editor(
     const DocumentType type,
     const bool preview
 )
-: wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize)
+: wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
 , m_configManager(configManager)
 , m_theme(theme)
 , m_documentManager(documentManager)

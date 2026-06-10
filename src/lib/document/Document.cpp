@@ -92,6 +92,9 @@ void Document::createMinimap() {
         return;
     }
     m_minimap = make_unowned<wxStyledTextCtrlMiniMap>(m_container, getEditor());
+    // The minimap's Create() hardcodes a border with no style hook, so the
+    // wxGTK themed frame can only be cleared after construction.
+    m_minimap->SetWindowStyleFlag((m_minimap->GetWindowStyleFlag() & ~wxBORDER_MASK) | wxBORDER_NONE);
     m_minimap->SetMinSize(wxSize(m_minimapWidth, -1));
     if (auto* sizer = m_container->GetSizer(); sizer != nullptr) {
         sizer->Add(m_minimap, 0, wxEXPAND);
