@@ -355,6 +355,11 @@ jobs:
         with:
           wx-ref: v3.3.2
           build-type: ${{ env.BUILD_TYPE }}
+          # Partition the wx cache by arch — the x86_64 and aarch64 AppImage
+          # jobs run on separate runners and must not share a cache, or one
+          # restores the other's wx dist (with the wrong /usr/lib/<triplet>
+          # absolute lib paths baked into its CMake link interface).
+          arch: ${{ matrix.arch }}
 
       # WXWIN switches cmake/wxwidgets.cmake to CONFIG mode (matches the
       # Windows path) and finds wxWidgetsConfig.cmake under the cached
