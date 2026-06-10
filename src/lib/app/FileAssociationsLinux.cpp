@@ -151,10 +151,11 @@ void FileAssociationsLinux::ensureRegistered() {
         + shellQuote(dataHome + "/mime") + " >/dev/null 2>&1; "
                                            "gtk-update-icon-cache -t -f "
         + shellQuote(dataHome + "/icons/hicolor") + " >/dev/null 2>&1";
-    wxArrayString argv;
-    argv.Add("/bin/sh");
-    argv.Add("-c");
-    argv.Add(refresh);
+    // wxGTK only exposes the const char*[] form of wxExecute (no
+    // wxArrayString overload). Run the script through /bin/sh -c; the buffer
+    // outlives the call, which is all the async fork/exec needs.
+    const wxScopedCharBuffer script = refresh.utf8_str();
+    const char* const argv[] = { "/bin/sh", "-c", script.data(), nullptr };
     wxExecute(argv, wxEXEC_ASYNC);
 
     // Record success last, so a failure part-way through retries next launch.
