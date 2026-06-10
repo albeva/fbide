@@ -4,6 +4,7 @@
 - Added .bas, .bi and .fbs file type associations and document icons to the Linux AppImage.
 - Added an arm64 (aarch64) Linux AppImage build alongside the existing x86_64 one.
 - Fixed Linux AppImage document and app icons not appearing until the next login.
+- Fixed an operator (e.g. `,`) before a `&h`/`&o`/`&b` number swallowing its prefix and mis-highlighting the number (#111).
 - Fixed the Linux AppImage's own icon being low-resolution (now 256px).
 - Fixed .bas/.bi document icons not showing on KDE/Plasma (icon names no longer collapse to the generic text icon).
 - Added a Markdown view; the About dialog now renders a Markdown readme with FreeBASIC code highlighting instead of BBCode.
