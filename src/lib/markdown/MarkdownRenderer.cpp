@@ -160,13 +160,15 @@ void fbide::markdown::paintLineBackground(
     if (line.kind == LineKind::Image && line.image != nullptr && line.image->bitmap.IsOk()) {
         // Draw through the underlying wxGraphicsContext — `wxGCDC::DrawBitmap`
         // has no scaled-target overload, but the graphics context does.
-        gc.GetGraphicsContext()->DrawBitmap(
-            line.image->bitmap,
-            contentLeft + line.image->x,
-            lineTop,
-            line.image->drawWidth,
-            line.image->drawHeight
-        );
+        if (auto* const gfx = gc.GetGraphicsContext()) {
+            gfx->DrawBitmap(
+                line.image->bitmap,
+                contentLeft + line.image->x,
+                lineTop,
+                line.image->drawWidth,
+                line.image->drawHeight
+            );
+        }
         // The line's lone PaintRun is an empty hit-test region for the
         // click handler — `paintLineText` skips empty runs, so the
         // image line doesn't pick up any text drawing.
