@@ -8,6 +8,7 @@
 - Added an arm64 (aarch64) Linux AppImage build alongside the existing x86_64 one.
 - Added an arm64 Windows build alongside the existing x64 and x86 ones.
 - Statically linked the CRT into the x86/x64 Windows builds so they run without the VC++ redistributable.
+- Lowered the Windows installer minimum to Windows 7 SP1 (the static-CRT x86/x64 builds run on Windows 7+).
 - Fixed an operator (e.g. `,`) before a `&h`/`&o`/`&b` number swallowing its prefix and mis-highlighting the number (#111).
 
 # Changes since 0.5.0-rc.5

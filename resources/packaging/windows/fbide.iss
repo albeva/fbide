@@ -90,8 +90,10 @@ ChangesAssociations=yes
 ; The optional "Add to PATH" task edits the Path environment variable from
 ; [Code]; this broadcasts WM_SETTINGCHANGE so new shells see it immediately.
 ChangesEnvironment=yes
-; Win10 is the floor (matches the toolchain CRT / target platforms).
-MinVersion=10.0
+; Windows 7 SP1 is the floor: the x86/x64 builds statically link the (U)CRT so
+; they run on Win7+, and Win7 SP1 is also Inno 6's own minimum. ARM64 has no
+; installer (zip only), so the lower floor doesn't affect it.
+MinVersion=6.1sp1
 ; Default to the unprivileged install; the dialog lets the user elevate to
 ; an all-users install if they want it.
 PrivilegesRequired=lowest
