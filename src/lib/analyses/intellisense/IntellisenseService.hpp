@@ -76,7 +76,7 @@ private:
     /// table before publishing it.
     auto acquireSymbolTable() -> std::shared_ptr<SymbolTable>;
 
-    Context& m_ctx;       ///< Application context.
+    [[maybe_unused]] Context& m_ctx;       ///< Application context.
     wxEvtHandler* m_sink; ///< UI-thread event sink for `EVT_INTELLISENSE_RESULT`.
 
     /// Lexer owned by the worker. Configured once at ctor with current
