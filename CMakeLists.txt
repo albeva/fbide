@@ -30,7 +30,15 @@ project(
 )
 
 if (MSVC)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    # Statically link the CRT on x86/x64 so the portable Windows zips run
+    # without the VC++ redistributable. ARM64 keeps the DLL CRT. Must match
+    # the wxWidgets dist's runtime (.github/actions/setup-wx/build-wx.bat),
+    # else the static wx libs won't satisfy FBIde's link.
+    if (CMAKE_CXX_COMPILER_ARCHITECTURE_ID STREQUAL "ARM64")
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    else()
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    endif()
 endif()
 
 # Map the build's pointer width to the win32 manifest's
