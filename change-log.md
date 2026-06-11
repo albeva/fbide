@@ -1,7 +1,8 @@
 # Changes since 0.5.0-rc.6
 
 - Added a Windows installer that bundles the FreeBASIC compiler (x86/x64); ARM64 stays a portable zip.
-- Added Windows installer options: bundle FreeBASIC, associate .bas/.bi files, and add the install dir to PATH (.fbs is always associated).
+- Added Windows installer options (bundle FreeBASIC, associate .bas/.bi, add to PATH; .fbs always associated), shown before the licence, with the FreeBASIC licence displayed when the compiler is included.
+- The Windows uninstaller now offers to remove FBIde's per-user settings and data folder.
 - Added first-run silent FreeBASIC compiler auto-detection on Windows (fbc next to fbide.exe or on PATH).
 - Added a new app icon and distinct document icons for .bas, .bi and .fbs files
 - Added .bas, .bi and .fbs file type associations and document icons to the Linux AppImage.

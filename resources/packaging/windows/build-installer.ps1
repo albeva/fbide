@@ -28,6 +28,10 @@
     its whole tree is bundled into the installer next to fbide.exe. Produce
     one with fetch-fbc.ps1. Omit for an fbide-only installer.
 
+.PARAMETER FbcVersion
+    Optional FreeBASIC version string for the wizard copy. When omitted (and
+    -FbcDir is given) it is probed from the bundled fbc.exe.
+
 .PARAMETER Iscc
     Path to ISCC.exe. Default: autodetect (Inno Setup 6 install dir, then PATH).
 
@@ -45,6 +49,7 @@ param(
     [string] $Version,
     [string] $OutputDir,
     [string] $FbcDir,
+    [string] $FbcVersion,
     [string] $Iscc
 )
 
@@ -120,8 +125,17 @@ if ($FbcDir) {
     if (-not (Test-Path (Join-Path $fbcPath 'fbc.exe'))) {
         throw "FbcDir '$fbcPath' has no fbc.exe - run fetch-fbc.ps1 first."
     }
-    Write-Host "Bundling FreeBASIC from: $fbcPath" -ForegroundColor Cyan
+    # Resolve the FreeBASIC version for the wizard copy: prefer an explicit
+    # -FbcVersion, else probe the bundled fbc.exe (best-effort).
+    if (-not $FbcVersion) {
+        try {
+            $verLine = & (Join-Path $fbcPath 'fbc.exe') '--version' 2>$null | Select-Object -First 1
+        } catch { $verLine = '' }
+        if ($verLine -match '(\d+\.\d+\.\d+)') { $FbcVersion = $Matches[1] } else { $FbcVersion = 'unknown' }
+    }
+    Write-Host "Bundling FreeBASIC $FbcVersion from: $fbcPath" -ForegroundColor Cyan
     $defs += "/DFBIDE_FBC_DIR=$fbcPath"
+    $defs += "/DFBIDE_FBC_VERSION=$FbcVersion"
 }
 
 Write-Host "Building installer: FBIde $Version ($Arch)" -ForegroundColor Cyan

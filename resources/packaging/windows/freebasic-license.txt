@@ -1,0 +1,29 @@
+FreeBASIC Compiler — Licensing
+==============================
+
+FBIde bundles the FreeBASIC compiler (fbc) and its runtime libraries as a
+convenience. FreeBASIC is an independent project and is distributed under its
+own licences, summarised below.
+
+  * The FreeBASIC compiler itself (fbc and the command-line tools) is released
+    under the GNU General Public License (GPL), version 2 or later.
+
+  * The FreeBASIC runtime libraries and the FreeBASIC-specific headers are
+    released under the GNU Lesser General Public License (LGPL), version 2.1 or
+    later, with the standard exception that programs you compile with FreeBASIC
+    may be distributed under any licence of your choosing. In other words,
+    programs built with FreeBASIC are yours — you are not required to release
+    them under the GPL or LGPL.
+
+  * Some bundled third-party headers and import libraries carry the licence of
+    their original upstream project.
+
+The complete licence texts (COPYING.txt / the GPL and LGPL, plus readme.txt and
+Contributors.txt) are installed alongside the compiler in the FBIde program
+folder. The authoritative source and full documentation are available at:
+
+    https://www.freebasic.net
+
+Installing the FreeBASIC compiler is optional; if you clear the "Install the
+FreeBASIC compiler" option on the previous page, only FBIde is installed and
+this licence does not apply.
