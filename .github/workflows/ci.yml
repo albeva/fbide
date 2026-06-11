@@ -240,6 +240,10 @@ jobs:
     # Release (matches what the wxWidgets dist is built for).
     env:
       BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
+      # FreeBASIC version bundled into the x86/x64 installer. Single source for
+      # the download (fetch-fbc), the cache key, and the wizard copy. Bump here
+      # (and the gcc suffix in fetch-fbc.ps1's x64 URL) to move to a newer fbc.
+      FBC_VERSION: '1.10.1'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -351,18 +355,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: fbc-download
-          key: fbc-${{ matrix.arch }}-1.10.1
+          key: fbc-${{ matrix.arch }}-${{ env.FBC_VERSION }}
 
       - name: Build Windows installer
         if: matrix.arch != 'arm64' && (needs.version.outputs.release == 'true' || github.event_name == 'workflow_dispatch')
         shell: pwsh
         run: |
           choco install innosetup --no-progress -y
-          resources/packaging/windows/fetch-fbc.ps1 -Arch ${{ matrix.arch }} -DestDir fbc-stage -CacheDir fbc-download
+          resources/packaging/windows/fetch-fbc.ps1 -Arch ${{ matrix.arch }} -Version ${{ env.FBC_VERSION }} -DestDir fbc-stage -CacheDir fbc-download
           resources/packaging/windows/build-installer.ps1 `
             -BuildDir build/ci -Arch ${{ matrix.arch }} `
             -Version ${{ needs.version.outputs.version }} `
-            -FbcDir fbc-stage -OutputDir installer-out
+            -FbcDir fbc-stage -FbcVersion ${{ env.FBC_VERSION }} -OutputDir installer-out
           $bits = if ('${{ matrix.arch }}' -eq 'x64') { '64' } else { '32' }
           $setup = "installer-out/fbide-${{ needs.version.outputs.version }}-win$bits-setup.exe"
           if (-not (Test-Path $setup)) { throw "Installer not found: $setup" }

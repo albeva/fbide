@@ -101,17 +101,24 @@ Write-Host "Extracting $archiveName" -ForegroundColor Cyan
 & $sevenZip x $archive "-o$scratch" -y | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "7z extraction failed ($LASTEXITCODE)." }
 
-# The archive holds one top-level FreeBASIC-<...> folder; its contents are the
-# payload. Move them up into DestDir.
-$top = Get-ChildItem -Directory $scratch | Select-Object -First 1
-if (-not $top) { throw "Archive '$archiveName' had no top-level folder." }
+# Locate the fbc compiler anywhere in the extracted tree; its containing
+# directory is the payload root (it sits next to bin\ inc\ lib\). The two
+# release lines name it differently: the win32 build ships a single fbc.exe,
+# while the winlibs build ships fbc32.exe + fbc64.exe (no plain fbc.exe). Match
+# any of them, and stay robust whether the archive wraps everything in a
+# top-level FreeBASIC-<...> folder or not.
+$fbcNames = @('fbc.exe', 'fbc64.exe', 'fbc32.exe')
+$fbcExe = Get-ChildItem -Path $scratch -File -Recurse |
+    Where-Object { $fbcNames -contains $_.Name } | Select-Object -First 1
+if (-not $fbcExe) { throw "Archive '$archiveName' contains no fbc compiler (fbc.exe/fbc64.exe/fbc32.exe)." }
+$payloadRoot = $fbcExe.Directory.FullName
 
 if (Test-Path $DestDir) { Remove-Item $DestDir -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $DestDir | Out-Null
-Get-ChildItem -Force $top.FullName | Move-Item -Destination $DestDir
+Get-ChildItem -Force $payloadRoot | Move-Item -Destination $DestDir
 Remove-Item $scratch -Recurse -Force
 
-if (-not (Test-Path (Join-Path $DestDir 'fbc.exe'))) {
-    throw "Flattened payload has no fbc.exe in '$DestDir' - unexpected archive layout."
+if (-not ($fbcNames | Where-Object { Test-Path (Join-Path $DestDir $_) })) {
+    throw "Flattened payload has no fbc compiler in '$DestDir' - unexpected archive layout."
 }
 Write-Host "FreeBASIC ready: $((Resolve-Path $DestDir).Path)" -ForegroundColor Green

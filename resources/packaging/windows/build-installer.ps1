@@ -122,14 +122,18 @@ $defs = @(
 )
 if ($FbcDir) {
     $fbcPath = (Resolve-Path $FbcDir).Path
-    if (-not (Test-Path (Join-Path $fbcPath 'fbc.exe'))) {
-        throw "FbcDir '$fbcPath' has no fbc.exe - run fetch-fbc.ps1 first."
+    # win32 ships a single fbc.exe; winlibs ships fbc64.exe + fbc32.exe and no
+    # plain fbc.exe. Accept any of them.
+    $fbcBin = @('fbc.exe', 'fbc64.exe', 'fbc32.exe') |
+        ForEach-Object { Join-Path $fbcPath $_ } | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $fbcBin) {
+        throw "FbcDir '$fbcPath' has no fbc compiler (fbc.exe/fbc64.exe/fbc32.exe) - run fetch-fbc.ps1 first."
     }
     # Resolve the FreeBASIC version for the wizard copy: prefer an explicit
-    # -FbcVersion, else probe the bundled fbc.exe (best-effort).
+    # -FbcVersion, else probe the bundled compiler (best-effort).
     if (-not $FbcVersion) {
         try {
-            $verLine = & (Join-Path $fbcPath 'fbc.exe') '--version' 2>$null | Select-Object -First 1
+            $verLine = & $fbcBin '--version' 2>$null | Select-Object -First 1
         } catch { $verLine = '' }
         if ($verLine -match '(\d+\.\d+\.\d+)') { $FbcVersion = $Matches[1] } else { $FbcVersion = 'unknown' }
     }
