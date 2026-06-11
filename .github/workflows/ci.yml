@@ -35,48 +35,50 @@ on:
         default: Release
         type: choice
         options: [Release, Debug, RelWithDebInfo]
-      # Per-target gates for manual runs. Defaults match push-to-main
-      # (everything builds). Push events don't expose `inputs.*`, so the
-      # job-level guards fall through to true for those.
+      # Per-target gates for manual runs. Default OFF so a manual run from
+      # develop builds nothing until you tick the target(s) you want to
+      # test — a single arch instead of the whole matrix. Push-to-main is
+      # unaffected: push events don't expose `inputs.*`, so the targets
+      # step builds the full matrix regardless of these defaults.
       build_win64:
         description: Build Windows x64
         required: false
-        default: true
+        default: false
         type: boolean
       build_win32:
         description: Build Windows x86
         required: false
-        default: true
+        default: false
         type: boolean
       build_winarm64:
         description: Build Windows arm64
         required: false
-        default: true
+        default: false
         type: boolean
       build_linux_appimage_x86_64:
         description: Build Linux AppImage (x86_64)
         required: false
-        default: true
+        default: false
         type: boolean
       build_linux_appimage_aarch64:
         description: Build Linux AppImage (arm64)
         required: false
-        default: true
+        default: false
         type: boolean
       build_macos_arm64:
         description: Build macOS DMG (arm64)
         required: false
-        default: true
+        default: false
         type: boolean
       build_macos_x86_64:
         description: Build macOS DMG (x86_64)
         required: false
-        default: true
+        default: false
         type: boolean
       publish_release:
         description: Publish a GitHub Release with the built artefacts
         required: false
-        default: true
+        default: false
         type: boolean
 
 # Cancel an older run on the same ref/PR when a new one starts — saves runner
