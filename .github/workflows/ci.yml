@@ -48,6 +48,11 @@ on:
         required: false
         default: true
         type: boolean
+      build_winarm64:
+        description: Build Windows arm64
+        required: false
+        default: true
+        type: boolean
       build_linux_appimage_x86_64:
         description: Build Linux AppImage (x86_64)
         required: false
@@ -101,7 +106,7 @@ jobs:
       version: ${{ steps.resolve.outputs.value }}
       tag: ${{ steps.resolve.outputs.tag }}
       release: ${{ steps.resolve.outputs.release }}
-      win-archs: ${{ steps.targets.outputs.win-archs }}
+      win-targets: ${{ steps.targets.outputs.win-targets }}
       linux-targets: ${{ steps.targets.outputs.linux-targets }}
       macos-targets: ${{ steps.targets.outputs.macos-targets }}
     steps:
@@ -162,6 +167,7 @@ jobs:
         env:
           BUILD_WIN64: ${{ inputs.build_win64 }}
           BUILD_WIN32: ${{ inputs.build_win32 }}
+          BUILD_WINARM64: ${{ inputs.build_winarm64 }}
           BUILD_LINUX_X86_64: ${{ inputs.build_linux_appimage_x86_64 }}
           BUILD_LINUX_AARCH64: ${{ inputs.build_linux_appimage_aarch64 }}
           BUILD_MACOS_ARM64: ${{ inputs.build_macos_arm64 }}
@@ -176,22 +182,31 @@ jobs:
           # — Rosetta is pre-installed on the hosted image).
           mac_arm='{"arch":"arm64","runner":"macos-latest"}'
           mac_x86='{"arch":"x86_64","runner":"macos-latest"}'
+          # win-targets mirrors macos/linux-targets: a JSON list of
+          # {arch, runner} objects fed into build-and-test's matrix.include.
+          # x64/x86 build on the x64 windows-latest image; arm64 builds
+          # natively on the windows-11-arm hosted runner (so ctest runs the
+          # arm64 binaries directly, no cross-compile/emulation).
+          win_x64='{"arch":"x64","runner":"windows-latest"}'
+          win_x86='{"arch":"x86","runner":"windows-latest"}'
+          win_arm='{"arch":"arm64","runner":"windows-11-arm"}'
           # linux-targets mirrors macos-targets: a JSON list of {arch, runner}
           # objects fed into build-linux-appimage's matrix.include. Each arch
           # builds natively on its own hosted runner (no emulation).
           linux_x86='{"arch":"x86_64","runner":"ubuntu-24.04"}'
           linux_arm='{"arch":"aarch64","runner":"ubuntu-24.04-arm"}'
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then
-            echo 'win-archs=["x64","x86"]' >> "$GITHUB_OUTPUT"
+            echo "win-targets=[${win_x64},${win_x86},${win_arm}]" >> "$GITHUB_OUTPUT"
             echo "linux-targets=[${linux_x86},${linux_arm}]" >> "$GITHUB_OUTPUT"
             echo "macos-targets=[${mac_arm},${mac_x86}]" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          archs=()
-          [ "$BUILD_WIN64" = "true" ] && archs+=('"x64"')
-          [ "$BUILD_WIN32" = "true" ] && archs+=('"x86"')
+          win=()
+          [ "$BUILD_WIN64" = "true" ] && win+=("${win_x64}")
+          [ "$BUILD_WIN32" = "true" ] && win+=("${win_x86}")
+          [ "$BUILD_WINARM64" = "true" ] && win+=("${win_arm}")
           IFS=,
-          echo "win-archs=[${archs[*]}]" >> "$GITHUB_OUTPUT"
+          echo "win-targets=[${win[*]}]" >> "$GITHUB_OUTPUT"
           linux=()
           [ "${BUILD_LINUX_X86_64:-true}" = "true" ] && linux+=("${linux_x86}")
           [ "${BUILD_LINUX_AARCH64:-true}" = "true" ] && linux+=("${linux_arm}")
@@ -206,15 +221,15 @@ jobs:
   build-and-test:
     name: build-and-test (${{ matrix.arch }})
     needs: version
-    if: needs.version.outputs.win-archs != '[]'
-    runs-on: windows-latest
+    if: needs.version.outputs.win-targets != '[]'
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     strategy:
-      # Run both archs to completion even if one fails — easier to see
+      # Run every arch to completion even if one fails — easier to see
       # which platform broke.
       fail-fast: false
       matrix:
-        arch: ${{ fromJSON(needs.version.outputs.win-archs) }}
+        include: ${{ fromJSON(needs.version.outputs.win-targets) }}
     permissions:
       contents: read
     # Manual runs honour the chosen build type; push-to-main defaults to
@@ -292,7 +307,7 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ needs.version.outputs.version }}"
-          $arch = "${{ matrix.arch == 'x64' && '64' || '32' }}"
+          $arch = @{ 'x64' = '64'; 'x86' = '32'; 'arm64' = 'arm64' }['${{ matrix.arch }}']
           $zip = "fbide-$version-win$arch.zip"
           Compress-Archive -Path package\* -DestinationPath $zip -Force
           "RELEASE_ZIP=$zip" | Out-File -Append $env:GITHUB_ENV
@@ -592,7 +607,7 @@ jobs:
           body: |
             ## Downloads
 
-            - **Windows**: `fbide-<version>-win64.zip` (or `win32`). Portable — unzip anywhere and run `fbide.exe`.
+            - **Windows**: `fbide-<version>-win64.zip` (Intel/AMD 64-bit), `win32` (32-bit) or `winarm64` (ARM64). Portable — unzip anywhere and run `fbide.exe`.
             - **Linux**: `fbide-<version>-x86_64.AppImage` (Intel/AMD) or `fbide-<version>-aarch64.AppImage` (ARM64). `chmod +x` and run.
             - **macOS**:
               - Apple Silicon → `fbide-<version>-macos-arm64.dmg`

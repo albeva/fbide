@@ -20,8 +20,8 @@ inputs:
     default: Release
   arch:
     description: >
-      Target architecture. Windows: x64 | x86 (must match the MSVC dev
-      environment). macOS: arm64 | x86_64 (single-arch builds, one
+      Target architecture. Windows: x64 | x86 | arm64 (must match the MSVC
+      dev environment). macOS: arm64 | x86_64 (single-arch builds, one
       DMG per arch). Linux ignores this (host arch only). Cache key
       partitions by arch so per-arch caches don't collide.
     required: false

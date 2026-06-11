@@ -16,7 +16,7 @@ REM   WX_SRC_DIR     — wxWidgets source checkout
 REM   WX_BUILD_DIR   — intermediate build tree (not cached)
 REM   WX_DIST_DIR    — install prefix (cached as the only artefact)
 REM   WX_BUILD_TYPE  — Debug / Release / RelWithDebInfo / MinSizeRel
-REM   WX_ARCH        — x64 / x86 (selects -A x64 / -A Win32 for the VS gen)
+REM   WX_ARCH        — x64 / x86 / arm64 (selects -A x64 / Win32 / ARM64)
 
 REM IPO is incompatible with Debug codegen on MSVC — only enable for the
 REM optimised configurations.
@@ -31,6 +31,7 @@ REM keep the VS generator for cache compatibility, so map WX_ARCH to the
 REM corresponding -A value.
 set WX_PLATFORM=x64
 if /I "%WX_ARCH%"=="x86" set WX_PLATFORM=Win32
+if /I "%WX_ARCH%"=="arm64" set WX_PLATFORM=ARM64
 
 if not exist "%WX_BUILD_DIR%" mkdir "%WX_BUILD_DIR%"
 if not exist "%WX_DIST_DIR%" mkdir "%WX_DIST_DIR%"
