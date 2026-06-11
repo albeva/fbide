@@ -225,7 +225,9 @@ jobs:
     needs: version
     if: needs.version.outputs.win-targets != '[]'
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    # 45 not 30: the x86/x64 installer step downloads + solid-compresses the
+    # bundled FreeBASIC compiler on top of the build/test.
+    timeout-minutes: 45
     strategy:
       # Run every arch to completion even if one fails — easier to see
       # which platform broke.
@@ -333,6 +335,45 @@ jobs:
         with:
           name: release-${{ matrix.arch }}
           path: ${{ env.RELEASE_ZIP }}
+          retention-days: 7
+          if-no-files-found: error
+
+      # ---------- Windows installer (x86/x64 only) ----------
+      # ARM64 ships as a portable zip only. The installer bundles the
+      # FreeBASIC compiler and (via build-installer.ps1's own staging) keeps
+      # the READONLY sentinel in ide\ so an installed copy mirrors resources
+      # to the user data dir — unlike the relocatable zip above, which strips
+      # it. build-installer.ps1 re-stages independently, so it is unaffected
+      # by the READONLY strip done for the zip.
+
+      - name: Cache FreeBASIC compiler
+        if: matrix.arch != 'arm64' && (needs.version.outputs.release == 'true' || github.event_name == 'workflow_dispatch')
+        uses: actions/cache@v4
+        with:
+          path: fbc-download
+          key: fbc-${{ matrix.arch }}-1.10.1
+
+      - name: Build Windows installer
+        if: matrix.arch != 'arm64' && (needs.version.outputs.release == 'true' || github.event_name == 'workflow_dispatch')
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          resources/packaging/windows/fetch-fbc.ps1 -Arch ${{ matrix.arch }} -DestDir fbc-stage -CacheDir fbc-download
+          resources/packaging/windows/build-installer.ps1 `
+            -BuildDir build/ci -Arch ${{ matrix.arch }} `
+            -Version ${{ needs.version.outputs.version }} `
+            -FbcDir fbc-stage -OutputDir installer-out
+          $bits = if ('${{ matrix.arch }}' -eq 'x64') { '64' } else { '32' }
+          $setup = "installer-out/fbide-${{ needs.version.outputs.version }}-win$bits-setup.exe"
+          if (-not (Test-Path $setup)) { throw "Installer not found: $setup" }
+          "RELEASE_SETUP=$setup" | Out-File -Append $env:GITHUB_ENV
+
+      - name: Upload installer artefact
+        if: matrix.arch != 'arm64' && (needs.version.outputs.release == 'true' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-installer-${{ matrix.arch }}
+          path: ${{ env.RELEASE_SETUP }}
           retention-days: 7
           if-no-files-found: error
 
@@ -622,7 +663,9 @@ jobs:
           body: |
             ## Downloads
 
-            - **Windows**: `fbide-<version>-win64.zip` (Intel/AMD 64-bit), `win32` (32-bit) or `winarm64` (ARM64). Portable — unzip anywhere and run `fbide.exe`.
+            - **Windows**:
+              - Installer (recommended, Intel/AMD): `fbide-<version>-win64-setup.exe` (64-bit) or `win32-setup.exe` (32-bit). Bundles the FreeBASIC compiler and registers file associations.
+              - Portable: `fbide-<version>-win64.zip` (Intel/AMD 64-bit), `win32` (32-bit) or `winarm64` (ARM64). Unzip anywhere and run `fbide.exe`. ARM64 is portable-only.
             - **Linux**: `fbide-<version>-x86_64.AppImage` (Intel/AMD) or `fbide-<version>-aarch64.AppImage` (ARM64). `chmod +x` and run.
             - **macOS**:
               - Apple Silicon → `fbide-<version>-macos-arm64.dmg`
@@ -647,5 +690,6 @@ jobs:
             without warnings.
           files: |
             artefacts/*.zip
+            artefacts/*-setup.exe
             artefacts/*.AppImage
             artefacts/*.dmg

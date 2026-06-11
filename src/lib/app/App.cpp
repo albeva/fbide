@@ -307,9 +307,14 @@ auto App::OnInit() -> bool {
 
     m_context->getUIManager().createMainFrame();
 #ifdef __WXMSW__
-    // Register per-user associations so .bas/.bi/.fbs show FBIde's icons and
-    // open with FBIde (respects an explicit user default-app choice).
-    FileAssociations::ensureRegistered();
+    // Portable (zip) builds self-register per-user associations so .bas/.bi/.fbs
+    // show FBIde's icons and open with FBIde. Installed builds carry the READONLY
+    // sentinel and let the installer own associations (honouring the user's
+    // per-type choices in the setup wizard), so skip runtime registration there —
+    // otherwise it would re-assert .bas/.bi every launch and undo an opt-out.
+    if (!configManager.isReadOnlyIde()) {
+        FileAssociations::ensureRegistered();
+    }
 #elifdef __WXGTK__
     // AppImage self-integration: publish the desktop entry, MIME types and
     // icons into ~/.local/share so .bas/.bi/.fbs associate with FBIde.
@@ -323,7 +328,16 @@ auto App::OnInit() -> bool {
             wxRemoveFile(cli.loadSession);
         }
     }
-    m_context->getCompilerManager().checkCompilerOnStartup();
+    // First launch (no config overlay yet): try to locate a bundled or
+    // PATH fbc silently so the IDE works out of the box — installers ship
+    // fbc next to fbide.exe. Only when that finds nothing do we fall back
+    // to the interactive "compiler missing" prompt. Later launches go
+    // straight to the prompt-if-missing check.
+    auto& compilerManager = m_context->getCompilerManager();
+    const bool firstRunConfigured = configManager.isFirstRun() && compilerManager.detectCompilerOnFirstRun();
+    if (!firstRunConfigured) {
+        compilerManager.checkCompilerOnStartup();
+    }
     m_context->getUpdateManager().checkOnStartup();
     return true;
 }

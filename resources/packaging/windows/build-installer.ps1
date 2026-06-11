@@ -23,6 +23,11 @@
 .PARAMETER OutputDir
     Where the setup EXE is written. Default: <root>/build/installer.
 
+.PARAMETER FbcDir
+    Optional flattened FreeBASIC payload (fbc.exe at its root). When given,
+    its whole tree is bundled into the installer next to fbide.exe. Produce
+    one with fetch-fbc.ps1. Omit for an fbide-only installer.
+
 .PARAMETER Iscc
     Path to ISCC.exe. Default: autodetect (Inno Setup 6 install dir, then PATH).
 
@@ -39,6 +44,7 @@ param(
     [string] $Arch = 'x64',
     [string] $Version,
     [string] $OutputDir,
+    [string] $FbcDir,
     [string] $Iscc
 )
 
@@ -92,17 +98,34 @@ if (-not (Test-Path (Join-Path $stage 'fbide.exe'))) {
 }
 
 if (-not $OutputDir) { $OutputDir = Join-Path $root 'build/installer' }
+# Resolve to absolute: ISCC resolves a *relative* OutputDir against the .iss
+# directory, which wouldn't match our own New-Item (relative to cwd). Make both
+# agree on one location.
+if (-not [System.IO.Path]::IsPathRooted($OutputDir)) { $OutputDir = Join-Path $root $OutputDir }
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
+$OutputDir = (Resolve-Path $OutputDir).Path
+
+# Inno defines. FBIDE_FBC_DIR is appended only when a FreeBASIC payload was
+# supplied, so the script stays valid for an fbide-only smoke build.
+$defs = @(
+    "/DFBIDE_STAGE_DIR=$stage",
+    "/DFBIDE_VERSION=$Version",
+    "/DFBIDE_VERSION_NUMERIC=$num",
+    "/DFBIDE_ARCH=$Arch",
+    "/DFBIDE_SRC_ROOT=$root",
+    "/DFBIDE_OUTPUT_DIR=$OutputDir"
+)
+if ($FbcDir) {
+    $fbcPath = (Resolve-Path $FbcDir).Path
+    if (-not (Test-Path (Join-Path $fbcPath 'fbc.exe'))) {
+        throw "FbcDir '$fbcPath' has no fbc.exe - run fetch-fbc.ps1 first."
+    }
+    Write-Host "Bundling FreeBASIC from: $fbcPath" -ForegroundColor Cyan
+    $defs += "/DFBIDE_FBC_DIR=$fbcPath"
+}
 
 Write-Host "Building installer: FBIde $Version ($Arch)" -ForegroundColor Cyan
-& $Iscc `
-    "/DFBIDE_STAGE_DIR=$stage" `
-    "/DFBIDE_VERSION=$Version" `
-    "/DFBIDE_VERSION_NUMERIC=$num" `
-    "/DFBIDE_ARCH=$Arch" `
-    "/DFBIDE_SRC_ROOT=$root" `
-    "/DFBIDE_OUTPUT_DIR=$OutputDir" `
-    $iss
+& $Iscc @defs $iss
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)." }
 
 $winBits = if ($Arch -eq 'x64') { '64' } else { '32' }

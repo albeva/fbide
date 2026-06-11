@@ -217,6 +217,26 @@ auto FbcAutoDetect::buildCompilerValue(std::span<const FbcVariant> variants, boo
     return compiler;
 }
 
+auto FbcAutoDetect::detectSilently(const std::filesystem::path& exeDir, bool osIs64) -> std::optional<Value> {
+    // First-launch convenience: an installer drops fbc next to fbide.exe,
+    // so probe that folder before the system PATH. The first folder with
+    // usable variants wins — no dialogs are shown either way.
+    std::vector<std::filesystem::path> folders;
+    if (!exeDir.empty()) {
+        folders.push_back(exeDir);
+    }
+    if (const auto inPath = findInPath()) {
+        folders.push_back(*inPath);
+    }
+    for (const auto& folder : folders) {
+        const auto variants = detectVariants(folder);
+        if (!variants.empty()) {
+            return buildCompilerValue(variants, osIs64);
+        }
+    }
+    return std::nullopt;
+}
+
 FbcAutoDetect::FbcAutoDetect(Context& ctx)
 : m_ctx(ctx) {}
 

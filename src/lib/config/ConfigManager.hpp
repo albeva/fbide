@@ -148,6 +148,12 @@ public:
     /// hot-refresh IDE state after the user edits a config file in-place.
     auto reloadIfKnown(const wxString& path) -> bool;
 
+    /// True on the very first launch — the writable config overlay
+    /// (`config_<plat>.local.ini`) does not yet exist. Only meaningful in
+    /// overlay mode: under `--config=PATH` (direct mode) there is no
+    /// overlay, so this returns false and the first-run flow is skipped.
+    [[nodiscard]] auto isFirstRun() const -> bool;
+
     // -----------------------------------------------------------------------
     // Path management
     // -----------------------------------------------------------------------
@@ -156,6 +162,12 @@ public:
     [[nodiscard]] auto absolute(const wxString& pathName) const -> wxString;
     /// Make `path` relative to `appDir` if possible.
     [[nodiscard]] auto relative(const wxString& path) const -> wxString;
+
+    /// True when the IDE resources directory carries the READONLY sentinel —
+    /// i.e. a packaged/installed layout (Windows installer, AppImage, macOS
+    /// bundle) where writable artefacts route to the user data dir. Portable
+    /// zips strip the sentinel, so this is false for them.
+    [[nodiscard]] auto isReadOnlyIde() const noexcept -> bool { return m_readOnlyIde; }
 
     /// Application directory (resolved from `appPath` argument).
     [[nodiscard]] auto getAppDir() const -> wxString;

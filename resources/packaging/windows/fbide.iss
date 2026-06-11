@@ -11,6 +11,10 @@
 ;   FBIDE_ARCH             x64 | x86 — selects install mode + output name.
 ;   FBIDE_SRC_ROOT         repo root (for the icon + LICENSE). Default "." = git root.
 ;   FBIDE_OUTPUT_DIR       where the setup EXE is written. Default ".".
+;   FBIDE_FBC_DIR          optional. Flattened FreeBASIC payload (fbc.exe at its
+;                          root, plus bin\ inc\ lib\). When defined, its whole
+;                          tree is installed into {app} next to fbide.exe so the
+;                          first-run auto-detect finds the bundled compiler.
 
 #ifndef FBIDE_STAGE_DIR
   #define FBIDE_STAGE_DIR "package"
@@ -39,6 +43,14 @@
 
 #ifndef FBIDE_OUTPUT_BASE
   #define FBIDE_OUTPUT_BASE "fbide-" + FBIDE_VERSION + "-win" + FBIDE_WIN_BITS + "-setup"
+#endif
+
+; Optional " and FreeBASIC" suffix for task labels — present only when the
+; compiler is bundled (FBIDE_FBC_DIR defined).
+#ifdef FBIDE_FBC_DIR
+  #define FBIDE_FBC_NOTE " and FreeBASIC"
+#else
+  #define FBIDE_FBC_NOTE ""
 #endif
 
 [Setup]
@@ -75,6 +87,9 @@ OutputBaseFilename={#FBIDE_OUTPUT_BASE}
 ; File associations are registered below; let Inno notify the shell so
 ; icons refresh without a reboot.
 ChangesAssociations=yes
+; The optional "Add to PATH" task edits the Path environment variable from
+; [Code]; this broadcasts WM_SETTINGCHANGE so new shells see it immediately.
+ChangesEnvironment=yes
 ; Win10 is the floor (matches the toolchain CRT / target platforms).
 MinVersion=10.0
 ; Default to the unprivileged install; the dialog lets the user elevate to
@@ -91,12 +106,28 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+; Bundle the FreeBASIC compiler (on by default). Only offered when a payload
+; was supplied at build time. When unticked, only FBIde is installed.
+#ifdef FBIDE_FBC_DIR
+Name: "installfbc"; Description: "Install the FreeBASIC compiler alongside FBIde"
+#endif
+; .bas/.bi association is optional (on by default). .fbs is always associated
+; (registered unconditionally below), so it has no task.
 Name: "assocbas"; Description: "Associate FreeBASIC source files (.bas, .bi) with FBIde"; GroupDescription: "File associations:"
-Name: "assocfbs"; Description: "Associate FBIde session files (.fbs) with FBIde"; GroupDescription: "File associations:"
+; Add the install dir to PATH (on by default). FBIde lives there, and so does
+; fbc when the compiler is installed — one entry exposes both.
+Name: "modifypath"; Description: "Add FBIde{#FBIDE_FBC_NOTE} to the PATH environment variable"
 
 [Files]
 Source: "{#FBIDE_STAGE_DIR}\fbide.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#FBIDE_STAGE_DIR}\ide\*"; DestDir: "{app}\ide"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Bundled FreeBASIC compiler (optional). Installed alongside fbide.exe so the
+; first-run auto-detect picks it up. The READONLY sentinel stays in ide\ for
+; installer builds (unlike the portable zip) so the bundle mirrors to the user
+; data dir on launch.
+#ifdef FBIDE_FBC_DIR
+Source: "{#FBIDE_FBC_DIR}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Tasks: installfbc
+#endif
 
 [Icons]
 Name: "{group}\FBIde"; Filename: "{app}\fbide.exe"
@@ -117,11 +148,93 @@ Root: HKA; Subkey: "Software\Classes\.bi"; ValueType: string; ValueName: ""; Val
 Root: HKA; Subkey: "Software\Classes\FBIde.bi"; ValueType: string; ValueName: ""; ValueData: "FreeBASIC Header File"; Flags: uninsdeletekey; Tasks: assocbas
 Root: HKA; Subkey: "Software\Classes\FBIde.bi\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\fbide.exe,2"; Tasks: assocbas
 Root: HKA; Subkey: "Software\Classes\FBIde.bi\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\fbide.exe"" ""%1"""; Tasks: assocbas
-; FBIde session (.fbs) -> opened like any document.
-Root: HKA; Subkey: "Software\Classes\.fbs"; ValueType: string; ValueName: ""; ValueData: "FBIde.fbs"; Flags: uninsdeletevalue; Tasks: assocfbs
-Root: HKA; Subkey: "Software\Classes\FBIde.fbs"; ValueType: string; ValueName: ""; ValueData: "FBIde Session"; Flags: uninsdeletekey; Tasks: assocfbs
-Root: HKA; Subkey: "Software\Classes\FBIde.fbs\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\fbide.exe,3"; Tasks: assocfbs
-Root: HKA; Subkey: "Software\Classes\FBIde.fbs\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\fbide.exe"" ""%1"""; Tasks: assocfbs
+; FBIde session (.fbs) -> opened like any document. Always associated.
+Root: HKA; Subkey: "Software\Classes\.fbs"; ValueType: string; ValueName: ""; ValueData: "FBIde.fbs"; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\FBIde.fbs"; ValueType: string; ValueName: ""; ValueData: "FBIde Session"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\FBIde.fbs\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\fbide.exe,3"
+Root: HKA; Subkey: "Software\Classes\FBIde.fbs\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\fbide.exe"" ""%1"""
 
 [Run]
 Filename: "{app}\fbide.exe"; Description: "{cm:LaunchProgram,FBIde}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+// ---------------------------------------------------------------------------
+// "Add to PATH" task. Inno has no built-in PATH editor, so append/remove the
+// install dir ({app}) on the appropriate Environment key: the system key under
+// HKLM for an all-users (admin) install, the per-user key under HKCU
+// otherwise. ChangesEnvironment=yes makes Inno broadcast WM_SETTINGCHANGE.
+// ---------------------------------------------------------------------------
+const
+  EnvHKLM = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment';
+  EnvHKCU = 'Environment';
+
+function EnvRootKey: Integer;
+begin
+  if IsAdminInstallMode then Result := HKEY_LOCAL_MACHINE else Result := HKEY_CURRENT_USER;
+end;
+
+function EnvSubKey: string;
+begin
+  if IsAdminInstallMode then Result := EnvHKLM else Result := EnvHKCU;
+end;
+
+// Case-insensitive whole-segment membership test (semicolon padding avoids
+// matching a substring of a longer path).
+function PathContains(const PathList, Dir: string): Boolean;
+begin
+  Result := Pos(';' + Uppercase(Dir) + ';', ';' + Uppercase(PathList) + ';') > 0;
+end;
+
+procedure EnvAddPath(const Dir: string);
+var
+  PathList: string;
+begin
+  if not RegQueryStringValue(EnvRootKey, EnvSubKey, 'Path', PathList) then
+    PathList := '';
+  if PathContains(PathList, Dir) then
+    exit;
+  if (PathList <> '') and (PathList[Length(PathList)] <> ';') then
+    PathList := PathList + ';';
+  RegWriteExpandStringValue(EnvRootKey, EnvSubKey, 'Path', PathList + Dir);
+end;
+
+procedure EnvRemovePath(const Dir: string);
+var
+  PathList, Rebuilt: string;
+  Parts: TStringList;
+  I: Integer;
+begin
+  if not RegQueryStringValue(EnvRootKey, EnvSubKey, 'Path', PathList) then
+    exit;
+  if not PathContains(PathList, Dir) then
+    exit;
+  Parts := TStringList.Create;
+  try
+    Parts.StrictDelimiter := True;
+    Parts.Delimiter := ';';
+    Parts.DelimitedText := PathList;
+    Rebuilt := '';
+    for I := 0 to Parts.Count - 1 do
+      if (Parts[I] <> '') and (Uppercase(Parts[I]) <> Uppercase(Dir)) then
+      begin
+        if Rebuilt <> '' then Rebuilt := Rebuilt + ';';
+        Rebuilt := Rebuilt + Parts[I];
+      end;
+    RegWriteExpandStringValue(EnvRootKey, EnvSubKey, 'Path', Rebuilt);
+  finally
+    Parts.Free;
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if (CurStep = ssPostInstall) and WizardIsTaskSelected('modifypath') then
+    EnvAddPath(ExpandConstant('{app}'));
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  // Always attempt removal — EnvRemovePath no-ops when {app} isn't present.
+  if CurUninstallStep = usUninstall then
+    EnvRemovePath(ExpandConstant('{app}'));
+end;
