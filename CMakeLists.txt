@@ -83,6 +83,11 @@ include(cmake/doxygen.cmake)
 # generated readme.md is git-ignored) so the existing resource copy / install
 # picks it up unchanged.
 string(TIMESTAMP FBIDE_BUILD_DATE "%Y-%m-%d")
+if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(FBIDE_BUILD_VARIANT "64-bit")
+else()
+    set(FBIDE_BUILD_VARIANT "32-bit")
+endif()
 if (NOT wxWidgets_VERSION)
     set(wxWidgets_VERSION "3.3")
 endif()

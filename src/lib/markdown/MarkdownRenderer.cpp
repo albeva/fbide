@@ -129,31 +129,33 @@ void fbide::markdown::paintLineBackground(
     }
     if ((line.kind == LineKind::TableHeader || line.kind == LineKind::TableBody)
         && !line.tableColumns.empty()) {
-        // Header rows get a subtle background tint; the fill is clipped
-        // to the table's actual column range so it doesn't leak out
-        // into the rest of the surface. Borders / dividers go on top.
-        const int leftEdge = contentLeft + line.tableColumns.front().x;
-        const int rightEdge = contentLeft + line.tableColumns.back().x
-                            + line.tableColumns.back().width;
-        const int tableWidth = rightEdge - leftEdge;
-        if (line.kind == LineKind::TableHeader) {
-            gc.SetBrush(wxBrush(palette.tableHeaderBg));
-            gc.SetPen(*wxTRANSPARENT_PEN);
-            gc.DrawRectangle(leftEdge, lineTop, tableWidth, line.height);
-        }
-        gc.SetPen(wxPen(palette.rule));
-        for (std::size_t col = 1; col < line.tableColumns.size(); col++) {
-            const int colX = contentLeft + line.tableColumns.at(col).x;
-            gc.DrawLine(colX, lineTop, colX, lineTop + line.height);
-        }
-        gc.DrawLine(leftEdge, lineTop, leftEdge, lineTop + line.height);
-        gc.DrawLine(rightEdge, lineTop, rightEdge, lineTop + line.height);
-        if (line.tableRowStart) {
-            gc.DrawLine(leftEdge, lineTop, rightEdge, lineTop);
-        }
-        if (line.tableLastLine) {
-            const int bottomY = lineTop + line.height;
-            gc.DrawLine(leftEdge, bottomY, rightEdge, bottomY);
+        // Borderless tables paint no fill / dividers — the cell text (drawn
+        // separately) is all there is. Bordered tables get a clipped header
+        // tint plus column / edge / row rules.
+        if (line.tableBordered) {
+            const int leftEdge = contentLeft + line.tableColumns.front().x;
+            const int rightEdge = contentLeft + line.tableColumns.back().x
+                                + line.tableColumns.back().width;
+            const int tableWidth = rightEdge - leftEdge;
+            if (line.kind == LineKind::TableHeader) {
+                gc.SetBrush(wxBrush(palette.tableHeaderBg));
+                gc.SetPen(*wxTRANSPARENT_PEN);
+                gc.DrawRectangle(leftEdge, lineTop, tableWidth, line.height);
+            }
+            gc.SetPen(wxPen(palette.rule));
+            for (std::size_t col = 1; col < line.tableColumns.size(); col++) {
+                const int colX = contentLeft + line.tableColumns.at(col).x;
+                gc.DrawLine(colX, lineTop, colX, lineTop + line.height);
+            }
+            gc.DrawLine(leftEdge, lineTop, leftEdge, lineTop + line.height);
+            gc.DrawLine(rightEdge, lineTop, rightEdge, lineTop + line.height);
+            if (line.tableRowStart) {
+                gc.DrawLine(leftEdge, lineTop, rightEdge, lineTop);
+            }
+            if (line.tableLastLine) {
+                const int bottomY = lineTop + line.height;
+                gc.DrawLine(leftEdge, bottomY, rightEdge, bottomY);
+            }
         }
         return;
     }

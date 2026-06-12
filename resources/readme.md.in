@@ -2,9 +2,8 @@
 
 An open-source IDE for the [FreeBASIC](https://freebasic.net) compiler.
 
-|  |  |
+| **Version** | @FBIDE_FULL_VERSION@ (@FBIDE_BUILD_VARIANT@) |
 |---|---|
-| **Version** | @FBIDE_FULL_VERSION@ |
 | **Built** | @FBIDE_BUILD_DATE@ |
 | **wxWidgets** | @wxWidgets_VERSION@ |
 
@@ -12,4 +11,4 @@ An open-source IDE for the [FreeBASIC](https://freebasic.net) compiler.
 
 [License](LICENSE) · [Artwork](ASSETS-LICENSE.md) · [Third-party](THIRD_PARTY_LICENSES.txt)
 
-Copyright © 2006–2026 Albert Varaksin. Thanks to paul doe, Gothon, dumbledore, Madedog, Mecki, MySoft, and the FreeBASIC community.
+Copyright © 2006–2026 Albert Varaksin. Thanks to Gothon, dumbledore, Madedog, Mecki, MySoft, and the FreeBASIC community.

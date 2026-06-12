@@ -101,6 +101,11 @@ public:
     void setWrapCodeBlocks(bool wrap);
     [[nodiscard]] auto wrapCodeBlocks() const -> bool { return m_wrapCodeBlocks; }
 
+    /// Table rendering style — bordered (default) or borderless with custom
+    /// row / column spacing. See `MdTableStyle`.
+    void setTableStyle(const MdTableStyle& style);
+    [[nodiscard]] auto tableStyle() const -> const MdTableStyle& { return m_tableStyle; }
+
     /// Enable / disable text selection. When `false` the view is purely
     /// read-only: no drag-select, no double-click word select, no
     /// Ctrl+A / Ctrl+C, and a plain arrow cursor over text. Links still
@@ -232,6 +237,7 @@ private:
     int m_contentPadding = kDefaultContentPadding; ///< Inner padding between the panel edge and content.
 
     bool m_wrapCodeBlocks = true;     ///< Layout mode for code / patch blocks.
+    MdTableStyle m_tableStyle;        ///< Bordered (default) or borderless table rendering.
     std::vector<int> m_blockScroll;   ///< Per-scrollBlocks horizontal scroll offset (px).
     int m_dragScrollBlockIndex = -1;  ///< Block being scroll-dragged, or -1.
     int m_dragScrollStartOffset = 0;  ///< Scroll offset at drag start.

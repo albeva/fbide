@@ -64,6 +64,18 @@ struct TableColumn {
     int width = 0; ///< Pixel width allocated to this column.
 };
 
+/// How a table is laid out and painted. Defaults reproduce the classic
+/// bordered look; `borders = false` gives a borderless, prose-aligned table —
+/// no cell / edge lines and no header fill — with explicit inter-column and
+/// inter-row spacing instead of in-cell padding.
+struct MdTableStyle {
+    bool borders = true;    ///< Draw column / edge dividers + the header-row fill.
+    int columnSpacing = 12; ///< Bordered: per-column gutter. Borderless: gap between columns.
+    int rowSpacing = 0;     ///< Borderless: extra vertical gap between rows (px).
+
+    auto operator==(const MdTableStyle&) const -> bool = default;
+};
+
 /// One painted run: a span of same-styled text at a known offset.
 struct PaintRun {
     wxString text;   ///< Run text.
@@ -121,6 +133,9 @@ struct PaintLine {
     /// same row; the painter uses this flag to draw the row-divider
     /// only at the actual row start, not between wrapped lines.
     bool tableRowStart : 1 = false;
+    /// Table-only: false for a borderless table — the painter skips the edge /
+    /// divider lines and the header fill, leaving just the cell text.
+    bool tableBordered : 1 = true;
 };
 
 /// A hyperlink target, referenced by `PaintRun::linkId`.
@@ -288,6 +303,7 @@ using BlockCollapsedQuery = std::function<bool(
     const CodeFenceHighlighter& highlightFence,
     const ImageResolver& resolveImage = {},
     bool wrapCodeBlocks = true,
+    const MdTableStyle& tableStyle = {},
     const BlockCollapsedQuery& isCollapsed = {},
     const LanguageDisplayResolver& resolveLanguageDisplay = {}
 ) -> LaidOutDoc;

@@ -58,6 +58,7 @@ void AboutDialog::create() {
         md->setTextColour(kBrandText);
         md->setLinkColour(kBrandLink);
         md->setContentPadding(0);
+        md->setTableStyle({ .borders = false, .columnSpacing = 24, .rowSpacing = 2 });
         md->refreshTheme();
         md->setMarkdown(loadAbout());
         md->Bind(markdown::MARKDOWN_LINK_CLICKED, &AboutDialog::onLink, this);

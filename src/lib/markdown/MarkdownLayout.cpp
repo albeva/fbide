@@ -179,6 +179,7 @@ struct LayoutEngine {
     const CodeFenceHighlighter& m_highlightFence;
     const ImageResolver& m_resolveImage;
     const bool m_wrapCodeBlocks;
+    const MdTableStyle& m_tableStyle;
     const BlockCollapsedQuery& m_isCollapsed;
     const LanguageDisplayResolver& m_resolveLanguageDisplay;
 
@@ -199,6 +200,7 @@ struct LayoutEngine {
         const CodeFenceHighlighter& highlightFence,
         const ImageResolver& resolveImage,
         const bool wrapCodeBlocks,
+        const MdTableStyle& tableStyle,
         const BlockCollapsedQuery& isCollapsed,
         const LanguageDisplayResolver& resolveLanguageDisplay
     )
@@ -209,6 +211,7 @@ struct LayoutEngine {
     , m_highlightFence(highlightFence)
     , m_resolveImage(resolveImage)
     , m_wrapCodeBlocks(wrapCodeBlocks)
+    , m_tableStyle(tableStyle)
     , m_isCollapsed(isCollapsed)
     , m_resolveLanguageDisplay(resolveLanguageDisplay) {}
 
@@ -1045,34 +1048,45 @@ struct LayoutEngine {
             }
         }
 
-        // Allocate column widths. Pad each natural width with a small
-        // gutter so adjacent columns aren't visually touching.
-        constexpr int kColGutter = 12;
+        // Bordered tables fold the spacing into each column as a gutter (cell
+        // text inset half a gutter from the dividers); borderless tables keep
+        // columns at their natural width and put the spacing BETWEEN them, so
+        // the first / last columns sit flush with the prose margins.
+        const bool borders = m_tableStyle.borders;
+        const int gutter = borders ? std::max(0, m_tableStyle.columnSpacing) : 0;
+        const int colGap = borders ? 0 : std::max(0, m_tableStyle.columnSpacing);
+
+        // Allocate column widths. The gutter (if any) is folded into each
+        // column; inter-column gaps (borderless) are reserved separately.
         constexpr int kMinColWidth = 40;
-        int totalNatural = 0;
+        const int betweenGaps = colGap * static_cast<int>(columnCount - 1);
+        int totalNatural = betweenGaps;
         for (const int width : naturalWidths) {
-            totalNatural += width + kColGutter;
+            totalNatural += width + gutter;
         }
         std::vector<int> columnWidths(columnCount, 0);
         if (totalNatural <= available) {
             for (std::size_t col = 0; col < columnCount; col++) {
-                columnWidths.at(col) = naturalWidths.at(col) + kColGutter;
+                columnWidths.at(col) = naturalWidths.at(col) + gutter;
             }
         } else {
             const int minCol = std::max(kMinColWidth, m_measurer.width("XXX", TextStyle {}));
+            const int distributable = std::max(1, available - betweenGaps);
+            const int totalCols = std::max(1, totalNatural - betweenGaps);
             for (std::size_t col = 0; col < columnCount; col++) {
-                const int proportional = ((naturalWidths.at(col) + kColGutter) * available) / totalNatural;
+                const int proportional = ((naturalWidths.at(col) + gutter) * distributable) / totalCols;
                 columnWidths.at(col) = std::max(minCol, proportional);
             }
         }
 
-        // Column x positions — first column starts at the block's left
-        // edge, sharing it with prose.
+        // Column x positions — first column starts at the block's left edge,
+        // sharing it with prose. `colGap` is zero for bordered tables (packed
+        // edge-to-edge) and the inter-column gap for borderless ones.
         std::vector<TableColumn> columns(columnCount);
         int xPos = left;
         for (std::size_t col = 0; col < columnCount; col++) {
             columns.at(col) = { .x = xPos, .width = columnWidths.at(col) };
-            xPos += columnWidths.at(col);
+            xPos += columnWidths.at(col) + colGap;
         }
 
         // Wrap and emit each row.
@@ -1087,7 +1101,7 @@ struct LayoutEngine {
             std::vector<std::vector<WrappedCellLine>> cellLines(columnCount);
             std::size_t maxLines = 1;
             for (std::size_t col = 0; col < columnCount; col++) {
-                cellLines.at(col) = wrapCellToColumn(cellItems.at(rowIdx).at(col), columnWidths.at(col) - kColGutter);
+                cellLines.at(col) = wrapCellToColumn(cellItems.at(rowIdx).at(col), columnWidths.at(col) - gutter);
                 maxLines = std::max(maxLines, cellLines.at(col).size());
             }
 
@@ -1099,6 +1113,7 @@ struct LayoutEngine {
                 line.quoteDepth = block.quoteDepth;
                 line.tableColumns = columns;
                 line.tableRowStart = (li == 0);
+                line.tableBordered = borders;
 
                 for (std::size_t col = 0; col < columnCount; col++) {
                     if (li >= cellLines.at(col).size()) {
@@ -1108,8 +1123,8 @@ struct LayoutEngine {
                     const auto alignment = col < block.columnAlignment.size()
                                              ? block.columnAlignment.at(col)
                                              : MdTableAlignment::Default;
-                    const int innerWidth = columnWidths.at(col) - kColGutter;
-                    int alignOffset = (kColGutter / 2);
+                    const int innerWidth = columnWidths.at(col) - gutter;
+                    int alignOffset = (gutter / 2);
                     if (alignment == MdTableAlignment::Center) {
                         alignOffset += std::max(0, (innerWidth - wrapped.width) / 2);
                     } else if (alignment == MdTableAlignment::Right) {
@@ -1126,6 +1141,12 @@ struct LayoutEngine {
 
                 m_yPos += lineHeight;
                 m_out.lines.push_back(std::move(line));
+            }
+
+            // Borderless tables can space rows apart; bordered tables keep
+            // their continuous box, so the gap is skipped there.
+            if (!borders && m_tableStyle.rowSpacing > 0 && rowIdx + 1 < block.rows.size()) {
+                m_yPos += std::max(0, m_tableStyle.rowSpacing);
             }
         }
         // The last pushed line carries the bottom-border flag, so the
@@ -1205,6 +1226,7 @@ auto fbide::markdown::layoutMarkdown(
     const CodeFenceHighlighter& highlightFence,
     const ImageResolver& resolveImage,
     const bool wrapCodeBlocks,
+    const MdTableStyle& tableStyle,
     const BlockCollapsedQuery& isCollapsed,
     const LanguageDisplayResolver& resolveLanguageDisplay
 ) -> LaidOutDoc {
@@ -1216,6 +1238,7 @@ auto fbide::markdown::layoutMarkdown(
         highlightFence,
         resolveImage,
         wrapCodeBlocks,
+        tableStyle,
         isCollapsed,
         resolveLanguageDisplay
     };

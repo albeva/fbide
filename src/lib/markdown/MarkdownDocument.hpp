@@ -52,6 +52,7 @@ public:
         const CodeFenceHighlighter& highlightFence,
         const ImageResolver& resolveImage = {},
         bool wrapCodeBlocks = true,
+        const MdTableStyle& tableStyle = {},
         const BlockCollapsedQuery& isCollapsed = {},
         const LanguageDisplayResolver& resolveLanguageDisplay = {}
     ) -> bool;
@@ -77,6 +78,7 @@ private:
     LaidOutDoc m_laid;
     int m_width = -1;
     bool m_wrapCodeBlocks = true;
+    MdTableStyle m_tableStyle;
 };
 
 } // namespace fbide::markdown

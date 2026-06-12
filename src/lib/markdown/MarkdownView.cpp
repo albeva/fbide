@@ -176,6 +176,14 @@ void MarkdownView::setWrapCodeBlocks(const bool wrap) {
     rebuild();
 }
 
+void MarkdownView::setTableStyle(const MdTableStyle& style) {
+    if (style == m_tableStyle) {
+        return;
+    }
+    m_tableStyle = style;
+    rebuild();
+}
+
 void MarkdownView::setSelectable(const bool selectable) {
     if (selectable == m_selectable) {
         return;
@@ -372,7 +380,7 @@ void MarkdownView::relayout(const wxString& source) {
         return info;
     };
 
-    m_document.setMarkdown(source, contentWidth, measurer, m_palette, m_highlighter, resolveImage, m_wrapCodeBlocks);
+    m_document.setMarkdown(source, contentWidth, measurer, m_palette, m_highlighter, resolveImage, m_wrapCodeBlocks, m_tableStyle);
 
     // Resize the per-block scroll vector to match the new layout. When
     // the block count is unchanged the previous offsets carry over
