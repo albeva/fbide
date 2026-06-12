@@ -5,18 +5,13 @@
 // https://github.com/albeva/fbide
 //
 #include "SideBarManager.hpp"
-#include <wx/dirctrl.h>
+#include "FileBrowser.hpp"
 #include "SymbolBrowserPanel.hpp"
 #include "app/Context.hpp"
 #include "command/CommandEntry.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
-#include "document/DocumentManager.hpp"
 using namespace fbide;
-
-namespace {
-const int BrowserTabsId = wxNewId();
-} // namespace
 
 SideBarManager::SideBarManager(Context& ctx)
 : m_ctx(ctx) {}
@@ -36,31 +31,22 @@ void SideBarManager::attach(wxAuiNotebook* notebook) {
     m_subFunctionPage = static_cast<int>(m_notebook->GetPageCount());
     m_notebook->AddPage(m_symbolPanel, m_ctx.tr("sidebar.tabs.subFunction"));
 
-    // Browse Files tab.
-    m_dirCtrl = make_unowned<wxGenericDirCtrl>(
-        m_notebook,
-        BrowserTabsId,
-        wxDirDialogDefaultFolderStr,
-        wxDefaultPosition,
-        wxDefaultSize,
-        wxDIRCTRL_3D_INTERNAL,
-        wxEmptyString
-    );
-    m_dirCtrl->Bind(wxEVT_DIRCTRL_FILEACTIVATED, &SideBarManager::onFileActivated, this);
-
+    // Browse Files tab. The FileBrowser owns the directory tree and its
+    // filesystem watch, and toggles the watch itself from its own show/hide
+    // events — this manager just hosts it as a tab.
+    m_fileBrowser = make_unowned<FileBrowser>(m_notebook, m_ctx);
     m_browseFilesPage = static_cast<int>(m_notebook->GetPageCount());
-    m_notebook->AddPage(m_dirCtrl, m_ctx.tr("sidebar.tabs.browseFiles"));
+    m_notebook->AddPage(m_fileBrowser, m_ctx.tr("sidebar.tabs.browseFiles"));
 }
 
 void SideBarManager::locateFile(const wxString& path) {
-    if (path.IsEmpty() || m_dirCtrl == nullptr || m_notebook == nullptr) {
+    if (path.IsEmpty() || m_fileBrowser == nullptr || m_notebook == nullptr) {
         return;
     }
     if (m_browseFilesPage != wxNOT_FOUND) {
         m_notebook->SetSelection(static_cast<size_t>(m_browseFilesPage));
     }
-    m_dirCtrl->ExpandPath(path);
-    m_dirCtrl->SelectPath(path);
+    m_fileBrowser->locateFile(path);
 }
 
 void SideBarManager::showSymbolBrowser() {
@@ -82,16 +68,4 @@ void SideBarManager::showSymbolsFor(const Document* doc) {
     if (m_symbolPanel != nullptr) {
         m_symbolPanel->setSymbols(doc);
     }
-}
-
-void SideBarManager::onFileActivated(wxTreeEvent& event) {
-    event.Skip();
-    if (m_dirCtrl == nullptr) {
-        return;
-    }
-    const auto path = m_dirCtrl->GetFilePath();
-    if (path.IsEmpty()) {
-        return;
-    }
-    m_ctx.getDocumentManager().openFile(path);
 }

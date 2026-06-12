@@ -133,6 +133,11 @@ public:
     /// Called from the settings-apply path.
     void refreshAutoReload();
 
+    /// Release the external-file watcher. Call on frame close, while the event
+    /// loop is still alive — the watcher is owned via Context and would
+    /// otherwise be destroyed after the loop ends (which faults).
+    void shutdownWatcher();
+
     /// Surface a document's deferred external-change bar now that it is the
     /// active tab. No-op when nothing is pending.
     void flushExternalPending(Document& doc);

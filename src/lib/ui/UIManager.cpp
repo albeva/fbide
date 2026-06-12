@@ -65,6 +65,11 @@ void UIManager::onClose(wxCloseEvent& event) {
     // the shutdown event-drain would dereference the freed task.
     m_ctx.getCompilerManager().killProcess();
 
+    // Release the filesystem watcher now, while the event loop is still alive.
+    // It is owned via Context (destroyed only after the loop ends), and a
+    // wxFileSystemWatcher torn down after the loop faults on its event source.
+    m_ctx.getDocumentManager().shutdownWatcher();
+
     saveWindowGeometry();
     // Document tabs are gone at this point — the AUI perspective we
     // capture now reflects only persistent chrome (toolbars, sidebar,

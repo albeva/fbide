@@ -897,6 +897,12 @@ void DocumentManager::refreshAutoReload() {
     m_watcher->applyConfig();
 }
 
+void DocumentManager::shutdownWatcher() {
+    if (m_watcher != nullptr) {
+        m_watcher->shutdown();
+    }
+}
+
 void DocumentManager::flushExternalPending(Document& doc) {
     m_watcher->flushPending(doc);
 }

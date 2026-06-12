@@ -57,6 +57,11 @@ public:
     /// True when the underlying watcher is live (feature enabled).
     [[nodiscard]] auto isEnabled() const -> bool { return m_watcher != nullptr; }
 
+    /// Release the watcher and unbind app hooks. Must be called while the
+    /// event loop is still alive (e.g. on frame close) — a wxFileSystemWatcher
+    /// destroyed during late app teardown faults on its event source.
+    void shutdown() { stop(); }
+
 private:
     void start();
     void stop();
