@@ -419,16 +419,23 @@ void fbide::markdown::paintLineText(
     const wxFont& bodyFont,
     const wxFont& monoFont,
     const wxFont& themedFont,
-    PaintRunState& state
+    PaintRunState& state,
+    const int hoveredLinkId
 ) {
     // `selectRunFont` mutates `state` — when the style differs from the
     // cached one, it sets the DC font and refreshes `currentAscent` so
     // the cache spans both the ascent pass and the draw pass (and every
-    // subsequent line that shares the style).
+    // subsequent line that shares the style). The hovered link's runs get
+    // an underline forced into the effective style, so the cache keys on it
+    // and the underline appears (and clears) without a re-layout.
     const auto selectRunFont = [&](const PaintRun& run) -> wxCoord {
-        if (!state.styleSet || run.style != state.currentStyle) {
-            gc.SetFont(fontFor(run.style, bodyFont, monoFont, themedFont));
-            state.currentStyle = run.style;
+        TextStyle style = run.style;
+        if (run.linkId >= 0 && run.linkId == hoveredLinkId) {
+            style.underline = true;
+        }
+        if (!state.styleSet || style != state.currentStyle) {
+            gc.SetFont(fontFor(style, bodyFont, monoFont, themedFont));
+            state.currentStyle = style;
             state.currentAscent = gc.GetFontMetrics().ascent;
             state.styleSet = true;
         }

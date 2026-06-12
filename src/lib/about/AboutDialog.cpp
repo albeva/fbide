@@ -35,9 +35,15 @@ AboutDialog::AboutDialog(wxWindow* parent, Context& ctx)
 , m_ctx(ctx) {}
 
 void AboutDialog::create() {
+    // Spacing is placed by hand with spacer(kPad), so the root and content
+    // sizers run with no margin or gap: a uniform inset wraps the logo and
+    // info page while the button row keeps its native platform spacing.
+    static_cast<SmartBoxSizer*>(currentSizer())->setOptions({ .gap = 0, .margin = false });
+    spacer(kPad); // top inset
+
     SetBackgroundColour(kBrandBlue);
 
-    hbox({ .proportion = 1, .gap = kPad }, [&] {
+    hbox({ .proportion = 1, .margin = false, .gap = 0 }, [&] {
         // Logo (left), rendered from logo.svg via NanoSVG (wx is built with SVG).
         constexpr int logoSize = 112; // logical px; the bundle scales for HiDPI
         const auto logo = wxBitmapBundle::FromSVGFile(
@@ -45,6 +51,7 @@ void AboutDialog::create() {
         );
         if (logo.IsOk()) {
             const auto bitmap = make_unowned<wxStaticBitmap>(currentParent(), wxID_ANY, logo);
+            spacer(kPad);
             add(bitmap, { .proportion = 0, .expand = false });
         }
 
@@ -62,28 +69,27 @@ void AboutDialog::create() {
         md->refreshTheme();
         md->setMarkdown(loadAbout());
         md->Bind(markdown::MARKDOWN_LINK_CLICKED, &AboutDialog::onLink, this);
+        spacer(kPad);
         add(md, { .proportion = 1 });
+        spacer(kPad);
     });
 
-    // Build the OK button explicitly so its backing colour is set at creation
-    // (wxButton has no colour ctor arg). macOS draws the rounded bezel over a
-    // rectangular backing; tinting it to the dialog colour keeps the corners
-    // navy, while the bezel stays the native accent button.
+    // OK button built explicitly to tint its backing colour: on macOS the
+    // rounded bezel sits on a rectangular fill, so matching it to the dialog
+    // keeps the corners navy instead of default grey.
     const auto ok = make_unowned<wxButton>(currentParent(), wxID_OK);
     ok->SetBackgroundColour(kBrandBlue);
     ok->SetForegroundColour(kBrandText);
+
+    // Button row: wxStdDialogButtonSizer gives OK its native placement and
+    // margins, which also supply the dialog's bottom inset.
     const auto buttons = make_unowned<wxStdDialogButtonSizer>();
     buttons->AddButton(ok);
     buttons->Realize();
     add(buttons);
 
-    // The content hbox provides the uniform padding; drop the root sizer's own
-    // outer margin so it isn't doubled (the button row keeps default spacing).
-    static_cast<SmartBoxSizer*>(currentSizer())->setOptions({ .margin = false });
-
-    // Single fit: the view reports its content height at its pinned width via
-    // DoGetBestSize, so the (430, -1) min size sizes the dialog to fit with no
-    // scroll bar — no explicit height, no second pass. Min-locked after.
+    // One fit suffices: MarkdownView reports its content height for the pinned
+    // width via DoGetBestSize, so the dialog sizes to fit with no scroll bar.
     SetSizerAndFit(currentSizer());
     Centre();
 }

@@ -251,7 +251,8 @@ struct LayoutEngine {
             wxColour colour = m_palette.text;
             int linkId = -1;
             if (inl.kind == MdInlineKind::Link) {
-                style.underline = true;
+                // A link sets only its colour here; the underline is applied on
+                // hover by paintLineText (matched by linkId).
                 colour = m_palette.link;
                 if (!inl.url.empty()) {
                     m_out.links.push_back({ .url = inl.url });
@@ -334,7 +335,7 @@ struct LayoutEngine {
                                      // non-ASCII under a `C`-locale process and would lose the suffix.
                                      ? wxString(" (loading") + wxUniChar(kEllipsisGlyph) + ")"
                                      : wxString(" (failed)"));
-        constexpr TextStyle style { .underline = true };
+        constexpr TextStyle style {}; // hover adds the underline (see paintLineText)
         const int width = m_measurer.width(label, style);
         PaintLine line;
         line.kind = LineKind::Prose;
@@ -433,9 +434,9 @@ struct LayoutEngine {
                 xPos += spaceWidth;
             }
             // Merge consecutive same-link, same-style runs — including the
-            // inter-word space — into one run, so an underline (links) is drawn
-            // by a single DrawText and stays continuous instead of breaking at
-            // the gap between per-word runs.
+            // inter-word space — into one run, so the hover underline (links)
+            // is drawn by a single DrawText and stays continuous instead of
+            // breaking at the gap between per-word runs.
             const bool mergeLink = pendingSpace && !lineRuns.empty() && item.linkId >= 0
                                 && lineRuns.back().linkId == item.linkId
                                 && lineRuns.back().style == item.style
@@ -944,7 +945,7 @@ struct LayoutEngine {
             case WrapItem::Type::Image:
                 // Table cells degrade images to a labelled link; the
                 // bitmap is not laid out inside a cell.
-                total += m_measurer.width(imageCellLabel(item), TextStyle { .underline = true });
+                total += m_measurer.width(imageCellLabel(item), TextStyle {});
                 sawNonSpace = true;
                 break;
             }
@@ -989,7 +990,7 @@ struct LayoutEngine {
             wxColour runColour;
             if (item.type == WrapItem::Type::Image) {
                 runText = imageCellLabel(item);
-                runStyle = TextStyle { .underline = true };
+                runStyle = TextStyle {};
                 runColour = m_palette.link;
             } else {
                 runText = item.text;
@@ -1004,7 +1005,7 @@ struct LayoutEngine {
                 xPos += spaceWidth;
             }
             // See emitWrapped: merge same-link, same-style runs (with the
-            // inter-word space) so an underline is one continuous segment.
+            // inter-word space) so the hover underline is one continuous segment.
             const bool mergeLink = pendingSpace && !current.runs.empty() && item.linkId >= 0
                                 && current.runs.back().linkId == item.linkId
                                 && current.runs.back().style == runStyle

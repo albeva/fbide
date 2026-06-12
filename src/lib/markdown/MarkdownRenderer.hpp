@@ -226,6 +226,8 @@ void paintLineBackground(
 /// Pass 1 finds the max ascent across runs; pass 2 draws each run at
 /// `baseline - runAscent`. `state` carries the cached font/colour
 /// across calls so a single-style paragraph hits `SetFont` once.
+/// A run whose `linkId` matches `hoveredLinkId` is drawn underlined; this is
+/// where a link's underline comes from, so it shows only while hovered.
 void paintLineText(
     wxGCDC& gc,
     const PaintLine& line,
@@ -234,7 +236,8 @@ void paintLineText(
     const wxFont& bodyFont,
     const wxFont& monoFont,
     const wxFont& themedFont,
-    PaintRunState& state
+    PaintRunState& state,
+    int hoveredLinkId = -1
 );
 
 /// Paint a collapsed code / patch strip's summary. Uses the same

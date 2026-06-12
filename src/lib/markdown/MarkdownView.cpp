@@ -117,6 +117,11 @@ MarkdownView::MarkdownView(wxWindow* parent, Context& ctx, const wxWindowID wini
             m_hoverScrollBlockIndex = -1;
             Refresh();
         }
+        // Drop the link-hover underline when the pointer leaves the view.
+        if (m_hoveredLinkId >= 0) {
+            m_hoveredLinkId = -1;
+            Refresh();
+        }
         event.Skip();
     });
 }
@@ -490,7 +495,7 @@ void MarkdownView::onPaint(wxPaintEvent& /*event*/) {
             }
 
             markdown::paintSelectionHighlight(gc, line, lineIdx, contentLeft - scrollX, lineTop, contentWidth, nextLineY, m_selection, highlightColour, measurer);
-            markdown::paintLineText(gc, line, contentLeft - scrollX, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
+            markdown::paintLineText(gc, line, contentLeft - scrollX, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState, m_hoveredLinkId);
 
             if (clipped) {
                 gc.DestroyClippingRegion();
@@ -614,7 +619,7 @@ auto MarkdownView::scrollbarAt(const wxPoint& clientPoint) -> std::optional<Scro
     return std::nullopt;
 }
 
-auto MarkdownView::linkAt(const wxPoint& clientPoint) const -> wxString {
+auto MarkdownView::linkIdAt(const wxPoint& clientPoint) const -> int {
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
     const int relX = clientPoint.x - m_contentPadding;
     const int relY = clientPoint.y + originY - m_contentPadding;
@@ -624,16 +629,21 @@ auto MarkdownView::linkAt(const wxPoint& clientPoint) const -> wxString {
             continue;
         }
         for (const auto& run : line.runs) {
-            if (run.linkId < 0) {
-                continue;
-            }
-            if (relX >= run.x && relX < run.x + run.width) {
-                return laid.links.at(static_cast<std::size_t>(run.linkId)).url;
+            if (run.linkId >= 0 && relX >= run.x && relX < run.x + run.width) {
+                return run.linkId;
             }
         }
         break;
     }
-    return {};
+    return -1;
+}
+
+auto MarkdownView::linkAt(const wxPoint& clientPoint) const -> wxString {
+    const int linkId = linkIdAt(clientPoint);
+    if (linkId < 0) {
+        return {};
+    }
+    return m_document.laid().links.at(static_cast<std::size_t>(linkId)).url;
 }
 
 auto MarkdownView::hitTest(const wxPoint& clientPoint) -> SelectionPosition {
@@ -740,14 +750,25 @@ void MarkdownView::onMotion(wxMouseEvent& event) {
         Refresh();
     }
     if (sbHit) {
+        // Moving onto the scrollbar clears any lingering link-hover underline.
+        if (m_hoveredLinkId >= 0) {
+            m_hoveredLinkId = -1;
+            Refresh();
+        }
         SetCursor(wxCursor(wxCURSOR_ARROW));
         event.Skip();
         return;
     }
     // Idle cursor: hand over links, I-beam over text content, arrow
-    // otherwise. Cheap to recompute each motion — `linkAt` is a quick
-    // scan and the line lookup is short.
-    const bool overLink = !linkAt(event.GetPosition()).empty();
+    // otherwise. Cheap to recompute each motion — `linkIdAt` is a quick
+    // scan and the line lookup is short. Track the hovered link so its
+    // run draws underlined; repaint only when the hovered link changes.
+    const int hoveredLink = linkIdAt(event.GetPosition());
+    if (hoveredLink != m_hoveredLinkId) {
+        m_hoveredLinkId = hoveredLink;
+        Refresh();
+    }
+    const bool overLink = hoveredLink >= 0;
     if (overLink) {
         SetCursor(wxCursor(wxCURSOR_HAND));
     } else if (!m_selectable) {

@@ -190,6 +190,9 @@ private:
     void installImageCacheListener();
     [[nodiscard]] static auto palette(const wxColour& windowBg, const wxColour& codeBg) -> MarkdownPalette;
     [[nodiscard]] auto linkAt(const wxPoint& clientPoint) const -> wxString;
+    /// Link id (index into `LaidOutDoc::links`) under `clientPoint`, or -1.
+    /// `linkAt` maps the result to a URL; hover tracking keeps the raw id.
+    [[nodiscard]] auto linkIdAt(const wxPoint& clientPoint) const -> int;
 
     /// Per-block horizontal-scroll-bar hit test. Result identifies the
     /// scroll block (index into `LaidOutDoc::scrollBlocks`) and exposes
@@ -251,6 +254,7 @@ private:
     int m_dragScrollStartOffset = 0;  ///< Scroll offset at drag start.
     int m_dragScrollStartMouseX = 0;  ///< Client-x at drag start.
     int m_hoverScrollBlockIndex = -1; ///< Block whose scrollbar the pointer hovers, or -1.
+    int m_hoveredLinkId = -1;         ///< Link the pointer hovers (drawn underlined), or -1.
     int m_hwheelPixelAccum = 0;       ///< Horizontal-wheel fractional carry.
 
     wxDECLARE_EVENT_TABLE();

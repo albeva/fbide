@@ -274,7 +274,9 @@ TEST_F(MarkdownLayoutTests, LoadingImageRendersAsPlaceholderProseLine) {
     ASSERT_EQ(doc.lines[0].runs.size(), 1U);
     EXPECT_TRUE(doc.lines[0].runs[0].text.Contains("cat"));
     EXPECT_TRUE(doc.lines[0].runs[0].text.Contains("loading"));
-    EXPECT_TRUE(doc.lines[0].runs[0].style.underline);
+    // Underline is a hover-time paint decoration, not a layout style; the
+    // placeholder is link-styled (linkId set) but not underlined here.
+    EXPECT_FALSE(doc.lines[0].runs[0].style.underline);
     EXPECT_EQ(doc.lines[0].runs[0].linkId, 0);
 }
 
@@ -329,7 +331,9 @@ TEST_F(MarkdownLayoutTests, LinkRunIsRegisteredAndTagged) {
             if (run.linkId >= 0) {
                 tagged = run.linkId;
                 EXPECT_EQ(run.text, "docs");
-                EXPECT_TRUE(run.style.underline);
+                // The underline is applied on hover by paintLineText, not in the
+                // layout style, so a link run is not underlined here.
+                EXPECT_FALSE(run.style.underline);
             }
         }
     }
