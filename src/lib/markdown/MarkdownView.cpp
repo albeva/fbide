@@ -100,8 +100,8 @@ wxBEGIN_EVENT_TABLE(MarkdownView, wxScrolled<wxPanel>)
 wxEND_EVENT_TABLE()
 // clang-format on
 
-MarkdownView::MarkdownView(wxWindow* parent, Context& ctx, const wxWindowID winid)
-: wxScrolled(parent, winid, wxDefaultPosition, wxDefaultSize, wxVSCROLL | wxCLIP_CHILDREN)
+MarkdownView::MarkdownView(wxWindow* parent, Context& ctx, const wxWindowID winid, const long style)
+: wxScrolled(parent, winid, wxDefaultPosition, wxDefaultSize, style | wxCLIP_CHILDREN)
 , m_ctx(ctx)
 , m_imageCache(std::make_unique<MarkdownImageCache>())
 , m_highlighter(defaultHighlight) {

@@ -49,8 +49,10 @@ void AboutDialog::create() {
         }
 
         // Info page (right) — all content comes from the markdown template.
-        const auto md = make_unowned<markdown::MarkdownView>(currentParent(), m_ctx);
-        md->SetMinSize(wxSize(430, -1)); // fixed width; height follows the content
+        // No scroll style — sized to its content, so it never needs a scroll
+        // bar — plus wxBORDER_NONE so wxGTK doesn't wrap it in a sunken border.
+        const auto md = make_unowned<markdown::MarkdownView>(currentParent(), m_ctx, wxID_ANY, wxBORDER_NONE);
+        md->SetMinSize(wxSize(400, -1)); // fixed width; height follows the content
         md->setSelectable(false);
         md->setContentBackground(kBrandBlue);
         md->setTextColour(kBrandText);
@@ -63,7 +65,17 @@ void AboutDialog::create() {
         add(md, { .proportion = 1 });
     });
 
-    add(CreateStdDialogButtonSizer(wxOK));
+    // Build the OK button explicitly so its backing colour is set at creation
+    // (wxButton has no colour ctor arg). macOS draws the rounded bezel over a
+    // rectangular backing; tinting it to the dialog colour keeps the corners
+    // navy, while the bezel stays the native accent button.
+    const auto ok = make_unowned<wxButton>(currentParent(), wxID_OK);
+    ok->SetBackgroundColour(kBrandBlue);
+    ok->SetForegroundColour(kBrandText);
+    const auto buttons = make_unowned<wxStdDialogButtonSizer>();
+    buttons->AddButton(ok);
+    buttons->Realize();
+    add(buttons);
 
     // The content hbox provides the uniform padding; drop the root sizer's own
     // outer margin so it isn't doubled (the button row keeps default spacing).

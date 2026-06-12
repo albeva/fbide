@@ -54,8 +54,11 @@ public:
 
     /// `ctx` gives the view access to the editor config + theme so the
     /// palette (notably the fenced-code background) is themed by default,
-    /// without the host wiring colours in.
-    MarkdownView(wxWindow* parent, Context& ctx, wxWindowID winid = wxID_ANY);
+    /// without the host wiring colours in. `style` is the `wxScrolled` window
+    /// style (default `wxVSCROLL`); pass `0` to never show a scroll bar — e.g.
+    /// when the host sizes the view to its content. `wxCLIP_CHILDREN` is always
+    /// added.
+    MarkdownView(wxWindow* parent, Context& ctx, wxWindowID winid = wxID_ANY, long style = wxVSCROLL);
     ~MarkdownView() override;
 
     /// Replace the rendered document. Triggers re-parse + re-layout +
