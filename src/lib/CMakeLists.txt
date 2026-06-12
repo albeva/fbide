@@ -32,9 +32,11 @@ target_sources(fbide_lib
     config/Version.cpp
     document/Document.cpp
     document/DocumentIO.cpp
+    document/DocumentInfoBar.cpp
     document/DocumentManager.cpp
     document/DocumentPath.cpp
     document/DocumentType.cpp
+    document/DocumentWatcher.cpp
     document/EncodingDetector.cpp
     document/FileSession.cpp
     document/TextEncoding.cpp
@@ -76,6 +78,7 @@ target_sources(fbide_lib
     ui/StatusBarHandler.cpp
     ui/UIManager.cpp
     ui/controls/ColorPicker.cpp
+    ui/controls/FlatButton.cpp
     ui/controls/InheritableField.cpp
     ui/controls/Panel.cpp
     ui/controls/SmartBoxSizer.cpp
@@ -163,6 +166,7 @@ target_sources(fbide_lib
     ui/UIManager.hpp
     ui/UIState.hpp
     ui/controls/ColorPicker.hpp
+    ui/controls/FlatButton.hpp
     ui/controls/InheritableField.hpp
     ui/controls/Layout.hpp
     ui/controls/Panel.hpp

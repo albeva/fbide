@@ -275,6 +275,9 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
         m_ctx.getSideBarManager().showSymbolsFor(doc);
         m_ctx.getCompilerManager().onActiveDocumentChanged(doc);
         setTitle(doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath()));
+        // Show any external-change bar that was deferred while this tab was
+        // in the background.
+        m_ctx.getDocumentManager().flushExternalPending(*doc);
     }
 }
 
@@ -726,5 +729,7 @@ void UIManager::updateSettings() {
     for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {
         doc->updateSettings();
     }
+    // Start/stop the auto-reload watcher if its toggle changed.
+    m_ctx.getDocumentManager().refreshAutoReload();
     refreshConfigurationDisplay();
 }

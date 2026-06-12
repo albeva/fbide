@@ -1,5 +1,6 @@
 # Changes since 0.5.0-rc.6
 
+- Added auto-reload of externally modified documents (Settings toggle, on by default): clean buffers reload silently, conflicts show a Reload / Keep bar.
 - Added a Windows installer that bundles the FreeBASIC compiler (x86/x64); ARM64 stays a portable zip.
 - Added Windows installer options (bundle FreeBASIC, associate .bas/.bi, add to PATH; .fbs always associated), shown before the licence, with the FreeBASIC licence displayed when the compiler is included.
 - The Windows uninstaller now offers to remove FBIde's per-user settings and data folder.

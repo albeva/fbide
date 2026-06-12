@@ -14,6 +14,7 @@ namespace fbide {
 class Context;
 class CodeTransformer;
 class IntellisenseService;
+class DocumentWatcher;
 
 /**
  * Owns every open `Document`, drives the open / save / close
@@ -120,6 +121,26 @@ public:
     /// unsaved changes (cancel preserves the buffer).
     void reloadFromDisk(Document& doc);
 
+    /// Reload a document's buffer from disk unconditionally (no prompt),
+    /// preserving the caret + scroll position. Used by the silent
+    /// auto-reload path and the conflict info bar's Reload action.
+    /// When `keepUndo` is true the replacement is recorded as a single
+    /// undoable step (instead of clearing undo history) so the user can undo
+    /// the reload and get their discarded changes back.
+    void applyReload(Document& doc, bool keepUndo = false);
+
+    /// Re-read the `editor.autoReload` setting and start/stop the watcher.
+    /// Called from the settings-apply path.
+    void refreshAutoReload();
+
+    /// Surface a document's deferred external-change bar now that it is the
+    /// active tab. No-op when nothing is pending.
+    void flushExternalPending(Document& doc);
+
+    /// Refresh just a document's tab text (e.g. its `[*]` dirty marker),
+    /// without touching the window title — safe for a non-active document.
+    void refreshTabTitle(const Document& doc) const;
+
     /// Get currently active document (selected tab), or nullptr if none.
     [[nodiscard]] auto getActive() const -> Document*;
 
@@ -218,6 +239,10 @@ private:
     /// Declared last so destruction runs first — worker thread stops and
     /// joins before the documents and transformer it might race with go away.
     std::unique_ptr<IntellisenseService> m_intellisense;
+    /// External-file watcher (auto-reload). Declared after `m_intellisense`
+    /// so it tears down first — it stops watching before the documents its
+    /// callbacks touch are destroyed.
+    std::unique_ptr<DocumentWatcher> m_watcher;
 
     wxDECLARE_EVENT_TABLE();
 };

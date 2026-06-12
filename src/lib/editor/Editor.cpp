@@ -979,6 +979,15 @@ void Editor::onModified(wxStyledTextEvent& event) {
         return;
     }
 
+    // A user edit resolves any pending external-change notification — they've
+    // chosen to keep working on their version (no-op when nothing is pending,
+    // including our own reload, which clears the pending state first).
+    if (m_documentManager != nullptr) {
+        if (auto* doc = m_documentManager->findByEditor(this)) {
+            doc->dismissExternalNotification();
+        }
+    }
+
     // Change tracking runs for every document type that paints a margin
     // (preview panes opt out via m_preview). Done first so the markers
     // are accurate even when the rest of `onModified` returns early

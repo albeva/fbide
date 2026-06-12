@@ -89,6 +89,7 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
     m_showRightMargin = editor.get_or("longLine", false);
     m_foldMargin = editor.get_or("folderMargin", false);
     m_changeTracking = editor.get_or("changeTracking", true);
+    m_autoReload = editor.get_or("autoReload", true);
     m_edgeColumn = editor.get_or("edgeColumn", 80);
     m_tabSize = editor.get_or("tabSize", 4);
     m_encoding = editor.get_or("encoding", "UTF-8");
@@ -123,6 +124,7 @@ void GeneralPage::create() {
             checkBox(m_showRightMargin, tr("dialogs.settings.general.rightMargin"));
             checkBox(m_foldMargin, tr("dialogs.settings.general.foldMargin"));
             checkBox(m_changeTracking, tr("dialogs.settings.general.changeTracking"));
+            checkBox(m_autoReload, tr("dialogs.settings.general.autoReload"));
             checkBox(m_splashScreen, tr("dialogs.settings.general.splashScreen"));
             checkBox(m_configurationInStatusBar, tr("dialogs.settings.general.configurationInStatusBar"));
             checkBox(m_checkUpdatesOnLoad, tr("dialogs.settings.general.checkUpdatesOnLoad"));
@@ -186,6 +188,7 @@ void GeneralPage::apply() {
     editor["longLine"] = m_showRightMargin;
     editor["folderMargin"] = m_foldMargin;
     editor["changeTracking"] = m_changeTracking;
+    editor["autoReload"] = m_autoReload;
     editor["edgeColumn"] = m_edgeColumn;
     editor["tabSize"] = m_tabSize;
     editor["encoding"] = m_encoding;

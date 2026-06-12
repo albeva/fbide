@@ -8,6 +8,7 @@
 #include "Document.hpp"
 #include "DocumentIO.hpp"
 #include "DocumentPath.hpp"
+#include "DocumentWatcher.hpp"
 #include "FileSession.hpp"
 #include "analyses/intellisense/IntellisenseService.hpp"
 #include "app/Context.hpp"
@@ -45,7 +46,8 @@ wxEND_EVENT_TABLE()
 DocumentManager::DocumentManager(Context& ctx)
 : m_ctx(ctx)
 , m_codeTransformer(std::make_unique<CodeTransformer>(ctx.getConfigManager()))
-, m_intellisense(std::make_unique<IntellisenseService>(ctx, this)) {
+, m_intellisense(std::make_unique<IntellisenseService>(ctx, this))
+, m_watcher(std::make_unique<DocumentWatcher>(ctx)) {
     Bind(EVT_INTELLISENSE_RESULT, &DocumentManager::onIntellisenseResult, this);
 }
 
@@ -238,6 +240,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     notebook->AddPage(doc.getPage(), doc.getTitle(), true);
 
     m_ctx.getFileHistory().addFile(canonicalWx);
+    m_watcher->addDocument(doc);
 
     // Initial parse: bypass throttle, submit immediately.
     submitIntellisense(&doc, loaded->text);
@@ -321,6 +324,7 @@ auto DocumentManager::saveFile(Document& doc) -> bool {
 
     doc.setModified(false);
     doc.updateModTime();
+    doc.dismissExternalNotification(); // a save resolves any external-change bar
     updateTabTitle(doc);
     reloadConfigIfMatches(toWxString(doc.getFilePath()));
     return true;
@@ -395,9 +399,14 @@ auto DocumentManager::saveFileAs(Document& doc) -> bool {
         return false;
     }
 
+    // Re-point the watcher: drop the old directory (no-op when the document
+    // was untitled) before the path changes, re-register the new one after.
+    m_watcher->removeDocument(doc);
     doc.setFilePath(newPath);
     doc.setModified(false);
     doc.updateModTime();
+    doc.dismissExternalNotification(); // a save resolves any external-change bar
+    m_watcher->addDocument(doc);
     updateTabTitle(doc);
     reloadConfigIfMatches(toWxString(newPath));
 
@@ -433,6 +442,14 @@ void DocumentManager::reloadFromDisk(Document& doc) {
         }
     }
 
+    applyReload(doc);
+}
+
+void DocumentManager::applyReload(Document& doc, const bool keepUndo) {
+    if (doc.isNew()) {
+        return;
+    }
+
     // Reload using the document's currently-active encoding + EOL — the
     // user already chose them (or they were detected at first load), so a
     // re-detection on reload would reset their choice unexpectedly.
@@ -442,16 +459,34 @@ void DocumentManager::reloadFromDisk(Document& doc) {
         return;
     }
 
-    // Keep the document's existing EOL — convert the loaded text to match
-    // it so the editor stays in the user-chosen line-ending mode.
+    // Preserve the caret + scroll position so a silent (clean-buffer)
+    // auto-reload doesn't jump the user to the top of the file.
     auto* editor = doc.getEditor();
+    const int caret = editor->GetCurrentPos();
+    const int firstVisible = editor->GetFirstVisibleLine();
+
+    // Keep the document's existing EOL — convert the loaded text to match
+    // it so the editor stays in the user-chosen line-ending mode. When
+    // keeping undo, group the text + EOL changes into one action so a single
+    // Undo restores the user's discarded version.
     const auto eol = doc.getEolMode().toStc();
+    if (keepUndo) {
+        editor->BeginUndoAction();
+    }
     editor->disableTransforms(true);
     editor->SetText(loaded->text);
     editor->disableTransforms(false);
     editor->SetEOLMode(eol);
     editor->ConvertEOLs(eol);
-    editor->EmptyUndoBuffer();
+    if (keepUndo) {
+        editor->EndUndoAction();
+    } else {
+        editor->EmptyUndoBuffer();
+    }
+
+    editor->GotoPos(std::min(caret, editor->GetLength()));
+    editor->SetFirstVisibleLine(firstVisible);
+
     doc.setModified(false);
     doc.updateModTime();
     updateTabTitle(doc);
@@ -500,6 +535,8 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
             }
         }
     }
+
+    m_watcher->removeDocument(doc);
 
     if (const auto idx = findPageIndex(doc); idx != wxNOT_FOUND) {
         getNotebook()->DeletePage(static_cast<size_t>(idx));
@@ -567,6 +604,11 @@ auto DocumentManager::closeOtherFiles(const Document& keep) -> bool {
 void DocumentManager::attachNotebook() {
     auto* notebook = getNotebook();
     notebook->Bind(wxEVT_AUINOTEBOOK_TAB_RIGHT_DOWN, &DocumentManager::onTabRightDown, this);
+    // Defer the watcher's first start until the event loop is running:
+    // `attachNotebook` runs during OnInit, and wxFileSystemWatcher wants a
+    // live loop. `start()` enumerates the open documents, so any restored by
+    // the session are registered when it fires.
+    CallAfter([this] { m_watcher->applyConfig(); });
 }
 
 void DocumentManager::submitIntellisense(Document* doc, wxString content) {
@@ -848,6 +890,20 @@ void DocumentManager::updateTabTitle(const Document& doc) const {
     if (idx != wxNOT_FOUND) {
         getNotebook()->SetPageText(static_cast<size_t>(idx), doc.getTitle());
         m_ctx.getUIManager().setTitle(doc.isNew() ? doc.getTitle() : toWxString(doc.getFilePath()));
+    }
+}
+
+void DocumentManager::refreshAutoReload() {
+    m_watcher->applyConfig();
+}
+
+void DocumentManager::flushExternalPending(Document& doc) {
+    m_watcher->flushPending(doc);
+}
+
+void DocumentManager::refreshTabTitle(const Document& doc) const {
+    if (const auto idx = findPageIndex(doc); idx != wxNOT_FOUND) {
+        getNotebook()->SetPageText(static_cast<size_t>(idx), doc.getTitle());
     }
 }
 
