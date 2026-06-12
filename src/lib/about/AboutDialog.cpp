@@ -66,7 +66,7 @@ void AboutDialog::create() {
         // No scroll style — sized to its content, so it never needs a scroll
         // bar — plus wxBORDER_NONE so wxGTK doesn't wrap it in a sunken border.
         const auto md = make_unowned<markdown::MarkdownView>(currentParent(), m_ctx, wxID_ANY, wxBORDER_NONE);
-        md->SetMinSize(wxSize(400, -1)); // fixed width; height follows the content
+        md->SetMinSize(wxSize(300, -1)); // fixed width; height follows the content
         md->setSelectable(false);
         md->ShowScrollbars(wxSHOW_SB_NEVER, wxSHOW_SB_NEVER);
         md->setContentBackground(kBrandBlue);
