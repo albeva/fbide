@@ -31,7 +31,7 @@ AboutDialog::AboutDialog(wxWindow* parent, Context& ctx)
 : Layout(
       parent, wxID_ANY, "About FBIde",
       wxDefaultPosition, wxDefaultSize,
-      wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER
+      wxDEFAULT_DIALOG_STYLE
   )
 , m_ctx(ctx) {}
 
@@ -52,13 +52,13 @@ void AboutDialog::create() {
 
         // Info page (right) — all content comes from the markdown template.
         const auto md = make_unowned<markdown::MarkdownView>(currentParent(), m_ctx);
-        md->SetMinSize(wxSize(430, 1));
+        md->SetMinSize(wxSize(430, -1));
         md->setSelectable(false);
         md->setContentBackground(kBrandBlue);
         md->setTextColour(kBrandText);
         md->setLinkColour(kBrandLink);
         md->setContentPadding(0);
-        md->setTableStyle({ .borders = false, .columnSpacing = 24, .rowSpacing = 2 });
+        md->setTableStyle({ .borders = false, .columnSpacing = 10, .rowSpacing = 0 });
         md->refreshTheme();
         md->setMarkdown(loadAbout());
         md->Bind(markdown::MARKDOWN_LINK_CLICKED, &AboutDialog::onLink, this);
@@ -102,7 +102,7 @@ void AboutDialog::onLink(wxCommandEvent& event) {
         return;
     }
     if (url == "fbide:check-updates") {
-        EndModal(wxID_OK);
+        // Keep the dialog open — the update check reports its result on top.
         m_ctx.getUpdateManager().checkManual();
         return;
     }

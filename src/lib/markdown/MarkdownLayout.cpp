@@ -432,13 +432,27 @@ struct LayoutEngine {
             } else if (pendingSpace && !lineRuns.empty()) {
                 xPos += spaceWidth;
             }
+            // Merge consecutive same-link, same-style runs — including the
+            // inter-word space — into one run, so an underline (links) is drawn
+            // by a single DrawText and stays continuous instead of breaking at
+            // the gap between per-word runs.
+            const bool mergeLink = pendingSpace && !lineRuns.empty() && item.linkId >= 0
+                                && lineRuns.back().linkId == item.linkId
+                                && lineRuns.back().style == item.style
+                                && lineRuns.back().colour == item.colour;
             pendingSpace = false;
-            lineRuns.push_back({ .text = item.text,
-                .style = item.style,
-                .colour = item.colour,
-                .x = xPos,
-                .width = wordWidth,
-                .linkId = item.linkId });
+            if (mergeLink) {
+                PaintRun& prev = lineRuns.back();
+                prev.text += wxString { " " } + item.text;
+                prev.width = (xPos - prev.x) + wordWidth;
+            } else {
+                lineRuns.push_back({ .text = item.text,
+                    .style = item.style,
+                    .colour = item.colour,
+                    .x = xPos,
+                    .width = wordWidth,
+                    .linkId = item.linkId });
+            }
             xPos += wordWidth;
             maxHeight = std::max(maxHeight, m_measurer.lineHeight(item.style));
         }
@@ -989,13 +1003,25 @@ struct LayoutEngine {
             } else if (pendingSpace && !current.runs.empty()) {
                 xPos += spaceWidth;
             }
+            // See emitWrapped: merge same-link, same-style runs (with the
+            // inter-word space) so an underline is one continuous segment.
+            const bool mergeLink = pendingSpace && !current.runs.empty() && item.linkId >= 0
+                                && current.runs.back().linkId == item.linkId
+                                && current.runs.back().style == runStyle
+                                && current.runs.back().colour == runColour;
             pendingSpace = false;
-            current.runs.push_back({ .text = runText,
-                .style = runStyle,
-                .colour = runColour,
-                .x = xPos,
-                .width = wordWidth,
-                .linkId = item.linkId });
+            if (mergeLink) {
+                PaintRun& prev = current.runs.back();
+                prev.text += wxString { " " } + runText;
+                prev.width = (xPos - prev.x) + wordWidth;
+            } else {
+                current.runs.push_back({ .text = runText,
+                    .style = runStyle,
+                    .colour = runColour,
+                    .x = xPos,
+                    .width = wordWidth,
+                    .linkId = item.linkId });
+            }
             xPos += wordWidth;
         }
         if (!current.runs.empty()) {

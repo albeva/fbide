@@ -2,13 +2,15 @@
 
 An open-source IDE for the [FreeBASIC](https://freebasic.net) compiler.
 
-| **Version** | @FBIDE_FULL_VERSION@ (@FBIDE_BUILD_VARIANT@) |
-|---|---|
-| **Built** | @FBIDE_BUILD_DATE@ |
-| **wxWidgets** | @wxWidgets_VERSION@ |
+[Website](https://fbide.freebasic.net) · [GitHub](https://github.com/albeva/fbide)
 
-[Website](https://fbide.freebasic.net) · [GitHub](https://github.com/albeva/fbide) · [Release notes](https://fbide.freebasic.net/changelog/@FBIDE_FULL_VERSION@.html) · [Check for updates](fbide:check-updates)
+| **Version** | @FBIDE_FULL_VERSION@ (@FBIDE_BUILD_VARIANT@) | [Release notes](https://fbide.freebasic.net/changelog/@FBIDE_FULL_VERSION@.html) · [Check for updates](fbide:check-updates) |
+|---|---|---|
+| **Built** | @FBIDE_BUILD_DATE@ | |
+| **wxWidgets** | @wxWidgets_VERSION@ | |
+
+Thanks to Gothon, dumbledore, Madedog, Mecki, MySoft, and the FreeBASIC community.
+
+Copyright © 2006–2026 Albert Varaksin.
 
 [License](LICENSE) · [Artwork](ASSETS-LICENSE.md) · [Third-party](THIRD_PARTY_LICENSES.txt)
-
-Copyright © 2006–2026 Albert Varaksin. Thanks to Gothon, dumbledore, Madedog, Mecki, MySoft, and the FreeBASIC community.
