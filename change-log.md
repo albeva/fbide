@@ -1,20 +1,14 @@
 # Changes since 0.5.0-rc.6
 
-- Added auto-reload of externally modified documents (Settings toggle, on by default): clean buffers reload silently, conflicts show a Reload / Keep bar.
-- Added a Windows installer that bundles the FreeBASIC compiler (x86/x64); ARM64 stays a portable zip.
-- Added Windows installer options (bundle FreeBASIC, associate .bas/.bi, add to PATH; .fbs always associated), shown before the licence, with the FreeBASIC licence displayed when the compiler is included.
-- The Windows uninstaller now offers to remove FBIde's per-user settings and data folder.
-- Added first-run silent FreeBASIC compiler auto-detection on Windows (fbc next to fbide.exe or on PATH).
-- Added a new app icon and distinct document icons for .bas, .bi and .fbs files
-- Added .bas, .bi and .fbs file type associations and document icons to the Linux AppImage.
-- Added a separate Creative Commons (CC BY-NC-ND 4.0) license for FBIde artwork and branding.
-- Redesigned the About dialog: app logo beside a brand-blue info page with a version table and quick links.
-- Added a Credits page (current and legacy FBIde contributors), linked from the About dialog.
-- Changed markdown links to show their underline only while the pointer hovers them.
+- Added a Windows installer and FreeBASIC bundle for x86
 - Added an arm64 (aarch64) Linux AppImage build alongside the existing x86_64 one.
 - Added an arm64 Windows build alongside the existing x64 and x86 ones.
+- Added auto-reload of externally modified documents
+- Added auto-detect fbc compiler on first run (Windows only)
+- Added a new app icon and distinct document icons for .bas, .bi and .fbs files
+- Added .bas, .bi and .fbs file type associations and document icons to the Linux AppImage.
+- Redesigned the About dialog.
 - Statically linked the CRT into the x86/x64 Windows builds so they run without the VC++ redistributable.
-- Lowered the Windows installer minimum to Windows 7 SP1 (the static-CRT x86/x64 builds run on Windows 7+).
 - Fixed an operator (e.g. `,`) before a `&h`/`&o`/`&b` number swallowing its prefix and mis-highlighting the number (#111).
 
 # Changes since 0.5.0-rc.5
