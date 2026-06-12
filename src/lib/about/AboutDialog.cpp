@@ -14,6 +14,11 @@
 
 using namespace fbide;
 
+wxBEGIN_EVENT_TABLE(AboutDialog, Layout)
+    EVT_CHAR_HOOK(AboutDialog::onCharHook)
+    EVT_COMMAND(wxID_ANY, fbide::markdown::MARKDOWN_LINK_CLICKED, AboutDialog::onLink)
+wxEND_EVENT_TABLE()
+
 namespace {
 // Deep navy sampled-dark from the splash artwork. The About dialog uses it
 // uniformly, independent of the system light / dark theme; text and link
@@ -22,8 +27,7 @@ const wxColour kBrandBlue { 18, 32, 58 };
 const wxColour kBrandText { 228, 233, 245 };
 const wxColour kBrandLink { 125, 165, 255 };
 // Uniform padding around the content and the logo->text gap — one value, so the
-// outer padding and the gap match. The button row keeps the platform-default
-// spacing below this.
+// outer padding and the gap match.
 constexpr int kPad = 20;
 } // namespace
 
@@ -36,15 +40,13 @@ AboutDialog::AboutDialog(wxWindow* parent, Context& ctx)
 , m_ctx(ctx) {}
 
 void AboutDialog::create() {
-    // Spacing is placed by hand with spacer(kPad), so the root and content
-    // sizers run with no margin or gap: a uniform inset wraps the logo and
-    // info page while the button row keeps its native platform spacing.
-    static_cast<SmartBoxSizer*>(currentSizer())->setOptions({ .gap = 0, .margin = false });
-    spacer(kPad); // top inset
-
     SetBackgroundColour(kBrandBlue);
 
-    hbox({ .proportion = 1, .margin = false, .gap = 0 }, [&] {
+    // The root sizer runs with no margin or gap; the content hbox below carries
+    // the uniform kPad inset and gap, so one value wraps the logo and info page.
+    static_cast<SmartBoxSizer*>(currentSizer())->setOptions({ .gap = 0, .margin = false });
+
+    hbox({ .proportion = 1, .margin = true, .gap = kPad }, [&] {
         // Logo (left): logo.svg is cropped tight to the horse head, so render
         // at its exact intrinsic size (portrait — a square would distort it).
         // The bitmap edges are the head edges, so it places precisely; the SVG
@@ -57,7 +59,6 @@ void AboutDialog::create() {
         );
         if (logo.IsOk()) {
             const auto bitmap = make_unowned<wxStaticBitmap>(currentParent(), wxID_ANY, logo);
-            spacer(kPad);
             add(bitmap, { .proportion = 0, .expand = false });
         }
 
@@ -75,25 +76,8 @@ void AboutDialog::create() {
         md->setTableStyle({ .borders = false, .columnSpacing = 16, .rowSpacing = 0 });
         md->refreshTheme();
         md->setMarkdown(loadAbout());
-        md->Bind(markdown::MARKDOWN_LINK_CLICKED, &AboutDialog::onLink, this);
-        spacer(kPad);
         add(md, { .proportion = 1 });
-        spacer(kPad);
     });
-
-    // OK button built explicitly to tint its backing colour: on macOS the
-    // rounded bezel sits on a rectangular fill, so matching it to the dialog
-    // keeps the corners navy instead of default grey.
-    const auto ok = make_unowned<wxButton>(currentParent(), wxID_OK);
-    ok->SetBackgroundColour(kBrandBlue);
-    ok->SetForegroundColour(kBrandText);
-
-    // Button row: wxStdDialogButtonSizer gives OK its native placement and
-    // margins, which also supply the dialog's bottom inset.
-    const auto buttons = make_unowned<wxStdDialogButtonSizer>();
-    buttons->AddButton(ok);
-    buttons->Realize();
-    add(buttons);
 
     // One fit suffices: MarkdownView reports its content height for the pinned
     // width via DoGetBestSize, so the dialog sizes to fit with no scroll bar.
@@ -127,4 +111,12 @@ void AboutDialog::onLink(wxCommandEvent& event) {
     // A bundled file (a license) — open it in an editor tab and close the dialog.
     m_ctx.getDocumentManager().openFile(m_ctx.getConfigManager().absolute(url));
     EndModal(wxID_OK);
+}
+
+void AboutDialog::onCharHook(wxKeyEvent& event) {
+    if (event.GetKeyCode() == WXK_ESCAPE) {
+        EndModal(wxID_CANCEL);
+        return;
+    }
+    event.Skip();
 }

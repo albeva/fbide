@@ -928,8 +928,8 @@ void MarkdownView::onCharHook(wxKeyEvent& event) {
             return;
         }
     }
-    if (event.GetKeyCode() == WXK_ESCAPE) {
-        clearSelection();
+    if (event.GetKeyCode() == WXK_ESCAPE && !m_selection.empty()) {
+        clearSelection(); // Esc cancels an active selection; with none, let it bubble (dialog close, etc.)
         return;
     }
     event.Skip();

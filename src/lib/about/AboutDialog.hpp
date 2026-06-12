@@ -31,8 +31,13 @@ private:
     /// browser, `fbide:check-updates` triggers a manual update check, and any
     /// other URL is a bundled file (a license) opened in an editor tab.
     void onLink(wxCommandEvent& event);
+    /// Close the dialog on Esc — there is no Close button, only the title-bar
+    /// close box, so the key is handled explicitly.
+    void onCharHook(wxKeyEvent& event);
 
     Context& m_ctx; ///< Application context.
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide
