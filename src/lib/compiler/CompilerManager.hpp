@@ -85,6 +85,14 @@ public:
     /// ignore flag is set. Call once after the main frame is created.
     void checkCompilerOnStartup() const;
 
+    /// First-launch only: silently auto-detect fbc (next to fbide.exe, as a
+    /// bundled installer ships it, or on PATH) and install the resulting
+    /// `[compiler]` configuration, persisting it like the Settings-dialog
+    /// auto-detect would. Returns true when a compiler was found and
+    /// configured. Windows-only; always false elsewhere. The caller falls
+    /// back to `checkCompilerOnStartup()` when this returns false.
+    auto detectCompilerOnFirstRun() -> bool;
+
     /// Show the "compiler not found" prompt without the silence checkbox
     /// (used by the build flow when the user explicitly invokes compile/
     /// run): the alert is always relevant because the user just asked for
@@ -200,9 +208,8 @@ private:
     [[nodiscard]] auto ensureRunnable(const ResolvedCompilerConfig& cfg) const -> bool;
 
     /// Yes/No "configure now?" alert with its own title + message. On
-    /// Yes, open Settings at `target` (a `focusPath` deep-link). Returns
-    /// true when the user chose to open Settings.
-    auto promptConfigure(const wxString& titleKey, const wxString& messageKey, const wxString& target) const -> bool;
+    /// Yes, open Settings at `target` (a `focusPath` deep-link).
+    void promptConfigure(const wxString& titleKey, const wxString& messageKey, const wxString& target) const;
 
     Context& m_ctx;                                   ///< Application context.
     std::unique_ptr<CompilerConfigCatalog> m_catalog; ///< Resolved view of `[compiler]` + `[compiler/*]`.

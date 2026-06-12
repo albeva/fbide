@@ -5,6 +5,8 @@
 // https://github.com/albeva/fbide
 //
 #include "markdown/MarkdownView.hpp"
+#include "app/Context.hpp"
+#include "config/Theme.hpp"
 using namespace fbide;
 using namespace fbide::markdown;
 
@@ -13,11 +15,11 @@ wxDEFINE_EVENT(fbide::markdown::MARKDOWN_LINK_CLICKED, wxCommandEvent);
 
 namespace {
 
-/// Inner padding between the panel edge and content.
-constexpr int kPadding = 8;
 /// A touch of leading on top of the measured font height — matches the
 /// chat view's calculation so wheel-step quantisation lines up.
 constexpr int kBodyLeading = 4;
+/// Alpha for the translucent selection band so backgrounds bleed through.
+constexpr unsigned char kHighlightAlpha = 100;
 
 // Palette-derivation factors. The defaults are visually subtle blends
 // against the system window background; named so the tidy magic-number
@@ -98,8 +100,9 @@ wxBEGIN_EVENT_TABLE(MarkdownView, wxScrolled<wxPanel>)
 wxEND_EVENT_TABLE()
 // clang-format on
 
-MarkdownView::MarkdownView(wxWindow* parent, const wxWindowID winid)
-: wxScrolled(parent, winid, wxDefaultPosition, wxDefaultSize, wxVSCROLL | wxCLIP_CHILDREN)
+MarkdownView::MarkdownView(wxWindow* parent, Context& ctx, const wxWindowID winid, const long style)
+: wxScrolled(parent, winid, wxDefaultPosition, wxDefaultSize, style | wxCLIP_CHILDREN)
+, m_ctx(ctx)
 , m_imageCache(std::make_unique<MarkdownImageCache>())
 , m_highlighter(defaultHighlight) {
     wxScrolled::SetBackgroundStyle(wxBG_STYLE_PAINT);
@@ -114,6 +117,11 @@ MarkdownView::MarkdownView(wxWindow* parent, const wxWindowID winid)
             m_hoverScrollBlockIndex = -1;
             Refresh();
         }
+        // Drop the link-hover underline when the pointer leaves the view.
+        if (m_hoveredLinkId >= 0) {
+            m_hoveredLinkId = -1;
+            Refresh();
+        }
         event.Skip();
     });
 }
@@ -121,13 +129,13 @@ MarkdownView::MarkdownView(wxWindow* parent, const wxWindowID winid)
 MarkdownView::~MarkdownView() = default;
 
 void MarkdownView::setMarkdown(const wxString& markdown) {
-    if (markdown == m_markdown) {
+    if (markdown == m_document.markdown()) {
         return;
     }
     // Content change invalidates any positions the selection held.
     m_selection.clear();
-    m_markdown = markdown;
-    relayout();
+    relayout(markdown);
+    InvalidateBestSize(); // content height changed — DoGetBestSize must recompute
     Scroll(0, 0);
     Refresh();
 }
@@ -156,7 +164,7 @@ void MarkdownView::installImageCacheListener() {
         m_imageRelayoutPending = true;
         CallAfter([this] {
             m_imageRelayoutPending = false;
-            relayout();
+            relayout(m_document.markdown());
             Refresh();
         });
     });
@@ -174,6 +182,73 @@ void MarkdownView::setWrapCodeBlocks(const bool wrap) {
     rebuild();
 }
 
+void MarkdownView::setTableStyle(const MdTableStyle& style) {
+    if (style == m_tableStyle) {
+        return;
+    }
+    m_tableStyle = style;
+    rebuild();
+}
+
+void MarkdownView::setSelectable(const bool selectable) {
+    if (selectable == m_selectable) {
+        return;
+    }
+    m_selectable = selectable;
+    // A live selection can't survive read-only mode — drop it.
+    if (!m_selectable) {
+        clearSelection();
+    }
+}
+
+void MarkdownView::setContentBackground(const wxColour& colour) {
+    m_backgroundColour = colour;
+    // Mirror it onto the window so any wx-drawn edges match, then
+    // re-derive the palette (its tints blend against this colour) and
+    // re-lay so cached runs pick up the new background.
+    SetBackgroundColour(backgroundColour());
+    rebuildPalette();
+    rebuild();
+}
+
+void MarkdownView::setTextColour(const wxColour& colour) {
+    m_textColour = colour;
+    rebuildPalette();
+    rebuild();
+}
+
+void MarkdownView::setLinkColour(const wxColour& colour) {
+    m_linkColour = colour;
+    rebuildPalette();
+    rebuild();
+}
+
+void MarkdownView::setContentPadding(const int padding) {
+    const int clamped = std::max(0, padding);
+    if (clamped == m_contentPadding) {
+        return;
+    }
+    m_contentPadding = clamped;
+    // Padding feeds the content width, so the document must re-wrap.
+    relayout(m_document.markdown());
+    Refresh();
+}
+
+auto MarkdownView::DoGetBestSize() const -> wxSize {
+    const int width = GetMinWidth();
+    if (width <= 0) {
+        return wxScrolled::DoGetBestSize();
+    }
+    // Lay the content out at the host-pinned width (with the real platform fonts)
+    // and report its height, so a plain (width, -1) min size sizes the host
+    // through a single Fit — no explicit height, no second pass. Fit consults the
+    // best size but ignores height-for-width, so this is the hook that works.
+    // const_cast only refreshes the cached layout the upcoming paint reuses.
+    auto* const self = const_cast<MarkdownView*>(this);
+    self->layoutDocument(m_document.markdown(), std::max(40, width - (2 * m_contentPadding)));
+    return { width, m_document.height() + (2 * m_contentPadding) };
+}
+
 void MarkdownView::refreshTheme() {
     resolveFonts();
     m_measurerCache.clear();
@@ -183,7 +258,7 @@ void MarkdownView::refreshTheme() {
 
 void MarkdownView::rebuild() {
     m_document.invalidate();
-    relayout();
+    relayout(m_document.markdown());
     Refresh();
 }
 
@@ -202,16 +277,47 @@ void MarkdownView::resolveFonts() {
     wxCoord textHeight = 0;
     dc.GetTextExtent("Ag", &textWidth, &textHeight, nullptr, nullptr, &m_bodyFont);
     m_bodyLineHeight = textHeight + kBodyLeading;
+
+    // Palette (content background + system colours + editor theme) and
+    // the selection-highlight colour are cached here so `onPaint` /
+    // `relayout` don't rebuild them per call.
+    rebuildPalette();
+    const wxColour sysHighlight = wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT);
+    m_highlightColour = wxColour(sysHighlight.Red(), sysHighlight.Green(), sysHighlight.Blue(), kHighlightAlpha);
 }
 
-auto MarkdownView::palette() -> MarkdownPalette {
-    const wxColour windowBg = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
+auto MarkdownView::backgroundColour() const -> wxColour {
+    return m_backgroundColour.IsOk()
+             ? m_backgroundColour
+             : wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
+}
+
+void MarkdownView::rebuildPalette() {
+    // Fenced code sits on the editor theme's background so the syntax
+    // colours render on their intended canvas rather than a system grey.
+    m_palette = palette(backgroundColour(), m_ctx.getTheme().background({}));
+    // Host overrides win — a custom content background (e.g. the About dialog's
+    // brand blue) needs text / links the system colours wouldn't make legible.
+    if (m_textColour.IsOk()) {
+        m_palette.text = m_textColour;
+    }
+    if (m_linkColour.IsOk()) {
+        m_palette.link = m_linkColour;
+    }
+}
+
+auto MarkdownView::palette(const wxColour& windowBg, const wxColour& codeBg) -> MarkdownPalette {
     const wxColour windowText = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOWTEXT);
     const wxColour patchRed { kPatchRedR, kPatchRedG, kPatchRedB };
     const wxColour patchGreen { kPatchGreenR, kPatchGreenG, kPatchGreenB };
+    // `codeBg` is the editor theme's background (the canvas the syntax
+    // colours were designed for); fall back to a system blend when the
+    // theme leaves it unset so a fenced block never paints with an
+    // invalid brush.
+    const wxColour resolvedCodeBg = codeBg.IsOk() ? codeBg : blend(windowBg, windowText, kCodeBgBlend);
     return { .text = windowText,
         .link = wxSystemSettings::GetColour(wxSYS_COLOUR_HOTLIGHT),
-        .codeBg = blend(windowBg, windowText, kCodeBgBlend),
+        .codeBg = resolvedCodeBg,
         .inlineCodeBg = blend(windowBg, windowText, kInlineCodeBgBlend),
         .rule = blend(windowBg, windowText, kRuleBlend),
         .tableHeaderBg = blend(windowBg, windowText, kTableHeaderBgBlend),
@@ -240,7 +346,7 @@ void MarkdownView::onSize(wxSizeEvent& event) {
         anchorOffset = selectionToOffset(laid, m_selection.anchor);
         caretOffset = selectionToOffset(laid, m_selection.caret);
     }
-    relayout();
+    relayout(m_document.markdown());
     if (remap) {
         const auto& laid = m_document.laid();
         // Bias the lower offset toward the start of its line and the
@@ -256,13 +362,7 @@ void MarkdownView::onSize(wxSizeEvent& event) {
     event.Skip();
 }
 
-void MarkdownView::relayout() {
-    const int panelWidth = GetClientSize().GetWidth();
-    if (panelWidth <= 0) {
-        return;
-    }
-    const int contentWidth = std::max(40, panelWidth - (2 * kPadding));
-
+void MarkdownView::layoutDocument(const wxString& source, const int contentWidth) {
     const wxClientDC clientDc(this);
     wxGCDC measureDc;
     measureDc.SetGraphicsContext(makeGraphicsContext(clientDc));
@@ -288,7 +388,15 @@ void MarkdownView::relayout() {
         return info;
     };
 
-    m_document.setMarkdown(m_markdown, contentWidth, measurer, palette(), m_highlighter, resolveImage, m_wrapCodeBlocks);
+    m_document.setMarkdown(source, contentWidth, measurer, m_palette, m_highlighter, resolveImage, m_wrapCodeBlocks, m_tableStyle);
+}
+
+void MarkdownView::relayout(const wxString& source) {
+    const int panelWidth = GetClientSize().GetWidth();
+    if (panelWidth <= 0) {
+        return;
+    }
+    layoutDocument(source, std::max(40, panelWidth - (2 * m_contentPadding)));
 
     // Resize the per-block scroll vector to match the new layout. When
     // the block count is unchanged the previous offsets carry over
@@ -302,7 +410,7 @@ void MarkdownView::relayout() {
         m_blockScroll[i] = std::clamp(m_blockScroll[i], 0, maxScroll);
     }
 
-    const int totalHeight = m_document.height() + (2 * kPadding);
+    const int totalHeight = m_document.height() + (2 * m_contentPadding);
     SetVirtualSize(panelWidth, totalHeight);
     m_layoutWidth = panelWidth;
 }
@@ -327,21 +435,21 @@ void MarkdownView::onPaint(wxPaintEvent& /*event*/) {
         gc.SetGraphicsContext(makeGraphicsContext(memoryDc));
 
         gc.SetPen(*wxTRANSPARENT_PEN);
-        gc.SetBrush(wxBrush(wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW)));
+        gc.SetBrush(wxBrush(backgroundColour()));
         gc.DrawRectangle(update);
 
         const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
         const int regionTopDoc = originY + update.y;
         const int regionBottomDoc = regionTopDoc + update.height;
 
-        const MarkdownPalette pal = palette();
+        const MarkdownPalette& pal = m_palette;
         const auto& laid = m_document.laid();
-        constexpr int contentLeft = kPadding;
-        const int contentTop = kPadding - originY;
-        const int contentWidth = std::max(0, size.GetWidth() - (2 * kPadding));
+        const int contentLeft = m_contentPadding;
+        const int contentTop = m_contentPadding - originY;
+        const int contentWidth = std::max(0, size.GetWidth() - (2 * m_contentPadding));
 
-        const int regionTopRel = regionTopDoc - kPadding;
-        const int regionBottomRel = regionBottomDoc - kPadding;
+        const int regionTopRel = regionTopDoc - m_contentPadding;
+        const int regionBottomRel = regionBottomDoc - m_contentPadding;
         const auto first = std::ranges::lower_bound(
             laid.lines, regionTopRel,
             [](const int height, const int top) { return height < top; },
@@ -352,12 +460,9 @@ void MarkdownView::onPaint(wxPaintEvent& /*event*/) {
         // needs per-character widths to compute the highlight rect, and a
         // fresh DcMeasurer + the shared cache is cheap to build.
         const DcMeasurer measurer(memoryDc, m_bodyFont, m_monoFont, m_themedFont, m_measurerCache);
-        // Translucent selection so code / patch / table backgrounds and
-        // inline images bleed through — drawing solid would obscure them
-        // and the band would read as an opaque blue strip.
-        const wxColour sysHighlight = wxSystemSettings::GetColour(wxSYS_COLOUR_HIGHLIGHT);
-        constexpr unsigned char kHighlightAlpha = 100;
-        const wxColour highlightColour(sysHighlight.Red(), sysHighlight.Green(), sysHighlight.Blue(), kHighlightAlpha);
+        // Translucent selection (cached in `m_highlightColour`) so code /
+        // patch / table backgrounds and inline images bleed through.
+        const wxColour& highlightColour = m_highlightColour;
 
         PaintRunState runState;
         for (auto it = first; it != laid.lines.end(); ++it) {
@@ -390,7 +495,7 @@ void MarkdownView::onPaint(wxPaintEvent& /*event*/) {
             }
 
             markdown::paintSelectionHighlight(gc, line, lineIdx, contentLeft - scrollX, lineTop, contentWidth, nextLineY, m_selection, highlightColour, measurer);
-            markdown::paintLineText(gc, line, contentLeft - scrollX, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState);
+            markdown::paintLineText(gc, line, contentLeft - scrollX, lineTop, m_bodyFont, m_monoFont, m_themedFont, runState, m_hoveredLinkId);
 
             if (clipped) {
                 gc.DestroyClippingRegion();
@@ -477,9 +582,9 @@ void MarkdownView::setBlockScrollOffset(const std::size_t index, const int offse
 
 auto MarkdownView::scrollbarAt(const wxPoint& clientPoint) -> std::optional<ScrollbarTarget> {
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
-    const int contentTopPx = kPadding - originY;
-    constexpr int contentLeftPx = kPadding;
-    const int trackW = std::max(0, GetClientSize().GetWidth() - (2 * kPadding));
+    const int contentTopPx = m_contentPadding - originY;
+    const int contentLeftPx = m_contentPadding;
+    const int trackW = std::max(0, GetClientSize().GetWidth() - (2 * m_contentPadding));
     const auto& laid = m_document.laid();
 
     for (std::size_t i = 0; i < laid.scrollBlocks.size(); i++) {
@@ -514,32 +619,37 @@ auto MarkdownView::scrollbarAt(const wxPoint& clientPoint) -> std::optional<Scro
     return std::nullopt;
 }
 
-auto MarkdownView::linkAt(const wxPoint& clientPoint) const -> wxString {
+auto MarkdownView::linkIdAt(const wxPoint& clientPoint) const -> int {
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
-    const int relX = clientPoint.x - kPadding;
-    const int relY = clientPoint.y + originY - kPadding;
+    const int relX = clientPoint.x - m_contentPadding;
+    const int relY = clientPoint.y + originY - m_contentPadding;
     const auto& laid = m_document.laid();
     for (const auto& line : laid.lines) {
         if (relY < line.y || relY >= line.y + line.height) {
             continue;
         }
         for (const auto& run : line.runs) {
-            if (run.linkId < 0) {
-                continue;
-            }
-            if (relX >= run.x && relX < run.x + run.width) {
-                return laid.links.at(static_cast<std::size_t>(run.linkId)).url;
+            if (run.linkId >= 0 && relX >= run.x && relX < run.x + run.width) {
+                return run.linkId;
             }
         }
         break;
     }
-    return {};
+    return -1;
+}
+
+auto MarkdownView::linkAt(const wxPoint& clientPoint) const -> wxString {
+    const int linkId = linkIdAt(clientPoint);
+    if (linkId < 0) {
+        return {};
+    }
+    return m_document.laid().links.at(static_cast<std::size_t>(linkId)).url;
 }
 
 auto MarkdownView::hitTest(const wxPoint& clientPoint) -> SelectionPosition {
     const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
-    int relX = clientPoint.x - kPadding;
-    const int relY = clientPoint.y + originY - kPadding;
+    int relX = clientPoint.x - m_contentPadding;
+    const int relY = clientPoint.y + originY - m_contentPadding;
     const auto& laid = m_document.laid();
     if (laid.lines.empty()) {
         return {};
@@ -613,7 +723,7 @@ void MarkdownView::onMotion(wxMouseEvent& event) {
             // Drag math must use the same panel-wide track width the
             // scrollbar paint uses — otherwise thumb travel scales by
             // the wrong amount.
-            const int trackW = std::max(0, GetClientSize().GetWidth() - (2 * kPadding));
+            const int trackW = std::max(0, GetClientSize().GetWidth() - (2 * m_contentPadding));
             const double ratio = static_cast<double>(block.contentWidth) / static_cast<double>(block.naturalWidth);
             const int thumbW = std::max(kScrollbarMinThumb, static_cast<int>(trackW * ratio));
             const int travel = std::max(1, trackW - thumbW);
@@ -640,21 +750,35 @@ void MarkdownView::onMotion(wxMouseEvent& event) {
         Refresh();
     }
     if (sbHit) {
+        // Moving onto the scrollbar clears any lingering link-hover underline.
+        if (m_hoveredLinkId >= 0) {
+            m_hoveredLinkId = -1;
+            Refresh();
+        }
         SetCursor(wxCursor(wxCURSOR_ARROW));
         event.Skip();
         return;
     }
     // Idle cursor: hand over links, I-beam over text content, arrow
-    // otherwise. Cheap to recompute each motion — `linkAt` is a quick
-    // scan and the line lookup is short.
-    const bool overLink = !linkAt(event.GetPosition()).empty();
+    // otherwise. Cheap to recompute each motion — `linkIdAt` is a quick
+    // scan and the line lookup is short. Track the hovered link so its
+    // run draws underlined; repaint only when the hovered link changes.
+    const int hoveredLink = linkIdAt(event.GetPosition());
+    if (hoveredLink != m_hoveredLinkId) {
+        m_hoveredLinkId = hoveredLink;
+        Refresh();
+    }
+    const bool overLink = hoveredLink >= 0;
     if (overLink) {
         SetCursor(wxCursor(wxCURSOR_HAND));
+    } else if (!m_selectable) {
+        // Read-only: no I-beam, the content doesn't select.
+        SetCursor(wxCursor(wxCURSOR_ARROW));
     } else {
         // I-beam when the point lands on a text-bearing line of the
         // laid document; arrow when it's in the empty area.
         const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
-        const int relY = event.GetPosition().y + originY - kPadding;
+        const int relY = event.GetPosition().y + originY - m_contentPadding;
         const auto& laid = m_document.laid();
         const bool overText = std::ranges::any_of(
             laid.lines,
@@ -707,6 +831,10 @@ void MarkdownView::onLeftDown(wxMouseEvent& event) {
         }
         return;
     }
+    // Read-only mode — no selection, nothing else to do here.
+    if (!m_selectable) {
+        return;
+    }
     // Start a new selection. Shift-click extends the existing one from
     // its anchor; a plain click sets anchor = caret = clicked position.
     const SelectionPosition pos = hitTest(event.GetPosition());
@@ -745,6 +873,10 @@ void MarkdownView::onLeftUp(wxMouseEvent& event) {
 }
 
 void MarkdownView::onLeftDClick(wxMouseEvent& event) {
+    if (!m_selectable) {
+        event.Skip();
+        return;
+    }
     // Double-click selects the word under the cursor: walk back from
     // the hit position to the nearest whitespace, walk forward to the
     // next, and snap the selection between them.
@@ -777,7 +909,7 @@ void MarkdownView::onLeftDClick(wxMouseEvent& event) {
 }
 
 void MarkdownView::onCharHook(wxKeyEvent& event) {
-    if (event.ControlDown() || event.CmdDown()) {
+    if (m_selectable && (event.ControlDown() || event.CmdDown())) {
         if (event.GetKeyCode() == 'C') {
             copySelectionToClipboard();
             return;
@@ -796,8 +928,8 @@ void MarkdownView::onCharHook(wxKeyEvent& event) {
             return;
         }
     }
-    if (event.GetKeyCode() == WXK_ESCAPE) {
-        clearSelection();
+    if (event.GetKeyCode() == WXK_ESCAPE && !m_selection.empty()) {
+        clearSelection(); // Esc cancels an active selection; with none, let it bubble (dialog close, etc.)
         return;
     }
     event.Skip();
@@ -832,7 +964,7 @@ void MarkdownView::onMouseWheel(wxMouseEvent& event) {
             return;
         }
         const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
-        const int docY = event.GetPosition().y + originY - kPadding;
+        const int docY = event.GetPosition().y + originY - m_contentPadding;
         const int idx = findOverflowingAt(docY);
         if (idx < 0) {
             event.Skip();
@@ -859,7 +991,7 @@ void MarkdownView::onMouseWheel(wxMouseEvent& event) {
     // block so a long doc stays browsable.
     if (event.ShiftDown()) {
         const int originY = CalcUnscrolledPosition(wxPoint(0, 0)).y;
-        const int docY = event.GetPosition().y + originY - kPadding;
+        const int docY = event.GetPosition().y + originY - m_contentPadding;
         const int idx = findOverflowingAt(docY);
         if (idx >= 0) {
             const int rotation = event.GetWheelRotation();

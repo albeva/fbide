@@ -175,6 +175,17 @@ void Document::markSaved() {
     m_metaModified = false;
 }
 
+void Document::setModified(const bool modified) {
+    if (modified) {
+        // Force the dirty state via the metadata flag — used when the on-disk
+        // file is deleted, so the buffer reads as unsaved without touching the
+        // editor's own undo/save-point machinery.
+        m_metaModified = true;
+    } else {
+        markSaved();
+    }
+}
+
 void Document::setEncoding(const TextEncoding encoding) {
     if (m_encoding == encoding) {
         return;
@@ -195,7 +206,7 @@ void Document::setEolMode(const EolMode mode) {
 }
 
 auto Document::checkExternalChange() const -> bool {
-    if (isNew()) {
+    if (isNew() || m_modTime == std::filesystem::file_time_type {}) {
         return false;
     }
     std::error_code ec;
@@ -203,17 +214,50 @@ auto Document::checkExternalChange() const -> bool {
     if (ec) {
         return false;
     }
-    return m_modTime != std::filesystem::file_time_type {} && currentModTime != m_modTime;
+    if (currentModTime != m_modTime) {
+        return true;
+    }
+    // Same mod-time: still compare size — a same-second overwrite (FAT / some
+    // network shares have 2s mod-time granularity) leaves the stamp unchanged.
+    const auto currentSize = std::filesystem::file_size(getFilePath(), ec);
+    return !ec && currentSize != m_size;
 }
 
 void Document::updateModTime() {
     if (isNew()) {
         m_modTime = {};
+        m_size = 0;
         return;
     }
     std::error_code ec;
     const auto time = std::filesystem::last_write_time(getFilePath(), ec);
     m_modTime = ec ? std::filesystem::file_time_type {} : time;
+    std::error_code sizeEc;
+    const auto size = std::filesystem::file_size(getFilePath(), sizeEc);
+    m_size = sizeEc ? 0 : size;
+}
+
+void Document::showExternalBar(const ExternalChange kind) {
+    if (auto* panel = dynamic_cast<EditorPanel*>(m_view.get())) {
+        panel->showExternalBar(kind);
+    }
+}
+
+void Document::hideExternalBar() {
+    if (auto* panel = dynamic_cast<EditorPanel*>(m_view.get())) {
+        panel->hideExternalBar();
+    }
+}
+
+void Document::dismissExternalNotification() {
+    if (m_pendingExternal == ExternalChange::None) {
+        return;
+    }
+    // Accept the current on-disk state as the new baseline (mod-time goes
+    // empty for a deleted file) so the resolved change doesn't re-trigger.
+    updateModTime();
+    m_pendingExternal = ExternalChange::None;
+    hideExternalBar();
 }
 
 void Document::setSessionAttributes(wxConfigBase& cfg, const SessionScope scope) {

@@ -661,6 +661,15 @@ auto ConfigManager::isKnownConfig(const fs::path& path) const -> bool {
     return samePath(path, toFsPath(m_theme.getPath()));
 }
 
+auto ConfigManager::isFirstRun() const -> bool {
+    const auto& entry = m_categories.at(static_cast<std::size_t>(Category::Config));
+    if (!entry.strategy.usesOverlay()) {
+        return false;
+    }
+    std::error_code ec;
+    return !fs::exists(entry.strategy.overlayPath(), ec);
+}
+
 auto ConfigManager::get(Category category) -> Value& {
     auto& entry = m_categories.at(static_cast<std::size_t>(category));
     if (entry.category != category) {
@@ -715,6 +724,10 @@ auto ConfigManager::filePatterns(const std::initializer_list<std::string_view> k
         joined += composeFilter(key, desc, glob);
     }
     return joined;
+}
+
+auto ConfigManager::fileGlob(const wxString& key) -> wxString {
+    return config().at("filePatterns").get_or(key, "");
 }
 
 // ---------------------------------------------------------------------------

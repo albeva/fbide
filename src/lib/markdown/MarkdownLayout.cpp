@@ -11,6 +11,13 @@ using namespace fbide::markdown;
 
 namespace {
 
+/// Stable hash of a code fence's verbatim text. Stored on the laid block so
+/// hosts can derive a per-block identity across re-layouts without keeping a
+/// duplicate copy of the snippet.
+[[nodiscard]] auto hashCodeText(const wxString& text) -> std::size_t {
+    return std::hash<std::string> {}(text.utf8_string());
+}
+
 // Vertical gap between consecutive blocks.
 constexpr int kBlockGap = 8;
 // Padding inside the code-block background — above, below and left of text.
@@ -31,6 +38,7 @@ constexpr wchar_t kBulletGlyph = 0x2022;        // U+2022 BULLET — plain list 
 constexpr wchar_t kTaskUncheckedGlyph = 0x2610; // U+2610 BALLOT BOX.
 constexpr wchar_t kTaskCheckedGlyph = 0x2611;   // U+2611 BALLOT BOX WITH CHECK.
 constexpr int kImageGlyph = 0x1F5BC;            // U+1F5BC FRAME WITH PICTURE — image label.
+constexpr wchar_t kEllipsisGlyph = 0x2026;      // U+2026 HORIZONTAL ELLIPSIS — image "loading" suffix.
 
 /// True when `lang` (a fence tag) denotes FreeBASIC. Mirrors the same
 /// rule in AiChatView so layout and paint agree on which fences get the
@@ -171,6 +179,7 @@ struct LayoutEngine {
     const CodeFenceHighlighter& m_highlightFence;
     const ImageResolver& m_resolveImage;
     const bool m_wrapCodeBlocks;
+    const MdTableStyle& m_tableStyle;
     const BlockCollapsedQuery& m_isCollapsed;
     const LanguageDisplayResolver& m_resolveLanguageDisplay;
 
@@ -191,6 +200,7 @@ struct LayoutEngine {
         const CodeFenceHighlighter& highlightFence,
         const ImageResolver& resolveImage,
         const bool wrapCodeBlocks,
+        const MdTableStyle& tableStyle,
         const BlockCollapsedQuery& isCollapsed,
         const LanguageDisplayResolver& resolveLanguageDisplay
     )
@@ -201,6 +211,7 @@ struct LayoutEngine {
     , m_highlightFence(highlightFence)
     , m_resolveImage(resolveImage)
     , m_wrapCodeBlocks(wrapCodeBlocks)
+    , m_tableStyle(tableStyle)
     , m_isCollapsed(isCollapsed)
     , m_resolveLanguageDisplay(resolveLanguageDisplay) {}
 
@@ -240,7 +251,8 @@ struct LayoutEngine {
             wxColour colour = m_palette.text;
             int linkId = -1;
             if (inl.kind == MdInlineKind::Link) {
-                style.underline = true;
+                // A link sets only its colour here; the underline is applied on
+                // hover by paintLineText (matched by linkId).
                 colour = m_palette.link;
                 if (!inl.url.empty()) {
                     m_out.links.push_back({ .url = inl.url });
@@ -318,9 +330,12 @@ struct LayoutEngine {
         const wxString label = wxString(wxUniChar(kImageGlyph)) + " "
                              + (item.text.empty() ? wxString("image") : item.text)
                              + (item.image.state == ImageInfo::State::Loading
-                                     ? wxString(" (loading\xE2\x80\xA6)") // U+2026 horizontal ellipsis
+                                     // Build the ellipsis from its codepoint, not raw UTF-8 bytes:
+                                     // wxString(const char*) decodes via the C locale, which drops
+                                     // non-ASCII under a `C`-locale process and would lose the suffix.
+                                     ? wxString(" (loading") + wxUniChar(kEllipsisGlyph) + ")"
                                      : wxString(" (failed)"));
-        constexpr TextStyle style { .underline = true };
+        constexpr TextStyle style {}; // hover adds the underline (see paintLineText)
         const int width = m_measurer.width(label, style);
         PaintLine line;
         line.kind = LineKind::Prose;
@@ -418,13 +433,27 @@ struct LayoutEngine {
             } else if (pendingSpace && !lineRuns.empty()) {
                 xPos += spaceWidth;
             }
+            // Merge consecutive same-link, same-style runs — including the
+            // inter-word space — into one run, so the hover underline (links)
+            // is drawn by a single DrawText and stays continuous instead of
+            // breaking at the gap between per-word runs.
+            const bool mergeLink = pendingSpace && !lineRuns.empty() && item.linkId >= 0
+                                && lineRuns.back().linkId == item.linkId
+                                && lineRuns.back().style == item.style
+                                && lineRuns.back().colour == item.colour;
             pendingSpace = false;
-            lineRuns.push_back({ .text = item.text,
-                .style = item.style,
-                .colour = item.colour,
-                .x = xPos,
-                .width = wordWidth,
-                .linkId = item.linkId });
+            if (mergeLink) {
+                PaintRun& prev = lineRuns.back();
+                prev.text += wxString { " " } + item.text;
+                prev.width = (xPos - prev.x) + wordWidth;
+            } else {
+                lineRuns.push_back({ .text = item.text,
+                    .style = item.style,
+                    .colour = item.colour,
+                    .x = xPos,
+                    .width = wordWidth,
+                    .linkId = item.linkId });
+            }
             xPos += wordWidth;
             maxHeight = std::max(maxHeight, m_measurer.lineHeight(item.style));
         }
@@ -434,7 +463,7 @@ struct LayoutEngine {
     }
 
     /// Build the bullet / number / checkbox run that prefixes a list item.
-    auto makeMarker(const MdBlock& block, const int contentLeft) const -> PaintRun {
+    auto makeMarker(const MdListItem& block, const int contentLeft) const -> PaintRun {
         wxString text;
         if (block.isTask) {
             // BMP glyphs — render without needing an emoji font.
@@ -644,12 +673,12 @@ struct LayoutEngine {
         // width thus sees zero contribution here; it's the host's
         // job (in `relayout`) to keep the bubble from shrinking when
         // its only width contributor switches into collapsed form.
-        m_out.lines.push_back({ .kind = LineKind::CollapsedBlock,
+        m_out.lines.push_back({ .runs = {},
             .y = m_yPos,
             .height = totalHeight,
             .quoteDepth = quoteDepth,
-            .runs = {},
-            .blockIndex = static_cast<int>(blockIndex) });
+            .blockIndex = static_cast<int>(blockIndex),
+            .kind = LineKind::CollapsedBlock });
         m_yPos += totalHeight;
 
         // Structured summary — the painter assembles + colours at draw
@@ -667,26 +696,28 @@ struct LayoutEngine {
             summary.languageDisplay = resolveLanguageDisplay(kind, lang);
         }
 
-        m_out.scrollBlocks.push_back({ .kind = kind,
+        const bool isCode = kind == LaidScrollBlock::Kind::Code;
+        m_out.scrollBlocks.push_back({ .summary = std::move(summary),
+            .codeLang = isCode ? lang : wxString {},
+            .patchTarget = patchTarget,
+            .patchSearch = kind == LaidScrollBlock::Kind::Patch ? contentA : wxString {},
+            .patchReplace = kind == LaidScrollBlock::Kind::Patch ? contentB : wxString {},
+            .codeContentHash = isCode ? hashCodeText(contentA) : std::size_t { 0 },
             .y = blockTop,
             .height = m_yPos - blockTop,
             .contentLeft = codeLeft,
             .contentWidth = contentWidth,
             .naturalWidth = contentWidth,
+            .codeLineCount = isCode ? countLines(contentA) : 0,
+            .kind = kind,
             .wrapped = true,
             .collapsed = true,
-            .themed = themed,
-            .summary = std::move(summary),
-            .codeText = kind == LaidScrollBlock::Kind::Code ? contentA : wxString {},
-            .codeLang = kind == LaidScrollBlock::Kind::Code ? lang : wxString {},
-            .patchTarget = patchTarget,
-            .patchSearch = kind == LaidScrollBlock::Kind::Patch ? contentA : wxString {},
-            .patchReplace = kind == LaidScrollBlock::Kind::Patch ? contentB : wxString {} });
+            .themed = themed });
     }
 
     /// Emit a fenced code block: a padded background strip carrying the
     /// highlighted code, soft-wrapped to the available width.
-    void emitCode(const MdBlock& block) {
+    void emitCode(const MdCodeFence& block) {
         // Collapsed shape — defer to the summary strip emitter when the
         // host (typically the chat view) requests it for this block.
         if (m_isCollapsed
@@ -715,11 +746,11 @@ struct LayoutEngine {
 
         // Top padding strip — an empty Code line the painter fills with the
         // code background.
-        m_out.lines.push_back({ .kind = LineKind::Code,
+        m_out.lines.push_back({ .runs = {},
             .y = m_yPos,
             .height = kCodePadding,
             .quoteDepth = block.quoteDepth,
-            .runs = {} });
+            .kind = LineKind::Code });
         m_yPos += kCodePadding;
 
         for (const auto& codeLine : codeLines) {
@@ -730,11 +761,11 @@ struct LayoutEngine {
             );
         }
 
-        m_out.lines.push_back({ .kind = LineKind::Code,
+        m_out.lines.push_back({ .runs = {},
             .y = m_yPos,
             .height = kCodePadding,
             .quoteDepth = block.quoteDepth,
-            .runs = {} });
+            .kind = LineKind::Code });
         m_yPos += kCodePadding;
 
         // Tag every line we just emitted with the block index, and
@@ -752,16 +783,17 @@ struct LayoutEngine {
             }
         }
 
-        m_out.scrollBlocks.push_back({ .kind = LaidScrollBlock::Kind::Code,
+        m_out.scrollBlocks.push_back({ .codeLang = block.codeLang,
+            .codeContentHash = hashCodeText(block.codeText),
             .y = blockTop,
             .height = m_yPos - blockTop,
             .contentLeft = codeLeft,
             .contentWidth = contentWidth,
             .naturalWidth = naturalWidth,
+            .codeLineCount = countLines(block.codeText),
+            .kind = LaidScrollBlock::Kind::Code,
             .wrapped = m_wrapCodeBlocks,
-            .themed = themed,
-            .codeText = block.codeText,
-            .codeLang = block.codeLang });
+            .themed = themed });
     }
 
     /// Split `text` (verbatim, '\n'-separated) into one CodeLine per source
@@ -797,7 +829,7 @@ struct LayoutEngine {
     /// the verbatim SEARCH (red) then REPLACE (green) lines. Soft-wrap
     /// reuses `emitCodeLine` with PatchSearch / PatchReplace kinds; the
     /// painter draws the tint band on the line background.
-    void emitPatch(const MdBlock& block) {
+    void emitPatch(const MdPatch& block) {
         // Collapsed shape — `lang` is empty for patches (they have no
         // fence tag); the wide-form summary uses `patchTarget` instead.
         if (m_isCollapsed
@@ -823,11 +855,11 @@ struct LayoutEngine {
         const std::size_t lineStart = m_out.lines.size();
 
         const auto emitStrip = [&](const wxString& text, const LineKind kind) {
-            m_out.lines.push_back({ .kind = kind,
+            m_out.lines.push_back({ .runs = {},
                 .y = m_yPos,
                 .height = kCodePadding,
                 .quoteDepth = block.quoteDepth,
-                .runs = {} });
+                .kind = kind });
             m_yPos += kCodePadding;
             for (const auto& codeLine : toCodeLines(text, m_palette.patchFg)) {
                 emitCodeLine(
@@ -836,11 +868,11 @@ struct LayoutEngine {
                     m_wrapCodeBlocks ? CodeWrap::Soft : CodeWrap::None
                 );
             }
-            m_out.lines.push_back({ .kind = kind,
+            m_out.lines.push_back({ .runs = {},
                 .y = m_yPos,
                 .height = kCodePadding,
                 .quoteDepth = block.quoteDepth,
-                .runs = {} });
+                .kind = kind });
             m_yPos += kCodePadding;
         };
 
@@ -860,26 +892,26 @@ struct LayoutEngine {
             }
         }
 
-        m_out.scrollBlocks.push_back({ .kind = LaidScrollBlock::Kind::Patch,
+        m_out.scrollBlocks.push_back({ .patchTarget = block.patchTarget,
+            .patchSearch = block.patchSearch,
+            .patchReplace = block.patchReplace,
             .y = blockTop,
             .height = m_yPos - blockTop,
             .contentLeft = codeLeft,
             .contentWidth = contentWidth,
             .naturalWidth = naturalWidth,
-            .wrapped = m_wrapCodeBlocks,
-            .patchTarget = block.patchTarget,
-            .patchSearch = block.patchSearch,
-            .patchReplace = block.patchReplace });
+            .kind = LaidScrollBlock::Kind::Patch,
+            .wrapped = m_wrapCodeBlocks });
     }
 
     /// Emit a horizontal rule line.
     void emitRule(const int quoteDepth) {
         blockGap();
-        m_out.lines.push_back({ .kind = LineKind::Rule,
+        m_out.lines.push_back({ .runs = {},
             .y = m_yPos,
             .height = kRuleHeight,
             .quoteDepth = quoteDepth,
-            .runs = {} });
+            .kind = LineKind::Rule });
         m_yPos += kRuleHeight;
     }
 
@@ -913,7 +945,7 @@ struct LayoutEngine {
             case WrapItem::Type::Image:
                 // Table cells degrade images to a labelled link; the
                 // bitmap is not laid out inside a cell.
-                total += m_measurer.width(imageCellLabel(item), TextStyle { .underline = true });
+                total += m_measurer.width(imageCellLabel(item), TextStyle {});
                 sawNonSpace = true;
                 break;
             }
@@ -958,7 +990,7 @@ struct LayoutEngine {
             wxColour runColour;
             if (item.type == WrapItem::Type::Image) {
                 runText = imageCellLabel(item);
-                runStyle = TextStyle { .underline = true };
+                runStyle = TextStyle {};
                 runColour = m_palette.link;
             } else {
                 runText = item.text;
@@ -972,13 +1004,25 @@ struct LayoutEngine {
             } else if (pendingSpace && !current.runs.empty()) {
                 xPos += spaceWidth;
             }
+            // See emitWrapped: merge same-link, same-style runs (with the
+            // inter-word space) so the hover underline is one continuous segment.
+            const bool mergeLink = pendingSpace && !current.runs.empty() && item.linkId >= 0
+                                && current.runs.back().linkId == item.linkId
+                                && current.runs.back().style == runStyle
+                                && current.runs.back().colour == runColour;
             pendingSpace = false;
-            current.runs.push_back({ .text = runText,
-                .style = runStyle,
-                .colour = runColour,
-                .x = xPos,
-                .width = wordWidth,
-                .linkId = item.linkId });
+            if (mergeLink) {
+                PaintRun& prev = current.runs.back();
+                prev.text += wxString { " " } + runText;
+                prev.width = (xPos - prev.x) + wordWidth;
+            } else {
+                current.runs.push_back({ .text = runText,
+                    .style = runStyle,
+                    .colour = runColour,
+                    .x = xPos,
+                    .width = wordWidth,
+                    .linkId = item.linkId });
+            }
             xPos += wordWidth;
         }
         if (!current.runs.empty()) {
@@ -999,7 +1043,7 @@ struct LayoutEngine {
     ///   4. Row height = max cell line count * line height. Emit one
     ///      PaintLine per visual line of the row, merging runs from
     ///      every cell into a single line with `tableColumns` set.
-    void emitTable(const MdBlock& block) {
+    void emitTable(const MdTable& block) {
         blockGap();
         if (block.rows.empty() || block.rows.front().cells.empty()) {
             return;
@@ -1031,34 +1075,45 @@ struct LayoutEngine {
             }
         }
 
-        // Allocate column widths. Pad each natural width with a small
-        // gutter so adjacent columns aren't visually touching.
-        constexpr int kColGutter = 12;
+        // Bordered tables fold the spacing into each column as a gutter (cell
+        // text inset half a gutter from the dividers); borderless tables keep
+        // columns at their natural width and put the spacing BETWEEN them, so
+        // the first / last columns sit flush with the prose margins.
+        const bool borders = m_tableStyle.borders;
+        const int gutter = borders ? std::max(0, m_tableStyle.columnSpacing) : 0;
+        const int colGap = borders ? 0 : std::max(0, m_tableStyle.columnSpacing);
+
+        // Allocate column widths. The gutter (if any) is folded into each
+        // column; inter-column gaps (borderless) are reserved separately.
         constexpr int kMinColWidth = 40;
-        int totalNatural = 0;
+        const int betweenGaps = colGap * static_cast<int>(columnCount - 1);
+        int totalNatural = betweenGaps;
         for (const int width : naturalWidths) {
-            totalNatural += width + kColGutter;
+            totalNatural += width + gutter;
         }
         std::vector<int> columnWidths(columnCount, 0);
         if (totalNatural <= available) {
             for (std::size_t col = 0; col < columnCount; col++) {
-                columnWidths.at(col) = naturalWidths.at(col) + kColGutter;
+                columnWidths.at(col) = naturalWidths.at(col) + gutter;
             }
         } else {
             const int minCol = std::max(kMinColWidth, m_measurer.width("XXX", TextStyle {}));
+            const int distributable = std::max(1, available - betweenGaps);
+            const int totalCols = std::max(1, totalNatural - betweenGaps);
             for (std::size_t col = 0; col < columnCount; col++) {
-                const int proportional = ((naturalWidths.at(col) + kColGutter) * available) / totalNatural;
+                const int proportional = ((naturalWidths.at(col) + gutter) * distributable) / totalCols;
                 columnWidths.at(col) = std::max(minCol, proportional);
             }
         }
 
-        // Column x positions — first column starts at the block's left
-        // edge, sharing it with prose.
+        // Column x positions — first column starts at the block's left edge,
+        // sharing it with prose. `colGap` is zero for bordered tables (packed
+        // edge-to-edge) and the inter-column gap for borderless ones.
         std::vector<TableColumn> columns(columnCount);
         int xPos = left;
         for (std::size_t col = 0; col < columnCount; col++) {
             columns.at(col) = { .x = xPos, .width = columnWidths.at(col) };
-            xPos += columnWidths.at(col);
+            xPos += columnWidths.at(col) + colGap;
         }
 
         // Wrap and emit each row.
@@ -1073,7 +1128,7 @@ struct LayoutEngine {
             std::vector<std::vector<WrappedCellLine>> cellLines(columnCount);
             std::size_t maxLines = 1;
             for (std::size_t col = 0; col < columnCount; col++) {
-                cellLines.at(col) = wrapCellToColumn(cellItems.at(rowIdx).at(col), columnWidths.at(col) - kColGutter);
+                cellLines.at(col) = wrapCellToColumn(cellItems.at(rowIdx).at(col), columnWidths.at(col) - gutter);
                 maxLines = std::max(maxLines, cellLines.at(col).size());
             }
 
@@ -1085,6 +1140,7 @@ struct LayoutEngine {
                 line.quoteDepth = block.quoteDepth;
                 line.tableColumns = columns;
                 line.tableRowStart = (li == 0);
+                line.tableBordered = borders;
 
                 for (std::size_t col = 0; col < columnCount; col++) {
                     if (li >= cellLines.at(col).size()) {
@@ -1094,14 +1150,16 @@ struct LayoutEngine {
                     const auto alignment = col < block.columnAlignment.size()
                                              ? block.columnAlignment.at(col)
                                              : MdTableAlignment::Default;
-                    const int innerWidth = columnWidths.at(col) - kColGutter;
-                    int alignOffset = (kColGutter / 2);
+                    const int innerWidth = columnWidths.at(col) - gutter;
+                    int alignOffset = (gutter / 2);
                     if (alignment == MdTableAlignment::Center) {
                         alignOffset += std::max(0, (innerWidth - wrapped.width) / 2);
                     } else if (alignment == MdTableAlignment::Right) {
                         alignOffset += std::max(0, innerWidth - wrapped.width);
                     }
                     const int cellXOffset = columns.at(col).x + alignOffset;
+                    // `wrapped` is const, so each run is copied (mutable) before
+                    // its x is shifted and it's appended to the row line.
                     for (auto run : wrapped.runs) {
                         run.x += cellXOffset;
                         line.runs.push_back(std::move(run));
@@ -1110,6 +1168,12 @@ struct LayoutEngine {
 
                 m_yPos += lineHeight;
                 m_out.lines.push_back(std::move(line));
+            }
+
+            // Borderless tables can space rows apart; bordered tables keep
+            // their continuous box, so the gap is skipped there.
+            if (!borders && m_tableStyle.rowSpacing > 0 && rowIdx + 1 < block.rows.size()) {
+                m_yPos += std::max(0, m_tableStyle.rowSpacing);
             }
         }
         // The last pushed line carries the bottom-border flag, so the
@@ -1121,11 +1185,13 @@ struct LayoutEngine {
 
     /// Lay out every block in document order.
     void run() {
-        for (const auto& block : m_doc.blocks) {
+        for (const auto& blockPtr : m_doc.blocks) {
+            const MdBlockBase& block = *blockPtr;
             switch (block.kind) {
-            case MdBlockKind::Paragraph:
+            case MdBlockKind::Paragraph: {
+                const auto& para = block.as<MdParagraph>();
                 blockGap();
-                flattenInto(m_flatten, block.inlines, 0, false);
+                flattenInto(m_flatten, para.inlines, 0, false);
                 emitWrapped(
                     m_flatten,
                     block.quoteDepth * kQuoteIndent,
@@ -1133,9 +1199,11 @@ struct LayoutEngine {
                     block.quoteDepth
                 );
                 break;
-            case MdBlockKind::Heading:
+            }
+            case MdBlockKind::Heading: {
+                const auto& heading = block.as<MdHeading>();
                 blockGap();
-                flattenInto(m_flatten, block.inlines, headingSizeDelta(block.headingLevel), true);
+                flattenInto(m_flatten, heading.inlines, headingSizeDelta(heading.headingLevel), true);
                 emitWrapped(
                     m_flatten,
                     block.quoteDepth * kQuoteIndent,
@@ -1143,28 +1211,30 @@ struct LayoutEngine {
                     block.quoteDepth
                 );
                 break;
+            }
             case MdBlockKind::ListItem: {
+                const auto& item = block.as<MdListItem>();
                 blockGap();
-                const int left = block.quoteDepth * kQuoteIndent + block.listDepth * kListIndent;
+                const int left = block.quoteDepth * kQuoteIndent + item.listDepth * kListIndent;
                 std::optional<PaintRun> marker;
-                if (block.listMarker) {
-                    marker = makeMarker(block, left);
+                if (item.listMarker) {
+                    marker = makeMarker(item, left);
                 }
-                flattenInto(m_flatten, block.inlines, 0, false);
+                flattenInto(m_flatten, item.inlines, 0, false);
                 emitWrapped(m_flatten, left, marker, block.quoteDepth);
                 break;
             }
             case MdBlockKind::CodeFence:
-                emitCode(block);
+                emitCode(block.as<MdCodeFence>());
                 break;
             case MdBlockKind::Rule:
                 emitRule(block.quoteDepth);
                 break;
             case MdBlockKind::Table:
-                emitTable(block);
+                emitTable(block.as<MdTable>());
                 break;
             case MdBlockKind::Patch:
-                emitPatch(block);
+                emitPatch(block.as<MdPatch>());
                 break;
             }
         }
@@ -1183,6 +1253,7 @@ auto fbide::markdown::layoutMarkdown(
     const CodeFenceHighlighter& highlightFence,
     const ImageResolver& resolveImage,
     const bool wrapCodeBlocks,
+    const MdTableStyle& tableStyle,
     const BlockCollapsedQuery& isCollapsed,
     const LanguageDisplayResolver& resolveLanguageDisplay
 ) -> LaidOutDoc {
@@ -1194,6 +1265,7 @@ auto fbide::markdown::layoutMarkdown(
         highlightFence,
         resolveImage,
         wrapCodeBlocks,
+        tableStyle,
         isCollapsed,
         resolveLanguageDisplay
     };

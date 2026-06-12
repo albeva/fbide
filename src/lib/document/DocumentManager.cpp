@@ -9,6 +9,7 @@
 #include "DocumentIO.hpp"
 #include "DocumentNotebook.hpp"
 #include "DocumentPath.hpp"
+#include "DocumentWatcher.hpp"
 #include "analyses/intellisense/IntellisenseService.hpp"
 #include "app/App.hpp"
 #include "app/Context.hpp"
@@ -29,7 +30,8 @@ using namespace fbide;
 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init,hicpp-member-init)
 DocumentManager::DocumentManager(Context& ctx)
 : m_ctx(ctx)
-, m_codeTransformer(std::make_unique<CodeTransformer>(ctx.getConfigManager())) {
+, m_codeTransformer(std::make_unique<CodeTransformer>(ctx.getConfigManager()))
+, m_watcher(std::make_unique<DocumentWatcher>(ctx)) {
     Bind(EVT_INTELLISENSE_RESULT, &DocumentManager::onIntellisenseResult, this);
     Bind(EVT_DOCUMENT_TYPE_CHANGED, &DocumentManager::onDocumentTypeChanged, this);
 }
@@ -38,6 +40,11 @@ DocumentManager::~DocumentManager() = default;
 
 auto DocumentManager::createNotebook(wxWindow* parent) -> DocumentNotebook& {
     m_notebook = make_unowned<DocumentNotebook>(parent, m_ctx);
+    // Defer the watcher's first start until the event loop is running:
+    // createNotebook runs during OnInit, and wxFileSystemWatcher wants a live
+    // loop. applyConfig() enumerates the open documents, so any restored by the
+    // session are registered when it fires.
+    CallAfter([this] { m_watcher->applyConfig(); });
     return *m_notebook;
 }
 
@@ -209,6 +216,7 @@ void DocumentManager::openEditorFor(Document& doc) {
         }
     }
 
+    m_watcher->addDocument(doc); // watch the file's directory for external changes
     m_notebook->addPage(doc, true);
     // Restore any saved per-document session state (project members only;
     // a no-op for standalone documents).
@@ -219,8 +227,9 @@ void DocumentManager::openEditorFor(Document& doc) {
 }
 
 void DocumentManager::closeEditor(Document& doc) {
-    m_notebook->removePage(doc); // destroys the EditorPanel → doc.detachView()
-    doc.setSink(nullptr);        // an editor-less document fires no type-change events
+    m_watcher->removeDocument(doc); // stop watching before the editor/path goes away
+    m_notebook->removePage(doc);    // destroys the EditorPanel → doc.detachView()
+    doc.setSink(nullptr);           // an editor-less document fires no type-change events
 }
 
 void DocumentManager::reportSaveFailure(const DocumentIO::SaveResult result, const TextEncoding encoding) const {
@@ -301,6 +310,7 @@ auto DocumentManager::saveFile(Document& doc) -> bool {
 
     doc.markSaved();
     doc.updateModTime();
+    doc.dismissExternalNotification(); // a save resolves any external-change bar
     refreshTitleFor(doc);
     promptRestartIfConfig(doc.getFilePath());
     return true;
@@ -399,9 +409,14 @@ auto DocumentManager::saveFileAs(Document& doc) -> bool {
         closeFile(*clash);
     }
 
+    // Re-point the watcher: drop the old directory (no-op when the document
+    // was untitled) before the path changes, re-register the new one after.
+    m_watcher->removeDocument(doc);
     doc.setFilePath(newPath);
     doc.markSaved();
     doc.updateModTime();
+    doc.dismissExternalNotification(); // a save resolves any external-change bar
+    m_watcher->addDocument(doc);
     refreshTitleFor(doc);
     promptRestartIfConfig(newPath);
     return true;
@@ -429,24 +444,54 @@ void DocumentManager::reloadFromDisk(Document& doc) {
         }
     }
 
-    // Reload using the document's currently-active encoding + EOL — the
-    // user already chose them (or they were detected at first load), so a
-    // re-detection on reload would reset their choice unexpectedly.
+    applyReload(doc);
+}
+
+void DocumentManager::applyReload(Document& doc, const bool keepUndo) {
+    if (doc.isNew()) {
+        return;
+    }
+    // Reload using the document's currently-active encoding + EOL — the user
+    // already chose them (or they were detected at first load), so re-detecting
+    // on reload would reset their choice unexpectedly.
     const auto loaded = DocumentIO::loadWithEncoding(doc.getFilePath(), doc.getEncoding(), doc.getEolMode());
     if (!loaded.has_value()) {
         wxLogError("%s", m_ctx.tr("messages.reloadFailed"));
         return;
     }
 
-    // Keep the document's existing EOL — convert the loaded text to match
-    // it so the editor stays in the user-chosen line-ending mode (loaded
-    // EOL is the detected one, which may differ).
-    loadFile(doc, loaded->text, doc.getEolMode());
+    // Preserve the caret + scroll position so a silent (clean-buffer)
+    // auto-reload doesn't jump the user to the top of the file.
+    auto* editor = doc.getEditor();
+    const int caret = editor->GetCurrentPos();
+    const int firstVisible = editor->GetFirstVisibleLine();
+
+    // Keep the document's existing EOL — convert the loaded text to match it so
+    // the editor stays in the user-chosen line-ending mode. When keeping undo,
+    // group the text + EOL changes into one action so a single Undo restores
+    // the user's discarded version.
+    const auto eol = doc.getEolMode().toStc();
+    if (keepUndo) {
+        editor->BeginUndoAction();
+    }
+    editor->disableTransforms(true);
+    editor->SetText(loaded->text);
+    editor->disableTransforms(false);
+    editor->SetEOLMode(eol);
+    editor->ConvertEOLs(eol);
+    if (keepUndo) {
+        editor->EndUndoAction();
+    } else {
+        editor->EmptyUndoBuffer();
+    }
+
+    editor->GotoPos(std::min(caret, editor->GetLength()));
+    editor->SetFirstVisibleLine(firstVisible);
+
     doc.markSaved();
     doc.updateModTime();
     refreshTitleFor(doc);
-    doc.getEditor()->updateStatusBar();
-
+    editor->updateStatusBar();
     submitIntellisense(&doc, loaded->text);
 }
 
@@ -788,4 +833,112 @@ void DocumentManager::refreshTitleFor(const Document& doc) const {
     if (&doc == getActive()) {
         m_ctx.getUIManager().setTitle(doc.getFrameTitle());
     }
+}
+
+// ---------------------------------------------------------------------------
+// External-file watcher integration
+// ---------------------------------------------------------------------------
+
+void DocumentManager::refreshAutoReload() {
+    m_watcher->applyConfig();
+}
+
+void DocumentManager::shutdownWatcher() {
+    if (m_watcher != nullptr) {
+        m_watcher->shutdown();
+    }
+}
+
+void DocumentManager::flushExternalPending(Document& doc) {
+    m_watcher->flushPending(doc);
+}
+
+void DocumentManager::refreshTabTitle(const Document& doc) const {
+    m_notebook->updateTitle(doc);
+}
+
+namespace {
+// Lexical path comparison for matching open documents to a path just renamed
+// or deleted in the IDE. std::filesystem::equivalent can't be used here: after
+// the operation the document's current (old) path no longer exists.
+auto normForCompare(const std::filesystem::path& path) -> wxString {
+    wxString str = toWxString(path);
+    while (str.length() > 1 && (str.Last() == '\\' || str.Last() == '/')) {
+        str.RemoveLast();
+    }
+    return wxFileName::IsCaseSensitive() ? str : str.Lower();
+}
+
+auto samePath(const std::filesystem::path& lhs, const std::filesystem::path& rhs) -> bool {
+    return normForCompare(lhs) == normForCompare(rhs);
+}
+
+auto underPath(const std::filesystem::path& child, const std::filesystem::path& parent) -> bool {
+    // Strictly nested: child begins with "parent<sep>". normForCompare yields
+    // native separators, so a single wxFILE_SEP_PATH check suffices.
+    return normForCompare(child).StartsWith(normForCompare(parent) + wxFILE_SEP_PATH);
+}
+} // namespace
+
+void DocumentManager::handleExternalRename(const std::filesystem::path& oldPath, const std::filesystem::path& newPath) {
+    const auto oldLen = normForCompare(oldPath).length();
+    for (auto* doc : openDocuments()) {
+        if (doc->isNew()) {
+            continue;
+        }
+        std::filesystem::path updated;
+        if (samePath(doc->getFilePath(), oldPath)) {
+            updated = newPath;
+        } else if (underPath(doc->getFilePath(), oldPath)) {
+            // Directory rename: keep the document below the new folder,
+            // preserving the remainder of its path (with its original case).
+            const wxString remainder = toWxString(doc->getFilePath()).Mid(oldLen);
+            updated = toFsPath(toWxString(newPath) + remainder);
+        } else {
+            continue;
+        }
+        // Re-point the watcher around the path change (mirrors saveFileAs).
+        m_watcher->removeDocument(*doc);
+        doc->setFilePath(updated);
+        doc->updateModTime();
+        doc->dismissExternalNotification();
+        m_watcher->addDocument(*doc);
+        refreshTitleFor(*doc);
+    }
+    updateActiveTabTitle(); // the active document may have moved
+}
+
+void DocumentManager::handleExternalDelete(const std::filesystem::path& path) {
+    // Collect first — closeFile mutates the open-document set.
+    std::vector<Document*> victims;
+    for (auto* doc : openDocuments()) {
+        if (!doc->isNew() && (samePath(doc->getFilePath(), path) || underPath(doc->getFilePath(), path))) {
+            victims.push_back(doc);
+        }
+    }
+    for (auto* doc : victims) {
+        doc->setModified(false); // the file is gone; close without prompting to save
+        closeFile(*doc);
+    }
+}
+
+auto DocumentManager::isSupportedFile(const wxString& filename) const -> bool {
+    auto& cfg = m_ctx.getConfigManager();
+    const wxString name = filename.Lower(); // globs are stored lowercase
+    const auto matchesKey = [&](const std::string_view key) {
+        for (wxString rest = cfg.fileGlob(wxString(key.data(), key.size())); !rest.IsEmpty();) {
+            const wxString glob = rest.BeforeFirst(';');
+            rest = rest.AfterFirst(';');
+            if (!glob.IsEmpty() && wxMatchWild(glob.Lower(), name, false)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    for (const auto key : kEditorFileTypeKeys) {
+        if (matchesKey(key)) {
+            return true;
+        }
+    }
+    return matchesKey("session"); // fbide opens its own .fbs session files
 }

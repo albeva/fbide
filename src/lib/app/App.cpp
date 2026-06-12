@@ -6,6 +6,8 @@
 //
 #include "App.hpp"
 #include "Context.hpp"
+#include "FileAssociations.hpp"
+#include "FileAssociationsLinux.hpp"
 #include "InstanceHandler.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
 #include "compiler/CompilerManager.hpp"
@@ -298,7 +300,28 @@ auto App::OnInit() -> bool {
     // Build the shared FB keyword tables before any editor / Intellisense lexes.
     lexer::setFbKeywords(m_context->getConfigManager().keywords().at("groups"));
 
+#ifdef __WXOSX__
+    // Opt out of macOS automatic window tabbing — we manage our own AUI
+    // notebook, so the OS tab bar (and its "Show Tab Bar" View-menu items)
+    // is redundant. Must run before the main frame is ordered front.
+    OSXEnableAutomaticTabbing(false);
+#endif
+
     m_context->getUIManager().createMainFrame();
+#ifdef __WXMSW__
+    // Portable (zip) builds self-register per-user associations so .bas/.bi/.fbs
+    // show FBIde's icons and open with FBIde. Installed builds carry the READONLY
+    // sentinel and let the installer own associations (honouring the user's
+    // per-type choices in the setup wizard), so skip runtime registration there —
+    // otherwise it would re-assert .bas/.bi every launch and undo an opt-out.
+    if (!configManager.isReadOnlyIde()) {
+        FileAssociations::ensureRegistered();
+    }
+#elifdef __WXGTK__
+    // AppImage self-integration: publish the desktop entry, MIME types and
+    // icons into ~/.local/share so .bas/.bi/.fbs associate with FBIde.
+    FileAssociationsLinux::ensureRegistered();
+#endif
     openFiles(cli.files);
     if (!cli.loadSession.IsEmpty()) {
         const auto isTemp = isInsideTempDir(cli.loadSession);
@@ -307,7 +330,16 @@ auto App::OnInit() -> bool {
             wxRemoveFile(cli.loadSession);
         }
     }
-    m_context->getCompilerManager().checkCompilerOnStartup();
+    // First launch (no config overlay yet): try to locate a bundled or
+    // PATH fbc silently so the IDE works out of the box — installers ship
+    // fbc next to fbide.exe. Only when that finds nothing do we fall back
+    // to the interactive "compiler missing" prompt. Later launches go
+    // straight to the prompt-if-missing check.
+    auto& compilerManager = m_context->getCompilerManager();
+    const bool firstRunConfigured = configManager.isFirstRun() && compilerManager.detectCompilerOnFirstRun();
+    if (!firstRunConfigured) {
+        compilerManager.checkCompilerOnStartup();
+    }
     m_context->getUpdateManager().checkOnStartup();
     return true;
 }
@@ -599,16 +631,42 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
 }
 
 void App::showSplash() const {
-    if (m_context->getConfigManager().config().get_or("general.splashScreen", true)) {
-        wxImage::AddHandler(make_unowned<wxPNGHandler>());
-        const auto splashPath = toWxString(m_context->getConfigManager().absolute("splash.png"));
-        if (const wxBitmap bmp(splashPath, wxBITMAP_TYPE_PNG); bmp.IsOk()) {
-            make_unowned<wxSplashScreen>(
-                bmp,
-                wxSPLASH_CENTRE_ON_SCREEN | wxSPLASH_TIMEOUT,
-                1000, nullptr, wxID_ANY
-            );
-            wxYield();
-        }
+    if (not m_context->getConfigManager().config().get_or("general.splashScreen", true)) {
+        return;
     }
+
+    wxImage::AddHandler(make_unowned<wxPNGHandler>());
+    const auto splashPath = toWxString(m_context->getConfigManager().absolute("splash.png"));
+    wxBitmap bmp { splashPath, wxBITMAP_TYPE_PNG };
+    if (not bmp.IsOk()) {
+        return;
+    }
+
+    {
+        wxFontInfo fontInfo { 11 };
+#if wxUSE_PRIVATE_FONTS
+        // Use the bundled Arimo font (ide/) so the version looks the same
+        // regardless of installed system fonts. Unavailable on wx builds
+        // without private-font support (e.g. some wxGTK configs); there we
+        // fall back to the default face.
+        if (wxFont::AddPrivateFont(toWxString(m_context->getConfigManager().absolute("Arimo.ttf")))) {
+            fontInfo.FaceName("Arimo");
+        }
+#endif
+
+        wxMemoryDC dc { bmp };
+        dc.SetFont(fontInfo);
+        dc.SetTextForeground(wxColour(210, 210, 210));
+        const auto version = Version::fbide().asString();
+        const auto extent = dc.GetTextExtent(version);
+        constexpr int margin = 10;
+        dc.DrawText(version, margin, bmp.GetHeight() - extent.GetHeight() - margin + 5);
+    }
+
+    make_unowned<wxSplashScreen>(
+        bmp,
+        wxSPLASH_CENTRE_ON_PARENT | wxSPLASH_TIMEOUT,
+        1000, nullptr, wxID_ANY
+    );
+    wxYield();
 }

@@ -152,6 +152,9 @@ void DocumentNotebook::onPageChanged(wxAuiNotebookEvent& event) {
     doc->getEditor()->SetFocus();
     m_ctx.getSideBarManager().showSymbolsFor(doc);
     ui.setTitle(doc->getFrameTitle());
+    // A background tab that picked up an external change shows its deferred
+    // info bar now that it is focused.
+    m_ctx.getDocumentManager().flushExternalPending(*doc);
 }
 
 void DocumentNotebook::onBgDClick(wxAuiNotebookEvent& event) {

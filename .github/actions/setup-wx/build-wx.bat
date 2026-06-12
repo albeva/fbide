@@ -16,7 +16,7 @@ REM   WX_SRC_DIR     — wxWidgets source checkout
 REM   WX_BUILD_DIR   — intermediate build tree (not cached)
 REM   WX_DIST_DIR    — install prefix (cached as the only artefact)
 REM   WX_BUILD_TYPE  — Debug / Release / RelWithDebInfo / MinSizeRel
-REM   WX_ARCH        — x64 / x86 (selects -A x64 / -A Win32 for the VS gen)
+REM   WX_ARCH        — x64 / x86 / arm64 (selects -A x64 / Win32 / ARM64)
 
 REM IPO is incompatible with Debug codegen on MSVC — only enable for the
 REM optimised configurations.
@@ -31,6 +31,13 @@ REM keep the VS generator for cache compatibility, so map WX_ARCH to the
 REM corresponding -A value.
 set WX_PLATFORM=x64
 if /I "%WX_ARCH%"=="x86" set WX_PLATFORM=Win32
+if /I "%WX_ARCH%"=="arm64" set WX_PLATFORM=ARM64
+
+REM Statically link the MSVC CRT on x86/x64 so the portable zips run without
+REM the VC++ redistributable. FBIde must build with the same /MT runtime
+REM (see CMakeLists.txt). ARM64 keeps the default DLL CRT.
+set WX_STATIC_RT=ON
+if /I "%WX_ARCH%"=="arm64" set WX_STATIC_RT=OFF
 
 if not exist "%WX_BUILD_DIR%" mkdir "%WX_BUILD_DIR%"
 if not exist "%WX_DIST_DIR%" mkdir "%WX_DIST_DIR%"
@@ -40,6 +47,7 @@ cmake -S "%WX_SRC_DIR%" -B "%WX_BUILD_DIR%" ^
     -DCMAKE_BUILD_TYPE=%WX_BUILD_TYPE% ^
     -DCMAKE_INSTALL_PREFIX="%WX_DIST_DIR%" ^
     -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=%WX_IPO% ^
+    -DwxBUILD_USE_STATIC_RUNTIME=%WX_STATIC_RT% ^
     -DwxBUILD_SHARED=OFF ^
     -DwxBUILD_MONOLITHIC=OFF ^
     -DwxBUILD_SAMPLES=OFF ^

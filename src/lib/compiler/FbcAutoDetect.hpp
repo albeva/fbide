@@ -56,6 +56,13 @@ public:
     /// architecture is marked active.
     [[nodiscard]] static auto buildCompilerValue(std::span<const FbcVariant> variants, bool osIs64) -> Value;
 
+    /// Silent (no-UI) first-run detection. Probes `exeDir` (where the
+    /// Windows installer bundles fbc next to fbide.exe) first, then the
+    /// system PATH. Returns the `[compiler]` subtree built from the first
+    /// folder that yields usable variants, or `nullopt` when none are
+    /// found. No dialogs — distinct from `run()`, which is interactive.
+    [[nodiscard]] static auto detectSilently(const std::filesystem::path& exeDir, bool osIs64) -> std::optional<Value>;
+
 private:
     Context& m_ctx;
 };

@@ -13,6 +13,14 @@
 
 namespace fbide {
 
+/// Document-type keys fbide can edit directly. Each indexes both the
+/// `[filePatterns]` config section (globs) and the locale `[filetypes]`
+/// section (display names). Order is the menu order used by the file browser.
+inline constexpr std::array<std::string_view, 10> kEditorFileTypeKeys {
+    "freebasic", "html", "properties", "markdown", "batch",
+    "bash", "makefile", "json", "css", "text",
+};
+
 /**
  * Multi-file INI store + path resolver.
  *
@@ -149,6 +157,12 @@ public:
     /// contents take effect on the next launch.
     [[nodiscard]] auto isKnownConfig(const std::filesystem::path& path) const -> bool;
 
+    /// True on the very first launch — the writable config overlay
+    /// (`config_<plat>.local.ini`) does not yet exist. Only meaningful in
+    /// overlay mode: under `--config=PATH` (direct mode) there is no
+    /// overlay, so this returns false and the first-run flow is skipped.
+    [[nodiscard]] auto isFirstRun() const -> bool;
+
     // -----------------------------------------------------------------------
     // Path management
     // -----------------------------------------------------------------------
@@ -157,6 +171,12 @@ public:
     [[nodiscard]] auto absolute(const std::filesystem::path& pathName) const -> std::filesystem::path;
     /// Make `path` relative to `appDir` if possible.
     [[nodiscard]] auto relative(const std::filesystem::path& path) const -> std::filesystem::path;
+
+    /// True when the IDE resources directory carries the READONLY sentinel —
+    /// i.e. a packaged/installed layout (Windows installer, AppImage, macOS
+    /// bundle) where writable artefacts route to the user data dir. Portable
+    /// zips strip the sentinel, so this is false for them.
+    [[nodiscard]] auto isReadOnlyIde() const noexcept -> bool { return m_readOnlyIde; }
 
     /// Application directory (resolved from `appPath` argument).
     [[nodiscard]] auto getAppDir() const -> const std::filesystem::path& { return m_appDir; }
@@ -201,6 +221,10 @@ public:
     /// Join multiple `[filePatterns]` entries into one wxFileDialog
     /// wildcard string. Missing or empty entries are skipped.
     [[nodiscard]] auto filePatterns(std::initializer_list<std::string_view> keys) -> wxString;
+
+    /// Raw glob fragment for a `[filePatterns]` key (e.g. `*.bas;*.bi`); "" if
+    /// absent. Unlike `filePattern`, this is the bare glob, not a dialog filter.
+    [[nodiscard]] auto fileGlob(const wxString& key) -> wxString;
 
     // -----------------------------------------------------------------------
     // Theme (owned directly, not part of Value tree)

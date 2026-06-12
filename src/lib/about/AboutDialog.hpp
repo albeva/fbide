@@ -10,28 +10,34 @@
 
 namespace fbide {
 class Context;
-namespace markdown {
-    class CodeHighlighter;
-}
 
-/// Modal dialog showing the FBIde version, license, and embedded readme.
+/// Modal "About FBIde" dialog: the app logo beside a markdown info page
+/// (version, links, licenses), rendered on a uniform brand-blue background.
 class AboutDialog final : public Layout<wxDialog> {
 public:
     NO_COPY_AND_MOVE(AboutDialog)
 
     /// Construct without populating widgets; `create()` builds the UI.
     AboutDialog(wxWindow* parent, Context& ctx);
-    /// Out-of-line — `m_highlighter` holds a forward-declared type.
-    ~AboutDialog() override;
+    ~AboutDialog() override = default;
     /// Build the dialog widgets.
     void create();
 
 private:
-    /// Load the bundled `readme.md` from the IDE resources directory.
-    [[nodiscard]] auto loadReadme() const -> wxString;
+    /// Load the bundled `readme.md` and substitute the version / build date /
+    /// platform / wxWidgets placeholders.
+    [[nodiscard]] auto loadAbout() const -> wxString;
+    /// Route a markdown link click: web / mailto links fall through to the
+    /// browser, `fbide:check-updates` triggers a manual update check, and any
+    /// other URL is a bundled file (a license) opened in an editor tab.
+    void onLink(wxCommandEvent& event);
+    /// Close the dialog on Esc — there is no Close button, only the title-bar
+    /// close box, so the key is handled explicitly.
+    void onCharHook(wxKeyEvent& event);
 
-    Context& m_ctx;                                           ///< Application context.
-    std::unique_ptr<markdown::CodeHighlighter> m_highlighter; ///< FreeBASIC fence highlighter for the readme view.
+    Context& m_ctx; ///< Application context.
+
+    wxDECLARE_EVENT_TABLE();
 };
 
 } // namespace fbide

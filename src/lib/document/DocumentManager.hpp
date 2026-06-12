@@ -15,6 +15,7 @@ namespace fbide {
 class Context;
 class CodeTransformer;
 class DocumentNotebook;
+class DocumentWatcher;
 
 /**
  * Drives the open / save / close pipelines and the document notebook,
@@ -138,6 +139,48 @@ public:
     /// unsaved changes (cancel preserves the buffer).
     void reloadFromDisk(Document& doc);
 
+    /// Reload a document's buffer from disk unconditionally (no prompt),
+    /// preserving the caret + scroll position. Used by the silent auto-reload
+    /// path and the conflict info bar's Reload action. When `keepUndo` is true
+    /// the replacement is one undoable step (instead of clearing undo history)
+    /// so the user can undo the reload and recover their discarded changes.
+    void applyReload(Document& doc, bool keepUndo = false);
+
+    /// Re-read the `editor.autoReload` setting and start/stop the watcher.
+    /// Called from the settings-apply path.
+    void refreshAutoReload();
+
+    /// Release the external-file watcher. Call on frame close, while the event
+    /// loop is still alive — destroying a wxFileSystemWatcher during late app
+    /// teardown faults on its event source.
+    void shutdownWatcher();
+
+    /// Surface a document's deferred external-change bar now that it is the
+    /// active tab. No-op when nothing is pending.
+    void flushExternalPending(Document& doc);
+
+    /// React to a rename performed inside the IDE (e.g. the file browser):
+    /// re-point any open document at `oldPath` — or under it when a directory
+    /// was renamed — to its new location, keeping the watcher and tab in sync.
+    void handleExternalRename(const std::filesystem::path& oldPath, const std::filesystem::path& newPath);
+
+    /// React to a delete performed inside the IDE: close any open document at
+    /// `path`, or under it when a directory was deleted.
+    void handleExternalDelete(const std::filesystem::path& path);
+
+    /// True when `filename` is something fbide opens itself — an editor
+    /// document type or a `.fbs` session file — rather than handing it to the
+    /// OS default application. Drives the file browser's open/activate behaviour.
+    [[nodiscard]] auto isSupportedFile(const wxString& filename) const -> bool;
+
+    /// Refresh just a document's tab text (e.g. its `[*]` dirty marker),
+    /// without touching the window title — safe for a non-active document.
+    void refreshTabTitle(const Document& doc) const;
+
+    /// All currently open documents (those with an editor/tab). Used by the
+    /// external-file watcher to enumerate what to track.
+    [[nodiscard]] auto getDocuments() const -> std::vector<Document*> { return openDocuments(); }
+
     /// Get currently active document (selected tab), or nullptr if none.
     [[nodiscard]] auto getActive() const -> Document*;
 
@@ -217,6 +260,10 @@ private:
     Context& m_ctx;                                     ///< Application context.
     Unowned<DocumentNotebook> m_notebook;               ///< Tab strip — wx-parented to the frame; created by `createNotebook`.
     std::unique_ptr<CodeTransformer> m_codeTransformer; ///< Shared on-type transformer.
+    /// External-file watcher (auto-reload). Declared after `m_codeTransformer`
+    /// so it tears down first — it stops watching before the documents its
+    /// callbacks touch are released.
+    std::unique_ptr<DocumentWatcher> m_watcher;
 };
 
 } // namespace fbide

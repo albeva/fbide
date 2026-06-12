@@ -10,6 +10,42 @@ using namespace fbide::markdown;
 
 namespace {
 
+/// Construct the concrete block for `kind`.
+[[nodiscard]] auto makeBlock(const MdBlockKind kind) -> std::unique_ptr<MdBlockBase> {
+    switch (kind) {
+    case MdBlockKind::Paragraph:
+        return std::make_unique<MdParagraph>();
+    case MdBlockKind::Heading:
+        return std::make_unique<MdHeading>();
+    case MdBlockKind::CodeFence:
+        return std::make_unique<MdCodeFence>();
+    case MdBlockKind::ListItem:
+        return std::make_unique<MdListItem>();
+    case MdBlockKind::Rule:
+        return std::make_unique<MdRule>();
+    case MdBlockKind::Table:
+        return std::make_unique<MdTable>();
+    case MdBlockKind::Patch:
+        return std::make_unique<MdPatch>();
+    }
+    return std::make_unique<MdParagraph>();
+}
+
+/// The inline list of a block that carries one (prose / heading / list item),
+/// or nullptr for kinds (code / rule / table / patch) that don't.
+[[nodiscard]] auto inlinesOf(MdBlockBase& block) -> std::vector<MdInline>* {
+    switch (block.kind) {
+    case MdBlockKind::Paragraph:
+        return &block.as<MdParagraph>().inlines;
+    case MdBlockKind::Heading:
+        return &block.as<MdHeading>().inlines;
+    case MdBlockKind::ListItem:
+        return &block.as<MdListItem>().inlines;
+    default:
+        return nullptr;
+    }
+}
+
 /// Mutable state threaded through the md4c callbacks as `userdata`. md4c is a
 /// SAX-style parser — it streams enter/leave/text events; this builder turns
 /// that event stream into the flat `MdDoc`.
@@ -47,7 +83,7 @@ struct Builder {
 
     // The block currently being assembled.
     bool open = false;
-    MdBlock cur;
+    std::unique_ptr<MdBlockBase> cur;
     bool inCodeBlock = false; ///< Inside MD_BLOCK_CODE — text is verbatim code.
 
     // Table state — non-null only while a table is being assembled. md4c
@@ -69,9 +105,8 @@ struct Builder {
     /// block still open is flushed first — markdown blocks never overlap.
     void begin(const MdBlockKind kind) {
         end();
-        cur = MdBlock {};
-        cur.kind = kind;
-        cur.quoteDepth = quoteDepth;
+        cur = makeBlock(kind);
+        cur->quoteDepth = quoteDepth;
         open = true;
     }
 
@@ -92,7 +127,7 @@ struct Builder {
         if (!open) {
             return nullptr;
         }
-        return &cur.inlines;
+        return inlinesOf(*cur);
     }
 
     /// Append a text run — to the code body inside a fence, to the image
@@ -102,7 +137,7 @@ struct Builder {
     void addText(const wxString& text) {
         if (inCodeBlock) {
             if (open) {
-                cur.codeText += text;
+                cur->as<MdCodeFence>().codeText += text;
             }
             return;
         }
@@ -238,17 +273,18 @@ auto mdEnterBlock(const MD_BLOCKTYPE type, void* detail, void* userData) -> int 
         // Open the item block now: tight lists put the text straight in the
         // LI (no inner MD_BLOCK_P), so there must be a block to receive it.
         builder.begin(MdBlockKind::ListItem);
+        auto& li = builder.cur->as<MdListItem>();
         if (!builder.lists.empty()) {
             auto& list = builder.lists.back();
-            builder.cur.listDepth = static_cast<int>(builder.lists.size());
-            builder.cur.listOrdered = list.ordered;
-            builder.cur.listOrdinal = list.next++;
-            builder.cur.listMarker = true;
+            li.listDepth = static_cast<int>(builder.lists.size());
+            li.listOrdered = list.ordered;
+            li.listOrdinal = list.next++;
+            li.listMarker = true;
         }
         const auto* liDetail = static_cast<MD_BLOCK_LI_DETAIL*>(detail);
         if (liDetail != nullptr && liDetail->is_task != 0) {
-            builder.cur.isTask = true;
-            builder.cur.taskChecked = liDetail->task_mark == 'x' || liDetail->task_mark == 'X';
+            li.isTask = true;
+            li.taskChecked = liDetail->task_mark == 'x' || liDetail->task_mark == 'X';
         }
         break;
     }
@@ -259,21 +295,21 @@ auto mdEnterBlock(const MD_BLOCKTYPE type, void* detail, void* userData) -> int 
     case MD_BLOCK_H: {
         const auto* hDetail = static_cast<MD_BLOCK_H_DETAIL*>(detail);
         builder.begin(MdBlockKind::Heading);
-        builder.cur.headingLevel = hDetail->level;
+        builder.cur->as<MdHeading>().headingLevel = static_cast<std::uint8_t>(hDetail->level);
         break;
     }
     case MD_BLOCK_CODE: {
         const auto* codeDetail = static_cast<MD_BLOCK_CODE_DETAIL*>(detail);
         builder.begin(MdBlockKind::CodeFence);
-        builder.cur.codeLang = attrStr(codeDetail->lang).Lower();
+        builder.cur->as<MdCodeFence>().codeLang = attrStr(codeDetail->lang).Lower();
         builder.inCodeBlock = true;
         break;
     }
     case MD_BLOCK_P:
-        if (builder.open && builder.cur.kind == MdBlockKind::ListItem) {
+        if (builder.open && builder.cur->kind == MdBlockKind::ListItem) {
             // Loose-list item: the paragraph fills the already-open item
             // block. A second paragraph in the same item gets a line break.
-            if (!builder.cur.inlines.empty()) {
+            if (!builder.cur->as<MdListItem>().inlines.empty()) {
                 builder.addBreak(MdInlineKind::HardBreak);
             }
         } else {
@@ -290,18 +326,20 @@ auto mdEnterBlock(const MD_BLOCKTYPE type, void* detail, void* userData) -> int 
         builder.inHeader = false;
         break;
     case MD_BLOCK_TR:
-        if (builder.open && builder.cur.kind == MdBlockKind::Table) {
-            builder.cur.rows.emplace_back();
+        if (builder.open && builder.cur->kind == MdBlockKind::Table) {
+            auto& table = builder.cur->as<MdTable>();
+            table.rows.emplace_back();
             if (builder.inHeader) {
-                builder.cur.headerRowCount++;
+                table.headerRowCount++;
             }
         }
         break;
     case MD_BLOCK_TH:
     case MD_BLOCK_TD:
-        if (builder.open && builder.cur.kind == MdBlockKind::Table
-            && !builder.cur.rows.empty()) {
-            auto& row = builder.cur.rows.back();
+        if (builder.open && builder.cur->kind == MdBlockKind::Table
+            && !builder.cur->as<MdTable>().rows.empty()) {
+            auto& table = builder.cur->as<MdTable>();
+            auto& row = table.rows.back();
             row.cells.emplace_back();
             builder.cellInlines = &row.cells.back().inlines;
             // Column alignment is captured from header-row cells. md4c
@@ -309,7 +347,7 @@ auto mdEnterBlock(const MD_BLOCKTYPE type, void* detail, void* userData) -> int 
             // canonical source per GFM.
             if (builder.inHeader && detail != nullptr) {
                 const auto* td = static_cast<MD_BLOCK_TD_DETAIL*>(detail);
-                builder.cur.columnAlignment.push_back(translateAlign(td->align));
+                table.columnAlignment.push_back(translateAlign(td->align));
             }
         }
         break;
@@ -344,7 +382,7 @@ auto mdLeaveBlock(const MD_BLOCKTYPE type, void* /*detail*/, void* userData) -> 
         break;
     case MD_BLOCK_P:
         // A list item's paragraph stays open — the item is closed by LI.
-        if (builder.open && builder.cur.kind == MdBlockKind::Paragraph) {
+        if (builder.open && builder.cur->kind == MdBlockKind::Paragraph) {
             builder.end();
         }
         break;
@@ -523,8 +561,8 @@ struct PatchScanSegment {
     enum class Kind : std::uint8_t { Prose,
         Patch };
     Kind kind = Kind::Prose;
-    wxString markdown; ///< Populated for `Prose`.
-    MdBlock patch;     ///< Populated for `Patch`.
+    wxString markdown;                  ///< Populated for `Prose`.
+    std::unique_ptr<MdBlockBase> patch; ///< Populated for `Patch` (an MdPatch).
 };
 
 /// Split `text` into a sequence of markdown segments and patch blocks.
@@ -603,11 +641,10 @@ auto splitPatchBlocks(const wxString& text) -> std::vector<PatchScanSegment> {
             break;
         case State::InReplace:
             if (matchReplaceMarker(line)) {
-                MdBlock block;
-                block.kind = MdBlockKind::Patch;
-                block.patchTarget = patchTarget;
-                block.patchSearch = patchSearch;
-                block.patchReplace = patchReplace;
+                auto block = std::make_unique<MdPatch>();
+                block->patchTarget = patchTarget;
+                block->patchSearch = patchSearch;
+                block->patchReplace = patchReplace;
                 out.push_back({ .kind = PatchScanSegment::Kind::Patch,
                     .markdown = {},
                     .patch = std::move(block) });
@@ -682,13 +719,21 @@ auto fbide::markdown::resolveCodeBlockText(const wxString& markdown, const std::
     const auto doc = parseMarkdown(markdown);
     std::size_t seen = 0;
     for (const auto& block : doc.blocks) {
-        if (block.kind != MdBlockKind::CodeFence) {
+        if (block->kind != MdBlockKind::CodeFence) {
             continue;
         }
         if (seen == index) {
-            return block.codeText;
+            return block->as<MdCodeFence>().codeText;
         }
         seen++;
     }
     return {};
+}
+
+auto fbide::markdown::blockInlines(const MdBlockBase& block) -> const std::vector<MdInline>& {
+    static std::vector<MdInline> empty;
+    // Share the single kind switch in `inlinesOf` — it only takes the address
+    // of the vector, never mutates, so casting away const here is safe.
+    const auto* inlines = inlinesOf(const_cast<MdBlockBase&>(block));
+    return inlines != nullptr ? *inlines : empty;
 }

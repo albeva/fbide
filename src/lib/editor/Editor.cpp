@@ -79,7 +79,7 @@ Editor::Editor(
     const DocumentType type,
     const bool preview
 )
-: wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize)
+: wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
 , m_configManager(configManager)
 , m_theme(theme)
 , m_documentManager(documentManager)
@@ -994,6 +994,15 @@ void Editor::onModified(wxStyledTextEvent& event) {
     const auto mod = event.GetModificationType();
     if ((mod & (wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT | wxSTC_PERFORMED_UNDO | wxSTC_PERFORMED_REDO)) == 0) {
         return;
+    }
+
+    // A user edit resolves any pending external-change notification — they've
+    // chosen to keep working on their version (no-op when nothing is pending,
+    // including our own reload, which clears the pending state first).
+    if (m_documentManager != nullptr) {
+        if (auto* doc = m_documentManager->findByEditor(this)) {
+            doc->dismissExternalNotification();
+        }
     }
 
     // Change tracking runs for every document type that paints a margin

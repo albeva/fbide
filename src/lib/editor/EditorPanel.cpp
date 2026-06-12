@@ -10,6 +10,7 @@
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
+#include "document/DocumentInfoBar.hpp"
 #include "document/DocumentManager.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
@@ -49,10 +50,19 @@ EditorPanel::EditorPanel(wxWindow* parent, Context& ctx, const DocumentType type
   )
 , m_minimapWidth(minimapWidthFromConfig(ctx))
 , m_minimapEnabled(minimapEnabledFromConfig(ctx)) {
-    // Editor fills the page; the minimap (when enabled) docks to its right.
-    const auto sizer = make_unowned<wxBoxSizer>(wxHORIZONTAL);
-    sizer->Add(m_editor, 1, wxEXPAND);
-    SetSizer(sizer);
+    // Page layout: the info bar (hidden until an external change) spans the
+    // top; the editor + optional minimap fill the rest. The minimap docks
+    // into the inner horizontal sizer to the editor's right.
+    m_infoBar = make_unowned<DocumentInfoBar>(this, ctx, doc);
+
+    const auto inner = make_unowned<wxBoxSizer>(wxHORIZONTAL);
+    inner->Add(m_editor, 1, wxEXPAND);
+    m_editorSizer = inner.get();
+
+    const auto outer = make_unowned<wxBoxSizer>(wxVERTICAL);
+    outer->Add(m_infoBar, 0, wxEXPAND);
+    outer->Add(inner, 1, wxEXPAND);
+    SetSizer(outer);
 
     if (m_minimapEnabled) {
         createMinimap();
@@ -90,13 +100,28 @@ void EditorPanel::updateSettings() {
     }
 }
 
+void EditorPanel::showExternalBar(const Document::ExternalChange kind) {
+    if (kind == Document::ExternalChange::Conflict) {
+        m_infoBar->showConflict();
+    } else if (kind == Document::ExternalChange::Deleted) {
+        m_infoBar->showDeleted();
+    }
+}
+
+void EditorPanel::hideExternalBar() {
+    m_infoBar->dismiss();
+}
+
 void EditorPanel::createMinimap() {
     if (m_minimap != nullptr) {
         return;
     }
     m_minimap = make_unowned<wxStyledTextCtrlMiniMap>(this, m_editor.get());
+    // The minimap's Create() hardcodes a border with no style hook, so the
+    // wxGTK themed frame can only be cleared after construction.
+    m_minimap->SetWindowStyleFlag((m_minimap->GetWindowStyleFlag() & ~wxBORDER_MASK) | wxBORDER_NONE);
     m_minimap->SetMinSize(wxSize(m_minimapWidth, -1));
-    if (auto* sizer = GetSizer(); sizer != nullptr) {
+    if (auto* sizer = m_editorSizer; sizer != nullptr) {
         sizer->Add(m_minimap, 0, wxEXPAND);
         sizer->Layout();
     }
@@ -108,7 +133,7 @@ void EditorPanel::destroyMinimap() {
     if (m_minimap == nullptr) {
         return;
     }
-    if (auto* sizer = GetSizer(); sizer != nullptr) {
+    if (auto* sizer = m_editorSizer; sizer != nullptr) {
         sizer->Detach(m_minimap.get());
         sizer->Layout();
     }
@@ -123,7 +148,7 @@ void EditorPanel::onSize(wxSizeEvent& event) {
 }
 
 void EditorPanel::updateMinimapVisibility() const {
-    auto* sizer = GetSizer();
+    auto* sizer = m_editorSizer;
     if (sizer == nullptr || m_minimap == nullptr) {
         return;
     }

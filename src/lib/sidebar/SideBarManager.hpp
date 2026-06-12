@@ -7,12 +7,10 @@
 #pragma once
 #include "pch.hpp"
 
-class wxGenericDirCtrl;
-class wxTreeEvent;
-
 namespace fbide {
 class Context;
 class Document;
+class FileBrowser;
 class Project;
 class SymbolBrowserPanel;
 class ProjectTreeView;
@@ -21,8 +19,11 @@ class ProjectTreeView;
  * Populates the Browser sidebar notebook with tabs (Browse Files,
  * Sub/Function tree) and drives their behaviour.
  *
- * **Owns:** the tab content (wx-parented to the notebook) plus the
- * cached `wxGenericDirCtrl*` and `SymbolBrowserPanel*`.
+ * **Owns:** the tab content (wx-parented to the notebook) — the
+ * `FileBrowser` and `SymbolBrowserPanel`. It is a thin tab manager: each
+ * tab owns its own behaviour (the `FileBrowser` drives the filesystem tree
+ * and its watch; this class only toggles that watch with the sidebar's
+ * visibility).
  * **Owned by:** `Context`. Declared *after* `UIManager` so destruction
  * runs first — its non-owning pointer to the sidebar `wxAuiNotebook`
  * (owned by the frame UIManager destroys) cannot dangle.
@@ -83,12 +84,9 @@ public:
     void captureProjectSession();
 
 private:
-    /// Browse Files tree leaf activated — open the file in a new editor tab.
-    void onFileActivated(wxTreeEvent& event);
-
     Context& m_ctx;                            ///< Application context.
     wxAuiNotebook* m_notebook = nullptr;       ///< Non-owning pointer into the sidebar notebook (owned by the frame).
-    Unowned<wxGenericDirCtrl> m_dirCtrl;       ///< Browse Files control.
+    Unowned<FileBrowser> m_fileBrowser;        ///< Browse Files tab (self-manages its filesystem watch).
     Unowned<SymbolBrowserPanel> m_symbolPanel; ///< Sub/Function tab (filter box + tree).
     Unowned<ProjectTreeView> m_projectTree;    ///< Project tree tab — present only while a project is open.
 };

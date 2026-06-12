@@ -8,6 +8,7 @@
 #include <wx/richmsgdlg.h>
 #include "BuildTask.hpp"
 #include "CompilerConfigCatalog.hpp"
+#include "FbcAutoDetect.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
@@ -18,6 +19,7 @@
 #include "settings/SettingsDialog.hpp"
 #include "ui/CompilerLog.hpp"
 #include "ui/UIManager.hpp"
+#include "utils/PathConversions.hpp"
 #include "workspace/ProjectBase.hpp"
 #include "workspace/WorkspaceManager.hpp"
 using namespace fbide;
@@ -234,7 +236,27 @@ void CompilerManager::checkCompilerOnStartup() const {
     }
 }
 
-auto CompilerManager::promptConfigure(const wxString& titleKey, const wxString& messageKey, const wxString& target) const -> bool {
+auto CompilerManager::detectCompilerOnFirstRun() -> bool {
+#ifdef __WXMSW__
+    auto& configManager = m_ctx.getConfigManager();
+    auto detected = FbcAutoDetect::detectSilently(configManager.getAppDir(), wxIsPlatform64Bit());
+    if (!detected.has_value()) {
+        return false;
+    }
+    // Install + persist exactly like the Settings-dialog auto-detect path:
+    // replace the [compiler] subtree wholesale, refresh the catalog/UI, and
+    // flush the config so the choice survives the next launch.
+    configManager.config()["compiler"] = std::move(*detected);
+    m_catalog->reload();
+    refreshConfigurationCombo();
+    configManager.save(ConfigManager::Category::Config);
+    return true;
+#else
+    return false;
+#endif
+}
+
+void CompilerManager::promptConfigure(const wxString& titleKey, const wxString& messageKey, const wxString& target) const {
     wxRichMessageDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
         m_ctx.tr(messageKey),
@@ -247,9 +269,7 @@ auto CompilerManager::promptConfigure(const wxString& titleKey, const wxString& 
     );
     if (dlg.ShowModal() == wxID_YES) {
         openCompilerSettings(m_ctx, target);
-        return true;
     }
-    return false;
 }
 
 void CompilerManager::promptMissingCompiler() const {

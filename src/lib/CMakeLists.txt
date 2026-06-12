@@ -12,6 +12,8 @@ target_sources(fbide_lib
     analyses/symbols/SymbolTable.cpp
     app/App.cpp
     app/Context.cpp
+    app/FileAssociations.cpp
+    app/FileAssociationsLinux.cpp
     app/InstanceHandler.cpp
     command/CommandEntry.cpp
     command/CommandManager.cpp
@@ -30,11 +32,13 @@ target_sources(fbide_lib
     config/Version.cpp
     document/Document.cpp
     document/DocumentIO.cpp
+    document/DocumentInfoBar.cpp
     document/DocumentManager.cpp
     document/DocumentNotebook.cpp
     document/DocumentPath.cpp
     document/DocumentType.cpp
     document/DocumentTypeMenu.cpp
+    document/DocumentWatcher.cpp
     document/EncodingDetector.cpp
     document/FileSession.cpp
     document/TextEncoding.cpp
@@ -67,6 +71,7 @@ target_sources(fbide_lib
     settings/panels/GeneralPage.cpp
     settings/panels/KeywordsPage.cpp
     settings/panels/ThemePage.cpp
+    sidebar/FileBrowser.cpp
     sidebar/ProjectTreeView.cpp
     sidebar/SideBarManager.cpp
     sidebar/SymbolBrowser.cpp
@@ -78,10 +83,12 @@ target_sources(fbide_lib
     ui/StatusBarHandler.cpp
     ui/UIManager.cpp
     ui/controls/ColorPicker.cpp
+    ui/controls/FlatButton.cpp
     ui/controls/InheritableField.cpp
     ui/controls/Panel.cpp
     ui/controls/SmartBoxSizer.cpp
     ui/utilities/FileDropTarget.cpp
+    ui/utilities/SystemShell.cpp
     update/UpdateManager.cpp
     utils/Identifier.cpp
     utils/PlatformTrash.cpp
@@ -125,11 +132,13 @@ target_sources(fbide_lib
     config/Value.hpp
     config/Version.hpp
     document/Document.hpp
+    document/DocumentInfoBar.hpp
     document/DocumentManager.hpp
     document/DocumentNotebook.hpp
     document/DocumentPath.hpp
     document/DocumentType.hpp
     document/DocumentTypeMenu.hpp
+    document/DocumentWatcher.hpp
     document/EncodingDetector.hpp
     document/FileSession.hpp
     document/TextEncoding.hpp
@@ -166,6 +175,7 @@ target_sources(fbide_lib
     settings/panels/KeywordsPage.hpp
     settings/panels/SettingsCategory.hpp
     settings/panels/ThemePage.hpp
+    sidebar/FileBrowser.hpp
     sidebar/ProjectTreeView.hpp
     sidebar/SideBarManager.hpp
     sidebar/SymbolBrowser.hpp
@@ -178,11 +188,13 @@ target_sources(fbide_lib
     ui/UIManager.hpp
     ui/UIState.hpp
     ui/controls/ColorPicker.hpp
+    ui/controls/FlatButton.hpp
     ui/controls/InheritableField.hpp
     ui/controls/Layout.hpp
     ui/controls/Panel.hpp
     ui/controls/SmartBoxSizer.hpp
     ui/utilities/FileDropTarget.hpp
+    ui/utilities/SystemShell.hpp
     update/UpdateManager.hpp
     workspace/EphemeralProject.hpp
     workspace/Project.hpp
@@ -233,6 +245,10 @@ endif ()
 
 # precompile header
 target_include_directories(fbide_lib PUBLIC "${CMAKE_BINARY_DIR}/configured_files/include")
+# Generated image assets (resources/scripts/make-doc-icons.py): the #include'd
+# appicon.xpm, plus app.rc's fbide.ico. PUBLIC so consumers (the fbide exe's RC,
+# tests) get it too.
+target_include_directories(fbide_lib PUBLIC "${PROJECT_SOURCE_DIR}/resources/images")
 target_precompile_headers(fbide_lib PUBLIC pch.hpp)
 
 # macOS move-to-trash is implemented in Objective-C++ (NSFileManager).

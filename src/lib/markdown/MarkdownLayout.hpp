@@ -14,15 +14,15 @@ namespace fbide::markdown {
 /// Font selection for a run — flags and a size delta relative to the body
 /// font. The measurer and the painter both resolve a concrete font from it.
 struct TextStyle {
-    int sizeDelta = 0;          ///< Point size relative to the body font.
-    bool bold = false;          ///< Bold typeface.
-    bool italic = false;        ///< Italic typeface.
-    bool underline = false;     ///< Underlined (links).
-    bool strikethrough = false; ///< Struck through.
-    bool monospace = false;     ///< Monospace face (inline + block code).
-    bool themed = false;        ///< FreeBASIC-highlighted code — use the
-                                ///< editor theme's font face. Implies
-                                ///< `monospace`; ignored when it isn't set.
+    int sizeDelta = 0;              ///< Point size relative to the body font.
+    bool bold          : 1 = false; ///< Bold typeface.
+    bool italic        : 1 = false; ///< Italic typeface.
+    bool underline     : 1 = false; ///< Underlined (links).
+    bool strikethrough : 1 = false; ///< Struck through.
+    bool monospace     : 1 = false; ///< Monospace face (inline + block code).
+    bool themed        : 1 = false; ///< FreeBASIC-highlighted code — use the
+                                    ///< editor theme's font face. Implies
+                                    ///< `monospace`; ignored when it isn't set.
 
     auto operator==(const TextStyle&) const -> bool = default;
 };
@@ -64,6 +64,18 @@ struct TableColumn {
     int width = 0; ///< Pixel width allocated to this column.
 };
 
+/// How a table is laid out and painted. Defaults reproduce the classic
+/// bordered look; `borders = false` gives a borderless, prose-aligned table —
+/// no cell / edge lines and no header fill — with explicit inter-column and
+/// inter-row spacing instead of in-cell padding.
+struct MdTableStyle {
+    bool borders = true;    ///< Draw column / edge dividers + the header-row fill.
+    int columnSpacing = 12; ///< Bordered: per-column gutter. Borderless: gap between columns.
+    int rowSpacing = 0;     ///< Borderless: extra vertical gap between rows (px).
+
+    auto operator==(const MdTableStyle&) const -> bool = default;
+};
+
 /// One painted run: a span of same-styled text at a known offset.
 struct PaintRun {
     wxString text;   ///< Run text.
@@ -74,27 +86,10 @@ struct PaintRun {
     int linkId = -1; ///< Index into `LaidOutDoc::links`, or -1 if not a link.
 };
 
-/// One laid-out line, ready to paint.
+/// One laid-out line, ready to paint. Members are ordered largest-alignment
+/// first (vectors, pointer, ints) with the enum + flag bits last, so the
+/// struct carries no interior padding.
 struct PaintLine {
-    LineKind kind = LineKind::Prose;
-    int y = 0;          ///< Top offset within the document.
-    int height = 0;     ///< Line height in pixels.
-    int quoteDepth = 0; ///< Block-quote nesting — the painter draws that many bars.
-    // NOLINTNEXTLINE(readability-redundant-member-init)
-    std::vector<PaintRun> runs {};
-    /// Table-only: per-column geometry. Empty for non-table lines. The
-    /// painter draws vertical separators between columns and (for
-    /// TableBody) a horizontal divider at the top of the row.
-    // NOLINTNEXTLINE(readability-redundant-member-init)
-    std::vector<TableColumn> tableColumns {};
-    /// Table-only: true for the very LAST visual line of the table —
-    /// the painter draws the bottom border on it.
-    bool tableLastLine = false;
-    /// Table-only: true for the first visual line of a table row. Cells
-    /// that wrap to multiple lines produce extra PaintLines for the
-    /// same row; the painter uses this flag to draw the row-divider
-    /// only at the actual row start, not between wrapped lines.
-    bool tableRowStart = false;
     /// Image-line only: bitmap, click target, alt label and the
     /// scaled draw rect. Allocated lazily via `unique_ptr` so prose
     /// lines (the overwhelming majority) carry just one pointer rather
@@ -107,7 +102,21 @@ struct PaintLine {
         int drawHeight = 0;
         int x = 0; ///< Left offset of the image rect inside the bubble.
     };
-    std::unique_ptr<ImageContent> image;
+
+    // NOLINTNEXTLINE(readability-redundant-member-init)
+    std::vector<PaintRun> runs {};
+    /// Table-only: per-column geometry. Empty for non-table lines. The
+    /// painter draws vertical separators between columns and (for
+    /// TableBody) a horizontal divider at the top of the row.
+    // NOLINTNEXTLINE(readability-redundant-member-init)
+    std::vector<TableColumn> tableColumns {};
+    // {} default-initialiser keeps GCC's -Wmissing-field-initializers quiet at
+    // the designated-init sites that omit this member (it lacks one otherwise).
+    // NOLINTNEXTLINE(readability-redundant-member-init)
+    std::unique_ptr<ImageContent> image {};
+    int y = 0;          ///< Top offset within the document.
+    int height = 0;     ///< Line height in pixels.
+    int quoteDepth = 0; ///< Block-quote nesting — the painter draws that many bars.
     /// Index into `LaidOutDoc::scrollBlocks` when this line belongs to
     /// a fenced code block or a SEARCH/REPLACE proposal, or -1 for
     /// anything else. The line's `kind` distinguishes Code vs
@@ -115,6 +124,18 @@ struct PaintLine {
     /// painter / hit-tester resolve the containing block in O(1)
     /// without scanning the block list per line.
     int blockIndex = -1;
+    LineKind kind = LineKind::Prose;
+    /// Table-only: true for the very LAST visual line of the table —
+    /// the painter draws the bottom border on it.
+    bool tableLastLine : 1 = false;
+    /// Table-only: true for the first visual line of a table row. Cells
+    /// that wrap to multiple lines produce extra PaintLines for the
+    /// same row; the painter uses this flag to draw the row-divider
+    /// only at the actual row start, not between wrapped lines.
+    bool tableRowStart : 1 = false;
+    /// Table-only: false for a borderless table — the painter skips the edge /
+    /// divider lines and the header fill, leaving just the cell text.
+    bool tableBordered : 1 = true;
 };
 
 /// A hyperlink target, referenced by `PaintRun::linkId`.
@@ -133,30 +154,7 @@ struct LinkTarget {
 struct LaidScrollBlock {
     enum class Kind : std::uint8_t { Code,
         Patch };
-    Kind kind = Kind::Code;
-    int y = 0;              ///< Top offset within the document (includes padding).
-    int height = 0;         ///< Total height including padding strips.
-    int contentLeft = 0;    ///< Left edge of the text area inside the block (document coords).
-    int contentWidth = 0;   ///< Visible width of the text area — what's not scrolled is clipped to this.
-    int naturalWidth = 0;   ///< Right edge of the widest run minus `contentLeft`. Equals
-                            ///< `contentWidth` when the block was laid out with wrapping
-                            ///< on; larger when wrapping is off and lines overflow.
-    bool wrapped = true;    ///< Layout-mode flag — false when the block was laid out
-                            ///< with horizontal scroll instead of soft wrap.
-    bool collapsed = false; ///< True when the block was laid out as a single summary
-                            ///< strip; the painter reads `summary*` and ignores the
-                            ///< usual content lines. Default false so existing call
-                            ///< sites (MarkdownView, tests) keep the expanded shape.
-    bool themed = false;    ///< Mirrors what `emitCode` used for `TextStyle::themed` —
-                            ///< true for FreeBASIC fences so the editor-theme
-                            ///< monospace font is used. Lets the painter pick the
-                            ///< same face when drawing a collapsed strip without
-                            ///< re-deriving the predicate from `codeLang`.
-    /// Responsive summary text for collapsed blocks. The painter picks the
-    /// widest version that fits the strip's content width — keeping the
-    /// fallback chain (narrow → mid → wide) inside the laid doc so the
-    /// painter doesn't have to re-derive line counts / language at paint.
-    /// All three stay empty when `collapsed` is false.
+
     /// Components the painter assembles into the responsive summary
     /// strip. Storing them structured (instead of three precomputed
     /// strings) lets the painter apply git-style colouring to the
@@ -167,14 +165,38 @@ struct LaidScrollBlock {
         int added = 0;            ///< Code: total source lines. Patch: REPLACE-side line count.
         int removed = 0;          ///< Code: 0 (no diff baseline). Patch: SEARCH-side line count.
     };
-    CollapsedSummary summary; ///< Populated only when `collapsed` is true.
-    wxString codeText;        ///< Code only: verbatim fenced text — kept so callers
-                              ///< can compute stable identity hashes across
-                              ///< re-layouts without re-parsing the markdown source.
-    wxString codeLang;        ///< Code only: lower-cased fence tag (empty when none).
-    wxString patchTarget;     ///< Patch only: optional target path from the SEARCH header.
-    wxString patchSearch;     ///< Patch only: verbatim SEARCH text.
-    wxString patchReplace;    ///< Patch only: verbatim REPLACE text.
+
+    // Members are ordered largest-alignment first (8-byte wxString / size_t,
+    // then ints, then the enum + flag bits) so the struct has no interior padding.
+    // {} default-initialisers keep GCC's -Wmissing-field-initializers quiet at
+    // the designated-init sites that omit these (they lack one otherwise).
+    // NOLINTBEGIN(readability-redundant-member-init)
+    CollapsedSummary summary {}; ///< Populated only when `collapsed` is true.
+    wxString codeLang {};        ///< Code only: lower-cased fence tag (empty when none).
+    wxString patchTarget {};     ///< Patch only: optional target path from the SEARCH header.
+    wxString patchSearch {};     ///< Patch only: verbatim SEARCH text.
+    wxString patchReplace {};    ///< Patch only: verbatim REPLACE text.
+    // NOLINTEND(readability-redundant-member-init)
+    /// Code only: hash of the verbatim fenced text, computed once at layout.
+    /// Lets hosts derive a stable per-block identity across re-layouts without
+    /// keeping a duplicate copy of the snippet — the body itself is re-resolved
+    /// on demand from the source markdown via `resolveCodeBlockText`.
+    std::size_t codeContentHash = 0;
+    int y = 0;             ///< Top offset within the document (includes padding).
+    int height = 0;        ///< Total height including padding strips.
+    int contentLeft = 0;   ///< Left edge of the text area inside the block (document coords).
+    int contentWidth = 0;  ///< Visible width of the text area — what's not scrolled is clipped to this.
+    int naturalWidth = 0;  ///< Right edge of the widest run minus `contentLeft`. Equals
+                           ///< `contentWidth` when wrapping is on; larger when off.
+    int codeLineCount = 0; ///< Code only: source line count — drives collapsibility.
+    Kind kind = Kind::Code;
+    bool wrapped : 1 = true;    ///< Layout-mode flag — false when laid out with
+                                ///< horizontal scroll instead of soft wrap.
+    bool collapsed : 1 = false; ///< True when laid out as a single summary strip;
+                                ///< the painter reads `summary` and ignores content lines.
+    bool themed : 1 = false;    ///< Mirrors `emitCode`'s `TextStyle::themed` — true for
+                                ///< FreeBASIC fences so the editor-theme monospace face
+                                ///< is used (incl. when drawing a collapsed strip).
 };
 
 /// Colours the layout and painter need that are not carried on code runs.
@@ -281,6 +303,7 @@ using BlockCollapsedQuery = std::function<bool(
     const CodeFenceHighlighter& highlightFence,
     const ImageResolver& resolveImage = {},
     bool wrapCodeBlocks = true,
+    const MdTableStyle& tableStyle = {},
     const BlockCollapsedQuery& isCollapsed = {},
     const LanguageDisplayResolver& resolveLanguageDisplay = {}
 ) -> LaidOutDoc;

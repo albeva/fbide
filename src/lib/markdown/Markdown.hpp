@@ -11,10 +11,10 @@ namespace fbide::markdown {
 
 /// Inline text styling, accumulated from nested markdown spans.
 struct MdStyle {
-    bool bold = false;          ///< `**strong**`
-    bool italic = false;        ///< `*emphasis*`
-    bool code = false;          ///< inline `` `code` `` span
-    bool strikethrough = false; ///< `~~deleted~~`
+    bool bold          : 1 = false; ///< `**strong**`
+    bool italic        : 1 = false; ///< `*emphasis*`
+    bool code          : 1 = false; ///< inline `` `code` `` span
+    bool strikethrough : 1 = false; ///< `~~deleted~~`
 
     auto operator==(const MdStyle&) const -> bool = default;
 };
@@ -66,42 +66,103 @@ struct MdTableCell {
     std::vector<MdInline> inlines;
 };
 
-/// One row of a table. The first `MdBlock::headerRowCount` rows are the
+/// One row of a table. The first `MdTable::headerRowCount` rows are the
 /// header (visually tinted by the painter); the rest are body rows.
 struct MdTableRow {
     std::vector<MdTableCell> cells;
 };
 
-/// One block of the document. The markdown tree is flattened: list nesting
-/// and block-quoting are expressed as integer depths, not nested children,
-/// so the document is a simple linear sequence the layout engine can walk.
-struct MdBlock {
-    MdBlockKind kind = MdBlockKind::Paragraph;
-    std::vector<MdInline> inlines;                 ///< Paragraph / Heading / ListItem content.
-    unsigned headingLevel = 0;                     ///< Heading: 1-6.
-    wxString codeLang;                             ///< CodeFence: fence info string, lowercased.
-    wxString codeText;                             ///< CodeFence: verbatim code, '\n'-separated.
-    int quoteDepth = 0;                            ///< Block-quote nesting (0 = not quoted).
-    int listDepth = 0;                             ///< List nesting (0 = not in a list).
-    bool listOrdered = false;                      ///< ListItem: ordered vs bulleted.
-    int listOrdinal = 0;                           ///< ListItem: number for ordered lists.
-    bool listMarker = false;                       ///< ListItem: draw the bullet/number
-                                                   ///< (false for an item's continuation lines).
-    bool isTask = false;                           ///< ListItem: GFM task list item.
-    bool taskChecked = false;                      ///< ListItem: task box ticked (`[x]` / `[X]`).
-    std::vector<MdTableAlignment> columnAlignment; ///< Table: one entry per column.
-    std::vector<MdTableRow> rows;                  ///< Table: header rows first, then body.
-    std::size_t headerRowCount = 0;                ///< Table: number of leading rows in `rows`
-                                                   ///< that are header (usually 1).
-    wxString patchTarget;                          ///< Patch: optional target path from
-                                                   ///< the `<<<<<<< SEARCH` header.
-    wxString patchSearch;                          ///< Patch: verbatim SEARCH text.
-    wxString patchReplace;                         ///< Patch: verbatim REPLACE text.
+/// Base of the block hierarchy. The markdown tree is flattened: list nesting
+/// and block-quoting are expressed as integer depths, not nested children, so
+/// the document is a linear sequence of polymorphic blocks the layout engine
+/// walks. Each concrete kind carries only its own fields, so a plain paragraph
+/// no longer drags the table / code / patch payload around.
+struct MdBlockBase {
+    NO_COPY_AND_MOVE(MdBlockBase)
+
+    explicit MdBlockBase(const MdBlockKind blockKind)
+    : kind(blockKind) {}
+
+    virtual ~MdBlockBase() = default;
+
+    /// Checked downcast to a concrete block type. Debug-asserts the kind
+    /// matches; callers dispatch on `kind` first, so the cast is always valid.
+    template<class T>
+    [[nodiscard]] auto as() -> T& {
+        wxASSERT(kind == T::kKind);
+        return static_cast<T&>(*this);
+    }
+
+    template<class T>
+    [[nodiscard]] auto as() const -> const T& {
+        wxASSERT(kind == T::kKind);
+        return static_cast<const T&>(*this);
+    }
+
+    MdBlockKind kind;   ///< Discriminant — set by each concrete block's constructor.
+    int quoteDepth = 0; ///< Block-quote nesting (0 = not quoted). Common to every kind.
 };
 
-/// Parsed markdown document — a flat sequence of blocks.
+/// CRTP helper binding a concrete block to its `MdBlockKind`: supplies the
+/// `kKind` discriminant that `as<T>()` asserts on and the constructor that
+/// stamps it into the base, so each leaf only declares its own fields.
+template<MdBlockKind K>
+struct MdBlockOf : MdBlockBase {
+    static constexpr auto kKind = K;
+
+    MdBlockOf()
+    : MdBlockBase(K) {}
+};
+
+/// Run of prose.
+struct MdParagraph final : MdBlockOf<MdBlockKind::Paragraph> {
+    std::vector<MdInline> inlines; ///< Paragraph content.
+};
+
+/// `#`..`######` heading — see `headingLevel`.
+struct MdHeading final : MdBlockOf<MdBlockKind::Heading> {
+    std::vector<MdInline> inlines; ///< Heading content.
+    std::uint8_t headingLevel = 0; ///< 1-6.
+};
+
+/// Fenced or indented code block.
+struct MdCodeFence final : MdBlockOf<MdBlockKind::CodeFence> {
+    wxString codeLang; ///< Fence info string, lowercased.
+    wxString codeText; ///< Verbatim code, '\n'-separated.
+};
+
+/// One item line of a list — see `list*` fields.
+struct MdListItem final : MdBlockOf<MdBlockKind::ListItem> {
+    std::vector<MdInline> inlines; ///< Item content.
+    int listDepth = 0;             ///< List nesting (1 = top-level list).
+    int listOrdinal = 0;           ///< Number for ordered lists.
+    bool listOrdered : 1 = false;  ///< Ordered vs bulleted.
+    bool listMarker  : 1 = false;  ///< Draw the bullet/number (false for continuation lines).
+    bool isTask      : 1 = false;  ///< GFM task list item.
+    bool taskChecked : 1 = false;  ///< Task box ticked (`[x]` / `[X]`).
+};
+
+/// Horizontal rule (`---`). Carries no content beyond the common fields.
+struct MdRule final : MdBlockOf<MdBlockKind::Rule> {};
+
+/// GFM pipe table — see `rows` / `columnAlignment`.
+struct MdTable final : MdBlockOf<MdBlockKind::Table> {
+    std::vector<MdTableAlignment> columnAlignment; ///< One entry per column.
+    std::vector<MdTableRow> rows;                  ///< Header rows first, then body.
+    std::uint32_t headerRowCount = 0;              ///< Leading rows in `rows` that are header (usually 1).
+};
+
+/// SEARCH/REPLACE proposal — see `patch*` fields. Only produced for a
+/// fully-closed block; partial blocks mid-stream are silently consumed.
+struct MdPatch final : MdBlockOf<MdBlockKind::Patch> {
+    wxString patchTarget;  ///< Optional target path from the `<<<<<<< SEARCH` header.
+    wxString patchSearch;  ///< Verbatim SEARCH text.
+    wxString patchReplace; ///< Verbatim REPLACE text.
+};
+
+/// Parsed markdown document — a flat sequence of polymorphic blocks.
 struct MdDoc {
-    std::vector<MdBlock> blocks;
+    std::vector<std::unique_ptr<MdBlockBase>> blocks;
 };
 
 /// Parse `text` (markdown) into the document model. Tolerates partial input:
@@ -114,5 +175,11 @@ struct MdDoc {
 /// chat view uses this as a slow-path lookup so the laid-out document
 /// doesn't have to keep a duplicate copy of every snippet's text in memory.
 [[nodiscard]] auto resolveCodeBlockText(const wxString& markdown, std::size_t index) -> wxString;
+
+/// The inline runs of a block that carries them — `Paragraph`, `Heading` or
+/// `ListItem`. Returns an empty list for the other kinds (code / rule / table /
+/// patch), so callers that don't know the concrete kind can read prose content
+/// uniformly without a downcast.
+[[nodiscard]] auto blockInlines(const MdBlockBase& block) -> const std::vector<MdInline>&;
 
 } // namespace fbide::markdown

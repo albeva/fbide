@@ -15,19 +15,22 @@ auto MarkdownDocument::setMarkdown(
     const CodeFenceHighlighter& highlightFence,
     const ImageResolver& resolveImage,
     const bool wrapCodeBlocks,
+    const MdTableStyle& tableStyle,
     const BlockCollapsedQuery& isCollapsed,
     const LanguageDisplayResolver& resolveLanguageDisplay
 ) -> bool {
     // Cache check — same content + same width AND same wrap mode means the
     // previous layout is reusable. Saves both the markdown parse and the
     // layout pass on hot paths like streaming-tick relayouts.
-    if (contentWidth == m_width && wrapCodeBlocks == m_wrapCodeBlocks && markdown == m_markdown) {
+    if (contentWidth == m_width && wrapCodeBlocks == m_wrapCodeBlocks && tableStyle == m_tableStyle
+        && markdown == m_markdown) {
         return false;
     }
     m_markdown = markdown;
     m_width = contentWidth;
     m_wrapCodeBlocks = wrapCodeBlocks;
-    m_laid = layoutMarkdown(parseMarkdown(markdown), contentWidth, measurer, palette, highlightFence, resolveImage, wrapCodeBlocks, isCollapsed, resolveLanguageDisplay);
+    m_tableStyle = tableStyle;
+    m_laid = layoutMarkdown(parseMarkdown(markdown), contentWidth, measurer, palette, highlightFence, resolveImage, wrapCodeBlocks, tableStyle, isCollapsed, resolveLanguageDisplay);
     return true;
 }
 

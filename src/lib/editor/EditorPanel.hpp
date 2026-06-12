@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "document/Document.hpp"
 #include "document/DocumentType.hpp"
 
 class wxStyledTextCtrlMiniMap;
@@ -13,6 +14,7 @@ class wxStyledTextCtrlMiniMap;
 namespace fbide {
 class Context;
 class Document;
+class DocumentInfoBar;
 class Editor;
 
 /**
@@ -71,6 +73,12 @@ public:
     /// binding so its rendering picks up the new colours.
     void updateSettings();
 
+    /// Show the external-change info bar for `kind` (docked at the page top).
+    /// Driven by `Document::showExternalBar`.
+    void showExternalBar(Document::ExternalChange kind);
+    /// Hide the external-change info bar.
+    void hideExternalBar();
+
 private:
     /// Page resized — re-evaluate whether the minimap still fits.
     void onSize(wxSizeEvent& event);
@@ -83,7 +91,9 @@ private:
 
     Document& m_doc;                            ///< Back reference — used to publish / clear the view link.
     Unowned<Editor> m_editor;                   ///< Editor widget — child of this panel.
+    Unowned<DocumentInfoBar> m_infoBar;         ///< External-change notification bar, docked at the page top.
     Unowned<wxStyledTextCtrlMiniMap> m_minimap; ///< Minimap — lazily created; null while disabled.
+    wxBoxSizer* m_editorSizer = nullptr;        ///< Inner horizontal sizer holding editor + minimap (below the info bar).
     int m_minimapWidth;                         ///< Minimap width in px — `editor.minimapWidth` config key.
     bool m_minimapEnabled;                      ///< Minimap toggle state — `commands.viewMinimap`.
 

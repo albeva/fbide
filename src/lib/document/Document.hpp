@@ -93,6 +93,14 @@ public:
 
     NO_COPY_AND_MOVE(Document)
 
+    /// Pending external-change state, surfaced via the page's info bar
+    /// until the user resolves it (Reload or Keep).
+    enum class ExternalChange : std::uint8_t {
+        None,     ///< In sync with disk.
+        Conflict, ///< Changed on disk while the buffer has unsaved edits.
+        Deleted,  ///< Removed from disk while still open.
+    };
+
     /// Create a new document. View-less by default — call
     /// `attachView()` (typically driven by `EditorPanel`'s ctor) to
     /// pair the document with a hosted editor. `sink`, if non-null,
@@ -210,11 +218,39 @@ public:
     /// flag. Call after a successful save, load, or reload.
     void markSaved();
 
-    /// Check if file was modified externally since last load/save.
+    /// Force the modified state. `setModified(true)` flips the meta-dirty bit
+    /// (used when the on-disk file is deleted, so the buffer reads as unsaved
+    /// without touching the editor's own save-point machinery); `false`
+    /// delegates to `markSaved()`.
+    void setModified(bool modified);
+
+    /// Check if file was modified externally since last load/save. Compares
+    /// both on-disk mod-time and size — size catches a same-second overwrite
+    /// the mod-time granularity (2s on FAT / some network shares) would miss.
     [[nodiscard]] auto checkExternalChange() const -> bool;
 
-    /// Update stored modification time from file on disk.
+    /// Update stored modification time + size from the file on disk. Called
+    /// after open / save / reload so the next `checkExternalChange` measures
+    /// against the current on-disk state (this also suppresses the watcher
+    /// reacting to our own writes).
     void updateModTime();
+
+    /// Pending external-change state awaiting user resolution.
+    [[nodiscard]] auto getPendingExternal() const -> ExternalChange { return m_pendingExternal; }
+    /// Set the pending external-change state.
+    void setPendingExternal(const ExternalChange state) { m_pendingExternal = state; }
+
+    /// Show the external-change info bar for `kind` on this document's page.
+    /// Routed to the `EditorPanel` view, which owns the bar; no-op view-less.
+    void showExternalBar(ExternalChange kind);
+    /// Hide the external-change info bar. No-op when the document is view-less.
+    void hideExternalBar();
+
+    /// Resolve any pending external-change notification: re-baseline to the
+    /// current on-disk state (so it won't immediately re-trigger) and hide the
+    /// bar. Called when the user edits or saves — they've implicitly chosen to
+    /// keep working on their version. No-op when nothing is pending.
+    void dismissExternalNotification();
 
     /// Update document controls settings. Forwards to the view when
     /// the view is an `EditorPanel`; no-op for other view kinds.
@@ -256,8 +292,10 @@ private:
     Unowned<wxWindow> m_view;                  ///< Generic view back-link — wx-parented to the notebook.
     Unowned<Editor> m_editor;                  ///< Typed editor pointer when the view hosts one; null otherwise.
     std::filesystem::file_time_type m_modTime; ///< Last on-disk mtime — backs `checkExternalChange`.
+    std::uintmax_t m_size = 0;                  ///< Last on-disk size — paired with mtime for change detection.
     TextEncoding m_encoding;                   ///< Bytes-to-text codec used on save.
     EolMode m_eolMode;                         ///< Line-ending convention applied on save.
+    ExternalChange m_pendingExternal = ExternalChange::None; ///< Unresolved external change awaiting the user.
     /// Set when encoding is changed; cleared on save. OR'd with the
     /// view's modify flag in isModified() so encoding-only edits still
     /// show as dirty.

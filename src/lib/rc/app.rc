@@ -6,6 +6,13 @@
 #endif
 appicon ICON "fbide.ico"
 
+// Document-type icons for the per-user "Open with" associations
+// (FileAssociations.cpp). The PE sorts icon resources by name, so these follow
+// appicon at indices 1/2/3 -- keep that order in sync with kDocTypes.
+doc_bas ICON "file-bas.ico"
+doc_bi ICON "file-bi.ico"
+doc_fbs ICON "file-fbs.ico"
+
 VS_VERSION_INFO VERSIONINFO
 FILEVERSION     FBIDE_VERSION_MAJOR,FBIDE_VERSION_MINOR,FBIDE_VERSION_PATCH,FBIDE_VERSION_TWEAK
 PRODUCTVERSION  FBIDE_VERSION_MAJOR,FBIDE_VERSION_MINOR,FBIDE_VERSION_PATCH,FBIDE_VERSION_TWEAK

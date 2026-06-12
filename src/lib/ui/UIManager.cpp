@@ -28,7 +28,7 @@
 #include "workspace/WorkspaceManager.hpp"
 #ifndef __WXMSW__
 namespace XPM {
-#include "rc/appicon.xpm"
+#include "appicon.xpm"
 }
 #endif
 using namespace fbide;
@@ -71,6 +71,11 @@ void UIManager::onClose(wxCloseEvent& event) {
     // the shutdown event-drain would dereference the freed task.
     m_ctx.getCompilerManager().killProcess();
 
+    // Release the filesystem watcher now, while the event loop is still alive.
+    // It is owned via Context (destroyed only after the loop ends), and a
+    // wxFileSystemWatcher torn down after the loop faults on its event source.
+    m_ctx.getDocumentManager().shutdownWatcher();
+
     saveWindowGeometry();
     // Document tabs are gone at this point — the AUI perspective we
     // capture now reflects only persistent chrome (toolbars, sidebar,
@@ -106,7 +111,15 @@ void UIManager::saveWindowGeometry() {
 
 void UIManager::createMainFrame() {
     m_frame = make_unowned<wxFrame>(nullptr, wxID_ANY, appName);
-#ifndef __WXMSW__
+#ifdef __WXMSW__
+    // Windows: build a multi-size bundle from the "appicon" .ico embedded by
+    // app.rc so the title bar (16px) and taskbar (32px) each get a crisp frame.
+    wxIconBundle icons;
+    for (const int size : { 16, 24, 32, 48, 256 }) {
+        icons.AddIcon(wxIcon("appicon", wxBITMAP_TYPE_ICO_RESOURCE, size, size));
+    }
+    m_frame->SetIcons(icons);
+#else
     m_frame->SetIcon(wxICON(XPM::appicon));
 #endif
     m_frame->PushEventHandler(this);
@@ -695,5 +708,7 @@ void UIManager::updateSettings() {
     for (auto* doc : m_ctx.getWorkspaceManager().documents()) {
         doc->updateSettings();
     }
+    // Start/stop the auto-reload watcher if its toggle changed.
+    m_ctx.getDocumentManager().refreshAutoReload();
     refreshConfigurationDisplay();
 }

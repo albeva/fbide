@@ -129,44 +129,48 @@ void fbide::markdown::paintLineBackground(
     }
     if ((line.kind == LineKind::TableHeader || line.kind == LineKind::TableBody)
         && !line.tableColumns.empty()) {
-        // Header rows get a subtle background tint; the fill is clipped
-        // to the table's actual column range so it doesn't leak out
-        // into the rest of the surface. Borders / dividers go on top.
-        const int leftEdge = contentLeft + line.tableColumns.front().x;
-        const int rightEdge = contentLeft + line.tableColumns.back().x
-                            + line.tableColumns.back().width;
-        const int tableWidth = rightEdge - leftEdge;
-        if (line.kind == LineKind::TableHeader) {
-            gc.SetBrush(wxBrush(palette.tableHeaderBg));
-            gc.SetPen(*wxTRANSPARENT_PEN);
-            gc.DrawRectangle(leftEdge, lineTop, tableWidth, line.height);
-        }
-        gc.SetPen(wxPen(palette.rule));
-        for (std::size_t col = 1; col < line.tableColumns.size(); col++) {
-            const int colX = contentLeft + line.tableColumns.at(col).x;
-            gc.DrawLine(colX, lineTop, colX, lineTop + line.height);
-        }
-        gc.DrawLine(leftEdge, lineTop, leftEdge, lineTop + line.height);
-        gc.DrawLine(rightEdge, lineTop, rightEdge, lineTop + line.height);
-        if (line.tableRowStart) {
-            gc.DrawLine(leftEdge, lineTop, rightEdge, lineTop);
-        }
-        if (line.tableLastLine) {
-            const int bottomY = lineTop + line.height;
-            gc.DrawLine(leftEdge, bottomY, rightEdge, bottomY);
+        // Borderless tables paint no fill / dividers — the cell text (drawn
+        // separately) is all there is. Bordered tables get a clipped header
+        // tint plus column / edge / row rules.
+        if (line.tableBordered) {
+            const int leftEdge = contentLeft + line.tableColumns.front().x;
+            const int rightEdge = contentLeft + line.tableColumns.back().x
+                                + line.tableColumns.back().width;
+            const int tableWidth = rightEdge - leftEdge;
+            if (line.kind == LineKind::TableHeader) {
+                gc.SetBrush(wxBrush(palette.tableHeaderBg));
+                gc.SetPen(*wxTRANSPARENT_PEN);
+                gc.DrawRectangle(leftEdge, lineTop, tableWidth, line.height);
+            }
+            gc.SetPen(wxPen(palette.rule));
+            for (std::size_t col = 1; col < line.tableColumns.size(); col++) {
+                const int colX = contentLeft + line.tableColumns.at(col).x;
+                gc.DrawLine(colX, lineTop, colX, lineTop + line.height);
+            }
+            gc.DrawLine(leftEdge, lineTop, leftEdge, lineTop + line.height);
+            gc.DrawLine(rightEdge, lineTop, rightEdge, lineTop + line.height);
+            if (line.tableRowStart) {
+                gc.DrawLine(leftEdge, lineTop, rightEdge, lineTop);
+            }
+            if (line.tableLastLine) {
+                const int bottomY = lineTop + line.height;
+                gc.DrawLine(leftEdge, bottomY, rightEdge, bottomY);
+            }
         }
         return;
     }
     if (line.kind == LineKind::Image && line.image != nullptr && line.image->bitmap.IsOk()) {
         // Draw through the underlying wxGraphicsContext — `wxGCDC::DrawBitmap`
         // has no scaled-target overload, but the graphics context does.
-        gc.GetGraphicsContext()->DrawBitmap(
-            line.image->bitmap,
-            contentLeft + line.image->x,
-            lineTop,
-            line.image->drawWidth,
-            line.image->drawHeight
-        );
+        if (auto* const gfx = gc.GetGraphicsContext()) {
+            gfx->DrawBitmap(
+                line.image->bitmap,
+                contentLeft + line.image->x,
+                lineTop,
+                line.image->drawWidth,
+                line.image->drawHeight
+            );
+        }
         // The line's lone PaintRun is an empty hit-test region for the
         // click handler — `paintLineText` skips empty runs, so the
         // image line doesn't pick up any text drawing.
@@ -415,16 +419,23 @@ void fbide::markdown::paintLineText(
     const wxFont& bodyFont,
     const wxFont& monoFont,
     const wxFont& themedFont,
-    PaintRunState& state
+    PaintRunState& state,
+    const int hoveredLinkId
 ) {
     // `selectRunFont` mutates `state` — when the style differs from the
     // cached one, it sets the DC font and refreshes `currentAscent` so
     // the cache spans both the ascent pass and the draw pass (and every
-    // subsequent line that shares the style).
+    // subsequent line that shares the style). The hovered link's runs get
+    // an underline forced into the effective style, so the cache keys on it
+    // and the underline appears (and clears) without a re-layout.
     const auto selectRunFont = [&](const PaintRun& run) -> wxCoord {
-        if (!state.styleSet || run.style != state.currentStyle) {
-            gc.SetFont(fontFor(run.style, bodyFont, monoFont, themedFont));
-            state.currentStyle = run.style;
+        TextStyle style = run.style;
+        if (run.linkId >= 0 && run.linkId == hoveredLinkId) {
+            style.underline = true;
+        }
+        if (!state.styleSet || style != state.currentStyle) {
+            gc.SetFont(fontFor(style, bodyFont, monoFont, themedFont));
+            state.currentStyle = style;
             state.currentAscent = gc.GetFontMetrics().ascent;
             state.styleSet = true;
         }

@@ -1,6 +1,20 @@
+# Changes since 0.5.0-rc.6
+
+- Added a Windows installer and FreeBASIC bundle for x86
+- Added an arm64 (aarch64) Linux AppImage build alongside the existing x86_64 one.
+- Added an arm64 Windows build alongside the existing x64 and x86 ones.
+- Added auto-reload of externally modified documents
+- Added auto-refresh of the file browser when its selected folder changes on disk
+- Added a right-click context menu to the file browser (open, rename, delete to recycle bin, copy path/name, reveal in file manager, new file/folder, open terminal, properties)
+- Added auto-detect fbc compiler on first run (Windows only)
+- Added a new app icon and distinct document icons for .bas, .bi and .fbs files
+- Added .bas, .bi and .fbs file type associations and document icons to the Linux AppImage.
+- Redesigned the About dialog.
+- Statically linked the CRT into the x86/x64 Windows builds so they run without the VC++ redistributable.
+- Fixed an operator (e.g. `,`) before a `&h`/`&o`/`&b` number swallowing its prefix and mis-highlighting the number (#111).
+
 # Changes since 0.5.0-rc.5
 
-- Added a Markdown view; the About dialog now renders a Markdown readme with FreeBASIC code highlighting instead of BBCode.
 - Fixed status bar getting stuck on a stale compile message (#106).
 - Fixed crash when quitting from the macOS dock menu (#107).
 - Fixed minimap not using the theme's change-marker colours until the Settings dialogue was opened.
