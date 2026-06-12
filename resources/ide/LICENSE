@@ -23,3 +23,19 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+----------------------------------------------------------------------
+
+Artwork and branding exception
+==============================
+
+The MIT License above applies to FBIde's source code and other materials,
+EXCEPT the FBIde artwork and branding — the application icon, document and
+file-type icons, splash and installer imagery, logos, and the FBIde name
+and marks. Those are NOT licensed under the MIT License; they are licensed
+under the Creative Commons Attribution-NonCommercial-NoDerivatives 4.0
+International License (CC BY-NC-ND 4.0). See ASSETS-LICENSE.md for the exact
+files and terms.
+
+Third-party components bundled with FBIde (Dev-C++ icons, Arimo font) are
+covered by their own licenses. See THIRD_PARTY_LICENSES.txt.

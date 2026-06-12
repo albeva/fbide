@@ -94,6 +94,7 @@ void AboutDialog::create() {
             add(link);
         };
         addLink("License", "LICENSE");
+        addLink("Artwork license", "ASSETS-LICENSE.md");
         addLink("Third-party licenses", "THIRD_PARTY_LICENSES.txt");
     });
 

@@ -60,4 +60,11 @@ via `ctest` from the build tree.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+- **Code** — MIT; see [LICENSE](LICENSE).
+- **Artwork & branding** (app icon, document icons, splash, installer imagery,
+  logo) — Creative Commons
+  [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/): free to
+  use as part of FBIde, but not for sale, modification, or reuse in other
+  projects without permission. See [ASSETS-LICENSE.md](ASSETS-LICENSE.md).
+- **Third-party** — Dev-C++ icons (GPL v2) and the Arimo font (OFL 1.1); see
+  [THIRD_PARTY_LICENSES.txt](resources/ide/THIRD_PARTY_LICENSES.txt).
