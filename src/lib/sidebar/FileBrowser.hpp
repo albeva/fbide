@@ -7,8 +7,6 @@
 #pragma once
 #include "pch.hpp"
 #include "ui/controls/Layout.hpp"
-#include <wx/fswatcher.h>
-#include <set>
 
 class wxTreeEvent;
 

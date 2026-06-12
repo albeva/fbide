@@ -21,6 +21,7 @@
 #include <memory>
 #include <optional>
 #include <ranges>
+#include <set>
 #include <span>
 #include <string_view>
 #include <unordered_map>
@@ -44,12 +45,14 @@
 #include <wx/dcgraph.h>
 #include <wx/dcmemory.h>
 #include <wx/dir.h>
+#include <wx/dirctrl.h>
 #include <wx/fdrepdlg.h>
 #include <wx/file.h>
 #include <wx/fileconf.h>
 #include <wx/filehistory.h>
 #include <wx/filename.h>
 #include <wx/fontenum.h>
+#include <wx/fswatcher.h>
 #include <wx/graphics.h>
 #include <wx/hyperlink.h>
 #include <wx/imaglist.h>

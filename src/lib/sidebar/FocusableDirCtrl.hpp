@@ -6,7 +6,6 @@
 //
 #pragma once
 #include "pch.hpp"
-#include <wx/dirctrl.h>
 
 namespace fbide {
 
