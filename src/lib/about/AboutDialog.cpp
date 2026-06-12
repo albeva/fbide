@@ -10,7 +10,6 @@
 #include "document/DocumentManager.hpp"
 #include "markdown/MarkdownView.hpp"
 #include "ui/controls/SmartBoxSizer.hpp"
-#include "update/UpdateManager.hpp"
 
 using namespace fbide;
 
@@ -38,7 +37,6 @@ AboutDialog::AboutDialog(wxWindow* parent, Context& ctx)
 void AboutDialog::create() {
     SetBackgroundColour(kBrandBlue);
 
-    markdown::MarkdownView* view = nullptr;
     hbox({ .proportion = 1, .gap = kPad }, [&] {
         // Logo (left), rendered from logo.svg via NanoSVG (wx is built with SVG).
         constexpr int logoSize = 112; // logical px; the bundle scales for HiDPI
@@ -52,7 +50,7 @@ void AboutDialog::create() {
 
         // Info page (right) — all content comes from the markdown template.
         const auto md = make_unowned<markdown::MarkdownView>(currentParent(), m_ctx);
-        md->SetMinSize(wxSize(430, -1));
+        md->SetMinSize(wxSize(430, -1)); // fixed width; height follows the content
         md->setSelectable(false);
         md->setContentBackground(kBrandBlue);
         md->setTextColour(kBrandText);
@@ -63,7 +61,6 @@ void AboutDialog::create() {
         md->setMarkdown(loadAbout());
         md->Bind(markdown::MARKDOWN_LINK_CLICKED, &AboutDialog::onLink, this);
         add(md, { .proportion = 1 });
-        view = md;
     });
 
     add(CreateStdDialogButtonSizer(wxOK));
@@ -72,15 +69,10 @@ void AboutDialog::create() {
     // outer margin so it isn't doubled (the button row keeps default spacing).
     static_cast<SmartBoxSizer*>(currentSizer())->setOptions({ .margin = false });
 
-    // Fixed width (the column min width drives the dialog to ~600); the height
-    // follows the content via SetSizerAndFit, so the page never scrolls. Two
-    // passes: the first fit gives the markdown column its width, then its min
-    // height is set to the laid-out content height so the second fit derives the
-    // dialog height. Min-locked so it can only grow — the scroll bar never shows.
+    // Single fit: the view reports its content height at its pinned width via
+    // DoGetBestSize, so the (430, -1) min size sizes the dialog to fit with no
+    // scroll bar — no explicit height, no second pass. Min-locked after.
     SetSizerAndFit(currentSizer());
-    view->SetMinSize(wxSize(view->GetClientSize().GetWidth(), view->layoutHeight()));
-    SetSizerAndFit(currentSizer());
-    SetMinSize(GetSize());
     Centre();
 }
 
@@ -99,11 +91,6 @@ void AboutDialog::onLink(wxCommandEvent& event) {
     const wxString url = event.GetString();
     if (url.StartsWith("http://") || url.StartsWith("https://") || url.StartsWith("mailto:")) {
         event.Skip(); // fall through to wxLaunchDefaultBrowser
-        return;
-    }
-    if (url == "fbide:check-updates") {
-        // Keep the dialog open — the update check reports its result on top.
-        m_ctx.getUpdateManager().checkManual();
         return;
     }
     // A bundled file (a license) — open it in an editor tab and close the dialog.

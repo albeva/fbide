@@ -130,6 +130,7 @@ void MarkdownView::setMarkdown(const wxString& markdown) {
     // Content change invalidates any positions the selection held.
     m_selection.clear();
     relayout(markdown);
+    InvalidateBestSize(); // content height changed — DoGetBestSize must recompute
     Scroll(0, 0);
     Refresh();
 }
@@ -228,11 +229,19 @@ void MarkdownView::setContentPadding(const int padding) {
     Refresh();
 }
 
-auto MarkdownView::layoutHeight() -> int {
-    // Re-lay at the current width and report the full content height so a host
-    // can size itself to the content and avoid showing the scroll bar.
-    relayout(m_document.markdown());
-    return m_document.height() + (2 * m_contentPadding);
+auto MarkdownView::DoGetBestSize() const -> wxSize {
+    const int width = GetMinWidth();
+    if (width <= 0) {
+        return wxScrolled::DoGetBestSize();
+    }
+    // Lay the content out at the host-pinned width (with the real platform fonts)
+    // and report its height, so a plain (width, -1) min size sizes the host
+    // through a single Fit — no explicit height, no second pass. Fit consults the
+    // best size but ignores height-for-width, so this is the hook that works.
+    // const_cast only refreshes the cached layout the upcoming paint reuses.
+    auto* const self = const_cast<MarkdownView*>(this);
+    self->layoutDocument(m_document.markdown(), std::max(40, width - (2 * m_contentPadding)));
+    return { width, m_document.height() + (2 * m_contentPadding) };
 }
 
 void MarkdownView::refreshTheme() {
@@ -348,13 +357,7 @@ void MarkdownView::onSize(wxSizeEvent& event) {
     event.Skip();
 }
 
-void MarkdownView::relayout(const wxString& source) {
-    const int panelWidth = GetClientSize().GetWidth();
-    if (panelWidth <= 0) {
-        return;
-    }
-    const int contentWidth = std::max(40, panelWidth - (2 * m_contentPadding));
-
+void MarkdownView::layoutDocument(const wxString& source, const int contentWidth) {
     const wxClientDC clientDc(this);
     wxGCDC measureDc;
     measureDc.SetGraphicsContext(makeGraphicsContext(clientDc));
@@ -381,6 +384,14 @@ void MarkdownView::relayout(const wxString& source) {
     };
 
     m_document.setMarkdown(source, contentWidth, measurer, m_palette, m_highlighter, resolveImage, m_wrapCodeBlocks, m_tableStyle);
+}
+
+void MarkdownView::relayout(const wxString& source) {
+    const int panelWidth = GetClientSize().GetWidth();
+    if (panelWidth <= 0) {
+        return;
+    }
+    layoutDocument(source, std::max(40, panelWidth - (2 * m_contentPadding)));
 
     // Resize the per-block scroll vector to match the new layout. When
     // the block count is unchanged the previous offsets carry over

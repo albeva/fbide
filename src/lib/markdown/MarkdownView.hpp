@@ -133,12 +133,13 @@ public:
     /// (system hotlight).
     void setLinkColour(const wxColour& colour);
 
-    /// Re-lay the content at the current width and return its total height
-    /// (px, incl. padding). Lets a host size itself to the content so the view
-    /// doesn't need to scroll.
-    [[nodiscard]] auto layoutHeight() -> int;
-
 private:
+    /// Best size for a host-pinned width: when the width is fixed via a min
+    /// width, report the content height at that width (laid out with the real
+    /// fonts) so a plain `(W, -1)` min size sizes the host through a single
+    /// `Fit`. Falls back to the scrolled default when no min width is set.
+    [[nodiscard]] auto DoGetBestSize() const -> wxSize override;
+
     void onPaint(wxPaintEvent& event);
     void onSize(wxSizeEvent& event);
     void onMotion(wxMouseEvent& event);
@@ -156,6 +157,10 @@ private:
     /// fills in.
     [[nodiscard]] auto hitTest(const wxPoint& clientPoint) -> SelectionPosition;
 
+    /// Lay the document out at `contentWidth` (px, inside the padding) through
+    /// the measurer + palette. Shared by `relayout` and the height-for-width
+    /// query; touches neither the scroll state nor the virtual size.
+    void layoutDocument(const wxString& source, int contentWidth);
     void relayout(const wxString& source);
     /// Invalidate the document's cached layout, re-lay, and refresh.
     /// Used by paths that change a layout input (palette, highlighter,

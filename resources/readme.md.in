@@ -4,7 +4,7 @@ An open-source IDE for the [FreeBASIC](https://freebasic.net) compiler.
 
 [Website](https://fbide.freebasic.net) · [GitHub](https://github.com/albeva/fbide)
 
-| **Version** | @FBIDE_FULL_VERSION@ (@FBIDE_BUILD_VARIANT@) | [Release notes](https://fbide.freebasic.net/changelog/@FBIDE_FULL_VERSION@.html) · [Check for updates](fbide:check-updates) |
+| **Version** | @FBIDE_FULL_VERSION@ (@FBIDE_BUILD_VARIANT@) | [Release notes](https://fbide.freebasic.net/changelog/@FBIDE_FULL_VERSION@.html) |
 |---|---|---|
 | **Built** | @FBIDE_BUILD_DATE@ | |
 | **wxWidgets** | @wxWidgets_VERSION@ | |
