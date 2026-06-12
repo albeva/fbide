@@ -39,6 +39,3 @@ CMakeSettings.json
 *.chm
 tests/cmake_test_*
 *.local.ini
-
-# Generated at configure time (About page with baked-in version/build values)
-resources/ide/readme.md

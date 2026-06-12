@@ -7,6 +7,7 @@
 #include "AboutDialog.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
+#include "config/Version.hpp"
 #include "document/DocumentManager.hpp"
 #include "markdown/MarkdownView.hpp"
 #include "ui/controls/SmartBoxSizer.hpp"
@@ -44,10 +45,15 @@ void AboutDialog::create() {
     SetBackgroundColour(kBrandBlue);
 
     hbox({ .proportion = 1, .margin = false, .gap = 0 }, [&] {
-        // Logo (left), rendered from logo.svg via NanoSVG (wx is built with SVG).
-        constexpr int logoSize = 112; // logical px; the bundle scales for HiDPI
+        // Logo (left): logo.svg is cropped tight to the horse head, so render
+        // at its exact intrinsic size (portrait — a square would distort it).
+        // The bitmap edges are the head edges, so it places precisely; the SVG
+        // bundle still rasterises crisply at any HiDPI scale.
+        constexpr int size = 112;
+        constexpr double ratio = 177.985 / 210.777;
+        const wxSize logoSize(size, static_cast<int>(std::round(size / ratio))); // matches logo.svg's width / height
         const auto logo = wxBitmapBundle::FromSVGFile(
-            m_ctx.getConfigManager().absolute("logo.svg"), wxSize(logoSize, logoSize)
+            m_ctx.getConfigManager().absolute("logo.svg"), logoSize
         );
         if (logo.IsOk()) {
             const auto bitmap = make_unowned<wxStaticBitmap>(currentParent(), wxID_ANY, logo);
@@ -61,11 +67,12 @@ void AboutDialog::create() {
         const auto md = make_unowned<markdown::MarkdownView>(currentParent(), m_ctx, wxID_ANY, wxBORDER_NONE);
         md->SetMinSize(wxSize(400, -1)); // fixed width; height follows the content
         md->setSelectable(false);
+        md->ShowScrollbars(wxSHOW_SB_NEVER, wxSHOW_SB_NEVER);
         md->setContentBackground(kBrandBlue);
         md->setTextColour(kBrandText);
         md->setLinkColour(kBrandLink);
         md->setContentPadding(0);
-        md->setTableStyle({ .borders = false, .columnSpacing = 10, .rowSpacing = 0 });
+        md->setTableStyle({ .borders = false, .columnSpacing = 16, .rowSpacing = 0 });
         md->refreshTheme();
         md->setMarkdown(loadAbout());
         md->Bind(markdown::MARKDOWN_LINK_CLICKED, &AboutDialog::onLink, this);
@@ -95,13 +102,19 @@ void AboutDialog::create() {
 }
 
 auto AboutDialog::loadAbout() const -> wxString {
-    // Generated at configure time with the real version / build / wxWidgets
-    // values baked in, so it only needs reading.
+    // ide/readme.md ships with {{...}} placeholders filled here at load time, so
+    // the running binary — not a possibly-stale generated file — is the source
+    // of truth (someone may swap fbide and keep an old ide/ folder beside it).
     const auto path = m_ctx.getConfigManager().absolute("readme.md");
     wxString content;
     if (wxFile file(path); file.IsOpened()) {
         file.ReadAll(&content);
     }
+    content.Replace("{{version}}", Version::fbide().asString());
+    content.Replace("{{variant}}", sizeof(void*) == 8 ? "64-bit" : "32-bit");
+    content.Replace("{{buildDate}}", __DATE__);
+    content.Replace("{{wxVersion}}", Version::wxWidgets().asString());
+    content.Replace("{{wxPort}}", wxPlatformInfo::Get().GetPortIdName());
     return content;
 }
 
