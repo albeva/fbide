@@ -13,6 +13,14 @@
 
 namespace fbide {
 
+/// Document-type keys fbide can edit directly. Each indexes both the
+/// `[filePatterns]` config section (globs) and the locale `[filetypes]`
+/// section (display names). Order is the menu order used by the file browser.
+inline constexpr std::array<std::string_view, 10> kEditorFileTypeKeys {
+    "freebasic", "html", "properties", "markdown", "batch",
+    "bash", "makefile", "json", "css", "text",
+};
+
 /**
  * Multi-file INI store + path resolver.
  *
@@ -212,6 +220,15 @@ public:
     /// Join multiple `[filePatterns]` entries into one wxFileDialog
     /// wildcard string. Missing or empty entries are skipped.
     [[nodiscard]] auto filePatterns(std::initializer_list<std::string_view> keys) -> wxString;
+
+    /// Raw glob fragment for a `[filePatterns]` key (e.g. `*.bas;*.bi`); "" if
+    /// absent. Unlike `filePattern`, this is the bare glob, not a dialog filter.
+    [[nodiscard]] auto fileGlob(const wxString& key) -> wxString;
+
+    /// True when `filename` matches a glob of any editor document type
+    /// (`kEditorFileTypeKeys`) — i.e. fbide opens it directly rather than
+    /// handing it to the OS default application.
+    [[nodiscard]] auto isSupportedDocumentFile(const wxString& filename) -> bool;
 
     // -----------------------------------------------------------------------
     // Theme (owned directly, not part of Value tree)

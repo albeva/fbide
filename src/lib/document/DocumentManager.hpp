@@ -142,6 +142,15 @@ public:
     /// active tab. No-op when nothing is pending.
     void flushExternalPending(Document& doc);
 
+    /// React to a rename performed inside the IDE (e.g. the file browser):
+    /// re-point any open document at `oldPath` — or under it when a directory
+    /// was renamed — to its new location, keeping the watcher and tab in sync.
+    void handleExternalRename(const std::filesystem::path& oldPath, const std::filesystem::path& newPath);
+
+    /// React to a delete performed inside the IDE: close any open document at
+    /// `path`, or under it when a directory was deleted.
+    void handleExternalDelete(const std::filesystem::path& path);
+
     /// Refresh just a document's tab text (e.g. its `[*]` dirty marker),
     /// without touching the window title — safe for a non-active document.
     void refreshTabTitle(const Document& doc) const;

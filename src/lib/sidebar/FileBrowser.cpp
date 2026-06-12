@@ -6,9 +6,13 @@
 //
 #include "FileBrowser.hpp"
 #include <wx/dirctrl.h>
+#include <wx/textdlg.h>
 #include "app/Context.hpp"
+#include "config/ConfigManager.hpp"
 #include "document/DocumentManager.hpp"
 #include "ui/UIManager.hpp"
+#include "ui/utilities/SystemShell.hpp"
+#include "utils/PathConversions.hpp"
 using namespace fbide;
 
 namespace {
@@ -26,6 +30,7 @@ wxBEGIN_EVENT_TABLE(FileBrowser, Layout<wxPanel>)
     EVT_TIMER                (wxID_ANY, FileBrowser::onRefreshTimer)
     EVT_TREE_ITEM_EXPANDED   (wxID_ANY, FileBrowser::onItemExpanded)
     EVT_TREE_ITEM_COLLAPSING (wxID_ANY, FileBrowser::onItemCollapsing)
+    EVT_TREE_ITEM_MENU       (wxID_ANY, FileBrowser::onItemMenu)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -288,4 +293,370 @@ auto FileBrowser::findItemByPath(const wxString& path) const -> wxTreeItemId {
         }
     }
     return {};
+}
+
+// ---------------------------------------------------------------------------
+// Context menu
+// ---------------------------------------------------------------------------
+
+void FileBrowser::onItemMenu(wxTreeEvent& event) {
+    auto* tree = m_dirCtrl->GetTreeCtrl();
+    const auto item = event.GetItem();
+    if (tree == nullptr || !item.IsOk()) {
+        return;
+    }
+    tree->SelectItem(item);
+    const wxString path = m_dirCtrl->GetPath(item);
+    if (path.IsEmpty()) {
+        return; // virtual root (e.g. the drive list) — nothing to act on
+    }
+    std::error_code ec;
+    const auto fsPath = toFsPath(path);
+    const bool isDir = std::filesystem::is_directory(fsPath, ec);
+    const auto parent = fsPath.parent_path();
+    const bool hasParent = !parent.empty() && parent != fsPath; // false for a volume root
+
+    // Local menu ids, based above the reserved stock range so they never collide
+    // with wxID_OK and friends. Type entries occupy a contiguous block.
+    constexpr int kIdOpen = wxID_HIGHEST + 1;
+    constexpr int kIdRename = wxID_HIGHEST + 2;
+    constexpr int kIdDelete = wxID_HIGHEST + 3;
+    constexpr int kIdCopyWin = wxID_HIGHEST + 4;
+    constexpr int kIdCopyUnix = wxID_HIGHEST + 5;
+    constexpr int kIdCopyName = wxID_HIGHEST + 6;
+    constexpr int kIdReveal = wxID_HIGHEST + 7;
+    constexpr int kIdProperties = wxID_HIGHEST + 8;
+    constexpr int kIdNewFolder = wxID_HIGHEST + 9;
+    constexpr int kIdNewEmpty = wxID_HIGHEST + 10;
+    constexpr int kIdTerminal = wxID_HIGHEST + 11;
+    constexpr int kIdRefresh = wxID_HIGHEST + 12;
+    constexpr int kIdNewTypeBase = wxID_HIGHEST + 100;
+
+    wxMenu menu;
+    if (isDir) {
+        auto newMenu = std::make_unique<wxMenu>();
+        newMenu->Append(kIdNewFolder, menuText("newFolder", "Folder…"));
+        newMenu->AppendSeparator();
+        for (std::size_t i = 0; i < kEditorFileTypeKeys.size(); ++i) {
+            const auto key = kEditorFileTypeKeys.at(i);
+            const wxString ext = firstExtension(key);
+            if (ext.IsEmpty()) {
+                continue;
+            }
+            const wxString keyStr(key.data(), key.size());
+            wxString name = m_ctx.tr("filetypes." + keyStr);
+            if (name.IsEmpty()) {
+                name = keyStr;
+            }
+            newMenu->Append(kIdNewTypeBase + static_cast<int>(i), name + " (" + ext + ")");
+        }
+        newMenu->AppendSeparator();
+        newMenu->Append(kIdNewEmpty, menuText("newEmptyFile", "Empty File…"));
+        menu.AppendSubMenu(newMenu.release(), menuText("newItem", "New"));
+        menu.Append(kIdTerminal, menuText("openTerminal", "Open Terminal Here"));
+        menu.Append(kIdRefresh, menuText("refresh", "Refresh"));
+        menu.AppendSeparator();
+    } else {
+        menu.Append(kIdOpen, menuText("open", "Open"));
+        menu.AppendSeparator();
+    }
+    if (hasParent) {
+        menu.Append(kIdRename, menuText("rename", "Rename…"));
+        menu.Append(kIdDelete, menuText("del", "Delete…"));
+        menu.AppendSeparator();
+    }
+    auto copyMenu = std::make_unique<wxMenu>();
+    copyMenu->Append(kIdCopyWin, menuText("pathWindows", "Windows Path"));
+    copyMenu->Append(kIdCopyUnix, menuText("pathUnix", "Unix Path"));
+    copyMenu->AppendSeparator();
+    copyMenu->Append(kIdCopyName, menuText("copyName", "Copy Name"));
+    menu.AppendSubMenu(copyMenu.release(), menuText("copyPath", "Copy Path"));
+    menu.Append(kIdReveal, revealLabel());
+    if (SystemShell::propertiesSupported()) {
+        menu.Append(kIdProperties, menuText("properties", "Properties"));
+    }
+
+    const int sel = GetPopupMenuSelectionFromUser(menu);
+    switch (sel) {
+    case wxID_NONE:
+        return;
+    case kIdOpen:
+        openNode(path);
+        break;
+    case kIdRename:
+        renameNode(path);
+        break;
+    case kIdDelete:
+        deleteNode(path, isDir);
+        break;
+    case kIdCopyWin: {
+        wxString win = path;
+        win.Replace("/", "\\");
+        copyToClipboard(win);
+        break;
+    }
+    case kIdCopyUnix: {
+        wxString unix = path;
+        unix.Replace("\\", "/");
+        copyToClipboard(unix);
+        break;
+    }
+    case kIdCopyName:
+        copyToClipboard(wxFileName(path).GetFullName());
+        break;
+    case kIdReveal:
+        SystemShell::revealInFileManager(path);
+        break;
+    case kIdProperties:
+        SystemShell::showProperties(path);
+        break;
+    case kIdNewFolder:
+        newFolderIn(path);
+        break;
+    case kIdNewEmpty:
+        newEmptyFileIn(path);
+        break;
+    case kIdTerminal:
+        openTerminalIn(path);
+        break;
+    case kIdRefresh:
+        refreshFolders({ path });
+        break;
+    default:
+        if (sel >= kIdNewTypeBase) {
+            const auto idx = static_cast<std::size_t>(sel - kIdNewTypeBase);
+            if (idx < kEditorFileTypeKeys.size()) {
+                newDocumentIn(path, kEditorFileTypeKeys.at(idx));
+            }
+        }
+        break;
+    }
+}
+
+void FileBrowser::openNode(const wxString& path) {
+    const wxString name = wxFileName(path).GetFullName();
+    if (m_ctx.getConfigManager().isSupportedDocumentFile(name)) {
+        m_ctx.getDocumentManager().openFile(path);
+    } else {
+        wxLaunchDefaultApplication(path); // hand off to the OS default app
+    }
+}
+
+void FileBrowser::renameNode(const wxString& path) {
+    const auto srcFs = toFsPath(path);
+    std::error_code ec;
+    const bool isDir = std::filesystem::is_directory(srcFs, ec);
+    const wxString oldName = toWxString(srcFs.filename());
+    const wxString parentDir = toWxString(srcFs.parent_path());
+
+    wxTextEntryDialog dlg(this, menuText("renamePrompt", "New name:"), menuText("renameTitle", "Rename"), oldName);
+    if (dlg.ShowModal() != wxID_OK) {
+        return;
+    }
+    const wxString newName = dlg.GetValue().Trim(true).Trim(false);
+    if (newName.IsEmpty() || newName == oldName) {
+        return;
+    }
+    if (!validateName(newName, parentDir, path)) {
+        return;
+    }
+    if (!isDir) {
+        const wxString oldExt = wxFileName(oldName).GetExt();
+        const wxString newExt = wxFileName(newName).GetExt();
+        if (!oldExt.IsSameAs(newExt, false)) {
+            const wxString msg = wxString::Format(
+                menuText("extChangeConfirm", R"(Change the extension from "%s" to "%s"?)"), oldExt, newExt
+            );
+            if (wxMessageBox(msg, menuText("extChangeTitle", "Change Extension?"), wxYES_NO | wxICON_QUESTION, this) != wxYES) {
+                return;
+            }
+        }
+    }
+
+    const auto destFs = srcFs.parent_path() / toFsPath(newName);
+    std::filesystem::rename(srcFs, destFs, ec);
+    if (ec) {
+        wxMessageBox(
+            wxString::Format(menuText("renameFailed", R"(Could not rename "%s".)"), oldName),
+            menuText("errorTitle", "Error"), wxOK | wxICON_ERROR, this
+        );
+        return;
+    }
+    // Keep any open document(s) at or under the old path pointed at the new one.
+    m_ctx.getDocumentManager().handleExternalRename(srcFs, destFs);
+    if (isDir) {
+        unwatchFolder(path); // the old directory path is gone
+    }
+    afterMutation(parentDir, toWxString(destFs));
+}
+
+void FileBrowser::deleteNode(const wxString& path, const bool isDir) {
+    const wxString name = wxFileName(path).GetFullName();
+    const wxString msg = wxString::Format(
+        isDir ? menuText("deleteFolderConfirm", R"(Send folder "%s" and its contents to the Recycle Bin?)")
+              : menuText("deleteFileConfirm", R"(Send "%s" to the Recycle Bin?)"),
+        name
+    );
+    if (wxMessageBox(msg, menuText("deleteTitle", "Delete"), wxYES_NO | wxICON_WARNING, this) != wxYES) {
+        return;
+    }
+    const wxString parentDir = wxFileName(path).GetPath();
+    if (!SystemShell::moveToTrash(path)) {
+        // No trash support / failed — fall back to a permanent delete.
+        std::error_code ec;
+        std::filesystem::remove_all(toFsPath(path), ec);
+        if (ec) {
+            wxMessageBox(
+                wxString::Format(menuText("deleteFailed", R"(Could not delete "%s".)"), name),
+                menuText("errorTitle", "Error"), wxOK | wxICON_ERROR, this
+            );
+            return;
+        }
+    }
+    m_ctx.getDocumentManager().handleExternalDelete(toFsPath(path)); // close any open docs
+    unwatchFolder(path); // drop the watch if it was an expanded directory
+    afterMutation(parentDir, wxEmptyString);
+}
+
+void FileBrowser::newFolderIn(const wxString& dir) {
+    wxTextEntryDialog dlg(this, menuText("newFolderPrompt", "Folder name:"), menuText("newFolderTitle", "New Folder"));
+    if (dlg.ShowModal() != wxID_OK) {
+        return;
+    }
+    const wxString name = dlg.GetValue().Trim(true).Trim(false);
+    if (name.IsEmpty() || !validateName(name, dir)) {
+        return;
+    }
+    const wxString full = toWxString(toFsPath(dir) / toFsPath(name));
+    std::error_code ec;
+    if (!std::filesystem::create_directory(toFsPath(full), ec) || ec) {
+        wxMessageBox(
+            wxString::Format(menuText("createFailed", R"(Could not create "%s".)"), name),
+            menuText("errorTitle", "Error"), wxOK | wxICON_ERROR, this
+        );
+        return;
+    }
+    afterMutation(dir, full);
+}
+
+void FileBrowser::newDocumentIn(const wxString& dir, const std::string_view typeKey) {
+    const wxString ext = firstExtension(typeKey);
+    wxTextEntryDialog dlg(this, menuText("newFilePrompt", "File name:"), menuText("newFileTitle", "New File"));
+    if (dlg.ShowModal() != wxID_OK) {
+        return;
+    }
+    wxString name = dlg.GetValue().Trim(true).Trim(false);
+    if (name.IsEmpty()) {
+        return;
+    }
+    if (!ext.IsEmpty() && !name.Lower().EndsWith(ext.Lower())) {
+        name += ext; // append the type's extension automatically
+    }
+    const wxString full = createFileIn(dir, name);
+    if (full.IsEmpty()) {
+        return;
+    }
+    afterMutation(dir, full);
+    m_ctx.getDocumentManager().openFile(full);
+}
+
+void FileBrowser::newEmptyFileIn(const wxString& dir) {
+    wxTextEntryDialog dlg(this, menuText("newFilePrompt", "File name:"), menuText("newFileTitle", "New File"));
+    if (dlg.ShowModal() != wxID_OK) {
+        return;
+    }
+    const wxString name = dlg.GetValue().Trim(true).Trim(false);
+    if (name.IsEmpty()) {
+        return;
+    }
+    const wxString full = createFileIn(dir, name);
+    if (!full.IsEmpty()) {
+        afterMutation(dir, full); // created but, per spec, not opened
+    }
+}
+
+void FileBrowser::openTerminalIn(const wxString& dir) {
+    SystemShell::openTerminal(dir, ConfigManager::getTerminal());
+}
+
+auto FileBrowser::createFileIn(const wxString& dir, const wxString& name) -> wxString {
+    if (!validateName(name, dir)) {
+        return {};
+    }
+    wxString full = toWxString(toFsPath(dir) / toFsPath(name));
+    wxFile file;
+    if (!file.Create(full, false)) {
+        wxMessageBox(
+            wxString::Format(menuText("createFailed", R"(Could not create "%s".)"), name),
+            menuText("errorTitle", "Error"), wxOK | wxICON_ERROR, this
+        );
+        return {};
+    }
+    file.Close();
+    return full;
+}
+
+auto FileBrowser::validateName(const wxString& name, const wxString& dir, const wxString& ignorePath) -> bool {
+    const auto fail = [&](const char* key, const wxString& fallback) -> bool {
+        wxMessageBox(
+            wxString::Format(menuText(key, fallback), name),
+            menuText("errorTitle", "Error"), wxOK | wxICON_ERROR, this
+        );
+        return false;
+    };
+    if (name.IsEmpty() || name == "." || name == ".." || name.find_first_of(R"(\/:*?"<>|)") != wxString::npos) {
+        return fail("invalidName", "Invalid name: %s");
+    }
+    std::error_code ec;
+    const auto candidate = toFsPath(dir) / toFsPath(name);
+    if (std::filesystem::exists(candidate, ec)) {
+        // A rename must not collide with itself: on a case-insensitive
+        // filesystem the candidate resolves to the same file being renamed,
+        // which is not a real conflict.
+        const bool isSelf = !ignorePath.IsEmpty()
+            && std::filesystem::equivalent(candidate, toFsPath(ignorePath), ec);
+        if (!isSelf) {
+            return fail("nameExists", R"(An item named "%s" already exists.)");
+        }
+    }
+    return true;
+}
+
+void FileBrowser::afterMutation(const wxString& parentDir, const wxString& revealPath) {
+    m_dirCtrl->ExpandPath(parentDir); // ensure the folder is open (and watched)
+    refreshFolders({ parentDir });    // re-read so the new/renamed entry appears
+    if (!revealPath.IsEmpty()) {
+        m_dirCtrl->ExpandPath(revealPath);
+        m_dirCtrl->SelectPath(revealPath);
+    }
+}
+
+auto FileBrowser::firstExtension(const std::string_view typeKey) const -> wxString {
+    const wxString key(typeKey.data(), typeKey.size());
+    wxString glob = m_ctx.getConfigManager().fileGlob(key).BeforeFirst(';');
+    if (glob.StartsWith("*")) {
+        glob.Remove(0, 1); // "*.bas" -> ".bas"
+    }
+    return glob;
+}
+
+auto FileBrowser::revealLabel() const -> wxString {
+#ifdef __WXMSW__
+    return menuText("showInExplorer", "Show in Explorer");
+#elif defined(__WXMAC__)
+    return menuText("showInFinder", "Reveal in Finder");
+#else
+    return menuText("showInFileManager", "Show in File Manager");
+#endif
+}
+
+auto FileBrowser::menuText(const char* key, const wxString& fallback) const -> wxString {
+    return m_ctx.getConfigManager().locale().get_or(wxString("fileBrowserContext.") + key, fallback);
+}
+
+void FileBrowser::copyToClipboard(const wxString& text) {
+    if (wxTheClipboard->Open()) {
+        wxTheClipboard->SetData(make_unowned<wxTextDataObject>(text));
+        wxTheClipboard->Close();
+    }
 }

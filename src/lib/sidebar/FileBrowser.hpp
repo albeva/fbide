@@ -86,6 +86,48 @@ private:
     /// Find the visible tree item for `path`, or an invalid id if not present.
     [[nodiscard]] auto findItemByPath(const wxString& path) const -> wxTreeItemId;
 
+    // --- Context menu (right-click on a node) --------------------------------
+
+    /// Build and show the per-node context menu, then run the chosen action.
+    void onItemMenu(wxTreeEvent& event);
+
+    /// Open a file: in fbide when it is a supported document type, otherwise via
+    /// the OS default application.
+    void openNode(const wxString& path);
+    /// Prompt for a new name and rename the file/dir (validates the name and
+    /// confirms an extension change for files).
+    void renameNode(const wxString& path);
+    /// Confirm, then send the file/dir to the recycle bin (permanent fallback).
+    void deleteNode(const wxString& path, bool isDir);
+    /// Create a sub-folder in `dir` (prompts for a name).
+    void newFolderIn(const wxString& dir);
+    /// Create a new document of `typeKey` in `dir` (appends the type's
+    /// extension) and open it.
+    void newDocumentIn(const wxString& dir, std::string_view typeKey);
+    /// Create an arbitrarily-named empty file in `dir` (does not open it).
+    void newEmptyFileIn(const wxString& dir);
+    /// Open the configured terminal with its working directory at `dir`.
+    static void openTerminalIn(const wxString& dir);
+
+    /// Create `name` in `dir` as an empty file; returns its full path, or ""
+    /// on an invalid/conflicting name or I/O failure (an error is shown).
+    [[nodiscard]] auto createFileIn(const wxString& dir, const wxString& name) -> wxString;
+    /// Validate a new file/dir name and check it does not collide with a
+    /// sibling in `dir`. `ignorePath`, when set, is the item being renamed and
+    /// is excluded from the collision check (so a no-op or case-only rename is
+    /// allowed). Shows an error and returns false when rejected.
+    [[nodiscard]] auto validateName(const wxString& name, const wxString& dir, const wxString& ignorePath = {}) -> bool;
+    /// Re-read `parentDir` after a mutation and select `revealPath` if given.
+    void afterMutation(const wxString& parentDir, const wxString& revealPath);
+    /// First extension for an editor file-type key ("freebasic" → ".bas").
+    [[nodiscard]] auto firstExtension(std::string_view typeKey) const -> wxString;
+    /// Platform label for the "reveal in file manager" entry.
+    [[nodiscard]] auto revealLabel() const -> wxString;
+    /// Localized `fileBrowserContext.<key>` string with an English fallback.
+    [[nodiscard]] auto menuText(const char* key, const wxString& fallback) const -> wxString;
+    /// Put `text` on the clipboard.
+    static void copyToClipboard(const wxString& text);
+
     Context& m_ctx;
     Unowned<wxGenericDirCtrl> m_dirCtrl;               ///< The directory tree (child of this panel).
     std::unique_ptr<wxFileSystemWatcher> m_fsWatcher;  ///< Non-null only while watching (panel visible).

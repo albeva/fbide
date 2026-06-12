@@ -5,6 +5,7 @@
 - Added an arm64 Windows build alongside the existing x64 and x86 ones.
 - Added auto-reload of externally modified documents
 - Added auto-refresh of the file browser when its selected folder changes on disk
+- Added a right-click context menu to the file browser (open, rename, delete to recycle bin, copy path/name, reveal in file manager, new file/folder, open terminal, properties)
 - Added auto-detect fbc compiler on first run (Windows only)
 - Added a new app icon and distinct document icons for .bas, .bi and .fbs files
 - Added .bas, .bi and .fbs file type associations and document icons to the Linux AppImage.

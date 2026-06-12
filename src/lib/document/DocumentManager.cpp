@@ -83,7 +83,7 @@ void DocumentManager::openFile() {
         m_ctx.tr("files.loadTitle"),
         "",
         ".bas",
-        m_ctx.getConfigManager().filePatterns({ "freebasic", "properties", "markdown", "batch", "bash", "makefile", "json", "css", "all" }),
+        m_ctx.getConfigManager().filePatterns({ "freebasic", "properties", "markdown", "batch", "bash", "makefile", "json", "css", "text", "all" }),
         wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE
     );
 
@@ -801,6 +801,74 @@ void DocumentManager::setActive(Document* document) {
     const auto idx = findPageIndex(*document);
     if (idx != wxNOT_FOUND) {
         getNotebook()->SetSelection(static_cast<size_t>(idx));
+    }
+}
+
+namespace {
+// Lexical path comparison for matching open documents to a path that was just
+// renamed or deleted in the IDE. std::filesystem::equivalent can't be used here:
+// after the operation the document's current (old) path no longer exists.
+auto normForCompare(const std::filesystem::path& path) -> wxString {
+    wxString str = toWxString(path);
+    while (str.length() > 1 && (str.Last() == '\\' || str.Last() == '/')) {
+        str.RemoveLast();
+    }
+    return wxFileName::IsCaseSensitive() ? str : str.Lower();
+}
+
+auto samePath(const std::filesystem::path& a, const std::filesystem::path& b) -> bool {
+    return normForCompare(a) == normForCompare(b);
+}
+
+auto underPath(const std::filesystem::path& child, const std::filesystem::path& parent) -> bool {
+    const wxString childStr = normForCompare(child);
+    const wxString parentStr = normForCompare(parent);
+    return childStr.length() > parentStr.length() && childStr.StartsWith(parentStr)
+        && (childStr[parentStr.length()] == '\\' || childStr[parentStr.length()] == '/');
+}
+} // namespace
+
+void DocumentManager::handleExternalRename(const std::filesystem::path& oldPath, const std::filesystem::path& newPath) {
+    const auto oldLen = normForCompare(oldPath).length();
+    for (const auto& docPtr : m_documents) {
+        auto& doc = *docPtr;
+        if (doc.isNew()) {
+            continue;
+        }
+        std::filesystem::path updated;
+        if (samePath(doc.getFilePath(), oldPath)) {
+            updated = newPath;
+        } else if (underPath(doc.getFilePath(), oldPath)) {
+            // Directory rename: keep the document below the new folder, preserving
+            // the remainder of its path (with its original case).
+            const wxString remainder = toWxString(doc.getFilePath()).Mid(oldLen);
+            updated = toFsPath(toWxString(newPath) + remainder);
+        } else {
+            continue;
+        }
+        // Re-point the watcher around the path change (mirrors saveFileAs).
+        m_watcher->removeDocument(doc);
+        doc.setFilePath(updated);
+        doc.updateModTime();
+        doc.dismissExternalNotification();
+        m_watcher->addDocument(doc);
+        updateTabTitle(doc);
+    }
+    updateActiveTabTitle(); // the active document may have moved
+}
+
+void DocumentManager::handleExternalDelete(const std::filesystem::path& path) {
+    // Collect first — closeFile mutates m_documents.
+    std::vector<Document*> victims;
+    for (const auto& docPtr : m_documents) {
+        auto& doc = *docPtr;
+        if (!doc.isNew() && (samePath(doc.getFilePath(), path) || underPath(doc.getFilePath(), path))) {
+            victims.push_back(&doc);
+        }
+    }
+    for (auto* doc : victims) {
+        doc->setModified(false); // the file is gone; close without prompting to save
+        closeFile(*doc);
     }
 }
 

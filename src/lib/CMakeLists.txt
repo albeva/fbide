@@ -84,6 +84,7 @@ target_sources(fbide_lib
     ui/controls/Panel.cpp
     ui/controls/SmartBoxSizer.cpp
     ui/utilities/FileDropTarget.cpp
+    ui/utilities/SystemShell.cpp
     update/UpdateManager.cpp
 
     PUBLIC FILE_SET HEADERS FILES
@@ -174,6 +175,7 @@ target_sources(fbide_lib
     ui/controls/Panel.hpp
     ui/controls/SmartBoxSizer.hpp
     ui/utilities/FileDropTarget.hpp
+    ui/utilities/SystemShell.hpp
     update/UpdateManager.hpp
     utils/DeferHandler.hpp
     utils/Macros.hpp

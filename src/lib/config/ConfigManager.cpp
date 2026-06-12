@@ -746,6 +746,28 @@ auto ConfigManager::filePatterns(const std::initializer_list<std::string_view> k
     return joined;
 }
 
+auto ConfigManager::fileGlob(const wxString& key) -> wxString {
+    return config().at("filePatterns").get_or(key, "");
+}
+
+auto ConfigManager::isSupportedDocumentFile(const wxString& filename) -> bool {
+    // Globs are stored lowercase; match case-insensitively (filenames on
+    // Windows/macOS are too) by lowering both sides.
+    const wxString name = filename.Lower();
+    const auto& patterns = config().at("filePatterns");
+    for (const auto key : kEditorFileTypeKeys) {
+        const wxString glob = patterns.get_or(wxString(key.data(), key.size()), "");
+        for (wxString rest = glob; !rest.IsEmpty();) {
+            const wxString one = rest.BeforeFirst(';');
+            rest = rest.AfterFirst(';');
+            if (!one.IsEmpty() && wxMatchWild(one.Lower(), name, false)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 // ---------------------------------------------------------------------------
 // Path handling
 // ---------------------------------------------------------------------------
