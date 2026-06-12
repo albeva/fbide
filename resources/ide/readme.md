@@ -4,10 +4,10 @@ An open-source IDE for the [FreeBASIC](https://freebasic.net) compiler.
 
 [Website](https://fbide.freebasic.net) · [GitHub](https://github.com/albeva/fbide)
 
-| **Version** | @FBIDE_FULL_VERSION@ (@FBIDE_BUILD_VARIANT@) | [Release notes](https://fbide.freebasic.net/changelog/@FBIDE_FULL_VERSION@.html) |
+| **Version** | {{version}} ({{variant}}) | [Release notes](https://fbide.freebasic.net/changelog/{{version}}.html) |
 |---|---|---|
-| **Built** | @FBIDE_BUILD_DATE@ | |
-| **wxWidgets** | @wxWidgets_VERSION@ | |
+| **Built** | {{buildDate}} | |
+| **wxWidgets** | {{wxVersion}} ({{wxPort}}) | |
 
 Thanks to Gothon, dumbledore, Madedog, Mecki, MySoft, and the FreeBASIC community.
 
