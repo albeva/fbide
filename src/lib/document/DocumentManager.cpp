@@ -190,6 +190,8 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
         return nullptr;
     }
 
+    const auto thaw = m_ctx.getUIManager().freeze();
+
     // Canonicalize once at entry — fixes duplicate-tab bug on case-insensitive
     // filesystems (macOS/Windows: `fbgfx.bi` vs `FBGFX.bi`), resolves symlinks,
     // and ensures the stored path is identity-comparable for findByPath.
@@ -197,7 +199,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     const auto canonicalWx = toWxString(canonical);
 
     // Session files are loaded separately
-    if (auto ext = canonical.extension().string(); ext.size() > 1 && ext.substr(1) == SESSION_EXT) {
+    if (const auto ext = canonical.extension().string(); ext.size() > 1 && ext.substr(1) == SESSION_EXT) {
         m_ctx.getFileSession().load(canonicalWx);
         return nullptr;
     }
@@ -219,7 +221,6 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
         return nullptr;
     }
 
-    const auto thaw = m_ctx.getUIManager().freeze();
     const auto type = documentTypeFromPath(canonical);
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(getNotebook(), m_ctx, type));
 
@@ -816,15 +817,14 @@ auto normForCompare(const std::filesystem::path& path) -> wxString {
     return wxFileName::IsCaseSensitive() ? str : str.Lower();
 }
 
-auto samePath(const std::filesystem::path& a, const std::filesystem::path& b) -> bool {
-    return normForCompare(a) == normForCompare(b);
+auto samePath(const std::filesystem::path& lhs, const std::filesystem::path& rhs) -> bool {
+    return normForCompare(lhs) == normForCompare(rhs);
 }
 
 auto underPath(const std::filesystem::path& child, const std::filesystem::path& parent) -> bool {
-    const wxString childStr = normForCompare(child);
-    const wxString parentStr = normForCompare(parent);
-    return childStr.length() > parentStr.length() && childStr.StartsWith(parentStr)
-        && (childStr[parentStr.length()] == '\\' || childStr[parentStr.length()] == '/');
+    // Strictly nested: child begins with "parent<sep>". normForCompare yields
+    // native separators, so a single wxFILE_SEP_PATH check suffices.
+    return normForCompare(child).StartsWith(normForCompare(parent) + wxFILE_SEP_PATH);
 }
 } // namespace
 
@@ -870,6 +870,27 @@ void DocumentManager::handleExternalDelete(const std::filesystem::path& path) {
         doc->setModified(false); // the file is gone; close without prompting to save
         closeFile(*doc);
     }
+}
+
+auto DocumentManager::isSupportedFile(const wxString& filename) const -> bool {
+    auto& cfg = m_ctx.getConfigManager();
+    const wxString name = filename.Lower(); // globs are stored lowercase
+    const auto matchesKey = [&](const std::string_view key) {
+        for (wxString rest = cfg.fileGlob(wxString(key.data(), key.size())); !rest.IsEmpty();) {
+            const wxString glob = rest.BeforeFirst(';');
+            rest = rest.AfterFirst(';');
+            if (!glob.IsEmpty() && wxMatchWild(glob.Lower(), name, false)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    for (const auto key : kEditorFileTypeKeys) {
+        if (matchesKey(key)) {
+            return true;
+        }
+    }
+    return matchesKey("session"); // fbide opens its own .fbs session files
 }
 
 auto DocumentManager::findByPath(const wxString& path) const -> Document* {

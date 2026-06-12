@@ -225,11 +225,6 @@ public:
     /// absent. Unlike `filePattern`, this is the bare glob, not a dialog filter.
     [[nodiscard]] auto fileGlob(const wxString& key) -> wxString;
 
-    /// True when `filename` matches a glob of any editor document type
-    /// (`kEditorFileTypeKeys`) — i.e. fbide opens it directly rather than
-    /// handing it to the OS default application.
-    [[nodiscard]] auto isSupportedDocumentFile(const wxString& filename) -> bool;
-
     // -----------------------------------------------------------------------
     // Theme (owned directly, not part of Value tree)
     // -----------------------------------------------------------------------

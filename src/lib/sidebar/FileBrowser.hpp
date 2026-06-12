@@ -45,7 +45,8 @@ public:
 private:
     /// Panel shown/hidden (notebook tab switch) — start/stop watching to match.
     void onShow(wxShowEvent& event);
-    /// Tree leaf activated — open the file in a new editor tab.
+    /// Tree leaf activated (double-click / Enter) — open it like the
+    /// context-menu Open: fbide for supported types, else the OS default app.
     void onFileActivated(wxTreeEvent& event);
     /// A folder was expanded — start watching it.
     void onItemExpanded(wxTreeEvent& event);

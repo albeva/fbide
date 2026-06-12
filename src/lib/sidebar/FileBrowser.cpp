@@ -94,8 +94,10 @@ void FileBrowser::onShow(wxShowEvent& event) {
 
 void FileBrowser::onFileActivated(wxTreeEvent& event) {
     event.Skip();
+    // Same behaviour as the context-menu Open: fbide for supported document
+    // types, otherwise hand off to the OS default application.
     if (const auto path = m_dirCtrl->GetFilePath(); !path.IsEmpty()) {
-        m_ctx.getDocumentManager().openFile(path);
+        openNode(path);
     }
 }
 
@@ -435,8 +437,9 @@ void FileBrowser::onItemMenu(wxTreeEvent& event) {
 
 void FileBrowser::openNode(const wxString& path) {
     const wxString name = wxFileName(path).GetFullName();
-    if (m_ctx.getConfigManager().isSupportedDocumentFile(name)) {
-        m_ctx.getDocumentManager().openFile(path);
+    auto& docs = m_ctx.getDocumentManager();
+    if (docs.isSupportedFile(name)) {
+        docs.openFile(path);
     } else {
         wxLaunchDefaultApplication(path); // hand off to the OS default app
     }

@@ -151,6 +151,11 @@ public:
     /// `path`, or under it when a directory was deleted.
     void handleExternalDelete(const std::filesystem::path& path);
 
+    /// True when `filename` is something fbide opens itself — an editor document
+    /// type or a `.fbs` session file — rather than handing it to the OS default
+    /// application. Drives the file browser's open/activate behaviour.
+    [[nodiscard]] auto isSupportedFile(const wxString& filename) const -> bool;
+
     /// Refresh just a document's tab text (e.g. its `[*]` dirty marker),
     /// without touching the window title — safe for a non-active document.
     void refreshTabTitle(const Document& doc) const;
