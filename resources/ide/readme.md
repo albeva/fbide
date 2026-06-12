@@ -9,7 +9,7 @@ An open-source IDE for the [FreeBASIC](https://freebasic.net) compiler.
 | **Built**     | {{buildDate}}              |                                                                         |
 | **wxWidgets** | {{wxVersion}} ({{wxPort}}) |                                                                         |
 
-Thanks to all the contributors and the FreeBASIC community.
+Thanks to all the [contributors](credits.md) and the FreeBASIC community.
 
 [License](LICENSE) · [Artwork](ASSETS-LICENSE.md) · [Third-party](THIRD_PARTY_LICENSES.txt)
 
