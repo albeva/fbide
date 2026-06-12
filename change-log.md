@@ -7,6 +7,7 @@
 - Added a new app icon and distinct document icons for .bas, .bi and .fbs files
 - Added .bas, .bi and .fbs file type associations and document icons to the Linux AppImage.
 - Added a separate Creative Commons (CC BY-NC-ND 4.0) license for FBIde artwork and branding.
+- Redesigned the About dialog: app logo beside a brand-blue info page with a version table and quick links.
 - Added an arm64 (aarch64) Linux AppImage build alongside the existing x86_64 one.
 - Added an arm64 Windows build alongside the existing x64 and x86 ones.
 - Statically linked the CRT into the x86/x64 Windows builds so they run without the VC++ redistributable.

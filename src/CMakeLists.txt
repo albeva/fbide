@@ -44,8 +44,9 @@ elseif (APPLE)
     )
     target_sources(fbide PRIVATE ${FBIDE_MACOS_ICONS})
 
-    # copy resources/ide to the Bundle
-    file(GLOB_RECURSE IDE_RESOURCES ${PROJECT_SOURCE_DIR}/resources/ide/*)
+    # copy resources/ide to the Bundle. CONFIGURE_DEPENDS so adding / removing a
+    # resource re-globs on the next build instead of needing a manual reconfigure.
+    file(GLOB_RECURSE IDE_RESOURCES CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/resources/ide/*)
     foreach (FILE ${IDE_RESOURCES})
         file(RELATIVE_PATH REL_PATH
             ${PROJECT_SOURCE_DIR}/resources/ide

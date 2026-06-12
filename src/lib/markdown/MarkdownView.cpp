@@ -197,6 +197,18 @@ void MarkdownView::setContentBackground(const wxColour& colour) {
     rebuild();
 }
 
+void MarkdownView::setTextColour(const wxColour& colour) {
+    m_textColour = colour;
+    rebuildPalette();
+    rebuild();
+}
+
+void MarkdownView::setLinkColour(const wxColour& colour) {
+    m_linkColour = colour;
+    rebuildPalette();
+    rebuild();
+}
+
 void MarkdownView::setContentPadding(const int padding) {
     const int clamped = std::max(0, padding);
     if (clamped == m_contentPadding) {
@@ -206,6 +218,13 @@ void MarkdownView::setContentPadding(const int padding) {
     // Padding feeds the content width, so the document must re-wrap.
     relayout(m_document.markdown());
     Refresh();
+}
+
+auto MarkdownView::layoutHeight() -> int {
+    // Re-lay at the current width and report the full content height so a host
+    // can size itself to the content and avoid showing the scroll bar.
+    relayout(m_document.markdown());
+    return m_document.height() + (2 * m_contentPadding);
 }
 
 void MarkdownView::refreshTheme() {
@@ -255,6 +274,14 @@ void MarkdownView::rebuildPalette() {
     // Fenced code sits on the editor theme's background so the syntax
     // colours render on their intended canvas rather than a system grey.
     m_palette = palette(backgroundColour(), m_ctx.getTheme().background({}));
+    // Host overrides win — a custom content background (e.g. the About dialog's
+    // brand blue) needs text / links the system colours wouldn't make legible.
+    if (m_textColour.IsOk()) {
+        m_palette.text = m_textColour;
+    }
+    if (m_linkColour.IsOk()) {
+        m_palette.link = m_linkColour;
+    }
 }
 
 auto MarkdownView::palette(const wxColour& windowBg, const wxColour& codeBg) -> MarkdownPalette {

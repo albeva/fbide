@@ -17,6 +17,8 @@ after it; standalone images sit in the root:
   - installer-side.png          wizard side image (WizardImageFile), standalone
   - splash.png                  startup splash (shown at native size), standalone
   - appicon.xpm                 Linux/wx window icon (#include'd C-array image)
+  - ../ide/logo.svg             about-dialog logo (square, NanoSVG-friendly);
+                                lands in resources/ide, not resources/images
 
 Sizes: square icons carry 16/24/32/48/64/256 .ico frames; 128/512/1024 are
 emitted as PNGs only (a Windows .ico tops out at 256) to cover the macOS .icns
@@ -41,6 +43,7 @@ from __future__ import annotations
 import argparse
 import itertools
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -86,6 +89,14 @@ APP_GROUP = "g276"
 APP_SIMPLE_SVG = "fbide-icon-simple.svg"
 APP_SIMPLE_GROUP = "g2"
 APP_SIMPLE_MAX = 32
+
+# About-dialog logo: the full app horse (APP_GROUP / APP_SVG), cropped to a
+# centred square and emitted as a NanoSVG-friendly SVG -- a single white path,
+# no Inkscape filter / shadow -- for runtime use by the About dialog. Lands in
+# resources/ide (the shipped payload), not resources/images. The three app-group
+# paths share one identical `d` (two blurred black shadow copies under the white
+# face); NanoSVG ignores filters, so the eye / mane holes read as negative space.
+APP_LOGO_VIEWBOX = "-12.5 31 236 236"
 
 # Installer (setup.exe) icon: single group, .ico only.
 INSTALLER_SVG = "fbide-icon-install.svg"
@@ -272,6 +283,30 @@ def optimize(oxipng: str | None, pngs: list[Path]) -> None:
     )
 
 
+def write_app_logo_svg(app_svg: Path, dst: Path) -> None:
+    """Emit a square, NanoSVG-friendly logo.svg from the full app-icon horse.
+
+    Keeps a single white path on a centred square viewBox (drops the filtered
+    shadow copies). See APP_LOGO_VIEWBOX for the crop."""
+    svg = app_svg.read_text(encoding="utf-8")
+    grp = re.search(rf'id="{APP_GROUP}"[^>]*?transform="([^"]+)"', svg, re.S)
+    pth = re.search(rf'id="{APP_GROUP}".*?<path[^>]*?\sd="([^"]+)"', svg, re.S)
+    if not grp or not pth:
+        sys.exit(f"logo.svg: could not extract {APP_GROUP} from {app_svg}")
+    width, height = APP_LOGO_VIEWBOX.split()[2:4]
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{APP_LOGO_VIEWBOX}" '
+        f'width="{width}" height="{height}">\n'
+        f'  <g transform="{grp.group(1)}">\n'
+        f'    <path fill="#ffffff" d="{pth.group(1)}"/>\n'
+        "  </g>\n"
+        "</svg>\n",
+        encoding="utf-8",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate FBIde app, document, and installer icons.")
     parser.add_argument(
@@ -346,6 +381,9 @@ def main() -> int:
             if size in ICO_SIZES:
                 frames.append((size, dst))
         ico_jobs.append((frames, [OUT_DIR / "fbide.ico"], "fbide"))
+
+        # About-dialog logo -> resources/ide/logo.svg (square, NanoSVG-friendly).
+        write_app_logo_svg(app_svg, REPO_ROOT / "resources" / "ide" / "logo.svg")
 
         # Linux/wx window icon: appicon.xpm @32px -> simple logo.
         xpm_png = tmp / "appicon-32.png"

@@ -35,6 +35,7 @@
 #include <wx/apptrait.h>
 #include <wx/artprov.h>
 #include <wx/aui/aui.h>
+#include <wx/bmpbndl.h>
 #include <wx/clipbrd.h>
 #include <wx/colordlg.h>
 #include <wx/convauto.h>

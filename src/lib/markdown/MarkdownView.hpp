@@ -120,6 +120,19 @@ public:
     void setContentPadding(int padding);
     [[nodiscard]] auto contentPadding() const -> int { return m_contentPadding; }
 
+    /// Override the body-text colour. Pass an invalid colour to restore the
+    /// default (system window text). Lets a host with a custom content
+    /// background keep prose legible.
+    void setTextColour(const wxColour& colour);
+    /// Override the hyperlink colour. Invalid colour restores the default
+    /// (system hotlight).
+    void setLinkColour(const wxColour& colour);
+
+    /// Re-lay the content at the current width and return its total height
+    /// (px, incl. padding). Lets a host size itself to the content so the view
+    /// doesn't need to scroll.
+    [[nodiscard]] auto layoutHeight() -> int;
+
 private:
     void onPaint(wxPaintEvent& event);
     void onSize(wxSizeEvent& event);
@@ -211,6 +224,10 @@ private:
     /// Host-supplied content background. Invalid (default) means follow
     /// the system window colour — see `backgroundColour`.
     wxColour m_backgroundColour;
+    /// Host text / link colour overrides. Invalid (default) follows the system
+    /// colours; set to stay legible on a custom content background.
+    wxColour m_textColour;
+    wxColour m_linkColour;
     static constexpr int kDefaultContentPadding = 8;
     int m_contentPadding = kDefaultContentPadding; ///< Inner padding between the panel edge and content.
 

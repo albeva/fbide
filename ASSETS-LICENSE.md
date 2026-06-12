@@ -26,6 +26,7 @@ Covered files (in source or compiled form):
     resources/images/         all files
     resources/svg/            all files
     resources/ide/splash.png
+    resources/ide/logo.svg
 
 Third-party material bundled with FBIde (the Dev-C++ toolbar and symbol
 icons, and the Arimo font) is not covered by this license — see

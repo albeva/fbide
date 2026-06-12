@@ -1,0 +1,15 @@
+# FBIde
+
+An open-source IDE for the [FreeBASIC](https://freebasic.net) compiler.
+
+|  |  |
+|---|---|
+| **Version** | @FBIDE_FULL_VERSION@ |
+| **Built** | @FBIDE_BUILD_DATE@ |
+| **wxWidgets** | @wxWidgets_VERSION@ |
+
+[Website](https://fbide.freebasic.net) · [GitHub](https://github.com/albeva/fbide) · [Release notes](https://fbide.freebasic.net/changelog/@FBIDE_FULL_VERSION@.html) · [Check for updates](fbide:check-updates)
+
+[License](LICENSE) · [Artwork](ASSETS-LICENSE.md) · [Third-party](THIRD_PARTY_LICENSES.txt)
+
+Copyright © 2006–2026 Albert Varaksin. Thanks to paul doe, Gothon, dumbledore, Madedog, Mecki, MySoft, and the FreeBASIC community.

@@ -77,6 +77,21 @@ include(cmake/wxwidgets.cmake)
 include(cmake/lexilla.cmake)
 include(cmake/doxygen.cmake)
 
+# Generate the About-dialog content (resources/ide/readme.md) with the real
+# version / build date / wxWidgets values baked in, so the file is legible
+# standalone — no runtime placeholders. Written into the source tree (the
+# generated readme.md is git-ignored) so the existing resource copy / install
+# picks it up unchanged.
+string(TIMESTAMP FBIDE_BUILD_DATE "%Y-%m-%d")
+if (NOT wxWidgets_VERSION)
+    set(wxWidgets_VERSION "3.3")
+endif()
+configure_file(
+    "${CMAKE_SOURCE_DIR}/resources/readme.md.in"
+    "${CMAKE_SOURCE_DIR}/resources/ide/readme.md"
+    @ONLY
+)
+
 # Sources
 add_subdirectory(configured_files)
 add_subdirectory(src)
