@@ -5,12 +5,15 @@
 // https://github.com/albeva/fbide
 //
 #include "FileBrowser.hpp"
+#include "FocusableDirCtrl.hpp"
+#include <wx/artprov.h>
 #include <wx/dirctrl.h>
 #include <wx/textdlg.h>
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/DocumentManager.hpp"
 #include "ui/UIManager.hpp"
+#include "ui/controls/FlatButton.hpp"
 #include "ui/utilities/SystemShell.hpp"
 #include "utils/PathConversions.hpp"
 using namespace fbide;
@@ -20,6 +23,9 @@ namespace {
 // rebuilding the tree.
 constexpr int kDebounceMs = 300;
 constexpr int kFsEvents = wxFSW_EVENT_CREATE | wxFSW_EVENT_DELETE | wxFSW_EVENT_RENAME | wxFSW_EVENT_MODIFY;
+constexpr int kFocusButtonId = wxID_HIGHEST + 1; // focus-toolbar Focus/Unfocus button
+constexpr auto kFocusIcon = wxART_ADD_BOOKMARK;
+constexpr auto kUnFocusIcon = wxART_DEL_BOOKMARK;
 } // namespace
 
 // clang-format off
@@ -31,6 +37,8 @@ wxBEGIN_EVENT_TABLE(FileBrowser, Layout<wxPanel>)
     EVT_TREE_ITEM_EXPANDED   (wxID_ANY, FileBrowser::onItemExpanded)
     EVT_TREE_ITEM_COLLAPSING (wxID_ANY, FileBrowser::onItemCollapsing)
     EVT_TREE_ITEM_MENU       (wxID_ANY, FileBrowser::onItemMenu)
+    EVT_BUTTON               (kFocusButtonId, FileBrowser::onFocusButton)
+    EVT_DIRCTRL_SELECTIONCHANGED(wxID_ANY, FileBrowser::onSelectionChanged)
 wxEND_EVENT_TABLE()
 // clang-format on
 
@@ -41,7 +49,21 @@ FileBrowser::FileBrowser(wxWindow* parent, Context& ctx)
     // can be added around it through the Layout DSL.
     static_cast<SmartBoxSizer*>(currentSizer())->setOptions({ .gap = 0, .margin = false });
 
-    m_dirCtrl = make_unowned<wxGenericDirCtrl>(
+    // Focus toolbar — always shown above the tree. Its single flat button
+    // focuses the selected folder, or exits a focused view.
+    m_focusBar = make_unowned<wxPanel>(this);
+    {
+        const auto barSizer = make_unowned<wxBoxSizer>(wxHORIZONTAL);
+        m_focusButton = make_unowned<FlatButton>(
+            m_focusBar, kFocusButtonId, menuText("focus", "Focus"),
+            wxArtProvider::GetBitmapBundle(kFocusIcon, wxART_BUTTON)
+        );
+        barSizer->Add(m_focusButton, 0, wxALL, 2);
+        m_focusBar->SetSizer(barSizer);
+    }
+    add(m_focusBar, { .proportion = 0 });
+
+    m_dirCtrl = make_unowned<FocusableDirCtrl>(
         // Empty dir == the platform default root (home / drive list).
         this, wxID_ANY, wxEmptyString,
         wxDefaultPosition, wxDefaultSize, wxDIRCTRL_3D_INTERNAL, wxEmptyString
@@ -52,6 +74,7 @@ FileBrowser::FileBrowser(wxWindow* parent, Context& ctx)
     // Expand/collapse are caught through the event table above: they bubble up
     // from the inner tree control to this panel (see the table comment).
     m_refreshTimer.SetOwner(this);
+    updateFocusButton(); // initial state: full tree, nothing selected
 }
 
 FileBrowser::~FileBrowser() {
@@ -332,6 +355,8 @@ void FileBrowser::onItemMenu(wxTreeEvent& event) {
     constexpr int kIdNewEmpty = wxID_HIGHEST + 10;
     constexpr int kIdTerminal = wxID_HIGHEST + 11;
     constexpr int kIdRefresh = wxID_HIGHEST + 12;
+    constexpr int kIdFocus = wxID_HIGHEST + 13;
+    constexpr int kIdUnfocus = wxID_HIGHEST + 14;
     constexpr int kIdNewTypeBase = wxID_HIGHEST + 100;
 
     wxMenu menu;
@@ -357,6 +382,10 @@ void FileBrowser::onItemMenu(wxTreeEvent& event) {
         menu.AppendSubMenu(newMenu.release(), menuText("newItem", "New"));
         menu.Append(kIdTerminal, menuText("openTerminal", "Open Terminal Here"));
         menu.Append(kIdRefresh, menuText("refresh", "Refresh"));
+        const bool isFocusRoot = !m_dirCtrl->focusRoot().IsEmpty()
+            && wxFileName(path).SameAs(wxFileName(m_dirCtrl->focusRoot()));
+        menu.Append(isFocusRoot ? kIdUnfocus : kIdFocus,
+                    isFocusRoot ? menuText("unfocus", "Unfocus") : menuText("focus", "Focus"));
         menu.AppendSeparator();
     } else {
         menu.Append(kIdOpen, menuText("open", "Open"));
@@ -423,6 +452,12 @@ void FileBrowser::onItemMenu(wxTreeEvent& event) {
         break;
     case kIdRefresh:
         refreshFolders({ path });
+        break;
+    case kIdFocus:
+        focusFolder(path);
+        break;
+    case kIdUnfocus:
+        unfocus();
         break;
     default:
         if (sel >= kIdNewTypeBase) {
@@ -580,6 +615,90 @@ void FileBrowser::newEmptyFileIn(const wxString& dir) {
 
 void FileBrowser::openTerminalIn(const wxString& dir) {
     SystemShell::openTerminal(dir, ConfigManager::getTerminal());
+}
+
+void FileBrowser::focusFolder(const wxString& dir) {
+    if (dir.IsEmpty()) {
+        return;
+    }
+    {
+        const auto thaw = FreezeLock(this);
+        m_suppressWatch = true;
+        m_dirCtrl->setFocusRoot(dir); // re-root the tree at this folder
+        m_suppressWatch = false;
+    }
+    updateFocusButton();
+    // The tree was rebuilt with a fresh expansion — re-establish the watch set.
+    if (m_fsWatcher != nullptr) {
+        setWatchEnabled(false);
+        setWatchEnabled(true);
+    }
+}
+
+void FileBrowser::unfocus() {
+    const wxString focused = m_dirCtrl->focusRoot();
+    if (focused.IsEmpty()) {
+        return;
+    }
+    // Snapshot the focused view's open folders + selection before switching back.
+    const auto reopen = collectExpandedPaths();
+    const wxString selected = m_dirCtrl->GetPath();
+
+    {
+        const auto thaw = FreezeLock(this);
+        m_suppressWatch = true;
+        m_dirCtrl->setFocusRoot(wxEmptyString); // restore the full tree (collapsed)
+        m_dirCtrl->ExpandPath(focused);         // re-open the path down to the focused folder
+        for (const auto& path : reopen) {
+            m_dirCtrl->ExpandPath(path);        // re-open the subfolders that were open
+        }
+        if (!selected.IsEmpty()) {
+            m_dirCtrl->SelectPath(selected); // restore selection if it still exists
+        }
+        m_suppressWatch = false;
+    }
+    // Scroll the previously focused folder back into view, now its parents exist.
+    if (auto* tree = m_dirCtrl->GetTreeCtrl(); tree != nullptr) {
+        if (const auto item = findItemByPath(focused); item.IsOk()) {
+            tree->EnsureVisible(item);
+        }
+    }
+    updateFocusButton();
+    if (m_fsWatcher != nullptr) {
+        setWatchEnabled(false);
+        setWatchEnabled(true);
+    }
+}
+
+void FileBrowser::onFocusButton(wxCommandEvent& /*event*/) {
+    if (!m_dirCtrl->focusRoot().IsEmpty()) {
+        unfocus();
+        return;
+    }
+    if (const wxString sel = m_dirCtrl->GetPath(); !sel.IsEmpty() && wxFileName::DirExists(sel)) {
+        focusFolder(sel);
+    }
+}
+
+void FileBrowser::onSelectionChanged(wxTreeEvent& event) {
+    event.Skip();
+    updateFocusButton();
+}
+
+void FileBrowser::updateFocusButton() {
+    const bool focused = !m_dirCtrl->focusRoot().IsEmpty();
+    // Swap label + icon only when the focus state actually changes (selection
+    // changes fire this often, and re-setting the label forces a relayout).
+    const wxString want = focused ? menuText("unfocus", "Unfocus") : menuText("focus", "Focus");
+    if (m_focusButton->GetLabel() != want) {
+        m_focusButton->setLabelText(want);
+        m_focusButton->setIcon(wxArtProvider::GetBitmapBundle(focused ? kUnFocusIcon : kFocusIcon, wxART_BUTTON));
+        m_focusBar->Layout();
+    }
+    // Focused → always actionable (Unfocus). Unfocused → only when a folder is
+    // selected; otherwise disabled (greyed) rather than hidden.
+    const wxString selected = m_dirCtrl->GetPath();
+    m_focusButton->Enable(focused || (!selected.IsEmpty() && wxFileName::DirExists(selected)));
 }
 
 auto FileBrowser::createFileIn(const wxString& dir, const wxString& name) -> wxString {

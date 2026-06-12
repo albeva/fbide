@@ -10,10 +10,10 @@ using namespace fbide;
 namespace {
 // Inner paddings (logical px, scaled via FromDIP). Corners are square — the
 // bar is going for simplicity, not chrome.
-constexpr int kPadX = 10;
-constexpr int kPadY = 5;
-constexpr int kIconTextGap = 6;
-constexpr int kFocusInset = 3;
+constexpr int kPadX = 8;
+constexpr int kPadY = 4;
+constexpr int kIconTextGap = 4;
+constexpr int kFocusInset = 2;
 
 // Rec. 601 luminance weights for the light/dark content-colour decision.
 constexpr double kLumaR = 0.299;
@@ -23,9 +23,10 @@ constexpr double kByteMax = 255.0;
 constexpr double kDarkThreshold = 0.5;
 
 // Blend factors for the shades derived from the base colour.
-constexpr double kBorderMix = 0.25;  ///< Base → contrast, for the 1px border.
-constexpr double kHoverMix = 0.10;   ///< Base → content, on hover.
-constexpr double kPressedMix = 0.22; ///< Base → content, while pressed.
+constexpr double kBorderMix = 0.25;   ///< Base → contrast, for the 1px border.
+constexpr double kHoverMix = 0.10;    ///< Base → content, on hover.
+constexpr double kPressedMix = 0.22;  ///< Base → content, while pressed.
+constexpr double kDisabledMix = 0.55; ///< Content → fill, when disabled (greys it out).
 
 // Auto-contrast content colours, used when no explicit text colour is set.
 const wxColour kAutoLightText { 240, 240, 240 };
@@ -110,14 +111,29 @@ void FlatButton::setIcon(const wxBitmapBundle& icon) {
     Refresh();
 }
 
-auto FlatButton::contentColour() const -> wxColour {
-    if (m_textColour.IsOk()) {
-        return m_textColour;
+auto FlatButton::Enable(const bool enable) -> bool {
+    const bool changed = wxControl::Enable(enable);
+    if (changed) {
+        Refresh(); // owner-drawn: repaint to reflect the new enabled state
     }
-    return isDark(m_base) ? kAutoLightText : kAutoDarkText;
+    return changed;
+}
+
+auto FlatButton::contentColour() const -> wxColour {
+    wxColour fg = m_textColour;
+    if (!fg.IsOk()) {
+        fg = isDark(m_base) ? kAutoLightText : kAutoDarkText;
+    }
+    if (!IsThisEnabled()) {
+        return blend(fg, m_base, kDisabledMix); // wash toward the fill so it reads as disabled
+    }
+    return fg;
 }
 
 auto FlatButton::fillColour() const -> wxColour {
+    if (!IsThisEnabled()) {
+        return m_base; // flat, no hover/pressed feedback while disabled
+    }
     // Nudge toward the content colour for state feedback — visible on both
     // light and dark bases (a fixed lighten/darken washes out at the extremes).
     if (m_pressed) {
@@ -172,7 +188,8 @@ void FlatButton::onPaint(wxPaintEvent& /*event*/) {
     const int contentW = iconSize.x + gap + textW;
     int penX = (size.x - contentW) / 2;
     if (m_icon.IsOk()) {
-        gc.DrawBitmap(m_icon.GetBitmapFor(this), penX, (size.y - iconSize.y) / 2, true);
+        const wxBitmap bmp = m_icon.GetBitmapFor(this);
+        gc.DrawBitmap(IsThisEnabled() ? bmp : bmp.ConvertToDisabled(), penX, (size.y - iconSize.y) / 2, true);
         penX += iconSize.x + gap;
     }
     if (!label.empty()) {
@@ -180,7 +197,7 @@ void FlatButton::onPaint(wxPaintEvent& /*event*/) {
     }
 
     // Keyboard focus ring — dotted, inset from the border.
-    if (HasFocus()) {
+    if (IsThisEnabled() && HasFocus()) {
         const int inset = FromDIP(kFocusInset);
         gc.SetBrush(*wxTRANSPARENT_BRUSH);
         gc.SetPen(wxPen(fg, 1, wxPENSTYLE_DOT));

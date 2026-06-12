@@ -10,11 +10,12 @@
 #include <wx/fswatcher.h>
 #include <set>
 
-class wxGenericDirCtrl;
 class wxTreeEvent;
 
 namespace fbide {
 class Context;
+class FocusableDirCtrl;
+class FlatButton;
 
 /**
  * Browse Files tab: a directory tree that opens files on activation and
@@ -57,6 +58,10 @@ private:
     void onFsEvent(wxFileSystemWatcherEvent& event);
     /// Debounced refresh.
     void onRefreshTimer(wxTimerEvent& event);
+    /// Focus toolbar button — focus the selected folder, or unfocus.
+    void onFocusButton(wxCommandEvent& event);
+    /// Tree selection changed — refresh the focus button's state.
+    void onSelectionChanged(wxTreeEvent& event);
 
     /// Enable or disable filesystem watching (driven by panel visibility):
     /// enabling watches the currently-expanded folders, disabling drops them.
@@ -109,6 +114,16 @@ private:
     void newEmptyFileIn(const wxString& dir);
     /// Open the configured terminal with its working directory at `dir`.
     static void openTerminalIn(const wxString& dir);
+    /// Show `dir` as the tree root (focused view).
+    void focusFolder(const wxString& dir);
+    /// Leave the focused view — restore the full tree, re-expanding the
+    /// previously focused folder and the subfolders that were open under it,
+    /// then scrolling the focused folder back into view.
+    void unfocus();
+    /// Sync the toolbar button's label + visibility to the current state:
+    /// "Unfocus" while focused; "Focus" (only when a folder is selected) while
+    /// showing the full tree.
+    void updateFocusButton();
 
     /// Create `name` in `dir` as an empty file; returns its full path, or ""
     /// on an invalid/conflicting name or I/O failure (an error is shown).
@@ -130,7 +145,9 @@ private:
     static void copyToClipboard(const wxString& text);
 
     Context& m_ctx;
-    Unowned<wxGenericDirCtrl> m_dirCtrl;               ///< The directory tree (child of this panel).
+    Unowned<FocusableDirCtrl> m_dirCtrl;               ///< The directory tree (child of this panel).
+    Unowned<wxPanel> m_focusBar;                       ///< Toolbar above the tree (always shown).
+    Unowned<FlatButton> m_focusButton;                 ///< Focus / Unfocus button inside the toolbar.
     std::unique_ptr<wxFileSystemWatcher> m_fsWatcher;  ///< Non-null only while watching (panel visible).
     wxTimer m_refreshTimer;                            ///< Debounces filesystem-change refreshes.
     std::set<wxString> m_watchedDirs;                  ///< Folders currently watched (the expanded ones).

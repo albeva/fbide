@@ -68,6 +68,7 @@ target_sources(fbide_lib
     settings/panels/KeywordsPage.cpp
     settings/panels/ThemePage.cpp
     sidebar/FileBrowser.cpp
+    sidebar/FocusableDirCtrl.cpp
     sidebar/SideBarManager.cpp
     sidebar/SymbolBrowser.cpp
     sidebar/SymbolBrowserPanel.cpp
@@ -157,6 +158,7 @@ target_sources(fbide_lib
     settings/panels/SettingsCategory.hpp
     settings/panels/ThemePage.hpp
     sidebar/FileBrowser.hpp
+    sidebar/FocusableDirCtrl.hpp
     sidebar/SideBarManager.hpp
     sidebar/SymbolBrowser.hpp
     sidebar/SymbolBrowserPanel.hpp

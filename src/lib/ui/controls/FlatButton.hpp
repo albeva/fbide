@@ -46,6 +46,10 @@ public:
     /// Replace the icon.
     void setIcon(const wxBitmapBundle& icon);
 
+    /// Enable or disable the button, repainting so the disabled (greyed) state
+    /// shows — the native refresh-on-enable doesn't apply to owner-drawn paint.
+    auto Enable(bool enable = true) -> bool override;
+
 protected:
     [[nodiscard]] auto DoGetBestClientSize() const -> wxSize override;
 
