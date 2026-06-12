@@ -235,7 +235,7 @@ auto CompilerManager::detectCompilerOnFirstRun() -> bool {
 #endif
 }
 
-auto CompilerManager::promptConfigure(const wxString& titleKey, const wxString& messageKey, const wxString& target) const -> bool {
+void CompilerManager::promptConfigure(const wxString& titleKey, const wxString& messageKey, const wxString& target) const {
     wxRichMessageDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
         m_ctx.tr(messageKey),
@@ -248,9 +248,7 @@ auto CompilerManager::promptConfigure(const wxString& titleKey, const wxString& 
     );
     if (dlg.ShowModal() == wxID_YES) {
         openCompilerSettings(m_ctx, target);
-        return true;
     }
-    return false;
 }
 
 void CompilerManager::promptMissingCompiler() const {
