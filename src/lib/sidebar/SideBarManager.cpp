@@ -7,10 +7,12 @@
 #include "SideBarManager.hpp"
 #include "FileBrowser.hpp"
 #include "SymbolBrowserPanel.hpp"
+#include <wx/config.h>
 #include "app/Context.hpp"
 #include "command/CommandEntry.hpp"
 #include "command/CommandId.hpp"
 #include "command/CommandManager.hpp"
+#include "document/FileSession.hpp"
 using namespace fbide;
 
 SideBarManager::SideBarManager(Context& ctx)
@@ -67,5 +69,56 @@ void SideBarManager::showSymbolBrowser() {
 void SideBarManager::showSymbolsFor(const Document* doc) {
     if (m_symbolPanel != nullptr) {
         m_symbolPanel->setSymbols(doc);
+    }
+}
+
+auto SideBarManager::activeTab() const -> wxString {
+    if (m_notebook == nullptr) {
+        return {};
+    }
+    const int sel = m_notebook->GetSelection();
+    if (sel == m_subFunctionPage) {
+        return "subFunction";
+    }
+    if (sel == m_browseFilesPage) {
+        return "browseFiles";
+    }
+    return {};
+}
+
+void SideBarManager::setActiveTab(const wxString& key) {
+    if (m_notebook == nullptr) {
+        return;
+    }
+    int page = wxNOT_FOUND;
+    if (key == "subFunction") {
+        page = m_subFunctionPage;
+    } else if (key == "browseFiles") {
+        page = m_browseFilesPage;
+    }
+    if (page != wxNOT_FOUND) {
+        m_notebook->SetSelection(static_cast<size_t>(page));
+    }
+}
+
+void SideBarManager::store(FileSession& session) const {
+    if (m_fileBrowser != nullptr) {
+        m_fileBrowser->store(session);
+    }
+    auto& config = session.getConfig();
+    config.SetPath("/sidebar");
+    config.Write("activeTab", activeTab());
+}
+
+void SideBarManager::load(FileSession& session) {
+    // Restore the browser tree first, then select the tab: switching to Browse
+    // Files re-establishes its filesystem watch on the restored expansion.
+    if (m_fileBrowser != nullptr) {
+        m_fileBrowser->load(session);
+    }
+    auto& config = session.getConfig();
+    config.SetPath("/sidebar");
+    if (wxString tab; config.Read("activeTab", &tab)) {
+        setActiveTab(tab);
     }
 }

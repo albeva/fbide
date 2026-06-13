@@ -11,6 +11,7 @@ namespace fbide {
 class Context;
 class Document;
 class FileBrowser;
+class FileSession;
 class SymbolBrowserPanel;
 
 /**
@@ -66,7 +67,19 @@ public:
     /// box. Bound to the "Show Subs" command (F2).
     void showSymbolBrowser();
 
+    /// Store the sidebar's session state — the active tab plus the file browser's
+    /// tree state — into `session` (through its config + path mapping). The
+    /// session layer calls only this.
+    void store(FileSession& session) const;
+    /// Restore the state previously written by `store`.
+    void load(FileSession& session);
+
 private:
+    /// Stable key of the active sidebar tab — `"subFunction"` or `"browseFiles"` —
+    /// or empty when not attached.
+    [[nodiscard]] auto activeTab() const -> wxString;
+    /// Select the sidebar tab named by `activeTab()`. No-op for an unknown/empty key.
+    void setActiveTab(const wxString& key);
     Context& m_ctx;                            ///< Application context.
     wxAuiNotebook* m_notebook = nullptr;       ///< Non-owning pointer into the sidebar notebook (owned by the frame).
     Unowned<FileBrowser> m_fileBrowser;        ///< Browse Files tab (self-manages its filesystem watch).

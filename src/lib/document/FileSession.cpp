@@ -13,6 +13,7 @@
 #include "command/CommandManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "editor/Editor.hpp"
+#include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
@@ -36,6 +37,15 @@ auto isIniFormat(const wxString& path) -> bool {
     return false;
 }
 
+/// The local file to bind `m_config` to at construction: the `.fbs` path when
+/// it already holds v3 INI — so the config parses it on construction — or empty
+/// to stay purely in-memory. A new file has nothing to load; a legacy text file
+/// is left for `loadLegacy` (binding it would trip wxFileConfig's INI parser and
+/// log spurious errors). Both are written fresh as v3 on save.
+auto localSessionFile(const wxString& path) -> wxString {
+    return wxFileExists(path) && isIniFormat(path) ? path : wxString {};
+}
+
 void applyScrollAndCursor(Editor* editor, const long scroll, const long cursor) {
     editor->ScrollToLine(static_cast<int>(scroll));
     editor->SetCurrentPos(static_cast<int>(cursor));
@@ -43,42 +53,15 @@ void applyScrollAndCursor(Editor* editor, const long scroll, const long cursor) 
     editor->SetSelectionEnd(static_cast<int>(cursor));
 }
 
-/// Produce the path string to store for a file. If `filePath` lives anywhere
-/// under `sessionDir` (nested at any depth), return a relative path rooted at
-/// `sessionDir`. Otherwise return an absolute path. Result always uses forward
-/// slashes (via `generic_string()`) for cross-platform portability.
-auto pathForSession(const std::filesystem::path& filePath,
-    const std::filesystem::path& sessionDir) -> std::string {
-    std::error_code ec;
-    const auto absolute = std::filesystem::weakly_canonical(filePath, ec);
-    const auto& canonical = ec ? filePath : absolute;
-
-    if (!sessionDir.empty()) {
-        std::error_code relEc;
-        const auto rel = std::filesystem::relative(canonical, sessionDir, relEc);
-        if (!relEc && !rel.empty() && !rel.native().starts_with(std::filesystem::path { ".." }.native())) {
-            return rel.generic_string();
-        }
-    }
-    return canonical.generic_string();
-}
-
-/// Resolve a stored path on load. Relative paths are rooted at the session
-/// folder; absolute paths pass through unchanged.
-auto resolveStoredPath(const wxString& storedPath,
-    const std::filesystem::path& sessionDir) -> std::filesystem::path {
-    const auto stored = toFsPath(storedPath);
-    if (stored.is_absolute()) {
-        return stored;
-    }
-    return sessionDir / stored;
-}
-
 } // namespace
 
 FileSession::FileSession(Context& ctx, wxString path)
 : m_ctx(ctx)
-, m_path(std::move(path)) {
+, m_path(std::move(path))
+, m_config(wxEmptyString, wxEmptyString, localSessionFile(m_path), wxEmptyString, 0, wxConvUTF8) {
+    // `save` streams the file out itself, so stop wxFileConfig from also
+    // flushing its bound copy when it is destroyed.
+    m_config.DisableAutoSave();
 }
 
 FileSession::~FileSession() {
@@ -97,6 +80,54 @@ FileSession::~FileSession() {
 
 auto FileSession::getName() const -> wxString {
     return wxFileName(m_path).GetName();
+}
+
+auto FileSession::getConfig() -> wxConfigBase& {
+    return m_config;
+}
+
+auto FileSession::sessionDir() const -> std::filesystem::path {
+    return toFsPath(m_path).parent_path();
+}
+
+auto FileSession::relative(const std::filesystem::path& path) const -> wxString {
+    if (path.empty()) {
+        return {};
+    }
+    const auto dir = sessionDir();
+    std::error_code ec;
+    const auto absolute = std::filesystem::weakly_canonical(path, ec);
+    const auto& canonical = ec ? path : absolute;
+    if (!dir.empty()) {
+        std::error_code relEc;
+        const auto rel = std::filesystem::relative(canonical, dir, relEc);
+        if (!relEc && !rel.empty() && !rel.native().starts_with(std::filesystem::path { ".." }.native())) {
+            // A bare "." here means the path IS the session folder — kept verbatim.
+            return wxString::FromUTF8(rel.generic_string());
+        }
+    }
+    return wxString::FromUTF8(canonical.generic_string());
+}
+
+auto FileSession::relative(const wxString& path) const -> wxString {
+    return path.empty() ? wxString {} : relative(toFsPath(path));
+}
+
+auto FileSession::resolve(const std::filesystem::path& stored) const -> std::filesystem::path {
+    if (stored.empty()) {
+        return {}; // no value stored
+    }
+    if (stored == std::filesystem::path { "." }) {
+        return sessionDir(); // "." is the session folder itself
+    }
+    if (stored.is_absolute()) {
+        return stored;
+    }
+    return sessionDir() / stored;
+}
+
+auto FileSession::resolve(const wxString& stored) const -> wxString {
+    return toWxString(resolve(toFsPath(stored)));
 }
 
 void FileSession::load() {
@@ -124,17 +155,13 @@ void FileSession::updateUi(const bool loaded) {
     m_ctx.getUIManager().updateTitle();
 }
 
-void FileSession::loadV3() const {
-    wxFFileInputStream stream(m_path);
-    if (!stream.IsOk()) {
-        wxLogError("Failed to open session '%s' for reading", m_path);
-        return;
-    }
-    wxFileConfig cfg(stream, wxConvUTF8);
+void FileSession::loadV3() {
+    // `m_config` was bound to the `.fbs` at construction, so it already holds
+    // the parsed v3 INI — read straight out of it.
+    auto& cfg = m_config;
 
     const auto thaw = m_ctx.getUIManager().freeze();
     auto& dm = m_ctx.getDocumentManager();
-    const auto sessionDir = toFsPath(m_path).parent_path();
 
     // Collect file groups. wxFileConfig's iteration order is not guaranteed,
     // so sort — zero-padded names yield insertion order.
@@ -157,7 +184,7 @@ void FileSession::loadV3() const {
         if (storedPath.empty()) {
             continue;
         }
-        const auto filePath = resolveStoredPath(storedPath, sessionDir);
+        const auto filePath = resolve(toFsPath(storedPath));
         std::error_code fsEc;
         if (!std::filesystem::exists(filePath, fsEc)) {
             continue;
@@ -235,11 +262,14 @@ void FileSession::loadV3() const {
         notebook->SetSelection(static_cast<size_t>(selectedTab));
     }
 
+    // Restore the file browser + sidebar state (the sidebar owns the format).
+    m_ctx.getSideBarManager().load(*this);
+
     // we loaded, success!
     return;
 }
 
-void FileSession::loadLegacy() const {
+void FileSession::loadLegacy() {
     wxTextFile file(m_path);
     if (!file.Open() || file.GetLineCount() == 0) {
         return;
@@ -286,16 +316,18 @@ void FileSession::loadLegacy() const {
     return;
 }
 
-void FileSession::save() const {
+void FileSession::save() {
     const auto& dm = m_ctx.getDocumentManager();
 
     // Pure path snapshot — modified buffers are NOT auto-saved here. Callers
     // that need unsaved changes flushed must drive a save / close flow (e.g.
     // `DocumentManager::closeAllFiles`) before this object is destroyed.
 
-    wxFileConfig cfg(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
+    // Rewrite from scratch: clear whatever was loaded (or left by a prior save)
+    // so stale file_NNN / sidebar groups don't survive, then stream out fresh.
+    m_config.DeleteAll();
+    auto& cfg = m_config;
 
-    const auto sessionDir = toFsPath(m_path).parent_path();
     const auto* notebook = m_ctx.getUIManager().getNotebook();
     cfg.Write("/session/version", Version);
     cfg.Write("/session/selectedTab", notebook->GetSelection());
@@ -308,7 +340,7 @@ void FileSession::save() const {
         auto* editor = doc->getEditor();
         const auto group = wxString::Format("/%s%03zu", FILE_GROUP_PREFIX, fileIndex);
         cfg.SetPath(group);
-        cfg.Write("path", wxString::FromUTF8(pathForSession(doc->getFilePath(), sessionDir)));
+        cfg.Write("path", relative(doc->getFilePath()));
         cfg.Write("scroll", editor->GetFirstVisibleLine());
         cfg.Write("cursor", editor->GetCurrentPos());
         cfg.Write("encoding", wxString(doc->getEncoding().toString()));
@@ -347,6 +379,10 @@ void FileSession::save() const {
 
         fileIndex++;
     }
+
+    // File browser + sidebar state — the sidebar owns its own format, reaching
+    // back through this session for the config and the path mapping.
+    m_ctx.getSideBarManager().store(*this);
 
     wxFFileOutputStream outStream(m_path);
     if (!outStream.IsOk()) {

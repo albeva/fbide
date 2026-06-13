@@ -14,6 +14,7 @@ namespace fbide {
 class Context;
 class FocusableDirCtrl;
 class FlatButton;
+class FileSession;
 
 /**
  * Browse Files tab: a directory tree that opens files on activation and
@@ -41,7 +42,27 @@ public:
     /// Reveal and select `path` in the tree.
     void locateFile(const wxString& path);
 
+    /// Write the browser's tree state (selection, expanded folders, focus) into
+    /// the session — using its config and its path mapping. The section and keys
+    /// live here; the session owns the file and the relative-path rule.
+    void store(FileSession& session) const;
+    /// Restore the state previously written by `store`.
+    void load(FileSession& session);
+
 private:
+    /// Restorable browser state — absolute filesystem paths. Empty fields mean
+    /// "nothing to restore". See @ref documents.
+    struct State {
+        wxString focus;                 ///< Focused folder root, or empty (full tree).
+        wxString selected;              ///< Selected node path, or empty.
+        std::vector<wxString> expanded; ///< Expanded folder paths.
+    };
+
+    /// Snapshot the current focus root, selection and expanded folders.
+    [[nodiscard]] auto captureState() const -> State;
+    /// Re-apply a captured state: re-root the focus, re-expand the folders, and
+    /// re-select the node. Missing paths are skipped; an all-empty state is a no-op.
+    void restoreState(const State& state);
     /// Panel shown/hidden (notebook tab switch) — start/stop watching to match.
     void onShow(wxShowEvent& event);
     /// Tree leaf activated (double-click / Enter) — open it like the

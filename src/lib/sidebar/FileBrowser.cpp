@@ -7,11 +7,13 @@
 #include "FileBrowser.hpp"
 #include "FocusableDirCtrl.hpp"
 #include <wx/artprov.h>
+#include <wx/config.h>
 #include <wx/dirctrl.h>
 #include <wx/textdlg.h>
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/FileSession.hpp"
 #include "ui/UIManager.hpp"
 #include "ui/controls/FlatButton.hpp"
 #include "ui/utilities/SystemShell.hpp"
@@ -259,6 +261,71 @@ auto FileBrowser::isUnder(const wxString& child, const wxString& parent) -> bool
 auto FileBrowser::collectExpandedPaths() const -> std::vector<wxString> {
     const auto* tree = m_dirCtrl->GetTreeCtrl();
     return tree != nullptr ? collectExpandedFrom(tree->GetRootItem()) : std::vector<wxString> {};
+}
+
+auto FileBrowser::captureState() const -> State {
+    return State {
+        .focus = m_dirCtrl->focusRoot(),
+        .selected = m_dirCtrl->GetPath(),
+        .expanded = collectExpandedPaths(),
+    };
+}
+
+void FileBrowser::restoreState(const State& state) {
+    if (state.focus.IsEmpty() && state.selected.IsEmpty() && state.expanded.empty()) {
+        return; // nothing to restore
+    }
+    {
+        const auto thaw = FreezeLock(this);
+        m_suppressWatch = true;
+        if (!state.focus.IsEmpty()) {
+            m_dirCtrl->setFocusRoot(state.focus); // re-root the tree at the focused folder
+        }
+        for (const auto& path : state.expanded) {
+            m_dirCtrl->ExpandPath(path); // re-open each folder (no-op if it vanished)
+        }
+        if (!state.selected.IsEmpty()) {
+            m_dirCtrl->SelectPath(state.selected);
+        }
+        m_suppressWatch = false;
+    }
+    updateFocusButton();
+    // Re-establish the watch set for the restored expansion, if currently watching.
+    if (m_fsWatcher != nullptr) {
+        setWatchEnabled(false);
+        setWatchEnabled(true);
+    }
+}
+
+void FileBrowser::store(FileSession& session) const {
+    const auto state = captureState();
+    auto& config = session.getConfig();
+    config.SetPath("/browser");
+    config.Write("focus", session.relative(state.focus));
+    config.Write("selected", session.relative(state.selected));
+    size_t index = 0;
+    for (const auto& path : state.expanded) {
+        config.Write(wxString::Format("expanded%03zu", index++), session.relative(path));
+    }
+}
+
+void FileBrowser::load(FileSession& session) {
+    auto& config = session.getConfig();
+    config.SetPath("/browser");
+    State state;
+    wxString stored;
+    if (config.Read("focus", &stored)) {
+        state.focus = session.resolve(stored);
+    }
+    if (config.Read("selected", &stored)) {
+        state.selected = session.resolve(stored);
+    }
+    for (size_t index = 0; config.Read(wxString::Format("expanded%03zu", index), &stored); index++) {
+        if (!stored.empty()) {
+            state.expanded.push_back(session.resolve(stored));
+        }
+    }
+    restoreState(state);
 }
 
 auto FileBrowser::collectExpandedFrom(const wxTreeItemId start) const -> std::vector<wxString> {

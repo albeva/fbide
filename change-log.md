@@ -11,6 +11,7 @@
 - Added a folder focus mode to the file browse.
 - Changed sessions are now loaded and stay active until fbide quits or session is closed.
 - Changed sessions now auto saves when quitting fbide or closing the session.
+- Added file browser state to sessions: selection, expanded folders, focused folder and active sidebar tab are restored on load.
 - Added a new app icon, splash and distinct file icons for .bas, .bi and .fbs files.
 - Redesigned the About dialog.
 - Statically linked the CRT into the x86/x64 Windows builds so they run without the VC++ redistributable.
