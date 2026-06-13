@@ -119,6 +119,13 @@ private:
     /// Open a file: in fbide when it is a supported document type, otherwise via
     /// the OS default application.
     void openNode(const wxString& path);
+    /// True when `path`'s extension is one fbide edits directly (membership test
+    /// against `m_supportedExtensions`). Drives the default open action and
+    /// whether the explicit "Open in FBIde" override is offered.
+    [[nodiscard]] auto isSupportedFile(const wxString& path) const -> bool;
+    /// Populate `m_supportedExtensions` from the editor file-type globs. Called
+    /// once from the constructor.
+    void buildSupportedExtensions();
     /// Prompt for a new name and rename the file/dir (validates the name and
     /// confirms an extension change for files).
     void renameNode(const wxString& path);
@@ -172,6 +179,10 @@ private:
     std::set<wxString> m_watchedDirs;                  ///< Folders currently watched (the expanded ones).
     std::set<wxString> m_pendingDirs;                  ///< Changed folders awaiting a debounced refresh.
     bool m_suppressWatch = false;                      ///< Ignore expand/collapse churn during a rebuild.
+    /// Extensions fbide edits directly, folded to lowercase on a case-insensitive
+    /// filesystem. Built once at construction; lets the open action and the
+    /// "Open in FBIde" override test membership without a DocumentManager call.
+    std::unordered_set<wxString> m_supportedExtensions;
 
     wxDECLARE_EVENT_TABLE();
 };

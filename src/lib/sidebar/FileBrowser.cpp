@@ -77,6 +77,7 @@ FileBrowser::FileBrowser(wxWindow* parent, Context& ctx)
     // from the inner tree control to this panel (see the table comment).
     m_refreshTimer.SetOwner(this);
     updateFocusButton(); // initial state: full tree, nothing selected
+    buildSupportedExtensions();
 }
 
 FileBrowser::~FileBrowser() {
@@ -424,6 +425,7 @@ void FileBrowser::onItemMenu(wxTreeEvent& event) {
     constexpr int kIdRefresh = wxID_HIGHEST + 12;
     constexpr int kIdFocus = wxID_HIGHEST + 13;
     constexpr int kIdUnfocus = wxID_HIGHEST + 14;
+    constexpr int kIdOpenInFbide = wxID_HIGHEST + 15;
     constexpr int kIdNewTypeBase = wxID_HIGHEST + 100;
 
     wxMenu menu;
@@ -456,6 +458,11 @@ void FileBrowser::onItemMenu(wxTreeEvent& event) {
         menu.AppendSeparator();
     } else {
         menu.Append(kIdOpen, menuText("open", "Open"));
+        // Supported types already open in fbide via the default action; for the
+        // rest, offer an explicit override next to the OS-default Open.
+        if (!isSupportedFile(path)) {
+            menu.Append(kIdOpenInFbide, menuText("openInFbide", "Open in FBIde"));
+        }
         menu.AppendSeparator();
     }
     if (hasParent) {
@@ -480,6 +487,9 @@ void FileBrowser::onItemMenu(wxTreeEvent& event) {
         return;
     case kIdOpen:
         openNode(path);
+        break;
+    case kIdOpenInFbide:
+        m_ctx.getDocumentManager().openFile(path);
         break;
     case kIdRename:
         renameNode(path);
@@ -538,13 +548,48 @@ void FileBrowser::onItemMenu(wxTreeEvent& event) {
 }
 
 void FileBrowser::openNode(const wxString& path) {
-    const wxString name = wxFileName(path).GetFullName();
-    auto& docs = m_ctx.getDocumentManager();
-    if (docs.isSupportedFile(name)) {
-        docs.openFile(path);
+    if (isSupportedFile(path)) {
+        m_ctx.getDocumentManager().openFile(path);
     } else {
         wxLaunchDefaultApplication(path); // hand off to the OS default app
     }
+}
+
+void FileBrowser::buildSupportedExtensions() {
+    // Flatten the editor file-type globs into a set of extensions so the open
+    // action and context menu can test membership directly. Only "*.ext" globs
+    // map to an extension; bare-name patterns (e.g. "Makefile") have none and are
+    // skipped. Fold to lowercase on a case-insensitive filesystem so a lookup of
+    // the on-disk extension matches what we stored.
+    const bool fold = !wxFileName::IsCaseSensitive();
+    auto& cfg = m_ctx.getConfigManager();
+    const auto addGlobs = [&](const std::string_view key) {
+        for (wxString rest = cfg.fileGlob(wxString(key.data(), key.size())); !rest.IsEmpty();) {
+            const wxString glob = rest.BeforeFirst(';');
+            rest = rest.AfterFirst(';');
+            if (glob.StartsWith("*.")) {
+                wxString ext = glob.AfterLast('.');
+                if (fold) {
+                    ext.MakeLower();
+                }
+                if (!ext.IsEmpty()) {
+                    m_supportedExtensions.insert(ext);
+                }
+            }
+        }
+    };
+    for (const auto key : kEditorFileTypeKeys) {
+        addGlobs(key);
+    }
+    addGlobs("session"); // fbide opens its own .fbs session files
+}
+
+auto FileBrowser::isSupportedFile(const wxString& path) const -> bool {
+    wxString ext = wxFileName(path).GetExt();
+    if (!wxFileName::IsCaseSensitive()) {
+        ext.MakeLower();
+    }
+    return !ext.IsEmpty() && m_supportedExtensions.contains(ext);
 }
 
 void FileBrowser::renameNode(const wxString& path) {
