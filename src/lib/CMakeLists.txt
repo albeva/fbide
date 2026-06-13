@@ -45,6 +45,7 @@ target_sources(fbide_lib
     editor/Editor.cpp
     editor/LineHistory.cpp
     editor/lexilla/FBSciLexer.cpp
+    format/FormatCommand.cpp
     format/FormatDialog.cpp
     format/renderers/HtmlRenderer.cpp
     format/renderers/PlainTextRenderer.cpp
@@ -87,6 +88,7 @@ target_sources(fbide_lib
     ui/utilities/FileDropTarget.cpp
     ui/utilities/SystemShell.cpp
     update/UpdateManager.cpp
+    utils/ConsoleOutput.cpp
 
     PUBLIC FILE_SET HEADERS FILES
     about/AboutDialog.hpp
@@ -132,6 +134,7 @@ target_sources(fbide_lib
     editor/LineHistory.hpp
     editor/lexilla/CharCategory.hpp
     editor/lexilla/FBSciLexer.hpp
+    format/FormatCommand.hpp
     format/FormatDialog.hpp
     format/renderers/HtmlRenderer.hpp
     format/renderers/PlainTextRenderer.hpp
@@ -179,6 +182,7 @@ target_sources(fbide_lib
     ui/utilities/FileDropTarget.hpp
     ui/utilities/SystemShell.hpp
     update/UpdateManager.hpp
+    utils/ConsoleOutput.hpp
     utils/DeferHandler.hpp
     utils/Macros.hpp
     utils/NoCopy.hpp

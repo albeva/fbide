@@ -17,16 +17,27 @@
 #include "config/Version.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/FileSession.hpp"
+#include "format/FormatCommand.hpp"
 #include "ui/UIManager.hpp"
 #include "update/UpdateManager.hpp"
-#ifdef __WXMSW__
-#include <windows.h>
-#endif
+#include "utils/ConsoleOutput.hpp"
 using namespace fbide;
 
 namespace {
 
 constexpr auto kHelpText = R"(Usage: fbide [options] [files...]
+       fbide format [format-options] <file>
+
+Commands:
+  format <file>       Format <file> and write the result to stdout (default:
+                      re-indent + re-format). Format options:
+                        --reindent        re-indent lines to block depth
+                        --reformat        re-flow intra-line spacing
+                        --align-pp        anchor preprocessor directives
+                                          (only with --reindent)
+                        --apply-case      normalise keyword case
+                        --html            render as HTML instead of code
+                        -o, --output <f>  write to <f> instead of stdout
 
 Options:
   --config <path>     Use the specified config file.
@@ -58,64 +69,8 @@ Options:
   --help              Show this help and exit.
 )";
 
-#ifdef __WXMSW__
-/// Inject a synthetic Enter into the parent console's input queue. Workaround
-/// for the `/SUBSYSTEM:WINDOWS` UX wart: the shell doesn't wait for a GUI
-/// child, so it prints its next prompt immediately and our AttachConsole +
-/// WriteFile output prints on top of it. Posting Enter makes the shell consume
-/// the (empty) line and redraw a fresh prompt below our text. Skipped when
-/// stdin isn't a console (e.g. piped/redirected).
-void pokeParentConsole() {
-    const HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
-    if (hIn == nullptr || hIn == INVALID_HANDLE_VALUE) {
-        return;
-    }
-    if (GetFileType(hIn) != FILE_TYPE_CHAR) {
-        return;
-    }
-    INPUT_RECORD events[2] = {};
-    events[0].EventType = KEY_EVENT;
-    events[0].Event.KeyEvent.bKeyDown = TRUE;
-    events[0].Event.KeyEvent.wRepeatCount = 1;
-    events[0].Event.KeyEvent.wVirtualKeyCode = VK_RETURN;
-    events[0].Event.KeyEvent.uChar.AsciiChar = '\r';
-    events[1] = events[0];
-    events[1].Event.KeyEvent.bKeyDown = FALSE;
-    DWORD written = 0;
-    WriteConsoleInput(hIn, events, 2, &written);
-}
-#endif
-
-/// Write `text` followed by a newline to the host's stdout/stderr. Goes
-/// through the raw OS handle on Windows because `/SUBSYSTEM:WINDOWS` builds
-/// don't have CRT-bound streams even when the shell redirects. If no handle
-/// is attached (Explorer launch with no parent console), attach to the
-/// parent and retry, then poke an Enter so the shell redraws its prompt.
-void writeLineTo(const wxString& text, const bool toStderr) {
-    const auto utf8 = text.ToStdString(wxConvUTF8) + '\n';
-#ifdef __WXMSW__
-    const DWORD stdHandle = toStderr ? STD_ERROR_HANDLE : STD_OUTPUT_HANDLE;
-    auto write = [&](const HANDLE h) {
-        DWORD written = 0;
-        return h != nullptr && h != INVALID_HANDLE_VALUE
-            && WriteFile(h, utf8.data(), static_cast<DWORD>(utf8.size()), &written, nullptr) != 0;
-    };
-    if (write(GetStdHandle(stdHandle))) {
-        return;
-    }
-    if (AttachConsole(ATTACH_PARENT_PROCESS) != 0) {
-        write(GetStdHandle(stdHandle));
-        pokeParentConsole();
-    }
-#else
-    auto& stream = toStderr ? std::cerr : std::cout;
-    stream << utf8;
-    stream.flush();
-#endif
-}
-
-void writeLine(const wxString& text) { writeLineTo(text, /*toStderr=*/false); }
-void writeErrLine(const wxString& text) { writeLineTo(text, /*toStderr=*/true); }
+void writeLine(const wxString& text) { ConsoleOutput::writeLine(text); }
+void writeErrLine(const wxString& text) { ConsoleOutput::writeError(text); }
 
 /// Resolve the application log file path. Honours `--log-path` when set,
 /// otherwise falls back to `<user-data-dir>/logs/fbide_<version>.log` so
@@ -283,6 +238,18 @@ auto App::OnInit() -> bool {
         std::exit(EXIT_SUCCESS);
     }
 
+    // `format [options] <file>`: format the file, emit, exit. Headless too.
+    if (cli.formatRequested) {
+        std::exit(FormatCommand(*m_context, FormatCommand::Options {
+            .reIndent = cli.formatReindent,
+            .reFormat = cli.formatReformat,
+            .alignPP = cli.formatAlignPP,
+            .applyCase = cli.formatApplyCase,
+            .html = cli.formatHtml,
+            .outputPath = cli.formatOutput,
+        }).run(cli.formatInput));
+    }
+
     // Single instance: if another FBIde is running, forward files and exit
     if (!m_newWindow) {
         m_instanceHandler = std::make_unique<InstanceHandler>(*m_context);
@@ -350,6 +317,57 @@ auto App::OnInit() -> bool {
 auto App::parseCli() const -> CliOptions {
     CliOptions opts;
     auto args = argv.GetArguments();
+
+    // `format [options] <file>` subcommand: headless formatter, run + exit in
+    // OnInit. Must be the first argument.
+    if (args.GetCount() >= 2 && args[1] == "format") {
+        opts.formatRequested = true;
+        for (std::size_t index = 2; index < args.GetCount(); index++) {
+            const auto& arg = args[index];
+            if (arg == "--reindent") {
+                opts.formatReindent = true;
+            } else if (arg == "--reformat") {
+                opts.formatReformat = true;
+            } else if (arg == "--align-pp") {
+                opts.formatAlignPP = true;
+            } else if (arg == "--apply-case") {
+                opts.formatApplyCase = true;
+            } else if (arg == "--html") {
+                opts.formatHtml = true;
+            } else if (arg == "-o" || arg == "--output") {
+                index += 1;
+                if (index >= args.GetCount()) {
+                    writeErrLine("fbide: format --output requires a path argument");
+                    opts.parseFailed = true;
+                    return opts;
+                }
+                opts.formatOutput = args[index];
+            } else if (arg.StartsWith("-")) {
+                writeErrLine(wxString::Format("fbide: unknown format option: %s", arg));
+                opts.parseFailed = true;
+                return opts;
+            } else if (opts.formatInput.IsEmpty()) {
+                wxFileName fileName(arg);
+                fileName.Normalize(wxPATH_NORM_ENV_VARS | wxPATH_NORM_DOTS | wxPATH_NORM_TILDE | wxPATH_NORM_ABSOLUTE);
+                opts.formatInput = fileName.GetAbsolutePath();
+            } else {
+                writeErrLine("fbide: format takes a single input file");
+                opts.parseFailed = true;
+                return opts;
+            }
+        }
+        if (opts.formatInput.IsEmpty()) {
+            writeErrLine("fbide: format requires an input file");
+            opts.parseFailed = true;
+            return opts;
+        }
+        // Default to a full reformat when no transform was requested.
+        if (!opts.formatReindent && !opts.formatReformat && !opts.formatApplyCase) {
+            opts.formatReindent = true;
+            opts.formatReformat = true;
+        }
+        return opts;
+    }
 
     for (std::size_t index = 1; index < args.GetCount(); index++) {
         const auto& arg = args[index];
