@@ -46,7 +46,10 @@ Options:
                         --cfg=*                # all keys in config
                         --cfg=editor/          # all keys under editor
                         --cfg=locale:dialogs.*
-  --load-session <p>  Load the .fbs session at <p> on startup.
+  --restore-state-from <p>
+                      Restore editor state from the snapshot at <p> on startup,
+                      then delete it. Used internally to carry documents across
+                      a restart.
   --wait-for-pid <id> Block startup (before any config is loaded) until the
                       process with id <id> has exited.
   --new-window        Open a new window even if another instance is running.
@@ -134,7 +137,7 @@ auto resolveLogPath(const wxString& cliLogPath) -> wxString {
 }
 
 /// True when `path` lives anywhere under the platform's temp directory.
-/// Used by the `--load-session` cleanup branch so we only delete files
+/// Used by the `--restore-state-from` cleanup branch so we only delete files
 /// FBIde itself dropped into temp space (the language-restart flow);
 /// user-supplied `.fbs` files passed on the command line stay put.
 auto isInsideTempDir(const wxString& path) -> bool {
@@ -319,11 +322,15 @@ auto App::OnInit() -> bool {
     FileAssociationsLinux::ensureRegistered();
 #endif
     openFiles(cli.files);
-    if (!cli.loadSession.IsEmpty()) {
-        const auto isTemp = isInsideTempDir(cli.loadSession);
-        m_context->getFileSession().load(cli.loadSession, not isTemp);
-        if (isTemp) {
-            wxRemoveFile(cli.loadSession);
+    if (!cli.restoreStateFrom.IsEmpty()) {
+        // A throwaway snapshot from a restart that had no active session: load it
+        // as a session to reopen the documents, then close the session (leaving
+        // them as loose documents) and delete the temp file.
+        auto& docManager = m_context->getDocumentManager();
+        docManager.startSession(cli.restoreStateFrom);
+        docManager.closeSession();
+        if (isInsideTempDir(cli.restoreStateFrom)) {
+            wxRemoveFile(cli.restoreStateFrom);
         }
     }
     // First launch (no config overlay yet): try to locate a bundled or
@@ -402,14 +409,14 @@ auto App::parseCli() const -> CliOptions {
             }
             continue;
         }
-        if (arg == "--load-session") {
+        if (arg == "--restore-state-from") {
             index += 1;
             if (index >= args.GetCount()) {
-                writeErrLine("fbide: --load-session requires a path argument");
+                writeErrLine("fbide: --restore-state-from requires a path argument");
                 opts.parseFailed = true;
                 return opts;
             }
-            opts.loadSession = args[index];
+            opts.restoreStateFrom = args[index];
             continue;
         }
         if (arg == "--wait-for-pid") {
@@ -565,25 +572,25 @@ void App::MacOpenFiles(const wxArrayString& fileNames) {
 
 void App::scheduleRestart(std::function<void()> commitConfig) {
     CallAfter([this, commit = std::move(commitConfig)]() {
-        // Snapshot the open documents to an OS temp file. The new
-        // instance picks it up via `--load-session` and removes it on
-        // success. Using the platform temp dir (instead of the IDE
-        // resources dir) keeps the spec-compliant session lifecycle
-        // local to OS scratch space.
-        const auto sessionPath = wxFileName::CreateTempFileName("fbide_session");
-        if (!m_context->getFileSession().save(sessionPath)) {
-            // FileSession's own modified-file save loop was cancelled.
-            wxRemoveFile(sessionPath);
-            return;
+        auto& dm = m_context->getDocumentManager();
+
+        // Check for either active session, or create temporary one
+        const FileSession* session = dm.getSession();
+        const bool isTemporarySession = session == nullptr;
+        if (isTemporarySession) {
+            session = dm.startSession(wxFileName::CreateTempFileName("fbide_session"));
         }
+        const wxString sessionPath = session->getPath();
+
+        // Close session, will cause it to be saved
+        dm.closeSession();
 
         // Now ask the user to close every document. This raises the
         // standard "Save / Don't Save / Cancel" prompt for any still-
-        // modified buffer (notably untitled ones, which FileSession
+        // modified buffer (notably untitled ones, which the snapshot
         // skipped). A Cancel here aborts the restart entirely so the
-        // user keeps editing — drop the session file we just wrote.
-        if (!m_context->getDocumentManager().closeAllFiles()) {
-            wxRemoveFile(sessionPath);
+        // user keeps editing — drop the temp file we just wrote.
+        if (!dm.closeAllFiles()) {
             return;
         }
 
@@ -602,9 +609,17 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
         // verbose logging if it was on).
         const auto exe = wxStandardPaths::Get().GetExecutablePath();
         wxString cmd = wxString::Format(
-            R"("%s" --new-window --wait-for-pid %d --load-session "%s")",
-            exe, static_cast<int>(wxGetProcessId()), sessionPath
+            R"("%s" --new-window --wait-for-pid %d)",
+            exe, static_cast<int>(wxGetProcessId())
         );
+
+        // append (restore) session args
+        if (isTemporarySession) {
+            cmd += " --restore-state-from";
+        }
+        cmd += wxString::Format(R"( "%s")", sessionPath);
+
+        // reload config
         if (!m_configPath.IsEmpty()) {
             cmd += wxString::Format(R"( --config "%s")", m_configPath);
         }
@@ -617,6 +632,7 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
         if (m_verbose) {
             cmd += " --verbose";
         }
+
         wxExecute(cmd, wxEXEC_ASYNC);
 
         auto* frame = m_context->getUIManager().getMainFrame();

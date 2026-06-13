@@ -31,6 +31,31 @@ constexpr auto SESSION_EXT = "fbs";
 const wxWindowID kTabCloseOthersId = wxNewId();
 const wxWindowID kTabShowInBrowserId = wxNewId();
 const wxWindowID kTabReloadFromDiskId = wxNewId();
+
+/// File dialog → the session path to load, or empty when cancelled. Lives here
+/// (not on FileSession) because DocumentManager owns the load/save triggering.
+auto promptLoadSessionPath(Context& ctx) -> wxString {
+    wxFileDialog dlg(
+        ctx.getUIManager().getMainFrame(),
+        ctx.tr("files.loadTitle"),
+        "", wxString(".") + SESSION_EXT,
+        ctx.getConfigManager().filePattern("session"),
+        wxFD_FILE_MUST_EXIST
+    );
+    return dlg.ShowModal() == wxID_OK ? dlg.GetPath() : wxString {};
+}
+
+/// File dialog → the session path to save to, or empty when cancelled.
+auto promptSaveSessionPath(Context& ctx) -> wxString {
+    wxFileDialog dlg(
+        ctx.getUIManager().getMainFrame(),
+        ctx.tr("files.sessionSaveTitle"),
+        "", wxString(".") + SESSION_EXT,
+        ctx.getConfigManager().filePattern("session"),
+        wxFD_SAVE | wxFD_OVERWRITE_PROMPT
+    );
+    return dlg.ShowModal() == wxID_OK ? dlg.GetPath() : wxString {};
+}
 } // namespace
 
 // clang-format off
@@ -198,9 +223,13 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     const auto canonical = canonicalizePath(filePath);
     const auto canonicalWx = toWxString(canonical);
 
-    // Session files are loaded separately
+    // Session files: activate a session for them, however the file was opened
+    // (Open dialog, recent files, browser, drop). startSession loads the
+    // session's documents; any previously active session is saved + dropped
+    // first. Currently open documents stay open — the session merges them.
     if (const auto ext = canonical.extension().string(); ext.size() > 1 && ext.substr(1) == SESSION_EXT) {
-        m_ctx.getFileSession().load(canonicalWx);
+        startSession(canonicalWx);
+        m_ctx.getFileHistory().addFile(canonicalWx);
         return nullptr;
     }
 
@@ -565,7 +594,7 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
     // Update UI state when no documents remain
     if (m_documents.empty()) {
         m_ctx.getUIManager().setDocumentState(UIState::None);
-        m_ctx.getUIManager().setTitle(wxEmptyString);
+        m_ctx.getUIManager().updateTitle();
         // Clear every per-document status-bar cell. Going through the
         // handler (rather than hardcoded field indices) means the
         // configuration-in-status-bar layout, which shifts the cells,
@@ -753,75 +782,45 @@ void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
 // Sessions
 // ---------------------------------------------------------------------------
 
-auto DocumentManager::activeSessionName() const -> wxString {
-    return m_activeSessionPath.empty() ? wxString {} : wxFileName(m_activeSessionPath).GetName();
-}
-
-void DocumentManager::setActiveSession(const wxString& path) {
-    m_activeSessionPath = path;
-    // Refresh the window title (it now embeds the session name) — works whether
-    // or not a document is active, so a session with no open docs still shows.
-    if (const auto* doc = getActive()) {
-        m_ctx.getUIManager().setTitle(doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath()));
-    } else {
-        m_ctx.getUIManager().setTitle(wxEmptyString);
-    }
-    if (auto* entry = m_ctx.getCommandManager().find(+CommandId::SessionClose)) {
-        entry->setEnabled(hasActiveSession());
-    }
-}
-
-void DocumentManager::saveActiveSession() {
-    if (hasActiveSession()) {
-        (void) m_ctx.getFileSession().save(m_activeSessionPath);
-    }
+auto DocumentManager::startSession(const wxString& path) -> FileSession* {
+    m_session = std::make_unique<FileSession>(m_ctx, path);
+    m_session->load();
+    return m_session.get();
 }
 
 void DocumentManager::newSession() {
-    const wxString path = m_ctx.getFileSession().promptSavePath();
+    const wxString path = promptSaveSessionPath(m_ctx);
     if (path.empty()) {
         return;
     }
-    saveActiveSession(); // snapshot any previously active session first
-    if (!m_ctx.getFileSession().save(path)) {
-        return; // I/O failure already logged
+
+    // close current session.
+    m_session.reset();
+
+    // We assume overwrite, so remove existing one.
+    if (wxFileExists(path)) {
+        wxRemoveFile(path);
     }
-    setActiveSession(path);
+
+    startSession(path); // active from now; its file is written when it closes
     m_ctx.getFileHistory().addFile(path);
 }
 
 void DocumentManager::loadSession() {
-    const wxString path = m_ctx.getFileSession().promptLoadPath();
-    if (path.empty()) {
-        return;
+    // The command only narrows the open dialog to `.fbs`; opening the chosen
+    // file runs the normal openFile path, which recognises and activates it.
+    if (const wxString path = promptLoadSessionPath(m_ctx); !path.empty()) {
+        openFile(path);
     }
-    // Replacing an active session: save it, then close its documents. Abort if
-    // the user cancels an unsaved-changes prompt.
-    if (hasActiveSession()) {
-        saveActiveSession();
-        if (!closeAllFiles()) {
-            return;
-        }
-        setActiveSession(wxEmptyString);
-    }
-    m_ctx.getFileSession().load(path); // opens the session's documents
-    setActiveSession(path);
 }
 
 void DocumentManager::closeSession() {
-    if (!hasActiveSession()) {
-        return;
-    }
-    saveActiveSession();
-    if (!closeAllFiles()) {
-        return; // user cancelled — keep the session active
-    }
-    setActiveSession(wxEmptyString);
+    m_session.reset();
 }
 
 auto DocumentManager::prepareToQuit() -> bool {
-    saveActiveSession(); // snapshot the active session before documents close
     if (getModifiedCount() == 0) {
+        m_session.reset();
         return true;
     }
 
@@ -841,6 +840,11 @@ auto DocumentManager::prepareToQuit() -> bool {
             return false;
         }
     }
+
+    // Snapshot + drop the session after any save-on-exit, while all documents
+    // are still open, so it records their final paths (e.g. a previously new
+    // document just saved under a real name).
+    m_session.reset();
 
     // Discard all — close without prompting (already saved or user said NO)
     while (!m_documents.empty()) {
@@ -1049,7 +1053,6 @@ void DocumentManager::updateTabTitle(const Document& doc) const {
     const auto idx = findPageIndex(doc);
     if (idx != wxNOT_FOUND) {
         getNotebook()->SetPageText(static_cast<size_t>(idx), doc.getTitle());
-        m_ctx.getUIManager().setTitle(doc.isNew() ? doc.getTitle() : toWxString(doc.getFilePath()));
     }
 }
 

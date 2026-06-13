@@ -16,7 +16,6 @@
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/DocumentPath.hpp"
-#include "document/FileSession.hpp"
 #include "editor/Editor.hpp"
 #include "format/FormatDialog.hpp"
 #include "help/HelpManager.hpp"

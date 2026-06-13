@@ -10,15 +10,14 @@
 #include "DocumentPath.hpp"
 #include "TextEncoding.hpp"
 #include "app/Context.hpp"
+#include "command/CommandManager.hpp"
 #include "config/ConfigManager.hpp"
-#include "config/FileHistory.hpp"
 #include "editor/Editor.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
 namespace {
 
-constexpr auto SESSION_EXT = "fbs";
 constexpr auto FILE_GROUP_PREFIX = "file_";
 
 /// Cheap format probe: if the first non-blank line starts with '[' the file
@@ -77,130 +76,65 @@ auto resolveStoredPath(const wxString& storedPath,
 
 } // namespace
 
-FileSession::FileSession(Context& ctx)
-: m_ctx(ctx) {}
+FileSession::FileSession(Context& ctx, wxString path)
+: m_ctx(ctx)
+, m_path(std::move(path)) {
+}
 
-void FileSession::load(const wxString& path, const bool addToHistory) {
-    if (!wxFileExists(path)) {
+FileSession::~FileSession() {
+    // A destructor must not let exceptions escape. `save` already logs I/O
+    // failures and a missed session snapshot is non-fatal, so swallow anything.
+    try {
+        save();
+        m_path.clear();
+        updateUi(false);
+    } catch (const std::exception& ex) {
+        wxLogError("Failed to save FileSession. %s", ex.what());
+    } catch (...) {
+        wxLogError("Failed to save FileSession. Unknown exception");
+    }
+}
+
+auto FileSession::getName() const -> wxString {
+    return wxFileName(m_path).GetName();
+}
+
+void FileSession::load() {
+    updateUi(true);
+
+    // no session
+    if (not wxFileExists(m_path)) {
         return;
     }
-    if (isIniFormat(path)) {
-        loadV3(path);
+
+    // load the state
+    if (isIniFormat(m_path)) {
+        loadV3();
     } else {
-        loadLegacy(path);
-    }
-
-    if (addToHistory) {
-        m_ctx.getFileHistory().addFile(path);
+        loadLegacy();
     }
 }
 
-auto FileSession::save(const wxString& path) -> bool {
-    const auto& dm = m_ctx.getDocumentManager();
-
-    // Pure path snapshot — modified buffers are NOT auto-saved here.
-    // Callers that need to flush dirty state (Save Session menu, the
-    // restart flow) must drive the user-facing save/close prompts
-    // through `DocumentManager::closeAllFiles` (or equivalent) before
-    // writing the session.
-
-    wxFileConfig cfg(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
-
-    const auto sessionDir = toFsPath(path).parent_path();
-    const auto* notebook = m_ctx.getUIManager().getNotebook();
-    cfg.Write("/session/version", Version);
-    cfg.Write("/session/selectedTab", notebook->GetSelection());
-
-    size_t fileIndex = 0;
-    for (const auto& doc : dm.getDocuments()) {
-        if (doc->isNew()) {
-            continue;
-        }
-        auto* editor = doc->getEditor();
-        const auto group = wxString::Format("/%s%03zu", FILE_GROUP_PREFIX, fileIndex);
-        cfg.SetPath(group);
-        cfg.Write("path", wxString::FromUTF8(pathForSession(doc->getFilePath(), sessionDir)));
-        cfg.Write("scroll", editor->GetFirstVisibleLine());
-        cfg.Write("cursor", editor->GetCurrentPos());
-        cfg.Write("encoding", wxString(doc->getEncoding().toString()));
-        cfg.Write("eolMode", wxString(doc->getEolMode().toString()));
-        // Only persist the type when the user has explicitly overridden it.
-        // Otherwise it can be re-derived from the path on next load.
-        if (doc->isTypeOverridden()) {
-            const auto typeKey = documentTypeKey(doc->getType());
-            cfg.Write("type", wxString::FromUTF8(typeKey.data(), typeKey.size()));
-        }
-        // Pinned compiler config — written only when the doc is pinned
-        // to a non-default configuration. An empty optional means
-        // "follow active", which doesn't need on-disk representation.
-        if (const auto& slug = doc->getConfiguration(); slug.has_value()) {
-            cfg.Write("configuration", *slug);
-        }
-
-        // Store code folds
-        if (m_ctx.getConfigManager().config().get_or("editor.folderMargin", false)) {
-            editor->Colourise(editor->GetEndStyled(), -1);
-            wxString folds;
-            const auto lines = editor->GetLineCount();
-            folds.reserve(static_cast<std::size_t>(std::min(1, lines / 5)));
-            for (int line = 0; line < lines; line++) {
-                if (not editor->GetFoldExpanded(line)) {
-                    if (not folds.empty()) {
-                        folds += ",";
-                    }
-                    folds += std::to_string(line);
-                }
-            }
-            if (not folds.empty()) {
-                cfg.Write("folds", folds);
-            }
-        }
-
-        fileIndex++;
+void FileSession::updateUi(const bool loaded) {
+    m_isLoaded = loaded;
+    if (auto* entry = m_ctx.getCommandManager().find(+CommandId::SessionClose)) {
+        entry->enabled = loaded;
+        entry->update();
     }
-
-    wxFFileOutputStream outStream(path);
-    if (!outStream.IsOk()) {
-        wxLogError("Failed to open '%s' for writing", path);
-        return false;
-    }
-    cfg.Save(outStream, wxConvUTF8);
-    return true;
+    m_ctx.getUIManager().updateTitle();
 }
 
-auto FileSession::promptLoadPath() -> wxString {
-    wxFileDialog dlg(
-        m_ctx.getUIManager().getMainFrame(),
-        m_ctx.tr("files.loadTitle"),
-        "", wxString(".") + SESSION_EXT,
-        m_ctx.getConfigManager().filePattern("session"),
-        wxFD_FILE_MUST_EXIST
-    );
-    return dlg.ShowModal() == wxID_OK ? dlg.GetPath() : wxString {};
-}
-
-auto FileSession::promptSavePath() -> wxString {
-    wxFileDialog dlg(
-        m_ctx.getUIManager().getMainFrame(),
-        m_ctx.tr("files.sessionSaveTitle"),
-        "", wxString(".") + SESSION_EXT,
-        m_ctx.getConfigManager().filePattern("session"),
-        wxFD_SAVE | wxFD_OVERWRITE_PROMPT
-    );
-    return dlg.ShowModal() == wxID_OK ? dlg.GetPath() : wxString {};
-}
-
-void FileSession::loadV3(const wxString& path) {
-    wxFFileInputStream stream(path);
+void FileSession::loadV3() const {
+    wxFFileInputStream stream(m_path);
     if (!stream.IsOk()) {
-        wxLogError("Failed to open session '%s' for reading", path);
+        wxLogError("Failed to open session '%s' for reading", m_path);
         return;
     }
     wxFileConfig cfg(stream, wxConvUTF8);
 
     const auto thaw = m_ctx.getUIManager().freeze();
     auto& dm = m_ctx.getDocumentManager();
-    const auto sessionDir = toFsPath(path).parent_path();
+    const auto sessionDir = toFsPath(m_path).parent_path();
 
     // Collect file groups. wxFileConfig's iteration order is not guaranteed,
     // so sort — zero-padded names yield insertion order.
@@ -300,10 +234,13 @@ void FileSession::loadV3(const wxString& path) {
     if (selectedTab >= 0 && static_cast<size_t>(selectedTab) < notebook->GetPageCount()) {
         notebook->SetSelection(static_cast<size_t>(selectedTab));
     }
+
+    // we loaded, success!
+    return;
 }
 
-void FileSession::loadLegacy(const wxString& path) {
-    wxTextFile file(path);
+void FileSession::loadLegacy() const {
+    wxTextFile file(m_path);
     if (!file.Open() || file.GetLineCount() == 0) {
         return;
     }
@@ -344,5 +281,77 @@ void FileSession::loadLegacy(const wxString& path) {
     auto* notebook = m_ctx.getUIManager().getNotebook();
     if (selectedTab < notebook->GetPageCount()) {
         notebook->SetSelection(selectedTab);
+    }
+
+    return;
+}
+
+void FileSession::save() const {
+    const auto& dm = m_ctx.getDocumentManager();
+
+    // Pure path snapshot — modified buffers are NOT auto-saved here. Callers
+    // that need unsaved changes flushed must drive a save / close flow (e.g.
+    // `DocumentManager::closeAllFiles`) before this object is destroyed.
+
+    wxFileConfig cfg(wxEmptyString, wxEmptyString, wxEmptyString, wxEmptyString, 0);
+
+    const auto sessionDir = toFsPath(m_path).parent_path();
+    const auto* notebook = m_ctx.getUIManager().getNotebook();
+    cfg.Write("/session/version", Version);
+    cfg.Write("/session/selectedTab", notebook->GetSelection());
+
+    size_t fileIndex = 0;
+    for (const auto& doc : dm.getDocuments()) {
+        if (doc->isNew()) {
+            continue;
+        }
+        auto* editor = doc->getEditor();
+        const auto group = wxString::Format("/%s%03zu", FILE_GROUP_PREFIX, fileIndex);
+        cfg.SetPath(group);
+        cfg.Write("path", wxString::FromUTF8(pathForSession(doc->getFilePath(), sessionDir)));
+        cfg.Write("scroll", editor->GetFirstVisibleLine());
+        cfg.Write("cursor", editor->GetCurrentPos());
+        cfg.Write("encoding", wxString(doc->getEncoding().toString()));
+        cfg.Write("eolMode", wxString(doc->getEolMode().toString()));
+        // Only persist the type when the user has explicitly overridden it.
+        // Otherwise it can be re-derived from the path on next load.
+        if (doc->isTypeOverridden()) {
+            const auto typeKey = documentTypeKey(doc->getType());
+            cfg.Write("type", wxString::FromUTF8(typeKey.data(), typeKey.size()));
+        }
+        // Pinned compiler config — written only when the doc is pinned
+        // to a non-default configuration. An empty optional means
+        // "follow active", which doesn't need on-disk representation.
+        if (const auto& slug = doc->getConfiguration(); slug.has_value()) {
+            cfg.Write("configuration", *slug);
+        }
+
+        // Store code folds
+        if (m_ctx.getConfigManager().config().get_or("editor.folderMargin", false)) {
+            editor->Colourise(editor->GetEndStyled(), -1);
+            wxString folds;
+            const auto lines = editor->GetLineCount();
+            folds.reserve(static_cast<std::size_t>(std::min(1, lines / 5)));
+            for (int line = 0; line < lines; line++) {
+                if (not editor->GetFoldExpanded(line)) {
+                    if (not folds.empty()) {
+                        folds += ",";
+                    }
+                    folds += std::to_string(line);
+                }
+            }
+            if (not folds.empty()) {
+                cfg.Write("folds", folds);
+            }
+        }
+
+        fileIndex++;
+    }
+
+    wxFFileOutputStream outStream(m_path);
+    if (!outStream.IsOk()) {
+        wxLogError("Failed to open '%s' for writing", m_path);
+    } else {
+        cfg.Save(outStream, wxConvUTF8);
     }
 }

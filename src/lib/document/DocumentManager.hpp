@@ -15,6 +15,7 @@ class Context;
 class CodeTransformer;
 class IntellisenseService;
 class DocumentWatcher;
+class FileSession;
 
 /**
  * Owns every open `Document`, drives the open / save / close
@@ -161,24 +162,28 @@ public:
     // is auto-updated (open documents written back) on close and on quit.
     // -----------------------------------------------------------------------
 
-    /// Display name of the active session (the `.fbs` filename stem), or empty
-    /// when no session is active.
-    [[nodiscard]] auto activeSessionName() const -> wxString;
     /// True while a session is active.
-    [[nodiscard]] auto hasActiveSession() const -> bool { return !m_activeSessionPath.empty(); }
+    [[nodiscard]] auto hasSession() const -> bool { return m_session != nullptr; }
 
-    /// New Session: prompt for a `.fbs` path, snapshot the open documents into
-    /// it, and make it active (saving any previously active session first).
+    /// Get session pointer, if one exists
+    [[nodiscard]] auto getSession() const -> FileSession* { return m_session.get(); }
+
+    /// New Session: prompt for a `.fbs` path and activate a session there from
+    /// the open documents (replacing any previous one). The file is written when
+    /// the session is closed or the app quits.
     void newSession();
-    /// Load Session: prompt for a `.fbs` path; if a session is active, save and
-    /// close it (closing its documents) first, then open and activate the new one.
+    /// Load Session: narrow the open dialog to `.fbs`, then hand the chosen file
+    /// to `openFile` — which recognises a session and activates it. No load logic
+    /// of its own beyond the dialog filter.
     void loadSession();
-    /// Close Session: snapshot the open documents into the active session, close
-    /// them, and deactivate. No-op when no session is active.
+    /// Close Session: save the active session and deactivate it, leaving the
+    /// open documents untouched. No-op when no session is active.
     void closeSession();
-    /// Write the open documents back to the active session file. No-op when no
-    /// session is active. Called on close and on quit.
-    void saveActiveSession();
+    /// Start a session bound to `path` (dropping any previous one, which saves
+    /// it): constructs a FileSession and loads it — opening the session's
+    /// documents when the file exists. Used by New/Load Session and the restart
+    /// handoff. Returns the now-active session.
+    auto startSession(const wxString& path) -> FileSession*;
 
     /// Refresh just a document's tab text (e.g. its `[*]` dirty marker),
     /// without touching the window title — safe for a non-active document.
@@ -247,9 +252,12 @@ private:
     /// Update notebook tab title for a document.
     void updateTabTitle(const Document& doc) const;
 
-    /// Set (or clear, when empty) the active session path, then refresh the
-    /// window title and the Close-Session command's enabled state.
-    void setActiveSession(const wxString& path);
+    /// Reflect the current session (`m_session`) in the chrome: refresh the
+    /// window title (it embeds the session name) and the Close-Session command's
+    /// enabled state. Call after every change to `m_session` — the session
+    /// object itself does not touch the UI (the CommandManager outlives it only
+    /// during normal operation, not at shutdown).
+    void syncSessionUi();
 
     /// Get the notebook from UIManager.
     [[nodiscard]] auto getNotebook() const -> wxAuiNotebook*;
@@ -291,7 +299,11 @@ private:
     /// callbacks touch are destroyed.
     std::unique_ptr<DocumentWatcher> m_watcher;
 
-    wxString m_activeSessionPath; ///< Active session `.fbs` path; empty = none.
+    /// The active session, or null when none. Owns the `.fbs` lifetime:
+    /// constructing it activates a session, resetting it writes the open
+    /// documents back (its destructor saves). Declared after `m_documents` so
+    /// it is destroyed first — its save can still enumerate the documents.
+    std::unique_ptr<FileSession> m_session;
 
     wxDECLARE_EVENT_TABLE();
 };

@@ -11,8 +11,19 @@ namespace fbide {
 class Context;
 
 /**
- * Loads and saves FBIde `.fbs` session files (which files are open,
- * caret position, encoding/EOL choices).
+ * An active FBIde session — the open documents mirrored to a `.fbs` file
+ * (which files are open, caret position, encoding/EOL choices).
+ *
+ * Lifetime *is* the session, and `DocumentManager` owns one `unique_ptr` to it:
+ *   - **Construct = load.** Binding to an existing `.fbs` opens the documents it
+ *     lists; binding to a new path creates the file from the currently open
+ *     documents. Either way the session is now active.
+ *   - **Destroy = save.** The destructor writes the open documents back.
+ *
+ * So `DocumentManager` starts a session by creating the object and ends one by
+ * resetting it — it holds no session logic itself. The chrome (title, the
+ * Close-Session command) is refreshed by `DocumentManager` around those calls,
+ * because at shutdown the `CommandManager` dies before this object does.
  *
  * Session v3 is INI-based:
  *
@@ -29,10 +40,10 @@ class Context;
  * eolMode=LF
  * @endcode
  *
- * Legacy text formats (v0.1 unversioned, v0.2 XML-ish header) still
- * load for backwards compatibility. Every save writes v3.
+ * Legacy text formats (v0.1 unversioned, v0.2 XML-ish header) still load for
+ * backwards compatibility. Every save writes v3.
  *
- * **Owned by:** `Context`.
+ * **Owned by:** `DocumentManager` (`m_session`).
  *
  * See @ref documents.
  */
@@ -40,37 +51,44 @@ class FileSession final {
 public:
     NO_COPY_AND_MOVE(FileSession)
 
+    /// Bind a session to `path`. Construction does no I/O — call `load()` to
+    /// activate it; the destructor writes the open documents back.
+    FileSession(Context& ctx, wxString path);
+
+    /// Activate the session: enable the Close-Session command and, when the file
+    /// exists, open the documents it lists and refresh the title.
+    void load();
+
+    /// Save the open documents back to the session file, then deactivate (clear
+    /// the session from the title, disable Close Session). Never throws.
+    ~FileSession();
+
+    /// The session file path.
+    [[nodiscard]] auto getPath() const -> const wxString& { return m_path; }
+
+    /// Display name — the `.fbs` filename stem.
+    [[nodiscard]] auto getName() const -> wxString;
+
+private:
     /// Current session format version.
     static constexpr int Version = 3;
 
-    /// Construct without loading anything.
-    explicit FileSession(Context& ctx);
+    /// Set command entry state
+    void updateUi(bool loaded);
 
-    /// Load a session file, dispatching on detected format.
-    void load(const wxString& path, bool addToHistory = true);
+    /// Snapshot the open documents to the session file. Records paths + caret
+    /// state only — modified buffers are not auto-saved. Logs on I/O failure.
+    void save() const;
 
-    /// Snapshot the currently open documents as a v3 session file.
-    ///
-    /// Records paths + caret state only — modified buffers are NOT
-    /// auto-saved here. Callers that want unsaved changes flushed to
-    /// disk first should drive a user-facing save / close flow (e.g.
-    /// `DocumentManager::closeAllFiles`) before calling this. Returns
-    /// `false` only on I/O failure when writing the session file.
-    [[nodiscard]] auto save(const wxString& path) -> bool;
-
-    /// File dialog → the session path to load, or empty when cancelled.
-    [[nodiscard]] auto promptLoadPath() -> wxString;
-
-    /// File dialog → the session path to save to, or empty when cancelled.
-    [[nodiscard]] auto promptSavePath() -> wxString;
-
-private:
     /// Load the v3 INI format.
-    void loadV3(const wxString& path);
-    /// Load the v0.1/v0.2 legacy text format.
-    void loadLegacy(const wxString& path);
+    void loadV3() const;
 
-    Context& m_ctx; ///< Application context.
+    /// Load the v0.1/v0.2 legacy text format.
+    void loadLegacy() const;
+
+    Context& m_ctx;          ///< Application context.
+    wxString m_path;         ///< Session `.fbs` path this object mirrors.
+    bool m_isLoaded = false; ///< Session has been loaded
 };
 
 } // namespace fbide

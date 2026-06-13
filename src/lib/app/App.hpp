@@ -78,7 +78,7 @@ private:
         wxString idePath;              ///< `--ide <path>`.
         wxString logPath;              ///< `--log-path <path>` (empty → user data dir default).
         wxString cfgKey;               ///< `--cfg=[<category>:]<key>` (non-empty → print + exit).
-        wxString loadSession;          ///< `--load-session <path>`.
+        wxString restoreStateFrom;     ///< `--restore-state-from <path>`.
         wxArrayString files;           ///< Positional file paths.
         int waitForPid = 0;            ///< `--wait-for-pid <pid>` (0 = no wait).
         bool newWindow = false;        ///< `--new-window`.

@@ -18,6 +18,7 @@
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/DocumentPath.hpp"
+#include "document/FileSession.hpp"
 #include "editor/Editor.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "utilities/FileDropTarget.hpp"
@@ -269,7 +270,7 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
     if (sel == wxNOT_FOUND) {
         m_ctx.getSideBarManager().showSymbolsFor(nullptr);
         m_ctx.getCompilerManager().onActiveDocumentChanged(nullptr);
-        setTitle(wxEmptyString);
+        updateTitle();
         return;
     }
 
@@ -279,7 +280,7 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
         doc->getEditor()->SetFocus();
         m_ctx.getSideBarManager().showSymbolsFor(doc);
         m_ctx.getCompilerManager().onActiveDocumentChanged(doc);
-        setTitle(doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath()));
+        updateTitle();
         // Show any external-change bar that was deferred while this tab was
         // in the background.
         m_ctx.getDocumentManager().flushExternalPending(*doc);
@@ -394,6 +395,10 @@ void UIManager::configureMenuItems(wxMenu* menu, const wxString& id, const bool 
                 tool = make_unowned<wxMenuItem>(menu, entry->id, name, help, kind, submenu);
                 entry->binds.push_back(tool);
                 menu->Append(tool);
+                // Apply the entry's initial broad-enabled gate (e.g. a command
+                // declared `.enabled = false`). A fresh wxMenuItem is enabled by
+                // default, so without this such a command would start clickable.
+                tool->Enable(entry->isEnabled());
             }
 
             // traverse subfolder?
@@ -697,17 +702,34 @@ auto UIManager::freeze() -> FreezeLock {
     return FreezeLock { m_frame };
 }
 
-void UIManager::setTitle(const wxString& title) {
-    // Embed the active session name (if any): "FBIde - <session> <doc path>".
-    const wxString session = m_ctx.getDocumentManager().activeSessionName();
-    wxString full = appName;
-    if (!session.empty() && !title.empty()) {
-        full += wxString::Format(" - <%s> %s", session, title);
-    } else if (!session.empty()) {
-        full += wxString::Format(" - <%s>", session);
-    } else if (!title.empty()) {
-        full += wxString::Format(" - %s", title);
+void UIManager::updateTitle() {
+    // "FBIde[ - <session>][ - <document>]", assembled from the live active
+    // session and the active document.
+    const auto& docManager = m_ctx.getDocumentManager();
+
+    // the session name
+    wxString sessionName;
+    if (const auto* session = docManager.getSession()) {
+        sessionName = session->getName();
     }
+
+    // active document
+    wxString docName;
+    if (const auto* doc = docManager.getActive()) {
+        docName = doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath());
+    }
+
+    wxString full = appName;
+    if (not sessionName.empty()) {
+        if (not docName.empty()) {
+            full += wxString::Format(" - <%s> %s", sessionName, docName);
+        } else {
+            full += wxString::Format(" - <%s>", sessionName);
+        }
+    } else if (not docName.empty()) {
+        full += wxString::Format(" - %s", docName);
+    }
+
     m_frame->SetTitle(full);
 }
 

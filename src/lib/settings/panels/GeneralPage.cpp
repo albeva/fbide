@@ -200,9 +200,9 @@ void GeneralPage::apply() {
     // Swap locale file if the user picked a different language. Live
     // refresh would have to update every menu/dialog/sidebar string in
     // place — too many small touch points to keep correct. Instead we
-    // confirm with the user, save the open documents to a temp session,
-    // and relaunch FBIde with `--load-session` so the new locale loads
-    // cleanly. Some editor undo state is lost; the trade-off is worth it
+    // confirm with the user, snapshot the open documents, and relaunch
+    // FBIde to restore them so the new locale loads cleanly. Some editor
+    // undo state is lost; the trade-off is worth it
     // for a rarely-changed setting.
     if (!m_language.empty() && m_language != currentLocaleFileName(cfg)) {
         const auto answer = wxMessageBox(

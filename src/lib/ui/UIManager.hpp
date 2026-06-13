@@ -122,8 +122,9 @@ public:
     /// Freeze main window, returning object which will thaw when it goes out of scope
     [[nodiscard]] auto freeze() -> FreezeLock;
 
-    /// Set window title. This is prefixed with "FBIde - ", when non empty.
-    void setTitle(const wxString& title);
+    /// Rebuild the window title from the current state — the active session and
+    /// the active document. Call after either changes.
+    void updateTitle();
 
 private:
     /// Set every command in `range` to disabled — helper for `applyState`.
