@@ -749,7 +749,78 @@ void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
 // Life cycle
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Sessions
+// ---------------------------------------------------------------------------
+
+auto DocumentManager::activeSessionName() const -> wxString {
+    return m_activeSessionPath.empty() ? wxString {} : wxFileName(m_activeSessionPath).GetName();
+}
+
+void DocumentManager::setActiveSession(const wxString& path) {
+    m_activeSessionPath = path;
+    // Refresh the window title (it now embeds the session name) — works whether
+    // or not a document is active, so a session with no open docs still shows.
+    if (const auto* doc = getActive()) {
+        m_ctx.getUIManager().setTitle(doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath()));
+    } else {
+        m_ctx.getUIManager().setTitle(wxEmptyString);
+    }
+    if (auto* entry = m_ctx.getCommandManager().find(+CommandId::SessionClose)) {
+        entry->setEnabled(hasActiveSession());
+    }
+}
+
+void DocumentManager::saveActiveSession() {
+    if (hasActiveSession()) {
+        (void) m_ctx.getFileSession().save(m_activeSessionPath);
+    }
+}
+
+void DocumentManager::newSession() {
+    const wxString path = m_ctx.getFileSession().promptSavePath();
+    if (path.empty()) {
+        return;
+    }
+    saveActiveSession(); // snapshot any previously active session first
+    if (!m_ctx.getFileSession().save(path)) {
+        return; // I/O failure already logged
+    }
+    setActiveSession(path);
+    m_ctx.getFileHistory().addFile(path);
+}
+
+void DocumentManager::loadSession() {
+    const wxString path = m_ctx.getFileSession().promptLoadPath();
+    if (path.empty()) {
+        return;
+    }
+    // Replacing an active session: save it, then close its documents. Abort if
+    // the user cancels an unsaved-changes prompt.
+    if (hasActiveSession()) {
+        saveActiveSession();
+        if (!closeAllFiles()) {
+            return;
+        }
+        setActiveSession(wxEmptyString);
+    }
+    m_ctx.getFileSession().load(path); // opens the session's documents
+    setActiveSession(path);
+}
+
+void DocumentManager::closeSession() {
+    if (!hasActiveSession()) {
+        return;
+    }
+    saveActiveSession();
+    if (!closeAllFiles()) {
+        return; // user cancelled — keep the session active
+    }
+    setActiveSession(wxEmptyString);
+}
+
 auto DocumentManager::prepareToQuit() -> bool {
+    saveActiveSession(); // snapshot the active session before documents close
     if (getModifiedCount() == 0) {
         return true;
     }

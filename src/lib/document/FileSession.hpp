@@ -58,11 +58,11 @@ public:
     /// `false` only on I/O failure when writing the session file.
     [[nodiscard]] auto save(const wxString& path) -> bool;
 
-    /// File dialog → load selected session.
-    void showLoadDialog();
+    /// File dialog → the session path to load, or empty when cancelled.
+    [[nodiscard]] auto promptLoadPath() -> wxString;
 
-    /// File dialog → save current session.
-    void showSaveDialog();
+    /// File dialog → the session path to save to, or empty when cancelled.
+    [[nodiscard]] auto promptSavePath() -> wxString;
 
 private:
     /// Load the v3 INI format.

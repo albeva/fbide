@@ -156,6 +156,30 @@ public:
     /// application. Drives the file browser's open/activate behaviour.
     [[nodiscard]] auto isSupportedFile(const wxString& filename) const -> bool;
 
+    // -----------------------------------------------------------------------
+    // Sessions — one active session at a time, owned here. The active session
+    // is auto-updated (open documents written back) on close and on quit.
+    // -----------------------------------------------------------------------
+
+    /// Display name of the active session (the `.fbs` filename stem), or empty
+    /// when no session is active.
+    [[nodiscard]] auto activeSessionName() const -> wxString;
+    /// True while a session is active.
+    [[nodiscard]] auto hasActiveSession() const -> bool { return !m_activeSessionPath.empty(); }
+
+    /// New Session: prompt for a `.fbs` path, snapshot the open documents into
+    /// it, and make it active (saving any previously active session first).
+    void newSession();
+    /// Load Session: prompt for a `.fbs` path; if a session is active, save and
+    /// close it (closing its documents) first, then open and activate the new one.
+    void loadSession();
+    /// Close Session: snapshot the open documents into the active session, close
+    /// them, and deactivate. No-op when no session is active.
+    void closeSession();
+    /// Write the open documents back to the active session file. No-op when no
+    /// session is active. Called on close and on quit.
+    void saveActiveSession();
+
     /// Refresh just a document's tab text (e.g. its `[*]` dirty marker),
     /// without touching the window title — safe for a non-active document.
     void refreshTabTitle(const Document& doc) const;
@@ -223,6 +247,10 @@ private:
     /// Update notebook tab title for a document.
     void updateTabTitle(const Document& doc) const;
 
+    /// Set (or clear, when empty) the active session path, then refresh the
+    /// window title and the Close-Session command's enabled state.
+    void setActiveSession(const wxString& path);
+
     /// Get the notebook from UIManager.
     [[nodiscard]] auto getNotebook() const -> wxAuiNotebook*;
 
@@ -262,6 +290,8 @@ private:
     /// so it tears down first — it stops watching before the documents its
     /// callbacks touch are destroyed.
     std::unique_ptr<DocumentWatcher> m_watcher;
+
+    wxString m_activeSessionPath; ///< Active session `.fbs` path; empty = none.
 
     wxDECLARE_EVENT_TABLE();
 };

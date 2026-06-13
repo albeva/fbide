@@ -1,15 +1,17 @@
 # Changes since 0.5.0-rc.6
 
-- Added a Windows installer and FreeBASIC bundle for x86
-- Added an arm64 (aarch64) Linux AppImage build alongside the existing x86_64 one.
-- Added an arm64 Windows build alongside the existing x64 and x86 ones.
-- Added auto-reload of externally modified documents
-- Added auto-refresh of the file browser when its selected folder changes on disk
-- Added a right-click context menu to the file browser (open, rename, delete to recycle bin, copy path/name, reveal in file manager, new file/folder, open terminal, properties)
-- Added a Focus option to the file browser: select a folder and Focus to show it as the tree root; a toolbar button toggles focus on/off and restores the previous expansion on exit
-- Added auto-detect fbc compiler on first run (Windows only)
-- Added a new app icon and distinct document icons for .bas, .bi and .fbs files
-- Added .bas, .bi and .fbs file type associations and document icons to the Linux AppImage.
+- Added a Windows installer with FreeBASIC for x86
+- Added an arm64 (aarch64) Linux AppImage.
+- Added an arm64 Windows build.
+- Added file associations (.bas, .bi .fbs) for Linux and Windows
+
+- Added auto-reload of externally modified documents.
+- Added auto-refresh to the file browser which monitors for filesystem changes.
+- Added a context menus to the file browser.
+- Added a folder focus mode to the file browse.
+- Changed sessions are now loaded and stay active until fbide quits or session is closed.
+- Changed sessions now auto saves when quitting fbide or closing the session.
+- Added a new app icon, splash and distinct file icons for .bas, .bi and .fbs files.
 - Redesigned the About dialog.
 - Statically linked the CRT into the x86/x64 Windows builds so they run without the VC++ redistributable.
 - Fixed an operator (e.g. `,`) before a `&h`/`&o`/`&b` number swallowing its prefix and mis-highlighting the number (#111).

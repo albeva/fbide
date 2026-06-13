@@ -698,11 +698,17 @@ auto UIManager::freeze() -> FreezeLock {
 }
 
 void UIManager::setTitle(const wxString& title) {
-    if (title.empty()) {
-        m_frame->SetTitle(appName);
-    } else {
-        m_frame->SetTitle(wxString::Format("%s - %s", appName, title));
+    // Embed the active session name (if any): "FBIde - <session> <doc path>".
+    const wxString session = m_ctx.getDocumentManager().activeSessionName();
+    wxString full = appName;
+    if (!session.empty() && !title.empty()) {
+        full += wxString::Format(" - <%s> %s", session, title);
+    } else if (!session.empty()) {
+        full += wxString::Format(" - <%s>", session);
+    } else if (!title.empty()) {
+        full += wxString::Format(" - %s", title);
     }
+    m_frame->SetTitle(full);
 }
 
 void UIManager::disable(const std::ranges::range auto& range) const {

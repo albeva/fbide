@@ -98,10 +98,12 @@ private:
     void onNewWindow(wxCommandEvent& event);
     /// `Quit` — close the main frame.
     void onQuit(wxCommandEvent& event);
-    /// `Session → Load` — show the session-load dialog.
+    /// `New Session` — create a new active session from the open documents.
+    void onSessionNew(wxCommandEvent& event);
+    /// `Load Session` — load a session and make it active.
     void onSessionLoad(wxCommandEvent& event);
-    /// `Session → Save` — show the session-save dialog.
-    void onSessionSave(wxCommandEvent& event);
+    /// `Close Session` — snapshot, close, and deactivate the active session.
+    void onSessionClose(wxCommandEvent& event);
     /// Recent-files menu handler — opens the selected slot.
     void onFileHistory(wxCommandEvent& event);
 

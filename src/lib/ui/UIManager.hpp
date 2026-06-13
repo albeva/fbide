@@ -209,7 +209,6 @@ private:
         CommandId::Find,
         CommandId::Replace,
         CommandId::SaveAll,
-        CommandId::SessionSave,
         CommandId::CloseAll,
         CommandId::SelectLine,
         CommandId::IndentIncrease,

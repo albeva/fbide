@@ -168,7 +168,7 @@ auto FileSession::save(const wxString& path) -> bool {
     return true;
 }
 
-void FileSession::showLoadDialog() {
+auto FileSession::promptLoadPath() -> wxString {
     wxFileDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
         m_ctx.tr("files.loadTitle"),
@@ -176,17 +176,10 @@ void FileSession::showLoadDialog() {
         m_ctx.getConfigManager().filePattern("session"),
         wxFD_FILE_MUST_EXIST
     );
-    if (dlg.ShowModal() == wxID_OK) {
-        load(dlg.GetPath());
-    }
+    return dlg.ShowModal() == wxID_OK ? dlg.GetPath() : wxString {};
 }
 
-void FileSession::showSaveDialog() {
-    const auto& dm = m_ctx.getDocumentManager();
-    if (dm.getCount() == 0) {
-        return;
-    }
-
+auto FileSession::promptSavePath() -> wxString {
     wxFileDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
         m_ctx.tr("files.sessionSaveTitle"),
@@ -194,9 +187,7 @@ void FileSession::showSaveDialog() {
         m_ctx.getConfigManager().filePattern("session"),
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
     );
-    if (dlg.ShowModal() == wxID_OK) {
-        (void)save(dlg.GetPath());
-    }
+    return dlg.ShowModal() == wxID_OK ? dlg.GetPath() : wxString {};
 }
 
 void FileSession::loadV3(const wxString& path) {
