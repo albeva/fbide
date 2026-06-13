@@ -143,6 +143,11 @@ Name: "{group}\{cm:UninstallProgram,FBIde}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\FBIde"; Filename: "{app}\fbide.exe"; Check: WantDesktop
 
 [Registry]
+; Marker telling the installed build that the installer owns the file
+; associations (registered below). FileAssociations.cpp checks this and skips
+; runtime self-registration, so a type the user opted out of in the wizard is
+; never re-asserted on launch. Written regardless of the association choices.
+Root: HKA; Subkey: "Software\FBIde"; ValueType: dword; ValueName: "Installed"; ValueData: 1; Flags: uninsdeletekey
 ; Per-type ProgIDs matching the runtime registration (FileAssociations.cpp).
 ; The icons are the document icons embedded in fbide.exe (app.rc): index 1 = bas,
 ; 2 = bi, 3 = fbs (0 is the app icon).

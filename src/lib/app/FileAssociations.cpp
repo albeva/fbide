@@ -51,9 +51,28 @@ auto setIfChanged(const wxString& path, const wxString& name, const wxString& va
     return true;
 }
 
+/// True when FBIde was placed by the Windows installer, which records an
+/// `Installed` marker under `Software\FBIde` and owns the file associations
+/// (registered from the setup wizard, honouring the user's per-type choices).
+/// Checked in both hives: an all-users install writes HKLM, a per-user install
+/// writes HKCU. When set, the runtime must not self-register, or it would
+/// re-assert .bas/.bi every launch and undo an opt-out.
+auto installedByInstaller() -> bool {
+    const wxRegKey hklm(wxRegKey::HKLM, "Software\\FBIde");
+    const wxRegKey hkcu(wxRegKey::HKCU, "Software\\FBIde");
+    return hklm.HasValue("Installed") || hkcu.HasValue("Installed");
+}
+
 } // namespace
 
 void FileAssociations::ensureRegistered() {
+    // Installed builds let the installer own the associations — skip runtime
+    // self-registration there. Portable (zip) builds carry no marker and
+    // self-register the per-user associations below.
+    if (installedByInstaller()) {
+        return;
+    }
+
     const wxString exe = wxStandardPaths::Get().GetExecutablePath();
     const wxString classes = "Software\\Classes\\";
     bool changed = false;

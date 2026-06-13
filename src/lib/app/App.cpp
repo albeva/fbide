@@ -307,14 +307,12 @@ auto App::OnInit() -> bool {
 
     m_context->getUIManager().createMainFrame();
 #ifdef __WXMSW__
-    // Portable (zip) builds self-register per-user associations so .bas/.bi/.fbs
-    // show FBIde's icons and open with FBIde. Installed builds carry the READONLY
-    // sentinel and let the installer own associations (honouring the user's
-    // per-type choices in the setup wizard), so skip runtime registration there —
-    // otherwise it would re-assert .bas/.bi every launch and undo an opt-out.
-    if (!configManager.isReadOnlyIde()) {
-        FileAssociations::ensureRegistered();
-    }
+    // Register per-user associations so .bas/.bi/.fbs show FBIde's icons and open
+    // with FBIde. ensureRegistered() self-skips on installed builds (the installer
+    // records a marker under Software\FBIde and owns the associations, honouring
+    // the user's per-type choices in the setup wizard); portable (zip) builds
+    // carry no marker and register.
+    FileAssociations::ensureRegistered();
 #elifdef __WXGTK__
     // AppImage self-integration: publish the desktop entry, MIME types and
     // icons into ~/.local/share so .bas/.bi/.fbs associate with FBIde.
