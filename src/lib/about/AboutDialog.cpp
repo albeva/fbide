@@ -86,10 +86,11 @@ void AboutDialog::create() {
 }
 
 auto AboutDialog::loadAbout() const -> wxString {
+    const wxString locale = m_ctx.getConfigManager().getLocale();
     // ide/readme.md ships with {{...}} placeholders filled here at load time, so
     // the running binary — not a possibly-stale generated file — is the source
     // of truth (someone may swap fbide and keep an old ide/ folder beside it).
-    const auto path = m_ctx.getConfigManager().absolute("readme.md");
+    const auto path = m_ctx.getConfigManager().absolute("locales/about_" + locale + ".md");
     wxString content;
     if (wxFile file(path); file.IsOpened()) {
         file.ReadAll(&content);

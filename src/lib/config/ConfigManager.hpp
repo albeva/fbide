@@ -118,6 +118,9 @@ public:
     /// expressed as a command-line prefix (currently macOS).
     [[nodiscard]] auto getTerminalLauncher() -> wxString;
 
+    /// Get active locale name. E.g. "en" or "et"
+    [[nodiscard]] auto getLocale() -> wxString;
+
     /// Platform default for `compiler.terminal` — used when the config
     /// key is missing or empty.
     [[nodiscard]] static auto getDefaultTerminalLauncher() -> wxString;

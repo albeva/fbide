@@ -258,6 +258,15 @@ auto ConfigManager::getTerminalLauncher() -> wxString {
     return config().get_or("compiler.terminal", getDefaultTerminalLauncher());
 }
 
+auto ConfigManager::getLocale() -> wxString {
+    const auto name = config().get_or("locale", "");
+    if (name.empty()) {
+        return wxEmptyString;
+    }
+    const wxFileName file { name };
+    return file.GetName();
+}
+
 auto ConfigManager::getDefaultTerminalLauncher() -> wxString {
 #ifdef __WXMSW__
     // `cmd /C` runs the program in a new console window allocated by
