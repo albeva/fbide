@@ -146,6 +146,16 @@ private:
     /// "Unfocus" while focused; "Focus" (only when a folder is selected) while
     /// showing the full tree.
     void updateFocusButton();
+#ifdef __WXOSX__
+    /// macOS: replace the generic dir-ctrl tree icons with native (NSWorkspace)
+    /// file-type icons. `reiconTree` walks the whole visible tree; the others do
+    /// one node / item. Icons are cached per extension in `m_fileIconIndex`.
+    void reiconTree();
+    void reiconChildren(wxTreeItemId parent);
+    void reiconItem(wxTreeItemId item);
+    /// Image-list index for a native icon, creating and caching it on first use.
+    [[nodiscard]] auto nativeIconIndex(const wxString& ext, bool isDir) -> int;
+#endif
 
     /// Create `name` in `dir` as an empty file; returns its full path, or ""
     /// on an invalid/conflicting name or I/O failure (an error is shown).
@@ -175,6 +185,12 @@ private:
     std::set<wxString> m_watchedDirs;                  ///< Folders currently watched (the expanded ones).
     std::set<wxString> m_pendingDirs;                  ///< Changed folders awaiting a debounced refresh.
     bool m_suppressWatch = false;                      ///< Ignore expand/collapse churn during a rebuild.
+#ifdef __WXOSX__
+    /// Cached native folder icon (image-list index); -1 until first built.
+    int m_folderIconIndex = -1;
+    /// Lowercased extension -> native file-icon image-list index.
+    std::unordered_map<wxString, int> m_fileIconIndex;
+#endif
 
     wxDECLARE_EVENT_TABLE();
 };

@@ -162,6 +162,7 @@ target_sources(fbide_lib
     settings/panels/ThemePage.hpp
     sidebar/FileBrowser.hpp
     sidebar/FocusableDirCtrl.hpp
+    sidebar/MacFileIcons.hpp
     sidebar/SideBarManager.hpp
     sidebar/SymbolBrowser.hpp
     sidebar/SymbolBrowserPanel.hpp
@@ -197,6 +198,18 @@ target_link_libraries(fbide_lib
     PRIVATE compiler_options compiler_warnings
 )
 linkWxWidgets(fbide_lib)
+
+# macOS: native file-browser icons (NSWorkspace). Obj-C++ source, compiled
+# without the C++ PCH and with ARC; needs the UniformTypeIdentifiers framework
+# (AppKit comes via wxWidgets, but list it for clarity).
+if (APPLE)
+    target_sources(fbide_lib PRIVATE sidebar/MacFileIcons.mm)
+    set_source_files_properties(sidebar/MacFileIcons.mm PROPERTIES
+        SKIP_PRECOMPILE_HEADERS ON
+        COMPILE_OPTIONS "-fobjc-arc"
+    )
+    target_link_libraries(fbide_lib PUBLIC "-framework AppKit" "-framework UniformTypeIdentifiers")
+endif ()
 
 # nlohmann/json — header-only; added as a SYSTEM include so its headers are
 # exempt from the project's -Werror / /WX warning level.

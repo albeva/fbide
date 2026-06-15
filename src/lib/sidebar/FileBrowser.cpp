@@ -6,6 +6,9 @@
 //
 #include "FileBrowser.hpp"
 #include "FocusableDirCtrl.hpp"
+#ifdef __WXOSX__
+#include "MacFileIcons.hpp"
+#endif
 #include <wx/artprov.h>
 #include <wx/config.h>
 #include <wx/dirctrl.h>
@@ -77,6 +80,11 @@ FileBrowser::FileBrowser(wxWindow* parent, Context& ctx)
     // from the inner tree control to this panel (see the table comment).
     m_refreshTimer.SetOwner(this);
     updateFocusButton(); // initial state: full tree, nothing selected
+#ifdef __WXOSX__
+    // Swap the generic tree icons for native Finder icons once the tree is
+    // realized (deferred so the image list + DPI scale are ready).
+    CallAfter([this] { reiconTree(); });
+#endif
 }
 
 FileBrowser::~FileBrowser() {
@@ -133,6 +141,11 @@ void FileBrowser::onItemExpanded(wxTreeEvent& event) {
     if (!m_suppressWatch && m_dirCtrl != nullptr) {
         watchFolder(m_dirCtrl->GetPath(event.GetItem()));
     }
+#ifdef __WXOSX__
+    if (m_dirCtrl != nullptr) {
+        reiconChildren(event.GetItem()); // native icons for the freshly-shown children
+    }
+#endif
 }
 
 void FileBrowser::onItemCollapsing(wxTreeEvent& event) {
@@ -708,6 +721,9 @@ void FileBrowser::focusFolder(const wxString& dir) {
         m_suppressWatch = false;
     }
     updateFocusButton();
+#ifdef __WXOSX__
+    CallAfter([this] { reiconTree(); }); // re-icon the rebuilt tree
+#endif
     // The tree was rebuilt with a fresh expansion — re-establish the watch set.
     if (m_fsWatcher != nullptr) {
         setWatchEnabled(false);
@@ -744,6 +760,9 @@ void FileBrowser::unfocus() {
         }
     }
     updateFocusButton();
+#ifdef __WXOSX__
+    CallAfter([this] { reiconTree(); }); // re-icon the rebuilt tree
+#endif
     if (m_fsWatcher != nullptr) {
         setWatchEnabled(false);
         setWatchEnabled(true);
@@ -867,3 +886,80 @@ void FileBrowser::copyToClipboard(const wxString& text) {
         wxTheClipboard->Close();
     }
 }
+
+#ifdef __WXOSX__
+void FileBrowser::reiconTree() {
+    if (m_dirCtrl == nullptr) {
+        return;
+    }
+    const auto* tree = m_dirCtrl->GetTreeCtrl();
+    if (tree == nullptr || tree->GetImageList() == nullptr) {
+        return;
+    }
+    const std::function<void(const wxTreeItemId&)> walk = [&](const wxTreeItemId& node) {
+        wxTreeItemIdValue cookie;
+        for (auto child = tree->GetFirstChild(node, cookie); child.IsOk(); child = tree->GetNextChild(node, cookie)) {
+            reiconItem(child);
+            if (tree->IsExpanded(child)) {
+                walk(child);
+            }
+        }
+    };
+    walk(tree->GetRootItem());
+}
+
+void FileBrowser::reiconChildren(const wxTreeItemId parent) {
+    const auto* tree = m_dirCtrl->GetTreeCtrl();
+    if (tree == nullptr || tree->GetImageList() == nullptr) {
+        return;
+    }
+    wxTreeItemIdValue cookie;
+    for (auto child = tree->GetFirstChild(parent, cookie); child.IsOk(); child = tree->GetNextChild(parent, cookie)) {
+        reiconItem(child);
+    }
+}
+
+void FileBrowser::reiconItem(const wxTreeItemId item) {
+    const wxString path = m_dirCtrl->GetPath(item);
+    if (path.IsEmpty()) {
+        return;
+    }
+    const bool isDir = wxFileName::DirExists(path);
+    const wxString ext = isDir ? wxString {} : wxFileName(path).GetExt().Lower();
+    const int index = nativeIconIndex(ext, isDir);
+    if (index < 0) {
+        return;
+    }
+    auto* tree = m_dirCtrl->GetTreeCtrl();
+    tree->SetItemImage(item, index, wxTreeItemIcon_Normal);
+    if (isDir) {
+        tree->SetItemImage(item, index, wxTreeItemIcon_Expanded);
+    }
+}
+
+auto FileBrowser::nativeIconIndex(const wxString& ext, const bool isDir) -> int {
+    if (isDir && m_folderIconIndex >= 0) {
+        return m_folderIconIndex;
+    }
+    if (!isDir) {
+        if (const auto it = m_fileIconIndex.find(ext); it != m_fileIconIndex.end()) {
+            return it->second;
+        }
+    }
+    auto* images = m_dirCtrl->GetTreeCtrl()->GetImageList();
+    int width = 16;
+    int height = 16;
+    images->GetSize(0, width, height);
+    const wxBitmap bmp = isDir ? nativeFolderIcon(width) : nativeFileIcon(ext, width);
+    if (!bmp.IsOk()) {
+        return -1;
+    }
+    const int index = images->Add(bmp);
+    if (isDir) {
+        m_folderIconIndex = index;
+    } else {
+        m_fileIconIndex.emplace(ext, index);
+    }
+    return index;
+}
+#endif // __WXOSX__
