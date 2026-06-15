@@ -303,6 +303,9 @@ void FileBrowser::restoreState(const State& state) {
         m_suppressWatch = false;
     }
     updateFocusButton();
+#ifdef __WXOSX__
+    CallAfter([this] { reiconTree(); }); // native icons for the restored (e.g. focused) tree
+#endif
     // Re-establish the watch set for the restored expansion, if currently watching.
     if (m_fsWatcher != nullptr) {
         setWatchEnabled(false);
