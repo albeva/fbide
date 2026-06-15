@@ -794,7 +794,12 @@ void FileBrowser::onFocusButton(wxCommandEvent& /*event*/) {
 
 void FileBrowser::onSelectionChanged(wxTreeEvent& event) {
     event.Skip();
-    updateFocusButton();
+    // m_dirCtrl can still be null here: the tree fires a selection-changed from
+    // inside its own construction (ExpandRoot), before the m_dirCtrl assignment
+    // in the constructor. updateFocusButton() dereferences m_dirCtrl.
+    if (m_dirCtrl != nullptr) {
+        updateFocusButton();
+    }
 }
 
 void FileBrowser::updateFocusButton() {

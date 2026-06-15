@@ -17,6 +17,7 @@
 - Redesigned the About dialog.
 - Statically linked the CRT into the x86/x64 Windows builds so they run without the VC++ redistributable.
 - Fixed an operator (e.g. `,`) before a `&h`/`&o`/`&b` number swallowing its prefix and mis-highlighting the number (#111).
+- Fixed a crash on startup when the file browser's tree fired a selection change during its own construction.
 
 # Changes since 0.5.0-rc.5
 
