@@ -98,6 +98,7 @@ void DocumentManager::openFile() {
         m_ctx.getConfigManager().filePatterns({ "fbide", "properties", "markdown", "batch", "bash", "makefile", "json", "css", "text", "all" }),
         wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE
     );
+    dlg.SetFilterIndex(0); // pre-select the FBIde group (first filter) as the default
 
     if (dlg.ShowModal() != wxID_OK) {
         return;
@@ -388,6 +389,7 @@ auto DocumentManager::saveFileAs(Document& doc) -> bool {
         filter,
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
     );
+    dlg.SetFilterIndex(0); // default to the document's type filter (FreeBASIC for new docs), not All files
 
     if (dlg.ShowModal() != wxID_OK) {
         return false;
