@@ -702,10 +702,14 @@ void FBSciLexer::lexPreprocessor() noexcept {
         return;
     }
 
-    // continuation `_`
+    // continuation `_` — but not a `##_##` token-paste operand, where the
+    // underscore is a literal identifier character being concatenated
+    // (`A##_##B` → `A_B`), not a line continuation (issue #115).
     if (m_sc->ch == '_'
         && not isIdentifier(m_sc->chPrev)
-        && not isIdentifier(m_sc->chNext)) {
+        && not isIdentifier(m_sc->chNext)
+        && not(m_sc->chPrev == '#' && m_sc->GetRelative(-2) == '#'
+               && m_sc->chNext == '#' && m_sc->GetRelative(2) == '#')) {
         m_lineState.continuePP = true;
         m_sc->SetState(+Comment);
         return;

@@ -620,6 +620,17 @@ TEST_F(FBSciLexerTests, PreprocessorBlockBodyKeywordsHighlight) {
     );
 }
 
+TEST_F(FBSciLexerTests, PreprocessorTokenPasteUnderscore) {
+    // Issue #115: `_` inside a `##_##` token-paste is a literal identifier
+    // character being concatenated (`a##_##b` → `a_b`), not a line
+    // continuation. It must style as IdentifierPP, not a continuation comment,
+    // and must not bleed PP state onto the next line.
+    expectStyles(
+        "#define X a##_##b\n",
+        "#kkkkkk#i#ippippi "
+    );
+}
+
 // endregion
 
 // region ---------- Field Access ----------
