@@ -931,9 +931,14 @@ void FileBrowser::reiconItem(const wxTreeItemId item) {
         return;
     }
     auto* tree = m_dirCtrl->GetTreeCtrl();
+    // Set every state: wxGenericDirCtrl gives a directory a distinct selected
+    // (open-folder) image, so a selected node — e.g. the focus root — would keep
+    // its stock icon if only Normal were set.
     tree->SetItemImage(item, index, wxTreeItemIcon_Normal);
+    tree->SetItemImage(item, index, wxTreeItemIcon_Selected);
     if (isDir) {
         tree->SetItemImage(item, index, wxTreeItemIcon_Expanded);
+        tree->SetItemImage(item, index, wxTreeItemIcon_SelectedExpanded);
     }
 }
 
