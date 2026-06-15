@@ -947,27 +947,6 @@ void DocumentManager::handleExternalDelete(const std::filesystem::path& path) {
     }
 }
 
-auto DocumentManager::isSupportedFile(const wxString& filename) const -> bool {
-    auto& cfg = m_ctx.getConfigManager();
-    const wxString name = filename.Lower(); // globs are stored lowercase
-    const auto matchesKey = [&](const std::string_view key) {
-        for (wxString rest = cfg.fileGlob(wxString(key.data(), key.size())); !rest.IsEmpty();) {
-            const wxString glob = rest.BeforeFirst(';');
-            rest = rest.AfterFirst(';');
-            if (!glob.IsEmpty() && wxMatchWild(glob.Lower(), name, false)) {
-                return true;
-            }
-        }
-        return false;
-    };
-    for (const auto key : kEditorFileTypeKeys) {
-        if (matchesKey(key)) {
-            return true;
-        }
-    }
-    return matchesKey("session"); // fbide opens its own .fbs session files
-}
-
 auto DocumentManager::findByPath(const wxString& path) const -> Document* {
     return findByPath(toFsPath(path));
 }

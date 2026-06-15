@@ -77,7 +77,6 @@ FileBrowser::FileBrowser(wxWindow* parent, Context& ctx)
     // from the inner tree control to this panel (see the table comment).
     m_refreshTimer.SetOwner(this);
     updateFocusButton(); // initial state: full tree, nothing selected
-    buildSupportedExtensions();
 }
 
 FileBrowser::~FileBrowser() {
@@ -555,41 +554,10 @@ void FileBrowser::openNode(const wxString& path) {
     }
 }
 
-void FileBrowser::buildSupportedExtensions() {
-    // Flatten the editor file-type globs into a set of extensions so the open
-    // action and context menu can test membership directly. Only "*.ext" globs
-    // map to an extension; bare-name patterns (e.g. "Makefile") have none and are
-    // skipped. Fold to lowercase on a case-insensitive filesystem so a lookup of
-    // the on-disk extension matches what we stored.
-    const bool fold = !wxFileName::IsCaseSensitive();
-    auto& cfg = m_ctx.getConfigManager();
-    const auto addGlobs = [&](const std::string_view key) {
-        for (wxString rest = cfg.fileGlob(wxString(key.data(), key.size())); !rest.IsEmpty();) {
-            const wxString glob = rest.BeforeFirst(';');
-            rest = rest.AfterFirst(';');
-            if (glob.StartsWith("*.")) {
-                wxString ext = glob.AfterLast('.');
-                if (fold) {
-                    ext.MakeLower();
-                }
-                if (!ext.IsEmpty()) {
-                    m_supportedExtensions.insert(ext);
-                }
-            }
-        }
-    };
-    for (const auto key : kEditorFileTypeKeys) {
-        addGlobs(key);
-    }
-    addGlobs("session"); // fbide opens its own .fbs session files
-}
-
 auto FileBrowser::isSupportedFile(const wxString& path) const -> bool {
-    wxString ext = wxFileName(path).GetExt();
-    if (!wxFileName::IsCaseSensitive()) {
-        ext.MakeLower();
-    }
-    return !ext.IsEmpty() && m_supportedExtensions.contains(ext);
+    // Match the bare name against the editor-type globs (Makefile, README, etc.
+    // are extensionless), delegating to the single matcher next to the patterns.
+    return m_ctx.getConfigManager().isEditorFile(wxFileName(path).GetFullName());
 }
 
 void FileBrowser::renameNode(const wxString& path) {

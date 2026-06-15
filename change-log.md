@@ -19,6 +19,7 @@
 - Fixed an operator (e.g. `,`) before a `&h`/`&o`/`&b` number swallowing its prefix and mis-highlighting the number (#111).
 - Fixed a crash on startup when the file browser's tree fired a selection change during its own construction.
 - Fixed `_` in a `##_##` preprocessor token-paste being mis-lexed as a line continuation (#115).
+- Added opening common extensionless files (Makefile, README, LICENSE, …) directly in fbide from the file browser (#114).
 
 # Changes since 0.5.0-rc.5
 

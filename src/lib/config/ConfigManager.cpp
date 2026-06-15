@@ -759,6 +759,26 @@ auto ConfigManager::fileGlob(const wxString& key) -> wxString {
     return config().at("filePatterns").get_or(key, "");
 }
 
+auto ConfigManager::isEditorFile(const wxString& filename) -> bool {
+    const wxString name = filename.Lower(); // globs are stored lowercase
+    const auto matchesKey = [&](const std::string_view key) {
+        for (wxString rest = fileGlob(wxString(key.data(), key.size())); !rest.IsEmpty();) {
+            const wxString glob = rest.BeforeFirst(';');
+            rest = rest.AfterFirst(';');
+            if (!glob.IsEmpty() && wxMatchWild(glob.Lower(), name, false)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    for (const auto key : kEditorFileTypeKeys) {
+        if (matchesKey(key)) {
+            return true;
+        }
+    }
+    return matchesKey("session"); // fbide opens its own .fbs session files
+}
+
 // ---------------------------------------------------------------------------
 // Path handling
 // ---------------------------------------------------------------------------
