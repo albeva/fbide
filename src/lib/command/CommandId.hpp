@@ -38,7 +38,6 @@ enum class CommandId : wxWindowID {
     SaveAll,
     FileHistory,
     SessionNew,
-    SessionLoad,
     SessionClose,
     CloseAll,
     SelectLine,

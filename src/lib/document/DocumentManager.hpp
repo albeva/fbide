@@ -167,10 +167,6 @@ public:
     /// the open documents (replacing any previous one). The file is written when
     /// the session is closed or the app quits.
     void newSession();
-    /// Load Session: narrow the open dialog to `.fbs`, then hand the chosen file
-    /// to `openFile` — which recognises a session and activates it. No load logic
-    /// of its own beyond the dialog filter.
-    void loadSession();
     /// Close Session: save the active session and deactivate it, leaving the
     /// open documents untouched. No-op when no session is active.
     void closeSession();

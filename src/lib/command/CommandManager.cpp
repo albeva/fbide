@@ -40,7 +40,6 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     EVT_MENU(+CommandId::NewWindow,    CommandManager::onNewWindow)
     EVT_MENU(+CommandId::Quit,         CommandManager::onQuit)
     EVT_MENU(+CommandId::SessionNew,   CommandManager::onSessionNew)
-    EVT_MENU(+CommandId::SessionLoad,  CommandManager::onSessionLoad)
     EVT_MENU(+CommandId::SessionClose, CommandManager::onSessionClose)
     EVT_MENU_RANGE(wxID_FILE1, wxID_FILE9, CommandManager::onFileHistory)
 
@@ -143,7 +142,6 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .id = +CommandId::SelectAll,        .name="selectAll" },
         CommandEntry { .id = +CommandId::SelectLine,       .name="selectLine" },
         CommandEntry { .id = +CommandId::SessionNew,       .name="sessionNew" },
-        CommandEntry { .id = +CommandId::SessionLoad,      .name="sessionLoad" },
         CommandEntry { .id = +CommandId::SessionClose,     .name="sessionClose", .enabled = false },
         CommandEntry { .id = +CommandId::ShowExitCode,     .name="showExitCode", .kind = wxITEM_CHECK },
         CommandEntry { .id = +CommandId::Subs,             .name="viewSubs" },
@@ -240,10 +238,6 @@ void CommandManager::onQuit(wxCommandEvent&) {
 
 void CommandManager::onSessionNew(wxCommandEvent&) {
     m_ctx.getDocumentManager().newSession();
-}
-
-void CommandManager::onSessionLoad(wxCommandEvent&) {
-    m_ctx.getDocumentManager().loadSession();
 }
 
 void CommandManager::onSessionClose(wxCommandEvent&) {

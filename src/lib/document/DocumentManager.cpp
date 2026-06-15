@@ -32,19 +32,6 @@ const wxWindowID kTabCloseOthersId = wxNewId();
 const wxWindowID kTabShowInBrowserId = wxNewId();
 const wxWindowID kTabReloadFromDiskId = wxNewId();
 
-/// File dialog → the session path to load, or empty when cancelled. Lives here
-/// (not on FileSession) because DocumentManager owns the load/save triggering.
-auto promptLoadSessionPath(Context& ctx) -> wxString {
-    wxFileDialog dlg(
-        ctx.getUIManager().getMainFrame(),
-        ctx.tr("files.loadTitle"),
-        "", wxString(".") + SESSION_EXT,
-        ctx.getConfigManager().filePattern("session"),
-        wxFD_FILE_MUST_EXIST
-    );
-    return dlg.ShowModal() == wxID_OK ? dlg.GetPath() : wxString {};
-}
-
 /// File dialog → the session path to save to, or empty when cancelled.
 auto promptSaveSessionPath(Context& ctx) -> wxString {
     wxFileDialog dlg(
@@ -108,7 +95,7 @@ void DocumentManager::openFile() {
         m_ctx.tr("files.loadTitle"),
         "",
         ".bas",
-        m_ctx.getConfigManager().filePatterns({ "freebasic", "properties", "markdown", "batch", "bash", "makefile", "json", "css", "text", "all" }),
+        m_ctx.getConfigManager().filePatterns({ "fbide", "properties", "markdown", "batch", "bash", "makefile", "json", "css", "text", "all" }),
         wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE
     );
 
@@ -804,14 +791,6 @@ void DocumentManager::newSession() {
 
     startSession(path); // active from now; its file is written when it closes
     m_ctx.getFileHistory().addFile(path);
-}
-
-void DocumentManager::loadSession() {
-    // The command only narrows the open dialog to `.fbs`; opening the chosen
-    // file runs the normal openFile path, which recognises and activates it.
-    if (const wxString path = promptLoadSessionPath(m_ctx); !path.empty()) {
-        openFile(path);
-    }
 }
 
 void DocumentManager::closeSession() {

@@ -20,6 +20,8 @@
 - Fixed a crash on startup when the file browser's tree fired a selection change during its own construction.
 - Fixed `_` in a `##_##` preprocessor token-paste being mis-lexed as a line continuation (#115).
 - Added opening common extensionless files (Makefile, README, LICENSE, …) directly in fbide from the file browser (#114).
+- Changed the Open dialog's default filter to FBIde (`*.bas`, `*.bi`, `*.fbs`) so session files load from the standard Open dialog.
+- Removed "Load Session" from the File menu — open a `.fbs` via the normal Open dialog instead.
 
 # Changes since 0.5.0-rc.5
 
