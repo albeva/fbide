@@ -29,6 +29,32 @@ TEST(EditorTests, MultilineRoundTrip) {
     EXPECT_EQ(shim.editor().GetLineCount(), 4);
 }
 
+// ---------------------------------------------------------------------------
+// Comment / uncomment must not change the selection. With no selection the
+// caret simply follows the inserted/removed prefix — the whole line is NOT
+// selected afterwards (#113).
+// ---------------------------------------------------------------------------
+
+TEST(EditorTests, CommentWithoutSelectionDoesNotSelectLine) {
+    EditorTestShim shim;
+    shim.setText("Print 1");
+    auto& editor = shim.editor();
+    editor.SetSelection(3, 3); // caret mid-line, empty selection
+    editor.commentSelection();
+    EXPECT_EQ(shim.getText(), "'Print 1");
+    EXPECT_EQ(editor.GetSelectionStart(), editor.GetSelectionEnd());
+}
+
+TEST(EditorTests, UncommentWithoutSelectionDoesNotSelectLine) {
+    EditorTestShim shim;
+    shim.setText("'Print 1");
+    auto& editor = shim.editor();
+    editor.SetSelection(4, 4);
+    editor.uncommentSelection();
+    EXPECT_EQ(shim.getText(), "Print 1");
+    EXPECT_EQ(editor.GetSelectionStart(), editor.GetSelectionEnd());
+}
+
 TEST(EditorTests, CaseTransformOnWordBoundary) {
     EditorTestShim shim;
     shim.run([&] {
@@ -278,4 +304,92 @@ TEST(EditorTests, AutoIndentDedentsOverIndentedCloser) {
         "    IF x THEN\n"
         "    END IF\n"
         "    ");
+}
+
+TEST(EditorTests, CommentPreservesPartialSelection) {
+    EditorTestShim shim;
+    shim.setText("foobar");
+    auto& editor = shim.editor();
+    editor.SetSelection(1, 3); // "oo"
+    editor.commentSelection();
+    EXPECT_EQ(shim.getText(), "'foobar");
+    EXPECT_EQ(editor.GetSelectedText(), "oo"); // selection tracks the same text
+}
+
+TEST(EditorTests, UncommentPreservesPartialSelection) {
+    EditorTestShim shim;
+    shim.setText("'foobar");
+    auto& editor = shim.editor();
+    editor.SetSelection(2, 4); // "oo" (after the leading quote)
+    editor.uncommentSelection();
+    EXPECT_EQ(shim.getText(), "foobar");
+    EXPECT_EQ(editor.GetSelectedText(), "oo");
+}
+
+TEST(EditorTests, CommentUncommentRoundTripRestoresSelection) {
+    EditorTestShim shim;
+    shim.setText("foo\nbar");
+    auto& editor = shim.editor();
+    editor.SetSelection(0, 7); // both lines' content
+    editor.commentSelection();
+    EXPECT_EQ(shim.getText(), "'foo\n'bar");
+    editor.uncommentSelection();
+    EXPECT_EQ(shim.getText(), "foo\nbar");
+    EXPECT_EQ(editor.GetSelectedText(), "foo\nbar"); // original selection restored
+}
+
+TEST(EditorTests, CommentUncommentWholeLineMultiSelectionRoundTrip) {
+    EditorTestShim shim;
+    shim.setText("aaa\nbbb\nccc\n");
+    auto& editor = shim.editor();
+    editor.SetSelection(0, 8); // whole lines 0-1; caret rests at the start of line 2
+    editor.commentSelection();
+    EXPECT_EQ(shim.getText(), "'aaa\n'bbb\nccc\n"); // line 2 must stay untouched
+    editor.uncommentSelection();
+    EXPECT_EQ(shim.getText(), "aaa\nbbb\nccc\n");
+    EXPECT_EQ(editor.GetSelectionStart(), 0);
+    EXPECT_EQ(editor.GetSelectionEnd(), 8); // original selection restored
+}
+
+TEST(EditorTests, CommentBackwardSelectionKeepsDirection) {
+    EditorTestShim shim;
+    shim.setText("foobar");
+    auto& editor = shim.editor();
+    editor.SetAnchor(3);
+    editor.SetCurrentPos(1); // backward "oo": caret at the front
+    editor.commentSelection();
+    EXPECT_EQ(shim.getText(), "'foobar");
+    EXPECT_EQ(editor.GetSelectedText(), "oo");
+    EXPECT_EQ(editor.GetCurrentPos(), editor.GetSelectionStart()); // caret still leads
+}
+
+TEST(EditorTests, CommentBackwardMultilineKeepsDirectionRoundTrip) {
+    EditorTestShim shim;
+    shim.setText("aaa\nbbb\n");
+    auto& editor = shim.editor();
+    editor.SetAnchor(7);     // end of "bbb"
+    editor.SetCurrentPos(0); // backward: caret at the very front
+    editor.commentSelection();
+    EXPECT_EQ(shim.getText(), "'aaa\n'bbb\n");
+    EXPECT_EQ(editor.GetCurrentPos(), editor.GetSelectionStart());
+    editor.uncommentSelection();
+    EXPECT_EQ(shim.getText(), "aaa\nbbb\n");
+    EXPECT_EQ(editor.GetCurrentPos(), editor.GetSelectionStart());
+}
+
+TEST(EditorTests, CommentRectangularSelectionStaysRectangularRoundTrip) {
+    EditorTestShim shim;
+    shim.setText("aaa\nbbb\nccc\n");
+    auto& editor = shim.editor();
+    editor.SetSelectionMode(wxSTC_SEL_RECTANGLE);
+    editor.SetRectangularSelectionAnchor(0);
+    editor.SetRectangularSelectionCaret(6); // block across lines 0-1
+    editor.commentSelection();
+    EXPECT_EQ(shim.getText(), "'aaa\n'bbb\nccc\n");
+    EXPECT_TRUE(editor.SelectionIsRectangle()); // block kept, not flattened to a stream
+    editor.uncommentSelection();
+    EXPECT_EQ(shim.getText(), "aaa\nbbb\nccc\n");
+    EXPECT_TRUE(editor.SelectionIsRectangle());
+    EXPECT_EQ(editor.GetRectangularSelectionAnchor(), 0); // original block restored
+    EXPECT_EQ(editor.GetRectangularSelectionCaret(), 6);
 }

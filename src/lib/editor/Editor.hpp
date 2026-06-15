@@ -116,6 +116,22 @@ public:
     static constexpr int kModifiedMarker = 1;
 
 private:
+    /// Selection captured before a line-prefix edit (comment/uncomment) so it
+    /// can be restored afterwards, preserving direction (anchor vs caret) and
+    /// type (stream vs rectangular block).
+    struct SavedSelection {
+        bool rectangular;
+        int anchor;
+        int caret;
+        int anchorLine;
+        int caretLine;
+    };
+    /// Snapshot the current selection.
+    [[nodiscard]] auto captureSelection() const -> SavedSelection;
+    /// Re-apply a snapshot with already-shifted endpoints, keeping its type and
+    /// direction.
+    void applySelection(const SavedSelection& saved, int newAnchor, int newCaret);
+
     /// Margin click — toggle folds on the fold margin.
     void onMarginClick(wxStyledTextEvent& event);
     /// Buffer modified — restart intellisense timer; route bulk inserts;

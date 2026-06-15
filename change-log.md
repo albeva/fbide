@@ -23,6 +23,7 @@
 - Changed the Open dialog's default filter to FBIde (`*.bas`, `*.bi`, `*.fbs`) so session files load from the standard Open dialog.
 - Removed "Load Session" from the File menu — open a `.fbs` via the normal Open dialog instead.
 - Added native file/folder icons to the macOS file browser, replacing the generic monotone icons.
+- Fixed Comment/Uncomment changing the text selection — the selection (or caret) is now preserved relative to the edited text (#113).
 
 # Changes since 0.5.0-rc.5
 

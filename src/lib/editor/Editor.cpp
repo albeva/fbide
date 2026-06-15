@@ -746,42 +746,126 @@ void Editor::navigateToLine(const int line) {
     EnsureCaretVisible();
 }
 
-void Editor::commentSelection() {
-    const auto lineStart = LineFromPosition(GetSelectionStart());
-    const auto lineEnd = LineFromPosition(GetSelectionEnd());
+auto Editor::captureSelection() const -> SavedSelection {
+    const bool rectangular = SelectionIsRectangle();
+    const int anchor = rectangular ? GetRectangularSelectionAnchor() : GetAnchor();
+    const int caret = rectangular ? GetRectangularSelectionCaret() : GetCurrentPos();
+    return { rectangular, anchor, caret, LineFromPosition(anchor), LineFromPosition(caret) };
+}
 
+void Editor::applySelection(const SavedSelection& saved, const int newAnchor, const int newCaret) {
+    if (saved.rectangular) {
+        // SetSelection would flatten a block to a stream selection; rebuild the
+        // rectangle instead (anchor/caret carry its direction).
+        SetSelectionMode(wxSTC_SEL_RECTANGLE);
+        SetRectangularSelectionAnchor(newAnchor);
+        SetRectangularSelectionCaret(newCaret);
+    } else {
+        // SetSelection(from, to) collapses when from > to, dropping a backward
+        // selection; set the anchor and caret directly to keep the direction.
+        SetAnchor(newAnchor);
+        SetCurrentPos(newCaret);
+    }
+}
+
+void Editor::commentSelection() {
+    const auto saved = captureSelection();
+    const bool hadSelection = saved.anchor != saved.caret;
+    const auto lineStart = LineFromPosition(GetSelectionStart());
+    auto lineEnd = LineFromPosition(GetSelectionEnd());
+    // A selection ending at the very start of a line doesn't cover that line, so
+    // don't comment it (common when whole lines are selected).
+    if (lineEnd > lineStart && GetSelectionEnd() == PositionFromLine(lineEnd)) {
+        lineEnd--;
+    }
+
+    // Lock the case transformer for the duration: commenting must neither re-case
+    // keywords nor let the caret-moved handler wipe the selection (issue #113).
+    m_editorLocked = true;
     BeginUndoAction();
     for (auto line = lineStart; line <= lineEnd; line++) {
         InsertText(PositionFromLine(line), "'");
     }
     EndUndoAction();
 
-    SetSelection(PositionFromLine(lineStart), GetLineEndPosition(lineEnd));
+    // Restore the selection (direction + type preserved): shift each end by the
+    // number of commented lines starting at or before it. No selection → the
+    // caret just follows.
+    if (hadSelection) {
+        const auto shift = [lineStart, lineEnd](const int pos, const int line) {
+            return pos + (std::min(line, lineEnd) - lineStart + 1);
+        };
+        applySelection(saved, shift(saved.anchor, saved.anchorLine), shift(saved.caret, saved.caretLine));
+    }
+    m_editorLocked = false;
 }
 
 void Editor::uncommentSelection() {
+    const auto saved = captureSelection();
+    const bool hadSelection = saved.anchor != saved.caret;
     const auto lineStart = LineFromPosition(GetSelectionStart());
-    const auto lineEnd = LineFromPosition(GetSelectionEnd());
+    auto lineEnd = LineFromPosition(GetSelectionEnd());
+    // A selection ending at the very start of a line doesn't cover that line.
+    if (lineEnd > lineStart && GetSelectionEnd() == PositionFromLine(lineEnd)) {
+        lineEnd--;
+    }
 
-    BeginUndoAction();
+    // Capture each line's comment marker (absolute position + length) from the
+    // original text, so both the removal and the selection fix-up use stable
+    // positions. `len == 0` means the line isn't commented.
+    struct Marker {
+        int pos;
+        int len;
+    };
+    std::vector<Marker> markers;
+    markers.reserve(static_cast<std::size_t>(lineEnd - lineStart + 1));
     for (auto line = lineStart; line <= lineEnd; line++) {
         const auto indent = GetLineIndentation(line);
         const auto pos = PositionFromLine(line) + indent;
         const auto text = GetLine(line).Trim(false).Lower();
-
         if (text.StartsWith("rem ") || text.StartsWith("rem\t")) {
-            SetTargetStart(pos);
-            SetTargetEnd(pos + 3);
-            ReplaceTarget("");
+            markers.push_back({ pos, 3 });
         } else if (text.StartsWith("'")) {
-            SetTargetStart(pos);
-            SetTargetEnd(pos + 1);
+            markers.push_back({ pos, 1 });
+        } else {
+            markers.push_back({ pos, 0 });
+        }
+    }
+
+    // Lock the case transformer for the duration (issue #113), then remove
+    // bottom-up so the captured positions stay valid as we go.
+    m_editorLocked = true;
+    BeginUndoAction();
+    for (auto line = lineEnd; line >= lineStart; line--) {
+        const auto& marker = markers[static_cast<std::size_t>(line - lineStart)];
+        if (marker.len > 0) {
+            SetTargetStart(marker.pos);
+            SetTargetEnd(marker.pos + marker.len);
             ReplaceTarget("");
         }
     }
     EndUndoAction();
 
-    SetSelection(PositionFromLine(lineStart), GetLineEndPosition(lineEnd));
+    // Restore the selection (direction + type preserved): shift each end left by
+    // the markers removed before it, clamping if it fell inside one.
+    if (hadSelection) {
+        const auto shift = [&markers](const int pos, int /*line*/) {
+            int delta = 0;
+            for (const auto& marker : markers) {
+                if (marker.len == 0) {
+                    continue;
+                }
+                if (marker.pos + marker.len <= pos) {
+                    delta -= marker.len;
+                } else if (marker.pos < pos) {
+                    delta -= pos - marker.pos;
+                }
+            }
+            return pos + delta;
+        };
+        applySelection(saved, shift(saved.anchor, saved.anchorLine), shift(saved.caret, saved.caretLine));
+    }
+    m_editorLocked = false;
 }
 
 void Editor::onUpdateUI(wxStyledTextEvent& event) {
