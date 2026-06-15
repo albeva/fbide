@@ -776,7 +776,9 @@ auto ConfigManager::isEditorFile(const wxString& filename) -> bool {
             return true;
         }
     }
-    return matchesKey("session"); // fbide opens its own .fbs session files
+    // `session` (.fbs) and the hidden `plaintext` key (extensionless README/
+    // LICENSE/… ) open in fbide but are kept out of the Open/Save dialog filters.
+    return matchesKey("session") || matchesKey("plaintext");
 }
 
 // ---------------------------------------------------------------------------

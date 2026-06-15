@@ -547,8 +547,9 @@ TEST_F(ConfigManagerTests, ExplicitConfigPathBypassesOverlay) {
 
 // ---------------------------------------------------------------------------
 // isEditorFile — "does fbide open this itself?" used by the file browser.
-// Matches the bare name against the editor-type globs (+ session), so both
-// `*.ext` globs and extensionless names (Makefile, README) resolve. Issue #114.
+// Matches the bare name against the editor-type globs, the `session` key, and the
+// hidden `plaintext` key — so `*.ext` globs and extensionless names (Makefile,
+// README) resolve. `plaintext` is matched here but never shown in file dialogs.
 // ---------------------------------------------------------------------------
 
 TEST_F(ConfigManagerTests, IsEditorFileMatchesExtensionsBareNamesAndSession) {
@@ -559,7 +560,8 @@ TEST_F(ConfigManagerTests, IsEditorFileMatchesExtensionsBareNamesAndSession) {
         "freebasic=*.bas;*.bi\n"
         "markdown=*.md\n"
         "makefile=*.mk;Makefile;GNUmakefile\n"
-        "text=*.txt;README;LICENSE\n"
+        "text=*.txt\n"
+        "plaintext=README;LICENSE\n"
         "session=*.fbs\n");
     ConfigManager cm(tmp.path(), tmp.path(), "config.ini");
 
@@ -567,7 +569,7 @@ TEST_F(ConfigManagerTests, IsEditorFileMatchesExtensionsBareNamesAndSession) {
     EXPECT_TRUE(cm.isEditorFile("main.bas"));
     EXPECT_TRUE(cm.isEditorFile("notes.txt"));
     EXPECT_TRUE(cm.isEditorFile("README.md")); // extended name → markdown glob
-    // Extensionless bare-name globs — the issue's regression.
+    // Extensionless names via the hidden `plaintext` key.
     EXPECT_TRUE(cm.isEditorFile("Makefile"));
     EXPECT_TRUE(cm.isEditorFile("GNUmakefile"));
     EXPECT_TRUE(cm.isEditorFile("README"));

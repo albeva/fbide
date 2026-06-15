@@ -228,11 +228,12 @@ public:
     /// absent. Unlike `filePattern`, this is the bare glob, not a dialog filter.
     [[nodiscard]] auto fileGlob(const wxString& key) -> wxString;
 
-    /// True when `filename` matches an editor document-type glob — any
-    /// `kEditorFileTypeKeys` pattern or the `.fbs` session pattern. Matches the
-    /// bare name (so extensionless globs like `Makefile`/`README` work) against
-    /// the lowercased globs, so it is case-insensitive on every platform. Drives
-    /// "open in fbide vs. hand to the OS" in the file browser.
+    /// True when `filename` matches a file type fbide opens itself — any
+    /// `kEditorFileTypeKeys` glob, the `.fbs` session glob, or the hidden
+    /// `plaintext` glob (extensionless README/LICENSE/… kept out of dialogs).
+    /// Matches the bare name against the lowercased globs, so it is
+    /// case-insensitive on every platform. Drives "open in fbide vs. hand to the
+    /// OS" in the file browser.
     [[nodiscard]] auto isEditorFile(const wxString& filename) -> bool;
 
     // -----------------------------------------------------------------------
