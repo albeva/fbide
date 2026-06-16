@@ -28,6 +28,9 @@ using namespace fbide;
 
 namespace {
 constexpr auto SESSION_EXT = "fbs";
+// Case-insensitive path identity (defined with the other path helpers below);
+// declared here for the session-reopen guard in startSession.
+auto samePath(const std::filesystem::path& lhs, const std::filesystem::path& rhs) -> bool;
 const wxWindowID kTabCloseOthersId = wxNewId();
 const wxWindowID kTabShowInBrowserId = wxNewId();
 const wxWindowID kTabReloadFromDiskId = wxNewId();
@@ -772,6 +775,11 @@ void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
 // ---------------------------------------------------------------------------
 
 auto DocumentManager::startSession(const wxString& path) -> FileSession* {
+    // Reopening the already-active session would drop the live one and re-read
+    // it from disk — make it a no-op.
+    if (m_session != nullptr && samePath(toFsPath(m_session->getPath()), toFsPath(path))) {
+        return m_session.get();
+    }
     m_session = std::make_unique<FileSession>(m_ctx, path);
     m_session->load();
     return m_session.get();

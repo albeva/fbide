@@ -25,6 +25,7 @@
 - Added native file/folder icons to the macOS file browser, replacing the generic monotone icons.
 - Fixed Comment/Uncomment changing the text selection — the selection (or caret) is now preserved relative to the edited text (#113).
 - Fixed a keyword right after `.`/`->` followed by a non-identifier (e.g. `->(byref`) losing its highlighting (#112).
+- Fixed reopening the already-active session file reloading it from disk; it's now a no-op.
 
 # Changes since 0.5.0-rc.5
 
