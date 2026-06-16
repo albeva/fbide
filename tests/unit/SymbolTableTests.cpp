@@ -1014,3 +1014,59 @@ TEST_F(SymbolTableTests, MatchIfGroupIgnoresSingleLine) {
         EXPECT_TRUE(table.matchBlockAt(thenPos).empty()); // its Then triggers nothing either
     }
 }
+
+TEST_F(SymbolTableTests, MatchPpIfGroup) {
+    const auto table = extract(
+        "#if A\n"
+        "x = 1\n"
+        "#elseif B\n"
+        "x = 2\n"
+        "#else\n"
+        "x = 3\n"
+        "#endif\n");
+    ASSERT_EQ(table.tree().nodes.size(), 1u);
+    const auto* pp = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(pp, nullptr);
+    ASSERT_TRUE((*pp)->closer.has_value());
+    std::vector<const BlockNode*> branches;
+    for (const auto& child : (*pp)->body) {
+        if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            branches.push_back(b->get());
+        }
+    }
+    ASSERT_EQ(branches.size(), 2u); // #elseif + #else
+
+    const int ifPos = (*pp)->opener->tokens[0].pos;
+    const int endPos = (*pp)->closer->tokens.front().pos;
+    const auto whole = table.matchBlockAt(ifPos);
+    ASSERT_EQ(whole.size(), 4u); // #if + #elseif + #else + #endif
+    EXPECT_EQ(whole.front().first, ifPos);
+    EXPECT_EQ(whole.back().first, endPos);
+    EXPECT_EQ(table.matchBlockAt(endPos), whole); // same group from #endif
+
+    // Caret on a single #elseif -> that branch + #if/#endif pair, no #else.
+    const int elseifPos = branches[0]->opener->tokens[0].pos;
+    const auto single = table.matchBlockAt(elseifPos);
+    ASSERT_EQ(single.size(), 3u);
+    EXPECT_EQ(single.front().first, ifPos);
+    EXPECT_EQ(single.back().first, endPos);
+    bool hasElse = false;
+    for (const auto& sp : single) {
+        if (sp.first == branches[1]->opener->tokens[0].pos) { hasElse = true; }
+    }
+    EXPECT_FALSE(hasElse);
+}
+
+TEST_F(SymbolTableTests, MatchPpIfdefPair) {
+    const auto table = extract(
+        "#ifdef FOO\n"
+        "x = 1\n"
+        "#endif\n");
+    const auto* pp = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(pp, nullptr);
+    const int ifPos = (*pp)->opener->tokens[0].pos; // #ifdef
+    const auto spans = table.matchBlockAt(ifPos);
+    ASSERT_EQ(spans.size(), 2u); // #ifdef + #endif (no branches)
+    EXPECT_EQ(spans.front().first, ifPos);
+    EXPECT_EQ(spans.back().first, (*pp)->closer->tokens.front().pos);
+}

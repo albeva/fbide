@@ -466,8 +466,10 @@ auto selectOpener(const BlockNode& block) -> std::optional<KeywordSpans> {
     return KeywordSpans { tokenRange(toks.front()), std::nullopt };
 }
 
-auto caseKeyword(const BlockNode& branch) -> std::optional<KeywordSpans> {
-    const auto* kw = openerKeywordToken(branch);
+// A single-token keyword span (no secondary): `Case`, and the PP directives
+// `#if` / `#else` / `#endif` (each lexed as one token).
+auto singleKeyword(const BlockNode& block) -> std::optional<KeywordSpans> {
+    const auto* kw = openerKeywordToken(block);
     if (kw == nullptr) {
         return std::nullopt;
     }
@@ -480,6 +482,23 @@ auto isCaseKind(const KeywordKind kind) -> bool {
 
 auto isElseKind(const KeywordKind kind) -> bool {
     return kind == KeywordKind::ElseIf || kind == KeywordKind::Else;
+}
+
+auto isSelectKind(const KeywordKind kind) -> bool {
+    return kind == KeywordKind::Select;
+}
+
+auto isIfKind(const KeywordKind kind) -> bool {
+    return kind == KeywordKind::If;
+}
+
+auto isPpIfKind(const KeywordKind kind) -> bool {
+    return kind == KeywordKind::PpIf || kind == KeywordKind::PpIfDef || kind == KeywordKind::PpIfNDef;
+}
+
+auto isPpElseKind(const KeywordKind kind) -> bool {
+    return kind == KeywordKind::PpElse || kind == KeywordKind::PpElseIf
+        || kind == KeywordKind::PpElseIfDef || kind == KeywordKind::PpElseIfNDef;
 }
 
 // The opener's trailing `Then` (multi-line If / ElseIf), if present.
@@ -525,7 +544,7 @@ auto matchBranchGroup(
     std::vector<std::pair<int, int>>& out,
     const BlockNode* block,
     const int pos,
-    const KeywordKind container,
+    bool (*isContainerKind)(KeywordKind),
     bool (*isBranchKind)(KeywordKind),
     std::optional<KeywordSpans> (*openerOf)(const BlockNode&),
     std::optional<KeywordSpans> (*branchOf)(const BlockNode&)
@@ -534,7 +553,7 @@ auto matchBranchGroup(
         return false;
     }
     const auto isContainer = [&](const BlockNode& node) {
-        return openerKindOf(node) == container && node.closer.has_value();
+        return isContainerKind(openerKindOf(node)) && node.closer.has_value();
     };
     const auto append = [&](const KeywordSpans& spans) {
         out.push_back(spans.primary);
@@ -626,10 +645,14 @@ auto SymbolTable::matchBlockAt(const int pos) const -> const std::vector<std::pa
         return m_matchSpans;
     }
     // Container/branch keywords highlight as a group (Select/Case, If/ElseIf/Else).
-    if (matchBranchGroup(m_matchSpans, block, pos, KeywordKind::Select, isCaseKind, selectOpener, caseKeyword)) {
+    if (matchBranchGroup(m_matchSpans, block, pos, isSelectKind, isCaseKind, selectOpener, singleKeyword)) {
         return m_matchSpans;
     }
-    if (matchBranchGroup(m_matchSpans, block, pos, KeywordKind::If, isElseKind, ifOpener, ifBranch)) {
+    if (matchBranchGroup(m_matchSpans, block, pos, isIfKind, isElseKind, ifOpener, ifBranch)) {
+        return m_matchSpans;
+    }
+    // Preprocessor conditional: #if / #ifdef / #ifndef ... #elseif / #else ... #endif.
+    if (matchBranchGroup(m_matchSpans, block, pos, isPpIfKind, isPpElseKind, singleKeyword, singleKeyword)) {
         return m_matchSpans;
     }
     // Plain opener/closer pair (For/Next, Sub/End Sub, ...). Both must exist, so
