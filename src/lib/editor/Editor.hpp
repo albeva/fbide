@@ -160,8 +160,9 @@ private:
     void updateOccurrenceHighlight();
     /// Remove both occurrence-highlight indicators and reset the cache.
     void clearOccurrenceHighlight();
-    /// Identifier word under the caret eligible for occurrence highlight, or empty
-    /// (selection present, not on an identifier, or shorter than two characters).
+    /// Identifier eligible for occurrence highlight — the word under the caret, or
+    /// the selection when it spans exactly one identifier. Empty on a keyword, a
+    /// partial/multi-token selection, or a word shorter than two characters.
     auto occurrenceWordAtCaret() -> wxString;
     /// Paint both occurrence indicators over every whole-word match of `word`.
     void fillOccurrences(const wxString& word);
@@ -181,6 +182,9 @@ private:
     void onKeyDown(wxKeyEvent& event);
     /// Key up — toggle hotspot styling off when Ctrl is released.
     void onKeyUp(wxKeyEvent& event);
+    /// Mouse click — counts as navigation, so it re-enables occurrence
+    /// highlighting after it was suppressed by typing.
+    void onLeftDown(wxMouseEvent& event);
     /// Editor lost focus — clear hotspot styling so it doesn't linger.
     void onKillFocus(wxFocusEvent& event);
     /// Toggle Scintilla hotspot style on Preprocessor styles.
@@ -238,7 +242,7 @@ private:
     int m_lastCaretPos = 0;               ///< Caret position from previous `onUpdateUI` — backs `onCaretMoved`.
     bool m_callPostUpdate = false;        ///< Latch — triggers `postUpdateUI` on the next tick.
     wxString m_lastHighlightedWord;        ///< Identifier last painted by the occurrence highlighter; empty when none.
-    bool m_textEditedTick = false;         ///< A genuine text edit (insert/delete/undo/redo) this tick — suppresses the occurrence search.
+    bool m_occurrenceSuppressed = false;   ///< Occurrence highlight off after a text edit until the next navigation (arrow key / mouse click).
     /// Accumulated insert span awaiting a coalesced transformer pass.
     /// `m_pendingInsertStart < 0` means nothing pending. A burst of
     /// `EVT_STC_MODIFIED` inserts (multi-line indent, paste) folds into a

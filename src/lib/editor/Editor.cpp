@@ -56,6 +56,20 @@ struct Constants final {
 auto isBrace(const int ch) -> bool {
     return ch == '(' || ch == ')' || ch == '[' || ch == ']' || ch == '{' || ch == '}';
 }
+
+// Caret-movement keys — pressing one is treated as navigation and re-enables
+// occurrence highlighting after it was suppressed by typing.
+auto isNavigationKey(const int code) -> bool {
+    switch (code) {
+    case WXK_LEFT:         case WXK_RIGHT:        case WXK_UP:           case WXK_DOWN:
+    case WXK_HOME:         case WXK_END:          case WXK_PAGEUP:       case WXK_PAGEDOWN:
+    case WXK_NUMPAD_LEFT:  case WXK_NUMPAD_RIGHT: case WXK_NUMPAD_UP:    case WXK_NUMPAD_DOWN:
+    case WXK_NUMPAD_HOME:  case WXK_NUMPAD_END:   case WXK_NUMPAD_PAGEUP:case WXK_NUMPAD_PAGEDOWN:
+        return true;
+    default:
+        return false;
+    }
+}
 } // namespace
 
 // clang-format off
@@ -70,6 +84,7 @@ wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
     EVT_TIMER(wxID_ANY,               Editor::onIntellisenseTimer)
     EVT_KEY_DOWN(Editor::onKeyDown)
     EVT_KEY_UP(Editor::onKeyUp)
+    EVT_LEFT_DOWN(Editor::onLeftDown)
     EVT_KILL_FOCUS(Editor::onKillFocus)
     EVT_SET_FOCUS(Editor::onFocus)
 wxEND_EVENT_TABLE()
@@ -932,7 +947,6 @@ void Editor::postUpdateUI() {
         m_documentManager->updateActiveTabTitle();
     }
     m_callPostUpdate = false;
-    m_textEditedTick = false;
 }
 
 void Editor::onCharAdded(wxStyledTextEvent& event) {
@@ -974,10 +988,10 @@ void Editor::updateOccurrenceHighlight() {
         clearOccurrenceHighlight();
         return;
     }
-    // Don't scan while the user is typing — only on caret moves from clicking or
-    // navigating. A genuine text edit this tick clears stale marks instead.
-    // (wxSTC_UPDATE_CONTENT is unusable here — it also fires for lazy re-styling.)
-    if (m_textEditedTick) {
+    // Suppressed after a text edit until the next navigation (arrow key / mouse
+    // click). Keeps typing from re-highlighting the word being edited; a styling
+    // or caret-settle tick can't lift it (only real navigation input does).
+    if (m_occurrenceSuppressed) {
         clearOccurrenceHighlight();
         return;
     }
@@ -1008,12 +1022,21 @@ void Editor::clearOccurrenceHighlight() {
 }
 
 auto Editor::occurrenceWordAtCaret() -> wxString {
-    if (!GetSelectionEmpty()) {
-        return {}; // a selection is active — leave it to the user
+    int start = 0;
+    int end = 0;
+    if (GetSelectionEmpty()) {
+        const int pos = GetCurrentPos();
+        start = WordStartPosition(pos, true);
+        end = WordEndPosition(pos, true);
+    } else {
+        // A selection highlights its matches only when it spans exactly one whole
+        // identifier; partial or multi-token selections highlight nothing.
+        start = GetSelectionStart();
+        end = GetSelectionEnd();
+        if (WordStartPosition(start, true) != start || WordEndPosition(start, true) != end) {
+            return {};
+        }
     }
-    const int pos = GetCurrentPos();
-    const int start = WordStartPosition(pos, true);
-    const int end = WordEndPosition(pos, true);
     if (end - start < 2) {
         return {}; // not on a word, or a single-character one
     }
@@ -1106,6 +1129,9 @@ void Editor::onIntellisenseTimer(wxTimerEvent& /*event*/) {
 
 void Editor::onKeyDown(wxKeyEvent& event) {
     event.Skip();
+    if (isNavigationKey(event.GetKeyCode())) {
+        m_occurrenceSuppressed = false; // navigation re-enables occurrence highlighting
+    }
     if (m_docType == DocumentType::FreeBASIC && event.GetKeyCode() == WXK_CONTROL) {
         setIncludeHotspots(true);
     }
@@ -1116,6 +1142,11 @@ void Editor::onKeyUp(wxKeyEvent& event) {
     if (event.GetKeyCode() == WXK_CONTROL) {
         setIncludeHotspots(false);
     }
+}
+
+void Editor::onLeftDown(wxMouseEvent& event) {
+    event.Skip();
+    m_occurrenceSuppressed = false; // a click is navigation — re-enable occurrence highlighting
 }
 
 void Editor::onKillFocus(wxFocusEvent& event) {
@@ -1175,9 +1206,9 @@ void Editor::onModified(wxStyledTextEvent& event) {
         return;
     }
 
-    // A real text edit this tick — suppresses the occurrence-highlight search in
-    // postUpdateUI, so typing doesn't re-scan (navigation still does).
-    m_textEditedTick = true;
+    // A real text edit disables occurrence highlighting until the user next
+    // navigates (arrow key / mouse click) — typing never re-highlights.
+    m_occurrenceSuppressed = true;
 
     // A user edit resolves any pending external-change notification — they've
     // chosen to keep working on their version (no-op when nothing is pending,
