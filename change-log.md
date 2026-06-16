@@ -30,7 +30,7 @@
 - Added an editor notification bar when a file fails to save (e.g. a read-only file), showing the OS reason when available.
 - Fixed "Show in Browser" not revealing a file located outside the file browser's focused folder; it now unfocuses first.
 - Added highlighting of every occurrence of the identifier under the caret or selection (toggle in Settings → General; colours editable in the theme editor).
-- Added highlighting of the matching opener/closer keyword when the caret is on a block keyword (For/Next, Sub/End Sub, Do/Loop, …) or on Return (its enclosing Sub/Function).
+- Added highlighting of matching scope keywords under the caret — opener/closer pairs (For/Next, Sub/End Sub, Do/Loop, …), the whole Select Case … End Select group, and Return with its enclosing Sub/Function.
 
 # Changes since 0.5.0-rc.5
 

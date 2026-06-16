@@ -446,12 +446,95 @@ auto isProcedureKind(const KeywordKind kind) -> bool {
 auto spanContains(const std::pair<int, int>& span, const int pos) -> bool {
     return pos >= span.first && pos < span.second;
 }
+
+auto isSelectBlock(const BlockNode& block) -> bool {
+    const auto* kw = openerKeywordToken(block);
+    return kw != nullptr && kw->keywordKind == KeywordKind::Select;
+}
+
+auto isCaseBranch(const BlockNode& block) -> bool {
+    const auto* kw = openerKeywordToken(block);
+    return kw != nullptr && kw->keywordKind == KeywordKind::Case;
+}
+
+// `Select Case` opener spans both leading keywords; `Case` branch spans just
+// the keyword (not its value list).
+auto selectOpenerSpan(const BlockNode& block) -> std::optional<std::pair<int, int>> {
+    if (!block.opener || block.opener->tokens.empty()) {
+        return std::nullopt;
+    }
+    const auto& toks = block.opener->tokens;
+    if (toks.size() >= 2 && toks[1].keywordKind == KeywordKind::Case) {
+        return std::pair { toks.front().pos, tokenRange(toks[1]).second };
+    }
+    return tokenRange(toks.front());
+}
+
+auto caseKeywordSpan(const BlockNode& branch) -> std::optional<std::pair<int, int>> {
+    const auto* kw = openerKeywordToken(branch);
+    return kw != nullptr ? std::optional { tokenRange(*kw) } : std::nullopt;
+}
+
+// Select-group highlight from `pos`. On a single Case keyword: the Select
+// header, that one Case, and End Select. On the Select opener / End Select: the
+// header, every Case, and End Select. Empty when `pos` is on none of these.
+auto matchSelectGroup(const BlockNode* block, const int pos) -> std::vector<std::pair<int, int>> {
+    if (block == nullptr) {
+        return {};
+    }
+    // Caret on one Case keyword -> just that Case plus the scope open/close pair.
+    if (isCaseBranch(*block)) {
+        const auto caseSpan = caseKeywordSpan(*block);
+        const auto* select = block->parent;
+        if (!caseSpan || !spanContains(*caseSpan, pos) || select == nullptr || !isSelectBlock(*select)) {
+            return {};
+        }
+        std::vector<std::pair<int, int>> spans;
+        if (const auto opener = selectOpenerSpan(*select)) {
+            spans.push_back(*opener);
+        }
+        spans.push_back(*caseSpan);
+        if (const auto closer = closerKeywordSpan(*select)) {
+            spans.push_back(*closer);
+        }
+        return spans;
+    }
+    // Caret on the Select opener / End Select -> the whole group, every Case.
+    if (isSelectBlock(*block)) {
+        const auto opener = selectOpenerSpan(*block);
+        const auto closer = closerKeywordSpan(*block);
+        if ((!opener || !spanContains(*opener, pos)) && (!closer || !spanContains(*closer, pos))) {
+            return {};
+        }
+        std::vector<std::pair<int, int>> spans;
+        if (opener) {
+            spans.push_back(*opener);
+        }
+        for (const auto& child : block->body) {
+            const auto* branch = std::get_if<std::unique_ptr<BlockNode>>(&child);
+            if (branch != nullptr && *branch && isCaseBranch(**branch)) {
+                if (const auto span = caseKeywordSpan(**branch)) {
+                    spans.push_back(*span);
+                }
+            }
+        }
+        if (closer) {
+            spans.push_back(*closer);
+        }
+        return spans;
+    }
+    return {};
+}
 } // namespace
 
 auto SymbolTable::matchBlockAt(const int pos) const -> std::vector<std::pair<int, int>> {
     const auto* block = blockAt(pos);
     if (block == nullptr) {
         return {};
+    }
+    // Select / Case / End Select highlight as one group, not a simple pair.
+    if (auto group = matchSelectGroup(block, pos); !group.empty()) {
+        return group;
     }
     std::optional<std::pair<int, int>> opener;
     if (const auto* kw = openerKeywordToken(*block)) {

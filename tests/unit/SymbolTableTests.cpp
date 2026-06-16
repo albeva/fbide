@@ -833,3 +833,66 @@ TEST_F(SymbolTableTests, MatchProcedureFromReturnInsideNestedBlock) {
     ASSERT_EQ(spans.size(), 2u);
     EXPECT_EQ(spans[0].first, (*sub)->opener->tokens[0].pos); // walks past the For to the Sub
 }
+
+TEST_F(SymbolTableTests, MatchSelectGroupFromCase) {
+    const auto table = extract(
+        "Select Case x\n"
+        "Case 1\n"
+        "Print 1\n"
+        "Case 2\n"
+        "Print 2\n"
+        "End Select\n");
+    ASSERT_EQ(table.tree().nodes.size(), 1u);
+    const auto* sel = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sel, nullptr);
+    std::vector<const BlockNode*> cases;
+    for (const auto& child : (*sel)->body) {
+        if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            cases.push_back(b->get());
+        }
+    }
+    ASSERT_EQ(cases.size(), 2u);
+    const int casePos = cases[0]->opener->tokens[0].pos;
+
+    const auto spans = table.matchBlockAt(casePos);
+    // On a single Case: Select header + that one Case + End Select.
+    ASSERT_EQ(spans.size(), 3u);
+    EXPECT_EQ(spans.front().first, (*sel)->opener->tokens[0].pos);    // Select Case
+    EXPECT_EQ(spans[1].first, cases[0]->opener->tokens[0].pos);       // only Case 1
+    EXPECT_EQ(spans.back().first, (*sel)->closer->tokens.front().pos); // End Select
+    for (const auto& span : spans) {
+        EXPECT_NE(span.first, cases[1]->opener->tokens[0].pos);       // Case 2 excluded
+    }
+}
+
+TEST_F(SymbolTableTests, MatchSelectGroupFromSelectHighlightsAllCases) {
+    const auto table = extract(
+        "Select Case x\n"
+        "Case 1\n"
+        "Case 2\n"
+        "End Select\n");
+    const auto* sel = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sel, nullptr);
+    const auto spans = table.matchBlockAt((*sel)->opener->tokens[0].pos);
+    EXPECT_EQ(spans.size(), 4u); // Select + Case 1 + Case 2 + End Select
+}
+
+TEST_F(SymbolTableTests, MatchSelectGroupSameFromSelectAndEnd) {
+    const auto table = extract(
+        "Select Case x\n"
+        "Case 1\n"
+        "End Select\n");
+    const auto* sel = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sel, nullptr);
+    const int selectPos = (*sel)->opener->tokens[0].pos;
+    const int endPos = (*sel)->closer->tokens.front().pos;
+
+    const auto fromSelect = table.matchBlockAt(selectPos);
+    const auto fromEnd = table.matchBlockAt(endPos);
+    ASSERT_EQ(fromSelect.size(), 3u);
+    EXPECT_EQ(fromSelect, fromEnd);
+
+    const auto& op = (*sel)->opener->tokens;
+    EXPECT_EQ(fromSelect.front().first, op[0].pos);
+    EXPECT_EQ(fromSelect.front().second, op[1].pos + static_cast<int>(op[1].text.size()));
+}
