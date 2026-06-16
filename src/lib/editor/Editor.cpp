@@ -45,6 +45,8 @@ constexpr int kChangeMarkersMask
 // text colour. The container range is free — the FB lexer sets no decorations.
 constexpr int kIndicOccurrenceBg = wxSTC_INDIC_CONTAINER;
 constexpr int kIndicOccurrenceText = wxSTC_INDIC_CONTAINER + 1;
+constexpr int kIndicKeywordBg = wxSTC_INDIC_CONTAINER + 2;
+constexpr int kIndicKeywordText = wxSTC_INDIC_CONTAINER + 3;
 
 struct Constants final {
     static constexpr int edgeColumn = 80;
@@ -61,10 +63,22 @@ auto isBrace(const int ch) -> bool {
 // occurrence highlighting after it was suppressed by typing.
 auto isNavigationKey(const int code) -> bool {
     switch (code) {
-    case WXK_LEFT:         case WXK_RIGHT:        case WXK_UP:           case WXK_DOWN:
-    case WXK_HOME:         case WXK_END:          case WXK_PAGEUP:       case WXK_PAGEDOWN:
-    case WXK_NUMPAD_LEFT:  case WXK_NUMPAD_RIGHT: case WXK_NUMPAD_UP:    case WXK_NUMPAD_DOWN:
-    case WXK_NUMPAD_HOME:  case WXK_NUMPAD_END:   case WXK_NUMPAD_PAGEUP:case WXK_NUMPAD_PAGEDOWN:
+    case WXK_LEFT:
+    case WXK_RIGHT:
+    case WXK_UP:
+    case WXK_DOWN:
+    case WXK_HOME:
+    case WXK_END:
+    case WXK_PAGEUP:
+    case WXK_PAGEDOWN:
+    case WXK_NUMPAD_LEFT:
+    case WXK_NUMPAD_RIGHT:
+    case WXK_NUMPAD_UP:
+    case WXK_NUMPAD_DOWN:
+    case WXK_NUMPAD_HOME:
+    case WXK_NUMPAD_END:
+    case WXK_NUMPAD_PAGEUP:
+    case WXK_NUMPAD_PAGEDOWN:
         return true;
     default:
         return false;
@@ -296,21 +310,11 @@ void Editor::applyTheme() {
     applyStyle(wxSTC_STYLE_BRACELIGHT, theme.getBrace(), theme);
     applyStyle(wxSTC_STYLE_BRACEBAD, theme.getBadBrace(), theme);
 
-    // Occurrence highlight (identifier under the caret) — a box drawn under the
-    // text for the background plus TEXTFORE for the text colour. Both come from
-    // the WordHighlight entry (seeded with a derived default when the theme omits it).
-    const auto& wordHl = theme.getWordHighlight();
-    IndicatorSetStyle(kIndicOccurrenceBg, wxSTC_INDIC_STRAIGHTBOX);
-    IndicatorSetUnder(kIndicOccurrenceBg, true);
-    IndicatorSetAlpha(kIndicOccurrenceBg, wxSTC_ALPHA_OPAQUE);
-    IndicatorSetOutlineAlpha(kIndicOccurrenceBg, wxSTC_ALPHA_OPAQUE);
-    if (wordHl.background.IsOk()) {
-        IndicatorSetForeground(kIndicOccurrenceBg, wordHl.background);
-    }
-    IndicatorSetStyle(kIndicOccurrenceText, wxSTC_INDIC_TEXTFORE);
-    if (wordHl.foreground.IsOk()) {
-        IndicatorSetForeground(kIndicOccurrenceText, wordHl.foreground);
-    }
+    // Occurrence highlight (identifier under the caret) and keyword-scope match
+    // (for/next, sub/end sub, return) share the WordHighlight style — a box under
+    // the text plus TEXTFORE — so the two read identically.
+    configureMatchIndicators(kIndicOccurrenceBg, kIndicOccurrenceText);
+    configureMatchIndicators(kIndicKeywordBg, kIndicKeywordText);
 
     // separator lines
     SetEdgeColour(theme.foreground(theme.getSeparator()));
@@ -939,6 +943,7 @@ void Editor::postUpdateUI() {
     updateStatusBar();
     updateBraceMatch();
     updateOccurrenceHighlight();
+    updateKeywordMatch();
     if (m_documentManager != nullptr) {
         m_documentManager->syncEditCommands();
         // Refresh the tab's `[*]` dirty marker. Coalesced here — a bulk
@@ -982,6 +987,21 @@ void Editor::updateBraceMatch() {
     }
 }
 
+void Editor::configureMatchIndicators(const int bgIndic, const int textIndic) {
+    const auto& wordHl = m_theme.getWordHighlight();
+    IndicatorSetStyle(bgIndic, wxSTC_INDIC_STRAIGHTBOX);
+    IndicatorSetUnder(bgIndic, true);
+    IndicatorSetAlpha(bgIndic, wxSTC_ALPHA_OPAQUE);
+    IndicatorSetOutlineAlpha(bgIndic, wxSTC_ALPHA_OPAQUE);
+    if (wordHl.background.IsOk()) {
+        IndicatorSetForeground(bgIndic, wordHl.background);
+    }
+    IndicatorSetStyle(textIndic, wxSTC_INDIC_TEXTFORE);
+    if (wordHl.foreground.IsOk()) {
+        IndicatorSetForeground(textIndic, wordHl.foreground);
+    }
+}
+
 void Editor::updateOccurrenceHighlight() {
     if (!m_configManager.config().get_or("editor.highlightOccurrences", true)
         || m_docType != DocumentType::FreeBASIC) {
@@ -991,7 +1011,7 @@ void Editor::updateOccurrenceHighlight() {
     // Suppressed after a text edit until the next navigation (arrow key / mouse
     // click). Keeps typing from re-highlighting the word being edited; a styling
     // or caret-settle tick can't lift it (only real navigation input does).
-    if (m_occurrenceSuppressed) {
+    if (m_matchSuppressed) {
         clearOccurrenceHighlight();
         return;
     }
@@ -1079,6 +1099,63 @@ void Editor::fillOccurrences(const wxString& word) {
     }
 }
 
+void Editor::updateKeywordMatch() {
+    clearKeywordMatch();
+    if (m_matchSuppressed || m_docType != DocumentType::FreeBASIC || m_documentManager == nullptr) {
+        return;
+    }
+    const auto* doc = m_documentManager->findByEditor(this);
+    if (doc == nullptr) {
+        return;
+    }
+    const auto symbols = doc->getSymbolTable();
+    if (symbols == nullptr) {
+        return;
+    }
+    const int pos = GetCurrentPos();
+    auto spans = symbols->matchBlockAt(pos);
+    if (spans.empty()) {
+        // `Return` is not a block keyword — detect it on the caret and match the
+        // enclosing procedure's opener + closer.
+        const int start = WordStartPosition(pos, true);
+        const int end = WordEndPosition(pos, true);
+        if (end > start && isKeywordCategory(static_cast<ThemeCategory>(GetStyleAt(start)))
+            && GetTextRange(start, end).Lower() == "return") {
+            spans = symbols->matchProcedureAt(pos);
+            if (!spans.empty()) {
+                spans.emplace_back(start, end); // highlight the Return keyword itself too
+            }
+        }
+    }
+    if (spans.empty()) {
+        return;
+    }
+    const auto& wordHl = m_theme.getWordHighlight();
+    const bool hasBg = wordHl.background.IsOk();
+    const bool hasFg = wordHl.foreground.IsOk();
+    for (const auto& [from, to] : spans) {
+        if (to <= from) {
+            continue;
+        }
+        if (hasBg) {
+            SetIndicatorCurrent(kIndicKeywordBg);
+            IndicatorFillRange(from, to - from);
+        }
+        if (hasFg) {
+            SetIndicatorCurrent(kIndicKeywordText);
+            IndicatorFillRange(from, to - from);
+        }
+    }
+}
+
+void Editor::clearKeywordMatch() {
+    const int len = GetLength();
+    SetIndicatorCurrent(kIndicKeywordBg);
+    IndicatorClearRange(0, len);
+    SetIndicatorCurrent(kIndicKeywordText);
+    IndicatorClearRange(0, len);
+}
+
 void Editor::updateStatusBar() const {
     if (m_uiManager == nullptr) {
         return;
@@ -1130,7 +1207,7 @@ void Editor::onIntellisenseTimer(wxTimerEvent& /*event*/) {
 void Editor::onKeyDown(wxKeyEvent& event) {
     event.Skip();
     if (isNavigationKey(event.GetKeyCode())) {
-        m_occurrenceSuppressed = false; // navigation re-enables occurrence highlighting
+        m_matchSuppressed = false; // navigation re-enables match highlighting
     }
     if (m_docType == DocumentType::FreeBASIC && event.GetKeyCode() == WXK_CONTROL) {
         setIncludeHotspots(true);
@@ -1146,7 +1223,7 @@ void Editor::onKeyUp(wxKeyEvent& event) {
 
 void Editor::onLeftDown(wxMouseEvent& event) {
     event.Skip();
-    m_occurrenceSuppressed = false; // a click is navigation — re-enable occurrence highlighting
+    m_matchSuppressed = false; // a click is navigation — re-enable match highlighting
 }
 
 void Editor::onKillFocus(wxFocusEvent& event) {
@@ -1206,9 +1283,14 @@ void Editor::onModified(wxStyledTextEvent& event) {
         return;
     }
 
-    // A real text edit disables occurrence highlighting until the user next
-    // navigates (arrow key / mouse click) — typing never re-highlights.
-    m_occurrenceSuppressed = true;
+    // A genuine user edit disables match highlighting until the next navigation
+    // (arrow key / mouse click). Edits made by the on-type transformer run with
+    // `m_editorLocked` set — notably the keyword case conversion, which fires
+    // from caret moves; suppressing on those would hide the match the same
+    // navigation should reveal. So let the transform run, then match.
+    if (!m_editorLocked) {
+        m_matchSuppressed = true;
+    }
 
     // A user edit resolves any pending external-change notification — they've
     // chosen to keep working on their version (no-op when nothing is pending,

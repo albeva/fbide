@@ -396,6 +396,98 @@ auto SymbolTable::blockAt(const int pos) const -> const BlockNode* {
     return nullptr;
 }
 
+namespace {
+auto tokenRange(const Token& tok) -> std::pair<int, int> {
+    return { tok.pos, tok.pos + static_cast<int>(tok.text.size()) };
+}
+
+// First structural keyword of an opener, skipping access modifiers
+// (`Private`/`Public`/`Protected`). The token whose keyword decides the block.
+auto openerKeywordToken(const BlockNode& block) -> const Token* {
+    if (!block.opener) {
+        return nullptr;
+    }
+    for (const auto& tok : block.opener->tokens) {
+        if (tok.keywordKind == KeywordKind::None || isAccessModifier(tok.keywordKind)) {
+            continue;
+        }
+        return &tok;
+    }
+    return nullptr;
+}
+
+// Closer keyword span: `End X` covers both tokens; single-word closers
+// (`Next`/`Loop`/`Wend`) cover just the keyword, not any trailing variable.
+auto closerKeywordSpan(const BlockNode& block) -> std::optional<std::pair<int, int>> {
+    if (!block.closer || block.closer->tokens.empty()) {
+        return std::nullopt;
+    }
+    const auto& toks = block.closer->tokens;
+    if (toks.front().keywordKind == KeywordKind::End && toks.size() >= 2) {
+        return std::pair { toks.front().pos, tokenRange(toks[1]).second };
+    }
+    return tokenRange(toks.front());
+}
+
+auto isProcedureKind(const KeywordKind kind) -> bool {
+    switch (kind) {
+    case KeywordKind::Sub:
+    case KeywordKind::Function:
+    case KeywordKind::Constructor:
+    case KeywordKind::Destructor:
+    case KeywordKind::Operator:
+    case KeywordKind::Property:
+        return true;
+    default:
+        return false;
+    }
+}
+
+auto spanContains(const std::pair<int, int>& span, const int pos) -> bool {
+    return pos >= span.first && pos < span.second;
+}
+} // namespace
+
+auto SymbolTable::matchBlockAt(const int pos) const -> std::vector<std::pair<int, int>> {
+    const auto* block = blockAt(pos);
+    if (block == nullptr) {
+        return {};
+    }
+    std::optional<std::pair<int, int>> opener;
+    if (const auto* kw = openerKeywordToken(*block)) {
+        opener = tokenRange(*kw);
+    }
+    const auto closer = closerKeywordSpan(*block);
+
+    const bool onKeyword = (opener && spanContains(*opener, pos)) || (closer && spanContains(*closer, pos));
+    if (!onKeyword) {
+        return {};
+    }
+    std::vector<std::pair<int, int>> spans;
+    if (opener) {
+        spans.push_back(*opener);
+    }
+    if (closer) {
+        spans.push_back(*closer);
+    }
+    return spans;
+}
+
+auto SymbolTable::matchProcedureAt(const int pos) const -> std::vector<std::pair<int, int>> {
+    for (const auto* block = blockAt(pos); block != nullptr; block = block->parent) {
+        const auto* kw = openerKeywordToken(*block);
+        if (kw == nullptr || !isProcedureKind(kw->keywordKind)) {
+            continue;
+        }
+        std::vector<std::pair<int, int>> spans { tokenRange(*kw) };
+        if (const auto closer = closerKeywordSpan(*block)) {
+            spans.push_back(*closer);
+        }
+        return spans;
+    }
+    return {};
+}
+
 void SymbolTable::walkNodes(const std::vector<Node>& nodes) {
     for (const auto& node : nodes) {
         if (const auto* block = std::get_if<std::unique_ptr<BlockNode>>(&node)) {

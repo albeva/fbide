@@ -107,6 +107,15 @@ public:
     /// flat index sorted by start: O(log n) plus a short walk to the innermost.
     [[nodiscard]] auto blockAt(int pos) const -> const reformat::BlockNode*;
 
+    /// Keyword spans to highlight when the caret at `pos` sits on a block's
+    /// opener or closer keyword: the opener keyword plus its matching closer
+    /// (`For`/`Next`, `Sub`/`End Sub`, ...). Empty when `pos` is not on one.
+    [[nodiscard]] auto matchBlockAt(int pos) const -> std::vector<std::pair<int, int>>;
+    /// Opener + closer keyword spans of the procedure (Sub / Function /
+    /// Constructor / ...) enclosing `pos` — for `Return`. Empty when `pos`
+    /// is not inside a procedure.
+    [[nodiscard]] auto matchProcedureAt(int pos) const -> std::vector<std::pair<int, int>>;
+
     /// `Sub` definitions in source order.
     [[nodiscard]] auto getSubs() const -> const std::vector<Symbol>& { return m_subs; }
     /// `Function` definitions in source order.

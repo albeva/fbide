@@ -166,6 +166,16 @@ private:
     auto occurrenceWordAtCaret() -> wxString;
     /// Paint both occurrence indicators over every whole-word match of `word`.
     void fillOccurrences(const wxString& word);
+    /// Highlight the matching opener/closer keyword when the caret is on a
+    /// block keyword (for/next, sub/end sub, ...), or the enclosing procedure
+    /// when the caret is on `Return`. Reads the document's SymbolTable scope tree.
+    void updateKeywordMatch();
+    /// Remove the keyword-match indicator.
+    void clearKeywordMatch();
+    /// Configure an indicator pair (background box + TEXTFORE) with the
+    /// WordHighlight style. Shared by the occurrence and keyword-match
+    /// highlights so they render identically.
+    void configureMatchIndicators(int bgIndic, int textIndic);
     /// Coalesced transformer pass for a burst of text inserts — see `onModified`.
     void flushPendingInsert();
     /// Zoom event — bump the line-number margin width.
@@ -242,7 +252,7 @@ private:
     int m_lastCaretPos = 0;               ///< Caret position from previous `onUpdateUI` — backs `onCaretMoved`.
     bool m_callPostUpdate = false;        ///< Latch — triggers `postUpdateUI` on the next tick.
     wxString m_lastHighlightedWord;        ///< Identifier last painted by the occurrence highlighter; empty when none.
-    bool m_occurrenceSuppressed = false;   ///< Occurrence highlight off after a text edit until the next navigation (arrow key / mouse click).
+    bool m_matchSuppressed = false;        ///< Occurrence + keyword-match highlighting off after a text edit until the next navigation (arrow / click).
     /// Accumulated insert span awaiting a coalesced transformer pass.
     /// `m_pendingInsertStart < 0` means nothing pending. A burst of
     /// `EVT_STC_MODIFIED` inserts (multi-line indent, paste) folds into a

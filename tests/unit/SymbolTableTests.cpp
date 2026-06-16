@@ -735,3 +735,101 @@ TEST_F(SymbolTableTests, BlockAtReturnsNullBetweenTopLevelBlocks) {
     // Inside B resolves to B.
     EXPECT_EQ(table.blockAt((*subB)->opener->tokens[0].pos), subB->get());
 }
+
+TEST_F(SymbolTableTests, MatchBlockForNext) {
+    const auto table = extract(
+        "For i = 1 To 10\n"
+        "Next\n");
+    ASSERT_EQ(table.tree().nodes.size(), 1u);
+    const auto* forBlk = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(forBlk, nullptr);
+    const int forPos = (*forBlk)->opener->tokens[0].pos;
+    const int nextPos = (*forBlk)->closer->tokens[0].pos;
+
+    const auto onFor = table.matchBlockAt(forPos);
+    ASSERT_EQ(onFor.size(), 2u);
+    EXPECT_EQ(onFor[0].first, forPos);
+    EXPECT_EQ(onFor[1].first, nextPos);
+
+    const auto onNext = table.matchBlockAt(nextPos);
+    ASSERT_EQ(onNext.size(), 2u); // same pair, reached from the closer
+    EXPECT_EQ(onNext[0].first, forPos);
+    EXPECT_EQ(onNext[1].first, nextPos);
+}
+
+TEST_F(SymbolTableTests, MatchBlockSubEndSubSpansBothCloserTokens) {
+    const auto table = extract("Sub Foo\nEnd Sub\n");
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+    const int subPos = (*sub)->opener->tokens[0].pos;
+    const auto spans = table.matchBlockAt(subPos);
+    ASSERT_EQ(spans.size(), 2u);
+    EXPECT_EQ(spans[0].first, subPos);
+    // closer span covers the whole "End Sub" (End .. Sub end).
+    const auto& closer = (*sub)->closer->tokens;
+    EXPECT_EQ(spans[1].first, closer.front().pos);
+    EXPECT_EQ(spans[1].second, closer.back().pos + static_cast<int>(closer.back().text.size()));
+}
+
+TEST_F(SymbolTableTests, MatchBlockEmptyOffKeyword) {
+    const auto table = extract("Sub Foo\nPrint 1\nEnd Sub\n");
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+    int printPos = -1;
+    for (const auto& child : (*sub)->body) {
+        if (const auto* st = std::get_if<StatementNode>(&child)) {
+            printPos = st->tokens[0].pos;
+            break;
+        }
+    }
+    ASSERT_GE(printPos, 0);
+    EXPECT_TRUE(table.matchBlockAt(printPos).empty()); // on a statement, not a block keyword
+}
+
+TEST_F(SymbolTableTests, MatchProcedureFromReturn) {
+    const auto table = extract(
+        "Function F() As Integer\n"
+        "Return 1\n"
+        "End Function\n");
+    const auto* fn = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(fn, nullptr);
+    int returnPos = -1;
+    for (const auto& child : (*fn)->body) {
+        if (const auto* st = std::get_if<StatementNode>(&child)) {
+            returnPos = st->tokens[0].pos;
+            break;
+        }
+    }
+    ASSERT_GE(returnPos, 0);
+    const auto spans = table.matchProcedureAt(returnPos);
+    ASSERT_EQ(spans.size(), 2u);
+    EXPECT_EQ(spans[0].first, (*fn)->opener->tokens[0].pos);          // Function
+    EXPECT_EQ(spans[1].first, (*fn)->closer->tokens.front().pos);     // End Function
+}
+
+TEST_F(SymbolTableTests, MatchProcedureFromReturnInsideNestedBlock) {
+    const auto table = extract(
+        "Sub S\n"
+        "For i = 1 To 2\n"
+        "Return\n"
+        "Next\n"
+        "End Sub\n");
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+    // find the Return statement nested inside the For
+    int returnPos = -1;
+    for (const auto& child : (*sub)->body) {
+        if (const auto* forBlk = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            for (const auto& inner : (*forBlk)->body) {
+                if (const auto* st = std::get_if<StatementNode>(&inner)) {
+                    returnPos = st->tokens[0].pos;
+                    break;
+                }
+            }
+        }
+    }
+    ASSERT_GE(returnPos, 0);
+    const auto spans = table.matchProcedureAt(returnPos);
+    ASSERT_EQ(spans.size(), 2u);
+    EXPECT_EQ(spans[0].first, (*sub)->opener->tokens[0].pos); // walks past the For to the Sub
+}
