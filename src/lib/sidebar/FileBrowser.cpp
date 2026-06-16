@@ -113,6 +113,15 @@ void FileBrowser::locateFile(const wxString& path) {
     if (path.IsEmpty()) {
         return;
     }
+    // A focused view only shows one folder's subtree; ExpandPath/SelectPath
+    // can't reach a target outside it. Leave the focused view first when the
+    // file lies outside the focused folder, so the full tree can reveal it.
+    if (const wxString& focused = m_dirCtrl->focusRoot(); !focused.IsEmpty()) {
+        const auto rel = toFsPath(path).lexically_normal().lexically_relative(toFsPath(focused).lexically_normal());
+        if (rel.empty() || *rel.begin() == "..") {
+            unfocus();
+        }
+    }
     m_dirCtrl->ExpandPath(path);
     m_dirCtrl->SelectPath(path);
 }
