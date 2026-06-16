@@ -658,3 +658,25 @@ TEST_F(SymbolTableTests, PpMacroBodyNotRecursed) {
     ASSERT_EQ(table.getMacros().size(), 1U);
     EXPECT_EQ(table.getMacros()[0].name, "DEFINE_SUB");
 }
+
+TEST_F(SymbolTableTests, RetainsScopeTreeWithParents) {
+    const auto table = extract(
+        "Sub Foo\n"
+        "For i = 1 To 10\n"
+        "Next\n"
+        "End Sub\n");
+    ASSERT_EQ(table.tree().nodes.size(), 1u);
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+    EXPECT_EQ((*sub)->parent, nullptr);
+    ASSERT_TRUE((*sub)->opener.has_value());
+    EXPECT_GE((*sub)->opener->tokens[0].pos, 0); // tokens carry byte offsets
+}
+
+TEST_F(SymbolTableTests, TakeTreeEmptiesRetainedTree) {
+    SymbolTable table = extract("Sub Foo\nEnd Sub\n");
+    ASSERT_EQ(table.tree().nodes.size(), 1u);
+    const auto taken = table.takeTree();
+    EXPECT_EQ(taken.nodes.size(), 1u);
+    EXPECT_TRUE(table.tree().nodes.empty()); // moved-out leaves it empty
+}

@@ -29,7 +29,9 @@ public:
 
     /// Scan a token stream into a ProgramTree. Exposed for testing the
     /// scan stage in isolation.
-    [[nodiscard]] auto buildTree(const std::vector<lexer::Token>& tokens) -> ProgramTree;
+    /// `recycle` (when non-empty) seeds the builder's BlockNode free-list so
+    /// the previous parse's nodes are reused instead of reallocated.
+    [[nodiscard]] auto buildTree(const std::vector<lexer::Token>& tokens, ProgramTree&& recycle = {}) -> ProgramTree;
 
 private:
     // Navigation

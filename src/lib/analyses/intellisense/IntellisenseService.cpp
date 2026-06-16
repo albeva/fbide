@@ -129,14 +129,17 @@ void IntellisenseService::process(const Task& task) {
     lexer::StyleLexer adapter(src);
     adapter.tokenise(m_tokens);
 
-    reformat::ReFormatter parser({ .lean = true });
-    const auto tree = parser.buildTree(m_tokens);
-
     // Reuse a pooled SymbolTable when one is idle (no Document holds it),
     // otherwise grow the pool. Repopulate runs in place — vector capacity
     // is preserved across parses, cutting per-keystroke allocations.
     auto symbols = acquireSymbolTable();
-    symbols->populate(tree);
+
+    // Hand the slot's previous tree to the builder as a node free-list, then
+    // store the freshly built tree back on the table so it ships with the
+    // result. Both the SymbolTable slot and its BlockNodes thus recycle.
+    reformat::ReFormatter parser({ .lean = true });
+    auto tree = parser.buildTree(m_tokens, symbols->takeTree());
+    symbols->populate(std::move(tree));
 
     // Atomic check + clear: only deliver if no cancel hit between dispatch
     // and now. Don't post for documents the UI has since dropped.

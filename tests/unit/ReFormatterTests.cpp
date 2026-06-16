@@ -1395,3 +1395,57 @@ TEST_F(ReFormatterTests, LeanModePreservesVerbatimRegion) {
     }
     EXPECT_TRUE(sawVerbatim);
 }
+
+TEST_F(ReFormatterTests, WiresBlockParentPointers) {
+    const auto tokens = tests::tokenise(*m_lexer,
+        "Sub Foo\n"
+        "For i = 1 To 10\n"
+        "Print i\n"
+        "Next\n"
+        "End Sub\n");
+    ReFormatter formatter({ .tabSize = tabSize, .lean = true });
+    const auto tree = formatter.buildTree(tokens);
+
+    ASSERT_EQ(tree.nodes.size(), 1u);
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&tree.nodes[0]);
+    ASSERT_NE(sub, nullptr);
+    EXPECT_EQ((*sub)->parent, nullptr); // top level
+
+    const BlockNode* forBlock = nullptr;
+    for (const auto& child : (*sub)->body) {
+        if (const auto* nested = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            forBlock = nested->get();
+        }
+    }
+    ASSERT_NE(forBlock, nullptr);
+    EXPECT_EQ(forBlock->parent, sub->get()); // For's parent is the enclosing Sub
+}
+
+TEST_F(ReFormatterTests, RecyclesNodesAcrossBuilds) {
+    const auto tokens = tests::tokenise(*m_lexer,
+        "Sub Foo\n"
+        "For i = 1 To 10\n"
+        "Next\n"
+        "End Sub\n");
+    ReFormatter formatter({ .tabSize = tabSize, .lean = true });
+    auto first = formatter.buildTree(tokens);
+    ASSERT_EQ(first.nodes.size(), 1u);
+
+    // Rebuild reusing the first tree's BlockNodes; recycled nodes must be reset
+    // cleanly, so the second tree has the same shape with no leftovers.
+    auto second = formatter.buildTree(tokens, std::move(first));
+    ASSERT_EQ(second.nodes.size(), 1u);
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&second.nodes[0]);
+    ASSERT_NE(sub, nullptr);
+    ASSERT_TRUE((*sub)->opener.has_value());
+    ASSERT_TRUE((*sub)->closer.has_value());
+    EXPECT_EQ((*sub)->opener->tokens[0].keywordKind, lexer::KeywordKind::Sub);
+    EXPECT_EQ((*sub)->parent, nullptr);
+    int blockChildren = 0;
+    for (const auto& child : (*sub)->body) {
+        if (std::holds_alternative<std::unique_ptr<BlockNode>>(child)) {
+            blockChildren++;
+        }
+    }
+    EXPECT_EQ(blockChildren, 1);
+}

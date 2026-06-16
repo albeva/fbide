@@ -425,3 +425,26 @@ TEST_F(StyleLexerTests, FormatOffMarksTokensVerbatim) {
 }
 
 // endregion
+
+// region ---------- Token byte positions ----------
+
+TEST_F(StyleLexerTests, StampsContiguousBytePositions) {
+    const auto tokens = lex("Dim x\nPrint x\n");
+    ASSERT_FALSE(tokens.empty());
+    int expected = 0;
+    for (const auto& tkn : tokens) {
+        EXPECT_EQ(tkn.pos, expected) << "token '" << tkn.text << "'";
+        expected += static_cast<int>(tkn.text.size());
+    }
+}
+
+TEST_F(StyleLexerTests, TokenPositionMatchesByteOffset) {
+    const auto stripped = strip(lex("Dim x\n"));
+    ASSERT_EQ(stripped.size(), 2u);
+    EXPECT_EQ(stripped[0].text, "Dim");
+    EXPECT_EQ(stripped[0].pos, 0);
+    EXPECT_EQ(stripped[1].text, "x");
+    EXPECT_EQ(stripped[1].pos, 4);
+}
+
+// endregion

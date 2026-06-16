@@ -50,6 +50,11 @@ struct BlockNode {
     std::optional<StatementNode> opener; ///< Block opener (e.g. `Sub Foo()`).
     std::vector<Node> body;              ///< Child nodes.
     std::optional<StatementNode> closer; ///< Block closer (e.g. `End Sub`). Empty for branches.
+    /// Enclosing block, or null at the top level. Wired by `TreeBuilder`
+    /// as each block is attached to its parent, so analyses can walk up
+    /// the scope chain. Not set by hand-built trees. Heap-stable (the
+    /// pointee lives behind a `unique_ptr`), so it survives moving the tree.
+    BlockNode* parent = nullptr;
 };
 
 /// Root of the formatting tree.

@@ -52,7 +52,7 @@ auto ReFormatter::apply(const std::vector<Token>& tokens) -> std::vector<Token> 
     return renderer.render(tree);
 }
 
-auto ReFormatter::buildTree(const std::vector<Token>& tokens) -> ProgramTree {
+auto ReFormatter::buildTree(const std::vector<Token>& tokens, ProgramTree&& recycle) -> ProgramTree {
     // Reset per-invocation state
     std::vector<Token> filtered;
     if (m_options.lean) {
@@ -64,6 +64,7 @@ auto ReFormatter::buildTree(const std::vector<Token>& tokens) -> ProgramTree {
     m_index = 0;
     m_prevWasNewline = true;
     m_builder = TreeBuilder {};
+    m_builder.reclaim(std::move(recycle)); // reuse the prior parse's BlockNodes
     m_segment.clear();
     m_ppDepths.clear();
 

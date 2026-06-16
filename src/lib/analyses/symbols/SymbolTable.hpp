@@ -87,12 +87,20 @@ public:
     /// Default-constructed empty table.
     SymbolTable() = default;
     /// Build by walking `tree` once.
-    explicit SymbolTable(const reformat::ProgramTree& tree);
+    explicit SymbolTable(reformat::ProgramTree&& tree);
 
     /// Clear all vectors (keeping their capacity) and rewalk `tree`. Used by
     /// `IntellisenseService` to recycle a pooled instance instead of
     /// allocating a fresh one on every parse.
-    void populate(const reformat::ProgramTree& tree);
+    void populate(reformat::ProgramTree&& tree);
+
+    /// The retained scope tree (the lean `ProgramTree` this table was built
+    /// from). Carries `BlockNode::parent` links and positioned tokens for
+    /// scope/keyword matching. Lives as long as this table's `shared_ptr`.
+    [[nodiscard]] auto tree() const -> const reformat::ProgramTree& { return m_tree; }
+    /// Move the retained tree out (leaving this table's tree empty) so the
+    /// next parse can recycle its nodes. Used by `IntellisenseService`.
+    [[nodiscard]] auto takeTree() -> reformat::ProgramTree { return std::move(m_tree); }
 
     /// `Sub` definitions in source order.
     [[nodiscard]] auto getSubs() const -> const std::vector<Symbol>& { return m_subs; }
@@ -159,6 +167,7 @@ private:
     std::vector<Symbol> m_macros;       ///< `#macro` definitions.
     std::vector<Include> m_includes;    ///< `#include` directives.
     std::size_t m_hash = 0;             ///< Stable hash over (kind, name) pairs.
+    reformat::ProgramTree m_tree;       ///< Retained lean scope tree (parents wired, tokens positioned).
 };
 
 } // namespace fbide

@@ -50,6 +50,11 @@ public:
     /// Auto-close any unclosed blocks and return the root ProgramTree.
     [[nodiscard]] auto finish() -> ProgramTree;
 
+    /// Recycle `old`'s BlockNodes into the free-list so the next build reuses
+    /// the allocations instead of `make_unique`-ing fresh ones. Recursive;
+    /// leaves `old` empty. Call before scanning a new token stream.
+    void reclaim(ProgramTree&& old);
+
     /// Current stack depth (for PP boundary tracking).
     [[nodiscard]] auto stackDepth() const -> std::size_t { return m_stack.size(); }
 
@@ -66,6 +71,10 @@ private:
     void popBlock();
     /// Flush `m_collected` into a fresh `StatementNode`, clearing the buffer.
     [[nodiscard]] auto flushTokens() -> StatementNode;
+    /// A BlockNode from the free-list (reset), or a fresh allocation when empty.
+    [[nodiscard]] auto acquireBlock() -> std::unique_ptr<BlockNode>;
+    /// Recursively salvage every BlockNode under `node` into the free-list.
+    void reclaimNode(Node& node);
 
     /// One frame in the open-block stack.
     struct StackEntry {
@@ -77,6 +86,7 @@ private:
     std::vector<lexer::Token> m_collected; ///< Token collection buffer for the current line.
     std::vector<StackEntry> m_stack;       ///< Open-block stack.
     std::vector<Node> m_root;              ///< Final root nodes once the stack drains.
+    std::vector<std::unique_ptr<BlockNode>> m_pool; ///< Recycled BlockNode free-list (seeded by reclaim).
 };
 
 } // namespace fbide::reformat

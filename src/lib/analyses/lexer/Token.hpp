@@ -199,6 +199,10 @@ struct Token final {
     /// the emitted tokens and increments on Newline. Default 0 for callers
     /// that construct tokens by hand (tests).
     int line = 0;
+    /// 0-based byte offset of the token's start in the original source.
+    /// Equals the Scintilla document position (UTF-8). Stamped by
+    /// `StyleLexer::tokenise`; default 0 for hand-built tokens (tests).
+    int pos = 0;
 };
 
 } // namespace fbide::lexer

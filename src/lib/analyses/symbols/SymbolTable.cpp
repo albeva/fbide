@@ -203,8 +203,8 @@ auto operatorNameAfter(const std::vector<Token>& tokens, std::size_t start) -> w
 
 } // namespace
 
-SymbolTable::SymbolTable(const ProgramTree& tree) {
-    populate(tree);
+SymbolTable::SymbolTable(ProgramTree&& tree) {
+    populate(std::move(tree));
 }
 
 auto fbide::symbolOwner(const Symbol& sym) -> wxString {
@@ -229,11 +229,12 @@ auto fbide::symbolOwner(const Symbol& sym) -> wxString {
     return {};
 }
 
-void SymbolTable::populate(const ProgramTree& tree) {
+void SymbolTable::populate(ProgramTree&& tree) {
     walkNodes(tree.nodes);
     collectIncludes(tree.nodes);
     synthesizeOwnerTypes();
     computeHash();
+    m_tree = std::move(tree); // retain for scope/keyword matching
 }
 
 void SymbolTable::synthesizeOwnerTypes() {

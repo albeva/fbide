@@ -19,7 +19,7 @@ void TreeBuilder::statement() {
 }
 
 void TreeBuilder::openBlock(const bool isPP) {
-    auto block = std::make_unique<BlockNode>();
+    auto block = acquireBlock();
     if (!m_collected.empty()) {
         block->opener = flushTokens();
     }
@@ -29,7 +29,7 @@ void TreeBuilder::openBlock(const bool isPP) {
 void TreeBuilder::openBranch() {
     closeBranch();
 
-    auto branch = std::make_unique<BlockNode>();
+    auto branch = acquireBlock();
     if (!m_collected.empty()) {
         branch->opener = flushTokens();
     }
@@ -107,6 +107,10 @@ void TreeBuilder::closeToDepth(const std::size_t depth) {
 }
 
 void TreeBuilder::addNode(Node node) {
+    BlockNode* const parent = m_stack.empty() ? nullptr : m_stack.back().node.get();
+    if (auto* slot = std::get_if<std::unique_ptr<BlockNode>>(&node); slot != nullptr && *slot != nullptr) {
+        (*slot)->parent = parent; // wire up-traversal as the block attaches to its parent
+    }
     if (m_stack.empty()) {
         m_root.push_back(std::move(node));
     } else {
@@ -126,4 +130,36 @@ auto TreeBuilder::flushTokens() -> StatementNode {
     StatementNode stmt { std::move(m_collected) };
     m_collected.clear();
     return stmt;
+}
+
+void TreeBuilder::reclaim(ProgramTree&& old) {
+    for (auto& node : old.nodes) {
+        reclaimNode(node);
+    }
+    old.nodes.clear();
+}
+
+void TreeBuilder::reclaimNode(Node& node) {
+    auto* slot = std::get_if<std::unique_ptr<BlockNode>>(&node);
+    if (slot == nullptr || *slot == nullptr) {
+        return; // statements / blanks / verbatim hold no recyclable BlockNode
+    }
+    auto block = std::move(*slot);
+    for (auto& child : block->body) {
+        reclaimNode(child);
+    }
+    block->opener.reset();
+    block->closer.reset();
+    block->body.clear(); // keep the vector's capacity for reuse
+    block->parent = nullptr;
+    m_pool.push_back(std::move(block));
+}
+
+auto TreeBuilder::acquireBlock() -> std::unique_ptr<BlockNode> {
+    if (!m_pool.empty()) {
+        auto node = std::move(m_pool.back());
+        m_pool.pop_back();
+        return node; // already reset by reclaimNode
+    }
+    return std::make_unique<BlockNode>();
 }
