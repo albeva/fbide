@@ -447,18 +447,9 @@ auto spanContains(const std::pair<int, int>& span, const int pos) -> bool {
     return pos >= span.first && pos < span.second;
 }
 
-auto isSelectBlock(const BlockNode& block) -> bool {
-    const auto* kw = openerKeywordToken(block);
-    return kw != nullptr && kw->keywordKind == KeywordKind::Select;
-}
-
-auto isCaseBranch(const BlockNode& block) -> bool {
-    const auto* kw = openerKeywordToken(block);
-    return kw != nullptr && kw->keywordKind == KeywordKind::Case;
-}
-
 // `Select Case` opener spans both leading keywords; `Case` branch spans just
-// the keyword (not its value list).
+// the keyword. `If` opener spans the keyword; `Else`/`ElseIf` branch spans both
+// words for the `Else If` spelling.
 auto selectOpenerSpan(const BlockNode& block) -> std::optional<std::pair<int, int>> {
     if (!block.opener || block.opener->tokens.empty()) {
         return std::nullopt;
@@ -475,53 +466,90 @@ auto caseKeywordSpan(const BlockNode& branch) -> std::optional<std::pair<int, in
     return kw != nullptr ? std::optional { tokenRange(*kw) } : std::nullopt;
 }
 
-// Select-group highlight from `pos`. On a single Case keyword: the Select
-// header, that one Case, and End Select. On the Select opener / End Select: the
-// header, every Case, and End Select. Empty when `pos` is on none of these.
-auto matchSelectGroup(const BlockNode* block, const int pos) -> std::vector<std::pair<int, int>> {
+auto isCaseKind(const KeywordKind kind) -> bool {
+    return kind == KeywordKind::Case;
+}
+
+auto isElseKind(const KeywordKind kind) -> bool {
+    return kind == KeywordKind::ElseIf || kind == KeywordKind::Else;
+}
+
+auto ifOpenerSpan(const BlockNode& block) -> std::optional<std::pair<int, int>> {
+    const auto* kw = openerKeywordToken(block);
+    return kw != nullptr ? std::optional { tokenRange(*kw) } : std::nullopt;
+}
+
+auto ifBranchSpan(const BlockNode& branch) -> std::optional<std::pair<int, int>> {
+    if (!branch.opener || branch.opener->tokens.empty()) {
+        return std::nullopt;
+    }
+    const auto& toks = branch.opener->tokens;
+    if (toks.front().keywordKind == KeywordKind::Else && toks.size() >= 2 && toks[1].keywordKind == KeywordKind::If) {
+        return std::pair { toks.front().pos, tokenRange(toks[1]).second };
+    }
+    return tokenRange(toks.front());
+}
+
+// A container block (Select / If) with branch children (Case / ElseIf, Else)
+// highlights as a group. On a single branch keyword: the header, that one
+// branch, and the closer. On the header opener / closer: the header, every
+// branch, and the closer. Requiring a closer skips single-line / unclosed `If`s.
+auto matchBranchGroup(
+    const BlockNode* block,
+    const int pos,
+    const KeywordKind container,
+    bool (*isBranchKind)(KeywordKind),
+    std::optional<std::pair<int, int>> (*openerSpan)(const BlockNode&),
+    std::optional<std::pair<int, int>> (*branchSpan)(const BlockNode&)
+) -> std::vector<std::pair<int, int>> {
     if (block == nullptr) {
         return {};
     }
-    // Caret on one Case keyword -> just that Case plus the scope open/close pair.
-    if (isCaseBranch(*block)) {
-        const auto caseSpan = caseKeywordSpan(*block);
-        const auto* select = block->parent;
-        if (!caseSpan || !spanContains(*caseSpan, pos) || select == nullptr || !isSelectBlock(*select)) {
-            return {};
-        }
+    const auto openerKind = [](const BlockNode& node) -> KeywordKind {
+        const auto* kw = openerKeywordToken(node);
+        return kw != nullptr ? kw->keywordKind : KeywordKind::None;
+    };
+    const auto isContainer = [&](const BlockNode& node) {
+        return openerKind(node) == container && node.closer.has_value();
+    };
+    const auto gather = [&](const BlockNode& head, const std::optional<std::pair<int, int>>& only) {
         std::vector<std::pair<int, int>> spans;
-        if (const auto opener = selectOpenerSpan(*select)) {
+        if (const auto opener = openerSpan(head)) {
             spans.push_back(*opener);
         }
-        spans.push_back(*caseSpan);
-        if (const auto closer = closerKeywordSpan(*select)) {
-            spans.push_back(*closer);
-        }
-        return spans;
-    }
-    // Caret on the Select opener / End Select -> the whole group, every Case.
-    if (isSelectBlock(*block)) {
-        const auto opener = selectOpenerSpan(*block);
-        const auto closer = closerKeywordSpan(*block);
-        if ((!opener || !spanContains(*opener, pos)) && (!closer || !spanContains(*closer, pos))) {
-            return {};
-        }
-        std::vector<std::pair<int, int>> spans;
-        if (opener) {
-            spans.push_back(*opener);
-        }
-        for (const auto& child : block->body) {
-            const auto* branch = std::get_if<std::unique_ptr<BlockNode>>(&child);
-            if (branch != nullptr && *branch && isCaseBranch(**branch)) {
-                if (const auto span = caseKeywordSpan(**branch)) {
-                    spans.push_back(*span);
+        if (only) {
+            spans.push_back(*only);
+        } else {
+            for (const auto& child : head.body) {
+                const auto* branch = std::get_if<std::unique_ptr<BlockNode>>(&child);
+                if (branch != nullptr && *branch && isBranchKind(openerKind(**branch))) {
+                    if (const auto span = branchSpan(**branch)) {
+                        spans.push_back(*span);
+                    }
                 }
             }
         }
-        if (closer) {
+        if (const auto closer = closerKeywordSpan(head)) {
             spans.push_back(*closer);
         }
         return spans;
+    };
+    // Caret on one branch keyword -> that branch plus the scope open/close pair.
+    if (isBranchKind(openerKind(*block))) {
+        const auto branch = branchSpan(*block);
+        const auto* head = block->parent;
+        if (branch && spanContains(*branch, pos) && head != nullptr && isContainer(*head)) {
+            return gather(*head, branch);
+        }
+        return {};
+    }
+    // Caret on the header opener / closer -> the whole group, every branch.
+    if (isContainer(*block)) {
+        const auto opener = openerSpan(*block);
+        const auto closer = closerKeywordSpan(*block);
+        if ((opener && spanContains(*opener, pos)) || (closer && spanContains(*closer, pos))) {
+            return gather(*block, std::nullopt);
+        }
     }
     return {};
 }
@@ -532,28 +560,25 @@ auto SymbolTable::matchBlockAt(const int pos) const -> std::vector<std::pair<int
     if (block == nullptr) {
         return {};
     }
-    // Select / Case / End Select highlight as one group, not a simple pair.
-    if (auto group = matchSelectGroup(block, pos); !group.empty()) {
+    // Container/branch keywords highlight as a group (Select/Case, If/ElseIf/Else).
+    if (auto group = matchBranchGroup(block, pos, KeywordKind::Select, isCaseKind, selectOpenerSpan, caseKeywordSpan); !group.empty()) {
         return group;
     }
-    std::optional<std::pair<int, int>> opener;
-    if (const auto* kw = openerKeywordToken(*block)) {
-        opener = tokenRange(*kw);
+    if (auto group = matchBranchGroup(block, pos, KeywordKind::If, isElseKind, ifOpenerSpan, ifBranchSpan); !group.empty()) {
+        return group;
     }
+    // Plain opener/closer pair (For/Next, Sub/End Sub, ...). Both must exist, so
+    // branches and single-line / unclosed blocks are skipped.
+    const auto* kw = openerKeywordToken(*block);
+    const auto opener = kw != nullptr ? std::optional { tokenRange(*kw) } : std::nullopt;
     const auto closer = closerKeywordSpan(*block);
-
-    const bool onKeyword = (opener && spanContains(*opener, pos)) || (closer && spanContains(*closer, pos));
-    if (!onKeyword) {
+    if (!opener || !closer) {
         return {};
     }
-    std::vector<std::pair<int, int>> spans;
-    if (opener) {
-        spans.push_back(*opener);
+    if (!spanContains(*opener, pos) && !spanContains(*closer, pos)) {
+        return {};
     }
-    if (closer) {
-        spans.push_back(*closer);
-    }
-    return spans;
+    return { *opener, *closer };
 }
 
 auto SymbolTable::matchProcedureAt(const int pos) const -> std::vector<std::pair<int, int>> {

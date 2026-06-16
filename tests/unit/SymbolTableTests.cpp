@@ -896,3 +896,79 @@ TEST_F(SymbolTableTests, MatchSelectGroupSameFromSelectAndEnd) {
     EXPECT_EQ(fromSelect.front().first, op[0].pos);
     EXPECT_EQ(fromSelect.front().second, op[1].pos + static_cast<int>(op[1].text.size()));
 }
+
+TEST_F(SymbolTableTests, MatchIfGroupFromIfAndEnd) {
+    const auto table = extract(
+        "If a Then\n"
+        "Print 1\n"
+        "ElseIf b Then\n"
+        "Print 2\n"
+        "Else\n"
+        "Print 3\n"
+        "End If\n");
+    ASSERT_EQ(table.tree().nodes.size(), 1u);
+    const auto* iff = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(iff, nullptr);
+    ASSERT_TRUE((*iff)->closer.has_value());
+    std::vector<const BlockNode*> branches;
+    for (const auto& child : (*iff)->body) {
+        if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            branches.push_back(b->get());
+        }
+    }
+    ASSERT_EQ(branches.size(), 2u); // ElseIf + Else
+
+    const int ifPos = (*iff)->opener->tokens[0].pos;
+    const int endPos = (*iff)->closer->tokens.front().pos;
+    const auto fromIf = table.matchBlockAt(ifPos);
+    ASSERT_EQ(fromIf.size(), 4u); // If + ElseIf + Else + End If
+    EXPECT_EQ(fromIf.front().first, ifPos);
+    EXPECT_EQ(fromIf.back().first, endPos);
+    EXPECT_EQ(table.matchBlockAt(endPos), fromIf); // same group from End If
+}
+
+TEST_F(SymbolTableTests, MatchIfGroupFromSingleBranch) {
+    const auto table = extract(
+        "If a Then\n"
+        "ElseIf b Then\n"
+        "Else\n"
+        "End If\n");
+    const auto* iff = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(iff, nullptr);
+    std::vector<const BlockNode*> branches;
+    for (const auto& child : (*iff)->body) {
+        if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            branches.push_back(b->get());
+        }
+    }
+    ASSERT_EQ(branches.size(), 2u);
+    const int elseIfPos = branches[0]->opener->tokens[0].pos;
+
+    const auto spans = table.matchBlockAt(elseIfPos);
+    ASSERT_EQ(spans.size(), 3u); // If + that branch + End If
+    EXPECT_EQ(spans.front().first, (*iff)->opener->tokens[0].pos);
+    EXPECT_EQ(spans[1].first, elseIfPos);
+    EXPECT_EQ(spans.back().first, (*iff)->closer->tokens.front().pos);
+    for (const auto& sp : spans) {
+        EXPECT_NE(sp.first, branches[1]->opener->tokens[0].pos); // Else excluded
+    }
+}
+
+TEST_F(SymbolTableTests, MatchIfGroupIgnoresSingleLine) {
+    const auto table = extract(
+        "Sub S\n"
+        "If a Then Print 1\n"
+        "End Sub\n");
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+    int ifPos = -1;
+    for (const auto& child : (*sub)->body) {
+        if (const auto* st = std::get_if<StatementNode>(&child)) {
+            if (!st->tokens.empty()) { ifPos = st->tokens[0].pos; break; }
+        } else if (const auto* blk = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            if ((*blk)->opener && !(*blk)->opener->tokens.empty()) { ifPos = (*blk)->opener->tokens[0].pos; break; }
+        }
+    }
+    ASSERT_GE(ifPos, 0);
+    EXPECT_TRUE(table.matchBlockAt(ifPos).empty()); // single-line If: no group, no pair
+}
