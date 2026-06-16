@@ -680,3 +680,58 @@ TEST_F(SymbolTableTests, TakeTreeEmptiesRetainedTree) {
     EXPECT_EQ(taken.nodes.size(), 1u);
     EXPECT_TRUE(table.tree().nodes.empty()); // moved-out leaves it empty
 }
+
+TEST_F(SymbolTableTests, BlockAtFindsInnermostScope) {
+    const auto table = extract(
+        "Sub Foo\n"
+        "For i = 1 To 10\n"
+        "Print i\n"
+        "Next\n"
+        "End Sub\n");
+    ASSERT_EQ(table.tree().nodes.size(), 1u);
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+
+    const BlockNode* forBlock = nullptr;
+    for (const auto& child : (*sub)->body) {
+        if (const auto* nested = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            forBlock = nested->get();
+        }
+    }
+    ASSERT_NE(forBlock, nullptr);
+    ASSERT_TRUE((*sub)->closer.has_value());
+    ASSERT_TRUE(forBlock->closer.has_value());
+
+    // On the Sub opener keyword -> the Sub block.
+    EXPECT_EQ(table.blockAt((*sub)->opener->tokens[0].pos), sub->get());
+    // On the For opener keyword -> the innermost (For), not the enclosing Sub.
+    EXPECT_EQ(table.blockAt(forBlock->opener->tokens[0].pos), forBlock);
+    // On the For closer (Next) -> still the For block.
+    EXPECT_EQ(table.blockAt(forBlock->closer->tokens[0].pos), forBlock);
+    // On the Sub closer (End Sub) -> the Sub block (For has ended by now).
+    EXPECT_EQ(table.blockAt((*sub)->closer->tokens[0].pos), sub->get());
+    // Past the end of the document -> no scope.
+    EXPECT_EQ(table.blockAt(100000), nullptr);
+}
+
+TEST_F(SymbolTableTests, BlockAtReturnsNullBetweenTopLevelBlocks) {
+    const auto table = extract(
+        "Sub A\n"
+        "End Sub\n"
+        "\n"
+        "Sub B\n"
+        "End Sub\n");
+    ASSERT_EQ(table.tree().nodes.size(), 2u);
+    const auto* subA = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    const auto* subB = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[1]);
+    ASSERT_NE(subA, nullptr);
+    ASSERT_NE(subB, nullptr);
+    ASSERT_TRUE((*subA)->closer.has_value());
+
+    // Just past "End Sub" of A, before "Sub B" -> in no block.
+    const auto& endA = (*subA)->closer->tokens.back();
+    const int gap = endA.pos + static_cast<int>(endA.text.size());
+    EXPECT_EQ(table.blockAt(gap), nullptr);
+    // Inside B resolves to B.
+    EXPECT_EQ(table.blockAt((*subB)->opener->tokens[0].pos), subB->get());
+}

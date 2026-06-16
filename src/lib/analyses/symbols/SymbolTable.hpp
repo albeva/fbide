@@ -102,6 +102,11 @@ public:
     /// next parse can recycle its nodes. Used by `IntellisenseService`.
     [[nodiscard]] auto takeTree() -> reformat::ProgramTree { return std::move(m_tree); }
 
+    /// Innermost block whose text extent contains `pos` (a document byte
+    /// offset), or `nullptr` when `pos` lies outside every block. Backed by a
+    /// flat index sorted by start: O(log n) plus a short walk to the innermost.
+    [[nodiscard]] auto blockAt(int pos) const -> const reformat::BlockNode*;
+
     /// `Sub` definitions in source order.
     [[nodiscard]] auto getSubs() const -> const std::vector<Symbol>& { return m_subs; }
     /// `Function` definitions in source order.
@@ -141,6 +146,10 @@ private:
     void walkNodes(const std::vector<reformat::Node>& nodes);
     /// Process a single block — emit its opener, then recurse into the body.
     void walkBlock(const reformat::BlockNode& block);
+    /// Rebuild `m_scopes` from the retained tree (pre-order, ascending start).
+    void buildScopeIndex();
+    /// Append every block under `nodes` (and its descendants) to `m_scopes`.
+    void indexBlocks(const std::vector<reformat::Node>& nodes);
     /// Collect every `#include` directive in `nodes` (recurses into blocks).
     void collectIncludes(const std::vector<reformat::Node>& nodes);
     /// If `tokens` is a recognised `#include`, push it onto `m_includes`.
@@ -168,6 +177,13 @@ private:
     std::vector<Include> m_includes;    ///< `#include` directives.
     std::size_t m_hash = 0;             ///< Stable hash over (kind, name) pairs.
     reformat::ProgramTree m_tree;       ///< Retained lean scope tree (parents wired, tokens positioned).
+    /// One block's text extent, pointing into the retained tree.
+    struct ScopeRange {
+        int start;                        ///< First opener-token byte offset.
+        int end;                          ///< One past the block's last token.
+        const reformat::BlockNode* block; ///< The block (into `m_tree`).
+    };
+    std::vector<ScopeRange> m_scopes;   ///< Block extents, sorted by start, for `blockAt`.
 };
 
 } // namespace fbide

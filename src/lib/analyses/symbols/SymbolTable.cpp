@@ -229,12 +229,63 @@ auto fbide::symbolOwner(const Symbol& sym) -> wxString {
     return {};
 }
 
+namespace {
+auto tokensSpan(const std::vector<lexer::Token>& toks) -> std::optional<std::pair<int, int>> {
+    if (toks.empty()) {
+        return std::nullopt;
+    }
+    const auto& last = toks.back();
+    return std::pair { toks.front().pos, last.pos + static_cast<int>(last.text.size()) };
+}
+
+auto nodeSpan(const Node& node) -> std::optional<std::pair<int, int>>;
+
+// Full text extent of a block: union of its opener, body and closer spans.
+auto blockSpan(const BlockNode& block) -> std::pair<int, int> {
+    int start = std::numeric_limits<int>::max();
+    int end = std::numeric_limits<int>::min();
+    const auto consider = [&](const std::optional<std::pair<int, int>>& span) {
+        if (span) {
+            start = std::min(start, span->first);
+            end = std::max(end, span->second);
+        }
+    };
+    if (block.opener) {
+        consider(tokensSpan(block.opener->tokens));
+    }
+    for (const auto& child : block.body) {
+        consider(nodeSpan(child));
+    }
+    if (block.closer) {
+        consider(tokensSpan(block.closer->tokens));
+    }
+    if (start > end) {
+        return { 0, 0 }; // no positioned tokens (defensive)
+    }
+    return { start, end };
+}
+
+auto nodeSpan(const Node& node) -> std::optional<std::pair<int, int>> {
+    if (const auto* stmt = std::get_if<StatementNode>(&node)) {
+        return tokensSpan(stmt->tokens);
+    }
+    if (const auto* verb = std::get_if<VerbatimNode>(&node)) {
+        return tokensSpan(verb->tokens);
+    }
+    if (const auto* block = std::get_if<std::unique_ptr<BlockNode>>(&node); block != nullptr && *block) {
+        return blockSpan(**block);
+    }
+    return std::nullopt; // BlankLineNode carries no position
+}
+} // namespace
+
 void SymbolTable::populate(ProgramTree&& tree) {
     walkNodes(tree.nodes);
     collectIncludes(tree.nodes);
     synthesizeOwnerTypes();
     computeHash();
     m_tree = std::move(tree); // retain for scope/keyword matching
+    buildScopeIndex();
 }
 
 void SymbolTable::synthesizeOwnerTypes() {
@@ -311,6 +362,38 @@ void SymbolTable::reset() {
     m_enums.clear();
     m_macros.clear();
     m_includes.clear();
+    m_scopes.clear();
+}
+
+void SymbolTable::buildScopeIndex() {
+    m_scopes.clear();
+    indexBlocks(m_tree.nodes);
+}
+
+void SymbolTable::indexBlocks(const std::vector<Node>& nodes) {
+    for (const auto& node : nodes) {
+        const auto* slot = std::get_if<std::unique_ptr<BlockNode>>(&node);
+        if (slot == nullptr || *slot == nullptr) {
+            continue;
+        }
+        const auto [start, end] = blockSpan(**slot);
+        m_scopes.push_back({ start, end, slot->get() });
+        indexBlocks((*slot)->body); // pre-order keeps m_scopes sorted by start
+    }
+}
+
+auto SymbolTable::blockAt(const int pos) const -> const BlockNode* {
+    // Sorted by start; the innermost container has the largest start <= pos, so
+    // scan back from the first entry whose start is past pos.
+    auto it = std::upper_bound(m_scopes.begin(), m_scopes.end(), pos,
+        [](const int position, const ScopeRange& range) { return position < range.start; });
+    while (it != m_scopes.begin()) {
+        --it;
+        if (pos < it->end) {
+            return it->block;
+        }
+    }
+    return nullptr;
 }
 
 void SymbolTable::walkNodes(const std::vector<Node>& nodes) {
