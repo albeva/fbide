@@ -18,6 +18,7 @@
 - Statically linked the CRT into the x86/x64 Windows builds so they run without the VC++ redistributable.
 - Fixed an operator (e.g. `,`) before a `&h`/`&o`/`&b` number swallowing its prefix and mis-highlighting the number (#111).
 - Fixed a crash on startup when the file browser's tree fired a selection change during its own construction.
+- Fixed a filesystem-watcher assertion on startup when opening a `.fbs` session from the command line.
 - Fixed `_` in a `##_##` preprocessor token-paste being mis-lexed as a line continuation (#115).
 - Added opening common extensionless files (Makefile, README, LICENSE, …) directly in fbide from the file browser (#114).
 - Changed the Open dialog's default filter to FBIde (`*.bas`, `*.bi`, `*.fbs`) so session files load from the standard Open dialog.

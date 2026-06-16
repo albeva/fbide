@@ -288,18 +288,6 @@ auto App::OnInit() -> bool {
     // icons into ~/.local/share so .bas/.bi/.fbs associate with FBIde.
     FileAssociationsLinux::ensureRegistered();
 #endif
-    openFiles(cli.files);
-    if (!cli.restoreStateFrom.IsEmpty()) {
-        // A throwaway snapshot from a restart that had no active session: load it
-        // as a session to reopen the documents, then close the session (leaving
-        // them as loose documents) and delete the temp file.
-        auto& docManager = m_context->getDocumentManager();
-        docManager.startSession(cli.restoreStateFrom);
-        docManager.closeSession();
-        if (isInsideTempDir(cli.restoreStateFrom)) {
-            wxRemoveFile(cli.restoreStateFrom);
-        }
-    }
     // First launch (no config overlay yet): try to locate a bundled or
     // PATH fbc silently so the IDE works out of the box — installers ship
     // fbc next to fbide.exe. Only when that finds nothing do we fall back
@@ -311,6 +299,26 @@ auto App::OnInit() -> bool {
         compilerManager.checkCompilerOnStartup();
     }
     m_context->getUpdateManager().checkOnStartup();
+
+    // Defer opening CLI files / restoring session state until the main event
+    // loop is running. A session restore makes the File Browser tab active, and
+    // its lazily-created wxFileSystemWatcher asserts ("needs an active loop")
+    // when built during OnInit — the loop only exists once OnInit returns.
+    // CallAfter runs this on the first loop tick, after the frame is up.
+    CallAfter([this, files = cli.files, restoreStateFrom = cli.restoreStateFrom] {
+        openFiles(files);
+        if (!restoreStateFrom.IsEmpty()) {
+            // A throwaway snapshot from a restart that had no active session: load
+            // it as a session to reopen the documents, then close the session
+            // (leaving them as loose documents) and delete the temp file.
+            auto& docManager = m_context->getDocumentManager();
+            docManager.startSession(restoreStateFrom);
+            docManager.closeSession();
+            if (isInsideTempDir(restoreStateFrom)) {
+                wxRemoveFile(restoreStateFrom);
+            }
+        }
+    });
     return true;
 }
 
