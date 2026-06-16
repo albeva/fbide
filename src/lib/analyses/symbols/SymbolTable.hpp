@@ -110,11 +110,12 @@ public:
     /// Keyword spans to highlight when the caret at `pos` sits on a block's
     /// opener or closer keyword: the opener keyword plus its matching closer
     /// (`For`/`Next`, `Sub`/`End Sub`, ...). Empty when `pos` is not on one.
-    [[nodiscard]] auto matchBlockAt(int pos) const -> std::vector<std::pair<int, int>>;
+    [[nodiscard]] auto matchBlockAt(int pos) const -> const std::vector<std::pair<int, int>>&;
     /// Opener + closer keyword spans of the procedure (Sub / Function /
     /// Constructor / ...) enclosing `pos` — for `Return`. Empty when `pos`
     /// is not inside a procedure.
-    [[nodiscard]] auto matchProcedureAt(int pos) const -> std::vector<std::pair<int, int>>;
+    [[nodiscard]] auto matchProcedureAt(int pos, const std::optional<std::pair<int, int>>& caretWord = std::nullopt) const
+        -> const std::vector<std::pair<int, int>>&;
 
     /// `Sub` definitions in source order.
     [[nodiscard]] auto getSubs() const -> const std::vector<Symbol>& { return m_subs; }
@@ -193,6 +194,11 @@ private:
         const reformat::BlockNode* block; ///< The block (into `m_tree`).
     };
     std::vector<ScopeRange> m_scopes;   ///< Block extents, sorted by start, for `blockAt`.
+    /// Reusable result buffer for `matchBlockAt` / `matchProcedureAt`, returned
+    /// by const reference so no vector is allocated per caret move. The caller
+    /// must consume it before the next match call. Mutable: the queries are
+    /// logically const and run on the UI thread only.
+    mutable std::vector<std::pair<int, int>> m_matchSpans;
 };
 
 } // namespace fbide

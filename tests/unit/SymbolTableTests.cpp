@@ -921,7 +921,8 @@ TEST_F(SymbolTableTests, MatchIfGroupFromIfAndEnd) {
     const int ifPos = (*iff)->opener->tokens[0].pos;
     const int endPos = (*iff)->closer->tokens.front().pos;
     const auto fromIf = table.matchBlockAt(ifPos);
-    ASSERT_EQ(fromIf.size(), 4u); // If + ElseIf + Else + End If
+    // If + If-Then + ElseIf + ElseIf-Then + Else + End If.
+    ASSERT_EQ(fromIf.size(), 6u);
     EXPECT_EQ(fromIf.front().first, ifPos);
     EXPECT_EQ(fromIf.back().first, endPos);
     EXPECT_EQ(table.matchBlockAt(endPos), fromIf); // same group from End If
@@ -945,13 +946,43 @@ TEST_F(SymbolTableTests, MatchIfGroupFromSingleBranch) {
     const int elseIfPos = branches[0]->opener->tokens[0].pos;
 
     const auto spans = table.matchBlockAt(elseIfPos);
-    ASSERT_EQ(spans.size(), 3u); // If + that branch + End If
-    EXPECT_EQ(spans.front().first, (*iff)->opener->tokens[0].pos);
-    EXPECT_EQ(spans[1].first, elseIfPos);
-    EXPECT_EQ(spans.back().first, (*iff)->closer->tokens.front().pos);
+    // If header (If + Then) + this branch (ElseIf + Then) + End If.
+    ASSERT_EQ(spans.size(), 5u);
+    EXPECT_EQ(spans.front().first, (*iff)->opener->tokens[0].pos);     // If
+    EXPECT_EQ(spans.back().first, (*iff)->closer->tokens.front().pos); // End If
+    bool hasElseIf = false;
+    bool hasElse = false;
     for (const auto& sp : spans) {
-        EXPECT_NE(sp.first, branches[1]->opener->tokens[0].pos); // Else excluded
+        if (sp.first == elseIfPos) { hasElseIf = true; }
+        if (sp.first == branches[1]->opener->tokens[0].pos) { hasElse = true; }
     }
+    EXPECT_TRUE(hasElseIf);
+    EXPECT_FALSE(hasElse); // sibling Else excluded
+}
+
+TEST_F(SymbolTableTests, MatchThenHighlightsScopeNotBranches) {
+    const auto table = extract(
+        "If a Then\n"
+        "ElseIf b Then\n"
+        "Else\n"
+        "End If\n");
+    const auto* iff = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(iff, nullptr);
+    const int ifPos = (*iff)->opener->tokens.front().pos;
+    int thenPos = -1;
+    for (const auto& tok : (*iff)->opener->tokens) {
+        if (tok.keywordKind == lexer::KeywordKind::Then) { thenPos = tok.pos; break; }
+    }
+    ASSERT_GE(thenPos, 0);
+
+    const auto spans = table.matchBlockAt(thenPos);
+    // Just the enclosing If scope: If + that Then + End If. No ElseIf/Else.
+    ASSERT_EQ(spans.size(), 3u);
+    EXPECT_EQ(spans.front().first, ifPos);
+    EXPECT_EQ(spans[1].first, thenPos);
+    EXPECT_EQ(spans.back().first, (*iff)->closer->tokens.front().pos);
+    // and it differs from the whole-group highlight (caret on If).
+    EXPECT_NE(spans, table.matchBlockAt(ifPos));
 }
 
 TEST_F(SymbolTableTests, MatchIfGroupIgnoresSingleLine) {
@@ -971,4 +1002,15 @@ TEST_F(SymbolTableTests, MatchIfGroupIgnoresSingleLine) {
     }
     ASSERT_GE(ifPos, 0);
     EXPECT_TRUE(table.matchBlockAt(ifPos).empty()); // single-line If: no group, no pair
+    int thenPos = -1;
+    for (const auto& child : (*sub)->body) {
+        if (const auto* st = std::get_if<StatementNode>(&child)) {
+            for (const auto& tok : st->tokens) {
+                if (tok.keywordKind == lexer::KeywordKind::Then) { thenPos = tok.pos; break; }
+            }
+        }
+    }
+    if (thenPos >= 0) {
+        EXPECT_TRUE(table.matchBlockAt(thenPos).empty()); // its Then triggers nothing either
+    }
 }

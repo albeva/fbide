@@ -1113,27 +1113,24 @@ void Editor::updateKeywordMatch() {
         return;
     }
     const int pos = GetCurrentPos();
-    auto spans = symbols->matchBlockAt(pos);
-    if (spans.empty()) {
+    const std::vector<std::pair<int, int>>* spans = &symbols->matchBlockAt(pos);
+    if (spans->empty()) {
         // `Return` is not a block keyword — detect it on the caret and match the
-        // enclosing procedure's opener + closer.
+        // enclosing procedure (opener + closer + the Return keyword itself).
         const int start = WordStartPosition(pos, true);
         const int end = WordEndPosition(pos, true);
         if (end > start && isKeywordCategory(static_cast<ThemeCategory>(GetStyleAt(start)))
             && GetTextRange(start, end).Lower() == "return") {
-            spans = symbols->matchProcedureAt(pos);
-            if (!spans.empty()) {
-                spans.emplace_back(start, end); // highlight the Return keyword itself too
-            }
+            spans = &symbols->matchProcedureAt(pos, std::pair { start, end });
         }
     }
-    if (spans.empty()) {
+    if (spans->empty()) {
         return;
     }
     const auto& wordHl = m_theme.getWordHighlight();
     const bool hasBg = wordHl.background.IsOk();
     const bool hasFg = wordHl.foreground.IsOk();
-    for (const auto& [from, to] : spans) {
+    for (const auto& [from, to] : *spans) {
         if (to <= from) {
             continue;
         }
