@@ -40,6 +40,12 @@ constexpr auto operator+(const Margins& rhs) -> int {
 constexpr int kChangeMarkersMask
     = (1 << Editor::kAddedMarker) | (1 << Editor::kModifiedMarker);
 
+// Indicator numbers for occurrence highlighting (identifier under the caret).
+// Two indicators: a box behind the text for the background, TEXTFORE for the
+// text colour. The container range is free — the FB lexer sets no decorations.
+constexpr int kIndicOccurrenceBg = wxSTC_INDIC_CONTAINER;
+constexpr int kIndicOccurrenceText = wxSTC_INDIC_CONTAINER + 1;
+
 struct Constants final {
     static constexpr int edgeColumn = 80;
     static constexpr int foldMarginWidth = 16;
@@ -274,6 +280,22 @@ void Editor::applyTheme() {
     // Brace matching
     applyStyle(wxSTC_STYLE_BRACELIGHT, theme.getBrace(), theme);
     applyStyle(wxSTC_STYLE_BRACEBAD, theme.getBadBrace(), theme);
+
+    // Occurrence highlight (identifier under the caret) — a box drawn under the
+    // text for the background plus TEXTFORE for the text colour. Both come from
+    // the WordHighlight entry (seeded with a derived default when the theme omits it).
+    const auto& wordHl = theme.getWordHighlight();
+    IndicatorSetStyle(kIndicOccurrenceBg, wxSTC_INDIC_STRAIGHTBOX);
+    IndicatorSetUnder(kIndicOccurrenceBg, true);
+    IndicatorSetAlpha(kIndicOccurrenceBg, wxSTC_ALPHA_OPAQUE);
+    IndicatorSetOutlineAlpha(kIndicOccurrenceBg, wxSTC_ALPHA_OPAQUE);
+    if (wordHl.background.IsOk()) {
+        IndicatorSetForeground(kIndicOccurrenceBg, wordHl.background);
+    }
+    IndicatorSetStyle(kIndicOccurrenceText, wxSTC_INDIC_TEXTFORE);
+    if (wordHl.foreground.IsOk()) {
+        IndicatorSetForeground(kIndicOccurrenceText, wordHl.foreground);
+    }
 
     // separator lines
     SetEdgeColour(theme.foreground(theme.getSeparator()));
@@ -901,6 +923,7 @@ void Editor::onUpdateUI(wxStyledTextEvent& event) {
 void Editor::postUpdateUI() {
     updateStatusBar();
     updateBraceMatch();
+    updateOccurrenceHighlight();
     if (m_documentManager != nullptr) {
         m_documentManager->syncEditCommands();
         // Refresh the tab's `[*]` dirty marker. Coalesced here — a bulk
@@ -909,6 +932,7 @@ void Editor::postUpdateUI() {
         m_documentManager->updateActiveTabTitle();
     }
     m_callPostUpdate = false;
+    m_textEditedTick = false;
 }
 
 void Editor::onCharAdded(wxStyledTextEvent& event) {
@@ -941,6 +965,94 @@ void Editor::updateBraceMatch() {
         }
     } else {
         BraceHighlight(wxSTC_INVALID_POSITION, wxSTC_INVALID_POSITION);
+    }
+}
+
+void Editor::updateOccurrenceHighlight() {
+    if (!m_configManager.config().get_or("editor.highlightOccurrences", true)
+        || m_docType != DocumentType::FreeBASIC) {
+        clearOccurrenceHighlight();
+        return;
+    }
+    // Don't scan while the user is typing — only on caret moves from clicking or
+    // navigating. A genuine text edit this tick clears stale marks instead.
+    // (wxSTC_UPDATE_CONTENT is unusable here — it also fires for lazy re-styling.)
+    if (m_textEditedTick) {
+        clearOccurrenceHighlight();
+        return;
+    }
+    const wxString word = occurrenceWordAtCaret();
+    // Caret still within the same identifier (case-insensitive, as FB is) — the
+    // existing highlights are already correct, so skip the whole-document scan.
+    if (word.IsSameAs(m_lastHighlightedWord, false)) {
+        return;
+    }
+    clearOccurrenceHighlight();
+    if (word.empty()) {
+        return;
+    }
+    fillOccurrences(word);
+    m_lastHighlightedWord = word;
+}
+
+void Editor::clearOccurrenceHighlight() {
+    if (m_lastHighlightedWord.empty()) {
+        return; // nothing of ours is painted
+    }
+    const int len = GetLength();
+    SetIndicatorCurrent(kIndicOccurrenceBg);
+    IndicatorClearRange(0, len);
+    SetIndicatorCurrent(kIndicOccurrenceText);
+    IndicatorClearRange(0, len);
+    m_lastHighlightedWord.clear();
+}
+
+auto Editor::occurrenceWordAtCaret() -> wxString {
+    if (!GetSelectionEmpty()) {
+        return {}; // a selection is active — leave it to the user
+    }
+    const int pos = GetCurrentPos();
+    const int start = WordStartPosition(pos, true);
+    const int end = WordEndPosition(pos, true);
+    if (end - start < 2) {
+        return {}; // not on a word, or a single-character one
+    }
+    // Identifiers only — never keywords, comments, strings, numbers, operators.
+    const int style = GetStyleAt(start);
+    if (style != +ThemeCategory::Identifier && style != +ThemeCategory::IdentifierPP) {
+        return {};
+    }
+    return GetTextRange(start, end);
+}
+
+void Editor::fillOccurrences(const wxString& word) {
+    const auto& wordHl = m_theme.getWordHighlight();
+    const bool hasBg = wordHl.background.IsOk();
+    const bool hasFg = wordHl.foreground.IsOk();
+    if (!hasBg && !hasFg) {
+        return;
+    }
+    // Whole-word, case-insensitive — FreeBASIC identifiers are case-insensitive.
+    SetSearchFlags(wxSTC_FIND_WHOLEWORD);
+    const int len = GetLength();
+    SetTargetStart(0);
+    SetTargetEnd(len);
+    while (SearchInTarget(word) != -1) {
+        const int matchStart = GetTargetStart();
+        const int matchEnd = GetTargetEnd();
+        if (matchEnd <= matchStart) {
+            break; // defensive — never advance backwards
+        }
+        if (hasBg) {
+            SetIndicatorCurrent(kIndicOccurrenceBg);
+            IndicatorFillRange(matchStart, matchEnd - matchStart);
+        }
+        if (hasFg) {
+            SetIndicatorCurrent(kIndicOccurrenceText);
+            IndicatorFillRange(matchStart, matchEnd - matchStart);
+        }
+        SetTargetStart(matchEnd);
+        SetTargetEnd(len);
     }
 }
 
@@ -1062,6 +1174,10 @@ void Editor::onModified(wxStyledTextEvent& event) {
     if ((mod & (wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT | wxSTC_PERFORMED_UNDO | wxSTC_PERFORMED_REDO)) == 0) {
         return;
     }
+
+    // A real text edit this tick — suppresses the occurrence-highlight search in
+    // postUpdateUI, so typing doesn't re-scan (navigation still does).
+    m_textEditedTick = true;
 
     // A user edit resolves any pending external-change notification — they've
     // chosen to keep working on their version (no-op when nothing is pending,

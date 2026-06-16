@@ -154,6 +154,17 @@ private:
     void onUpdateUI(wxStyledTextEvent& event);
     /// Deferred follow-up after `onUpdateUI` — runs once per UI tick.
     void postUpdateUI();
+    /// Highlight every occurrence of the identifier under the caret — only when
+    /// the selection is empty, the caret sits inside an identifier (not a keyword),
+    /// and the tick was a caret move rather than a typing edit. From `postUpdateUI`.
+    void updateOccurrenceHighlight();
+    /// Remove both occurrence-highlight indicators and reset the cache.
+    void clearOccurrenceHighlight();
+    /// Identifier word under the caret eligible for occurrence highlight, or empty
+    /// (selection present, not on an identifier, or shorter than two characters).
+    auto occurrenceWordAtCaret() -> wxString;
+    /// Paint both occurrence indicators over every whole-word match of `word`.
+    void fillOccurrences(const wxString& word);
     /// Coalesced transformer pass for a burst of text inserts — see `onModified`.
     void flushPendingInsert();
     /// Zoom event — bump the line-number margin width.
@@ -226,6 +237,8 @@ private:
     bool m_includeHotspotsActive = false; ///< True when Ctrl is held and PP styles show hotspot cursor.
     int m_lastCaretPos = 0;               ///< Caret position from previous `onUpdateUI` — backs `onCaretMoved`.
     bool m_callPostUpdate = false;        ///< Latch — triggers `postUpdateUI` on the next tick.
+    wxString m_lastHighlightedWord;        ///< Identifier last painted by the occurrence highlighter; empty when none.
+    bool m_textEditedTick = false;         ///< A genuine text edit (insert/delete/undo/redo) this tick — suppresses the occurrence search.
     /// Accumulated insert span awaiting a coalesced transformer pass.
     /// `m_pendingInsertStart < 0` means nothing pending. A burst of
     /// `EVT_STC_MODIFIED` inserts (multi-line indent, paste) folds into a

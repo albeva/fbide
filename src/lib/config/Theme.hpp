@@ -14,13 +14,14 @@ namespace fbide {
 // Property triples for the extra categories from ThemeCategory.hpp.
 // Kept here (not in ThemeCategory.hpp) because it references the
 // nested Theme::Colors / Theme::Entry types.
-#define DEFINE_THEME_EXTRA_PROPERTY(_)     \
-    /* name        member      type     */ \
-    _( LineNumber, lineNumber, Colors    ) \
-    _( Selection,  selection,  Colors    ) \
-    _( FoldMargin, foldMargin, Colors    ) \
-    _( Brace,      brace,      Entry     ) \
-    _( BadBrace,   badBrace,   Entry     )
+#define DEFINE_THEME_EXTRA_PROPERTY(_)            \
+    /* name           member         type      */ \
+    _( LineNumber,    lineNumber,    Colors    )  \
+    _( Selection,     selection,     Colors    )  \
+    _( WordHighlight, wordHighlight, Colors    )  \
+    _( FoldMargin,    foldMargin,    Colors    )  \
+    _( Brace,         brace,         Entry     )  \
+    _( BadBrace,      badBrace,      Entry     )
 
 // Top-level theme properties. The four `Changes*` entries are the
 // diff-state palette — used today by the Editor's change-tracking
@@ -170,6 +171,10 @@ private:
     /// background — baked once at load time so the runtime value is
     /// always concrete (no tiered inheritance).
     void seedChangesPaletteDefaults();
+    /// Derive a default occurrence-highlight colour pair when the loaded
+    /// theme carries no `[wordhighlight]` section: foreground = the default
+    /// foreground, background = a subtle foreground-over-background blend.
+    void seedWordHighlightDefault();
     /// Invalidate the cached runtime font.
     void reset();
     /// Build the runtime wxFont, substituting the system monospace face

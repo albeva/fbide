@@ -37,6 +37,7 @@ private:
     bool m_showWhiteSpaces;   ///< Visualise whitespace characters.
     bool m_showLineEndings;   ///< Visualise line-ending characters.
     bool m_braceHighlight;    ///< Highlight matching braces.
+    bool m_highlightOccurrences; ///< Highlight occurrences of the identifier under the caret.
 
     // Right column
     bool m_syntaxHighlight;          ///< Enable syntax highlighting.

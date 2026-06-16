@@ -201,6 +201,13 @@ auto readLegacyColors(wxFileConfig& ini, const wxString& section,
     };
 }
 
+auto blendColour(const wxColour& base, const wxColour& over, const double ratio) -> wxColour {
+    const auto mix = [&](const unsigned char lhs, const unsigned char rhs) -> unsigned char {
+        return static_cast<unsigned char>(std::lround(lhs + (rhs - lhs) * ratio));
+    };
+    return { mix(base.Red(), over.Red()), mix(base.Green(), over.Green()), mix(base.Blue(), over.Blue()) };
+}
+
 } // namespace
 
 /// --------------------------------------------------------------------------
@@ -279,6 +286,7 @@ void Theme::load(const wxString& themePath, const bool reset) {
     // diff palette keys; seed sensible defaults so the picker reflects
     // a real colour rather than an empty swatch.
     seedChangesPaletteDefaults();
+    seedWordHighlightDefault();
 
     // Qualified to disambiguate from the `reset` bool parameter.
     this->reset();
@@ -301,6 +309,7 @@ void Theme::loadDefaults() {
         .foreground = *wxBLACK, .background = *wxLIGHT_GREY
     };
     seedChangesPaletteDefaults();
+    seedWordHighlightDefault();
     derivePpEntriesFromBase();
     reset();
 }
@@ -327,6 +336,24 @@ void Theme::seedChangesPaletteDefaults() {
     // inheritance from another category).
     if (!m_changesBackground.IsOk() && m_foldMargin.background.IsOk()) {
         m_changesBackground = m_foldMargin.background;
+    }
+}
+
+void Theme::seedWordHighlightDefault() {
+    // Occurrence highlight for the identifier under the caret. When the theme
+    // carries no [wordhighlight] section, derive a subtle, light/dark-adaptive
+    // default: text keeps the default foreground; the background is a low-ratio
+    // blend of foreground over background. A theme may clear the foreground to
+    // leave matched identifiers in their own syntax colour (only the box shows).
+    const auto& def = m_categories[+ThemeCategory::Default].colors;
+    if (!def.foreground.IsOk() || !def.background.IsOk()) {
+        return; // no base to derive from
+    }
+    if (!m_wordHighlight.foreground.IsOk()) {
+        m_wordHighlight.foreground = def.foreground;
+    }
+    if (!m_wordHighlight.background.IsOk()) {
+        m_wordHighlight.background = blendColour(def.background, def.foreground, 0.20);
     }
 }
 
@@ -438,6 +465,7 @@ void Theme::loadV4(const wxString& themePath) {
     // Editor-wide entries
     m_lineNumber = readLegacyColors(ini, "/linenumber", *wxWHITE, wxColour(0xC0, 0xC0, 0xC0));
     m_selection = readLegacyColors(ini, "/select", *wxWHITE, wxColour(0xC0, 0xC0, 0xC0));
+    m_wordHighlight = readLegacyColors(ini, "/wordhighlight", wxNullColour, wxNullColour);
     m_brace = readLegacyEntry(ini, "/brace", defaultBg, defaultFg);
     m_badBrace = readLegacyEntry(ini, "/badbrace", *wxBLACK, defaultFg);
 
