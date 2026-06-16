@@ -649,6 +649,32 @@ TEST_F(FBSciLexerTests, ArrowAccessSuppressesKeyword) {
     );
 }
 
+TEST_F(FBSciLexerTests, ArrowAccessKeepsKeywordWhenNotIdentifier) {
+    // Issue #112: `->` followed by a non-identifier (here `(`) is not member
+    // access, so the keyword after it must still highlight.
+    expectStyles(
+        "a->(dim ",
+        "IPPP111 "
+    );
+}
+
+TEST_F(FBSciLexerTests, DotAccessKeepsKeywordWhenNotIdentifier) {
+    expectStyles(
+        "a.(dim ",
+        "IPP111 "
+    );
+}
+
+TEST_F(FBSciLexerTests, FieldAccessAcrossLineContinuation) {
+    // The member may sit on the next physical line, even with a space before the
+    // `_`: only an operator right after `.` disarms field access, so `dim` here
+    // stays suppressed (issue #112 must not regress continuation tracking).
+    expectStyles(
+        "foo. _\ndim ",
+        "IIIP C III "
+    );
+}
+
 // endregion
 
 // region ---------- Line Continuation ----------

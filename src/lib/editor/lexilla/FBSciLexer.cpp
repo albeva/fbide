@@ -361,15 +361,19 @@ void FBSciLexer::lexDefault() noexcept {
             }
         } else {
             m_sc->SetState(+Operator);
-            m_fieldAccess = true;
+            // Not field access when an operator follows: `.(` etc. is not member
+            // access (issue #112). Anything non-operator (identifier, whitespace,
+            // `_`) still arms it, so continuation/comment tracking via
+            // canAccessMember is unchanged.
+            m_fieldAccess = !isOperator(m_sc->chNext);
             return; // short circuit!
         }
     }
     // ->
     else if (m_sc->ch == '-' && m_sc->chNext == '>') {
         m_sc->SetState(+Operator);
-        m_sc->Forward();
-        m_fieldAccess = true;
+        m_sc->Forward(); // consume '>'; chNext is now the char after "->"
+        m_fieldAccess = !isOperator(m_sc->chNext); // see the `.` case (issue #112)
         return; // short circuit!
     }
     // Numbers
