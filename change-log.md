@@ -26,6 +26,7 @@
 - Fixed Comment/Uncomment changing the text selection — the selection (or caret) is now preserved relative to the edited text (#113).
 - Fixed a keyword right after `.`/`->` followed by a non-identifier (e.g. `->(byref`) losing its highlighting (#112).
 - Fixed reopening the already-active session file reloading it from disk; it's now a no-op.
+- Added an editor notification bar when a file fails to save (e.g. a read-only file), showing the OS reason when available.
 
 # Changes since 0.5.0-rc.5
 

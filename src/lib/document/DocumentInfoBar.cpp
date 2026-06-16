@@ -68,19 +68,34 @@ void DocumentInfoBar::present(const wxString& message) {
 }
 
 void DocumentInfoBar::showConflict() {
+    m_errorMode = false;
     m_reload->Show(); // a changed-on-disk file can be reloaded
     present(m_ctx.tr("messages.externalChangedConflict"));
 }
 
 void DocumentInfoBar::showDeleted() {
+    m_errorMode = false;
     m_reload->Hide(); // nothing to reload — only Dismiss
     present(m_ctx.tr("messages.externalDeleted"));
 }
 
+void DocumentInfoBar::showError(const wxString& message) {
+    m_errorMode = true;
+    m_reload->Hide(); // an error has nothing to reload — only Dismiss
+    present(message);
+}
+
 void DocumentInfoBar::dismiss() {
+    m_errorMode = false;
     Hide();
     if (auto* parent = GetParent()) {
         parent->Layout();
+    }
+}
+
+void DocumentInfoBar::dismissError() {
+    if (m_errorMode) {
+        dismiss();
     }
 }
 
@@ -93,6 +108,10 @@ void DocumentInfoBar::onReload(wxCommandEvent& /*event*/) {
 }
 
 void DocumentInfoBar::onKeep(wxCommandEvent& /*event*/) {
+    if (m_errorMode) {
+        dismiss(); // a save error: just hide it, there's no external state to settle
+        return;
+    }
     // Dismiss: keep the in-editor version, re-baseline, hide the bar.
     m_doc.dismissExternalNotification();
 }

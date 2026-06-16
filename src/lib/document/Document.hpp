@@ -142,6 +142,12 @@ public:
     /// Hide the external-change info bar.
     void hideExternalBar();
 
+    /// Show a save-failure message in this page's notification bar.
+    void showSaveError(const wxString& message);
+    /// Clear the save-failure bar (e.g. after a later successful save). No-op
+    /// unless an error is currently shown.
+    void dismissSaveError();
+
     /// Resolve any pending external-change notification: re-baseline to the
     /// current on-disk state (so it won't immediately re-trigger) and hide the
     /// bar. Called when the user edits or saves — they've implicitly chosen to

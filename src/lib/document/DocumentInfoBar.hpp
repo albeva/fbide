@@ -33,8 +33,13 @@ public:
     void showConflict();
     /// Show the "deleted on disk" bar.
     void showDeleted();
+    /// Show a transient error (e.g. a failed save) — message + a Dismiss button.
+    void showError(const wxString& message);
     /// Hide the bar and re-layout the page.
     void dismiss();
+    /// Hide the bar only when it is currently showing an error (e.g. after a
+    /// later successful save). No-op for the external-change states.
+    void dismissError();
 
 private:
     /// Reload from disk, discarding the in-editor changes (keeps undo).
@@ -47,6 +52,7 @@ private:
 
     Context& m_ctx;
     Document& m_doc;
+    bool m_errorMode = false; ///< Showing a transient error, not an external-change state.
 
     Unowned<wxStaticText> m_message;
     Unowned<FlatButton> m_reload; ///< Conflict only: reload from disk.

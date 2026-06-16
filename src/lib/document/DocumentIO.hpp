@@ -57,11 +57,14 @@ public:
     ///   EncodingError — chosen encoding cannot represent some characters;
     ///                   nothing was written, caller should surface the
     ///                   failure and leave the document dirty.
+    /// On `IOError`, `ioErrorDetail` (when non-null) receives the OS error
+    /// message (e.g. "Permission denied") for display.
     [[nodiscard]] static auto save(
         const std::filesystem::path& path,
         const wxString& text,
         TextEncoding encoding,
-        EolMode eolMode
+        EolMode eolMode,
+        wxString* ioErrorDetail = nullptr
     ) -> SaveResult;
 };
 

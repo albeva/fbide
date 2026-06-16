@@ -299,6 +299,14 @@ void Document::hideExternalBar() {
     m_infoBar->dismiss();
 }
 
+void Document::showSaveError(const wxString& message) {
+    m_infoBar->showError(message);
+}
+
+void Document::dismissSaveError() {
+    m_infoBar->dismissError();
+}
+
 void Document::dismissExternalNotification() {
     if (m_pendingExternal == ExternalChange::None) {
         return;

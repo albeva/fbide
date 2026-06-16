@@ -139,7 +139,8 @@ auto DocumentIO::save(
     const std::filesystem::path& path,
     const wxString& text,
     const TextEncoding encoding,
-    const EolMode eolMode
+    const EolMode eolMode,
+    wxString* ioErrorDetail
 ) -> SaveResult {
     const auto normalized = normalizeEols(text, eolMode);
 
@@ -148,22 +149,32 @@ auto DocumentIO::save(
         return SaveResult::EncodingError;
     }
 
+    // Suppress wxFile's own wxLogSysError pop-up — the caller surfaces failures in
+    // the editor's notification bar; capture the OS reason here instead.
+    const wxLogNull noLog;
+    const auto ioError = [&] -> SaveResult {
+        if (ioErrorDetail != nullptr) {
+            *ioErrorDetail = wxString(wxSysErrorMsg(wxSysErrorCode())).Trim();
+        }
+        return SaveResult::IOError;
+    };
+
     wxFile file(toWxString(path), wxFile::write);
     if (!file.IsOpened()) {
-        return SaveResult::IOError;
+        return ioError();
     }
 
     if (const auto bom = encoding.bomBytes(); !bom.empty()) {
         if (!file.Write(bom.data(), bom.size())) {
-            return SaveResult::IOError;
+            return ioError();
         }
     }
 
     if (encoded->length() > 0) {
         if (!file.Write(encoded->data(), encoded->length())) {
-            return SaveResult::IOError;
+            return ioError();
         }
     }
 
-    return file.Close() ? SaveResult::Success : SaveResult::IOError;
+    return file.Close() ? SaveResult::Success : ioError();
 }

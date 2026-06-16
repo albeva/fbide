@@ -270,12 +270,18 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
 
 namespace {
 
-void reportSaveFailure(const DocumentIO::SaveResult result, Context& ctx, const TextEncoding encoding) {
+void reportSaveFailure(Document& doc, const DocumentIO::SaveResult result, Context& ctx,
+                       const TextEncoding encoding, const wxString& detail) {
+    wxString message;
     if (result == DocumentIO::SaveResult::EncodingError) {
-        wxLogError(ctx.tr("messages.saveEncodingError"), encoding.toString().data());
-    } else if (result == DocumentIO::SaveResult::IOError) {
-        wxLogError("%s", ctx.tr("messages.saveIoError"));
+        message = wxString::Format(ctx.tr("messages.saveEncodingError"), encoding.toString().data());
+    } else { // IOError — append the OS reason (e.g. "Permission denied") when known.
+        message = ctx.tr("messages.saveIoError");
+        if (!detail.IsEmpty()) {
+            message += " " + detail;
+        }
     }
+    doc.showSaveError(message);
 }
 
 } // namespace
@@ -337,15 +343,17 @@ auto DocumentManager::saveFile(Document& doc) -> bool {
         }
     }
 
-    const auto result = DocumentIO::save(doc.getFilePath(), doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode());
+    wxString ioDetail;
+    const auto result = DocumentIO::save(doc.getFilePath(), doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode(), &ioDetail);
     if (result != DocumentIO::SaveResult::Success) {
-        reportSaveFailure(result, m_ctx, doc.getEncoding());
+        reportSaveFailure(doc, result, m_ctx, doc.getEncoding(), ioDetail);
         return false;
     }
 
     doc.setModified(false);
     doc.updateModTime();
     doc.dismissExternalNotification(); // a save resolves any external-change bar
+    doc.dismissSaveError();            // and clears a prior failed-save bar
     updateTabTitle(doc);
     reloadConfigIfMatches(toWxString(doc.getFilePath()));
     return true;
@@ -415,9 +423,10 @@ auto DocumentManager::saveFileAs(Document& doc) -> bool {
         }
     }
 
-    const auto result = DocumentIO::save(newPath, doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode());
+    wxString ioDetail;
+    const auto result = DocumentIO::save(newPath, doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode(), &ioDetail);
     if (result != DocumentIO::SaveResult::Success) {
-        reportSaveFailure(result, m_ctx, doc.getEncoding());
+        reportSaveFailure(doc, result, m_ctx, doc.getEncoding(), ioDetail);
         return false;
     }
 
@@ -428,6 +437,7 @@ auto DocumentManager::saveFileAs(Document& doc) -> bool {
     doc.setModified(false);
     doc.updateModTime();
     doc.dismissExternalNotification(); // a save resolves any external-change bar
+    doc.dismissSaveError();            // and clears a prior failed-save bar
     m_watcher->addDocument(doc);
     updateTabTitle(doc);
     reloadConfigIfMatches(toWxString(newPath));
