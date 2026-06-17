@@ -48,19 +48,17 @@ IntellisenseService::~IntellisenseService() {
     }
 }
 
-void IntellisenseService::submit(Document* owner, const wxString& content) {
+void IntellisenseService::submit(Document* owner, std::string content) {
     if (owner == nullptr) {
         return;
     }
-    // wxString uses non-atomic copy-on-write refcounting and isn't safe to
-    // share across threads. Round-trip through UTF-8 so the wxString placed
-    // in the Task shares no buffer with any UI-thread wxString.
-    std::string isolated = content.utf8_string();
+    // `content` is an owned UTF-8 snapshot built by the caller, so it shares no
+    // buffer with any UI-thread string — safe to hand to the worker thread.
     wxMutexLocker lock(m_mtx);
     if (m_stopRequested) {
         return;
     }
-    m_pending = Task { .owner = owner, .content = std::move(isolated) };
+    m_pending = Task { .owner = owner, .content = std::move(content) };
     m_cv.Signal();
 }
 
@@ -118,12 +116,12 @@ auto IntellisenseService::Entry() -> wxThread::ExitCode {
         }
 
         m_inFlight.store(task.owner);
-        process(task);
+        process(std::move(task));
     }
 }
 
-void IntellisenseService::process(const Task& task) {
-    m_memDoc.Set(std::string_view { task.content.data(), task.content.size() });
+void IntellisenseService::process(Task task) {
+    m_memDoc.Set(std::move(task.content));
     m_lexer->Lex(0, m_memDoc.Length(), +ThemeCategory::Default, &m_memDoc);
 
     lexer::MemoryDocStyledSource src(m_memDoc);

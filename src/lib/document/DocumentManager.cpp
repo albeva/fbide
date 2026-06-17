@@ -264,7 +264,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     m_watcher->addDocument(doc);
 
     // Initial parse: bypass throttle, submit immediately.
-    submitIntellisense(&doc, loaded->text);
+    submitIntellisense(&doc, loaded->text.utf8_string());
     return &doc;
 }
 
@@ -524,7 +524,7 @@ void DocumentManager::applyReload(Document& doc, const bool keepUndo) {
     updateTabTitle(doc);
     editor->updateStatusBar();
 
-    submitIntellisense(&doc, loaded->text);
+    submitIntellisense(&doc, loaded->text.utf8_string());
 }
 
 void DocumentManager::reloadConfigIfMatches(const wxString& path) const {
@@ -643,7 +643,7 @@ void DocumentManager::attachNotebook() {
     CallAfter([this] { m_watcher->applyConfig(); });
 }
 
-void DocumentManager::submitIntellisense(Document* doc, wxString content) {
+void DocumentManager::submitIntellisense(Document* doc, std::string content) {
     if (m_intellisense != nullptr) {
         m_intellisense->submit(doc, std::move(content));
     }

@@ -299,6 +299,15 @@ constexpr auto UTF8IsTrailByte(unsigned char ch) noexcept -> bool {
 
 void MemoryDocument::Set(const std::string_view sv) {
     m_text = sv;
+    rebuildIndex();
+}
+
+void MemoryDocument::Set(std::string&& text) {
+    m_text = std::move(text);
+    rebuildIndex();
+}
+
+void MemoryDocument::rebuildIndex() {
     m_textStyles.assign(m_text.size() + 1, '\0');
     m_lineStarts.clear();
     m_endStyled = 0;

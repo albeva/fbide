@@ -156,12 +156,9 @@ private:
     void walkNodes(const std::vector<reformat::Node>& nodes);
     /// Process a single block — emit its opener, then recurse into the body.
     void walkBlock(const reformat::BlockNode& block);
-    /// Rebuild `m_scopes` from the retained tree (pre-order, ascending start).
-    void buildScopeIndex();
-    /// Append every block under `nodes` (and its descendants) to `m_scopes`.
-    void indexBlocks(const std::vector<reformat::Node>& nodes);
-    /// Collect every `#include` directive in `nodes` (recurses into blocks).
-    void collectIncludes(const std::vector<reformat::Node>& nodes);
+    /// One full pre-order walk that collects `#include` directives and records
+    /// every block's extent into `m_scopes` (ascending start, for `blockAt`).
+    void indexTree(const std::vector<reformat::Node>& nodes);
     /// If `tokens` is a recognised `#include`, push it onto `m_includes`.
     void tryAddInclude(const std::vector<lexer::Token>& tokens);
     /// Push one symbol drawn from an opener's tokens at `keywordIdx`.

@@ -179,7 +179,7 @@ void Document::setType(const DocumentType type) {
     if (type == DocumentType::FreeBASIC) {
         // Re-enter the FreeBASIC pipeline — submit the current buffer for
         // intellisense so the symbol browser populates.
-        dm.submitIntellisense(this, m_editor->GetText());
+        dm.submitIntellisense(this, m_editor->utf8Text());
     } else {
         // Leaving FreeBASIC: drop any in-flight intellisense work, release
         // the symbol table (frees the shared_ptr — workers may still hold

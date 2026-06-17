@@ -39,6 +39,9 @@ namespace fbide {
  * license) and renamed/namespaced for fbide use.
  */
 class MemoryDocument final : public Scintilla::IDocument {
+    /// Rebuild styles / line-start / line-state buffers for the current m_text.
+    void rebuildIndex();
+
     std::string m_text;                     ///< UTF-8 source text.
     std::string m_textStyles;               ///< One style byte per source byte.
     std::vector<Sci_Position> m_lineStarts; ///< Byte offset of each line start.
@@ -58,6 +61,8 @@ public:
 
     /// Replace text and reset styles, line starts, line states, line levels.
     void Set(std::string_view sv);
+    /// Same, taking ownership of an existing UTF-8 buffer (no copy).
+    void Set(std::string&& text);
 
     /// Highest line index (0-based). 0 for empty input.
     [[nodiscard]] auto MaxLine() const noexcept -> Sci_Position;

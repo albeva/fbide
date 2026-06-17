@@ -636,6 +636,13 @@ auto Editor::getWordAtCursor() -> wxString {
     return {};
 }
 
+auto Editor::utf8Text() -> std::string {
+    // Size from the buffer's own byte length — NOT GetTextLength(), which wx
+    // documents as a *character* count and would truncate multi-byte UTF-8.
+    const wxCharBuffer utf8 = GetTextRaw();
+    return { utf8.data(), utf8.length() };
+}
+
 auto Editor::findNext(const wxString& text, const int flags, const bool forward) -> bool {
     if (text.empty()) {
         return false;
@@ -1198,7 +1205,7 @@ void Editor::onIntellisenseTimer(wxTimerEvent& /*event*/) {
     if (doc == nullptr) {
         return;
     }
-    m_documentManager->submitIntellisense(doc, GetText());
+    m_documentManager->submitIntellisense(doc, utf8Text());
 }
 
 void Editor::onKeyDown(wxKeyEvent& event) {

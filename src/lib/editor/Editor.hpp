@@ -72,6 +72,10 @@ public:
     /// Get word under the cursor, or selected text if any.
     [[nodiscard]] auto getWordAtCursor() -> wxString;
 
+    /// The whole document as an owned UTF-8 byte string, copied straight from
+    /// Scintilla's buffer (already UTF-8) — no wxString decode/re-encode.
+    [[nodiscard]] auto utf8Text() -> std::string;
+
     /// Find next occurrence of text. Returns true if found.
     auto findNext(const wxString& text, int flags, bool forward = true) -> bool;
 
@@ -251,8 +255,8 @@ private:
     bool m_includeHotspotsActive = false; ///< True when Ctrl is held and PP styles show hotspot cursor.
     int m_lastCaretPos = 0;               ///< Caret position from previous `onUpdateUI` — backs `onCaretMoved`.
     bool m_callPostUpdate = false;        ///< Latch — triggers `postUpdateUI` on the next tick.
-    wxString m_lastHighlightedWord;        ///< Identifier last painted by the occurrence highlighter; empty when none.
-    bool m_matchSuppressed = false;        ///< Occurrence + keyword-match highlighting off after a text edit until the next navigation (arrow / click).
+    wxString m_lastHighlightedWord;       ///< Identifier last painted by the occurrence highlighter; empty when none.
+    bool m_matchSuppressed = false;       ///< Occurrence + keyword-match highlighting off after a text edit until the next navigation (arrow / click).
     /// Accumulated insert span awaiting a coalesced transformer pass.
     /// `m_pendingInsertStart < 0` means nothing pending. A burst of
     /// `EVT_STC_MODIFIED` inserts (multi-line indent, paste) folds into a

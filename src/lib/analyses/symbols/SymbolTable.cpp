@@ -281,11 +281,11 @@ auto nodeSpan(const Node& node) -> std::optional<std::pair<int, int>> {
 
 void SymbolTable::populate(ProgramTree&& tree) {
     walkNodes(tree.nodes);
-    collectIncludes(tree.nodes);
+    indexTree(tree.nodes); // #includes + scope ranges in one pass (before the move;
+                           // BlockNodes are heap-stable so the pointers survive it)
     synthesizeOwnerTypes();
     computeHash();
     m_tree = std::move(tree); // retain for scope/keyword matching
-    buildScopeIndex();
 }
 
 void SymbolTable::synthesizeOwnerTypes() {
@@ -328,15 +328,18 @@ auto SymbolTable::findIncludeAt(const int line) const -> const Include* {
     return nullptr;
 }
 
-void SymbolTable::collectIncludes(const std::vector<Node>& nodes) {
+void SymbolTable::indexTree(const std::vector<Node>& nodes) {
     for (const auto& node : nodes) {
         if (const auto* stmt = std::get_if<StatementNode>(&node)) {
             tryAddInclude(stmt->tokens);
-        } else if (const auto* block = std::get_if<std::unique_ptr<BlockNode>>(&node)) {
-            if ((*block)->opener.has_value()) {
-                tryAddInclude((*block)->opener->tokens);
+        } else if (const auto* slot = std::get_if<std::unique_ptr<BlockNode>>(&node); slot != nullptr && *slot) {
+            const auto& block = **slot;
+            if (block.opener.has_value()) {
+                tryAddInclude(block.opener->tokens);
             }
-            collectIncludes((*block)->body);
+            const auto [start, end] = blockSpan(block);
+            m_scopes.push_back({ start, end, slot->get() });
+            indexTree(block.body); // pre-order keeps m_scopes sorted by start
         }
     }
 }
@@ -365,22 +368,6 @@ void SymbolTable::reset() {
     m_scopes.clear();
 }
 
-void SymbolTable::buildScopeIndex() {
-    m_scopes.clear();
-    indexBlocks(m_tree.nodes);
-}
-
-void SymbolTable::indexBlocks(const std::vector<Node>& nodes) {
-    for (const auto& node : nodes) {
-        const auto* slot = std::get_if<std::unique_ptr<BlockNode>>(&node);
-        if (slot == nullptr || *slot == nullptr) {
-            continue;
-        }
-        const auto [start, end] = blockSpan(**slot);
-        m_scopes.push_back({ start, end, slot->get() });
-        indexBlocks((*slot)->body); // pre-order keeps m_scopes sorted by start
-    }
-}
 
 auto SymbolTable::blockAt(const int pos) const -> const BlockNode* {
     // Sorted by start; the innermost container has the largest start <= pos, so

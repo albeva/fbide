@@ -101,7 +101,7 @@ public:
     /// Submit a snapshot for background intellisense parsing. Latest-wins:
     /// any pending submission for any document is replaced. Result lands
     /// asynchronously via EVT_INTELLISENSE_RESULT.
-    void submitIntellisense(Document* doc, wxString content);
+    void submitIntellisense(Document* doc, std::string content);
 
     /// Cancel any pending or in-flight intellisense work for `doc`. Called
     /// from `closeFile` before erasing the document.

@@ -46,7 +46,7 @@ public:
     ~IntellisenseService() override;
 
     /// Submit a snapshot for parsing. Replaces any pending task.
-    void submit(Document* owner, const wxString& content);
+    void submit(Document* owner, std::string content);
 
     /// Cancel any pending or in-flight task tagged with `doc`. Safe to call
     /// from the UI thread. After return, no result for `doc` will be posted
@@ -71,7 +71,7 @@ private:
     };
 
     /// Run the lex + tree + symbolize pipeline on the worker thread.
-    void process(const Task& task);
+    void process(Task task);
 
     /// Acquire a SymbolTable slot from the pool: scan for an entry whose
     /// `use_count` is 1 (held only by the pool — i.e. no Document or event
