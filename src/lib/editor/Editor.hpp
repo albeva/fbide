@@ -263,11 +263,14 @@ private:
     bool m_callPostUpdate = false;        ///< Latch — triggers `postUpdateUI` on the next tick.
     wxString m_lastHighlightedWord;       ///< Identifier last painted by the occurrence highlighter; empty when none.
     bool m_matchSuppressed = false;       ///< Occurrence + keyword-match highlighting off after a text edit until the next navigation (arrow / click).
-    std::vector<wxString> m_completionItems; ///< Reusable candidate buffer for the completion popup.
+    std::vector<wxString> m_completionItems; ///< Reusable assembled candidate list for the popup.
     wxString m_completionList;               ///< Reusable space-joined item list for AutoCompShow.
-    std::vector<wxString> m_globalCompletions; ///< Cached symbol-derived global candidates.
-    std::size_t m_globalCompletionsHash = 0;   ///< `SymbolTable` hash the global cache was built for.
-    bool m_globalCompletionsReady = false;     ///< Whether the global cache has been built.
+    std::vector<wxString> m_localVariables;  ///< Per-caret bucket: params + in-scope locals.
+    std::vector<wxString> m_localSymbols;    ///< Per-caret bucket: the enclosing type's members.
+    std::vector<wxString> m_globalSymbols;   ///< Cached bucket: top-level symbols (keyed by hash).
+    std::vector<wxString> m_globalVariables; ///< Cached bucket: module-level variables (keyed by hash).
+    std::size_t m_globalCompletionsHash = 0; ///< `SymbolTable` hash the global buckets were built for.
+    bool m_globalCompletionsReady = false;   ///< Whether the global buckets have been built.
     /// Accumulated insert span awaiting a coalesced transformer pass.
     /// `m_pendingInsertStart < 0` means nothing pending. A burst of
     /// `EVT_STC_MODIFIED` inserts (multi-line indent, paste) folds into a

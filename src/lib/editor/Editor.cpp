@@ -1045,29 +1045,51 @@ void Editor::maybeShowCompletion(const bool manual) {
     const auto* doc = m_documentManager->findByEditor(this);
     const auto symbols = doc != nullptr ? doc->getSymbolTable() : nullptr;
 
-    // Global (symbol-derived) candidates change only when a parse alters the
-    // symbol set, so rebuild that part of the list only when the table's hash
-    // changes — the skip-on-unchanged-hash trick the SymbolBrowser also uses.
+    // Global buckets change only when a parse alters the symbol set, so rebuild
+    // them only when the table's hash changes (skip-on-unchanged-hash).
     const std::size_t hash = symbols != nullptr ? symbols->getHash() : 0;
     if (!m_globalCompletionsReady || hash != m_globalCompletionsHash) {
-        m_globalCompletions.clear();
+        m_globalSymbols.clear();
+        m_globalVariables.clear();
         if (symbols != nullptr) {
-            symbols->globalCompletions(m_globalCompletions);
+            symbols->globalSymbolCompletions(m_globalSymbols);
+            symbols->moduleVariableCompletions(m_globalVariables);
         }
+        sortUniqueCI(m_globalSymbols);
+        sortUniqueCI(m_globalVariables);
         m_globalCompletionsHash = hash;
         m_globalCompletionsReady = true;
     }
 
-    // Per-popup list: cached globals + scope members + cached keyword groups.
-    m_completionItems.assign(m_globalCompletions.begin(), m_globalCompletions.end());
+    // Per-caret local buckets are scope-dependent, so they are not cached.
+    m_localVariables.clear();
+    m_localSymbols.clear();
     if (symbols != nullptr) {
-        symbols->memberCompletionsAt(pos, m_completionItems);
+        symbols->localCompletionsAt(pos, m_localVariables);
+        symbols->memberCompletionsAt(pos, m_localSymbols);
     }
-    m_completionItems.insert(m_completionItems.end(), g_keywordCompletions.begin(), g_keywordCompletions.end());
+    sortUniqueCI(m_localVariables);
+    sortUniqueCI(m_localSymbols);
+
+    // Assemble in priority order; an earlier bucket shadows a later same-named
+    // entry (a local hides a global, a user symbol hides a keyword, ...).
+    m_completionItems.clear();
+    std::unordered_set<std::string> seen;
+    const auto appendBucket = [&seen, this](const std::vector<wxString>& bucket) {
+        for (const auto& name : bucket) {
+            if (seen.insert(name.Lower().utf8_string()).second) {
+                m_completionItems.push_back(name);
+            }
+        }
+    };
+    appendBucket(m_localVariables);
+    appendBucket(m_localSymbols);
+    appendBucket(m_globalVariables);
+    appendBucket(m_globalSymbols);
+    appendBucket(g_keywordCompletions);
     if (m_completionItems.empty()) {
         return;
     }
-    sortUniqueCI(m_completionItems);
 
     m_completionList.clear();
     for (const auto& name : m_completionItems) {
@@ -1077,11 +1099,10 @@ void Editor::maybeShowCompletion(const bool manual) {
         m_completionList += name;
     }
 
+    // CUSTOM order keeps the bucket grouping and matches the prefix with a
+    // linear, order-independent scan (so `__`-prefixed names match too).
     AutoCompSetIgnoreCase(true);
-    // Let Scintilla sort: its prefix search assumes the list is in its own
-    // collation, which differs from CmpNoCase for `_` (so `__`-prefixed items
-    // were missed under PRESORTED).
-    AutoCompSetOrder(wxSTC_ORDER_PERFORMSORT);
+    AutoCompSetOrder(wxSTC_ORDER_CUSTOM);
     AutoCompShow(pos - wordStart, m_completionList);
 }
 

@@ -1210,7 +1210,7 @@ TEST_F(SymbolTableTests, GlobalCompletionsListsFreeStandingAndTypes) {
     const auto table = extract(src.c_str());
 
     std::vector<wxString> out;
-    table.globalCompletions(out);
+    table.globalSymbolCompletions(out);
 
     const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
     EXPECT_TRUE(has("Free"));
@@ -1258,4 +1258,109 @@ TEST_F(SymbolTableTests, MemberCompletionsEmptyOutsideTypeMethod) {
     std::vector<wxString> out;
     table.memberCompletionsAt(pos, out);
     EXPECT_TRUE(out.empty());
+}
+
+TEST_F(SymbolTableTests, LocalCompletionsParamsAndDimsBeforeCaret) {
+    const std::string src =
+        "Sub Foo(arg As Integer)\n"
+        "    Dim early As Integer\n"
+        "    Print early\n"
+        "    Dim late As Integer\n"
+        "End Sub\n";
+    const auto table = extract(src.c_str());
+    const int pos = static_cast<int>(src.find("Print early"));
+    std::vector<wxString> out;
+    table.localCompletionsAt(pos, out);
+    const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
+    EXPECT_TRUE(has("arg"));    // parameter
+    EXPECT_TRUE(has("early"));  // declared before caret
+    EXPECT_FALSE(has("late"));  // declared after caret
+}
+
+TEST_F(SymbolTableTests, LocalCompletionsBlockScopeAndShadow) {
+    const std::string src =
+        "Sub Foo()\n"
+        "    Dim outer As Integer\n"
+        "    If true Then\n"
+        "        Dim inner As Integer\n"
+        "        Print inner\n"
+        "    End If\n"
+        "End Sub\n";
+    const auto table = extract(src.c_str());
+    const int pos = static_cast<int>(src.find("Print inner"));
+    std::vector<wxString> out;
+    table.localCompletionsAt(pos, out);
+    const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
+    EXPECT_TRUE(has("outer")); // enclosing scope
+    EXPECT_TRUE(has("inner")); // current block
+}
+
+TEST_F(SymbolTableTests, LocalCompletionsSiblingBlockHidden) {
+    const std::string src =
+        "Sub Foo()\n"
+        "    If a Then\n"
+        "        Dim hidden As Integer\n"
+        "    End If\n"
+        "    Print 1\n"
+        "End Sub\n";
+    const auto table = extract(src.c_str());
+    const int pos = static_cast<int>(src.find("Print 1"));
+    std::vector<wxString> out;
+    table.localCompletionsAt(pos, out);
+    EXPECT_TRUE(std::ranges::find(out, wxString("hidden")) == out.end());
+}
+
+TEST_F(SymbolTableTests, LocalCompletionsMultiNameAndConst) {
+    const std::string src =
+        "Sub Foo()\n"
+        "    Dim a, b, c As Integer\n"
+        "    Const K = 10\n"
+        "    Print 1\n"
+        "End Sub\n";
+    const auto table = extract(src.c_str());
+    const int pos = static_cast<int>(src.find("Print 1"));
+    std::vector<wxString> out;
+    table.localCompletionsAt(pos, out);
+    const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
+    EXPECT_TRUE(has("a"));
+    EXPECT_TRUE(has("b"));
+    EXPECT_TRUE(has("c"));
+    EXPECT_TRUE(has("K"));
+}
+
+TEST_F(SymbolTableTests, TypeFieldsInMemberCompletion) {
+    const std::string src =
+        "Type Vec\n"
+        "    x As Integer\n"
+        "    y As Integer\n"
+        "    Declare Sub Move()\n"
+        "End Type\n"
+        "Sub Vec.Move()\n"
+        "    Print 1\n"
+        "End Sub\n";
+    const auto table = extract(src.c_str());
+    const int pos = static_cast<int>(src.find("Print 1"));
+    std::vector<wxString> out;
+    table.memberCompletionsAt(pos, out);
+    const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
+    EXPECT_TRUE(has("x"));    // field
+    EXPECT_TRUE(has("y"));    // field
+    EXPECT_TRUE(has("Move")); // method
+}
+
+TEST_F(SymbolTableTests, ModuleVariablesInGlobalCompletions) {
+    const std::string src =
+        "Dim Shared g As Integer\n"
+        "Const MAXV = 10\n"
+        "Sub Foo()\n"
+        "End Sub\n";
+    const auto table = extract(src.c_str());
+    std::vector<wxString> vars;
+    table.moduleVariableCompletions(vars);
+    const auto hasVar = [&](const wxString& name) { return std::ranges::find(vars, name) != vars.end(); };
+    EXPECT_TRUE(hasVar("g"));
+    EXPECT_TRUE(hasVar("MAXV"));
+    std::vector<wxString> syms;
+    table.globalSymbolCompletions(syms);
+    EXPECT_TRUE(std::ranges::find(syms, wxString("Foo")) != syms.end());
 }

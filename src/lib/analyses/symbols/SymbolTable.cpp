@@ -366,6 +366,7 @@ void SymbolTable::reset() {
     m_macros.clear();
     m_includes.clear();
     m_scopes.clear();
+    m_typeFields.clear();
 }
 
 
@@ -801,7 +802,182 @@ auto SymbolTable::matchProcedureAt(const int pos, const std::optional<std::pair<
     return m_matchSpans;
 }
 
-void SymbolTable::globalCompletions(std::vector<wxString>& out) const {
+namespace {
+
+// Case-insensitive ASCII compare of a token's text against a lowercase literal.
+auto textEqualsLower(const Token& tok, const std::string_view lower) -> bool {
+    if (tok.text.size() != lower.size()) {
+        return false;
+    }
+    for (std::size_t k = 0; k < lower.size(); k++) {
+        char ch = tok.text[k];
+        if (ch >= 'A' && ch <= 'Z') {
+            ch = static_cast<char>(ch + ('a' - 'A'));
+        }
+        if (ch != lower[k]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Modifier keywords that may precede the name(s) in a declaration.
+auto isDeclModifier(const Token& tok) -> bool {
+    static constexpr std::string_view mods[]
+        = { "dim", "redim", "const", "static", "var", "common", "extern", "shared", "threadlocal", "preserve" };
+    return std::ranges::any_of(mods, [&](const auto sv) { return textEqualsLower(tok, sv); });
+}
+
+// Keywords that, as the first word of a statement, start a variable declaration.
+auto isDeclLeader(const Token& tok) -> bool {
+    static constexpr std::string_view leaders[] = { "dim", "redim", "const", "static", "var", "common", "extern" };
+    return std::ranges::any_of(leaders, [&](const auto sv) { return textEqualsLower(tok, sv); });
+}
+
+// ByRef / ByVal parameter qualifiers — they precede the parameter name.
+auto isParamQualifier(const Token& tok) -> bool {
+    return textEqualsLower(tok, "byref") || textEqualsLower(tok, "byval");
+}
+
+// First non-layout token of a statement, or nullptr.
+auto firstSignificant(const std::vector<Token>& toks) -> const Token* {
+    for (const auto& tok : toks) {
+        if (tok.kind != TokenKind::Whitespace && tok.kind != TokenKind::Newline
+            && tok.kind != TokenKind::Comment && tok.kind != TokenKind::CommentBlock) {
+            return &tok;
+        }
+    }
+    return nullptr;
+}
+
+auto isOpenBracket(const OperatorKind op) -> bool {
+    return op == OperatorKind::ParenOpen || op == OperatorKind::BracketOpen || op == OperatorKind::BraceOpen;
+}
+auto isCloseBracket(const OperatorKind op) -> bool {
+    return op == OperatorKind::ParenClose || op == OperatorKind::BracketClose || op == OperatorKind::BraceClose;
+}
+
+// Collect declared names from a declaration / UDT-field statement: skip leading
+// access + declaration modifier keywords, then take the name-first identifiers
+// (comma-separated, at bracket depth 0), each ending at `As` / `=` / `:`.
+// `As`-first forms (`Dim As Integer x`) are not captured.
+void collectDeclNames(const std::vector<Token>& toks, std::vector<wxString>& out) {
+    std::size_t idx = 0;
+    const auto skipLayout = [&] {
+        while (idx < toks.size()
+            && (toks[idx].kind == TokenKind::Whitespace || toks[idx].kind == TokenKind::Newline
+                || toks[idx].kind == TokenKind::Comment || toks[idx].kind == TokenKind::CommentBlock)) {
+            idx++;
+        }
+    };
+    while (true) {
+        skipLayout();
+        if (idx >= toks.size()) {
+            return;
+        }
+        if (isAccessModifier(toks[idx].keywordKind) || isDeclModifier(toks[idx])) {
+            idx++;
+            continue;
+        }
+        break;
+    }
+    bool expectName = true;
+    int depth = 0;
+    for (; idx < toks.size(); idx++) {
+        const auto& tok = toks[idx];
+        if (tok.kind == TokenKind::Whitespace || tok.kind == TokenKind::Newline
+            || tok.kind == TokenKind::Comment || tok.kind == TokenKind::CommentBlock) {
+            continue;
+        }
+        const auto op = tok.operatorKind;
+        if (isOpenBracket(op)) {
+            depth++;
+            continue;
+        }
+        if (isCloseBracket(op)) {
+            if (depth > 0) {
+                depth--;
+            }
+            continue;
+        }
+        if (depth > 0) {
+            continue;
+        }
+        if (op == OperatorKind::Comma) {
+            expectName = true;
+            continue;
+        }
+        if (tok.keywordKind == KeywordKind::As || op == OperatorKind::Assign || op == OperatorKind::Colon
+            || op == OperatorKind::Semicolon) {
+            expectName = false;
+            continue;
+        }
+        if (expectName && isWordLike(tok.kind)) {
+            out.push_back(wxString::FromUTF8(tok.text));
+        }
+        expectName = false;
+    }
+}
+
+// Collect parameter names from a procedure opener (between its `(` and `)`).
+void collectParamNames(const std::vector<Token>& opener, std::vector<wxString>& out) {
+    int depth = 0;
+    bool expectName = false;
+    for (const auto& tok : opener) {
+        const auto op = tok.operatorKind;
+        if (isOpenBracket(op)) {
+            depth++;
+            if (depth == 1) {
+                expectName = true;
+            }
+            continue;
+        }
+        if (isCloseBracket(op)) {
+            depth--;
+            if (depth == 0) {
+                break;
+            }
+            continue;
+        }
+        if (depth != 1) {
+            continue;
+        }
+        if (op == OperatorKind::Comma) {
+            expectName = true;
+            continue;
+        }
+        if (tok.keywordKind == KeywordKind::As || op == OperatorKind::Assign) {
+            expectName = false;
+            continue;
+        }
+        if (expectName && isWordLike(tok.kind)) {
+            if (isParamQualifier(tok)) {
+                continue; // ByRef / ByVal — the name follows
+            }
+            out.push_back(wxString::FromUTF8(tok.text));
+            expectName = false;
+        }
+    }
+}
+
+// Append field names declared directly in a UDT body (skips method prototypes).
+void gatherFields(const std::vector<Node>& body, std::vector<wxString>& out) {
+    for (const auto& node : body) {
+        const auto* stmt = std::get_if<StatementNode>(&node);
+        if (stmt == nullptr) {
+            continue;
+        }
+        const Token* lead = firstSignificant(stmt->tokens);
+        if (lead == nullptr || lead->keywordKind == KeywordKind::Declare) {
+            continue;
+        }
+        collectDeclNames(stmt->tokens, out);
+    }
+}
+
+} // namespace
+
+void SymbolTable::globalSymbolCompletions(std::vector<wxString>& out) const {
     // Free-standing callables only — methods carry an owner qualifier.
     const auto addFreeStanding = [&out](const std::vector<Symbol>& vec) {
         for (const auto& sym : vec) {
@@ -823,6 +999,20 @@ void SymbolTable::globalCompletions(std::vector<wxString>& out) const {
     addAll(m_unions);
     addAll(m_enums);
     addAll(m_macros);
+}
+
+void SymbolTable::moduleVariableCompletions(std::vector<wxString>& out) const {
+    // Module-level Dim/Const/Var declarations — globally visible (no position filter).
+    for (const auto& node : m_tree.nodes) {
+        const auto* stmt = std::get_if<StatementNode>(&node);
+        if (stmt == nullptr) {
+            continue;
+        }
+        const Token* lead = firstSignificant(stmt->tokens);
+        if (lead != nullptr && isDeclLeader(*lead)) {
+            collectDeclNames(stmt->tokens, out);
+        }
+    }
 }
 
 void SymbolTable::memberCompletionsAt(const int pos, std::vector<wxString>& out) const {
@@ -867,6 +1057,36 @@ void SymbolTable::memberCompletionsAt(const int pos, std::vector<wxString>& out)
     addMembers(m_subs);
     addMembers(m_functions);
     addMembers(m_properties);
+
+    // The owner type's data fields (`x As T`), captured during the walk.
+    if (const auto it = m_typeFields.find(owner); it != m_typeFields.end()) {
+        out.insert(out.end(), it->second.begin(), it->second.end());
+    }
+}
+
+void SymbolTable::localCompletionsAt(const int pos, std::vector<wxString>& out) const {
+    // Walk scopes innermost-out. Each block contributes its parameters (always
+    // in scope) and the locals declared in its direct body at or before `pos`.
+    // Sibling blocks are off the chain, so their locals stay invisible.
+    for (const auto* block = blockAt(pos); block != nullptr; block = block->parent) {
+        if (block->opener.has_value()) {
+            const auto first = findFirstKeyword(block->opener->tokens);
+            if (isProcedureKind(first.kind)) {
+                collectParamNames(block->opener->tokens, out);
+            }
+        }
+        for (const auto& node : block->body) {
+            const auto* stmt = std::get_if<StatementNode>(&node);
+            if (stmt == nullptr) {
+                continue;
+            }
+            const Token* lead = firstSignificant(stmt->tokens);
+            if (lead == nullptr || lead->pos > pos || !isDeclLeader(*lead)) {
+                continue;
+            }
+            collectDeclNames(stmt->tokens, out);
+        }
+    }
 }
 
 void SymbolTable::walkNodes(const std::vector<Node>& nodes) {
@@ -905,9 +1125,11 @@ void SymbolTable::walkBlock(const BlockNode& block) {
         break;
     case KeywordKind::Type:
         emit(SymbolKind::Type, openerTokens, first.index);
+        gatherFields(block.body, m_typeFields[qualifiedNameAfter(openerTokens, first.index + 1)]);
         break;
     case KeywordKind::Union:
         emit(SymbolKind::Union, openerTokens, first.index);
+        gatherFields(block.body, m_typeFields[qualifiedNameAfter(openerTokens, first.index + 1)]);
         break;
     case KeywordKind::Enum:
         emit(SymbolKind::Enum, openerTokens, first.index);

@@ -117,15 +117,24 @@ public:
     [[nodiscard]] auto matchProcedureAt(int pos, const std::optional<std::pair<int, int>>& caretWord = std::nullopt) const
         -> const std::vector<std::pair<int, int>>&;
 
-    /// Append global completion candidates — free-standing `Sub`/`Function`
-    /// names and every `Type`/`Union`/`Enum`/`#macro` name — to `out`.
+    /// Append global symbol candidates — free-standing `Sub`/`Function` names
+    /// and every `Type`/`Union`/`Enum`/`#macro` name — to `out`.
     /// Position-independent; valid at any scope.
-    void globalCompletions(std::vector<wxString>& out) const;
+    void globalSymbolCompletions(std::vector<wxString>& out) const;
+
+    /// Append module-level variable names (`Dim`/`Const`/`Var` at file scope)
+    /// to `out`. Position-independent; globally visible.
+    void moduleVariableCompletions(std::vector<wxString>& out) const;
 
     /// When `pos` lies inside a type method body (e.g. `Sub Vec.Foo`), append
     /// that type's callable member names (its `Sub`/`Function`/`Property`
     /// members, unqualified) to `out`. No-op outside a type method.
     void memberCompletionsAt(int pos, std::vector<wxString>& out) const;
+
+    /// Append in-scope local names — parameters and `Dim`/`Const`/`Static`/`Var`
+    /// declarations visible at `pos` (declared at or before it) — walking the
+    /// scope chain outward. No-op outside any block.
+    void localCompletionsAt(int pos, std::vector<wxString>& out) const;
 
     /// `Sub` definitions in source order.
     [[nodiscard]] auto getSubs() const -> const std::vector<Symbol>& { return m_subs; }
@@ -201,6 +210,8 @@ private:
         const parser::BlockNode* block; ///< The block (into `m_tree`).
     };
     std::vector<ScopeRange> m_scopes; ///< Block extents, sorted by start, for `blockAt`.
+    /// UDT (Type / Union) name -> its field names, for member completion in methods.
+    std::unordered_map<wxString, std::vector<wxString>> m_typeFields;
     /// Reusable result buffer for `matchBlockAt` / `matchProcedureAt`, returned
     /// by const reference so no vector is allocated per caret move. The caller
     /// must consume it before the next match call. Mutable: the queries are
