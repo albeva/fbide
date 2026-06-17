@@ -186,8 +186,8 @@ private:
     void onZoom(wxStyledTextEvent& event);
     /// Single-char insert — drives `CodeTransformer` on-type pipeline.
     void onCharAdded(wxStyledTextEvent& event);
-    /// Show the symbol/keyword completion popup when the caret is at a
-    /// statement start. `manual` (Ctrl+Space) shows even with no partial word.
+    /// Show the symbol/keyword completion popup as a new identifier is typed
+    /// (not after `.`/`->`). `manual` (Ctrl+Space) shows even with no partial word.
     void maybeShowCompletion(bool manual = false);
     /// Rebuild the shared keyword-completion list (Library / Constants / Preprocessor /
     /// Custom groups) from config. Called when editor settings are applied.

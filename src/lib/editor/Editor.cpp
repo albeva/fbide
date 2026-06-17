@@ -1024,22 +1024,27 @@ void Editor::maybeShowCompletion(const bool manual) {
         return; // auto-trigger needs at least one typed character
     }
 
-    // Only at the start of a statement: everything before the word on this
-    // physical line must be whitespace — except an optional leading `#`, so a
-    // preprocessor directive still completes (`#def` -> `#define`).
-    const int lineStart = PositionFromLine(LineFromPosition(pos));
-    int scanEnd = wordStart;
-    if (scanEnd > lineStart && GetCharAt(scanEnd - 1) == '#') {
-        scanEnd--;
-    }
-    for (int idx = lineStart; idx < scanEnd; idx++) {
-        const auto ch = GetCharAt(idx);
-        if (ch != ' ' && ch != '\t') {
-            return;
+    // Trigger wherever a new identifier begins, except: while typing a number,
+    // inside a string / comment, or after `.` / `->` (member access — we can't
+    // resolve the member's type).
+    if (wordStart < pos) {
+        const auto firstCh = GetCharAt(wordStart);
+        if (firstCh >= '0' && firstCh <= '9') {
+            return; // a number literal, not an identifier
         }
     }
     if (isCommentOrStringStyle(GetStyleAt(wordStart))) {
-        return; // not inside strings or comments
+        return;
+    }
+    int prev = wordStart - 1;
+    while (prev >= 0 && (GetCharAt(prev) == ' ' || GetCharAt(prev) == '\t')) {
+        prev--;
+    }
+    if (prev >= 0) {
+        const auto before = GetCharAt(prev);
+        if (before == '.' || (before == '>' && prev > 0 && GetCharAt(prev - 1) == '-')) {
+            return; // member access — not a free identifier
+        }
     }
 
     const auto* doc = m_documentManager->findByEditor(this);
