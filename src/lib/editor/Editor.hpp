@@ -186,6 +186,12 @@ private:
     void onZoom(wxStyledTextEvent& event);
     /// Single-char insert — drives `CodeTransformer` on-type pipeline.
     void onCharAdded(wxStyledTextEvent& event);
+    /// Show the symbol/keyword completion popup when the caret is at a
+    /// statement start. `manual` (Ctrl+Space) shows even with no partial word.
+    void maybeShowCompletion(bool manual = false);
+    /// Rebuild the shared keyword-completion list (Library / Constants / Preprocessor /
+    /// Custom groups) from config. Called when editor settings are applied.
+    void rebuildKeywordCompletions();
     /// Editor gained focus — refresh edit-command masks.
     void onFocus(wxFocusEvent& event);
     /// Intellisense timer fire — submit current text to the worker.
@@ -257,6 +263,11 @@ private:
     bool m_callPostUpdate = false;        ///< Latch — triggers `postUpdateUI` on the next tick.
     wxString m_lastHighlightedWord;       ///< Identifier last painted by the occurrence highlighter; empty when none.
     bool m_matchSuppressed = false;       ///< Occurrence + keyword-match highlighting off after a text edit until the next navigation (arrow / click).
+    std::vector<wxString> m_completionItems; ///< Reusable candidate buffer for the completion popup.
+    wxString m_completionList;               ///< Reusable space-joined item list for AutoCompShow.
+    std::vector<wxString> m_globalCompletions; ///< Cached symbol-derived global candidates.
+    std::size_t m_globalCompletionsHash = 0;   ///< `SymbolTable` hash the global cache was built for.
+    bool m_globalCompletionsReady = false;     ///< Whether the global cache has been built.
     /// Accumulated insert span awaiting a coalesced transformer pass.
     /// `m_pendingInsertStart < 0` means nothing pending. A burst of
     /// `EVT_STC_MODIFIED` inserts (multi-line indent, paste) folds into a

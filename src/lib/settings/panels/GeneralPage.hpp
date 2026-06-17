@@ -38,6 +38,7 @@ private:
     bool m_showLineEndings;   ///< Visualise line-ending characters.
     bool m_braceHighlight;    ///< Highlight matching braces.
     bool m_highlightOccurrences; ///< Highlight occurrences of the identifier under the caret.
+    bool m_codeCompletion;       ///< Symbol / keyword completion at statement start.
 
     // Right column
     bool m_syntaxHighlight;          ///< Enable syntax highlighting.

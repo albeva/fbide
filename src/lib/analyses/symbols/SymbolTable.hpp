@@ -117,6 +117,16 @@ public:
     [[nodiscard]] auto matchProcedureAt(int pos, const std::optional<std::pair<int, int>>& caretWord = std::nullopt) const
         -> const std::vector<std::pair<int, int>>&;
 
+    /// Append global completion candidates — free-standing `Sub`/`Function`
+    /// names and every `Type`/`Union`/`Enum`/`#macro` name — to `out`.
+    /// Position-independent; valid at any scope.
+    void globalCompletions(std::vector<wxString>& out) const;
+
+    /// When `pos` lies inside a type method body (e.g. `Sub Vec.Foo`), append
+    /// that type's callable member names (its `Sub`/`Function`/`Property`
+    /// members, unqualified) to `out`. No-op outside a type method.
+    void memberCompletionsAt(int pos, std::vector<wxString>& out) const;
+
     /// `Sub` definitions in source order.
     [[nodiscard]] auto getSubs() const -> const std::vector<Symbol>& { return m_subs; }
     /// `Function` definitions in source order.

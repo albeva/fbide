@@ -21,6 +21,34 @@
 using namespace fbide;
 
 namespace {
+// Completion candidates from the Library / Constants / Preprocessor / Custom keyword groups
+// (sorted, de-duplicated case-insensitively). Shared across editors; rebuilt
+// when editor settings are applied.
+std::vector<wxString> g_keywordCompletions;
+
+// Sort case-insensitively (FreeBASIC is case-insensitive) and drop duplicates.
+void sortUniqueCI(std::vector<wxString>& names) {
+    std::ranges::sort(names, [](const wxString& lhs, const wxString& rhs) { return lhs.CmpNoCase(rhs) < 0; });
+    names.erase(
+        std::unique(names.begin(), names.end(),
+            [](const wxString& lhs, const wxString& rhs) { return lhs.CmpNoCase(rhs) == 0; }),
+        names.end());
+}
+
+// Styles where a completion popup should not appear.
+auto isCommentOrStringStyle(const int style) -> bool {
+    switch (static_cast<ThemeCategory>(style)) {
+    case ThemeCategory::Comment:
+    case ThemeCategory::MultilineComment:
+    case ThemeCategory::String:
+    case ThemeCategory::StringOpen:
+    case ThemeCategory::StringPP:
+        return true;
+    default:
+        return false;
+    }
+}
+
 // Order matches Scintilla margin indices — Changes sits at the right,
 // directly against the text edge, so the diff bar is the first thing
 // the eye picks up next to the line content.
@@ -156,9 +184,7 @@ void Editor::applyEditorSettings() {
     if (m_transformer != nullptr) {
         m_transformer->applySettings();
     }
-    m_changeTracking = editor.get_or("changeTracking", true);
 
-    UsePopUp(wxSTC_POPUP_TEXT);
     SetTabWidth(tabSize);
     SetUseTabs(false);
     SetTabIndents(true);
@@ -180,8 +206,13 @@ void Editor::applyEditorSettings() {
         SetViewWhiteSpace(wxSTC_WS_INVISIBLE);
         // Prevent horizontal scrollbar flashing on content changes
         SetScrollWidthTracking(false);
+        m_changeTracking = false;
         return;
     }
+
+    m_changeTracking = editor.get_or("changeTracking", true);
+    rebuildKeywordCompletions();
+    UsePopUp(wxSTC_POPUP_TEXT);
 
     SetEdgeColumn(editor.get_or("edgeColumn", Constants::edgeColumn));
     SetViewEOL(editor.get_or("displayEOL", false));
@@ -969,6 +1000,111 @@ void Editor::onCharAdded(wxStyledTextEvent& event) {
     m_transformer->onCharAdded(*this, event.GetKey());
     m_editorLocked = false;
     m_insertHandled = true;
+
+    const int key = event.GetKey();
+    if ((key >= 'a' && key <= 'z') || (key >= 'A' && key <= 'Z') || (key >= '0' && key <= '9') || key == '_') {
+        maybeShowCompletion();
+    }
+}
+
+void Editor::maybeShowCompletion(const bool manual) {
+    if (m_docType != DocumentType::FreeBASIC || m_documentManager == nullptr) {
+        return;
+    }
+    if (!m_configManager.config().get_or("editor.codeCompletion", true)) {
+        return;
+    }
+    if (AutoCompActive()) {
+        return; // already open — Scintilla narrows the existing list as we type
+    }
+
+    const int pos = GetCurrentPos();
+    const int wordStart = WordStartPosition(pos, true);
+    if (!manual && wordStart >= pos) {
+        return; // auto-trigger needs at least one typed character
+    }
+
+    // Only at the start of a statement: everything before the word on this
+    // physical line must be whitespace — except an optional leading `#`, so a
+    // preprocessor directive still completes (`#def` -> `#define`).
+    const int lineStart = PositionFromLine(LineFromPosition(pos));
+    int scanEnd = wordStart;
+    if (scanEnd > lineStart && GetCharAt(scanEnd - 1) == '#') {
+        scanEnd--;
+    }
+    for (int idx = lineStart; idx < scanEnd; idx++) {
+        const auto ch = GetCharAt(idx);
+        if (ch != ' ' && ch != '\t') {
+            return;
+        }
+    }
+    if (isCommentOrStringStyle(GetStyleAt(wordStart))) {
+        return; // not inside strings or comments
+    }
+
+    const auto* doc = m_documentManager->findByEditor(this);
+    const auto symbols = doc != nullptr ? doc->getSymbolTable() : nullptr;
+
+    // Global (symbol-derived) candidates change only when a parse alters the
+    // symbol set, so rebuild that part of the list only when the table's hash
+    // changes — the skip-on-unchanged-hash trick the SymbolBrowser also uses.
+    const std::size_t hash = symbols != nullptr ? symbols->getHash() : 0;
+    if (!m_globalCompletionsReady || hash != m_globalCompletionsHash) {
+        m_globalCompletions.clear();
+        if (symbols != nullptr) {
+            symbols->globalCompletions(m_globalCompletions);
+        }
+        m_globalCompletionsHash = hash;
+        m_globalCompletionsReady = true;
+    }
+
+    // Per-popup list: cached globals + scope members + cached keyword groups.
+    m_completionItems.assign(m_globalCompletions.begin(), m_globalCompletions.end());
+    if (symbols != nullptr) {
+        symbols->memberCompletionsAt(pos, m_completionItems);
+    }
+    m_completionItems.insert(m_completionItems.end(), g_keywordCompletions.begin(), g_keywordCompletions.end());
+    if (m_completionItems.empty()) {
+        return;
+    }
+    sortUniqueCI(m_completionItems);
+
+    m_completionList.clear();
+    for (const auto& name : m_completionItems) {
+        if (!m_completionList.empty()) {
+            m_completionList += ' ';
+        }
+        m_completionList += name;
+    }
+
+    AutoCompSetIgnoreCase(true);
+    // Let Scintilla sort: its prefix search assumes the list is in its own
+    // collation, which differs from CmpNoCase for `_` (so `__`-prefixed items
+    // were missed under PRESORTED).
+    AutoCompSetOrder(wxSTC_ORDER_PERFORMSORT);
+    AutoCompShow(pos - wordStart, m_completionList);
+}
+
+void Editor::rebuildKeywordCompletions() {
+    g_keywordCompletions.clear();
+    const auto& groups = m_configManager.keywords().at("groups");
+    for (const auto category : { ThemeCategory::KeywordLibrary, ThemeCategory::KeywordConstants, ThemeCategory::KeywordPP, ThemeCategory::KeywordCustom }) {
+        const std::string words(groups.get_or(wxString(getThemeCategoryName(category)), "").utf8_str());
+        std::size_t idx = 0;
+        while (idx < words.size()) {
+            while (idx < words.size() && (std::isspace(static_cast<unsigned char>(words[idx])) != 0)) {
+                idx++;
+            }
+            const std::size_t start = idx;
+            while (idx < words.size() && (std::isspace(static_cast<unsigned char>(words[idx])) == 0)) {
+                idx++;
+            }
+            if (idx > start) {
+                g_keywordCompletions.push_back(wxString::FromUTF8(words.substr(start, idx - start)));
+            }
+        }
+    }
+    sortUniqueCI(g_keywordCompletions);
 }
 
 void Editor::onZoom(wxStyledTextEvent& /*event*/) {
@@ -1209,6 +1345,10 @@ void Editor::onIntellisenseTimer(wxTimerEvent& /*event*/) {
 }
 
 void Editor::onKeyDown(wxKeyEvent& event) {
+    if (m_docType == DocumentType::FreeBASIC && event.ControlDown() && event.GetKeyCode() == WXK_SPACE) {
+        maybeShowCompletion(true);
+        return; // consume Ctrl+Space — do not insert a space
+    }
     event.Skip();
     if (isNavigationKey(event.GetKeyCode())) {
         m_matchSuppressed = false; // navigation re-enables match highlighting

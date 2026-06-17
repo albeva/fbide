@@ -1195,3 +1195,67 @@ TEST_F(SymbolTableTests, MatchExitSubInSingleLineIf) {
     EXPECT_EQ(spans[1].first, (*sub)->opener->tokens[0].pos);      // Sub
     EXPECT_EQ(spans[2].first, (*sub)->closer->tokens.front().pos); // End Sub
 }
+
+TEST_F(SymbolTableTests, GlobalCompletionsListsFreeStandingAndTypes) {
+    const std::string src =
+        "Sub Free\n"
+        "End Sub\n"
+        "Function Calc() As Integer\n"
+        "End Function\n"
+        "Type Vec\n"
+        "    x As Integer\n"
+        "End Type\n"
+        "Sub Vec.Method\n"
+        "End Sub\n";
+    const auto table = extract(src.c_str());
+
+    std::vector<wxString> out;
+    table.globalCompletions(out);
+
+    const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
+    EXPECT_TRUE(has("Free"));
+    EXPECT_TRUE(has("Calc"));
+    EXPECT_TRUE(has("Vec"));
+    EXPECT_FALSE(has("Vec.Method")); // qualified method excluded from globals
+    EXPECT_FALSE(has("Method"));     // member is not a global
+}
+
+TEST_F(SymbolTableTests, MemberCompletionsInsideTypeMethod) {
+    const std::string src =
+        "Type Vec\n"
+        "    Declare Sub Foo()\n"
+        "End Type\n"
+        "Sub Vec.Foo()\n"
+        "    Print 1\n"
+        "End Sub\n"
+        "Sub Vec.Bar()\n"
+        "End Sub\n"
+        "Function Vec.Size() As Integer\n"
+        "End Function\n"
+        "Sub Free()\n"
+        "End Sub\n";
+    const auto table = extract(src.c_str());
+
+    const int pos = static_cast<int>(src.find("Print 1"));
+    std::vector<wxString> out;
+    table.memberCompletionsAt(pos, out);
+
+    const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
+    EXPECT_TRUE(has("Foo"));
+    EXPECT_TRUE(has("Bar"));
+    EXPECT_TRUE(has("Size"));
+    EXPECT_FALSE(has("Free")); // not a member of Vec
+}
+
+TEST_F(SymbolTableTests, MemberCompletionsEmptyOutsideTypeMethod) {
+    const std::string src =
+        "Sub Free()\n"
+        "    Print 1\n"
+        "End Sub\n";
+    const auto table = extract(src.c_str());
+
+    const int pos = static_cast<int>(src.find("Print 1"));
+    std::vector<wxString> out;
+    table.memberCompletionsAt(pos, out);
+    EXPECT_TRUE(out.empty());
+}

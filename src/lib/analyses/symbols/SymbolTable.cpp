@@ -801,6 +801,74 @@ auto SymbolTable::matchProcedureAt(const int pos, const std::optional<std::pair<
     return m_matchSpans;
 }
 
+void SymbolTable::globalCompletions(std::vector<wxString>& out) const {
+    // Free-standing callables only — methods carry an owner qualifier.
+    const auto addFreeStanding = [&out](const std::vector<Symbol>& vec) {
+        for (const auto& sym : vec) {
+            if (symbolOwner(sym).empty()) {
+                out.push_back(sym.name);
+            }
+        }
+    };
+    addFreeStanding(m_subs);
+    addFreeStanding(m_functions);
+
+    // Typenames and macros are always global names.
+    const auto addAll = [&out](const std::vector<Symbol>& vec) {
+        for (const auto& sym : vec) {
+            out.push_back(sym.name);
+        }
+    };
+    addAll(m_types);
+    addAll(m_unions);
+    addAll(m_enums);
+    addAll(m_macros);
+}
+
+void SymbolTable::memberCompletionsAt(const int pos, std::vector<wxString>& out) const {
+    // Walk out to the enclosing procedure; a type method's opener is qualified
+    // (`Sub Vec.Foo`), so its owner is the type whose members are in scope.
+    wxString owner;
+    for (const auto* block = blockAt(pos); block != nullptr; block = block->parent) {
+        if (!block->opener.has_value()) {
+            continue;
+        }
+        const auto& toks = block->opener->tokens;
+        const auto first = findFirstKeyword(toks);
+        if (!isProcedureKind(first.kind)) {
+            continue;
+        }
+        switch (first.kind) {
+        case KeywordKind::Constructor:
+        case KeywordKind::Destructor:
+            owner = qualifiedNameAfter(toks, first.index + 1); // the type itself
+            break;
+        case KeywordKind::Operator:
+            owner = operatorNameAfter(toks, first.index + 1).BeforeLast('.');
+            break;
+        default: // Sub / Function / Property
+            owner = qualifiedNameAfter(toks, first.index + 1).BeforeLast('.');
+            break;
+        }
+        break;
+    }
+    if (owner.empty()) {
+        return;
+    }
+
+    // The owner's callable members, by unqualified name.
+    const auto addMembers = [&out, &owner](const std::vector<Symbol>& vec) {
+        for (const auto& sym : vec) {
+            if (symbolOwner(sym) == owner) {
+                out.push_back(sym.name.AfterLast('.'));
+            }
+        }
+    };
+    addMembers(m_subs);
+    addMembers(m_functions);
+    addMembers(m_properties);
+}
+
 void SymbolTable::walkNodes(const std::vector<Node>& nodes) {
     for (const auto& node : nodes) {
         if (const auto* block = std::get_if<std::unique_ptr<BlockNode>>(&node)) {

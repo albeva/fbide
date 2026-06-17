@@ -85,6 +85,7 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
     m_showLineEndings = editor.get_or("displayEOL", false);
     m_braceHighlight = editor.get_or("braceHighlight", true);
     m_highlightOccurrences = editor.get_or("highlightOccurrences", true);
+    m_codeCompletion = editor.get_or("codeCompletion", true);
     m_syntaxHighlight = editor.get_or("syntaxHighlight", true);
     m_showLineNumbers = editor.get_or("lineNumbers", true);
     m_showRightMargin = editor.get_or("longLine", false);
@@ -112,6 +113,7 @@ void GeneralPage::create() {
             checkBox(m_showLineEndings, tr("dialogs.settings.general.lineEndings"));
             checkBox(m_braceHighlight, tr("dialogs.settings.general.braceHighlight"));
             checkBox(m_highlightOccurrences, tr("dialogs.settings.general.highlightOccurrences"));
+            checkBox(m_codeCompletion, tr("dialogs.settings.general.codeCompletion"));
             spinCtrl(m_edgeColumn, tr("dialogs.settings.general.rightMarginWidth"), 1, 200, {});
             hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
                 text(tr("dialogs.settings.general.encoding"), { .expand = false });
@@ -186,6 +188,7 @@ void GeneralPage::apply() {
     editor["displayEOL"] = m_showLineEndings;
     editor["braceHighlight"] = m_braceHighlight;
     editor["highlightOccurrences"] = m_highlightOccurrences;
+    editor["codeCompletion"] = m_codeCompletion;
     editor["syntaxHighlight"] = m_syntaxHighlight;
     editor["lineNumbers"] = m_showLineNumbers;
     editor["longLine"] = m_showRightMargin;
