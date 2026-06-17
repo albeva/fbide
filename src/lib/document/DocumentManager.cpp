@@ -64,6 +64,7 @@ DocumentManager::DocumentManager(Context& ctx)
 , m_intellisense(std::make_unique<IntellisenseService>(ctx, this))
 , m_watcher(std::make_unique<DocumentWatcher>(ctx)) {
     Bind(EVT_INTELLISENSE_RESULT, &DocumentManager::onIntellisenseResult, this);
+    Bind(EVT_INTELLISENSE_TRACKED_FILES, &DocumentManager::onIntellisenseTrackedFiles, this);
 }
 
 DocumentManager::~DocumentManager() = default;
@@ -698,6 +699,23 @@ void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
     }
 }
 
+void DocumentManager::onIntellisenseTrackedFiles(wxThreadEvent& event) {
+    if (m_watcher == nullptr) {
+        return;
+    }
+    auto paths = event.GetPayload<std::vector<std::filesystem::path>>();
+    // An include also open in a tab follows the open-document reload path; drop
+    // it here so the closed-include watch never double-handles it.
+    std::erase_if(paths, [this](const std::filesystem::path& path) { return findByPath(path) != nullptr; });
+    m_watcher->setIncludeWatches(std::move(paths));
+}
+
+void DocumentManager::reparseInclude(const std::filesystem::path& path) {
+    if (m_intellisense != nullptr) {
+        m_intellisense->refreshFile(path);
+    }
+}
+
 void DocumentManager::syncEditCommands() {
     auto& cmd = m_ctx.getCommandManager();
     const auto setForceDisabled = [&cmd](const CommandId id, const bool state) {
@@ -1061,6 +1079,11 @@ void DocumentManager::updateTabTitle(const Document& doc) const {
 
 void DocumentManager::refreshAutoReload() {
     m_watcher->applyConfig();
+    // Re-enabling the watcher dropped its include watches; ask the worker to
+    // re-post its tracked set so they rebuild without waiting for an edit.
+    if (m_watcher->isEnabled() && m_intellisense != nullptr) {
+        m_intellisense->resendTrackedFiles();
+    }
 }
 
 void DocumentManager::shutdownWatcher() {

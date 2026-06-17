@@ -66,6 +66,7 @@ void DocumentWatcher::stop() {
     m_debounce.Stop();
     m_watcher.reset();
     m_watchedDirs.clear();
+    m_includeStamps.clear();
     // Drop any pending UI the feature put up while it was on.
     for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {
         if (doc->getPendingExternal() != Document::ExternalChange::None) {
@@ -146,6 +147,53 @@ void DocumentWatcher::syncAll() {
     // handleChange never mutates the document list, so a span walk is safe.
     for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {
         handleChange(*doc);
+    }
+    syncIncludes();
+}
+
+auto DocumentWatcher::stampOf(const std::filesystem::path& path) -> IncludeStamp {
+    std::error_code ec;
+    const auto mtime = std::filesystem::last_write_time(path, ec);
+    if (ec) {
+        return {}; // missing/unreadable — distinct from any real (mtime, size)
+    }
+    std::error_code sizeEc;
+    const auto size = std::filesystem::file_size(path, sizeEc);
+    return { mtime, sizeEc ? 0 : size };
+}
+
+void DocumentWatcher::setIncludeWatches(std::vector<std::filesystem::path> includes) {
+    if (!isEnabled()) {
+        return;
+    }
+    std::set<std::filesystem::path> desired;
+    for (auto& path : includes) {
+        desired.insert(path.lexically_normal());
+    }
+    // Unwatch includes no longer tracked.
+    for (auto it = m_includeStamps.begin(); it != m_includeStamps.end();) {
+        if (desired.contains(it->first)) {
+            ++it;
+        } else {
+            unwatchDir(it->first.parent_path());
+            it = m_includeStamps.erase(it);
+        }
+    }
+    // Watch newly tracked includes (their parent dir, refcounted alongside open
+    // documents), seeding each one's change baseline.
+    for (const auto& path : desired) {
+        if (m_includeStamps.try_emplace(path, stampOf(path)).second) {
+            watchDir(path.parent_path());
+        }
+    }
+}
+
+void DocumentWatcher::syncIncludes() {
+    for (auto& [path, stamp] : m_includeStamps) {
+        if (const auto current = stampOf(path); current != stamp) {
+            stamp = current;
+            m_ctx.getDocumentManager().reparseInclude(path);
+        }
     }
 }
 

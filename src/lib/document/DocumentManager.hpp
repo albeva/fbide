@@ -107,6 +107,10 @@ public:
     /// includes). Called from `closeFile` before erasing the document.
     void closeDocumentIntellisense(const Document* doc);
 
+    /// Re-read and re-parse a tracked `#include` file that changed on disk while
+    /// not open in a tab. Called by `DocumentWatcher`.
+    void reparseInclude(const std::filesystem::path& path);
+
     /// Handle quit request. Prompts for unsaved docs. Returns true if safe to quit.
     /// If user chooses to save, saves all then returns true.
     /// If user cancels, returns false.
@@ -276,6 +280,10 @@ private:
 
     /// Intellisense result delivery (worker thread → UI thread).
     void onIntellisenseResult(wxThreadEvent& event);
+
+    /// Tracked closed-include set delivery (worker thread → UI thread);
+    /// reconciles the document watcher's include watches.
+    void onIntellisenseTrackedFiles(wxThreadEvent& event);
 
     /// Recompute the `#include` search dirs from the default compiler config and
     /// push them to the intellisense service when they change.

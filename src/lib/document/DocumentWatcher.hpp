@@ -27,6 +27,11 @@ class Document;
  *
  * **Owned by:** `DocumentManager`. **Threading:** UI thread only.
  *
+ * It also watches *closed* `#include` files — referenced by an open document
+ * but not open in a tab — and triggers a background intellisense re-parse via
+ * `DocumentManager::reparseInclude` when one changes on disk. That path is
+ * separate from the open-buffer reload/conflict-bar policy above.
+ *
  * Toggling the `editor.autoReload` setting calls `applyConfig()`, which
  * creates or destroys the underlying watcher.
  */
@@ -49,6 +54,11 @@ public:
     /// Re-stat every open document immediately (used on app activation and
     /// after a settings change). No-op when disabled.
     void syncAll();
+
+    /// Reconcile the set of watched *closed* `#include` files (diff against the
+    /// current set): watch added files' directories, unwatch removed ones. The
+    /// intellisense worker supplies the set after each parse. No-op when disabled.
+    void setIncludeWatches(std::vector<std::filesystem::path> includes);
 
     /// Show a deferred conflict/deleted bar for a document that just became
     /// the active tab. No-op when it has no pending external change.
@@ -79,10 +89,21 @@ private:
     /// tab, otherwise defer behind a tab marker.
     void presentChange(Document& doc, bool deleted);
 
+    /// Re-stat every watched closed include; on a change/deletion/reappearance,
+    /// trigger a background re-parse of that include via the document manager.
+    void syncIncludes();
+
+    /// (mtime, size) baseline for change detection on a closed include — there
+    /// is no `Document` to call `checkExternalChange` on. A default value means
+    /// the file is missing/unreadable.
+    using IncludeStamp = std::pair<std::filesystem::file_time_type, std::uintmax_t>;
+    [[nodiscard]] static auto stampOf(const std::filesystem::path& path) -> IncludeStamp;
+
     Context& m_ctx;
     std::unique_ptr<wxFileSystemWatcher> m_watcher;     ///< Null while the feature is off.
     wxTimer m_debounce;                                 ///< Coalesces event bursts from atomic saves.
     std::map<std::filesystem::path, int> m_watchedDirs; ///< Watched directory → open-file refcount.
+    std::map<std::filesystem::path, IncludeStamp> m_includeStamps; ///< Watched closed includes → (mtime, size).
 
     wxDECLARE_EVENT_TABLE();
 };

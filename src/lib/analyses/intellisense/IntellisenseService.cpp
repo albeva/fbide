@@ -16,6 +16,7 @@
 using namespace fbide;
 
 wxDEFINE_EVENT(fbide::EVT_INTELLISENSE_RESULT, wxThreadEvent);
+wxDEFINE_EVENT(fbide::EVT_INTELLISENSE_TRACKED_FILES, wxThreadEvent);
 
 namespace {
 
@@ -164,12 +165,33 @@ void IntellisenseService::submit(Document* owner, std::filesystem::path path, st
     m_cv.Signal();
 }
 
+void IntellisenseService::refreshFile(std::filesystem::path path) {
+    if (path.empty()) {
+        return;
+    }
+    wxMutexLocker lock(m_mtx);
+    if (m_stopRequested) {
+        return;
+    }
+    m_commands.push_back(Command { .type = CommandType::Refresh, .path = std::move(path) });
+    m_cv.Signal();
+}
+
 void IntellisenseService::setIncludePaths(std::vector<std::filesystem::path> paths) {
     wxMutexLocker lock(m_mtx);
     if (m_stopRequested) {
         return;
     }
     m_commands.push_back(Command { .type = CommandType::IncludePaths, .includeDirs = std::move(paths) });
+    m_cv.Signal();
+}
+
+void IntellisenseService::resendTrackedFiles() {
+    wxMutexLocker lock(m_mtx);
+    if (m_stopRequested) {
+        return;
+    }
+    m_commands.push_back(Command { .type = CommandType::ResendTracked });
     m_cv.Signal();
 }
 
@@ -208,6 +230,18 @@ void IntellisenseService::applyCommand(Command command) {
             m_graph.openDocument(command.path, command.owner); // ensure ownership
             m_graph.submit(command.path, std::move(command.content));
         }
+        break;
+    case CommandType::Refresh:
+        // Only refresh a file already in the graph — never resurrect one a sweep
+        // dropped. A vanished file re-parses as empty so its symbols drop.
+        if (auto* const entry = m_graph.find(command.path); entry != nullptr) {
+            std::string content;
+            readFile(command.path, content); // false -> content stays empty
+            m_graph.submit(command.path, std::move(content));
+        }
+        break;
+    case CommandType::ResendTracked:
+        m_lastTrackedSet.clear(); // force the end-of-drain snapshot to re-post
         break;
     }
 }
@@ -285,10 +319,27 @@ void IntellisenseService::drainAndDeliver() {
         root->symbolTable->setImported(flatClosure(*root));
         post(root->owner, root->symbolTable);
     }
+
+    // Sweep includes orphaned by an edit (a parent dropped its #include) so they
+    // leave the tracked-files snapshot, then publish the set to the UI watcher.
+    m_graph.collectOrphans();
+    postTrackedFiles();
 }
 
 void IntellisenseService::post(const Document* owner, std::shared_ptr<const SymbolTable> symbols) {
     wxThreadEvent* const event = make_unowned<wxThreadEvent>(EVT_INTELLISENSE_RESULT);
     event->SetPayload(IntellisenseResult { .owner = owner, .symbols = std::move(symbols) });
+    wxQueueEvent(m_sink, event);
+}
+
+void IntellisenseService::postTrackedFiles() {
+    auto paths = m_graph.pureIncludePaths();
+    std::ranges::sort(paths);
+    if (paths == m_lastTrackedSet) {
+        return; // unchanged since last post — nothing for the UI to reconcile
+    }
+    m_lastTrackedSet = paths;
+    wxThreadEvent* const event = make_unowned<wxThreadEvent>(EVT_INTELLISENSE_TRACKED_FILES);
+    event->SetPayload(std::move(paths));
     wxQueueEvent(m_sink, event);
 }

@@ -195,6 +195,21 @@ TEST(SourceGraphTests, SetIncludesReAddsSurvivedInclude) {
     EXPECT_EQ(before->parents[0], a);
 }
 
+TEST(SourceGraphTests, PureIncludePathsExcludesOwnedDocuments) {
+    SourceGraph graph;
+    auto* a = graph.openDocument(kA, doc(1)); // owned document
+    graph.setIncludes(a, { kB, kC });         // two pure includes
+
+    auto paths = graph.pureIncludePaths();
+    std::ranges::sort(paths);
+    EXPECT_EQ(paths, (std::vector<std::filesystem::path> { kB, kC })); // includes only, not kA
+
+    // Opening an include as a document drops it from the pure-include set.
+    graph.openDocument(kB, doc(2));
+    paths = graph.pureIncludePaths();
+    EXPECT_EQ(paths, std::vector<std::filesystem::path> { kC });
+}
+
 TEST(SourceGraphTests, SetIncludesReAddsCollectedInclude) {
     SourceGraph graph;
     auto* a = graph.openDocument(kA, doc(1));

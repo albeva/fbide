@@ -153,3 +153,14 @@ void SourceGraph::collectOrphans() {
     std::erase_if(m_queue, [&](SourceEntry* entry) { return !reachable.contains(entry); });
     std::erase_if(m_entries, [&](const auto& kv) { return !reachable.contains(kv.second.get()); });
 }
+
+
+auto SourceGraph::pureIncludePaths() const -> std::vector<std::filesystem::path> {
+    std::vector<std::filesystem::path> paths;
+    for (const auto& [key, entry] : m_entries) {
+        if (!entry->isOwned()) {
+            paths.push_back(key);
+        }
+    }
+    return paths;
+}

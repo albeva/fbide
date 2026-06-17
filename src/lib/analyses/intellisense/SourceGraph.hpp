@@ -81,6 +81,11 @@ public:
     /// Cycle-safe: an unowned cycle with no owned ancestor is removed.
     void collectOrphans();
 
+    /// Paths of every pure `#include` entry (owner == nullptr) — the closed
+    /// include files currently in the graph. Returns a normalised value copy;
+    /// worker-thread only. The UI uses it to reconcile its filesystem watches.
+    [[nodiscard]] auto pureIncludePaths() const -> std::vector<std::filesystem::path>;
+
 private:
     auto getOrCreate(const std::filesystem::path& path) -> SourceEntry*;
     void enqueue(SourceEntry* entry);

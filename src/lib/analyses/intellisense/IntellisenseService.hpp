@@ -30,6 +30,11 @@ struct IntellisenseResult {
 
 wxDECLARE_EVENT(EVT_INTELLISENSE_RESULT, wxThreadEvent);
 
+/// Posted after each parse drain with the current set of pure-include file paths
+/// (closed `#include`s) the worker tracks, so the UI can reconcile its filesystem
+/// watches. Payload: `std::vector<std::filesystem::path>`.
+wxDECLARE_EVENT(EVT_INTELLISENSE_TRACKED_FILES, wxThreadEvent);
+
 /// Background lex + parse + include-resolution pipeline. One worker thread that
 /// owns a `SourceGraph` of open documents and their `#include`s; UI-thread calls
 /// post commands which the worker applies, then parses every dirty file, wires
@@ -59,15 +64,25 @@ public:
     /// joins the include graph; with an empty path it is parsed standalone.
     void submit(Document* owner, std::filesystem::path path, std::string content);
 
+    /// Re-read a tracked `#include` file from disk and re-parse it (and any open
+    /// documents that include it). Called by the UI when the file changed on disk
+    /// while not open in a tab. No-op when the path is not already in the graph.
+    void refreshFile(std::filesystem::path path);
+
     /// Set the global `#include` search directories (compiler `inc/`, absolute
     /// `-i` dirs, cwd) used to resolve relative includes. Applied on the worker.
     void setIncludePaths(std::vector<std::filesystem::path> paths);
+
+    /// Force the next drain to re-post EVT_INTELLISENSE_TRACKED_FILES even when
+    /// the tracked set is unchanged. Used when the UI watcher re-enables and must
+    /// rebuild its include watches from scratch.
+    void resendTrackedFiles();
 
     /// wxThreadHelper entry point. Runs on the worker thread.
     auto Entry() -> wxThread::ExitCode override;
 
 private:
-    enum class CommandType : std::uint8_t { Close, Submit, IncludePaths };
+    enum class CommandType : std::uint8_t { Close, Submit, IncludePaths, Refresh, ResendTracked };
     /// A UI-thread request, applied to the graph on the worker thread.
     struct Command {
         CommandType type;
@@ -84,6 +99,9 @@ private:
     void drainAndDeliver();
     [[nodiscard]] auto parse(const std::string& source) -> std::shared_ptr<SymbolTable>;
     void post(const Document* owner, std::shared_ptr<const SymbolTable> symbols);
+    /// Snapshot the graph's pure-include paths and post EVT_INTELLISENSE_TRACKED_FILES
+    /// when the set changed since the last post (throttled).
+    void postTrackedFiles();
 
     [[maybe_unused]] Context& m_ctx; ///< Application context (for future include-path resolution).
     wxEvtHandler* m_sink;            ///< UI-thread event sink for `EVT_INTELLISENSE_RESULT`.
@@ -95,6 +113,7 @@ private:
     std::vector<lexer::Token> m_tokens;           ///< Reused token buffer.
     SourceGraph m_graph;                          ///< The source/include graph (worker-owned).
     std::vector<std::filesystem::path> m_searchDirs; ///< `#include` search dirs (compiler inc/, -i, cwd).
+    std::vector<std::filesystem::path> m_lastTrackedSet; ///< Last posted pure-include set (sorted); throttles snapshots.
 
     // Shared state — guarded by `m_mtx`.
     wxMutex m_mtx;
