@@ -218,7 +218,11 @@ auto IntellisenseService::Entry() -> wxThread::ExitCode {
 void IntellisenseService::applyCommand(Command command) {
     switch (command.type) {
     case CommandType::IncludePaths:
+        // Include resolution depends on the search dirs, so re-resolve every
+        // tracked file's includes against the new set. The UI only sends this
+        // when the dirs actually changed (so it never fires on a plain edit).
         m_searchDirs = std::move(command.includeDirs);
+        m_graph.reparseAll();
         break;
     case CommandType::Close:
         m_graph.closeDocument(command.path, command.owner);

@@ -86,6 +86,11 @@ public:
     /// worker-thread only. The UI uses it to reconcile its filesystem watches.
     [[nodiscard]] auto pureIncludePaths() const -> std::vector<std::filesystem::path>;
 
+    /// Force every entry that has content to re-parse (re-resolving its includes)
+    /// — used when the include search dirs change, since resolution depends on
+    /// them. Content-less entries (awaiting a disk read) are left untouched.
+    void reparseAll();
+
 private:
     auto getOrCreate(const std::filesystem::path& path) -> SourceEntry*;
     void enqueue(SourceEntry* entry);

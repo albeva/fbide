@@ -111,6 +111,13 @@ public:
     /// not open in a tab. Called by `DocumentWatcher`.
     void reparseInclude(const std::filesystem::path& path);
 
+    /// Recompute the intellisense `#include` search dirs — the union of every
+    /// open FreeBASIC document's compiler configuration (its `-i` dirs, with
+    /// relative ones anchored to the document's folder, plus the compiler's stock
+    /// `inc/`). Pushed to the worker when they change, which re-resolves all open
+    /// documents' includes. Call after a compiler-configuration change.
+    void refreshIncludeSearchDirs();
+
     /// Handle quit request. Prompts for unsaved docs. Returns true if safe to quit.
     /// If user chooses to save, saves all then returns true.
     /// If user cancels, returns false.
@@ -285,9 +292,6 @@ private:
     /// reconciles the document watcher's include watches.
     void onIntellisenseTrackedFiles(wxThreadEvent& event);
 
-    /// Recompute the `#include` search dirs from the default compiler config and
-    /// push them to the intellisense service when they change.
-    void refreshIncludeSearchDirs();
 
     Context& m_ctx;                                     ///< Application context.
     wxFindReplaceData m_findData { wxFR_DOWN };         ///< Find/replace dialog state.

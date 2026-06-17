@@ -348,6 +348,10 @@ void CompilerManager::setDocumentConfiguration(Document& doc, const wxString& pi
     // the status-bar popup path the click closes the menu and nothing
     // else would otherwise push the new label.
     pushStatusBarLabel();
+    // The configuration also supplies the intellisense `#include` search dirs;
+    // re-evaluate them so the new config's dirs take effect now, not on the
+    // next edit.
+    m_ctx.getDocumentManager().refreshIncludeSearchDirs();
 }
 
 // ---------------------------------------------------------------------------

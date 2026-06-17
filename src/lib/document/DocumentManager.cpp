@@ -649,25 +649,50 @@ void DocumentManager::refreshIncludeSearchDirs() {
     if (m_intellisense == nullptr) {
         return;
     }
-    // Mirror openInclude's search order (minus the per-document source dir, which
-    // the worker adds itself): absolute -i dirs, the compiler's stock inc/, cwd.
+    // The worker resolves every include against one global search-dir set, but
+    // the -i dirs and stock inc/ are per-document (each document's compiler
+    // configuration), and a relative -i anchors to its own document's folder —
+    // exactly as openInclude resolves them. Union the resolved dirs of every
+    // open FreeBASIC document: over-approximating is harmless for completion (it
+    // can only resolve more includes, never fewer), and keeps the worker's
+    // search-dir model unchanged.
     std::vector<std::filesystem::path> dirs;
-    const auto& cfg = m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(std::nullopt);
-    for (const auto& entry : CompileCommand::extractIncludePaths(cfg.compileCommand)) {
-        if (auto dir = toFsPath(entry); dir.is_absolute()) {
-            dirs.push_back(dir.lexically_normal());
+    const auto add = [&dirs](std::filesystem::path dir) {
+        dir = dir.lexically_normal();
+        if (!dir.empty() && std::ranges::find(dirs, dir) == dirs.end()) {
+            dirs.push_back(std::move(dir));
         }
-    }
-    if (!cfg.path.empty()) {
-        auto fbc = cfg.path;
-        if (fbc.is_relative()) {
-            fbc = toFsPath(m_ctx.getConfigManager().getAppDir()) / fbc;
+    };
+    for (const auto& doc : m_documents) {
+        if (doc->getType() != DocumentType::FreeBASIC) {
+            continue;
         }
-        dirs.push_back((fbc.parent_path() / "inc").lexically_normal());
+        const auto& cfg = m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(doc->getConfiguration());
+        const auto base = doc->isNew() ? std::filesystem::path {} : doc->getFilePath().parent_path();
+        // -i dirs: a relative one anchors to the document's folder (fbc's working
+        // dir); an unsaved document has no folder to anchor it to.
+        for (const auto& entry : CompileCommand::extractIncludePaths(cfg.compileCommand)) {
+            auto dir = toFsPath(entry);
+            if (dir.is_relative()) {
+                if (base.empty()) {
+                    continue;
+                }
+                dir = base / dir;
+            }
+            add(std::move(dir));
+        }
+        // The compiler's stock inc/ (sibling of its fbc binary).
+        if (!cfg.path.empty()) {
+            auto fbc = cfg.path;
+            if (fbc.is_relative()) {
+                fbc = toFsPath(m_ctx.getConfigManager().getAppDir()) / fbc;
+            }
+            add(fbc.parent_path() / "inc");
+        }
     }
     std::error_code ec;
     if (auto cwd = std::filesystem::current_path(ec); !ec) {
-        dirs.push_back(cwd.lexically_normal());
+        add(cwd);
     }
     if (dirs != m_includeSearchDirs) {
         m_includeSearchDirs = dirs;

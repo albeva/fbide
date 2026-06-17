@@ -43,7 +43,16 @@ void SourceGraph::enqueue(SourceEntry* entry) {
 
 auto SourceGraph::openDocument(const std::filesystem::path& path, Document* document) -> SourceEntry* {
     auto* const entry = getOrCreate(path);
+    // Adopting an already-parsed pure include (e.g. opening a header that another
+    // open document already pulls in): its content is unchanged, so `submit`
+    // would no-op and the new owning document would never receive its symbols.
+    // Force a re-parse so it is delivered to the document.
+    const bool adopting = entry->owner != document && entry->symbolTable != nullptr;
     entry->owner = document;
+    if (adopting) {
+        entry->parsedStamp = 0; // make it dirty
+        enqueue(entry);
+    }
     return entry;
 }
 
@@ -163,4 +172,11 @@ auto SourceGraph::pureIncludePaths() const -> std::vector<std::filesystem::path>
         }
     }
     return paths;
+}
+
+void SourceGraph::reparseAll() {
+    for (const auto& entry : m_entries | std::views::values) {
+        entry->parsedStamp = 0; // invalidate so a content-bearing entry is dirty
+        enqueue(entry.get());
+    }
 }

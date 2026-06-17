@@ -6,6 +6,7 @@
 //
 #include <gtest/gtest.h>
 #include "analyses/intellisense/SourceGraph.hpp"
+#include "analyses/symbols/SymbolTable.hpp"
 
 using namespace fbide;
 
@@ -193,6 +194,43 @@ TEST(SourceGraphTests, SetIncludesReAddsSurvivedInclude) {
     EXPECT_EQ(a->includes.size(), 2U);
     ASSERT_EQ(before->parents.size(), 1U);
     EXPECT_EQ(before->parents[0], a);
+}
+
+TEST(SourceGraphTests, OpeningAnAlreadyParsedIncludeReEnqueuesIt) {
+    SourceGraph graph;
+    auto* a = graph.openDocument(kA, doc(1));
+    graph.setIncludes(a, { kB });        // B is a pure include of A
+    graph.submit(kB, "content");         // give B content
+    auto* b = graph.takeNext();          // B dequeued for parsing
+    ASSERT_NE(b, nullptr);
+    b->parsedStamp = b->contentStamp;    // simulate the service having parsed it
+    b->symbolTable = std::make_shared<SymbolTable>();
+    ASSERT_EQ(graph.takeNext(), nullptr);
+
+    // Open B as its own document: it must be re-enqueued so the new owner is
+    // delivered its symbols (otherwise its symbol table / browser stays empty).
+    auto* adopted = graph.openDocument(kB, doc(2));
+    EXPECT_EQ(adopted, b);
+    EXPECT_EQ(adopted->owner, doc(2));
+    EXPECT_EQ(graph.takeNext(), b);
+    EXPECT_EQ(graph.takeNext(), nullptr);
+}
+
+TEST(SourceGraphTests, ReparseAllReEnqueuesContentBearingEntriesOnly) {
+    SourceGraph graph;
+    auto* a = graph.openDocument(kA, doc(1));
+    graph.submit(kA, "content");
+    a->parsedStamp = a->contentStamp; // simulate a completed parse
+    graph.takeNext();                 // drain A from the queue
+    ASSERT_EQ(graph.takeNext(), nullptr);
+
+    const auto created = graph.setIncludes(a, { kB }); // B: brand new, no content yet
+    ASSERT_EQ(created.size(), 1U);
+
+    graph.reparseAll();
+    // A has content -> re-enqueued for re-resolution; B has none -> skipped.
+    EXPECT_EQ(graph.takeNext(), a);
+    EXPECT_EQ(graph.takeNext(), nullptr);
 }
 
 TEST(SourceGraphTests, PureIncludePathsExcludesOwnedDocuments) {

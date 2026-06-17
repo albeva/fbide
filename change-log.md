@@ -35,7 +35,9 @@
 - Added include-aware code completion — symbols, and type fields/methods from `#include`d files now appear in completion, kept current as you edit either file.
 - Added intellisense re-parse of `#include`d files edited outside fbide while not open in a tab.
 - Added `#define` names to the symbol browser and code completion.
+- Improved intellisense `#include` resolution to honour each document's compiler configuration and relative `-i` search paths.
 - Added `Const` constants (including inside namespaces and `#if` blocks) to code completion, and `Declare`d Subs/Functions to completion and the symbol browser — so `#include`d headers contribute their constants and API.
+- Fixed the symbol browser being empty when opening a header already `#include`d by another open document.
 
 # Changes since 0.5.0-rc.5
 
