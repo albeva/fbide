@@ -1118,6 +1118,7 @@ void Editor::maybeShowCompletion(const bool manual) {
     // CUSTOM order keeps the bucket grouping and matches the prefix with a
     // linear, order-independent scan (so `__`-prefixed names match too).
     AutoCompSetIgnoreCase(true);
+    AutoCompSetCaseInsensitiveBehaviour(wxSTC_CASEINSENSITIVEBEHAVIOUR_IGNORECASE);
     AutoCompSetOrder(wxSTC_ORDER_CUSTOM);
     AutoCompShow(pos - wordStart, m_completionList);
 }
