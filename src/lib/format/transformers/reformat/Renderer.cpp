@@ -6,6 +6,7 @@
 //
 #include "Renderer.hpp"
 using namespace fbide::reformat;
+using namespace fbide::parser;
 using namespace fbide::lexer;
 
 auto Renderer::render(const ProgramTree& tree) -> std::vector<Token> {

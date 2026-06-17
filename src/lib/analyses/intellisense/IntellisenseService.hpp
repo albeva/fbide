@@ -10,8 +10,8 @@
 #include "analyses/lexer/Token.hpp"
 #include "analyses/symbols/SymbolTable.hpp"
 
-namespace fbide::reformat {
-class ReFormatter;
+namespace fbide::parser {
+class TreeParser;
 }
 
 namespace fbide {
@@ -88,9 +88,9 @@ private:
     FBSciLexer* m_lexer = nullptr;
     /// Reused buffer for the worker's text snapshot.
     MemoryDocument m_memDoc;
-    /// Persistent lean tree builder — reused across parses so its scan / token
+    /// Persistent lean tree parser — reused across parses so its scan / token
     /// / node buffers aren't reallocated each time. Worker-thread only.
-    std::unique_ptr<reformat::ReFormatter> m_parser;
+    std::unique_ptr<parser::TreeParser> m_parser;
     /// Reused token vector — `StyleLexer::tokenise` clears + appends.
     std::vector<lexer::Token> m_tokens;
 

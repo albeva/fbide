@@ -5,12 +5,12 @@
 // https://github.com/albeva/fbide
 //
 #include <gtest/gtest.h>
+#include "analyses/parser/TreeParser.hpp"
 #include "analyses/symbols/SymbolTable.hpp"
-#include "format/transformers/reformat/ReFormatter.hpp"
 #include "TestHelpers.hpp"
 
 using namespace fbide;
-using namespace fbide::reformat;
+using namespace fbide::parser;
 
 class SymbolTableTests : public testing::Test {
 protected:
@@ -27,8 +27,8 @@ protected:
 
     auto extract(const char* source) -> SymbolTable {
         const auto tokens = tests::tokenise(*m_lexer, source);
-        ReFormatter parser({ .lean = true });
-        return SymbolTable { parser.buildTree(tokens) };
+        TreeParser parser({ .lean = true });
+        return SymbolTable { parser.parse(tokens) };
     }
 
     Scintilla::ILexer5* m_lexer { nullptr };

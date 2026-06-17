@@ -40,6 +40,7 @@ add_executable(tests
     unit/SymbolTableTests.cpp
     unit/TextEncodingTests.cpp
     unit/ThemeTests.cpp
+    unit/TreeParserTests.cpp
     unit/ValueDiffTests.cpp
     unit/ValueMergeTests.cpp
     unit/VersionTests.cpp

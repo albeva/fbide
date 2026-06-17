@@ -6,7 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "format/transformers/reformat/FormatTree.hpp"
+#include "analyses/parser/ProgramTree.hpp"
 
 namespace fbide {
 
@@ -87,25 +87,25 @@ public:
     /// Default-constructed empty table.
     SymbolTable() = default;
     /// Build by walking `tree` once.
-    explicit SymbolTable(reformat::ProgramTree&& tree);
+    explicit SymbolTable(parser::ProgramTree&& tree);
 
     /// Clear all vectors (keeping their capacity) and rewalk `tree`. Used by
     /// `IntellisenseService` to recycle a pooled instance instead of
     /// allocating a fresh one on every parse.
-    void populate(reformat::ProgramTree&& tree);
+    void populate(parser::ProgramTree&& tree);
 
     /// The retained scope tree (the lean `ProgramTree` this table was built
     /// from). Carries `BlockNode::parent` links and positioned tokens for
     /// scope/keyword matching. Lives as long as this table's `shared_ptr`.
-    [[nodiscard]] auto tree() const -> const reformat::ProgramTree& { return m_tree; }
+    [[nodiscard]] auto tree() const -> const parser::ProgramTree& { return m_tree; }
     /// Move the retained tree out (leaving this table's tree empty) so the
     /// next parse can recycle its nodes. Used by `IntellisenseService`.
-    [[nodiscard]] auto takeTree() -> reformat::ProgramTree { return std::move(m_tree); }
+    [[nodiscard]] auto takeTree() -> parser::ProgramTree { return std::move(m_tree); }
 
     /// Innermost block whose text extent contains `pos` (a document byte
     /// offset), or `nullptr` when `pos` lies outside every block. Backed by a
     /// flat index sorted by start: O(log n) plus a short walk to the innermost.
-    [[nodiscard]] auto blockAt(int pos) const -> const reformat::BlockNode*;
+    [[nodiscard]] auto blockAt(int pos) const -> const parser::BlockNode*;
 
     /// Keyword spans to highlight when the caret at `pos` sits on a block's
     /// opener or closer keyword: the opener keyword plus its matching closer
@@ -153,12 +153,12 @@ public:
 
 private:
     /// Recursively walk a node list at any depth.
-    void walkNodes(const std::vector<reformat::Node>& nodes);
+    void walkNodes(const std::vector<parser::Node>& nodes);
     /// Process a single block — emit its opener, then recurse into the body.
-    void walkBlock(const reformat::BlockNode& block);
+    void walkBlock(const parser::BlockNode& block);
     /// One full pre-order walk that collects `#include` directives and records
     /// every block's extent into `m_scopes` (ascending start, for `blockAt`).
-    void indexTree(const std::vector<reformat::Node>& nodes);
+    void indexTree(const std::vector<parser::Node>& nodes);
     /// If `tokens` is a recognised `#include`, push it onto `m_includes`.
     void tryAddInclude(const std::vector<lexer::Token>& tokens);
     /// Push one symbol drawn from an opener's tokens at `keywordIdx`.
@@ -183,14 +183,14 @@ private:
     std::vector<Symbol> m_macros;       ///< `#macro` definitions.
     std::vector<Include> m_includes;    ///< `#include` directives.
     std::size_t m_hash = 0;             ///< Stable hash over (kind, name) pairs.
-    reformat::ProgramTree m_tree;       ///< Retained lean scope tree (parents wired, tokens positioned).
+    parser::ProgramTree m_tree;         ///< Retained lean scope tree (parents wired, tokens positioned).
     /// One block's text extent, pointing into the retained tree.
     struct ScopeRange {
-        int start;                        ///< First opener-token byte offset.
-        int end;                          ///< One past the block's last token.
-        const reformat::BlockNode* block; ///< The block (into `m_tree`).
+        int start;                      ///< First opener-token byte offset.
+        int end;                        ///< One past the block's last token.
+        const parser::BlockNode* block; ///< The block (into `m_tree`).
     };
-    std::vector<ScopeRange> m_scopes;   ///< Block extents, sorted by start, for `blockAt`.
+    std::vector<ScopeRange> m_scopes; ///< Block extents, sorted by start, for `blockAt`.
     /// Reusable result buffer for `matchBlockAt` / `matchProcedureAt`, returned
     /// by const reference so no vector is allocated per caret move. The caller
     /// must consume it before the next match call. Mutable: the queries are

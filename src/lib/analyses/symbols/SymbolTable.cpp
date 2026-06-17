@@ -8,7 +8,7 @@
 #include <unordered_set>
 #include "analyses/lexer/Token.hpp"
 using namespace fbide;
-using namespace fbide::reformat;
+using namespace fbide::parser;
 using namespace fbide::lexer;
 
 namespace {

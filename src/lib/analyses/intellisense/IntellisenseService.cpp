@@ -7,10 +7,10 @@
 #include "IntellisenseService.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
 #include "analyses/lexer/StyledSource.hpp"
+#include "analyses/parser/TreeParser.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "editor/lexilla/FBSciLexer.hpp"
-#include "format/transformers/reformat/ReFormatter.hpp"
 using namespace fbide;
 
 wxDEFINE_EVENT(fbide::EVT_INTELLISENSE_RESULT, wxThreadEvent);
@@ -19,7 +19,7 @@ IntellisenseService::IntellisenseService(Context& ctx, wxEvtHandler* sink)
 : m_ctx(ctx)
 , m_sink(sink) {
     m_lexer = static_cast<FBSciLexer*>(FBSciLexer::Create());
-    m_parser = std::make_unique<reformat::ReFormatter>(reformat::FormatOptions { .lean = true });
+    m_parser = std::make_unique<parser::TreeParser>(parser::ParseOptions { .lean = true });
     // Keywords come from the shared table (built at startup / on settings
     // change via FBSciLexer::setKeywords) — no per-instance configuration.
 
@@ -136,7 +136,7 @@ void IntellisenseService::process(Task task) {
     // Hand the slot's previous tree to the builder as a node free-list, then
     // store the freshly built tree back on the table so it ships with the
     // result. Both the SymbolTable slot and its BlockNodes thus recycle.
-    auto tree = m_parser->buildTree(m_tokens, symbols->takeTree());
+    auto tree = m_parser->parse(m_tokens, symbols->takeTree());
     symbols->populate(std::move(tree));
 
     // Atomic check + clear: only deliver if no cancel hit between dispatch

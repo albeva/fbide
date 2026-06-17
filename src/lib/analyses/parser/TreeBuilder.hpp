@@ -6,14 +6,14 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "FormatTree.hpp"
+#include "ProgramTree.hpp"
 
-namespace fbide::reformat {
+namespace fbide::parser {
 
 /// Stack-based tree builder driven by the scanner.
 ///
 /// The scanner iterates lexer tokens and calls these methods to
-/// construct the formatting tree. The builder maintains a stack of
+/// construct the parse tree. The builder maintains a stack of
 /// open BlockNodes and a token collection buffer.
 class TreeBuilder final {
 public:
@@ -89,11 +89,11 @@ private:
         bool isPP = false;               ///< True when this frame is a preprocessor block.
     };
 
-    std::vector<lexer::Token> m_collected; ///< Token collection buffer for the current line.
-    std::vector<StackEntry> m_stack;       ///< Open-block stack.
-    std::vector<Node> m_root;              ///< Final root nodes once the stack drains.
-    std::vector<std::unique_ptr<BlockNode>> m_pool; ///< Recycled BlockNode free-list (seeded by reclaim).
+    std::vector<lexer::Token> m_collected;              ///< Token collection buffer for the current line.
+    std::vector<StackEntry> m_stack;                    ///< Open-block stack.
+    std::vector<Node> m_root;                           ///< Final root nodes once the stack drains.
+    std::vector<std::unique_ptr<BlockNode>> m_pool;     ///< Recycled BlockNode free-list (seeded by reclaim).
     std::vector<std::vector<lexer::Token>> m_tokenPool; ///< Recycled StatementNode token buffers.
 };
 
-} // namespace fbide::reformat
+} // namespace fbide::parser

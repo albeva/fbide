@@ -8,20 +8,7 @@
 #include "pch.hpp"
 #include "analyses/lexer/Token.hpp"
 
-namespace fbide::reformat {
-
-/// Formatting options.
-struct FormatOptions {
-    std::size_t tabSize = 4; ///< Indent width in spaces.
-    bool anchoredPP = false; ///< When true, preprocessor directives anchor at column 0.
-    bool reIndent = true;    ///< Apply structural indentation.
-    bool reFormat = true;    ///< Apply inter-token spacing + blank-line policy.
-    /// Build a lean tree: drop Whitespace, Comment, CommentBlock tokens and
-    /// collapse runs of Newlines into a single separator. Intended for
-    /// non-rendering consumers (sub/function browser, future analyses).
-    /// Tokens inside `' format off` (verbatim) regions pass through untouched.
-    bool lean = false;
-};
+namespace fbide::parser {
 
 /// Blank line preserved from source.
 struct BlankLineNode {};
@@ -41,7 +28,7 @@ struct VerbatimNode {
 /// Forward declare for recursive variant.
 struct BlockNode;
 
-/// A node in the formatting tree.
+/// A node in the parse tree.
 using Node = std::variant<BlankLineNode, StatementNode, VerbatimNode, std::unique_ptr<BlockNode>>;
 
 /// A block: optional opener, body of child nodes, optional closer.
@@ -57,9 +44,9 @@ struct BlockNode {
     BlockNode* parent = nullptr;
 };
 
-/// Root of the formatting tree.
+/// Root of the parse tree.
 struct ProgramTree {
     std::vector<Node> nodes; ///< Top-level node list.
 };
 
-} // namespace fbide::reformat
+} // namespace fbide::parser

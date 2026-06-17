@@ -9,6 +9,8 @@ target_sources(fbide_lib
     analyses/lexer/StyleLexer.cpp
     analyses/lexer/StyledSource.cpp
     analyses/lexer/VerbatimAnnotator.cpp
+    analyses/parser/TreeBuilder.cpp
+    analyses/parser/TreeParser.cpp
     analyses/symbols/SymbolTable.cpp
     app/App.cpp
     app/Context.cpp
@@ -53,7 +55,6 @@ target_sources(fbide_lib
     format/transformers/case/CaseTransform.cpp
     format/transformers/reformat/ReFormatter.cpp
     format/transformers/reformat/Renderer.cpp
-    format/transformers/reformat/TreeBuilder.cpp
     help/HelpManager.cpp
     markdown/CodeFence.cpp
     markdown/CodeHighlighter.cpp
@@ -99,6 +100,9 @@ target_sources(fbide_lib
     analyses/lexer/StyledSource.hpp
     analyses/lexer/Token.hpp
     analyses/lexer/VerbatimAnnotator.hpp
+    analyses/parser/ProgramTree.hpp
+    analyses/parser/TreeBuilder.hpp
+    analyses/parser/TreeParser.hpp
     analyses/symbols/SymbolTable.hpp
     app/App.hpp
     app/Context.hpp
@@ -141,10 +145,9 @@ target_sources(fbide_lib
     format/renderers/Renderer.hpp
     format/transformers/Transform.hpp
     format/transformers/case/CaseTransform.hpp
-    format/transformers/reformat/FormatTree.hpp
+    format/transformers/reformat/FormatOptions.hpp
     format/transformers/reformat/ReFormatter.hpp
     format/transformers/reformat/Renderer.hpp
-    format/transformers/reformat/TreeBuilder.hpp
     help/HelpManager.hpp
     markdown/CodeFence.hpp
     markdown/CodeHighlighter.hpp
