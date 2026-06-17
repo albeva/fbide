@@ -103,9 +103,9 @@ public:
     /// asynchronously via EVT_INTELLISENSE_RESULT.
     void submitIntellisense(Document* doc, std::string content);
 
-    /// Cancel any pending or in-flight intellisense work for `doc`. Called
-    /// from `closeFile` before erasing the document.
-    void cancelIntellisense(const Document* doc);
+    /// Remove `doc` from the intellisense include graph (collecting orphaned
+    /// includes). Called from `closeFile` before erasing the document.
+    void closeDocumentIntellisense(const Document* doc);
 
     /// Handle quit request. Prompts for unsaved docs. Returns true if safe to quit.
     /// If user chooses to save, saves all then returns true.
@@ -277,6 +277,10 @@ private:
     /// Intellisense result delivery (worker thread → UI thread).
     void onIntellisenseResult(wxThreadEvent& event);
 
+    /// Recompute the `#include` search dirs from the default compiler config and
+    /// push them to the intellisense service when they change.
+    void refreshIncludeSearchDirs();
+
     Context& m_ctx;                                     ///< Application context.
     wxFindReplaceData m_findData { wxFR_DOWN };         ///< Find/replace dialog state.
     Unowned<wxFindReplaceDialog> m_findDialog;          ///< Live modeless find/replace dialog, or null when none is open.
@@ -289,6 +293,7 @@ private:
     /// so it tears down first — it stops watching before the documents its
     /// callbacks touch are destroyed.
     std::unique_ptr<DocumentWatcher> m_watcher;
+    std::vector<std::filesystem::path> m_includeSearchDirs; ///< Last include search dirs pushed to intellisense.
 
     /// The active session, or null when none. Owns the `.fbs` lifetime:
     /// constructing it activates a session, resetting it writes the open

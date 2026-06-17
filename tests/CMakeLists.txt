@@ -37,6 +37,7 @@ add_executable(tests
     unit/StyleLexerTests.cpp
     unit/RunCommandTests.cpp
     unit/SymbolBrowserFilterTests.cpp
+    unit/SourceGraphTests.cpp
     unit/SymbolTableTests.cpp
     unit/TextEncodingTests.cpp
     unit/ThemeTests.cpp

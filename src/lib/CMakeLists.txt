@@ -4,6 +4,7 @@ target_sources(fbide_lib
     PRIVATE
     about/AboutDialog.cpp
     analyses/intellisense/IntellisenseService.cpp
+    analyses/intellisense/SourceGraph.cpp
     analyses/lexer/KeywordTables.cpp
     analyses/lexer/MemoryDocument.cpp
     analyses/lexer/StyleLexer.cpp
@@ -94,6 +95,7 @@ target_sources(fbide_lib
     PUBLIC FILE_SET HEADERS FILES
     about/AboutDialog.hpp
     analyses/intellisense/IntellisenseService.hpp
+    analyses/intellisense/SourceGraph.hpp
     analyses/lexer/KeywordTables.hpp
     analyses/lexer/MemoryDocument.hpp
     analyses/lexer/StyleLexer.hpp

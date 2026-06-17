@@ -1050,15 +1050,26 @@ void Editor::maybeShowCompletion(const bool manual) {
     const auto* doc = m_documentManager->findByEditor(this);
     const auto symbols = doc != nullptr ? doc->getSymbolTable() : nullptr;
 
-    // Global buckets change only when a parse alters the symbol set, so rebuild
-    // them only when the table's hash changes (skip-on-unchanged-hash).
-    const std::size_t hash = symbols != nullptr ? symbols->getHash() : 0;
+    // Global buckets combine the document with its `#include` closure, so key the
+    // cache on a combined hash (own + each imported table's hash) — an edit to
+    // any include then refreshes them, while typing within one file does not.
+    std::size_t hash = symbols != nullptr ? symbols->getHash() : 0;
+    if (symbols != nullptr) {
+        for (const auto& imported : symbols->getImported()) {
+            hash ^= imported->getHash() + 0x9e3779b9U + (hash << 6) + (hash >> 2);
+        }
+    }
     if (!m_globalCompletionsReady || hash != m_globalCompletionsHash) {
         m_globalSymbols.clear();
         m_globalVariables.clear();
         if (symbols != nullptr) {
             symbols->globalSymbolCompletions(m_globalSymbols);
             symbols->moduleVariableCompletions(m_globalVariables);
+            // Include-provided symbols are global candidates too.
+            for (const auto& imported : symbols->getImported()) {
+                imported->globalSymbolCompletions(m_globalSymbols);
+                imported->moduleVariableCompletions(m_globalVariables);
+            }
         }
         sortUniqueCI(m_globalSymbols);
         sortUniqueCI(m_globalVariables);

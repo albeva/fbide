@@ -158,6 +158,13 @@ public:
     [[nodiscard]] auto getMacros() const -> const std::vector<Symbol>& { return m_macros; }
     /// `#include` directives in source order.
     [[nodiscard]] auto getIncludes() const -> const std::vector<Include>& { return m_includes; }
+    /// Symbol tables of resolved `#include`d files, set by the intellisense
+    /// service after include resolution. Empty until includes are wired.
+    [[nodiscard]] auto getImported() const -> const std::vector<std::shared_ptr<const SymbolTable>>& {
+        return m_imported;
+    }
+    /// Replace the imported (included-file) symbol tables. Called before publishing.
+    void setImported(std::vector<std::shared_ptr<const SymbolTable>> imported) { m_imported = std::move(imported); }
 
     /// Lookup an `#include` directive by its source line (0-based).
     /// Returns `nullptr` when the line carries no recognised include.
@@ -201,6 +208,7 @@ private:
     std::vector<Symbol> m_enums;        ///< `Enum` declarations.
     std::vector<Symbol> m_macros;       ///< `#macro` definitions.
     std::vector<Include> m_includes;    ///< `#include` directives.
+    std::vector<std::shared_ptr<const SymbolTable>> m_imported; ///< Resolved `#include` symbol tables.
     std::size_t m_hash = 0;             ///< Stable hash over (kind, name) pairs.
     parser::ProgramTree m_tree;         ///< Retained lean scope tree (parents wired, tokens positioned).
     /// One block's text extent, pointing into the retained tree.

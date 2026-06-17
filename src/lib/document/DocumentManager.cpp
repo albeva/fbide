@@ -548,7 +548,7 @@ auto DocumentManager::saveAllFiles() -> bool {
 }
 
 auto DocumentManager::closeFile(Document& doc) -> bool {
-    cancelIntellisense(&doc);
+    closeDocumentIntellisense(&doc);
 
     if (doc.isModified()) {
         const auto result = wxMessageBox(
@@ -586,12 +586,6 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
     // would dangle and the toolbar combobox / status-bar configuration
     // cell would keep showing the closed document's selection.
     m_ctx.getCompilerManager().onActiveDocumentChanged(getActive());
-
-    // Trim the IntellisenseService SymbolTable pool: the closed doc's
-    // shared_ptr just released, so any pool slot it held is now idle.
-    if (m_intellisense != nullptr) {
-        m_intellisense->prune();
-    }
 
     // Update UI state when no documents remain
     if (m_documents.empty()) {
@@ -645,13 +639,44 @@ void DocumentManager::attachNotebook() {
 
 void DocumentManager::submitIntellisense(Document* doc, std::string content) {
     if (m_intellisense != nullptr) {
-        m_intellisense->submit(doc, std::move(content));
+        refreshIncludeSearchDirs();
+        m_intellisense->submit(doc, doc->getFilePath(), std::move(content));
     }
 }
 
-void DocumentManager::cancelIntellisense(const Document* doc) {
+void DocumentManager::refreshIncludeSearchDirs() {
+    if (m_intellisense == nullptr) {
+        return;
+    }
+    // Mirror openInclude's search order (minus the per-document source dir, which
+    // the worker adds itself): absolute -i dirs, the compiler's stock inc/, cwd.
+    std::vector<std::filesystem::path> dirs;
+    const auto& cfg = m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(std::nullopt);
+    for (const auto& entry : CompileCommand::extractIncludePaths(cfg.compileCommand)) {
+        if (auto dir = toFsPath(entry); dir.is_absolute()) {
+            dirs.push_back(dir.lexically_normal());
+        }
+    }
+    if (!cfg.path.empty()) {
+        auto fbc = cfg.path;
+        if (fbc.is_relative()) {
+            fbc = toFsPath(m_ctx.getConfigManager().getAppDir()) / fbc;
+        }
+        dirs.push_back((fbc.parent_path() / "inc").lexically_normal());
+    }
+    std::error_code ec;
+    if (auto cwd = std::filesystem::current_path(ec); !ec) {
+        dirs.push_back(cwd.lexically_normal());
+    }
+    if (dirs != m_includeSearchDirs) {
+        m_includeSearchDirs = dirs;
+        m_intellisense->setIncludePaths(dirs);
+    }
+}
+
+void DocumentManager::closeDocumentIntellisense(const Document* doc) {
     if (m_intellisense != nullptr) {
-        m_intellisense->cancel(doc);
+        m_intellisense->closeDocument(doc, doc->getFilePath());
     }
 }
 

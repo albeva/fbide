@@ -185,7 +185,7 @@ void Document::setType(const DocumentType type) {
         // the symbol table (frees the shared_ptr — workers may still hold
         // a reference until they finish, which is fine), and clear the
         // sub/function browser if this is the active document.
-        dm.cancelIntellisense(this);
+        dm.closeDocumentIntellisense(this);
         m_symbolTable = nullptr;
         if (dm.getActive() == this) {
             m_ctx.getSideBarManager().showSymbolsFor(nullptr);

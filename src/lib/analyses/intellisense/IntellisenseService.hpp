@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "analyses/intellisense/SourceGraph.hpp"
 #include "analyses/lexer/MemoryDocument.hpp"
 #include "analyses/lexer/Token.hpp"
 #include "analyses/symbols/SymbolTable.hpp"
@@ -19,21 +20,26 @@ class Context;
 class Document;
 class FBSciLexer;
 
-/// Result delivered to the sink wxEvtHandler when a parse finishes.
+/// Result delivered to the sink wxEvtHandler when a document's parse finishes.
+/// `symbols` carries the document's own symbols plus `imported` — the flattened
+/// symbol tables of its transitive `#include` closure.
 struct IntellisenseResult {
-    const Document* owner;                      ///< Tag the worker received with the task.
-    std::shared_ptr<const SymbolTable> symbols; ///< Pooled symbol table, freshly populated.
+    const Document* owner;                      ///< Tag the worker received (never dereferenced by the worker).
+    std::shared_ptr<const SymbolTable> symbols; ///< The document's published table (own + imported closure).
 };
 
 wxDECLARE_EVENT(EVT_INTELLISENSE_RESULT, wxThreadEvent);
 
-/// Background lex + parse pipeline. One worker thread, single-task slot
-/// (latest wins). Owned by `DocumentManager`. Posts results to a sink
+/// Background lex + parse + include-resolution pipeline. One worker thread that
+/// owns a `SourceGraph` of open documents and their `#include`s; UI-thread calls
+/// post commands which the worker applies, then parses every dirty file, wires
+/// the include graph, and re-publishes each affected open document (its own
+/// symbols + the flattened closure of its includes). Results post to a sink
 /// wxEvtHandler on the UI thread via `wxQueueEvent`.
 ///
-/// Identity: each task carries a `Document*` tag. The worker never
-/// dereferences it — it's only round-tripped to the result handler.
-/// The handler must verify the Document is still alive before applying.
+/// Identity: each command carries a `Document*` tag. The worker never
+/// dereferences it — it round-trips to the result handler, which must verify the
+/// document is still alive before applying.
 class IntellisenseService final : public wxThreadHelper {
 public:
     NO_COPY_AND_MOVE(IntellisenseService)
@@ -42,79 +48,59 @@ public:
     /// events on the UI thread.
     IntellisenseService(Context& ctx, wxEvtHandler* sink);
 
-    /// Stop the worker and join. Pending and in-flight results are dropped.
+    /// Stop the worker and join. Pending commands and results are dropped.
     ~IntellisenseService() override;
 
-    /// Submit a snapshot for parsing. Replaces any pending task.
-    void submit(Document* owner, std::string content);
+    /// Unregister a document; its graph entry and any includes it alone kept
+    /// alive are collected. Call just before the `Document` is destroyed.
+    void closeDocument(const Document* owner, std::filesystem::path path);
 
-    /// Cancel any pending or in-flight task tagged with `doc`. Safe to call
-    /// from the UI thread. After return, no result for `doc` will be posted
-    /// (a result race may still arrive but will carry a stale tag — handler
-    /// must validate via DocumentManager::contains).
-    void cancel(const Document* doc);
+    /// Submit a fresh source snapshot for a document. With a path the document
+    /// joins the include graph; with an empty path it is parsed standalone.
+    void submit(Document* owner, std::filesystem::path path, std::string content);
 
-    /// Drop excess idle entries from the SymbolTable pool. Keeps at most
-    /// one slot whose `use_count` is 1 (held only by the pool); evicts the
-    /// rest so capacity stays bounded after document closes. Slots still
-    /// referenced by a Document are untouched.
-    void prune();
+    /// Set the global `#include` search directories (compiler `inc/`, absolute
+    /// `-i` dirs, cwd) used to resolve relative includes. Applied on the worker.
+    void setIncludePaths(std::vector<std::filesystem::path> paths);
 
     /// wxThreadHelper entry point. Runs on the worker thread.
     auto Entry() -> wxThread::ExitCode override;
 
 private:
-    /// Pending parse task. `content` is a deep-copied UTF-8 snapshot.
-    struct Task {
-        Document* owner = nullptr; ///< Tag (the worker never dereferences it).
-        std::string content;       ///< Source text snapshot.
+    enum class CommandType : std::uint8_t { Close, Submit, IncludePaths };
+    /// A UI-thread request, applied to the graph on the worker thread.
+    struct Command {
+        CommandType type;
+        Document* owner = nullptr;  ///< Identity tag (never dereferenced).
+        std::filesystem::path path; ///< File path; empty means an unsaved document.
+        std::string content;        ///< Source snapshot (Submit only).
+        std::vector<std::filesystem::path> includeDirs; ///< Search dirs (IncludePaths only).
     };
 
-    /// Run the lex + tree + symbolize pipeline on the worker thread.
-    void process(Task task);
+    void applyCommand(Command command);
+    void parseStandalone(const Document* owner, const std::string& source);
+    void parseEntry(SourceEntry& entry);
+    void resolveAndWire(SourceEntry& entry);
+    void drainAndDeliver();
+    [[nodiscard]] auto parse(const std::string& source) -> std::shared_ptr<SymbolTable>;
+    void post(const Document* owner, std::shared_ptr<const SymbolTable> symbols);
 
-    /// Acquire a SymbolTable slot from the pool: scan for an entry whose
-    /// `use_count` is 1 (held only by the pool — i.e. no Document or event
-    /// payload still references it) and return it. If none, allocate a new
-    /// slot and return that. Caller calls `repopulate()` on the returned
-    /// table before publishing it.
-    auto acquireSymbolTable() -> std::shared_ptr<SymbolTable>;
+    [[maybe_unused]] Context& m_ctx; ///< Application context (for future include-path resolution).
+    wxEvtHandler* m_sink;            ///< UI-thread event sink for `EVT_INTELLISENSE_RESULT`.
 
-    [[maybe_unused]] Context& m_ctx;       ///< Application context.
-    wxEvtHandler* m_sink; ///< UI-thread event sink for `EVT_INTELLISENSE_RESULT`.
+    // Worker-thread-owned — no synchronisation (exclusive from construction).
+    FBSciLexer* m_lexer = nullptr;                ///< Lexer; only the worker touches it.
+    MemoryDocument m_memDoc;                      ///< Reused text buffer for the worker's parse.
+    std::unique_ptr<parser::TreeParser> m_parser; ///< Reused lean tree parser.
+    std::vector<lexer::Token> m_tokens;           ///< Reused token buffer.
+    SourceGraph m_graph;                          ///< The source/include graph (worker-owned).
+    std::vector<std::filesystem::path> m_searchDirs; ///< `#include` search dirs (compiler inc/, -i, cwd).
 
-    /// Lexer owned by the worker. Configured once at ctor with current
-    /// keywords from ConfigManager. Worker is the only thread that touches it.
-    FBSciLexer* m_lexer = nullptr;
-    /// Reused buffer for the worker's text snapshot.
-    MemoryDocument m_memDoc;
-    /// Persistent lean tree parser — reused across parses so its scan / token
-    /// / node buffers aren't reallocated each time. Worker-thread only.
-    std::unique_ptr<parser::TreeParser> m_parser;
-    /// Reused token vector — `StyleLexer::tokenise` clears + appends.
-    std::vector<lexer::Token> m_tokens;
-
-    /// Slot + signalling for the latest-wins single-task queue.
-    /// `m_mtx` guards `m_pending` and `m_stopRequested`. The worker waits
-    /// on `m_cv` for either a new task or shutdown.
+    // Shared state — guarded by `m_mtx`.
     wxMutex m_mtx;
-    /// Condition variable signalling new task / shutdown to the worker.
-    wxCondition m_cv { m_mtx };
-    /// Pending task slot — overwritten by `submit`, consumed by the worker.
-    std::optional<Task> m_pending;
-    /// Shutdown flag — set by the destructor; the worker exits its loop.
-    bool m_stopRequested = false;
-
-    /// Set by the worker right before processing; cleared on completion or
-    /// by `cancel`. When cleared mid-parse the worker drops the result.
-    std::atomic<const Document*> m_inFlight { nullptr };
-
-    /// Pool of recyclable SymbolTable instances. Guarded by `m_mtx`.
-    /// A slot's `use_count` doubles as a liveness flag: 1 means only the
-    /// pool holds it (idle, reusable); >1 means a Document or in-flight
-    /// event payload still reads it. Pool grows as needed and is trimmed
-    /// by `prune()` on document close.
-    std::vector<std::shared_ptr<SymbolTable>> m_pool;
+    wxCondition m_cv { m_mtx };      ///< Signals new commands / shutdown to the worker.
+    std::vector<Command> m_commands; ///< Pending UI commands, drained each wake.
+    bool m_stopRequested = false;    ///< Set by the destructor; the worker exits its loop.
 };
 
 } // namespace fbide

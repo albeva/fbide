@@ -365,6 +365,7 @@ void SymbolTable::reset() {
     m_enums.clear();
     m_macros.clear();
     m_includes.clear();
+    m_imported.clear();
     m_scopes.clear();
     m_typeFields.clear();
 }
