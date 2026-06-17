@@ -34,6 +34,8 @@
 - Added code completion as you type an identifier — symbols, type members and fields, in-scope local variables and parameters, plus library/constant/preprocessor keywords (toggle in Settings → General; Ctrl+Space to invoke).
 - Added include-aware code completion — symbols, and type fields/methods from `#include`d files now appear in completion, kept current as you edit either file.
 - Added intellisense re-parse of `#include`d files edited outside fbide while not open in a tab.
+- Added `#define` names to the symbol browser and code completion.
+- Added `Const` constants (including inside namespaces and `#if` blocks) to code completion, and `Declare`d Subs/Functions to completion and the symbol browser — so `#include`d headers contribute their constants and API.
 
 # Changes since 0.5.0-rc.5
 

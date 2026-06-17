@@ -101,6 +101,40 @@ TEST_F(SymbolTableTests, AnonymousMacroSkipped) {
     EXPECT_TRUE(table.getMacros().empty());
 }
 
+TEST_F(SymbolTableTests, DefineCapturedAsMacro) {
+    const auto table = extract(
+        "#define PI 3.14\n"
+        "#define SQR(x) ((x) * (x))\n"
+    );
+    ASSERT_EQ(table.getMacros().size(), 2U);
+    EXPECT_EQ(table.getMacros()[0].name, "PI");
+    EXPECT_EQ(table.getMacros()[0].line, 0);
+    EXPECT_EQ(table.getMacros()[1].name, "SQR"); // function-like: name precedes the paren
+    EXPECT_EQ(table.getMacros()[1].line, 1);
+}
+
+TEST_F(SymbolTableTests, AnonymousDefineSkipped) {
+    const auto table = extract("#define\n");
+    EXPECT_TRUE(table.getMacros().empty());
+}
+
+TEST_F(SymbolTableTests, DefineInsidePpIfCaptured) {
+    const auto table = extract(
+        "#ifdef DEBUG\n"
+        "#define LOG 1\n"
+        "#endif\n"
+    );
+    ASSERT_EQ(table.getMacros().size(), 1U);
+    EXPECT_EQ(table.getMacros()[0].name, "LOG");
+}
+
+TEST_F(SymbolTableTests, DefineInGlobalCompletions) {
+    const auto table = extract("#define MAXLEN 100\n");
+    std::vector<wxString> out;
+    table.globalSymbolCompletions(out);
+    EXPECT_NE(std::ranges::find(out, wxString("MAXLEN")), out.end());
+}
+
 TEST_F(SymbolTableTests, MacroParticipatesInHash) {
     const auto a = extract(
         "#macro A\n"
@@ -504,12 +538,60 @@ TEST_F(SymbolTableTests, NestedNamespacesRecurse) {
     EXPECT_EQ(table.getSubs()[0].name, "Deep");
 }
 
-TEST_F(SymbolTableTests, DeclareSubIsNotCaptured) {
-    const auto table = extract("Declare Sub Foo()\n");
-    EXPECT_TRUE(table.getSubs().empty());
-    EXPECT_TRUE(table.getFunctions().empty());
+TEST_F(SymbolTableTests, DeclaredProceduresAreCaptured) {
+    // Headers expose their API via `Declare` — capture those so an #included
+    // header contributes its callables to completion and the symbol browser.
+    const auto table = extract(
+        "Declare Sub Foo()\n"
+        "Declare Function Bar() As Integer\n"
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Foo");
+    ASSERT_EQ(table.getFunctions().size(), 1U);
+    EXPECT_EQ(table.getFunctions()[0].name, "Bar");
 }
 
+TEST_F(SymbolTableTests, ConstFormsCaptured) {
+    const auto table = extract(
+        "Const A = 1\n"
+        "Const B As Integer = 2\n"
+        "Const C = 3, D = 4\n"
+        "Const As Long X = 10, Y = 20\n"   // As-first (shared type)
+    );
+    std::vector<wxString> out;
+    table.moduleVariableCompletions(out);
+    const auto has = [&](const wxString& n) { return std::ranges::find(out, n) != out.end(); };
+    for (const wxString& n : { "A", "B", "C", "D", "X", "Y" }) {
+        EXPECT_TRUE(has(n)) << n.ToStdString();
+    }
+}
+
+TEST_F(SymbolTableTests, MultiLineAsFirstConstCaptured) {
+    const auto table = extract(
+        "Const As Long _\n"
+        "    GFX_A = 1, _\n"
+        "    GFX_B = 2\n"
+    );
+    std::vector<wxString> out;
+    table.moduleVariableCompletions(out);
+    EXPECT_NE(std::ranges::find(out, wxString("GFX_A")), out.end());
+    EXPECT_NE(std::ranges::find(out, wxString("GFX_B")), out.end());
+}
+
+TEST_F(SymbolTableTests, NamespacedConstAndDeclareCaptured) {
+    const auto table = extract(
+        "Namespace FB\n"
+        "    Const As Long GFX_FULLSCREEN = 1, GFX_OPENGL = 2\n"
+        "    Declare Function ScreenList(ByVal depth As Integer) As Integer\n"
+        "End Namespace\n"
+    );
+    std::vector<wxString> vars;
+    table.moduleVariableCompletions(vars);
+    EXPECT_NE(std::ranges::find(vars, wxString("GFX_FULLSCREEN")), vars.end());
+    EXPECT_NE(std::ranges::find(vars, wxString("GFX_OPENGL")), vars.end());
+    ASSERT_EQ(table.getFunctions().size(), 1U);
+    EXPECT_EQ(table.getFunctions()[0].name, "ScreenList");
+}
 TEST_F(SymbolTableTests, TypeAliasIsNotCaptured) {
     const auto table = extract("Type AliasName As Integer\n");
     EXPECT_TRUE(table.getTypes().empty());

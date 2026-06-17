@@ -432,6 +432,18 @@ auto isProcedureKind(const KeywordKind kind) -> bool {
     }
 }
 
+auto procSymbolKind(const KeywordKind kind) -> std::optional<SymbolKind> {
+    switch (kind) {
+    case KeywordKind::Sub:         return SymbolKind::Sub;
+    case KeywordKind::Function:    return SymbolKind::Function;
+    case KeywordKind::Constructor: return SymbolKind::Constructor;
+    case KeywordKind::Destructor:  return SymbolKind::Destructor;
+    case KeywordKind::Operator:    return SymbolKind::Operator;
+    case KeywordKind::Property:    return SymbolKind::Property;
+    default:                       return std::nullopt;
+    }
+}
+
 auto spanContains(const std::pair<int, int>& span, const int pos) -> bool {
     return pos >= span.first && pos < span.second;
 }
@@ -882,6 +894,24 @@ void collectDeclNames(const std::vector<Token>& toks, std::vector<wxString>& out
         }
         break;
     }
+    // FB allows a shared leading type: `Const As <type> name1 = v1, name2 = v2`.
+    // There the name follows the type, so advance past `As <type>` to the first
+    // declarator (an identifier before `=` / `,` / end) before scanning names.
+    if (idx < toks.size() && toks[idx].keywordKind == KeywordKind::As) {
+        for (idx++; idx < toks.size(); idx++) {
+            if (isLayoutToken(toks[idx])) {
+                continue;
+            }
+            if (!isWordLike(toks[idx].kind)) {
+                continue;
+            }
+            const auto nxt = nextSignificant(toks, idx + 1);
+            if (nxt == std::string::npos || toks[nxt].operatorKind == OperatorKind::Assign
+                || toks[nxt].operatorKind == OperatorKind::Comma) {
+                break; // idx now at the first name; the scan below captures it
+            }
+        }
+    }
     bool expectName = true;
     int depth = 0;
     for (; idx < toks.size(); idx++) {
@@ -917,6 +947,44 @@ void collectDeclNames(const std::vector<Token>& toks, std::vector<wxString>& out
             out.push_back(wxString::FromUTF8(tok.text));
         }
         expectName = false;
+    }
+}
+
+/// Scopes that are transparent to module-level declarations — a `namespace` and
+/// the branches of `#if`/`#ifdef`. (Not `Sub`/`Function`/`Type` bodies, whose
+/// declarations are local.)
+auto isTransparentScope(const KeywordKind kind) -> bool {
+    switch (kind) {
+    case KeywordKind::Namespace:
+    case KeywordKind::PpIf:
+    case KeywordKind::PpIfDef:
+    case KeywordKind::PpIfNDef:
+    case KeywordKind::PpElse:
+    case KeywordKind::PpElseIf:
+    case KeywordKind::PpElseIfDef:
+    case KeywordKind::PpElseIfNDef:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/// Append module-level `Dim`/`Const`/`Var`/... names from `nodes`, descending
+/// into transparent scopes (namespaces, `#if` branches) so namespaced constants
+/// are seen too.
+void collectModuleDeclNames(const std::vector<parser::Node>& nodes, std::vector<wxString>& out) {
+    for (const auto& node : nodes) {
+        if (const auto* stmt = std::get_if<parser::StatementNode>(&node)) {
+            const Token* lead = firstSignificant(stmt->tokens);
+            if (lead != nullptr && isDeclLeader(*lead)) {
+                collectDeclNames(stmt->tokens, out);
+            }
+        } else if (const auto* block = std::get_if<std::unique_ptr<parser::BlockNode>>(&node)) {
+            const auto& blk = **block;
+            if (blk.opener.has_value() && isTransparentScope(findFirstKeyword(blk.opener->tokens).kind)) {
+                collectModuleDeclNames(blk.body, out);
+            }
+        }
     }
 }
 
@@ -1003,17 +1071,9 @@ void SymbolTable::globalSymbolCompletions(std::vector<wxString>& out) const {
 }
 
 void SymbolTable::moduleVariableCompletions(std::vector<wxString>& out) const {
-    // Module-level Dim/Const/Var declarations — globally visible (no position filter).
-    for (const auto& node : m_tree.nodes) {
-        const auto* stmt = std::get_if<StatementNode>(&node);
-        if (stmt == nullptr) {
-            continue;
-        }
-        const Token* lead = firstSignificant(stmt->tokens);
-        if (lead != nullptr && isDeclLeader(*lead)) {
-            collectDeclNames(stmt->tokens, out);
-        }
-    }
+    // Module-level Dim/Const/Var declarations — globally visible (no position
+    // filter), including those nested in namespaces and `#if` branches.
+    collectModuleDeclNames(m_tree.nodes, out);
 }
 
 void SymbolTable::memberCompletionsAt(const int pos, std::vector<wxString>& out) const {
@@ -1105,6 +1165,30 @@ void SymbolTable::walkNodes(const std::vector<Node>& nodes) {
     for (const auto& node : nodes) {
         if (const auto* block = std::get_if<std::unique_ptr<BlockNode>>(&node)) {
             walkBlock(**block);
+        } else if (const auto* stmt = std::get_if<StatementNode>(&node)) {
+            // `#define` is a single-line directive (no block); capture it as a
+            // macro — the name is the first word-like token after the directive
+            // (function-like `#define NAME(a)` yields NAME before the paren).
+            const auto first = findFirstKeyword(stmt->tokens);
+            if (first.kind == KeywordKind::PpDefine) {
+                if (const Token* name = findWordlikeAfter(stmt->tokens, first.index + 1)) {
+                    m_macros.push_back(Symbol {
+                        .kind = SymbolKind::Macro,
+                        .name = wxString::FromUTF8(name->text),
+                        .line = stmt->tokens[first.index].line,
+                    });
+                }
+            } else if (first.kind == KeywordKind::Declare) {
+                // `Declare Sub/Function/...` — a (header-style) forward declaration;
+                // capture it as the callable it declares so headers contribute their
+                // API. The procedure keyword follows `Declare`.
+                for (std::size_t idx = first.index + 1; idx < stmt->tokens.size(); idx++) {
+                    if (const auto kind = procSymbolKind(stmt->tokens[idx].keywordKind)) {
+                        emit(*kind, stmt->tokens, idx);
+                        break;
+                    }
+                }
+            }
         }
     }
 }
