@@ -14,8 +14,8 @@ namespace {
 /// Drop layout/comment noise; collapse blank-line runs to one Newline.
 /// Verbatim regions pass through unchanged so `' format off` content stays
 /// as it was.
-auto leanFilter(const std::vector<Token>& tokens) -> std::vector<Token> {
-    std::vector<Token> result;
+void leanFilter(const std::vector<Token>& tokens, std::vector<Token>& result) {
+    result.clear(); // reuse the caller's buffer; capacity is retained across builds
     result.reserve(tokens.size());
     bool prevNewline = true; // treat start as if a newline preceded
     for (const auto& tkn : tokens) {
@@ -41,7 +41,6 @@ auto leanFilter(const std::vector<Token>& tokens) -> std::vector<Token> {
             result.push_back(tkn);
         }
     }
-    return result;
 }
 
 } // namespace
@@ -54,16 +53,15 @@ auto ReFormatter::apply(const std::vector<Token>& tokens) -> std::vector<Token> 
 
 auto ReFormatter::buildTree(const std::vector<Token>& tokens, ProgramTree&& recycle) -> ProgramTree {
     // Reset per-invocation state
-    std::vector<Token> filtered;
     if (m_options.lean) {
-        filtered = leanFilter(tokens);
-        m_tokens = &filtered;
+        leanFilter(tokens, m_lean); // into the reusable member buffer
+        m_tokens = &m_lean;
     } else {
         m_tokens = &tokens;
     }
     m_index = 0;
     m_prevWasNewline = true;
-    m_builder = TreeBuilder {};
+    m_builder.reset();
     m_builder.reclaim(std::move(recycle)); // reuse the prior parse's BlockNodes
     m_segment.clear();
     m_ppDepths.clear();

@@ -128,7 +128,12 @@ void TreeBuilder::closeBranch() {
 
 auto TreeBuilder::flushTokens() -> StatementNode {
     StatementNode stmt { std::move(m_collected) };
-    m_collected.clear();
+    // Refill from a recycled buffer so the next statement reuses capacity
+    // instead of allocating; empty (fresh alloc) when the pool is dry.
+    if (!m_tokenPool.empty()) {
+        m_collected = std::move(m_tokenPool.back());
+        m_tokenPool.pop_back();
+    }
     return stmt;
 }
 
@@ -140,11 +145,25 @@ void TreeBuilder::reclaim(ProgramTree&& old) {
 }
 
 void TreeBuilder::reclaimNode(Node& node) {
+    if (auto* stmt = std::get_if<StatementNode>(&node)) {
+        recycleTokens(std::move(stmt->tokens));
+        return;
+    }
+    if (auto* verb = std::get_if<VerbatimNode>(&node)) {
+        recycleTokens(std::move(verb->tokens));
+        return;
+    }
     auto* slot = std::get_if<std::unique_ptr<BlockNode>>(&node);
     if (slot == nullptr || *slot == nullptr) {
-        return; // statements / blanks / verbatim hold no recyclable BlockNode
+        return; // a blank line — nothing to recycle
     }
     auto block = std::move(*slot);
+    if (block->opener) {
+        recycleTokens(std::move(block->opener->tokens));
+    }
+    if (block->closer) {
+        recycleTokens(std::move(block->closer->tokens));
+    }
     for (auto& child : block->body) {
         reclaimNode(child);
     }
@@ -153,6 +172,23 @@ void TreeBuilder::reclaimNode(Node& node) {
     block->body.clear(); // keep the vector's capacity for reuse
     block->parent = nullptr;
     m_pool.push_back(std::move(block));
+}
+
+void TreeBuilder::recycleTokens(std::vector<lexer::Token>&& toks) {
+    if (toks.capacity() == 0) {
+        return; // nothing worth keeping
+    }
+    toks.clear();
+    m_tokenPool.push_back(std::move(toks));
+}
+
+void TreeBuilder::reset() {
+    // Keep vector capacities and both recycle pools; just drop the contents.
+    m_collected.clear();
+    m_stack.clear();
+    m_root.clear();
+    m_pool.clear();
+    m_tokenPool.clear();
 }
 
 auto TreeBuilder::acquireBlock() -> std::unique_ptr<BlockNode> {

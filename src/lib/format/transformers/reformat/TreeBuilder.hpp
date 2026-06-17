@@ -50,6 +50,10 @@ public:
     /// Auto-close any unclosed blocks and return the root ProgramTree.
     [[nodiscard]] auto finish() -> ProgramTree;
 
+    /// Clear per-build state, keeping vector capacities and the recycled
+    /// node / token pools, so the builder can be reused across parses.
+    void reset();
+
     /// Recycle `old`'s BlockNodes into the free-list so the next build reuses
     /// the allocations instead of `make_unique`-ing fresh ones. Recursive;
     /// leaves `old` empty. Call before scanning a new token stream.
@@ -75,6 +79,8 @@ private:
     [[nodiscard]] auto acquireBlock() -> std::unique_ptr<BlockNode>;
     /// Recursively salvage every BlockNode under `node` into the free-list.
     void reclaimNode(Node& node);
+    /// Salvage a token buffer into the free-list so a later statement reuses it.
+    void recycleTokens(std::vector<lexer::Token>&& toks);
 
     /// One frame in the open-block stack.
     struct StackEntry {
@@ -87,6 +93,7 @@ private:
     std::vector<StackEntry> m_stack;       ///< Open-block stack.
     std::vector<Node> m_root;              ///< Final root nodes once the stack drains.
     std::vector<std::unique_ptr<BlockNode>> m_pool; ///< Recycled BlockNode free-list (seeded by reclaim).
+    std::vector<std::vector<lexer::Token>> m_tokenPool; ///< Recycled StatementNode token buffers.
 };
 
 } // namespace fbide::reformat

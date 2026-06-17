@@ -68,6 +68,7 @@ private:
     bool m_prevWasNewline = true;                        ///< True when the prior token was a newline / start of input.
     TreeBuilder m_builder;                               ///< Tree being assembled.
     std::vector<lexer::Token> m_segment;                 ///< Buffered tokens for the current statement / opener.
+    std::vector<lexer::Token> m_lean;                    ///< Reusable lean-filtered token buffer; avoids a per-build allocation.
     std::vector<std::size_t> m_ppDepths;                 ///< Builder stack depth recorded at each PP block open.
 };
 

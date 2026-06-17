@@ -19,6 +19,7 @@ IntellisenseService::IntellisenseService(Context& ctx, wxEvtHandler* sink)
 : m_ctx(ctx)
 , m_sink(sink) {
     m_lexer = static_cast<FBSciLexer*>(FBSciLexer::Create());
+    m_parser = std::make_unique<reformat::ReFormatter>(reformat::FormatOptions { .lean = true });
     // Keywords come from the shared table (built at startup / on settings
     // change via FBSciLexer::setKeywords) — no per-instance configuration.
 
@@ -137,8 +138,7 @@ void IntellisenseService::process(const Task& task) {
     // Hand the slot's previous tree to the builder as a node free-list, then
     // store the freshly built tree back on the table so it ships with the
     // result. Both the SymbolTable slot and its BlockNodes thus recycle.
-    reformat::ReFormatter parser({ .lean = true });
-    auto tree = parser.buildTree(m_tokens, symbols->takeTree());
+    auto tree = m_parser->buildTree(m_tokens, symbols->takeTree());
     symbols->populate(std::move(tree));
 
     // Atomic check + clear: only deliver if no cancel hit between dispatch
