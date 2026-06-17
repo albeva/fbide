@@ -31,6 +31,10 @@ protected:
         return SymbolTable { parser.parse(tokens) };
     }
 
+    auto extractShared(const char* source) -> std::shared_ptr<SymbolTable> {
+        return std::make_shared<SymbolTable>(extract(source));
+    }
+
     Scintilla::ILexer5* m_lexer { nullptr };
 };
 
@@ -1346,6 +1350,33 @@ TEST_F(SymbolTableTests, TypeFieldsInMemberCompletion) {
     EXPECT_TRUE(has("x"));    // field
     EXPECT_TRUE(has("y"));    // field
     EXPECT_TRUE(has("Move")); // method
+}
+
+TEST_F(SymbolTableTests, MemberCompletionPullsFieldsFromIncludedType) {
+    // The type and its fields live in an included header; the method body that
+    // references them is in this file. Member completion merges both sources.
+    const auto header = extractShared(
+        "Type Vec\n"
+        "    x As Integer\n"
+        "    y As Integer\n"
+        "    Declare Sub Move()\n"
+        "End Type\n");
+
+    const std::string src =
+        "Sub Vec.Move()\n"
+        "    Print 1\n"
+        "End Sub\n";
+    auto table = extract(src.c_str());
+    table.setImported({ header });
+
+    const int pos = static_cast<int>(src.find("Print 1"));
+    std::vector<wxString> out;
+    table.memberCompletionsAt(pos, out);
+
+    const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
+    EXPECT_TRUE(has("x"));    // field from the included header
+    EXPECT_TRUE(has("y"));    // field from the included header
+    EXPECT_TRUE(has("Move")); // method implemented in this file
 }
 
 TEST_F(SymbolTableTests, ModuleVariablesInGlobalCompletions) {

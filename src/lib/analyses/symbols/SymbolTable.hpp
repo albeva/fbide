@@ -127,8 +127,9 @@ public:
     void moduleVariableCompletions(std::vector<wxString>& out) const;
 
     /// When `pos` lies inside a type method body (e.g. `Sub Vec.Foo`), append
-    /// that type's callable member names (its `Sub`/`Function`/`Property`
-    /// members, unqualified) to `out`. No-op outside a type method.
+    /// that type's member names (its `Sub`/`Function`/`Property` members and
+    /// data fields, unqualified) — from this file and from its `#include`
+    /// closure — to `out`. No-op outside a type method.
     void memberCompletionsAt(int pos, std::vector<wxString>& out) const;
 
     /// Append in-scope local names — parameters and `Dim`/`Const`/`Static`/`Var`
@@ -196,6 +197,9 @@ private:
     void synthesizeOwnerTypes();
     /// Recompute `m_hash` from the captured (kind, name) pairs.
     void computeHash();
+    /// Append the member names (methods + data fields) of `owner` declared in
+    /// this table to `out`. Shared by this file and its imported closure.
+    void appendMembersOf(const wxString& owner, std::vector<wxString>& out) const;
 
     std::vector<Symbol> m_subs;         ///< `Sub` definitions.
     std::vector<Symbol> m_functions;    ///< `Function` definitions.

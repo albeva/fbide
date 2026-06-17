@@ -1047,6 +1047,17 @@ void SymbolTable::memberCompletionsAt(const int pos, std::vector<wxString>& out)
         return;
     }
 
+    // Members of `owner` from this file and from its #include closure — a type
+    // declared in an included header may be implemented in this file.
+    appendMembersOf(owner, out);
+    for (const auto& imported : m_imported) {
+        if (imported) {
+            imported->appendMembersOf(owner, out);
+        }
+    }
+}
+
+void SymbolTable::appendMembersOf(const wxString& owner, std::vector<wxString>& out) const {
     // The owner's callable members, by unqualified name.
     const auto addMembers = [&out, &owner](const std::vector<Symbol>& vec) {
         for (const auto& sym : vec) {
@@ -1059,7 +1070,7 @@ void SymbolTable::memberCompletionsAt(const int pos, std::vector<wxString>& out)
     addMembers(m_functions);
     addMembers(m_properties);
 
-    // The owner type's data fields (`x As T`), captured during the walk.
+    // The owner type's data fields (`x As T`).
     if (const auto it = m_typeFields.find(owner); it != m_typeFields.end()) {
         out.insert(out.end(), it->second.begin(), it->second.end());
     }

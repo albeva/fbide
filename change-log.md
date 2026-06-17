@@ -32,6 +32,7 @@
 - Added highlighting of every occurrence of the identifier under the caret or selection (toggle in Settings → General; colours editable in the theme editor).
 - Added highlighting of matching scope keywords under the caret — opener/closer pairs (For/Next, Sub/End Sub, Do/Loop, …), If…ElseIf…Else…End If, Select Case…End Select and #if…#else…#endif groups, and Return / Exit / Continue with the scope(s) they act on.
 - Added code completion as you type an identifier — symbols, type members and fields, in-scope local variables and parameters, plus library/constant/preprocessor keywords (toggle in Settings → General; Ctrl+Space to invoke).
+- Added include-aware code completion — symbols, and type fields/methods from `#include`d files now appear in completion, kept current as you edit either file.
 
 # Changes since 0.5.0-rc.5
 
