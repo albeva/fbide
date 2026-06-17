@@ -1070,3 +1070,128 @@ TEST_F(SymbolTableTests, MatchPpIfdefPair) {
     EXPECT_EQ(spans.front().first, ifPos);
     EXPECT_EQ(spans.back().first, (*pp)->closer->tokens.front().pos);
 }
+
+TEST_F(SymbolTableTests, MatchContinueResolvesNestedLoops) {
+    const auto table = extract(
+        "For n = 2 To 20\n"
+        "For d = 2 To 10\n"
+        "If n Mod d = 0 Then\n"
+        "Continue For, For\n"
+        "End If\n"
+        "Next d\n"
+        "Next n\n");
+    ASSERT_EQ(table.tree().nodes.size(), 1u);
+    const auto* outerFor = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(outerFor, nullptr);
+    const BlockNode* innerFor = nullptr;
+    for (const auto& child : (*outerFor)->body) {
+        if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&child)) { innerFor = b->get(); break; }
+    }
+    ASSERT_NE(innerFor, nullptr);
+    const BlockNode* ifBlock = nullptr;
+    for (const auto& child : innerFor->body) {
+        if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&child)) { ifBlock = b->get(); break; }
+    }
+    ASSERT_NE(ifBlock, nullptr);
+    const StatementNode* cont = nullptr;
+    for (const auto& child : ifBlock->body) {
+        if (const auto* sNode = std::get_if<StatementNode>(&child)) { cont = sNode; break; }
+    }
+    ASSERT_NE(cont, nullptr);
+    ASSERT_EQ(cont->tokens[0].keywordKind, lexer::KeywordKind::Continue);
+
+    std::vector<int> forArgPos;
+    for (std::size_t i = 1; i < cont->tokens.size(); ++i) {
+        if (cont->tokens[i].keywordKind == lexer::KeywordKind::For) { forArgPos.push_back(cont->tokens[i].pos); }
+    }
+    ASSERT_EQ(forArgPos.size(), 2u);
+
+    const int continuePos = cont->tokens[0].pos;
+    const int innerOpener = innerFor->opener->tokens[0].pos;
+    const int outerOpener = (*outerFor)->opener->tokens[0].pos;
+
+    // Caret on Continue -> ultimate (outer For): Continue token + outer opener + Next n.
+    const auto onContinue = table.matchBlockAt(continuePos);
+    ASSERT_EQ(onContinue.size(), 3u);
+    EXPECT_EQ(onContinue[0].first, continuePos);
+    EXPECT_EQ(onContinue[1].first, outerOpener);
+    EXPECT_EQ(onContinue[2].first, (*outerFor)->closer->tokens.front().pos);
+
+    // Caret on the 1st For arg -> inner For.
+    const auto onFirst = table.matchBlockAt(forArgPos[0]);
+    ASSERT_EQ(onFirst.size(), 3u);
+    EXPECT_EQ(onFirst[0].first, forArgPos[0]);
+    EXPECT_EQ(onFirst[1].first, innerOpener);
+    EXPECT_EQ(onFirst[2].first, innerFor->closer->tokens.front().pos);
+
+    // Caret on the 2nd For arg -> outer For.
+    const auto onSecond = table.matchBlockAt(forArgPos[1]);
+    ASSERT_EQ(onSecond.size(), 3u);
+    EXPECT_EQ(onSecond[1].first, outerOpener);
+}
+
+TEST_F(SymbolTableTests, MatchExitSubThroughLoop) {
+    const auto table = extract(
+        "Sub S\n"
+        "For i = 1 To 10\n"
+        "Exit Sub\n"
+        "Next\n"
+        "End Sub\n");
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+    const BlockNode* forB = nullptr;
+    for (const auto& child : (*sub)->body) {
+        if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&child)) { forB = b->get(); break; }
+    }
+    ASSERT_NE(forB, nullptr);
+    const StatementNode* exit = nullptr;
+    for (const auto& child : forB->body) {
+        if (const auto* sNode = std::get_if<StatementNode>(&child)) { exit = sNode; break; }
+    }
+    ASSERT_NE(exit, nullptr);
+    ASSERT_EQ(exit->tokens[0].keywordKind, lexer::KeywordKind::Exit);
+
+    const int exitPos = exit->tokens[0].pos;
+    const auto spans = table.matchBlockAt(exitPos);
+    ASSERT_EQ(spans.size(), 3u);
+    EXPECT_EQ(spans[0].first, exitPos);                            // Exit
+    EXPECT_EQ(spans[1].first, (*sub)->opener->tokens[0].pos);      // Sub (past the For)
+    EXPECT_EQ(spans[2].first, (*sub)->closer->tokens.front().pos); // End Sub
+}
+
+TEST_F(SymbolTableTests, MatchExitSubInSingleLineIf) {
+    const auto table = extract(
+        "Sub foo\n"
+        "if true then exit sub\n"
+        "End Sub\n");
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+
+    // The single-line If may be a statement or an auto-closed block — find the
+    // `exit` keyword either way by scanning all tokens.
+    int exitPos = -1;
+    const std::function<void(const std::vector<Node>&)> scan = [&](const std::vector<Node>& nodes) {
+        for (const auto& node : nodes) {
+            const std::vector<lexer::Token>* toks = nullptr;
+            if (const auto* st = std::get_if<StatementNode>(&node)) {
+                toks = &st->tokens;
+            } else if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&node)) {
+                if ((*b)->opener) { toks = &(*b)->opener->tokens; }
+                scan((*b)->body);
+            }
+            if (toks != nullptr) {
+                for (const auto& tk : *toks) {
+                    if (tk.keywordKind == lexer::KeywordKind::Exit) { exitPos = tk.pos; }
+                }
+            }
+        }
+    };
+    scan((*sub)->body);
+    ASSERT_GE(exitPos, 0);
+
+    const auto spans = table.matchBlockAt(exitPos);
+    ASSERT_EQ(spans.size(), 3u);
+    EXPECT_EQ(spans[0].first, exitPos);                            // the Exit keyword
+    EXPECT_EQ(spans[1].first, (*sub)->opener->tokens[0].pos);      // Sub
+    EXPECT_EQ(spans[2].first, (*sub)->closer->tokens.front().pos); // End Sub
+}

@@ -501,6 +501,25 @@ auto isPpElseKind(const KeywordKind kind) -> bool {
         || kind == KeywordKind::PpElseIfDef || kind == KeywordKind::PpElseIfNDef;
 }
 
+// Block kinds an `Exit` / `Continue` argument can name.
+auto isExitArgKind(const KeywordKind kind) -> bool {
+    switch (kind) {
+    case KeywordKind::For:
+    case KeywordKind::Do:
+    case KeywordKind::While:
+    case KeywordKind::Select:
+    case KeywordKind::Sub:
+    case KeywordKind::Function:
+    case KeywordKind::Property:
+    case KeywordKind::Operator:
+    case KeywordKind::Constructor:
+    case KeywordKind::Destructor:
+        return true;
+    default:
+        return false;
+    }
+}
+
 // The opener's trailing `Then` (multi-line If / ElseIf), if present.
 auto trailingThenSpan(const BlockNode& block) -> std::optional<std::pair<int, int>> {
     if (!block.opener || block.opener->tokens.empty()) {
@@ -632,6 +651,108 @@ auto matchThenScope(std::vector<std::pair<int, int>>& out, const BlockNode* bloc
     }
     return true;
 }
+
+// Caret on an `Exit` / `Continue` statement appends the keyword (or arg) under
+// the caret plus the opener/closer of the scope it resolves to. Each comma arg
+// steps one block further out among matches of its kind, so `Continue For, For`
+// resolves the 2nd `For` two levels up. The `Exit`/`Continue` keyword targets
+// the outermost (last) arg; an intermediary arg targets its own scope.
+auto matchExitContinue(std::vector<std::pair<int, int>>& out, const BlockNode* block, const int pos) -> bool {
+    if (block == nullptr) {
+        return false;
+    }
+    // The statement under the caret is a direct child of the innermost block.
+    const StatementNode* stmt = nullptr;
+    for (const auto& child : block->body) {
+        const auto* candidate = std::get_if<StatementNode>(&child);
+        if (candidate == nullptr) {
+            continue;
+        }
+        if (const auto span = tokensSpan(candidate->tokens); span && spanContains(*span, pos)) {
+            stmt = candidate;
+            break;
+        }
+    }
+    if (stmt == nullptr) {
+        return false;
+    }
+    const auto& toks = stmt->tokens;
+    // `Exit` / `Continue` may sit mid-statement (single-line `If ... Then Exit
+    // Sub`), so scan for the one the caret is on (its keyword or one of its args).
+    for (std::size_t i = 0; i < toks.size(); ++i) {
+        if (toks[i].keywordKind != KeywordKind::Exit && toks[i].keywordKind != KeywordKind::Continue) {
+            continue;
+        }
+        // Args follow immediately: kind keywords, comma-separated, ending at the
+        // first other token (e.g. `Else` / `:` of a single-line If).
+        std::vector<const Token*> args;
+        for (std::size_t j = i + 1; j < toks.size(); ++j) {
+            if (isExitArgKind(toks[j].keywordKind)) {
+                args.push_back(&toks[j]);
+            } else if (toks[j].text == ",") {
+                continue;
+            } else {
+                break;
+            }
+        }
+        if (args.empty()) {
+            continue;
+        }
+        // Is the caret on this Exit/Continue keyword or one of its args?
+        const bool onKeyword = spanContains(tokenRange(toks[i]), pos);
+        int argIndex = -1;
+        for (std::size_t k = 0; k < args.size(); ++k) {
+            if (spanContains(tokenRange(*args[k]), pos)) {
+                argIndex = static_cast<int>(k);
+                break;
+            }
+        }
+        if (!onKeyword && argIndex < 0) {
+            continue; // the caret is on a different Exit/Continue, or neither
+        }
+        // Resolve each arg to a block, stepping one level further out each time.
+        std::vector<const BlockNode*> targets;
+        const BlockNode* searchFrom = block;
+        for (const auto* arg : args) {
+            const BlockNode* target = nullptr;
+            for (const BlockNode* node = searchFrom; node != nullptr; node = node->parent) {
+                if (openerKindOf(*node) == arg->keywordKind) {
+                    target = node;
+                    break;
+                }
+            }
+            if (target == nullptr) {
+                break; // not enough enclosing scopes
+            }
+            targets.push_back(target);
+            searchFrom = target->parent;
+        }
+        // Keyword -> outermost (last) arg; an arg -> its own resolved scope.
+        const BlockNode* target = nullptr;
+        std::optional<std::pair<int, int>> clicked;
+        if (onKeyword) {
+            if (!targets.empty()) {
+                target = targets.back();
+                clicked = tokenRange(toks[i]);
+            }
+        } else if (static_cast<std::size_t>(argIndex) < targets.size()) {
+            target = targets[static_cast<std::size_t>(argIndex)];
+            clicked = tokenRange(*args[static_cast<std::size_t>(argIndex)]);
+        }
+        if (target == nullptr || !clicked) {
+            return false;
+        }
+        out.push_back(*clicked);
+        if (const auto* kw = openerKeywordToken(*target)) {
+            out.push_back(tokenRange(*kw));
+        }
+        if (const auto closer = closerKeywordSpan(*target)) {
+            out.push_back(*closer);
+        }
+        return true;
+    }
+    return false;
+}
 } // namespace
 
 auto SymbolTable::matchBlockAt(const int pos) const -> const std::vector<std::pair<int, int>>& {
@@ -653,6 +774,10 @@ auto SymbolTable::matchBlockAt(const int pos) const -> const std::vector<std::pa
     }
     // Preprocessor conditional: #if / #ifdef / #ifndef ... #elseif / #else ... #endif.
     if (matchBranchGroup(m_matchSpans, block, pos, isPpIfKind, isPpElseKind, singleKeyword, singleKeyword)) {
+        return m_matchSpans;
+    }
+    // Exit / Continue statements resolve to the loop / scope(s) they act on.
+    if (matchExitContinue(m_matchSpans, block, pos)) {
         return m_matchSpans;
     }
     // Plain opener/closer pair (For/Next, Sub/End Sub, ...). Both must exist, so
