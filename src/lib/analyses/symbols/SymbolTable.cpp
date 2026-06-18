@@ -343,6 +343,26 @@ auto nodeSpan(const Node& node) -> std::optional<std::pair<int, int>> {
     }
     return std::nullopt; // BlankLineNode carries no position
 }
+/// Text extent of an inactive `#if` branch for dimming: an `#elseif`/`#else`
+/// child spans its own block; the leading `#if` branch spans its content nodes.
+auto branchExtent(const PpBranch& branch) -> std::optional<std::pair<int, int>> {
+    if (branch.block != nullptr) {
+        return blockSpan(*branch.block);
+    }
+    int start = std::numeric_limits<int>::max();
+    int end = std::numeric_limits<int>::min();
+    for (const auto& node : branch.body) {
+        if (const auto span = nodeSpan(node)) {
+            start = std::min(start, span->first);
+            end = std::max(end, span->second);
+        }
+    }
+    if (start > end) {
+        return std::nullopt; // empty branch (e.g. `#if X` immediately followed by `#else`)
+    }
+    return std::pair { start, end };
+}
+
 } // namespace
 
 void SymbolTable::populate(ProgramTree&& tree, const std::unordered_set<std::string>& defines) {
@@ -417,6 +437,14 @@ void SymbolTable::indexTree(std::span<const Node> nodes, bool collectIncludes) {
                         const auto [bstart, bend] = blockSpan(*branch.block);
                         m_scopes.push_back({ bstart, bend, branch.block });
                     }
+                    // Record a definitively inactive branch for editor dimming,
+                    // but only at the live/dead boundary (`collectIncludes` still
+                    // set) — a dead branch dims as a single region.
+                    if (!branch.live && collectIncludes) {
+                        if (const auto extent = branchExtent(branch)) {
+                            m_inactiveRanges.push_back(*extent);
+                        }
+                    }
                     indexTree(branch.body, collectIncludes && branch.live);
                 }
             } else {
@@ -453,6 +481,7 @@ void SymbolTable::reset() {
     m_typeFields.clear();
     m_sourcePath.clear();
     m_defines.clear();
+    m_inactiveRanges.clear();
 }
 
 auto SymbolTable::blockAt(const int pos) const -> const BlockNode* {

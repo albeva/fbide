@@ -75,6 +75,7 @@ constexpr int kIndicOccurrenceBg = wxSTC_INDIC_CONTAINER;
 constexpr int kIndicOccurrenceText = wxSTC_INDIC_CONTAINER + 1;
 constexpr int kIndicKeywordBg = wxSTC_INDIC_CONTAINER + 2;
 constexpr int kIndicKeywordText = wxSTC_INDIC_CONTAINER + 3;
+constexpr int kIndicInactive = wxSTC_INDIC_CONTAINER + 4; ///< Dim recolor for inactive #if branches.
 
 struct Constants final {
     static constexpr int edgeColumn = 80;
@@ -349,6 +350,17 @@ void Editor::applyTheme() {
     // the text plus TEXTFORE — so the two read identically.
     configureMatchIndicators(kIndicOccurrenceBg, kIndicOccurrenceText);
     configureMatchIndicators(kIndicKeywordBg, kIndicKeywordText);
+
+    // Inactive preprocessor branches recolor (TEXTFORE) to a dimmed tone — the
+    // default foreground blended halfway to the background — so #if-excluded code
+    // reads as greyed out without touching the lexer's styling.
+    const auto& dimBase = defaultEntry.colors;
+    const wxColour inactiveFg(
+        static_cast<unsigned char>((dimBase.foreground.Red() + dimBase.background.Red()) / 2),
+        static_cast<unsigned char>((dimBase.foreground.Green() + dimBase.background.Green()) / 2),
+        static_cast<unsigned char>((dimBase.foreground.Blue() + dimBase.background.Blue()) / 2));
+    IndicatorSetStyle(kIndicInactive, wxSTC_INDIC_TEXTFORE);
+    IndicatorSetForeground(kIndicInactive, inactiveFg);
 
     // separator lines
     SetEdgeColour(theme.foreground(theme.getSeparator()));
@@ -1231,6 +1243,23 @@ void Editor::clearOccurrenceHighlight() {
     SetIndicatorCurrent(kIndicOccurrenceText);
     IndicatorClearRange(0, len);
     m_lastHighlightedWord.clear();
+}
+
+void Editor::applyInactiveRanges(const std::vector<std::pair<int, int>>& ranges) {
+    SetIndicatorCurrent(kIndicInactive);
+    IndicatorClearRange(0, GetLength());
+    if (m_docType != DocumentType::FreeBASIC
+        || !m_configManager.config().get_or("editor.dimInactiveCode", true)) {
+        return;
+    }
+    const int len = GetLength();
+    for (const auto& [start, end] : ranges) {
+        const int from = std::clamp(start, 0, len);
+        const int to = std::clamp(end, 0, len);
+        if (to > from) {
+            IndicatorFillRange(from, to - from);
+        }
+    }
 }
 
 auto Editor::occurrenceWordAtCaret() -> wxString {

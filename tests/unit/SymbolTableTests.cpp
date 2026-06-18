@@ -127,10 +127,11 @@ TEST_F(SymbolTableTests, AnonymousDefineSkipped) {
 }
 
 TEST_F(SymbolTableTests, DefineInsidePpIfCaptured) {
-    const auto table = extract(
+    const auto table = extractWith(
         "#ifdef DEBUG\n"
         "#define LOG 1\n"
-        "#endif\n"
+        "#endif\n",
+        { "debug" }
     );
     ASSERT_EQ(table.getMacros().size(), 1U);
     EXPECT_EQ(table.getMacros()[0].name, "LOG");
@@ -779,20 +780,21 @@ TEST_F(SymbolTableTests, HashStableOnLineShift) {
 }
 
 // ---------------------------------------------------------------------------
-// Preprocessor conditional blocks — symbols guarded by `#if` / `#ifdef` /
-// `#ifndef` are collected (the parser does not evaluate conditions, so both
-// `#if` and `#else` branches contribute). `#macro` bodies are not recursed.
+// Preprocessor conditional blocks — symbols in a *live* `#if` / `#ifdef` /
+// `#ifndef` branch are collected (the condition is evaluated against the define
+// set; an absent symbol is undefined). `#macro` bodies are not recursed.
 // ---------------------------------------------------------------------------
 
 TEST_F(SymbolTableTests, SymbolsInsidePpIfCaptured) {
-    const auto table = extract(
+    const auto table = extractWith(
         "#if defined(FOO)\n"
         "    Sub Guarded\n"
         "    End Sub\n"
         "    Type Gizmo\n"
         "        x As Integer\n"
         "    End Type\n"
-        "#endif\n"
+        "#endif\n",
+        { "foo" }
     );
     ASSERT_EQ(table.getSubs().size(), 1U);
     EXPECT_EQ(table.getSubs()[0].name, "Guarded");
@@ -801,7 +803,7 @@ TEST_F(SymbolTableTests, SymbolsInsidePpIfCaptured) {
 }
 
 TEST_F(SymbolTableTests, SymbolsInPpIfdefAndIfndef) {
-    const auto table = extract(
+    const auto table = extractWith(
         "#ifdef FOO\n"
         "    Sub A\n"
         "    End Sub\n"
@@ -809,37 +811,39 @@ TEST_F(SymbolTableTests, SymbolsInPpIfdefAndIfndef) {
         "#ifndef BAR\n"
         "    Sub B\n"
         "    End Sub\n"
-        "#endif\n"
+        "#endif\n",
+        { "foo" }
     );
     ASSERT_EQ(table.getSubs().size(), 2U);
     EXPECT_EQ(table.getSubs()[0].name, "A");
     EXPECT_EQ(table.getSubs()[1].name, "B");
 }
 
-TEST_F(SymbolTableTests, PpIfElseCollectsBothBranches) {
-    // Conditions are not evaluated — symbols from every branch are listed.
-    const auto table = extract(
+TEST_F(SymbolTableTests, PpIfElseKeepsOnlyLiveBranch) {
+    // FOO is defined, so the #if branch is live and the #else is dead.
+    const auto table = extractWith(
         "#if defined(FOO)\n"
         "    Sub WhenFoo\n"
         "    End Sub\n"
         "#else\n"
         "    Sub WhenNotFoo\n"
         "    End Sub\n"
-        "#endif\n"
+        "#endif\n",
+        { "foo" }
     );
-    ASSERT_EQ(table.getSubs().size(), 2U);
+    ASSERT_EQ(table.getSubs().size(), 1U);
     EXPECT_EQ(table.getSubs()[0].name, "WhenFoo");
-    EXPECT_EQ(table.getSubs()[1].name, "WhenNotFoo");
 }
 
 TEST_F(SymbolTableTests, NestedPpIfRecurses) {
-    const auto table = extract(
+    const auto table = extractWith(
         "#if defined(FOO)\n"
         "    #if defined(BAR)\n"
         "        Sub Deep\n"
         "        End Sub\n"
         "    #endif\n"
-        "#endif\n"
+        "#endif\n",
+        { "foo", "bar" }
     );
     ASSERT_EQ(table.getSubs().size(), 1U);
     EXPECT_EQ(table.getSubs()[0].name, "Deep");
@@ -905,8 +909,9 @@ TEST_F(SymbolTableTests, PpElseifChainPicksMatchingArm) {
     EXPECT_EQ(table.getSubs()[0].name, "U");
 }
 
-TEST_F(SymbolTableTests, PpUnknownConditionKeepsAllBranches) {
-    // A user symbol we have no knowledge of stays Unknown — both branches kept.
+TEST_F(SymbolTableTests, PpUndefinedUserSymbolDropsBranch) {
+    // An undefined user symbol resolves false, so the #if branch is dead and the
+    // #else is taken (code #defines are not tracked).
     const auto table = extractWith(
         "#ifdef SOME_USER_FLAG\n"
         "    Sub A\n"
@@ -917,7 +922,8 @@ TEST_F(SymbolTableTests, PpUnknownConditionKeepsAllBranches) {
         "#endif\n",
         { "__fb_unix__" }
     );
-    ASSERT_EQ(table.getSubs().size(), 2U);
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "B");
 }
 
 TEST_F(SymbolTableTests, PpCommandLineDefineSelectsBranch) {
@@ -976,6 +982,67 @@ TEST_F(SymbolTableTests, PpInactiveEnumMembersDropped) {
     const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
     EXPECT_TRUE(has("Portable"));  // unconditional member kept
     EXPECT_FALSE(has("WinValue")); // gated by an inactive #ifdef
+}
+
+TEST_F(SymbolTableTests, InactiveRangesCoverDeadIfBranch) {
+    const char* src = "#ifdef __FB_WIN32__\n"
+                      "    Sub WinOnly\n"
+                      "    End Sub\n"
+                      "#else\n"
+                      "    Sub Other\n"
+                      "    End Sub\n"
+                      "#endif\n";
+    const auto table = extractWith(src, { "__fb_unix__" });
+    ASSERT_EQ(table.getInactiveRanges().size(), 1U);
+    const auto [start, end] = table.getInactiveRanges()[0];
+    const std::string_view text(src);
+    EXPECT_LE(start, static_cast<int>(text.find("WinOnly")));
+    EXPECT_GE(end, static_cast<int>(text.find("WinOnly")));
+    EXPECT_LT(end, static_cast<int>(text.find("Other"))); // the live #else branch is not dimmed
+}
+
+TEST_F(SymbolTableTests, InactiveRangesCoverDeadElse) {
+    const char* src = "#ifdef __FB_UNIX__\n"
+                      "    Sub Live\n"
+                      "    End Sub\n"
+                      "#else\n"
+                      "    Sub DeadElse\n"
+                      "    End Sub\n"
+                      "#endif\n";
+    const auto table = extractWith(src, { "__fb_unix__" });
+    ASSERT_EQ(table.getInactiveRanges().size(), 1U);
+    const auto [start, end] = table.getInactiveRanges()[0];
+    const std::string_view text(src);
+    EXPECT_GT(start, static_cast<int>(text.find("Live"))); // after the live branch
+    EXPECT_GE(end, static_cast<int>(text.find("DeadElse")));
+}
+
+TEST_F(SymbolTableTests, NoInactiveRangesWithoutProbe) {
+    // No built-in probe in the set → __FB_WIN32__ is Unknown → branch kept, not dimmed.
+    const auto table = extractWith(
+        "#ifdef __FB_WIN32__\n"
+        "    Sub S\n"
+        "    End Sub\n"
+        "#endif\n",
+        {}
+    );
+    EXPECT_TRUE(table.getInactiveRanges().empty());
+}
+
+TEST_F(SymbolTableTests, PpLiteralConditionSelectsBranch) {
+    // Literal `#if 0` / `#if 1` need no defines.
+    const auto table = extractWith(
+        "#if 0\n"
+        "    Sub Dead\n"
+        "    End Sub\n"
+        "#endif\n"
+        "#if 1\n"
+        "    Sub Live\n"
+        "    End Sub\n"
+        "#endif\n",
+        {});
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Live");
 }
 
 TEST_F(SymbolTableTests, PpMacroBodyNotRecursed) {

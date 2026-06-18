@@ -734,6 +734,12 @@ void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
 
     doc->setSymbolTable(result.symbols);
 
+    // Dim the editor's inactive #if branches from this fresh parse.
+    if (auto* editor = doc->getEditor(); editor != nullptr) {
+        editor->applyInactiveRanges(
+            result.symbols ? result.symbols->getInactiveRanges() : std::vector<std::pair<int, int>> {});
+    }
+
     // Push to the sidebar only when this document is the active one — the
     // tree always reflects the focused editor.
     if (doc == getActive()) {

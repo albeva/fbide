@@ -36,6 +36,16 @@ auto textIs(const Token& tok, const std::string_view lowerKeyword) -> bool {
     return true;
 }
 
+/// A FreeBASIC integer literal is zero iff every digit (after an optional
+/// &H / &O / &B radix prefix) is '0'. `#if` takes an integer constant, so there
+/// are no float forms to consider here.
+auto numericLiteralIsZero(std::string_view text) -> bool {
+    if (text.size() >= 2 && text.front() == '&') {
+        text.remove_prefix(2);
+    }
+    return !text.empty() && std::ranges::all_of(text, [](const char ch) { return ch == '0'; });
+}
+
 auto isBinaryOp(const Token& tok) -> bool {
     return textIs(tok, "and") || textIs(tok, "or") || textIs(tok, "andalso") || textIs(tok, "orelse");
 }
@@ -84,10 +94,6 @@ constexpr std::string_view kKnownBuiltins[] = {
     "__fb_xbox__", "__fb_android__", "__fb_64bit__", "__fb_arm__", "__fb_bigendian__"
 };
 
-/// Tri-state "is this symbol defined?": a defined symbol → True; a probed-but-
-/// absent built-in presence macro → False; anything else (a value macro, a user
-/// `#define`, an include guard) → Unknown, so the caller keeps the branch rather
-/// than risk dropping live code.
 /// True when `defines` carries at least one probed built-in presence macro — the
 /// signal that the compiler was successfully probed. Without it (no fbc, no
 /// probe) the closed-world assumption for the `__FB_*` namespace cannot hold, so
@@ -98,6 +104,9 @@ auto hasProbedBuiltins(const std::unordered_set<std::string>& defines) -> bool {
     });
 }
 
+/// Tri-state "is this symbol defined?": present in the set (compiler -d defines +
+/// probed built-ins) → True; a built-in absent from an *unprobed* compiler →
+/// Unknown (its target is unknown); any other absent symbol → False (undefined).
 auto definedState(const std::string& name, const std::unordered_set<std::string>& defines, const bool haveBuiltins)
     -> PpEval {
     const auto lname = toLower(name);
@@ -109,7 +118,10 @@ auto definedState(const std::string& name, const std::unordered_set<std::string>
         // we have a probe; otherwise we know nothing, so keep the branch.
         return haveBuiltins ? PpEval::False : PpEval::Unknown;
     }
-    return PpEval::Unknown;
+    // A non-built-in symbol absent from the set is treated as undefined: code
+    // `#define`s aren't tracked, so `#ifdef`/`defined()` on such a symbol is
+    // false. (An include guard's own `#ifndef` thus stays live, keeping content.)
+    return PpEval::False;
 }
 
 /// Recursive-descent evaluator over the significant condition tokens. Any token
@@ -169,6 +181,20 @@ struct Evaluator {
                     bail = true;
                 }
             }
+            return result;
+        }
+        // Literal values: `true` / `false` and numeric literals (nonzero → true).
+        if (textIs(*tok, "true")) {
+            advance();
+            return PpEval::True;
+        }
+        if (textIs(*tok, "false")) {
+            advance();
+            return PpEval::False;
+        }
+        if (tok->kind == TokenKind::Number) {
+            const PpEval result = numericLiteralIsZero(tok->text) ? PpEval::False : PpEval::True;
+            advance();
             return result;
         }
         // A bare symbol is a defined-check (no value semantics). A binary operator

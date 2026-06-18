@@ -113,6 +113,11 @@ public:
     /// drive. Reapplied from `applySettings` so theme changes pick up.
     void defineChangesMargin();
 
+    /// Recolor the preprocessor-inactive source ranges (byte [start, end) from
+    /// the document's SymbolTable) to a dimmed tone — called when a fresh parse
+    /// is delivered. Clears the dim when `ranges` is empty or the feature is off.
+    void applyInactiveRanges(const std::vector<std::pair<int, int>>& ranges);
+
     /// Scintilla marker numbers used by the change-tracking margin.
     /// Public so tests (and any future overlay) can query a line's
     /// state via `MarkerGet(line) & (1 << kAddedMarker)`.

@@ -42,13 +42,14 @@ TEST_F(PpConditionalTests, UndefinedBuiltinIsFalse) {
     EXPECT_EQ(eval("#ifndef __FB_UNIX__\n", { "__fb_unix__" }), PpEval::False);
 }
 
-TEST_F(PpConditionalTests, UnknownUserSymbolIsUnknown) {
-    // A non-builtin symbol we don't have closed-world knowledge of stays Unknown
-    // so the branch is kept (e.g. code `#define`s, include guards).
-    EXPECT_EQ(eval("#ifdef MY_FLAG\n", {}), PpEval::Unknown);
-    EXPECT_EQ(eval("#ifndef __FOO_BI__\n", {}), PpEval::Unknown); // include guard → keep content
-    EXPECT_EQ(eval("#if defined(MY_FLAG)\n", {}), PpEval::Unknown);
-    // ...unless it was given on the command line (-d), which lands in the set.
+TEST_F(PpConditionalTests, UndefinedUserSymbolIsFalse) {
+    // A non-builtin symbol absent from the set is undefined — code `#define`s are
+    // not tracked, so it resolves false (the -d + built-in define model).
+    EXPECT_EQ(eval("#ifdef MY_FLAG\n", {}), PpEval::False);
+    EXPECT_EQ(eval("#if defined(MY_FLAG)\n", {}), PpEval::False);
+    // An include guard's #ifndef therefore stays true → guarded content kept.
+    EXPECT_EQ(eval("#ifndef __FOO_BI__\n", {}), PpEval::True);
+    // ...unless the symbol was given on the command line (-d).
     EXPECT_EQ(eval("#ifdef MY_FLAG\n", { "my_flag" }), PpEval::True);
 }
 
@@ -73,7 +74,18 @@ TEST_F(PpConditionalTests, TrueShortCircuitsUnknownOperand) {
 TEST_F(PpConditionalTests, ValueChecksAreUnknown) {
     EXPECT_EQ(eval("#if __FB_VERSION__ >= 1\n", { "__fb_version__" }), PpEval::Unknown);
     EXPECT_EQ(eval("#if FOO = 0\n", { "foo" }), PpEval::Unknown);
-    EXPECT_EQ(eval("#if 1\n", {}), PpEval::Unknown);
+    EXPECT_EQ(eval("#if 1 + 1\n", {}), PpEval::Unknown); // arithmetic is not evaluated
+}
+
+TEST_F(PpConditionalTests, BooleanAndNumericLiterals) {
+    EXPECT_EQ(eval("#if 1\n", {}), PpEval::True);
+    EXPECT_EQ(eval("#if 0\n", {}), PpEval::False);
+    EXPECT_EQ(eval("#if 42\n", {}), PpEval::True);
+    EXPECT_EQ(eval("#if true\n", {}), PpEval::True);
+    EXPECT_EQ(eval("#if false\n", {}), PpEval::False);
+    EXPECT_EQ(eval("#if True\n", {}), PpEval::True);  // case-insensitive
+    EXPECT_EQ(eval("#if not 0\n", {}), PpEval::True); // composes with operators
+    EXPECT_EQ(eval("#if defined(__FB_UNIX__) and false\n", { "__fb_unix__" }), PpEval::False);
 }
 
 TEST_F(PpConditionalTests, NoProbeKeepsBuiltinBranches) {

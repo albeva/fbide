@@ -160,6 +160,13 @@ public:
     [[nodiscard]] auto getMacros() const -> const std::vector<Symbol>& { return m_macros; }
     /// `#include` directives in source order.
     [[nodiscard]] auto getIncludes() const -> const std::vector<Include>& { return m_includes; }
+
+    /// Byte ranges `[start, end)` of source in preprocessor branches that are
+    /// definitely inactive under the current defines — for editor dimming. Empty
+    /// when there is no compiler probe (then nothing can be known inactive).
+    [[nodiscard]] auto getInactiveRanges() const -> const std::vector<std::pair<int, int>>& {
+        return m_inactiveRanges;
+    }
     /// Symbol tables of resolved `#include`d files, set by the intellisense
     /// service after include resolution. Empty until includes are wired.
     [[nodiscard]] auto getImported() const -> const std::vector<std::shared_ptr<const SymbolTable>>& {
@@ -244,6 +251,7 @@ private:
     std::vector<std::shared_ptr<const SymbolTable>> m_imported; ///< Resolved `#include` symbol tables.
     std::filesystem::path m_sourcePath; ///< File this table was parsed from (set by the service).
     std::unordered_set<std::string> m_defines; ///< Defined names selecting live `#if` / `#ifdef` branches.
+    std::vector<std::pair<int, int>> m_inactiveRanges; ///< Byte [start,end) of inactive `#if` branches (dimming).
     std::size_t m_hash = 0;             ///< Stable hash over (kind, name) pairs.
     parser::ProgramTree m_tree;         ///< Retained lean scope tree (parents wired, tokens positioned).
     /// One block's text extent, pointing into the retained tree.
