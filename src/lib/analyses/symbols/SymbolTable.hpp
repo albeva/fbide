@@ -34,9 +34,9 @@ enum class SymbolKind : std::uint8_t {
 /// a method (`Sub Foo.Bar` with no `Type Foo`) — which exists only to group
 /// its members and has no navigable location.
 struct Symbol {
-    SymbolKind kind; ///< Declaration kind.
-    wxString name;   ///< Declared name; qualified (`Type.Method`) for methods.
-    int line = 0;    ///< 0-based source line of the opener; negative if synthetic.
+    SymbolKind kind;          ///< Declaration kind.
+    wxString name;            ///< Declared name; qualified (`Type.Method`) for methods.
+    int line = 0;             ///< 0-based source line of the opener; negative if synthetic.
     bool declaration = false; ///< True for a forward `Declare` (vs a definition).
 };
 
@@ -78,8 +78,9 @@ struct Include {
  *   declared, so the browser can group members under it. Synthetic
  *   types carry a negative `line`.
  *
- * Pooled by `IntellisenseService` — `populate` rewalks while keeping
- * vector capacities, and `reset` clears without freeing.
+ * A fresh instance is built per parse and published as an immutable
+ * `shared_ptr` — held by the UI and by other documents' include closures —
+ * so a table is never mutated after publishing or reused for another parse.
  *
  * See @ref analyses.
  */
@@ -90,18 +91,20 @@ public:
     /// Build by walking `tree` once.
     explicit SymbolTable(parser::ProgramTree&& tree);
 
-    /// Clear all vectors (keeping their capacity) and rewalk `tree`. Used by
-    /// `IntellisenseService` to recycle a pooled instance instead of
-    /// allocating a fresh one on every parse.
-    void populate(parser::ProgramTree&& tree, const std::unordered_set<std::string>& defines = {});
+    /// Walk `tree` once to fill the table. Expects a freshly constructed
+    /// (empty) instance — the table is build-once and is not cleared here.
+    /// `defines` (the active `#if` define set) is shared, not copied, so every
+    /// table in a parse drain can point at the one instance; null means none.
+    void populate(parser::ProgramTree&& tree,
+        std::shared_ptr<const std::unordered_set<std::string>> defines = {});
 
     /// The retained scope tree (the lean `ProgramTree` this table was built
     /// from). Carries `BlockNode::parent` links and positioned tokens for
     /// scope/keyword matching. Lives as long as this table's `shared_ptr`.
-    [[nodiscard]] auto tree() const -> const parser::ProgramTree& { return m_tree; }
-    /// Move the retained tree out (leaving this table's tree empty) so the
-    /// next parse can recycle its nodes. Used by `IntellisenseService`.
-    [[nodiscard]] auto takeTree() -> parser::ProgramTree { return std::move(m_tree); }
+    [[nodiscard]] auto tree() const -> const parser::ProgramTree& {
+        static const parser::ProgramTree kEmpty;
+        return m_tree ? *m_tree : kEmpty;
+    }
 
     /// Innermost block whose text extent contains `pos` (a document byte
     /// offset), or `nullptr` when `pos` lies outside every block. Backed by a
@@ -201,9 +204,6 @@ public:
     /// Like `findDefinition`, but preferring a forward `Declare`.
     [[nodiscard]] auto findDeclaration(const wxString& name) const -> std::optional<Location>;
 
-    /// Reset the table while preserving allocated memory.
-    void reset();
-
 private:
     /// Recursively walk a node list at any depth.
     void walkNodes(std::span<const parser::Node> nodes);
@@ -236,24 +236,27 @@ private:
     /// Shared implementation of findDefinition/findDeclaration.
     [[nodiscard]] auto findSymbol(const wxString& name, bool preferDeclaration) const -> std::optional<Location>;
 
-    std::vector<Symbol> m_subs;         ///< `Sub` definitions.
-    std::vector<Symbol> m_functions;    ///< `Function` definitions.
-    std::vector<Symbol> m_constructors; ///< `Constructor` definitions.
-    std::vector<Symbol> m_destructors;  ///< `Destructor` definitions.
-    std::vector<Symbol> m_operators;    ///< `Operator` definitions.
-    std::vector<Symbol> m_properties;   ///< `Property` definitions.
-    std::vector<Symbol> m_types;        ///< `Type` declarations.
-    std::vector<Symbol> m_unions;       ///< `Union` declarations.
-    std::vector<Symbol> m_enums;        ///< `Enum` declarations.
-    std::vector<Symbol> m_enumMembers;  ///< Enumerators of non-explicit enums (imported into scope).
-    std::vector<Symbol> m_macros;       ///< `#macro` definitions.
-    std::vector<Include> m_includes;    ///< `#include` directives.
-    std::vector<std::shared_ptr<const SymbolTable>> m_imported; ///< Resolved `#include` symbol tables.
-    std::filesystem::path m_sourcePath; ///< File this table was parsed from (set by the service).
-    std::unordered_set<std::string> m_defines; ///< Defined names selecting live `#if` / `#ifdef` branches.
-    std::vector<std::pair<int, int>> m_inactiveRanges; ///< Byte [start,end) of inactive `#if` branches (dimming).
-    std::size_t m_hash = 0;             ///< Stable hash over (kind, name) pairs.
-    parser::ProgramTree m_tree;         ///< Retained lean scope tree (parents wired, tokens positioned).
+    std::vector<Symbol> m_subs;                                       ///< `Sub` definitions.
+    std::vector<Symbol> m_functions;                                  ///< `Function` definitions.
+    std::vector<Symbol> m_constructors;                               ///< `Constructor` definitions.
+    std::vector<Symbol> m_destructors;                                ///< `Destructor` definitions.
+    std::vector<Symbol> m_operators;                                  ///< `Operator` definitions.
+    std::vector<Symbol> m_properties;                                 ///< `Property` definitions.
+    std::vector<Symbol> m_types;                                      ///< `Type` declarations.
+    std::vector<Symbol> m_unions;                                     ///< `Union` declarations.
+    std::vector<Symbol> m_enums;                                      ///< `Enum` declarations.
+    std::vector<Symbol> m_enumMembers;                                ///< Enumerators of non-explicit enums (imported into scope).
+    std::vector<Symbol> m_macros;                                     ///< `#macro` definitions.
+    std::vector<Include> m_includes;                                  ///< `#include` directives.
+    std::vector<std::shared_ptr<const SymbolTable>> m_imported;       ///< Resolved `#include` symbol tables.
+    std::filesystem::path m_sourcePath;                               ///< File this table was parsed from (set by the service).
+    std::shared_ptr<const std::unordered_set<std::string>> m_defines; ///< Shared define set (live `#if`/`#ifdef` selection); non-null after populate.
+    std::vector<std::pair<int, int>> m_inactiveRanges;                ///< Byte [start,end) of inactive `#if` branches (dimming).
+    std::size_t m_hash = 0;                                           ///< Stable hash over (kind, name) pairs.
+    /// Retained lean scope tree (parents wired, tokens positioned). Shared so a
+    /// publishable copy (own symbols + a fresh include closure) reuses it instead
+    /// of re-parsing; `m_scopes`' BlockNode pointers stay valid across the share.
+    std::shared_ptr<const parser::ProgramTree> m_tree; ///< Retained lean scope tree (parents wired, tokens positioned).
     /// One block's text extent, pointing into the retained tree.
     struct ScopeRange {
         int start;                      ///< First opener-token byte offset.

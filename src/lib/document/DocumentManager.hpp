@@ -304,7 +304,6 @@ private:
     /// `line` — the navigation target of Go to Definition / Declaration.
     void goToLocation(const std::filesystem::path& path, int line);
 
-
     Context& m_ctx;                                     ///< Application context.
     wxFindReplaceData m_findData { wxFR_DOWN };         ///< Find/replace dialog state.
     Unowned<wxFindReplaceDialog> m_findDialog;          ///< Live modeless find/replace dialog, or null when none is open.
@@ -319,6 +318,9 @@ private:
     std::unique_ptr<DocumentWatcher> m_watcher;
     std::vector<std::filesystem::path> m_includeSearchDirs; ///< Last include search dirs pushed to intellisense.
     std::unordered_set<std::string> m_intellisenseDefines;  ///< Last define set pushed to intellisense.
+    /// Signature of the inputs the last `refreshIntellisenseConfig` derived from;
+    /// lets the per-edit submit path skip re-deriving when nothing changed.
+    std::optional<std::string> m_intellisenseConfigSig;
 
     /// The active session, or null when none. Owns the `.fbs` lifetime:
     /// constructing it activates a session, resetting it writes the open

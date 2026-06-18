@@ -293,6 +293,15 @@ void SymbolBrowser::appendIncludes(
 
     constexpr auto image = static_cast<int>(SymbolKind::Include);
     wxTreeItemId folder; // created lazily, once an include survives the filter
+
+    // Resolved imported tables keyed by file name (first match wins, mirroring
+    // the original ascending scan) so each directive matches in O(1) rather than
+    // re-scanning every table per include.
+    std::unordered_map<std::filesystem::path, std::pair<std::size_t, const SymbolTable*>> tableByName;
+    for (std::size_t ti = 1; ti < tables.size(); ti++) { // skip [0] = the document
+        tableByName.try_emplace(tables[ti]->getSourcePath().filename(), ti, tables[ti]);
+    }
+
     for (std::size_t idx = 0; idx < includes.size(); idx++) {
         const bool pathMatches = passesFilter(includes[idx].path, SymbolKind::Include);
 
@@ -300,12 +309,9 @@ void SymbolBrowser::appendIncludes(
         const auto wantedName = std::filesystem::path(includes[idx].path.utf8_string()).filename();
         const SymbolTable* importedTable = nullptr;
         std::size_t tableIndex = 0;
-        for (std::size_t ti = 1; ti < tables.size(); ti++) { // skip [0] = the document
-            if (tables[ti]->getSourcePath().filename() == wantedName) {
-                importedTable = tables[ti];
-                tableIndex = ti;
-                break;
-            }
+        if (const auto it = tableByName.find(wantedName); it != tableByName.end()) {
+            tableIndex = it->second.first;
+            importedTable = it->second.second;
         }
 
         std::vector<ApiSym> api;
@@ -386,10 +392,11 @@ void SymbolBrowser::setSymbols(const Document* doc) {
         if (tbl == nullptr) {
             return 0;
         }
+        constexpr std::size_t kMix = sizeof(std::size_t) >= 8 ? 0x9e3779b97f4a7c15ULL : 0x9e3779b9UL;
         std::size_t hash = tbl->getHash();
         for (const auto& imported : tbl->getImported()) {
             if (imported != nullptr) {
-                hash ^= imported->getHash() + 0x9e3779b9U + (hash << 6) + (hash >> 2);
+                hash ^= imported->getHash() + kMix + (hash << 6) + (hash >> 2);
             }
         }
         return hash;

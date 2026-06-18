@@ -235,8 +235,9 @@ void IntellisenseService::applyCommand(Command command) {
         break;
     case CommandType::Defines:
         // Branch selection depends on the define set, so re-parse every tracked
-        // file. The UI only sends this when the set actually changed.
-        m_defines = std::move(command.defines);
+        // file. The UI only sends this when the set actually changed. Wrapped in
+        // a shared_ptr so every table built this drain points at the one set.
+        m_defines = std::make_shared<const std::unordered_set<std::string>>(std::move(command.defines));
         m_graph.reparseAll();
         break;
     case CommandType::Close:
@@ -333,11 +334,17 @@ void IntellisenseService::drainAndDeliver() {
     }
 
     for (auto* const root : toDeliver) {
-        if (!parsed.contains(root)) {
-            parseEntry(*root); // own text unchanged, but an include did — refresh for a fresh table
+        if (root->symbolTable == nullptr) {
+            parseEntry(*root); // never parsed yet (e.g. a just-opened ancestor)
         }
-        root->symbolTable->setImported(flatClosure(*root));
-        post(root->owner, root->symbolTable);
+        // Publish a copy carrying the fresh include closure. The copy shares the
+        // (immutable) scope tree, so re-publishing a root whose own source is
+        // unchanged (only an include changed) costs a vector copy, not a re-parse.
+        // The entry's own table is left import-free so it stays shareable into
+        // other documents' closures and reusable here.
+        auto published = std::make_shared<SymbolTable>(*root->symbolTable);
+        published->setImported(flatClosure(*root));
+        post(root->owner, std::move(published));
     }
 
     // Sweep includes orphaned by an edit (a parent dropped its #include) so they

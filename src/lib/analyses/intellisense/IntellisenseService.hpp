@@ -87,15 +87,20 @@ public:
     auto Entry() -> wxThread::ExitCode override;
 
 private:
-    enum class CommandType : std::uint8_t { Close, Submit, IncludePaths, Defines, Refresh, ResendTracked };
+    enum class CommandType : std::uint8_t { Close,
+        Submit,
+        IncludePaths,
+        Defines,
+        Refresh,
+        ResendTracked };
     /// A UI-thread request, applied to the graph on the worker thread.
     struct Command {
         CommandType type;
-        Document* owner = nullptr;  ///< Identity tag (never dereferenced).
-        std::filesystem::path path; ///< File path; empty means an unsaved document.
-        std::string content;        ///< Source snapshot (Submit only).
-        std::vector<std::filesystem::path> includeDirs;     ///< Search dirs (IncludePaths only).
-        std::unordered_set<std::string> defines;            ///< Defined names (Defines only).
+        Document* owner = nullptr;                      ///< Identity tag (never dereferenced).
+        std::filesystem::path path;                     ///< File path; empty means an unsaved document.
+        std::string content;                            ///< Source snapshot (Submit only).
+        std::vector<std::filesystem::path> includeDirs; ///< Search dirs (IncludePaths only).
+        std::unordered_set<std::string> defines;        ///< Defined names (Defines only).
     };
 
     void applyCommand(Command command);
@@ -113,13 +118,15 @@ private:
     wxEvtHandler* m_sink;            ///< UI-thread event sink for `EVT_INTELLISENSE_RESULT`.
 
     // Worker-thread-owned — no synchronisation (exclusive from construction).
-    FBSciLexer* m_lexer = nullptr;                ///< Lexer; only the worker touches it.
-    MemoryDocument m_memDoc;                      ///< Reused text buffer for the worker's parse.
-    std::unique_ptr<parser::TreeParser> m_parser; ///< Reused lean tree parser.
-    std::vector<lexer::Token> m_tokens;           ///< Reused token buffer.
-    SourceGraph m_graph;                          ///< The source/include graph (worker-owned).
+    FBSciLexer* m_lexer = nullptr;                   ///< Lexer; only the worker touches it.
+    MemoryDocument m_memDoc;                         ///< Reused text buffer for the worker's parse.
+    std::unique_ptr<parser::TreeParser> m_parser;    ///< Reused lean tree parser.
+    std::vector<lexer::Token> m_tokens;              ///< Reused token buffer.
+    SourceGraph m_graph;                             ///< The source/include graph (worker-owned).
     std::vector<std::filesystem::path> m_searchDirs; ///< `#include` search dirs (compiler inc/, -i, cwd).
-    std::unordered_set<std::string> m_defines;       ///< Defined names for `#if` branch selection.
+    /// Shared define set for `#if` branch selection; shared into every table a
+    /// drain builds so they don't each copy it. Null until the first `Defines`.
+    std::shared_ptr<const std::unordered_set<std::string>> m_defines;
     std::vector<std::filesystem::path> m_lastTrackedSet; ///< Last posted pure-include set (sorted); throttles snapshots.
 
     // Shared state — guarded by `m_mtx`.

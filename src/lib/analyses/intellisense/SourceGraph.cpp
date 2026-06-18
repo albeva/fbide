@@ -121,8 +121,11 @@ auto SourceGraph::takeNext() -> SourceEntry* {
     if (m_queue.empty()) {
         return nullptr;
     }
-    auto* const entry = m_queue.front();
-    m_queue.erase(m_queue.begin());
+    // Pop from the back — drain order is irrelevant (every file is parsed once
+    // and each open document's closure is recomputed at delivery), so this
+    // avoids the O(n) element shift of erasing from the front.
+    auto* const entry = m_queue.back();
+    m_queue.pop_back();
     entry->queued = false;
     return entry;
 }
@@ -162,7 +165,6 @@ void SourceGraph::collectOrphans() {
     std::erase_if(m_queue, [&](SourceEntry* entry) { return !reachable.contains(entry); });
     std::erase_if(m_entries, [&](const auto& kv) { return !reachable.contains(kv.second.get()); });
 }
-
 
 auto SourceGraph::pureIncludePaths() const -> std::vector<std::filesystem::path> {
     std::vector<std::filesystem::path> paths;

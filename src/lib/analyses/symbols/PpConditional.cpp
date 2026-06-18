@@ -127,7 +127,7 @@ auto definedState(const std::string& name, const std::unordered_set<std::string>
 /// Recursive-descent evaluator over the significant condition tokens. Any token
 /// outside the supported grammar sets `bail`, collapsing the result to Unknown.
 struct Evaluator {
-    const std::vector<const Token*>& tokens;
+    std::span<const Token* const> tokens;
     const std::unordered_set<std::string>& defines;
     bool haveBuiltins = false;
     std::size_t pos = 0;
@@ -241,6 +241,7 @@ auto fbide::evaluatePpCondition(
     const std::unordered_set<std::string>& defines
 ) -> PpEval {
     std::vector<const Token*> sig;
+    sig.reserve(opener.size());
     for (const auto& tok : opener) {
         if (!isLayout(tok)) {
             sig.push_back(&tok);
@@ -251,9 +252,10 @@ auto fbide::evaluatePpCondition(
     }
 
     // The first significant token is the directive itself (e.g. the merged
-    // `#ifdef`); the condition is whatever follows.
+    // `#ifdef`); the condition is whatever follows — a view into `sig`, so no
+    // second allocation.
     const KeywordKind directive = sig.front()->keywordKind;
-    const std::vector<const Token*> cond(sig.begin() + 1, sig.end());
+    const std::span<const Token* const> cond { sig.begin() + 1, sig.end() };
     const bool haveBuiltins = hasProbedBuiltins(defines);
 
     switch (directive) {

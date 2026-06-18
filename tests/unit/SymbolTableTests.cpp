@@ -39,7 +39,7 @@ protected:
         const auto tokens = tests::tokenise(*m_lexer, source);
         TreeParser parser({ .lean = true });
         SymbolTable table;
-        table.populate(parser.parse(tokens), defines);
+        table.populate(parser.parse(tokens), std::make_shared<const std::unordered_set<std::string>>(std::move(defines)));
         return table;
     }
 
@@ -1040,7 +1040,8 @@ TEST_F(SymbolTableTests, PpLiteralConditionSelectsBranch) {
         "    Sub Live\n"
         "    End Sub\n"
         "#endif\n",
-        {});
+        {}
+    );
     ASSERT_EQ(table.getSubs().size(), 1U);
     EXPECT_EQ(table.getSubs()[0].name, "Live");
 }
@@ -1074,12 +1075,24 @@ TEST_F(SymbolTableTests, RetainsScopeTreeWithParents) {
     EXPECT_GE((*sub)->opener->tokens[0].pos, 0); // tokens carry byte offsets
 }
 
-TEST_F(SymbolTableTests, TakeTreeEmptiesRetainedTree) {
-    SymbolTable table = extract("Sub Foo\nEnd Sub\n");
-    ASSERT_EQ(table.tree().nodes.size(), 1u);
-    const auto taken = table.takeTree();
-    EXPECT_EQ(taken.nodes.size(), 1u);
-    EXPECT_TRUE(table.tree().nodes.empty()); // moved-out leaves it empty
+TEST_F(SymbolTableTests, PublishableCopySharesTreeAndIndependentImports) {
+    const auto base = extractShared("Sub Foo\nEnd Sub\n");
+    const auto header = extractShared("Sub Bar\nEnd Sub\n");
+    // A publishable copy shares the (immutable) scope tree but owns its own
+    // import list, so attaching includes never mutates the shared own table.
+    SymbolTable published = *base;
+    published.setImported({ header });
+    EXPECT_EQ(published.getImported().size(), 1U);
+    EXPECT_TRUE(base->getImported().empty()); // original left import-free
+    ASSERT_FALSE(base->tree().nodes.empty());
+    ASSERT_FALSE(published.tree().nodes.empty());
+    EXPECT_EQ(&published.tree().nodes[0], &base->tree().nodes[0]); // tree shared, not copied
+    ASSERT_EQ(published.getSubs().size(), 1U);
+    EXPECT_EQ(published.getSubs()[0].name, "Foo");
+    // The copy's scope index points into the shared tree, so caret queries on the
+    // copy resolve to the same blocks — i.e. m_scopes' pointers stay valid.
+    EXPECT_NE(published.blockAt(0), nullptr);
+    EXPECT_EQ(published.blockAt(0), base->blockAt(0));
 }
 
 TEST_F(SymbolTableTests, BlockAtFindsInnermostScope) {

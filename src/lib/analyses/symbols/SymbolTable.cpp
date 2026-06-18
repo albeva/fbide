@@ -56,6 +56,23 @@ auto isLayoutToken(const Token& t) -> bool {
     return t.kind == TokenKind::Whitespace || t.kind == TokenKind::Newline;
 }
 
+// Case-insensitive ASCII compare of a token's text against a lowercase literal.
+auto textEqualsLower(const Token& tok, const std::string_view lower) -> bool {
+    if (tok.text.size() != lower.size()) {
+        return false;
+    }
+    for (std::size_t k = 0; k < lower.size(); k++) {
+        char ch = tok.text[k];
+        if (ch >= 'A' && ch <= 'Z') {
+            ch = static_cast<char>(ch + ('a' - 'A'));
+        }
+        if (ch != lower[k]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 auto detectInclude(const std::vector<Token>& tokens) -> std::optional<IncludeMatch> {
     std::size_t i = 0;
     while (i < tokens.size() && isLayoutToken(tokens[i])) {
@@ -77,15 +94,11 @@ auto detectInclude(const std::vector<Token>& tokens) -> std::optional<IncludeMat
     // `once` is a regular body identifier styled IdentifierPP.
     if (i < tokens.size()
         && tokens[i].kind == TokenKind::Identifier
-        && tokens[i].style == ThemeCategory::IdentifierPP) {
-        std::string lower = tokens[i].text;
-        std::ranges::transform(lower, lower.begin(),
-            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        if (lower == "once") {
+        && tokens[i].style == ThemeCategory::IdentifierPP
+        && textEqualsLower(tokens[i], "once")) {
+        i++;
+        while (i < tokens.size() && isLayoutToken(tokens[i])) {
             i++;
-            while (i < tokens.size() && isLayoutToken(tokens[i])) {
-                i++;
-            }
         }
     }
 
@@ -365,14 +378,21 @@ auto branchExtent(const PpBranch& branch) -> std::optional<std::pair<int, int>> 
 
 } // namespace
 
-void SymbolTable::populate(ProgramTree&& tree, const std::unordered_set<std::string>& defines) {
-    m_defines = defines; // drives `#if` / `#ifdef` branch selection in the walks below
+void SymbolTable::populate(ProgramTree&& tree, std::shared_ptr<const std::unordered_set<std::string>> defines) {
+    // Shared, not copied — every table in a parse drain points at the one set. A
+    // null argument (standalone parse / no defines) falls back to a shared empty
+    // so the walks below can dereference `m_defines` unconditionally.
+    static const auto kEmptyDefines = std::make_shared<const std::unordered_set<std::string>>();
+    m_defines = defines ? std::move(defines) : kEmptyDefines;
     walkNodes(tree.nodes);
     indexTree(tree.nodes); // #includes + scope ranges in one pass (before the move;
                            // BlockNodes are heap-stable so the pointers survive it)
     synthesizeOwnerTypes();
     computeHash();
-    m_tree = std::move(tree); // retain for scope/keyword matching
+    // Shared so a published copy (own symbols + a fresh include closure) can
+    // reuse it instead of re-parsing. The BlockNodes are heap-stable, so the
+    // `m_scopes` pointers stay valid across the move into the shared tree.
+    m_tree = std::make_shared<const ProgramTree>(std::move(tree));
 }
 
 void SymbolTable::synthesizeOwnerTypes() {
@@ -432,7 +452,7 @@ void SymbolTable::indexTree(std::span<const Node> nodes, bool collectIncludes) {
             if (block.opener.has_value() && isPpIfKind(findFirstKeyword(block.opener->tokens).kind)) {
                 // A `#if` chain: record each branch's scope (so navigation works
                 // everywhere) but only gather `#include`s from the live branches.
-                for (const auto& branch : ppBranches(block, m_defines)) {
+                for (const auto& branch : ppBranches(block, *m_defines)) {
                     if (branch.block != nullptr) {
                         const auto [bstart, bend] = blockSpan(*branch.block);
                         m_scopes.push_back({ bstart, bend, branch.block });
@@ -461,27 +481,6 @@ void SymbolTable::tryAddInclude(const std::vector<Token>& tokens) {
             .line = match->line,
         });
     }
-}
-
-void SymbolTable::reset() {
-    m_subs.clear();
-    m_functions.clear();
-    m_constructors.clear();
-    m_destructors.clear();
-    m_operators.clear();
-    m_properties.clear();
-    m_types.clear();
-    m_unions.clear();
-    m_enums.clear();
-    m_enumMembers.clear();
-    m_macros.clear();
-    m_includes.clear();
-    m_imported.clear();
-    m_scopes.clear();
-    m_typeFields.clear();
-    m_sourcePath.clear();
-    m_defines.clear();
-    m_inactiveRanges.clear();
 }
 
 auto SymbolTable::blockAt(const int pos) const -> const BlockNode* {
@@ -928,23 +927,6 @@ auto SymbolTable::matchProcedureAt(const int pos, const std::optional<std::pair<
 
 namespace {
 
-// Case-insensitive ASCII compare of a token's text against a lowercase literal.
-auto textEqualsLower(const Token& tok, const std::string_view lower) -> bool {
-    if (tok.text.size() != lower.size()) {
-        return false;
-    }
-    for (std::size_t k = 0; k < lower.size(); k++) {
-        char ch = tok.text[k];
-        if (ch >= 'A' && ch <= 'Z') {
-            ch = static_cast<char>(ch + ('a' - 'A'));
-        }
-        if (ch != lower[k]) {
-            return false;
-        }
-    }
-    return true;
-}
-
 // Modifier keywords that may precede the name(s) in a declaration.
 auto isDeclModifier(const Token& tok) -> bool {
     static constexpr std::string_view mods[]
@@ -1200,7 +1182,9 @@ void SymbolTable::globalSymbolCompletions(std::vector<wxString>& out) const {
 void SymbolTable::moduleVariableCompletions(std::vector<wxString>& out) const {
     // Module-level Dim/Const/Var declarations — globally visible (no position
     // filter), including those nested in namespaces and `#if` branches.
-    collectModuleDeclNames(m_tree.nodes, out, m_defines);
+    if (m_tree) {
+        collectModuleDeclNames(m_tree->nodes, out, *m_defines);
+    }
 }
 
 void SymbolTable::memberCompletionsAt(const int pos, std::vector<wxString>& out) const {
@@ -1395,7 +1379,7 @@ void SymbolTable::gatherEnumMembers(std::span<const Node> body) {
             const auto& blk = **block;
             // Members guarded by `#if` import only from the live branches.
             if (blk.opener.has_value() && isPpIfKind(findFirstKeyword(blk.opener->tokens).kind)) {
-                for (const auto& branch : ppBranches(blk, m_defines)) {
+                for (const auto& branch : ppBranches(blk, *m_defines)) {
                     if (branch.live) {
                         gatherEnumMembers(branch.body);
                     }
@@ -1469,7 +1453,7 @@ void SymbolTable::walkBlock(const BlockNode& block) {
         // A `#if` chain: recurse only the branches live under the current
         // defines, so declarations behind an inactive `#ifdef` are dropped. An
         // Unknown condition keeps its branch, so we never wrongly drop code.
-        for (const auto& branch : ppBranches(block, m_defines)) {
+        for (const auto& branch : ppBranches(block, *m_defines)) {
             if (branch.live) {
                 walkNodes(branch.body);
             }

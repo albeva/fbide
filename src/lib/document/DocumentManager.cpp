@@ -274,7 +274,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
 namespace {
 
 void reportSaveFailure(Document& doc, const DocumentIO::SaveResult result, Context& ctx,
-                       const TextEncoding encoding, const wxString& detail) {
+    const TextEncoding encoding, const wxString& detail) {
     wxString message;
     if (result == DocumentIO::SaveResult::EncodingError) {
         message = wxString::Format(ctx.tr("messages.saveEncodingError"), encoding.toString().data());
@@ -651,6 +651,35 @@ void DocumentManager::refreshIntellisenseConfig() {
     if (m_intellisense == nullptr) {
         return;
     }
+    auto& compilerMgr = m_ctx.getCompilerManager();
+    std::error_code ec;
+    const auto cwd = std::filesystem::current_path(ec);
+
+    // This runs on every submit (i.e. every edit-debounce), but the inputs only
+    // change on open/close/configuration changes. Skip the re-derivation unless
+    // a signature over those inputs changed: each FreeBASIC document's path and
+    // its resolved compiler config (command template + fbc path), plus the cwd.
+    // Capturing the resolved strings (not just the slug) also catches a Settings
+    // edit that mutates a config in place without changing the pinned slug.
+    std::string signature;
+    for (const auto& doc : m_documents) {
+        if (doc->getType() != DocumentType::FreeBASIC) {
+            continue;
+        }
+        const auto& cfg = compilerMgr.catalog().resolveByPinnedSlug(doc->getConfiguration());
+        signature += doc->isNew() ? std::string {} : doc->getFilePath().generic_string();
+        signature += '\n';
+        signature += cfg.compileCommand.utf8_string();
+        signature += '\n';
+        signature += cfg.path.generic_string();
+        signature += '\n';
+    }
+    signature += ec ? std::string {} : cwd.generic_string();
+    if (m_intellisenseConfigSig == signature) {
+        return;
+    }
+    m_intellisenseConfigSig = signature;
+
     // The worker resolves every include against one global search-dir set, but
     // the -i dirs and stock inc/ are per-document (each document's compiler
     // configuration), and a relative -i anchors to its own document's folder —
@@ -670,7 +699,7 @@ void DocumentManager::refreshIntellisenseConfig() {
         if (doc->getType() != DocumentType::FreeBASIC) {
             continue;
         }
-        const auto& cfg = m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(doc->getConfiguration());
+        const auto& cfg = compilerMgr.catalog().resolveByPinnedSlug(doc->getConfiguration());
         const auto base = doc->isNew() ? std::filesystem::path {} : doc->getFilePath().parent_path();
         // -i dirs: a relative one anchors to the document's folder (fbc's working
         // dir); an unsaved document has no folder to anchor it to.
@@ -696,15 +725,14 @@ void DocumentManager::refreshIntellisenseConfig() {
         // Preprocessor defines for `#if` branch selection: the compiler's built-in
         // __FB_* presence macros (probed once per compiler, cached) plus the -d
         // command-line defines. Lowercased to match the case-insensitive evaluator.
-        for (const auto& builtin : m_ctx.getCompilerManager().builtinDefines(cfg.path)) {
+        for (const auto& builtin : compilerMgr.builtinDefines(cfg.path)) {
             defines.insert(builtin);
         }
         for (const auto& def : CompileCommand::extractDefines(cfg.compileCommand)) {
             defines.insert(def.Lower().utf8_string());
         }
     }
-    std::error_code ec;
-    if (auto cwd = std::filesystem::current_path(ec); !ec) {
+    if (!ec) {
         add(cwd);
     }
     if (dirs != m_includeSearchDirs) {
@@ -737,7 +765,8 @@ void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
     // Dim the editor's inactive #if branches from this fresh parse.
     if (auto* editor = doc->getEditor(); editor != nullptr) {
         editor->applyInactiveRanges(
-            result.symbols ? result.symbols->getInactiveRanges() : std::vector<std::pair<int, int>> {});
+            result.symbols ? result.symbols->getInactiveRanges() : std::vector<std::pair<int, int>> {}
+        );
     }
 
     // Push to the sidebar only when this document is the active one — the
