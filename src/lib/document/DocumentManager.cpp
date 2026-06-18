@@ -34,6 +34,8 @@ auto samePath(const std::filesystem::path& lhs, const std::filesystem::path& rhs
 const wxWindowID kTabCloseOthersId = wxNewId();
 const wxWindowID kTabShowInBrowserId = wxNewId();
 const wxWindowID kTabReloadFromDiskId = wxNewId();
+const wxWindowID kGoToDefinitionId = wxNewId();
+const wxWindowID kGoToDeclarationId = wxNewId();
 
 /// File dialog → the session path to save to, or empty when cancelled.
 auto promptSaveSessionPath(Context& ctx) -> wxString {
@@ -640,12 +642,12 @@ void DocumentManager::attachNotebook() {
 
 void DocumentManager::submitIntellisense(Document* doc, std::string content) {
     if (m_intellisense != nullptr) {
-        refreshIncludeSearchDirs();
+        refreshIntellisenseConfig();
         m_intellisense->submit(doc, doc->getFilePath(), std::move(content));
     }
 }
 
-void DocumentManager::refreshIncludeSearchDirs() {
+void DocumentManager::refreshIntellisenseConfig() {
     if (m_intellisense == nullptr) {
         return;
     }
@@ -663,6 +665,7 @@ void DocumentManager::refreshIncludeSearchDirs() {
             dirs.push_back(std::move(dir));
         }
     };
+    std::unordered_set<std::string> defines;
     for (const auto& doc : m_documents) {
         if (doc->getType() != DocumentType::FreeBASIC) {
             continue;
@@ -689,6 +692,16 @@ void DocumentManager::refreshIncludeSearchDirs() {
             }
             add(fbc.parent_path() / "inc");
         }
+
+        // Preprocessor defines for `#if` branch selection: the compiler's built-in
+        // __FB_* presence macros (probed once per compiler, cached) plus the -d
+        // command-line defines. Lowercased to match the case-insensitive evaluator.
+        for (const auto& builtin : m_ctx.getCompilerManager().builtinDefines(cfg.path)) {
+            defines.insert(builtin);
+        }
+        for (const auto& def : CompileCommand::extractDefines(cfg.compileCommand)) {
+            defines.insert(def.Lower().utf8_string());
+        }
     }
     std::error_code ec;
     if (auto cwd = std::filesystem::current_path(ec); !ec) {
@@ -697,6 +710,10 @@ void DocumentManager::refreshIncludeSearchDirs() {
     if (dirs != m_includeSearchDirs) {
         m_includeSearchDirs = dirs;
         m_intellisense->setIncludePaths(dirs);
+    }
+    if (defines != m_intellisenseDefines) {
+        m_intellisenseDefines = defines;
+        m_intellisense->setDefines(defines);
     }
 }
 
@@ -721,6 +738,67 @@ void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
     // tree always reflects the focused editor.
     if (doc == getActive()) {
         m_ctx.getSideBarManager().showSymbolsFor(doc);
+    }
+}
+
+void DocumentManager::showEditorContextMenu(Editor& editor, const wxPoint& screenPos) {
+    auto* doc = findByEditor(&editor);
+
+    // Word under the click; a keyboard-invoked menu has no position, so the
+    // caret position is used instead.
+    int pos = editor.GetCurrentPos();
+    if (screenPos != wxDefaultPosition) {
+        pos = editor.PositionFromPoint(editor.ScreenToClient(screenPos));
+    }
+    const wxString word = editor.GetTextRange(editor.WordStartPosition(pos, true), editor.WordEndPosition(pos, true));
+
+    std::optional<SymbolTable::Location> def;
+    std::optional<SymbolTable::Location> decl;
+    if (doc != nullptr && doc->getType() == DocumentType::FreeBASIC && !word.empty()) {
+        if (const auto table = doc->getSymbolTable()) {
+            def = table->findDefinition(word);
+            decl = table->findDeclaration(word);
+        }
+    }
+
+    wxMenu menu;
+    menu.Append(+CommandId::Undo, m_ctx.tr("commands.undo.name"))->Enable(editor.CanUndo());
+    menu.Append(+CommandId::Redo, m_ctx.tr("commands.redo.name"))->Enable(editor.CanRedo());
+    menu.AppendSeparator();
+    const bool hasSelection = editor.GetSelectionStart() != editor.GetSelectionEnd();
+    menu.Append(+CommandId::Cut, m_ctx.tr("commands.cut.name"))->Enable(hasSelection);
+    menu.Append(+CommandId::Copy, m_ctx.tr("commands.copy.name"))->Enable(hasSelection);
+    menu.Append(+CommandId::Paste, m_ctx.tr("commands.paste.name"))->Enable(editor.CanPaste());
+    menu.AppendSeparator();
+    menu.Append(+CommandId::SelectAll, m_ctx.tr("commands.selectAll.name"));
+
+    if (def.has_value() || decl.has_value()) {
+        menu.AppendSeparator();
+        menu.Append(kGoToDefinitionId, m_ctx.tr("editorContext.goToDefinition"))->Enable(def.has_value());
+        menu.Append(kGoToDeclarationId, m_ctx.tr("editorContext.goToDeclaration"))->Enable(decl.has_value());
+        if (def.has_value()) {
+            menu.Bind(
+                wxEVT_MENU,
+                [this, loc = *def](const wxCommandEvent&) { goToLocation(loc.path, loc.line); },
+                kGoToDefinitionId
+            );
+        }
+        if (decl.has_value()) {
+            menu.Bind(
+                wxEVT_MENU,
+                [this, loc = *decl](const wxCommandEvent&) { goToLocation(loc.path, loc.line); },
+                kGoToDeclarationId
+            );
+        }
+    }
+    editor.PopupMenu(&menu);
+}
+
+void DocumentManager::goToLocation(const std::filesystem::path& path, const int line) {
+    Document* target = path.empty() ? getActive() : openFile(path);
+    if (target != nullptr) {
+        // Symbol/Location lines are 0-based; navigateToLine expects 1-based.
+        target->getEditor()->navigateToLine(line + 1);
     }
 }
 

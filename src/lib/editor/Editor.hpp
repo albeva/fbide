@@ -186,6 +186,9 @@ private:
     void onZoom(wxStyledTextEvent& event);
     /// Single-char insert — drives `CodeTransformer` on-type pipeline.
     void onCharAdded(wxStyledTextEvent& event);
+    /// Right-click / context-menu key — delegated to the document manager,
+    /// which has the command and navigation context (Go to Definition/Declaration).
+    void onContextMenu(wxContextMenuEvent& event);
     /// Show the symbol/keyword completion popup as a new identifier is typed
     /// (not after `.`/`->`). `manual` (Ctrl+Space) shows even with no partial word.
     void maybeShowCompletion(bool manual = false);

@@ -39,6 +39,11 @@
 - Added `Const` constants (including inside namespaces and `#if` blocks) to code completion, and `Declare`d Subs/Functions to completion and the symbol browser — so `#include`d headers contribute their constants and API.
 - Fixed code completion matching being case-sensitive; it now ignores case.
 - Fixed the symbol browser being empty when opening a header already `#include`d by another open document.
+- Added Go to Definition / Go to Declaration to the editor's right-click menu, jumping across `#include`d files.
+- Added FreeBASIC type aliases (`Type NAME As ...`) to code completion and the symbol browser.
+- Added non-explicit `Enum` members to code completion (imported into scope, C-style); explicit enums are left scoped.
+- Added imported (`#include`d) symbols to the symbol browser, nested under each include so local symbols stay prominent; clicking one opens its source file.
+- Added basic preprocessor evaluation to intellisense — `#if`/`#ifdef`/`#ifndef`/`#elseif` with `defined()` and `and`/`or`/`not` are resolved against the compiler's built-in defines (probed at startup) and `-d` command-line defines, so symbols and `#include`s in inactive branches (e.g. other-OS code) no longer appear; undecidable conditions keep their branch.
 
 # Changes since 0.5.0-rc.5
 

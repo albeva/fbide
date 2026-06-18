@@ -32,10 +32,10 @@ auto CompileCommand::makeDefault(const wxString& sourceFile) -> CompileCommand {
     return cmd;
 }
 
-auto CompileCommand::extractIncludePaths(const wxString& compileTemplate) -> std::vector<wxString> {
-    // Tokenize the template respecting double quotes (quotes are stripped
-    // from the resulting tokens); whitespace outside quotes separates
-    // tokens — the way a shell, and fbc's own argument parsing, see it.
+auto CompileCommand::tokenizeTemplate(const wxString& compileTemplate) -> std::vector<wxString> {
+    // Respect double quotes (stripped from the resulting tokens); whitespace
+    // outside quotes separates tokens — the way a shell, and fbc's own argument
+    // parsing, see it.
     std::vector<wxString> tokens;
     wxString current;
     bool inQuotes = false;
@@ -59,6 +59,11 @@ auto CompileCommand::extractIncludePaths(const wxString& compileTemplate) -> std
         }
     }
     flush();
+    return tokens;
+}
+
+auto CompileCommand::extractIncludePaths(const wxString& compileTemplate) -> std::vector<wxString> {
+    const auto tokens = tokenizeTemplate(compileTemplate);
 
     // fbc takes the include directory as the argument *after* a standalone
     // `-i` (the glued `-i<path>` form is not valid fbc, so it isn't parsed).
@@ -71,4 +76,22 @@ auto CompileCommand::extractIncludePaths(const wxString& compileTemplate) -> std
         }
     }
     return paths;
+}
+
+auto CompileCommand::extractDefines(const wxString& compileTemplate) -> std::vector<wxString> {
+    const auto tokens = tokenizeTemplate(compileTemplate);
+
+    // Like `-i`, fbc takes the definition as the argument *after* a standalone
+    // `-d`. The definition is `name` or `name=value`; only the name is relevant
+    // to `#ifdef`/`defined()`, so any `=value` suffix is dropped.
+    std::vector<wxString> defines;
+    for (std::size_t i = 0; i + 1 < tokens.size(); ++i) {
+        if (tokens[i] == "-d" && !tokens[i + 1].empty()) {
+            if (const wxString name = tokens[i + 1].BeforeFirst('='); !name.empty()) {
+                defines.push_back(name);
+            }
+            ++i; // consume the definition token
+        }
+    }
+    return defines;
 }

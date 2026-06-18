@@ -241,13 +241,14 @@ auto App::OnInit() -> bool {
     // `format [options] <file>`: format the file, emit, exit. Headless too.
     if (cli.formatRequested) {
         std::exit(FormatCommand(*m_context, FormatCommand::Options {
-            .reIndent = cli.formatReindent,
-            .reFormat = cli.formatReformat,
-            .alignPP = cli.formatAlignPP,
-            .applyCase = cli.formatApplyCase,
-            .html = cli.formatHtml,
-            .outputPath = cli.formatOutput,
-        }).run(cli.formatInput));
+                                                .reIndent = cli.formatReindent,
+                                                .reFormat = cli.formatReformat,
+                                                .alignPP = cli.formatAlignPP,
+                                                .applyCase = cli.formatApplyCase,
+                                                .html = cli.formatHtml,
+                                                .outputPath = cli.formatOutput,
+                                            })
+                .run(cli.formatInput));
     }
 
     // Single instance: if another FBIde is running, forward files and exit
@@ -306,6 +307,9 @@ auto App::OnInit() -> bool {
     // when built during OnInit — the loop only exists once OnInit returns.
     // CallAfter runs this on the first loop tick, after the frame is up.
     CallAfter([this, files = cli.files, restoreStateFrom = cli.restoreStateFrom] {
+        // Probe the compiler's built-in defines once, up front (now that the loop
+        // is running), so intellisense's first parse doesn't block on it.
+        m_context->getCompilerManager().warmBuiltinDefines();
         openFiles(files);
         if (!restoreStateFrom.IsEmpty()) {
             // A throwaway snapshot from a restart that had no active session: load

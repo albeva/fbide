@@ -19,6 +19,7 @@ add_executable(tests
     unit/BasicTests.cpp
     unit/CodeHighlighterTests.cpp
     unit/CompileCommandTests.cpp
+    unit/FbcDefinesTests.cpp
     unit/CompilerConfigCatalogTests.cpp
     unit/ConfigManagerTests.cpp
     unit/ConfigStrategyTests.cpp
@@ -37,6 +38,7 @@ add_executable(tests
     unit/StyleLexerTests.cpp
     unit/RunCommandTests.cpp
     unit/SymbolBrowserFilterTests.cpp
+    unit/PpConditionalTests.cpp
     unit/SourceGraphTests.cpp
     unit/SymbolTableTests.cpp
     unit/TextEncodingTests.cpp

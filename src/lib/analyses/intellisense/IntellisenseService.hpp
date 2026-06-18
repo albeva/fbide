@@ -73,6 +73,11 @@ public:
     /// `-i` dirs, cwd) used to resolve relative includes. Applied on the worker.
     void setIncludePaths(std::vector<std::filesystem::path> paths);
 
+    /// Set the symbol names treated as defined for preprocessor branch selection
+    /// (compiler built-ins + `-d` command-line defines, lowercased). Applied on
+    /// the worker; re-parses every tracked file like `setIncludePaths`.
+    void setDefines(std::unordered_set<std::string> defines);
+
     /// Force the next drain to re-post EVT_INTELLISENSE_TRACKED_FILES even when
     /// the tracked set is unchanged. Used when the UI watcher re-enables and must
     /// rebuild its include watches from scratch.
@@ -82,14 +87,15 @@ public:
     auto Entry() -> wxThread::ExitCode override;
 
 private:
-    enum class CommandType : std::uint8_t { Close, Submit, IncludePaths, Refresh, ResendTracked };
+    enum class CommandType : std::uint8_t { Close, Submit, IncludePaths, Defines, Refresh, ResendTracked };
     /// A UI-thread request, applied to the graph on the worker thread.
     struct Command {
         CommandType type;
         Document* owner = nullptr;  ///< Identity tag (never dereferenced).
         std::filesystem::path path; ///< File path; empty means an unsaved document.
         std::string content;        ///< Source snapshot (Submit only).
-        std::vector<std::filesystem::path> includeDirs; ///< Search dirs (IncludePaths only).
+        std::vector<std::filesystem::path> includeDirs;     ///< Search dirs (IncludePaths only).
+        std::unordered_set<std::string> defines;            ///< Defined names (Defines only).
     };
 
     void applyCommand(Command command);
@@ -113,6 +119,7 @@ private:
     std::vector<lexer::Token> m_tokens;           ///< Reused token buffer.
     SourceGraph m_graph;                          ///< The source/include graph (worker-owned).
     std::vector<std::filesystem::path> m_searchDirs; ///< `#include` search dirs (compiler inc/, -i, cwd).
+    std::unordered_set<std::string> m_defines;       ///< Defined names for `#if` branch selection.
     std::vector<std::filesystem::path> m_lastTrackedSet; ///< Last posted pure-include set (sorted); throttles snapshots.
 
     // Shared state — guarded by `m_mtx`.

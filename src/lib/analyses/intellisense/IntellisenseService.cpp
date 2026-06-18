@@ -186,6 +186,15 @@ void IntellisenseService::setIncludePaths(std::vector<std::filesystem::path> pat
     m_cv.Signal();
 }
 
+void IntellisenseService::setDefines(std::unordered_set<std::string> defines) {
+    wxMutexLocker lock(m_mtx);
+    if (m_stopRequested) {
+        return;
+    }
+    m_commands.push_back(Command { .type = CommandType::Defines, .defines = std::move(defines) });
+    m_cv.Signal();
+}
+
 void IntellisenseService::resendTrackedFiles() {
     wxMutexLocker lock(m_mtx);
     if (m_stopRequested) {
@@ -224,6 +233,12 @@ void IntellisenseService::applyCommand(Command command) {
         m_searchDirs = std::move(command.includeDirs);
         m_graph.reparseAll();
         break;
+    case CommandType::Defines:
+        // Branch selection depends on the define set, so re-parse every tracked
+        // file. The UI only sends this when the set actually changed.
+        m_defines = std::move(command.defines);
+        m_graph.reparseAll();
+        break;
     case CommandType::Close:
         m_graph.closeDocument(command.path, command.owner);
         break;
@@ -259,7 +274,7 @@ auto IntellisenseService::parse(const std::string& source) -> std::shared_ptr<Sy
     adapter.tokenise(m_tokens);
 
     auto table = std::make_shared<SymbolTable>();
-    table->populate(m_parser->parse(m_tokens, {}));
+    table->populate(m_parser->parse(m_tokens, {}), m_defines);
     return table;
 }
 
@@ -269,6 +284,7 @@ void IntellisenseService::parseStandalone(const Document* owner, const std::stri
 
 void IntellisenseService::parseEntry(SourceEntry& entry) {
     entry.symbolTable = parse(entry.source);
+    entry.symbolTable->setSourcePath(entry.path); // so symbols are locatable across files
     entry.parsedStamp = entry.contentStamp;
     resolveAndWire(entry);
 }

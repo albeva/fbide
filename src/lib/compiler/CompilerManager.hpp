@@ -71,6 +71,19 @@ public:
     /// configuration, so the log reflects the active configuration.
     [[nodiscard]] auto probeCompilerVersion(const std::filesystem::path& compilerPath) const -> wxString;
 
+    /// Compile the fbc-defines probe stub (resources/ide/fbc-defines.bas) with
+    /// the given compiler and return its predefined OS/architecture symbols
+    /// (lowercased). Cached per resolved compiler path, so the stub is built at
+    /// most once per compiler. Empty when the compiler or stub is unreachable.
+    /// Feeds the intellisense preprocessor evaluator alongside -d defines.
+    [[nodiscard]] auto builtinDefines(const std::filesystem::path& compilerPath) const
+        -> const std::unordered_set<std::string>&;
+
+    /// Probe and cache the active configuration's built-in defines up front (at
+    /// startup) so intellisense's first parse doesn't pay the one-off
+    /// compiler-probe latency. No-op when already cached or fbc is unreachable.
+    void warmBuiltinDefines() const;
+
     /// Resolve `compiler.path` against the IDE's appDir and verify the
     /// binary exists/is executable. Returns the resolved absolute path,
     /// or empty when the path is unset or missing.
@@ -206,6 +219,10 @@ private:
     wxString m_parameters;                            ///< Runtime parameters set via the Parameters dialog.
     wxComboBox* m_configCombo = nullptr;              ///< Toolbar-owned widget; non-null after configureToolBar.
     Document* m_lastActiveDoc = nullptr;              ///< Last document the combobox was synced to.
+
+    /// Resolved compiler path → its probed built-in defines. Lazily filled by
+    /// `builtinDefines`; mutable so that const getter can cache.
+    mutable std::unordered_map<std::string, std::unordered_set<std::string>> m_builtinDefinesCache;
 };
 
 } // namespace fbide

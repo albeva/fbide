@@ -109,20 +109,33 @@ auto SymbolBrowser::passesFilter(const wxString& name, SymbolKind kind) const ->
     return symbolFilterMatches(m_filterWords, filterHaystack(name, kind));
 }
 
+auto SymbolBrowser::sourceTables() const -> std::vector<const SymbolTable*> {
+    std::vector<const SymbolTable*> tables;
+    if (m_currentTable != nullptr) {
+        tables.push_back(m_currentTable.get());
+        for (const auto& imported : m_currentTable->getImported()) {
+            if (imported != nullptr) {
+                tables.push_back(imported.get());
+            }
+        }
+    }
+    return tables;
+}
+
 void SymbolBrowser::appendBucket(
     SymbolKind kind,
     const wxString& label,
-    const std::vector<Symbol>& bucket
+    BucketGetter getter
 ) {
-    // Method-qualified symbols are nested under their owning type instead.
+    // Only the current document's symbols appear at top level; imported symbols
+    // are nested under their include in the Includes group. Method-qualified
+    // symbols are nested under their owning type instead.
     const auto isFreeStanding = [](const Symbol& sym) { return symbolOwner(sym).empty(); };
+    const auto& bucket = (m_currentTable.get()->*getter)();
 
-    // Gather the surviving free-standing symbols first so the folder is
-    // only created when at least one leaf passes the filter.
     std::vector<std::size_t> kept;
     for (std::size_t idx = 0; idx < bucket.size(); idx++) {
-        const auto& sym = bucket[idx];
-        if (isFreeStanding(sym) && passesFilter(sym.name, kind)) {
+        if (isFreeStanding(bucket[idx]) && passesFilter(bucket[idx].name, kind)) {
             kept.push_back(idx);
         }
     }
@@ -135,7 +148,7 @@ void SymbolBrowser::appendBucket(
     SetItemBold(folder, true);
     for (const auto idx : kept) {
         const auto id = AppendItem(folder, bucket[idx].name, image, image, nullptr);
-        m_entries[id.GetID()] = { .kind = kind, .index = idx };
+        m_entries[id.GetID()] = { .tableIndex = 0, .kind = kind, .index = idx };
     }
     Expand(folder);
 }
@@ -176,11 +189,10 @@ void SymbolBrowser::appendTypeTree(const wxString& label) {
     std::vector<TypeNode> kept;
     for (std::size_t typeIdx = 0; typeIdx < types.size(); typeIdx++) {
         const auto& type = types[typeIdx];
-        // A matching UDT pulls in all of its members; otherwise each member
-        // must match the filter on its own.
+        // A matching UDT pulls in all of its members; otherwise each member must
+        // match the filter on its own.
         const bool typePasses = passesFilter(type.name, SymbolKind::Type);
 
-        // Gather every member owned by this type, across all callable kinds.
         std::vector<Member> members;
         const auto gather = [&](SymbolKind kind, const std::vector<Symbol>& bucket) {
             for (std::size_t idx = 0; idx < bucket.size(); idx++) {
@@ -223,12 +235,12 @@ void SymbolBrowser::appendTypeTree(const wxString& label) {
         // A declared type navigates to its source line; a synthetic owner
         // (negative line) is a group header only.
         if (type.line >= 0) {
-            m_entries[node.GetID()] = { .kind = SymbolKind::Type, .index = typeNode.typeIdx };
+            m_entries[node.GetID()] = { .tableIndex = 0, .kind = SymbolKind::Type, .index = typeNode.typeIdx };
         }
         for (const auto& member : typeNode.members) {
             const auto image = static_cast<int>(member.kind);
             const auto leaf = AppendItem(node, member.label, image, image, nullptr);
-            m_entries[leaf.GetID()] = { .kind = member.kind, .index = member.index };
+            m_entries[leaf.GetID()] = { .tableIndex = 0, .kind = member.kind, .index = member.index };
         }
         Expand(node);
     }
@@ -239,24 +251,87 @@ void SymbolBrowser::appendIncludes(
     const wxString& label,
     const std::vector<Include>& includes
 ) {
-    std::vector<std::size_t> kept;
-    for (std::size_t idx = 0; idx < includes.size(); idx++) {
-        if (passesFilter(includes[idx].path, SymbolKind::Include)) {
-            kept.push_back(idx);
-        }
-    }
-    if (kept.empty()) {
+    if (m_currentTable == nullptr) {
         return;
     }
+    // Same index space dispatch() resolves against, so a leaf's tableIndex maps
+    // back to the right table (sourceTables() filters nulls; [0] is the document).
+    const auto tables = sourceTables();
+
+    // The API an included file contributes: typenames, free-standing callables
+    // and macros (methods stay with their type; enum members are completion
+    // only). `all` keeps everything (used when the include path itself matched
+    // the filter), otherwise each symbol must pass the filter on its own.
+    struct ApiSym {
+        SymbolKind kind;
+        std::size_t index;
+        wxString name;
+    };
+    const auto collectApi = [this](const SymbolTable& table, const bool all) {
+        std::vector<ApiSym> out;
+        const auto add = [&](SymbolKind kind, const std::vector<Symbol>& vec, const bool freeOnly) {
+            for (std::size_t idx = 0; idx < vec.size(); idx++) {
+                if (freeOnly && !symbolOwner(vec[idx]).empty()) {
+                    continue;
+                }
+                if (!all && !passesFilter(vec[idx].name, kind)) {
+                    continue;
+                }
+                out.push_back({ .kind = kind, .index = idx, .name = vec[idx].name });
+            }
+        };
+        add(SymbolKind::Type, table.getTypes(), false);
+        add(SymbolKind::Union, table.getUnions(), false);
+        add(SymbolKind::Enum, table.getEnums(), false);
+        add(SymbolKind::Sub, table.getSubs(), true);
+        add(SymbolKind::Function, table.getFunctions(), true);
+        add(SymbolKind::Operator, table.getOperators(), true);
+        add(SymbolKind::Property, table.getProperties(), true);
+        add(SymbolKind::Macro, table.getMacros(), false);
+        return out;
+    };
 
     constexpr auto image = static_cast<int>(SymbolKind::Include);
-    const auto folder = AppendItem(GetRootItem(), label, image, image);
-    SetItemBold(folder, true);
-    for (const auto idx : kept) {
-        const auto id = AppendItem(folder, includes[idx].path, image, image, nullptr);
-        m_entries[id.GetID()] = { .kind = SymbolKind::Include, .index = idx };
+    wxTreeItemId folder; // created lazily, once an include survives the filter
+    for (std::size_t idx = 0; idx < includes.size(); idx++) {
+        const bool pathMatches = passesFilter(includes[idx].path, SymbolKind::Include);
+
+        // Match this directive to its resolved imported table by file name.
+        const auto wantedName = std::filesystem::path(includes[idx].path.utf8_string()).filename();
+        const SymbolTable* importedTable = nullptr;
+        std::size_t tableIndex = 0;
+        for (std::size_t ti = 1; ti < tables.size(); ti++) { // skip [0] = the document
+            if (tables[ti]->getSourcePath().filename() == wantedName) {
+                importedTable = tables[ti];
+                tableIndex = ti;
+                break;
+            }
+        }
+
+        std::vector<ApiSym> api;
+        if (importedTable != nullptr) {
+            api = collectApi(*importedTable, pathMatches);
+        }
+        if (!pathMatches && api.empty()) {
+            continue; // neither the include nor any of its symbols match the filter
+        }
+
+        if (!folder.IsOk()) {
+            folder = AppendItem(GetRootItem(), label, image, image);
+            SetItemBold(folder, true);
+        }
+        const auto node = AppendItem(folder, includes[idx].path, image, image);
+        m_entries[node.GetID()] = { .tableIndex = 0, .kind = SymbolKind::Include, .index = idx };
+        for (const auto& sym : api) {
+            const auto symImage = static_cast<int>(sym.kind);
+            const auto leaf = AppendItem(node, sym.name, symImage, symImage, nullptr);
+            m_entries[leaf.GetID()] = { .tableIndex = tableIndex, .kind = sym.kind, .index = sym.index };
+        }
+        // The include node is left collapsed so imports stay out of the way.
     }
-    Expand(folder);
+    if (folder.IsOk()) {
+        Expand(folder);
+    }
 }
 
 SymbolBrowser::SymbolBrowser(Context& ctx, wxWindow* parent)
@@ -305,12 +380,27 @@ void SymbolBrowser::setSymbols(const Document* doc) {
     if (table == m_currentTable) {
         return;
     }
+    // The tree now renders the document plus its #include closure, so rebuild
+    // when either changes — hash the own symbols combined with each import's.
+    const auto closureHash = [](const SymbolTable* tbl) -> std::size_t {
+        if (tbl == nullptr) {
+            return 0;
+        }
+        std::size_t hash = tbl->getHash();
+        for (const auto& imported : tbl->getImported()) {
+            if (imported != nullptr) {
+                hash ^= imported->getHash() + 0x9e3779b9U + (hash << 6) + (hash >> 2);
+            }
+        }
+        return hash;
+    };
     const auto* old = m_currentTable.get();
+    const bool changed = old == nullptr || closureHash(old) != closureHash(table.get());
     m_currentTable = table;
 
     if (table == nullptr) {
         clearTree();
-    } else if (old == nullptr || old->getHash() != table->getHash()) {
+    } else if (changed) {
         rebuild();
     }
 }
@@ -346,12 +436,12 @@ void SymbolBrowser::rebuild() {
         clearTree();
         appendIncludes(m_ctx.tr("sidebar.symbols.includes"), m_currentTable->getIncludes());
         appendTypeTree(m_ctx.tr("sidebar.symbols.types"));
-        appendBucket(SymbolKind::Sub, m_ctx.tr("sidebar.symbols.subs"), m_currentTable->getSubs());
-        appendBucket(SymbolKind::Function, m_ctx.tr("sidebar.symbols.functions"), m_currentTable->getFunctions());
-        appendBucket(SymbolKind::Operator, m_ctx.tr("sidebar.symbols.operators"), m_currentTable->getOperators());
-        appendBucket(SymbolKind::Union, m_ctx.tr("sidebar.symbols.unions"), m_currentTable->getUnions());
-        appendBucket(SymbolKind::Enum, m_ctx.tr("sidebar.symbols.enums"), m_currentTable->getEnums());
-        appendBucket(SymbolKind::Macro, m_ctx.tr("sidebar.symbols.macros"), m_currentTable->getMacros());
+        appendBucket(SymbolKind::Sub, m_ctx.tr("sidebar.symbols.subs"), &SymbolTable::getSubs);
+        appendBucket(SymbolKind::Function, m_ctx.tr("sidebar.symbols.functions"), &SymbolTable::getFunctions);
+        appendBucket(SymbolKind::Operator, m_ctx.tr("sidebar.symbols.operators"), &SymbolTable::getOperators);
+        appendBucket(SymbolKind::Union, m_ctx.tr("sidebar.symbols.unions"), &SymbolTable::getUnions);
+        appendBucket(SymbolKind::Enum, m_ctx.tr("sidebar.symbols.enums"), &SymbolTable::getEnums);
+        appendBucket(SymbolKind::Macro, m_ctx.tr("sidebar.symbols.macros"), &SymbolTable::getMacros);
     }
 
     if (priorFocus != nullptr && wxWindow::FindFocus() != priorFocus) {
@@ -374,12 +464,27 @@ void SymbolBrowser::onItemActivated(wxTreeEvent& event) {
 }
 
 void SymbolBrowser::dispatch(const Entry& entry) {
-    const auto& table = *m_currentTable;
+    // Resolve the table live (never store a raw pointer in the entry — the table
+    // can be replaced without a rebuild on a hash-equal swap). Bounds-checked
+    // against the rare case the structure shifted under a skipped rebuild.
+    const auto tables = sourceTables();
+    if (entry.tableIndex >= tables.size()) {
+        return;
+    }
+    const SymbolTable* const table = tables[entry.tableIndex];
+    const bool isCurrent = entry.tableIndex == 0;
 
-    const auto gotoSymbol = [this](const std::vector<Symbol>& vec, const std::size_t idx) {
-        const int line = vec.at(idx).line;
-        CallAfter([this, line]() {
-            auto* doc = m_ctx.getDocumentManager().getActive();
+    // Navigate to a symbol's line. Own-document symbols use the active editor;
+    // imported ones open their source file first.
+    const auto gotoSymbol = [this, table, isCurrent](const std::vector<Symbol>& vec, const std::size_t idx) {
+        if (idx >= vec.size()) {
+            return;
+        }
+        const int line = vec[idx].line;
+        const auto path = table->getSourcePath();
+        CallAfter([this, line, isCurrent, path]() {
+            auto& docMgr = m_ctx.getDocumentManager();
+            auto* doc = (isCurrent || path.empty()) ? docMgr.getActive() : docMgr.openFile(path);
             if (doc == nullptr) {
                 return;
             }
@@ -396,8 +501,10 @@ void SymbolBrowser::dispatch(const Entry& entry) {
 
     switch (entry.kind) {
     case SymbolKind::Include: {
-        const auto& vec = table.getIncludes();
-        const wxString path = vec[entry.index].path;
+        if (entry.index >= table->getIncludes().size()) {
+            return;
+        }
+        const wxString path = table->getIncludes()[entry.index].path;
         CallAfter([this, path]() {
             auto& docMgr = m_ctx.getDocumentManager();
             const auto* origin = docMgr.getActive();
@@ -409,34 +516,34 @@ void SymbolBrowser::dispatch(const Entry& entry) {
         return;
     }
     case SymbolKind::Sub:
-        gotoSymbol(table.getSubs(), entry.index);
+        gotoSymbol(table->getSubs(), entry.index);
         break;
     case SymbolKind::Function:
-        gotoSymbol(table.getFunctions(), entry.index);
+        gotoSymbol(table->getFunctions(), entry.index);
         break;
     case SymbolKind::Constructor:
-        gotoSymbol(table.getConstructors(), entry.index);
+        gotoSymbol(table->getConstructors(), entry.index);
         break;
     case SymbolKind::Destructor:
-        gotoSymbol(table.getDestructors(), entry.index);
+        gotoSymbol(table->getDestructors(), entry.index);
         break;
     case SymbolKind::Operator:
-        gotoSymbol(table.getOperators(), entry.index);
+        gotoSymbol(table->getOperators(), entry.index);
         break;
     case SymbolKind::Property:
-        gotoSymbol(table.getProperties(), entry.index);
+        gotoSymbol(table->getProperties(), entry.index);
         break;
     case SymbolKind::Type:
-        gotoSymbol(table.getTypes(), entry.index);
+        gotoSymbol(table->getTypes(), entry.index);
         break;
     case SymbolKind::Union:
-        gotoSymbol(table.getUnions(), entry.index);
+        gotoSymbol(table->getUnions(), entry.index);
         break;
     case SymbolKind::Enum:
-        gotoSymbol(table.getEnums(), entry.index);
+        gotoSymbol(table->getEnums(), entry.index);
         break;
     case SymbolKind::Macro:
-        gotoSymbol(table.getMacros(), entry.index);
+        gotoSymbol(table->getMacros(), entry.index);
         break;
     }
 }

@@ -12,6 +12,7 @@ target_sources(fbide_lib
     analyses/lexer/VerbatimAnnotator.cpp
     analyses/parser/TreeBuilder.cpp
     analyses/parser/TreeParser.cpp
+    analyses/symbols/PpConditional.cpp
     analyses/symbols/SymbolTable.cpp
     app/App.cpp
     app/Context.cpp
@@ -23,6 +24,7 @@ target_sources(fbide_lib
     compiler/AsyncProcess.cpp
     compiler/BuildTask.cpp
     compiler/CompileCommand.cpp
+    compiler/FbcDefines.cpp
     compiler/CompilerConfigCatalog.cpp
     compiler/CompilerManager.cpp
     compiler/FbcAutoDetect.cpp
@@ -105,6 +107,7 @@ target_sources(fbide_lib
     analyses/parser/ProgramTree.hpp
     analyses/parser/TreeBuilder.hpp
     analyses/parser/TreeParser.hpp
+    analyses/symbols/PpConditional.hpp
     analyses/symbols/SymbolTable.hpp
     app/App.hpp
     app/Context.hpp
@@ -115,6 +118,7 @@ target_sources(fbide_lib
     compiler/AsyncProcess.hpp
     compiler/BuildTask.hpp
     compiler/CompileCommand.hpp
+    compiler/FbcDefines.hpp
     compiler/CompilerConfigCatalog.hpp
     compiler/CompilerManager.hpp
     compiler/FbcAutoDetect.hpp

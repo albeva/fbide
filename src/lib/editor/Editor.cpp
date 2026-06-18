@@ -212,7 +212,10 @@ void Editor::applyEditorSettings() {
 
     m_changeTracking = editor.get_or("changeTracking", true);
     rebuildKeywordCompletions();
-    UsePopUp(wxSTC_POPUP_TEXT);
+    // A custom context menu (built by the document manager) replaces Scintilla's
+    // built-in popup so it can offer Go to Definition / Declaration.
+    UsePopUp(wxSTC_POPUP_NEVER);
+    Bind(wxEVT_CONTEXT_MENU, &Editor::onContextMenu, this);
 
     SetEdgeColumn(editor.get_or("edgeColumn", Constants::edgeColumn));
     SetViewEOL(editor.get_or("displayEOL", false));
@@ -1004,6 +1007,14 @@ void Editor::onCharAdded(wxStyledTextEvent& event) {
     const int key = event.GetKey();
     if ((key >= 'a' && key <= 'z') || (key >= 'A' && key <= 'Z') || (key >= '0' && key <= '9') || key == '_') {
         maybeShowCompletion();
+    }
+}
+
+void Editor::onContextMenu(wxContextMenuEvent& event) {
+    if (m_documentManager != nullptr) {
+        m_documentManager->showEditorContextMenu(*this, event.GetPosition());
+    } else {
+        event.Skip();
     }
 }
 

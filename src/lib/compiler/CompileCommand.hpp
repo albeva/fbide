@@ -40,7 +40,18 @@ public:
     /// navigation search the same directories the compiler does.
     [[nodiscard]] static auto extractIncludePaths(const wxString& compileTemplate) -> std::vector<wxString>;
 
+    /// Extract the symbol names defined via fbc's `-d <name>[=<value>]` in a
+    /// compile command template, in order. Like `-i`, `-d` is a standalone
+    /// argument followed by the definition; any `=value` suffix is dropped, so
+    /// only the name comes back. Feeds the intellisense preprocessor evaluator
+    /// so `#ifdef`/`#if defined()` branches gated on command-line defines resolve.
+    [[nodiscard]] static auto extractDefines(const wxString& compileTemplate) -> std::vector<wxString>;
+
 private:
+    /// Split a compile-command template into shell-style tokens, honouring
+    /// double quotes (which are stripped); whitespace outside quotes separates.
+    [[nodiscard]] static auto tokenizeTemplate(const wxString& compileTemplate) -> std::vector<wxString>;
+
     wxString m_sourceFile; ///< Source file to compile.
 };
 

@@ -6,6 +6,7 @@
 //
 #include "SymbolTable.hpp"
 #include <unordered_set>
+#include "PpConditional.hpp"
 #include "analyses/lexer/Token.hpp"
 using namespace fbide;
 using namespace fbide::parser;
@@ -130,6 +131,71 @@ auto findFirstKeyword(const std::vector<Token>& tokens) -> FirstKeyword {
         }
     }
     return {};
+}
+
+auto isPpIfKind(const KeywordKind kind) -> bool {
+    return kind == KeywordKind::PpIf || kind == KeywordKind::PpIfDef || kind == KeywordKind::PpIfNDef;
+}
+
+auto isPpElseKind(const KeywordKind kind) -> bool {
+    return kind == KeywordKind::PpElse || kind == KeywordKind::PpElseIf
+        || kind == KeywordKind::PpElseIfDef || kind == KeywordKind::PpElseIfNDef;
+}
+
+/// One branch of a `#if` / `#elseif` / `#else` chain.
+struct PpBranch {
+    std::span<const Node> body; ///< Content nodes of this branch.
+    const BlockNode* block;     ///< The `#elseif`/`#else` child (nullptr for the leading `#if`); for scope recording.
+    bool live;                  ///< Active under the current define set.
+};
+
+/// Decompose a `#if` chain into its branches, marking which are live under
+/// `defines`. Branch one spans the body up to the first `#elseif`/`#else` child;
+/// later branches are those child blocks. A branch is live unless a prior branch
+/// is certainly true or its own condition is certainly false — an Unknown
+/// condition keeps the branch and does not suppress the later ones.
+auto ppBranches(const BlockNode& ifBlock, const std::unordered_set<std::string>& defines) -> std::vector<PpBranch> {
+    std::vector<PpBranch> branches;
+    const auto& body = ifBlock.body;
+
+    std::size_t firstElse = body.size();
+    for (std::size_t i = 0; i < body.size(); i++) {
+        const auto* slot = std::get_if<std::unique_ptr<BlockNode>>(&body[i]);
+        if (slot != nullptr && *slot != nullptr && (*slot)->opener.has_value()
+            && isPpElseKind(findFirstKeyword((*slot)->opener->tokens).kind)) {
+            firstElse = i;
+            break;
+        }
+    }
+
+    bool certainTrue = false;
+    const auto consider = [&](const PpEval eval, const std::span<const Node> content, const BlockNode* blk) {
+        const bool live = !certainTrue && eval != PpEval::False;
+        branches.push_back({ .body = content, .block = blk, .live = live });
+        if (live && eval == PpEval::True) {
+            certainTrue = true;
+        }
+    };
+
+    consider(ifBlock.opener.has_value() ? evaluatePpCondition(ifBlock.opener->tokens, defines) : PpEval::Unknown,
+        std::span<const Node>(body.data(), firstElse), nullptr);
+
+    for (std::size_t i = firstElse; i < body.size(); i++) {
+        const auto* slot = std::get_if<std::unique_ptr<BlockNode>>(&body[i]);
+        if (slot == nullptr || *slot == nullptr || !(*slot)->opener.has_value()) {
+            continue;
+        }
+        const auto& child = **slot;
+        const auto kind = findFirstKeyword(child.opener->tokens).kind;
+        if (!isPpElseKind(kind)) {
+            continue;
+        }
+        const PpEval eval = (kind == KeywordKind::PpElse)
+                              ? PpEval::True
+                              : evaluatePpCondition(child.opener->tokens, defines);
+        consider(eval, std::span<const Node>(child.body), &child);
+    }
+    return branches;
 }
 
 /// First word-like token (Identifier or any keyword group) at or after
@@ -279,7 +345,8 @@ auto nodeSpan(const Node& node) -> std::optional<std::pair<int, int>> {
 }
 } // namespace
 
-void SymbolTable::populate(ProgramTree&& tree) {
+void SymbolTable::populate(ProgramTree&& tree, const std::unordered_set<std::string>& defines) {
+    m_defines = defines; // drives `#if` / `#ifdef` branch selection in the walks below
     walkNodes(tree.nodes);
     indexTree(tree.nodes); // #includes + scope ranges in one pass (before the move;
                            // BlockNodes are heap-stable so the pointers survive it)
@@ -328,18 +395,33 @@ auto SymbolTable::findIncludeAt(const int line) const -> const Include* {
     return nullptr;
 }
 
-void SymbolTable::indexTree(const std::vector<Node>& nodes) {
+void SymbolTable::indexTree(std::span<const Node> nodes, bool collectIncludes) {
     for (const auto& node : nodes) {
         if (const auto* stmt = std::get_if<StatementNode>(&node)) {
-            tryAddInclude(stmt->tokens);
+            if (collectIncludes) {
+                tryAddInclude(stmt->tokens);
+            }
         } else if (const auto* slot = std::get_if<std::unique_ptr<BlockNode>>(&node); slot != nullptr && *slot) {
             const auto& block = **slot;
-            if (block.opener.has_value()) {
+            if (collectIncludes && block.opener.has_value()) {
                 tryAddInclude(block.opener->tokens);
             }
             const auto [start, end] = blockSpan(block);
-            m_scopes.push_back({ start, end, slot->get() });
-            indexTree(block.body); // pre-order keeps m_scopes sorted by start
+            m_scopes.push_back({ start, end, slot->get() }); // scope recorded for every branch
+
+            if (block.opener.has_value() && isPpIfKind(findFirstKeyword(block.opener->tokens).kind)) {
+                // A `#if` chain: record each branch's scope (so navigation works
+                // everywhere) but only gather `#include`s from the live branches.
+                for (const auto& branch : ppBranches(block, m_defines)) {
+                    if (branch.block != nullptr) {
+                        const auto [bstart, bend] = blockSpan(*branch.block);
+                        m_scopes.push_back({ bstart, bend, branch.block });
+                    }
+                    indexTree(branch.body, collectIncludes && branch.live);
+                }
+            } else {
+                indexTree(block.body, collectIncludes); // pre-order keeps m_scopes sorted by start
+            }
         }
     }
 }
@@ -363,13 +445,15 @@ void SymbolTable::reset() {
     m_types.clear();
     m_unions.clear();
     m_enums.clear();
+    m_enumMembers.clear();
     m_macros.clear();
     m_includes.clear();
     m_imported.clear();
     m_scopes.clear();
     m_typeFields.clear();
+    m_sourcePath.clear();
+    m_defines.clear();
 }
-
 
 auto SymbolTable::blockAt(const int pos) const -> const BlockNode* {
     // Sorted by start; the innermost container has the largest start <= pos, so
@@ -434,13 +518,20 @@ auto isProcedureKind(const KeywordKind kind) -> bool {
 
 auto procSymbolKind(const KeywordKind kind) -> std::optional<SymbolKind> {
     switch (kind) {
-    case KeywordKind::Sub:         return SymbolKind::Sub;
-    case KeywordKind::Function:    return SymbolKind::Function;
-    case KeywordKind::Constructor: return SymbolKind::Constructor;
-    case KeywordKind::Destructor:  return SymbolKind::Destructor;
-    case KeywordKind::Operator:    return SymbolKind::Operator;
-    case KeywordKind::Property:    return SymbolKind::Property;
-    default:                       return std::nullopt;
+    case KeywordKind::Sub:
+        return SymbolKind::Sub;
+    case KeywordKind::Function:
+        return SymbolKind::Function;
+    case KeywordKind::Constructor:
+        return SymbolKind::Constructor;
+    case KeywordKind::Destructor:
+        return SymbolKind::Destructor;
+    case KeywordKind::Operator:
+        return SymbolKind::Operator;
+    case KeywordKind::Property:
+        return SymbolKind::Property;
+    default:
+        return std::nullopt;
     }
 }
 
@@ -493,15 +584,6 @@ auto isIfKind(const KeywordKind kind) -> bool {
     return kind == KeywordKind::If;
 }
 
-auto isPpIfKind(const KeywordKind kind) -> bool {
-    return kind == KeywordKind::PpIf || kind == KeywordKind::PpIfDef || kind == KeywordKind::PpIfNDef;
-}
-
-auto isPpElseKind(const KeywordKind kind) -> bool {
-    return kind == KeywordKind::PpElse || kind == KeywordKind::PpElseIf
-        || kind == KeywordKind::PpElseIfDef || kind == KeywordKind::PpElseIfNDef;
-}
-
 // Block kinds an `Exit` / `Continue` argument can name.
 auto isExitArgKind(const KeywordKind kind) -> bool {
     switch (kind) {
@@ -544,8 +626,8 @@ auto ifBranch(const BlockNode& branch) -> std::optional<KeywordSpans> {
     }
     const auto& toks = branch.opener->tokens;
     const auto primary = (toks.front().keywordKind == KeywordKind::Else && toks.size() >= 2 && toks[1].keywordKind == KeywordKind::If)
-        ? std::pair { toks.front().pos, tokenRange(toks[1]).second } // Else If
-        : tokenRange(toks.front());                                  // ElseIf / Else
+                           ? std::pair { toks.front().pos, tokenRange(toks[1]).second } // Else If
+                           : tokenRange(toks.front());                                  // ElseIf / Else
     return KeywordSpans { primary, trailingThenSpan(branch) };
 }
 
@@ -637,7 +719,7 @@ auto matchThenScope(std::vector<std::pair<int, int>>& out, const BlockNode* bloc
     if (openerKindOf(*block) == KeywordKind::If && block->closer.has_value()) {
         ifBlock = block; // the If's own Then
     } else if (isElseKind(openerKindOf(*block)) && block->parent != nullptr
-        && openerKindOf(*block->parent) == KeywordKind::If && block->parent->closer.has_value()) {
+               && openerKindOf(*block->parent) == KeywordKind::If && block->parent->closer.has_value()) {
         ifBlock = block->parent; // an ElseIf's Then
     }
     if (ifBlock == nullptr) {
@@ -847,6 +929,29 @@ auto isDeclLeader(const Token& tok) -> bool {
     return std::ranges::any_of(leaders, [&](const auto sv) { return textEqualsLower(tok, sv); });
 }
 
+/// True when an enum opener carries the `Explicit` modifier (`Enum Foo Explicit`),
+/// whose members are scoped rather than imported into the enclosing namespace.
+/// `Explicit` occupies the slot *after* the enum name, so an enum merely named
+/// `Explicit` is not mistaken for one.
+auto enumIsExplicit(const std::vector<Token>& opener) -> bool {
+    const auto enumKw = findFirstKeyword(opener);
+    if (enumKw.index == std::string::npos) {
+        return false;
+    }
+    bool seenName = false;
+    for (std::size_t idx = enumKw.index + 1; idx < opener.size(); idx++) {
+        if (!isWordLike(opener[idx].kind)) {
+            continue;
+        }
+        if (!seenName) {
+            seenName = true; // the enum name
+            continue;
+        }
+        return textEqualsLower(opener[idx], "explicit"); // the modifier slot
+    }
+    return false;
+}
+
 // ByRef / ByVal parameter qualifiers — they precede the parameter name.
 auto isParamQualifier(const Token& tok) -> bool {
     return textEqualsLower(tok, "byref") || textEqualsLower(tok, "byval");
@@ -878,8 +983,8 @@ void collectDeclNames(const std::vector<Token>& toks, std::vector<wxString>& out
     std::size_t idx = 0;
     const auto skipLayout = [&] {
         while (idx < toks.size()
-            && (toks[idx].kind == TokenKind::Whitespace || toks[idx].kind == TokenKind::Newline
-                || toks[idx].kind == TokenKind::Comment || toks[idx].kind == TokenKind::CommentBlock)) {
+               && (toks[idx].kind == TokenKind::Whitespace || toks[idx].kind == TokenKind::Newline
+                   || toks[idx].kind == TokenKind::Comment || toks[idx].kind == TokenKind::CommentBlock)) {
             idx++;
         }
     };
@@ -950,29 +1055,11 @@ void collectDeclNames(const std::vector<Token>& toks, std::vector<wxString>& out
     }
 }
 
-/// Scopes that are transparent to module-level declarations — a `namespace` and
-/// the branches of `#if`/`#ifdef`. (Not `Sub`/`Function`/`Type` bodies, whose
-/// declarations are local.)
-auto isTransparentScope(const KeywordKind kind) -> bool {
-    switch (kind) {
-    case KeywordKind::Namespace:
-    case KeywordKind::PpIf:
-    case KeywordKind::PpIfDef:
-    case KeywordKind::PpIfNDef:
-    case KeywordKind::PpElse:
-    case KeywordKind::PpElseIf:
-    case KeywordKind::PpElseIfDef:
-    case KeywordKind::PpElseIfNDef:
-        return true;
-    default:
-        return false;
-    }
-}
-
 /// Append module-level `Dim`/`Const`/`Var`/... names from `nodes`, descending
 /// into transparent scopes (namespaces, `#if` branches) so namespaced constants
 /// are seen too.
-void collectModuleDeclNames(const std::vector<parser::Node>& nodes, std::vector<wxString>& out) {
+void collectModuleDeclNames(std::span<const parser::Node> nodes, std::vector<wxString>& out,
+    const std::unordered_set<std::string>& defines) {
     for (const auto& node : nodes) {
         if (const auto* stmt = std::get_if<parser::StatementNode>(&node)) {
             const Token* lead = firstSignificant(stmt->tokens);
@@ -981,8 +1068,18 @@ void collectModuleDeclNames(const std::vector<parser::Node>& nodes, std::vector<
             }
         } else if (const auto* block = std::get_if<std::unique_ptr<parser::BlockNode>>(&node)) {
             const auto& blk = **block;
-            if (blk.opener.has_value() && isTransparentScope(findFirstKeyword(blk.opener->tokens).kind)) {
-                collectModuleDeclNames(blk.body, out);
+            if (!blk.opener.has_value()) {
+                continue;
+            }
+            const auto kind = findFirstKeyword(blk.opener->tokens).kind;
+            if (kind == KeywordKind::Namespace) {
+                collectModuleDeclNames(blk.body, out, defines);
+            } else if (isPpIfKind(kind)) {
+                for (const auto& branch : ppBranches(blk, defines)) {
+                    if (branch.live) {
+                        collectModuleDeclNames(branch.body, out, defines);
+                    }
+                }
             }
         }
     }
@@ -1068,12 +1165,13 @@ void SymbolTable::globalSymbolCompletions(std::vector<wxString>& out) const {
     addAll(m_unions);
     addAll(m_enums);
     addAll(m_macros);
+    addAll(m_enumMembers); // non-explicit enum members are global names
 }
 
 void SymbolTable::moduleVariableCompletions(std::vector<wxString>& out) const {
     // Module-level Dim/Const/Var declarations — globally visible (no position
     // filter), including those nested in namespaces and `#if` branches.
-    collectModuleDeclNames(m_tree.nodes, out);
+    collectModuleDeclNames(m_tree.nodes, out, m_defines);
 }
 
 void SymbolTable::memberCompletionsAt(const int pos, std::vector<wxString>& out) const {
@@ -1115,6 +1213,54 @@ void SymbolTable::memberCompletionsAt(const int pos, std::vector<wxString>& out)
             imported->appendMembersOf(owner, out);
         }
     }
+}
+
+auto SymbolTable::findDefinition(const wxString& name) const -> std::optional<Location> {
+    return findSymbol(name, /*preferDeclaration*/ false);
+}
+
+auto SymbolTable::findDeclaration(const wxString& name) const -> std::optional<Location> {
+    return findSymbol(name, /*preferDeclaration*/ true);
+}
+
+auto SymbolTable::findSymbol(const wxString& name, const bool preferDeclaration) const
+    -> std::optional<Location> {
+    std::optional<Location> any;       // best match of any declaration kind (fallback)
+    std::optional<Location> preferred; // best match of the preferred declaration kind
+    bool anyOwn = false;
+    bool preferredOwn = false;
+    const auto consider = [&](const Symbol& sym, const std::filesystem::path& path, const bool own) {
+        if (sym.line < 0) {
+            return; // synthetic owner type — no real source location
+        }
+        if (!sym.name.IsSameAs(name, false) && !sym.name.AfterLast('.').IsSameAs(name, false)) {
+            return; // case-insensitive; methods match on their unqualified name
+        }
+        if (!any || (own && !anyOwn)) {
+            any = Location { .path = path, .line = sym.line };
+            anyOwn = own;
+        }
+        if (sym.declaration == preferDeclaration && (!preferred || (own && !preferredOwn))) {
+            preferred = Location { .path = path, .line = sym.line };
+            preferredOwn = own;
+        }
+    };
+    const auto scan = [&consider](const SymbolTable& table, const bool own) {
+        for (const auto* vec : { &table.m_subs, &table.m_functions, &table.m_constructors,
+                 &table.m_destructors, &table.m_operators, &table.m_properties, &table.m_types,
+                 &table.m_unions, &table.m_enums, &table.m_macros, &table.m_enumMembers }) {
+            for (const auto& sym : *vec) {
+                consider(sym, table.m_sourcePath, own);
+            }
+        }
+    };
+    scan(*this, /*own*/ true);
+    for (const auto& imported : m_imported) {
+        if (imported) {
+            scan(*imported, /*own*/ false);
+        }
+    }
+    return preferred ? preferred : any;
 }
 
 void SymbolTable::appendMembersOf(const wxString& owner, std::vector<wxString>& out) const {
@@ -1161,7 +1307,7 @@ void SymbolTable::localCompletionsAt(const int pos, std::vector<wxString>& out) 
     }
 }
 
-void SymbolTable::walkNodes(const std::vector<Node>& nodes) {
+void SymbolTable::walkNodes(std::span<const Node> nodes) {
     for (const auto& node : nodes) {
         if (const auto* block = std::get_if<std::unique_ptr<BlockNode>>(&node)) {
             walkBlock(**block);
@@ -1184,8 +1330,45 @@ void SymbolTable::walkNodes(const std::vector<Node>& nodes) {
                 // API. The procedure keyword follows `Declare`.
                 for (std::size_t idx = first.index + 1; idx < stmt->tokens.size(); idx++) {
                     if (const auto kind = procSymbolKind(stmt->tokens[idx].keywordKind)) {
-                        emit(*kind, stmt->tokens, idx);
+                        emit(*kind, stmt->tokens, idx, /*declaration*/ true);
                         break;
+                    }
+                }
+            } else if (first.kind == KeywordKind::Type) {
+                // A single-line `Type NAME As <target>` is a type alias (typedef);
+                // the UDT form (`Type ... End Type`) is a block handled by
+                // walkBlock. Capture the alias name so it completes as a typename.
+                // Require an identifier after `Type` so malformed `Type As ...`
+                // (no name) doesn't capture the `As` keyword as a bogus type.
+                if (const Token* name = findWordlikeAfter(stmt->tokens, first.index + 1);
+                    name != nullptr && name->kind == TokenKind::Identifier) {
+                    emit(SymbolKind::Type, stmt->tokens, first.index);
+                }
+            }
+        }
+    }
+}
+
+void SymbolTable::gatherEnumMembers(std::span<const Node> body) {
+    for (const auto& node : body) {
+        if (const auto* stmt = std::get_if<StatementNode>(&node)) {
+            // A member line starts with the enumerator identifier (optionally
+            // `= value`); skip comments, blanks and any preprocessor directives.
+            const Token* lead = firstSignificant(stmt->tokens);
+            if (lead != nullptr && lead->kind == TokenKind::Identifier) {
+                m_enumMembers.push_back(Symbol {
+                    .kind = SymbolKind::Enum,
+                    .name = wxString::FromUTF8(lead->text),
+                    .line = lead->line,
+                });
+            }
+        } else if (const auto* block = std::get_if<std::unique_ptr<BlockNode>>(&node)) {
+            const auto& blk = **block;
+            // Members guarded by `#if` import only from the live branches.
+            if (blk.opener.has_value() && isPpIfKind(findFirstKeyword(blk.opener->tokens).kind)) {
+                for (const auto& branch : ppBranches(blk, m_defines)) {
+                    if (branch.live) {
+                        gatherEnumMembers(branch.body);
                     }
                 }
             }
@@ -1229,6 +1412,12 @@ void SymbolTable::walkBlock(const BlockNode& block) {
         break;
     case KeywordKind::Enum:
         emit(SymbolKind::Enum, openerTokens, first.index);
+        // A non-explicit enum imports its members into the enclosing namespace
+        // (C-style), so capture them as global names; explicit enums keep them
+        // scoped and are left alone.
+        if (!enumIsExplicit(openerTokens)) {
+            gatherEnumMembers(block.body);
+        }
         break;
     case KeywordKind::PpMacro: {
         // PP body tokens are emitted individually — the macro name is the
@@ -1248,15 +1437,21 @@ void SymbolTable::walkBlock(const BlockNode& block) {
     case KeywordKind::PpIf:
     case KeywordKind::PpIfDef:
     case KeywordKind::PpIfNDef:
+        // A `#if` chain: recurse only the branches live under the current
+        // defines, so declarations behind an inactive `#ifdef` are dropped. An
+        // Unknown condition keeps its branch, so we never wrongly drop code.
+        for (const auto& branch : ppBranches(block, m_defines)) {
+            if (branch.live) {
+                walkNodes(branch.body);
+            }
+        }
+        break;
     case KeywordKind::PpElse:
     case KeywordKind::PpElseIf:
     case KeywordKind::PpElseIfDef:
     case KeywordKind::PpElseIfNDef:
-        // Conditional-compilation branches are transparent for symbol
-        // collection — recurse so declarations guarded by `#if` / `#else` /
-        // `#elseif` still show up (mirrors `collectIncludes`). Conditions are
-        // not evaluated, so every branch contributes. `#macro` bodies and
-        // other nested scopes are intentionally not recursed into.
+        // Reached only for a stray `#else`/`#elseif` without a leading `#if`;
+        // a well-formed chain is consumed by `ppBranches` above. Walk through.
         walkNodes(block.body);
         break;
     default:
@@ -1267,7 +1462,8 @@ void SymbolTable::walkBlock(const BlockNode& block) {
 void SymbolTable::emit(
     const SymbolKind kind,
     const std::vector<Token>& opener,
-    const std::size_t keywordIdx
+    const std::size_t keywordIdx,
+    const bool declaration
 ) {
     // Operator names are not plain identifiers (`+`, `[]`, `Cast`, `Type.New`);
     // every token up to the parameter list forms the name. Everything else is
@@ -1284,6 +1480,7 @@ void SymbolTable::emit(
         .kind = kind,
         .name = std::move(name),
         .line = opener.empty() ? 0 : opener.front().line,
+        .declaration = declaration,
     };
     switch (kind) {
     case SymbolKind::Sub:
@@ -1332,6 +1529,7 @@ void SymbolTable::computeHash() {
     hash = hashVector(hash, SymbolKind::Type, m_types);
     hash = hashVector(hash, SymbolKind::Union, m_unions);
     hash = hashVector(hash, SymbolKind::Enum, m_enums);
+    hash = hashVector(hash, SymbolKind::Enum, m_enumMembers);
     hash = hashVector(hash, SymbolKind::Macro, m_macros);
     hash = hashIncludes(hash, m_includes);
     m_hash = hash;

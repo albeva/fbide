@@ -58,9 +58,13 @@ private:
     /// Per-leaf lookup payload. `kind` selects which `SymbolTable` vector
     /// to read, `index` is the offset into that vector.
     struct Entry {
-        SymbolKind kind;   ///< Which `SymbolTable` bucket the leaf came from.
-        std::size_t index; ///< Offset into that bucket's vector.
+        std::size_t tableIndex; ///< Index into `sourceTables()` (0 = document, 1.. = imports).
+        SymbolKind kind;        ///< Which `SymbolTable` bucket the leaf came from.
+        std::size_t index;      ///< Offset into that bucket's vector.
     };
+
+    /// Pointer-to-member accessor for a symbol bucket (e.g. `&SymbolTable::getSubs`).
+    using BucketGetter = const std::vector<Symbol>& (SymbolTable::*)() const;
 
     /// Tree-leaf activation — dispatch to navigation or include open.
     void onItemActivated(wxTreeEvent& event);
@@ -74,7 +78,11 @@ private:
     /// symbols are skipped — they are grouped under their owning type by
     /// `appendTypeTree`. The folder is omitted when nothing survives. Each
     /// leaf registers an `Entry` in `m_entries` keyed by its tree id.
-    void appendBucket(SymbolKind kind, const wxString& label, const std::vector<Symbol>& bucket);
+    void appendBucket(SymbolKind kind, const wxString& label, BucketGetter getter);
+
+    /// The tables whose symbols are rendered: the current document followed by
+    /// its `#include` closure (so imported symbols appear in the same buckets).
+    [[nodiscard]] auto sourceTables() const -> std::vector<const SymbolTable*>;
 
     /// English keyword synonyms for a kind (e.g. `Type` → "type udt"),
     /// space-joined and lowercased — part of a leaf's filter haystack.

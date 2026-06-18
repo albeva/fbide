@@ -9,6 +9,7 @@
 #include "BuildTask.hpp"
 #include "CompilerConfigCatalog.hpp"
 #include "FbcAutoDetect.hpp"
+#include "FbcDefines.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
@@ -168,6 +169,43 @@ auto CompilerManager::probeCompilerVersion(const std::filesystem::path& compiler
     wxArrayString output;
     wxExecute("\"" + resolved + "\" --version", output);
     return output.empty() ? wxString {} : output[0];
+}
+
+auto CompilerManager::builtinDefines(const std::filesystem::path& compilerPath) const
+    -> const std::unordered_set<std::string>& {
+    static const std::unordered_set<std::string> empty;
+
+    wxFileName path(toWxString(compilerPath));
+    path.MakeAbsolute(m_ctx.getConfigManager().getAppDir());
+    const auto resolved = path.GetFullPath();
+    if (resolved.IsEmpty() || !wxIsExecutable(resolved)) {
+        return empty;
+    }
+
+    const std::string key = resolved.utf8_string();
+    if (const auto it = m_builtinDefinesCache.find(key); it != m_builtinDefinesCache.end()) {
+        return it->second;
+    }
+
+    std::unordered_set<std::string> defines;
+    const wxFileName stub(m_ctx.getConfigManager().getIdeDir(), "fbc-defines.bas");
+    if (stub.FileExists()) {
+        const wxString stubPath = stub.GetFullPath();
+        const wxString tempObj = wxFileName::CreateTempFileName("fbide-fbdefs");
+        wxArrayString stdOut;
+        wxArrayString stdErr;
+        wxExecute("\"" + resolved + "\" -c \"" + stubPath + "\" -o \"" + tempObj + "\"", stdOut, stdErr, wxEXEC_SYNC);
+        defines = parseFbcDefines(stdOut);
+        defines.merge(parseFbcDefines(stdErr));
+        if (!tempObj.IsEmpty()) {
+            wxRemoveFile(tempObj);
+        }
+    }
+    return m_builtinDefinesCache.emplace(key, std::move(defines)).first->second;
+}
+
+void CompilerManager::warmBuiltinDefines() const {
+    std::ignore = builtinDefines(m_catalog->resolveByPinnedSlug(std::nullopt).path);
 }
 
 namespace {
@@ -348,10 +386,10 @@ void CompilerManager::setDocumentConfiguration(Document& doc, const wxString& pi
     // the status-bar popup path the click closes the menu and nothing
     // else would otherwise push the new label.
     pushStatusBarLabel();
-    // The configuration also supplies the intellisense `#include` search dirs;
-    // re-evaluate them so the new config's dirs take effect now, not on the
-    // next edit.
-    m_ctx.getDocumentManager().refreshIncludeSearchDirs();
+    // The configuration also supplies the intellisense `#include` search dirs
+    // and preprocessor defines; re-evaluate them so the new config takes effect
+    // now, not on the next edit.
+    m_ctx.getDocumentManager().refreshIntellisenseConfig();
 }
 
 // ---------------------------------------------------------------------------
@@ -366,7 +404,8 @@ auto CompilerManager::createConfigurationCombo(wxAuiToolBar* parent) -> wxComboB
         parent, wxID_ANY, wxString {},
         wxDefaultPosition, wxSize(kWidth, -1),
         wxArrayString {}, wxCB_READONLY
-    ).get();
+    )
+                        .get();
     m_configCombo->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent&) {
         onConfigurationComboSelected();
     });

@@ -72,3 +72,32 @@ TEST_F(CompileCommandTests, IncludePaths_GluedFormNotParsed) {
     // not valid fbc, so it must not be mistaken for an include directory.
     EXPECT_TRUE(CompileCommand::extractIncludePaths(R"("<$fbc>" "<$file>" -i"/glued")").empty());
 }
+
+// --- extractDefines --------------------------------------------------------
+
+TEST_F(CompileCommandTests, Defines_DefaultTemplateHasNone) {
+    EXPECT_TRUE(CompileCommand::extractDefines(R"("<$fbc>" "<$file>")").empty());
+}
+
+TEST_F(CompileCommandTests, Defines_NameOnly) {
+    const auto defs = CompileCommand::extractDefines(R"("<$fbc>" "<$file>" -d DEBUG)");
+    ASSERT_EQ(defs.size(), 1U);
+    EXPECT_EQ(defs[0], "DEBUG");
+}
+
+TEST_F(CompileCommandTests, Defines_StripsValueSuffix) {
+    const auto defs = CompileCommand::extractDefines(R"("<$fbc>" "<$file>" -d MYFLAG=1)");
+    ASSERT_EQ(defs.size(), 1U);
+    EXPECT_EQ(defs[0], "MYFLAG");
+}
+
+TEST_F(CompileCommandTests, Defines_MultipleInOrderIgnoringOtherFlags) {
+    const auto defs = CompileCommand::extractDefines(R"("<$fbc>" -lang fb -d FOO "<$file>" -d BAR=2 -g)");
+    ASSERT_EQ(defs.size(), 2U);
+    EXPECT_EQ(defs[0], "FOO");
+    EXPECT_EQ(defs[1], "BAR");
+}
+
+TEST_F(CompileCommandTests, Defines_DanglingFlagIgnored) {
+    EXPECT_TRUE(CompileCommand::extractDefines(R"("<$fbc>" "<$file>" -d)").empty());
+}
