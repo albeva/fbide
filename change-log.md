@@ -44,6 +44,7 @@
 - Added FreeBASIC type aliases (`Type NAME As ...`) to code completion and the symbol browser.
 - Added non-explicit `Enum` members to code completion (imported into scope, C-style); explicit enums are left scoped.
 - Added imported (`#include`d) symbols to the symbol browser, nested under each include so local symbols stay prominent; clicking one opens its source file.
+- Optimized the symbol browser: imported symbols under an `#include` are built only when you expand that include, so large include closures stay fast to display.
 - Added basic preprocessor evaluation to intellisense — `#if`/`#ifdef`/`#ifndef`/`#elseif` with `defined()`, `and`/`or`/`not`, and literal `true`/`false`/numbers are resolved against the compiler's built-in defines (probed at startup) and `-d` command-line defines; any other symbol is treated as undefined, so symbols and `#include`s behind an inactive branch (other-OS code, or a feature gated on an undefined flag) no longer appear. Value comparisons keep their branch.
 - Added dimming of preprocessor-inactive `#if` branches in the editor — code excluded by the resolved defines is greyed out (toggle with the `editor.dimInactiveCode` setting).
 

@@ -61,6 +61,17 @@ private:
         std::size_t tableIndex; ///< Index into `sourceTables()` (0 = document, 1.. = imports).
         SymbolKind kind;        ///< Which `SymbolTable` bucket the leaf came from.
         std::size_t index;      ///< Offset into that bucket's vector.
+        /// For an `Include` node: its resolved imported table in `sourceTables()`
+        /// (0 = unresolved). The expand handler reads it to populate the subtree
+        /// lazily. Unused for leaves.
+        std::size_t importedTableIndex = 0;
+    };
+
+    /// One symbol an included file contributes to its (lazily built) subtree.
+    struct ApiSym {
+        SymbolKind kind;
+        std::size_t index;
+        wxString name;
     };
 
     /// Pointer-to-member accessor for a symbol bucket (e.g. `&SymbolTable::getSubs`).
@@ -115,9 +126,25 @@ private:
     /// stripped to `member`), or a localised "Constructor" / "Destructor".
     [[nodiscard]] auto memberLabel(const Symbol& sym) const -> wxString;
 
-    /// Append the Includes folder under the tree root when non-empty.
-    /// Each leaf registers an `Entry` in `m_entries`.
+    /// Append the Includes folder under the tree root when non-empty. Each
+    /// directive becomes a collapsed node advertising an expander when it has
+    /// visible symbols; the symbol leaves themselves are built lazily by
+    /// `onItemExpanding`. The node registers an `Entry` in `m_entries`.
     void appendIncludes(const wxString& label, const std::vector<Include>& includes);
+
+    /// Populate an include node's symbol leaves on first expand. A no-op for
+    /// non-include nodes, already-populated nodes, and unresolved imports.
+    void onItemExpanding(wxTreeEvent& event);
+
+    /// The API an included file contributes: typenames, free-standing callables
+    /// and macros (methods stay with their type, enum members are completion
+    /// only). `all` keeps everything (the include path itself matched the
+    /// filter); otherwise each symbol must pass the filter on its own.
+    [[nodiscard]] auto collectIncludeApi(const SymbolTable& table, bool all) const -> std::vector<ApiSym>;
+
+    /// Early-exit check for `collectIncludeApi` non-empty — decides whether an
+    /// include node advertises an expander without building its leaves.
+    [[nodiscard]] auto includeHasApi(const SymbolTable& table, bool all) const -> bool;
 
     /// Resolve a leaf entry to its action: navigate the active editor to
     /// the symbol's line, or open the included file.

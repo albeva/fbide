@@ -14,6 +14,28 @@
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
+namespace {
+using ApiGetter = const std::vector<Symbol>& (SymbolTable::*)() const;
+
+/// One symbol bucket an included file contributes, in display order. `freeOnly`
+/// skips method-qualified symbols — those stay nested under their owning type.
+struct ApiBucket {
+    SymbolKind kind;
+    ApiGetter getter;
+    bool freeOnly;
+};
+constexpr ApiBucket kApiBuckets[] = {
+    { SymbolKind::Type, &SymbolTable::getTypes, false },
+    { SymbolKind::Union, &SymbolTable::getUnions, false },
+    { SymbolKind::Enum, &SymbolTable::getEnums, false },
+    { SymbolKind::Sub, &SymbolTable::getSubs, true },
+    { SymbolKind::Function, &SymbolTable::getFunctions, true },
+    { SymbolKind::Operator, &SymbolTable::getOperators, true },
+    { SymbolKind::Property, &SymbolTable::getProperties, true },
+    { SymbolKind::Macro, &SymbolTable::getMacros, false },
+};
+} // namespace
+
 auto fbide::parseSymbolFilter(const wxString& query) -> std::vector<wxString> {
     std::vector<wxString> words;
     wxStringTokenizer tokenizer(query, " \t\r\n", wxTOKEN_STRTOK);
@@ -29,6 +51,7 @@ auto fbide::symbolFilterMatches(const std::vector<wxString>& words, const wxStri
 
 wxBEGIN_EVENT_TABLE(SymbolBrowser, wxTreeCtrl)
     EVT_TREE_ITEM_ACTIVATED(wxID_ANY, SymbolBrowser::onItemActivated)
+    EVT_TREE_ITEM_EXPANDING(wxID_ANY, SymbolBrowser::onItemExpanding)
 wxEND_EVENT_TABLE()
 
 auto SymbolBrowser::kindKeywords(const SymbolKind kind) -> wxString {
@@ -247,6 +270,39 @@ void SymbolBrowser::appendTypeTree(const wxString& label) {
     Expand(folder);
 }
 
+auto SymbolBrowser::collectIncludeApi(const SymbolTable& table, const bool all) const -> std::vector<ApiSym> {
+    std::vector<ApiSym> out;
+    for (const auto& bucket : kApiBuckets) {
+        const auto& vec = (table.*bucket.getter)();
+        for (std::size_t idx = 0; idx < vec.size(); idx++) {
+            if (bucket.freeOnly && !symbolOwner(vec[idx]).empty()) {
+                continue;
+            }
+            if (!all && !passesFilter(vec[idx].name, bucket.kind)) {
+                continue;
+            }
+            out.push_back({ .kind = bucket.kind, .index = idx, .name = vec[idx].name });
+        }
+    }
+    return out;
+}
+
+auto SymbolBrowser::includeHasApi(const SymbolTable& table, const bool all) const -> bool {
+    for (const auto& bucket : kApiBuckets) {
+        const auto& vec = (table.*bucket.getter)();
+        for (const auto& sym : vec) {
+            if (bucket.freeOnly && !symbolOwner(sym).empty()) {
+                continue;
+            }
+            if (!all && !passesFilter(sym.name, bucket.kind)) {
+                continue;
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
 void SymbolBrowser::appendIncludes(
     const wxString& label,
     const std::vector<Include>& includes
@@ -257,39 +313,6 @@ void SymbolBrowser::appendIncludes(
     // Same index space dispatch() resolves against, so a leaf's tableIndex maps
     // back to the right table (sourceTables() filters nulls; [0] is the document).
     const auto tables = sourceTables();
-
-    // The API an included file contributes: typenames, free-standing callables
-    // and macros (methods stay with their type; enum members are completion
-    // only). `all` keeps everything (used when the include path itself matched
-    // the filter), otherwise each symbol must pass the filter on its own.
-    struct ApiSym {
-        SymbolKind kind;
-        std::size_t index;
-        wxString name;
-    };
-    const auto collectApi = [this](const SymbolTable& table, const bool all) {
-        std::vector<ApiSym> out;
-        const auto add = [&](SymbolKind kind, const std::vector<Symbol>& vec, const bool freeOnly) {
-            for (std::size_t idx = 0; idx < vec.size(); idx++) {
-                if (freeOnly && !symbolOwner(vec[idx]).empty()) {
-                    continue;
-                }
-                if (!all && !passesFilter(vec[idx].name, kind)) {
-                    continue;
-                }
-                out.push_back({ .kind = kind, .index = idx, .name = vec[idx].name });
-            }
-        };
-        add(SymbolKind::Type, table.getTypes(), false);
-        add(SymbolKind::Union, table.getUnions(), false);
-        add(SymbolKind::Enum, table.getEnums(), false);
-        add(SymbolKind::Sub, table.getSubs(), true);
-        add(SymbolKind::Function, table.getFunctions(), true);
-        add(SymbolKind::Operator, table.getOperators(), true);
-        add(SymbolKind::Property, table.getProperties(), true);
-        add(SymbolKind::Macro, table.getMacros(), false);
-        return out;
-    };
 
     constexpr auto image = static_cast<int>(SymbolKind::Include);
     wxTreeItemId folder; // created lazily, once an include survives the filter
@@ -315,11 +338,10 @@ void SymbolBrowser::appendIncludes(
             importedTable = it->second.second;
         }
 
-        std::vector<ApiSym> api;
-        if (importedTable != nullptr) {
-            api = collectApi(*importedTable, pathMatches);
-        }
-        if (!pathMatches && api.empty()) {
+        // An include's symbols can be numerous; only check whether any are
+        // visible here and build the leaves lazily on first expand.
+        const bool hasApi = importedTable != nullptr && includeHasApi(*importedTable, pathMatches);
+        if (!pathMatches && !hasApi) {
             continue; // neither the include nor any of its symbols match the filter
         }
 
@@ -328,16 +350,51 @@ void SymbolBrowser::appendIncludes(
             SetItemBold(folder, true);
         }
         const auto node = AppendItem(folder, includes[idx].path, image, image);
-        m_entries[node.GetID()] = { .tableIndex = 0, .kind = SymbolKind::Include, .index = idx };
-        for (const auto& sym : api) {
-            const auto symImage = static_cast<int>(sym.kind);
-            const auto leaf = AppendItem(node, sym.name, symImage, symImage, nullptr);
-            m_entries[leaf.GetID()] = { .tableIndex = tableIndex, .kind = sym.kind, .index = sym.index };
-        }
-        // The include node is left collapsed so imports stay out of the way.
+        m_entries[node.GetID()] = {
+            .tableIndex = 0,
+            .kind = SymbolKind::Include,
+            .index = idx,
+            .importedTableIndex = tableIndex,
+        };
+        // Advertise an expander when there is something to show; the leaves are
+        // populated by onItemExpanding. The node stays collapsed.
+        SetItemHasChildren(node, hasApi);
     }
     if (folder.IsOk()) {
         Expand(folder);
+    }
+}
+
+void SymbolBrowser::onItemExpanding(wxTreeEvent& event) {
+    event.Skip();
+    const auto node = event.GetItem();
+    if (!node.IsOk() || m_currentTable == nullptr) {
+        return;
+    }
+    const auto iter = m_entries.find(node.GetID());
+    if (iter == m_entries.end() || iter->second.kind != SymbolKind::Include) {
+        return; // groups, types and leaves are populated eagerly
+    }
+    if (GetChildrenCount(node, false) > 0) {
+        return; // populated on a prior expand
+    }
+    const Entry& entry = iter->second;
+    const auto tables = sourceTables();
+    if (entry.importedTableIndex == 0 || entry.importedTableIndex >= tables.size()) {
+        return;
+    }
+
+    // Recompute the filter state appendIncludes used so the leaves agree with
+    // the expander it advertised (a filter change rebuilds the whole tree, so
+    // m_filterWords is unchanged since the node was created).
+    const auto& includes = m_currentTable->getIncludes();
+    const bool pathMatches = entry.index < includes.size()
+                          && passesFilter(includes[entry.index].path, SymbolKind::Include);
+
+    for (const auto& sym : collectIncludeApi(*tables[entry.importedTableIndex], pathMatches)) {
+        const auto symImage = static_cast<int>(sym.kind);
+        const auto leaf = AppendItem(node, sym.name, symImage, symImage, nullptr);
+        m_entries[leaf.GetID()] = { .tableIndex = entry.importedTableIndex, .kind = sym.kind, .index = sym.index };
     }
 }
 
