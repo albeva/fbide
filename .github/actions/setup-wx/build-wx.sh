@@ -72,6 +72,6 @@ cmake -S "${WX_SRC_DIR}" -B "${WX_BUILD_DIR}" \
     -DwxUSE_LIBJPEG=OFF \
     -DwxUSE_XML=OFF \
     -DwxUSE_REGEX=OFF \
-    -DwxUSE_NANOSVG=OFF
+    -DwxUSE_NANOSVG=builtin # kept on: wxBitmapBundle::FromSVGFile renders the About-dialog logo
 
 cmake --build "${WX_BUILD_DIR}" --target install
