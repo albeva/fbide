@@ -17,15 +17,15 @@ class SymbolTable;
 /// never dereferences it. Edges run both ways: `includes` (files this one pulls
 /// in) and `parents` (files that pull this one in).
 struct SourceEntry {
-    std::filesystem::path path;                     ///< Normalised key.
-    Document* owner = nullptr;                      ///< Owning open document (opaque), or null for a pure include.
-    std::string source;                             ///< Current UTF-8 source (buffer snapshot or disk read).
-    std::size_t contentStamp = 0;                   ///< Hash of `source`; 0 means no content yet.
-    std::size_t parsedStamp = 0;                    ///< `contentStamp` the `symbolTable` was built from.
-    std::shared_ptr<SymbolTable> symbolTable;       ///< Latest parse result, or null (worker-owned).
-    std::vector<SourceEntry*> includes;             ///< Files this includes (out-edges).
-    std::vector<SourceEntry*> parents;              ///< Files that include this (in-edges).
-    bool queued = false;                            ///< Currently in the work queue.
+    std::filesystem::path path;               ///< Normalised key.
+    Document* owner = nullptr;                ///< Owning open document (opaque), or null for a pure include.
+    std::string source;                       ///< Current UTF-8 source (buffer snapshot or disk read).
+    std::size_t contentStamp = 0;             ///< Hash of `source`; 0 means no content yet.
+    std::size_t parsedStamp = 0;              ///< `contentStamp` the `symbolTable` was built from.
+    std::shared_ptr<SymbolTable> symbolTable; ///< Latest parse result, or null (worker-owned).
+    std::vector<SourceEntry*> includes;       ///< Files this includes (out-edges).
+    std::vector<SourceEntry*> parents;        ///< Files that include this (in-edges).
+    bool queued = false;                      ///< Currently in the work queue.
 
     /// True when the source has changed since the symbol table was built.
     [[nodiscard]] auto dirty() const noexcept -> bool { return contentStamp != parsedStamp; }
@@ -93,12 +93,19 @@ public:
 
 private:
     auto getOrCreate(const std::filesystem::path& path) -> SourceEntry*;
+    /// Like `getOrCreate` but takes an already-normalised key (no re-normalise,
+    /// single map probe). Returns the entry and whether it was just created.
+    auto getOrCreateNormalized(std::filesystem::path key) -> std::pair<SourceEntry*, bool>;
     void enqueue(SourceEntry* entry);
     [[nodiscard]] static auto normalize(const std::filesystem::path& path) -> std::filesystem::path;
     [[nodiscard]] static auto hashSource(std::string_view source) -> std::size_t;
 
     std::unordered_map<std::filesystem::path, std::unique_ptr<SourceEntry>> m_entries;
     std::vector<SourceEntry*> m_queue; ///< Dirty entries awaiting parse; deduped via SourceEntry::queued.
+    /// Set when an include edge is dropped or a document closed — the only events
+    /// that can orphan a subgraph. `collectOrphans` skips its whole-graph sweep
+    /// while this is clear, so a pure content edit never walks the graph.
+    bool m_maybeOrphans = false;
 };
 
 } // namespace fbide

@@ -280,7 +280,7 @@ auto IntellisenseService::parse(const std::string& source) -> std::shared_ptr<Sy
 }
 
 void IntellisenseService::parseStandalone(const Document* owner, const std::string& source) {
-    post(owner, parse(source));
+    post(owner, parse(source), {}); // unsaved — no include closure
 }
 
 void IntellisenseService::parseEntry(SourceEntry& entry) {
@@ -308,16 +308,18 @@ void IntellisenseService::resolveAndWire(SourceEntry& entry) {
 }
 
 void IntellisenseService::drainAndDeliver() {
-    std::unordered_set<SourceEntry*> parsed;  // entries (re)parsed this pass
-    std::unordered_set<SourceEntry*> changed; // ... whose own symbols actually changed
+    // Each file is dequeued at most once per drain (the `queued` flag dedups the
+    // queue), so these stay unique without set semantics.
+    std::vector<SourceEntry*> parsed;  // entries (re)parsed this pass
+    std::vector<SourceEntry*> changed; // ... whose own symbols actually changed
 
     while (auto* const entry = m_graph.takeNext()) {
         const std::size_t before = entry->symbolTable ? entry->symbolTable->getHash() : 0;
         const bool hadTable = entry->symbolTable != nullptr;
         parseEntry(*entry);
-        parsed.insert(entry);
+        parsed.push_back(entry);
         if (!hadTable || entry->symbolTable->getHash() != before) {
-            changed.insert(entry);
+            changed.push_back(entry);
         }
     }
 
@@ -337,14 +339,10 @@ void IntellisenseService::drainAndDeliver() {
         if (root->symbolTable == nullptr) {
             parseEntry(*root); // never parsed yet (e.g. a just-opened ancestor)
         }
-        // Publish a copy carrying the fresh include closure. The copy shares the
-        // (immutable) scope tree, so re-publishing a root whose own source is
-        // unchanged (only an include changed) costs a vector copy, not a re-parse.
-        // The entry's own table is left import-free so it stays shareable into
-        // other documents' closures and reusable here.
-        auto published = std::make_shared<SymbolTable>(*root->symbolTable);
-        published->setImported(flatClosure(*root));
-        post(root->owner, std::move(published));
+        // Publish the entry's own table shared (no copy) alongside its include
+        // closure; the UI combines them. The own table stays import-free, so it
+        // is freely shareable into other documents' closures and reusable here.
+        post(root->owner, root->symbolTable, flatClosure(*root));
     }
 
     // Sweep includes orphaned by an edit (a parent dropped its #include) so they
@@ -353,9 +351,12 @@ void IntellisenseService::drainAndDeliver() {
     postTrackedFiles();
 }
 
-void IntellisenseService::post(const Document* owner, std::shared_ptr<const SymbolTable> symbols) {
+void IntellisenseService::post(const Document* owner, std::shared_ptr<const SymbolTable> own,
+    std::vector<std::shared_ptr<const SymbolTable>> imported) {
     wxThreadEvent* const event = make_unowned<wxThreadEvent>(EVT_INTELLISENSE_RESULT);
-    event->SetPayload(IntellisenseResult { .owner = owner, .symbols = std::move(symbols) });
+    event->SetPayload(
+        IntellisenseResult { .owner = owner, .own = std::move(own), .imported = std::move(imported) }
+    );
     wxQueueEvent(m_sink, event);
 }
 

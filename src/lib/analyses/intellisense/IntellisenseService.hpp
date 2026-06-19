@@ -21,11 +21,12 @@ class Document;
 class FBSciLexer;
 
 /// Result delivered to the sink wxEvtHandler when a document's parse finishes.
-/// `symbols` carries the document's own symbols plus `imported` — the flattened
-/// symbol tables of its transitive `#include` closure.
+/// The own table is shared straight from the graph entry (never copied); the
+/// closure rides alongside, and the UI combines the two at query time.
 struct IntellisenseResult {
-    const Document* owner;                      ///< Tag the worker received (never dereferenced by the worker).
-    std::shared_ptr<const SymbolTable> symbols; ///< The document's published table (own + imported closure).
+    const Document* owner;                                    ///< Tag the worker received (never dereferenced by the worker).
+    std::shared_ptr<const SymbolTable> own;                   ///< The document's own symbol table (shared, not copied).
+    std::vector<std::shared_ptr<const SymbolTable>> imported; ///< Flattened transitive `#include` closure.
 };
 
 wxDECLARE_EVENT(EVT_INTELLISENSE_RESULT, wxThreadEvent);
@@ -109,7 +110,8 @@ private:
     void resolveAndWire(SourceEntry& entry);
     void drainAndDeliver();
     [[nodiscard]] auto parse(const std::string& source) -> std::shared_ptr<SymbolTable>;
-    void post(const Document* owner, std::shared_ptr<const SymbolTable> symbols);
+    void post(const Document* owner, std::shared_ptr<const SymbolTable> own,
+        std::vector<std::shared_ptr<const SymbolTable>> imported);
     /// Snapshot the graph's pure-include paths and post EVT_INTELLISENSE_TRACKED_FILES
     /// when the set changed since the last post (throttled).
     void postTrackedFiles();

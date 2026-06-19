@@ -123,9 +123,10 @@ private:
     /// the symbol's line, or open the included file.
     void dispatch(const Entry& entry);
 
-    Context& m_ctx;                                    ///< Application context.
-    std::shared_ptr<const SymbolTable> m_currentTable; ///< Currently rendered symbol table.
-    std::vector<wxString> m_filterWords;               ///< Active filter words (lowercased); empty = no filter.
+    Context& m_ctx;                                                    ///< Application context.
+    std::shared_ptr<const SymbolTable> m_currentTable;                 ///< Currently rendered own symbol table.
+    std::vector<std::shared_ptr<const SymbolTable>> m_currentImported; ///< Its `#include` closure (sourceTables / hashing).
+    std::vector<wxString> m_filterWords;                               ///< Active filter words (lowercased); empty = no filter.
     /// Memoized localized kind labels, indexed by `SymbolKind`. Filled once
     /// in the constructor (the locale is fixed for a session).
     std::array<wxString, static_cast<std::size_t>(SymbolKind::Include) + 1> m_kindLabels;

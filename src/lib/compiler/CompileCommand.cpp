@@ -62,36 +62,47 @@ auto CompileCommand::tokenizeTemplate(const wxString& compileTemplate) -> std::v
     return tokens;
 }
 
-auto CompileCommand::extractIncludePaths(const wxString& compileTemplate) -> std::vector<wxString> {
-    const auto tokens = tokenizeTemplate(compileTemplate);
-
-    // fbc takes the include directory as the argument *after* a standalone
-    // `-i` (the glued `-i<path>` form is not valid fbc, so it isn't parsed).
-    // A trailing `-i` with no following token is ignored.
-    std::vector<wxString> paths;
+namespace {
+// fbc takes the include directory as the argument *after* a standalone `-i`
+// (the glued `-i<path>` form is not valid fbc, so it isn't parsed); a trailing
+// `-i` with no following token is ignored.
+auto includePathsFromTokens(const std::vector<wxString>& tokens) -> std::vector<std::filesystem::path> {
+    std::vector<std::filesystem::path> paths;
     for (std::size_t i = 0; i + 1 < tokens.size(); ++i) {
         if (tokens[i] == "-i" && !tokens[i + 1].empty()) {
-            paths.push_back(tokens[i + 1]);
+            paths.push_back(toFsPath(tokens[i + 1]));
             ++i; // consume the path token
         }
     }
     return paths;
 }
 
-auto CompileCommand::extractDefines(const wxString& compileTemplate) -> std::vector<wxString> {
-    const auto tokens = tokenizeTemplate(compileTemplate);
-
-    // Like `-i`, fbc takes the definition as the argument *after* a standalone
-    // `-d`. The definition is `name` or `name=value`; only the name is relevant
-    // to `#ifdef`/`defined()`, so any `=value` suffix is dropped.
-    std::vector<wxString> defines;
+// Like `-i`, fbc takes the definition as the argument *after* a standalone `-d`.
+// The definition is `name` or `name=value`; only the (lowercased) name is
+// relevant to `#ifdef`/`defined()`, so any `=value` suffix is dropped.
+auto definesFromTokens(const std::vector<wxString>& tokens) -> std::vector<std::string> {
+    std::vector<std::string> defines;
     for (std::size_t i = 0; i + 1 < tokens.size(); ++i) {
         if (tokens[i] == "-d" && !tokens[i + 1].empty()) {
             if (const wxString name = tokens[i + 1].BeforeFirst('='); !name.empty()) {
-                defines.push_back(name);
+                defines.push_back(name.Lower().utf8_string());
             }
             ++i; // consume the definition token
         }
     }
     return defines;
+}
+} // namespace
+
+auto CompileCommand::extractIncludePaths(const wxString& compileTemplate) -> std::vector<std::filesystem::path> {
+    return includePathsFromTokens(tokenizeTemplate(compileTemplate));
+}
+
+auto CompileCommand::extractDefines(const wxString& compileTemplate) -> std::vector<std::string> {
+    return definesFromTokens(tokenizeTemplate(compileTemplate));
+}
+
+auto CompileCommand::extractIncludesAndDefines(const wxString& compileTemplate) -> IncludesAndDefines {
+    const auto tokens = tokenizeTemplate(compileTemplate);
+    return { .includePaths = includePathsFromTokens(tokens), .defines = definesFromTokens(tokens) };
 }

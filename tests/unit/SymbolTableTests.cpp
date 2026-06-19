@@ -587,9 +587,8 @@ TEST_F(SymbolTableTests, FindDefinitionAcrossIncludeClosure) {
     auto header = extractShared("Declare Function Compute() As Integer\n");
     header->setSourcePath("/inc/lib.bi");
     auto table = extract("Print 1\n");
-    table.setImported({ header });
 
-    const auto def = table.findDefinition("compute"); // declared only in the include
+    const auto def = table.findDefinition("compute", { header }); // declared only in the include
     ASSERT_TRUE(def.has_value());
     EXPECT_EQ(def->path, std::filesystem::path("/inc/lib.bi"));
     EXPECT_EQ(def->line, 0);
@@ -1073,26 +1072,6 @@ TEST_F(SymbolTableTests, RetainsScopeTreeWithParents) {
     EXPECT_EQ((*sub)->parent, nullptr);
     ASSERT_TRUE((*sub)->opener.has_value());
     EXPECT_GE((*sub)->opener->tokens[0].pos, 0); // tokens carry byte offsets
-}
-
-TEST_F(SymbolTableTests, PublishableCopySharesTreeAndIndependentImports) {
-    const auto base = extractShared("Sub Foo\nEnd Sub\n");
-    const auto header = extractShared("Sub Bar\nEnd Sub\n");
-    // A publishable copy shares the (immutable) scope tree but owns its own
-    // import list, so attaching includes never mutates the shared own table.
-    SymbolTable published = *base;
-    published.setImported({ header });
-    EXPECT_EQ(published.getImported().size(), 1U);
-    EXPECT_TRUE(base->getImported().empty()); // original left import-free
-    ASSERT_FALSE(base->tree().nodes.empty());
-    ASSERT_FALSE(published.tree().nodes.empty());
-    EXPECT_EQ(&published.tree().nodes[0], &base->tree().nodes[0]); // tree shared, not copied
-    ASSERT_EQ(published.getSubs().size(), 1U);
-    EXPECT_EQ(published.getSubs()[0].name, "Foo");
-    // The copy's scope index points into the shared tree, so caret queries on the
-    // copy resolve to the same blocks — i.e. m_scopes' pointers stay valid.
-    EXPECT_NE(published.blockAt(0), nullptr);
-    EXPECT_EQ(published.blockAt(0), base->blockAt(0));
 }
 
 TEST_F(SymbolTableTests, BlockAtFindsInnermostScope) {
@@ -1825,11 +1804,10 @@ TEST_F(SymbolTableTests, MemberCompletionPullsFieldsFromIncludedType) {
                             "    Print 1\n"
                             "End Sub\n";
     auto table = extract(src.c_str());
-    table.setImported({ header });
 
     const int pos = static_cast<int>(src.find("Print 1"));
     std::vector<wxString> out;
-    table.memberCompletionsAt(pos, out);
+    table.memberCompletionsAt(pos, out, { header });
 
     const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
     EXPECT_TRUE(has("x"));    // field from the included header

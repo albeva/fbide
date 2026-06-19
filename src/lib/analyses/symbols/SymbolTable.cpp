@@ -155,13 +155,6 @@ auto isPpElseKind(const KeywordKind kind) -> bool {
         || kind == KeywordKind::PpElseIfDef || kind == KeywordKind::PpElseIfNDef;
 }
 
-/// One branch of a `#if` / `#elseif` / `#else` chain.
-struct PpBranch {
-    std::span<const Node> body; ///< Content nodes of this branch.
-    const BlockNode* block;     ///< The `#elseif`/`#else` child (nullptr for the leading `#if`); for scope recording.
-    bool live;                  ///< Active under the current define set.
-};
-
 /// Decompose a `#if` chain into its branches, marking which are live under
 /// `defines`. Branch one spans the body up to the first `#elseif`/`#else` child;
 /// later branches are those child blocks. A branch is live unless a prior branch
@@ -181,6 +174,7 @@ auto ppBranches(const BlockNode& ifBlock, const std::unordered_set<std::string>&
         }
     }
 
+    branches.reserve(body.size() - firstElse + 1); // leading branch + each #elseif/#else child
     bool certainTrue = false;
     const auto consider = [&](const PpEval eval, const std::span<const Node> content, const BlockNode* blk) {
         const bool live = !certainTrue && eval != PpEval::False;
@@ -286,26 +280,11 @@ SymbolTable::SymbolTable(ProgramTree&& tree) {
     populate(std::move(tree));
 }
 
-auto fbide::symbolOwner(const Symbol& sym) -> wxString {
-    switch (sym.kind) {
-    case SymbolKind::Constructor:
-    case SymbolKind::Destructor:
-        // The constructor/destructor name is the owning type itself.
-        return sym.name;
-    case SymbolKind::Sub:
-    case SymbolKind::Function:
-    case SymbolKind::Operator:
-    case SymbolKind::Property:
-        // `Owner.member` → text before the final dot, empty when free-standing.
-        return sym.name.BeforeLast('.');
-    case SymbolKind::Type:
-    case SymbolKind::Union:
-    case SymbolKind::Enum:
-    case SymbolKind::Macro:
-    case SymbolKind::Include:
-        return {};
-    }
-    return {};
+auto fbide::symbolOwner(const Symbol& sym) -> const wxString& {
+    // Computed once at emit time (see SymbolTable::emit); this is a cheap
+    // accessor so completion / browser / lookup filters don't reallocate a
+    // BeforeLast substring per symbol per query.
+    return sym.owner;
 }
 
 namespace {
@@ -378,6 +357,14 @@ auto branchExtent(const PpBranch& branch) -> std::optional<std::pair<int, int>> 
 
 } // namespace
 
+auto SymbolTable::ppBranchesCached(const BlockNode& ifBlock) -> const std::vector<PpBranch>& {
+    auto it = m_ppCache.find(&ifBlock);
+    if (it == m_ppCache.end()) {
+        it = m_ppCache.emplace(&ifBlock, ppBranches(ifBlock, *m_defines)).first;
+    }
+    return it->second;
+}
+
 void SymbolTable::populate(ProgramTree&& tree, std::shared_ptr<const std::unordered_set<std::string>> defines) {
     // Shared, not copied — every table in a parse drain points at the one set. A
     // null argument (standalone parse / no defines) falls back to a shared empty
@@ -393,6 +380,7 @@ void SymbolTable::populate(ProgramTree&& tree, std::shared_ptr<const std::unorde
     // reuse it instead of re-parsing. The BlockNodes are heap-stable, so the
     // `m_scopes` pointers stay valid across the move into the shared tree.
     m_tree = std::make_shared<const ProgramTree>(std::move(tree));
+    m_ppCache.clear(); // populate-transient: its spans point into the tree above
 }
 
 void SymbolTable::synthesizeOwnerTypes() {
@@ -452,7 +440,7 @@ void SymbolTable::indexTree(std::span<const Node> nodes, bool collectIncludes) {
             if (block.opener.has_value() && isPpIfKind(findFirstKeyword(block.opener->tokens).kind)) {
                 // A `#if` chain: record each branch's scope (so navigation works
                 // everywhere) but only gather `#include`s from the live branches.
-                for (const auto& branch : ppBranches(block, *m_defines)) {
+                for (const auto& branch : ppBranchesCached(block)) {
                     if (branch.block != nullptr) {
                         const auto [bstart, bend] = blockSpan(*branch.block);
                         m_scopes.push_back({ bstart, bend, branch.block });
@@ -1187,7 +1175,8 @@ void SymbolTable::moduleVariableCompletions(std::vector<wxString>& out) const {
     }
 }
 
-void SymbolTable::memberCompletionsAt(const int pos, std::vector<wxString>& out) const {
+void SymbolTable::memberCompletionsAt(const int pos, std::vector<wxString>& out,
+    const std::vector<std::shared_ptr<const SymbolTable>>& imported) const {
     // Walk out to the enclosing procedure; a type method's opener is qualified
     // (`Sub Vec.Foo`), so its owner is the type whose members are in scope.
     wxString owner;
@@ -1221,23 +1210,25 @@ void SymbolTable::memberCompletionsAt(const int pos, std::vector<wxString>& out)
     // Members of `owner` from this file and from its #include closure — a type
     // declared in an included header may be implemented in this file.
     appendMembersOf(owner, out);
-    for (const auto& imported : m_imported) {
-        if (imported) {
-            imported->appendMembersOf(owner, out);
+    for (const auto& table : imported) {
+        if (table) {
+            table->appendMembersOf(owner, out);
         }
     }
 }
 
-auto SymbolTable::findDefinition(const wxString& name) const -> std::optional<Location> {
-    return findSymbol(name, /*preferDeclaration*/ false);
+auto SymbolTable::findDefinition(const wxString& name,
+    const std::vector<std::shared_ptr<const SymbolTable>>& imported) const -> std::optional<Location> {
+    return findSymbol(name, /*preferDeclaration*/ false, imported);
 }
 
-auto SymbolTable::findDeclaration(const wxString& name) const -> std::optional<Location> {
-    return findSymbol(name, /*preferDeclaration*/ true);
+auto SymbolTable::findDeclaration(const wxString& name,
+    const std::vector<std::shared_ptr<const SymbolTable>>& imported) const -> std::optional<Location> {
+    return findSymbol(name, /*preferDeclaration*/ true, imported);
 }
 
-auto SymbolTable::findSymbol(const wxString& name, const bool preferDeclaration) const
-    -> std::optional<Location> {
+auto SymbolTable::findSymbol(const wxString& name, const bool preferDeclaration,
+    const std::vector<std::shared_ptr<const SymbolTable>>& imported) const -> std::optional<Location> {
     std::optional<Location> any;       // best match of any declaration kind (fallback)
     std::optional<Location> preferred; // best match of the preferred declaration kind
     bool anyOwn = false;
@@ -1268,9 +1259,9 @@ auto SymbolTable::findSymbol(const wxString& name, const bool preferDeclaration)
         }
     };
     scan(*this, /*own*/ true);
-    for (const auto& imported : m_imported) {
-        if (imported) {
-            scan(*imported, /*own*/ false);
+    for (const auto& table : imported) {
+        if (table) {
+            scan(*table, /*own*/ false);
         }
     }
     return preferred ? preferred : any;
@@ -1379,7 +1370,7 @@ void SymbolTable::gatherEnumMembers(std::span<const Node> body) {
             const auto& blk = **block;
             // Members guarded by `#if` import only from the live branches.
             if (blk.opener.has_value() && isPpIfKind(findFirstKeyword(blk.opener->tokens).kind)) {
-                for (const auto& branch : ppBranches(blk, *m_defines)) {
+                for (const auto& branch : ppBranchesCached(blk)) {
                     if (branch.live) {
                         gatherEnumMembers(branch.body);
                     }
@@ -1453,7 +1444,7 @@ void SymbolTable::walkBlock(const BlockNode& block) {
         // A `#if` chain: recurse only the branches live under the current
         // defines, so declarations behind an inactive `#ifdef` are dropped. An
         // Unknown condition keeps its branch, so we never wrongly drop code.
-        for (const auto& branch : ppBranches(block, *m_defines)) {
+        for (const auto& branch : ppBranchesCached(block)) {
             if (branch.live) {
                 walkNodes(branch.body);
             }
@@ -1489,9 +1480,29 @@ void SymbolTable::emit(
     if (name.empty()) {
         return; // anonymous — skip
     }
+    // Cache the owner now (kind-dependent), so query-time filters read the field
+    // instead of recomputing a substring per symbol. Non-member kinds (Type /
+    // Union / Enum / Macro) leave it empty; this is the only site that emits a
+    // member-capable symbol.
+    wxString owner;
+    switch (kind) {
+    case SymbolKind::Constructor:
+    case SymbolKind::Destructor:
+        owner = name; // the whole name is the owning type
+        break;
+    case SymbolKind::Sub:
+    case SymbolKind::Function:
+    case SymbolKind::Operator:
+    case SymbolKind::Property:
+        owner = name.BeforeLast('.'); // empty when free-standing
+        break;
+    default:
+        break;
+    }
     Symbol sym {
         .kind = kind,
         .name = std::move(name),
+        .owner = std::move(owner),
         .line = opener.empty() ? 0 : opener.front().line,
         .declaration = declaration,
     };

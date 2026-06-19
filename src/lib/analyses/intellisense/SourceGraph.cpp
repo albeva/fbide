@@ -21,16 +21,19 @@ auto SourceGraph::find(const std::filesystem::path& path) const -> SourceEntry* 
     return it != m_entries.end() ? it->second.get() : nullptr;
 }
 
-auto SourceGraph::getOrCreate(const std::filesystem::path& path) -> SourceEntry* {
-    const auto key = normalize(path);
+auto SourceGraph::getOrCreateNormalized(std::filesystem::path key) -> std::pair<SourceEntry*, bool> {
     if (const auto it = m_entries.find(key); it != m_entries.end()) {
-        return it->second.get();
+        return { it->second.get(), false };
     }
     auto entry = std::make_unique<SourceEntry>();
-    entry->path = key;
+    entry->path = key; // the entry keeps its own copy; the map takes the moved key
     auto* const raw = entry.get();
-    m_entries.emplace(key, std::move(entry));
-    return raw;
+    m_entries.emplace(std::move(key), std::move(entry));
+    return { raw, true };
+}
+
+auto SourceGraph::getOrCreate(const std::filesystem::path& path) -> SourceEntry* {
+    return getOrCreateNormalized(normalize(path)).first;
 }
 
 void SourceGraph::enqueue(SourceEntry* entry) {
@@ -62,6 +65,7 @@ void SourceGraph::closeDocument(const std::filesystem::path& path, Document* doc
         return; // unknown file, or owned by a different document — leave it be
     }
     entry->owner = nullptr;
+    m_maybeOrphans = true; // an unowned subgraph may now be unreachable
     collectOrphans();
 }
 
@@ -88,30 +92,38 @@ auto SourceGraph::setIncludes(SourceEntry* entry, const std::vector<std::filesys
         }
     }
 
-    // Drop edges no longer present, fixing the child's parent back-link.
-    std::erase_if(entry->includes, [&](SourceEntry* child) {
+    // Drop edges no longer present, fixing the child's parent back-link. A removal
+    // can orphan a subgraph, so flag the next sweep; a pure content edit removes
+    // nothing here and thus skips collectOrphans entirely.
+    const auto removed = std::erase_if(entry->includes, [&](SourceEntry* child) {
         if (std::ranges::find(desired, child->path) != desired.end()) {
             return false;
         }
         std::erase(child->parents, entry);
         return true;
     });
+    if (removed > 0) {
+        m_maybeOrphans = true;
+    }
 
     // Wire added edges; re-enqueue already-known targets whose content is stale.
+    // `desired` is already normalised, so look targets up directly — one map probe
+    // per edge (getOrCreateNormalized), no re-normalisation.
     std::vector<SourceEntry*> created;
-    for (const auto& path : desired) {
-        if (std::ranges::any_of(entry->includes, [&](SourceEntry* child) { return child->path == path; })) {
-            enqueue(find(path)); // existing edge — parse if it has gone stale
+    for (auto& key : desired) {
+        if (const auto edge = std::ranges::find_if(entry->includes,
+                [&](SourceEntry* child) { return child->path == key; });
+            edge != entry->includes.end()) {
+            enqueue(*edge); // existing edge — parse if it has gone stale
             continue;
         }
-        const bool existed = find(path) != nullptr;
-        auto* const child = getOrCreate(path);
+        auto [child, isNew] = getOrCreateNormalized(std::move(key));
         entry->includes.push_back(child);
         child->parents.push_back(entry);
-        if (existed) {
-            enqueue(child);
-        } else {
+        if (isNew) {
             created.push_back(child); // brand new — caller supplies content
+        } else {
+            enqueue(child); // pre-existing entry (e.g. another file's include) — parse if stale
         }
     }
     return created;
@@ -131,6 +143,10 @@ auto SourceGraph::takeNext() -> SourceEntry* {
 }
 
 void SourceGraph::collectOrphans() {
+    if (!m_maybeOrphans) {
+        return; // no edge dropped / document closed since the last sweep
+    }
+    m_maybeOrphans = false;
     // Mark everything reachable from an owned document via include edges.
     std::unordered_set<const SourceEntry*> reachable;
     std::vector<SourceEntry*> stack;

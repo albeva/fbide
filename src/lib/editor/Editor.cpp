@@ -32,7 +32,8 @@ void sortUniqueCI(std::vector<wxString>& names) {
     names.erase(
         std::unique(names.begin(), names.end(),
             [](const wxString& lhs, const wxString& rhs) { return lhs.CmpNoCase(rhs) == 0; }),
-        names.end());
+        names.end()
+    );
 }
 
 // Styles where a completion popup should not appear.
@@ -358,7 +359,8 @@ void Editor::applyTheme() {
     const wxColour inactiveFg(
         static_cast<unsigned char>((dimBase.foreground.Red() + dimBase.background.Red()) / 2),
         static_cast<unsigned char>((dimBase.foreground.Green() + dimBase.background.Green()) / 2),
-        static_cast<unsigned char>((dimBase.foreground.Blue() + dimBase.background.Blue()) / 2));
+        static_cast<unsigned char>((dimBase.foreground.Blue() + dimBase.background.Blue()) / 2)
+    );
     IndicatorSetStyle(kIndicInactive, wxSTC_INDIC_TEXTFORE);
     IndicatorSetForeground(kIndicInactive, inactiveFg);
 
@@ -1078,7 +1080,7 @@ void Editor::maybeShowCompletion(const bool manual) {
     // any include then refreshes them, while typing within one file does not.
     std::size_t hash = symbols != nullptr ? symbols->getHash() : 0;
     if (symbols != nullptr) {
-        for (const auto& imported : symbols->getImported()) {
+        for (const auto& imported : doc->getImportedTables()) {
             hash ^= imported->getHash() + 0x9e3779b9U + (hash << 6) + (hash >> 2);
         }
     }
@@ -1089,7 +1091,7 @@ void Editor::maybeShowCompletion(const bool manual) {
             symbols->globalSymbolCompletions(m_globalSymbols);
             symbols->moduleVariableCompletions(m_globalVariables);
             // Include-provided symbols are global candidates too.
-            for (const auto& imported : symbols->getImported()) {
+            for (const auto& imported : doc->getImportedTables()) {
                 imported->globalSymbolCompletions(m_globalSymbols);
                 imported->moduleVariableCompletions(m_globalVariables);
             }
@@ -1105,7 +1107,7 @@ void Editor::maybeShowCompletion(const bool manual) {
     m_localSymbols.clear();
     if (symbols != nullptr) {
         symbols->localCompletionsAt(pos, m_localVariables);
-        symbols->memberCompletionsAt(pos, m_localSymbols);
+        symbols->memberCompletionsAt(pos, m_localSymbols, doc->getImportedTables());
     }
     sortUniqueCI(m_localVariables);
     sortUniqueCI(m_localSymbols);
@@ -1113,10 +1115,14 @@ void Editor::maybeShowCompletion(const bool manual) {
     // Assemble in priority order; an earlier bucket shadows a later same-named
     // entry (a local hides a global, a user symbol hides a keyword, ...).
     m_completionItems.clear();
-    std::unordered_set<std::string> seen;
-    const auto appendBucket = [&seen, this](const std::vector<wxString>& bucket) {
+    m_completionSeen.clear(); // reuse the buckets; this runs per typed character
+    const auto appendBucket = [this](const std::vector<wxString>& bucket) {
         for (const auto& name : bucket) {
-            if (seen.insert(name.Lower().utf8_string()).second) {
+            // Lowercase the utf8 form in place (one alloc) and move it into the
+            // set on first sight — half the per-candidate churn of Lower().utf8_string().
+            std::string key = name.utf8_string();
+            std::ranges::transform(key, key.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+            if (m_completionSeen.insert(std::move(key)).second) {
                 m_completionItems.push_back(name);
             }
         }

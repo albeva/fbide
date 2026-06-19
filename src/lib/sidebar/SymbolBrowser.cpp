@@ -113,7 +113,7 @@ auto SymbolBrowser::sourceTables() const -> std::vector<const SymbolTable*> {
     std::vector<const SymbolTable*> tables;
     if (m_currentTable != nullptr) {
         tables.push_back(m_currentTable.get());
-        for (const auto& imported : m_currentTable->getImported()) {
+        for (const auto& imported : m_currentImported) {
             if (imported != nullptr) {
                 tables.push_back(imported.get());
             }
@@ -297,16 +297,17 @@ void SymbolBrowser::appendIncludes(
     // Resolved imported tables keyed by file name (first match wins, mirroring
     // the original ascending scan) so each directive matches in O(1) rather than
     // re-scanning every table per include.
-    std::unordered_map<std::filesystem::path, std::pair<std::size_t, const SymbolTable*>> tableByName;
+    std::unordered_map<std::string, std::pair<std::size_t, const SymbolTable*>> tableByName;
+    tableByName.reserve(tables.size());
     for (std::size_t ti = 1; ti < tables.size(); ti++) { // skip [0] = the document
-        tableByName.try_emplace(tables[ti]->getSourcePath().filename(), ti, tables[ti]);
+        tableByName.try_emplace(tables[ti]->getSourcePath().filename().string(), ti, tables[ti]);
     }
 
     for (std::size_t idx = 0; idx < includes.size(); idx++) {
         const bool pathMatches = passesFilter(includes[idx].path, SymbolKind::Include);
 
         // Match this directive to its resolved imported table by file name.
-        const auto wantedName = std::filesystem::path(includes[idx].path.utf8_string()).filename();
+        const auto wantedName = std::filesystem::path(includes[idx].path.utf8_string()).filename().string();
         const SymbolTable* importedTable = nullptr;
         std::size_t tableIndex = 0;
         if (const auto it = tableByName.find(wantedName); it != tableByName.end()) {
@@ -382,30 +383,31 @@ SymbolBrowser::SymbolBrowser(Context& ctx, wxWindow* parent)
 }
 
 void SymbolBrowser::setSymbols(const Document* doc) {
-    const auto table = doc != nullptr ? doc->getSymbolTable() : nullptr;
-    if (table == m_currentTable) {
-        return;
-    }
-    // The tree now renders the document plus its #include closure, so rebuild
-    // when either changes — hash the own symbols combined with each import's.
-    const auto closureHash = [](const SymbolTable* tbl) -> std::size_t {
+    auto table = doc != nullptr ? doc->getSymbolTable() : nullptr;
+    auto imported = doc != nullptr ? doc->getImportedTables()
+                                   : std::vector<std::shared_ptr<const SymbolTable>> {};
+    // The tree renders the document plus its #include closure, so rebuild when
+    // either changes — hash the own symbols combined with each import's.
+    const auto closureHash = [](const SymbolTable* tbl,
+                                 const std::vector<std::shared_ptr<const SymbolTable>>& imp) -> std::size_t {
         if (tbl == nullptr) {
             return 0;
         }
         constexpr std::size_t kMix = sizeof(std::size_t) >= 8 ? 0x9e3779b97f4a7c15ULL : 0x9e3779b9UL;
         std::size_t hash = tbl->getHash();
-        for (const auto& imported : tbl->getImported()) {
-            if (imported != nullptr) {
-                hash ^= imported->getHash() + kMix + (hash << 6) + (hash >> 2);
+        for (const auto& imp_table : imp) {
+            if (imp_table != nullptr) {
+                hash ^= imp_table->getHash() + kMix + (hash << 6) + (hash >> 2);
             }
         }
         return hash;
     };
-    const auto* old = m_currentTable.get();
-    const bool changed = old == nullptr || closureHash(old) != closureHash(table.get());
-    m_currentTable = table;
+    const bool changed = m_currentTable == nullptr
+                      || closureHash(m_currentTable.get(), m_currentImported) != closureHash(table.get(), imported);
+    m_currentTable = std::move(table);
+    m_currentImported = std::move(imported);
 
-    if (table == nullptr) {
+    if (m_currentTable == nullptr) {
         clearTree();
     } else if (changed) {
         rebuild();

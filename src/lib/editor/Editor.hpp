@@ -256,23 +256,26 @@ private:
     /// Resize the line-number margin to fit the current line count + zoom.
     void updateLineNumberMarginWidth();
 
-    ConfigManager& m_configManager;       ///< Config source — settings, keywords, theme entries.
-    Theme& m_theme;                       ///< Active editor theme.
-    DocumentManager* m_documentManager;   ///< Optional — null in standalone/test contexts.
-    UIManager* m_uiManager;               ///< Optional — null in standalone/test contexts.
-    CodeTransformer* m_transformer;       ///< Shared on-type transformer (nullable in preview).
-    DocumentType m_docType;               ///< Current document type — drives theme dispatch.
-    wxFont m_font;                        ///< Editor font.
-    bool m_preview;                       ///< True when this is a Format-dialog preview pane.
-    bool m_insertHandled = false;         ///< Latch to dedupe single-char vs multi-char insert paths.
-    bool m_editorLocked = false;          ///< Set during load/reload to suppress on-type transforms.
-    bool m_includeHotspotsActive = false; ///< True when Ctrl is held and PP styles show hotspot cursor.
-    int m_lastCaretPos = 0;               ///< Caret position from previous `onUpdateUI` — backs `onCaretMoved`.
-    bool m_callPostUpdate = false;        ///< Latch — triggers `postUpdateUI` on the next tick.
-    wxString m_lastHighlightedWord;       ///< Identifier last painted by the occurrence highlighter; empty when none.
-    bool m_matchSuppressed = false;       ///< Occurrence + keyword-match highlighting off after a text edit until the next navigation (arrow / click).
+    ConfigManager& m_configManager;          ///< Config source — settings, keywords, theme entries.
+    Theme& m_theme;                          ///< Active editor theme.
+    DocumentManager* m_documentManager;      ///< Optional — null in standalone/test contexts.
+    UIManager* m_uiManager;                  ///< Optional — null in standalone/test contexts.
+    CodeTransformer* m_transformer;          ///< Shared on-type transformer (nullable in preview).
+    DocumentType m_docType;                  ///< Current document type — drives theme dispatch.
+    wxFont m_font;                           ///< Editor font.
+    bool m_preview;                          ///< True when this is a Format-dialog preview pane.
+    bool m_insertHandled = false;            ///< Latch to dedupe single-char vs multi-char insert paths.
+    bool m_editorLocked = false;             ///< Set during load/reload to suppress on-type transforms.
+    bool m_includeHotspotsActive = false;    ///< True when Ctrl is held and PP styles show hotspot cursor.
+    int m_lastCaretPos = 0;                  ///< Caret position from previous `onUpdateUI` — backs `onCaretMoved`.
+    bool m_callPostUpdate = false;           ///< Latch — triggers `postUpdateUI` on the next tick.
+    wxString m_lastHighlightedWord;          ///< Identifier last painted by the occurrence highlighter; empty when none.
+    bool m_matchSuppressed = false;          ///< Occurrence + keyword-match highlighting off after a text edit until the next navigation (arrow / click).
     std::vector<wxString> m_completionItems; ///< Reusable assembled candidate list for the popup.
     wxString m_completionList;               ///< Reusable space-joined item list for AutoCompShow.
+    /// Reusable case-insensitive dedup set for assembling the popup; cleared (not
+    /// reallocated) per invocation so as-you-type completion keeps its buckets.
+    std::unordered_set<std::string> m_completionSeen;
     std::vector<wxString> m_localVariables;  ///< Per-caret bucket: params + in-scope locals.
     std::vector<wxString> m_localSymbols;    ///< Per-caret bucket: the enclosing type's members.
     std::vector<wxString> m_globalSymbols;   ///< Cached bucket: top-level symbols (keyed by hash).

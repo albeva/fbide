@@ -82,20 +82,20 @@ TEST_F(CompileCommandTests, Defines_DefaultTemplateHasNone) {
 TEST_F(CompileCommandTests, Defines_NameOnly) {
     const auto defs = CompileCommand::extractDefines(R"("<$fbc>" "<$file>" -d DEBUG)");
     ASSERT_EQ(defs.size(), 1U);
-    EXPECT_EQ(defs[0], "DEBUG");
+    EXPECT_EQ(defs[0], "debug"); // lowercased for the case-insensitive evaluator
 }
 
 TEST_F(CompileCommandTests, Defines_StripsValueSuffix) {
     const auto defs = CompileCommand::extractDefines(R"("<$fbc>" "<$file>" -d MYFLAG=1)");
     ASSERT_EQ(defs.size(), 1U);
-    EXPECT_EQ(defs[0], "MYFLAG");
+    EXPECT_EQ(defs[0], "myflag");
 }
 
 TEST_F(CompileCommandTests, Defines_MultipleInOrderIgnoringOtherFlags) {
     const auto defs = CompileCommand::extractDefines(R"("<$fbc>" -lang fb -d FOO "<$file>" -d BAR=2 -g)");
     ASSERT_EQ(defs.size(), 2U);
-    EXPECT_EQ(defs[0], "FOO");
-    EXPECT_EQ(defs[1], "BAR");
+    EXPECT_EQ(defs[0], "foo");
+    EXPECT_EQ(defs[1], "bar");
 }
 
 TEST_F(CompileCommandTests, Defines_DanglingFlagIgnored) {

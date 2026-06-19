@@ -161,8 +161,7 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
     //    resolves relative ones against its working directory (the source
     //    file's folder), so do the same; absolute ones apply even to an
     //    unsaved document.
-    for (const auto& entry : CompileCommand::extractIncludePaths(cfg.compileCommand)) {
-        auto dir = toFsPath(entry);
+    for (auto dir : CompileCommand::extractIncludePaths(cfg.compileCommand)) {
         if (dir.is_relative()) {
             if (origin.isNew()) {
                 continue; // no source folder to anchor a relative -i path
@@ -701,10 +700,10 @@ void DocumentManager::refreshIntellisenseConfig() {
         }
         const auto& cfg = compilerMgr.catalog().resolveByPinnedSlug(doc->getConfiguration());
         const auto base = doc->isNew() ? std::filesystem::path {} : doc->getFilePath().parent_path();
+        const auto args = CompileCommand::extractIncludesAndDefines(cfg.compileCommand);
         // -i dirs: a relative one anchors to the document's folder (fbc's working
         // dir); an unsaved document has no folder to anchor it to.
-        for (const auto& entry : CompileCommand::extractIncludePaths(cfg.compileCommand)) {
-            auto dir = toFsPath(entry);
+        for (auto dir : args.includePaths) {
             if (dir.is_relative()) {
                 if (base.empty()) {
                     continue;
@@ -724,12 +723,12 @@ void DocumentManager::refreshIntellisenseConfig() {
 
         // Preprocessor defines for `#if` branch selection: the compiler's built-in
         // __FB_* presence macros (probed once per compiler, cached) plus the -d
-        // command-line defines. Lowercased to match the case-insensitive evaluator.
+        // command-line defines (already lowercased to match the evaluator).
         for (const auto& builtin : compilerMgr.builtinDefines(cfg.path)) {
             defines.insert(builtin);
         }
-        for (const auto& def : CompileCommand::extractDefines(cfg.compileCommand)) {
-            defines.insert(def.Lower().utf8_string());
+        for (auto& def : args.defines) {
+            defines.insert(std::move(def));
         }
     }
     if (!ec) {
@@ -752,7 +751,7 @@ void DocumentManager::closeDocumentIntellisense(const Document* doc) {
 }
 
 void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
-    const auto result = event.GetPayload<IntellisenseResult>();
+    auto result = event.GetPayload<IntellisenseResult>();
     // Validate the document is still alive — race against close.
     if (!contains(result.owner)) {
         return;
@@ -760,14 +759,15 @@ void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
     // contains() takes const Document*; cast away to call setter.
     auto* doc = const_cast<Document*>(result.owner); // NOLINT(cppcoreguidelines-pro-type-const-cast)
 
-    doc->setSymbolTable(result.symbols);
-
-    // Dim the editor's inactive #if branches from this fresh parse.
+    // Dim the editor's inactive #if branches from this fresh parse (read the own
+    // table before it is moved into the document).
     if (auto* editor = doc->getEditor(); editor != nullptr) {
         editor->applyInactiveRanges(
-            result.symbols ? result.symbols->getInactiveRanges() : std::vector<std::pair<int, int>> {}
+            result.own ? result.own->getInactiveRanges() : std::vector<std::pair<int, int>> {}
         );
     }
+
+    doc->setSymbols(std::move(result.own), std::move(result.imported));
 
     // Push to the sidebar only when this document is the active one — the
     // tree always reflects the focused editor.
@@ -791,8 +791,8 @@ void DocumentManager::showEditorContextMenu(Editor& editor, const wxPoint& scree
     std::optional<SymbolTable::Location> decl;
     if (doc != nullptr && doc->getType() == DocumentType::FreeBASIC && !word.empty()) {
         if (const auto table = doc->getSymbolTable()) {
-            def = table->findDefinition(word);
-            decl = table->findDeclaration(word);
+            def = table->findDefinition(word, doc->getImportedTables());
+            decl = table->findDeclaration(word, doc->getImportedTables());
         }
     }
 

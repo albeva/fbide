@@ -36,6 +36,7 @@ enum class SymbolKind : std::uint8_t {
 struct Symbol {
     SymbolKind kind;          ///< Declaration kind.
     wxString name;            ///< Declared name; qualified (`Type.Method`) for methods.
+    wxString owner;           ///< Cached owning UDT (see `symbolOwner`); empty when free-standing.
     int line = 0;             ///< 0-based source line of the opener; negative if synthetic.
     bool declaration = false; ///< True for a forward `Declare` (vs a definition).
 };
@@ -45,7 +46,7 @@ struct Symbol {
 /// owning type. `Sub` / `Function` / `Operator` / `Property` are members when
 /// method-qualified (`Owner.member`); the owner is the text before the final
 /// dot. Other kinds are never members.
-[[nodiscard]] auto symbolOwner(const Symbol& sym) -> wxString;
+[[nodiscard]] auto symbolOwner(const Symbol& sym) -> const wxString&;
 
 /// One captured `#include` (or `#include once`) directive. `path` is the
 /// literal quoted text with quotes stripped — no resolution (the caller
@@ -54,6 +55,16 @@ struct Symbol {
 struct Include {
     wxString path; ///< Quoted include target (quotes stripped, unresolved).
     int line = 0;  ///< 0-based source line of the directive.
+};
+
+/// One branch of a `#if` / `#elseif` / `#else` chain: its content span, the
+/// `#elseif`/`#else` child block (null for the leading `#if`), and whether it is
+/// live under the current defines. Cached per parse (see `m_ppCache`) so the
+/// several tree walks don't each re-decompose the same chain.
+struct PpBranch {
+    std::span<const parser::Node> body; ///< Content nodes of this branch.
+    const parser::BlockNode* block;     ///< The `#elseif`/`#else` child, or null for the leading `#if`.
+    bool live;                          ///< Active under the current define set.
 };
 
 /**
@@ -134,7 +145,8 @@ public:
     /// that type's member names (its `Sub`/`Function`/`Property` members and
     /// data fields, unqualified) — from this file and from its `#include`
     /// closure — to `out`. No-op outside a type method.
-    void memberCompletionsAt(int pos, std::vector<wxString>& out) const;
+    void memberCompletionsAt(int pos, std::vector<wxString>& out,
+        const std::vector<std::shared_ptr<const SymbolTable>>& imported = {}) const;
 
     /// Append in-scope local names — parameters and `Dim`/`Const`/`Static`/`Var`
     /// declarations visible at `pos` (declared at or before it) — walking the
@@ -170,13 +182,6 @@ public:
     [[nodiscard]] auto getInactiveRanges() const -> const std::vector<std::pair<int, int>>& {
         return m_inactiveRanges;
     }
-    /// Symbol tables of resolved `#include`d files, set by the intellisense
-    /// service after include resolution. Empty until includes are wired.
-    [[nodiscard]] auto getImported() const -> const std::vector<std::shared_ptr<const SymbolTable>>& {
-        return m_imported;
-    }
-    /// Replace the imported (included-file) symbol tables. Called before publishing.
-    void setImported(std::vector<std::shared_ptr<const SymbolTable>> imported) { m_imported = std::move(imported); }
 
     /// Lookup an `#include` directive by its source line (0-based).
     /// Returns `nullptr` when the line carries no recognised include.
@@ -200,9 +205,11 @@ public:
     /// Find where `name` is defined — preferring a real definition over a forward
     /// `Declare` — across this table and its `#include` closure. Case-insensitive;
     /// accepts a method's unqualified name. nullopt when unknown.
-    [[nodiscard]] auto findDefinition(const wxString& name) const -> std::optional<Location>;
+    [[nodiscard]] auto findDefinition(const wxString& name,
+        const std::vector<std::shared_ptr<const SymbolTable>>& imported = {}) const -> std::optional<Location>;
     /// Like `findDefinition`, but preferring a forward `Declare`.
-    [[nodiscard]] auto findDeclaration(const wxString& name) const -> std::optional<Location>;
+    [[nodiscard]] auto findDeclaration(const wxString& name,
+        const std::vector<std::shared_ptr<const SymbolTable>>& imported = {}) const -> std::optional<Location>;
 
 private:
     /// Recursively walk a node list at any depth.
@@ -218,6 +225,10 @@ private:
     /// the live `#if` branches only — `collectIncludes` is cleared inside dead
     /// branches, while scopes are still recorded so navigation works everywhere.
     void indexTree(std::span<const parser::Node> nodes, bool collectIncludes = true);
+    /// Decompose a `#if` chain into its branches, memoized per parse by block
+    /// pointer so the walks above don't each re-decompose the same chain. The
+    /// cache (`m_ppCache`) is populate-transient and cleared at the end of `populate`.
+    [[nodiscard]] auto ppBranchesCached(const parser::BlockNode& ifBlock) -> const std::vector<PpBranch>&;
     /// If `tokens` is a recognised `#include`, push it onto `m_includes`.
     void tryAddInclude(const std::vector<lexer::Token>& tokens);
     /// Push one symbol drawn from an opener's tokens at `keywordIdx`.
@@ -234,7 +245,8 @@ private:
     /// this table to `out`. Shared by this file and its imported closure.
     void appendMembersOf(const wxString& owner, std::vector<wxString>& out) const;
     /// Shared implementation of findDefinition/findDeclaration.
-    [[nodiscard]] auto findSymbol(const wxString& name, bool preferDeclaration) const -> std::optional<Location>;
+    [[nodiscard]] auto findSymbol(const wxString& name, bool preferDeclaration,
+        const std::vector<std::shared_ptr<const SymbolTable>>& imported) const -> std::optional<Location>;
 
     std::vector<Symbol> m_subs;                                       ///< `Sub` definitions.
     std::vector<Symbol> m_functions;                                  ///< `Function` definitions.
@@ -248,7 +260,6 @@ private:
     std::vector<Symbol> m_enumMembers;                                ///< Enumerators of non-explicit enums (imported into scope).
     std::vector<Symbol> m_macros;                                     ///< `#macro` definitions.
     std::vector<Include> m_includes;                                  ///< `#include` directives.
-    std::vector<std::shared_ptr<const SymbolTable>> m_imported;       ///< Resolved `#include` symbol tables.
     std::filesystem::path m_sourcePath;                               ///< File this table was parsed from (set by the service).
     std::shared_ptr<const std::unordered_set<std::string>> m_defines; ///< Shared define set (live `#if`/`#ifdef` selection); non-null after populate.
     std::vector<std::pair<int, int>> m_inactiveRanges;                ///< Byte [start,end) of inactive `#if` branches (dimming).
@@ -266,6 +277,9 @@ private:
     std::vector<ScopeRange> m_scopes; ///< Block extents, sorted by start, for `blockAt`.
     /// UDT (Type / Union) name -> its field names, for member completion in methods.
     std::unordered_map<wxString, std::vector<wxString>> m_typeFields;
+    /// Per-parse `#if`-decomposition memo (keyed by block, spans into `m_tree`).
+    /// Populate-transient: filled by the walks, cleared at the end of `populate`.
+    std::unordered_map<const parser::BlockNode*, std::vector<PpBranch>> m_ppCache;
     /// Reusable result buffer for `matchBlockAt` / `matchProcedureAt`, returned
     /// by const reference so no vector is allocated per caret move. The caller
     /// must consume it before the next match call. Mutable: the queries are

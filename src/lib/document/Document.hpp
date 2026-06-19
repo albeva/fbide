@@ -154,15 +154,22 @@ public:
     /// keep working on their version. No-op when nothing is pending.
     void dismissExternalNotification();
 
-    /// Latest symbol table produced by IntellisenseService for this document.
+    /// This document's own symbol table, produced by IntellisenseService.
     /// May be null until the first parse completes.
     [[nodiscard]] auto getSymbolTable() const
         -> std::shared_ptr<const SymbolTable> { return m_symbolTable; }
 
-    /// Set the latest symbol table. Called by DocumentManager from the
-    /// IntellisenseService result handler on the UI thread.
-    void setSymbolTable(std::shared_ptr<const SymbolTable> table) {
-        m_symbolTable = std::move(table);
+    /// Symbol tables of this document's transitive `#include` closure (flattened),
+    /// combined with the own table for cross-file completion / go-to-definition.
+    [[nodiscard]] auto getImportedTables() const
+        -> const std::vector<std::shared_ptr<const SymbolTable>>& { return m_importedTables; }
+
+    /// Set the latest own table + include closure. Called by DocumentManager
+    /// from the IntellisenseService result handler on the UI thread.
+    void setSymbols(std::shared_ptr<const SymbolTable> own,
+        std::vector<std::shared_ptr<const SymbolTable>> imported) {
+        m_symbolTable = std::move(own);
+        m_importedTables = std::move(imported);
     }
 
     /// Update document controls settings
@@ -190,28 +197,29 @@ private:
     /// Destroy the minimap widget and drop it from the page layout.
     void destroyMinimap();
 
-    Context& m_ctx;                             ///< Application context.
-    wxString m_compiledFile;                    ///< Path of the most recently compiled executable.
-    std::filesystem::path m_filePath;           ///< Absolute path on disk; empty for new documents.
-    DocumentType m_type;                        ///< Document type — drives lexer + theme dispatch.
-    bool m_typeOverridden = false;              ///< True when the user explicitly picked the type.
-    Unowned<wxPanel> m_container;               ///< wx-parented notebook page — holds info bar + editor + minimap.
-    Unowned<DocumentInfoBar> m_infoBar;         ///< External-change notification bar, docked at the page top.
-    Unowned<Editor> m_editor;                   ///< Editor widget, child of m_container.
-    Unowned<wxStyledTextCtrlMiniMap> m_minimap; ///< Minimap — lazily created; null while disabled.
-    wxBoxSizer* m_editorSizer = nullptr;        ///< Inner horizontal sizer holding editor + minimap (below the info bar).
-    int m_minimapWidth;                         ///< Minimap width in px — `editor.minimapWidth` config key.
-    bool m_minimapEnabled;                      ///< Minimap toggle state — `commands.viewMinimap`.
-    std::filesystem::file_time_type m_modTime;  ///< Last on-disk mtime — backs `checkExternalChange`.
-    std::uintmax_t m_size = 0;                   ///< Last on-disk size — paired with mtime for change detection.
+    Context& m_ctx;                                          ///< Application context.
+    wxString m_compiledFile;                                 ///< Path of the most recently compiled executable.
+    std::filesystem::path m_filePath;                        ///< Absolute path on disk; empty for new documents.
+    DocumentType m_type;                                     ///< Document type — drives lexer + theme dispatch.
+    bool m_typeOverridden = false;                           ///< True when the user explicitly picked the type.
+    Unowned<wxPanel> m_container;                            ///< wx-parented notebook page — holds info bar + editor + minimap.
+    Unowned<DocumentInfoBar> m_infoBar;                      ///< External-change notification bar, docked at the page top.
+    Unowned<Editor> m_editor;                                ///< Editor widget, child of m_container.
+    Unowned<wxStyledTextCtrlMiniMap> m_minimap;              ///< Minimap — lazily created; null while disabled.
+    wxBoxSizer* m_editorSizer = nullptr;                     ///< Inner horizontal sizer holding editor + minimap (below the info bar).
+    int m_minimapWidth;                                      ///< Minimap width in px — `editor.minimapWidth` config key.
+    bool m_minimapEnabled;                                   ///< Minimap toggle state — `commands.viewMinimap`.
+    std::filesystem::file_time_type m_modTime;               ///< Last on-disk mtime — backs `checkExternalChange`.
+    std::uintmax_t m_size = 0;                               ///< Last on-disk size — paired with mtime for change detection.
     ExternalChange m_pendingExternal = ExternalChange::None; ///< Unresolved external change awaiting the user.
-    TextEncoding m_encoding;                    ///< Bytes-to-text codec used on save.
-    EolMode m_eolMode;                          ///< Line-ending convention applied on save.
+    TextEncoding m_encoding;                                 ///< Bytes-to-text codec used on save.
+    EolMode m_eolMode;                                       ///< Line-ending convention applied on save.
     /// Set when encoding is changed; cleared on save. OR'd with editor's
     /// modify flag in isModified() so encoding-only edits still show as dirty.
     bool m_metaModified = false;
-    std::shared_ptr<const SymbolTable> m_symbolTable; ///< Latest intellisense result for this document.
-    std::optional<wxString> m_configuration;          ///< Pinned compiler config slug; empty = follow active.
+    std::shared_ptr<const SymbolTable> m_symbolTable;                 ///< This document's own symbols.
+    std::vector<std::shared_ptr<const SymbolTable>> m_importedTables; ///< Flattened `#include` closure.
+    std::optional<wxString> m_configuration;                          ///< Pinned compiler config slug; empty = follow active.
 };
 
 } // namespace fbide

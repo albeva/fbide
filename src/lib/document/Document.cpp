@@ -186,7 +186,7 @@ void Document::setType(const DocumentType type) {
         // a reference until they finish, which is fine), and clear the
         // sub/function browser if this is the active document.
         dm.closeDocumentIntellisense(this);
-        m_symbolTable = nullptr;
+        setSymbols(nullptr, {});
         if (dm.getActive() == this) {
             m_ctx.getSideBarManager().showSymbolsFor(nullptr);
         }
