@@ -67,6 +67,7 @@ DocumentManager::DocumentManager(Context& ctx)
 , m_watcher(std::make_unique<DocumentWatcher>(ctx)) {
     Bind(EVT_INTELLISENSE_RESULT, &DocumentManager::onIntellisenseResult, this);
     Bind(EVT_INTELLISENSE_TRACKED_FILES, &DocumentManager::onIntellisenseTrackedFiles, this);
+    Bind(EVT_INTELLISENSE_COMPLETION, &DocumentManager::onIntellisenseCompletion, this);
 }
 
 DocumentManager::~DocumentManager() = default;
@@ -550,8 +551,6 @@ auto DocumentManager::saveAllFiles() -> bool {
 }
 
 auto DocumentManager::closeFile(Document& doc) -> bool {
-    closeDocumentIntellisense(&doc);
-
     if (doc.isModified()) {
         const auto result = wxMessageBox(
             wxString::Format(m_ctx.tr("messages.fileModifiedFormat"), doc.getTitle()),
@@ -570,6 +569,10 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
         }
     }
 
+    // Past the Cancel/Save prompt — the close is committed now. Drop the
+    // intellisense graph entry + completion context here (not before the prompt,
+    // so a cancelled close doesn't evict them and lose completion until re-parse).
+    closeDocumentIntellisense(&doc);
     m_watcher->removeDocument(doc);
 
     if (const auto idx = findPageIndex(doc); idx != wxNOT_FOUND) {
@@ -643,6 +646,18 @@ void DocumentManager::submitIntellisense(Document* doc, std::string content) {
     if (m_intellisense != nullptr) {
         refreshIntellisenseConfig();
         m_intellisense->submit(doc, doc->getFilePath(), std::move(content));
+    }
+}
+
+void DocumentManager::requestCompletion(Document* doc, int pos, std::string prefix, std::size_t seq, int maxItems) {
+    if (m_intellisense != nullptr) {
+        m_intellisense->requestCompletion(doc, pos, std::move(prefix), seq, maxItems);
+    }
+}
+
+void DocumentManager::setIntellisenseKeywords(std::vector<wxString> keywords) {
+    if (m_intellisense != nullptr) {
+        m_intellisense->setKeywords(std::move(keywords));
     }
 }
 
@@ -773,6 +788,17 @@ void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
     // tree always reflects the focused editor.
     if (doc == getActive()) {
         m_ctx.getSideBarManager().showSymbolsFor(doc);
+    }
+}
+
+void DocumentManager::onIntellisenseCompletion(wxThreadEvent& event) {
+    auto result = event.GetPayload<CompletionResult>();
+    if (!contains(result.owner)) {
+        return; // document closed since the request — race against close
+    }
+    auto* doc = const_cast<Document*>(result.owner); // NOLINT(cppcoreguidelines-pro-type-const-cast)
+    if (auto* editor = doc->getEditor(); editor != nullptr) {
+        editor->onCompletionResult(result.seq, result.items);
     }
 }
 

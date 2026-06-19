@@ -109,6 +109,15 @@ public:
     /// asynchronously via EVT_INTELLISENSE_RESULT.
     void submitIntellisense(Document* doc, std::string content);
 
+    /// Request worker-generated completion candidates for `doc` at caret byte
+    /// offset `pos`, filtered by `prefix` and capped at `maxItems`. The result
+    /// arrives via EVT_INTELLISENSE_COMPLETION and is routed to `doc`'s editor.
+    void requestCompletion(Document* doc, int pos, std::string prefix, std::size_t seq, int maxItems);
+
+    /// Push the editor's keyword completion list to the intellisense worker so it
+    /// can include keywords as the lowest-priority completion bucket.
+    void setIntellisenseKeywords(std::vector<wxString> keywords);
+
     /// Remove `doc` from the intellisense include graph (collecting orphaned
     /// includes). Called from `closeFile` before erasing the document.
     void closeDocumentIntellisense(const Document* doc);
@@ -295,6 +304,10 @@ private:
 
     /// Intellisense result delivery (worker thread → UI thread).
     void onIntellisenseResult(wxThreadEvent& event);
+
+    /// Completion-candidate delivery (worker thread → UI thread); routes to the
+    /// owning document's editor, which decides whether to show the popup.
+    void onIntellisenseCompletion(wxThreadEvent& event);
 
     /// Tracked closed-include set delivery (worker thread → UI thread);
     /// reconciles the document watcher's include watches.

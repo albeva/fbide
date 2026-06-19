@@ -25,6 +25,7 @@ namespace {
 // (sorted, de-duplicated case-insensitively). Shared across editors; rebuilt
 // when editor settings are applied.
 std::vector<wxString> g_keywordCompletions;
+std::vector<wxString> g_pushedKeywords; ///< Last keyword set pushed to the worker; dedups redundant per-editor pushes.
 
 // Sort case-insensitively (FreeBASIC is case-insensitive) and drop duplicates.
 void sortUniqueCI(std::vector<wxString>& names) {
@@ -83,7 +84,13 @@ struct Constants final {
     static constexpr int foldMarginWidth = 16;
     static constexpr int changeMarginWidth = 5;
     static constexpr int analysesThrottle = 500;
+    static constexpr int completionThrottle = 150; ///< Debounce before sending a completion request (ms).
+    static constexpr int completionMaxItems = 100; ///< Default cap (overridable via editor.completionMaxItems).
 };
+
+// Distinct id for the completion debounce timer so its EVT_TIMER routes to
+// onCompletionTimer (a dynamic Bind), not the intellisense timer's catch-all.
+const wxWindowID kCompletionTimerId = wxNewId();
 
 auto isBrace(const int ch) -> bool {
     return ch == '(' || ch == ')' || ch == '[' || ch == ']' || ch == '{' || ch == '}';
@@ -154,6 +161,10 @@ Editor::Editor(
 , m_preview(preview) {
     applySettings();
     m_intellisenseTimer.SetOwner(this);
+    m_completionTimer.SetOwner(this, kCompletionTimerId);
+    Bind(wxEVT_TIMER, &Editor::onCompletionTimer, this, kCompletionTimerId);
+    Bind(wxEVT_STC_AUTOCOMP_CANCELLED, &Editor::onAutoCompDismissed, this);
+    Bind(wxEVT_STC_AUTOCOMP_COMPLETED, &Editor::onAutoCompDismissed, this);
 
     // Establish an initial baseline for the change tracker. Scintilla
     // only fires `SAVEPOINTREACHED` on a *transition* into the clean
@@ -1021,6 +1032,8 @@ void Editor::onCharAdded(wxStyledTextEvent& event) {
     const int key = event.GetKey();
     if ((key >= 'a' && key <= 'z') || (key >= 'A' && key <= 'Z') || (key >= '0' && key <= '9') || key == '_') {
         maybeShowCompletion();
+    } else {
+        cancelCompletion(); // a non-identifier char ends the word being completed
     }
 }
 
@@ -1037,10 +1050,8 @@ void Editor::maybeShowCompletion(const bool manual) {
         return;
     }
     if (!m_configManager.config().get_or("editor.codeCompletion", true)) {
+        cancelCompletion();
         return;
-    }
-    if (AutoCompActive()) {
-        return; // already open — Scintilla narrows the existing list as we type
     }
 
     const int pos = GetCurrentPos();
@@ -1051,14 +1062,13 @@ void Editor::maybeShowCompletion(const bool manual) {
 
     // Trigger wherever a new identifier begins, except: while typing a number,
     // inside a string / comment, or after `.` / `->` (member access — we can't
-    // resolve the member's type).
-    if (wordStart < pos) {
-        const auto firstCh = GetCharAt(wordStart);
-        if (firstCh >= '0' && firstCh <= '9') {
-            return; // a number literal, not an identifier
-        }
+    // resolve the member's type). Each of those ends the identifier, so cancel.
+    if (wordStart < pos && GetCharAt(wordStart) >= '0' && GetCharAt(wordStart) <= '9') {
+        cancelCompletion();
+        return;
     }
     if (isCommentOrStringStyle(GetStyleAt(wordStart))) {
+        cancelCompletion();
         return;
     }
     int prev = wordStart - 1;
@@ -1068,88 +1078,96 @@ void Editor::maybeShowCompletion(const bool manual) {
     if (prev >= 0) {
         const auto before = GetCharAt(prev);
         if (before == '.' || (before == '>' && prev > 0 && GetCharAt(prev - 1) == '-')) {
-            return; // member access — not a free identifier
+            cancelCompletion();
+            return;
         }
     }
 
-    const auto* doc = m_documentManager->findByEditor(this);
-    const auto symbols = doc != nullptr ? doc->getSymbolTable() : nullptr;
-
-    // Global buckets combine the document with its `#include` closure, so key the
-    // cache on a combined hash (own + each imported table's hash) — an edit to
-    // any include then refreshes them, while typing within one file does not.
-    std::size_t hash = symbols != nullptr ? symbols->getHash() : 0;
-    if (symbols != nullptr) {
-        for (const auto& imported : doc->getImportedTables()) {
-            hash ^= imported->getHash() + 0x9e3779b9U + (hash << 6) + (hash >> 2);
-        }
+    // Generation runs on the intellisense worker (a large symbol closure is slow
+    // on the UI thread). A manual trigger requests immediately; auto-typing is
+    // throttled so a fast typist isn't bombarded with requests/popups.
+    if (manual) {
+        sendCompletionRequest(true);
+    } else {
+        m_completionTimer.StartOnce(Constants::completionThrottle);
     }
-    if (!m_globalCompletionsReady || hash != m_globalCompletionsHash) {
-        m_globalSymbols.clear();
-        m_globalVariables.clear();
-        if (symbols != nullptr) {
-            symbols->globalSymbolCompletions(m_globalSymbols);
-            symbols->moduleVariableCompletions(m_globalVariables);
-            // Include-provided symbols are global candidates too.
-            for (const auto& imported : doc->getImportedTables()) {
-                imported->globalSymbolCompletions(m_globalSymbols);
-                imported->moduleVariableCompletions(m_globalVariables);
-            }
-        }
-        sortUniqueCI(m_globalSymbols);
-        sortUniqueCI(m_globalVariables);
-        m_globalCompletionsHash = hash;
-        m_globalCompletionsReady = true;
-    }
+}
 
-    // Per-caret local buckets are scope-dependent, so they are not cached.
-    m_localVariables.clear();
-    m_localSymbols.clear();
-    if (symbols != nullptr) {
-        symbols->localCompletionsAt(pos, m_localVariables);
-        symbols->memberCompletionsAt(pos, m_localSymbols, doc->getImportedTables());
+void Editor::sendCompletionRequest(const bool manual) {
+    auto* doc = m_documentManager != nullptr ? m_documentManager->findByEditor(this) : nullptr;
+    if (doc == nullptr) {
+        cancelCompletion();
+        return;
     }
-    sortUniqueCI(m_localVariables);
-    sortUniqueCI(m_localSymbols);
+    const int pos = GetCurrentPos();
+    const wxString prefix = GetTextRange(WordStartPosition(pos, true), pos);
+    if (!manual && prefix.empty()) {
+        // Auto-trigger with no typed word (e.g. the throttle fired after a delete)
+        // — don't request a match-everything list. Manual (Ctrl+Space) still does.
+        cancelCompletion();
+        return;
+    }
+    const int maxItems = m_configManager.config().get_or("editor.completionMaxItems", Constants::completionMaxItems);
+    m_acceptAutoCompleteList = true;
+    m_documentManager->requestCompletion(doc, pos, prefix.utf8_string(), ++m_completionSeq, maxItems);
+}
 
-    // Assemble in priority order; an earlier bucket shadows a later same-named
-    // entry (a local hides a global, a user symbol hides a keyword, ...).
-    m_completionItems.clear();
-    m_completionSeen.clear(); // reuse the buckets; this runs per typed character
-    const auto appendBucket = [this](const std::vector<wxString>& bucket) {
-        for (const auto& name : bucket) {
-            // Lowercase the utf8 form in place (one alloc) and move it into the
-            // set on first sight — half the per-candidate churn of Lower().utf8_string().
-            std::string key = name.utf8_string();
-            std::ranges::transform(key, key.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-            if (m_completionSeen.insert(std::move(key)).second) {
-                m_completionItems.push_back(name);
-            }
+void Editor::onCompletionTimer(wxTimerEvent& /*event*/) {
+    sendCompletionRequest(false);
+}
+
+void Editor::onCompletionResult(const std::size_t seq, const std::vector<wxString>& items) {
+    // Discard if superseded by a newer request, or the user moved on / stopped
+    // the identifier (the accept-flag is the primary show/discard gate).
+    if (seq != m_completionSeq || !m_acceptAutoCompleteList) {
+        return;
+    }
+    if (items.empty()) {
+        if (AutoCompActive()) {
+            AutoCompCancel();
         }
-    };
-    appendBucket(m_localVariables);
-    appendBucket(m_localSymbols);
-    appendBucket(m_globalVariables);
-    appendBucket(m_globalSymbols);
-    appendBucket(g_keywordCompletions);
-    if (m_completionItems.empty()) {
         return;
     }
 
-    m_completionList.clear();
-    for (const auto& name : m_completionItems) {
-        if (!m_completionList.empty()) {
-            m_completionList += ' ';
+    wxString list;
+    for (const auto& name : items) {
+        if (!list.empty()) {
+            list += ' ';
         }
-        m_completionList += name;
+        list += name;
     }
+    // Re-showing an identical list resets Scintilla's own narrowing/selection and
+    // flickers, so when the popup is already up with the same items, leave it be.
+    if (AutoCompActive() && list == m_completionList) {
+        return;
+    }
+    m_completionList = std::move(list);
 
-    // CUSTOM order keeps the bucket grouping and matches the prefix with a
-    // linear, order-independent scan (so `__`-prefixed names match too).
+    // The list is already prefix-filtered and capped on the worker; tell Scintilla
+    // how many characters of the current word are entered (so accepting replaces
+    // them) and (re-)show — re-showing narrows the popup live as the user types.
+    const int pos = GetCurrentPos();
+    const int lenEntered = pos - WordStartPosition(pos, true);
     AutoCompSetIgnoreCase(true);
     AutoCompSetCaseInsensitiveBehaviour(wxSTC_CASEINSENSITIVEBEHAVIOUR_IGNORECASE);
     AutoCompSetOrder(wxSTC_ORDER_CUSTOM);
-    AutoCompShow(pos - wordStart, m_completionList);
+    AutoCompShow(lenEntered, m_completionList);
+}
+
+void Editor::cancelCompletion() {
+    m_completionTimer.Stop();
+    m_acceptAutoCompleteList = false;
+    if (AutoCompActive()) {
+        AutoCompCancel();
+    }
+}
+
+void Editor::onAutoCompDismissed(wxStyledTextEvent& event) {
+    event.Skip();
+    // Popup closed or an item accepted — stop accepting late results. Don't
+    // AutoCompCancel here; the popup is already closing.
+    m_completionTimer.Stop();
+    m_acceptAutoCompleteList = false;
 }
 
 void Editor::rebuildKeywordCompletions() {
@@ -1172,6 +1190,14 @@ void Editor::rebuildKeywordCompletions() {
         }
     }
     sortUniqueCI(g_keywordCompletions);
+    // The worker generates the completion list now, so it needs the keyword set
+    // too (lowest-priority bucket). Pushed here so it tracks settings/theme changes.
+    // g_keywordCompletions is shared and rebuilt identically per editor, so only
+    // push when it actually changed — N open editors won't enqueue N copies.
+    if (m_documentManager != nullptr && g_keywordCompletions != g_pushedKeywords) {
+        g_pushedKeywords = g_keywordCompletions;
+        m_documentManager->setIntellisenseKeywords(g_keywordCompletions);
+    }
 }
 
 void Editor::onZoom(wxStyledTextEvent& /*event*/) {
@@ -1434,10 +1460,16 @@ void Editor::onKeyDown(wxKeyEvent& event) {
         return; // consume Ctrl+Space — do not insert a space
     }
     event.Skip();
-    if (isNavigationKey(event.GetKeyCode())) {
+    const int keycode = event.GetKeyCode();
+    if (isNavigationKey(keycode)) {
         m_matchSuppressed = false; // navigation re-enables match highlighting
     }
-    if (m_docType == DocumentType::FreeBASIC && event.GetKeyCode() == WXK_CONTROL) {
+    // Navigating away / Escape with no popup open cancels a pending completion
+    // request; when a popup IS open Scintilla handles these (AUTOCOMP_CANCELLED).
+    if (!AutoCompActive() && (isNavigationKey(keycode) || keycode == WXK_ESCAPE)) {
+        cancelCompletion();
+    }
+    if (m_docType == DocumentType::FreeBASIC && keycode == WXK_CONTROL) {
         setIncludeHotspots(true);
     }
 }
@@ -1452,11 +1484,16 @@ void Editor::onKeyUp(wxKeyEvent& event) {
 void Editor::onLeftDown(wxMouseEvent& event) {
     event.Skip();
     m_matchSuppressed = false; // a click is navigation — re-enable match highlighting
+    cancelCompletion();        // ... and ends any pending/visible completion
 }
 
 void Editor::onKillFocus(wxFocusEvent& event) {
     event.Skip();
     setIncludeHotspots(false);
+    // Stop accepting completion results once focus leaves; don't AutoCompCancel
+    // here (Scintilla dismisses its popup on real focus loss itself).
+    m_completionTimer.Stop();
+    m_acceptAutoCompleteList = false;
 }
 
 void Editor::setIncludeHotspots(const bool active) {

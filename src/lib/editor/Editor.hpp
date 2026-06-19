@@ -118,6 +118,11 @@ public:
     /// is delivered. Clears the dim when `ranges` is empty or the feature is off.
     void applyInactiveRanges(const std::vector<std::pair<int, int>>& ranges);
 
+    /// Worker-generated completion candidates arrived (routed by DocumentManager).
+    /// Shown only if still wanted (`m_acceptAutoCompleteList`) and current (`seq`);
+    /// otherwise discarded. Narrows the open popup as the user keeps typing.
+    void onCompletionResult(std::size_t seq, const std::vector<wxString>& items);
+
     /// Scintilla marker numbers used by the change-tracking margin.
     /// Public so tests (and any future overlay) can query a line's
     /// state via `MarkerGet(line) & (1 << kAddedMarker)`.
@@ -197,6 +202,17 @@ private:
     /// Show the symbol/keyword completion popup as a new identifier is typed
     /// (not after `.`/`->`). `manual` (Ctrl+Space) shows even with no partial word.
     void maybeShowCompletion(bool manual = false);
+    /// Send a completion request to the worker for the word at the caret (sets the
+    /// accept-flag + a fresh seq). `manual` (Ctrl+Space) requests even with an empty
+    /// word; an auto request with no typed word is suppressed. From the timer/manual.
+    void sendCompletionRequest(bool manual);
+    /// Throttle fire — send the pending completion request.
+    void onCompletionTimer(wxTimerEvent& event);
+    /// Stop any pending/visible completion: cancel the timer, clear the accept-flag,
+    /// and dismiss the popup. Called when the user navigates away or stops the word.
+    void cancelCompletion();
+    /// Scintilla autocomplete popup dismissed/accepted — clear the accept-flag.
+    void onAutoCompDismissed(wxStyledTextEvent& event);
     /// Rebuild the shared keyword-completion list (Library / Constants / Preprocessor /
     /// Custom groups) from config. Called when editor settings are applied.
     void rebuildKeywordCompletions();
@@ -256,32 +272,24 @@ private:
     /// Resize the line-number margin to fit the current line count + zoom.
     void updateLineNumberMarginWidth();
 
-    ConfigManager& m_configManager;          ///< Config source — settings, keywords, theme entries.
-    Theme& m_theme;                          ///< Active editor theme.
-    DocumentManager* m_documentManager;      ///< Optional — null in standalone/test contexts.
-    UIManager* m_uiManager;                  ///< Optional — null in standalone/test contexts.
-    CodeTransformer* m_transformer;          ///< Shared on-type transformer (nullable in preview).
-    DocumentType m_docType;                  ///< Current document type — drives theme dispatch.
-    wxFont m_font;                           ///< Editor font.
-    bool m_preview;                          ///< True when this is a Format-dialog preview pane.
-    bool m_insertHandled = false;            ///< Latch to dedupe single-char vs multi-char insert paths.
-    bool m_editorLocked = false;             ///< Set during load/reload to suppress on-type transforms.
-    bool m_includeHotspotsActive = false;    ///< True when Ctrl is held and PP styles show hotspot cursor.
-    int m_lastCaretPos = 0;                  ///< Caret position from previous `onUpdateUI` — backs `onCaretMoved`.
-    bool m_callPostUpdate = false;           ///< Latch — triggers `postUpdateUI` on the next tick.
-    wxString m_lastHighlightedWord;          ///< Identifier last painted by the occurrence highlighter; empty when none.
-    bool m_matchSuppressed = false;          ///< Occurrence + keyword-match highlighting off after a text edit until the next navigation (arrow / click).
-    std::vector<wxString> m_completionItems; ///< Reusable assembled candidate list for the popup.
-    wxString m_completionList;               ///< Reusable space-joined item list for AutoCompShow.
-    /// Reusable case-insensitive dedup set for assembling the popup; cleared (not
-    /// reallocated) per invocation so as-you-type completion keeps its buckets.
-    std::unordered_set<std::string> m_completionSeen;
-    std::vector<wxString> m_localVariables;  ///< Per-caret bucket: params + in-scope locals.
-    std::vector<wxString> m_localSymbols;    ///< Per-caret bucket: the enclosing type's members.
-    std::vector<wxString> m_globalSymbols;   ///< Cached bucket: top-level symbols (keyed by hash).
-    std::vector<wxString> m_globalVariables; ///< Cached bucket: module-level variables (keyed by hash).
-    std::size_t m_globalCompletionsHash = 0; ///< `SymbolTable` hash the global buckets were built for.
-    bool m_globalCompletionsReady = false;   ///< Whether the global buckets have been built.
+    ConfigManager& m_configManager;       ///< Config source — settings, keywords, theme entries.
+    Theme& m_theme;                       ///< Active editor theme.
+    DocumentManager* m_documentManager;   ///< Optional — null in standalone/test contexts.
+    UIManager* m_uiManager;               ///< Optional — null in standalone/test contexts.
+    CodeTransformer* m_transformer;       ///< Shared on-type transformer (nullable in preview).
+    DocumentType m_docType;               ///< Current document type — drives theme dispatch.
+    wxFont m_font;                        ///< Editor font.
+    bool m_preview;                       ///< True when this is a Format-dialog preview pane.
+    bool m_insertHandled = false;         ///< Latch to dedupe single-char vs multi-char insert paths.
+    bool m_editorLocked = false;          ///< Set during load/reload to suppress on-type transforms.
+    bool m_includeHotspotsActive = false; ///< True when Ctrl is held and PP styles show hotspot cursor.
+    int m_lastCaretPos = 0;               ///< Caret position from previous `onUpdateUI` — backs `onCaretMoved`.
+    bool m_callPostUpdate = false;        ///< Latch — triggers `postUpdateUI` on the next tick.
+    wxString m_lastHighlightedWord;       ///< Identifier last painted by the occurrence highlighter; empty when none.
+    bool m_matchSuppressed = false;       ///< Occurrence + keyword-match highlighting off after a text edit until the next navigation (arrow / click).
+    /// Reusable space-joined list handed to AutoCompShow; rebuilt from each
+    /// worker-delivered completion result (generation itself runs on the worker).
+    wxString m_completionList;
     /// Accumulated insert span awaiting a coalesced transformer pass.
     /// `m_pendingInsertStart < 0` means nothing pending. A burst of
     /// `EVT_STC_MODIFIED` inserts (multi-line indent, paste) folds into a
@@ -299,6 +307,14 @@ private:
     /// Restart on each text-changing modify event; on fire submits a
     /// snapshot to DocumentManager::submitIntellisense.
     wxTimer m_intellisenseTimer;
+    /// Restart on each identifier keystroke; on fire sends a completion request
+    /// (throttles the popup so fast typing isn't bombarded with requests).
+    wxTimer m_completionTimer;
+    /// True from when a completion request is sent until the user navigates away
+    /// or stops the identifier; an arriving result is shown only while true.
+    bool m_acceptAutoCompleteList = false;
+    /// Monotonic completion request id; a result echoing an older seq is dropped.
+    std::size_t m_completionSeq = 0;
 
     wxDECLARE_EVENT_TABLE();
 };

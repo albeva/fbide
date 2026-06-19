@@ -17,8 +17,22 @@ using namespace fbide;
 
 wxDEFINE_EVENT(fbide::EVT_INTELLISENSE_RESULT, wxThreadEvent);
 wxDEFINE_EVENT(fbide::EVT_INTELLISENSE_TRACKED_FILES, wxThreadEvent);
+wxDEFINE_EVENT(fbide::EVT_INTELLISENSE_COMPLETION, wxThreadEvent);
 
 namespace {
+
+/// Lowercase ASCII in place (FreeBASIC identifiers/keywords are ASCII-cased).
+void toLowerAscii(std::string& text) {
+    std::ranges::transform(text, text.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+}
+
+/// Sort case-insensitively and drop duplicates (mirrors the editor's helper).
+void sortUniqueCI(std::vector<wxString>& names) {
+    std::ranges::sort(names, [](const wxString& lhs, const wxString& rhs) { return lhs.CmpNoCase(rhs) < 0; });
+    names.erase(std::unique(names.begin(), names.end(),
+                    [](const wxString& lhs, const wxString& rhs) { return lhs.CmpNoCase(rhs) == 0; }),
+        names.end());
+}
 
 /// Resolve a raw `#include` target (quotes already stripped): first relative to
 /// the including file's directory, then against each configured search directory
@@ -139,9 +153,9 @@ IntellisenseService::~IntellisenseService() {
 }
 
 void IntellisenseService::closeDocument(const Document* owner, std::filesystem::path path) {
-    if (path.empty()) {
-        return; // unsaved document — never entered the graph
-    }
+    // An unsaved document (empty path) never entered the graph, but it may still
+    // have a completion context cached by `post`, so queue the Close regardless:
+    // the worker erases that context and the graph-side close is a no-op.
     wxMutexLocker lock(m_mtx);
     if (m_stopRequested) {
         return;
@@ -204,6 +218,27 @@ void IntellisenseService::resendTrackedFiles() {
     m_cv.Signal();
 }
 
+void IntellisenseService::requestCompletion(Document* owner, int pos, std::string prefix, std::size_t seq, int maxItems) {
+    if (owner == nullptr) {
+        return;
+    }
+    wxMutexLocker lock(m_mtx);
+    if (m_stopRequested) {
+        return;
+    }
+    m_commands.push_back(Command { .type = CommandType::Completion, .owner = owner, .pos = pos, .prefix = std::move(prefix), .seq = seq, .maxItems = maxItems });
+    m_cv.Signal();
+}
+
+void IntellisenseService::setKeywords(std::vector<wxString> keywords) {
+    wxMutexLocker lock(m_mtx);
+    if (m_stopRequested) {
+        return;
+    }
+    m_commands.push_back(Command { .type = CommandType::Keywords, .keywords = std::move(keywords) });
+    m_cv.Signal();
+}
+
 auto IntellisenseService::Entry() -> wxThread::ExitCode {
     while (true) {
         std::vector<Command> commands;
@@ -217,8 +252,19 @@ auto IntellisenseService::Entry() -> wxThread::ExitCode {
             }
             commands.swap(m_commands);
         }
-        for (auto& command : commands) {
-            applyCommand(std::move(command));
+        // Coalesce completion requests — only the newest in the batch matters
+        // (the editor also drops out-of-order results via seq).
+        std::size_t lastCompletion = commands.size();
+        for (std::size_t i = 0; i < commands.size(); ++i) {
+            if (commands[i].type == CommandType::Completion) {
+                lastCompletion = i;
+            }
+        }
+        for (std::size_t i = 0; i < commands.size(); ++i) {
+            if (commands[i].type == CommandType::Completion && i != lastCompletion) {
+                continue; // superseded by a newer completion request
+            }
+            applyCommand(std::move(commands[i]));
         }
         drainAndDeliver();
     }
@@ -242,6 +288,10 @@ void IntellisenseService::applyCommand(Command command) {
         break;
     case CommandType::Close:
         m_graph.closeDocument(command.path, command.owner);
+        m_completionCtx.erase(command.owner);
+        if (command.owner == m_complGlobalsOwner) {
+            m_complGlobalsOwner = nullptr; // invalidate the global cache for a reused address
+        }
         break;
     case CommandType::Submit:
         if (command.path.empty()) {
@@ -262,6 +312,13 @@ void IntellisenseService::applyCommand(Command command) {
         break;
     case CommandType::ResendTracked:
         m_lastTrackedSet.clear(); // force the end-of-drain snapshot to re-post
+        break;
+    case CommandType::Completion:
+        generateCompletion(command);
+        break;
+    case CommandType::Keywords:
+        m_keywords = std::move(command.keywords);
+        sortUniqueCI(m_keywords);
         break;
     }
 }
@@ -351,8 +408,89 @@ void IntellisenseService::drainAndDeliver() {
     postTrackedFiles();
 }
 
+void IntellisenseService::generateCompletion(const Command& cmd) {
+    std::vector<wxString> items;
+    const int cap = cmd.maxItems > 0 ? cmd.maxItems : 100;
+
+    // Assemble in priority order (a local shadows a global shadows a keyword),
+    // filtering by the typed prefix (case-insensitive) and capping at `cap`.
+    std::string prefixLower = cmd.prefix;
+    toLowerAscii(prefixLower);
+    std::unordered_set<std::string> seen;
+    const auto append = [&](const std::vector<wxString>& bucket) {
+        for (const auto& name : bucket) {
+            if (static_cast<int>(items.size()) >= cap) {
+                return;
+            }
+            std::string key = name.utf8_string();
+            toLowerAscii(key);
+            if (!key.starts_with(prefixLower)) {
+                continue;
+            }
+            if (seen.insert(std::move(key)).second) {
+                items.push_back(name);
+            }
+        }
+    };
+
+    // Symbol buckets need the document's parsed context; keywords don't, so they
+    // are appended unconditionally below — a just-created or not-yet-parsed
+    // document still offers keyword completion.
+    if (const auto it = m_completionCtx.find(cmd.owner);
+        it != m_completionCtx.end() && it->second.own != nullptr) {
+        const CompletionContext& ctx = it->second;
+        const SymbolTable& own = *ctx.own;
+
+        // Global buckets (own + closure) — cached and rebuilt only when the owner
+        // or its closure hash changes, so typing within one file reuses them.
+        std::size_t hash = own.getHash();
+        for (const auto& imp : ctx.imported) {
+            if (imp != nullptr) {
+                hash ^= imp->getHash() + 0x9e3779b9U + (hash << 6) + (hash >> 2);
+            }
+        }
+        if (cmd.owner != m_complGlobalsOwner || hash != m_complGlobalsHash) {
+            m_complGlobalSymbols.clear();
+            m_complGlobalVariables.clear();
+            own.globalSymbolCompletions(m_complGlobalSymbols);
+            own.moduleVariableCompletions(m_complGlobalVariables);
+            for (const auto& imp : ctx.imported) {
+                if (imp != nullptr) {
+                    imp->globalSymbolCompletions(m_complGlobalSymbols);
+                    imp->moduleVariableCompletions(m_complGlobalVariables);
+                }
+            }
+            sortUniqueCI(m_complGlobalSymbols);
+            sortUniqueCI(m_complGlobalVariables);
+            m_complGlobalsOwner = cmd.owner;
+            m_complGlobalsHash = hash;
+        }
+
+        // Per-caret local buckets (scope-dependent, not cached).
+        std::vector<wxString> localVariables;
+        std::vector<wxString> localSymbols;
+        own.localCompletionsAt(cmd.pos, localVariables);
+        own.memberCompletionsAt(cmd.pos, localSymbols, ctx.imported);
+        sortUniqueCI(localVariables);
+        sortUniqueCI(localSymbols);
+
+        append(localVariables);
+        append(localSymbols);
+        append(m_complGlobalVariables);
+        append(m_complGlobalSymbols);
+    }
+    append(m_keywords);
+
+    wxThreadEvent* const event = make_unowned<wxThreadEvent>(EVT_INTELLISENSE_COMPLETION);
+    event->SetPayload(CompletionResult { .owner = cmd.owner, .seq = cmd.seq, .items = std::move(items) });
+    wxQueueEvent(m_sink, event);
+}
+
 void IntellisenseService::post(const Document* owner, std::shared_ptr<const SymbolTable> own,
     std::vector<std::shared_ptr<const SymbolTable>> imported) {
+    // Stash the context so a completion request (which may target an unsaved doc
+    // with no graph entry) can be answered from the owner alone.
+    m_completionCtx[owner] = CompletionContext { .own = own, .imported = imported };
     wxThreadEvent* const event = make_unowned<wxThreadEvent>(EVT_INTELLISENSE_RESULT);
     event->SetPayload(
         IntellisenseResult { .owner = owner, .own = std::move(own), .imported = std::move(imported) }

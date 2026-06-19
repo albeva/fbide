@@ -36,6 +36,17 @@ wxDECLARE_EVENT(EVT_INTELLISENSE_RESULT, wxThreadEvent);
 /// watches. Payload: `std::vector<std::filesystem::path>`.
 wxDECLARE_EVENT(EVT_INTELLISENSE_TRACKED_FILES, wxThreadEvent);
 
+/// Worker-generated completion candidates for the editor: already prefix-filtered,
+/// priority-ordered, de-duplicated and capped. The editor shows them only if the
+/// request is still wanted (its accept-flag) and current (`seq`).
+struct CompletionResult {
+    const Document* owner;       ///< Identity tag (re-validated by the UI).
+    std::size_t seq = 0;         ///< Echoes the request seq; the editor drops out-of-order results.
+    std::vector<wxString> items; ///< Candidates, priority then alphabetical, <= the requested cap.
+};
+
+wxDECLARE_EVENT(EVT_INTELLISENSE_COMPLETION, wxThreadEvent);
+
 /// Background lex + parse + include-resolution pipeline. One worker thread that
 /// owns a `SourceGraph` of open documents and their `#include`s; UI-thread calls
 /// post commands which the worker applies, then parses every dirty file, wires
@@ -84,6 +95,18 @@ public:
     /// rebuild its include watches from scratch.
     void resendTrackedFiles();
 
+    /// Request completion candidates for `owner` at caret byte offset `pos`,
+    /// filtered by `prefix` (case-insensitive) and capped at `maxItems`. Generated
+    /// on the worker from the document's last-parsed table + its include closure +
+    /// the keyword set, then delivered via EVT_INTELLISENSE_COMPLETION echoing
+    /// `seq`. Only the newest pending request per drain is processed.
+    void requestCompletion(Document* owner, int pos, std::string prefix, std::size_t seq, int maxItems);
+
+    /// Set the keyword completion candidates (FB keywords / constants / PP),
+    /// included as the lowest-priority bucket. Pushed by the editor when its
+    /// keyword list is (re)built; does not trigger a re-parse.
+    void setKeywords(std::vector<wxString> keywords);
+
     /// wxThreadHelper entry point. Runs on the worker thread.
     auto Entry() -> wxThread::ExitCode override;
 
@@ -93,7 +116,9 @@ private:
         IncludePaths,
         Defines,
         Refresh,
-        ResendTracked };
+        ResendTracked,
+        Completion,
+        Keywords };
     /// A UI-thread request, applied to the graph on the worker thread.
     struct Command {
         CommandType type;
@@ -102,9 +127,17 @@ private:
         std::string content;                            ///< Source snapshot (Submit only).
         std::vector<std::filesystem::path> includeDirs; ///< Search dirs (IncludePaths only).
         std::unordered_set<std::string> defines;        ///< Defined names (Defines only).
+        int pos = 0;                                    ///< Caret byte offset (Completion only).
+        std::string prefix;                             ///< Identifier prefix to filter by (Completion only).
+        std::size_t seq = 0;                            ///< Completion request sequence (Completion only).
+        int maxItems = 0;                               ///< Max candidates to return (Completion only).
+        std::vector<wxString> keywords;                 ///< Keyword candidates (Keywords only).
     };
 
     void applyCommand(Command command);
+    /// Generate + post completion candidates for a `Completion` command, drawing
+    /// on the owner's stashed completion context (own table + closure) + keywords.
+    void generateCompletion(const Command& command);
     void parseStandalone(const Document* owner, const std::string& source);
     void parseEntry(SourceEntry& entry);
     void resolveAndWire(SourceEntry& entry);
@@ -130,6 +163,22 @@ private:
     /// drain builds so they don't each copy it. Null until the first `Defines`.
     std::shared_ptr<const std::unordered_set<std::string>> m_defines;
     std::vector<std::filesystem::path> m_lastTrackedSet; ///< Last posted pure-include set (sorted); throttles snapshots.
+
+    /// Per-document completion context (own table + flattened closure), stashed by
+    /// `post` and erased on close. Keyed by the opaque `Document*` so completion
+    /// works for unsaved documents too (no graph entry). Worker-thread only.
+    struct CompletionContext {
+        std::shared_ptr<const SymbolTable> own;
+        std::vector<std::shared_ptr<const SymbolTable>> imported;
+    };
+    std::unordered_map<const Document*, CompletionContext> m_completionCtx;
+    std::vector<wxString> m_keywords; ///< Keyword candidates (lowest-priority bucket; sorted/deduped).
+    // Cached global completion buckets for the last context generated — rebuilt
+    // only when the owner or its closure hash changes (so typing reuses them).
+    const Document* m_complGlobalsOwner = nullptr;
+    std::size_t m_complGlobalsHash = 0;
+    std::vector<wxString> m_complGlobalSymbols;
+    std::vector<wxString> m_complGlobalVariables;
 
     // Shared state — guarded by `m_mtx`.
     wxMutex m_mtx;
