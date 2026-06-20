@@ -296,8 +296,17 @@ void IntellisenseService::applyCommand(Command command) {
         m_graph.reparseAll();
         break;
     case CommandType::Close: {
-        const auto key = command.path.empty() ? standaloneKey(command.owner) : std::move(command.path);
+        // Close under the key the entry is actually enrolled with: a Save As can
+        // change the document's path after its last submit, so command.path may
+        // no longer match the graph entry.
+        const auto it = m_ownerKey.find(command.owner);
+        const auto key = it != m_ownerKey.end()
+                           ? std::move(it->second)
+                           : (command.path.empty() ? standaloneKey(command.owner) : std::move(command.path));
         m_graph.closeDocument(key, command.owner);
+        if (it != m_ownerKey.end()) {
+            m_ownerKey.erase(it);
+        }
         m_completionCtx.erase(command.owner);
         if (command.owner == m_complGlobalsOwner) {
             m_complGlobalsOwner = nullptr; // invalidate the global cache for a reused address
@@ -307,9 +316,16 @@ void IntellisenseService::applyCommand(Command command) {
     case CommandType::Submit: {
         // Unsaved buffers have no on-disk path; key them on the owner so they
         // still join the include graph and resolve their #includes.
-        const auto key = command.path.empty() ? standaloneKey(command.owner) : std::move(command.path);
+        auto key = command.path.empty() ? standaloneKey(command.owner) : std::move(command.path);
+        // A changed path (untitled buffer saved, or a Save As rename) leaves the
+        // previous entry owned, so the orphan sweep never reclaims it — close it
+        // under the old key first.
+        if (const auto it = m_ownerKey.find(command.owner); it != m_ownerKey.end() && it->second != key) {
+            m_graph.closeDocument(it->second, command.owner);
+        }
         m_graph.openDocument(key, command.owner); // ensure ownership
         m_graph.submit(key, std::move(command.content));
+        m_ownerKey[command.owner] = std::move(key);
         break;
     }
     case CommandType::Refresh:

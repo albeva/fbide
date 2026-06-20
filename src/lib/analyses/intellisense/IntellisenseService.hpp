@@ -172,6 +172,12 @@ private:
         std::vector<std::shared_ptr<const SymbolTable>> imported;
     };
     std::unordered_map<const Document*, CompletionContext> m_completionCtx;
+
+    /// The graph key each open document is currently enrolled under. Lets a path
+    /// change (an untitled buffer saved, or a Save As rename) reclaim the stale
+    /// entry under the old key — it stays owned, so the orphan sweep alone never
+    /// frees it. Worker-thread only.
+    std::unordered_map<const Document*, std::filesystem::path> m_ownerKey;
     std::vector<wxString> m_keywords; ///< Keyword candidates (lowest-priority bucket; sorted/deduped).
     // Cached global completion buckets for the last context generated — rebuilt
     // only when the owner or its closure hash changes (so typing reuses them).

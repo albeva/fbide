@@ -248,6 +248,25 @@ TEST(SourceGraphTests, PureIncludePathsExcludesOwnedDocuments) {
     EXPECT_EQ(paths, std::vector<std::filesystem::path> { kC });
 }
 
+TEST(SourceGraphTests, RenamedDocumentLeavesStaleOwnedEntryUntilOldKeyClosed) {
+    // A path change enrols the same owner under a new key. The old entry stays
+    // owned, so the orphan sweep alone keeps it (and its sole include) alive —
+    // it must be closed under the old key to be reclaimed. This is the graph
+    // invariant IntellisenseService's per-owner key tracking relies on.
+    SourceGraph graph;
+    auto* old = graph.openDocument(kA, doc(1));
+    graph.setIncludes(old, { kB }); // A pulls in B
+    graph.openDocument(kD, doc(1)); // same owner, new path (rename) — A not closed
+    graph.collectOrphans();
+    EXPECT_NE(graph.find(kA), nullptr); // stale entry survives the sweep (still owned)
+    EXPECT_NE(graph.find(kB), nullptr);
+
+    graph.closeDocument(kA, doc(1));    // close the old key
+    EXPECT_EQ(graph.find(kA), nullptr); // stale entry + its sole include reclaimed
+    EXPECT_EQ(graph.find(kB), nullptr);
+    EXPECT_NE(graph.find(kD), nullptr); // the new entry stays owned
+}
+
 TEST(SourceGraphTests, SetIncludesReAddsCollectedInclude) {
     SourceGraph graph;
     auto* a = graph.openDocument(kA, doc(1));

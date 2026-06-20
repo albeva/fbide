@@ -41,6 +41,7 @@
 - Optimized code completion: the candidate list is built on the intellisense background thread and updates as you type (throttled, prefix-filtered, capped), keeping the UI responsive on large symbol closures.
 - Fixed the symbol browser being empty when opening a header already `#include`d by another open document.
 - Fixed code completion and the symbol browser missing `#include` symbols in new/unsaved files — a buffer's includes are now resolved without needing to save it to disk first.
+- Fixed an intellisense memory leak that orphaned a document's old symbol graph when it was saved from untitled or renamed via Save As.
 - Added Go to Definition / Go to Declaration to the editor's right-click menu, jumping across `#include`d files.
 - Added FreeBASIC type aliases (`Type NAME As ...`) to code completion and the symbol browser.
 - Added non-explicit `Enum` members to code completion (imported into scope, C-style); explicit enums are left scoped.
