@@ -60,6 +60,15 @@ auto resolveInclude(const wxString& raw, const std::filesystem::path& dir,
     return {};
 }
 
+/// Graph key for an unsaved/untitled buffer, which has no on-disk path. Derived
+/// from the opaque owner identity so each unsaved document gets a unique, stable
+/// node. The key is relative, so it never collides with a resolved include (those
+/// are always absolute), and the entry is never read from disk — it takes its
+/// source from the editor buffer.
+auto standaloneKey(const Document* owner) -> std::filesystem::path {
+    return toFsPath(wxString::Format("untitled-%p", static_cast<const void*>(owner)));
+}
+
 /// Read a file as raw UTF-8 bytes (stripping a leading BOM). Returns false when
 /// the file cannot be opened.
 auto readFile(const std::filesystem::path& path, std::string& out) -> bool {
@@ -286,21 +295,23 @@ void IntellisenseService::applyCommand(Command command) {
         m_defines = std::make_shared<const std::unordered_set<std::string>>(std::move(command.defines));
         m_graph.reparseAll();
         break;
-    case CommandType::Close:
-        m_graph.closeDocument(command.path, command.owner);
+    case CommandType::Close: {
+        const auto key = command.path.empty() ? standaloneKey(command.owner) : std::move(command.path);
+        m_graph.closeDocument(key, command.owner);
         m_completionCtx.erase(command.owner);
         if (command.owner == m_complGlobalsOwner) {
             m_complGlobalsOwner = nullptr; // invalidate the global cache for a reused address
         }
         break;
-    case CommandType::Submit:
-        if (command.path.empty()) {
-            parseStandalone(command.owner, command.content); // unsaved — no graph, no includes
-        } else {
-            m_graph.openDocument(command.path, command.owner); // ensure ownership
-            m_graph.submit(command.path, std::move(command.content));
-        }
+    }
+    case CommandType::Submit: {
+        // Unsaved buffers have no on-disk path; key them on the owner so they
+        // still join the include graph and resolve their #includes.
+        const auto key = command.path.empty() ? standaloneKey(command.owner) : std::move(command.path);
+        m_graph.openDocument(key, command.owner); // ensure ownership
+        m_graph.submit(key, std::move(command.content));
         break;
+    }
     case CommandType::Refresh:
         // Only refresh a file already in the graph — never resurrect one a sweep
         // dropped. A vanished file re-parses as empty so its symbols drop.
@@ -334,10 +345,6 @@ auto IntellisenseService::parse(const std::string& source) -> std::shared_ptr<Sy
     auto table = std::make_shared<SymbolTable>();
     table->populate(m_parser->parse(m_tokens, {}), m_defines);
     return table;
-}
-
-void IntellisenseService::parseStandalone(const Document* owner, const std::string& source) {
-    post(owner, parse(source), {}); // unsaved — no include closure
 }
 
 void IntellisenseService::parseEntry(SourceEntry& entry) {
@@ -488,8 +495,8 @@ void IntellisenseService::generateCompletion(const Command& cmd) {
 
 void IntellisenseService::post(const Document* owner, std::shared_ptr<const SymbolTable> own,
     std::vector<std::shared_ptr<const SymbolTable>> imported) {
-    // Stash the context so a completion request (which may target an unsaved doc
-    // with no graph entry) can be answered from the owner alone.
+    // Stash the context so a completion request can be answered from the owner
+    // alone, without re-walking the graph.
     m_completionCtx[owner] = CompletionContext { .own = own, .imported = imported };
     wxThreadEvent* const event = make_unowned<wxThreadEvent>(EVT_INTELLISENSE_RESULT);
     event->SetPayload(

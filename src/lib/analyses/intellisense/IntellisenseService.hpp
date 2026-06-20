@@ -72,8 +72,9 @@ public:
     /// alive are collected. Call just before the `Document` is destroyed.
     void closeDocument(const Document* owner, std::filesystem::path path);
 
-    /// Submit a fresh source snapshot for a document. With a path the document
-    /// joins the include graph; with an empty path it is parsed standalone.
+    /// Submit a fresh source snapshot for a document. The document joins the
+    /// include graph; an empty path (unsaved/untitled buffer) is keyed on the
+    /// owner identity so it still resolves its `#include`s.
     void submit(Document* owner, std::filesystem::path path, std::string content);
 
     /// Re-read a tracked `#include` file from disk and re-parse it (and any open
@@ -138,7 +139,6 @@ private:
     /// Generate + post completion candidates for a `Completion` command, drawing
     /// on the owner's stashed completion context (own table + closure) + keywords.
     void generateCompletion(const Command& command);
-    void parseStandalone(const Document* owner, const std::string& source);
     void parseEntry(SourceEntry& entry);
     void resolveAndWire(SourceEntry& entry);
     void drainAndDeliver();
