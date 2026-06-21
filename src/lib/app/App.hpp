@@ -91,6 +91,7 @@ private:
         bool formatHtml = false;       ///< `--html`.
         int waitForPid = 0;            ///< `--wait-for-pid <pid>` (0 = no wait).
         bool newWindow = false;        ///< `--new-window`.
+        bool skipWarmDefines = false;  ///< `--skip-warm-defines` (diagnostic: skip startup fbc probe).
         bool verbose = false;          ///< `--verbose`.
         bool helpRequested = false;    ///< `--help`.
         bool versionRequested = false; ///< `--version`.

@@ -16,6 +16,7 @@ target_sources(fbide_lib
     analyses/symbols/SymbolTable.cpp
     app/App.cpp
     app/Context.cpp
+    app/CrashHandler.cpp
     app/FileAssociations.cpp
     app/FileAssociationsLinux.cpp
     app/InstanceHandler.cpp
@@ -111,6 +112,7 @@ target_sources(fbide_lib
     analyses/symbols/SymbolTable.hpp
     app/App.hpp
     app/Context.hpp
+    app/CrashHandler.hpp
     app/InstanceHandler.hpp
     command/CommandEntry.hpp
     command/CommandId.hpp

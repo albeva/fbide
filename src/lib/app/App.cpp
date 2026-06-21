@@ -6,6 +6,7 @@
 //
 #include "App.hpp"
 #include "Context.hpp"
+#include "CrashHandler.hpp"
 #include "FileAssociations.hpp"
 #include "FileAssociationsLinux.hpp"
 #include "InstanceHandler.hpp"
@@ -64,6 +65,7 @@ Options:
   --wait-for-pid <id> Block startup (before any config is loaded) until the
                       process with id <id> has exited.
   --new-window        Open a new window even if another instance is running.
+  --skip-warm-defines Skip the startup fbc built-in-defines probe (diagnostic).
   --verbose           Enable verbose logging.
   --version           Print fbide and wxWidgets version and exit.
   --help              Show this help and exit.
@@ -227,10 +229,18 @@ auto App::OnInit() -> bool {
     wxLog::SetRepetitionCounting(false);
     wxLog::SetActiveTarget(new wxLogStream(m_logStream.get()));
 
+    // Field crash diagnostics: install the unhandled-exception filter now
+    // that the log directory is known, and drop a startup breadcrumb. The
+    // breadcrumbs below trace OnInit phase-by-phase so a silent exit on a
+    // user's machine leaves a trail naming the last stage reached.
+    CrashHandler::install(wxPathOnly(logPath));
+    wxLogMessage("startup: logging initialised");
+
     // Construct context with parsed CLI overrides — `--ide` flows into
     // ConfigManager so subsequent config/locale/theme lookups resolve
     // against the overridden resource directory by default.
     m_context = std::make_unique<Context>(*this, fbidePath, cli.idePath, cli.configPath);
+    wxLogMessage("startup: context + config loaded");
 
     // --cfg=<spec>: print value, exit. No window, no IPC, no splash.
     if (!cli.cfgKey.IsEmpty()) {
@@ -260,8 +270,10 @@ auto App::OnInit() -> bool {
         }
     }
 
+    wxLogMessage("startup: single-instance check passed");
     initAppearance();
     showSplash();
+    wxLogMessage("startup: splash shown");
 
     const auto& configManager = m_context->getConfigManager();
     m_context->getFileHistory().load(configManager.historyPath());
@@ -276,14 +288,18 @@ auto App::OnInit() -> bool {
     OSXEnableAutomaticTabbing(false);
 #endif
 
+    wxLogMessage("startup: creating main frame");
     m_context->getUIManager().createMainFrame();
+    wxLogMessage("startup: main frame created");
 #ifdef __WXMSW__
     // Register per-user associations so .bas/.bi/.fbs show FBIde's icons and open
     // with FBIde. ensureRegistered() self-skips on installed builds (the installer
     // records a marker under Software\FBIde and owns the associations, honouring
     // the user's per-type choices in the setup wizard); portable (zip) builds
     // carry no marker and register.
+    wxLogMessage("startup: registering file associations");
     FileAssociations::ensureRegistered();
+    wxLogMessage("startup: file associations done");
 #elifdef __WXGTK__
     // AppImage self-integration: publish the desktop entry, MIME types and
     // icons into ~/.local/share so .bas/.bi/.fbs associate with FBIde.
@@ -294,27 +310,41 @@ auto App::OnInit() -> bool {
     // fbc next to fbide.exe. Only when that finds nothing do we fall back
     // to the interactive "compiler missing" prompt. Later launches go
     // straight to the prompt-if-missing check.
+    wxLogMessage("startup: compiler detection");
     auto& compilerManager = m_context->getCompilerManager();
     const bool firstRunConfigured = configManager.isFirstRun() && compilerManager.detectCompilerOnFirstRun();
     if (!firstRunConfigured) {
         compilerManager.checkCompilerOnStartup();
     }
+    wxLogMessage("startup: compiler detection done");
     // Wire up the bundled FreeBASIC manual when no help file is set yet — the
     // installer ships FB-manual-*.chm next to fbide.exe. No-op when a help
     // file is already configured. Runs every launch (cheap), independent of
     // compiler detection.
+    wxLogMessage("startup: linking bundled help");
     compilerManager.linkBundledHelpFile();
+    wxLogMessage("startup: starting update check");
     m_context->getUpdateManager().checkOnStartup();
+    wxLogMessage("startup: update check dispatched");
 
     // Defer opening CLI files / restoring session state until the main event
     // loop is running. A session restore makes the File Browser tab active, and
     // its lazily-created wxFileSystemWatcher asserts ("needs an active loop")
     // when built during OnInit — the loop only exists once OnInit returns.
     // CallAfter runs this on the first loop tick, after the frame is up.
-    CallAfter([this, files = cli.files, restoreStateFrom = cli.restoreStateFrom] {
+    wxLogMessage("startup: OnInit returning, deferred work queued");
+    CallAfter([this, files = cli.files, restoreStateFrom = cli.restoreStateFrom, skipWarmDefines = cli.skipWarmDefines] {
         // Probe the compiler's built-in defines once, up front (now that the loop
         // is running), so intellisense's first parse doesn't block on it.
-        m_context->getCompilerManager().warmBuiltinDefines();
+        // `--skip-warm-defines` bypasses this (diagnostic: isolates the synchronous
+        // fbc subprocess spawn as a suspected startup-crash / AV-kill trigger).
+        if (skipWarmDefines) {
+            wxLogMessage("startup: builtin-defines probe SKIPPED (--skip-warm-defines)");
+        } else {
+            wxLogMessage("startup: warming builtin defines (fbc probe)");
+            m_context->getCompilerManager().warmBuiltinDefines();
+            wxLogMessage("startup: builtin defines warmed");
+        }
         openFiles(files);
         if (!restoreStateFrom.IsEmpty()) {
             // A throwaway snapshot from a restart that had no active session: load
@@ -399,6 +429,10 @@ auto App::parseCli() const -> CliOptions {
         }
         if (arg == "--new-window") {
             opts.newWindow = true;
+            continue;
+        }
+        if (arg == "--skip-warm-defines") {
+            opts.skipWarmDefines = true;
             continue;
         }
         if (arg == "--verbose") {
