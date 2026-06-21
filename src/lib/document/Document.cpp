@@ -6,6 +6,7 @@
 //
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "Document.hpp"
+#include "DocumentInfoBar.hpp"
 #include "DocumentManager.hpp"
 #include "DocumentPath.hpp"
 #include "app/Context.hpp"
@@ -48,6 +49,7 @@ Document::Document(wxWindow* parent, Context& ctx, const DocumentType type)
 : m_ctx(ctx)
 , m_type(type)
 , m_container(make_unowned<wxPanel>(parent))
+, m_infoBar(make_unowned<DocumentInfoBar>(m_container.get(), ctx, *this))
 , m_editor(
       make_unowned<Editor>(
           m_container.get(), ctx.getConfigManager(), ctx.getTheme(),
@@ -59,10 +61,17 @@ Document::Document(wxWindow* parent, Context& ctx, const DocumentType type)
 , m_minimapEnabled(minimapEnabledFromConfig(ctx))
 , m_encoding(defaultEncodingFromConfig(ctx))
 , m_eolMode(defaultEolModeFromConfig(ctx)) {
-    // Editor fills the page; the minimap (when enabled) docks to its right.
-    const auto sizer = make_unowned<wxBoxSizer>(wxHORIZONTAL);
-    sizer->Add(m_editor, 1, wxEXPAND);
-    m_container->SetSizer(sizer);
+    // Page layout: the info bar (hidden until an external change) spans the
+    // top, with the editor + optional minimap filling the rest. The minimap
+    // docks into the inner horizontal sizer to the editor's right.
+    const auto inner = make_unowned<wxBoxSizer>(wxHORIZONTAL);
+    inner->Add(m_editor, 1, wxEXPAND);
+    m_editorSizer = inner.get();
+
+    const auto outer = make_unowned<wxBoxSizer>(wxVERTICAL);
+    outer->Add(m_infoBar, 0, wxEXPAND);
+    outer->Add(inner, 1, wxEXPAND);
+    m_container->SetSizer(outer);
 
     // Auto-hide the minimap when the page becomes too narrow.
     m_container->Bind(wxEVT_SIZE, &Document::onContainerSize, this);
@@ -92,8 +101,11 @@ void Document::createMinimap() {
         return;
     }
     m_minimap = make_unowned<wxStyledTextCtrlMiniMap>(m_container, getEditor());
+    // The minimap's Create() hardcodes a border with no style hook, so the
+    // wxGTK themed frame can only be cleared after construction.
+    m_minimap->SetWindowStyleFlag((m_minimap->GetWindowStyleFlag() & ~wxBORDER_MASK) | wxBORDER_NONE);
     m_minimap->SetMinSize(wxSize(m_minimapWidth, -1));
-    if (auto* sizer = m_container->GetSizer(); sizer != nullptr) {
+    if (auto* sizer = m_editorSizer; sizer != nullptr) {
         sizer->Add(m_minimap, 0, wxEXPAND);
         sizer->Layout();
     }
@@ -105,7 +117,7 @@ void Document::destroyMinimap() {
     if (m_minimap == nullptr) {
         return;
     }
-    if (auto* sizer = m_container->GetSizer(); sizer != nullptr) {
+    if (auto* sizer = m_editorSizer; sizer != nullptr) {
         sizer->Detach(m_minimap.get());
         sizer->Layout();
     }
@@ -128,7 +140,7 @@ void Document::onContainerSize(wxSizeEvent& event) {
 }
 
 void Document::updateMinimapVisibility() const {
-    auto* sizer = m_container->GetSizer();
+    auto* sizer = m_editorSizer;
     if (sizer == nullptr || m_minimap == nullptr) {
         return;
     }
@@ -167,14 +179,14 @@ void Document::setType(const DocumentType type) {
     if (type == DocumentType::FreeBASIC) {
         // Re-enter the FreeBASIC pipeline — submit the current buffer for
         // intellisense so the symbol browser populates.
-        dm.submitIntellisense(this, m_editor->GetText());
+        dm.submitIntellisense(this, m_editor->utf8Text());
     } else {
         // Leaving FreeBASIC: drop any in-flight intellisense work, release
         // the symbol table (frees the shared_ptr — workers may still hold
         // a reference until they finish, which is fine), and clear the
         // sub/function browser if this is the active document.
-        dm.cancelIntellisense(this);
-        m_symbolTable = nullptr;
+        dm.closeDocumentIntellisense(this);
+        setSymbols(nullptr, {});
         if (dm.getActive() == this) {
             m_ctx.getSideBarManager().showSymbolsFor(nullptr);
         }
@@ -196,7 +208,12 @@ auto Document::isModified() const -> bool {
 }
 
 void Document::setModified(const bool modified) {
-    if (!modified) {
+    if (modified) {
+        // Force the dirty state via the metadata flag — used when the on-disk
+        // file is deleted, so the buffer reads as unsaved without touching the
+        // editor's own undo/save-point machinery.
+        m_metaModified = true;
+    } else {
         m_editor->SetSavePoint();
         m_metaModified = false;
     }
@@ -220,7 +237,7 @@ void Document::setEolMode(const EolMode mode) {
 }
 
 auto Document::checkExternalChange() const -> bool {
-    if (isNew()) {
+    if (isNew() || m_modTime == std::filesystem::file_time_type {}) {
         return false;
     }
     std::error_code ec;
@@ -228,7 +245,13 @@ auto Document::checkExternalChange() const -> bool {
     if (ec) {
         return false;
     }
-    return m_modTime != std::filesystem::file_time_type {} && currentModTime != m_modTime;
+    if (currentModTime != m_modTime) {
+        return true;
+    }
+    // Same mod-time: still compare size — a same-second overwrite (FAT / some
+    // network shares have 2s mod-time granularity) leaves the stamp unchanged.
+    const auto currentSize = std::filesystem::file_size(m_filePath, ec);
+    return !ec && currentSize != m_size;
 }
 
 auto Document::getKeywordAtCursor() const -> wxString {
@@ -253,9 +276,44 @@ auto Document::getKeywordAtCursor() const -> wxString {
 void Document::updateModTime() {
     if (isNew()) {
         m_modTime = {};
+        m_size = 0;
         return;
     }
     std::error_code ec;
     const auto time = std::filesystem::last_write_time(m_filePath, ec);
     m_modTime = ec ? std::filesystem::file_time_type {} : time;
+    std::error_code sizeEc;
+    const auto size = std::filesystem::file_size(m_filePath, sizeEc);
+    m_size = sizeEc ? 0 : size;
+}
+
+void Document::showExternalBar(const ExternalChange kind) {
+    if (kind == ExternalChange::Conflict) {
+        m_infoBar->showConflict();
+    } else if (kind == ExternalChange::Deleted) {
+        m_infoBar->showDeleted();
+    }
+}
+
+void Document::hideExternalBar() {
+    m_infoBar->dismiss();
+}
+
+void Document::showSaveError(const wxString& message) {
+    m_infoBar->showError(message);
+}
+
+void Document::dismissSaveError() {
+    m_infoBar->dismissError();
+}
+
+void Document::dismissExternalNotification() {
+    if (m_pendingExternal == ExternalChange::None) {
+        return;
+    }
+    // Accept the current on-disk state as the new baseline (mod-time goes
+    // empty for a deleted file) so the resolved change doesn't re-trigger.
+    updateModTime();
+    m_pendingExternal = ExternalChange::None;
+    hideExternalBar();
 }

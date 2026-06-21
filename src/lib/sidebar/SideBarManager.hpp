@@ -7,20 +7,22 @@
 #pragma once
 #include "pch.hpp"
 
-class wxGenericDirCtrl;
-class wxTreeEvent;
-
 namespace fbide {
 class Context;
 class Document;
+class FileBrowser;
+class FileSession;
 class SymbolBrowserPanel;
 
 /**
  * Populates the Browser sidebar notebook with tabs (Browse Files,
  * Sub/Function tree) and drives their behaviour.
  *
- * **Owns:** the tab content (wx-parented to the notebook) plus the
- * cached `wxGenericDirCtrl*` and `SymbolBrowserPanel*`.
+ * **Owns:** the tab content (wx-parented to the notebook) — the
+ * `FileBrowser` and `SymbolBrowserPanel`. It is a thin tab manager: each
+ * tab owns its own behaviour (the `FileBrowser` drives the filesystem tree
+ * and its watch; this class only toggles that watch with the sidebar's
+ * visibility).
  * **Owned by:** `Context`. Declared *after* `UIManager` so destruction
  * runs first — its non-owning pointer to the sidebar `wxAuiNotebook`
  * (owned by the frame UIManager destroys) cannot dangle.
@@ -65,13 +67,22 @@ public:
     /// box. Bound to the "Show Subs" command (F2).
     void showSymbolBrowser();
 
-private:
-    /// Browse Files tree leaf activated — open the file in a new editor tab.
-    void onFileActivated(wxTreeEvent& event);
+    /// Store the sidebar's session state — the active tab plus the file browser's
+    /// tree state — into `session` (through its config + path mapping). The
+    /// session layer calls only this.
+    void store(FileSession& session) const;
+    /// Restore the state previously written by `store`.
+    void load(FileSession& session);
 
+private:
+    /// Stable key of the active sidebar tab — `"subFunction"` or `"browseFiles"` —
+    /// or empty when not attached.
+    [[nodiscard]] auto activeTab() const -> wxString;
+    /// Select the sidebar tab named by `activeTab()`. No-op for an unknown/empty key.
+    void setActiveTab(const wxString& key);
     Context& m_ctx;                            ///< Application context.
     wxAuiNotebook* m_notebook = nullptr;       ///< Non-owning pointer into the sidebar notebook (owned by the frame).
-    Unowned<wxGenericDirCtrl> m_dirCtrl;       ///< Browse Files control.
+    Unowned<FileBrowser> m_fileBrowser;        ///< Browse Files tab (self-manages its filesystem watch).
     Unowned<SymbolBrowserPanel> m_symbolPanel; ///< Sub/Function tab (filter box + tree).
     int m_subFunctionPage = wxNOT_FOUND;       ///< Cached page index of the Sub/Function tab.
     int m_browseFilesPage = wxNOT_FOUND;       ///< Cached page index of the Browse Files tab.

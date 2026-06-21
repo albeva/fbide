@@ -128,6 +128,8 @@ constexpr auto getSettingsCategoryLabelKey(const SettingsCategory cat) -> std::s
         return "lineNumbers";
     case SettingsCategory::Selection:
         return "selection";
+    case SettingsCategory::WordHighlight:
+        return "occurrences";
     case SettingsCategory::FoldMargin:
         return "fold";
     case SettingsCategory::Brace:
@@ -179,6 +181,7 @@ constexpr auto capabilityOf(const SettingsCategory category) -> SettingsCapabili
         return { .foreground = true, .background = true, .style = true, .font = true, .fontSize = true, .separator = true };
     case SettingsCategory::LineNumber:
     case SettingsCategory::Selection:
+    case SettingsCategory::WordHighlight:
     case SettingsCategory::FoldMargin:
         return { .foreground = true, .background = true, .style = false, .font = false, .fontSize = false, .separator = false };
     case SettingsCategory::Changes:
@@ -257,6 +260,7 @@ inline auto settingsCategoryTree() -> std::vector<SettingsTreeNode> {
                 { SC::Changes    },
             }},
             { SC::Selection },
+            { SC::WordHighlight },
             { "brace", {
                 { SC::Brace    },
                 { SC::BadBrace },

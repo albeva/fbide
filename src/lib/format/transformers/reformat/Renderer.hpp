@@ -6,7 +6,8 @@
 //
 #pragma once
 #include "pch.hpp"
-#include "FormatTree.hpp"
+#include "FormatOptions.hpp"
+#include "analyses/parser/ProgramTree.hpp"
 
 namespace fbide::reformat {
 
@@ -21,19 +22,19 @@ public:
     : m_options(options) {}
 
     /// Render the tree to a formatted token stream.
-    [[nodiscard]] auto render(const ProgramTree& tree) -> std::vector<lexer::Token>;
+    [[nodiscard]] auto render(const parser::ProgramTree& tree) -> std::vector<lexer::Token>;
 
 private:
     /// Recursively render a node list at the given indent level.
-    void renderNodes(const std::vector<Node>& nodes, std::size_t indent);
+    void renderNodes(const std::vector<parser::Node>& nodes, std::size_t indent);
     /// Render a block (opener, body, closer).
-    void renderBlock(const BlockNode& block, std::size_t indent);
+    void renderBlock(const parser::BlockNode& block, std::size_t indent);
     /// Render a single statement at the given indent.
-    void renderStatement(const StatementNode& stmt, std::size_t indent);
+    void renderStatement(const parser::StatementNode& stmt, std::size_t indent);
     /// Render a preprocessor statement in anchored mode (`#` at column 0).
-    void renderAnchoredPP(const StatementNode& stmt, std::size_t indent, std::size_t first);
+    void renderAnchoredPP(const parser::StatementNode& stmt, std::size_t indent, std::size_t first);
     /// Emit the leading indent for a statement, skipping any leading layout tokens.
-    void emitLeadingIndent(const StatementNode& stmt, std::size_t first, std::size_t indent);
+    void emitLeadingIndent(const parser::StatementNode& stmt, std::size_t first, std::size_t indent);
     /// Emit `indent × tabSize` spaces as a Whitespace token.
     void emitIndent(std::size_t indent);
     /// Emit a single inter-token space.
@@ -44,9 +45,9 @@ private:
     void emit(lexer::Token token);
 
     /// True when `block` is a branch (Else, Case, `#else`) — opener but no closer.
-    [[nodiscard]] static auto isBranch(const BlockNode& block) -> bool;
+    [[nodiscard]] static auto isBranch(const parser::BlockNode& block) -> bool;
     /// True when `block` is a top-level definition (Sub, Function, Type).
-    [[nodiscard]] static auto isDefinition(const BlockNode& block) -> bool;
+    [[nodiscard]] static auto isDefinition(const parser::BlockNode& block) -> bool;
     /// True when a space is required between two adjacent tokens.
     [[nodiscard]] static auto needsSpaceBefore(const lexer::Token& prev, const lexer::Token& curr) -> bool;
     /// True when `token` is layout-only (Whitespace, Newline, Comment).

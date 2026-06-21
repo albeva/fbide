@@ -6,30 +6,57 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "analyses/intellisense/SourceGraph.hpp"
 #include "analyses/lexer/MemoryDocument.hpp"
 #include "analyses/lexer/Token.hpp"
 #include "analyses/symbols/SymbolTable.hpp"
+
+namespace fbide::parser {
+class TreeParser;
+}
 
 namespace fbide {
 class Context;
 class Document;
 class FBSciLexer;
 
-/// Result delivered to the sink wxEvtHandler when a parse finishes.
+/// Result delivered to the sink wxEvtHandler when a document's parse finishes.
+/// The own table is shared straight from the graph entry (never copied); the
+/// closure rides alongside, and the UI combines the two at query time.
 struct IntellisenseResult {
-    const Document* owner;                      ///< Tag the worker received with the task.
-    std::shared_ptr<const SymbolTable> symbols; ///< Pooled symbol table, freshly populated.
+    const Document* owner;                                    ///< Tag the worker received (never dereferenced by the worker).
+    std::shared_ptr<const SymbolTable> own;                   ///< The document's own symbol table (shared, not copied).
+    std::vector<std::shared_ptr<const SymbolTable>> imported; ///< Flattened transitive `#include` closure.
 };
 
 wxDECLARE_EVENT(EVT_INTELLISENSE_RESULT, wxThreadEvent);
 
-/// Background lex + parse pipeline. One worker thread, single-task slot
-/// (latest wins). Owned by `DocumentManager`. Posts results to a sink
+/// Posted after each parse drain with the current set of pure-include file paths
+/// (closed `#include`s) the worker tracks, so the UI can reconcile its filesystem
+/// watches. Payload: `std::vector<std::filesystem::path>`.
+wxDECLARE_EVENT(EVT_INTELLISENSE_TRACKED_FILES, wxThreadEvent);
+
+/// Worker-generated completion candidates for the editor: already prefix-filtered,
+/// priority-ordered, de-duplicated and capped. The editor shows them only if the
+/// request is still wanted (its accept-flag) and current (`seq`).
+struct CompletionResult {
+    const Document* owner;       ///< Identity tag (re-validated by the UI).
+    std::size_t seq = 0;         ///< Echoes the request seq; the editor drops out-of-order results.
+    std::vector<wxString> items; ///< Candidates, priority then alphabetical, <= the requested cap.
+};
+
+wxDECLARE_EVENT(EVT_INTELLISENSE_COMPLETION, wxThreadEvent);
+
+/// Background lex + parse + include-resolution pipeline. One worker thread that
+/// owns a `SourceGraph` of open documents and their `#include`s; UI-thread calls
+/// post commands which the worker applies, then parses every dirty file, wires
+/// the include graph, and re-publishes each affected open document (its own
+/// symbols + the flattened closure of its includes). Results post to a sink
 /// wxEvtHandler on the UI thread via `wxQueueEvent`.
 ///
-/// Identity: each task carries a `Document*` tag. The worker never
-/// dereferences it — it's only round-tripped to the result handler.
-/// The handler must verify the Document is still alive before applying.
+/// Identity: each command carries a `Document*` tag. The worker never
+/// dereferences it — it round-trips to the result handler, which must verify the
+/// document is still alive before applying.
 class IntellisenseService final : public wxThreadHelper {
 public:
     NO_COPY_AND_MOVE(IntellisenseService)
@@ -38,76 +65,132 @@ public:
     /// events on the UI thread.
     IntellisenseService(Context& ctx, wxEvtHandler* sink);
 
-    /// Stop the worker and join. Pending and in-flight results are dropped.
+    /// Stop the worker and join. Pending commands and results are dropped.
     ~IntellisenseService() override;
 
-    /// Submit a snapshot for parsing. Replaces any pending task.
-    void submit(Document* owner, const wxString& content);
+    /// Unregister a document; its graph entry and any includes it alone kept
+    /// alive are collected. Call just before the `Document` is destroyed.
+    void closeDocument(const Document* owner, std::filesystem::path path);
 
-    /// Cancel any pending or in-flight task tagged with `doc`. Safe to call
-    /// from the UI thread. After return, no result for `doc` will be posted
-    /// (a result race may still arrive but will carry a stale tag — handler
-    /// must validate via DocumentManager::contains).
-    void cancel(const Document* doc);
+    /// Submit a fresh source snapshot for a document. The document joins the
+    /// include graph; an empty path (unsaved/untitled buffer) is keyed on the
+    /// owner identity so it still resolves its `#include`s.
+    void submit(Document* owner, std::filesystem::path path, std::string content);
 
-    /// Drop excess idle entries from the SymbolTable pool. Keeps at most
-    /// one slot whose `use_count` is 1 (held only by the pool); evicts the
-    /// rest so capacity stays bounded after document closes. Slots still
-    /// referenced by a Document are untouched.
-    void prune();
+    /// Re-read a tracked `#include` file from disk and re-parse it (and any open
+    /// documents that include it). Called by the UI when the file changed on disk
+    /// while not open in a tab. No-op when the path is not already in the graph.
+    void refreshFile(std::filesystem::path path);
+
+    /// Set the global `#include` search directories (compiler `inc/`, absolute
+    /// `-i` dirs, cwd) used to resolve relative includes. Applied on the worker.
+    void setIncludePaths(std::vector<std::filesystem::path> paths);
+
+    /// Set the symbol names treated as defined for preprocessor branch selection
+    /// (compiler built-ins + `-d` command-line defines, lowercased). Applied on
+    /// the worker; re-parses every tracked file like `setIncludePaths`.
+    void setDefines(std::unordered_set<std::string> defines);
+
+    /// Force the next drain to re-post EVT_INTELLISENSE_TRACKED_FILES even when
+    /// the tracked set is unchanged. Used when the UI watcher re-enables and must
+    /// rebuild its include watches from scratch.
+    void resendTrackedFiles();
+
+    /// Request completion candidates for `owner` at caret byte offset `pos`,
+    /// filtered by `prefix` (case-insensitive) and capped at `maxItems`. Generated
+    /// on the worker from the document's last-parsed table + its include closure +
+    /// the keyword set, then delivered via EVT_INTELLISENSE_COMPLETION echoing
+    /// `seq`. Only the newest pending request per drain is processed.
+    void requestCompletion(Document* owner, int pos, std::string prefix, std::size_t seq, int maxItems);
+
+    /// Set the keyword completion candidates (FB keywords / constants / PP),
+    /// included as the lowest-priority bucket. Pushed by the editor when its
+    /// keyword list is (re)built; does not trigger a re-parse.
+    void setKeywords(std::vector<wxString> keywords);
 
     /// wxThreadHelper entry point. Runs on the worker thread.
     auto Entry() -> wxThread::ExitCode override;
 
 private:
-    /// Pending parse task. `content` is a deep-copied UTF-8 snapshot.
-    struct Task {
-        Document* owner = nullptr; ///< Tag (the worker never dereferences it).
-        std::string content;       ///< Source text snapshot.
+    enum class CommandType : std::uint8_t { Close,
+        Submit,
+        IncludePaths,
+        Defines,
+        Refresh,
+        ResendTracked,
+        Completion,
+        Keywords };
+    /// A UI-thread request, applied to the graph on the worker thread.
+    struct Command {
+        CommandType type;
+        Document* owner = nullptr;                         ///< Identity tag (never dereferenced).
+        std::filesystem::path path {};                     ///< File path; empty means an unsaved document.
+        std::string content {};                            ///< Source snapshot (Submit only).
+        std::vector<std::filesystem::path> includeDirs {}; ///< Search dirs (IncludePaths only).
+        std::unordered_set<std::string> defines {};        ///< Defined names (Defines only).
+        int pos = 0;                                       ///< Caret byte offset (Completion only).
+        std::string prefix {};                             ///< Identifier prefix to filter by (Completion only).
+        std::size_t seq = 0;                               ///< Completion request sequence (Completion only).
+        int maxItems = 0;                                  ///< Max candidates to return (Completion only).
+        std::vector<wxString> keywords {};                 ///< Keyword candidates (Keywords only).
     };
 
-    /// Run the lex + tree + symbolize pipeline on the worker thread.
-    void process(const Task& task);
+    void applyCommand(Command command);
+    /// Generate + post completion candidates for a `Completion` command, drawing
+    /// on the owner's stashed completion context (own table + closure) + keywords.
+    void generateCompletion(const Command& command);
+    void parseEntry(SourceEntry& entry);
+    void resolveAndWire(SourceEntry& entry);
+    void drainAndDeliver();
+    [[nodiscard]] auto parse(const std::string& source) -> std::shared_ptr<SymbolTable>;
+    void post(const Document* owner, std::shared_ptr<const SymbolTable> own,
+        std::vector<std::shared_ptr<const SymbolTable>> imported);
+    /// Snapshot the graph's pure-include paths and post EVT_INTELLISENSE_TRACKED_FILES
+    /// when the set changed since the last post (throttled).
+    void postTrackedFiles();
 
-    /// Acquire a SymbolTable slot from the pool: scan for an entry whose
-    /// `use_count` is 1 (held only by the pool — i.e. no Document or event
-    /// payload still references it) and return it. If none, allocate a new
-    /// slot and return that. Caller calls `repopulate()` on the returned
-    /// table before publishing it.
-    auto acquireSymbolTable() -> std::shared_ptr<SymbolTable>;
+    [[maybe_unused]] Context& m_ctx; ///< Application context (for future include-path resolution).
+    wxEvtHandler* m_sink;            ///< UI-thread event sink for `EVT_INTELLISENSE_RESULT`.
 
-    Context& m_ctx;       ///< Application context.
-    wxEvtHandler* m_sink; ///< UI-thread event sink for `EVT_INTELLISENSE_RESULT`.
+    // Worker-thread-owned — no synchronisation (exclusive from construction).
+    FBSciLexer* m_lexer = nullptr;                   ///< Lexer; only the worker touches it.
+    MemoryDocument m_memDoc;                         ///< Reused text buffer for the worker's parse.
+    std::unique_ptr<parser::TreeParser> m_parser;    ///< Reused lean tree parser.
+    std::vector<lexer::Token> m_tokens;              ///< Reused token buffer.
+    SourceGraph m_graph;                             ///< The source/include graph (worker-owned).
+    std::vector<std::filesystem::path> m_searchDirs; ///< `#include` search dirs (compiler inc/, -i, cwd).
+    /// Shared define set for `#if` branch selection; shared into every table a
+    /// drain builds so they don't each copy it. Null until the first `Defines`.
+    std::shared_ptr<const std::unordered_set<std::string>> m_defines;
+    std::vector<std::filesystem::path> m_lastTrackedSet; ///< Last posted pure-include set (sorted); throttles snapshots.
 
-    /// Lexer owned by the worker. Configured once at ctor with current
-    /// keywords from ConfigManager. Worker is the only thread that touches it.
-    FBSciLexer* m_lexer = nullptr;
-    /// Reused buffer for the worker's text snapshot.
-    MemoryDocument m_memDoc;
-    /// Reused token vector — `StyleLexer::tokenise` clears + appends.
-    std::vector<lexer::Token> m_tokens;
+    /// Per-document completion context (own table + flattened closure), stashed by
+    /// `post` and erased on close. Keyed by the opaque `Document*` so completion
+    /// works for unsaved documents too (no graph entry). Worker-thread only.
+    struct CompletionContext {
+        std::shared_ptr<const SymbolTable> own;
+        std::vector<std::shared_ptr<const SymbolTable>> imported;
+    };
+    std::unordered_map<const Document*, CompletionContext> m_completionCtx;
 
-    /// Slot + signalling for the latest-wins single-task queue.
-    /// `m_mtx` guards `m_pending` and `m_stopRequested`. The worker waits
-    /// on `m_cv` for either a new task or shutdown.
+    /// The graph key each open document is currently enrolled under. Lets a path
+    /// change (an untitled buffer saved, or a Save As rename) reclaim the stale
+    /// entry under the old key — it stays owned, so the orphan sweep alone never
+    /// frees it. Worker-thread only.
+    std::unordered_map<const Document*, std::filesystem::path> m_ownerKey;
+    std::vector<wxString> m_keywords; ///< Keyword candidates (lowest-priority bucket; sorted/deduped).
+    // Cached global completion buckets for the last context generated — rebuilt
+    // only when the owner or its closure hash changes (so typing reuses them).
+    const Document* m_complGlobalsOwner = nullptr;
+    std::size_t m_complGlobalsHash = 0;
+    std::vector<wxString> m_complGlobalSymbols;
+    std::vector<wxString> m_complGlobalVariables;
+
+    // Shared state — guarded by `m_mtx`.
     wxMutex m_mtx;
-    /// Condition variable signalling new task / shutdown to the worker.
-    wxCondition m_cv { m_mtx };
-    /// Pending task slot — overwritten by `submit`, consumed by the worker.
-    std::optional<Task> m_pending;
-    /// Shutdown flag — set by the destructor; the worker exits its loop.
-    bool m_stopRequested = false;
-
-    /// Set by the worker right before processing; cleared on completion or
-    /// by `cancel`. When cleared mid-parse the worker drops the result.
-    std::atomic<const Document*> m_inFlight { nullptr };
-
-    /// Pool of recyclable SymbolTable instances. Guarded by `m_mtx`.
-    /// A slot's `use_count` doubles as a liveness flag: 1 means only the
-    /// pool holds it (idle, reusable); >1 means a Document or in-flight
-    /// event payload still reads it. Pool grows as needed and is trimmed
-    /// by `prune()` on document close.
-    std::vector<std::shared_ptr<SymbolTable>> m_pool;
+    wxCondition m_cv { m_mtx };      ///< Signals new commands / shutdown to the worker.
+    std::vector<Command> m_commands; ///< Pending UI commands, drained each wake.
+    bool m_stopRequested = false;    ///< Set by the destructor; the worker exits its loop.
 };
 
 } // namespace fbide

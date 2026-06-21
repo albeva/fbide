@@ -71,6 +71,19 @@ public:
     /// configuration, so the log reflects the active configuration.
     [[nodiscard]] auto probeCompilerVersion(const std::filesystem::path& compilerPath) const -> wxString;
 
+    /// Compile the fbc-defines probe stub (resources/ide/fbc-defines.bas) with
+    /// the given compiler and return its predefined OS/architecture symbols
+    /// (lowercased). Cached per resolved compiler path, so the stub is built at
+    /// most once per compiler. Empty when the compiler or stub is unreachable.
+    /// Feeds the intellisense preprocessor evaluator alongside -d defines.
+    [[nodiscard]] auto builtinDefines(const std::filesystem::path& compilerPath) const
+        -> const std::unordered_set<std::string>&;
+
+    /// Probe and cache the active configuration's built-in defines up front (at
+    /// startup) so intellisense's first parse doesn't pay the one-off
+    /// compiler-probe latency. No-op when already cached or fbc is unreachable.
+    void warmBuiltinDefines() const;
+
     /// Resolve `compiler.path` against the IDE's appDir and verify the
     /// binary exists/is executable. Returns the resolved absolute path,
     /// or empty when the path is unset or missing.
@@ -83,6 +96,22 @@ public:
     /// launches stay silent. No-op when the binary is reachable or the
     /// ignore flag is set. Call once after the main frame is created.
     void checkCompilerOnStartup() const;
+
+    /// First-launch only: silently auto-detect fbc (next to fbide.exe, as a
+    /// bundled installer ships it, or on PATH) and install the resulting
+    /// `[compiler]` configuration, persisting it like the Settings-dialog
+    /// auto-detect would. Returns true when a compiler was found and
+    /// configured. Windows-only; always false elsewhere. The caller falls
+    /// back to `checkCompilerOnStartup()` when this returns false.
+    auto detectCompilerOnFirstRun() -> bool;
+
+    /// After auto-detecting fbc, wire up the bundled FreeBASIC manual: look
+    /// for `FB-manual-<version>.chm` next to the detected compiler (the
+    /// version comes from `probeCompilerVersion`) and store it as
+    /// `paths.helpFile`. Only fills an empty help path — never overwrites a
+    /// user-set one. Called by both the first-run and Settings-dialog
+    /// auto-detect paths. Windows-only; a no-op elsewhere.
+    void linkBundledHelpFile() const;
 
     /// Show the "compiler not found" prompt without the silence checkbox
     /// (used by the build flow when the user explicitly invokes compile/
@@ -189,9 +218,8 @@ private:
     [[nodiscard]] auto ensureRunnable(const ResolvedCompilerConfig& cfg) const -> bool;
 
     /// Yes/No "configure now?" alert with its own title + message. On
-    /// Yes, open Settings at `target` (a `focusPath` deep-link). Returns
-    /// true when the user chose to open Settings.
-    auto promptConfigure(const wxString& titleKey, const wxString& messageKey, const wxString& target) const -> bool;
+    /// Yes, open Settings at `target` (a `focusPath` deep-link).
+    void promptConfigure(const wxString& titleKey, const wxString& messageKey, const wxString& target) const;
 
     Context& m_ctx;                                   ///< Application context.
     std::unique_ptr<CompilerConfigCatalog> m_catalog; ///< Resolved view of `[compiler]` + `[compiler/*]`.
@@ -199,6 +227,10 @@ private:
     wxString m_parameters;                            ///< Runtime parameters set via the Parameters dialog.
     wxComboBox* m_configCombo = nullptr;              ///< Toolbar-owned widget; non-null after configureToolBar.
     Document* m_lastActiveDoc = nullptr;              ///< Last document the combobox was synced to.
+
+    /// Resolved compiler path → its probed built-in defines. Lazily filled by
+    /// `builtinDefines`; mutable so that const getter can cache.
+    mutable std::unordered_map<std::string, std::unordered_set<std::string>> m_builtinDefinesCache;
 };
 
 } // namespace fbide

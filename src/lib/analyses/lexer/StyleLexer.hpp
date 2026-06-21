@@ -91,6 +91,9 @@ private:
     /// on every Newline. Tokens come out in source order so a single pass
     /// is enough — no per-emit-site instrumentation needed.
     static void stampLines(std::vector<Token>& tokens);
+    /// Stamp each token's byte offset (`pos`). The token stream is
+    /// contiguous, so `pos` accumulates `text.size()` from the scan start.
+    static void stampPositions(std::vector<Token>& tokens, Sci_PositionU start);
 
     IStyledSource& m_src;     ///< Source view we read from.
     Sci_PositionU m_pos = 0;  ///< Current scan position.

@@ -14,8 +14,12 @@
     <string>FBIde</string>
     <key>CFBundleExecutable</key>
     <string>fbide</string>
-    <!-- Icon basename (Finder appends .icns). The file fbide.icns lives
-         in the bundle's Resources/ — copied in by src/CMakeLists.txt. -->
+    <!-- App icon. CFBundleIconName points at the liquid-glass icon compiled
+         into Resources/Assets.car (preferred on macOS 11+); CFBundleIconFile
+         names the classic Resources/fbide.icns fallback. Both basenames are
+         "fbide"; both files are copied in by src/CMakeLists.txt. -->
+    <key>CFBundleIconName</key>
+    <string>fbide</string>
     <key>CFBundleIconFile</key>
     <string>fbide</string>
     <!-- Marketing version, shown in Finder's Get Info. Three-dot semver. -->
@@ -46,17 +50,17 @@
     <string>11.0</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.developer-tools</string>
-    <!-- Two document types declared:
-           1. FreeBASIC source — .bas (program), .bi (header). Role
-              `Editor` because the user authors / edits these.
-           2. FBIde session — .fbs. Role `Owner` because the format is
-              FBIde's own (machine-managed workspace state, not
-              hand-edited prose). `Owner` tells Launch Services that
-              FBIde is the canonical creator of this type.
-         Both register at `LSHandlerRank=Default`, which claims FBIde
-         as the system handler unless the user has already chosen a
-         different default. Splitting the two types lets each get its
-         own icon later (currently both reuse fbide.icns). -->
+    <!-- Three document types, one per associated extension so each carries
+         its own icon (file-*.icns in Resources/), matching the Windows doc_*
+         icons in src/lib/rc/app.rc:
+           1. FreeBASIC source — .bas (program). Role `Editor`; the user
+              authors / edits these.
+           2. FreeBASIC header — .bi. Role `Editor`, same reason.
+           3. FBIde session — .fbs. Role `Owner` because the format is
+              FBIde's own (machine-managed workspace state, not hand-edited
+              prose); `Owner` marks FBIde as the canonical creator.
+         The source types register at `LSHandlerRank=Default`, claiming FBIde
+         as the system handler unless the user has chosen another default. -->
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
@@ -65,6 +69,19 @@
             <key>CFBundleTypeExtensions</key>
             <array>
                 <string>bas</string>
+            </array>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>LSHandlerRank</key>
+            <string>Default</string>
+            <key>CFBundleTypeIconFile</key>
+            <string>file-bas</string>
+        </dict>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>FreeBASIC header file</string>
+            <key>CFBundleTypeExtensions</key>
+            <array>
                 <string>bi</string>
             </array>
             <key>CFBundleTypeRole</key>
@@ -72,7 +89,7 @@
             <key>LSHandlerRank</key>
             <string>Default</string>
             <key>CFBundleTypeIconFile</key>
-            <string>fbide</string>
+            <string>file-bi</string>
         </dict>
         <dict>
             <key>CFBundleTypeName</key>
@@ -86,7 +103,7 @@
             <key>LSHandlerRank</key>
             <string>Owner</string>
             <key>CFBundleTypeIconFile</key>
-            <string>fbide</string>
+            <string>file-fbs</string>
         </dict>
     </array>
 </dict>

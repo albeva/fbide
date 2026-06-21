@@ -19,15 +19,15 @@ protected:
         // Set up the shared keyword table matching fbfull.lng groups.
         // Array order maps 1:1 to DEFINE_THEME_KEYWORD_GROUPS order.
         FBSciLexer::setKeywords({
-            "dim as if then else end sub function type asm",                // Keywords
-            "integer string single double long byte",                       // KeywordTypes
-            "and or not mod xor",                                           // KeywordOperators
-            "__fb_version__",                                               // KeywordConstants
-            "",                                                             // KeywordLibrary
-            "",                                                             // KeywordCustom
+            "dim as if then else end sub function type asm",                   // Keywords
+            "integer string single double long byte",                          // KeywordTypes
+            "and or not mod xor",                                              // KeywordOperators
+            "__fb_version__",                                                  // KeywordConstants
+            "",                                                                // KeywordLibrary
+            "",                                                                // KeywordCustom
             "if ifdef ifndef else elseif endif macro endmacro define include", // KeywordPP
-            "mov push pop ret jmp",                                         // KeywordAsm1
-            "eax ebx ecx edx",                                             // KeywordAsm2
+            "mov push pop ret jmp",                                            // KeywordAsm1
+            "eax ebx ecx edx",                                                 // KeywordAsm2
         });
         m_lexer->PropertySet("fold", "1");
     }
@@ -280,6 +280,34 @@ TEST_F(FBSciLexerTests, FPSuffix) {
 
 TEST_F(FBSciLexerTests, InvalidNumberTerminator) {
     expectStyles("123abc", "EEEEEE");
+}
+
+// An operator immediately followed by a `&h/&o/&b` literal must not absorb the
+// `&` prefix into the operator run (issue #111: comma "eats" the next token).
+TEST_F(FBSciLexerTests, CommaThenHexNumber) {
+    expectStyles(",&h32", "PNNNN");
+}
+
+TEST_F(FBSciLexerTests, NumberCommaHexNumber) {
+    expectStyles("1,&h2", "NPNNN");
+}
+
+TEST_F(FBSciLexerTests, AssignHexNumber) {
+    expectStyles("a=&hFF", "IPNNNN");
+}
+
+TEST_F(FBSciLexerTests, CommaThenOctalNumber) {
+    expectStyles(",&o17", "PNNNN");
+}
+
+TEST_F(FBSciLexerTests, CommaThenBinaryNumber) {
+    expectStyles(",&b101", "PNNNNN");
+}
+
+// The same greedy-operator bug also dropped a fractional literal's leading dot
+// when it followed an operator.
+TEST_F(FBSciLexerTests, CommaThenFractionNumber) {
+    expectStyles(",.5", "PNN");
 }
 
 // endregion
@@ -592,6 +620,17 @@ TEST_F(FBSciLexerTests, PreprocessorBlockBodyKeywordsHighlight) {
     );
 }
 
+TEST_F(FBSciLexerTests, PreprocessorTokenPasteUnderscore) {
+    // Issue #115: `_` inside a `##_##` token-paste is a literal identifier
+    // character being concatenated (`a##_##b` → `a_b`), not a line
+    // continuation. It must style as IdentifierPP, not a continuation comment,
+    // and must not bleed PP state onto the next line.
+    expectStyles(
+        "#define X a##_##b\n",
+        "#kkkkkk#i#ippippi "
+    );
+}
+
 // endregion
 
 // region ---------- Field Access ----------
@@ -607,6 +646,32 @@ TEST_F(FBSciLexerTests, ArrowAccessSuppressesKeyword) {
     expectStyles(
         "foo->dim ",
         "IIIPPIII "
+    );
+}
+
+TEST_F(FBSciLexerTests, ArrowAccessKeepsKeywordWhenNotIdentifier) {
+    // Issue #112: `->` followed by a non-identifier (here `(`) is not member
+    // access, so the keyword after it must still highlight.
+    expectStyles(
+        "a->(dim ",
+        "IPPP111 "
+    );
+}
+
+TEST_F(FBSciLexerTests, DotAccessKeepsKeywordWhenNotIdentifier) {
+    expectStyles(
+        "a.(dim ",
+        "IPP111 "
+    );
+}
+
+TEST_F(FBSciLexerTests, FieldAccessAcrossLineContinuation) {
+    // The member may sit on the next physical line, even with a space before the
+    // `_`: only an operator right after `.` disarms field access, so `dim` here
+    // stays suppressed (issue #112 must not regress continuation tracking).
+    expectStyles(
+        "foo. _\ndim ",
+        "IIIP C III "
     );
 }
 

@@ -37,6 +37,8 @@ private:
     bool m_showWhiteSpaces;   ///< Visualise whitespace characters.
     bool m_showLineEndings;   ///< Visualise line-ending characters.
     bool m_braceHighlight;    ///< Highlight matching braces.
+    bool m_highlightOccurrences; ///< Highlight occurrences of the identifier under the caret.
+    bool m_codeCompletion;       ///< Symbol / keyword completion at statement start.
 
     // Right column
     bool m_syntaxHighlight;          ///< Enable syntax highlighting.
@@ -44,6 +46,7 @@ private:
     bool m_showRightMargin;          ///< Show right margin guide line.
     bool m_foldMargin;               ///< Show fold margin.
     bool m_changeTracking;           ///< Show change-tracking (since-save) margin.
+    bool m_autoReload;               ///< Auto-reload documents changed outside the editor.
     bool m_splashScreen;             ///< Show splash screen on startup.
     bool m_configurationInStatusBar; ///< Compiler-config selector lives in the status bar (true) or toolbar (false).
     bool m_checkUpdatesOnLoad;       ///< Check GitHub for a newer release on startup.

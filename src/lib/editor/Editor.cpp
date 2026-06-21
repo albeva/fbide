@@ -9,7 +9,6 @@
 #include "Editor.hpp"
 #include "CodeTransformer.hpp"
 #include "analyses/symbols/SymbolTable.hpp"
-#include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/Theme.hpp"
 #include "config/ThemeCategory.hpp"
@@ -21,6 +20,20 @@
 using namespace fbide;
 
 namespace {
+// Styles where a completion popup should not appear.
+auto isCommentOrStringStyle(const int style) -> bool {
+    switch (static_cast<ThemeCategory>(style)) {
+    case ThemeCategory::Comment:
+    case ThemeCategory::MultilineComment:
+    case ThemeCategory::String:
+    case ThemeCategory::StringOpen:
+    case ThemeCategory::StringPP:
+        return true;
+    default:
+        return false;
+    }
+}
+
 // Order matches Scintilla margin indices — Changes sits at the right,
 // directly against the text edge, so the diff bar is the first thing
 // the eye picks up next to the line content.
@@ -40,15 +53,56 @@ constexpr auto operator+(const Margins& rhs) -> int {
 constexpr int kChangeMarkersMask
     = (1 << Editor::kAddedMarker) | (1 << Editor::kModifiedMarker);
 
+// Indicator numbers for occurrence highlighting (identifier under the caret).
+// Two indicators: a box behind the text for the background, TEXTFORE for the
+// text colour. The container range is free — the FB lexer sets no decorations.
+constexpr int kIndicOccurrenceBg = wxSTC_INDIC_CONTAINER;
+constexpr int kIndicOccurrenceText = wxSTC_INDIC_CONTAINER + 1;
+constexpr int kIndicKeywordBg = wxSTC_INDIC_CONTAINER + 2;
+constexpr int kIndicKeywordText = wxSTC_INDIC_CONTAINER + 3;
+constexpr int kIndicInactive = wxSTC_INDIC_CONTAINER + 4; ///< Dim recolor for inactive #if branches.
+
 struct Constants final {
     static constexpr int edgeColumn = 80;
     static constexpr int foldMarginWidth = 16;
     static constexpr int changeMarginWidth = 5;
     static constexpr int analysesThrottle = 500;
+    static constexpr int completionThrottle = 500; ///< Debounce before sending a completion request (ms).
+    static constexpr int completionMaxItems = 100; ///< Default cap (overridable via editor.completionMaxItems).
 };
+
+// Distinct id for the completion debounce timer so its EVT_TIMER routes to
+// onCompletionTimer (a dynamic Bind), not the intellisense timer's catch-all.
+const wxWindowID kCompletionTimerId = wxNewId();
 
 auto isBrace(const int ch) -> bool {
     return ch == '(' || ch == ')' || ch == '[' || ch == ']' || ch == '{' || ch == '}';
+}
+
+// Caret-movement keys — pressing one is treated as navigation and re-enables
+// occurrence highlighting after it was suppressed by typing.
+auto isNavigationKey(const int code) -> bool {
+    switch (code) {
+    case WXK_LEFT:
+    case WXK_RIGHT:
+    case WXK_UP:
+    case WXK_DOWN:
+    case WXK_HOME:
+    case WXK_END:
+    case WXK_PAGEUP:
+    case WXK_PAGEDOWN:
+    case WXK_NUMPAD_LEFT:
+    case WXK_NUMPAD_RIGHT:
+    case WXK_NUMPAD_UP:
+    case WXK_NUMPAD_DOWN:
+    case WXK_NUMPAD_HOME:
+    case WXK_NUMPAD_END:
+    case WXK_NUMPAD_PAGEUP:
+    case WXK_NUMPAD_PAGEDOWN:
+        return true;
+    default:
+        return false;
+    }
 }
 } // namespace
 
@@ -64,6 +118,7 @@ wxBEGIN_EVENT_TABLE(Editor, wxStyledTextCtrl)
     EVT_TIMER(wxID_ANY,               Editor::onIntellisenseTimer)
     EVT_KEY_DOWN(Editor::onKeyDown)
     EVT_KEY_UP(Editor::onKeyUp)
+    EVT_LEFT_DOWN(Editor::onLeftDown)
     EVT_KILL_FOCUS(Editor::onKillFocus)
     EVT_SET_FOCUS(Editor::onFocus)
 wxEND_EVENT_TABLE()
@@ -79,7 +134,7 @@ Editor::Editor(
     const DocumentType type,
     const bool preview
 )
-: wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize)
+: wxStyledTextCtrl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxBORDER_NONE)
 , m_configManager(configManager)
 , m_theme(theme)
 , m_documentManager(documentManager)
@@ -89,6 +144,10 @@ Editor::Editor(
 , m_preview(preview) {
     applySettings();
     m_intellisenseTimer.SetOwner(this);
+    m_completionTimer.SetOwner(this, kCompletionTimerId);
+    Bind(wxEVT_TIMER, &Editor::onCompletionTimer, this, kCompletionTimerId);
+    Bind(wxEVT_STC_AUTOCOMP_CANCELLED, &Editor::onAutoCompDismissed, this);
+    Bind(wxEVT_STC_AUTOCOMP_COMPLETED, &Editor::onAutoCompDismissed, this);
 
     // Establish an initial baseline for the change tracker. Scintilla
     // only fires `SAVEPOINTREACHED` on a *transition* into the clean
@@ -121,9 +180,7 @@ void Editor::applyEditorSettings() {
     if (m_transformer != nullptr) {
         m_transformer->applySettings();
     }
-    m_changeTracking = editor.get_or("changeTracking", true);
 
-    UsePopUp(wxSTC_POPUP_TEXT);
     SetTabWidth(tabSize);
     SetUseTabs(false);
     SetTabIndents(true);
@@ -145,8 +202,15 @@ void Editor::applyEditorSettings() {
         SetViewWhiteSpace(wxSTC_WS_INVISIBLE);
         // Prevent horizontal scrollbar flashing on content changes
         SetScrollWidthTracking(false);
+        m_changeTracking = false;
         return;
     }
+
+    m_changeTracking = editor.get_or("changeTracking", true);
+    // A custom context menu (built by the document manager) replaces Scintilla's
+    // built-in popup so it can offer Go to Definition / Declaration.
+    UsePopUp(wxSTC_POPUP_NEVER);
+    Bind(wxEVT_CONTEXT_MENU, &Editor::onContextMenu, this);
 
     SetEdgeColumn(editor.get_or("edgeColumn", Constants::edgeColumn));
     SetViewEOL(editor.get_or("displayEOL", false));
@@ -274,6 +338,24 @@ void Editor::applyTheme() {
     // Brace matching
     applyStyle(wxSTC_STYLE_BRACELIGHT, theme.getBrace(), theme);
     applyStyle(wxSTC_STYLE_BRACEBAD, theme.getBadBrace(), theme);
+
+    // Occurrence highlight (identifier under the caret) and keyword-scope match
+    // (for/next, sub/end sub, return) share the WordHighlight style — a box under
+    // the text plus TEXTFORE — so the two read identically.
+    configureMatchIndicators(kIndicOccurrenceBg, kIndicOccurrenceText);
+    configureMatchIndicators(kIndicKeywordBg, kIndicKeywordText);
+
+    // Inactive preprocessor branches recolor (TEXTFORE) to a dimmed tone — the
+    // default foreground blended halfway to the background — so #if-excluded code
+    // reads as greyed out without touching the lexer's styling.
+    const auto& dimBase = defaultEntry.colors;
+    const wxColour inactiveFg(
+        static_cast<unsigned char>((dimBase.foreground.Red() + dimBase.background.Red()) / 2),
+        static_cast<unsigned char>((dimBase.foreground.Green() + dimBase.background.Green()) / 2),
+        static_cast<unsigned char>((dimBase.foreground.Blue() + dimBase.background.Blue()) / 2)
+    );
+    IndicatorSetStyle(kIndicInactive, wxSTC_INDIC_TEXTFORE);
+    IndicatorSetForeground(kIndicInactive, inactiveFg);
 
     // separator lines
     SetEdgeColour(theme.foreground(theme.getSeparator()));
@@ -595,6 +677,13 @@ auto Editor::getWordAtCursor() -> wxString {
     return {};
 }
 
+auto Editor::utf8Text() -> std::string {
+    // Size from the buffer's own byte length — NOT GetTextLength(), which wx
+    // documents as a *character* count and would truncate multi-byte UTF-8.
+    const wxCharBuffer utf8 = GetTextRaw();
+    return { utf8.data(), utf8.length() };
+}
+
 auto Editor::findNext(const wxString& text, const int flags, const bool forward) -> bool {
     if (text.empty()) {
         return false;
@@ -746,42 +835,126 @@ void Editor::navigateToLine(const int line) {
     EnsureCaretVisible();
 }
 
-void Editor::commentSelection() {
-    const auto lineStart = LineFromPosition(GetSelectionStart());
-    const auto lineEnd = LineFromPosition(GetSelectionEnd());
+auto Editor::captureSelection() const -> SavedSelection {
+    const bool rectangular = SelectionIsRectangle();
+    const int anchor = rectangular ? GetRectangularSelectionAnchor() : GetAnchor();
+    const int caret = rectangular ? GetRectangularSelectionCaret() : GetCurrentPos();
+    return { rectangular, anchor, caret, LineFromPosition(anchor), LineFromPosition(caret) };
+}
 
+void Editor::applySelection(const SavedSelection& saved, const int newAnchor, const int newCaret) {
+    if (saved.rectangular) {
+        // SetSelection would flatten a block to a stream selection; rebuild the
+        // rectangle instead (anchor/caret carry its direction).
+        SetSelectionMode(wxSTC_SEL_RECTANGLE);
+        SetRectangularSelectionAnchor(newAnchor);
+        SetRectangularSelectionCaret(newCaret);
+    } else {
+        // SetSelection(from, to) collapses when from > to, dropping a backward
+        // selection; set the anchor and caret directly to keep the direction.
+        SetAnchor(newAnchor);
+        SetCurrentPos(newCaret);
+    }
+}
+
+void Editor::commentSelection() {
+    const auto saved = captureSelection();
+    const bool hadSelection = saved.anchor != saved.caret;
+    const auto lineStart = LineFromPosition(GetSelectionStart());
+    auto lineEnd = LineFromPosition(GetSelectionEnd());
+    // A selection ending at the very start of a line doesn't cover that line, so
+    // don't comment it (common when whole lines are selected).
+    if (lineEnd > lineStart && GetSelectionEnd() == PositionFromLine(lineEnd)) {
+        lineEnd--;
+    }
+
+    // Lock the case transformer for the duration: commenting must neither re-case
+    // keywords nor let the caret-moved handler wipe the selection (issue #113).
+    m_editorLocked = true;
     BeginUndoAction();
     for (auto line = lineStart; line <= lineEnd; line++) {
         InsertText(PositionFromLine(line), "'");
     }
     EndUndoAction();
 
-    SetSelection(PositionFromLine(lineStart), GetLineEndPosition(lineEnd));
+    // Restore the selection (direction + type preserved): shift each end by the
+    // number of commented lines starting at or before it. No selection → the
+    // caret just follows.
+    if (hadSelection) {
+        const auto shift = [lineStart, lineEnd](const int pos, const int line) {
+            return pos + (std::min(line, lineEnd) - lineStart + 1);
+        };
+        applySelection(saved, shift(saved.anchor, saved.anchorLine), shift(saved.caret, saved.caretLine));
+    }
+    m_editorLocked = false;
 }
 
 void Editor::uncommentSelection() {
+    const auto saved = captureSelection();
+    const bool hadSelection = saved.anchor != saved.caret;
     const auto lineStart = LineFromPosition(GetSelectionStart());
-    const auto lineEnd = LineFromPosition(GetSelectionEnd());
+    auto lineEnd = LineFromPosition(GetSelectionEnd());
+    // A selection ending at the very start of a line doesn't cover that line.
+    if (lineEnd > lineStart && GetSelectionEnd() == PositionFromLine(lineEnd)) {
+        lineEnd--;
+    }
 
-    BeginUndoAction();
+    // Capture each line's comment marker (absolute position + length) from the
+    // original text, so both the removal and the selection fix-up use stable
+    // positions. `len == 0` means the line isn't commented.
+    struct Marker {
+        int pos;
+        int len;
+    };
+    std::vector<Marker> markers;
+    markers.reserve(static_cast<std::size_t>(lineEnd - lineStart + 1));
     for (auto line = lineStart; line <= lineEnd; line++) {
         const auto indent = GetLineIndentation(line);
         const auto pos = PositionFromLine(line) + indent;
         const auto text = GetLine(line).Trim(false).Lower();
-
         if (text.StartsWith("rem ") || text.StartsWith("rem\t")) {
-            SetTargetStart(pos);
-            SetTargetEnd(pos + 3);
-            ReplaceTarget("");
+            markers.push_back({ pos, 3 });
         } else if (text.StartsWith("'")) {
-            SetTargetStart(pos);
-            SetTargetEnd(pos + 1);
+            markers.push_back({ pos, 1 });
+        } else {
+            markers.push_back({ pos, 0 });
+        }
+    }
+
+    // Lock the case transformer for the duration (issue #113), then remove
+    // bottom-up so the captured positions stay valid as we go.
+    m_editorLocked = true;
+    BeginUndoAction();
+    for (auto line = lineEnd; line >= lineStart; line--) {
+        const auto& marker = markers[static_cast<std::size_t>(line - lineStart)];
+        if (marker.len > 0) {
+            SetTargetStart(marker.pos);
+            SetTargetEnd(marker.pos + marker.len);
             ReplaceTarget("");
         }
     }
     EndUndoAction();
 
-    SetSelection(PositionFromLine(lineStart), GetLineEndPosition(lineEnd));
+    // Restore the selection (direction + type preserved): shift each end left by
+    // the markers removed before it, clamping if it fell inside one.
+    if (hadSelection) {
+        const auto shift = [&markers](const int pos, int /*line*/) {
+            int delta = 0;
+            for (const auto& marker : markers) {
+                if (marker.len == 0) {
+                    continue;
+                }
+                if (marker.pos + marker.len <= pos) {
+                    delta -= marker.len;
+                } else if (marker.pos < pos) {
+                    delta -= pos - marker.pos;
+                }
+            }
+            return pos + delta;
+        };
+        applySelection(saved, shift(saved.anchor, saved.anchorLine), shift(saved.caret, saved.caretLine));
+    }
+    m_editorLocked = false;
 }
 
 void Editor::onUpdateUI(wxStyledTextEvent& event) {
@@ -817,6 +990,8 @@ void Editor::onUpdateUI(wxStyledTextEvent& event) {
 void Editor::postUpdateUI() {
     updateStatusBar();
     updateBraceMatch();
+    updateOccurrenceHighlight();
+    updateKeywordMatch();
     if (m_documentManager != nullptr) {
         m_documentManager->syncEditCommands();
         // Refresh the tab's `[*]` dirty marker. Coalesced here — a bulk
@@ -835,6 +1010,146 @@ void Editor::onCharAdded(wxStyledTextEvent& event) {
     m_transformer->onCharAdded(*this, event.GetKey());
     m_editorLocked = false;
     m_insertHandled = true;
+
+    const int key = event.GetKey();
+    if ((key >= 'a' && key <= 'z') || (key >= 'A' && key <= 'Z') || (key >= '0' && key <= '9') || key == '_') {
+        maybeShowCompletion();
+    } else {
+        cancelCompletion(); // a non-identifier char ends the word being completed
+    }
+}
+
+void Editor::onContextMenu(wxContextMenuEvent& event) {
+    if (m_documentManager != nullptr) {
+        m_documentManager->showEditorContextMenu(*this, event.GetPosition());
+    } else {
+        event.Skip();
+    }
+}
+
+void Editor::maybeShowCompletion(const bool manual) {
+    if (m_docType != DocumentType::FreeBASIC || m_documentManager == nullptr) {
+        return;
+    }
+    if (!m_configManager.config().get_or("editor.codeCompletion", true)) {
+        cancelCompletion();
+        return;
+    }
+
+    const int pos = GetCurrentPos();
+    const int wordStart = WordStartPosition(pos, true);
+    if (!manual && wordStart >= pos) {
+        return; // auto-trigger needs at least one typed character
+    }
+
+    // Trigger wherever a new identifier begins, except: while typing a number,
+    // inside a string / comment, or after `.` / `->` (member access — we can't
+    // resolve the member's type). Each of those ends the identifier, so cancel.
+    if (wordStart < pos && GetCharAt(wordStart) >= '0' && GetCharAt(wordStart) <= '9') {
+        cancelCompletion();
+        return;
+    }
+    if (isCommentOrStringStyle(GetStyleAt(wordStart))) {
+        cancelCompletion();
+        return;
+    }
+    int prev = wordStart - 1;
+    while (prev >= 0 && (GetCharAt(prev) == ' ' || GetCharAt(prev) == '\t')) {
+        prev--;
+    }
+    if (prev >= 0) {
+        const auto before = GetCharAt(prev);
+        if (before == '.' || (before == '>' && prev > 0 && GetCharAt(prev - 1) == '-')) {
+            cancelCompletion();
+            return;
+        }
+    }
+
+    // Generation runs on the intellisense worker (a large symbol closure is slow
+    // on the UI thread). A manual trigger requests immediately; auto-typing is
+    // throttled so a fast typist isn't bombarded with requests/popups.
+    if (manual) {
+        sendCompletionRequest(true);
+    } else {
+        m_completionTimer.StartOnce(Constants::completionThrottle);
+    }
+}
+
+void Editor::sendCompletionRequest(const bool manual) {
+    auto* doc = m_documentManager != nullptr ? m_documentManager->findByEditor(this) : nullptr;
+    if (doc == nullptr) {
+        cancelCompletion();
+        return;
+    }
+    const int pos = GetCurrentPos();
+    const wxString prefix = GetTextRange(WordStartPosition(pos, true), pos);
+    if (!manual && prefix.empty()) {
+        // Auto-trigger with no typed word (e.g. the throttle fired after a delete)
+        // — don't request a match-everything list. Manual (Ctrl+Space) still does.
+        cancelCompletion();
+        return;
+    }
+    const int maxItems = m_configManager.config().get_or("editor.completionMaxItems", Constants::completionMaxItems);
+    m_acceptAutoCompleteList = true;
+    m_documentManager->requestCompletion(doc, pos, prefix.utf8_string(), ++m_completionSeq, maxItems);
+}
+
+void Editor::onCompletionTimer(wxTimerEvent& /*event*/) {
+    sendCompletionRequest(false);
+}
+
+void Editor::onCompletionResult(const std::size_t seq, const std::vector<wxString>& items) {
+    // Discard if superseded by a newer request, or the user moved on / stopped
+    // the identifier (the accept-flag is the primary show/discard gate).
+    if (seq != m_completionSeq || !m_acceptAutoCompleteList) {
+        return;
+    }
+    if (items.empty()) {
+        if (AutoCompActive()) {
+            AutoCompCancel();
+        }
+        return;
+    }
+
+    wxString list;
+    for (const auto& name : items) {
+        if (!list.empty()) {
+            list += ' ';
+        }
+        list += name;
+    }
+    // Re-showing an identical list resets Scintilla's own narrowing/selection and
+    // flickers, so when the popup is already up with the same items, leave it be.
+    if (AutoCompActive() && list == m_completionList) {
+        return;
+    }
+    m_completionList = std::move(list);
+
+    // The list is already prefix-filtered and capped on the worker; tell Scintilla
+    // how many characters of the current word are entered (so accepting replaces
+    // them) and (re-)show — re-showing narrows the popup live as the user types.
+    const int pos = GetCurrentPos();
+    const int lenEntered = pos - WordStartPosition(pos, true);
+    AutoCompSetIgnoreCase(true);
+    AutoCompSetCaseInsensitiveBehaviour(wxSTC_CASEINSENSITIVEBEHAVIOUR_IGNORECASE);
+    AutoCompSetOrder(wxSTC_ORDER_CUSTOM);
+    AutoCompShow(lenEntered, m_completionList);
+}
+
+void Editor::cancelCompletion() {
+    m_completionTimer.Stop();
+    m_acceptAutoCompleteList = false;
+    if (AutoCompActive()) {
+        AutoCompCancel();
+    }
+}
+
+void Editor::onAutoCompDismissed(wxStyledTextEvent& event) {
+    event.Skip();
+    // Popup closed or an item accepted — stop accepting late results. Don't
+    // AutoCompCancel here; the popup is already closing.
+    m_completionTimer.Stop();
+    m_acceptAutoCompleteList = false;
 }
 
 void Editor::onZoom(wxStyledTextEvent& /*event*/) {
@@ -858,6 +1173,189 @@ void Editor::updateBraceMatch() {
     } else {
         BraceHighlight(wxSTC_INVALID_POSITION, wxSTC_INVALID_POSITION);
     }
+}
+
+void Editor::configureMatchIndicators(const int bgIndic, const int textIndic) {
+    const auto& wordHl = m_theme.getWordHighlight();
+    IndicatorSetStyle(bgIndic, wxSTC_INDIC_STRAIGHTBOX);
+    IndicatorSetUnder(bgIndic, true);
+    IndicatorSetAlpha(bgIndic, wxSTC_ALPHA_OPAQUE);
+    IndicatorSetOutlineAlpha(bgIndic, wxSTC_ALPHA_OPAQUE);
+    if (wordHl.background.IsOk()) {
+        IndicatorSetForeground(bgIndic, wordHl.background);
+    }
+    IndicatorSetStyle(textIndic, wxSTC_INDIC_TEXTFORE);
+    if (wordHl.foreground.IsOk()) {
+        IndicatorSetForeground(textIndic, wordHl.foreground);
+    }
+}
+
+void Editor::updateOccurrenceHighlight() {
+    if (!m_configManager.config().get_or("editor.highlightOccurrences", true)
+        || m_docType != DocumentType::FreeBASIC) {
+        clearOccurrenceHighlight();
+        return;
+    }
+    // Suppressed after a text edit until the next navigation (arrow key / mouse
+    // click). Keeps typing from re-highlighting the word being edited; a styling
+    // or caret-settle tick can't lift it (only real navigation input does).
+    if (m_matchSuppressed) {
+        clearOccurrenceHighlight();
+        return;
+    }
+    const wxString word = occurrenceWordAtCaret();
+    // Caret still within the same identifier (case-insensitive, as FB is) — the
+    // existing highlights are already correct, so skip the whole-document scan.
+    if (word.IsSameAs(m_lastHighlightedWord, false)) {
+        return;
+    }
+    clearOccurrenceHighlight();
+    if (word.empty()) {
+        return;
+    }
+    fillOccurrences(word);
+    m_lastHighlightedWord = word;
+}
+
+void Editor::clearOccurrenceHighlight() {
+    if (m_lastHighlightedWord.empty()) {
+        return; // nothing of ours is painted
+    }
+    const int len = GetLength();
+    SetIndicatorCurrent(kIndicOccurrenceBg);
+    IndicatorClearRange(0, len);
+    SetIndicatorCurrent(kIndicOccurrenceText);
+    IndicatorClearRange(0, len);
+    m_lastHighlightedWord.clear();
+}
+
+void Editor::applyInactiveRanges(const std::vector<std::pair<int, int>>& ranges) {
+    SetIndicatorCurrent(kIndicInactive);
+    IndicatorClearRange(0, GetLength());
+    if (m_docType != DocumentType::FreeBASIC
+        || !m_configManager.config().get_or("editor.dimInactiveCode", true)) {
+        return;
+    }
+    const int len = GetLength();
+    for (const auto& [start, end] : ranges) {
+        const int from = std::clamp(start, 0, len);
+        const int to = std::clamp(end, 0, len);
+        if (to > from) {
+            IndicatorFillRange(from, to - from);
+        }
+    }
+}
+
+auto Editor::occurrenceWordAtCaret() -> wxString {
+    int start = 0;
+    int end = 0;
+    if (GetSelectionEmpty()) {
+        const int pos = GetCurrentPos();
+        start = WordStartPosition(pos, true);
+        end = WordEndPosition(pos, true);
+    } else {
+        // A selection highlights its matches only when it spans exactly one whole
+        // identifier; partial or multi-token selections highlight nothing.
+        start = GetSelectionStart();
+        end = GetSelectionEnd();
+        if (WordStartPosition(start, true) != start || WordEndPosition(start, true) != end) {
+            return {};
+        }
+    }
+    if (end - start < 2) {
+        return {}; // not on a word, or a single-character one
+    }
+    // Identifiers only — never keywords, comments, strings, numbers, operators.
+    const int style = GetStyleAt(start);
+    if (style != +ThemeCategory::Identifier && style != +ThemeCategory::IdentifierPP) {
+        return {};
+    }
+    return GetTextRange(start, end);
+}
+
+void Editor::fillOccurrences(const wxString& word) {
+    const auto& wordHl = m_theme.getWordHighlight();
+    const bool hasBg = wordHl.background.IsOk();
+    const bool hasFg = wordHl.foreground.IsOk();
+    if (!hasBg && !hasFg) {
+        return;
+    }
+    // Whole-word, case-insensitive — FreeBASIC identifiers are case-insensitive.
+    SetSearchFlags(wxSTC_FIND_WHOLEWORD);
+    const int len = GetLength();
+    SetTargetStart(0);
+    SetTargetEnd(len);
+    while (SearchInTarget(word) != -1) {
+        const int matchStart = GetTargetStart();
+        const int matchEnd = GetTargetEnd();
+        if (matchEnd <= matchStart) {
+            break; // defensive — never advance backwards
+        }
+        if (hasBg) {
+            SetIndicatorCurrent(kIndicOccurrenceBg);
+            IndicatorFillRange(matchStart, matchEnd - matchStart);
+        }
+        if (hasFg) {
+            SetIndicatorCurrent(kIndicOccurrenceText);
+            IndicatorFillRange(matchStart, matchEnd - matchStart);
+        }
+        SetTargetStart(matchEnd);
+        SetTargetEnd(len);
+    }
+}
+
+void Editor::updateKeywordMatch() {
+    clearKeywordMatch();
+    if (m_matchSuppressed || m_docType != DocumentType::FreeBASIC || m_documentManager == nullptr) {
+        return;
+    }
+    const auto* doc = m_documentManager->findByEditor(this);
+    if (doc == nullptr) {
+        return;
+    }
+    const auto symbols = doc->getSymbolTable();
+    if (symbols == nullptr) {
+        return;
+    }
+    const int pos = GetCurrentPos();
+    const std::vector<std::pair<int, int>>* spans = &symbols->matchBlockAt(pos);
+    if (spans->empty()) {
+        // `Return` is not a block keyword — detect it on the caret and match the
+        // enclosing procedure (opener + closer + the Return keyword itself).
+        const int start = WordStartPosition(pos, true);
+        const int end = WordEndPosition(pos, true);
+        if (end > start && isKeywordCategory(static_cast<ThemeCategory>(GetStyleAt(start)))
+            && GetTextRange(start, end).Lower() == "return") {
+            spans = &symbols->matchProcedureAt(pos, std::pair { start, end });
+        }
+    }
+    if (spans->empty()) {
+        return;
+    }
+    const auto& wordHl = m_theme.getWordHighlight();
+    const bool hasBg = wordHl.background.IsOk();
+    const bool hasFg = wordHl.foreground.IsOk();
+    for (const auto& [from, to] : *spans) {
+        if (to <= from) {
+            continue;
+        }
+        if (hasBg) {
+            SetIndicatorCurrent(kIndicKeywordBg);
+            IndicatorFillRange(from, to - from);
+        }
+        if (hasFg) {
+            SetIndicatorCurrent(kIndicKeywordText);
+            IndicatorFillRange(from, to - from);
+        }
+    }
+}
+
+void Editor::clearKeywordMatch() {
+    const int len = GetLength();
+    SetIndicatorCurrent(kIndicKeywordBg);
+    IndicatorClearRange(0, len);
+    SetIndicatorCurrent(kIndicKeywordText);
+    IndicatorClearRange(0, len);
 }
 
 void Editor::updateStatusBar() const {
@@ -905,12 +1403,25 @@ void Editor::onIntellisenseTimer(wxTimerEvent& /*event*/) {
     if (doc == nullptr) {
         return;
     }
-    m_documentManager->submitIntellisense(doc, GetText());
+    m_documentManager->submitIntellisense(doc, utf8Text());
 }
 
 void Editor::onKeyDown(wxKeyEvent& event) {
+    if (m_docType == DocumentType::FreeBASIC && event.ControlDown() && event.GetKeyCode() == WXK_SPACE) {
+        maybeShowCompletion(true);
+        return; // consume Ctrl+Space — do not insert a space
+    }
     event.Skip();
-    if (m_docType == DocumentType::FreeBASIC && event.GetKeyCode() == WXK_CONTROL) {
+    const int keycode = event.GetKeyCode();
+    if (isNavigationKey(keycode)) {
+        m_matchSuppressed = false; // navigation re-enables match highlighting
+    }
+    // Navigating away / Escape with no popup open cancels a pending completion
+    // request; when a popup IS open Scintilla handles these (AUTOCOMP_CANCELLED).
+    if (!AutoCompActive() && (isNavigationKey(keycode) || keycode == WXK_ESCAPE)) {
+        cancelCompletion();
+    }
+    if (m_docType == DocumentType::FreeBASIC && keycode == WXK_CONTROL) {
         setIncludeHotspots(true);
     }
 }
@@ -922,9 +1433,19 @@ void Editor::onKeyUp(wxKeyEvent& event) {
     }
 }
 
+void Editor::onLeftDown(wxMouseEvent& event) {
+    event.Skip();
+    m_matchSuppressed = false; // a click is navigation — re-enable match highlighting
+    cancelCompletion();        // ... and ends any pending/visible completion
+}
+
 void Editor::onKillFocus(wxFocusEvent& event) {
     event.Skip();
     setIncludeHotspots(false);
+    // Dismiss any pending/visible completion when focus leaves. Switching AUI
+    // tabs (or focusing another control) does not reliably dismiss Scintilla's
+    // popup, which would otherwise linger with no way to close it (#121).
+    cancelCompletion();
 }
 
 void Editor::setIncludeHotspots(const bool active) {
@@ -977,6 +1498,24 @@ void Editor::onModified(wxStyledTextEvent& event) {
     const auto mod = event.GetModificationType();
     if ((mod & (wxSTC_MOD_INSERTTEXT | wxSTC_MOD_DELETETEXT | wxSTC_PERFORMED_UNDO | wxSTC_PERFORMED_REDO)) == 0) {
         return;
+    }
+
+    // A genuine user edit disables match highlighting until the next navigation
+    // (arrow key / mouse click). Edits made by the on-type transformer run with
+    // `m_editorLocked` set — notably the keyword case conversion, which fires
+    // from caret moves; suppressing on those would hide the match the same
+    // navigation should reveal. So let the transform run, then match.
+    if (!m_editorLocked) {
+        m_matchSuppressed = true;
+    }
+
+    // A user edit resolves any pending external-change notification — they've
+    // chosen to keep working on their version (no-op when nothing is pending,
+    // including our own reload, which clears the pending state first).
+    if (m_documentManager != nullptr) {
+        if (auto* doc = m_documentManager->findByEditor(this)) {
+            doc->dismissExternalNotification();
+        }
     }
 
     // Change tracking runs for every document type that paints a margin

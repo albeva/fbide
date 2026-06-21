@@ -6,6 +6,8 @@
 //
 #include "App.hpp"
 #include "Context.hpp"
+#include "FileAssociations.hpp"
+#include "FileAssociationsLinux.hpp"
 #include "InstanceHandler.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
 #include "compiler/CompilerManager.hpp"
@@ -15,16 +17,27 @@
 #include "config/Version.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/FileSession.hpp"
+#include "format/FormatCommand.hpp"
 #include "ui/UIManager.hpp"
 #include "update/UpdateManager.hpp"
-#ifdef __WXMSW__
-#include <windows.h>
-#endif
+#include "utils/ConsoleOutput.hpp"
 using namespace fbide;
 
 namespace {
 
 constexpr auto kHelpText = R"(Usage: fbide [options] [files...]
+       fbide format [format-options] <file>
+
+Commands:
+  format <file>       Format <file> and write the result to stdout (default:
+                      re-indent + re-format). Format options:
+                        --reindent        re-indent lines to block depth
+                        --reformat        re-flow intra-line spacing
+                        --align-pp        anchor preprocessor directives
+                                          (only with --reindent)
+                        --apply-case      normalise keyword case
+                        --html            render as HTML instead of code
+                        -o, --output <f>  write to <f> instead of stdout
 
 Options:
   --config <path>     Use the specified config file.
@@ -44,7 +57,10 @@ Options:
                         --cfg=*                # all keys in config
                         --cfg=editor/          # all keys under editor
                         --cfg=locale:dialogs.*
-  --load-session <p>  Load the .fbs session at <p> on startup.
+  --restore-state-from <p>
+                      Restore editor state from the snapshot at <p> on startup,
+                      then delete it. Used internally to carry documents across
+                      a restart.
   --wait-for-pid <id> Block startup (before any config is loaded) until the
                       process with id <id> has exited.
   --new-window        Open a new window even if another instance is running.
@@ -53,64 +69,8 @@ Options:
   --help              Show this help and exit.
 )";
 
-#ifdef __WXMSW__
-/// Inject a synthetic Enter into the parent console's input queue. Workaround
-/// for the `/SUBSYSTEM:WINDOWS` UX wart: the shell doesn't wait for a GUI
-/// child, so it prints its next prompt immediately and our AttachConsole +
-/// WriteFile output prints on top of it. Posting Enter makes the shell consume
-/// the (empty) line and redraw a fresh prompt below our text. Skipped when
-/// stdin isn't a console (e.g. piped/redirected).
-void pokeParentConsole() {
-    const HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
-    if (hIn == nullptr || hIn == INVALID_HANDLE_VALUE) {
-        return;
-    }
-    if (GetFileType(hIn) != FILE_TYPE_CHAR) {
-        return;
-    }
-    INPUT_RECORD events[2] = {};
-    events[0].EventType = KEY_EVENT;
-    events[0].Event.KeyEvent.bKeyDown = TRUE;
-    events[0].Event.KeyEvent.wRepeatCount = 1;
-    events[0].Event.KeyEvent.wVirtualKeyCode = VK_RETURN;
-    events[0].Event.KeyEvent.uChar.AsciiChar = '\r';
-    events[1] = events[0];
-    events[1].Event.KeyEvent.bKeyDown = FALSE;
-    DWORD written = 0;
-    WriteConsoleInput(hIn, events, 2, &written);
-}
-#endif
-
-/// Write `text` followed by a newline to the host's stdout/stderr. Goes
-/// through the raw OS handle on Windows because `/SUBSYSTEM:WINDOWS` builds
-/// don't have CRT-bound streams even when the shell redirects. If no handle
-/// is attached (Explorer launch with no parent console), attach to the
-/// parent and retry, then poke an Enter so the shell redraws its prompt.
-void writeLineTo(const wxString& text, const bool toStderr) {
-    const auto utf8 = text.ToStdString(wxConvUTF8) + '\n';
-#ifdef __WXMSW__
-    const DWORD stdHandle = toStderr ? STD_ERROR_HANDLE : STD_OUTPUT_HANDLE;
-    auto write = [&](const HANDLE h) {
-        DWORD written = 0;
-        return h != nullptr && h != INVALID_HANDLE_VALUE
-            && WriteFile(h, utf8.data(), static_cast<DWORD>(utf8.size()), &written, nullptr) != 0;
-    };
-    if (write(GetStdHandle(stdHandle))) {
-        return;
-    }
-    if (AttachConsole(ATTACH_PARENT_PROCESS) != 0) {
-        write(GetStdHandle(stdHandle));
-        pokeParentConsole();
-    }
-#else
-    auto& stream = toStderr ? std::cerr : std::cout;
-    stream << utf8;
-    stream.flush();
-#endif
-}
-
-void writeLine(const wxString& text) { writeLineTo(text, /*toStderr=*/false); }
-void writeErrLine(const wxString& text) { writeLineTo(text, /*toStderr=*/true); }
+void writeLine(const wxString& text) { ConsoleOutput::writeLine(text); }
+void writeErrLine(const wxString& text) { ConsoleOutput::writeError(text); }
 
 /// Resolve the application log file path. Honours `--log-path` when set,
 /// otherwise falls back to `<user-data-dir>/logs/fbide_<version>.log` so
@@ -132,7 +92,7 @@ auto resolveLogPath(const wxString& cliLogPath) -> wxString {
 }
 
 /// True when `path` lives anywhere under the platform's temp directory.
-/// Used by the `--load-session` cleanup branch so we only delete files
+/// Used by the `--restore-state-from` cleanup branch so we only delete files
 /// FBIde itself dropped into temp space (the language-restart flow);
 /// user-supplied `.fbs` files passed on the command line stay put.
 auto isInsideTempDir(const wxString& path) -> bool {
@@ -278,6 +238,19 @@ auto App::OnInit() -> bool {
         std::exit(EXIT_SUCCESS);
     }
 
+    // `format [options] <file>`: format the file, emit, exit. Headless too.
+    if (cli.formatRequested) {
+        std::exit(FormatCommand(*m_context, FormatCommand::Options {
+                                                .reIndent = cli.formatReindent,
+                                                .reFormat = cli.formatReformat,
+                                                .alignPP = cli.formatAlignPP,
+                                                .applyCase = cli.formatApplyCase,
+                                                .html = cli.formatHtml,
+                                                .outputPath = cli.formatOutput,
+                                            })
+                .run(cli.formatInput));
+    }
+
     // Single instance: if another FBIde is running, forward files and exit
     if (!m_newWindow) {
         m_instanceHandler = std::make_unique<InstanceHandler>(*m_context);
@@ -296,23 +269,122 @@ auto App::OnInit() -> bool {
     // Build the shared FB keyword tables before any editor / Intellisense lexes.
     lexer::setFbKeywords(m_context->getConfigManager().keywords().at("groups"));
 
+#ifdef __WXOSX__
+    // Opt out of macOS automatic window tabbing — we manage our own AUI
+    // notebook, so the OS tab bar (and its "Show Tab Bar" View-menu items)
+    // is redundant. Must run before the main frame is ordered front.
+    OSXEnableAutomaticTabbing(false);
+#endif
+
     m_context->getUIManager().createMainFrame();
-    openFiles(cli.files);
-    if (!cli.loadSession.IsEmpty()) {
-        const auto isTemp = isInsideTempDir(cli.loadSession);
-        m_context->getFileSession().load(cli.loadSession, not isTemp);
-        if (isTemp) {
-            wxRemoveFile(cli.loadSession);
-        }
+#ifdef __WXMSW__
+    // Register per-user associations so .bas/.bi/.fbs show FBIde's icons and open
+    // with FBIde. ensureRegistered() self-skips on installed builds (the installer
+    // records a marker under Software\FBIde and owns the associations, honouring
+    // the user's per-type choices in the setup wizard); portable (zip) builds
+    // carry no marker and register.
+    FileAssociations::ensureRegistered();
+#elifdef __WXGTK__
+    // AppImage self-integration: publish the desktop entry, MIME types and
+    // icons into ~/.local/share so .bas/.bi/.fbs associate with FBIde.
+    FileAssociationsLinux::ensureRegistered();
+#endif
+    // First launch (no config overlay yet): try to locate a bundled or
+    // PATH fbc silently so the IDE works out of the box — installers ship
+    // fbc next to fbide.exe. Only when that finds nothing do we fall back
+    // to the interactive "compiler missing" prompt. Later launches go
+    // straight to the prompt-if-missing check.
+    auto& compilerManager = m_context->getCompilerManager();
+    const bool firstRunConfigured = configManager.isFirstRun() && compilerManager.detectCompilerOnFirstRun();
+    if (!firstRunConfigured) {
+        compilerManager.checkCompilerOnStartup();
     }
-    m_context->getCompilerManager().checkCompilerOnStartup();
+    // Wire up the bundled FreeBASIC manual when no help file is set yet — the
+    // installer ships FB-manual-*.chm next to fbide.exe. No-op when a help
+    // file is already configured. Runs every launch (cheap), independent of
+    // compiler detection.
+    compilerManager.linkBundledHelpFile();
     m_context->getUpdateManager().checkOnStartup();
+
+    // Defer opening CLI files / restoring session state until the main event
+    // loop is running. A session restore makes the File Browser tab active, and
+    // its lazily-created wxFileSystemWatcher asserts ("needs an active loop")
+    // when built during OnInit — the loop only exists once OnInit returns.
+    // CallAfter runs this on the first loop tick, after the frame is up.
+    CallAfter([this, files = cli.files, restoreStateFrom = cli.restoreStateFrom] {
+        // Probe the compiler's built-in defines once, up front (now that the loop
+        // is running), so intellisense's first parse doesn't block on it.
+        m_context->getCompilerManager().warmBuiltinDefines();
+        openFiles(files);
+        if (!restoreStateFrom.IsEmpty()) {
+            // A throwaway snapshot from a restart that had no active session: load
+            // it as a session to reopen the documents, then close the session
+            // (leaving them as loose documents) and delete the temp file.
+            auto& docManager = m_context->getDocumentManager();
+            docManager.startSession(restoreStateFrom);
+            docManager.closeSession();
+            if (isInsideTempDir(restoreStateFrom)) {
+                wxRemoveFile(restoreStateFrom);
+            }
+        }
+    });
     return true;
 }
 
 auto App::parseCli() const -> CliOptions {
     CliOptions opts;
     auto args = argv.GetArguments();
+
+    // `format [options] <file>` subcommand: headless formatter, run + exit in
+    // OnInit. Must be the first argument.
+    if (args.GetCount() >= 2 && args[1] == "format") {
+        opts.formatRequested = true;
+        for (std::size_t index = 2; index < args.GetCount(); index++) {
+            const auto& arg = args[index];
+            if (arg == "--reindent") {
+                opts.formatReindent = true;
+            } else if (arg == "--reformat") {
+                opts.formatReformat = true;
+            } else if (arg == "--align-pp") {
+                opts.formatAlignPP = true;
+            } else if (arg == "--apply-case") {
+                opts.formatApplyCase = true;
+            } else if (arg == "--html") {
+                opts.formatHtml = true;
+            } else if (arg == "-o" || arg == "--output") {
+                index += 1;
+                if (index >= args.GetCount()) {
+                    writeErrLine("fbide: format --output requires a path argument");
+                    opts.parseFailed = true;
+                    return opts;
+                }
+                opts.formatOutput = args[index];
+            } else if (arg.StartsWith("-")) {
+                writeErrLine(wxString::Format("fbide: unknown format option: %s", arg));
+                opts.parseFailed = true;
+                return opts;
+            } else if (opts.formatInput.IsEmpty()) {
+                wxFileName fileName(arg);
+                fileName.Normalize(wxPATH_NORM_ENV_VARS | wxPATH_NORM_DOTS | wxPATH_NORM_TILDE | wxPATH_NORM_ABSOLUTE);
+                opts.formatInput = fileName.GetAbsolutePath();
+            } else {
+                writeErrLine("fbide: format takes a single input file");
+                opts.parseFailed = true;
+                return opts;
+            }
+        }
+        if (opts.formatInput.IsEmpty()) {
+            writeErrLine("fbide: format requires an input file");
+            opts.parseFailed = true;
+            return opts;
+        }
+        // Default to a full reformat when no transform was requested.
+        if (!opts.formatReindent && !opts.formatReformat && !opts.formatApplyCase) {
+            opts.formatReindent = true;
+            opts.formatReformat = true;
+        }
+        return opts;
+    }
 
     for (std::size_t index = 1; index < args.GetCount(); index++) {
         const auto& arg = args[index];
@@ -372,14 +444,14 @@ auto App::parseCli() const -> CliOptions {
             }
             continue;
         }
-        if (arg == "--load-session") {
+        if (arg == "--restore-state-from") {
             index += 1;
             if (index >= args.GetCount()) {
-                writeErrLine("fbide: --load-session requires a path argument");
+                writeErrLine("fbide: --restore-state-from requires a path argument");
                 opts.parseFailed = true;
                 return opts;
             }
-            opts.loadSession = args[index];
+            opts.restoreStateFrom = args[index];
             continue;
         }
         if (arg == "--wait-for-pid") {
@@ -535,25 +607,25 @@ void App::MacOpenFiles(const wxArrayString& fileNames) {
 
 void App::scheduleRestart(std::function<void()> commitConfig) {
     CallAfter([this, commit = std::move(commitConfig)]() {
-        // Snapshot the open documents to an OS temp file. The new
-        // instance picks it up via `--load-session` and removes it on
-        // success. Using the platform temp dir (instead of the IDE
-        // resources dir) keeps the spec-compliant session lifecycle
-        // local to OS scratch space.
-        const auto sessionPath = wxFileName::CreateTempFileName("fbide_session");
-        if (!m_context->getFileSession().save(sessionPath)) {
-            // FileSession's own modified-file save loop was cancelled.
-            wxRemoveFile(sessionPath);
-            return;
+        auto& dm = m_context->getDocumentManager();
+
+        // Check for either active session, or create temporary one
+        const FileSession* session = dm.getSession();
+        const bool isTemporarySession = session == nullptr;
+        if (isTemporarySession) {
+            session = dm.startSession(wxFileName::CreateTempFileName("fbide_session"));
         }
+        const wxString sessionPath = session->getPath();
+
+        // Close session, will cause it to be saved
+        dm.closeSession();
 
         // Now ask the user to close every document. This raises the
         // standard "Save / Don't Save / Cancel" prompt for any still-
-        // modified buffer (notably untitled ones, which FileSession
+        // modified buffer (notably untitled ones, which the snapshot
         // skipped). A Cancel here aborts the restart entirely so the
-        // user keeps editing — drop the session file we just wrote.
-        if (!m_context->getDocumentManager().closeAllFiles()) {
-            wxRemoveFile(sessionPath);
+        // user keeps editing — drop the temp file we just wrote.
+        if (!dm.closeAllFiles()) {
             return;
         }
 
@@ -572,9 +644,17 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
         // verbose logging if it was on).
         const auto exe = wxStandardPaths::Get().GetExecutablePath();
         wxString cmd = wxString::Format(
-            R"("%s" --new-window --wait-for-pid %d --load-session "%s")",
-            exe, static_cast<int>(wxGetProcessId()), sessionPath
+            R"("%s" --new-window --wait-for-pid %d)",
+            exe, static_cast<int>(wxGetProcessId())
         );
+
+        // append (restore) session args
+        if (isTemporarySession) {
+            cmd += " --restore-state-from";
+        }
+        cmd += wxString::Format(R"( "%s")", sessionPath);
+
+        // reload config
         if (!m_configPath.IsEmpty()) {
             cmd += wxString::Format(R"( --config "%s")", m_configPath);
         }
@@ -587,6 +667,7 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
         if (m_verbose) {
             cmd += " --verbose";
         }
+
         wxExecute(cmd, wxEXEC_ASYNC);
 
         auto* frame = m_context->getUIManager().getMainFrame();
@@ -597,16 +678,42 @@ void App::scheduleRestart(std::function<void()> commitConfig) {
 }
 
 void App::showSplash() const {
-    if (m_context->getConfigManager().config().get_or("general.splashScreen", true)) {
-        wxImage::AddHandler(make_unowned<wxPNGHandler>());
-        const auto splashPath = m_context->getConfigManager().absolute("splash.png");
-        if (const wxBitmap bmp(splashPath, wxBITMAP_TYPE_PNG); bmp.IsOk()) {
-            make_unowned<wxSplashScreen>(
-                bmp,
-                wxSPLASH_CENTRE_ON_SCREEN | wxSPLASH_TIMEOUT,
-                1000, nullptr, wxID_ANY
-            );
-            wxYield();
-        }
+    if (not m_context->getConfigManager().config().get_or("general.splashScreen", true)) {
+        return;
     }
+
+    wxImage::AddHandler(make_unowned<wxPNGHandler>());
+    const auto splashPath = m_context->getConfigManager().absolute("splash.png");
+    wxBitmap bmp { splashPath, wxBITMAP_TYPE_PNG };
+    if (not bmp.IsOk()) {
+        return;
+    }
+
+    {
+        wxFontInfo fontInfo { 11 };
+#if wxUSE_PRIVATE_FONTS
+        // Use the bundled Arimo font (ide/) so the version looks the same
+        // regardless of installed system fonts. Unavailable on wx builds
+        // without private-font support (e.g. some wxGTK configs); there we
+        // fall back to the default face.
+        if (wxFont::AddPrivateFont(m_context->getConfigManager().absolute("Arimo.ttf"))) {
+            fontInfo.FaceName("Arimo");
+        }
+#endif
+
+        wxMemoryDC dc { bmp };
+        dc.SetFont(fontInfo);
+        dc.SetTextForeground(wxColour(210, 210, 210));
+        const auto version = Version::fbide().asString();
+        const auto extent = dc.GetTextExtent(version);
+        constexpr int margin = 10;
+        dc.DrawText(version, margin, bmp.GetHeight() - extent.GetHeight() - margin + 5);
+    }
+
+    make_unowned<wxSplashScreen>(
+        bmp,
+        wxSPLASH_CENTRE_ON_PARENT | wxSPLASH_TIMEOUT,
+        1000, nullptr, wxID_ANY
+    );
+    wxYield();
 }

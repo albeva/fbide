@@ -1,0 +1,99 @@
+//
+// FBIde editor for FreeBASIC - https://freebasic.net
+// Copyright (c) 2026 Albert Varaksin
+// Licensed under the MIT License. See LICENSE file for details.
+// https://github.com/albeva/fbide
+//
+#pragma once
+#include "pch.hpp"
+#include "ProgramTree.hpp"
+
+namespace fbide::parser {
+
+/// Stack-based tree builder driven by the scanner.
+///
+/// The scanner iterates lexer tokens and calls these methods to
+/// construct the parse tree. The builder maintains a stack of
+/// open BlockNodes and a token collection buffer.
+class TreeBuilder final {
+public:
+    /// Add a token to the collection buffer.
+    void append(const lexer::Token& token);
+
+    /// Flush buffer as a StatementNode in the current block's body.
+    void statement();
+
+    /// Flush buffer as the opener of a new BlockNode. Pushes onto stack.
+    void openBlock(bool isPP = false);
+
+    /// Close the current branch (if any), then flush buffer as the opener
+    /// of a new branch BlockNode. Branches have no closer — they are closed
+    /// implicitly by the next branch or by closeBlock().
+    void openBranch();
+
+    /// Close any open branch, then flush buffer as the closer of the
+    /// current block. Pops the block and adds it to the parent.
+    /// Code closers won't close PP blocks — emits as statement instead.
+    void closeBlock();
+
+    /// Like closeBlock but will close PP blocks. Used by PP closers (`#endif`).
+    void closePPBlock();
+
+    /// Add a BlankLineNode to the current block's body.
+    void blankLine();
+
+    /// Add a VerbatimNode wrapping `tokens` to the current block's body.
+    /// Does not touch the collection buffer, indent state, or branch state —
+    /// the region is opaque to the tree shape.
+    void verbatim(std::vector<lexer::Token> tokens);
+
+    /// Auto-close any unclosed blocks and return the root ProgramTree.
+    [[nodiscard]] auto finish() -> ProgramTree;
+
+    /// Clear per-build state, keeping vector capacities and the recycled
+    /// node / token pools, so the builder can be reused across parses.
+    void reset();
+
+    /// Recycle `old`'s BlockNodes into the free-list so the next build reuses
+    /// the allocations instead of `make_unique`-ing fresh ones. Recursive;
+    /// leaves `old` empty. Call before scanning a new token stream.
+    void reclaim(ProgramTree&& old);
+
+    /// Current stack depth (for PP boundary tracking).
+    [[nodiscard]] auto stackDepth() const -> std::size_t { return m_stack.size(); }
+
+    /// Auto-close blocks until the stack reaches the given depth.
+    /// Used when PP boundaries cut across open code blocks.
+    void closeToDepth(std::size_t depth);
+
+private:
+    /// Append a node to the current block's body (or to the root).
+    void addNode(Node node);
+    /// Pop the current branch off the stack (if any).
+    void closeBranch();
+    /// Pop the top block off the stack and attach it to its parent.
+    void popBlock();
+    /// Flush `m_collected` into a fresh `StatementNode`, clearing the buffer.
+    [[nodiscard]] auto flushTokens() -> StatementNode;
+    /// A BlockNode from the free-list (reset), or a fresh allocation when empty.
+    [[nodiscard]] auto acquireBlock() -> std::unique_ptr<BlockNode>;
+    /// Recursively salvage every BlockNode under `node` into the free-list.
+    void reclaimNode(Node& node);
+    /// Salvage a token buffer into the free-list so a later statement reuses it.
+    void recycleTokens(std::vector<lexer::Token>&& toks);
+
+    /// One frame in the open-block stack.
+    struct StackEntry {
+        std::unique_ptr<BlockNode> node; ///< Block being assembled.
+        bool isBranch = false;           ///< True when this frame is a branch (Else/Case/`#else`).
+        bool isPP = false;               ///< True when this frame is a preprocessor block.
+    };
+
+    std::vector<lexer::Token> m_collected;              ///< Token collection buffer for the current line.
+    std::vector<StackEntry> m_stack;                    ///< Open-block stack.
+    std::vector<Node> m_root;                           ///< Final root nodes once the stack drains.
+    std::vector<std::unique_ptr<BlockNode>> m_pool;     ///< Recycled BlockNode free-list (seeded by reclaim).
+    std::vector<std::vector<lexer::Token>> m_tokenPool; ///< Recycled StatementNode token buffers.
+};
+
+} // namespace fbide::parser

@@ -5,9 +5,12 @@
 // https://github.com/albeva/fbide
 //
 #include "CompilerManager.hpp"
+#include <wx/dir.h>
 #include <wx/richmsgdlg.h>
 #include "BuildTask.hpp"
 #include "CompilerConfigCatalog.hpp"
+#include "FbcAutoDetect.hpp"
+#include "FbcDefines.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/Document.hpp"
@@ -18,6 +21,7 @@
 #include "settings/SettingsDialog.hpp"
 #include "ui/CompilerLog.hpp"
 #include "ui/UIManager.hpp"
+#include "utils/PathConversions.hpp"
 using namespace fbide;
 
 CompilerManager::CompilerManager(Context& ctx)
@@ -168,6 +172,43 @@ auto CompilerManager::probeCompilerVersion(const std::filesystem::path& compiler
     return output.empty() ? wxString {} : output[0];
 }
 
+auto CompilerManager::builtinDefines(const std::filesystem::path& compilerPath) const
+    -> const std::unordered_set<std::string>& {
+    static const std::unordered_set<std::string> empty;
+
+    wxFileName path(toWxString(compilerPath));
+    path.MakeAbsolute(m_ctx.getConfigManager().getAppDir());
+    const auto resolved = path.GetFullPath();
+    if (resolved.IsEmpty() || !wxIsExecutable(resolved)) {
+        return empty;
+    }
+
+    const std::string key = resolved.utf8_string();
+    if (const auto it = m_builtinDefinesCache.find(key); it != m_builtinDefinesCache.end()) {
+        return it->second;
+    }
+
+    std::unordered_set<std::string> defines;
+    const wxFileName stub(m_ctx.getConfigManager().getIdeDir(), "fbc-defines.bas");
+    if (stub.FileExists()) {
+        const wxString stubPath = stub.GetFullPath();
+        const wxString tempObj = wxFileName::CreateTempFileName("fbide-fbdefs");
+        wxArrayString stdOut;
+        wxArrayString stdErr;
+        wxExecute("\"" + resolved + "\" -c \"" + stubPath + "\" -o \"" + tempObj + "\"", stdOut, stdErr, wxEXEC_SYNC);
+        defines = parseFbcDefines(stdOut);
+        defines.merge(parseFbcDefines(stdErr));
+        if (!tempObj.IsEmpty()) {
+            wxRemoveFile(tempObj);
+        }
+    }
+    return m_builtinDefinesCache.emplace(key, std::move(defines)).first->second;
+}
+
+void CompilerManager::warmBuiltinDefines() const {
+    std::ignore = builtinDefines(m_catalog->resolveByPinnedSlug(std::nullopt).path);
+}
+
 namespace {
 /// Open the Settings dialog at a compiler deep-link target (page +
 /// optional "<slug>/<field>").
@@ -213,7 +254,52 @@ void CompilerManager::checkCompilerOnStartup() const {
     }
 }
 
-auto CompilerManager::promptConfigure(const wxString& titleKey, const wxString& messageKey, const wxString& target) const -> bool {
+auto CompilerManager::detectCompilerOnFirstRun() -> bool {
+#ifdef __WXMSW__
+    auto& configManager = m_ctx.getConfigManager();
+    auto detected = FbcAutoDetect::detectSilently(toFsPath(configManager.getAppDir()), wxIsPlatform64Bit());
+    if (!detected.has_value()) {
+        return false;
+    }
+    // Install + persist exactly like the Settings-dialog auto-detect path:
+    // replace the [compiler] subtree wholesale, refresh the catalog/UI, and
+    // flush the config so the choice survives the next launch.
+    configManager.config()["compiler"] = std::move(*detected);
+    m_catalog->reload();
+    refreshConfigurationCombo();
+    configManager.save(ConfigManager::Category::Config);
+    return true;
+#else
+    return false;
+#endif
+}
+
+void CompilerManager::linkBundledHelpFile() const {
+#ifdef __WXMSW__
+    auto& configManager = m_ctx.getConfigManager();
+    auto& config = configManager.config();
+
+    // Respect an existing help file — only fill an empty one, never clobber
+    // a path the user already set.
+    if (!config.get_or("paths.helpFile", wxString {}).IsEmpty()) {
+        return;
+    }
+
+    // The installer drops the FreeBASIC manual next to fbide.exe, named
+    // FB-manual-<version>.chm. Match it by name alone — first one wins — and
+    // wire it up as the help file. No version probing: whatever CHM shipped
+    // with this build is the right one.
+    const wxString appDir = configManager.getAppDir();
+    wxDir dir(appDir);
+    wxString found;
+    if (dir.IsOpened() && dir.GetFirst(&found, "FB-manual-*.chm", wxDIR_FILES)) {
+        const wxFileName chm(appDir, found);
+        config["paths"]["helpFile"] = configManager.relative(chm.GetFullPath());
+    }
+#endif
+}
+
+void CompilerManager::promptConfigure(const wxString& titleKey, const wxString& messageKey, const wxString& target) const {
     wxRichMessageDialog dlg(
         m_ctx.getUIManager().getMainFrame(),
         m_ctx.tr(messageKey),
@@ -226,9 +312,7 @@ auto CompilerManager::promptConfigure(const wxString& titleKey, const wxString& 
     );
     if (dlg.ShowModal() == wxID_YES) {
         openCompilerSettings(m_ctx, target);
-        return true;
     }
-    return false;
 }
 
 void CompilerManager::promptMissingCompiler() const {
@@ -328,6 +412,10 @@ void CompilerManager::setDocumentConfiguration(Document& doc, const wxString& pi
     // the status-bar popup path the click closes the menu and nothing
     // else would otherwise push the new label.
     pushStatusBarLabel();
+    // The configuration also supplies the intellisense `#include` search dirs
+    // and preprocessor defines; re-evaluate them so the new config takes effect
+    // now, not on the next edit.
+    m_ctx.getDocumentManager().refreshIntellisenseConfig();
 }
 
 // ---------------------------------------------------------------------------
@@ -342,7 +430,8 @@ auto CompilerManager::createConfigurationCombo(wxAuiToolBar* parent) -> wxComboB
         parent, wxID_ANY, wxString {},
         wxDefaultPosition, wxSize(kWidth, -1),
         wxArrayString {}, wxCB_READONLY
-    ).get();
+    )
+                        .get();
     m_configCombo->Bind(wxEVT_COMBOBOX, [this](wxCommandEvent&) {
         onConfigurationComboSelected();
     });

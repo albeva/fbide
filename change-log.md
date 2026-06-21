@@ -1,3 +1,34 @@
+# Changes since 0.5.0-rc.6
+
+- Added a Windows installer with bundled FreeBASIC (x86).
+- Added an arm64 Windows build and an arm64 Linux AppImage.
+- Added file associations (.bas, .bi, .fbs).
+- Statistically linked the CRT into the Windows builds so they run without the VC++ redistributable.
+
+- Added auto-reload of externally modified files.
+- Added auto-refresh, context menus and a folder focus mode to the sidebar File Browser.
+- Changed sessions to stay active and auto-save on close or quit, restoring file-browser state.
+- Added a `fbide format <file>` command-line subcommand.
+- Added a new app icon, splash and distinct file icons for .bas, .bi and .fbs files.
+- Redesigned the About dialogue.
+- Fixed an operator before a `&h`/`&o`/`&b` number swallowing its prefix and mis-highlighting the number (#111).
+- Fixed source commands (Compile/Run/Format) staying disabled when FBIDE is launched by opening a file (#122).
+- Fixed Compile & Run / Quick Run on a configuration that builds no executable, now showing a clear alert (#116).
+- Fixed `_` in a `##_##` preprocessor token-paste being mis-lexed as a line continuation (#115).
+- Added opening common extensionless files (Makefile, README, LICENSE, …) from the file browser (#114).
+- Changed the Open dialogue to default to the FBIde filter (`*.bas`, `*.bi`, `*.fbs`); removed "Load Session".
+- Added native file/folder icons to the macOS file browser.
+- Fixed Comment/Uncomment changing the text selection (#113).
+- Fixed a keyword after `.`/`->` followed by a non-identifier losing its highlighting (#112).
+- Added an editor notification bar when a file fails to save.
+- Added highlighting of every occurrence of the identifier under the caret.
+- Added highlighting of matching scope keywords under the caret (For/Next, Sub/End Sub, If/Else/End If, …).
+- Added code completion as you type, including symbols from `#include`d files (Ctrl+Space).
+- Added Go to Definition / Go to Declaration, jumping across `#include`d files.
+- Added imported (`#include`d) symbols to the symbol browser, nested under each include.
+- Added preprocessor-aware intellisense — `#if` branches resolved against compiler defines; inactive code dimmed.
+- Fixed right-clicking a document tab closing it instead of showing the context menu on Linux.
+
 # Changes since 0.5.0-rc.5
 
 - Fixed status bar getting stuck on a stale compile message (#106).

@@ -6,101 +6,118 @@
 //
 #include "AboutDialog.hpp"
 #include "app/Context.hpp"
-#include "cmake/config.hpp"
 #include "config/ConfigManager.hpp"
+#include "config/Version.hpp"
 #include "document/DocumentManager.hpp"
-#include "ui/controls/BBCodeText.hpp"
-namespace XPM {
-#include "rc/fbide.xpm"
-}
+#include "markdown/MarkdownView.hpp"
+#include "ui/controls/SmartBoxSizer.hpp"
+
 using namespace fbide;
+
+wxBEGIN_EVENT_TABLE(AboutDialog, Layout)
+    EVT_CHAR_HOOK(AboutDialog::onCharHook)
+    EVT_COMMAND(wxID_ANY, fbide::markdown::MARKDOWN_LINK_CLICKED, AboutDialog::onLink)
+wxEND_EVENT_TABLE()
+
+namespace {
+// Deep navy sampled-dark from the splash artwork. The About dialog uses it
+// uniformly, independent of the system light / dark theme; text and link
+// colours are derived to stay legible on it.
+const wxColour kBrandBlue { 18, 32, 58 };
+const wxColour kBrandText { 228, 233, 245 };
+const wxColour kBrandLink { 125, 165, 255 };
+// Uniform padding around the content and the logo->text gap — one value, so the
+// outer padding and the gap match.
+constexpr int kPad = 20;
+} // namespace
 
 AboutDialog::AboutDialog(wxWindow* parent, Context& ctx)
 : Layout(
-      parent, wxID_ANY, "About",
-      wxDefaultPosition, wxSize(300, -1),
+      parent, wxID_ANY, "About FBIde",
+      wxDefaultPosition, wxDefaultSize,
       wxDEFAULT_DIALOG_STYLE
   )
 , m_ctx(ctx) {}
 
 void AboutDialog::create() {
-    const auto infoFont = wxFont(wxFontInfo(9).Family(wxFONTFAMILY_TELETYPE));
+    SetBackgroundColour(kBrandBlue);
 
-    const auto banner = make_unowned<wxStaticBitmap>(
-        currentParent(), wxID_ANY, wxBitmap(XPM::fbide_xpm),
-        wxDefaultPosition, wxSize(300, 75)
-    );
+    // The root sizer runs with no margin or gap; the content hbox below carries
+    // the uniform kPad inset and gap, so one value wraps the logo and info page.
+    static_cast<SmartBoxSizer*>(currentSizer())->setOptions({ .gap = 0, .margin = false });
 
-    add(banner);
-
-    vbox("FBIde information", { .margin = false }, [&] {
-        const auto info = label(
-            wxString::Format(
-                "Version:       %s\n"
-                "Build date:    %s\n"
-                "wxWidgets:     %d.%d.%d",
-                cmake::project.version,
-                __DATE__,
-                wxMAJOR_VERSION, wxMINOR_VERSION, wxRELEASE_NUMBER
-            ),
-            {}
+    hbox({ .proportion = 1, .margin = true, .gap = kPad }, [&] {
+        // Logo (left): logo.svg is cropped tight to the horse head, so render
+        // at its exact intrinsic size (portrait — a square would distort it).
+        // The bitmap edges are the head edges, so it places precisely; the SVG
+        // bundle still rasterises crisply at any HiDPI scale.
+        constexpr int size = 112;
+        constexpr double ratio = 177.985 / 210.777;
+        const wxSize logoSize(size, static_cast<int>(std::round(size / ratio))); // matches logo.svg's width / height
+        const auto logo = wxBitmapBundle::FromSVGFile(
+            m_ctx.getConfigManager().absolute("logo.svg"), logoSize
         );
-        info->SetFont(infoFont);
+        if (logo.IsOk()) {
+            const auto bitmap = make_unowned<wxStaticBitmap>(currentParent(), wxID_ANY, logo);
+            add(bitmap, { .proportion = 0, .expand = false });
+        }
 
-        separator();
-
-        const auto text = make_unowned<BBCodeText>(
-            currentParent(), wxID_ANY, loadReadme(),
-            wxDefaultPosition, wxSize(-1, 200)
-        );
-        add(text, { .proportion = 1 });
+        // Info page (right) — all content comes from the markdown template.
+        // No scroll style — sized to its content, so it never needs a scroll
+        // bar — plus wxBORDER_NONE so wxGTK doesn't wrap it in a sunken border.
+        const auto md = make_unowned<markdown::MarkdownView>(currentParent(), m_ctx, wxID_ANY, wxBORDER_NONE);
+        md->SetMinSize(wxSize(300, -1)); // fixed width; height follows the content
+        md->setSelectable(false);
+        md->ShowScrollbars(wxSHOW_SB_NEVER, wxSHOW_SB_NEVER);
+        md->setContentBackground(kBrandBlue);
+        md->setTextColour(kBrandText);
+        md->setLinkColour(kBrandLink);
+        md->setContentPadding(0);
+        md->setTableStyle({ .borders = false, .columnSpacing = 16, .rowSpacing = 0 });
+        md->refreshTheme();
+        md->setMarkdown(loadAbout());
+        add(md, { .proportion = 1 });
     });
 
-    // Licence links — click to open the file in the editor and close
-    // the dialog. The URL field of wxHyperlinkCtrl is unused (we
-    // bind the click ourselves), but it must be non-empty or wx
-    // refuses to construct the control on some platforms; we pass
-    // the file name as a harmless placeholder.
-    hbox({}, [&] {
-        const auto addLink = [&](const wxString& label, const wxString& file) {
-            const auto link = make_unowned<wxHyperlinkCtrl>(
-                currentParent(), wxID_ANY, label, file
-            );
-            link->Bind(wxEVT_HYPERLINK, [this, file](wxHyperlinkEvent&) {
-                const auto path = m_ctx.getConfigManager().absolute(file);
-                m_ctx.getDocumentManager().openFile(path);
-                EndModal(wxID_OK);
-            });
-            add(link);
-        };
-        addLink("License", "LICENSE");
-        addLink("Third-party licenses", "THIRD_PARTY_LICENSES.txt");
-    });
-
-    add(CreateStdDialogButtonSizer(wxOK));
+    // One fit suffices: MarkdownView reports its content height for the pinned
+    // width via DoGetBestSize, so the dialog sizes to fit with no scroll bar.
     SetSizerAndFit(currentSizer());
     Centre();
 }
 
-auto AboutDialog::loadReadme() const -> wxString {
-    const auto readmePath = m_ctx.getConfigManager().absolute("readme.txt");
+auto AboutDialog::loadAbout() const -> wxString {
+    const wxString locale = m_ctx.getConfigManager().getLocale();
+    // ide/readme.md ships with {{...}} placeholders filled here at load time, so
+    // the running binary — not a possibly-stale generated file — is the source
+    // of truth (someone may swap fbide and keep an old ide/ folder beside it).
+    const auto path = m_ctx.getConfigManager().absolute("locales/about_" + locale + ".md");
     wxString content;
-    wxFile file(readmePath);
-    if (!file.IsOpened()) {
-        return {};
+    if (wxFile file(path); file.IsOpened()) {
+        file.ReadAll(&content);
     }
-    file.ReadAll(&content);
+    content.Replace("{{version}}", Version::fbide().asString());
+    content.Replace("{{variant}}", sizeof(void*) == 8 ? "64-bit" : "32-bit");
+    content.Replace("{{buildDate}}", __DATE__);
+    content.Replace("{{wxVersion}}", Version::wxWidgets().asString());
+    content.Replace("{{wxPort}}", wxPlatformInfo::Get().GetPortIdName());
+    return content;
+}
 
-    wxString bbcode;
-    wxStringTokenizer lines(content, "\n", wxTOKEN_RET_EMPTY);
-    while (lines.HasMoreTokens()) {
-        auto line = lines.GetNextToken();
-        line.Trim();
-        if (!line.empty() && line.Last() == ':') {
-            bbcode += "[bold]" + line + "[/bold]\n";
-        } else {
-            bbcode += line + "\n";
-        }
+void AboutDialog::onLink(wxCommandEvent& event) {
+    const wxString url = event.GetString();
+    if (url.StartsWith("http://") || url.StartsWith("https://") || url.StartsWith("mailto:")) {
+        event.Skip(); // fall through to wxLaunchDefaultBrowser
+        return;
     }
-    return bbcode;
+    // A bundled file (a license) — open it in an editor tab and close the dialog.
+    m_ctx.getDocumentManager().openFile(m_ctx.getConfigManager().absolute(url));
+    EndModal(wxID_OK);
+}
+
+void AboutDialog::onCharHook(wxKeyEvent& event) {
+    if (event.GetKeyCode() == WXK_ESCAPE) {
+        EndModal(wxID_CANCEL);
+        return;
+    }
+    event.Skip();
 }

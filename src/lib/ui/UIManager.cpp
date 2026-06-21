@@ -18,12 +18,13 @@
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/DocumentPath.hpp"
+#include "document/FileSession.hpp"
 #include "editor/Editor.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "utilities/FileDropTarget.hpp"
 #ifndef __WXMSW__
 namespace XPM {
-#include "rc/appicon.xpm"
+#include "appicon.xpm"
 }
 #endif
 using namespace fbide;
@@ -65,6 +66,11 @@ void UIManager::onClose(wxCloseEvent& event) {
     // the shutdown event-drain would dereference the freed task.
     m_ctx.getCompilerManager().killProcess();
 
+    // Release the filesystem watcher now, while the event loop is still alive.
+    // It is owned via Context (destroyed only after the loop ends), and a
+    // wxFileSystemWatcher torn down after the loop faults on its event source.
+    m_ctx.getDocumentManager().shutdownWatcher();
+
     saveWindowGeometry();
     // Document tabs are gone at this point — the AUI perspective we
     // capture now reflects only persistent chrome (toolbars, sidebar,
@@ -100,7 +106,15 @@ void UIManager::saveWindowGeometry() {
 
 void UIManager::createMainFrame() {
     m_frame = make_unowned<wxFrame>(nullptr, wxID_ANY, appName);
-#ifndef __WXMSW__
+#ifdef __WXMSW__
+    // Windows: build a multi-size bundle from the "appicon" .ico embedded by
+    // app.rc so the title bar (16px) and taskbar (32px) each get a crisp frame.
+    wxIconBundle icons;
+    for (const int size : { 16, 24, 32, 48, 256 }) {
+        icons.AddIcon(wxIcon("appicon", wxBITMAP_TYPE_ICO_RESOURCE, size, size));
+    }
+    m_frame->SetIcons(icons);
+#else
     m_frame->SetIcon(wxICON(XPM::appicon));
 #endif
     m_frame->PushEventHandler(this);
@@ -256,17 +270,26 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
     if (sel == wxNOT_FOUND) {
         m_ctx.getSideBarManager().showSymbolsFor(nullptr);
         m_ctx.getCompilerManager().onActiveDocumentChanged(nullptr);
-        setTitle(wxEmptyString);
+        updateTitle();
         return;
     }
 
     const auto* page = m_notebook->GetPage(static_cast<size_t>(sel));
     auto* doc = m_ctx.getDocumentManager().findByPage(page);
     if (doc != nullptr) {
-        doc->getEditor()->SetFocus();
+        auto* editor = doc->getEditor();
+        editor->SetFocus();
+        // Apply the command-enable state for the now-active document directly.
+        // On a cold-boot open the frame isn't active yet, so SetFocus delivers no
+        // focus event and the focus-driven update never runs — Compile/Run/Format
+        // would otherwise stay disabled until the first tab switch.
+        editor->updateDocumentState();
         m_ctx.getSideBarManager().showSymbolsFor(doc);
         m_ctx.getCompilerManager().onActiveDocumentChanged(doc);
-        setTitle(doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath()));
+        updateTitle();
+        // Show any external-change bar that was deferred while this tab was
+        // in the background.
+        m_ctx.getDocumentManager().flushExternalPending(*doc);
     }
 }
 
@@ -378,6 +401,10 @@ void UIManager::configureMenuItems(wxMenu* menu, const wxString& id, const bool 
                 tool = make_unowned<wxMenuItem>(menu, entry->id, name, help, kind, submenu);
                 entry->binds.push_back(tool);
                 menu->Append(tool);
+                // Apply the entry's initial broad-enabled gate (e.g. a command
+                // declared `.enabled = false`). A fresh wxMenuItem is enabled by
+                // default, so without this such a command would start clickable.
+                tool->Enable(entry->isEnabled());
             }
 
             // traverse subfolder?
@@ -681,12 +708,35 @@ auto UIManager::freeze() -> FreezeLock {
     return FreezeLock { m_frame };
 }
 
-void UIManager::setTitle(const wxString& title) {
-    if (title.empty()) {
-        m_frame->SetTitle(appName);
-    } else {
-        m_frame->SetTitle(wxString::Format("%s - %s", appName, title));
+void UIManager::updateTitle() {
+    // "FBIde[ - <session>][ - <document>]", assembled from the live active
+    // session and the active document.
+    const auto& docManager = m_ctx.getDocumentManager();
+
+    // the session name
+    wxString sessionName;
+    if (const auto* session = docManager.getSession()) {
+        sessionName = session->getName();
     }
+
+    // active document
+    wxString docName;
+    if (const auto* doc = docManager.getActive()) {
+        docName = doc->isNew() ? doc->getTitle() : toWxString(doc->getFilePath());
+    }
+
+    wxString full = appName;
+    if (not sessionName.empty()) {
+        if (not docName.empty()) {
+            full += wxString::Format(" - <%s> %s", sessionName, docName);
+        } else {
+            full += wxString::Format(" - <%s>", sessionName);
+        }
+    } else if (not docName.empty()) {
+        full += wxString::Format(" - %s", docName);
+    }
+
+    m_frame->SetTitle(full);
 }
 
 void UIManager::disable(const std::ranges::range auto& range) const {
@@ -703,7 +753,7 @@ void UIManager::disable(const std::ranges::range auto& range) const {
         if (entry == nullptr) {
             continue;
         }
-        entry->setEnabled(!std::ranges::contains(range, menuId));
+        entry->setEnabled(std::ranges::find(range, menuId) == std::ranges::end(range));
     }
 }
 
@@ -714,9 +764,15 @@ void UIManager::updateSettings() {
     // re-applying to editors — their recolour then sees the new keywords.
     lexer::setFbKeywords(m_ctx.getConfigManager().keywords().at("groups"));
 
+    // Keyword completions are global, not per-editor — rebuild once here rather
+    // than once per editor in the loop below.
+    m_ctx.getDocumentManager().rebuildKeywordCompletions();
+
     // Reapply settings to all open editors
     for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {
         doc->updateSettings();
     }
+    // Start/stop the auto-reload watcher if its toggle changed.
+    m_ctx.getDocumentManager().refreshAutoReload();
     refreshConfigurationDisplay();
 }

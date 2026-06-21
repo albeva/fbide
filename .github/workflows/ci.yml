@@ -17,11 +17,11 @@ on:
     branches: [main]
     paths:
       - 'src/**'
-      - 'resources/pristine/**'
+      - 'resources/ide/**'
       - 'cmake/**'
       - 'CMakeLists.txt'
       - 'configured_files/**'
-      - 'packaging/**'
+      - 'resources/packaging/**'
       - '.github/workflows/ci.yml'
       - '.github/actions/setup-wx/**'
   # Manual trigger lets the workflow run on any branch and pick a build
@@ -35,38 +35,50 @@ on:
         default: Release
         type: choice
         options: [Release, Debug, RelWithDebInfo]
-      # Per-target gates for manual runs. Defaults match push-to-main
-      # (everything builds). Push events don't expose `inputs.*`, so the
-      # job-level guards fall through to true for those.
+      # Per-target gates for manual runs. Default OFF so a manual run from
+      # develop builds nothing until you tick the target(s) you want to
+      # test — a single arch instead of the whole matrix. Push-to-main is
+      # unaffected: push events don't expose `inputs.*`, so the targets
+      # step builds the full matrix regardless of these defaults.
       build_win64:
         description: Build Windows x64
         required: false
-        default: true
+        default: false
         type: boolean
       build_win32:
         description: Build Windows x86
         required: false
-        default: true
+        default: false
         type: boolean
-      build_linux_appimage:
-        description: Build Linux AppImage
+      build_winarm64:
+        description: Build Windows arm64
         required: false
-        default: true
+        default: false
+        type: boolean
+      build_linux_appimage_x86_64:
+        description: Build Linux AppImage (x86_64)
+        required: false
+        default: false
+        type: boolean
+      build_linux_appimage_aarch64:
+        description: Build Linux AppImage (arm64)
+        required: false
+        default: false
         type: boolean
       build_macos_arm64:
         description: Build macOS DMG (arm64)
         required: false
-        default: true
+        default: false
         type: boolean
       build_macos_x86_64:
         description: Build macOS DMG (x86_64)
         required: false
-        default: true
+        default: false
         type: boolean
       publish_release:
         description: Publish a GitHub Release with the built artefacts
         required: false
-        default: true
+        default: false
         type: boolean
 
 # Cancel an older run on the same ref/PR when a new one starts — saves runner
@@ -96,8 +108,8 @@ jobs:
       version: ${{ steps.resolve.outputs.value }}
       tag: ${{ steps.resolve.outputs.tag }}
       release: ${{ steps.resolve.outputs.release }}
-      win-archs: ${{ steps.targets.outputs.win-archs }}
-      build-linux-appimage: ${{ steps.targets.outputs.build-linux-appimage }}
+      win-targets: ${{ steps.targets.outputs.win-targets }}
+      linux-targets: ${{ steps.targets.outputs.linux-targets }}
       macos-targets: ${{ steps.targets.outputs.macos-targets }}
     steps:
       - name: Checkout
@@ -157,7 +169,9 @@ jobs:
         env:
           BUILD_WIN64: ${{ inputs.build_win64 }}
           BUILD_WIN32: ${{ inputs.build_win32 }}
-          BUILD_LINUX: ${{ inputs.build_linux_appimage }}
+          BUILD_WINARM64: ${{ inputs.build_winarm64 }}
+          BUILD_LINUX_X86_64: ${{ inputs.build_linux_appimage_x86_64 }}
+          BUILD_LINUX_AARCH64: ${{ inputs.build_linux_appimage_aarch64 }}
           BUILD_MACOS_ARM64: ${{ inputs.build_macos_arm64 }}
           BUILD_MACOS_X86_64: ${{ inputs.build_macos_x86_64 }}
         run: |
@@ -170,18 +184,36 @@ jobs:
           # — Rosetta is pre-installed on the hosted image).
           mac_arm='{"arch":"arm64","runner":"macos-latest"}'
           mac_x86='{"arch":"x86_64","runner":"macos-latest"}'
+          # win-targets mirrors macos/linux-targets: a JSON list of
+          # {arch, runner} objects fed into build-and-test's matrix.include.
+          # x64/x86 build on the x64 windows-latest image; arm64 builds
+          # natively on the windows-11-arm hosted runner (so ctest runs the
+          # arm64 binaries directly, no cross-compile/emulation).
+          win_x64='{"arch":"x64","runner":"windows-latest"}'
+          win_x86='{"arch":"x86","runner":"windows-latest"}'
+          win_arm='{"arch":"arm64","runner":"windows-11-arm"}'
+          # linux-targets mirrors macos-targets: a JSON list of {arch, runner}
+          # objects fed into build-linux-appimage's matrix.include. Each arch
+          # builds natively on its own hosted runner (no emulation).
+          linux_x86='{"arch":"x86_64","runner":"ubuntu-24.04"}'
+          linux_arm='{"arch":"aarch64","runner":"ubuntu-24.04-arm"}'
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then
-            echo 'win-archs=["x64","x86"]' >> "$GITHUB_OUTPUT"
-            echo 'build-linux-appimage=true' >> "$GITHUB_OUTPUT"
+            echo "win-targets=[${win_x64},${win_x86},${win_arm}]" >> "$GITHUB_OUTPUT"
+            echo "linux-targets=[${linux_x86},${linux_arm}]" >> "$GITHUB_OUTPUT"
             echo "macos-targets=[${mac_arm},${mac_x86}]" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          archs=()
-          [ "$BUILD_WIN64" = "true" ] && archs+=('"x64"')
-          [ "$BUILD_WIN32" = "true" ] && archs+=('"x86"')
+          win=()
+          [ "$BUILD_WIN64" = "true" ] && win+=("${win_x64}")
+          [ "$BUILD_WIN32" = "true" ] && win+=("${win_x86}")
+          [ "$BUILD_WINARM64" = "true" ] && win+=("${win_arm}")
           IFS=,
-          echo "win-archs=[${archs[*]}]" >> "$GITHUB_OUTPUT"
-          echo "build-linux-appimage=${BUILD_LINUX:-true}" >> "$GITHUB_OUTPUT"
+          echo "win-targets=[${win[*]}]" >> "$GITHUB_OUTPUT"
+          linux=()
+          [ "${BUILD_LINUX_X86_64:-true}" = "true" ] && linux+=("${linux_x86}")
+          [ "${BUILD_LINUX_AARCH64:-true}" = "true" ] && linux+=("${linux_arm}")
+          IFS=,
+          echo "linux-targets=[${linux[*]}]" >> "$GITHUB_OUTPUT"
           mac=()
           [ "${BUILD_MACOS_ARM64:-true}" = "true" ] && mac+=("${mac_arm}")
           [ "${BUILD_MACOS_X86_64:-true}" = "true" ] && mac+=("${mac_x86}")
@@ -191,21 +223,27 @@ jobs:
   build-and-test:
     name: build-and-test (${{ matrix.arch }})
     needs: version
-    if: needs.version.outputs.win-archs != '[]'
-    runs-on: windows-latest
-    timeout-minutes: 30
+    if: needs.version.outputs.win-targets != '[]'
+    runs-on: ${{ matrix.runner }}
+    # 45 not 30: the x86/x64 installer step downloads + solid-compresses the
+    # bundled FreeBASIC compiler on top of the build/test.
+    timeout-minutes: 45
     strategy:
-      # Run both archs to completion even if one fails — easier to see
+      # Run every arch to completion even if one fails — easier to see
       # which platform broke.
       fail-fast: false
       matrix:
-        arch: ${{ fromJSON(needs.version.outputs.win-archs) }}
+        include: ${{ fromJSON(needs.version.outputs.win-targets) }}
     permissions:
       contents: read
     # Manual runs honour the chosen build type; push-to-main defaults to
     # Release (matches what the wxWidgets dist is built for).
     env:
       BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
+      # FreeBASIC version bundled into the x86/x64 installer. Single source for
+      # the download (fetch-fbc), the cache key, and the wizard copy. Bump here
+      # (and the gcc suffix in fetch-fbc.ps1's x64 URL) to move to a newer fbc.
+      FBC_VERSION: '1.10.1'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -238,11 +276,20 @@ jobs:
       # wxWidgetsConfig.cmake under <dist>/lib/cmake/wxWidgets/. The
       # alternate path (wxWidgets_ROOT_DIR + legacy FindwxWidgets) expects
       # the prebuilt-binaries layout we don't ship from `cmake --install`.
+      #
+      # CMAKE_VS_PLATFORM_NAME (arm64 only): wxWidgetsConfig.cmake picks its
+      # arch-specific targets subdir (vc_arm64_lib) from the generator
+      # platform. Under Ninja that's unset, so it falls back to pointer size
+      # — which can't tell arm64 from x64 (both 64-bit) and guesses vc_x64_lib,
+      # missing the install. wx still reads CMAKE_VS_PLATFORM_NAME, so feeding
+      # it the arch restores the right subdir. x64/x86 already resolve
+      # correctly via the pointer-size fallback, so they pass nothing.
       - name: Configure
         run: >
           cmake -G Ninja -B build/ci
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
           -DBUILD_TESTING=ON
+          ${{ matrix.arch == 'arm64' && '-DCMAKE_VS_PLATFORM_NAME=arm64' || '' }}
           -DWXWIN=${{ steps.wx.outputs.wx-root }}
 
       # Build everything (fbide.exe + tests). The release packaging step
@@ -251,16 +298,20 @@ jobs:
       - name: Build
         run: cmake --build build/ci
 
+      # GUI tests carry the `gui` label and are Windows-targeted, so x64/x86
+      # run the full suite. The windows-11-arm hosted runner has no
+      # interactive desktop session to drive them, so skip the label there —
+      # same treatment the Linux/macOS jobs give their GUI suites.
       - name: Test
         working-directory: build/ci
-        run: ctest --output-on-failure
+        run: ctest --output-on-failure ${{ matrix.arch == 'arm64' && '-LE gui' || '' }}
 
       # ---------- Release artefact (push to main, all archs) ----------
       # Each matrix instance produces its own zip; the release job
       # downloads and attaches both to a single GitHub Release.
 
       - name: Stage install payload
-        if: needs.version.outputs.release == 'true'
+        if: needs.version.outputs.release == 'true' || github.event_name == 'workflow_dispatch'
         run: cmake --install build/ci --prefix package
 
       # The READONLY sentinel marks a bundled ide/ directory as immutable, so
@@ -268,27 +319,66 @@ jobs:
       # run in-place from a writable folder and edit ide/ directly — strip the
       # sentinel here. It belongs only in the AppImage distribution.
       - name: Strip READONLY sentinel from Windows payload
-        if: needs.version.outputs.release == 'true'
+        if: needs.version.outputs.release == 'true' || github.event_name == 'workflow_dispatch'
         shell: pwsh
         run: Remove-Item -Force -Path package/ide/READONLY
 
       - name: Zip release artefact
-        if: needs.version.outputs.release == 'true'
+        if: needs.version.outputs.release == 'true' || github.event_name == 'workflow_dispatch'
         shell: pwsh
         run: |
           $version = "${{ needs.version.outputs.version }}"
-          $arch = "${{ matrix.arch == 'x64' && '64' || '32' }}"
+          $arch = @{ 'x64' = '64'; 'x86' = '32'; 'arm64' = 'arm64' }['${{ matrix.arch }}']
           $zip = "fbide-$version-win$arch.zip"
           Compress-Archive -Path package\* -DestinationPath $zip -Force
           "RELEASE_ZIP=$zip" | Out-File -Append $env:GITHUB_ENV
 
-      - name: Upload release artefact
-        if: needs.version.outputs.release == 'true'
+      - name: Upload build artefact
+        if: needs.version.outputs.release == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.arch }}
           path: ${{ env.RELEASE_ZIP }}
-          retention-days: 1
+          retention-days: 7
+          if-no-files-found: error
+
+      # ---------- Windows installer (x86/x64 only) ----------
+      # ARM64 ships as a portable zip only. The installer bundles the
+      # FreeBASIC compiler and (via build-installer.ps1's own staging) keeps
+      # the READONLY sentinel in ide\ so an installed copy mirrors resources
+      # to the user data dir — unlike the relocatable zip above, which strips
+      # it. build-installer.ps1 re-stages independently, so it is unaffected
+      # by the READONLY strip done for the zip.
+
+      - name: Cache FreeBASIC compiler
+        if: matrix.arch != 'arm64' && (needs.version.outputs.release == 'true' || github.event_name == 'workflow_dispatch')
+        uses: actions/cache@v4
+        with:
+          path: fbc-download
+          key: fbc-${{ matrix.arch }}-${{ env.FBC_VERSION }}
+
+      - name: Build Windows installer
+        if: matrix.arch != 'arm64' && (needs.version.outputs.release == 'true' || github.event_name == 'workflow_dispatch')
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          resources/packaging/windows/fetch-fbc.ps1 -Arch ${{ matrix.arch }} -Version ${{ env.FBC_VERSION }} -DestDir fbc-stage -CacheDir fbc-download
+          resources/packaging/windows/build-installer.ps1 `
+            -BuildDir build/ci -Arch ${{ matrix.arch }} `
+            -Version ${{ needs.version.outputs.version }} `
+            -FbcDir fbc-stage -FbcVersion ${{ env.FBC_VERSION }} -OutputDir installer-out
+          $bits = if ('${{ matrix.arch }}' -eq 'x64') { '64' } else { '32' }
+          $setup = "installer-out/fbide-${{ needs.version.outputs.version }}-win$bits-setup.exe"
+          if (-not (Test-Path $setup)) { throw "Installer not found: $setup" }
+          "RELEASE_SETUP=$setup" | Out-File -Append $env:GITHUB_ENV
+
+      - name: Upload installer artefact
+        if: matrix.arch != 'arm64' && (needs.version.outputs.release == 'true' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-installer-${{ matrix.arch }}
+          path: ${{ env.RELEASE_SETUP }}
+          retention-days: 7
           if-no-files-found: error
 
   # ----------------------------------------------------------------------------
@@ -296,17 +386,22 @@ jobs:
   # the Windows zips. Builds wxGTK3 via the shared setup-wx action (Linux
   # branch), compiles FBIde with -DBUILD_APPIMAGE=ON so the install layout
   # follows FHS, then assembles an AppDir and runs linuxdeploy to produce a
-  # self-contained AppImage. Built on the latest Ubuntu LTS — glibc on the
-  # runner sets the lower-bound for systems the AppImage will run on.
+  # self-contained AppImage. One AppImage per arch, each built natively on the
+  # matching Ubuntu LTS runner (x86_64 + arm64 hosted runners — no emulation);
+  # the runner's glibc sets the lower-bound for systems the AppImage runs on.
   # ----------------------------------------------------------------------------
   build-linux-appimage:
-    name: build-linux-appimage
+    name: build-linux-appimage (${{ matrix.arch }})
     needs: version
-    if: needs.version.outputs.build-linux-appimage == 'true'
-    runs-on: ubuntu-24.04
+    if: needs.version.outputs.linux-targets != '[]'
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.version.outputs.linux-targets) }}
     env:
       BUILD_TYPE: ${{ inputs.build_type || 'Release' }}
     steps:
@@ -335,6 +430,11 @@ jobs:
         with:
           wx-ref: v3.3.2
           build-type: ${{ env.BUILD_TYPE }}
+          # Partition the wx cache by arch — the x86_64 and aarch64 AppImage
+          # jobs run on separate runners and must not share a cache, or one
+          # restores the other's wx dist (with the wrong /usr/lib/<triplet>
+          # absolute lib paths baked into its CMake link interface).
+          arch: ${{ matrix.arch }}
 
       # WXWIN switches cmake/wxwidgets.cmake to CONFIG mode (matches the
       # Windows path) and finds wxWidgetsConfig.cmake under the cached
@@ -365,56 +465,43 @@ jobs:
           APPDIR="${GITHUB_WORKSPACE}/AppDir"
           rm -rf "${APPDIR}"
           cmake --install build/ci --prefix "${APPDIR}/usr"
-
-          # Convert the Windows .ico to PNG for the desktop icon. Pick the
-          # largest frame the .ico contains so HiDPI scaling has source
-          # data; ImageMagick chooses by area.
-          mkdir -p "${APPDIR}/usr/share/icons/hicolor/256x256/apps"
-          convert "src/lib/rc/fbide.ico[0]" -resize 256x256 \
-            "${APPDIR}/usr/share/icons/hicolor/256x256/apps/fbide.png"
-
-          # Top-level icon + .desktop are what AppRun grep's against and
-          # what AppImage tooling expects at the AppDir root.
-          cp "${APPDIR}/usr/share/icons/hicolor/256x256/apps/fbide.png" "${APPDIR}/fbide.png"
-
-          install -Dm644 packaging/linux/fbide.desktop \
-            "${APPDIR}/usr/share/applications/fbide.desktop"
-          cp packaging/linux/fbide.desktop "${APPDIR}/fbide.desktop"
-
-          # AppStream MetaInfo. The component id (reverse-DNS) doubles as
-          # the file's basename — software centres key off the path, so
-          # the leaf must match the <id> inside the XML.
-          install -Dm644 packaging/linux/fbide.metainfo.xml \
-            "${APPDIR}/usr/share/metainfo/io.github.albeva.fbide.metainfo.xml"
-
-          install -Dm755 packaging/linux/AppRun "${APPDIR}/AppRun"
+          # App + document icons, .desktop, MIME definitions and metainfo.
+          resources/packaging/linux/stage-appdir.sh "${APPDIR}" "${GITHUB_WORKSPACE}"
 
       - name: Download linuxdeploy
         run: |
           set -eux
           curl -fL -o linuxdeploy \
-            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${{ matrix.arch }}.AppImage
           curl -fL -o linuxdeploy-plugin-gtk \
             https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh
           chmod +x linuxdeploy linuxdeploy-plugin-gtk
 
       - name: Build AppImage
         env:
-          LDAI_OUTPUT: fbide-${{ needs.version.outputs.version }}-x86_64.AppImage
+          LDAI_OUTPUT: fbide-${{ needs.version.outputs.version }}-${{ matrix.arch }}.AppImage
+          # Pin the target arch so linuxdeploy's appimage plugin picks the
+          # matching runtime instead of relying on auto-detection.
+          ARCH: ${{ matrix.arch }}
         run: |
           set -eux
           export PATH="${GITHUB_WORKSPACE}:${PATH}"
-          ./linuxdeploy --appdir AppDir --plugin gtk --output appimage
+          # Pass the 256px icon explicitly so linuxdeploy makes .DirIcon (the
+          # AppImage's own icon, used by thumbnailers / AppImageLauncher) crisp.
+          # Auto-discovery otherwise picks a small hicolor size (64px).
+          ./linuxdeploy --appdir AppDir \
+            --icon-file resources/images/fbide/256.png --icon-filename fbide \
+            --plugin gtk --output appimage
           test -f "${LDAI_OUTPUT}"
           echo "RELEASE_APPIMAGE=${LDAI_OUTPUT}" >> "$GITHUB_ENV"
 
-      - name: Upload release artefact
-        if: needs.version.outputs.release == 'true'
+      - name: Upload build artefact
+        if: needs.version.outputs.release == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
-          name: release-linux-appimage
+          name: release-linux-appimage-${{ matrix.arch }}
           path: ${{ env.RELEASE_APPIMAGE }}
-          retention-days: 1
+          retention-days: 7
           if-no-files-found: error
 
   # ----------------------------------------------------------------------------
@@ -521,21 +608,21 @@ jobs:
         run: codesign --force --deep --sign - bin/fbide.app
 
       - name: Build DMG
-        if: needs.version.outputs.release == 'true'
+        if: needs.version.outputs.release == 'true' || github.event_name == 'workflow_dispatch'
         env:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           set -eux
-          dmg="$(packaging/macos/build-dmg.sh bin/fbide.app "${VERSION}" "${{ matrix.arch }}" .)"
+          dmg="$(resources/packaging/macos/build-dmg.sh bin/fbide.app "${VERSION}" "${{ matrix.arch }}" .)"
           echo "RELEASE_DMG=$(basename "${dmg}")" >> "$GITHUB_ENV"
 
-      - name: Upload release artefact
-        if: needs.version.outputs.release == 'true'
+      - name: Upload build artefact
+        if: needs.version.outputs.release == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
           name: release-macos-${{ matrix.arch }}
           path: ${{ env.RELEASE_DMG }}
-          retention-days: 1
+          retention-days: 7
           if-no-files-found: error
 
   release:
@@ -580,8 +667,10 @@ jobs:
           body: |
             ## Downloads
 
-            - **Windows**: `fbide-<version>-win64.zip` (or `win32`). Portable — unzip anywhere and run `fbide.exe`.
-            - **Linux**: `fbide-<version>-x86_64.AppImage`. `chmod +x` and run.
+            - **Windows**:
+              - Installer (recommended, Intel/AMD): `fbide-<version>-win64-setup.exe` (64-bit) or `win32-setup.exe` (32-bit). Bundles the FreeBASIC compiler and registers file associations.
+              - Portable: `fbide-<version>-win64.zip` (Intel/AMD 64-bit), `win32` (32-bit) or `winarm64` (ARM64). Unzip anywhere and run `fbide.exe`. ARM64 is portable-only.
+            - **Linux**: `fbide-<version>-x86_64.AppImage` (Intel/AMD) or `fbide-<version>-aarch64.AppImage` (ARM64). `chmod +x` and run.
             - **macOS**:
               - Apple Silicon → `fbide-<version>-macos-arm64.dmg`
               - Intel → `fbide-<version>-macos-x86_64.dmg`
@@ -605,5 +694,6 @@ jobs:
             without warnings.
           files: |
             artefacts/*.zip
+            artefacts/*-setup.exe
             artefacts/*.AppImage
             artefacts/*.dmg

@@ -14,6 +14,9 @@ namespace fbide {
 class Context;
 class CodeTransformer;
 class IntellisenseService;
+class DocumentWatcher;
+class Editor;
+class FileSession;
 
 /**
  * Owns every open `Document`, drives the open / save / close
@@ -65,6 +68,11 @@ public:
     /// Returns the opened document, or nullptr if the file cannot be found.
     auto openInclude(const Document& origin, const wxString& includePath) -> Document*;
 
+    /// Build and show the editor's right-click context menu (standard edit
+    /// actions plus Go to Definition / Declaration for the symbol under the
+    /// click). Delegated here from `Editor` for command + navigation context.
+    void showEditorContextMenu(Editor& editor, const wxPoint& screenPos);
+
     /// Show open file dialog and open selected files.
     void openFile();
 
@@ -99,11 +107,36 @@ public:
     /// Submit a snapshot for background intellisense parsing. Latest-wins:
     /// any pending submission for any document is replaced. Result lands
     /// asynchronously via EVT_INTELLISENSE_RESULT.
-    void submitIntellisense(Document* doc, wxString content);
+    void submitIntellisense(Document* doc, std::string content);
 
-    /// Cancel any pending or in-flight intellisense work for `doc`. Called
-    /// from `closeFile` before erasing the document.
-    void cancelIntellisense(const Document* doc);
+    /// Request worker-generated completion candidates for `doc` at caret byte
+    /// offset `pos`, filtered by `prefix` and capped at `maxItems`. The result
+    /// arrives via EVT_INTELLISENSE_COMPLETION and is routed to `doc`'s editor.
+    void requestCompletion(Document* doc, int pos, std::string prefix, std::size_t seq, int maxItems);
+
+    /// Rebuild the keyword completion list from the current settings and push it
+    /// to the intellisense worker (the lowest-priority completion bucket). The
+    /// keyword groups are global, not per-editor, so this runs once at startup and
+    /// once per settings change — not per open editor. Redundant pushes (groups
+    /// unchanged) are skipped.
+    void rebuildKeywordCompletions();
+
+    /// Remove `doc` from the intellisense include graph (collecting orphaned
+    /// includes). Called from `closeFile` before erasing the document.
+    void closeDocumentIntellisense(const Document* doc);
+
+    /// Re-read and re-parse a tracked `#include` file that changed on disk while
+    /// not open in a tab. Called by `DocumentWatcher`.
+    void reparseInclude(const std::filesystem::path& path);
+
+    /// Recompute the intellisense per-configuration inputs from every open
+    /// FreeBASIC document: the `#include` search dirs (the union of each config's
+    /// `-i` dirs — relative ones anchored to the document's folder — plus the
+    /// compiler's stock `inc/`) and the preprocessor define set (each compiler's
+    /// built-in `__FB_*` macros plus `-d` command-line defines). Each is pushed to
+    /// the worker only when it changes, re-resolving / re-parsing all open
+    /// documents. Call after a compiler-configuration change.
+    void refreshIntellisenseConfig();
 
     /// Handle quit request. Prompts for unsaved docs. Returns true if safe to quit.
     /// If user chooses to save, saves all then returns true.
@@ -119,6 +152,64 @@ public:
     /// pipeline as initial open. Prompts the user when the document has
     /// unsaved changes (cancel preserves the buffer).
     void reloadFromDisk(Document& doc);
+
+    /// Reload a document's buffer from disk unconditionally (no prompt),
+    /// preserving the caret + scroll position. Used by the silent
+    /// auto-reload path and the conflict info bar's Reload action.
+    /// When `keepUndo` is true the replacement is recorded as a single
+    /// undoable step (instead of clearing undo history) so the user can undo
+    /// the reload and get their discarded changes back.
+    void applyReload(Document& doc, bool keepUndo = false);
+
+    /// Re-read the `editor.autoReload` setting and start/stop the watcher.
+    /// Called from the settings-apply path.
+    void refreshAutoReload();
+
+    /// Release the external-file watcher. Call on frame close, while the event
+    /// loop is still alive — the watcher is owned via Context and would
+    /// otherwise be destroyed after the loop ends (which faults).
+    void shutdownWatcher();
+
+    /// Surface a document's deferred external-change bar now that it is the
+    /// active tab. No-op when nothing is pending.
+    void flushExternalPending(Document& doc);
+
+    /// React to a rename performed inside the IDE (e.g. the file browser):
+    /// re-point any open document at `oldPath` — or under it when a directory
+    /// was renamed — to its new location, keeping the watcher and tab in sync.
+    void handleExternalRename(const std::filesystem::path& oldPath, const std::filesystem::path& newPath);
+
+    /// React to a delete performed inside the IDE: close any open document at
+    /// `path`, or under it when a directory was deleted.
+    void handleExternalDelete(const std::filesystem::path& path);
+
+    // -----------------------------------------------------------------------
+    // Sessions — one active session at a time, owned here. The active session
+    // is auto-updated (open documents written back) on close and on quit.
+    // -----------------------------------------------------------------------
+
+    /// True while a session is active.
+    [[nodiscard]] auto hasSession() const -> bool { return m_session != nullptr; }
+
+    /// Get session pointer, if one exists
+    [[nodiscard]] auto getSession() const -> FileSession* { return m_session.get(); }
+
+    /// New Session: prompt for a `.fbs` path and activate a session there from
+    /// the open documents (replacing any previous one). The file is written when
+    /// the session is closed or the app quits.
+    void newSession();
+    /// Close Session: save the active session and deactivate it, leaving the
+    /// open documents untouched. No-op when no session is active.
+    void closeSession();
+    /// Start a session bound to `path` (dropping any previous one, which saves
+    /// it): constructs a FileSession and loads it — opening the session's
+    /// documents when the file exists. Used by New/Load Session and the restart
+    /// handoff. Returns the now-active session.
+    auto startSession(const wxString& path) -> FileSession*;
+
+    /// Refresh just a document's tab text (e.g. its `[*]` dirty marker),
+    /// without touching the window title — safe for a non-active document.
+    void refreshTabTitle(const Document& doc) const;
 
     /// Get currently active document (selected tab), or nullptr if none.
     [[nodiscard]] auto getActive() const -> Document*;
@@ -183,6 +274,13 @@ private:
     /// Update notebook tab title for a document.
     void updateTabTitle(const Document& doc) const;
 
+    /// Reflect the current session (`m_session`) in the chrome: refresh the
+    /// window title (it embeds the session name) and the Close-Session command's
+    /// enabled state. Call after every change to `m_session` — the session
+    /// object itself does not touch the UI (the CommandManager outlives it only
+    /// during normal operation, not at shutdown).
+    void syncSessionUi();
+
     /// Get the notebook from UIManager.
     [[nodiscard]] auto getNotebook() const -> wxAuiNotebook*;
 
@@ -205,10 +303,24 @@ private:
     void onFindDialogClose(wxFindDialogEvent& event);
 
     /// Tab-strip context menu — show actions for the right-clicked tab.
-    void onTabRightDown(wxAuiNotebookEvent& event);
+    void onTabRightUp(wxAuiNotebookEvent& event);
+    /// Build and pop up the tab context menu for the page at `pageIdx`.
+    void popupTabContextMenu(int pageIdx);
 
     /// Intellisense result delivery (worker thread → UI thread).
     void onIntellisenseResult(wxThreadEvent& event);
+
+    /// Completion-candidate delivery (worker thread → UI thread); routes to the
+    /// owning document's editor, which decides whether to show the popup.
+    void onIntellisenseCompletion(wxThreadEvent& event);
+
+    /// Tracked closed-include set delivery (worker thread → UI thread);
+    /// reconciles the document watcher's include watches.
+    void onIntellisenseTrackedFiles(wxThreadEvent& event);
+
+    /// Open `path` (or the active document when empty) and move the caret to
+    /// `line` — the navigation target of Go to Definition / Declaration.
+    void goToLocation(const std::filesystem::path& path, int line);
 
     Context& m_ctx;                                     ///< Application context.
     wxFindReplaceData m_findData { wxFR_DOWN };         ///< Find/replace dialog state.
@@ -218,6 +330,22 @@ private:
     /// Declared last so destruction runs first — worker thread stops and
     /// joins before the documents and transformer it might race with go away.
     std::unique_ptr<IntellisenseService> m_intellisense;
+    /// External-file watcher (auto-reload). Declared after `m_intellisense`
+    /// so it tears down first — it stops watching before the documents its
+    /// callbacks touch are destroyed.
+    std::unique_ptr<DocumentWatcher> m_watcher;
+    std::vector<std::filesystem::path> m_includeSearchDirs; ///< Last include search dirs pushed to intellisense.
+    std::unordered_set<std::string> m_intellisenseDefines;  ///< Last define set pushed to intellisense.
+    /// Signature of the inputs the last `refreshIntellisenseConfig` derived from;
+    /// lets the per-edit submit path skip re-deriving when nothing changed.
+    std::optional<std::string> m_intellisenseConfigSig;
+    std::vector<wxString> m_pushedKeywords; ///< Last keyword set pushed to the worker; skips redundant pushes.
+
+    /// The active session, or null when none. Owns the `.fbs` lifetime:
+    /// constructing it activates a session, resetting it writes the open
+    /// documents back (its destructor saves). Declared after `m_documents` so
+    /// it is destroyed first — its save can still enumerate the documents.
+    std::unique_ptr<FileSession> m_session;
 
     wxDECLARE_EVENT_TABLE();
 };

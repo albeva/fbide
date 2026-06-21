@@ -10,7 +10,6 @@
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
 #include "document/DocumentManager.hpp"
-#include "document/FileSession.hpp"
 #include "help/HelpManager.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
@@ -24,7 +23,6 @@ Context::Context(App& app, const wxString& binaryPath, const wxString& idePath, 
 , m_uiManager(std::make_unique<UIManager>(*this))
 , m_sideBarManager(std::make_unique<SideBarManager>(*this))
 , m_documentManager(std::make_unique<DocumentManager>(*this))
-, m_fileSession(std::make_unique<FileSession>(*this))
 , m_compilerManager(std::make_unique<CompilerManager>(*this))
 , m_helpManager(std::make_unique<HelpManager>(*this))
 , m_updateManager(std::make_unique<UpdateManager>(*this))

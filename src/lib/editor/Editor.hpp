@@ -72,6 +72,10 @@ public:
     /// Get word under the cursor, or selected text if any.
     [[nodiscard]] auto getWordAtCursor() -> wxString;
 
+    /// The whole document as an owned UTF-8 byte string, copied straight from
+    /// Scintilla's buffer (already UTF-8) — no wxString decode/re-encode.
+    [[nodiscard]] auto utf8Text() -> std::string;
+
     /// Find next occurrence of text. Returns true if found.
     auto findNext(const wxString& text, int flags, bool forward = true) -> bool;
 
@@ -96,9 +100,9 @@ public:
     /// Update the statusbar with current cursor position.
     void updateStatusBar() const;
 
-    /// Push the focused-document UI state (Compile/Run menu enables, etc.)
-    /// based on the current document type. Called on focus and whenever
-    /// the type changes mid-session.
+    /// Push the active-document UI state (Compile/Run menu enables, etc.) based
+    /// on the current document type. Called on focus, when this document becomes
+    /// the active tab, and whenever the type changes mid-session.
     void updateDocumentState() const;
 
     /// Enable / disable code transforms (e.g. during loading)
@@ -109,6 +113,16 @@ public:
     /// drive. Reapplied from `applySettings` so theme changes pick up.
     void defineChangesMargin();
 
+    /// Recolor the preprocessor-inactive source ranges (byte [start, end) from
+    /// the document's SymbolTable) to a dimmed tone — called when a fresh parse
+    /// is delivered. Clears the dim when `ranges` is empty or the feature is off.
+    void applyInactiveRanges(const std::vector<std::pair<int, int>>& ranges);
+
+    /// Worker-generated completion candidates arrived (routed by DocumentManager).
+    /// Shown only if still wanted (`m_acceptAutoCompleteList`) and current (`seq`);
+    /// otherwise discarded. Narrows the open popup as the user keeps typing.
+    void onCompletionResult(std::size_t seq, const std::vector<wxString>& items);
+
     /// Scintilla marker numbers used by the change-tracking margin.
     /// Public so tests (and any future overlay) can query a line's
     /// state via `MarkerGet(line) & (1 << kAddedMarker)`.
@@ -116,6 +130,22 @@ public:
     static constexpr int kModifiedMarker = 1;
 
 private:
+    /// Selection captured before a line-prefix edit (comment/uncomment) so it
+    /// can be restored afterwards, preserving direction (anchor vs caret) and
+    /// type (stream vs rectangular block).
+    struct SavedSelection {
+        bool rectangular;
+        int anchor;
+        int caret;
+        int anchorLine;
+        int caretLine;
+    };
+    /// Snapshot the current selection.
+    [[nodiscard]] auto captureSelection() const -> SavedSelection;
+    /// Re-apply a snapshot with already-shifted endpoints, keeping its type and
+    /// direction.
+    void applySelection(const SavedSelection& saved, int newAnchor, int newCaret);
+
     /// Margin click — toggle folds on the fold margin.
     void onMarginClick(wxStyledTextEvent& event);
     /// Buffer modified — restart intellisense timer; route bulk inserts;
@@ -138,12 +168,51 @@ private:
     void onUpdateUI(wxStyledTextEvent& event);
     /// Deferred follow-up after `onUpdateUI` — runs once per UI tick.
     void postUpdateUI();
+    /// Highlight every occurrence of the identifier under the caret — only when
+    /// the selection is empty, the caret sits inside an identifier (not a keyword),
+    /// and the tick was a caret move rather than a typing edit. From `postUpdateUI`.
+    void updateOccurrenceHighlight();
+    /// Remove both occurrence-highlight indicators and reset the cache.
+    void clearOccurrenceHighlight();
+    /// Identifier eligible for occurrence highlight — the word under the caret, or
+    /// the selection when it spans exactly one identifier. Empty on a keyword, a
+    /// partial/multi-token selection, or a word shorter than two characters.
+    auto occurrenceWordAtCaret() -> wxString;
+    /// Paint both occurrence indicators over every whole-word match of `word`.
+    void fillOccurrences(const wxString& word);
+    /// Highlight the matching opener/closer keyword when the caret is on a
+    /// block keyword (for/next, sub/end sub, ...), or the enclosing procedure
+    /// when the caret is on `Return`. Reads the document's SymbolTable scope tree.
+    void updateKeywordMatch();
+    /// Remove the keyword-match indicator.
+    void clearKeywordMatch();
+    /// Configure an indicator pair (background box + TEXTFORE) with the
+    /// WordHighlight style. Shared by the occurrence and keyword-match
+    /// highlights so they render identically.
+    void configureMatchIndicators(int bgIndic, int textIndic);
     /// Coalesced transformer pass for a burst of text inserts — see `onModified`.
     void flushPendingInsert();
     /// Zoom event — bump the line-number margin width.
     void onZoom(wxStyledTextEvent& event);
     /// Single-char insert — drives `CodeTransformer` on-type pipeline.
     void onCharAdded(wxStyledTextEvent& event);
+    /// Right-click / context-menu key — delegated to the document manager,
+    /// which has the command and navigation context (Go to Definition/Declaration).
+    void onContextMenu(wxContextMenuEvent& event);
+    /// Show the symbol/keyword completion popup as a new identifier is typed
+    /// (not after `.`/`->`). `manual` (Ctrl+Space) shows even with no partial word.
+    void maybeShowCompletion(bool manual = false);
+    /// Send a completion request to the worker for the word at the caret (sets the
+    /// accept-flag + a fresh seq). `manual` (Ctrl+Space) requests even with an empty
+    /// word; an auto request with no typed word is suppressed. From the timer/manual.
+    void sendCompletionRequest(bool manual);
+    /// Throttle fire — send the pending completion request.
+    void onCompletionTimer(wxTimerEvent& event);
+    /// Stop any pending/visible completion: cancel the timer, clear the accept-flag,
+    /// and dismiss the popup. Called when the user navigates away or stops the word.
+    void cancelCompletion();
+    /// Scintilla autocomplete popup dismissed/accepted — clear the accept-flag.
+    void onAutoCompDismissed(wxStyledTextEvent& event);
     /// Editor gained focus — refresh edit-command masks.
     void onFocus(wxFocusEvent& event);
     /// Intellisense timer fire — submit current text to the worker.
@@ -154,6 +223,9 @@ private:
     void onKeyDown(wxKeyEvent& event);
     /// Key up — toggle hotspot styling off when Ctrl is released.
     void onKeyUp(wxKeyEvent& event);
+    /// Mouse click — counts as navigation, so it re-enables occurrence
+    /// highlighting after it was suppressed by typing.
+    void onLeftDown(wxMouseEvent& event);
     /// Editor lost focus — clear hotspot styling so it doesn't linger.
     void onKillFocus(wxFocusEvent& event);
     /// Toggle Scintilla hotspot style on Preprocessor styles.
@@ -210,6 +282,11 @@ private:
     bool m_includeHotspotsActive = false; ///< True when Ctrl is held and PP styles show hotspot cursor.
     int m_lastCaretPos = 0;               ///< Caret position from previous `onUpdateUI` — backs `onCaretMoved`.
     bool m_callPostUpdate = false;        ///< Latch — triggers `postUpdateUI` on the next tick.
+    wxString m_lastHighlightedWord;       ///< Identifier last painted by the occurrence highlighter; empty when none.
+    bool m_matchSuppressed = false;       ///< Occurrence + keyword-match highlighting off after a text edit until the next navigation (arrow / click).
+    /// Reusable space-joined list handed to AutoCompShow; rebuilt from each
+    /// worker-delivered completion result (generation itself runs on the worker).
+    wxString m_completionList;
     /// Accumulated insert span awaiting a coalesced transformer pass.
     /// `m_pendingInsertStart < 0` means nothing pending. A burst of
     /// `EVT_STC_MODIFIED` inserts (multi-line indent, paste) folds into a
@@ -227,6 +304,14 @@ private:
     /// Restart on each text-changing modify event; on fire submits a
     /// snapshot to DocumentManager::submitIntellisense.
     wxTimer m_intellisenseTimer;
+    /// Restart on each identifier keystroke; on fire sends a completion request
+    /// (throttles the popup so fast typing isn't bombarded with requests).
+    wxTimer m_completionTimer;
+    /// True from when a completion request is sent until the user navigates away
+    /// or stops the identifier; an arriving result is shown only while true.
+    bool m_acceptAutoCompleteList = false;
+    /// Monotonic completion request id; a result echoing an older seq is dropped.
+    std::size_t m_completionSeq = 0;
 
     wxDECLARE_EVENT_TABLE();
 };

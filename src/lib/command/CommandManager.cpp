@@ -16,13 +16,13 @@
 #include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/DocumentPath.hpp"
-#include "document/FileSession.hpp"
 #include "editor/Editor.hpp"
 #include "format/FormatDialog.hpp"
 #include "help/HelpManager.hpp"
 #include "settings/SettingsDialog.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
+#include "ui/utilities/SystemShell.hpp"
 #include "update/UpdateManager.hpp"
 using namespace fbide;
 
@@ -40,8 +40,8 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     EVT_MENU(+CommandId::CloseAll,     CommandManager::onCloseAll)
     EVT_MENU(+CommandId::NewWindow,    CommandManager::onNewWindow)
     EVT_MENU(+CommandId::Quit,         CommandManager::onQuit)
-    EVT_MENU(+CommandId::SessionLoad,  CommandManager::onSessionLoad)
-    EVT_MENU(+CommandId::SessionSave,  CommandManager::onSessionSave)
+    EVT_MENU(+CommandId::SessionNew,   CommandManager::onSessionNew)
+    EVT_MENU(+CommandId::SessionClose, CommandManager::onSessionClose)
     EVT_MENU_RANGE(wxID_FILE1, wxID_FILE9, CommandManager::onFileHistory)
 
     // Edit
@@ -142,8 +142,8 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .id = +CommandId::SaveAs,           .name="saveAs" },
         CommandEntry { .id = +CommandId::SelectAll,        .name="selectAll" },
         CommandEntry { .id = +CommandId::SelectLine,       .name="selectLine" },
-        CommandEntry { .id = +CommandId::SessionLoad,      .name="sessionLoad" },
-        CommandEntry { .id = +CommandId::SessionSave,      .name="sessionSave" },
+        CommandEntry { .id = +CommandId::SessionNew,       .name="sessionNew" },
+        CommandEntry { .id = +CommandId::SessionClose,     .name="sessionClose", .enabled = false },
         CommandEntry { .id = +CommandId::ShowExitCode,     .name="showExitCode", .kind = wxITEM_CHECK },
         CommandEntry { .id = +CommandId::Subs,             .name="viewSubs" },
         CommandEntry { .id = +CommandId::Uncomment,        .name="uncomment" },
@@ -237,12 +237,12 @@ void CommandManager::onQuit(wxCommandEvent&) {
     m_ctx.getUIManager().getMainFrame()->Close();
 }
 
-void CommandManager::onSessionLoad(wxCommandEvent&) {
-    m_ctx.getFileSession().showLoadDialog();
+void CommandManager::onSessionNew(wxCommandEvent&) {
+    m_ctx.getDocumentManager().newSession();
 }
 
-void CommandManager::onSessionSave(wxCommandEvent&) {
-    m_ctx.getFileSession().showSaveDialog();
+void CommandManager::onSessionClose(wxCommandEvent&) {
+    m_ctx.getDocumentManager().closeSession();
 }
 
 void CommandManager::onFileHistory(wxCommandEvent& event) {
@@ -381,13 +381,13 @@ void CommandManager::onKillProcess(wxCommandEvent&) {
 }
 
 void CommandManager::onCmdPrompt(wxCommandEvent&) {
-    wxExecuteEnv env;
     const auto* doc = m_ctx.getDocumentManager().getActive();
+    wxString dir;
     if (doc != nullptr && !doc->isNew()) {
         const auto parent = doc->getFilePath().parent_path();
         std::error_code ec;
         if (std::filesystem::is_directory(parent, ec)) {
-            env.cwd = toWxString(parent);
+            dir = toWxString(parent);
         }
     }
     // Resolve which configuration's terminal launcher to invoke: the
@@ -399,7 +399,7 @@ void CommandManager::onCmdPrompt(wxCommandEvent&) {
                           : std::optional<wxString> {};
     const auto& cfg = m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(pinned);
     const auto terminal = cfg.terminal.IsEmpty() ? ConfigManager::getTerminal() : cfg.terminal;
-    wxExecute(terminal, wxEXEC_ASYNC, nullptr, &env);
+    SystemShell::openTerminal(dir, terminal);
 }
 
 void CommandManager::onParameters(wxCommandEvent&) {

@@ -544,3 +544,44 @@ TEST_F(ConfigManagerTests, ExplicitConfigPathBypassesOverlay) {
     EXPECT_TRUE(roundTrip.Read("editor/tabSize", &value));
     EXPECT_EQ(value, "16");
 }
+
+// ---------------------------------------------------------------------------
+// isEditorFile — "does fbide open this itself?" used by the file browser.
+// Matches the bare name against the editor-type globs, the `session` key, and the
+// hidden `plaintext` key — so `*.ext` globs and extensionless names (Makefile,
+// README) resolve. `plaintext` is matched here but never shown in file dialogs.
+// ---------------------------------------------------------------------------
+
+TEST_F(ConfigManagerTests, IsEditorFileMatchesExtensionsBareNamesAndSession) {
+    const TempDir tmp;
+    tmp.write("config.ini",
+        "version=0.5.0\n"
+        "[filePatterns]\n"
+        "freebasic=*.bas;*.bi\n"
+        "markdown=*.md\n"
+        "makefile=*.mk;Makefile;GNUmakefile\n"
+        "text=*.txt\n"
+        "plaintext=README;LICENSE\n"
+        "session=*.fbs\n");
+    ConfigManager cm(tmp.path(), tmp.path(), "config.ini");
+
+    // `*.ext` globs.
+    EXPECT_TRUE(cm.isEditorFile("main.bas"));
+    EXPECT_TRUE(cm.isEditorFile("notes.txt"));
+    EXPECT_TRUE(cm.isEditorFile("README.md")); // extended name → markdown glob
+    // Extensionless names via the hidden `plaintext` key.
+    EXPECT_TRUE(cm.isEditorFile("Makefile"));
+    EXPECT_TRUE(cm.isEditorFile("GNUmakefile"));
+    EXPECT_TRUE(cm.isEditorFile("README"));
+    EXPECT_TRUE(cm.isEditorFile("LICENSE"));
+    // Session files open in fbide too (matched outside kEditorFileTypeKeys).
+    EXPECT_TRUE(cm.isEditorFile("project.fbs"));
+    // Case-insensitive on every platform (globs are lowercased).
+    EXPECT_TRUE(cm.isEditorFile("readme"));
+    EXPECT_TRUE(cm.isEditorFile("MAIN.BAS"));
+    // A bare-name glob is exact — it must not match a longer name.
+    EXPECT_FALSE(cm.isEditorFile("Makefile.bak"));
+    // Unknown types hand off to the OS default app.
+    EXPECT_FALSE(cm.isEditorFile("photo.png"));
+    EXPECT_FALSE(cm.isEditorFile("archive.zip"));
+}

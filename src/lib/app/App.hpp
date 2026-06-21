@@ -78,8 +78,17 @@ private:
         wxString idePath;              ///< `--ide <path>`.
         wxString logPath;              ///< `--log-path <path>` (empty → user data dir default).
         wxString cfgKey;               ///< `--cfg=[<category>:]<key>` (non-empty → print + exit).
-        wxString loadSession;          ///< `--load-session <path>`.
+        wxString restoreStateFrom;     ///< `--restore-state-from <path>`.
         wxArrayString files;           ///< Positional file paths.
+        // `format <file>` subcommand — `formatRequested` set → format + exit.
+        bool formatRequested = false;  ///< `format` subcommand seen.
+        wxString formatInput;          ///< Input file to format.
+        wxString formatOutput;         ///< `-o/--output <file>` (empty → stdout).
+        bool formatReindent = false;   ///< `--reindent`.
+        bool formatReformat = false;   ///< `--reformat`.
+        bool formatAlignPP = false;    ///< `--align-pp`.
+        bool formatApplyCase = false;  ///< `--apply-case`.
+        bool formatHtml = false;       ///< `--html`.
         int waitForPid = 0;            ///< `--wait-for-pid <pid>` (0 = no wait).
         bool newWindow = false;        ///< `--new-window`.
         bool verbose = false;          ///< `--verbose`.

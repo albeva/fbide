@@ -150,6 +150,7 @@ void StyleLexer::tokenise(std::vector<Token>& tokens, const Range& range) {
 
     annotateVerbatim(tokens);
     stampLines(tokens);
+    stampPositions(tokens, m_range.first);
 }
 
 void StyleLexer::stampLines(std::vector<Token>& tokens) {
@@ -159,6 +160,14 @@ void StyleLexer::stampLines(std::vector<Token>& tokens) {
         if (tkn.kind == TokenKind::Newline) {
             line++;
         }
+    }
+}
+
+void StyleLexer::stampPositions(std::vector<Token>& tokens, const Sci_PositionU start) {
+    int pos = static_cast<int>(start);
+    for (auto& tkn : tokens) {
+        tkn.pos = pos;
+        pos += static_cast<int>(tkn.text.size());
     }
 }
 

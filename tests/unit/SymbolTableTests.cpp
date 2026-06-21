@@ -5,12 +5,12 @@
 // https://github.com/albeva/fbide
 //
 #include <gtest/gtest.h>
-#include "analyses/symbols/SymbolTable.hpp"
-#include "format/transformers/reformat/ReFormatter.hpp"
 #include "TestHelpers.hpp"
+#include "analyses/parser/TreeParser.hpp"
+#include "analyses/symbols/SymbolTable.hpp"
 
 using namespace fbide;
-using namespace fbide::reformat;
+using namespace fbide::parser;
 
 class SymbolTableTests : public testing::Test {
 protected:
@@ -27,8 +27,20 @@ protected:
 
     auto extract(const char* source) -> SymbolTable {
         const auto tokens = tests::tokenise(*m_lexer, source);
-        ReFormatter parser({ .lean = true });
-        return SymbolTable { parser.buildTree(tokens) };
+        TreeParser parser({ .lean = true });
+        return SymbolTable { parser.parse(tokens) };
+    }
+
+    auto extractShared(const char* source) -> std::shared_ptr<SymbolTable> {
+        return std::make_shared<SymbolTable>(extract(source));
+    }
+
+    auto extractWith(const char* source, std::unordered_set<std::string> defines) -> SymbolTable {
+        const auto tokens = tests::tokenise(*m_lexer, source);
+        TreeParser parser({ .lean = true });
+        SymbolTable table;
+        table.populate(parser.parse(tokens), std::make_shared<const std::unordered_set<std::string>>(std::move(defines)));
+        return table;
     }
 
     Scintilla::ILexer5* m_lexer { nullptr };
@@ -95,6 +107,41 @@ TEST_F(SymbolTableTests, AnonymousMacroSkipped) {
         "#endmacro\n"
     );
     EXPECT_TRUE(table.getMacros().empty());
+}
+
+TEST_F(SymbolTableTests, DefineCapturedAsMacro) {
+    const auto table = extract(
+        "#define PI 3.14\n"
+        "#define SQR(x) ((x) * (x))\n"
+    );
+    ASSERT_EQ(table.getMacros().size(), 2U);
+    EXPECT_EQ(table.getMacros()[0].name, "PI");
+    EXPECT_EQ(table.getMacros()[0].line, 0);
+    EXPECT_EQ(table.getMacros()[1].name, "SQR"); // function-like: name precedes the paren
+    EXPECT_EQ(table.getMacros()[1].line, 1);
+}
+
+TEST_F(SymbolTableTests, AnonymousDefineSkipped) {
+    const auto table = extract("#define\n");
+    EXPECT_TRUE(table.getMacros().empty());
+}
+
+TEST_F(SymbolTableTests, DefineInsidePpIfCaptured) {
+    const auto table = extractWith(
+        "#ifdef DEBUG\n"
+        "#define LOG 1\n"
+        "#endif\n",
+        { "debug" }
+    );
+    ASSERT_EQ(table.getMacros().size(), 1U);
+    EXPECT_EQ(table.getMacros()[0].name, "LOG");
+}
+
+TEST_F(SymbolTableTests, DefineInGlobalCompletions) {
+    const auto table = extract("#define MAXLEN 100\n");
+    std::vector<wxString> out;
+    table.globalSymbolCompletions(out);
+    EXPECT_NE(std::ranges::find(out, wxString("MAXLEN")), out.end());
 }
 
 TEST_F(SymbolTableTests, MacroParticipatesInHash) {
@@ -500,15 +547,168 @@ TEST_F(SymbolTableTests, NestedNamespacesRecurse) {
     EXPECT_EQ(table.getSubs()[0].name, "Deep");
 }
 
-TEST_F(SymbolTableTests, DeclareSubIsNotCaptured) {
-    const auto table = extract("Declare Sub Foo()\n");
-    EXPECT_TRUE(table.getSubs().empty());
-    EXPECT_TRUE(table.getFunctions().empty());
+TEST_F(SymbolTableTests, DeclaredProceduresAreCaptured) {
+    // Headers expose their API via `Declare` — capture those so an #included
+    // header contributes its callables to completion and the symbol browser.
+    const auto table = extract(
+        "Declare Sub Foo()\n"
+        "Declare Function Bar() As Integer\n"
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Foo");
+    ASSERT_EQ(table.getFunctions().size(), 1U);
+    EXPECT_EQ(table.getFunctions()[0].name, "Bar");
 }
 
-TEST_F(SymbolTableTests, TypeAliasIsNotCaptured) {
-    const auto table = extract("Type AliasName As Integer\n");
-    EXPECT_TRUE(table.getTypes().empty());
+TEST_F(SymbolTableTests, FindDefinitionPrefersDefinitionOverDeclaration) {
+    const auto table = extract(
+        "Declare Sub Foo()\n" // line 0 — declaration
+        "Sub Foo()\n"         // line 1 — definition
+        "End Sub\n"
+        "Type Vec\n" // line 3
+        "End Type\n"
+    );
+    const auto def = table.findDefinition("foo"); // case-insensitive
+    ASSERT_TRUE(def.has_value());
+    EXPECT_EQ(def->line, 1); // the definition, not the Declare
+
+    const auto decl = table.findDeclaration("Foo");
+    ASSERT_TRUE(decl.has_value());
+    EXPECT_EQ(decl->line, 0); // the Declare
+
+    const auto type = table.findDefinition("vec");
+    ASSERT_TRUE(type.has_value());
+    EXPECT_EQ(type->line, 3);
+
+    EXPECT_FALSE(table.findDefinition("nope").has_value());
+}
+
+TEST_F(SymbolTableTests, FindDefinitionAcrossIncludeClosure) {
+    auto header = extractShared("Declare Function Compute() As Integer\n");
+    header->setSourcePath("/inc/lib.bi");
+    auto table = extract("Print 1\n");
+
+    const auto def = table.findDefinition("compute", { header }); // declared only in the include
+    ASSERT_TRUE(def.has_value());
+    EXPECT_EQ(def->path, std::filesystem::path("/inc/lib.bi"));
+    EXPECT_EQ(def->line, 0);
+}
+
+TEST_F(SymbolTableTests, FindDefinitionMatchesMethodByUnqualifiedName) {
+    const auto table = extract(
+        "Sub Vec.Move()\n"
+        "End Sub\n"
+    );
+    const auto def = table.findDefinition("Move");
+    ASSERT_TRUE(def.has_value());
+    EXPECT_EQ(def->line, 0);
+}
+
+TEST_F(SymbolTableTests, ConstFormsCaptured) {
+    const auto table = extract(
+        "Const A = 1\n"
+        "Const B As Integer = 2\n"
+        "Const C = 3, D = 4\n"
+        "Const As Long X = 10, Y = 20\n" // As-first (shared type)
+    );
+    std::vector<wxString> out;
+    table.moduleVariableCompletions(out);
+    const auto has = [&](const wxString& n) { return std::ranges::find(out, n) != out.end(); };
+    for (const wxString& n : { "A", "B", "C", "D", "X", "Y" }) {
+        EXPECT_TRUE(has(n)) << n.ToStdString();
+    }
+}
+
+TEST_F(SymbolTableTests, MultiLineAsFirstConstCaptured) {
+    const auto table = extract(
+        "Const As Long _\n"
+        "    GFX_A = 1, _\n"
+        "    GFX_B = 2\n"
+    );
+    std::vector<wxString> out;
+    table.moduleVariableCompletions(out);
+    EXPECT_NE(std::ranges::find(out, wxString("GFX_A")), out.end());
+    EXPECT_NE(std::ranges::find(out, wxString("GFX_B")), out.end());
+}
+
+TEST_F(SymbolTableTests, NamespacedConstAndDeclareCaptured) {
+    const auto table = extract(
+        "Namespace FB\n"
+        "    Const As Long GFX_FULLSCREEN = 1, GFX_OPENGL = 2\n"
+        "    Declare Function ScreenList(ByVal depth As Integer) As Integer\n"
+        "End Namespace\n"
+    );
+    std::vector<wxString> vars;
+    table.moduleVariableCompletions(vars);
+    EXPECT_NE(std::ranges::find(vars, wxString("GFX_FULLSCREEN")), vars.end());
+    EXPECT_NE(std::ranges::find(vars, wxString("GFX_OPENGL")), vars.end());
+    ASSERT_EQ(table.getFunctions().size(), 1U);
+    EXPECT_EQ(table.getFunctions()[0].name, "ScreenList");
+}
+TEST_F(SymbolTableTests, NonExplicitEnumMembersCaptured) {
+    const auto table = extract(
+        "Enum Color\n"
+        "    Red\n"
+        "    Green = 5\n"
+        "    Blue\n"
+        "End Enum\n"
+    );
+    std::vector<wxString> out;
+    table.globalSymbolCompletions(out);
+    const auto has = [&](const wxString& n) { return std::ranges::find(out, n) != out.end(); };
+    EXPECT_TRUE(has("Color")); // the enum type name
+    for (const wxString& m : { "Red", "Green", "Blue" }) {
+        EXPECT_TRUE(has(m)) << m.ToStdString(); // members imported into scope
+    }
+    const auto def = table.findDefinition("Green"); // and locatable
+    ASSERT_TRUE(def.has_value());
+    EXPECT_EQ(def->line, 2);
+}
+
+TEST_F(SymbolTableTests, EnumNamedExplicitStillImportsMembers) {
+    // `Enum Explicit` is an enum *named* Explicit (non-explicit), not an
+    // explicit enum — its members are still imported.
+    const auto table = extract(
+        "Enum Explicit\n"
+        "    One\n"
+        "    Two\n"
+        "End Enum\n"
+    );
+    std::vector<wxString> out;
+    table.globalSymbolCompletions(out);
+    EXPECT_NE(std::ranges::find(out, wxString("One")), out.end());
+    EXPECT_NE(std::ranges::find(out, wxString("Two")), out.end());
+}
+
+TEST_F(SymbolTableTests, ExplicitEnumMembersNotCaptured) {
+    const auto table = extract(
+        "Enum Color Explicit\n"
+        "    Red\n"
+        "    Green\n"
+        "End Enum\n"
+    );
+    std::vector<wxString> out;
+    table.globalSymbolCompletions(out);
+    const auto has = [&](const wxString& n) { return std::ranges::find(out, n) != out.end(); };
+    EXPECT_TRUE(has("Color")); // the enum type still completes
+    EXPECT_FALSE(has("Red"));  // members are scoped — not imported
+    EXPECT_FALSE(has("Green"));
+}
+
+TEST_F(SymbolTableTests, TypeAliasIsCaptured) {
+    // `Type NAME As <target>` is a typedef — captured as a typename for
+    // completion. (The UDT `Type ... End Type` form is captured separately.)
+    const auto table = extract(
+        "Type AliasName As Integer\n"
+        "Type PFunc As Function(ByVal x As Integer) As Integer\n"
+    );
+    ASSERT_EQ(table.getTypes().size(), 2U);
+    EXPECT_EQ(table.getTypes()[0].name, "AliasName");
+    EXPECT_EQ(table.getTypes()[1].name, "PFunc");
+
+    // Malformed `Type As <type>` (no name) must not capture the `As` keyword.
+    const auto bad = extract("Type As Integer\n");
+    EXPECT_TRUE(bad.getTypes().empty());
 }
 
 TEST_F(SymbolTableTests, ControlFlowBlocksIgnored) {
@@ -579,20 +779,21 @@ TEST_F(SymbolTableTests, HashStableOnLineShift) {
 }
 
 // ---------------------------------------------------------------------------
-// Preprocessor conditional blocks — symbols guarded by `#if` / `#ifdef` /
-// `#ifndef` are collected (the parser does not evaluate conditions, so both
-// `#if` and `#else` branches contribute). `#macro` bodies are not recursed.
+// Preprocessor conditional blocks — symbols in a *live* `#if` / `#ifdef` /
+// `#ifndef` branch are collected (the condition is evaluated against the define
+// set; an absent symbol is undefined). `#macro` bodies are not recursed.
 // ---------------------------------------------------------------------------
 
 TEST_F(SymbolTableTests, SymbolsInsidePpIfCaptured) {
-    const auto table = extract(
+    const auto table = extractWith(
         "#if defined(FOO)\n"
         "    Sub Guarded\n"
         "    End Sub\n"
         "    Type Gizmo\n"
         "        x As Integer\n"
         "    End Type\n"
-        "#endif\n"
+        "#endif\n",
+        { "foo" }
     );
     ASSERT_EQ(table.getSubs().size(), 1U);
     EXPECT_EQ(table.getSubs()[0].name, "Guarded");
@@ -601,7 +802,7 @@ TEST_F(SymbolTableTests, SymbolsInsidePpIfCaptured) {
 }
 
 TEST_F(SymbolTableTests, SymbolsInPpIfdefAndIfndef) {
-    const auto table = extract(
+    const auto table = extractWith(
         "#ifdef FOO\n"
         "    Sub A\n"
         "    End Sub\n"
@@ -609,40 +810,283 @@ TEST_F(SymbolTableTests, SymbolsInPpIfdefAndIfndef) {
         "#ifndef BAR\n"
         "    Sub B\n"
         "    End Sub\n"
-        "#endif\n"
+        "#endif\n",
+        { "foo" }
     );
     ASSERT_EQ(table.getSubs().size(), 2U);
     EXPECT_EQ(table.getSubs()[0].name, "A");
     EXPECT_EQ(table.getSubs()[1].name, "B");
 }
 
-TEST_F(SymbolTableTests, PpIfElseCollectsBothBranches) {
-    // Conditions are not evaluated — symbols from every branch are listed.
-    const auto table = extract(
+TEST_F(SymbolTableTests, PpIfElseKeepsOnlyLiveBranch) {
+    // FOO is defined, so the #if branch is live and the #else is dead.
+    const auto table = extractWith(
         "#if defined(FOO)\n"
         "    Sub WhenFoo\n"
         "    End Sub\n"
         "#else\n"
         "    Sub WhenNotFoo\n"
         "    End Sub\n"
-        "#endif\n"
+        "#endif\n",
+        { "foo" }
     );
-    ASSERT_EQ(table.getSubs().size(), 2U);
+    ASSERT_EQ(table.getSubs().size(), 1U);
     EXPECT_EQ(table.getSubs()[0].name, "WhenFoo");
-    EXPECT_EQ(table.getSubs()[1].name, "WhenNotFoo");
 }
 
 TEST_F(SymbolTableTests, NestedPpIfRecurses) {
-    const auto table = extract(
+    const auto table = extractWith(
         "#if defined(FOO)\n"
         "    #if defined(BAR)\n"
         "        Sub Deep\n"
         "        End Sub\n"
         "    #endif\n"
-        "#endif\n"
+        "#endif\n",
+        { "foo", "bar" }
     );
     ASSERT_EQ(table.getSubs().size(), 1U);
     EXPECT_EQ(table.getSubs()[0].name, "Deep");
+}
+
+// Preprocessor branch selection — with a define set, `#if`/`#ifdef` branches
+// that are definitively inactive are dropped; Unknown conditions keep the branch.
+// ---------------------------------------------------------------------------
+
+TEST_F(SymbolTableTests, PpInactiveBuiltinBranchDropped) {
+    const auto table = extractWith(
+        "#ifdef __FB_WIN32__\n"
+        "    Sub OnWindows\n"
+        "    End Sub\n"
+        "#endif\n",
+        { "__fb_unix__" }
+    );
+    EXPECT_TRUE(table.getSubs().empty());
+}
+
+TEST_F(SymbolTableTests, PpActiveBuiltinBranchKept) {
+    const auto table = extractWith(
+        "#ifdef __FB_UNIX__\n"
+        "    Sub OnUnix\n"
+        "    End Sub\n"
+        "#endif\n",
+        { "__fb_unix__" }
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "OnUnix");
+}
+
+TEST_F(SymbolTableTests, PpElseSelectsActiveBranch) {
+    const auto table = extractWith(
+        "#ifdef __FB_WIN32__\n"
+        "    Sub WinOnly\n"
+        "    End Sub\n"
+        "#else\n"
+        "    Sub Portable\n"
+        "    End Sub\n"
+        "#endif\n",
+        { "__fb_unix__" }
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Portable");
+}
+
+TEST_F(SymbolTableTests, PpElseifChainPicksMatchingArm) {
+    const auto table = extractWith(
+        "#ifdef __FB_WIN32__\n"
+        "    Sub W\n"
+        "    End Sub\n"
+        "#elseif __FB_UNIX__\n"
+        "    Sub U\n"
+        "    End Sub\n"
+        "#else\n"
+        "    Sub E\n"
+        "    End Sub\n"
+        "#endif\n",
+        { "__fb_unix__" }
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "U");
+}
+
+TEST_F(SymbolTableTests, PpUndefinedUserSymbolDropsBranch) {
+    // A user symbol that is never #defined resolves false, so the #if branch is
+    // dead and the #else is taken.
+    const auto table = extractWith(
+        "#ifdef SOME_USER_FLAG\n"
+        "    Sub A\n"
+        "    End Sub\n"
+        "#else\n"
+        "    Sub B\n"
+        "    End Sub\n"
+        "#endif\n",
+        { "__fb_unix__" }
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "B");
+}
+
+TEST_F(SymbolTableTests, PpLocalDefineActivatesIfdef) {
+    // A preceding in-file #define makes #ifdef on that name live (issue #121).
+    const auto table = extractWith(
+        "#define _TinyGL\n"
+        "#ifdef _TinyGL\n"
+        "    Sub Active\n"
+        "    End Sub\n"
+        "#endif\n",
+        {}
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Active");
+}
+
+TEST_F(SymbolTableTests, PpIncludeGuardKeepsContent) {
+    // An include guard must stay live: its #ifndef is evaluated before its own
+    // #define (nested in the body), so the guarded content is kept — order-aware
+    // tracking, not a flat set of every defined name.
+    const auto table = extractWith(
+        "#ifndef GUARD_BI\n"
+        "#define GUARD_BI\n"
+        "    Sub Guarded\n"
+        "    End Sub\n"
+        "#endif\n",
+        {}
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Guarded");
+}
+
+TEST_F(SymbolTableTests, PpLocalDefineAfterIfdefDoesNotActivate) {
+    // Order matters: a #define only affects directives that follow it, so an
+    // #ifdef preceding the #define stays dead.
+    const auto table = extractWith(
+        "#ifdef LATER\n"
+        "    Sub Early\n"
+        "    End Sub\n"
+        "#endif\n"
+        "#define LATER\n",
+        {}
+    );
+    EXPECT_TRUE(table.getSubs().empty());
+}
+
+TEST_F(SymbolTableTests, PpCommandLineDefineSelectsBranch) {
+    const auto table = extractWith(
+        "#ifdef MYFLAG\n"
+        "    Sub Yes\n"
+        "    End Sub\n"
+        "#else\n"
+        "    Sub No\n"
+        "    End Sub\n"
+        "#endif\n",
+        { "myflag" }
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Yes");
+}
+
+TEST_F(SymbolTableTests, PpInactiveBranchIncludeDropped) {
+    const auto table = extractWith(
+        "#ifdef __FB_WIN32__\n"
+        "    #include \"windows.bi\"\n"
+        "#else\n"
+        "    #include \"unix.bi\"\n"
+        "#endif\n",
+        { "__fb_unix__" }
+    );
+    ASSERT_EQ(table.getIncludes().size(), 1U);
+    EXPECT_EQ(table.getIncludes()[0].path, "unix.bi");
+}
+
+TEST_F(SymbolTableTests, PpInactiveBranchStillRecordsScope) {
+    // Symbols/includes drop, but the dead branch's block is still in the scope
+    // tree so caret navigation works inside inactive code.
+    const auto source = "#ifdef __FB_WIN32__\n"
+                        "    Sub Hidden\n"
+                        "    End Sub\n"
+                        "#endif\n";
+    const auto table = extractWith(source, { "__fb_unix__" });
+    EXPECT_TRUE(table.getSubs().empty());
+    const int insideBranch = static_cast<int>(std::string_view(source).find("Sub Hidden"));
+    EXPECT_NE(table.blockAt(insideBranch), nullptr);
+}
+
+TEST_F(SymbolTableTests, PpInactiveEnumMembersDropped) {
+    const auto table = extractWith(
+        "Enum Platform\n"
+        "    Portable\n"
+        "    #ifdef __FB_WIN32__\n"
+        "        WinValue\n"
+        "    #endif\n"
+        "End Enum\n",
+        { "__fb_unix__" }
+    );
+    std::vector<wxString> out;
+    table.globalSymbolCompletions(out);
+    const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
+    EXPECT_TRUE(has("Portable"));  // unconditional member kept
+    EXPECT_FALSE(has("WinValue")); // gated by an inactive #ifdef
+}
+
+TEST_F(SymbolTableTests, InactiveRangesCoverDeadIfBranch) {
+    const char* src = "#ifdef __FB_WIN32__\n"
+                      "    Sub WinOnly\n"
+                      "    End Sub\n"
+                      "#else\n"
+                      "    Sub Other\n"
+                      "    End Sub\n"
+                      "#endif\n";
+    const auto table = extractWith(src, { "__fb_unix__" });
+    ASSERT_EQ(table.getInactiveRanges().size(), 1U);
+    const auto [start, end] = table.getInactiveRanges()[0];
+    const std::string_view text(src);
+    EXPECT_LE(start, static_cast<int>(text.find("WinOnly")));
+    EXPECT_GE(end, static_cast<int>(text.find("WinOnly")));
+    EXPECT_LT(end, static_cast<int>(text.find("Other"))); // the live #else branch is not dimmed
+}
+
+TEST_F(SymbolTableTests, InactiveRangesCoverDeadElse) {
+    const char* src = "#ifdef __FB_UNIX__\n"
+                      "    Sub Live\n"
+                      "    End Sub\n"
+                      "#else\n"
+                      "    Sub DeadElse\n"
+                      "    End Sub\n"
+                      "#endif\n";
+    const auto table = extractWith(src, { "__fb_unix__" });
+    ASSERT_EQ(table.getInactiveRanges().size(), 1U);
+    const auto [start, end] = table.getInactiveRanges()[0];
+    const std::string_view text(src);
+    EXPECT_GT(start, static_cast<int>(text.find("Live"))); // after the live branch
+    EXPECT_GE(end, static_cast<int>(text.find("DeadElse")));
+}
+
+TEST_F(SymbolTableTests, NoInactiveRangesWithoutProbe) {
+    // No built-in probe in the set → __FB_WIN32__ is Unknown → branch kept, not dimmed.
+    const auto table = extractWith(
+        "#ifdef __FB_WIN32__\n"
+        "    Sub S\n"
+        "    End Sub\n"
+        "#endif\n",
+        {}
+    );
+    EXPECT_TRUE(table.getInactiveRanges().empty());
+}
+
+TEST_F(SymbolTableTests, PpLiteralConditionSelectsBranch) {
+    // Literal `#if 0` / `#if 1` need no defines.
+    const auto table = extractWith(
+        "#if 0\n"
+        "    Sub Dead\n"
+        "    End Sub\n"
+        "#endif\n"
+        "#if 1\n"
+        "    Sub Live\n"
+        "    End Sub\n"
+        "#endif\n",
+        {}
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Live");
 }
 
 TEST_F(SymbolTableTests, PpMacroBodyNotRecursed) {
@@ -657,4 +1101,776 @@ TEST_F(SymbolTableTests, PpMacroBodyNotRecursed) {
     EXPECT_TRUE(table.getSubs().empty());
     ASSERT_EQ(table.getMacros().size(), 1U);
     EXPECT_EQ(table.getMacros()[0].name, "DEFINE_SUB");
+}
+
+TEST_F(SymbolTableTests, RetainsScopeTreeWithParents) {
+    const auto table = extract(
+        "Sub Foo\n"
+        "For i = 1 To 10\n"
+        "Next\n"
+        "End Sub\n"
+    );
+    ASSERT_EQ(table.tree().nodes.size(), 1u);
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+    EXPECT_EQ((*sub)->parent, nullptr);
+    ASSERT_TRUE((*sub)->opener.has_value());
+    EXPECT_GE((*sub)->opener->tokens[0].pos, 0); // tokens carry byte offsets
+}
+
+TEST_F(SymbolTableTests, BlockAtFindsInnermostScope) {
+    const auto table = extract(
+        "Sub Foo\n"
+        "For i = 1 To 10\n"
+        "Print i\n"
+        "Next\n"
+        "End Sub\n"
+    );
+    ASSERT_EQ(table.tree().nodes.size(), 1u);
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+
+    const BlockNode* forBlock = nullptr;
+    for (const auto& child : (*sub)->body) {
+        if (const auto* nested = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            forBlock = nested->get();
+        }
+    }
+    ASSERT_NE(forBlock, nullptr);
+    ASSERT_TRUE((*sub)->closer.has_value());
+    ASSERT_TRUE(forBlock->closer.has_value());
+
+    // On the Sub opener keyword -> the Sub block.
+    EXPECT_EQ(table.blockAt((*sub)->opener->tokens[0].pos), sub->get());
+    // On the For opener keyword -> the innermost (For), not the enclosing Sub.
+    EXPECT_EQ(table.blockAt(forBlock->opener->tokens[0].pos), forBlock);
+    // On the For closer (Next) -> still the For block.
+    EXPECT_EQ(table.blockAt(forBlock->closer->tokens[0].pos), forBlock);
+    // On the Sub closer (End Sub) -> the Sub block (For has ended by now).
+    EXPECT_EQ(table.blockAt((*sub)->closer->tokens[0].pos), sub->get());
+    // Past the end of the document -> no scope.
+    EXPECT_EQ(table.blockAt(100000), nullptr);
+}
+
+TEST_F(SymbolTableTests, BlockAtReturnsNullBetweenTopLevelBlocks) {
+    const auto table = extract(
+        "Sub A\n"
+        "End Sub\n"
+        "\n"
+        "Sub B\n"
+        "End Sub\n"
+    );
+    ASSERT_EQ(table.tree().nodes.size(), 2u);
+    const auto* subA = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    const auto* subB = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[1]);
+    ASSERT_NE(subA, nullptr);
+    ASSERT_NE(subB, nullptr);
+    ASSERT_TRUE((*subA)->closer.has_value());
+
+    // Just past "End Sub" of A, before "Sub B" -> in no block.
+    const auto& endA = (*subA)->closer->tokens.back();
+    const int gap = endA.pos + static_cast<int>(endA.text.size());
+    EXPECT_EQ(table.blockAt(gap), nullptr);
+    // Inside B resolves to B.
+    EXPECT_EQ(table.blockAt((*subB)->opener->tokens[0].pos), subB->get());
+}
+
+TEST_F(SymbolTableTests, MatchBlockForNext) {
+    const auto table = extract(
+        "For i = 1 To 10\n"
+        "Next\n"
+    );
+    ASSERT_EQ(table.tree().nodes.size(), 1u);
+    const auto* forBlk = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(forBlk, nullptr);
+    const int forPos = (*forBlk)->opener->tokens[0].pos;
+    const int nextPos = (*forBlk)->closer->tokens[0].pos;
+
+    const auto onFor = table.matchBlockAt(forPos);
+    ASSERT_EQ(onFor.size(), 2u);
+    EXPECT_EQ(onFor[0].first, forPos);
+    EXPECT_EQ(onFor[1].first, nextPos);
+
+    const auto onNext = table.matchBlockAt(nextPos);
+    ASSERT_EQ(onNext.size(), 2u); // same pair, reached from the closer
+    EXPECT_EQ(onNext[0].first, forPos);
+    EXPECT_EQ(onNext[1].first, nextPos);
+}
+
+TEST_F(SymbolTableTests, MatchBlockSubEndSubSpansBothCloserTokens) {
+    const auto table = extract("Sub Foo\nEnd Sub\n");
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+    const int subPos = (*sub)->opener->tokens[0].pos;
+    const auto spans = table.matchBlockAt(subPos);
+    ASSERT_EQ(spans.size(), 2u);
+    EXPECT_EQ(spans[0].first, subPos);
+    // closer span covers the whole "End Sub" (End .. Sub end).
+    const auto& closer = (*sub)->closer->tokens;
+    EXPECT_EQ(spans[1].first, closer.front().pos);
+    EXPECT_EQ(spans[1].second, closer.back().pos + static_cast<int>(closer.back().text.size()));
+}
+
+TEST_F(SymbolTableTests, MatchBlockEmptyOffKeyword) {
+    const auto table = extract("Sub Foo\nPrint 1\nEnd Sub\n");
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+    int printPos = -1;
+    for (const auto& child : (*sub)->body) {
+        if (const auto* st = std::get_if<StatementNode>(&child)) {
+            printPos = st->tokens[0].pos;
+            break;
+        }
+    }
+    ASSERT_GE(printPos, 0);
+    EXPECT_TRUE(table.matchBlockAt(printPos).empty()); // on a statement, not a block keyword
+}
+
+TEST_F(SymbolTableTests, MatchProcedureFromReturn) {
+    const auto table = extract(
+        "Function F() As Integer\n"
+        "Return 1\n"
+        "End Function\n"
+    );
+    const auto* fn = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(fn, nullptr);
+    int returnPos = -1;
+    for (const auto& child : (*fn)->body) {
+        if (const auto* st = std::get_if<StatementNode>(&child)) {
+            returnPos = st->tokens[0].pos;
+            break;
+        }
+    }
+    ASSERT_GE(returnPos, 0);
+    const auto spans = table.matchProcedureAt(returnPos);
+    ASSERT_EQ(spans.size(), 2u);
+    EXPECT_EQ(spans[0].first, (*fn)->opener->tokens[0].pos);      // Function
+    EXPECT_EQ(spans[1].first, (*fn)->closer->tokens.front().pos); // End Function
+}
+
+TEST_F(SymbolTableTests, MatchProcedureFromReturnInsideNestedBlock) {
+    const auto table = extract(
+        "Sub S\n"
+        "For i = 1 To 2\n"
+        "Return\n"
+        "Next\n"
+        "End Sub\n"
+    );
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+    // find the Return statement nested inside the For
+    int returnPos = -1;
+    for (const auto& child : (*sub)->body) {
+        if (const auto* forBlk = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            for (const auto& inner : (*forBlk)->body) {
+                if (const auto* st = std::get_if<StatementNode>(&inner)) {
+                    returnPos = st->tokens[0].pos;
+                    break;
+                }
+            }
+        }
+    }
+    ASSERT_GE(returnPos, 0);
+    const auto spans = table.matchProcedureAt(returnPos);
+    ASSERT_EQ(spans.size(), 2u);
+    EXPECT_EQ(spans[0].first, (*sub)->opener->tokens[0].pos); // walks past the For to the Sub
+}
+
+TEST_F(SymbolTableTests, MatchSelectGroupFromCase) {
+    const auto table = extract(
+        "Select Case x\n"
+        "Case 1\n"
+        "Print 1\n"
+        "Case 2\n"
+        "Print 2\n"
+        "End Select\n"
+    );
+    ASSERT_EQ(table.tree().nodes.size(), 1u);
+    const auto* sel = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sel, nullptr);
+    std::vector<const BlockNode*> cases;
+    for (const auto& child : (*sel)->body) {
+        if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            cases.push_back(b->get());
+        }
+    }
+    ASSERT_EQ(cases.size(), 2u);
+    const int casePos = cases[0]->opener->tokens[0].pos;
+
+    const auto spans = table.matchBlockAt(casePos);
+    // On a single Case: Select header + that one Case + End Select.
+    ASSERT_EQ(spans.size(), 3u);
+    EXPECT_EQ(spans.front().first, (*sel)->opener->tokens[0].pos);     // Select Case
+    EXPECT_EQ(spans[1].first, cases[0]->opener->tokens[0].pos);        // only Case 1
+    EXPECT_EQ(spans.back().first, (*sel)->closer->tokens.front().pos); // End Select
+    for (const auto& span : spans) {
+        EXPECT_NE(span.first, cases[1]->opener->tokens[0].pos); // Case 2 excluded
+    }
+}
+
+TEST_F(SymbolTableTests, MatchSelectGroupFromSelectHighlightsAllCases) {
+    const auto table = extract(
+        "Select Case x\n"
+        "Case 1\n"
+        "Case 2\n"
+        "End Select\n"
+    );
+    const auto* sel = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sel, nullptr);
+    const auto spans = table.matchBlockAt((*sel)->opener->tokens[0].pos);
+    EXPECT_EQ(spans.size(), 4u); // Select + Case 1 + Case 2 + End Select
+}
+
+TEST_F(SymbolTableTests, MatchSelectGroupSameFromSelectAndEnd) {
+    const auto table = extract(
+        "Select Case x\n"
+        "Case 1\n"
+        "End Select\n"
+    );
+    const auto* sel = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sel, nullptr);
+    const int selectPos = (*sel)->opener->tokens[0].pos;
+    const int endPos = (*sel)->closer->tokens.front().pos;
+
+    const auto fromSelect = table.matchBlockAt(selectPos);
+    const auto fromEnd = table.matchBlockAt(endPos);
+    ASSERT_EQ(fromSelect.size(), 3u);
+    EXPECT_EQ(fromSelect, fromEnd);
+
+    const auto& op = (*sel)->opener->tokens;
+    EXPECT_EQ(fromSelect.front().first, op[0].pos);
+    EXPECT_EQ(fromSelect.front().second, op[1].pos + static_cast<int>(op[1].text.size()));
+}
+
+TEST_F(SymbolTableTests, MatchIfGroupFromIfAndEnd) {
+    const auto table = extract(
+        "If a Then\n"
+        "Print 1\n"
+        "ElseIf b Then\n"
+        "Print 2\n"
+        "Else\n"
+        "Print 3\n"
+        "End If\n"
+    );
+    ASSERT_EQ(table.tree().nodes.size(), 1u);
+    const auto* iff = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(iff, nullptr);
+    ASSERT_TRUE((*iff)->closer.has_value());
+    std::vector<const BlockNode*> branches;
+    for (const auto& child : (*iff)->body) {
+        if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            branches.push_back(b->get());
+        }
+    }
+    ASSERT_EQ(branches.size(), 2u); // ElseIf + Else
+
+    const int ifPos = (*iff)->opener->tokens[0].pos;
+    const int endPos = (*iff)->closer->tokens.front().pos;
+    const auto fromIf = table.matchBlockAt(ifPos);
+    // If + If-Then + ElseIf + ElseIf-Then + Else + End If.
+    ASSERT_EQ(fromIf.size(), 6u);
+    EXPECT_EQ(fromIf.front().first, ifPos);
+    EXPECT_EQ(fromIf.back().first, endPos);
+    EXPECT_EQ(table.matchBlockAt(endPos), fromIf); // same group from End If
+}
+
+TEST_F(SymbolTableTests, MatchIfGroupFromSingleBranch) {
+    const auto table = extract(
+        "If a Then\n"
+        "ElseIf b Then\n"
+        "Else\n"
+        "End If\n"
+    );
+    const auto* iff = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(iff, nullptr);
+    std::vector<const BlockNode*> branches;
+    for (const auto& child : (*iff)->body) {
+        if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            branches.push_back(b->get());
+        }
+    }
+    ASSERT_EQ(branches.size(), 2u);
+    const int elseIfPos = branches[0]->opener->tokens[0].pos;
+
+    const auto spans = table.matchBlockAt(elseIfPos);
+    // If header (If + Then) + this branch (ElseIf + Then) + End If.
+    ASSERT_EQ(spans.size(), 5u);
+    EXPECT_EQ(spans.front().first, (*iff)->opener->tokens[0].pos);     // If
+    EXPECT_EQ(spans.back().first, (*iff)->closer->tokens.front().pos); // End If
+    bool hasElseIf = false;
+    bool hasElse = false;
+    for (const auto& sp : spans) {
+        if (sp.first == elseIfPos) {
+            hasElseIf = true;
+        }
+        if (sp.first == branches[1]->opener->tokens[0].pos) {
+            hasElse = true;
+        }
+    }
+    EXPECT_TRUE(hasElseIf);
+    EXPECT_FALSE(hasElse); // sibling Else excluded
+}
+
+TEST_F(SymbolTableTests, MatchThenHighlightsScopeNotBranches) {
+    const auto table = extract(
+        "If a Then\n"
+        "ElseIf b Then\n"
+        "Else\n"
+        "End If\n"
+    );
+    const auto* iff = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(iff, nullptr);
+    const int ifPos = (*iff)->opener->tokens.front().pos;
+    int thenPos = -1;
+    for (const auto& tok : (*iff)->opener->tokens) {
+        if (tok.keywordKind == lexer::KeywordKind::Then) {
+            thenPos = tok.pos;
+            break;
+        }
+    }
+    ASSERT_GE(thenPos, 0);
+
+    const auto spans = table.matchBlockAt(thenPos);
+    // Just the enclosing If scope: If + that Then + End If. No ElseIf/Else.
+    ASSERT_EQ(spans.size(), 3u);
+    EXPECT_EQ(spans.front().first, ifPos);
+    EXPECT_EQ(spans[1].first, thenPos);
+    EXPECT_EQ(spans.back().first, (*iff)->closer->tokens.front().pos);
+    // and it differs from the whole-group highlight (caret on If).
+    EXPECT_NE(spans, table.matchBlockAt(ifPos));
+}
+
+TEST_F(SymbolTableTests, MatchIfGroupIgnoresSingleLine) {
+    const auto table = extract(
+        "Sub S\n"
+        "If a Then Print 1\n"
+        "End Sub\n"
+    );
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+    int ifPos = -1;
+    for (const auto& child : (*sub)->body) {
+        if (const auto* st = std::get_if<StatementNode>(&child)) {
+            if (!st->tokens.empty()) {
+                ifPos = st->tokens[0].pos;
+                break;
+            }
+        } else if (const auto* blk = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            if ((*blk)->opener && !(*blk)->opener->tokens.empty()) {
+                ifPos = (*blk)->opener->tokens[0].pos;
+                break;
+            }
+        }
+    }
+    ASSERT_GE(ifPos, 0);
+    EXPECT_TRUE(table.matchBlockAt(ifPos).empty()); // single-line If: no group, no pair
+    int thenPos = -1;
+    for (const auto& child : (*sub)->body) {
+        if (const auto* st = std::get_if<StatementNode>(&child)) {
+            for (const auto& tok : st->tokens) {
+                if (tok.keywordKind == lexer::KeywordKind::Then) {
+                    thenPos = tok.pos;
+                    break;
+                }
+            }
+        }
+    }
+    if (thenPos >= 0) {
+        EXPECT_TRUE(table.matchBlockAt(thenPos).empty()); // its Then triggers nothing either
+    }
+}
+
+TEST_F(SymbolTableTests, MatchPpIfGroup) {
+    const auto table = extract(
+        "#if A\n"
+        "x = 1\n"
+        "#elseif B\n"
+        "x = 2\n"
+        "#else\n"
+        "x = 3\n"
+        "#endif\n"
+    );
+    ASSERT_EQ(table.tree().nodes.size(), 1u);
+    const auto* pp = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(pp, nullptr);
+    ASSERT_TRUE((*pp)->closer.has_value());
+    std::vector<const BlockNode*> branches;
+    for (const auto& child : (*pp)->body) {
+        if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            branches.push_back(b->get());
+        }
+    }
+    ASSERT_EQ(branches.size(), 2u); // #elseif + #else
+
+    const int ifPos = (*pp)->opener->tokens[0].pos;
+    const int endPos = (*pp)->closer->tokens.front().pos;
+    const auto whole = table.matchBlockAt(ifPos);
+    ASSERT_EQ(whole.size(), 4u); // #if + #elseif + #else + #endif
+    EXPECT_EQ(whole.front().first, ifPos);
+    EXPECT_EQ(whole.back().first, endPos);
+    EXPECT_EQ(table.matchBlockAt(endPos), whole); // same group from #endif
+
+    // Caret on a single #elseif -> that branch + #if/#endif pair, no #else.
+    const int elseifPos = branches[0]->opener->tokens[0].pos;
+    const auto single = table.matchBlockAt(elseifPos);
+    ASSERT_EQ(single.size(), 3u);
+    EXPECT_EQ(single.front().first, ifPos);
+    EXPECT_EQ(single.back().first, endPos);
+    bool hasElse = false;
+    for (const auto& sp : single) {
+        if (sp.first == branches[1]->opener->tokens[0].pos) {
+            hasElse = true;
+        }
+    }
+    EXPECT_FALSE(hasElse);
+}
+
+TEST_F(SymbolTableTests, MatchPpIfdefPair) {
+    const auto table = extract(
+        "#ifdef FOO\n"
+        "x = 1\n"
+        "#endif\n"
+    );
+    const auto* pp = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(pp, nullptr);
+    const int ifPos = (*pp)->opener->tokens[0].pos; // #ifdef
+    const auto spans = table.matchBlockAt(ifPos);
+    ASSERT_EQ(spans.size(), 2u); // #ifdef + #endif (no branches)
+    EXPECT_EQ(spans.front().first, ifPos);
+    EXPECT_EQ(spans.back().first, (*pp)->closer->tokens.front().pos);
+}
+
+TEST_F(SymbolTableTests, MatchContinueResolvesNestedLoops) {
+    const auto table = extract(
+        "For n = 2 To 20\n"
+        "For d = 2 To 10\n"
+        "If n Mod d = 0 Then\n"
+        "Continue For, For\n"
+        "End If\n"
+        "Next d\n"
+        "Next n\n"
+    );
+    ASSERT_EQ(table.tree().nodes.size(), 1u);
+    const auto* outerFor = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(outerFor, nullptr);
+    const BlockNode* innerFor = nullptr;
+    for (const auto& child : (*outerFor)->body) {
+        if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            innerFor = b->get();
+            break;
+        }
+    }
+    ASSERT_NE(innerFor, nullptr);
+    const BlockNode* ifBlock = nullptr;
+    for (const auto& child : innerFor->body) {
+        if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            ifBlock = b->get();
+            break;
+        }
+    }
+    ASSERT_NE(ifBlock, nullptr);
+    const StatementNode* cont = nullptr;
+    for (const auto& child : ifBlock->body) {
+        if (const auto* sNode = std::get_if<StatementNode>(&child)) {
+            cont = sNode;
+            break;
+        }
+    }
+    ASSERT_NE(cont, nullptr);
+    ASSERT_EQ(cont->tokens[0].keywordKind, lexer::KeywordKind::Continue);
+
+    std::vector<int> forArgPos;
+    for (std::size_t i = 1; i < cont->tokens.size(); ++i) {
+        if (cont->tokens[i].keywordKind == lexer::KeywordKind::For) {
+            forArgPos.push_back(cont->tokens[i].pos);
+        }
+    }
+    ASSERT_EQ(forArgPos.size(), 2u);
+
+    const int continuePos = cont->tokens[0].pos;
+    const int innerOpener = innerFor->opener->tokens[0].pos;
+    const int outerOpener = (*outerFor)->opener->tokens[0].pos;
+
+    // Caret on Continue -> ultimate (outer For): Continue token + outer opener + Next n.
+    const auto onContinue = table.matchBlockAt(continuePos);
+    ASSERT_EQ(onContinue.size(), 3u);
+    EXPECT_EQ(onContinue[0].first, continuePos);
+    EXPECT_EQ(onContinue[1].first, outerOpener);
+    EXPECT_EQ(onContinue[2].first, (*outerFor)->closer->tokens.front().pos);
+
+    // Caret on the 1st For arg -> inner For.
+    const auto onFirst = table.matchBlockAt(forArgPos[0]);
+    ASSERT_EQ(onFirst.size(), 3u);
+    EXPECT_EQ(onFirst[0].first, forArgPos[0]);
+    EXPECT_EQ(onFirst[1].first, innerOpener);
+    EXPECT_EQ(onFirst[2].first, innerFor->closer->tokens.front().pos);
+
+    // Caret on the 2nd For arg -> outer For.
+    const auto onSecond = table.matchBlockAt(forArgPos[1]);
+    ASSERT_EQ(onSecond.size(), 3u);
+    EXPECT_EQ(onSecond[1].first, outerOpener);
+}
+
+TEST_F(SymbolTableTests, MatchExitSubThroughLoop) {
+    const auto table = extract(
+        "Sub S\n"
+        "For i = 1 To 10\n"
+        "Exit Sub\n"
+        "Next\n"
+        "End Sub\n"
+    );
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+    const BlockNode* forB = nullptr;
+    for (const auto& child : (*sub)->body) {
+        if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&child)) {
+            forB = b->get();
+            break;
+        }
+    }
+    ASSERT_NE(forB, nullptr);
+    const StatementNode* exit = nullptr;
+    for (const auto& child : forB->body) {
+        if (const auto* sNode = std::get_if<StatementNode>(&child)) {
+            exit = sNode;
+            break;
+        }
+    }
+    ASSERT_NE(exit, nullptr);
+    ASSERT_EQ(exit->tokens[0].keywordKind, lexer::KeywordKind::Exit);
+
+    const int exitPos = exit->tokens[0].pos;
+    const auto spans = table.matchBlockAt(exitPos);
+    ASSERT_EQ(spans.size(), 3u);
+    EXPECT_EQ(spans[0].first, exitPos);                            // Exit
+    EXPECT_EQ(spans[1].first, (*sub)->opener->tokens[0].pos);      // Sub (past the For)
+    EXPECT_EQ(spans[2].first, (*sub)->closer->tokens.front().pos); // End Sub
+}
+
+TEST_F(SymbolTableTests, MatchExitSubInSingleLineIf) {
+    const auto table = extract(
+        "Sub foo\n"
+        "if true then exit sub\n"
+        "End Sub\n"
+    );
+    const auto* sub = std::get_if<std::unique_ptr<BlockNode>>(&table.tree().nodes[0]);
+    ASSERT_NE(sub, nullptr);
+
+    // The single-line If may be a statement or an auto-closed block — find the
+    // `exit` keyword either way by scanning all tokens.
+    int exitPos = -1;
+    const std::function<void(const std::vector<Node>&)> scan = [&](const std::vector<Node>& nodes) {
+        for (const auto& node : nodes) {
+            const std::vector<lexer::Token>* toks = nullptr;
+            if (const auto* st = std::get_if<StatementNode>(&node)) {
+                toks = &st->tokens;
+            } else if (const auto* b = std::get_if<std::unique_ptr<BlockNode>>(&node)) {
+                if ((*b)->opener) {
+                    toks = &(*b)->opener->tokens;
+                }
+                scan((*b)->body);
+            }
+            if (toks != nullptr) {
+                for (const auto& tk : *toks) {
+                    if (tk.keywordKind == lexer::KeywordKind::Exit) {
+                        exitPos = tk.pos;
+                    }
+                }
+            }
+        }
+    };
+    scan((*sub)->body);
+    ASSERT_GE(exitPos, 0);
+
+    const auto spans = table.matchBlockAt(exitPos);
+    ASSERT_EQ(spans.size(), 3u);
+    EXPECT_EQ(spans[0].first, exitPos);                            // the Exit keyword
+    EXPECT_EQ(spans[1].first, (*sub)->opener->tokens[0].pos);      // Sub
+    EXPECT_EQ(spans[2].first, (*sub)->closer->tokens.front().pos); // End Sub
+}
+
+TEST_F(SymbolTableTests, GlobalCompletionsListsFreeStandingAndTypes) {
+    const std::string src = "Sub Free\n"
+                            "End Sub\n"
+                            "Function Calc() As Integer\n"
+                            "End Function\n"
+                            "Type Vec\n"
+                            "    x As Integer\n"
+                            "End Type\n"
+                            "Sub Vec.Method\n"
+                            "End Sub\n";
+    const auto table = extract(src.c_str());
+
+    std::vector<wxString> out;
+    table.globalSymbolCompletions(out);
+
+    const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
+    EXPECT_TRUE(has("Free"));
+    EXPECT_TRUE(has("Calc"));
+    EXPECT_TRUE(has("Vec"));
+    EXPECT_FALSE(has("Vec.Method")); // qualified method excluded from globals
+    EXPECT_FALSE(has("Method"));     // member is not a global
+}
+
+TEST_F(SymbolTableTests, MemberCompletionsInsideTypeMethod) {
+    const std::string src = "Type Vec\n"
+                            "    Declare Sub Foo()\n"
+                            "End Type\n"
+                            "Sub Vec.Foo()\n"
+                            "    Print 1\n"
+                            "End Sub\n"
+                            "Sub Vec.Bar()\n"
+                            "End Sub\n"
+                            "Function Vec.Size() As Integer\n"
+                            "End Function\n"
+                            "Sub Free()\n"
+                            "End Sub\n";
+    const auto table = extract(src.c_str());
+
+    const int pos = static_cast<int>(src.find("Print 1"));
+    std::vector<wxString> out;
+    table.memberCompletionsAt(pos, out);
+
+    const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
+    EXPECT_TRUE(has("Foo"));
+    EXPECT_TRUE(has("Bar"));
+    EXPECT_TRUE(has("Size"));
+    EXPECT_FALSE(has("Free")); // not a member of Vec
+}
+
+TEST_F(SymbolTableTests, MemberCompletionsEmptyOutsideTypeMethod) {
+    const std::string src = "Sub Free()\n"
+                            "    Print 1\n"
+                            "End Sub\n";
+    const auto table = extract(src.c_str());
+
+    const int pos = static_cast<int>(src.find("Print 1"));
+    std::vector<wxString> out;
+    table.memberCompletionsAt(pos, out);
+    EXPECT_TRUE(out.empty());
+}
+
+TEST_F(SymbolTableTests, LocalCompletionsParamsAndDimsBeforeCaret) {
+    const std::string src = "Sub Foo(arg As Integer)\n"
+                            "    Dim early As Integer\n"
+                            "    Print early\n"
+                            "    Dim late As Integer\n"
+                            "End Sub\n";
+    const auto table = extract(src.c_str());
+    const int pos = static_cast<int>(src.find("Print early"));
+    std::vector<wxString> out;
+    table.localCompletionsAt(pos, out);
+    const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
+    EXPECT_TRUE(has("arg"));   // parameter
+    EXPECT_TRUE(has("early")); // declared before caret
+    EXPECT_FALSE(has("late")); // declared after caret
+}
+
+TEST_F(SymbolTableTests, LocalCompletionsBlockScopeAndShadow) {
+    const std::string src = "Sub Foo()\n"
+                            "    Dim outer As Integer\n"
+                            "    If true Then\n"
+                            "        Dim inner As Integer\n"
+                            "        Print inner\n"
+                            "    End If\n"
+                            "End Sub\n";
+    const auto table = extract(src.c_str());
+    const int pos = static_cast<int>(src.find("Print inner"));
+    std::vector<wxString> out;
+    table.localCompletionsAt(pos, out);
+    const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
+    EXPECT_TRUE(has("outer")); // enclosing scope
+    EXPECT_TRUE(has("inner")); // current block
+}
+
+TEST_F(SymbolTableTests, LocalCompletionsSiblingBlockHidden) {
+    const std::string src = "Sub Foo()\n"
+                            "    If a Then\n"
+                            "        Dim hidden As Integer\n"
+                            "    End If\n"
+                            "    Print 1\n"
+                            "End Sub\n";
+    const auto table = extract(src.c_str());
+    const int pos = static_cast<int>(src.find("Print 1"));
+    std::vector<wxString> out;
+    table.localCompletionsAt(pos, out);
+    EXPECT_TRUE(std::ranges::find(out, wxString("hidden")) == out.end());
+}
+
+TEST_F(SymbolTableTests, LocalCompletionsMultiNameAndConst) {
+    const std::string src = "Sub Foo()\n"
+                            "    Dim a, b, c As Integer\n"
+                            "    Const K = 10\n"
+                            "    Print 1\n"
+                            "End Sub\n";
+    const auto table = extract(src.c_str());
+    const int pos = static_cast<int>(src.find("Print 1"));
+    std::vector<wxString> out;
+    table.localCompletionsAt(pos, out);
+    const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
+    EXPECT_TRUE(has("a"));
+    EXPECT_TRUE(has("b"));
+    EXPECT_TRUE(has("c"));
+    EXPECT_TRUE(has("K"));
+}
+
+TEST_F(SymbolTableTests, TypeFieldsInMemberCompletion) {
+    const std::string src = "Type Vec\n"
+                            "    x As Integer\n"
+                            "    y As Integer\n"
+                            "    Declare Sub Move()\n"
+                            "End Type\n"
+                            "Sub Vec.Move()\n"
+                            "    Print 1\n"
+                            "End Sub\n";
+    const auto table = extract(src.c_str());
+    const int pos = static_cast<int>(src.find("Print 1"));
+    std::vector<wxString> out;
+    table.memberCompletionsAt(pos, out);
+    const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
+    EXPECT_TRUE(has("x"));    // field
+    EXPECT_TRUE(has("y"));    // field
+    EXPECT_TRUE(has("Move")); // method
+}
+
+TEST_F(SymbolTableTests, MemberCompletionPullsFieldsFromIncludedType) {
+    // The type and its fields live in an included header; the method body that
+    // references them is in this file. Member completion merges both sources.
+    const auto header = extractShared(
+        "Type Vec\n"
+        "    x As Integer\n"
+        "    y As Integer\n"
+        "    Declare Sub Move()\n"
+        "End Type\n"
+    );
+
+    const std::string src = "Sub Vec.Move()\n"
+                            "    Print 1\n"
+                            "End Sub\n";
+    auto table = extract(src.c_str());
+
+    const int pos = static_cast<int>(src.find("Print 1"));
+    std::vector<wxString> out;
+    table.memberCompletionsAt(pos, out, { header });
+
+    const auto has = [&](const wxString& name) { return std::ranges::find(out, name) != out.end(); };
+    EXPECT_TRUE(has("x"));    // field from the included header
+    EXPECT_TRUE(has("y"));    // field from the included header
+    EXPECT_TRUE(has("Move")); // method implemented in this file
+}
+
+TEST_F(SymbolTableTests, ModuleVariablesInGlobalCompletions) {
+    const std::string src = "Dim Shared g As Integer\n"
+                            "Const MAXV = 10\n"
+                            "Sub Foo()\n"
+                            "End Sub\n";
+    const auto table = extract(src.c_str());
+    std::vector<wxString> vars;
+    table.moduleVariableCompletions(vars);
+    const auto hasVar = [&](const wxString& name) { return std::ranges::find(vars, name) != vars.end(); };
+    EXPECT_TRUE(hasVar("g"));
+    EXPECT_TRUE(hasVar("MAXV"));
+    std::vector<wxString> syms;
+    table.globalSymbolCompletions(syms);
+    EXPECT_TRUE(std::ranges::find(syms, wxString("Foo")) != syms.end());
 }

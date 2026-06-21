@@ -84,11 +84,14 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
     m_showWhiteSpaces = editor.get_or("whiteSpace", false);
     m_showLineEndings = editor.get_or("displayEOL", false);
     m_braceHighlight = editor.get_or("braceHighlight", true);
+    m_highlightOccurrences = editor.get_or("highlightOccurrences", true);
+    m_codeCompletion = editor.get_or("codeCompletion", true);
     m_syntaxHighlight = editor.get_or("syntaxHighlight", true);
     m_showLineNumbers = editor.get_or("lineNumbers", true);
     m_showRightMargin = editor.get_or("longLine", false);
     m_foldMargin = editor.get_or("folderMargin", false);
     m_changeTracking = editor.get_or("changeTracking", true);
+    m_autoReload = editor.get_or("autoReload", true);
     m_edgeColumn = editor.get_or("edgeColumn", 80);
     m_tabSize = editor.get_or("tabSize", 4);
     m_encoding = editor.get_or("encoding", "UTF-8");
@@ -109,6 +112,8 @@ void GeneralPage::create() {
             checkBox(m_showWhiteSpaces, tr("dialogs.settings.general.whitespace"));
             checkBox(m_showLineEndings, tr("dialogs.settings.general.lineEndings"));
             checkBox(m_braceHighlight, tr("dialogs.settings.general.braceHighlight"));
+            checkBox(m_highlightOccurrences, tr("dialogs.settings.general.highlightOccurrences"));
+            checkBox(m_codeCompletion, tr("dialogs.settings.general.codeCompletion"));
             spinCtrl(m_edgeColumn, tr("dialogs.settings.general.rightMarginWidth"), 1, 200, {});
             hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
                 text(tr("dialogs.settings.general.encoding"), { .expand = false });
@@ -123,6 +128,7 @@ void GeneralPage::create() {
             checkBox(m_showRightMargin, tr("dialogs.settings.general.rightMargin"));
             checkBox(m_foldMargin, tr("dialogs.settings.general.foldMargin"));
             checkBox(m_changeTracking, tr("dialogs.settings.general.changeTracking"));
+            checkBox(m_autoReload, tr("dialogs.settings.general.autoReload"));
             checkBox(m_splashScreen, tr("dialogs.settings.general.splashScreen"));
             checkBox(m_configurationInStatusBar, tr("dialogs.settings.general.configurationInStatusBar"));
             checkBox(m_checkUpdatesOnLoad, tr("dialogs.settings.general.checkUpdatesOnLoad"));
@@ -181,11 +187,14 @@ void GeneralPage::apply() {
     editor["whiteSpace"] = m_showWhiteSpaces;
     editor["displayEOL"] = m_showLineEndings;
     editor["braceHighlight"] = m_braceHighlight;
+    editor["highlightOccurrences"] = m_highlightOccurrences;
+    editor["codeCompletion"] = m_codeCompletion;
     editor["syntaxHighlight"] = m_syntaxHighlight;
     editor["lineNumbers"] = m_showLineNumbers;
     editor["longLine"] = m_showRightMargin;
     editor["folderMargin"] = m_foldMargin;
     editor["changeTracking"] = m_changeTracking;
+    editor["autoReload"] = m_autoReload;
     editor["edgeColumn"] = m_edgeColumn;
     editor["tabSize"] = m_tabSize;
     editor["encoding"] = m_encoding;
@@ -197,9 +206,9 @@ void GeneralPage::apply() {
     // Swap locale file if the user picked a different language. Live
     // refresh would have to update every menu/dialog/sidebar string in
     // place — too many small touch points to keep correct. Instead we
-    // confirm with the user, save the open documents to a temp session,
-    // and relaunch FBIde with `--load-session` so the new locale loads
-    // cleanly. Some editor undo state is lost; the trade-off is worth it
+    // confirm with the user, snapshot the open documents, and relaunch
+    // FBIde to restore them so the new locale loads cleanly. Some editor
+    // undo state is lost; the trade-off is worth it
     // for a rarely-changed setting.
     if (!m_language.empty() && m_language != currentLocaleFileName(cfg)) {
         const auto answer = wxMessageBox(

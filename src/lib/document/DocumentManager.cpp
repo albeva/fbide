@@ -8,6 +8,7 @@
 #include "Document.hpp"
 #include "DocumentIO.hpp"
 #include "DocumentPath.hpp"
+#include "DocumentWatcher.hpp"
 #include "FileSession.hpp"
 #include "analyses/intellisense/IntellisenseService.hpp"
 #include "app/Context.hpp"
@@ -19,6 +20,7 @@
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
+#include "config/ThemeCategory.hpp"
 #include "editor/CodeTransformer.hpp"
 #include "editor/Editor.hpp"
 #include "sidebar/SideBarManager.hpp"
@@ -27,9 +29,26 @@ using namespace fbide;
 
 namespace {
 constexpr auto SESSION_EXT = "fbs";
+// Case-insensitive path identity (defined with the other path helpers below);
+// declared here for the session-reopen guard in startSession.
+auto samePath(const std::filesystem::path& lhs, const std::filesystem::path& rhs) -> bool;
 const wxWindowID kTabCloseOthersId = wxNewId();
 const wxWindowID kTabShowInBrowserId = wxNewId();
 const wxWindowID kTabReloadFromDiskId = wxNewId();
+const wxWindowID kGoToDefinitionId = wxNewId();
+const wxWindowID kGoToDeclarationId = wxNewId();
+
+/// File dialog → the session path to save to, or empty when cancelled.
+auto promptSaveSessionPath(Context& ctx) -> wxString {
+    wxFileDialog dlg(
+        ctx.getUIManager().getMainFrame(),
+        ctx.tr("files.sessionSaveTitle"),
+        "", wxString(".") + SESSION_EXT,
+        ctx.getConfigManager().filePattern("session"),
+        wxFD_SAVE | wxFD_OVERWRITE_PROMPT
+    );
+    return dlg.ShowModal() == wxID_OK ? dlg.GetPath() : wxString {};
+}
 } // namespace
 
 // clang-format off
@@ -45,8 +64,14 @@ wxEND_EVENT_TABLE()
 DocumentManager::DocumentManager(Context& ctx)
 : m_ctx(ctx)
 , m_codeTransformer(std::make_unique<CodeTransformer>(ctx.getConfigManager()))
-, m_intellisense(std::make_unique<IntellisenseService>(ctx, this)) {
+, m_intellisense(std::make_unique<IntellisenseService>(ctx, this))
+, m_watcher(std::make_unique<DocumentWatcher>(ctx)) {
     Bind(EVT_INTELLISENSE_RESULT, &DocumentManager::onIntellisenseResult, this);
+    Bind(EVT_INTELLISENSE_TRACKED_FILES, &DocumentManager::onIntellisenseTrackedFiles, this);
+    Bind(EVT_INTELLISENSE_COMPLETION, &DocumentManager::onIntellisenseCompletion, this);
+    // Seed the worker with the keyword completion set; refreshed on settings change
+    // via UIManager::updateSettings.
+    rebuildKeywordCompletions();
 }
 
 DocumentManager::~DocumentManager() = default;
@@ -81,9 +106,10 @@ void DocumentManager::openFile() {
         m_ctx.tr("files.loadTitle"),
         "",
         ".bas",
-        m_ctx.getConfigManager().filePatterns({ "freebasic", "properties", "markdown", "batch", "bash", "makefile", "json", "css", "all" }),
+        m_ctx.getConfigManager().filePatterns({ "fbide", "properties", "markdown", "batch", "bash", "makefile", "json", "css", "text", "all" }),
         wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE
     );
+    dlg.SetFilterIndex(0); // pre-select the FBIde group (first filter) as the default
 
     if (dlg.ShowModal() != wxID_OK) {
         return;
@@ -140,8 +166,7 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
     //    resolves relative ones against its working directory (the source
     //    file's folder), so do the same; absolute ones apply even to an
     //    unsaved document.
-    for (const auto& entry : CompileCommand::extractIncludePaths(cfg.compileCommand)) {
-        auto dir = toFsPath(entry);
+    for (auto dir : CompileCommand::extractIncludePaths(cfg.compileCommand)) {
         if (dir.is_relative()) {
             if (origin.isNew()) {
                 continue; // no source folder to anchor a relative -i path
@@ -188,15 +213,21 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
         return nullptr;
     }
 
+    const auto thaw = m_ctx.getUIManager().freeze();
+
     // Canonicalize once at entry — fixes duplicate-tab bug on case-insensitive
     // filesystems (macOS/Windows: `fbgfx.bi` vs `FBGFX.bi`), resolves symlinks,
     // and ensures the stored path is identity-comparable for findByPath.
     const auto canonical = canonicalizePath(filePath);
     const auto canonicalWx = toWxString(canonical);
 
-    // Session files are loaded separately
-    if (auto ext = canonical.extension().string(); ext.size() > 1 && ext.substr(1) == SESSION_EXT) {
-        m_ctx.getFileSession().load(canonicalWx);
+    // Session files: activate a session for them, however the file was opened
+    // (Open dialog, recent files, browser, drop). startSession loads the
+    // session's documents; any previously active session is saved + dropped
+    // first. Currently open documents stay open — the session merges them.
+    if (const auto ext = canonical.extension().string(); ext.size() > 1 && ext.substr(1) == SESSION_EXT) {
+        startSession(canonicalWx);
+        m_ctx.getFileHistory().addFile(canonicalWx);
         return nullptr;
     }
 
@@ -217,7 +248,6 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
         return nullptr;
     }
 
-    const auto thaw = m_ctx.getUIManager().freeze();
     const auto type = documentTypeFromPath(canonical);
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(getNotebook(), m_ctx, type));
 
@@ -238,20 +268,27 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
     notebook->AddPage(doc.getPage(), doc.getTitle(), true);
 
     m_ctx.getFileHistory().addFile(canonicalWx);
+    m_watcher->addDocument(doc);
 
     // Initial parse: bypass throttle, submit immediately.
-    submitIntellisense(&doc, loaded->text);
+    submitIntellisense(&doc, loaded->text.utf8_string());
     return &doc;
 }
 
 namespace {
 
-void reportSaveFailure(const DocumentIO::SaveResult result, Context& ctx, const TextEncoding encoding) {
+void reportSaveFailure(Document& doc, const DocumentIO::SaveResult result, Context& ctx,
+    const TextEncoding encoding, const wxString& detail) {
+    wxString message;
     if (result == DocumentIO::SaveResult::EncodingError) {
-        wxLogError(ctx.tr("messages.saveEncodingError"), encoding.toString().data());
-    } else if (result == DocumentIO::SaveResult::IOError) {
-        wxLogError("%s", ctx.tr("messages.saveIoError"));
+        message = wxString::Format(ctx.tr("messages.saveEncodingError"), encoding.toString().data());
+    } else { // IOError — append the OS reason (e.g. "Permission denied") when known.
+        message = ctx.tr("messages.saveIoError");
+        if (!detail.IsEmpty()) {
+            message += " " + detail;
+        }
     }
+    doc.showSaveError(message);
 }
 
 } // namespace
@@ -313,14 +350,17 @@ auto DocumentManager::saveFile(Document& doc) -> bool {
         }
     }
 
-    const auto result = DocumentIO::save(doc.getFilePath(), doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode());
+    wxString ioDetail;
+    const auto result = DocumentIO::save(doc.getFilePath(), doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode(), &ioDetail);
     if (result != DocumentIO::SaveResult::Success) {
-        reportSaveFailure(result, m_ctx, doc.getEncoding());
+        reportSaveFailure(doc, result, m_ctx, doc.getEncoding(), ioDetail);
         return false;
     }
 
     doc.setModified(false);
     doc.updateModTime();
+    doc.dismissExternalNotification(); // a save resolves any external-change bar
+    doc.dismissSaveError();            // and clears a prior failed-save bar
     updateTabTitle(doc);
     reloadConfigIfMatches(toWxString(doc.getFilePath()));
     return true;
@@ -367,6 +407,7 @@ auto DocumentManager::saveFileAs(Document& doc) -> bool {
         filter,
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
     );
+    dlg.SetFilterIndex(0); // default to the document's type filter (FreeBASIC for new docs), not All files
 
     if (dlg.ShowModal() != wxID_OK) {
         return false;
@@ -389,15 +430,22 @@ auto DocumentManager::saveFileAs(Document& doc) -> bool {
         }
     }
 
-    const auto result = DocumentIO::save(newPath, doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode());
+    wxString ioDetail;
+    const auto result = DocumentIO::save(newPath, doc.getEditor()->GetText(), doc.getEncoding(), doc.getEolMode(), &ioDetail);
     if (result != DocumentIO::SaveResult::Success) {
-        reportSaveFailure(result, m_ctx, doc.getEncoding());
+        reportSaveFailure(doc, result, m_ctx, doc.getEncoding(), ioDetail);
         return false;
     }
 
+    // Re-point the watcher: drop the old directory (no-op when the document
+    // was untitled) before the path changes, re-register the new one after.
+    m_watcher->removeDocument(doc);
     doc.setFilePath(newPath);
     doc.setModified(false);
     doc.updateModTime();
+    doc.dismissExternalNotification(); // a save resolves any external-change bar
+    doc.dismissSaveError();            // and clears a prior failed-save bar
+    m_watcher->addDocument(doc);
     updateTabTitle(doc);
     reloadConfigIfMatches(toWxString(newPath));
 
@@ -433,6 +481,14 @@ void DocumentManager::reloadFromDisk(Document& doc) {
         }
     }
 
+    applyReload(doc);
+}
+
+void DocumentManager::applyReload(Document& doc, const bool keepUndo) {
+    if (doc.isNew()) {
+        return;
+    }
+
     // Reload using the document's currently-active encoding + EOL — the
     // user already chose them (or they were detected at first load), so a
     // re-detection on reload would reset their choice unexpectedly.
@@ -442,22 +498,40 @@ void DocumentManager::reloadFromDisk(Document& doc) {
         return;
     }
 
-    // Keep the document's existing EOL — convert the loaded text to match
-    // it so the editor stays in the user-chosen line-ending mode.
+    // Preserve the caret + scroll position so a silent (clean-buffer)
+    // auto-reload doesn't jump the user to the top of the file.
     auto* editor = doc.getEditor();
+    const int caret = editor->GetCurrentPos();
+    const int firstVisible = editor->GetFirstVisibleLine();
+
+    // Keep the document's existing EOL — convert the loaded text to match
+    // it so the editor stays in the user-chosen line-ending mode. When
+    // keeping undo, group the text + EOL changes into one action so a single
+    // Undo restores the user's discarded version.
     const auto eol = doc.getEolMode().toStc();
+    if (keepUndo) {
+        editor->BeginUndoAction();
+    }
     editor->disableTransforms(true);
     editor->SetText(loaded->text);
     editor->disableTransforms(false);
     editor->SetEOLMode(eol);
     editor->ConvertEOLs(eol);
-    editor->EmptyUndoBuffer();
+    if (keepUndo) {
+        editor->EndUndoAction();
+    } else {
+        editor->EmptyUndoBuffer();
+    }
+
+    editor->GotoPos(std::min(caret, editor->GetLength()));
+    editor->SetFirstVisibleLine(firstVisible);
+
     doc.setModified(false);
     doc.updateModTime();
     updateTabTitle(doc);
     editor->updateStatusBar();
 
-    submitIntellisense(&doc, loaded->text);
+    submitIntellisense(&doc, loaded->text.utf8_string());
 }
 
 void DocumentManager::reloadConfigIfMatches(const wxString& path) const {
@@ -481,8 +555,6 @@ auto DocumentManager::saveAllFiles() -> bool {
 }
 
 auto DocumentManager::closeFile(Document& doc) -> bool {
-    cancelIntellisense(&doc);
-
     if (doc.isModified()) {
         const auto result = wxMessageBox(
             wxString::Format(m_ctx.tr("messages.fileModifiedFormat"), doc.getTitle()),
@@ -501,6 +573,12 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
         }
     }
 
+    // Past the Cancel/Save prompt — the close is committed now. Drop the
+    // intellisense graph entry + completion context here (not before the prompt,
+    // so a cancelled close doesn't evict them and lose completion until re-parse).
+    closeDocumentIntellisense(&doc);
+    m_watcher->removeDocument(doc);
+
     if (const auto idx = findPageIndex(doc); idx != wxNOT_FOUND) {
         getNotebook()->DeletePage(static_cast<size_t>(idx));
     }
@@ -518,16 +596,10 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
     // cell would keep showing the closed document's selection.
     m_ctx.getCompilerManager().onActiveDocumentChanged(getActive());
 
-    // Trim the IntellisenseService SymbolTable pool: the closed doc's
-    // shared_ptr just released, so any pool slot it held is now idle.
-    if (m_intellisense != nullptr) {
-        m_intellisense->prune();
-    }
-
     // Update UI state when no documents remain
     if (m_documents.empty()) {
         m_ctx.getUIManager().setDocumentState(UIState::None);
-        m_ctx.getUIManager().setTitle(wxEmptyString);
+        m_ctx.getUIManager().updateTitle();
         // Clear every per-document status-bar cell. Going through the
         // handler (rather than hardcoded field indices) means the
         // configuration-in-status-bar layout, which shifts the cells,
@@ -566,23 +638,165 @@ auto DocumentManager::closeOtherFiles(const Document& keep) -> bool {
 
 void DocumentManager::attachNotebook() {
     auto* notebook = getNotebook();
-    notebook->Bind(wxEVT_AUINOTEBOOK_TAB_RIGHT_DOWN, &DocumentManager::onTabRightDown, this);
+    notebook->Bind(wxEVT_AUINOTEBOOK_TAB_RIGHT_UP, &DocumentManager::onTabRightUp, this);
+    // Defer the watcher's first start until the event loop is running:
+    // `attachNotebook` runs during OnInit, and wxFileSystemWatcher wants a
+    // live loop. `start()` enumerates the open documents, so any restored by
+    // the session are registered when it fires.
+    CallAfter([this] { m_watcher->applyConfig(); });
 }
 
-void DocumentManager::submitIntellisense(Document* doc, wxString content) {
+void DocumentManager::submitIntellisense(Document* doc, std::string content) {
     if (m_intellisense != nullptr) {
-        m_intellisense->submit(doc, std::move(content));
+        refreshIntellisenseConfig();
+        m_intellisense->submit(doc, doc->getFilePath(), std::move(content));
     }
 }
 
-void DocumentManager::cancelIntellisense(const Document* doc) {
+void DocumentManager::requestCompletion(Document* doc, int pos, std::string prefix, std::size_t seq, int maxItems) {
     if (m_intellisense != nullptr) {
-        m_intellisense->cancel(doc);
+        m_intellisense->requestCompletion(doc, pos, std::move(prefix), seq, maxItems);
+    }
+}
+
+void DocumentManager::rebuildKeywordCompletions() {
+    if (m_intellisense == nullptr) {
+        return;
+    }
+    // Collect candidates from the Library / Constants / Preprocessor / Custom
+    // keyword groups, in config order. The worker sorts and de-duplicates them
+    // when composing the completion list — here we only gather and forward.
+    std::vector<wxString> keywords;
+    const auto& groups = m_ctx.getConfigManager().keywords().at("groups");
+    for (const auto category : { ThemeCategory::KeywordLibrary, ThemeCategory::KeywordConstants, ThemeCategory::KeywordPP, ThemeCategory::KeywordCustom }) {
+        const std::string words(groups.get_or(wxString(getThemeCategoryName(category)), "").utf8_str());
+        std::size_t idx = 0;
+        while (idx < words.size()) {
+            while (idx < words.size() && (std::isspace(static_cast<unsigned char>(words[idx])) != 0)) {
+                idx++;
+            }
+            const std::size_t start = idx;
+            while (idx < words.size() && (std::isspace(static_cast<unsigned char>(words[idx])) == 0)) {
+                idx++;
+            }
+            if (idx > start) {
+                keywords.push_back(wxString::FromUTF8(words.substr(start, idx - start)));
+            }
+        }
+    }
+    // Skip the push when the set is unchanged (e.g. a non-keyword setting changed).
+    if (keywords != m_pushedKeywords) {
+        m_pushedKeywords = keywords;
+        m_intellisense->setKeywords(std::move(keywords));
+    }
+}
+
+void DocumentManager::refreshIntellisenseConfig() {
+    if (m_intellisense == nullptr) {
+        return;
+    }
+    auto& compilerMgr = m_ctx.getCompilerManager();
+    std::error_code ec;
+    const auto cwd = std::filesystem::current_path(ec);
+
+    // This runs on every submit (i.e. every edit-debounce), but the inputs only
+    // change on open/close/configuration changes. Skip the re-derivation unless
+    // a signature over those inputs changed: each FreeBASIC document's path and
+    // its resolved compiler config (command template + fbc path), plus the cwd.
+    // Capturing the resolved strings (not just the slug) also catches a Settings
+    // edit that mutates a config in place without changing the pinned slug.
+    std::string signature;
+    for (const auto& doc : m_documents) {
+        if (doc->getType() != DocumentType::FreeBASIC) {
+            continue;
+        }
+        const auto& cfg = compilerMgr.catalog().resolveByPinnedSlug(doc->getConfiguration());
+        signature += doc->isNew() ? std::string {} : doc->getFilePath().generic_string();
+        signature += '\n';
+        signature += cfg.compileCommand.utf8_string();
+        signature += '\n';
+        signature += cfg.path.generic_string();
+        signature += '\n';
+    }
+    signature += ec ? std::string {} : cwd.generic_string();
+    if (m_intellisenseConfigSig == signature) {
+        return;
+    }
+    m_intellisenseConfigSig = signature;
+
+    // The worker resolves every include against one global search-dir set, but
+    // the -i dirs and stock inc/ are per-document (each document's compiler
+    // configuration), and a relative -i anchors to its own document's folder —
+    // exactly as openInclude resolves them. Union the resolved dirs of every
+    // open FreeBASIC document: over-approximating is harmless for completion (it
+    // can only resolve more includes, never fewer), and keeps the worker's
+    // search-dir model unchanged.
+    std::vector<std::filesystem::path> dirs;
+    const auto add = [&dirs](std::filesystem::path dir) {
+        dir = dir.lexically_normal();
+        if (!dir.empty() && std::ranges::find(dirs, dir) == dirs.end()) {
+            dirs.push_back(std::move(dir));
+        }
+    };
+    std::unordered_set<std::string> defines;
+    for (const auto& doc : m_documents) {
+        if (doc->getType() != DocumentType::FreeBASIC) {
+            continue;
+        }
+        const auto& cfg = compilerMgr.catalog().resolveByPinnedSlug(doc->getConfiguration());
+        const auto base = doc->isNew() ? std::filesystem::path {} : doc->getFilePath().parent_path();
+        const auto args = CompileCommand::extractIncludesAndDefines(cfg.compileCommand);
+        // -i dirs: a relative one anchors to the document's folder (fbc's working
+        // dir); an unsaved document has no folder to anchor it to.
+        for (auto dir : args.includePaths) {
+            if (dir.is_relative()) {
+                if (base.empty()) {
+                    continue;
+                }
+                dir = base / dir;
+            }
+            add(std::move(dir));
+        }
+        // The compiler's stock inc/ (sibling of its fbc binary).
+        if (!cfg.path.empty()) {
+            auto fbc = cfg.path;
+            if (fbc.is_relative()) {
+                fbc = toFsPath(m_ctx.getConfigManager().getAppDir()) / fbc;
+            }
+            add(fbc.parent_path() / "inc");
+        }
+
+        // Preprocessor defines for `#if` branch selection: the compiler's built-in
+        // __FB_* presence macros (probed once per compiler, cached) plus the -d
+        // command-line defines (already lowercased to match the evaluator).
+        for (const auto& builtin : compilerMgr.builtinDefines(cfg.path)) {
+            defines.insert(builtin);
+        }
+        for (auto& def : args.defines) {
+            defines.insert(std::move(def));
+        }
+    }
+    if (!ec) {
+        add(cwd);
+    }
+    if (dirs != m_includeSearchDirs) {
+        m_includeSearchDirs = dirs;
+        m_intellisense->setIncludePaths(dirs);
+    }
+    if (defines != m_intellisenseDefines) {
+        m_intellisenseDefines = defines;
+        m_intellisense->setDefines(defines);
+    }
+}
+
+void DocumentManager::closeDocumentIntellisense(const Document* doc) {
+    if (m_intellisense != nullptr) {
+        m_intellisense->closeDocument(doc, doc->getFilePath());
     }
 }
 
 void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
-    const auto result = event.GetPayload<IntellisenseResult>();
+    auto result = event.GetPayload<IntellisenseResult>();
     // Validate the document is still alive — race against close.
     if (!contains(result.owner)) {
         return;
@@ -590,12 +804,109 @@ void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
     // contains() takes const Document*; cast away to call setter.
     auto* doc = const_cast<Document*>(result.owner); // NOLINT(cppcoreguidelines-pro-type-const-cast)
 
-    doc->setSymbolTable(result.symbols);
+    // Dim the editor's inactive #if branches from this fresh parse (read the own
+    // table before it is moved into the document).
+    if (auto* editor = doc->getEditor(); editor != nullptr) {
+        editor->applyInactiveRanges(
+            result.own ? result.own->getInactiveRanges() : std::vector<std::pair<int, int>> {}
+        );
+    }
+
+    doc->setSymbols(std::move(result.own), std::move(result.imported));
 
     // Push to the sidebar only when this document is the active one — the
     // tree always reflects the focused editor.
     if (doc == getActive()) {
         m_ctx.getSideBarManager().showSymbolsFor(doc);
+    }
+}
+
+void DocumentManager::onIntellisenseCompletion(wxThreadEvent& event) {
+    auto result = event.GetPayload<CompletionResult>();
+    if (!contains(result.owner)) {
+        return; // document closed since the request — race against close
+    }
+    auto* doc = const_cast<Document*>(result.owner); // NOLINT(cppcoreguidelines-pro-type-const-cast)
+    if (auto* editor = doc->getEditor(); editor != nullptr) {
+        editor->onCompletionResult(result.seq, result.items);
+    }
+}
+
+void DocumentManager::showEditorContextMenu(Editor& editor, const wxPoint& screenPos) {
+    auto* doc = findByEditor(&editor);
+
+    // Word under the click; a keyboard-invoked menu has no position, so the
+    // caret position is used instead.
+    int pos = editor.GetCurrentPos();
+    if (screenPos != wxDefaultPosition) {
+        pos = editor.PositionFromPoint(editor.ScreenToClient(screenPos));
+    }
+    const wxString word = editor.GetTextRange(editor.WordStartPosition(pos, true), editor.WordEndPosition(pos, true));
+
+    std::optional<SymbolTable::Location> def;
+    std::optional<SymbolTable::Location> decl;
+    if (doc != nullptr && doc->getType() == DocumentType::FreeBASIC && !word.empty()) {
+        if (const auto table = doc->getSymbolTable()) {
+            def = table->findDefinition(word, doc->getImportedTables());
+            decl = table->findDeclaration(word, doc->getImportedTables());
+        }
+    }
+
+    wxMenu menu;
+    menu.Append(+CommandId::Undo, m_ctx.tr("commands.undo.name"))->Enable(editor.CanUndo());
+    menu.Append(+CommandId::Redo, m_ctx.tr("commands.redo.name"))->Enable(editor.CanRedo());
+    menu.AppendSeparator();
+    const bool hasSelection = editor.GetSelectionStart() != editor.GetSelectionEnd();
+    menu.Append(+CommandId::Cut, m_ctx.tr("commands.cut.name"))->Enable(hasSelection);
+    menu.Append(+CommandId::Copy, m_ctx.tr("commands.copy.name"))->Enable(hasSelection);
+    menu.Append(+CommandId::Paste, m_ctx.tr("commands.paste.name"))->Enable(editor.CanPaste());
+    menu.AppendSeparator();
+    menu.Append(+CommandId::SelectAll, m_ctx.tr("commands.selectAll.name"));
+
+    if (def.has_value() || decl.has_value()) {
+        menu.AppendSeparator();
+        menu.Append(kGoToDefinitionId, m_ctx.tr("editorContext.goToDefinition"))->Enable(def.has_value());
+        menu.Append(kGoToDeclarationId, m_ctx.tr("editorContext.goToDeclaration"))->Enable(decl.has_value());
+        if (def.has_value()) {
+            menu.Bind(
+                wxEVT_MENU,
+                [this, loc = *def](const wxCommandEvent&) { goToLocation(loc.path, loc.line); },
+                kGoToDefinitionId
+            );
+        }
+        if (decl.has_value()) {
+            menu.Bind(
+                wxEVT_MENU,
+                [this, loc = *decl](const wxCommandEvent&) { goToLocation(loc.path, loc.line); },
+                kGoToDeclarationId
+            );
+        }
+    }
+    editor.PopupMenu(&menu);
+}
+
+void DocumentManager::goToLocation(const std::filesystem::path& path, const int line) {
+    Document* target = path.empty() ? getActive() : openFile(path);
+    if (target != nullptr) {
+        // Symbol/Location lines are 0-based; navigateToLine expects 1-based.
+        target->getEditor()->navigateToLine(line + 1);
+    }
+}
+
+void DocumentManager::onIntellisenseTrackedFiles(wxThreadEvent& event) {
+    if (m_watcher == nullptr) {
+        return;
+    }
+    auto paths = event.GetPayload<std::vector<std::filesystem::path>>();
+    // An include also open in a tab follows the open-document reload path; drop
+    // it here so the closed-include watch never double-handles it.
+    std::erase_if(paths, [this](const std::filesystem::path& path) { return findByPath(path) != nullptr; });
+    m_watcher->setIncludeWatches(std::move(paths));
+}
+
+void DocumentManager::reparseInclude(const std::filesystem::path& path) {
+    if (m_intellisense != nullptr) {
+        m_intellisense->refreshFile(path);
     }
 }
 
@@ -632,11 +943,18 @@ void DocumentManager::syncEditCommands() {
     setForceDisabled(CommandId::SelectAll, !hasText);
 }
 
-void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
-    event.Skip();
+void DocumentManager::onTabRightUp(wxAuiNotebookEvent& event) {
+    // Pop the menu on right-button *up*, not down: showing it on the down event
+    // leaves the paired button-up in flight, and wxGTK delivers that release into
+    // the freshly opened menu — dismissing it immediately (and, with the cursor
+    // over the first item, Close, taking the tab with it). By the up event the
+    // whole press/release cycle is complete, so the menu stays open. Don't Skip.
+    popupTabContextMenu(event.GetSelection());
+}
+
+void DocumentManager::popupTabContextMenu(const int pageIdx) {
     auto* notebook = getNotebook();
-    const auto pageIdx = event.GetSelection();
-    if (pageIdx == wxNOT_FOUND) {
+    if (pageIdx < 0 || pageIdx >= static_cast<int>(notebook->GetPageCount())) {
         return;
     }
     const auto* page = notebook->GetPage(static_cast<size_t>(pageIdx));
@@ -706,8 +1024,46 @@ void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
 // Life cycle
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Sessions
+// ---------------------------------------------------------------------------
+
+auto DocumentManager::startSession(const wxString& path) -> FileSession* {
+    // Reopening the already-active session would drop the live one and re-read
+    // it from disk — make it a no-op.
+    if (m_session != nullptr && samePath(toFsPath(m_session->getPath()), toFsPath(path))) {
+        return m_session.get();
+    }
+    m_session = std::make_unique<FileSession>(m_ctx, path);
+    m_session->load();
+    return m_session.get();
+}
+
+void DocumentManager::newSession() {
+    const wxString path = promptSaveSessionPath(m_ctx);
+    if (path.empty()) {
+        return;
+    }
+
+    // close current session.
+    m_session.reset();
+
+    // We assume overwrite, so remove existing one.
+    if (wxFileExists(path)) {
+        wxRemoveFile(path);
+    }
+
+    startSession(path); // active from now; its file is written when it closes
+    m_ctx.getFileHistory().addFile(path);
+}
+
+void DocumentManager::closeSession() {
+    m_session.reset();
+}
+
 auto DocumentManager::prepareToQuit() -> bool {
     if (getModifiedCount() == 0) {
+        m_session.reset();
         return true;
     }
 
@@ -727,6 +1083,11 @@ auto DocumentManager::prepareToQuit() -> bool {
             return false;
         }
     }
+
+    // Snapshot + drop the session after any save-on-exit, while all documents
+    // are still open, so it records their final paths (e.g. a previously new
+    // document just saved under a real name).
+    m_session.reset();
 
     // Discard all — close without prompting (already saved or user said NO)
     while (!m_documents.empty()) {
@@ -759,6 +1120,73 @@ void DocumentManager::setActive(Document* document) {
     const auto idx = findPageIndex(*document);
     if (idx != wxNOT_FOUND) {
         getNotebook()->SetSelection(static_cast<size_t>(idx));
+    }
+}
+
+namespace {
+// Lexical path comparison for matching open documents to a path that was just
+// renamed or deleted in the IDE. std::filesystem::equivalent can't be used here:
+// after the operation the document's current (old) path no longer exists.
+auto normForCompare(const std::filesystem::path& path) -> wxString {
+    wxString str = toWxString(path);
+    while (str.length() > 1 && (str.Last() == '\\' || str.Last() == '/')) {
+        str.RemoveLast();
+    }
+    return wxFileName::IsCaseSensitive() ? str : str.Lower();
+}
+
+auto samePath(const std::filesystem::path& lhs, const std::filesystem::path& rhs) -> bool {
+    return normForCompare(lhs) == normForCompare(rhs);
+}
+
+auto underPath(const std::filesystem::path& child, const std::filesystem::path& parent) -> bool {
+    // Strictly nested: child begins with "parent<sep>". normForCompare yields
+    // native separators, so a single wxFILE_SEP_PATH check suffices.
+    return normForCompare(child).StartsWith(normForCompare(parent) + wxFILE_SEP_PATH);
+}
+} // namespace
+
+void DocumentManager::handleExternalRename(const std::filesystem::path& oldPath, const std::filesystem::path& newPath) {
+    const auto oldLen = normForCompare(oldPath).length();
+    for (const auto& docPtr : m_documents) {
+        auto& doc = *docPtr;
+        if (doc.isNew()) {
+            continue;
+        }
+        std::filesystem::path updated;
+        if (samePath(doc.getFilePath(), oldPath)) {
+            updated = newPath;
+        } else if (underPath(doc.getFilePath(), oldPath)) {
+            // Directory rename: keep the document below the new folder, preserving
+            // the remainder of its path (with its original case).
+            const wxString remainder = toWxString(doc.getFilePath()).Mid(oldLen);
+            updated = toFsPath(toWxString(newPath) + remainder);
+        } else {
+            continue;
+        }
+        // Re-point the watcher around the path change (mirrors saveFileAs).
+        m_watcher->removeDocument(doc);
+        doc.setFilePath(updated);
+        doc.updateModTime();
+        doc.dismissExternalNotification();
+        m_watcher->addDocument(doc);
+        updateTabTitle(doc);
+    }
+    updateActiveTabTitle(); // the active document may have moved
+}
+
+void DocumentManager::handleExternalDelete(const std::filesystem::path& path) {
+    // Collect first — closeFile mutates m_documents.
+    std::vector<Document*> victims;
+    for (const auto& docPtr : m_documents) {
+        auto& doc = *docPtr;
+        if (!doc.isNew() && (samePath(doc.getFilePath(), path) || underPath(doc.getFilePath(), path))) {
+            victims.push_back(&doc);
+        }
+    }
+    for (auto* doc : victims) {
+        doc->setModified(false); // the file is gone; close without prompting to save
+        closeFile(*doc);
     }
 }
 
@@ -820,7 +1248,8 @@ void DocumentManager::setMinimapVisible(const bool visible) {
 }
 
 auto DocumentManager::contains(const Document* doc) const -> bool {
-    return doc != nullptr && std::ranges::contains(m_documents, doc, &std::unique_ptr<Document>::get);
+    return doc != nullptr
+        && std::ranges::find(m_documents, doc, &std::unique_ptr<Document>::get) != m_documents.end();
 }
 
 auto DocumentManager::findPageIndex(const Document& doc) const -> int {
@@ -847,7 +1276,31 @@ void DocumentManager::updateTabTitle(const Document& doc) const {
     const auto idx = findPageIndex(doc);
     if (idx != wxNOT_FOUND) {
         getNotebook()->SetPageText(static_cast<size_t>(idx), doc.getTitle());
-        m_ctx.getUIManager().setTitle(doc.isNew() ? doc.getTitle() : toWxString(doc.getFilePath()));
+    }
+}
+
+void DocumentManager::refreshAutoReload() {
+    m_watcher->applyConfig();
+    // Re-enabling the watcher dropped its include watches; ask the worker to
+    // re-post its tracked set so they rebuild without waiting for an edit.
+    if (m_watcher->isEnabled() && m_intellisense != nullptr) {
+        m_intellisense->resendTrackedFiles();
+    }
+}
+
+void DocumentManager::shutdownWatcher() {
+    if (m_watcher != nullptr) {
+        m_watcher->shutdown();
+    }
+}
+
+void DocumentManager::flushExternalPending(Document& doc) {
+    m_watcher->flushPending(doc);
+}
+
+void DocumentManager::refreshTabTitle(const Document& doc) const {
+    if (const auto idx = findPageIndex(doc); idx != wxNOT_FOUND) {
+        getNotebook()->SetPageText(static_cast<size_t>(idx), doc.getTitle());
     }
 }
 

@@ -14,7 +14,6 @@ class CommandManager;
 class CompilerManager;
 class DocumentManager;
 class FileHistory;
-class FileSession;
 class HelpManager;
 class SideBarManager;
 class UIManager;
@@ -96,11 +95,6 @@ public:
     /// Const overload of `getDocumentManager`.
     [[nodiscard]] auto getDocumentManager() const -> const DocumentManager& { return *m_documentManager; }
 
-    /// Access the session manager (`.fbs` load/save).
-    [[nodiscard]] auto getFileSession() -> FileSession& { return *m_fileSession; }
-    /// Const overload of `getFileSession`.
-    [[nodiscard]] auto getFileSession() const -> const FileSession& { return *m_fileSession; }
-
     /// Access the command manager (menu/toolbar dispatch).
     [[nodiscard]] auto getCommandManager() -> CommandManager& { return *m_commandManager; }
     /// Const overload of `getCommandManager`.
@@ -131,7 +125,6 @@ private:
     // pointer to a wxAuiNotebook owned by the frame which UIManager destroys.
     std::unique_ptr<SideBarManager> m_sideBarManager;   ///< Browser/Subs sidebar.
     std::unique_ptr<DocumentManager> m_documentManager; ///< Open documents + tabs.
-    std::unique_ptr<FileSession> m_fileSession;         ///< Session `.fbs` load/save.
     std::unique_ptr<CompilerManager> m_compilerManager; ///< Compile/run lifecycle.
     std::unique_ptr<HelpManager> m_helpManager;         ///< Help dispatcher.
     std::unique_ptr<UpdateManager> m_updateManager;     ///< GitHub release check.

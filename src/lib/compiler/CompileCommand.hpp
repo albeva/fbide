@@ -38,9 +38,29 @@ public:
     /// to embrace spaces. Meta-tags (`<$fbc>` etc.) and other flags are
     /// ignored — only literal `-i` paths come back. Lets `#include`
     /// navigation search the same directories the compiler does.
-    [[nodiscard]] static auto extractIncludePaths(const wxString& compileTemplate) -> std::vector<wxString>;
+    [[nodiscard]] static auto extractIncludePaths(const wxString& compileTemplate) -> std::vector<std::filesystem::path>;
+
+    /// Extract the symbol names defined via fbc's `-d <name>[=<value>]` in a
+    /// compile command template, in order, lowercased. Like `-i`, `-d` is a
+    /// standalone argument followed by the definition; any `=value` suffix is
+    /// dropped. Lowercased to match the case-insensitive intellisense
+    /// preprocessor evaluator (`#ifdef` / `#if defined()`).
+    [[nodiscard]] static auto extractDefines(const wxString& compileTemplate) -> std::vector<std::string>;
+
+    /// `-i` include directories and (lowercased) `-d` define names from one
+    /// template, in a single tokenisation pass — for the intellisense config
+    /// refresh, which needs both.
+    struct IncludesAndDefines {
+        std::vector<std::filesystem::path> includePaths;
+        std::vector<std::string> defines;
+    };
+    [[nodiscard]] static auto extractIncludesAndDefines(const wxString& compileTemplate) -> IncludesAndDefines;
 
 private:
+    /// Split a compile-command template into shell-style tokens, honouring
+    /// double quotes (which are stripped); whitespace outside quotes separates.
+    [[nodiscard]] static auto tokenizeTemplate(const wxString& compileTemplate) -> std::vector<wxString>;
+
     wxString m_sourceFile; ///< Source file to compile.
 };
 

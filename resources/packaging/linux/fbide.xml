@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- shared-mime-info definitions for FBIde's associated file types. One MIME
+     type per extension so each carries its own icon. Kept in sync with the
+     MimeType= list in fbide.desktop, the macOS CFBundleDocumentTypes in
+     configured_files/Info.plist.in and the Windows ProgIDs in
+     resources/packaging/windows/fbide.iss. Installed to
+     usr/share/mime/packages/fbide.xml in the AppDir.
+
+     Icon names are deliberately NOT the freedesktop "<type with / -> ->"
+     convention (text-x-freebasic): KDE/Plasma collapses any unknown
+     mimetype-style name (media-x-subtype) to the active theme's
+     media-x-generic icon *before* falling back to our hicolor icon, so a
+     text/* type would always show the generic text-document icon. Custom
+     names that don't look like a MIME type (fbide-source) dodge that rule and
+     resolve to our icon on both KDE and GNOME. The icon files (installed by
+     stage-appdir.sh / install-local.sh into hicolor mimetypes) must match
+     these names. -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="text/x-freebasic">
+    <comment>FreeBASIC source file</comment>
+    <sub-class-of type="text/plain"/>
+    <!-- weight 60 wins the *.bas glob over the system's text/x-basic (50). -->
+    <glob pattern="*.bas" weight="60"/>
+    <icon name="fbide-freebasic-source"/>
+    <generic-icon name="text-x-generic"/>
+  </mime-type>
+  <mime-type type="text/x-freebasic-header">
+    <comment>FreeBASIC header file</comment>
+    <sub-class-of type="text/plain"/>
+    <glob pattern="*.bi"/>
+    <icon name="fbide-freebasic-header"/>
+    <generic-icon name="text-x-generic"/>
+  </mime-type>
+  <mime-type type="application/x-fbide-session">
+    <comment>FBIde session</comment>
+    <glob pattern="*.fbs"/>
+    <icon name="fbide-session"/>
+    <generic-icon name="text-x-generic"/>
+  </mime-type>
+</mime-info>

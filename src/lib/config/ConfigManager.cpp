@@ -244,18 +244,84 @@ auto ConfigManager::getPlatformConfigFileName() -> wxString {
 #endif
 }
 
+#if !defined(__WXMSW__) && !defined(__WXOSX__)
+namespace {
+/// A Linux terminal emulator and the flag that makes it run a command line
+/// (empty when the command is passed positionally, e.g. kitty/foot).
+struct TerminalSpec {
+    const char* binary;
+    const char* execFlag;
+};
+
+/// Candidates probed in PATH, in priority order: the distro-neutral alternatives
+/// symlink first (honours the user's chosen default on Debian/Ubuntu), then the
+/// common desktop and standalone emulators.
+constexpr TerminalSpec kLinuxTerminals[] = {
+    { "x-terminal-emulator", "-e" }, // Debian/Ubuntu alternatives symlink
+    { "gnome-terminal", "--" },      // -e is deprecated; -- passes the command
+    { "konsole", "-e" },
+    { "xfce4-terminal", "-x" },
+    { "tilix", "-e" },
+    { "ptyxis", "--" },
+    { "kitty", "" },
+    { "alacritty", "-e" },
+    { "wezterm", "-e" },
+    { "foot", "" },
+    { "xterm", "-e" },
+};
+
+auto isExecutableInPath(const wxString& name) -> bool {
+    wxString pathEnv;
+    if (!wxGetEnv("PATH", &pathEnv)) {
+        return false;
+    }
+    wxStringTokenizer tok(pathEnv, wxString(wxPATH_SEP));
+    while (tok.HasMoreTokens()) {
+        const wxFileName candidate(tok.GetNextToken(), name);
+        if (candidate.FileExists() && candidate.IsFileExecutable()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// First installed terminal, resolved once. Falls back to the first entry when
+/// none are found, so the behaviour matches the old hard-coded default.
+auto detectLinuxTerminal() -> const TerminalSpec& {
+    static const TerminalSpec* const spec = [] -> const TerminalSpec* {
+        for (const auto& candidate : kLinuxTerminals) {
+            if (isExecutableInPath(candidate.binary)) {
+                return &candidate;
+            }
+        }
+        return &kLinuxTerminals[0];
+    }();
+    return *spec;
+}
+} // namespace
+#endif
+
 auto ConfigManager::getTerminal() -> wxString {
 #ifdef __WXMSW__
     return "cmd.exe";
 #elifdef __WXOSX__
     return "open -a Terminal";
 #else
-    return "x-terminal-emulator";
+    return detectLinuxTerminal().binary;
 #endif
 }
 
 auto ConfigManager::getTerminalLauncher() -> wxString {
     return config().get_or("compiler.terminal", getDefaultTerminalLauncher());
+}
+
+auto ConfigManager::getLocale() -> wxString {
+    const auto name = config().get_or("locale", "");
+    if (name.empty()) {
+        return wxEmptyString;
+    }
+    const wxFileName file { name };
+    return file.GetName();
 }
 
 auto ConfigManager::getDefaultTerminalLauncher() -> wxString {
@@ -272,10 +338,17 @@ auto ConfigManager::getDefaultTerminalLauncher() -> wxString {
     // script. Cannot be expressed as a single-line template prefix.
     return "";
 #else
-    // `-e` is the de facto flag accepted by the Debian/Ubuntu alternatives
-    // symlink. Distro-specific terminals (gnome-terminal `--`, konsole `-e`)
-    // may need a custom run-command template.
-    return "x-terminal-emulator -e";
+    // Probe PATH for an installed emulator and pair it with the flag that runs a
+    // command (gnome-terminal `--`, konsole `-e`, kitty/foot positional, …). A
+    // distro-specific terminal not on the list can still be set via a custom
+    // run-command template.
+    const auto& term = detectLinuxTerminal();
+    wxString launcher = term.binary;
+    if (term.execFlag[0] != '\0') {
+        launcher += ' ';
+        launcher += term.execFlag;
+    }
+    return launcher;
 #endif
 }
 
@@ -681,6 +754,15 @@ auto ConfigManager::reloadIfKnown(const wxString& path) -> bool {
     return false;
 }
 
+auto ConfigManager::isFirstRun() const -> bool {
+    const auto& entry = m_categories.at(static_cast<std::size_t>(Category::Config));
+    if (!entry.strategy.usesOverlay()) {
+        return false;
+    }
+    std::error_code ec;
+    return !fs::exists(entry.strategy.overlayPath(), ec);
+}
+
 auto ConfigManager::get(Category category) -> Value& {
     auto& entry = m_categories.at(static_cast<std::size_t>(category));
     if (entry.category != category) {
@@ -735,6 +817,32 @@ auto ConfigManager::filePatterns(const std::initializer_list<std::string_view> k
         joined += composeFilter(key, desc, glob);
     }
     return joined;
+}
+
+auto ConfigManager::fileGlob(const wxString& key) -> wxString {
+    return config().at("filePatterns").get_or(key, "");
+}
+
+auto ConfigManager::isEditorFile(const wxString& filename) -> bool {
+    const wxString name = filename.Lower(); // globs are stored lowercase
+    const auto matchesKey = [&](const std::string_view key) {
+        for (wxString rest = fileGlob(wxString(key.data(), key.size())); !rest.IsEmpty();) {
+            const wxString glob = rest.BeforeFirst(';');
+            rest = rest.AfterFirst(';');
+            if (!glob.IsEmpty() && wxMatchWild(glob.Lower(), name, false)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    for (const auto key : kEditorFileTypeKeys) {
+        if (matchesKey(key)) {
+            return true;
+        }
+    }
+    // `session` (.fbs) and the hidden `plaintext` key (extensionless README/
+    // LICENSE/… ) open in fbide but are kept out of the Open/Save dialog filters.
+    return matchesKey("session") || matchesKey("plaintext");
 }
 
 // ---------------------------------------------------------------------------

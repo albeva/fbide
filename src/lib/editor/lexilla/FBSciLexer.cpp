@@ -361,15 +361,19 @@ void FBSciLexer::lexDefault() noexcept {
             }
         } else {
             m_sc->SetState(+Operator);
-            m_fieldAccess = true;
+            // Not field access when an operator follows: `.(` etc. is not member
+            // access (issue #112). Anything non-operator (identifier, whitespace,
+            // `_`) still arms it, so continuation/comment tracking via
+            // canAccessMember is unchanged.
+            m_fieldAccess = !isOperator(m_sc->chNext);
             return; // short circuit!
         }
     }
     // ->
     else if (m_sc->ch == '-' && m_sc->chNext == '>') {
         m_sc->SetState(+Operator);
-        m_sc->Forward();
-        m_fieldAccess = true;
+        m_sc->Forward(); // consume '>'; chNext is now the char after "->"
+        m_fieldAccess = !isOperator(m_sc->chNext); // see the `.` case (issue #112)
         return; // short circuit!
     }
     // Numbers
@@ -670,7 +674,20 @@ auto FBSciLexer::identifyKeyword() noexcept -> bool {
 }
 
 void FBSciLexer::lexOperator() noexcept {
-    if (!isOperator(m_sc->ch)) {
+    // Operators normally merge into one styled run; that's harmless (Scintilla
+    // styles per byte, so "<=" looks the same either way) and keeps the last
+    // operator on a line styled correctly — the run is flushed at EOL rather
+    // than relying on the Default re-dispatch, which doesn't fire at line end.
+    //
+    // But an operator must not swallow a following numeric literal whose prefix
+    // is itself an operator character: '&' before h/o/b (hex/oct/bin) or '.'
+    // before a digit (fraction). Issue #111: ",&h32" must lex as ',' then
+    // "&h32", not ",&" then "h32". Such a literal always has a lookahead char,
+    // so breaking the run here is safe — the re-dispatch below runs on it.
+    const auto lcn = fastUnsafeLowerCase(m_sc->chNext);
+    const bool startsNumber = (m_sc->ch == '&' && (lcn == 'h' || lcn == 'o' || lcn == 'b'))
+                           || (m_sc->ch == '.' && isDigit(m_sc->chNext));
+    if (!isOperator(m_sc->ch) || startsNumber) {
         if (m_inPpBody) {
             m_sc->ChangeState(+ThemeCategory::OperatorPP);
         }
@@ -689,10 +706,14 @@ void FBSciLexer::lexPreprocessor() noexcept {
         return;
     }
 
-    // continuation `_`
+    // continuation `_` — but not a `##_##` token-paste operand, where the
+    // underscore is a literal identifier character being concatenated
+    // (`A##_##B` → `A_B`), not a line continuation (issue #115).
     if (m_sc->ch == '_'
         && not isIdentifier(m_sc->chPrev)
-        && not isIdentifier(m_sc->chNext)) {
+        && not isIdentifier(m_sc->chNext)
+        && not(m_sc->chPrev == '#' && m_sc->GetRelative(-2) == '#'
+               && m_sc->chNext == '#' && m_sc->GetRelative(2) == '#')) {
         m_lineState.continuePP = true;
         m_sc->SetState(+Comment);
         return;

@@ -79,9 +79,14 @@ recent known good state.
 
 ## FileSession
 
-`fbide::FileSession` (`src/lib/document/FileSession.hpp`) reads and
-writes `.fbs` workspace snapshots: which files are open, where the
-caret sits, encoding/EOL choices.
+`fbide::FileSession` (`src/lib/document/FileSession.hpp`) *is* an active
+session — `DocumentManager` owns one `unique_ptr` to it. Constructing it just
+binds to a `.fbs` path; `load()` then activates it — opening the workspace
+snapshot it lists (which files are open, where the caret sits, encoding/EOL
+choices) and enabling the Close-Session command. Destroying it writes the
+snapshot back and deactivates. So `DocumentManager` starts a session by
+creating the object (then `load()`-ing it) and ends one by resetting it — it
+holds no session I/O itself.
 
 Format version is kept at the top — current is **v3**, INI-based:
 
