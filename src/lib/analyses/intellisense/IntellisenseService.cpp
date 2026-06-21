@@ -72,11 +72,19 @@ auto standaloneKey(const Document* owner) -> std::filesystem::path {
 /// Read a file as raw UTF-8 bytes (stripping a leading BOM). Returns false when
 /// the file cannot be opened.
 auto readFile(const std::filesystem::path& path, std::string& out) -> bool {
-    std::ifstream stream(path, std::ios::binary);
+    std::ifstream stream(path, std::ios::binary | std::ios::ate);
     if (!stream) {
         return false;
     }
-    out.assign(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char> {});
+    const std::streamsize size = stream.tellg();
+    if (size < 0) {
+        return false;
+    }
+    out.resize(static_cast<std::size_t>(size));
+    stream.seekg(0);
+    if (size > 0) {
+        stream.read(out.data(), size);
+    }
     if (out.size() >= 3 && static_cast<unsigned char>(out[0]) == 0xEF
         && static_cast<unsigned char>(out[1]) == 0xBB && static_cast<unsigned char>(out[2]) == 0xBF) {
         out.erase(0, 3); // UTF-8 BOM
