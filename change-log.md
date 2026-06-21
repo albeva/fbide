@@ -3,20 +3,20 @@
 - Added a Windows installer with bundled FreeBASIC (x86).
 - Added an arm64 Windows build and an arm64 Linux AppImage.
 - Added file associations (.bas, .bi, .fbs).
-- Statically linked the CRT into the Windows builds so they run without the VC++ redistributable.
+- Statistically linked the CRT into the Windows builds so they run without the VC++ redistributable.
 
 - Added auto-reload of externally modified files.
-- Added auto-refresh, context menus and a folder focus mode to sidebar File Browser.
+- Added auto-refresh, context menus and a folder focus mode to the sidebar File Browser.
 - Changed sessions to stay active and auto-save on close or quit, restoring file-browser state.
 - Added a `fbide format <file>` command-line subcommand.
 - Added a new app icon, splash and distinct file icons for .bas, .bi and .fbs files.
-- Redesigned the About dialog.
+- Redesigned the About dialogue.
 - Fixed an operator before a `&h`/`&o`/`&b` number swallowing its prefix and mis-highlighting the number (#111).
-- Fixed source commands (Compile/Run/Format) staying disabled when fbide is launched by opening a file (#122).
+- Fixed source commands (Compile/Run/Format) staying disabled when FBIDE is launched by opening a file (#122).
 - Fixed Compile & Run / Quick Run on a configuration that builds no executable, now showing a clear alert (#116).
 - Fixed `_` in a `##_##` preprocessor token-paste being mis-lexed as a line continuation (#115).
 - Added opening common extensionless files (Makefile, README, LICENSE, …) from the file browser (#114).
-- Changed the Open dialog to default to the FBIde filter (`*.bas`, `*.bi`, `*.fbs`); removed "Load Session".
+- Changed the Open dialogue to default to the FBIde filter (`*.bas`, `*.bi`, `*.fbs`); removed "Load Session".
 - Added native file/folder icons to the macOS file browser.
 - Fixed Comment/Uncomment changing the text selection (#113).
 - Fixed a keyword after `.`/`->` followed by a non-identifier losing its highlighting (#112).
