@@ -476,9 +476,9 @@ void FileBrowser::onItemMenu(wxTreeEvent& event) {
         menu.Append(kIdTerminal, menuText("openTerminal", "Open Terminal Here"));
         menu.Append(kIdRefresh, menuText("refresh", "Refresh"));
         const bool isFocusRoot = !m_dirCtrl->focusRoot().IsEmpty()
-                              && wxFileName(path).SameAs(wxFileName(m_dirCtrl->focusRoot()));
+            && wxFileName(path).SameAs(wxFileName(m_dirCtrl->focusRoot()));
         menu.Append(isFocusRoot ? kIdUnfocus : kIdFocus,
-            isFocusRoot ? menuText("unfocus", "Unfocus") : menuText("focus", "Focus"));
+                    isFocusRoot ? menuText("unfocus", "Unfocus") : menuText("focus", "Focus"));
         menu.AppendSeparator();
     } else {
         menu.Append(kIdOpen, menuText("open", "Open"));
@@ -574,18 +574,8 @@ void FileBrowser::onItemMenu(wxTreeEvent& event) {
 void FileBrowser::openNode(const wxString& path) {
     if (isSupportedFile(path)) {
         m_ctx.getDocumentManager().openFile(path);
-        return;
-    }
-    // Hand off to the OS default app. Point fbide's own working directory at the
-    // file's folder first, so a launched executable inherits that as its CWD
-    // rather than fbide's, then restore it — the child is already spawned with
-    // the inherited directory by the time the call returns.
-    const wxString restoreCwd = wxGetCwd();
-    const wxString folder = toWxString(toFsPath(path).parent_path());
-    const bool moved = !folder.empty() && wxSetWorkingDirectory(folder);
-    wxLaunchDefaultApplication(path);
-    if (moved && !restoreCwd.empty()) {
-        wxSetWorkingDirectory(restoreCwd);
+    } else {
+        wxLaunchDefaultApplication(path); // hand off to the OS default app
     }
 }
 
@@ -667,7 +657,7 @@ void FileBrowser::deleteNode(const wxString& path, const bool isDir) {
         }
     }
     m_ctx.getDocumentManager().handleExternalDelete(toFsPath(path)); // close any open docs
-    unwatchFolder(path);                                             // drop the watch if it was an expanded directory
+    unwatchFolder(path); // drop the watch if it was an expanded directory
     afterMutation(parentDir, wxEmptyString);
 }
 
@@ -768,7 +758,7 @@ void FileBrowser::unfocus() {
         m_dirCtrl->setFocusRoot(wxEmptyString); // restore the full tree (collapsed)
         m_dirCtrl->ExpandPath(focused);         // re-open the path down to the focused folder
         for (const auto& path : reopen) {
-            m_dirCtrl->ExpandPath(path); // re-open the subfolders that were open
+            m_dirCtrl->ExpandPath(path);        // re-open the subfolders that were open
         }
         if (!selected.IsEmpty()) {
             m_dirCtrl->SelectPath(selected); // restore selection if it still exists
@@ -862,7 +852,7 @@ auto FileBrowser::validateName(const wxString& name, const wxString& dir, const 
         // filesystem the candidate resolves to the same file being renamed,
         // which is not a real conflict.
         const bool isSelf = !ignorePath.IsEmpty()
-                         && std::filesystem::equivalent(candidate, toFsPath(ignorePath), ec);
+            && std::filesystem::equivalent(candidate, toFsPath(ignorePath), ec);
         if (!isSelf) {
             return fail("nameExists", R"(An item named "%s" already exists.)");
         }
