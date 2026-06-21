@@ -73,13 +73,7 @@ void SettingsDialog::create(const wxString& target) {
     mainSizer->Add(buttonRow, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
 
     m_autoDetectButton->Show(m_notebook->GetSelection() == static_cast<int>(Page::Compiler));
-    m_autoDetectButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
-        m_compilerPage->autoDetect();
-        // Auto-detect may have wired up a bundled manual (paths.helpFile);
-        // mirror it into the Keywords tab so the field shows it and its
-        // apply() doesn't overwrite it with the value loaded at open time.
-        m_keywordsPage->refreshHelpFileFromConfig();
-    });
+    m_autoDetectButton->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { m_compilerPage->autoDetect(); });
     m_notebook->Bind(wxEVT_NOTEBOOK_PAGE_CHANGED, [this](wxBookCtrlEvent& event) {
         m_autoDetectButton->Show(event.GetSelection() == static_cast<int>(Page::Compiler));
         Layout();
