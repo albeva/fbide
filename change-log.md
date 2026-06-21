@@ -28,6 +28,7 @@
 - Added imported (`#include`d) symbols to the symbol browser, nested under each include.
 - Added preprocessor-aware intellisense — `#if` branches resolved against compiler defines; inactive code dimmed.
 - Fixed right-clicking a document tab closing it instead of showing the context menu on Linux.
+- Fixed the terminal launcher on Linux by detecting an installed emulator instead of assuming `x-terminal-emulator`.
 
 # Changes since 0.5.0-rc.5
 
