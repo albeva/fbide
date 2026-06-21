@@ -554,9 +554,9 @@ void FileBrowser::onItemMenu(wxTreeEvent& event) {
         break;
     }
     case kIdCopyUnix: {
-        wxString unix = path;
-        unix.Replace("\\", "/");
-        copyToClipboard(unix);
+        wxString unixPath = path;
+        unixPath.Replace("\\", "/");
+        copyToClipboard(unixPath);
         break;
     }
     case kIdCopyName:
