@@ -329,7 +329,7 @@ TEST_F(StyleLexerTests, PreprocessorDefineBodyKeywordDoesNotReclassifyDirective)
     auto t = strip(lex("#define VT_GUARD If x = 0 Then Exit Sub"));
     ASSERT_FALSE(t.empty());
     EXPECT_EQ(t[0].kind, TokenKind::Preprocessor);
-    EXPECT_EQ(t[0].keywordKind, KeywordKind::PpOther);
+    EXPECT_EQ(t[0].keywordKind, KeywordKind::PpDefine); // the directive itself, not reclassified to PpIf by the body
     EXPECT_EQ(t[0].text, "#define");
 }
 

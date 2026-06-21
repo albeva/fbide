@@ -161,12 +161,23 @@ void BuildTask::onCompileFinished(const ProcessResult& result) {
         doc->setCompiledPath(m_compiledFile);
     }
 
-    if (m_shouldRun) {
-        run(m_compiledFile, m_isQuickRun);
-    } else {
-        // Compile-only: nothing more runs, so clear the status line.
-        clearStatus();
+    if (!m_shouldRun) {
+        clearStatus(); // compile-only: nothing more runs
+        return;
     }
+
+    // A successful compile does not guarantee a runnable executable: a library
+    // build (e.g. #cmdline "-dll") produces no exe at the expected path. Alert
+    // instead of trying to run a file that was never created.
+    if (!wxFileExists(m_compiledFile)) {
+        compilerLog().add(CompilerLogSection::RunResult, m_ctx.tr("messages.noExecutable"));
+        clearStatus();
+        cleanupTempFiles();
+        wxMessageBox(m_ctx.tr("messages.noExecutable"), m_ctx.tr("common.message"), wxICON_EXCLAMATION);
+        return;
+    }
+
+    run(m_compiledFile, m_isQuickRun);
 }
 
 void BuildTask::onRunFinished(const ProcessResult& result) {
@@ -182,7 +193,9 @@ void BuildTask::onRunFinished(const ProcessResult& result) {
     }
 
     if (!result.launched) {
-        wxMessageBox(m_ctx.tr("messages.execError"), m_ctx.tr("common.error"), wxICON_ERROR);
+        auto execError = m_ctx.tr("messages.execError");
+        execError.Replace("{file}", wxFileName(m_compiledFile).GetFullName());
+        wxMessageBox(execError, m_ctx.tr("common.error"), wxICON_ERROR);
     } else if (m_ctx.getConfigManager().config().get_or("commands.showExitCode", false)) {
         wxString msg;
         msg << result.exitCode;

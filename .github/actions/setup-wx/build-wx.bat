@@ -4,8 +4,10 @@ setlocal
 REM Vendored copy of C:\Users\Albert\Developer\wxwidgets\build-githuhb.bat —
 REM the trimmed-down configuration intended for CI artefacts. Disables every
 REM wxWidgets module FBIde does not link against to keep the cached install
-REM compact and shave cold-build time. When local trim flags change, update
-REM this file in the same commit.
+REM compact and shave cold-build time. NanoSVG is the exception — kept on
+REM (wxUSE_NANOSVG=builtin) because wxBitmapBundle::FromSVGFile renders the
+REM About-dialog logo. When local trim flags change, update this file in the
+REM same commit.
 REM
 REM Single-config build. Configured by env vars from action.yml — the build
 REM type must match the downstream FBIde configure (Debug vs Release select
@@ -65,7 +67,7 @@ cmake -S "%WX_SRC_DIR%" -B "%WX_BUILD_DIR%" ^
     -DwxUSE_LIBJPEG=OFF ^
     -DwxUSE_XML=OFF ^
     -DwxUSE_REGEX=OFF ^
-    -DwxUSE_NANOSVG=OFF
+    -DwxUSE_NANOSVG=builtin
 if errorlevel 1 exit /b 1
 
 cmake --build "%WX_BUILD_DIR%" --config %WX_BUILD_TYPE% --target install

@@ -34,6 +34,8 @@ auto samePath(const std::filesystem::path& lhs, const std::filesystem::path& rhs
 const wxWindowID kTabCloseOthersId = wxNewId();
 const wxWindowID kTabShowInBrowserId = wxNewId();
 const wxWindowID kTabReloadFromDiskId = wxNewId();
+const wxWindowID kGoToDefinitionId = wxNewId();
+const wxWindowID kGoToDeclarationId = wxNewId();
 
 /// File dialog → the session path to save to, or empty when cancelled.
 auto promptSaveSessionPath(Context& ctx) -> wxString {
@@ -64,6 +66,8 @@ DocumentManager::DocumentManager(Context& ctx)
 , m_intellisense(std::make_unique<IntellisenseService>(ctx, this))
 , m_watcher(std::make_unique<DocumentWatcher>(ctx)) {
     Bind(EVT_INTELLISENSE_RESULT, &DocumentManager::onIntellisenseResult, this);
+    Bind(EVT_INTELLISENSE_TRACKED_FILES, &DocumentManager::onIntellisenseTrackedFiles, this);
+    Bind(EVT_INTELLISENSE_COMPLETION, &DocumentManager::onIntellisenseCompletion, this);
 }
 
 DocumentManager::~DocumentManager() = default;
@@ -158,8 +162,7 @@ auto DocumentManager::openInclude(const Document& origin, const wxString& includ
     //    resolves relative ones against its working directory (the source
     //    file's folder), so do the same; absolute ones apply even to an
     //    unsaved document.
-    for (const auto& entry : CompileCommand::extractIncludePaths(cfg.compileCommand)) {
-        auto dir = toFsPath(entry);
+    for (auto dir : CompileCommand::extractIncludePaths(cfg.compileCommand)) {
         if (dir.is_relative()) {
             if (origin.isNew()) {
                 continue; // no source folder to anchor a relative -i path
@@ -271,7 +274,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
 namespace {
 
 void reportSaveFailure(Document& doc, const DocumentIO::SaveResult result, Context& ctx,
-                       const TextEncoding encoding, const wxString& detail) {
+    const TextEncoding encoding, const wxString& detail) {
     wxString message;
     if (result == DocumentIO::SaveResult::EncodingError) {
         message = wxString::Format(ctx.tr("messages.saveEncodingError"), encoding.toString().data());
@@ -548,8 +551,6 @@ auto DocumentManager::saveAllFiles() -> bool {
 }
 
 auto DocumentManager::closeFile(Document& doc) -> bool {
-    cancelIntellisense(&doc);
-
     if (doc.isModified()) {
         const auto result = wxMessageBox(
             wxString::Format(m_ctx.tr("messages.fileModifiedFormat"), doc.getTitle()),
@@ -568,6 +569,10 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
         }
     }
 
+    // Past the Cancel/Save prompt — the close is committed now. Drop the
+    // intellisense graph entry + completion context here (not before the prompt,
+    // so a cancelled close doesn't evict them and lose completion until re-parse).
+    closeDocumentIntellisense(&doc);
     m_watcher->removeDocument(doc);
 
     if (const auto idx = findPageIndex(doc); idx != wxNOT_FOUND) {
@@ -586,12 +591,6 @@ auto DocumentManager::closeFile(Document& doc) -> bool {
     // would dangle and the toolbar combobox / status-bar configuration
     // cell would keep showing the closed document's selection.
     m_ctx.getCompilerManager().onActiveDocumentChanged(getActive());
-
-    // Trim the IntellisenseService SymbolTable pool: the closed doc's
-    // shared_ptr just released, so any pool slot it held is now idle.
-    if (m_intellisense != nullptr) {
-        m_intellisense->prune();
-    }
 
     // Update UI state when no documents remain
     if (m_documents.empty()) {
@@ -645,18 +644,129 @@ void DocumentManager::attachNotebook() {
 
 void DocumentManager::submitIntellisense(Document* doc, std::string content) {
     if (m_intellisense != nullptr) {
-        m_intellisense->submit(doc, std::move(content));
+        refreshIntellisenseConfig();
+        m_intellisense->submit(doc, doc->getFilePath(), std::move(content));
     }
 }
 
-void DocumentManager::cancelIntellisense(const Document* doc) {
+void DocumentManager::requestCompletion(Document* doc, int pos, std::string prefix, std::size_t seq, int maxItems) {
     if (m_intellisense != nullptr) {
-        m_intellisense->cancel(doc);
+        m_intellisense->requestCompletion(doc, pos, std::move(prefix), seq, maxItems);
+    }
+}
+
+void DocumentManager::setIntellisenseKeywords(std::vector<wxString> keywords) {
+    if (m_intellisense != nullptr) {
+        m_intellisense->setKeywords(std::move(keywords));
+    }
+}
+
+void DocumentManager::refreshIntellisenseConfig() {
+    if (m_intellisense == nullptr) {
+        return;
+    }
+    auto& compilerMgr = m_ctx.getCompilerManager();
+    std::error_code ec;
+    const auto cwd = std::filesystem::current_path(ec);
+
+    // This runs on every submit (i.e. every edit-debounce), but the inputs only
+    // change on open/close/configuration changes. Skip the re-derivation unless
+    // a signature over those inputs changed: each FreeBASIC document's path and
+    // its resolved compiler config (command template + fbc path), plus the cwd.
+    // Capturing the resolved strings (not just the slug) also catches a Settings
+    // edit that mutates a config in place without changing the pinned slug.
+    std::string signature;
+    for (const auto& doc : m_documents) {
+        if (doc->getType() != DocumentType::FreeBASIC) {
+            continue;
+        }
+        const auto& cfg = compilerMgr.catalog().resolveByPinnedSlug(doc->getConfiguration());
+        signature += doc->isNew() ? std::string {} : doc->getFilePath().generic_string();
+        signature += '\n';
+        signature += cfg.compileCommand.utf8_string();
+        signature += '\n';
+        signature += cfg.path.generic_string();
+        signature += '\n';
+    }
+    signature += ec ? std::string {} : cwd.generic_string();
+    if (m_intellisenseConfigSig == signature) {
+        return;
+    }
+    m_intellisenseConfigSig = signature;
+
+    // The worker resolves every include against one global search-dir set, but
+    // the -i dirs and stock inc/ are per-document (each document's compiler
+    // configuration), and a relative -i anchors to its own document's folder —
+    // exactly as openInclude resolves them. Union the resolved dirs of every
+    // open FreeBASIC document: over-approximating is harmless for completion (it
+    // can only resolve more includes, never fewer), and keeps the worker's
+    // search-dir model unchanged.
+    std::vector<std::filesystem::path> dirs;
+    const auto add = [&dirs](std::filesystem::path dir) {
+        dir = dir.lexically_normal();
+        if (!dir.empty() && std::ranges::find(dirs, dir) == dirs.end()) {
+            dirs.push_back(std::move(dir));
+        }
+    };
+    std::unordered_set<std::string> defines;
+    for (const auto& doc : m_documents) {
+        if (doc->getType() != DocumentType::FreeBASIC) {
+            continue;
+        }
+        const auto& cfg = compilerMgr.catalog().resolveByPinnedSlug(doc->getConfiguration());
+        const auto base = doc->isNew() ? std::filesystem::path {} : doc->getFilePath().parent_path();
+        const auto args = CompileCommand::extractIncludesAndDefines(cfg.compileCommand);
+        // -i dirs: a relative one anchors to the document's folder (fbc's working
+        // dir); an unsaved document has no folder to anchor it to.
+        for (auto dir : args.includePaths) {
+            if (dir.is_relative()) {
+                if (base.empty()) {
+                    continue;
+                }
+                dir = base / dir;
+            }
+            add(std::move(dir));
+        }
+        // The compiler's stock inc/ (sibling of its fbc binary).
+        if (!cfg.path.empty()) {
+            auto fbc = cfg.path;
+            if (fbc.is_relative()) {
+                fbc = toFsPath(m_ctx.getConfigManager().getAppDir()) / fbc;
+            }
+            add(fbc.parent_path() / "inc");
+        }
+
+        // Preprocessor defines for `#if` branch selection: the compiler's built-in
+        // __FB_* presence macros (probed once per compiler, cached) plus the -d
+        // command-line defines (already lowercased to match the evaluator).
+        for (const auto& builtin : compilerMgr.builtinDefines(cfg.path)) {
+            defines.insert(builtin);
+        }
+        for (auto& def : args.defines) {
+            defines.insert(std::move(def));
+        }
+    }
+    if (!ec) {
+        add(cwd);
+    }
+    if (dirs != m_includeSearchDirs) {
+        m_includeSearchDirs = dirs;
+        m_intellisense->setIncludePaths(dirs);
+    }
+    if (defines != m_intellisenseDefines) {
+        m_intellisenseDefines = defines;
+        m_intellisense->setDefines(defines);
+    }
+}
+
+void DocumentManager::closeDocumentIntellisense(const Document* doc) {
+    if (m_intellisense != nullptr) {
+        m_intellisense->closeDocument(doc, doc->getFilePath());
     }
 }
 
 void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
-    const auto result = event.GetPayload<IntellisenseResult>();
+    auto result = event.GetPayload<IntellisenseResult>();
     // Validate the document is still alive — race against close.
     if (!contains(result.owner)) {
         return;
@@ -664,12 +774,109 @@ void DocumentManager::onIntellisenseResult(wxThreadEvent& event) {
     // contains() takes const Document*; cast away to call setter.
     auto* doc = const_cast<Document*>(result.owner); // NOLINT(cppcoreguidelines-pro-type-const-cast)
 
-    doc->setSymbolTable(result.symbols);
+    // Dim the editor's inactive #if branches from this fresh parse (read the own
+    // table before it is moved into the document).
+    if (auto* editor = doc->getEditor(); editor != nullptr) {
+        editor->applyInactiveRanges(
+            result.own ? result.own->getInactiveRanges() : std::vector<std::pair<int, int>> {}
+        );
+    }
+
+    doc->setSymbols(std::move(result.own), std::move(result.imported));
 
     // Push to the sidebar only when this document is the active one — the
     // tree always reflects the focused editor.
     if (doc == getActive()) {
         m_ctx.getSideBarManager().showSymbolsFor(doc);
+    }
+}
+
+void DocumentManager::onIntellisenseCompletion(wxThreadEvent& event) {
+    auto result = event.GetPayload<CompletionResult>();
+    if (!contains(result.owner)) {
+        return; // document closed since the request — race against close
+    }
+    auto* doc = const_cast<Document*>(result.owner); // NOLINT(cppcoreguidelines-pro-type-const-cast)
+    if (auto* editor = doc->getEditor(); editor != nullptr) {
+        editor->onCompletionResult(result.seq, result.items);
+    }
+}
+
+void DocumentManager::showEditorContextMenu(Editor& editor, const wxPoint& screenPos) {
+    auto* doc = findByEditor(&editor);
+
+    // Word under the click; a keyboard-invoked menu has no position, so the
+    // caret position is used instead.
+    int pos = editor.GetCurrentPos();
+    if (screenPos != wxDefaultPosition) {
+        pos = editor.PositionFromPoint(editor.ScreenToClient(screenPos));
+    }
+    const wxString word = editor.GetTextRange(editor.WordStartPosition(pos, true), editor.WordEndPosition(pos, true));
+
+    std::optional<SymbolTable::Location> def;
+    std::optional<SymbolTable::Location> decl;
+    if (doc != nullptr && doc->getType() == DocumentType::FreeBASIC && !word.empty()) {
+        if (const auto table = doc->getSymbolTable()) {
+            def = table->findDefinition(word, doc->getImportedTables());
+            decl = table->findDeclaration(word, doc->getImportedTables());
+        }
+    }
+
+    wxMenu menu;
+    menu.Append(+CommandId::Undo, m_ctx.tr("commands.undo.name"))->Enable(editor.CanUndo());
+    menu.Append(+CommandId::Redo, m_ctx.tr("commands.redo.name"))->Enable(editor.CanRedo());
+    menu.AppendSeparator();
+    const bool hasSelection = editor.GetSelectionStart() != editor.GetSelectionEnd();
+    menu.Append(+CommandId::Cut, m_ctx.tr("commands.cut.name"))->Enable(hasSelection);
+    menu.Append(+CommandId::Copy, m_ctx.tr("commands.copy.name"))->Enable(hasSelection);
+    menu.Append(+CommandId::Paste, m_ctx.tr("commands.paste.name"))->Enable(editor.CanPaste());
+    menu.AppendSeparator();
+    menu.Append(+CommandId::SelectAll, m_ctx.tr("commands.selectAll.name"));
+
+    if (def.has_value() || decl.has_value()) {
+        menu.AppendSeparator();
+        menu.Append(kGoToDefinitionId, m_ctx.tr("editorContext.goToDefinition"))->Enable(def.has_value());
+        menu.Append(kGoToDeclarationId, m_ctx.tr("editorContext.goToDeclaration"))->Enable(decl.has_value());
+        if (def.has_value()) {
+            menu.Bind(
+                wxEVT_MENU,
+                [this, loc = *def](const wxCommandEvent&) { goToLocation(loc.path, loc.line); },
+                kGoToDefinitionId
+            );
+        }
+        if (decl.has_value()) {
+            menu.Bind(
+                wxEVT_MENU,
+                [this, loc = *decl](const wxCommandEvent&) { goToLocation(loc.path, loc.line); },
+                kGoToDeclarationId
+            );
+        }
+    }
+    editor.PopupMenu(&menu);
+}
+
+void DocumentManager::goToLocation(const std::filesystem::path& path, const int line) {
+    Document* target = path.empty() ? getActive() : openFile(path);
+    if (target != nullptr) {
+        // Symbol/Location lines are 0-based; navigateToLine expects 1-based.
+        target->getEditor()->navigateToLine(line + 1);
+    }
+}
+
+void DocumentManager::onIntellisenseTrackedFiles(wxThreadEvent& event) {
+    if (m_watcher == nullptr) {
+        return;
+    }
+    auto paths = event.GetPayload<std::vector<std::filesystem::path>>();
+    // An include also open in a tab follows the open-document reload path; drop
+    // it here so the closed-include watch never double-handles it.
+    std::erase_if(paths, [this](const std::filesystem::path& path) { return findByPath(path) != nullptr; });
+    m_watcher->setIncludeWatches(std::move(paths));
+}
+
+void DocumentManager::reparseInclude(const std::filesystem::path& path) {
+    if (m_intellisense != nullptr) {
+        m_intellisense->refreshFile(path);
     }
 }
 
@@ -1036,6 +1243,11 @@ void DocumentManager::updateTabTitle(const Document& doc) const {
 
 void DocumentManager::refreshAutoReload() {
     m_watcher->applyConfig();
+    // Re-enabling the watcher dropped its include watches; ask the worker to
+    // re-post its tracked set so they rebuild without waiting for an edit.
+    if (m_watcher->isEnabled() && m_intellisense != nullptr) {
+        m_intellisense->resendTrackedFiles();
+    }
 }
 
 void DocumentManager::shutdownWatcher() {

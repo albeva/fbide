@@ -9,11 +9,8 @@
 #ifdef __WXOSX__
 #include "MacFileIcons.hpp"
 #endif
-#include <wx/artprov.h>
-#include <wx/config.h>
-#include <wx/dirctrl.h>
-#include <wx/textdlg.h>
 #include "app/Context.hpp"
+#include "compiler/AsyncProcess.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/DocumentManager.hpp"
 #include "document/FileSession.hpp"
@@ -31,6 +28,35 @@ constexpr int kFsEvents = wxFSW_EVENT_CREATE | wxFSW_EVENT_DELETE | wxFSW_EVENT_
 constexpr int kFocusButtonId = wxID_HIGHEST + 1; // focus-toolbar Focus/Unfocus button
 constexpr auto kFocusIcon = wxART_ADD_BOOKMARK;
 constexpr auto kUnFocusIcon = wxART_DEL_BOOKMARK;
+
+// True when `path` is a file the OS can execute directly: by extension on
+// Windows, by the execute permission bit elsewhere. Directories (including macOS
+// .app bundles) are excluded — they go to the default handler.
+auto isExecutableFile(const wxString& path) -> bool {
+    const auto fsPath = toFsPath(path);
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(fsPath, ec)) {
+        return false;
+    }
+#ifdef __WXMSW__
+    const auto ext = wxFileName(path).GetExt().Lower();
+    return ext == "exe" || ext == "com" || ext == "bat" || ext == "cmd";
+#else
+    constexpr auto execBits = std::filesystem::perms::owner_exec
+                            | std::filesystem::perms::group_exec | std::filesystem::perms::others_exec;
+    return (std::filesystem::status(fsPath, ec).permissions() & execBits) != std::filesystem::perms::none;
+#endif
+}
+
+// Run an executable detached, with its working directory set to its own folder
+// so it resolves relative paths against where it lives. Fire-and-forget: fbide
+// neither captures its output nor tracks its lifetime.
+void launchExecutable(const wxString& path) {
+    const auto folder = toWxString(toFsPath(path).parent_path());
+    if (auto* proc = AsyncProcess::exec("\"" + path + "\"", folder, false, [](ProcessResult) {}); proc != nullptr) {
+        proc->detach();
+    }
+}
 } // namespace
 
 // clang-format off
@@ -574,6 +600,8 @@ void FileBrowser::onItemMenu(wxTreeEvent& event) {
 void FileBrowser::openNode(const wxString& path) {
     if (isSupportedFile(path)) {
         m_ctx.getDocumentManager().openFile(path);
+    } else if (isExecutableFile(path)) {
+        launchExecutable(path);
     } else {
         wxLaunchDefaultApplication(path); // hand off to the OS default app
     }

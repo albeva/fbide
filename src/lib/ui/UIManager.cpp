@@ -277,7 +277,13 @@ void UIManager::onPageChanged(wxAuiNotebookEvent& event) {
     const auto* page = m_notebook->GetPage(static_cast<size_t>(sel));
     auto* doc = m_ctx.getDocumentManager().findByPage(page);
     if (doc != nullptr) {
-        doc->getEditor()->SetFocus();
+        auto* editor = doc->getEditor();
+        editor->SetFocus();
+        // Apply the command-enable state for the now-active document directly.
+        // On a cold-boot open the frame isn't active yet, so SetFocus delivers no
+        // focus event and the focus-driven update never runs — Compile/Run/Format
+        // would otherwise stay disabled until the first tab switch.
+        editor->updateDocumentState();
         m_ctx.getSideBarManager().showSymbolsFor(doc);
         m_ctx.getCompilerManager().onActiveDocumentChanged(doc);
         updateTitle();

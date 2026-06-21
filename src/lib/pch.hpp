@@ -40,6 +40,7 @@
 #include <wx/bmpbndl.h>
 #include <wx/clipbrd.h>
 #include <wx/colordlg.h>
+#include <wx/config.h>
 #include <wx/convauto.h>
 #include <wx/dataobj.h>
 #include <wx/dcbuffer.h>
@@ -71,6 +72,7 @@
 #include <wx/stc/minimap.h>
 #include <wx/stc/stc.h>
 #include <wx/stdpaths.h>
+#include <wx/textdlg.h>
 #include <wx/textfile.h>
 #include <wx/thread.h>
 #include <wx/tokenzr.h>

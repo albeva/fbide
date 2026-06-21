@@ -58,9 +58,24 @@ private:
     /// Per-leaf lookup payload. `kind` selects which `SymbolTable` vector
     /// to read, `index` is the offset into that vector.
     struct Entry {
-        SymbolKind kind;   ///< Which `SymbolTable` bucket the leaf came from.
-        std::size_t index; ///< Offset into that bucket's vector.
+        std::size_t tableIndex; ///< Index into `sourceTables()` (0 = document, 1.. = imports).
+        SymbolKind kind;        ///< Which `SymbolTable` bucket the leaf came from.
+        std::size_t index;      ///< Offset into that bucket's vector.
+        /// For an `Include` node: its resolved imported table in `sourceTables()`
+        /// (0 = unresolved). The expand handler reads it to populate the subtree
+        /// lazily. Unused for leaves.
+        std::size_t importedTableIndex = 0;
     };
+
+    /// One symbol an included file contributes to its (lazily built) subtree.
+    struct ApiSym {
+        SymbolKind kind;
+        std::size_t index;
+        wxString name;
+    };
+
+    /// Pointer-to-member accessor for a symbol bucket (e.g. `&SymbolTable::getSubs`).
+    using BucketGetter = const std::vector<Symbol>& (SymbolTable::*)() const;
 
     /// Tree-leaf activation — dispatch to navigation or include open.
     void onItemActivated(wxTreeEvent& event);
@@ -74,7 +89,11 @@ private:
     /// symbols are skipped — they are grouped under their owning type by
     /// `appendTypeTree`. The folder is omitted when nothing survives. Each
     /// leaf registers an `Entry` in `m_entries` keyed by its tree id.
-    void appendBucket(SymbolKind kind, const wxString& label, const std::vector<Symbol>& bucket);
+    void appendBucket(SymbolKind kind, const wxString& label, BucketGetter getter);
+
+    /// The tables whose symbols are rendered: the current document followed by
+    /// its `#include` closure (so imported symbols appear in the same buckets).
+    [[nodiscard]] auto sourceTables() const -> std::vector<const SymbolTable*>;
 
     /// English keyword synonyms for a kind (e.g. `Type` → "type udt"),
     /// space-joined and lowercased — part of a leaf's filter haystack.
@@ -107,17 +126,34 @@ private:
     /// stripped to `member`), or a localised "Constructor" / "Destructor".
     [[nodiscard]] auto memberLabel(const Symbol& sym) const -> wxString;
 
-    /// Append the Includes folder under the tree root when non-empty.
-    /// Each leaf registers an `Entry` in `m_entries`.
+    /// Append the Includes folder under the tree root when non-empty. Each
+    /// directive becomes a collapsed node advertising an expander when it has
+    /// visible symbols; the symbol leaves themselves are built lazily by
+    /// `onItemExpanding`. The node registers an `Entry` in `m_entries`.
     void appendIncludes(const wxString& label, const std::vector<Include>& includes);
+
+    /// Populate an include node's symbol leaves on first expand. A no-op for
+    /// non-include nodes, already-populated nodes, and unresolved imports.
+    void onItemExpanding(wxTreeEvent& event);
+
+    /// The API an included file contributes: typenames, free-standing callables
+    /// and macros (methods stay with their type, enum members are completion
+    /// only). `all` keeps everything (the include path itself matched the
+    /// filter); otherwise each symbol must pass the filter on its own.
+    [[nodiscard]] auto collectIncludeApi(const SymbolTable& table, bool all) const -> std::vector<ApiSym>;
+
+    /// Early-exit check for `collectIncludeApi` non-empty — decides whether an
+    /// include node advertises an expander without building its leaves.
+    [[nodiscard]] auto includeHasApi(const SymbolTable& table, bool all) const -> bool;
 
     /// Resolve a leaf entry to its action: navigate the active editor to
     /// the symbol's line, or open the included file.
     void dispatch(const Entry& entry);
 
-    Context& m_ctx;                                    ///< Application context.
-    std::shared_ptr<const SymbolTable> m_currentTable; ///< Currently rendered symbol table.
-    std::vector<wxString> m_filterWords;               ///< Active filter words (lowercased); empty = no filter.
+    Context& m_ctx;                                                    ///< Application context.
+    std::shared_ptr<const SymbolTable> m_currentTable;                 ///< Currently rendered own symbol table.
+    std::vector<std::shared_ptr<const SymbolTable>> m_currentImported; ///< Its `#include` closure (sourceTables / hashing).
+    std::vector<wxString> m_filterWords;                               ///< Active filter words (lowercased); empty = no filter.
     /// Memoized localized kind labels, indexed by `SymbolKind`. Filled once
     /// in the constructor (the locale is fixed for a session).
     std::array<wxString, static_cast<std::size_t>(SymbolKind::Include) + 1> m_kindLabels;

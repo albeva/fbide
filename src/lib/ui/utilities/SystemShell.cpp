@@ -75,9 +75,16 @@ auto SystemShell::propertiesSupported() -> bool {
 }
 
 void SystemShell::openTerminal(const wxString& dir, const wxString& terminalCommand) {
-    // Mirrors CommandManager::onCmdPrompt — launch the configured terminal with
-    // its working directory set to the folder.
+#ifdef __WXMAC__
+    // `open -a Terminal` re-launches Terminal through LaunchServices, which
+    // ignores an inherited working directory. Pass the folder as an argument
+    // instead — `open` hands it to Terminal, which opens a new window there.
+    const auto command = dir.IsEmpty() ? terminalCommand : terminalCommand + " " + quoted(dir);
+    wxExecute(command, wxEXEC_ASYNC);
+#else
+    // Launch the configured terminal with its working directory set to the folder.
     wxExecuteEnv env;
     env.cwd = dir;
     wxExecute(terminalCommand, wxEXEC_ASYNC, nullptr, &env);
+#endif
 }

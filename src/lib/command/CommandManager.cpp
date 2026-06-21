@@ -22,6 +22,7 @@
 #include "settings/SettingsDialog.hpp"
 #include "sidebar/SideBarManager.hpp"
 #include "ui/UIManager.hpp"
+#include "ui/utilities/SystemShell.hpp"
 #include "update/UpdateManager.hpp"
 using namespace fbide;
 
@@ -380,13 +381,13 @@ void CommandManager::onKillProcess(wxCommandEvent&) {
 }
 
 void CommandManager::onCmdPrompt(wxCommandEvent&) {
-    wxExecuteEnv env;
     const auto* doc = m_ctx.getDocumentManager().getActive();
+    wxString dir;
     if (doc != nullptr && !doc->isNew()) {
         const auto parent = doc->getFilePath().parent_path();
         std::error_code ec;
         if (std::filesystem::is_directory(parent, ec)) {
-            env.cwd = toWxString(parent);
+            dir = toWxString(parent);
         }
     }
     // Resolve which configuration's terminal launcher to invoke: the
@@ -398,7 +399,7 @@ void CommandManager::onCmdPrompt(wxCommandEvent&) {
                           : std::optional<wxString> {};
     const auto& cfg = m_ctx.getCompilerManager().catalog().resolveByPinnedSlug(pinned);
     const auto terminal = cfg.terminal.IsEmpty() ? ConfigManager::getTerminal() : cfg.terminal;
-    wxExecute(terminal, wxEXEC_ASYNC, nullptr, &env);
+    SystemShell::openTerminal(dir, terminal);
 }
 
 void CommandManager::onParameters(wxCommandEvent&) {

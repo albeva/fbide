@@ -15,6 +15,7 @@ class Context;
 class CodeTransformer;
 class IntellisenseService;
 class DocumentWatcher;
+class Editor;
 class FileSession;
 
 /**
@@ -67,6 +68,11 @@ public:
     /// Returns the opened document, or nullptr if the file cannot be found.
     auto openInclude(const Document& origin, const wxString& includePath) -> Document*;
 
+    /// Build and show the editor's right-click context menu (standard edit
+    /// actions plus Go to Definition / Declaration for the symbol under the
+    /// click). Delegated here from `Editor` for command + navigation context.
+    void showEditorContextMenu(Editor& editor, const wxPoint& screenPos);
+
     /// Show open file dialog and open selected files.
     void openFile();
 
@@ -103,9 +109,31 @@ public:
     /// asynchronously via EVT_INTELLISENSE_RESULT.
     void submitIntellisense(Document* doc, std::string content);
 
-    /// Cancel any pending or in-flight intellisense work for `doc`. Called
-    /// from `closeFile` before erasing the document.
-    void cancelIntellisense(const Document* doc);
+    /// Request worker-generated completion candidates for `doc` at caret byte
+    /// offset `pos`, filtered by `prefix` and capped at `maxItems`. The result
+    /// arrives via EVT_INTELLISENSE_COMPLETION and is routed to `doc`'s editor.
+    void requestCompletion(Document* doc, int pos, std::string prefix, std::size_t seq, int maxItems);
+
+    /// Push the editor's keyword completion list to the intellisense worker so it
+    /// can include keywords as the lowest-priority completion bucket.
+    void setIntellisenseKeywords(std::vector<wxString> keywords);
+
+    /// Remove `doc` from the intellisense include graph (collecting orphaned
+    /// includes). Called from `closeFile` before erasing the document.
+    void closeDocumentIntellisense(const Document* doc);
+
+    /// Re-read and re-parse a tracked `#include` file that changed on disk while
+    /// not open in a tab. Called by `DocumentWatcher`.
+    void reparseInclude(const std::filesystem::path& path);
+
+    /// Recompute the intellisense per-configuration inputs from every open
+    /// FreeBASIC document: the `#include` search dirs (the union of each config's
+    /// `-i` dirs — relative ones anchored to the document's folder — plus the
+    /// compiler's stock `inc/`) and the preprocessor define set (each compiler's
+    /// built-in `__FB_*` macros plus `-d` command-line defines). Each is pushed to
+    /// the worker only when it changes, re-resolving / re-parsing all open
+    /// documents. Call after a compiler-configuration change.
+    void refreshIntellisenseConfig();
 
     /// Handle quit request. Prompts for unsaved docs. Returns true if safe to quit.
     /// If user chooses to save, saves all then returns true.
@@ -277,6 +305,18 @@ private:
     /// Intellisense result delivery (worker thread → UI thread).
     void onIntellisenseResult(wxThreadEvent& event);
 
+    /// Completion-candidate delivery (worker thread → UI thread); routes to the
+    /// owning document's editor, which decides whether to show the popup.
+    void onIntellisenseCompletion(wxThreadEvent& event);
+
+    /// Tracked closed-include set delivery (worker thread → UI thread);
+    /// reconciles the document watcher's include watches.
+    void onIntellisenseTrackedFiles(wxThreadEvent& event);
+
+    /// Open `path` (or the active document when empty) and move the caret to
+    /// `line` — the navigation target of Go to Definition / Declaration.
+    void goToLocation(const std::filesystem::path& path, int line);
+
     Context& m_ctx;                                     ///< Application context.
     wxFindReplaceData m_findData { wxFR_DOWN };         ///< Find/replace dialog state.
     Unowned<wxFindReplaceDialog> m_findDialog;          ///< Live modeless find/replace dialog, or null when none is open.
@@ -289,6 +329,11 @@ private:
     /// so it tears down first — it stops watching before the documents its
     /// callbacks touch are destroyed.
     std::unique_ptr<DocumentWatcher> m_watcher;
+    std::vector<std::filesystem::path> m_includeSearchDirs; ///< Last include search dirs pushed to intellisense.
+    std::unordered_set<std::string> m_intellisenseDefines;  ///< Last define set pushed to intellisense.
+    /// Signature of the inputs the last `refreshIntellisenseConfig` derived from;
+    /// lets the per-edit submit path skip re-deriving when nothing changed.
+    std::optional<std::string> m_intellisenseConfigSig;
 
     /// The active session, or null when none. Owns the `.fbs` lifetime:
     /// constructing it activates a session, resetting it writes the open
