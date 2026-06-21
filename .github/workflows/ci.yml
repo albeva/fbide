@@ -186,11 +186,18 @@ jobs:
           mac_x86='{"arch":"x86_64","runner":"macos-latest"}'
           # win-targets mirrors macos/linux-targets: a JSON list of
           # {arch, runner} objects fed into build-and-test's matrix.include.
-          # x64/x86 build on the x64 windows-latest image; arm64 builds
-          # natively on the windows-11-arm hosted runner (so ctest runs the
-          # arm64 binaries directly, no cross-compile/emulation).
-          win_x64='{"arch":"x64","runner":"windows-latest"}'
-          win_x86='{"arch":"x86","runner":"windows-latest"}'
+          # x64/x86 are PINNED to windows-2022, NOT windows-latest: GitHub
+          # migrated windows-latest to Windows Server 2025 + Visual Studio
+          # 2026 (VS 18.x) over 8-15 Jun 2026, and VS 2026's toolset drops
+          # Windows 7 targeting. We ship a Win7 SP1 floor, so we stay on the
+          # last VS 2022 image. windows-2022 is GitHub's documented "needs
+          # VS 2022" fallback — do not bump back to windows-latest unless the
+          # Win7 floor is also dropped. arm64 builds natively on the
+          # windows-11-arm hosted runner (no Win7 ARM64 exists, so the VS
+          # version there is irrelevant; ctest runs the arm64 binaries
+          # directly, no cross-compile/emulation).
+          win_x64='{"arch":"x64","runner":"windows-2022"}'
+          win_x86='{"arch":"x86","runner":"windows-2022"}'
           win_arm='{"arch":"arm64","runner":"windows-11-arm"}'
           # linux-targets mirrors macos-targets: a JSON list of {arch, runner}
           # objects fed into build-linux-appimage's matrix.include. Each arch
