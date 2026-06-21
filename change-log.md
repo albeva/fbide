@@ -27,6 +27,7 @@
 - Added Go to Definition / Go to Declaration, jumping across `#include`d files.
 - Added imported (`#include`d) symbols to the symbol browser, nested under each include.
 - Added preprocessor-aware intellisense — `#if` branches resolved against compiler defines; inactive code dimmed.
+- Fixed right-clicking a document tab closing it instead of showing the context menu on Linux.
 
 # Changes since 0.5.0-rc.5
 

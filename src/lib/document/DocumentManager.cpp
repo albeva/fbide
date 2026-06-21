@@ -638,7 +638,7 @@ auto DocumentManager::closeOtherFiles(const Document& keep) -> bool {
 
 void DocumentManager::attachNotebook() {
     auto* notebook = getNotebook();
-    notebook->Bind(wxEVT_AUINOTEBOOK_TAB_RIGHT_DOWN, &DocumentManager::onTabRightDown, this);
+    notebook->Bind(wxEVT_AUINOTEBOOK_TAB_RIGHT_UP, &DocumentManager::onTabRightUp, this);
     // Defer the watcher's first start until the event loop is running:
     // `attachNotebook` runs during OnInit, and wxFileSystemWatcher wants a
     // live loop. `start()` enumerates the open documents, so any restored by
@@ -943,11 +943,18 @@ void DocumentManager::syncEditCommands() {
     setForceDisabled(CommandId::SelectAll, !hasText);
 }
 
-void DocumentManager::onTabRightDown(wxAuiNotebookEvent& event) {
-    event.Skip();
+void DocumentManager::onTabRightUp(wxAuiNotebookEvent& event) {
+    // Pop the menu on right-button *up*, not down: showing it on the down event
+    // leaves the paired button-up in flight, and wxGTK delivers that release into
+    // the freshly opened menu — dismissing it immediately (and, with the cursor
+    // over the first item, Close, taking the tab with it). By the up event the
+    // whole press/release cycle is complete, so the menu stays open. Don't Skip.
+    popupTabContextMenu(event.GetSelection());
+}
+
+void DocumentManager::popupTabContextMenu(const int pageIdx) {
     auto* notebook = getNotebook();
-    const auto pageIdx = event.GetSelection();
-    if (pageIdx == wxNOT_FOUND) {
+    if (pageIdx < 0 || pageIdx >= static_cast<int>(notebook->GetPageCount())) {
         return;
     }
     const auto* page = notebook->GetPage(static_cast<size_t>(pageIdx));

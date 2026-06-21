@@ -303,7 +303,9 @@ private:
     void onFindDialogClose(wxFindDialogEvent& event);
 
     /// Tab-strip context menu — show actions for the right-clicked tab.
-    void onTabRightDown(wxAuiNotebookEvent& event);
+    void onTabRightUp(wxAuiNotebookEvent& event);
+    /// Build and pop up the tab context menu for the page at `pageIdx`.
+    void popupTabContextMenu(int pageIdx);
 
     /// Intellisense result delivery (worker thread → UI thread).
     void onIntellisenseResult(wxThreadEvent& event);
