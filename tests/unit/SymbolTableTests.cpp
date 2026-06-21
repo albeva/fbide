@@ -909,8 +909,8 @@ TEST_F(SymbolTableTests, PpElseifChainPicksMatchingArm) {
 }
 
 TEST_F(SymbolTableTests, PpUndefinedUserSymbolDropsBranch) {
-    // An undefined user symbol resolves false, so the #if branch is dead and the
-    // #else is taken (code #defines are not tracked).
+    // A user symbol that is never #defined resolves false, so the #if branch is
+    // dead and the #else is taken.
     const auto table = extractWith(
         "#ifdef SOME_USER_FLAG\n"
         "    Sub A\n"
@@ -923,6 +923,50 @@ TEST_F(SymbolTableTests, PpUndefinedUserSymbolDropsBranch) {
     );
     ASSERT_EQ(table.getSubs().size(), 1U);
     EXPECT_EQ(table.getSubs()[0].name, "B");
+}
+
+TEST_F(SymbolTableTests, PpLocalDefineActivatesIfdef) {
+    // A preceding in-file #define makes #ifdef on that name live (issue #121).
+    const auto table = extractWith(
+        "#define _TinyGL\n"
+        "#ifdef _TinyGL\n"
+        "    Sub Active\n"
+        "    End Sub\n"
+        "#endif\n",
+        {}
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Active");
+}
+
+TEST_F(SymbolTableTests, PpIncludeGuardKeepsContent) {
+    // An include guard must stay live: its #ifndef is evaluated before its own
+    // #define (nested in the body), so the guarded content is kept — order-aware
+    // tracking, not a flat set of every defined name.
+    const auto table = extractWith(
+        "#ifndef GUARD_BI\n"
+        "#define GUARD_BI\n"
+        "    Sub Guarded\n"
+        "    End Sub\n"
+        "#endif\n",
+        {}
+    );
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Guarded");
+}
+
+TEST_F(SymbolTableTests, PpLocalDefineAfterIfdefDoesNotActivate) {
+    // Order matters: a #define only affects directives that follow it, so an
+    // #ifdef preceding the #define stays dead.
+    const auto table = extractWith(
+        "#ifdef LATER\n"
+        "    Sub Early\n"
+        "    End Sub\n"
+        "#endif\n"
+        "#define LATER\n",
+        {}
+    );
+    EXPECT_TRUE(table.getSubs().empty());
 }
 
 TEST_F(SymbolTableTests, PpCommandLineDefineSelectsBranch) {

@@ -56,6 +56,14 @@ auto isLayoutToken(const Token& t) -> bool {
     return t.kind == TokenKind::Whitespace || t.kind == TokenKind::Newline;
 }
 
+// Lowercase ASCII copy — FreeBASIC identifiers are case-insensitive, and the
+// define set is keyed lowercase (see PpConditional::definedState).
+auto toLowerAscii(std::string_view text) -> std::string {
+    std::string out { text };
+    std::ranges::transform(out, out.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    return out;
+}
+
 // Case-insensitive ASCII compare of a token's text against a lowercase literal.
 auto textEqualsLower(const Token& tok, const std::string_view lower) -> bool {
     if (tok.text.size() != lower.size()) {
@@ -365,12 +373,64 @@ auto SymbolTable::ppBranchesCached(const BlockNode& ifBlock) -> const std::vecto
     return it->second;
 }
 
+void SymbolTable::resolvePp(std::span<const Node> nodes, std::unordered_set<std::string>& defines) {
+    for (const auto& node : nodes) {
+        if (const auto* stmt = std::get_if<StatementNode>(&node)) {
+            // A `#define` adds its name (first word-like token after the
+            // directive; `#define NAME(a)` yields NAME) to the in-scope set for
+            // the directives that follow it.
+            const auto first = findFirstKeyword(stmt->tokens);
+            if (first.kind == KeywordKind::PpDefine) {
+                if (const Token* name = findWordlikeAfter(stmt->tokens, first.index + 1)) {
+                    defines.insert(toLowerAscii(name->text));
+                }
+            }
+            continue;
+        }
+        const auto* slot = std::get_if<std::unique_ptr<BlockNode>>(&node);
+        if (slot == nullptr || *slot == nullptr) {
+            continue;
+        }
+        const auto& block = **slot;
+        if (!block.opener.has_value()) {
+            resolvePp(block.body, defines);
+            continue;
+        }
+        const auto first = findFirstKeyword(block.opener->tokens);
+        if (isPpIfKind(first.kind)) {
+            // Resolve and cache this chain's branches against the defines visible
+            // here, then descend only the live branches — a dead branch's macros
+            // never take effect, and an include guard's `#ifndef` is decided
+            // before its own `#define` (in the body) is reached.
+            const auto& branches = m_ppCache.emplace(&block, ppBranches(block, defines)).first->second;
+            for (const auto& branch : branches) {
+                if (branch.live) {
+                    resolvePp(branch.body, defines);
+                }
+            }
+        } else if (first.kind == KeywordKind::PpMacro) {
+            // `#macro NAME ... #endmacro` defines NAME; its body is verbatim macro
+            // text, not code, so it is not descended.
+            if (const Token* name = findWordlikeAfter(block.opener->tokens, first.index + 1)) {
+                defines.insert(toLowerAscii(name->text));
+            }
+        } else {
+            resolvePp(block.body, defines);
+        }
+    }
+}
+
 void SymbolTable::populate(ProgramTree&& tree, std::shared_ptr<const std::unordered_set<std::string>> defines) {
     // Shared, not copied — every table in a parse drain points at the one set. A
     // null argument (standalone parse / no defines) falls back to a shared empty
     // so the walks below can dereference `m_defines` unconditionally.
     static const auto kEmptyDefines = std::make_shared<const std::unordered_set<std::string>>();
     m_defines = defines ? std::move(defines) : kEmptyDefines;
+    // Order-aware pre-pass: resolve every `#if` chain against the global defines
+    // plus the in-file `#define`s seen so far, filling m_ppCache for the walks
+    // below. Seeded with a copy of the global set (the only place it is grown).
+    std::unordered_set<std::string> ppDefines = *m_defines;
+    resolvePp(tree.nodes, ppDefines);
     walkNodes(tree.nodes);
     indexTree(tree.nodes); // #includes + scope ranges in one pass (before the move;
                            // BlockNodes are heap-stable so the pointers survive it)

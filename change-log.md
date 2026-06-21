@@ -50,6 +50,7 @@
 - Optimized the symbol browser: imported symbols under an `#include` are built only when you expand that include, so large include closures stay fast to display.
 - Added basic preprocessor evaluation to intellisense — `#if`/`#ifdef`/`#ifndef`/`#elseif` with `defined()`, `and`/`or`/`not`, and literal `true`/`false`/numbers are resolved against the compiler's built-in defines (probed at startup) and `-d` command-line defines; any other symbol is treated as undefined, so symbols and `#include`s behind an inactive branch (other-OS code, or a feature gated on an undefined flag) no longer appear. Value comparisons keep their branch.
 - Added dimming of preprocessor-inactive `#if` branches in the editor — code excluded by the resolved defines is greyed out (toggle with the `editor.dimInactiveCode` setting).
+- Fixed preprocessor resolution ignoring in-file `#define`s, so `#ifdef`/`#if defined()` of a macro defined earlier in the same file no longer greys out its branch (order-aware, so include guards keep working).
 
 # Changes since 0.5.0-rc.5
 

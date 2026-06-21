@@ -229,6 +229,13 @@ private:
     /// pointer so the walks above don't each re-decompose the same chain. The
     /// cache (`m_ppCache`) is populate-transient and cleared at the end of `populate`.
     [[nodiscard]] auto ppBranchesCached(const parser::BlockNode& ifBlock) -> const std::vector<PpBranch>&;
+    /// Order-aware pre-pass that resolves every `#if` chain's branch liveness and
+    /// fills `m_ppCache` before the symbol/scope walks. `defines` starts as the
+    /// global set and accumulates each in-file `#define`/`#macro` name as the walk
+    /// passes it, so a directive only sees macros defined before it (an include
+    /// guard's `#ifndef` is thus evaluated before its own `#define`). Recurses only
+    /// live branches; dead-branch macros never take effect.
+    void resolvePp(std::span<const parser::Node> nodes, std::unordered_set<std::string>& defines);
     /// If `tokens` is a recognised `#include`, push it onto `m_includes`.
     void tryAddInclude(const std::vector<lexer::Token>& tokens);
     /// Push one symbol drawn from an opener's tokens at `keywordIdx`.
