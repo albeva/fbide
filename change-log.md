@@ -9,6 +9,7 @@
 - Added auto-refresh to the file browser which monitors for filesystem changes.
 - Added a context menus to the file browser.
 - Added a folder focus mode to the file browse.
+- Changed running an executable from the file browser to launch it detached with its own folder as the working directory.
 - Changed sessions are now loaded and stay active until fbide quits or session is closed.
 - Changed sessions now auto saves when quitting fbide or closing the session.
 - Added file browser state to sessions: selection, expanded folders, focused folder and active sidebar tab are restored on load.
