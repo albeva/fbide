@@ -9,10 +9,6 @@
 #ifdef __WXOSX__
 #include "MacFileIcons.hpp"
 #endif
-#include <wx/artprov.h>
-#include <wx/config.h>
-#include <wx/dirctrl.h>
-#include <wx/textdlg.h>
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/DocumentManager.hpp"

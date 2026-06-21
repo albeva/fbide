@@ -461,6 +461,7 @@ void SymbolTable::synthesizeOwnerTypes() {
                 m_types.push_back(Symbol {
                     .kind = SymbolKind::Type,
                     .name = owner,
+                    .owner = wxEmptyString,
                     .line = -1,
                 });
             }
@@ -1385,6 +1386,7 @@ void SymbolTable::walkNodes(std::span<const Node> nodes) {
                     m_macros.push_back(Symbol {
                         .kind = SymbolKind::Macro,
                         .name = wxString::FromUTF8(name->text),
+                        .owner = wxEmptyString,
                         .line = stmt->tokens[first.index].line,
                     });
                 }
@@ -1423,6 +1425,7 @@ void SymbolTable::gatherEnumMembers(std::span<const Node> body) {
                 m_enumMembers.push_back(Symbol {
                     .kind = SymbolKind::Enum,
                     .name = wxString::FromUTF8(lead->text),
+                    .owner = wxEmptyString,
                     .line = lead->line,
                 });
             }
@@ -1490,6 +1493,7 @@ void SymbolTable::walkBlock(const BlockNode& block) {
             m_macros.push_back(Symbol {
                 .kind = SymbolKind::Macro,
                 .name = wxString::FromUTF8(name->text),
+                .owner = wxEmptyString,
                 .line = openerTokens[first.index].line,
             });
         }

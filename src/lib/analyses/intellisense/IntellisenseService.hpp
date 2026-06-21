@@ -123,16 +123,16 @@ private:
     /// A UI-thread request, applied to the graph on the worker thread.
     struct Command {
         CommandType type;
-        Document* owner = nullptr;                      ///< Identity tag (never dereferenced).
-        std::filesystem::path path;                     ///< File path; empty means an unsaved document.
-        std::string content;                            ///< Source snapshot (Submit only).
-        std::vector<std::filesystem::path> includeDirs; ///< Search dirs (IncludePaths only).
-        std::unordered_set<std::string> defines;        ///< Defined names (Defines only).
-        int pos = 0;                                    ///< Caret byte offset (Completion only).
-        std::string prefix;                             ///< Identifier prefix to filter by (Completion only).
-        std::size_t seq = 0;                            ///< Completion request sequence (Completion only).
-        int maxItems = 0;                               ///< Max candidates to return (Completion only).
-        std::vector<wxString> keywords;                 ///< Keyword candidates (Keywords only).
+        Document* owner = nullptr;                         ///< Identity tag (never dereferenced).
+        std::filesystem::path path {};                     ///< File path; empty means an unsaved document.
+        std::string content {};                            ///< Source snapshot (Submit only).
+        std::vector<std::filesystem::path> includeDirs {}; ///< Search dirs (IncludePaths only).
+        std::unordered_set<std::string> defines {};        ///< Defined names (Defines only).
+        int pos = 0;                                       ///< Caret byte offset (Completion only).
+        std::string prefix {};                             ///< Identifier prefix to filter by (Completion only).
+        std::size_t seq = 0;                               ///< Completion request sequence (Completion only).
+        int maxItems = 0;                                  ///< Max candidates to return (Completion only).
+        std::vector<wxString> keywords {};                 ///< Keyword candidates (Keywords only).
     };
 
     void applyCommand(Command command);
