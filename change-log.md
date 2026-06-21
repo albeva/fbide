@@ -1,60 +1,32 @@
 # Changes since 0.5.0-rc.6
 
-- Added a Windows installer with FreeBASIC for x86
-- Added an arm64 (aarch64) Linux AppImage.
-- Added an arm64 Windows build.
-- Added file associations (.bas, .bi .fbs) for Linux and Windows
+- Added a Windows installer with bundled FreeBASIC (x86).
+- Added an arm64 Windows build and an arm64 Linux AppImage.
+- Added file associations (.bas, .bi, .fbs).
+- Statically linked the CRT into the Windows builds so they run without the VC++ redistributable.
 
-- Added auto-reload of externally modified documents.
-- Added auto-refresh to the file browser which monitors for filesystem changes.
-- Added a context menus to the file browser.
-- Added a folder focus mode to the file browse.
-- Changed running an executable from the file browser to launch it detached with its own folder as the working directory.
-- Changed sessions are now loaded and stay active until fbide quits or session is closed.
-- Changed sessions now auto saves when quitting fbide or closing the session.
-- Added file browser state to sessions: selection, expanded folders, focused folder and active sidebar tab are restored on load.
-- Added a `fbide format <file>` command that formats a file from the command line (re-indent, re-format, case and HTML options) to stdout or an output file.
+- Added auto-reload of externally modified files.
+- Added auto-refresh, context menus and a folder focus mode to sidebar File Browser.
+- Changed sessions to stay active and auto-save on close or quit, restoring file-browser state.
+- Added a `fbide format <file>` command-line subcommand.
 - Added a new app icon, splash and distinct file icons for .bas, .bi and .fbs files.
 - Redesigned the About dialog.
-- Statically linked the CRT into the x86/x64 Windows builds so they run without the VC++ redistributable.
-- Fixed an operator (e.g. `,`) before a `&h`/`&o`/`&b` number swallowing its prefix and mis-highlighting the number (#111).
-- Fixed a crash on startup when the file browser's tree fired a selection change during its own construction.
-- Fixed a filesystem-watcher assertion on startup when opening a `.fbs` session from the command line.
-- Fixed Compile/Run/Format (and other source commands) staying disabled when fbide is launched by opening a file, until the first tab switch (#122).
-- Fixed the code-completion popup lingering when the editor loses focus (e.g. switching tabs); it is now dismissed (#121).
-- Fixed Compile & Run / Quick Run on a configuration that builds no executable (e.g. `#cmdline "-dll"`): it now shows a clear "no executable created" alert instead of failing to run with a broken message (#116).
-- Fixed "Open Terminal Here" (and the Command Prompt command) opening at the wrong directory on macOS — the terminal now opens in the chosen folder.
+- Fixed an operator before a `&h`/`&o`/`&b` number swallowing its prefix and mis-highlighting the number (#111).
+- Fixed source commands (Compile/Run/Format) staying disabled when fbide is launched by opening a file (#122).
+- Fixed Compile & Run / Quick Run on a configuration that builds no executable, now showing a clear alert (#116).
 - Fixed `_` in a `##_##` preprocessor token-paste being mis-lexed as a line continuation (#115).
-- Added opening common extensionless files (Makefile, README, LICENSE, …) directly in fbide from the file browser (#114).
-- Changed the Open dialog's default filter to FBIde (`*.bas`, `*.bi`, `*.fbs`) so session files load from the standard Open dialog.
-- Removed "Load Session" from the File menu — open a `.fbs` via the normal Open dialog instead.
-- Added native file/folder icons to the macOS file browser, replacing the generic monotone icons.
-- Fixed Comment/Uncomment changing the text selection — the selection (or caret) is now preserved relative to the edited text (#113).
-- Fixed a keyword right after `.`/`->` followed by a non-identifier (e.g. `->(byref`) losing its highlighting (#112).
-- Fixed reopening the already-active session file reloading it from disk; it's now a no-op.
-- Added an editor notification bar when a file fails to save (e.g. a read-only file), showing the OS reason when available.
-- Fixed "Show in Browser" not revealing a file located outside the file browser's focused folder; it now unfocuses first.
-- Added highlighting of every occurrence of the identifier under the caret or selection (toggle in Settings → General; colours editable in the theme editor).
-- Added highlighting of matching scope keywords under the caret — opener/closer pairs (For/Next, Sub/End Sub, Do/Loop, …), If…ElseIf…Else…End If, Select Case…End Select and #if…#else…#endif groups, and Return / Exit / Continue with the scope(s) they act on.
-- Added code completion as you type an identifier — symbols, type members and fields, in-scope local variables and parameters, plus library/constant/preprocessor keywords (toggle in Settings → General; Ctrl+Space to invoke).
-- Added include-aware code completion — symbols, and type fields/methods from `#include`d files now appear in completion, kept current as you edit either file.
-- Added intellisense re-parse of `#include`d files edited outside fbide while not open in a tab.
-- Added `#define` names to the symbol browser and code completion.
-- Improved intellisense `#include` resolution to honour each document's compiler configuration and relative `-i` search paths.
-- Added `Const` constants (including inside namespaces and `#if` blocks) to code completion, and `Declare`d Subs/Functions to completion and the symbol browser — so `#include`d headers contribute their constants and API.
-- Fixed code completion matching being case-sensitive; it now ignores case.
-- Optimized code completion: the candidate list is built on the intellisense background thread and updates as you type (throttled, prefix-filtered, capped), keeping the UI responsive on large symbol closures.
-- Fixed the symbol browser being empty when opening a header already `#include`d by another open document.
-- Fixed code completion and the symbol browser missing `#include` symbols in new/unsaved files — a buffer's includes are now resolved without needing to save it to disk first.
-- Fixed an intellisense memory leak that orphaned a document's old symbol graph when it was saved from untitled or renamed via Save As.
-- Added Go to Definition / Go to Declaration to the editor's right-click menu, jumping across `#include`d files.
-- Added FreeBASIC type aliases (`Type NAME As ...`) to code completion and the symbol browser.
-- Added non-explicit `Enum` members to code completion (imported into scope, C-style); explicit enums are left scoped.
-- Added imported (`#include`d) symbols to the symbol browser, nested under each include so local symbols stay prominent; clicking one opens its source file.
-- Optimized the symbol browser: imported symbols under an `#include` are built only when you expand that include, so large include closures stay fast to display.
-- Added basic preprocessor evaluation to intellisense — `#if`/`#ifdef`/`#ifndef`/`#elseif` with `defined()`, `and`/`or`/`not`, and literal `true`/`false`/numbers are resolved against the compiler's built-in defines (probed at startup) and `-d` command-line defines; any other symbol is treated as undefined, so symbols and `#include`s behind an inactive branch (other-OS code, or a feature gated on an undefined flag) no longer appear. Value comparisons keep their branch.
-- Added dimming of preprocessor-inactive `#if` branches in the editor — code excluded by the resolved defines is greyed out (toggle with the `editor.dimInactiveCode` setting).
-- Fixed preprocessor resolution ignoring in-file `#define`s, so `#ifdef`/`#if defined()` of a macro defined earlier in the same file no longer greys out its branch (order-aware, so include guards keep working).
+- Added opening common extensionless files (Makefile, README, LICENSE, …) from the file browser (#114).
+- Changed the Open dialog to default to the FBIde filter (`*.bas`, `*.bi`, `*.fbs`); removed "Load Session".
+- Added native file/folder icons to the macOS file browser.
+- Fixed Comment/Uncomment changing the text selection (#113).
+- Fixed a keyword after `.`/`->` followed by a non-identifier losing its highlighting (#112).
+- Added an editor notification bar when a file fails to save.
+- Added highlighting of every occurrence of the identifier under the caret.
+- Added highlighting of matching scope keywords under the caret (For/Next, Sub/End Sub, If/Else/End If, …).
+- Added code completion as you type, including symbols from `#include`d files (Ctrl+Space).
+- Added Go to Definition / Go to Declaration, jumping across `#include`d files.
+- Added imported (`#include`d) symbols to the symbol browser, nested under each include.
+- Added preprocessor-aware intellisense — `#if` branches resolved against compiler defines; inactive code dimmed.
 
 # Changes since 0.5.0-rc.5
 
