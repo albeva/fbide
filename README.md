@@ -7,7 +7,7 @@ Lightweight, native, cross-platform — built on wxWidgets. This is a clean-room
 (0.4.5) in modern C++23, replicating the feature set with a maintainable
 codebase.
 
-![FBIde](docs/fbide_screenshot.png)
+![FBIde](https://fbide.freebasic.net/images/screenshots/about.png)
 
 ## Features
 
