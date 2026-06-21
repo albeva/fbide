@@ -303,7 +303,8 @@ auto FileBrowser::isUnder(const wxString& child, const wxString& parent) -> bool
     const wxArrayString& childDirs = childName.GetDirs();
     const wxArrayString& parentDirs = parentName.GetDirs();
     // Strictly nested: parent has fewer components and is a prefix of the child.
-    return parentDirs.GetCount() < childDirs.GetCount() && std::ranges::starts_with(childDirs, parentDirs);
+    return parentDirs.GetCount() < childDirs.GetCount()
+        && std::equal(parentDirs.begin(), parentDirs.end(), childDirs.begin());
 }
 
 auto FileBrowser::collectExpandedPaths() const -> std::vector<wxString> {

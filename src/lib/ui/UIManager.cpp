@@ -753,7 +753,7 @@ void UIManager::disable(const std::ranges::range auto& range) const {
         if (entry == nullptr) {
             continue;
         }
-        entry->setEnabled(!std::ranges::contains(range, menuId));
+        entry->setEnabled(std::ranges::find(range, menuId) == std::ranges::end(range));
     }
 }
 

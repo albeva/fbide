@@ -1248,7 +1248,8 @@ void DocumentManager::setMinimapVisible(const bool visible) {
 }
 
 auto DocumentManager::contains(const Document* doc) const -> bool {
-    return doc != nullptr && std::ranges::contains(m_documents, doc, &std::unique_ptr<Document>::get);
+    return doc != nullptr
+        && std::ranges::find(m_documents, doc, &std::unique_ptr<Document>::get) != m_documents.end();
 }
 
 auto DocumentManager::findPageIndex(const Document& doc) const -> int {
