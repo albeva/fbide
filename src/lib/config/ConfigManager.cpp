@@ -288,15 +288,15 @@ auto isExecutableInPath(const wxString& name) -> bool {
 /// First installed terminal, resolved once. Falls back to the first entry when
 /// none are found, so the behaviour matches the old hard-coded default.
 auto detectLinuxTerminal() -> const TerminalSpec& {
-    static const TerminalSpec& spec = [] -> const TerminalSpec& {
+    static const TerminalSpec* const spec = [] -> const TerminalSpec* {
         for (const auto& candidate : kLinuxTerminals) {
             if (isExecutableInPath(candidate.binary)) {
-                return candidate;
+                return &candidate;
             }
         }
-        return kLinuxTerminals[0];
+        return &kLinuxTerminals[0];
     }();
-    return spec;
+    return *spec;
 }
 } // namespace
 #endif
