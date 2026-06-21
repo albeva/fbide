@@ -25,6 +25,14 @@ public:
     /// Commit edits back into `ConfigManager`. Always succeeds.
     void apply() override;
 
+#ifdef __WXMSW__
+    /// Re-sync the help-file field from `paths.helpFile`. Called by the
+    /// dialog after the Compiler tab's auto-detect wires up a bundled
+    /// manual, so the field shows the new path and `apply()` doesn't write
+    /// a stale value back over it.
+    void refreshHelpFileFromConfig();
+#endif
+
 private:
     /// Locale lookup with empty default — sugar over `ConfigManager::locale().get_or`.
     auto tr(const wxString& path) const -> wxString {

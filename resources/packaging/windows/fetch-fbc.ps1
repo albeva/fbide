@@ -9,6 +9,11 @@
     tree into {app} next to fbide.exe, where FBIde's first-run auto-detect
     finds it.
 
+    Also fetches the matching CHM manual (FB-manual-<Version>-chm.zip) and
+    drops FB-manual-<Version>.chm into -DestDir, so it rides into {app} with
+    the compiler. Auto-detect matches it to `fbc --version` and wires it up as
+    the help file.
+
     Architecture selects which release is used:
       x64 -> winlibs build (ships both 32- and 64-bit target libraries, so the
              bundled fbc can compile -target win32 *and* win64).
@@ -122,3 +127,38 @@ if (-not ($fbcNames | Where-Object { Test-Path (Join-Path $DestDir $_) })) {
     throw "Flattened payload has no fbc compiler in '$DestDir' - unexpected archive layout."
 }
 Write-Host "FreeBASIC ready: $((Resolve-Path $DestDir).Path)" -ForegroundColor Green
+
+# ---------------------------------------------------------------------------
+# FreeBASIC manual (CHM). Bundle the matching help file next to fbc so FBIde's
+# first-run auto-detect wires it up (it looks for FB-manual-<version>.chm in the
+# compiler folder, matched to `fbc --version`). Version-stamped like the
+# compiler archive. Cached alongside the .7z when -CacheDir is given.
+$chmUrl = "https://downloads.sourceforge.net/fbc/FB-manual-$Version-chm.zip"
+$chmZipName = Split-Path $chmUrl -Leaf
+if ($CacheDir) {
+    $chmArchive = Join-Path (Resolve-Path $CacheDir).Path $chmZipName
+} else {
+    $chmArchive = Join-Path ([System.IO.Path]::GetTempPath()) $chmZipName
+}
+
+if (Test-Path $chmArchive) {
+    Write-Host "Using cached manual: $chmArchive" -ForegroundColor Cyan
+} else {
+    Write-Host "Downloading $chmUrl" -ForegroundColor Cyan
+    & curl.exe -fL --retry 3 -o $chmArchive $chmUrl
+    if ($LASTEXITCODE -ne 0) { throw "Manual download failed ($LASTEXITCODE): $chmUrl" }
+}
+
+# Extract to scratch, then place the single .chm into DestDir under the
+# canonical FB-manual-<version>.chm name the auto-detect expects.
+$chmScratch = Join-Path ([System.IO.Path]::GetTempPath()) ("fbc-manual-" + $Version)
+if (Test-Path $chmScratch) { Remove-Item $chmScratch -Recurse -Force }
+New-Item -ItemType Directory -Force -Path $chmScratch | Out-Null
+& $sevenZip x $chmArchive "-o$chmScratch" -y | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Manual extraction failed ($LASTEXITCODE)." }
+
+$chmFile = Get-ChildItem -Path $chmScratch -File -Recurse -Filter *.chm | Select-Object -First 1
+if (-not $chmFile) { throw "Manual archive '$chmZipName' contains no .chm file." }
+Copy-Item $chmFile.FullName (Join-Path $DestDir "FB-manual-$Version.chm") -Force
+Remove-Item $chmScratch -Recurse -Force
+Write-Host "Manual ready: FB-manual-$Version.chm" -ForegroundColor Green

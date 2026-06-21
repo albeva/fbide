@@ -105,6 +105,14 @@ public:
     /// back to `checkCompilerOnStartup()` when this returns false.
     auto detectCompilerOnFirstRun() -> bool;
 
+    /// After auto-detecting fbc, wire up the bundled FreeBASIC manual: look
+    /// for `FB-manual-<version>.chm` next to the detected compiler (the
+    /// version comes from `probeCompilerVersion`) and store it as
+    /// `paths.helpFile`. Only fills an empty help path — never overwrites a
+    /// user-set one. Called by both the first-run and Settings-dialog
+    /// auto-detect paths. Windows-only; a no-op elsewhere.
+    void linkBundledHelpFile() const;
+
     /// Show the "compiler not found" prompt without the silence checkbox
     /// (used by the build flow when the user explicitly invokes compile/
     /// run): the alert is always relevant because the user just asked for
