@@ -9,7 +9,6 @@
 #include "Editor.hpp"
 #include "CodeTransformer.hpp"
 #include "analyses/symbols/SymbolTable.hpp"
-#include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/Theme.hpp"
 #include "config/ThemeCategory.hpp"
@@ -21,22 +20,6 @@
 using namespace fbide;
 
 namespace {
-// Completion candidates from the Library / Constants / Preprocessor / Custom keyword groups
-// (sorted, de-duplicated case-insensitively). Shared across editors; rebuilt
-// when editor settings are applied.
-std::vector<wxString> g_keywordCompletions;
-std::vector<wxString> g_pushedKeywords; ///< Last keyword set pushed to the worker; dedups redundant per-editor pushes.
-
-// Sort case-insensitively (FreeBASIC is case-insensitive) and drop duplicates.
-void sortUniqueCI(std::vector<wxString>& names) {
-    std::ranges::sort(names, [](const wxString& lhs, const wxString& rhs) { return lhs.CmpNoCase(rhs) < 0; });
-    names.erase(
-        std::unique(names.begin(), names.end(),
-            [](const wxString& lhs, const wxString& rhs) { return lhs.CmpNoCase(rhs) == 0; }),
-        names.end()
-    );
-}
-
 // Styles where a completion popup should not appear.
 auto isCommentOrStringStyle(const int style) -> bool {
     switch (static_cast<ThemeCategory>(style)) {
@@ -224,7 +207,6 @@ void Editor::applyEditorSettings() {
     }
 
     m_changeTracking = editor.get_or("changeTracking", true);
-    rebuildKeywordCompletions();
     // A custom context menu (built by the document manager) replaces Scintilla's
     // built-in popup so it can offer Go to Definition / Declaration.
     UsePopUp(wxSTC_POPUP_NEVER);
@@ -1168,36 +1150,6 @@ void Editor::onAutoCompDismissed(wxStyledTextEvent& event) {
     // AutoCompCancel here; the popup is already closing.
     m_completionTimer.Stop();
     m_acceptAutoCompleteList = false;
-}
-
-void Editor::rebuildKeywordCompletions() {
-    g_keywordCompletions.clear();
-    const auto& groups = m_configManager.keywords().at("groups");
-    for (const auto category : { ThemeCategory::KeywordLibrary, ThemeCategory::KeywordConstants, ThemeCategory::KeywordPP, ThemeCategory::KeywordCustom }) {
-        const std::string words(groups.get_or(wxString(getThemeCategoryName(category)), "").utf8_str());
-        std::size_t idx = 0;
-        while (idx < words.size()) {
-            while (idx < words.size() && (std::isspace(static_cast<unsigned char>(words[idx])) != 0)) {
-                idx++;
-            }
-            const std::size_t start = idx;
-            while (idx < words.size() && (std::isspace(static_cast<unsigned char>(words[idx])) == 0)) {
-                idx++;
-            }
-            if (idx > start) {
-                g_keywordCompletions.push_back(wxString::FromUTF8(words.substr(start, idx - start)));
-            }
-        }
-    }
-    sortUniqueCI(g_keywordCompletions);
-    // The worker generates the completion list now, so it needs the keyword set
-    // too (lowest-priority bucket). Pushed here so it tracks settings/theme changes.
-    // g_keywordCompletions is shared and rebuilt identically per editor, so only
-    // push when it actually changed — N open editors won't enqueue N copies.
-    if (m_documentManager != nullptr && g_keywordCompletions != g_pushedKeywords) {
-        g_pushedKeywords = g_keywordCompletions;
-        m_documentManager->setIntellisenseKeywords(g_keywordCompletions);
-    }
 }
 
 void Editor::onZoom(wxStyledTextEvent& /*event*/) {

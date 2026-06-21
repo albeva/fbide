@@ -213,9 +213,6 @@ private:
     void cancelCompletion();
     /// Scintilla autocomplete popup dismissed/accepted — clear the accept-flag.
     void onAutoCompDismissed(wxStyledTextEvent& event);
-    /// Rebuild the shared keyword-completion list (Library / Constants / Preprocessor /
-    /// Custom groups) from config. Called when editor settings are applied.
-    void rebuildKeywordCompletions();
     /// Editor gained focus — refresh edit-command masks.
     void onFocus(wxFocusEvent& event);
     /// Intellisense timer fire — submit current text to the worker.

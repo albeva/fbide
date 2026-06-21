@@ -114,9 +114,12 @@ public:
     /// arrives via EVT_INTELLISENSE_COMPLETION and is routed to `doc`'s editor.
     void requestCompletion(Document* doc, int pos, std::string prefix, std::size_t seq, int maxItems);
 
-    /// Push the editor's keyword completion list to the intellisense worker so it
-    /// can include keywords as the lowest-priority completion bucket.
-    void setIntellisenseKeywords(std::vector<wxString> keywords);
+    /// Rebuild the keyword completion list from the current settings and push it
+    /// to the intellisense worker (the lowest-priority completion bucket). The
+    /// keyword groups are global, not per-editor, so this runs once at startup and
+    /// once per settings change — not per open editor. Redundant pushes (groups
+    /// unchanged) are skipped.
+    void rebuildKeywordCompletions();
 
     /// Remove `doc` from the intellisense include graph (collecting orphaned
     /// includes). Called from `closeFile` before erasing the document.
@@ -334,6 +337,7 @@ private:
     /// Signature of the inputs the last `refreshIntellisenseConfig` derived from;
     /// lets the per-edit submit path skip re-deriving when nothing changed.
     std::optional<std::string> m_intellisenseConfigSig;
+    std::vector<wxString> m_pushedKeywords; ///< Last keyword set pushed to the worker; skips redundant pushes.
 
     /// The active session, or null when none. Owns the `.fbs` lifetime:
     /// constructing it activates a session, resetting it writes the open

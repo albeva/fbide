@@ -26,7 +26,7 @@ void toLowerAscii(std::string& text) {
     std::ranges::transform(text, text.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
 }
 
-/// Sort case-insensitively and drop duplicates (mirrors the editor's helper).
+/// Sort case-insensitively (FreeBASIC is case-insensitive) and drop duplicates.
 void sortUniqueCI(std::vector<wxString>& names) {
     std::ranges::sort(names, [](const wxString& lhs, const wxString& rhs) { return lhs.CmpNoCase(rhs) < 0; });
     names.erase(std::unique(names.begin(), names.end(),

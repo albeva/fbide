@@ -20,6 +20,7 @@
 #include "compiler/CompilerManager.hpp"
 #include "config/ConfigManager.hpp"
 #include "config/FileHistory.hpp"
+#include "config/ThemeCategory.hpp"
 #include "editor/CodeTransformer.hpp"
 #include "editor/Editor.hpp"
 #include "sidebar/SideBarManager.hpp"
@@ -68,6 +69,9 @@ DocumentManager::DocumentManager(Context& ctx)
     Bind(EVT_INTELLISENSE_RESULT, &DocumentManager::onIntellisenseResult, this);
     Bind(EVT_INTELLISENSE_TRACKED_FILES, &DocumentManager::onIntellisenseTrackedFiles, this);
     Bind(EVT_INTELLISENSE_COMPLETION, &DocumentManager::onIntellisenseCompletion, this);
+    // Seed the worker with the keyword completion set; refreshed on settings change
+    // via UIManager::updateSettings.
+    rebuildKeywordCompletions();
 }
 
 DocumentManager::~DocumentManager() = default;
@@ -655,8 +659,34 @@ void DocumentManager::requestCompletion(Document* doc, int pos, std::string pref
     }
 }
 
-void DocumentManager::setIntellisenseKeywords(std::vector<wxString> keywords) {
-    if (m_intellisense != nullptr) {
+void DocumentManager::rebuildKeywordCompletions() {
+    if (m_intellisense == nullptr) {
+        return;
+    }
+    // Collect candidates from the Library / Constants / Preprocessor / Custom
+    // keyword groups, in config order. The worker sorts and de-duplicates them
+    // when composing the completion list — here we only gather and forward.
+    std::vector<wxString> keywords;
+    const auto& groups = m_ctx.getConfigManager().keywords().at("groups");
+    for (const auto category : { ThemeCategory::KeywordLibrary, ThemeCategory::KeywordConstants, ThemeCategory::KeywordPP, ThemeCategory::KeywordCustom }) {
+        const std::string words(groups.get_or(wxString(getThemeCategoryName(category)), "").utf8_str());
+        std::size_t idx = 0;
+        while (idx < words.size()) {
+            while (idx < words.size() && (std::isspace(static_cast<unsigned char>(words[idx])) != 0)) {
+                idx++;
+            }
+            const std::size_t start = idx;
+            while (idx < words.size() && (std::isspace(static_cast<unsigned char>(words[idx])) == 0)) {
+                idx++;
+            }
+            if (idx > start) {
+                keywords.push_back(wxString::FromUTF8(words.substr(start, idx - start)));
+            }
+        }
+    }
+    // Skip the push when the set is unchanged (e.g. a non-keyword setting changed).
+    if (keywords != m_pushedKeywords) {
+        m_pushedKeywords = keywords;
         m_intellisense->setKeywords(std::move(keywords));
     }
 }

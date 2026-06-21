@@ -764,6 +764,10 @@ void UIManager::updateSettings() {
     // re-applying to editors — their recolour then sees the new keywords.
     lexer::setFbKeywords(m_ctx.getConfigManager().keywords().at("groups"));
 
+    // Keyword completions are global, not per-editor — rebuild once here rather
+    // than once per editor in the loop below.
+    m_ctx.getDocumentManager().rebuildKeywordCompletions();
+
     // Reapply settings to all open editors
     for (const auto& doc : m_ctx.getDocumentManager().getDocuments()) {
         doc->updateSettings();
