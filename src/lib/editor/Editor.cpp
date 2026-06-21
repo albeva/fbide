@@ -84,7 +84,7 @@ struct Constants final {
     static constexpr int foldMarginWidth = 16;
     static constexpr int changeMarginWidth = 5;
     static constexpr int analysesThrottle = 500;
-    static constexpr int completionThrottle = 150; ///< Debounce before sending a completion request (ms).
+    static constexpr int completionThrottle = 500; ///< Debounce before sending a completion request (ms).
     static constexpr int completionMaxItems = 100; ///< Default cap (overridable via editor.completionMaxItems).
 };
 
@@ -1490,10 +1490,10 @@ void Editor::onLeftDown(wxMouseEvent& event) {
 void Editor::onKillFocus(wxFocusEvent& event) {
     event.Skip();
     setIncludeHotspots(false);
-    // Stop accepting completion results once focus leaves; don't AutoCompCancel
-    // here (Scintilla dismisses its popup on real focus loss itself).
-    m_completionTimer.Stop();
-    m_acceptAutoCompleteList = false;
+    // Dismiss any pending/visible completion when focus leaves. Switching AUI
+    // tabs (or focusing another control) does not reliably dismiss Scintilla's
+    // popup, which would otherwise linger with no way to close it (#121).
+    cancelCompletion();
 }
 
 void Editor::setIncludeHotspots(const bool active) {
