@@ -299,6 +299,11 @@ auto App::OnInit() -> bool {
     if (!firstRunConfigured) {
         compilerManager.checkCompilerOnStartup();
     }
+    // Wire up the bundled FreeBASIC manual when no help file is set yet — the
+    // installer ships FB-manual-*.chm next to fbide.exe. No-op when a help
+    // file is already configured. Runs every launch (cheap), independent of
+    // compiler detection.
+    compilerManager.linkBundledHelpFile();
     m_context->getUpdateManager().checkOnStartup();
 
     // Defer opening CLI files / restoring session state until the main event

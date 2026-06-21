@@ -131,7 +131,12 @@ Source: "{#FBIDE_STAGE_DIR}\ide\*"; DestDir: "{app}\ide"; Flags: ignoreversion r
 ; installer builds (unlike the portable zip) so the bundle mirrors to the user
 ; data dir on launch.
 #ifdef FBIDE_FBC_DIR
-Source: "{#FBIDE_FBC_DIR}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: WantFbc
+Source: "{#FBIDE_FBC_DIR}\*"; DestDir: "{app}"; Excludes: "FB-manual-*.chm"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: WantFbc
+; The bundled FreeBASIC manual (CHM) installs regardless of the compiler
+; choice — F1 help should work even when the user skips installing fbc. Kept
+; out of the compiler glob above (Excludes) so it isn't copied twice when the
+; compiler *is* installed.
+Source: "{#FBIDE_FBC_DIR}\FB-manual-*.chm"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 ; FreeBASIC licence text shown on its own wizard page. dontcopy = bundled with
 ; Setup and extracted to {tmp} for display, never installed.
 Source: "{#FBIDE_SRC_ROOT}\resources\packaging\windows\freebasic-license.txt"; Flags: dontcopy
@@ -306,7 +311,9 @@ begin
   if (CurStep = ssPostInstall) and WantAddPath then
     EnvAddPath(ExpandConstant('{app}'));
 #ifdef FBIDE_FBC_DIR
-  if (CurStep = ssPostInstall) and WantFbc then
+  // The manual is always installed (independent of the compiler choice), so
+  // strip its MOTW unconditionally. No-op when no CHM is present.
+  if CurStep = ssPostInstall then
     StripChmMotw;
 #endif
 end;

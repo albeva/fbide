@@ -38,27 +38,6 @@ TEST(FbcAutoDetectTests, ParseArchUnknownReturnsNullopt) {
 }
 
 // ---------------------------------------------------------------------------
-// parseVersion
-// ---------------------------------------------------------------------------
-TEST(FbcAutoDetectTests, ParseVersionReadsThreePart) {
-    EXPECT_EQ(
-        FbcAutoDetect::parseVersion("FreeBASIC Compiler - Version 1.10.1 (2024-01-25), built for win64 (64bit)"),
-        std::optional<wxString> { "1.10.1" }
-    );
-}
-
-TEST(FbcAutoDetectTests, ParseVersionStopsAtComma) {
-    EXPECT_EQ(
-        FbcAutoDetect::parseVersion("FreeBASIC Compiler - Version 1.07.1, for win32"),
-        std::optional<wxString> { "1.07.1" }
-    );
-}
-
-TEST(FbcAutoDetectTests, ParseVersionUnknownReturnsNullopt) {
-    EXPECT_FALSE(FbcAutoDetect::parseVersion("no version marker here").has_value());
-}
-
-// ---------------------------------------------------------------------------
 // buildCompilerValue
 // ---------------------------------------------------------------------------
 TEST(FbcAutoDetectTests, BuildBothArchesOn64BitOs) {

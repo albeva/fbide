@@ -49,12 +49,6 @@ public:
     /// Returns `nullopt` when neither a 32- nor 64-bit marker is present.
     [[nodiscard]] static auto parseArch(const wxString& versionLine) -> std::optional<FbcArch>;
 
-    /// Extract the dotted version number (e.g. `1.10.1`) from an
-    /// `fbc --version` line. Used to locate the matching bundled manual
-    /// (`FB-manual-<version>.chm`). Returns `nullopt` when no version
-    /// number is present.
-    [[nodiscard]] static auto parseVersion(const wxString& versionLine) -> std::optional<wxString>;
-
     /// Build the `[compiler]` config subtree from detected variants: a
     /// canonical Default (OS-appropriate binary, generic command, hidden
     /// from the menu) plus one GUI/Console configuration pair per available

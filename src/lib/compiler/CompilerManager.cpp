@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "CompilerManager.hpp"
+#include <wx/dir.h>
 #include <wx/richmsgdlg.h>
 #include "BuildTask.hpp"
 #include "CompilerConfigCatalog.hpp"
@@ -264,7 +265,6 @@ auto CompilerManager::detectCompilerOnFirstRun() -> bool {
     // replace the [compiler] subtree wholesale, refresh the catalog/UI, and
     // flush the config so the choice survives the next launch.
     configManager.config()["compiler"] = std::move(*detected);
-    linkBundledHelpFile();
     m_catalog->reload();
     refreshConfigurationCombo();
     configManager.save(ConfigManager::Category::Config);
@@ -280,32 +280,22 @@ void CompilerManager::linkBundledHelpFile() const {
     auto& config = configManager.config();
 
     // Respect an existing help file — only fill an empty one, never clobber
-    // a path the user (or a previous detect) already set.
+    // a path the user already set.
     if (!config.get_or("paths.helpFile", wxString {}).IsEmpty()) {
         return;
     }
 
-    // The canonical compiler just written by auto-detect. Its folder is where
-    // the installer drops the bundled compiler and the matching manual.
-    const wxString binary = resolveCompilerBinary();
-    if (binary.IsEmpty()) {
-        return;
+    // The installer drops the FreeBASIC manual next to fbide.exe, named
+    // FB-manual-<version>.chm. Match it by name alone — first one wins — and
+    // wire it up as the help file. No version probing: whatever CHM shipped
+    // with this build is the right one.
+    const wxString appDir = configManager.getAppDir();
+    wxDir dir(appDir);
+    wxString found;
+    if (dir.IsOpened() && dir.GetFirst(&found, "FB-manual-*.chm", wxDIR_FILES)) {
+        const wxFileName chm(appDir, found);
+        config["paths"]["helpFile"] = configManager.relative(chm.GetFullPath());
     }
-
-    // FreeBASIC ships its manual as FB-manual-<version>.chm. Pin the lookup to
-    // the compiler's reported version (reuse the build-flow --version probe)
-    // so a future fbc bump never wires up a stale manual.
-    const auto version = FbcAutoDetect::parseVersion(probeCompilerVersion(toFsPath(binary)));
-    if (!version.has_value()) {
-        return;
-    }
-
-    const wxFileName chm(wxFileName(binary).GetPath(), "FB-manual-" + *version + ".chm");
-    if (!chm.FileExists()) {
-        return;
-    }
-
-    config["paths"]["helpFile"] = configManager.relative(chm.GetFullPath());
 #endif
 }
 
