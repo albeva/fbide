@@ -21,6 +21,7 @@
 - Fixed a filesystem-watcher assertion on startup when opening a `.fbs` session from the command line.
 - Fixed Compile/Run/Format (and other source commands) staying disabled when fbide is launched by opening a file, until the first tab switch (#122).
 - Fixed the code-completion popup lingering when the editor loses focus (e.g. switching tabs); it is now dismissed (#121).
+- Fixed Compile & Run / Quick Run on a configuration that builds no executable (e.g. `#cmdline "-dll"`): it now shows a clear "no executable created" alert instead of failing to run with a broken message (#116).
 - Fixed `_` in a `##_##` preprocessor token-paste being mis-lexed as a line continuation (#115).
 - Added opening common extensionless files (Makefile, README, LICENSE, …) directly in fbide from the file browser (#114).
 - Changed the Open dialog's default filter to FBIde (`*.bas`, `*.bi`, `*.fbs`) so session files load from the standard Open dialog.
