@@ -133,6 +133,13 @@ void KeywordsPage::create() {
 }
 
 #ifdef __WXMSW__
+void KeywordsPage::refreshHelpFileFromConfig() {
+    m_helpFile = getContext().getConfigManager().config().get_or("paths.helpFile", "");
+    if (m_helpFileField) {
+        m_helpFileField->SetValue(m_helpFile);
+    }
+}
+
 void KeywordsPage::buildHelpRow() {
     vbox(tr("dialogs.settings.compiler.help"), { .margin = false }, [&] {
         const auto lbl = text(tr("dialogs.settings.compiler.helpFile"));

@@ -7,6 +7,7 @@
 #include "FbcAutoDetect.hpp"
 #include <wx/dirdlg.h>
 #include <wx/filefn.h>
+#include <wx/regex.h>
 #include <wx/richmsgdlg.h>
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
@@ -136,6 +137,16 @@ auto FbcAutoDetect::parseArch(const wxString& versionLine) -> std::optional<FbcA
     }
     if (lower.Contains("win32") || lower.Contains("32bit")) {
         return FbcArch::Win32;
+    }
+    return std::nullopt;
+}
+
+auto FbcAutoDetect::parseVersion(const wxString& versionLine) -> std::optional<wxString> {
+    // Match the dotted number after "Version ", e.g. "... Version 1.10.1 (..."
+    // or "... Version 1.07.1, for win32". Group 1 is the full x.y.z token.
+    static const wxRegEx re(R"(Version[ \t]+([0-9]+(\.[0-9]+)+))", wxRE_ADVANCED);
+    if (re.Matches(versionLine)) {
+        return re.GetMatch(versionLine, 1);
     }
     return std::nullopt;
 }

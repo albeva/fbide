@@ -264,12 +264,48 @@ auto CompilerManager::detectCompilerOnFirstRun() -> bool {
     // replace the [compiler] subtree wholesale, refresh the catalog/UI, and
     // flush the config so the choice survives the next launch.
     configManager.config()["compiler"] = std::move(*detected);
+    linkBundledHelpFile();
     m_catalog->reload();
     refreshConfigurationCombo();
     configManager.save(ConfigManager::Category::Config);
     return true;
 #else
     return false;
+#endif
+}
+
+void CompilerManager::linkBundledHelpFile() const {
+#ifdef __WXMSW__
+    auto& configManager = m_ctx.getConfigManager();
+    auto& config = configManager.config();
+
+    // Respect an existing help file — only fill an empty one, never clobber
+    // a path the user (or a previous detect) already set.
+    if (!config.get_or("paths.helpFile", wxString {}).IsEmpty()) {
+        return;
+    }
+
+    // The canonical compiler just written by auto-detect. Its folder is where
+    // the installer drops the bundled compiler and the matching manual.
+    const wxString binary = resolveCompilerBinary();
+    if (binary.IsEmpty()) {
+        return;
+    }
+
+    // FreeBASIC ships its manual as FB-manual-<version>.chm. Pin the lookup to
+    // the compiler's reported version (reuse the build-flow --version probe)
+    // so a future fbc bump never wires up a stale manual.
+    const auto version = FbcAutoDetect::parseVersion(probeCompilerVersion(toFsPath(binary)));
+    if (!version.has_value()) {
+        return;
+    }
+
+    const wxFileName chm(wxFileName(binary).GetPath(), "FB-manual-" + *version + ".chm");
+    if (!chm.FileExists()) {
+        return;
+    }
+
+    config["paths"]["helpFile"] = configManager.relative(chm.GetFullPath());
 #endif
 }
 

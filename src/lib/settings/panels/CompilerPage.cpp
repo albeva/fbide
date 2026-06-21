@@ -186,6 +186,10 @@ void CompilerPage::autoDetect() {
     // Install the detected `[compiler]` subtree wholesale. The snapshot
     // create() took still covers rollback if the user later hits Cancel.
     getContext().getConfigManager().config()["compiler"] = std::move(*generated);
+    // Wire up the bundled manual for the freshly detected compiler. Fills an
+    // empty paths.helpFile only; the dialog refreshes the Keywords tab's help
+    // field afterwards so its apply() doesn't write a stale value back.
+    getContext().getCompilerManager().linkBundledHelpFile();
     catalog().reload();
     refreshList();
     m_selectedSlug = catalog().activeSlug();

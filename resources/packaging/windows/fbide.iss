@@ -278,10 +278,37 @@ begin
   end;
 end;
 
+#ifdef FBIDE_FBC_DIR
+// Strip the Mark-of-the-Web (the Zone.Identifier alternate data stream) from
+// the bundled CHM manual(s) so Windows doesn't block help topics. Files an
+// installer writes normally carry no MOTW, so this is belt-and-suspenders;
+// DeleteFile on a "<file>:<stream>" path removes just the stream and no-ops
+// when it isn't there.
+procedure StripChmMotw;
+var
+  AppDir: string;
+  FindRec: TFindRec;
+begin
+  AppDir := ExpandConstant('{app}');
+  if FindFirst(AppDir + '\FB-manual-*.chm', FindRec) then
+  try
+    repeat
+      DeleteFile(AppDir + '\' + FindRec.Name + ':Zone.Identifier');
+    until not FindNext(FindRec);
+  finally
+    FindClose(FindRec);
+  end;
+end;
+#endif
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if (CurStep = ssPostInstall) and WantAddPath then
     EnvAddPath(ExpandConstant('{app}'));
+#ifdef FBIDE_FBC_DIR
+  if (CurStep = ssPostInstall) and WantFbc then
+    StripChmMotw;
+#endif
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
