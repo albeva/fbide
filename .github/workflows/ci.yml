@@ -305,13 +305,13 @@ jobs:
       - name: Build
         run: cmake --build build/ci
 
-      # GUI tests carry the `gui` label and are Windows-targeted, so x64/x86
-      # run the full suite. The windows-11-arm hosted runner has no
-      # interactive desktop session to drive them, so skip the label there —
-      # same treatment the Linux/macOS jobs give their GUI suites.
-      - name: Test
+      # GUI tests carry the `gui` label (see tests/CMakeLists.txt). The hosted
+      # runners have no interactive desktop session to instantiate wx GUI
+      # controls, so skip the whole `gui` suite on every arch — same treatment
+      # the Linux/macOS jobs give their GUI suites.
+      - name: Test (non-GUI)
         working-directory: build/ci
-        run: ctest --output-on-failure ${{ matrix.arch == 'arm64' && '-LE gui' || '' }}
+        run: ctest --output-on-failure -LE gui
 
       # ---------- Release artefact (push to main, all archs) ----------
       # Each matrix instance produces its own zip; the release job
