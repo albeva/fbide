@@ -1335,3 +1335,31 @@ TEST_F(ReFormatterTests, FormatOff_CaseTransformSkipsVerbatimKeywords) {
     EXPECT_EQ(dimTexts[1], "dim"); // inside region — untouched
     EXPECT_EQ(dimTexts[2], "DIM");
 }
+
+// ---------------------------------------------------------------------------
+// baseIndent — seeds the top-level indent so a reformatted selection keeps the
+// indentation of the block it is nested in (Reformat command, #132).
+// ---------------------------------------------------------------------------
+
+TEST_F(ReFormatterTests, BaseIndentShiftsFlatStatements) {
+    EXPECT_EQ(formatWith("Print 1\nPrint 2\n", { .tabSize = tabSize, .baseIndent = 2 }),
+        "        Print 1\n"
+        "        Print 2\n");
+}
+
+TEST_F(ReFormatterTests, BaseIndentStacksOnStructuralIndent) {
+    // The block's own indentation is added on top of the base level.
+    EXPECT_EQ(formatWith(
+                  "If a Then\n"
+                  "Print 1\n"
+                  "End If\n",
+                  { .tabSize = tabSize, .baseIndent = 1 }),
+        "    If a Then\n"
+        "        Print 1\n"
+        "    End If\n");
+}
+
+TEST_F(ReFormatterTests, BaseIndentZeroMatchesDefault) {
+    const char* source = "Sub Main\nPrint 1\nEnd Sub\n";
+    EXPECT_EQ(formatWith(source, { .tabSize = tabSize, .baseIndent = 0 }), format(source));
+}

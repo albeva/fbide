@@ -863,6 +863,11 @@ void DocumentManager::showEditorContextMenu(Editor& editor, const wxPoint& scree
     menu.AppendSeparator();
     menu.Append(+CommandId::SelectAll, m_ctx.tr("commands.selectAll.name"));
 
+    if (doc != nullptr && doc->getType() == DocumentType::FreeBASIC) {
+        menu.AppendSeparator();
+        menu.Append(+CommandId::Reformat, m_ctx.tr("commands.reformat.name"));
+    }
+
     if (def.has_value() || decl.has_value()) {
         menu.AppendSeparator();
         menu.Append(kGoToDefinitionId, m_ctx.tr("editorContext.goToDefinition"))->Enable(def.has_value());
@@ -1005,6 +1010,11 @@ void DocumentManager::popupTabContextMenu(const int pageIdx) {
         ->Enable(entryEnabled(CommandId::Paste));
     menu.Append(+CommandId::SelectAll, m_ctx.tr("commands.selectAll.name"))
         ->Enable(entryEnabled(CommandId::SelectAll));
+
+    if (doc->getType() == DocumentType::FreeBASIC) {
+        menu.AppendSeparator();
+        menu.Append(+CommandId::Reformat, m_ctx.tr("commands.reformat.name"));
+    }
 
     menu.Bind(wxEVT_MENU, [this, docPtr](const wxCommandEvent&) { closeOtherFiles(*docPtr); }, kTabCloseOthersId);
     menu.Bind(wxEVT_MENU, [this, path](const wxCommandEvent&) {

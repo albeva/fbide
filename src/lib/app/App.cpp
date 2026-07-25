@@ -18,6 +18,7 @@
 #include "document/DocumentManager.hpp"
 #include "document/FileSession.hpp"
 #include "format/FormatCommand.hpp"
+#include "format/FormatSettings.hpp"
 #include "ui/UIManager.hpp"
 #include "update/UpdateManager.hpp"
 #include "utils/ConsoleOutput.hpp"
@@ -29,8 +30,9 @@ constexpr auto kHelpText = R"(Usage: fbide [options] [files...]
        fbide format [format-options] <file>
 
 Commands:
-  format <file>       Format <file> and write the result to stdout (default:
-                      re-indent + re-format). Format options:
+  format <file>       Format <file> and write the result to stdout. With none of
+                      the options below, the settings saved from the Format
+                      dialog are used. Format options:
                         --reindent        re-indent lines to block depth
                         --reformat        re-flow intra-line spacing
                         --align-pp        anchor preprocessor directives
@@ -240,11 +242,23 @@ auto App::OnInit() -> bool {
 
     // `format [options] <file>`: format the file, emit, exit. Headless too.
     if (cli.formatRequested) {
+        // With no transform flag on the command line, fall back to the options
+        // last saved from the Format dialog. The output format (code vs HTML)
+        // stays a command-line-only choice and is never taken from config.
+        FormatSettings settings {
+            .reIndent = cli.formatReindent,
+            .reFormat = cli.formatReformat,
+            .alignPP = cli.formatAlignPP,
+            .applyCase = cli.formatApplyCase,
+        };
+        if (!cli.formatReindent && !cli.formatReformat && !cli.formatApplyCase) {
+            settings = FormatSettings::load(m_context->getConfigManager());
+        }
         std::exit(FormatCommand(*m_context, FormatCommand::Options {
-                                                .reIndent = cli.formatReindent,
-                                                .reFormat = cli.formatReformat,
-                                                .alignPP = cli.formatAlignPP,
-                                                .applyCase = cli.formatApplyCase,
+                                                .reIndent = settings.reIndent,
+                                                .reFormat = settings.reFormat,
+                                                .alignPP = settings.alignPP,
+                                                .applyCase = settings.applyCase,
                                                 .html = cli.formatHtml,
                                                 .outputPath = cli.formatOutput,
                                             })
@@ -387,11 +401,8 @@ auto App::parseCli() const -> CliOptions {
             opts.parseFailed = true;
             return opts;
         }
-        // Default to a full reformat when no transform was requested.
-        if (!opts.formatReindent && !opts.formatReformat && !opts.formatApplyCase) {
-            opts.formatReindent = true;
-            opts.formatReformat = true;
-        }
+        // No transform flag → the saved format settings are applied where the
+        // command is built (parseCli has no config manager); left as-is here.
         return opts;
     }
 

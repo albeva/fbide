@@ -220,6 +220,7 @@ private:
         CommandId::FindPrevious,
         CommandId::GotoLine,
         CommandId::Format,
+        CommandId::Reformat,
         // CommandId::Result,
         CommandId::CompilerLog,
         CommandId::Subs,

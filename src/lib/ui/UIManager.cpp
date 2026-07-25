@@ -660,6 +660,7 @@ void UIManager::applyState(const UIState state) const {
             CommandId::Comment,
             CommandId::Uncomment,
             CommandId::Format,
+            CommandId::Reformat,
             CommandId::Subs,
             CommandId::Compile,
             CommandId::CompileAndRun,

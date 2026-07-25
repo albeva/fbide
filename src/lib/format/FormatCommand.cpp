@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "FormatCommand.hpp"
+#include "FormatSettings.hpp"
 #include "analyses/lexer/MemoryDocument.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
 #include "analyses/lexer/StyledSource.hpp"
@@ -15,8 +16,6 @@
 #include "renderers/HtmlRenderer.hpp"
 #include "renderers/PlainTextRenderer.hpp"
 #include "transformers/Transform.hpp"
-#include "transformers/case/CaseTransform.hpp"
-#include "transformers/reformat/ReFormatter.hpp"
 #include "utils/ConsoleOutput.hpp"
 using namespace fbide;
 
@@ -53,25 +52,14 @@ auto FormatCommand::run(const wxString& inputPath) const -> int {
     const auto tokens = adapter.tokenise();
     fb->Release();
 
-    // Build the transform chain from the options (mirrors FormatDialog).
-    std::vector<std::unique_ptr<Transform>> transforms;
-    if (m_options.applyCase) {
-        std::array<CaseMode, kThemeKeywordGroupsCount> cases {};
-        const auto& cfg = m_ctx.getConfigManager().keywords().at("cases");
-        for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
-            const auto key = wxString(getThemeCategoryName(kThemeKeywordCategories[idx]));
-            cases[idx] = CaseMode::parse(cfg.get_or(key, "None").ToStdString()).value_or(CaseMode::None);
-        }
-        transforms.push_back(std::make_unique<CaseTransform>(cases));
-    }
-    if (m_options.reIndent || m_options.reFormat) {
-        transforms.push_back(std::make_unique<reformat::ReFormatter>(reformat::FormatOptions {
-            .tabSize = static_cast<std::size_t>(m_ctx.getConfigManager().config().get_or("editor.tabSize", 4)),
-            .anchoredPP = m_options.reIndent && m_options.alignPP,
-            .reIndent = m_options.reIndent,
-            .reFormat = m_options.reFormat,
-        }));
-    }
+    // Build the transform chain from the options — shared with FormatDialog and
+    // the Reformat command so the three stay in lock-step.
+    const auto transforms = buildTransforms(m_ctx, FormatSettings {
+        .reIndent = m_options.reIndent,
+        .reFormat = m_options.reFormat,
+        .alignPP = m_options.alignPP,
+        .applyCase = m_options.applyCase,
+    });
 
     // Apply in order — each transform feeds the next.
     std::vector<lexer::Token> buffer;

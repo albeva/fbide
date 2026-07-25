@@ -50,6 +50,7 @@ enum class CommandId : wxWindowID {
     FindPrevious,
     GotoLine,
     Format,
+    Reformat,
     Result,
     Browser,
     Minimap,

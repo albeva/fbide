@@ -18,6 +18,7 @@
 #include "document/DocumentPath.hpp"
 #include "editor/Editor.hpp"
 #include "format/FormatDialog.hpp"
+#include "format/QuickFormat.hpp"
 #include "help/HelpManager.hpp"
 #include "settings/SettingsDialog.hpp"
 #include "sidebar/SideBarManager.hpp"
@@ -67,6 +68,7 @@ wxBEGIN_EVENT_TABLE(CommandManager, wxEvtHandler)
     // View
     EVT_MENU(+CommandId::Preferences, CommandManager::onSettings)
     EVT_MENU(+CommandId::Format,      CommandManager::onFormat)
+    EVT_MENU(+CommandId::Reformat,    CommandManager::onReformat)
     EVT_MENU(+CommandId::Subs,        CommandManager::onSubs)
     EVT_MENU(+CommandId::Minimap,     CommandManager::onMinimap)
     EVT_MENU(+CommandId::CompilerLog, CommandManager::onCompilerLog)
@@ -117,6 +119,7 @@ CommandManager::CommandManager(Context& ctx)
         CommandEntry { .id = +CommandId::FindNext,         .name="findNext" },
         CommandEntry { .id = +CommandId::FindPrevious,     .name="findPrevious" },
         CommandEntry { .id = +CommandId::Format,           .name="format" },
+        CommandEntry { .id = +CommandId::Reformat,         .name="reformat" },
         CommandEntry { .id = +CommandId::GotoLine,         .name="gotoLine" },
         CommandEntry { .id = +CommandId::Help,             .name="help"  },
         CommandEntry { .id = +CommandId::IndentDecrease,   .name="indentDec" },
@@ -351,6 +354,12 @@ void CommandManager::onFormat(wxCommandEvent&) {
         FormatDialog dlg(m_ctx.getUIManager().getMainFrame(), m_ctx, doc);
         dlg.create();
         dlg.ShowModal();
+    }
+}
+
+void CommandManager::onReformat(wxCommandEvent&) {
+    if (auto* doc = m_ctx.getDocumentManager().getActive(); doc != nullptr && doc->getEditor() != nullptr) {
+        QuickFormat(m_ctx).run(*doc->getEditor());
     }
 }
 

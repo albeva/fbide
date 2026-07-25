@@ -12,8 +12,11 @@
 #include "app/Context.hpp"
 #include "compiler/AsyncProcess.hpp"
 #include "config/ConfigManager.hpp"
+#include "document/Document.hpp"
 #include "document/DocumentManager.hpp"
+#include "document/DocumentType.hpp"
 #include "document/FileSession.hpp"
+#include "format/QuickFormat.hpp"
 #include "ui/UIManager.hpp"
 #include "ui/controls/FlatButton.hpp"
 #include "ui/utilities/SystemShell.hpp"
@@ -477,6 +480,7 @@ void FileBrowser::onItemMenu(wxTreeEvent& event) {
     constexpr int kIdFocus = wxID_HIGHEST + 13;
     constexpr int kIdUnfocus = wxID_HIGHEST + 14;
     constexpr int kIdOpenInFbide = wxID_HIGHEST + 15;
+    constexpr int kIdReformat = wxID_HIGHEST + 16;
     constexpr int kIdNewTypeBase = wxID_HIGHEST + 100;
 
     wxMenu menu;
@@ -514,6 +518,10 @@ void FileBrowser::onItemMenu(wxTreeEvent& event) {
         if (!isSupportedFile(path)) {
             menu.Append(kIdOpenInFbide, menuText("openInFbide", "Open in FBIde"));
         }
+        // Reformat is offered only for FreeBASIC source files.
+        if (m_ctx.getConfigManager().documentTypeForPath(fsPath) == DocumentType::FreeBASIC) {
+            menu.Append(kIdReformat, menuText("reformat", "Reformat"));
+        }
         menu.AppendSeparator();
     }
     if (hasParent) {
@@ -542,6 +550,15 @@ void FileBrowser::onItemMenu(wxTreeEvent& event) {
     case kIdOpenInFbide:
         m_ctx.getDocumentManager().openFile(path);
         break;
+    case kIdReformat: {
+        // Open (or activate) the file, then reformat its editor in place.
+        auto& docs = m_ctx.getDocumentManager();
+        docs.openFile(path);
+        if (auto* doc = docs.getActive(); doc != nullptr && doc->getEditor() != nullptr) {
+            QuickFormat(m_ctx).run(*doc->getEditor());
+        }
+        break;
+    }
     case kIdRename:
         renameNode(path);
         break;

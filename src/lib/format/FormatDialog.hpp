@@ -16,6 +16,7 @@ class Renderer;
 class Transform;
 class Document;
 class CaseMode;
+struct FormatSettings;
 
 /// Format dialog — pipeline-driven preview of `Reformat`, `CaseTransform`,
 /// and `HtmlRenderer` transforms applied to the document.
@@ -49,6 +50,9 @@ private:
 
     /// Rebuild `m_transforms` and `m_renderer` from the current checkbox state.
     void rebuildTransforms();
+
+    /// The transform toggles as currently checked, as a persistable settings set.
+    [[nodiscard]] auto currentSettings() const -> FormatSettings;
 
     /// True when at least one transform is active.
     [[nodiscard]] auto isTransforming() const -> bool;

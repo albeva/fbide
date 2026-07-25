@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "FormatDialog.hpp"
+#include "FormatSettings.hpp"
 #include "analyses/lexer/MemoryDocument.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
 #include "analyses/lexer/StyledSource.hpp"
@@ -16,8 +17,6 @@
 #include "editor/lexilla/FBSciLexer.hpp"
 #include "renderers/HtmlRenderer.hpp"
 #include "renderers/PlainTextRenderer.hpp"
-#include "transformers/case/CaseTransform.hpp"
-#include "transformers/reformat/ReFormatter.hpp"
 #include "ui/UIManager.hpp"
 using namespace fbide;
 
@@ -121,6 +120,16 @@ void FormatDialog::create() {
     }
 
     m_renderer = std::make_unique<PlainTextRenderer>(m_buffer.length());
+
+    // Restore the transform toggles the user last applied, so the dialog and the
+    // Reformat command share one set of options.
+    const auto saved = FormatSettings::load(m_ctx.getConfigManager());
+    m_reindentCheck->SetValue(saved.reIndent);
+    m_reformatCheck->SetValue(saved.reFormat);
+    m_alignPPCheck->SetValue(saved.alignPP);
+    m_applyCaseCheck->SetValue(saved.applyCase);
+    rebuildTransforms();
+
     updatePreview();
 }
 
@@ -140,6 +149,10 @@ void FormatDialog::renderHtml(wxCommandEvent&) {
 }
 
 void FormatDialog::onApply(wxCommandEvent&) {
+    // Persist the chosen options so the Reformat command and `fbide format`
+    // reuse them.
+    currentSettings().save(m_ctx.getConfigManager());
+
     const auto rendered = m_preview->GetText();
     if (rendered.IsEmpty()) {
         return;
@@ -180,29 +193,16 @@ void FormatDialog::onBrowser(wxCommandEvent&) {
 }
 
 void FormatDialog::rebuildTransforms() {
-    m_transforms.clear();
+    m_transforms = buildTransforms(m_ctx, currentSettings());
+}
 
-    if (m_applyCaseCheck->IsChecked()) {
-        std::array<CaseMode, kThemeKeywordGroupsCount> cases {};
-        const auto& cfg = m_ctx.getConfigManager().keywords().at("cases");
-        for (std::size_t idx = 0; idx < kThemeKeywordCategories.size(); idx++) {
-            const auto key = wxString(getThemeCategoryName(kThemeKeywordCategories[idx]));
-            cases[idx] = CaseMode::parse(cfg.get_or(key, "None").ToStdString())
-                             .value_or(CaseMode::None);
-        }
-        m_transforms.push_back(std::make_unique<CaseTransform>(cases));
-    }
-
-    const bool reIndent = m_reindentCheck->IsChecked();
-    const bool reFormat = m_reformatCheck->IsChecked();
-    if (reIndent || reFormat) {
-        m_transforms.push_back(std::make_unique<reformat::ReFormatter>(reformat::FormatOptions {
-            .tabSize = static_cast<std::size_t>(m_ctx.getConfigManager().config().get_or("editor.tabSize", 4)),
-            .anchoredPP = reIndent && m_alignPPCheck->IsChecked(),
-            .reIndent = reIndent,
-            .reFormat = reFormat,
-        }));
-    }
+auto FormatDialog::currentSettings() const -> FormatSettings {
+    return FormatSettings {
+        .reIndent = m_reindentCheck->IsChecked(),
+        .reFormat = m_reformatCheck->IsChecked(),
+        .alignPP = m_alignPPCheck->IsChecked(),
+        .applyCase = m_applyCaseCheck->IsChecked(),
+    };
 }
 
 auto FormatDialog::isTransforming() const -> bool {

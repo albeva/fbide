@@ -13,7 +13,7 @@ auto Renderer::render(const ProgramTree& tree) -> std::vector<Token> {
     m_output.clear();
     m_lastWasBlankLine = false;
     m_lastWasBlock = false;
-    renderNodes(tree.nodes, 0);
+    renderNodes(tree.nodes, m_options.baseIndent);
     return std::move(m_output);
 }
 
