@@ -6,6 +6,7 @@
 - Fixed a crash when pasting or dragging text over the last line of a FreeBASIC file (#131, #128).
 - Fixed `!"…"` / `$"…"` string-literal prefixes being split from their string (#128).
 - Fixed the Windows build being DPI-unaware, causing a blurry UI on high-DPI displays (#128).
+- Fixed FBIde sometimes closing or freezing a few seconds after the first launch on Windows; compiler auto-detection now runs asynchronously (#127).
 
 # Changes since 0.5.0-rc.6
 

@@ -277,6 +277,13 @@ auto App::OnInit() -> bool {
 #endif
 
     m_context->getUIManager().createMainFrame();
+    // Make the main frame the app's top window. wxMSW parents its internal
+    // child-process wait-loop keep-alive dialog to GetTopWindow(); without this
+    // that resolves to the transient splash, and a synchronous subprocess whose
+    // nested loop straddles the splash's 1s timeout tears the splash (and that
+    // dialog) down mid-wait — a use-after-free that silently closes the app on
+    // first run (issue #127). Also fixes the default parent for dialogs.
+    SetTopWindow(m_context->getUIManager().getMainFrame());
 #ifdef __WXMSW__
     // Register per-user associations so .bas/.bi/.fbs show FBIde's icons and open
     // with FBIde. ensureRegistered() self-skips on installed builds (the installer
@@ -289,44 +296,46 @@ auto App::OnInit() -> bool {
     // icons into ~/.local/share so .bas/.bi/.fbs associate with FBIde.
     FileAssociationsLinux::ensureRegistered();
 #endif
-    // First launch (no config overlay yet): try to locate a bundled or
-    // PATH fbc silently so the IDE works out of the box — installers ship
-    // fbc next to fbide.exe. Only when that finds nothing do we fall back
-    // to the interactive "compiler missing" prompt. Later launches go
-    // straight to the prompt-if-missing check.
-    auto& compilerManager = m_context->getCompilerManager();
-    const bool firstRunConfigured = configManager.isFirstRun() && compilerManager.detectCompilerOnFirstRun();
-    if (!firstRunConfigured) {
-        compilerManager.checkCompilerOnStartup();
-    }
     // Wire up the bundled FreeBASIC manual when no help file is set yet — the
-    // installer ships FB-manual-*.chm next to fbide.exe. No-op when a help
-    // file is already configured. Runs every launch (cheap), independent of
-    // compiler detection.
-    compilerManager.linkBundledHelpFile();
+    // installer ships FB-manual-*.chm next to fbide.exe. Pure filesystem, cheap,
+    // runs every launch.
+    m_context->getCompilerManager().linkBundledHelpFile();
     m_context->getUpdateManager().checkOnStartup();
 
-    // Defer opening CLI files / restoring session state until the main event
-    // loop is running. A session restore makes the File Browser tab active, and
-    // its lazily-created wxFileSystemWatcher asserts ("needs an active loop")
-    // when built during OnInit — the loop only exists once OnInit returns.
-    // CallAfter runs this on the first loop tick, after the frame is up.
+    // Everything below spawns fbc or touches the notebook, so defer it until the
+    // main event loop is running: OnInit has returned, the frame is up, and the
+    // splash times out harmlessly under the real loop. Compiler detection and
+    // the built-in-defines probe run ASYNCHRONOUSLY (AsyncProcess) so startup
+    // never spins a nested event loop (issue #127). Ordered strictly —
+    // detect (first run only) → prompt-if-missing → warm defines → open files /
+    // restore session — so intellisense's first parse sees the detected
+    // compiler's defines. A session restore also needs the loop live (its
+    // wxFileSystemWatcher asserts otherwise).
     CallAfter([this, files = cli.files, restoreStateFrom = cli.restoreStateFrom] {
-        // Probe the compiler's built-in defines once, up front (now that the loop
-        // is running), so intellisense's first parse doesn't block on it.
-        m_context->getCompilerManager().warmBuiltinDefines();
-        openFiles(files);
-        if (!restoreStateFrom.IsEmpty()) {
-            // A throwaway snapshot from a restart that had no active session: load
-            // it as a session to reopen the documents, then close the session
-            // (leaving them as loose documents) and delete the temp file.
-            auto& docManager = m_context->getDocumentManager();
-            docManager.startSession(restoreStateFrom);
-            docManager.closeSession();
-            if (isInsideTempDir(restoreStateFrom)) {
-                wxRemoveFile(restoreStateFrom);
+        m_context->getCompilerManager().detectCompilerOnFirstRunAsync(
+            [this, files, restoreStateFrom](const bool configured) {
+                auto& compilerManager = m_context->getCompilerManager();
+                // Prompt when the configured compiler is missing — i.e. unless a
+                // first-run auto-detect just configured one.
+                if (!configured) {
+                    compilerManager.checkCompilerOnStartup();
+                }
+                compilerManager.warmBuiltinDefinesAsync([this, files, restoreStateFrom] {
+                    openFiles(files);
+                    if (!restoreStateFrom.IsEmpty()) {
+                        // A throwaway snapshot from a restart that had no active
+                        // session: load it as a session to reopen the documents,
+                        // close the session (leaving them loose), delete the temp.
+                        auto& docManager = m_context->getDocumentManager();
+                        docManager.startSession(restoreStateFrom);
+                        docManager.closeSession();
+                        if (isInsideTempDir(restoreStateFrom)) {
+                            wxRemoveFile(restoreStateFrom);
+                        }
+                    }
+                });
             }
-        }
+        );
     });
     return true;
 }

@@ -8,6 +8,7 @@
 #include <wx/dirdlg.h>
 #include <wx/filefn.h>
 #include <wx/richmsgdlg.h>
+#include "AsyncProcess.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "utils/PathConversions.hpp"
@@ -299,6 +300,123 @@ auto FbcAutoDetect::run(wxWindow* parent) -> std::optional<Value> {
 
     // 4. Build the [compiler] subtree to install.
     return buildCompilerValue(variants, wxIsPlatform64Bit());
+}
+
+// ---------------------------------------------------------------------------
+// FbcAsyncDetect — async, non-blocking first-run detection (issue #127)
+// ---------------------------------------------------------------------------
+
+FbcAsyncDetect::FbcAsyncDetect(std::filesystem::path exeDir, const bool osIs64, OnDone onDone)
+: m_osIs64(osIs64)
+, m_onDone(std::move(onDone)) {
+    // Same folder priority as detectSilently: an installer bundles fbc next to
+    // fbide.exe, so probe that folder before the system PATH.
+    if (!exeDir.empty()) {
+        m_folders.push_back(std::move(exeDir));
+    }
+    if (const auto inPath = findInPath()) {
+        m_folders.push_back(*inPath);
+    }
+}
+
+FbcAsyncDetect::~FbcAsyncDetect() {
+    if (m_process != nullptr) {
+        m_process->detach();
+    }
+}
+
+void FbcAsyncDetect::detach() {
+    m_onDone = nullptr;
+    if (m_process != nullptr) {
+        m_process->detach();
+        m_process = nullptr;
+    }
+}
+
+void FbcAsyncDetect::run() {
+    beginFolder();
+}
+
+void FbcAsyncDetect::beginFolder() {
+    if (m_folderIdx >= m_folders.size()) {
+        finish(std::nullopt);
+        return;
+    }
+    const auto& folder = m_folders[m_folderIdx];
+    m_candidates.clear();
+    m_candIdx = 0;
+    m_variants.clear();
+
+    // Named variants first so they win over a plain fbc.exe of the same arch —
+    // mirrors detectVariants' priority order.
+    struct Named final {
+        const char* name = nullptr;
+        std::optional<FbcArch> archHint = std::nullopt;
+    };
+    static constexpr std::array<Named, 3> order { {
+        { .name = "fbc64.exe", .archHint = FbcArch::Win64 },
+        { .name = "fbc32.exe", .archHint = FbcArch::Win32 },
+        { .name = "fbc.exe", .archHint = std::nullopt },
+    } };
+    for (const auto& [name, archHint] : order) {
+        auto exe = folder / name;
+        std::error_code ec;
+        if (std::filesystem::exists(exe, ec)) {
+            m_candidates.push_back({ .exe = std::move(exe), .archHint = archHint });
+        }
+    }
+    probeNextCandidate();
+}
+
+void FbcAsyncDetect::probeNextCandidate() {
+    if (m_candIdx >= m_candidates.size()) {
+        // Folder exhausted — the first folder with usable variants wins.
+        if (!m_variants.empty()) {
+            finish(FbcAutoDetect::buildCompilerValue(m_variants, m_osIs64));
+        } else {
+            ++m_folderIdx;
+            beginFolder();
+        }
+        return;
+    }
+    const wxString cmd = "\"" + toWxString(m_candidates[m_candIdx].exe) + "\" --version";
+    auto* proc = AsyncProcess::exec(
+        cmd, wxString {}, /*redirect*/ true,
+        [this](const ProcessResult& result) {
+            m_process = nullptr;
+            onProbed(result.output.empty() ? wxString {} : result.output[0]);
+        }
+    );
+    // On launch failure exec() has already fired the callback synchronously
+    // (advancing the chain, possibly starting the next probe) and returned
+    // nullptr — do not clobber whatever the nested advance stored.
+    if (proc != nullptr) {
+        m_process = proc;
+    }
+}
+
+void FbcAsyncDetect::onProbed(const wxString& versionLine) {
+    const auto exe = m_candidates[m_candIdx].exe;
+    const auto archHint = m_candidates[m_candIdx].archHint;
+    ++m_candIdx;
+    if (!versionLine.empty()) {
+        const auto arch = archHint.has_value() ? archHint : FbcAutoDetect::parseArch(versionLine);
+        if (arch.has_value()
+            && std::ranges::none_of(m_variants, [&arch](const FbcVariant& existing) { return existing.arch == *arch; })) {
+            m_variants.push_back({ .exe = exe, .arch = *arch });
+        }
+    }
+    probeNextCandidate();
+}
+
+void FbcAsyncDetect::finish(std::optional<Value> result) {
+    // Move the callback out before firing so a re-entrant owner reset (which
+    // frees `this`) can't touch it again on the way out.
+    auto cb = std::move(m_onDone);
+    m_onDone = nullptr;
+    if (cb) {
+        cb(std::move(result));
+    }
 }
 
 #endif // __WXMSW__

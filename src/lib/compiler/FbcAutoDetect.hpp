@@ -11,6 +11,7 @@
 namespace fbide {
 
 class Context;
+class AsyncProcess;
 
 #ifdef __WXMSW__
 
@@ -65,6 +66,51 @@ public:
 
 private:
     Context& m_ctx;
+};
+
+/// Async, non-blocking first-run fbc detection. Probes candidate `fbc`
+/// binaries via `AsyncProcess` (`--version`) instead of a blocking
+/// `wxExecute`, so startup never spins a nested event loop (issue #127).
+/// Chained: one probe in flight at a time, in the same priority order as
+/// `FbcAutoDetect::detectSilently` — the first folder (exe dir, then PATH)
+/// that yields usable variants wins. `onDone` fires exactly once, on the UI
+/// thread, with the built `[compiler]` subtree or `nullopt`.
+class FbcAsyncDetect final {
+public:
+    NO_COPY_AND_MOVE(FbcAsyncDetect)
+
+    using OnDone = std::function<void(std::optional<Value>)>;
+
+    FbcAsyncDetect(std::filesystem::path exeDir, bool osIs64, OnDone onDone);
+    ~FbcAsyncDetect();
+
+    /// Begin detection. Returns immediately; `onDone` runs later (or, when
+    /// there is nothing to probe, on the next event-loop tick).
+    void run();
+
+    /// Sever the completion callback so a late probe can't touch a freed
+    /// owner. The in-flight probe still self-completes and is detached.
+    void detach();
+
+private:
+    struct Candidate final {
+        std::filesystem::path exe;
+        std::optional<FbcArch> archHint; ///< Known from the file name; nullopt for plain fbc.exe.
+    };
+
+    void beginFolder();
+    void probeNextCandidate();
+    void onProbed(const wxString& versionLine);
+    void finish(std::optional<Value> result);
+
+    std::vector<std::filesystem::path> m_folders; ///< Exe dir then PATH hit.
+    std::size_t m_folderIdx = 0;
+    std::vector<Candidate> m_candidates; ///< Existing candidates in the current folder.
+    std::size_t m_candIdx = 0;
+    std::vector<FbcVariant> m_variants; ///< Usable variants accumulated for the current folder.
+    bool m_osIs64;
+    OnDone m_onDone;
+    AsyncProcess* m_process = nullptr; ///< In-flight `--version` probe (detached on teardown).
 };
 
 #endif // __WXMSW__
