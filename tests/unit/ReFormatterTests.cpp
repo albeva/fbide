@@ -255,8 +255,30 @@ TEST_F(ReFormatterTests, OpenForInputDoesNotOpenForBlock) {
                   "Open \"somefile\" For Input As #f\n"
                   "Print \"this is not a FOR loop and should not indent\"\n"
               ),
-        "Open \"somefile\" For Input As # f\n"
+        "Open \"somefile\" For Input As #f\n"
         "Print \"this is not a FOR loop and should not indent\"\n");
+}
+
+// ---------------------------------------------------------------------------
+// Operator spacing regressions (issue #128) — the reformatter must not inject
+// stray spaces into `#n` file numbers, the `=>` operator, or a unary prefix
+// (`*` / `@` / `-`) immediately in front of a parenthesised group.
+// ---------------------------------------------------------------------------
+
+TEST_F(ReFormatterTests, FileNumberHashHugsOperand) {
+    EXPECT_EQ(format("Open \"1.txt\" For Input As #1\n"),
+        "Open \"1.txt\" For Input As #1\n");
+    EXPECT_EQ(format("Print #1, x\n"), "Print #1, x\n");
+    EXPECT_EQ(format("Close #1\n"), "Close #1\n");
+}
+
+TEST_F(ReFormatterTests, FatArrowNotSplit) {
+    EXPECT_EQ(format("m(a => b)\n"), "m(a => b)\n");
+}
+
+TEST_F(ReFormatterTests, UnaryPrefixBeforeParenNoSpace) {
+    EXPECT_EQ(format("y = *(p + 1)\n"), "y = *(p + 1)\n");
+    EXPECT_EQ(format("y = @(p + 1)\n"), "y = @(p + 1)\n");
 }
 
 // ---------------------------------------------------------------------------

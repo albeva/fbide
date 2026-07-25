@@ -208,6 +208,26 @@ TEST_F(StyleLexerTests, EllipsisOperator) {
     EXPECT_EQ(t[1].operatorKind, OperatorKind::Ellipsis3);
 }
 
+TEST_F(StyleLexerTests, HashFileNumberSigilIsOperatorHash) {
+    // A mid-line `#` (file-number sigil, e.g. `As #1`) is an Operator classified
+    // as Hash — not a preprocessor directive (which only `#` at line start is).
+    auto t = strip(lex("As #1"));
+    ASSERT_GE(t.size(), 2u);
+    EXPECT_EQ(t[1].kind, TokenKind::Operator);
+    EXPECT_EQ(t[1].operatorKind, OperatorKind::Hash);
+    EXPECT_EQ(t[1].text, "#");
+}
+
+TEST_F(StyleLexerTests, FatArrowIsSingleToken) {
+    // `=>` must stay one token, otherwise the formatter spaces `=` and `>`
+    // apart into `= >`.
+    auto t = strip(lex("a => b"));
+    ASSERT_EQ(t.size(), 3u);
+    EXPECT_EQ(t[1].kind, TokenKind::Operator);
+    EXPECT_EQ(t[1].operatorKind, OperatorKind::Other);
+    EXPECT_EQ(t[1].text, "=>");
+}
+
 // endregion
 
 // region ---------- Numbers / strings / comments ----------

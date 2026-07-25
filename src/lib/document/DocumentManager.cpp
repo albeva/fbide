@@ -248,7 +248,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
         return nullptr;
     }
 
-    const auto type = documentTypeFromPath(canonical);
+    const auto type = m_ctx.getConfigManager().documentTypeForPath(canonical);
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(getNotebook(), m_ctx, type));
 
     // don't reformat code on file load

@@ -91,6 +91,8 @@ auto matchOperator(const std::string_view slice) -> std::pair<OperatorKind, std:
             return { Other, 2 };
         return { Other, 1 };
     case '=':
+        if (peek(1) == '>')
+            return { Other, 2 }; // => kept as one token so it is not split into `= >`
         return { Assign, 1 };
     case '.':
         if (slice.starts_with("..."))
@@ -118,6 +120,8 @@ auto matchOperator(const std::string_view slice) -> std::pair<OperatorKind, std:
         return { BraceClose, 1 };
     case '@':
         return { AddressOf, 1 };
+    case '#':
+        return { Hash, 1 };
     default:
         return { Other, 1 };
     }

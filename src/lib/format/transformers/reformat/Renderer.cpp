@@ -259,6 +259,15 @@ auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
         return false;
     }
 
+    // After a unary prefix operator → no space, even before an opening paren:
+    // `*(p+1)`, `@(x)`, `-(a+b)`. Also the `#` file-number sigil so it hugs its
+    // operand (`#1`, not `# 1`). Must precede the ParenOpen rule below, which
+    // would otherwise re-insert a space for the `*(` / `@(` cases.
+    if (prevOp == Negate || prevOp == UnaryPlus
+        || prevOp == Dereference || prevOp == AddressOf || prevOp == Hash) {
+        return false;
+    }
+
     // Before ( or [ → no space only when preceded by identifier/keyword/closing
     // (function call / indexing). After operators, space is needed for grouping.
     if (currOp == ParenOpen || currOp == BracketOpen) {
@@ -272,12 +281,6 @@ auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
 
     // Before , → no space
     if (currOp == Comma) {
-        return false;
-    }
-
-    // After unary operator → no space
-    if (prevOp == Negate || prevOp == UnaryPlus
-        || prevOp == Dereference || prevOp == AddressOf) {
         return false;
     }
 

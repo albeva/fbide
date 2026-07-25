@@ -158,7 +158,7 @@ void Document::setFilePath(const std::filesystem::path& path) {
     // Only re-derive type from the new path when the user hasn't
     // explicitly overridden it — Save As shouldn't stomp a manual choice.
     if (!m_typeOverridden) {
-        const auto newType = documentTypeFromPath(path);
+        const auto newType = m_ctx.getConfigManager().documentTypeForPath(path);
         if (newType != m_type) {
             m_type = newType;
             m_editor->setDocType(newType);
