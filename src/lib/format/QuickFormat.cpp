@@ -89,7 +89,7 @@ void QuickFormat::run(Editor& editor) const {
 
     // Base indent = the first line's current indentation, in whole levels, so the
     // reformatted fragment stays at its surrounding depth rather than column 0.
-    const auto tabSize = static_cast<int>(m_ctx.getConfigManager().config().get_or("editor.tabSize", 4));
+    const auto tabSize =m_ctx.getConfigManager().config().get_or("editor.tabSize", 4);
     const std::size_t baseIndent = tabSize > 0
         ? static_cast<std::size_t>((editor.GetLineIndentation(firstLine) + (tabSize / 2)) / tabSize)
         : 0;
