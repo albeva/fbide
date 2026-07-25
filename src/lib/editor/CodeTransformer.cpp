@@ -258,18 +258,31 @@ void CodeTransformer::transformWordInRange(Editor& editor, const int wordStart, 
 }
 
 void CodeTransformer::transformRange(Editor& editor, const int rangeStart, const int rangeEnd) const {
-    // Force STC to re-style
+    // Never run past the end of the document. This is a deferred bulk-insert
+    // flush (Editor::flushPendingInsert) and the buffer may have shrunk since
+    // the range was recorded.
+    const int endClamped = std::min(rangeEnd, editor.GetLength());
+    if (endClamped <= rangeStart) {
+        return;
+    }
+
+    // Force STC to re-style, starting at a LINE START. FBSciLexer only assigns
+    // the current line number at line starts; if Colourise begins mid-line the
+    // lexer reaches a line end still holding its INVALID_LINE sentinel and
+    // SetLineState grows the per-line state vector to ~2^63 entries → abort
+    // (#128 / #131: crash on paste / drag near EOF). GetEndStyled() can sit
+    // mid-line — an earlier transform ended its own Colourise there — so snap
+    // the styled edge down to its line start before restyling.
     {
-        const auto line = editor.LineFromPosition(rangeStart);
-        const auto pos = editor.PositionFromLine(line);
-        const auto start = std::min(editor.GetEndStyled(), pos);
-        editor.Colourise(start, rangeEnd);
+        const auto styledEdge = std::min(editor.GetEndStyled(), editor.PositionFromLine(editor.LineFromPosition(rangeStart)));
+        const auto start = editor.PositionFromLine(editor.LineFromPosition(styledEdge));
+        editor.Colourise(start, endClamped);
     }
 
     // Tokenize the inserted range into the reusable buffer.
     lexer::WxStcStyledSource src(editor);
     lexer::StyleLexer adapter(src);
-    adapter.tokenise(m_tokenBuffer, { rangeStart, rangeEnd });
+    adapter.tokenise(m_tokenBuffer, { rangeStart, endClamped });
 
     editor.SetUndoCollection(false);
 

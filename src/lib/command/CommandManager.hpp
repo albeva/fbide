@@ -100,6 +100,7 @@ private:
     void onQuit(wxCommandEvent& event);
     /// `New Session` — create a new active session from the open documents.
     void onSessionNew(wxCommandEvent& event);
+    void onSessionSaveAs(wxCommandEvent& event);
     /// `Close Session` — snapshot, close, and deactivate the active session.
     void onSessionClose(wxCommandEvent& event);
     /// Recent-files menu handler — opens the selected slot.
@@ -141,6 +142,9 @@ private:
     void onSettings(wxCommandEvent& event);
     /// `Format` — open the Format dialog for the active document.
     void onFormat(wxCommandEvent& event);
+    /// `Reformat` — reformat the active document (or its selection) in place,
+    /// using the saved format options, without opening the dialog.
+    void onReformat(wxCommandEvent& event);
     /// `Show Subs` (F2) — reveal the Sub/Function browser.
     void onSubs(wxCommandEvent& event);
     /// `Minimap` — toggle the per-document minimap on every open document.

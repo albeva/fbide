@@ -6,6 +6,20 @@ if (WIN32)
     add_executable(fbide WIN32)
     target_sources(fbide PRIVATE lib/rc/app.rc)
 
+    # The DPI-aware application manifest (PerMonitorV2) is embedded through
+    # app.rc on MinGW (windres). MSVC ignores that resource and lets the linker
+    # synthesise its own manifest, which carries no DPI settings — leaving the
+    # app DPI-unaware and blurry on high-DPI displays (#128). Feed our
+    # configured manifest to CMake as a .manifest source: CMake passes it to
+    # mt.exe as an extra input and merges it into the linker's manifest. (A
+    # /MANIFEST:EMBED link option instead collides with CMake's own manifest
+    # embedding and fails with CVT1100 duplicate-resource.)
+    if (MSVC)
+        set(FBIDE_APP_MANIFEST "${CMAKE_BINARY_DIR}/configured_files/include/cmake/app.manifest")
+        set_source_files_properties("${FBIDE_APP_MANIFEST}" PROPERTIES GENERATED TRUE)
+        target_sources(fbide PRIVATE "${FBIDE_APP_MANIFEST}")
+    endif ()
+
     if (CMAKE_BUILD_TYPE STREQUAL "Release")
         if (MINGW)
             target_link_options(fbide PRIVATE -Wl,--gc-sections -Wl,--strip-all)

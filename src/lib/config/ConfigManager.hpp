@@ -10,6 +10,7 @@
 #include "Theme.hpp"
 #include "Value.hpp"
 #include "Version.hpp"
+#include "document/DocumentType.hpp"
 
 namespace fbide {
 
@@ -235,6 +236,14 @@ public:
     /// case-insensitive on every platform. Drives "open in fbide vs. hand to the
     /// OS" in the file browser.
     [[nodiscard]] auto isEditorFile(const wxString& filename) -> bool;
+
+    /// Derive a document type from `path`'s name by matching it against the
+    /// `[filePatterns]` globs. Every pattern key is considered except the
+    /// non-editor keys (`fbide` umbrella filter, `compiler` executables,
+    /// `session`, `help`); the first key whose glob matches and that maps to a
+    /// `DocumentType` wins. Falls back to `DocumentType::Text`. This is the
+    /// config-driven replacement for the old hard-coded extension table.
+    [[nodiscard]] auto documentTypeForPath(const std::filesystem::path& path) -> DocumentType;
 
     // -----------------------------------------------------------------------
     // Theme (owned directly, not part of Value tree)

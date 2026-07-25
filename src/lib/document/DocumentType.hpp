@@ -23,9 +23,6 @@ enum class DocumentType {
     Text,       // .txt and anything else — no lexer
 };
 
-/// Determine document type from file path extension.
-[[nodiscard]] auto documentTypeFromPath(const std::filesystem::path& path) -> DocumentType;
-
 /// Stable string key for a document type — used for session serialization
 /// and as a locale lookup key (`statusbar/type/<key>`). The set of keys is
 /// part of the on-disk session format; do not rename them lightly.

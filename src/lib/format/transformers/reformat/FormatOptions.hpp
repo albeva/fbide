@@ -11,10 +11,13 @@ namespace fbide::reformat {
 
 /// Formatting options controlling how a parse tree is rendered back to text.
 struct FormatOptions {
-    std::size_t tabSize = 4; ///< Indent width in spaces.
-    bool anchoredPP = false; ///< When true, preprocessor directives anchor at column 0.
-    bool reIndent = true;    ///< Apply structural indentation.
-    bool reFormat = true;    ///< Apply inter-token spacing + blank-line policy.
+    std::size_t tabSize = 4;   ///< Indent width in spaces.
+    bool anchoredPP = false;   ///< When true, preprocessor directives anchor at column 0.
+    bool reIndent = true;      ///< Apply structural indentation.
+    bool reFormat = true;      ///< Apply inter-token spacing + blank-line policy.
+    std::size_t baseIndent = 0; ///< Indent level the top-level nodes start at. 0 for a whole
+                                ///< document; the enclosing block's level when reformatting a
+                                ///< selection, so the fragment keeps its parent indentation.
 };
 
 } // namespace fbide::reformat

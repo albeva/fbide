@@ -687,7 +687,13 @@ void FBSciLexer::lexOperator() noexcept {
     const auto lcn = fastUnsafeLowerCase(m_sc->chNext);
     const bool startsNumber = (m_sc->ch == '&' && (lcn == 'h' || lcn == 'o' || lcn == 'b'))
                            || (m_sc->ch == '.' && isDigit(m_sc->chNext));
-    if (!isOperator(m_sc->ch) || startsNumber) {
+    // `!` / `$` immediately before a quote are string-literal prefixes
+    // (!"escaped", $"non-escaped"), not operators. Without breaking the run the
+    // sigil merges into the preceding operator (e.g. `(!"x"`) and is later split
+    // off the string (`( ! "x"`) by the formatter (issue #128). Like the number
+    // case there is always a lookahead char, so the re-dispatch below is safe.
+    const bool startsString = (m_sc->ch == '!' || m_sc->ch == '$') && m_sc->chNext == '"';
+    if (!isOperator(m_sc->ch) || startsNumber || startsString) {
         if (m_inPpBody) {
             m_sc->ChangeState(+ThemeCategory::OperatorPP);
         }

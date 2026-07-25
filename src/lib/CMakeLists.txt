@@ -52,6 +52,8 @@ target_sources(fbide_lib
     editor/lexilla/FBSciLexer.cpp
     format/FormatCommand.cpp
     format/FormatDialog.cpp
+    format/FormatSettings.cpp
+    format/QuickFormat.cpp
     format/renderers/HtmlRenderer.cpp
     format/renderers/PlainTextRenderer.cpp
     format/renderers/Renderer.cpp
@@ -146,6 +148,8 @@ target_sources(fbide_lib
     editor/lexilla/FBSciLexer.hpp
     format/FormatCommand.hpp
     format/FormatDialog.hpp
+    format/FormatSettings.hpp
+    format/QuickFormat.hpp
     format/renderers/HtmlRenderer.hpp
     format/renderers/PlainTextRenderer.hpp
     format/renderers/Renderer.hpp

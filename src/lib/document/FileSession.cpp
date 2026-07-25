@@ -78,6 +78,13 @@ FileSession::~FileSession() {
     }
 }
 
+void FileSession::activate() {
+    // Adopt the currently-open documents into this (freshly-constructed) session
+    // without reading the file — enable the session commands and show the name.
+    // The caller flushes the snapshot with save().
+    updateUi(true);
+}
+
 auto FileSession::getName() const -> wxString {
     return wxFileName(m_path).GetName();
 }
@@ -148,9 +155,14 @@ void FileSession::load() {
 
 void FileSession::updateUi(const bool loaded) {
     m_isLoaded = loaded;
-    if (auto* entry = m_ctx.getCommandManager().find(+CommandId::SessionClose)) {
-        entry->enabled = loaded;
-        entry->update();
+    // Save Session As and Close Session are meaningful only while a session is
+    // active — toggle them together with the loaded state.
+    auto& commands = m_ctx.getCommandManager();
+    for (const auto id : { CommandId::SessionSaveAs, CommandId::SessionClose }) {
+        if (auto* entry = commands.find(+id)) {
+            entry->enabled = loaded;
+            entry->update();
+        }
     }
     m_ctx.getUIManager().updateTitle();
 }

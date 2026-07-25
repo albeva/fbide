@@ -1,3 +1,15 @@
+# Changes since 0.5.0
+
+- Updated wxWudgets to 3.3.3 (#130)
+- Added FreeBASIC syntax highlighting for `.inc` include files (#128).
+- Fixed the formatter inserting stray spaces in `#n` file numbers, `=>`, and unary `*`/`@` before a parenthesis (#128).
+- Fixed a crash when pasting or dragging text over the last line of a FreeBASIC file (#131, #128).
+- Fixed `!"…"` / `$"…"` string-literal prefixes being split from their string (#128).
+- Fixed the Windows build being DPI-unaware, causing a blurry UI on high-DPI displays (#128).
+- Fixed FBIde sometimes closing or freezing after the first launch on Windows (#127).
+- Added a "Save Session As…" command to save the active session to a new file (#129).
+- Added a "Reformat" command (Edit / editor / tab / file-browser menus, Shift+Alt+F) that formats the whole document, or just the selected lines, using the saved format options (#132).
+
 # Changes since 0.5.0-rc.6
 
 - Added a Windows installer with bundled FreeBASIC (x86).

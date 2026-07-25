@@ -12,6 +12,7 @@
 #include "config/ConfigManager.hpp"
 #include "config/Theme.hpp"
 #include "config/ThemeCategory.hpp"
+#include "document/DocumentType.hpp"
 
 using namespace fbide;
 
@@ -584,4 +585,45 @@ TEST_F(ConfigManagerTests, IsEditorFileMatchesExtensionsBareNamesAndSession) {
     // Unknown types hand off to the OS default app.
     EXPECT_FALSE(cm.isEditorFile("photo.png"));
     EXPECT_FALSE(cm.isEditorFile("archive.zip"));
+}
+
+// ---------------------------------------------------------------------------
+// documentTypeForPath — derive the editor document type from a file name by
+// matching it against the [filePatterns] globs. Every pattern key is consulted
+// except the non-editor keys (fbide / compiler / session / help), so those
+// globs never decide highlighting even when they overlap real extensions.
+// ---------------------------------------------------------------------------
+
+TEST_F(ConfigManagerTests, DocumentTypeForPathMatchesPatternGlobs) {
+    const TempDir tmp;
+    tmp.write("config.ini",
+        "version=0.5.0\n"
+        "[filePatterns]\n"
+        "fbide=*.bas;*.bi;*.inc;*.fbs\n" // umbrella filter — excluded from typing
+        "freebasic=*.bas;*.bi;*.inc\n"
+        "markdown=*.md;*.markdown\n"
+        "json=*.json;*.json5\n"
+        "text=*.txt\n"
+        "compiler=fbc.exe;*.exe\n" // excluded
+        "session=*.fbs\n"          // excluded
+        "help=*.chm\n");           // excluded
+    ConfigManager cm(tmp.path(), tmp.path(), "config.ini");
+
+    // FreeBASIC sources, including the .inc include files from issue #128.
+    EXPECT_EQ(cm.documentTypeForPath("main.bas"), DocumentType::FreeBASIC);
+    EXPECT_EQ(cm.documentTypeForPath("header.bi"), DocumentType::FreeBASIC);
+    EXPECT_EQ(cm.documentTypeForPath("physics.inc"), DocumentType::FreeBASIC);
+    // Other editor types.
+    EXPECT_EQ(cm.documentTypeForPath("notes.md"), DocumentType::Markdown);
+    EXPECT_EQ(cm.documentTypeForPath("data.json5"), DocumentType::Json);
+    EXPECT_EQ(cm.documentTypeForPath("readme.txt"), DocumentType::Text);
+    // Case-insensitive (globs are lower-cased).
+    EXPECT_EQ(cm.documentTypeForPath("PHYSICS.INC"), DocumentType::FreeBASIC);
+    // Excluded keys never decide the type: .exe (compiler), .chm (help), and
+    // .fbs (session/fbide) all fall through to Text.
+    EXPECT_EQ(cm.documentTypeForPath("fbc.exe"), DocumentType::Text);
+    EXPECT_EQ(cm.documentTypeForPath("manual.chm"), DocumentType::Text);
+    EXPECT_EQ(cm.documentTypeForPath("project.fbs"), DocumentType::Text);
+    // Unknown extension → Text.
+    EXPECT_EQ(cm.documentTypeForPath("photo.png"), DocumentType::Text);
 }

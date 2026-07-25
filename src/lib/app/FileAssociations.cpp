@@ -9,6 +9,7 @@
 #ifdef __WXMSW__
 #include <array>
 
+#include <wx/app.h> // wxTheApp->CallAfter
 #include <wx/msw/registry.h>
 #include <wx/stdpaths.h>
 
@@ -95,7 +96,14 @@ void FileAssociations::ensureRegistered() {
     }
 
     if (changed) {
-        ::SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
+        // SHCNE_ASSOCCHANGED makes the shell rebuild its association/icon caches
+        // and can block the calling thread for seconds on a fresh install (cold
+        // caches, AV hooks). The associations are already written above, so
+        // defer the broadcast to the event loop: the main window paints first
+        // instead of freezing during startup (issue #127).
+        wxTheApp->CallAfter([] {
+            ::SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, nullptr, nullptr);
+        });
     }
 }
 

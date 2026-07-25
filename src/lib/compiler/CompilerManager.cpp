@@ -7,6 +7,7 @@
 #include "CompilerManager.hpp"
 #include <wx/dir.h>
 #include <wx/richmsgdlg.h>
+#include "AsyncProcess.hpp"
 #include "BuildTask.hpp"
 #include "CompilerConfigCatalog.hpp"
 #include "FbcAutoDetect.hpp"
@@ -30,7 +31,18 @@ CompilerManager::CompilerManager(Context& ctx)
     m_catalog->reload();
 }
 
-CompilerManager::~CompilerManager() = default;
+CompilerManager::~CompilerManager() {
+    // Sever any in-flight startup async work so a late process completion can't
+    // touch this freed manager.
+    if (m_warmProcess != nullptr) {
+        m_warmProcess->detach();
+    }
+#ifdef __WXMSW__
+    if (m_detect) {
+        m_detect->detach();
+    }
+#endif
+}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -172,8 +184,7 @@ auto CompilerManager::probeCompilerVersion(const std::filesystem::path& compiler
     return output.empty() ? wxString {} : output[0];
 }
 
-auto CompilerManager::builtinDefines(const std::filesystem::path& compilerPath) const
-    -> const std::unordered_set<std::string>& {
+auto CompilerManager::builtinDefines(const std::filesystem::path& compilerPath) const -> const std::unordered_set<std::string>& {
     static const std::unordered_set<std::string> empty;
 
     wxFileName path(toWxString(compilerPath));
@@ -205,8 +216,36 @@ auto CompilerManager::builtinDefines(const std::filesystem::path& compilerPath) 
     return m_builtinDefinesCache.emplace(key, std::move(defines)).first->second;
 }
 
-void CompilerManager::warmBuiltinDefines() const {
-    std::ignore = builtinDefines(m_catalog->resolveByPinnedSlug(std::nullopt).path);
+void CompilerManager::warmBuiltinDefinesAsync(std::function<void()> onDone) {
+    const auto compilerPath = m_catalog->resolveByPinnedSlug(std::nullopt).path;
+    wxFileName path(toWxString(compilerPath));
+    path.MakeAbsolute(m_ctx.getConfigManager().getAppDir());
+    const auto resolved = path.GetFullPath();
+    const wxFileName stub(m_ctx.getConfigManager().getIdeDir(), "fbc-defines.bas");
+
+    const std::string key = resolved.utf8_string();
+    // Nothing to probe when the compiler / stub is unreachable or the cache is
+    // already warm — fire immediately so the startup chain continues.
+    if (resolved.IsEmpty() || !wxIsExecutable(resolved) || m_builtinDefinesCache.contains(key) || !stub.FileExists()) {
+        onDone();
+        return;
+    }
+
+    const wxString tempObj = wxFileName::CreateTempFileName("fbide-fbdefs");
+    const wxString cmd = "\"" + resolved + "\" -c \"" + stub.GetFullPath() + "\" -o \"" + tempObj + "\"";
+    m_warmProcess = AsyncProcess::exec(
+        cmd, wxString {}, /*redirect*/ true,
+        [this, key, tempObj, onDone = std::move(onDone)](const ProcessResult& result) {
+            m_warmProcess = nullptr;
+            m_builtinDefinesCache.emplace(key, parseFbcDefines(result.output));
+            if (!tempObj.IsEmpty()) {
+                wxRemoveFile(tempObj);
+            }
+            onDone();
+        }
+    );
+    // On launch failure exec() returns nullptr and has already fired the
+    // callback (which ran `onDone`) — nothing more to do.
 }
 
 namespace {
@@ -254,23 +293,38 @@ void CompilerManager::checkCompilerOnStartup() const {
     }
 }
 
-auto CompilerManager::detectCompilerOnFirstRun() -> bool {
+void CompilerManager::detectCompilerOnFirstRunAsync(std::function<void(bool)> onDone) {
 #ifdef __WXMSW__
     auto& configManager = m_ctx.getConfigManager();
-    auto detected = FbcAutoDetect::detectSilently(toFsPath(configManager.getAppDir()), wxIsPlatform64Bit());
-    if (!detected.has_value()) {
-        return false;
+    // First launch only — a later run already has a persisted [compiler] overlay.
+    if (!configManager.isFirstRun()) {
+        onDone(false);
+        return;
     }
-    // Install + persist exactly like the Settings-dialog auto-detect path:
-    // replace the [compiler] subtree wholesale, refresh the catalog/UI, and
-    // flush the config so the choice survives the next launch.
-    configManager.config()["compiler"] = std::move(*detected);
-    m_catalog->reload();
-    refreshConfigurationCombo();
-    configManager.save(ConfigManager::Category::Config);
-    return true;
+    m_detect = std::make_unique<FbcAsyncDetect>(
+        toFsPath(configManager.getAppDir()), wxIsPlatform64Bit(),
+        [this, onDone = std::move(onDone)](std::optional<Value> detected) {
+            const bool configured = detected.has_value();
+            if (configured) {
+                // Install + persist exactly like the Settings-dialog auto-detect
+                // path: replace the [compiler] subtree wholesale, refresh the
+                // catalog/UI, and flush config so the choice survives the next
+                // launch.
+                auto& cfg = m_ctx.getConfigManager();
+                cfg.config()["compiler"] = std::move(*detected);
+                m_catalog->reload();
+                refreshConfigurationCombo();
+                cfg.save(ConfigManager::Category::Config);
+            }
+            onDone(configured);
+            // Free the detector once this callback unwinds — it is the object
+            // currently invoking us.
+            wxTheApp->CallAfter([this] { m_detect.reset(); });
+        }
+    );
+    m_detect->run();
 #else
-    return false;
+    onDone(false);
 #endif
 }
 

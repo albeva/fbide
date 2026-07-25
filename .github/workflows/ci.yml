@@ -275,7 +275,7 @@ jobs:
         id: wx
         uses: ./.github/actions/setup-wx
         with:
-          wx-ref: v3.3.2
+          wx-ref: v3.3.3
           build-type: ${{ env.BUILD_TYPE }}
           arch: ${{ matrix.arch }}
 
@@ -435,7 +435,7 @@ jobs:
         id: wx
         uses: ./.github/actions/setup-wx
         with:
-          wx-ref: v3.3.2
+          wx-ref: v3.3.3
           build-type: ${{ env.BUILD_TYPE }}
           # Partition the wx cache by arch — the x86_64 and aarch64 AppImage
           # jobs run on separate runners and must not share a cache, or one
@@ -560,7 +560,7 @@ jobs:
         id: wx
         uses: ./.github/actions/setup-wx
         with:
-          wx-ref: v3.3.2
+          wx-ref: v3.3.3
           build-type: ${{ env.BUILD_TYPE }}
           arch: ${{ matrix.arch }}
 

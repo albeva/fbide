@@ -792,6 +792,31 @@ namespace {
     const auto& label = desc.IsEmpty() ? key : desc;
     return label + " (" + glob + ")|" + glob;
 }
+
+/// `[filePatterns]` keys that do NOT map to an editable document type and must
+/// be skipped when deriving a document type from a file name: `fbide` is the
+/// umbrella Open filter (its globs overlap `freebasic` + `session`), `compiler`
+/// lists executables, and `session` / `help` are non-editor artifacts.
+constexpr std::array<std::string_view, 4> kNonDocumentPatternKeys {
+    "fbide",
+    "compiler",
+    "session",
+    "help",
+};
+
+/// True when `lowerName` (already lower-cased) matches any `;`-separated glob in
+/// `globList`. Globs are lower-cased before matching, so matching is
+/// case-insensitive on every platform.
+[[nodiscard]] auto matchesGlobList(const wxString& lowerName, const wxString& globList) -> bool {
+    for (wxString rest = globList; !rest.IsEmpty();) {
+        const wxString glob = rest.BeforeFirst(';');
+        rest = rest.AfterFirst(';');
+        if (!glob.IsEmpty() && wxMatchWild(glob.Lower(), lowerName, false)) {
+            return true;
+        }
+    }
+    return false;
+}
 } // namespace
 
 auto ConfigManager::filePattern(const wxString& key) -> wxString {
@@ -826,14 +851,7 @@ auto ConfigManager::fileGlob(const wxString& key) -> wxString {
 auto ConfigManager::isEditorFile(const wxString& filename) -> bool {
     const wxString name = filename.Lower(); // globs are stored lowercase
     const auto matchesKey = [&](const std::string_view key) {
-        for (wxString rest = fileGlob(wxString(key.data(), key.size())); !rest.IsEmpty();) {
-            const wxString glob = rest.BeforeFirst(';');
-            rest = rest.AfterFirst(';');
-            if (!glob.IsEmpty() && wxMatchWild(glob.Lower(), name, false)) {
-                return true;
-            }
-        }
-        return false;
+        return matchesGlobList(name, fileGlob(wxString(key.data(), key.size())));
     };
     for (const auto key : kEditorFileTypeKeys) {
         if (matchesKey(key)) {
@@ -843,6 +861,24 @@ auto ConfigManager::isEditorFile(const wxString& filename) -> bool {
     // `session` (.fbs) and the hidden `plaintext` key (extensionless README/
     // LICENSE/… ) open in fbide but are kept out of the Open/Save dialog filters.
     return matchesKey("session") || matchesKey("plaintext");
+}
+
+auto ConfigManager::documentTypeForPath(const std::filesystem::path& path) -> DocumentType {
+    const wxString name = toWxString(path.filename()).Lower(); // globs are stored lowercase
+    for (const auto& [key, value] : config().at("filePatterns").entries()) {
+        const auto keyStr = key.ToStdString();
+        // Skip pattern keys that are not editable document types (see
+        // kNonDocumentPatternKeys) — notably `fbide` (globs overlap real source
+        // extensions) and `compiler` (executables).
+        if (std::ranges::find(kNonDocumentPatternKeys, keyStr) != kNonDocumentPatternKeys.end()) {
+            continue;
+        }
+        const auto type = documentTypeFromKey(keyStr);
+        if (type.has_value() && matchesGlobList(name, value->value_or(""))) {
+            return *type;
+        }
+    }
+    return DocumentType::Text;
 }
 
 // ---------------------------------------------------------------------------

@@ -59,6 +59,19 @@ public:
     /// exists, open the documents it lists and refresh the title.
     void load();
 
+    /// Snapshot the currently-open documents (paths + caret/scroll + sidebar
+    /// state) to this session's file. Modified buffers are NOT saved here.
+    /// Public so "Save Session" / "Save Session As" can flush on demand, not
+    /// only via the destructor.
+    void save();
+
+    /// Mark this freshly-constructed session active WITHOUT reading its file:
+    /// enable the session commands and show its name in the title. Used by
+    /// "Save Session As" to adopt the already-open documents into a new session
+    /// file (paired with `save()`) — loading the file would instead re-open the
+    /// documents it happens to list.
+    void activate();
+
     /// Save the open documents back to the session file, then deactivate (clear
     /// the session from the title, disable Close Session). Never throws.
     ~FileSession();
@@ -91,10 +104,6 @@ private:
 
     /// Set command entry state
     void updateUi(bool loaded);
-
-    /// Snapshot the open documents to the session file. Records paths + caret
-    /// state only — modified buffers are not auto-saved. Logs on I/O failure.
-    void save();
 
     /// Load the v3 INI format.
     void loadV3();

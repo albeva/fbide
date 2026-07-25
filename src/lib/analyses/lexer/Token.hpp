@@ -156,6 +156,7 @@ enum class OperatorKind : std::uint8_t {
     Ellipsis3,    // ...
     Arrow,        // ->
     Question,     // ?
+    Hash,         // # (file-number sigil / macro stringize)
 
     // Assignment
     Assign, // =

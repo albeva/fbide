@@ -39,11 +39,11 @@ const wxWindowID kGoToDefinitionId = wxNewId();
 const wxWindowID kGoToDeclarationId = wxNewId();
 
 /// File dialog → the session path to save to, or empty when cancelled.
-auto promptSaveSessionPath(Context& ctx) -> wxString {
+auto promptSaveSessionPath(Context& ctx, const wxString& defaultName) -> wxString {
     wxFileDialog dlg(
         ctx.getUIManager().getMainFrame(),
         ctx.tr("files.sessionSaveTitle"),
-        "", wxString(".") + SESSION_EXT,
+        "", defaultName,
         ctx.getConfigManager().filePattern("session"),
         wxFD_SAVE | wxFD_OVERWRITE_PROMPT
     );
@@ -248,7 +248,7 @@ auto DocumentManager::openFile(const std::filesystem::path& filePath) -> Documen
         return nullptr;
     }
 
-    const auto type = documentTypeFromPath(canonical);
+    const auto type = m_ctx.getConfigManager().documentTypeForPath(canonical);
     auto& doc = *m_documents.emplace_back(std::make_unique<Document>(getNotebook(), m_ctx, type));
 
     // don't reformat code on file load
@@ -863,6 +863,11 @@ void DocumentManager::showEditorContextMenu(Editor& editor, const wxPoint& scree
     menu.AppendSeparator();
     menu.Append(+CommandId::SelectAll, m_ctx.tr("commands.selectAll.name"));
 
+    if (doc != nullptr && doc->getType() == DocumentType::FreeBASIC) {
+        menu.AppendSeparator();
+        menu.Append(+CommandId::Reformat, m_ctx.tr("commands.reformat.name"));
+    }
+
     if (def.has_value() || decl.has_value()) {
         menu.AppendSeparator();
         menu.Append(kGoToDefinitionId, m_ctx.tr("editorContext.goToDefinition"))->Enable(def.has_value());
@@ -1006,6 +1011,11 @@ void DocumentManager::popupTabContextMenu(const int pageIdx) {
     menu.Append(+CommandId::SelectAll, m_ctx.tr("commands.selectAll.name"))
         ->Enable(entryEnabled(CommandId::SelectAll));
 
+    if (doc->getType() == DocumentType::FreeBASIC) {
+        menu.AppendSeparator();
+        menu.Append(+CommandId::Reformat, m_ctx.tr("commands.reformat.name"));
+    }
+
     menu.Bind(wxEVT_MENU, [this, docPtr](const wxCommandEvent&) { closeOtherFiles(*docPtr); }, kTabCloseOthersId);
     menu.Bind(wxEVT_MENU, [this, path](const wxCommandEvent&) {
         if (auto* entry = m_ctx.getCommandManager().find(+CommandId::Browser)) {
@@ -1040,7 +1050,7 @@ auto DocumentManager::startSession(const wxString& path) -> FileSession* {
 }
 
 void DocumentManager::newSession() {
-    const wxString path = promptSaveSessionPath(m_ctx);
+    const wxString path = promptSaveSessionPath(m_ctx, wxString(".") + SESSION_EXT);
     if (path.empty()) {
         return;
     }
@@ -1055,6 +1065,37 @@ void DocumentManager::newSession() {
 
     startSession(path); // active from now; its file is written when it closes
     m_ctx.getFileHistory().addFile(path);
+}
+
+void DocumentManager::saveSessionAs() {
+    if (m_session == nullptr) {
+        return; // command is gated on an active session, but guard anyway
+    }
+    const wxString oldPath = m_session->getPath();
+    // Pre-fill the current session's name; the dialog handles overwrite confirm.
+    const wxString newPath = promptSaveSessionPath(m_ctx, m_session->getName() + "." + SESSION_EXT);
+    if (newPath.empty()) {
+        return; // cancelled
+    }
+
+    // Saving over the current session file is just a plain "save session".
+    if (samePath(toFsPath(oldPath), toFsPath(newPath))) {
+        m_session->save();
+        return;
+    }
+
+    // Otherwise behave like any "Save As": the old file stays on disk. Closing
+    // the live session writes it out with the latest state (its destructor saves
+    // and leaves the open documents untouched); then start a fresh session at the
+    // new file, adopt those same open documents into it, and snapshot it — so
+    // both files now exist. activate()+save() rather than load(), which would
+    // re-open whatever documents a pre-existing new file lists instead of the
+    // ones currently open.
+    m_session.reset();
+    m_session = std::make_unique<FileSession>(m_ctx, newPath);
+    m_session->activate();
+    m_session->save();
+    m_ctx.getFileHistory().addFile(newPath);
 }
 
 void DocumentManager::closeSession() {

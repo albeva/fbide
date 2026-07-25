@@ -13,6 +13,10 @@ class CompilerConfigCatalog;
 struct ResolvedCompilerConfig;
 class Document;
 class Context;
+class AsyncProcess;
+#ifdef __WXMSW__
+class FbcAsyncDetect;
+#endif
 
 /**
  * Owns FBIde's relationship with `fbc`: the compile / run / quickrun
@@ -79,10 +83,13 @@ public:
     [[nodiscard]] auto builtinDefines(const std::filesystem::path& compilerPath) const
         -> const std::unordered_set<std::string>&;
 
-    /// Probe and cache the active configuration's built-in defines up front (at
-    /// startup) so intellisense's first parse doesn't pay the one-off
-    /// compiler-probe latency. No-op when already cached or fbc is unreachable.
-    void warmBuiltinDefines() const;
+    /// Asynchronously probe and cache the active configuration's built-in
+    /// defines up front (at startup) so intellisense's first parse doesn't pay
+    /// the one-off compiler-probe latency. Runs `fbc -c <stub>` via
+    /// `AsyncProcess` (no blocking / nested event loop — issue #127). `onDone`
+    /// fires exactly once on the UI thread; immediately when already cached or
+    /// fbc is unreachable.
+    void warmBuiltinDefinesAsync(std::function<void()> onDone);
 
     /// Resolve `compiler.path` against the IDE's appDir and verify the
     /// binary exists/is executable. Returns the resolved absolute path,
@@ -97,13 +104,16 @@ public:
     /// ignore flag is set. Call once after the main frame is created.
     void checkCompilerOnStartup() const;
 
-    /// First-launch only: silently auto-detect fbc (next to fbide.exe, as a
-    /// bundled installer ships it, or on PATH) and install the resulting
+    /// First-launch only: asynchronously auto-detect fbc (next to fbide.exe, as
+    /// a bundled installer ships it, or on PATH) and install the resulting
     /// `[compiler]` configuration, persisting it like the Settings-dialog
-    /// auto-detect would. Returns true when a compiler was found and
-    /// configured. Windows-only; always false elsewhere. The caller falls
-    /// back to `checkCompilerOnStartup()` when this returns false.
-    auto detectCompilerOnFirstRun() -> bool;
+    /// auto-detect would, and refreshing the toolbar/status-bar configuration
+    /// display. Probes `fbc --version` via `AsyncProcess` so startup never
+    /// spins a nested event loop (issue #127). `onDone(true)` when a compiler
+    /// was found and configured, `onDone(false)` otherwise — the caller falls
+    /// back to `checkCompilerOnStartup()`. Windows-only; elsewhere `onDone(false)`
+    /// immediately.
+    void detectCompilerOnFirstRunAsync(std::function<void(bool)> onDone);
 
     /// After auto-detecting fbc, wire up the bundled FreeBASIC manual: look
     /// for `FB-manual-<version>.chm` next to the detected compiler (the
@@ -224,6 +234,10 @@ private:
     Context& m_ctx;                                   ///< Application context.
     std::unique_ptr<CompilerConfigCatalog> m_catalog; ///< Resolved view of `[compiler]` + `[compiler/*]`.
     std::unique_ptr<BuildTask> m_task;                ///< In-flight task (`nullptr` when idle).
+    AsyncProcess* m_warmProcess = nullptr;            ///< In-flight async builtin-defines probe (detached on teardown).
+#ifdef __WXMSW__
+    std::unique_ptr<FbcAsyncDetect> m_detect;         ///< In-flight first-run async fbc detection (detached on teardown).
+#endif
     wxString m_parameters;                            ///< Runtime parameters set via the Parameters dialog.
     wxComboBox* m_configCombo = nullptr;              ///< Toolbar-owned widget; non-null after configureToolBar.
     Document* m_lastActiveDoc = nullptr;              ///< Last document the combobox was synced to.

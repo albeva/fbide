@@ -8,9 +8,9 @@ description: >
 
 inputs:
   wx-ref:
-    description: wxWidgets git tag or branch to build (e.g. v3.3.2).
+    description: wxWidgets git tag or branch to build (e.g. v3.3.3).
     required: false
-    default: v3.3.2
+    default: v3.3.3
   build-type:
     description: >
       CMake build type for wxWidgets — must match the build type the
