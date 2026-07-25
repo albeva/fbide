@@ -5,6 +5,7 @@
 - Fixed the formatter inserting stray spaces in `#n` file numbers, `=>`, and unary `*`/`@` before a parenthesis (#128).
 - Fixed a crash when pasting or dragging text over the last line of a FreeBASIC file (#131, #128).
 - Fixed `!"…"` / `$"…"` string-literal prefixes being split from their string (#128).
+- Fixed the Windows build being DPI-unaware, causing a blurry UI on high-DPI displays (#128).
 
 # Changes since 0.5.0-rc.6
 
