@@ -276,6 +276,17 @@ TEST_F(ReFormatterTests, FatArrowNotSplit) {
     EXPECT_EQ(format("m(a => b)\n"), "m(a => b)\n");
 }
 
+TEST_F(ReFormatterTests, StringPrefixSigilStaysAttached) {
+    // !"..." (escaped) and $"..." (non-escaped) string-literal prefixes must not
+    // be split from their string, even when they immediately follow an operator
+    // with no space — the lexer must not merge the sigil into the operator run
+    // (issue #128).
+    EXPECT_EQ(format("printf(!\"hello\")\n"), "printf(!\"hello\")\n");
+    EXPECT_EQ(format("printf($\"hello\")\n"), "printf($\"hello\")\n");
+    EXPECT_EQ(format("x = !\"hi\"\n"), "x = !\"hi\"\n");
+    EXPECT_EQ(format("x = $\"hi\"\n"), "x = $\"hi\"\n");
+}
+
 TEST_F(ReFormatterTests, UnaryPrefixBeforeParenNoSpace) {
     EXPECT_EQ(format("y = *(p + 1)\n"), "y = *(p + 1)\n");
     EXPECT_EQ(format("y = @(p + 1)\n"), "y = @(p + 1)\n");

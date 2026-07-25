@@ -218,6 +218,25 @@ TEST_F(StyleLexerTests, HashFileNumberSigilIsOperatorHash) {
     EXPECT_EQ(t[1].text, "#");
 }
 
+TEST_F(StyleLexerTests, StringPrefixAfterOperatorIsOneToken) {
+    // `!"..."` / `$"..."` immediately after an operator (no space) must stay a
+    // single String token — the sigil is a string prefix, not an operator. The
+    // operator lexer used to swallow it (`(!` as one run), splitting it off the
+    // string (issue #128).
+    {
+        auto t = strip(lex("(!\"hi\")"));
+        ASSERT_EQ(t.size(), 3u); // ( , string , )
+        EXPECT_EQ(t[1].kind, TokenKind::String);
+        EXPECT_EQ(t[1].text, "!\"hi\"");
+    }
+    {
+        auto t = strip(lex("($\"hi\")"));
+        ASSERT_EQ(t.size(), 3u);
+        EXPECT_EQ(t[1].kind, TokenKind::String);
+        EXPECT_EQ(t[1].text, "$\"hi\"");
+    }
+}
+
 TEST_F(StyleLexerTests, FatArrowIsSingleToken) {
     // `=>` must stay one token, otherwise the formatter spaces `=` and `>`
     // apart into `= >`.
