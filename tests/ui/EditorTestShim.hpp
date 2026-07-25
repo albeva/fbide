@@ -119,6 +119,11 @@ public:
         }
     }
 
+    /// Drive the on-type transformer's bulk-insert path directly (the code that
+    /// `Editor::flushPendingInsert` calls). Lets tests exercise `transformRange`
+    /// with a controlled styled-edge (`GetEndStyled`) state.
+    void transformInserted(const int pos, const int length) { m_transformer.onTextInserted(*m_editor, pos, length); }
+
     /// Replace the entire buffer.
     void setText(const wxString& s) { m_editor->SetText(s); }
 

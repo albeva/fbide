@@ -88,6 +88,77 @@ TEST(EditorTests, CaseTransformAcrossNewline) {
 }
 
 // ---------------------------------------------------------------------------
+// #131 / #128: a bulk insert (paste) that replaces the LAST line of a
+// FreeBASIC source must not crash. Unlike typing (onCharAdded), paste runs the
+// deferred bulk-insert path: onModified → CallAfter(flushPendingInsert) →
+// CodeTransformer::transformRange, which re-lexes and rewrites keyword case
+// right at EOF. Reported to crash intermittently; these pin the path down
+// deterministically. A `run([]{})` second pump drains the deferred CallAfter.
+// ---------------------------------------------------------------------------
+
+TEST(EditorTests, PastePlainOverLastLineDoesNotCrash) {
+    EditorTestShim shim;
+    auto& e = shim.editor();
+    shim.run([&] {
+        e.SetText("hello\nworld"); // last line "world", no trailing newline
+        const int last = e.GetLineCount() - 1;
+        e.SetSelection(e.PositionFromLine(last), e.GetLineEndPosition(last));
+        e.ReplaceSelection("there"); // bulk insert over the last line
+    });
+    shim.run([] {});
+    EXPECT_EQ(shim.getText(), "hello\nthere");
+}
+
+TEST(EditorTests, PasteKeywordOverLastLineDoesNotCrash) {
+    EditorTestShim shim;
+    auto& e = shim.editor();
+    shim.run([&] {
+        e.SetText("Print 1\nPrint 2");
+        const int last = e.GetLineCount() - 1;
+        e.SetSelection(e.PositionFromLine(last), e.GetLineEndPosition(last));
+        e.ReplaceSelection("dim y as integer"); // keywords → transformer rewrites case at EOF
+    });
+    shim.run([] {});
+    EXPECT_TRUE(shim.getText().Contains("DIM y AS Integer")) << shim.getText();
+}
+
+TEST(EditorTests, PasteMultiLineOverLastLineDoesNotCrash) {
+    EditorTestShim shim;
+    auto& e = shim.editor();
+    shim.run([&] {
+        e.SetText("Print 1\nPrint 2");
+        const int last = e.GetLineCount() - 1;
+        e.SetSelection(e.PositionFromLine(last), e.GetLineEndPosition(last));
+        e.ReplaceSelection("dim a\ndim b\nend"); // multi-line bulk insert at EOF
+    });
+    shim.run([] {});
+    EXPECT_TRUE(shim.getText().Contains("DIM a")) << shim.getText();
+}
+
+// ---------------------------------------------------------------------------
+// #128 / #131 root cause: the on-type transformer re-styles from
+// `min(GetEndStyled(), lineStart)`. When styling lags mid-line, that start is
+// NOT line-aligned, so FBSciLexer reaches a line end before any line start and
+// writes SetLineState(INVALID_LINE) — Scintilla then tries to size its
+// per-line state vector to ~2^63 entries and aborts. Deterministic repro: pin
+// GetEndStyled() to a mid-line position, then run the transformer over a later
+// line whose start is past the styled edge.
+// ---------------------------------------------------------------------------
+
+TEST(EditorTests, TransformWithMidLineStyledEdgeDoesNotCrash) {
+    EditorTestShim shim;
+    auto& e = shim.editor();
+    e.SetText("Print 1\nPrint 2\nPrint 3\ndim x");
+    const int last = e.GetLineCount() - 1;
+    // Leave the styled edge in the middle of line 0 (positions 0..3 of "Print").
+    e.Colourise(0, 3);
+    // Transform the last line. transformRange starts Colourise at
+    // min(GetEndStyled()==mid-line-0, PositionFromLine(last)) → mid line 0.
+    shim.transformInserted(e.PositionFromLine(last), e.GetLineLength(last));
+    EXPECT_TRUE(shim.getText().Contains("DIM x")) << shim.getText();
+}
+
+// ---------------------------------------------------------------------------
 // Auto-indent + closer insertion. Recreates issues from #46 / #48 / #50:
 //   * Closer not inserted when block actually needs one.
 //   * Closer NOT inserted twice when block already closed below.

@@ -3,6 +3,7 @@
 - Updated wxWudgets to 3.3.3 (#130)
 - Added FreeBASIC syntax highlighting for `.inc` include files (#128).
 - Fixed the formatter inserting stray spaces in `#n` file numbers, `=>`, and unary `*`/`@` before a parenthesis (#128).
+- Fixed a crash when pasting or dragging text over the last line of a FreeBASIC file (#131, #128).
 
 # Changes since 0.5.0-rc.6
 
