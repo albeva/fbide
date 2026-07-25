@@ -198,6 +198,12 @@ public:
     /// the open documents (replacing any previous one). The file is written when
     /// the session is closed or the app quits.
     void newSession();
+    /// Save Session As: prompt for a new `.fbs` path. Saving over the current
+    /// file is a plain save; otherwise the old session is saved + closed (its
+    /// file kept), a fresh session is started at the new file from the same open
+    /// documents and added to the recent-files list — leaving both files on disk.
+    /// No-op when no session is active.
+    void saveSessionAs();
     /// Close Session: save the active session and deactivate it, leaving the
     /// open documents untouched. No-op when no session is active.
     void closeSession();

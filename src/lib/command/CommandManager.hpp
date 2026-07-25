@@ -100,6 +100,7 @@ private:
     void onQuit(wxCommandEvent& event);
     /// `New Session` — create a new active session from the open documents.
     void onSessionNew(wxCommandEvent& event);
+    void onSessionSaveAs(wxCommandEvent& event);
     /// `Close Session` — snapshot, close, and deactivate the active session.
     void onSessionClose(wxCommandEvent& event);
     /// Recent-files menu handler — opens the selected slot.

@@ -7,6 +7,7 @@
 - Fixed `!"…"` / `$"…"` string-literal prefixes being split from their string (#128).
 - Fixed the Windows build being DPI-unaware, causing a blurry UI on high-DPI displays (#128).
 - Fixed FBIde sometimes closing or freezing after the first launch on Windows (#127).
+- Added a "Save Session As…" command to save the active session to a new file (#129).
 
 # Changes since 0.5.0-rc.6
 
