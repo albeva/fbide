@@ -26,6 +26,7 @@ auto fbide::lexer::structuralKeywords() -> const std::unordered_map<std::string,
         { "select", KeywordKind::Select },
         { "asm", KeywordKind::Asm },
         { "namespace", KeywordKind::Namespace },
+        { "extern", KeywordKind::Extern },
         // Block closers
         { "end", KeywordKind::End },
         { "endif", KeywordKind::End },

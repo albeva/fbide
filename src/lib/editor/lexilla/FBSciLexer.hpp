@@ -140,6 +140,9 @@ private:
     FBIDE_INLINE void lexIdentifier() noexcept;
     /// Try to classify the current identifier as a keyword. Returns true on hit.
     FBIDE_INLINE auto identifyKeyword() noexcept -> bool;
+    /// True when the current identifier run matches a keyword in the active
+    /// context's table. Used to keep `Public:` from lexing as a goto label.
+    [[nodiscard]] auto currentIsKeyword() noexcept -> bool;
     /// State: operator / punctuation.
     FBIDE_INLINE void lexOperator() noexcept;
     /// State: preprocessor directive line (entire line styled as PP).

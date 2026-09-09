@@ -17,7 +17,7 @@ protected:
     static inline const wxString testDataPath = FBIDE_TEST_DATA_DIR;
 
     void SetUp() override {
-        m_lexer = tests::createFbLexer(testDataPath + "fbfull.lng");
+        m_lexer = tests::createFbLexer(testDataPath + "resources/ide/keywords.ini");
     }
 
     void TearDown() override {
