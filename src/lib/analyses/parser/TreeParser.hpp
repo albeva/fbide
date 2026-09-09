@@ -66,6 +66,12 @@ private:
     [[nodiscard]] auto isBodyDefinition() const -> bool;
     /// True when the segment contains a block closer after the first keyword.
     [[nodiscard]] auto hasBlockCloserAfterFirst() const -> bool;
+    /// True when a String token directly follows the segment's first
+    /// significant token — the `Extern "C"` block form.
+    [[nodiscard]] auto hasStringAfterFirstKeyword() const -> bool;
+    /// True when the collected segment is a lone access modifier, i.e. the
+    /// `Public` / `Private` / `Protected` of a `Public:` visibility label.
+    [[nodiscard]] auto isAccessModifierLabel() const -> bool;
 
     ParseOptions m_options; ///< Parse options pinned for this parser.
 

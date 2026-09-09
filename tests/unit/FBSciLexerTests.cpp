@@ -16,18 +16,18 @@ class FBSciLexerTests : public testing::Test {
 protected:
     void SetUp() override {
         m_lexer = FBSciLexer::Create();
-        // Set up the shared keyword table matching fbfull.lng groups.
+        // Set up the shared keyword table matching keywords.ini groups.
         // Array order maps 1:1 to DEFINE_THEME_KEYWORD_GROUPS order.
         FBSciLexer::setKeywords({
-            "dim as if then else end sub function type asm",                   // Keywords
-            "integer string single double long byte",                          // KeywordTypes
-            "and or not mod xor",                                              // KeywordOperators
-            "__fb_version__",                                                  // KeywordConstants
-            "",                                                                // KeywordLibrary
-            "",                                                                // KeywordCustom
-            "if ifdef ifndef else elseif endif macro endmacro define include", // KeywordPP
-            "mov push pop ret jmp",                                            // KeywordAsm1
-            "eax ebx ecx edx",                                                 // KeywordAsm2
+            "dim as if then else end sub function type asm private public protected extern", // Keywords
+            "integer string single double long byte",                                        // KeywordTypes
+            "and or not mod xor",                                                            // KeywordOperators
+            "__fb_version__",                                                                // KeywordConstants
+            "",                                                                              // KeywordLibrary
+            "",                                                                              // KeywordCustom
+            "if ifdef ifndef else elseif endif macro endmacro define include",               // KeywordPP
+            "mov push pop ret jmp",                                                          // KeywordAsm1
+            "eax ebx ecx edx",                                                               // KeywordAsm2
         });
         m_lexer->PropertySet("fold", "1");
     }
@@ -493,6 +493,15 @@ TEST_F(FBSciLexerTests, DotDotDotDotOperator) {
 
 TEST_F(FBSciLexerTests, Label) {
     expectStyles("myLabel: ", "LLLLLLLL ");
+}
+
+TEST_F(FBSciLexerTests, AccessModifierColonKeepsKeywordStyle) {
+    // `Public:` / `Private:` / `Protected:` are visibility labels inside a Type
+    // body. A goto label can never be a keyword, so a keyword before `:` keeps
+    // its keyword styling and the colon styles as an operator.
+    expectStyles("public: ", "111111P ");
+    expectStyles("protected: ", "111111111P ");
+    expectStyles("private: ", "1111111P ");
 }
 
 // endregion

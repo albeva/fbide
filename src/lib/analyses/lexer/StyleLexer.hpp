@@ -63,11 +63,24 @@ private:
     [[nodiscard]] auto nextStyle() -> std::optional<StyleRange>;
     /// Copy a byte range out of the source as a UTF-8 std::string.
     [[nodiscard]] auto stringFromRange(Sci_PositionU start, Sci_PositionU end) const -> std::string;
+    /// Read a single byte from the source, `\0` past the end.
+    [[nodiscard]] auto charAt(Sci_PositionU pos) const -> char;
 
     /// Dispatch a style run to the appropriate emit helper.
     void emitFromRange(const StyleRange& range, std::vector<Token>& out);
     /// Emit whitespace / newline tokens from a `Default` style run.
     void emitDefault(const StyleRange& range, std::vector<Token>& out);
+    /// True when the 1-byte operator at `sv[i]` is an FB type suffix
+    /// (`x%`, `n&`, `f!`, `d#`, `s$`) rather than the operator of the same
+    /// spelling. `rangeStart` is the style run's start offset, used to peek
+    /// the byte that follows when the run ends here.
+    [[nodiscard]] auto isTypeSuffix(
+        std::string_view sv,
+        std::size_t idx,
+        std::size_t len,
+        Sci_PositionU rangeStart,
+        const std::vector<Token>& out
+    ) const -> bool;
     /// Emit operator tokens from an `Operator` / `OperatorPP` style run.
     void emitOperator(const StyleRange& range, std::vector<Token>& out);
     /// Emit an `Identifier` token (with `style` carrying the source style —

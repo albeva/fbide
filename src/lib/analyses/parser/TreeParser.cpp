@@ -143,9 +143,15 @@ void TreeParser::processLine() {
         // Under reFormat=false the colon stays as a regular token in the
         // segment so the original inline layout survives.
         if (tkn.operatorKind == OperatorKind::Colon && m_options.reFormat) {
+            // `Public:` / `Private:` / `Protected:` inside a Type body are
+            // visibility labels, not a statement separator — the colon belongs
+            // to the label and must survive the split.
+            if (isAccessModifierLabel()) {
+                m_segment.push_back(tkn);
+            }
+            advance();
             dispatch();
             m_segment.clear();
-            advance();
             continue;
         }
 
@@ -257,6 +263,17 @@ void TreeParser::dispatch() {
         }
         return;
 
+    // Extern — block only in the `Extern "C" ... End Extern` form, which
+    // names the calling convention as a string. `Extern name As Type` (and
+    // `Extern Import`) declare a symbol and stay a plain statement.
+    case KeywordKind::Extern:
+        if (hasStringAfterFirstKeyword()) {
+            openBlockOrStatement();
+        } else {
+            m_builder.statement();
+        }
+        return;
+
     // Type — block only when NOT followed by As (alias form)
     case KeywordKind::Type: {
         KeywordKind second = KeywordKind::None;
@@ -314,6 +331,22 @@ void TreeParser::dispatch() {
     }
 }
 
+auto TreeParser::isAccessModifierLabel() const -> bool {
+    // True when the segment collected so far is exactly one access modifier —
+    // the `Public` of a `Public:` visibility label.
+    bool seen = false;
+    for (const auto& tkn : m_segment) {
+        if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
+            continue;
+        }
+        if (seen || !isAccessModifier(tkn.keywordKind)) {
+            return false;
+        }
+        seen = true;
+    }
+    return seen;
+}
+
 auto TreeParser::firstKeyword() const -> KeywordKind {
     // FB reuses keywords inside other statements (e.g. `Open ... For Input As #f`).
     // Block dispatch must look only at the first word-like token of the line —
@@ -361,6 +394,21 @@ void TreeParser::openBlockOrStatement() {
     } else {
         m_builder.openBlock();
     }
+}
+
+auto TreeParser::hasStringAfterFirstKeyword() const -> bool {
+    bool seenKeyword = false;
+    for (const auto& tkn : m_segment) {
+        if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
+            continue;
+        }
+        if (!seenKeyword) {
+            seenKeyword = true;
+            continue;
+        }
+        return tkn.kind == TokenKind::String;
+    }
+    return false;
 }
 
 auto TreeParser::hasBlockCloserAfterFirst() const -> bool {

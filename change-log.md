@@ -1,3 +1,7 @@
+# Changes since 0.5.1
+
+- Fixed various formatter issues (#136)
+
 # Changes since 0.5.0
 
 - Updated wxWidgets to 3.3.3 (#130)

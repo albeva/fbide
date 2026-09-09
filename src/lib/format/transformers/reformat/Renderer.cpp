@@ -229,6 +229,19 @@ auto Renderer::isLayout(const Token& token) -> bool {
     return token.kind == TokenKind::Whitespace || token.kind == TokenKind::Newline;
 }
 
+auto Renderer::isCompoundAssignKeyword(const Token& token) -> bool {
+    if (token.kind != TokenKind::KeywordOperators) {
+        return false;
+    }
+    static constexpr std::array kNames { "and", "or", "xor", "eqv", "imp", "mod", "shl", "shr" };
+    std::string lowered;
+    lowered.reserve(token.text.size());
+    for (const char chr : token.text) {
+        lowered += static_cast<char>(std::tolower(static_cast<unsigned char>(chr)));
+    }
+    return std::ranges::find(kNames, lowered) != kNames.end();
+}
+
 auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
     using enum OperatorKind;
     const auto prevOp = prev.operatorKind;
@@ -241,12 +254,34 @@ auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
         return true;
     }
 
+    // `and=` / `or=` / `xor=` / `eqv=` / `imp=` / `mod=` / `shl=` / `shr=` are
+    // single compound-assignment operators spelled as a keyword plus `=`. The
+    // `=` hugs the keyword; the keyword-operator rule below would split them.
+    if (currOp == Assign && isCompoundAssignKeyword(prev)) {
+        return false;
+    }
+
     // Keyword operators (And, Or, Not, Mod, Xor, Shl, Shr) are styled as
     // KeywordOperators by FBSciLexer. They need whitespace on both sides:
     // `x AND (y)` not `x AND(y)`.
     if (prev.kind == TokenKind::KeywordOperators
         || curr.kind == TokenKind::KeywordOperators) {
         return true;
+    }
+
+    // A type suffix is part of the name it follows: `x%`, `n&`, `s$`.
+    if (currOp == TypeSuffix) {
+        return false;
+    }
+
+    // `##` pastes macro arguments and reads as a binary operator — `t ## n`.
+    // An underscore operand is the exception: `A##_##B` builds the identifier
+    // `A_B`, and a detached `_` would read as a line continuation instead.
+    if (prevOp == TokenPaste) {
+        return curr.text != "_";
+    }
+    if (currOp == TokenPaste) {
+        return prev.text != "_";
     }
 
     // After ( or [ → no space
@@ -270,8 +305,9 @@ auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
 
     // Before ( or [ → no space only when preceded by identifier/keyword/closing
     // (function call / indexing). After operators, space is needed for grouping.
+    // A type suffix counts as part of the name, so `arr%(i)` stays a call.
     if (currOp == ParenOpen || currOp == BracketOpen) {
-        return prev.kind == TokenKind::Operator;
+        return prev.kind == TokenKind::Operator && prevOp != TypeSuffix;
     }
 
     // Dot and Arrow: no space on either side
@@ -279,8 +315,15 @@ auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
         return false;
     }
 
-    // Before , → no space
-    if (currOp == Comma) {
+    // Before , or ; → no space. Both are separators: the space goes after.
+    if (currOp == Comma || currOp == Semicolon) {
+        return false;
+    }
+
+    // `Public:` / `Private:` / `Protected:` — the colon belongs to the
+    // visibility label. Every other colon is a statement separator and never
+    // reaches here (the parser splits on it).
+    if (currOp == Colon && isAccessModifier(prev.keywordKind)) {
         return false;
     }
 

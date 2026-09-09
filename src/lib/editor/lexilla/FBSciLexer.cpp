@@ -372,9 +372,9 @@ void FBSciLexer::lexDefault() noexcept {
     // ->
     else if (m_sc->ch == '-' && m_sc->chNext == '>') {
         m_sc->SetState(+Operator);
-        m_sc->Forward(); // consume '>'; chNext is now the char after "->"
+        m_sc->Forward();                           // consume '>'; chNext is now the char after "->"
         m_fieldAccess = !isOperator(m_sc->chNext); // see the `.` case (issue #112)
-        return; // short circuit!
+        return;                                    // short circuit!
     }
     // Numbers
     else if (isDigit(m_sc->ch)) {
@@ -606,9 +606,20 @@ void FBSciLexer::lexStringOpen() noexcept {
     }
 }
 
+auto FBSciLexer::currentIsKeyword() noexcept -> bool {
+    m_sc->GetCurrentLowered(m_identBuffer.data(), m_identBuffer.size());
+    const bool asmContext = m_asmState != AsmState::None;
+    const KeywordTable::KeywordMap& map = asmContext ? KeywordTable::kAssembly : KeywordTable::kFreeBasic;
+    return map.contains(std::string_view { m_identBuffer.data() });
+}
+
 void FBSciLexer::lexIdentifier() noexcept {
     if (!isIdentifier(m_sc->ch)) {
-        if (m_sc->ch == ':' && m_isFirst) {
+        // `name:` at the start of a line is a goto label. A label can never be
+        // a keyword, so `Public:` / `Private:` / `Protected:` — the visibility
+        // labels of a Type body — keep keyword styling and let `:` style as an
+        // operator.
+        if (m_sc->ch == ':' && m_isFirst && !currentIsKeyword()) {
             m_sc->Forward();
             m_sc->ChangeState(+ThemeCategory::Label);
         } else if (m_fieldAccess) {

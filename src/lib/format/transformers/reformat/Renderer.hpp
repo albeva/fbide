@@ -52,6 +52,9 @@ private:
     [[nodiscard]] static auto needsSpaceBefore(const lexer::Token& prev, const lexer::Token& curr) -> bool;
     /// True when `token` is layout-only (Whitespace, Newline, Comment).
     [[nodiscard]] static auto isLayout(const lexer::Token& token) -> bool;
+    /// True when `token` is a keyword operator with a compound-assignment form
+    /// (`and=`, `or=`, `xor=`, `eqv=`, `imp=`, `mod=`, `shl=`, `shr=`).
+    [[nodiscard]] static auto isCompoundAssignKeyword(const lexer::Token& token) -> bool;
 
     FormatOptions m_options;            ///< Format options pinned for this run.
     bool m_lastWasBlankLine = false;    ///< True when the previous emit was a blank line.

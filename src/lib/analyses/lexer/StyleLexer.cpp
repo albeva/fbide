@@ -10,6 +10,7 @@
 #include "VerbatimAnnotator.hpp"
 #include "config/ThemeCategory.hpp"
 #include "config/Value.hpp"
+#include "editor/lexilla/CharCategory.hpp"
 #include "editor/lexilla/FBSciLexer.hpp"
 using namespace fbide;
 using namespace fbide::lexer;
@@ -121,6 +122,8 @@ auto matchOperator(const std::string_view slice) -> std::pair<OperatorKind, std:
     case '@':
         return { AddressOf, 1 };
     case '#':
+        if (peek(1) == '#')
+            return { TokenPaste, 2 }; // ## macro-argument concatenation
         return { Hash, 1 };
     default:
         return { Other, 1 };
@@ -188,6 +191,15 @@ auto StyleLexer::nextStyle() -> std::optional<StyleRange> {
         m_pos++;
     }
     return StyleRange { style, start, m_pos };
+}
+
+auto StyleLexer::charAt(const Sci_PositionU pos) const -> char {
+    if (pos >= m_src.length()) {
+        return '\0';
+    }
+    char chr = '\0';
+    m_src.getCharRange(&chr, pos, 1);
+    return chr;
 }
 
 auto StyleLexer::stringFromRange(const Sci_PositionU start, const Sci_PositionU end) const -> std::string {
@@ -353,6 +365,37 @@ void StyleLexer::emitDefault(const StyleRange& r, std::vector<Token>& out) {
     }
 }
 
+auto StyleLexer::isTypeSuffix(
+    const std::string_view sv,
+    const std::size_t idx,
+    const std::size_t len,
+    const Sci_PositionU rangeStart,
+    const std::vector<Token>& out
+) const -> bool {
+    // `%` `&` `!` `#` `$` are FB type suffixes (`x%`, `n&`, `f!`, `d#`, `s$`)
+    // when glued to the end of a name. Each also has an operator reading —
+    // `&` concatenates, `#` introduces a file number, `!` prefixes an escaped
+    // string literal — so the suffix reading needs both sides to agree:
+    // the preceding token must be word-like and immediately adjacent (a space
+    // would have produced a Whitespace token), and the next character must not
+    // start a word, which would make `a&b` a concatenation rather than `a&`
+    // followed by a stray `b`.
+    if (len != 1 || idx != 0) {
+        return false;
+    }
+    const char chr = sv[idx];
+    if (chr != '%' && chr != '&' && chr != '!' && chr != '#' && chr != '$') {
+        return false;
+    }
+    if (out.empty() || !isWordLike(out.back().kind)) {
+        return false;
+    }
+    const char next = idx + 1 < sv.size()
+                        ? sv[idx + 1]
+                        : charAt(rangeStart + static_cast<Sci_PositionU>(idx) + 1);
+    return !isIdentifier(next);
+}
+
 void StyleLexer::emitOperator(const StyleRange& range, std::vector<Token>& out) {
     const auto text = stringFromRange(range.start, range.end);
     const std::string_view sv { text };
@@ -369,6 +412,9 @@ void StyleLexer::emitOperator(const StyleRange& range, std::vector<Token>& out) 
                 op = OperatorKind::Dereference;
             }
         }
+        if (isTypeSuffix(sv, i, len, range.start, out)) {
+            op = OperatorKind::TypeSuffix;
+        }
         out.push_back(Token {
             TokenKind::Operator,
             KeywordKind::None,
@@ -383,6 +429,7 @@ void StyleLexer::emitOperator(const StyleRange& range, std::vector<Token>& out) 
         case OperatorKind::ParenClose:
         case OperatorKind::BracketClose:
         case OperatorKind::BraceClose:
+        case OperatorKind::TypeSuffix:
             m_canBeUnary = false;
             break;
         default:
@@ -445,7 +492,10 @@ void StyleLexer::emitKeyword(const StyleRange& r, TokenKind kind, std::vector<To
         false,
         std::move(text),
     });
-    m_canBeUnary = true; // after a keyword (And, Not, If, ...) next operator is unary
+    // After a keyword (And, Not, If, ...) the next operator is unary. Type
+    // keywords are the exception: they name a value, so a following `*` is
+    // the fixed-length specifier of `Zstring * 32`, not a dereference.
+    m_canBeUnary = kind != TokenKind::KeywordTypes;
 }
 
 void StyleLexer::emitWhitespaceRun(const std::string& text, const Sci_PositionU rangeStart, std::vector<Token>& out) {

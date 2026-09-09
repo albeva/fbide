@@ -72,6 +72,7 @@ enum class KeywordKind {
     Select,
     Asm,
     Namespace,
+    Extern,
     // Block closers
     End,
     Loop,
@@ -157,6 +158,8 @@ enum class OperatorKind : std::uint8_t {
     Arrow,        // ->
     Question,     // ?
     Hash,         // # (file-number sigil / macro stringize)
+    TokenPaste,   // ## (preprocessor argument concatenation)
+    TypeSuffix,   // % & ! # $ directly after a name (x%, y&, s$)
 
     // Assignment
     Assign, // =
@@ -174,8 +177,7 @@ enum class OperatorKind : std::uint8_t {
 
     /// Catch-all for operators the formatter does not branch on
     /// (`<`, `<=`, `<<`, `<<=`, `==`, `<>`, `>>`, `>>=`, `^`, `\`, `&`,
-    /// compound assignments, type suffixes, etc.). Token text carries the
-    /// literal.
+    /// compound assignments, etc.). Token text carries the literal.
     Other,
 };
 
