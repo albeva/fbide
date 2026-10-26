@@ -5,6 +5,9 @@
 - Fixed the formatter dropping `.` and `...` from `#define` bodies, and joining an object-like macro's name to its `(` (#136).
 - Fixed a loop closed separately in each `#if` / `#else` branch breaking the Sub/Function list and the indentation of the code after it (#136).
 - Fixed the formatter splitting a single-line `If … Then a : b` at its colon, which moved `b` out of the condition (#136).
+- Fixed formatting deleting the whole document when the code contained non-ASCII text outside strings and comments (#136).
+- Formatting now checks its result before applying it: if anything other than layout or keyword case would change, the code is left untouched and a "Formatting failed" message is shown (#136).
+- Fixed the formatter splitting glued operators such as `&=>` (#136).
 
 # Changes since 0.5.0
 

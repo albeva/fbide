@@ -50,6 +50,7 @@ target_sources(fbide_lib
     editor/Editor.cpp
     editor/LineHistory.cpp
     editor/lexilla/FBSciLexer.cpp
+    format/FormatCheck.cpp
     format/FormatCommand.cpp
     format/FormatDialog.cpp
     format/FormatSettings.cpp
@@ -146,6 +147,7 @@ target_sources(fbide_lib
     editor/LineHistory.hpp
     editor/lexilla/CharCategory.hpp
     editor/lexilla/FBSciLexer.hpp
+    format/FormatCheck.hpp
     format/FormatCommand.hpp
     format/FormatDialog.hpp
     format/FormatSettings.hpp

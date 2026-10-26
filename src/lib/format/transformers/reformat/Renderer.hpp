@@ -49,7 +49,13 @@ private:
     /// True when `block` is a top-level definition (Sub, Function, Type).
     [[nodiscard]] static auto isDefinition(const parser::BlockNode& block) -> bool;
     /// True when a space is required between two adjacent tokens.
-    [[nodiscard]] static auto needsSpaceBefore(const lexer::Token& prev, const lexer::Token& curr) -> bool;
+    /// `sourceSpaced` is true when the source had whitespace between them.
+    [[nodiscard]] static auto needsSpaceBefore(const lexer::Token& prev, const lexer::Token& curr, bool sourceSpaced) -> bool;
+    /// True when `token` is text the lexer could not classify (e.g. non-ASCII).
+    [[nodiscard]] static auto isUnrecognised(const lexer::Token& token) -> bool;
+    /// True when `token` is a binary operator with no fixed spacing role
+    /// (`Other` or `Assign`): not unary, bracket, separator or member access.
+    [[nodiscard]] static auto isPlainBinaryOperator(const lexer::Token& token) -> bool;
     /// Index of the `(` after a `#define` / `#macro` name that the source
     /// separates from the name with whitespace, or `npos`. That space makes
     /// the macro object-like (`#define A (x)`), so it must survive.

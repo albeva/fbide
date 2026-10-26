@@ -15,6 +15,10 @@ class PlainTextRenderer final : public Renderer {
 public:
     using Renderer::Renderer;
     [[nodiscard]] auto render(const std::vector<lexer::Token>& tokens) const -> wxString override;
+    /// The concatenated token text as raw UTF-8 bytes — what `render` decodes.
+    /// Lets callers validate the bytes (see `isSafeFormatResult`) before
+    /// `wxString::FromUTF8` would turn invalid input into an empty string.
+    [[nodiscard]] auto renderUtf8(const std::vector<lexer::Token>& tokens) const -> std::string;
     [[nodiscard]] auto getType() const -> DocumentType override { return DocumentType::FreeBASIC; }
 };
 

@@ -397,6 +397,22 @@ TEST_F(StyleLexerTests, PreprocessorStyledNonWhitespaceIsNotWhitespace) {
     EXPECT_EQ(dot->operatorKind, OperatorKind::Dot);
 }
 
+TEST_F(StyleLexerTests, NonAsciiRunIsOneToken) {
+    // Forum follow-up to #136: each byte of a multi-byte character became its
+    // own token, so the formatter spaced them apart and broke the UTF-8.
+    const auto texts = [&](const std::string& src) {
+        std::vector<std::string> out;
+        for (const auto& tok : strip(lex(src))) {
+            out.push_back(tok.text);
+        }
+        return out;
+    };
+    EXPECT_EQ(texts("Dim \u53D8\u91CF As Integer"), (std::vector<std::string> { "Dim", "\u53D8\u91CF", "As", "Integer" }));
+    EXPECT_EQ(texts("#define X \u4E2D\n"), (std::vector<std::string> { "#define", "X", "\u4E2D" }));
+    const auto colon = texts("x = 1 \uFF1A y = 2");
+    EXPECT_NE(std::ranges::find(colon, std::string { "\uFF1A" }), colon.end());
+}
+
 TEST_F(StyleLexerTests, PreprocessorDefineBodyKeywordDoesNotReclassifyDirective) {
     // `If` inside a `#define` body would be styled KeywordPP by FBSciLexer
     // (because `if` is in the wordlist for `#if`). Body KeywordPP runs emit

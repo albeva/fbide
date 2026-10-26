@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "QuickFormat.hpp"
+#include "FormatCheck.hpp"
 #include "FormatSettings.hpp"
 #include "analyses/lexer/MemoryDocument.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
@@ -21,19 +22,19 @@ using namespace fbide;
 
 namespace {
 
-/// Run the token stream through the transform chain and render to plain text.
+/// Run the token stream through the transform chain and render to UTF-8 text.
 auto applyChain(
     const std::vector<std::unique_ptr<Transform>>& transforms,
     const std::vector<lexer::Token>& tokens,
     const PlainTextRenderer& renderer
-) -> wxString {
+) -> std::string {
     std::vector<lexer::Token> buffer;
     const std::vector<lexer::Token>* result = &tokens;
     for (const auto& transform : transforms) {
         buffer = transform->apply(*result);
         result = &buffer;
     }
-    return renderer.render(*result);
+    return renderer.renderUtf8(*result);
 }
 
 } // namespace
@@ -70,9 +71,13 @@ void QuickFormat::run(Editor& editor) const {
     // No selection → reformat the whole document, replacing all text.
     if (selStart == selEnd) {
         const auto transforms = buildTransforms(m_ctx, settings);
-        const wxString formatted = applyChain(transforms, tokens, renderer);
+        const auto formatted = applyChain(transforms, tokens, renderer);
+        if (!isSafeFormatResult({ source.data(), source.length() }, formatted)) {
+            reportFailure(editor);
+            return;
+        }
         editor.BeginUndoAction();
-        editor.SetText(formatted);
+        editor.SetText(wxString::FromUTF8(formatted));
         editor.EndUndoAction();
         return;
     }
@@ -107,15 +112,24 @@ void QuickFormat::run(Editor& editor) const {
     }
 
     const auto transforms = buildTransforms(m_ctx, settings, baseIndent);
-    wxString fragment = applyChain(transforms, slice, renderer);
+    std::string fragment = applyChain(transforms, slice, renderer);
+    const std::string_view original { source.data() + rangeStart, static_cast<std::size_t>(rangeEnd - rangeStart) };
+    if (!isSafeFormatResult(original, fragment)) {
+        reportFailure(editor);
+        return;
+    }
     // The renderer terminates the last statement with a newline; the replaced
     // range stops at the line's end, so drop it to avoid an inserted blank line.
-    if (fragment.EndsWith("\n")) {
-        fragment.RemoveLast();
+    if (fragment.ends_with('\n')) {
+        fragment.pop_back();
     }
 
     editor.BeginUndoAction();
     editor.SetSelection(rangeStart, rangeEnd);
-    editor.ReplaceSelection(fragment);
+    editor.ReplaceSelection(wxString::FromUTF8(fragment));
     editor.EndUndoAction();
+}
+
+void QuickFormat::reportFailure(Editor& editor) const {
+    wxMessageBox(m_ctx.tr("dialogs.format.failed"), m_ctx.tr("dialogs.format.title"), wxOK | wxICON_WARNING, &editor);
 }

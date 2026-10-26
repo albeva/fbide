@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "FormatDialog.hpp"
+#include "FormatCheck.hpp"
 #include "FormatSettings.hpp"
 #include "analyses/lexer/MemoryDocument.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
@@ -153,6 +154,11 @@ void FormatDialog::onApply(wxCommandEvent&) {
     // reuse them.
     currentSettings().save(m_ctx.getConfigManager());
 
+    if (m_resultFailed) {
+        wxMessageBox(m_ctx.tr("dialogs.format.failed"), m_ctx.tr("dialogs.format.title"), wxOK | wxICON_WARNING, this);
+        return;
+    }
+
     const auto rendered = m_preview->GetText();
     if (rendered.IsEmpty()) {
         return;
@@ -216,7 +222,7 @@ void FormatDialog::updateButtons() {
     } else {
         m_actionBtn->SetLabel(m_ctx.tr("dialogs.format.apply"));
     }
-    m_actionBtn->Enable(isTransforming());
+    m_actionBtn->Enable(isTransforming() && !m_resultFailed);
 
     const auto show = docTy == DocumentType::HTML;
     if (show != m_browserBtn->IsShown()) {
@@ -231,6 +237,7 @@ void FormatDialog::updateButtons() {
 }
 
 void FormatDialog::updatePreview() {
+    m_resultFailed = false;
     updateButtons();
 
     if (m_tokens.empty()) {
@@ -254,7 +261,19 @@ void FormatDialog::updatePreview() {
             transformed = transform->apply(*tokens);
             tokens = &transformed;
         }
-        m_preview->SetText(m_renderer->render(*tokens));
+        // Never offer a result that lost or changed code (e.g. text the
+        // formatter mangled) — show why instead, and disable Apply.
+        std::string text;
+        for (const auto& tok : *tokens) {
+            text += tok.text;
+        }
+        m_resultFailed = !isSafeFormatResult({ m_buffer.data(), m_buffer.length() }, text);
+        if (m_resultFailed) {
+            m_preview->SetText(m_ctx.tr("dialogs.format.failed"));
+            updateButtons();
+        } else {
+            m_preview->SetText(m_renderer->render(*tokens));
+        }
     } else {
         m_preview->SetTextRaw(m_buffer);
     }
