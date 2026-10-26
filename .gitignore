@@ -11,6 +11,7 @@
 
 # AIs
 .claude/settings.local.json
+.claude/settings.json
 .agents/
 skills-lock.json
 CLAUDE.local.md
