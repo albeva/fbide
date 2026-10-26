@@ -52,6 +52,7 @@ target_sources(fbide_lib
     editor/lexilla/FBSciLexer.cpp
     format/FormatCheck.cpp
     format/FormatCommand.cpp
+    format/FormatIO.cpp
     format/FormatDialog.cpp
     format/FormatSettings.cpp
     format/QuickFormat.cpp
@@ -149,6 +150,7 @@ target_sources(fbide_lib
     editor/lexilla/FBSciLexer.hpp
     format/FormatCheck.hpp
     format/FormatCommand.hpp
+    format/FormatIO.hpp
     format/FormatDialog.hpp
     format/FormatSettings.hpp
     format/QuickFormat.hpp

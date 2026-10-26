@@ -8,6 +8,7 @@
 #include "pch.hpp"
 #include "Context.hpp"
 #include "InstanceHandler.hpp"
+#include "document/TextEncoding.hpp"
 
 namespace fbide {
 
@@ -89,6 +90,8 @@ private:
         bool formatAlignPP = false;    ///< `--align-pp`.
         bool formatApplyCase = false;  ///< `--apply-case`.
         bool formatHtml = false;       ///< `--html`.
+        std::optional<TextEncoding> formatEncoding; ///< `--encoding <name>`; nullopt → detect.
+        std::optional<wxString> ignoredEncoding;    ///< `--encoding` given without `format` (logged, ignored).
         int waitForPid = 0;            ///< `--wait-for-pid <pid>` (0 = no wait).
         bool newWindow = false;        ///< `--new-window`.
         bool verbose = false;          ///< `--verbose`.
