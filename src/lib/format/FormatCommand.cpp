@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "FormatCommand.hpp"
+#include "FormatCheck.hpp"
 #include "FormatSettings.hpp"
 #include "analyses/lexer/MemoryDocument.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
@@ -67,6 +68,17 @@ auto FormatCommand::run(const wxString& inputPath) const -> int {
     for (const auto& transform : transforms) {
         buffer = transform->apply(*result);
         result = &buffer;
+    }
+
+    // Refuse to emit a result that lost or changed code — a silent empty or
+    // mangled output is worse than a clear failure.
+    std::string text;
+    for (const auto& tok : *result) {
+        text += tok.text;
+    }
+    if (!isSafeFormatResult(source, text)) {
+        ConsoleOutput::writeError(wxString::Format("fbide: formatting failed: %s", inputPath));
+        return EXIT_FAILURE;
     }
 
     // Render to plain code or a complete HTML document.

@@ -110,6 +110,7 @@ void Renderer::renderStatement(const StatementNode& stmt, const std::size_t inde
     if (m_options.reFormat) {
         const auto spacedParen = spacedMacroParen(stmt, first);
         const Token* prev = &stmt.tokens[first];
+        std::size_t prevIdx = first;
         bool justBrokeLine = false;
         for (std::size_t i = first + 1; i < stmt.tokens.size(); i++) {
             // Preserve `_` line continuations: emit the newline and re-indent
@@ -125,11 +126,12 @@ void Renderer::renderStatement(const StatementNode& stmt, const std::size_t inde
             if (isLayout(stmt.tokens[i])) {
                 continue;
             }
-            if (!justBrokeLine && (i == spacedParen || needsSpaceBefore(*prev, stmt.tokens[i]))) {
+            if (!justBrokeLine && (i == spacedParen || needsSpaceBefore(*prev, stmt.tokens[i], i > prevIdx + 1))) {
                 emitSpace();
             }
             emit(stmt.tokens[i]);
             prev = &stmt.tokens[i];
+            prevIdx = i;
             justBrokeLine = false;
         }
         emitNewline();
@@ -193,15 +195,17 @@ void Renderer::renderAnchoredPP(const StatementNode& stmt, const std::size_t ind
     // line preserves `#define LOG(x) Print x`-style content.
     const auto spacedParen = spacedMacroParen(stmt, first);
     const Token* prev = &stmt.tokens[first];
+    std::size_t prevIdx = first;
     for (std::size_t i = first + 1; i < stmt.tokens.size(); i++) {
         if (isLayout(stmt.tokens[i])) {
             continue;
         }
-        if (i == spacedParen || needsSpaceBefore(*prev, stmt.tokens[i])) {
+        if (i == spacedParen || needsSpaceBefore(*prev, stmt.tokens[i], i > prevIdx + 1)) {
             emitSpace();
         }
         emit(stmt.tokens[i]);
         prev = &stmt.tokens[i];
+        prevIdx = i;
     }
     emitNewline();
 }
@@ -273,7 +277,18 @@ auto Renderer::isCompoundAssignKeyword(const Token& token) -> bool {
     return std::ranges::find(kNames, lowered) != kNames.end();
 }
 
-auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
+auto Renderer::isUnrecognised(const Token& token) -> bool {
+    return token.kind == TokenKind::Invalid
+        || (token.kind == TokenKind::Operator && !token.text.empty()
+            && static_cast<unsigned char>(token.text.front()) >= 0x80);
+}
+
+auto Renderer::isPlainBinaryOperator(const Token& token) -> bool {
+    return token.kind == TokenKind::Operator
+        && (token.operatorKind == OperatorKind::Other || token.operatorKind == OperatorKind::Assign);
+}
+
+auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr, const bool sourceSpaced) -> bool {
     using enum OperatorKind;
     const auto prevOp = prev.operatorKind;
     const auto currOp = curr.operatorKind;
@@ -283,6 +298,20 @@ auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
     // before it (`obj._` would parse as a member access on `_`).
     if (curr.kind == TokenKind::Comment) {
         return true;
+    }
+
+    // Text the lexer can't classify (non-ASCII runs): keep the source's
+    // spacing — `x变量` stays glued, `x 变量` keeps its space.
+    if (isUnrecognised(prev) || isUnrecognised(curr)) {
+        return sourceSpaced;
+    }
+
+    // Two binary operators glued in the source (`&=` + `>` of `a &=> b`) are
+    // an operator the lexer doesn't know, or invalid code — keep them as
+    // written. Unary, bracket and separator operators have their own kinds
+    // and keep the normal rules (`a = -1`, `f(x) = 1`).
+    if (!sourceSpaced && isPlainBinaryOperator(prev) && isPlainBinaryOperator(curr)) {
+        return false;
     }
 
     // `and=` / `or=` / `xor=` / `eqv=` / `imp=` / `mod=` / `shl=` / `shr=` are

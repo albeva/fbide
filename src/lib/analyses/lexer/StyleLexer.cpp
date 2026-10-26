@@ -38,6 +38,17 @@ void toLowerInto(std::string& out, const std::string_view sv) {
     }
 }
 
+/// Length of the run of non-ASCII bytes (>= 0x80) starting at `idx`, or 0.
+/// UTF-8 lead and continuation bytes are all non-ASCII, so a run never ends
+/// inside a character.
+auto nonAsciiRunLength(const std::string_view sv, const std::size_t idx) -> std::size_t {
+    std::size_t end = idx;
+    while (end < sv.size() && static_cast<unsigned char>(sv[end]) >= 0x80) {
+        end++;
+    }
+    return end - idx;
+}
+
 /// Longest-match operator dispatch via first-char switch.
 /// Operators outside the table collapse to `OperatorKind::Other`, one byte
 /// consumed. Multi-char operators not enumerated split into N×Other tokens —
@@ -351,6 +362,9 @@ void StyleLexer::emitDefault(const StyleRange& r, std::vector<Token>& out) {
             i = end;
         } else {
             // Unexpected non-whitespace under Default style — treat as Invalid.
+            // A run of non-ASCII bytes (multi-byte UTF-8 text) stays one token
+            // so the formatter can never split a character.
+            const auto end = i + std::max<std::size_t>(1, nonAsciiRunLength(text, i));
             out.push_back(Token {
                 TokenKind::Invalid,
                 KeywordKind::None,
@@ -358,9 +372,9 @@ void StyleLexer::emitDefault(const StyleRange& r, std::vector<Token>& out) {
                 ThemeCategory::Default,
                 false,
                 false,
-                std::string(1, c),
+                text.substr(i, end - i),
             });
-            i++;
+            i = end;
         }
     }
 }
@@ -402,6 +416,10 @@ void StyleLexer::emitOperator(const StyleRange& range, std::vector<Token>& out) 
     std::size_t i = 0;
     while (i < sv.size()) {
         auto [op, len] = matchOperator(sv.substr(i));
+        // Keep multi-byte UTF-8 text in one token (see emitDefault).
+        if (const auto run = nonAsciiRunLength(sv, i); run > 0) {
+            len = run;
+        }
         // Unary form fixups
         if (m_canBeUnary) {
             if (op == OperatorKind::Add) {

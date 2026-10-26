@@ -30,6 +30,9 @@ public:
     void run(Editor& editor) const;
 
 private:
+    /// Tell the user formatting failed; the editor is left untouched.
+    void reportFailure(Editor& editor) const;
+
     Context& m_ctx; ///< Application context — config, theme, keywords.
 };
 

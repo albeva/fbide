@@ -1079,6 +1079,31 @@ TEST_F(ReFormatterTests, DefineBodyKeepsEllipsis) {
     EXPECT_EQ(format("#define V(a, ...) f(a, __VA_ARGS__)\n"), "#define V(a, ...) f(a, __VA_ARGS__)\n");
 }
 
+TEST_F(ReFormatterTests, MultiByteTextSurvivesReformat) {
+    // Forum follow-up to #136: non-ASCII text outside strings and comments
+    // was split byte by byte, producing invalid UTF-8 and an empty result.
+    EXPECT_EQ(format("Dim \u53D8\u91CF As Integer\n"), "Dim \u53D8\u91CF As Integer\n");
+    EXPECT_EQ(format("#define X \u4E2D\n"), "#define X \u4E2D\n");
+    const auto colon = format("x = 1 \uFF1A y = 2\n");
+    EXPECT_NE(colon.find("\uFF1A"), std::string::npos) << colon;
+    EXPECT_TRUE(wxString::FromUTF8(colon).length() > 0) << "invalid UTF-8";
+}
+
+TEST_F(ReFormatterTests, UnrecognisedTextKeepsSourceSpacing) {
+    EXPECT_EQ(format("x\u53D8\u91CF = 1\n"), "x\u53D8\u91CF = 1\n");
+    EXPECT_EQ(format("x   \u53D8 = 1\n"), "x \u53D8 = 1\n");
+}
+
+TEST_F(ReFormatterTests, GluedBinaryOperatorsStayGlued) {
+    EXPECT_EQ(format("a &=> \"-\"\n"), "a &=> \"-\"\n");
+    // Regression guards: unary, bracket and concat cases keep normal spacing.
+    EXPECT_EQ(format("a=-1\n"), "a = -1\n");
+    EXPECT_EQ(format("a<=-1\n"), "a <= -1\n");
+    EXPECT_EQ(format("f(x)=1\n"), "f(x) = 1\n");
+    EXPECT_EQ(format("s = a &-1\n"), "s = a & -1\n");
+    EXPECT_EQ(format("n = x&-1\n"), "n = x& - 1\n"); // `x&` is a type suffix
+}
+
 TEST_F(ReFormatterTests, SpacingTokenPasteKeepsUnderscoreAttached) {
     // `a##_##b` pastes a literal underscore into the name. A detached `_`
     // reads as a line continuation (issue #115), so `##` hugs an underscore
