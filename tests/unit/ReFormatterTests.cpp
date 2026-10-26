@@ -774,9 +774,52 @@ TEST_F(ReFormatterTests, PPDirectiveWithSpaceAfterHash) {
                   "End Sub\n"
               ),
         "Sub S\n"
-        "    #  ifdef A\n"
+        "    #ifdef A\n"
         "        x = 1\n"
-        "    #  endif\n"
+        "    #endif\n"
+        "End Sub\n");
+}
+
+TEST_F(ReFormatterTests, PPPaddingCollapsesWithoutAlignPP) {
+    // Re-formatting Align PP output with Align PP off drops the padding
+    // between `#` and the directive: `#   define` -> `#define`.
+    EXPECT_EQ(format(
+                  "sub Main\n"
+                  "#   define LEFT1 (sprite1.x)\n"
+                  "#   define X \u4E2D\n"
+                  "    do\n"
+                  "#       if defined(__FB_WIN32__)\n"
+                  "            loop until x > 3\n"
+                  "#       else\n"
+                  "            loop until x > 4\n"
+                  "#       endif\n"
+                  "end sub\n"
+              ),
+        "sub Main\n"
+        "    #define LEFT1 (sprite1.x)\n"
+        "    #define X \u4E2D\n"
+        "    do\n"
+        "        #if defined(__FB_WIN32__)\n"
+        "            loop until x > 3\n"
+        "        #else\n"
+        "            loop until x > 4\n"
+        "        #endif\n"
+        "end sub\n");
+}
+
+TEST_F(ReFormatterTests, PPPaddingCollapsesWithReindentOnly) {
+    EXPECT_EQ(formatWith(
+                  "Sub S\n"
+                  "#   if X\n"
+                  "x = 1\n"
+                  "#\tendif\n"
+                  "End Sub\n",
+                  { .tabSize = tabSize, .reFormat = false }
+              ),
+        "Sub S\n"
+        "    #if X\n"
+        "        x = 1\n"
+        "    #endif\n"
         "End Sub\n");
 }
 

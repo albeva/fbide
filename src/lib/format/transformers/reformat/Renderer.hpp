@@ -60,6 +60,9 @@ private:
     /// separates from the name with whitespace, or `npos`. That space makes
     /// the macro object-like (`#define A (x)`), so it must survive.
     [[nodiscard]] static auto spacedMacroParen(const parser::StatementNode& stmt, std::size_t first) -> std::size_t;
+    /// `token` with any whitespace between a leading `#` and the directive word
+    /// removed (`#   if` -> `#if`). Other tokens are returned unchanged.
+    [[nodiscard]] static auto withoutHashPadding(lexer::Token token) -> lexer::Token;
     /// True when `token` is layout-only (Whitespace, Newline, Comment).
     [[nodiscard]] static auto isLayout(const lexer::Token& token) -> bool;
     /// True when `token` is a keyword operator with a compound-assignment form

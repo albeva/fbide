@@ -105,7 +105,13 @@ void Renderer::renderStatement(const StatementNode& stmt, const std::size_t inde
     }
 
     emitLeadingIndent(stmt, first, indent);
-    emit(stmt.tokens[first]);
+    // Not aligning: Align PP's padding between `#` and the directive word is
+    // layout, so normalise `#   if` back to `#if`.
+    if ((m_options.reIndent || m_options.reFormat) && stmt.tokens[first].kind == TokenKind::Preprocessor) {
+        emit(withoutHashPadding(stmt.tokens[first]));
+    } else {
+        emit(stmt.tokens[first]);
+    }
 
     if (m_options.reFormat) {
         const auto spacedParen = spacedMacroParen(stmt, first);
@@ -258,6 +264,17 @@ auto Renderer::spacedMacroParen(const StatementNode& stmt, const std::size_t fir
         return npos;
     }
     return paren;
+}
+
+auto Renderer::withoutHashPadding(Token token) -> Token {
+    auto& text = token.text;
+    if (text.size() > 1 && text.front() == '#') {
+        const auto word = text.find_first_not_of(" \t", 1);
+        if (word != std::string::npos && word > 1) {
+            text.erase(1, word - 1);
+        }
+    }
+    return token;
 }
 
 auto Renderer::isLayout(const Token& token) -> bool {
