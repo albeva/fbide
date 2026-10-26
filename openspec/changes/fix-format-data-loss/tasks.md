@@ -22,9 +22,11 @@ Each group follows TDD: write the tests, run them and confirm they fail for the 
 ## 4. Use the check in every format entry point (design D4, D5)
 
 - [x] 4.1 Add key `failed` under `[dialogs/format]` to all 14 `resources/ide/locales/*.ini`, translated per language. Verify with `grep -c '^failed=' resources/ide/locales/*.ini`, which should report 1 for each file.
-- [ ] 4.2 In `QuickFormat::run`, for both the whole-document and the selection path, check before `SetText` / `ReplaceSelection`. On failure, leave the editor untouched and show the `dialogs.format.failed` message. Verify by running `fbide` and reformatting a document whose result fails the check (temporarily force failure in a debug build, or use a known-bad input from before the fix). The text is unchanged and the message appears.
-- [ ] 4.3 In `FormatDialog`, run the check on the rendered result. On failure, Apply makes no change and the user is told formatting failed. Verify manually in the dialog as in 4.2.
+- [x] 4.2 In `QuickFormat::run`, for both the whole-document and the selection path, check before `SetText` / `ReplaceSelection`. On failure, leave the editor untouched and show the `dialogs.format.failed` message. Verify by running `fbide` and reformatting a document whose result fails the check (temporarily force failure in a debug build, or use a known-bad input from before the fix). The text is unchanged and the message appears.
+- [x] 4.3 In `FormatDialog`, run the check on the rendered result. On failure, Apply makes no change and the user is told formatting failed. Verify manually in the dialog as in 4.2.
 - [x] 4.4 In `FormatCommand::run`, on failure write `fbide: formatting failed: <file>` to stderr, write no output, and return `EXIT_FAILURE`. Verify with `fbide format --reformat` on a forced-failure case (exit code non-zero, stdout empty). Then confirm that `Dim 变量 As Integer` now formats correctly with exit code 0.
+
+  Verified 2026-10-26 by the user: the forum snippets (non-ASCII text, `&=>`, `#if`-split loops) reformat correctly in the running app. The forced-failure path was not exercised by hand, by the user's decision. The check itself is covered by `FormatCheckTests`.
 
 ## 5. Changelog and integration
 
