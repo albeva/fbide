@@ -764,6 +764,51 @@ TEST_F(ReFormatterTests, PPBranchClosersIndentWithBranch) {
         "End Sub\n");
 }
 
+TEST_F(ReFormatterTests, PPDirectiveWithSpaceAfterHash) {
+    // `#  if` is a directive like `#if`: it opens a PP block.
+    EXPECT_EQ(format(
+                  "Sub S\n"
+                  "#  ifdef A\n"
+                  "x = 1\n"
+                  "#  endif\n"
+                  "End Sub\n"
+              ),
+        "Sub S\n"
+        "    #  ifdef A\n"
+        "        x = 1\n"
+        "    #  endif\n"
+        "End Sub\n");
+}
+
+TEST_F(ReFormatterTests, AlignPPIsIdempotent) {
+    // Align PP pads between `#` and the directive. Re-formatting its own
+    // output must give the same text: same padding, same structure, and the
+    // object-like macro keeps its space before `(`.
+    const char* source =
+        "sub Main\n"
+        "#define LEFT1 (sprite1.x)\n"
+        "do\n"
+        "#if defined(__FB_WIN32__)\n"
+        "loop until x>3\n"
+        "#else\n"
+        "loop until x>4\n"
+        "#endif\n"
+        "end sub\n";
+    const char* expected =
+        "sub Main\n"
+        "#   define LEFT1 (sprite1.x)\n"
+        "    do\n"
+        "#       if defined(__FB_WIN32__)\n"
+        "            loop until x > 3\n"
+        "#       else\n"
+        "            loop until x > 4\n"
+        "#       endif\n"
+        "end sub\n";
+    const auto first = format(source, true);
+    EXPECT_EQ(first, expected);
+    EXPECT_EQ(format(first.c_str(), true), expected);
+}
+
 TEST_F(ReFormatterTests, PPMacroBlock) {
     EXPECT_EQ(format(
                   "#macro MyMacro(x)\n"

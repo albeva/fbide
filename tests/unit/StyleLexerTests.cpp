@@ -413,6 +413,25 @@ TEST_F(StyleLexerTests, NonAsciiRunIsOneToken) {
     EXPECT_NE(std::ranges::find(colon, std::string { "\uFF1A" }), colon.end());
 }
 
+TEST_F(StyleLexerTests, PreprocessorDirectiveWithSpaceAfterHash) {
+    // FreeBASIC allows whitespace between `#` and the directive (`#   if`),
+    // which is also what Align PP produces. It must still be one directive
+    // token, classified like `#if`.
+    const auto first = [&](const std::string& src) { return strip(lex(src)).front(); };
+    auto t = first("#   if X\n");
+    EXPECT_EQ(t.kind, TokenKind::Preprocessor);
+    EXPECT_EQ(t.keywordKind, KeywordKind::PpIf);
+    EXPECT_EQ(t.text, "#   if");
+    EXPECT_EQ(first("#\tdefine A 1\n").keywordKind, KeywordKind::PpDefine);
+    EXPECT_EQ(first("#  else\n").keywordKind, KeywordKind::PpElse);
+    EXPECT_EQ(first("# endif\n").keywordKind, KeywordKind::PpEndIf);
+    // Body tokens follow as usual.
+    auto all = strip(lex("#    ifdef FOO\n"));
+    ASSERT_EQ(all.size(), 2u);
+    EXPECT_EQ(all[0].keywordKind, KeywordKind::PpIfDef);
+    EXPECT_EQ(all[1].text, "FOO");
+}
+
 TEST_F(StyleLexerTests, PreprocessorDefineBodyKeywordDoesNotReclassifyDirective) {
     // `If` inside a `#define` body would be styled KeywordPP by FBSciLexer
     // (because `if` is in the wordlist for `#if`). Body KeywordPP runs emit
