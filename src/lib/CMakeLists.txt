@@ -15,6 +15,7 @@ target_sources(fbide_lib
     analyses/symbols/PpConditional.cpp
     analyses/symbols/SymbolTable.cpp
     app/App.cpp
+    app/Appearance.cpp
     app/Context.cpp
     app/FileAssociations.cpp
     app/FileAssociationsLinux.cpp
@@ -114,6 +115,7 @@ target_sources(fbide_lib
     analyses/symbols/PpConditional.hpp
     analyses/symbols/SymbolTable.hpp
     app/App.hpp
+    app/Appearance.hpp
     app/Context.hpp
     app/InstanceHandler.hpp
     command/CommandEntry.hpp
