@@ -1,18 +1,10 @@
 # Changes since 0.5.1
 
-- Fixed the Symbols browser listing a Sub/Function twice when it is both declared (`Declare Sub …`) and defined; it is now one entry that opens the definition.
-- Added a Theme setting (System / Dark / Light) next to Language in General settings, on systems that support switching it (Windows 10 1903+, macOS 10.14+, Linux GTK3); FBIde offers to restart to apply it.
+- Added theme selector (system, dark, light) on systems that support it.
+- Added `--encoding` option to `fbide format`; file encoding is otherwise detected like in the editor.
 - Updated wxWidgets to 3.3.4.
-- Fixed various formatter issues (#136)
-- Fixed the formatter dropping `.` and `...` from `#define` bodies, and joining an object-like macro's name to its `(` (#136).
-- Fixed a loop closed separately in each `#if` / `#else` branch breaking the Sub/Function list and the indentation of the code after it (#136).
-- Fixed the formatter splitting a single-line `If … Then a : b` at its colon, which moved `b` out of the condition (#136).
-- Fixed formatting deleting the whole document when the code contained non-ASCII text outside strings and comments (#136).
-- Formatting now checks its result before applying it: if anything other than layout or keyword case would change, the code is left untouched and a "Formatting failed" message is shown (#136).
-- Fixed the formatter splitting glued operators such as `&=>` (#136).
-- Fixed preprocessor directives written with spaces after `#` (`#  if`, `#   define`, as produced by Align PP) not being recognised: inactive branches were not greyed out, macros were missed, and re-formatting with Align PP broke the indentation (#136).
-- Re-formatting with Align PP off now removes the padding between `#` and the directive (`#   if` becomes `#if`) (#136).
-- `fbide format` now detects the file's encoding like the editor does and writes the result back in the same encoding; a new `--encoding <name>` option forces the input encoding.
+- Fixed various formatting issues (#136).
+- Fixed duplicate sub/function entries in the symbol browser when a symbol is both declared and defined.
 
 # Changes since 0.5.0
 
