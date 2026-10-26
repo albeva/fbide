@@ -72,6 +72,8 @@ include(GoogleTest)
 gtest_discover_tests(tests
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     DISCOVERY_MODE PRE_TEST
+    # Listing tests on a cold CI runner (notably macOS) can exceed the 5s default.
+    DISCOVERY_TIMEOUT 60
 )
 
 # UI tests — separate executable that runs under a real wxApp (with a hidden
@@ -112,5 +114,7 @@ target_precompile_headers(ui-tests REUSE_FROM fbide_lib)
 gtest_discover_tests(ui-tests
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
     DISCOVERY_MODE PRE_TEST
+    # Listing tests on a cold CI runner (notably macOS) can exceed the 5s default.
+    DISCOVERY_TIMEOUT 60
     PROPERTIES LABELS "gui"
 )
