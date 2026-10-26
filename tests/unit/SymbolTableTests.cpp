@@ -179,6 +179,31 @@ TEST_F(SymbolTableTests, SubFunctionType) {
     EXPECT_EQ(table.getTypes()[0].line, 4);
 }
 
+TEST_F(SymbolTableTests, SubsAfterLoopClosedInPpBranches) {
+    // Issue #136: a `Do` closed by `Loop` in both `#if` branches threw the
+    // block structure off, nesting every later procedure in the first one.
+    const auto table = extract(
+        "Sub A\n"
+        "Do\n"
+        "#if X\n"
+        "Loop Until p\n"
+        "#else\n"
+        "Loop Until q\n"
+        "#endif\n"
+        "End Sub\n"
+        "Sub B\n"
+        "End Sub\n"
+        "Function C() As Integer\n"
+        "End Function\n"
+    );
+    ASSERT_EQ(table.getSubs().size(), 2U);
+    EXPECT_EQ(table.getSubs()[0].name, "A");
+    EXPECT_EQ(table.getSubs()[1].name, "B");
+    EXPECT_EQ(table.getSubs()[1].line, 8);
+    ASSERT_EQ(table.getFunctions().size(), 1U);
+    EXPECT_EQ(table.getFunctions()[0].name, "C");
+}
+
 TEST_F(SymbolTableTests, AccessModifiersOnSubFunction) {
     // `Private` / `Public` / `Protected` are transparent prefixes — the
     // declaration is still captured under its real kind and name.

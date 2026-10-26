@@ -24,6 +24,62 @@ protected:
         m_lexer = nullptr;
     }
 
+    auto parse(const char* source) -> ProgramTree {
+        const auto tokens = tests::tokenise(*m_lexer, source);
+        TreeParser parser({});
+        return parser.parse(tokens);
+    }
+
+    /// Text of the first significant token of a statement, or "".
+    static auto head(const std::optional<StatementNode>& stmt) -> std::string {
+        if (!stmt) {
+            return {};
+        }
+        for (const auto& tkn : stmt->tokens) {
+            if (tkn.kind != lexer::TokenKind::Whitespace && tkn.kind != lexer::TokenKind::Newline) {
+                return tkn.text;
+            }
+        }
+        return {};
+    }
+
+    /// Blocks directly in `nodes`.
+    static auto blocks(const std::vector<Node>& nodes) -> std::vector<const BlockNode*> {
+        std::vector<const BlockNode*> out;
+        for (const auto& node : nodes) {
+            if (const auto* block = std::get_if<std::unique_ptr<BlockNode>>(&node)) {
+                out.push_back(block->get());
+            }
+        }
+        return out;
+    }
+
+    /// Depth-first search for the first block whose opener starts with `text`.
+    static auto findBlock(const std::vector<Node>& nodes, const std::string& text) -> const BlockNode* {
+        for (const auto* block : blocks(nodes)) {
+            if (head(block->opener) == text) {
+                return block;
+            }
+            if (const auto* found = findBlock(block->body, text)) {
+                return found;
+            }
+        }
+        return nullptr;
+    }
+
+    /// Heads of the statements directly in `nodes`.
+    static auto statementHeads(const std::vector<Node>& nodes) -> std::vector<std::string> {
+        std::vector<std::string> out;
+        for (const auto& node : nodes) {
+            if (const auto* st = std::get_if<StatementNode>(&node)) {
+                if (auto text = head(*st); !text.empty()) {
+                    out.push_back(std::move(text));
+                }
+            }
+        }
+        return out;
+    }
+
     Scintilla::ILexer5* m_lexer { nullptr };
 };
 
@@ -120,6 +176,23 @@ TEST_F(TreeParserTests, LeanModePreservesVerbatimRegion) {
     EXPECT_TRUE(sawVerbatim);
 }
 
+TEST_F(TreeParserTests, SingleLineIfWithColonsIsOneStatement) {
+    const auto tokens = tests::tokenise(*m_lexer, "If c Then a = 1 : b = 2\n");
+    TreeParser parser({});
+    const auto tree = parser.parse(tokens);
+
+    std::size_t statements = 0;
+    for (const auto& node : tree.nodes) {
+        if (const auto* st = std::get_if<StatementNode>(&node)) {
+            const bool significant = std::ranges::any_of(st->tokens, [](const lexer::Token& t) {
+                return t.kind != lexer::TokenKind::Whitespace && t.kind != lexer::TokenKind::Newline;
+            });
+            statements += significant ? 1 : 0;
+        }
+    }
+    EXPECT_EQ(statements, 1u);
+}
+
 TEST_F(TreeParserTests, WiresBlockParentPointers) {
     const auto tokens = tests::tokenise(*m_lexer,
         "Sub Foo\n"
@@ -172,4 +245,91 @@ TEST_F(TreeParserTests, RecyclesNodesAcrossBuilds) {
         }
     }
     EXPECT_EQ(blockChildren, 1);
+}
+
+// ---------------------------------------------------------------------------
+// Blocks closed inside preprocessor branches (issue #136)
+// ---------------------------------------------------------------------------
+
+TEST_F(TreeParserTests, BlockClosedInEveryPpBranchClosesAtEndIf) {
+    const auto tree = parse(
+        "Sub A\n"
+        "Do\n"
+        "#if X\n"
+        "Loop Until p\n"
+        "#else\n"
+        "Loop Until q\n"
+        "#endif\n"
+        "End Sub\n"
+        "Sub B\n"
+        "End Sub\n");
+    const auto top = blocks(tree.nodes);
+    ASSERT_EQ(top.size(), 2u);
+    EXPECT_EQ(head(top[0]->opener), "Sub");
+    EXPECT_EQ(head(top[0]->closer), "End");
+    EXPECT_EQ(head(top[1]->opener), "Sub");
+    // The `Do` sits in `A` and holds the `#if` block.
+    const auto inner = blocks(top[0]->body);
+    ASSERT_EQ(inner.size(), 1u);
+    EXPECT_EQ(head(inner[0]->opener), "Do");
+    EXPECT_NE(findBlock(inner[0]->body, "#if"), nullptr);
+}
+
+TEST_F(TreeParserTests, Issue136DelayHrSampleKeepsProceduresTopLevel) {
+    const auto tree = parse(
+        "Sub delayHR(ByVal amount As Single, ByVal threshold As Ulong)\n"
+        "    Dim As Double t1 = Timer\n"
+        "    Dim As Double t2\n"
+        "    Dim As Double t3 = t1 + amount / 1000\n"
+        "    If amount > threshold + 0.5 Then\n"
+        "        _setTimer()\n"
+        "        Sleep amount - threshold, 1\n"
+        "        _resetTimer()\n"
+        "    End If\n"
+        "    Do\n"
+        "    #if Not defined(__FB_WIN32__) And Not defined(__FB_LINUX__)\n"
+        "        t2 = Timer\n"
+        "        If t2 < t1 Then t1 -= 24 * 60 * 60 : t3 -= 24 * 60 * 60\n"
+        "    Loop Until t2 >= t3\n"
+        "    #else\n"
+        "    Loop Until Timer >= t3\n"
+        "    #endif\n"
+        "End Sub\n"
+        "\n"
+        "Sub Other()\n"
+        "End Sub\n");
+    const auto top = blocks(tree.nodes);
+    ASSERT_EQ(top.size(), 2u);
+    EXPECT_EQ(head(top[0]->closer), "End");
+    EXPECT_EQ(head(top[1]->opener), "Sub");
+}
+
+TEST_F(TreeParserTests, CloserInPpElseDoesNotEndBranch) {
+    const auto tree = parse(
+        "Do\n"
+        "#if X\n"
+        "Loop Until p\n"
+        "#else\n"
+        "Loop Until q\n"
+        "x = 1\n"
+        "#endif\n");
+    const auto* elseBranch = findBlock(tree.nodes, "#else");
+    ASSERT_NE(elseBranch, nullptr);
+    EXPECT_EQ(statementHeads(elseBranch->body), (std::vector<std::string> { "Loop", "x" }));
+}
+
+TEST_F(TreeParserTests, UnevenPpBranchClosersKeepOuterBlockOpen) {
+    const auto tree = parse(
+        "Do\n"
+        "#if X\n"
+        "Loop\n"
+        "#endif\n"
+        "Loop\n");
+    const auto top = blocks(tree.nodes);
+    ASSERT_EQ(top.size(), 1u);
+    EXPECT_EQ(head(top[0]->opener), "Do");
+    EXPECT_EQ(head(top[0]->closer), "Loop"); // the final Loop closes the Do
+    const auto* ppIf = findBlock(top[0]->body, "#if");
+    ASSERT_NE(ppIf, nullptr);
+    EXPECT_EQ(statementHeads(ppIf->body), (std::vector<std::string> { "Loop" }));
 }

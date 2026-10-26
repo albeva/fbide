@@ -108,6 +108,7 @@ void Renderer::renderStatement(const StatementNode& stmt, const std::size_t inde
     emit(stmt.tokens[first]);
 
     if (m_options.reFormat) {
+        const auto spacedParen = spacedMacroParen(stmt, first);
         const Token* prev = &stmt.tokens[first];
         bool justBrokeLine = false;
         for (std::size_t i = first + 1; i < stmt.tokens.size(); i++) {
@@ -124,7 +125,7 @@ void Renderer::renderStatement(const StatementNode& stmt, const std::size_t inde
             if (isLayout(stmt.tokens[i])) {
                 continue;
             }
-            if (!justBrokeLine && needsSpaceBefore(*prev, stmt.tokens[i])) {
+            if (!justBrokeLine && (i == spacedParen || needsSpaceBefore(*prev, stmt.tokens[i]))) {
                 emitSpace();
             }
             emit(stmt.tokens[i]);
@@ -190,12 +191,13 @@ void Renderer::renderAnchoredPP(const StatementNode& stmt, const std::size_t ind
     // Emit body tokens (identifiers, strings, numbers, operators, modifier
     // keywords) with the same spacing rules as a normal statement so the
     // line preserves `#define LOG(x) Print x`-style content.
+    const auto spacedParen = spacedMacroParen(stmt, first);
     const Token* prev = &stmt.tokens[first];
     for (std::size_t i = first + 1; i < stmt.tokens.size(); i++) {
         if (isLayout(stmt.tokens[i])) {
             continue;
         }
-        if (needsSpaceBefore(*prev, stmt.tokens[i])) {
+        if (i == spacedParen || needsSpaceBefore(*prev, stmt.tokens[i])) {
             emitSpace();
         }
         emit(stmt.tokens[i]);
@@ -224,6 +226,35 @@ void Renderer::emit(Token token) {
 }
 
 // region ---------- Classification ----------
+
+auto Renderer::spacedMacroParen(const StatementNode& stmt, const std::size_t first) -> std::size_t {
+    constexpr auto npos = std::numeric_limits<std::size_t>::max();
+    const auto& tokens = stmt.tokens;
+    const auto kind = tokens[first].keywordKind;
+    if (tokens[first].kind != TokenKind::Preprocessor
+        || (kind != KeywordKind::PpDefine && kind != KeywordKind::PpMacro)) {
+        return npos;
+    }
+    // Macro name: the first significant token after the directive.
+    auto i = first + 1;
+    while (i < tokens.size() && isLayout(tokens[i])) {
+        i++;
+    }
+    if (i >= tokens.size() || tokens[i].kind != TokenKind::Identifier) {
+        return npos;
+    }
+    // Only a plain whitespace gap counts — a newline would be a continuation.
+    auto paren = i + 1;
+    bool spaced = false;
+    while (paren < tokens.size() && tokens[paren].kind == TokenKind::Whitespace) {
+        spaced = true;
+        paren++;
+    }
+    if (!spaced || paren >= tokens.size() || tokens[paren].operatorKind != OperatorKind::ParenOpen) {
+        return npos;
+    }
+    return paren;
+}
 
 auto Renderer::isLayout(const Token& token) -> bool {
     return token.kind == TokenKind::Whitespace || token.kind == TokenKind::Newline;
@@ -321,8 +352,9 @@ auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
     }
 
     // `Public:` / `Private:` / `Protected:` — the colon belongs to the
-    // visibility label. Every other colon is a statement separator and never
-    // reaches here (the parser splits on it).
+    // visibility label. Other colons are statement separators: the parser
+    // splits on them, except inside a single-line `If`, where they reach
+    // here and take the default ` : ` spacing.
     if (currOp == Colon && isAccessModifier(prev.keywordKind)) {
         return false;
     }

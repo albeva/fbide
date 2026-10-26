@@ -567,7 +567,27 @@ void StyleLexer::emitPreprocessor(const StyleRange& range, std::vector<Token>& o
             emitWhitespaceRun(text.substr(1), range.start + 1, out);
         }
     } else {
-        emitWhitespaceRun(text, range.start, out);
+        // Normally just the whitespace between body tokens. Anything else
+        // that ends up Preprocessor-styled is real source text: emit it as
+        // operator tokens so the formatter can never drop it (issue #136).
+        const auto isLayoutChar = [](const char c) {
+            return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+        };
+        std::size_t i = 0;
+        while (i < text.size()) {
+            const bool layout = isLayoutChar(text[i]);
+            std::size_t end = i + 1;
+            while (end < text.size() && isLayoutChar(text[end]) == layout) {
+                end++;
+            }
+            const auto start = range.start + static_cast<Sci_PositionU>(i);
+            if (layout) {
+                emitWhitespaceRun(text.substr(i, end - i), start, out);
+            } else {
+                emitOperator({ range.style, start, range.start + static_cast<Sci_PositionU>(end) }, out);
+            }
+            i = end;
+        }
     }
     m_canBeUnary = true;
 }

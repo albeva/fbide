@@ -883,6 +883,20 @@ void FBSciLexer::lexPreprocessor() noexcept {
         return;
     }
 
+    // `.` / `..` / `...` — member access and ellipsis. `.` has no character
+    // class, so without this it would stay Preprocessor-styled and read as
+    // body whitespace downstream (issue #136).
+    if (m_sc->ch == '.') {
+        m_sc->SetState(+Operator);
+        if (m_sc->chNext == '.') {
+            m_sc->Forward();
+            if (m_sc->chNext == '.') {
+                m_sc->Forward();
+            }
+        }
+        return;
+    }
+
     // operator / punctuation
     if (isOperator(m_sc->ch)) {
         m_sc->SetState(+Operator);

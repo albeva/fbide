@@ -33,8 +33,9 @@ public:
 
     /// Close any open branch, then flush buffer as the closer of the
     /// current block. Pops the block and adds it to the parent.
-    /// Code closers won't close PP blocks — emits as statement instead.
-    void closeBlock();
+    /// Code closers won't close PP blocks, nor end a PP branch (`#else`) —
+    /// emits as statement instead. Returns false when the closer was refused.
+    auto closeBlock() -> bool;
 
     /// Like closeBlock but will close PP blocks. Used by PP closers (`#endif`).
     void closePPBlock();
@@ -65,6 +66,11 @@ public:
     /// Auto-close blocks until the stack reaches the given depth.
     /// Used when PP boundaries cut across open code blocks.
     void closeToDepth(std::size_t depth);
+
+    /// Close up to `count` code blocks (each with its open branch, if any),
+    /// without a closer statement. Stops at a PP block. Used at `#endif` when
+    /// every branch of the conditional closed the same enclosing blocks.
+    void closeOuterBlocks(std::size_t count);
 
 private:
     /// Append a node to the current block's body (or to the root).
