@@ -25,7 +25,7 @@ rules:
     - Note whether the change affects classic-FBIde parity or legacy file formats
   tasks:
     - Include adding or updating tests under tests/ (unit or ui) for new behaviour
-    - End with a build + test run (./build/claude/debug/tests/tests)
+    - End with a build + test run (ctest --test-dir build/claude/debug --output-on-failure)
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.
