@@ -7,6 +7,7 @@
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "GeneralPage.hpp"
 #include "app/App.hpp"
+#include "app/Appearance.hpp"
 #include "app/Context.hpp"
 #include "config/ConfigManager.hpp"
 #include "document/TextEncoding.hpp"
@@ -100,6 +101,7 @@ GeneralPage::GeneralPage(Context& ctx, wxWindow* parent)
     m_configurationInStatusBar = cfg.get_or("commands.configurationInStatusBar", false);
     m_checkUpdatesOnLoad = cfg.get_or("update.checkOnStartup", true);
     m_language = currentLocaleFileName(cfg);
+    m_appearance = cfg.get_or("appearance", "");
 }
 
 void GeneralPage::create() {
@@ -140,13 +142,39 @@ void GeneralPage::create() {
         });
     });
 
-    // Language section. The dropdown shows each locale's `name=`
-    // header (falling back to the filename) sorted alphabetically;
-    // `m_language` keeps storing the filename so the on-disk config
-    // shape doesn't change.
-    vbox(tr("dialogs.settings.general.language"), { .margin = false }, [&] {
+    // FBIde settings: theme (light/dark) and language, laid out in the same
+    // two equal-weight columns as the editor settings above so the columns
+    // line up. Theme is hidden where wxWidgets can't switch it (e.g. Windows
+    // before 10 1903); Language then takes the first column.
+    const bool showTheme = isAppearanceSupported();
+    const auto themeRow = [&] {
         hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
-            text(tr("dialogs.settings.general.languageSelect"), { .proportion = 1, .expand = false });
+            text(tr("dialogs.settings.general.appearance"), { .expand = false });
+            static constexpr std::array kOptions { wxApp::Appearance::System, wxApp::Appearance::Dark, wxApp::Appearance::Light };
+            wxArrayString names;
+            names.Add(tr("dialogs.settings.general.appearanceSystem"));
+            names.Add(tr("dialogs.settings.general.appearanceDark"));
+            names.Add(tr("dialogs.settings.general.appearanceLight"));
+
+            // An unset value shows as System.
+            const auto current = parseAppearance(m_appearance).value_or(wxApp::Appearance::System);
+            const auto ctrl = choice(names, { .expand = false });
+            ctrl->SetMinSize(wxSize(160, -1));
+            ctrl->SetSelection(static_cast<int>(std::ranges::find(kOptions, current) - kOptions.begin()));
+            ctrl->Bind(wxEVT_CHOICE, [this](const wxCommandEvent& evt) {
+                const auto idx = evt.GetSelection();
+                if (idx >= 0 && static_cast<std::size_t>(idx) < kOptions.size()) {
+                    m_appearance = appearanceConfigKey(kOptions[static_cast<std::size_t>(idx)]);
+                }
+            });
+        });
+    };
+    const auto languageRow = [&] {
+        // The dropdown shows each locale's `name=` header (falling back to
+        // the filename) sorted alphabetically; `m_language` keeps storing
+        // the filename so the on-disk config shape doesn't change.
+        hbox({ .alignment = SmartBoxSizer::Alignment::Center, .margin = false }, [&] {
+            text(tr("dialogs.settings.general.language"), { .expand = false });
             const auto languages = loadLanguageOptions(getContext());
 
             wxArrayString displayNames;
@@ -159,7 +187,7 @@ void GeneralPage::create() {
             }
 
             const auto ctrl = choice(displayNames, { .expand = false });
-            ctrl->SetMinSize(wxSize(200, -1));
+            ctrl->SetMinSize(wxSize(160, -1));
             if (selected != wxNOT_FOUND) {
                 ctrl->SetSelection(selected);
             } else if (!displayNames.IsEmpty()) {
@@ -171,6 +199,28 @@ void GeneralPage::create() {
                     m_language = languages[static_cast<std::size_t>(idx)].fileName;
                 }
             });
+        });
+    };
+
+    hbox(tr("dialogs.settings.general.ideSettings"), { .margin = false }, [&] {
+        vbox({ .proportion = 1, .margin = false }, [&] {
+            if (showTheme) {
+                themeRow();
+            } else {
+                languageRow();
+            }
+        });
+
+        separator();
+
+        vbox({ .proportion = 1, .margin = false }, [&] {
+            if (showTheme) {
+                languageRow();
+            } else {
+                // wx treats a sizer with no shown items as hidden and would
+                // collapse this column; a spacer keeps it at its share.
+                spacer(0);
+            }
         });
     });
 
@@ -203,6 +253,14 @@ void GeneralPage::apply() {
     cfg["commands"]["configurationInStatusBar"] = m_configurationInStatusBar;
     cfg["update"]["checkOnStartup"] = m_checkUpdatesOnLoad;
 
+    // Appearance is read once at startup (wx can't switch it once windows
+    // are shown), so a change is saved now and applies on the next start —
+    // the restart offered below just gets there sooner.
+    const bool appearanceChanged = m_appearance != cfg.get_or("appearance", "");
+    if (appearanceChanged) {
+        cfg["appearance"] = m_appearance;
+    }
+
     // Swap locale file if the user picked a different language. Live
     // refresh would have to update every menu/dialog/sidebar string in
     // place — too many small touch points to keep correct. Instead we
@@ -210,28 +268,37 @@ void GeneralPage::apply() {
     // FBIde to restore them so the new locale loads cleanly. Some editor
     // undo state is lost; the trade-off is worth it
     // for a rarely-changed setting.
-    if (!m_language.empty() && m_language != currentLocaleFileName(cfg)) {
-        const auto answer = wxMessageBox(
-            tr("dialogs.settings.general.languageRestart"),
-            tr("dialogs.settings.general.languageRestartTitle"),
-            wxYES_NO | wxICON_QUESTION,
-            this
-        );
-        if (answer != wxYES) {
-            // Revert the in-memory selection — config stays unchanged.
-            m_language = currentLocaleFileName(cfg);
-            return;
-        }
+    const bool languageChanged = !m_language.empty() && m_language != currentLocaleFileName(cfg);
+    if (!languageChanged && !appearanceChanged) {
+        return;
+    }
 
-        // Hand the restart over to App. The locale-path swap is
-        // committed inside the callback, which only fires after the
-        // session save succeeds — so a cancelled in-flight save
-        // leaves the language unchanged.
-        getContext().getApp().scheduleRestart([&ctx = getContext(), language = m_language]() {
+    // One prompt even when both changed: the language text covers it.
+    const auto answer = wxMessageBox(
+        tr(languageChanged ? "dialogs.settings.general.languageRestart" : "dialogs.settings.general.appearanceRestart"),
+        tr("dialogs.settings.general.languageRestartTitle"),
+        wxYES_NO | wxICON_QUESTION,
+        this
+    );
+    if (answer != wxYES) {
+        // Revert the in-memory language selection — the locale stays
+        // unchanged. A changed appearance stays saved for the next start.
+        m_language = currentLocaleFileName(cfg);
+        return;
+    }
+
+    // Hand the restart over to App. The locale-path swap is
+    // committed inside the callback, which only fires after the
+    // session save succeeds — so a cancelled in-flight save
+    // leaves the language unchanged.
+    std::function<void()> commit;
+    if (languageChanged) {
+        commit = [&ctx = getContext(), language = m_language]() {
             ctx.getConfigManager().setCategoryPath(
                 ConfigManager::Category::Locale,
                 "locales/" + language
             );
-        });
+        };
     }
+    getContext().getApp().scheduleRestart(std::move(commit));
 }

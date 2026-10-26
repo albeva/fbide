@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "App.hpp"
+#include "Appearance.hpp"
 #include "Context.hpp"
 #include "FileAssociations.hpp"
 #include "FileAssociationsLinux.hpp"
@@ -158,24 +159,18 @@ void App::initAppearance() {
     // never repaint. SetAppearance(Dark) returns AppearanceResult; log
     // when it fails so misbehaving installs leave a breadcrumb in the
     // log.
-    const auto appearance = m_context->getConfigManager().config().get_or("appearance", "").Lower();
+    const auto appearance = m_context->getConfigManager().config().get_or("appearance", "");
     if (appearance.IsEmpty()) {
         return;
     }
 
-    auto target = Appearance::System;
-    if (appearance == "dark") {
-        target = Appearance::Dark;
-    } else if (appearance == "light") {
-        target = Appearance::Light;
-    } else if (appearance == "system") {
-        target = Appearance::System;
-    } else {
+    const auto target = parseAppearance(appearance);
+    if (!target.has_value()) {
         wxLogWarning("Unknown 'appearance' value '%s' — expected light/dark/system", appearance);
         return;
     }
 
-    const auto result = SetAppearance(target);
+    const auto result = SetAppearance(*target);
     if (result != AppearanceResult::Ok) {
         const wxString reason = (result == AppearanceResult::CannotChange)
                                   ? "appearance can no longer be changed (already shown windows)"
