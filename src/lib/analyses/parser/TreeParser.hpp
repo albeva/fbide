@@ -72,6 +72,9 @@ private:
     /// True when the collected segment is a lone access modifier, i.e. the
     /// `Public` / `Private` / `Protected` of a `Public:` visibility label.
     [[nodiscard]] auto isAccessModifierLabel() const -> bool;
+    /// True when the segment collected so far is a single-line `If … Then <stmt>`:
+    /// its colons separate statements of the condition and must not split it.
+    [[nodiscard]] auto isSingleLineIf() const -> bool;
 
     ParseOptions m_options; ///< Parse options pinned for this parser.
 
@@ -82,7 +85,17 @@ private:
     TreeBuilder m_builder;                               ///< Tree being assembled.
     std::vector<lexer::Token> m_segment;                 ///< Buffered tokens for the current statement / opener.
     std::vector<lexer::Token> m_lean;                    ///< Reusable lean-filtered token buffer; avoids a per-build allocation.
-    std::vector<std::size_t> m_ppDepths;                 ///< Builder stack depth recorded at each PP block open.
+
+    /// An open `#if` / `#macro` block. Tracks how many enclosing code blocks
+    /// each branch closes, so a block closed in every branch (`Do … #if …
+    /// Loop … #else … Loop … #endif`) can be closed at `#endif`.
+    struct PpFrame {
+        std::size_t depth = 0;           ///< Builder stack depth when the PP block opened.
+        std::vector<std::size_t> closes; ///< Refused-closer count of each finished branch.
+        std::size_t current = 0;         ///< Refused closers in the current branch.
+        bool hasElse = false;            ///< True once an `#else` branch has been seen.
+    };
+    std::vector<PpFrame> m_ppFrames; ///< Open PP blocks, innermost last.
 };
 
 } // namespace fbide::parser

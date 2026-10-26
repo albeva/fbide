@@ -595,6 +595,22 @@ TEST_F(FBSciLexerTests, PreprocessorHexNumber) {
     );
 }
 
+TEST_F(FBSciLexerTests, PreprocessorMemberAccessDot) {
+    // Issue #136: `.` in a macro body is an operator, not Preprocessor-styled
+    // filler — otherwise the formatter treats it as whitespace and drops it.
+    expectStyles(
+        "#define X (a.b)\n",
+        "#kkkkkk#i#pipip "
+    );
+}
+
+TEST_F(FBSciLexerTests, PreprocessorEllipsis) {
+    expectStyles(
+        "#define V(a, ...) f(a)\n",
+        "#kkkkkk#ipip#pppp#ipip "
+    );
+}
+
 TEST_F(FBSciLexerTests, PreprocessorDoesNotBleedToNextLine) {
     // After a directive line ends, the next line must lex as regular code.
     // `dim` is in the Keywords wordlist — without proper PP-state reset

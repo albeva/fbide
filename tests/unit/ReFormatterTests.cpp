@@ -622,6 +622,25 @@ TEST_F(ReFormatterTests, ColonSplitsIntoBlock) {
         "End If\n");
 }
 
+TEST_F(ReFormatterTests, SingleLineIfKeepsColonStatements) {
+    // Every statement after `Then` belongs to the condition — splitting at
+    // the colon would make `t3 -= 1` unconditional (issue #136).
+    EXPECT_EQ(format("If t2 < t1 Then t1 -= 1 : t3 -= 1\n"), "If t2 < t1 Then t1 -= 1 : t3 -= 1\n");
+    EXPECT_EQ(format("If c Then a = 1:b = 2 Else a = 3:b = 4\n"), "If c Then a = 1 : b = 2 Else a = 3 : b = 4\n");
+    EXPECT_EQ(format("If c Then a = 1 : b = 2 ' note\n"), "If c Then a = 1 : b = 2 ' note\n");
+    EXPECT_EQ(format(
+                  "Sub S\n"
+                  "If c Then a = 1 : b = 2\n"
+                  "x = 1 : y = 2\n"
+                  "End Sub\n"
+              ),
+        "Sub S\n"
+        "    If c Then a = 1 : b = 2\n"
+        "    x = 1\n"
+        "    y = 2\n"
+        "End Sub\n");
+}
+
 TEST_F(ReFormatterTests, ColonSplitNestedBlock) {
     EXPECT_EQ(format(
                   "Sub Main : If x Then : Print x : End If : End Sub\n"
@@ -709,6 +728,39 @@ TEST_F(ReFormatterTests, PPInsideCodeBlock) {
         "        Print \"debug\"\n"
         "    #endif\n"
         "    Print \"hello\"\n"
+        "End Sub\n");
+}
+
+TEST_F(ReFormatterTests, PPBranchClosersIndentWithBranch) {
+    // Issue #136: a `Do` closed in both `#if` branches. Each closer is
+    // indented as a statement of its branch, and code after `#endif` is back
+    // at the enclosing level.
+    EXPECT_EQ(format(
+                  "Sub S\n"
+                  "Do\n"
+                  "#if A\n"
+                  "x = 1\n"
+                  "Loop Until x\n"
+                  "#else\n"
+                  "Loop Until y\n"
+                  "#endif\n"
+                  "Print x\n"
+                  "End Sub\n"
+                  "Sub T\n"
+                  "End Sub\n"
+              ),
+        "Sub S\n"
+        "    Do\n"
+        "        #if A\n"
+        "            x = 1\n"
+        "            Loop Until x\n"
+        "        #else\n"
+        "            Loop Until y\n"
+        "        #endif\n"
+        "    Print x\n"
+        "End Sub\n"
+        "\n"
+        "Sub T\n"
         "End Sub\n");
 }
 
@@ -1004,6 +1056,27 @@ TEST_F(ReFormatterTests, SpacingTokenPasteOperator) {
     EXPECT_EQ(format("#Define Concat(t, n) t##n\n"), "#Define Concat(t, n) t ## n\n");
     // `#x` stringizes a macro argument — a prefix sigil, stays attached.
     EXPECT_EQ(format("#define Str(x) #x\n"), "#define Str(x) #x\n");
+}
+
+TEST_F(ReFormatterTests, DefineBodyKeepsMemberAccessDot) {
+    // Issue #136: the `.` in a macro body was dropped by the formatter.
+    EXPECT_EQ(format("#Define LEFT1 (sprite1.x)\n"), "#Define LEFT1 (sprite1.x)\n");
+    EXPECT_EQ(format("#Define LEFT2 (sprite2.x)\n"), "#Define LEFT2 (sprite2.x)\n");
+    EXPECT_EQ(format("#Define rng float32(myhash.v)\n"), "#Define rng float32(myhash.v)\n");
+}
+
+TEST_F(ReFormatterTests, DefineKeepsObjectLikeMacroSpace) {
+    // `#define A (x)` is an object-like macro whose body is `(x)`;
+    // `#define A(x)` takes a parameter. The space is meaningful.
+    EXPECT_EQ(format("#define A (x)\n"), "#define A (x)\n");
+    EXPECT_EQ(format("#define A   (x)\n"), "#define A (x)\n");
+    EXPECT_EQ(format("#define A(x) x\n"), "#define A(x) x\n");
+    EXPECT_EQ(format("#macro M (x)\n#endmacro\n"), "#macro M (x)\n#endmacro\n");
+    EXPECT_EQ(format("Sub S\n#define A (x)\nEnd Sub\n", true), "Sub S\n#   define A (x)\nEnd Sub\n");
+}
+
+TEST_F(ReFormatterTests, DefineBodyKeepsEllipsis) {
+    EXPECT_EQ(format("#define V(a, ...) f(a, __VA_ARGS__)\n"), "#define V(a, ...) f(a, __VA_ARGS__)\n");
 }
 
 TEST_F(ReFormatterTests, SpacingTokenPasteKeepsUnderscoreAttached) {

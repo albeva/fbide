@@ -36,16 +36,25 @@ void TreeBuilder::openBranch() {
     m_stack.push_back({ std::move(branch), true });
 }
 
-void TreeBuilder::closeBlock() {
+auto TreeBuilder::closeBlock() -> bool {
+    // A closer inside `#else` / `#elseif` with no opener of its own closes a
+    // block outside the conditional — it must not end the PP branch.
+    const auto size = m_stack.size();
+    if (size >= 2 && m_stack.back().isBranch && m_stack[size - 2].isPP) {
+        statement();
+        return false;
+    }
+
     closeBranch();
 
     if (m_stack.empty() || m_stack.back().isPP) {
         // Unmatched closer or would close a PP block — emit as statement
         statement();
-        return;
+        return false;
     }
 
     popBlock();
+    return true;
 }
 
 void TreeBuilder::closePPBlock() {
@@ -103,6 +112,16 @@ void TreeBuilder::closeToDepth(const std::size_t depth) {
             m_stack.pop_back();
             addNode(std::move(entry.node));
         }
+    }
+}
+
+void TreeBuilder::closeOuterBlocks(const std::size_t count) {
+    for (std::size_t i = 0; i < count; i++) {
+        closeBranch();
+        if (m_stack.empty() || m_stack.back().isPP) {
+            return;
+        }
+        popBlock();
     }
 }
 

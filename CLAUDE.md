@@ -20,7 +20,7 @@ needs it (e.g. a non-default Clang on macOS).
 
 Debug:
 ```bash
-cmake -B build/claude/debug -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake -B build/claude/debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
 cmake --build build/claude/debug
 ```
 
@@ -33,12 +33,18 @@ cmake --build build/claude/release
 On Windows, configure from a Visual Studio developer shell so Ninja picks up MSVC.
 
 ### Run tests
-Unit tests (`tests`) and UI tests (`ui-tests`) are registered with CTest:
+Tests are opt-in: configure with `-DBUILD_TESTING=ON` (as in the Debug command above). Unit tests (`tests`) and UI tests (`ui-tests`) are registered with CTest:
 ```bash
 ctest --test-dir build/claude/debug --output-on-failure
 ```
 The binaries can also be run directly from `build/claude/debug/tests/`
 (`tests`/`ui-tests`, with `.exe` on Windows).
+
+**macOS: do NOT run the UI tests** (`ui-tests`, CTest label `gui`) — they always
+fail there and only run reliably on Windows. Exclude them:
+```bash
+ctest --test-dir build/claude/debug -LE gui --output-on-failure
+```
 
 ## Reference Implementation
 

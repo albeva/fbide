@@ -50,6 +50,10 @@ private:
     [[nodiscard]] static auto isDefinition(const parser::BlockNode& block) -> bool;
     /// True when a space is required between two adjacent tokens.
     [[nodiscard]] static auto needsSpaceBefore(const lexer::Token& prev, const lexer::Token& curr) -> bool;
+    /// Index of the `(` after a `#define` / `#macro` name that the source
+    /// separates from the name with whitespace, or `npos`. That space makes
+    /// the macro object-like (`#define A (x)`), so it must survive.
+    [[nodiscard]] static auto spacedMacroParen(const parser::StatementNode& stmt, std::size_t first) -> std::size_t;
     /// True when `token` is layout-only (Whitespace, Newline, Comment).
     [[nodiscard]] static auto isLayout(const lexer::Token& token) -> bool;
     /// True when `token` is a keyword operator with a compound-assignment form
