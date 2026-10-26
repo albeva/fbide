@@ -6,6 +6,7 @@
 //
 #pragma once
 #include "pch.hpp"
+#include "document/TextEncoding.hpp"
 
 namespace fbide {
 class Context;
@@ -30,6 +31,8 @@ public:
         bool applyCase = false; ///< Normalise keyword case per the configured rules.
         bool html = false;      ///< Render HTML instead of plain code.
         wxString outputPath;    ///< Destination file; empty → stdout.
+        /// Forced input encoding (`--encoding`); nullopt → detect like the editor.
+        std::optional<TextEncoding> encoding;
     };
 
     /// Bind to the application context and the options for this run.
@@ -40,9 +43,11 @@ public:
     [[nodiscard]] auto run(const wxString& inputPath) const -> int;
 
 private:
-    /// Write `text` to the output file, or stdout when none is set. Reports I/O
+    /// Write `bytes` to the output file, or stdout when none is set. Reports I/O
     /// failures on stderr; returns false on failure.
-    [[nodiscard]] auto emit(const wxString& text) const -> bool;
+    [[nodiscard]] auto emit(std::string_view bytes) const -> bool;
+    /// The editor's configured fallback encoding (`editor.encoding`).
+    [[nodiscard]] auto defaultEncoding() const -> TextEncoding;
 
     Context& m_ctx;    ///< Application context — config, theme, keywords.
     Options m_options; ///< Pinned options for this command.

@@ -35,6 +35,7 @@ add_executable(tests
     unit/MarkdownSelectionTests.cpp
     unit/MarkdownTests.cpp
     unit/FormatCheckTests.cpp
+    unit/FormatIOTests.cpp
     unit/FormatSettingsTests.cpp
     unit/ReFormatterTests.cpp
     unit/StyleLexerTests.cpp

@@ -73,6 +73,10 @@ void ConsoleOutput::write(const wxString& text) {
     writeBytes(text.ToStdString(wxConvUTF8), /*toStderr=*/false);
 }
 
+void ConsoleOutput::writeRaw(const std::string_view bytes) {
+    writeBytes(std::string { bytes }, /*toStderr=*/false);
+}
+
 void ConsoleOutput::writeLine(const wxString& text) {
     writeBytes(text.ToStdString(wxConvUTF8) + '\n', /*toStderr=*/false);
 }

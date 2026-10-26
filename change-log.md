@@ -10,6 +10,7 @@
 - Fixed the formatter splitting glued operators such as `&=>` (#136).
 - Fixed preprocessor directives written with spaces after `#` (`#  if`, `#   define`, as produced by Align PP) not being recognised: inactive branches were not greyed out, macros were missed, and re-formatting with Align PP broke the indentation (#136).
 - Re-formatting with Align PP off now removes the padding between `#` and the directive (`#   if` becomes `#if`) (#136).
+- `fbide format` now detects the file's encoding like the editor does and writes the result back in the same encoding; a new `--encoding <name>` option forces the input encoding.
 
 # Changes since 0.5.0
 

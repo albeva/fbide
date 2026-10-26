@@ -17,6 +17,9 @@ class ConsoleOutput final {
 public:
     /// Write `text` to stdout verbatim — no trailing newline.
     static void write(const wxString& text);
+    /// Write `bytes` to stdout as-is, no re-encoding — for output already
+    /// encoded in a specific text encoding (e.g. `fbide format`).
+    static void writeRaw(std::string_view bytes);
     /// Write `text` to stdout followed by a newline.
     static void writeLine(const wxString& text);
     /// Write `text` to stderr followed by a newline.
