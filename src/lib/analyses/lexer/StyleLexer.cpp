@@ -620,14 +620,21 @@ void StyleLexer::emitKeywordPP(const StyleRange& range, std::vector<Token>& out)
     }
 
     // Append to the in-progress directive token only when it's still the
-    // bare `#` AND no intervening tokens have been emitted on the same line
-    // — that's the directive-position slot. Otherwise emit as a standalone
-    // Preprocessor token (e.g. `once` after `include`, or PP wordlist
-    // matches in macro bodies that must not reclassify the directive).
+    // bare `#` AND nothing but whitespace has been emitted after it on the
+    // same line — that's the directive-position slot. FreeBASIC allows
+    // `#   if` (and Align PP produces it), so the gap folds into the
+    // directive token. Otherwise emit as a standalone Preprocessor token
+    // (e.g. `once` after `include`, or PP wordlist matches in macro bodies
+    // that must not reclassify the directive).
     const bool atDirectivePos = m_ppDirectiveIdx < out.size()
-                             && m_ppDirectiveIdx == out.size() - 1
-                             && out[m_ppDirectiveIdx].text == "#";
+                             && out[m_ppDirectiveIdx].text == "#"
+                             && std::all_of(out.begin() + static_cast<std::ptrdiff_t>(m_ppDirectiveIdx) + 1, out.end(),
+                                 [](const Token& tok) { return tok.kind == TokenKind::Whitespace; });
     if (atDirectivePos) {
+        for (auto idx = m_ppDirectiveIdx + 1; idx < out.size(); idx++) {
+            out[m_ppDirectiveIdx].text += out[idx].text;
+        }
+        out.resize(m_ppDirectiveIdx + 1);
         out[m_ppDirectiveIdx].text += text;
         out[m_ppDirectiveIdx].keywordKind = kwKind;
         out[m_ppDirectiveIdx].style = ThemeCategory::KeywordPP;

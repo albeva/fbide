@@ -8,6 +8,7 @@
 - Fixed formatting deleting the whole document when the code contained non-ASCII text outside strings and comments (#136).
 - Formatting now checks its result before applying it: if anything other than layout or keyword case would change, the code is left untouched and a "Formatting failed" message is shown (#136).
 - Fixed the formatter splitting glued operators such as `&=>` (#136).
+- Fixed preprocessor directives written with spaces after `#` (`#  if`, `#   define`, as produced by Align PP) not being recognised: inactive branches were not greyed out, macros were missed, and re-formatting with Align PP broke the indentation (#136).
 
 # Changes since 0.5.0
 
