@@ -40,6 +40,12 @@ ctest --test-dir build/claude/debug --output-on-failure
 The binaries can also be run directly from `build/claude/debug/tests/`
 (`tests`/`ui-tests`, with `.exe` on Windows).
 
+**macOS: do NOT run the UI tests** (`ui-tests`, CTest label `gui`) — they always
+fail there and only run reliably on Windows. Exclude them:
+```bash
+ctest --test-dir build/claude/debug -LE gui --output-on-failure
+```
+
 ## Reference Implementation
 
 The original FBIde 0.4 source is not part of this checkout (see the link above). Key characteristics of the original:
