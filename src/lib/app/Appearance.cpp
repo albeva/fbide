@@ -36,11 +36,7 @@ auto fbide::appearanceConfigKey(const wxApp::Appearance appearance) -> wxString 
 auto fbide::isAppearanceSupported() -> bool {
 #if defined(__WXMSW__)
     // wxMSWImpl::InitDarkMode: undocumented uxtheme APIs, 1903 and later.
-    #if wxUSE_DARK_MODE
     return wxCheckOsVersion(10, 0, 18362);
-    #else
-    return false;
-    #endif
 #elif defined(__WXOSX__)
     // NSAppearance switching needs macOS 10.14 (Mojave).
     return wxCheckOsVersion(10, 14);
