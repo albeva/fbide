@@ -1,6 +1,14 @@
+# Changes since 0.5.1
+
+- Added theme selector (system, dark, light) on systems that support it.
+- Added `--encoding` option to `fbide format`; file encoding is otherwise detected like in the editor.
+- Updated wxWidgets to 3.3.4.
+- Fixed various formatting issues (#136).
+- Fixed duplicate sub/function entries in the symbol browser when a symbol is both declared and defined.
+
 # Changes since 0.5.0
 
-- Updated wxWudgets to 3.3.3 (#130)
+- Updated wxWidgets to 3.3.3 (#130)
 - Added fbide now remembers formatting options (#132).
 - Added a "Reformat" that formats the whole document, or just the selected lines (#132).
 - Added a "Save Session As…" command to save the active session to a new file (#129).

@@ -57,6 +57,7 @@ private:
     wxString m_encoding; ///< Default `TextEncoding` config key (e.g. "UTF-8").
     wxString m_eolMode;  ///< Default `EolMode` config key ("LF" / "CRLF" / "CR").
     wxString m_language; ///< Selected locale identifier (filename stem).
+    wxString m_appearance; ///< `appearance=` config value: system / dark / light (empty = platform default).
 };
 
 } // namespace fbide

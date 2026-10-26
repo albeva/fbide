@@ -10,10 +10,10 @@
 .clion/
 
 # AIs
-.claude/
+.claude/settings.local.json
+.claude/settings.json
 .agents/
 skills-lock.json
-CLAUDE.md
 CLAUDE.local.md
 AGENTS.md
 

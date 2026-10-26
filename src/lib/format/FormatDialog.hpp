@@ -63,6 +63,7 @@ private:
     std::vector<lexer::Token> m_tokens;                   ///< Lexed tokens, fed into the transform chain.
     std::vector<std::unique_ptr<Transform>> m_transforms; ///< Active transforms, in pipeline order.
     std::unique_ptr<Renderer> m_renderer;                 ///< Active renderer (text or HTML).
+    bool m_resultFailed = false;                          ///< Transformed text failed `isSafeFormatResult`.
 
     Unowned<wxCheckBox> m_reindentCheck = nullptr;  ///< "Re-indent" toggle.
     Unowned<wxCheckBox> m_reformatCheck = nullptr;  ///< "Re-format" toggle.

@@ -15,6 +15,7 @@ target_sources(fbide_lib
     analyses/symbols/PpConditional.cpp
     analyses/symbols/SymbolTable.cpp
     app/App.cpp
+    app/Appearance.cpp
     app/Context.cpp
     app/FileAssociations.cpp
     app/FileAssociationsLinux.cpp
@@ -50,7 +51,9 @@ target_sources(fbide_lib
     editor/Editor.cpp
     editor/LineHistory.cpp
     editor/lexilla/FBSciLexer.cpp
+    format/FormatCheck.cpp
     format/FormatCommand.cpp
+    format/FormatIO.cpp
     format/FormatDialog.cpp
     format/FormatSettings.cpp
     format/QuickFormat.cpp
@@ -112,6 +115,7 @@ target_sources(fbide_lib
     analyses/symbols/PpConditional.hpp
     analyses/symbols/SymbolTable.hpp
     app/App.hpp
+    app/Appearance.hpp
     app/Context.hpp
     app/InstanceHandler.hpp
     command/CommandEntry.hpp
@@ -146,7 +150,9 @@ target_sources(fbide_lib
     editor/LineHistory.hpp
     editor/lexilla/CharCategory.hpp
     editor/lexilla/FBSciLexer.hpp
+    format/FormatCheck.hpp
     format/FormatCommand.hpp
+    format/FormatIO.hpp
     format/FormatDialog.hpp
     format/FormatSettings.hpp
     format/QuickFormat.hpp

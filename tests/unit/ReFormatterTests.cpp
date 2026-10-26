@@ -5,9 +5,9 @@
 // https://github.com/albeva/fbide
 //
 #include <gtest/gtest.h>
+#include "TestHelpers.hpp"
 #include "format/transformers/case/CaseTransform.hpp"
 #include "format/transformers/reformat/ReFormatter.hpp"
-#include "TestHelpers.hpp"
 
 using namespace fbide;
 using namespace fbide::reformat;
@@ -18,7 +18,7 @@ protected:
     static constexpr std::size_t tabSize = 4;
 
     void SetUp() override {
-        m_lexer = tests::createFbLexer(testDataPath + "fbfull.lng");
+        m_lexer = tests::createFbLexer(testDataPath + "resources/ide/keywords.ini");
     }
 
     void TearDown() override {
@@ -345,6 +345,25 @@ TEST_F(ReFormatterTests, PublicLabelInsideTypeBody) {
         "End Type\n");
 }
 
+TEST_F(ReFormatterTests, ProtectedLabelInsideTypeBody) {
+    // `protected:` / `private:` are visibility labels like `public:` — the
+    // trailing colon is part of the label and must survive colon splitting.
+    EXPECT_EQ(format(
+                  "Type myudt\n"
+                  "protected:\n"
+                  "Dim x As Integer\n"
+                  "private:\n"
+                  "Dim y As Integer\n"
+                  "End Type\n"
+              ),
+        "Type myudt\n"
+        "    protected:\n"
+        "    Dim x As Integer\n"
+        "    private:\n"
+        "    Dim y As Integer\n"
+        "End Type\n");
+}
+
 // ---------------------------------------------------------------------------
 // Nested blocks
 // ---------------------------------------------------------------------------
@@ -533,6 +552,36 @@ TEST_F(ReFormatterTests, ScopeBlock) {
 // Type — block vs alias form
 // ---------------------------------------------------------------------------
 
+TEST_F(ReFormatterTests, ExternBlock) {
+    // `Extern "C" ... End Extern` is a block — the body indents.
+    EXPECT_EQ(format(
+                  "Extern \"c++\"\n"
+                  "Declare Sub foo()\n"
+                  "End Extern\n"
+              ),
+        "Extern \"c++\"\n"
+        "    Declare Sub foo()\n"
+        "End Extern\n");
+    EXPECT_EQ(format(
+                  "Extern \"C\" Lib \"m\"\n"
+                  "Declare Function sinf(ByVal x As Single) As Single\n"
+                  "End Extern\n"
+              ),
+        "Extern \"C\" Lib \"m\"\n"
+        "    Declare Function sinf(ByVal x As Single) As Single\n"
+        "End Extern\n");
+}
+
+TEST_F(ReFormatterTests, ExternDeclarationDoesNotOpenBlock) {
+    // `Extern <symbol> As <type>` declares an external variable — no block.
+    EXPECT_EQ(format(
+                  "Extern x As Integer\n"
+                  "Print x\n"
+              ),
+        "Extern x As Integer\n"
+        "Print x\n");
+}
+
 TEST_F(ReFormatterTests, TypeBlock) {
     EXPECT_EQ(format(
                   "Type MyType\n"
@@ -571,6 +620,25 @@ TEST_F(ReFormatterTests, ColonSplitsIntoBlock) {
         "If x Then\n"
         "    Print x\n"
         "End If\n");
+}
+
+TEST_F(ReFormatterTests, SingleLineIfKeepsColonStatements) {
+    // Every statement after `Then` belongs to the condition — splitting at
+    // the colon would make `t3 -= 1` unconditional (issue #136).
+    EXPECT_EQ(format("If t2 < t1 Then t1 -= 1 : t3 -= 1\n"), "If t2 < t1 Then t1 -= 1 : t3 -= 1\n");
+    EXPECT_EQ(format("If c Then a = 1:b = 2 Else a = 3:b = 4\n"), "If c Then a = 1 : b = 2 Else a = 3 : b = 4\n");
+    EXPECT_EQ(format("If c Then a = 1 : b = 2 ' note\n"), "If c Then a = 1 : b = 2 ' note\n");
+    EXPECT_EQ(format(
+                  "Sub S\n"
+                  "If c Then a = 1 : b = 2\n"
+                  "x = 1 : y = 2\n"
+                  "End Sub\n"
+              ),
+        "Sub S\n"
+        "    If c Then a = 1 : b = 2\n"
+        "    x = 1\n"
+        "    y = 2\n"
+        "End Sub\n");
 }
 
 TEST_F(ReFormatterTests, ColonSplitNestedBlock) {
@@ -661,6 +729,127 @@ TEST_F(ReFormatterTests, PPInsideCodeBlock) {
         "    #endif\n"
         "    Print \"hello\"\n"
         "End Sub\n");
+}
+
+TEST_F(ReFormatterTests, PPBranchClosersIndentWithBranch) {
+    // Issue #136: a `Do` closed in both `#if` branches. Each closer is
+    // indented as a statement of its branch, and code after `#endif` is back
+    // at the enclosing level.
+    EXPECT_EQ(format(
+                  "Sub S\n"
+                  "Do\n"
+                  "#if A\n"
+                  "x = 1\n"
+                  "Loop Until x\n"
+                  "#else\n"
+                  "Loop Until y\n"
+                  "#endif\n"
+                  "Print x\n"
+                  "End Sub\n"
+                  "Sub T\n"
+                  "End Sub\n"
+              ),
+        "Sub S\n"
+        "    Do\n"
+        "        #if A\n"
+        "            x = 1\n"
+        "            Loop Until x\n"
+        "        #else\n"
+        "            Loop Until y\n"
+        "        #endif\n"
+        "    Print x\n"
+        "End Sub\n"
+        "\n"
+        "Sub T\n"
+        "End Sub\n");
+}
+
+TEST_F(ReFormatterTests, PPDirectiveWithSpaceAfterHash) {
+    // `#  if` is a directive like `#if`: it opens a PP block.
+    EXPECT_EQ(format(
+                  "Sub S\n"
+                  "#  ifdef A\n"
+                  "x = 1\n"
+                  "#  endif\n"
+                  "End Sub\n"
+              ),
+        "Sub S\n"
+        "    #ifdef A\n"
+        "        x = 1\n"
+        "    #endif\n"
+        "End Sub\n");
+}
+
+TEST_F(ReFormatterTests, PPPaddingCollapsesWithoutAlignPP) {
+    // Re-formatting Align PP output with Align PP off drops the padding
+    // between `#` and the directive: `#   define` -> `#define`.
+    EXPECT_EQ(format(
+                  "sub Main\n"
+                  "#   define LEFT1 (sprite1.x)\n"
+                  "#   define X \u4E2D\n"
+                  "    do\n"
+                  "#       if defined(__FB_WIN32__)\n"
+                  "            loop until x > 3\n"
+                  "#       else\n"
+                  "            loop until x > 4\n"
+                  "#       endif\n"
+                  "end sub\n"
+              ),
+        "sub Main\n"
+        "    #define LEFT1 (sprite1.x)\n"
+        "    #define X \u4E2D\n"
+        "    do\n"
+        "        #if defined(__FB_WIN32__)\n"
+        "            loop until x > 3\n"
+        "        #else\n"
+        "            loop until x > 4\n"
+        "        #endif\n"
+        "end sub\n");
+}
+
+TEST_F(ReFormatterTests, PPPaddingCollapsesWithReindentOnly) {
+    EXPECT_EQ(formatWith(
+                  "Sub S\n"
+                  "#   if X\n"
+                  "x = 1\n"
+                  "#\tendif\n"
+                  "End Sub\n",
+                  { .tabSize = tabSize, .reFormat = false }
+              ),
+        "Sub S\n"
+        "    #if X\n"
+        "        x = 1\n"
+        "    #endif\n"
+        "End Sub\n");
+}
+
+TEST_F(ReFormatterTests, AlignPPIsIdempotent) {
+    // Align PP pads between `#` and the directive. Re-formatting its own
+    // output must give the same text: same padding, same structure, and the
+    // object-like macro keeps its space before `(`.
+    const char* source =
+        "sub Main\n"
+        "#define LEFT1 (sprite1.x)\n"
+        "do\n"
+        "#if defined(__FB_WIN32__)\n"
+        "loop until x>3\n"
+        "#else\n"
+        "loop until x>4\n"
+        "#endif\n"
+        "end sub\n";
+    const char* expected =
+        "sub Main\n"
+        "#   define LEFT1 (sprite1.x)\n"
+        "    do\n"
+        "#       if defined(__FB_WIN32__)\n"
+        "            loop until x > 3\n"
+        "#       else\n"
+        "            loop until x > 4\n"
+        "#       endif\n"
+        "end sub\n";
+    const auto first = format(source, true);
+    EXPECT_EQ(first, expected);
+    EXPECT_EQ(format(first.c_str(), true), expected);
 }
 
 TEST_F(ReFormatterTests, PPMacroBlock) {
@@ -907,6 +1096,159 @@ TEST_F(ReFormatterTests, SpacingMemberAccessAndBraces) {
         "x = foo.bar\n"
         "y = ptr->field\n"
         "z = { 1, 2, 3 }\n");
+}
+
+TEST_F(ReFormatterTests, SpacingSemicolonSeparator) {
+    // `;` separates Print arguments like `,` — no space before, one after.
+    EXPECT_EQ(format("Print a;b;c\n"), "Print a; b; c\n");
+    EXPECT_EQ(format("Print a ; b ; c\n"), "Print a; b; c\n");
+    EXPECT_EQ(format("Print \"x\";\n"), "Print \"x\";\n");
+    EXPECT_EQ(format("Print #1, a;b\n"), "Print #1, a; b\n");
+}
+
+TEST_F(ReFormatterTests, SpacingCompoundKeywordAssignment) {
+    // `and=` / `or=` / `xor=` / `eqv=` / `imp=` / `mod=` / `shl=` / `shr=` are
+    // single compound-assignment operators — the `=` hugs the keyword.
+    EXPECT_EQ(format(
+                  "a and= b\n"
+                  "a or= b\n"
+                  "a xor= b\n"
+                  "a eqv= b\n"
+                  "a imp= b\n"
+                  "a mod= b\n"
+                  "a shl= b\n"
+                  "a shr= b\n"
+              ),
+        "a and= b\n"
+        "a or= b\n"
+        "a xor= b\n"
+        "a eqv= b\n"
+        "a imp= b\n"
+        "a mod= b\n"
+        "a shl= b\n"
+        "a shr= b\n");
+    // Stray whitespace between the keyword and `=` is closed up.
+    EXPECT_EQ(format("a eqv = b\n"), "a eqv= b\n");
+}
+
+TEST_F(ReFormatterTests, SpacingKeywordOperatorsKeepBinarySpacing) {
+    // Only the compound-assignment forms glue to `=`; plain keyword operators
+    // keep whitespace on both sides.
+    EXPECT_EQ(format("x = a And b\n"), "x = a And b\n");
+    EXPECT_EQ(format("x = Not y\n"), "x = Not y\n");
+    EXPECT_EQ(format("x = a Mod b\n"), "x = a Mod b\n");
+}
+
+TEST_F(ReFormatterTests, SpacingTokenPasteOperator) {
+    // `##` pastes macro arguments — one token, spaces on both sides.
+    EXPECT_EQ(format("#Define Concat(t, n) t##n\n"), "#Define Concat(t, n) t ## n\n");
+    // `#x` stringizes a macro argument — a prefix sigil, stays attached.
+    EXPECT_EQ(format("#define Str(x) #x\n"), "#define Str(x) #x\n");
+}
+
+TEST_F(ReFormatterTests, DefineBodyKeepsMemberAccessDot) {
+    // Issue #136: the `.` in a macro body was dropped by the formatter.
+    EXPECT_EQ(format("#Define LEFT1 (sprite1.x)\n"), "#Define LEFT1 (sprite1.x)\n");
+    EXPECT_EQ(format("#Define LEFT2 (sprite2.x)\n"), "#Define LEFT2 (sprite2.x)\n");
+    EXPECT_EQ(format("#Define rng float32(myhash.v)\n"), "#Define rng float32(myhash.v)\n");
+}
+
+TEST_F(ReFormatterTests, DefineKeepsObjectLikeMacroSpace) {
+    // `#define A (x)` is an object-like macro whose body is `(x)`;
+    // `#define A(x)` takes a parameter. The space is meaningful.
+    EXPECT_EQ(format("#define A (x)\n"), "#define A (x)\n");
+    EXPECT_EQ(format("#define A   (x)\n"), "#define A (x)\n");
+    EXPECT_EQ(format("#define A(x) x\n"), "#define A(x) x\n");
+    EXPECT_EQ(format("#macro M (x)\n#endmacro\n"), "#macro M (x)\n#endmacro\n");
+    EXPECT_EQ(format("Sub S\n#define A (x)\nEnd Sub\n", true), "Sub S\n#   define A (x)\nEnd Sub\n");
+}
+
+TEST_F(ReFormatterTests, DefineBodyKeepsEllipsis) {
+    EXPECT_EQ(format("#define V(a, ...) f(a, __VA_ARGS__)\n"), "#define V(a, ...) f(a, __VA_ARGS__)\n");
+}
+
+TEST_F(ReFormatterTests, MultiByteTextSurvivesReformat) {
+    // Forum follow-up to #136: non-ASCII text outside strings and comments
+    // was split byte by byte, producing invalid UTF-8 and an empty result.
+    EXPECT_EQ(format("Dim \u53D8\u91CF As Integer\n"), "Dim \u53D8\u91CF As Integer\n");
+    EXPECT_EQ(format("#define X \u4E2D\n"), "#define X \u4E2D\n");
+    const auto colon = format("x = 1 \uFF1A y = 2\n");
+    EXPECT_NE(colon.find("\uFF1A"), std::string::npos) << colon;
+    EXPECT_TRUE(wxString::FromUTF8(colon).length() > 0) << "invalid UTF-8";
+}
+
+TEST_F(ReFormatterTests, UnrecognisedTextKeepsSourceSpacing) {
+    EXPECT_EQ(format("x\u53D8\u91CF = 1\n"), "x\u53D8\u91CF = 1\n");
+    EXPECT_EQ(format("x   \u53D8 = 1\n"), "x \u53D8 = 1\n");
+}
+
+TEST_F(ReFormatterTests, GluedBinaryOperatorsStayGlued) {
+    EXPECT_EQ(format("a &=> \"-\"\n"), "a &=> \"-\"\n");
+    // Regression guards: unary, bracket and concat cases keep normal spacing.
+    EXPECT_EQ(format("a=-1\n"), "a = -1\n");
+    EXPECT_EQ(format("a<=-1\n"), "a <= -1\n");
+    EXPECT_EQ(format("f(x)=1\n"), "f(x) = 1\n");
+    EXPECT_EQ(format("s = a &-1\n"), "s = a & -1\n");
+    EXPECT_EQ(format("n = x&-1\n"), "n = x& - 1\n"); // `x&` is a type suffix
+}
+
+TEST_F(ReFormatterTests, SpacingTokenPasteKeepsUnderscoreAttached) {
+    // `a##_##b` pastes a literal underscore into the name. A detached `_`
+    // reads as a line continuation (issue #115), so `##` hugs an underscore
+    // operand — the `#`s on both sides of it stay put and only the outer
+    // operands gain padding.
+    EXPECT_EQ(format("#define J(a, b) a##_##b\n"), "#define J(a, b) a ##_## b\n");
+    // ... and that output re-formats to itself.
+    EXPECT_EQ(format("#define J(a, b) a ##_## b\n"), "#define J(a, b) a ##_## b\n");
+}
+
+TEST_F(ReFormatterTests, SpacingTypeSuffixHugsIdentifier) {
+    // `%` `&` `!` `#` `$` directly after a name are type suffixes, not operators.
+    EXPECT_EQ(format(
+                  "x% = 1\n"
+                  "y& = 2\n"
+                  "z# = 3\n"
+                  "a! = 4\n"
+                  "b$ = \"s\"\n"
+              ),
+        "x% = 1\n"
+        "y& = 2\n"
+        "z# = 3\n"
+        "a! = 4\n"
+        "b$ = \"s\"\n");
+    EXPECT_EQ(format("Print x%;y&\n"), "Print x%; y&\n");
+    EXPECT_EQ(format("v = arr%(i)\n"), "v = arr%(i)\n");
+    EXPECT_EQ(format("n = x%+1\n"), "n = x% + 1\n");
+}
+
+TEST_F(ReFormatterTests, SpacingSuffixCharsStayBinaryWhenNotSuffixes) {
+    // `&` between two operands is string concatenation; `#` before a number is
+    // the file-number sigil; `!"..."` is an escaped-string prefix.
+    EXPECT_EQ(format("s = a & b\n"), "s = a & b\n");
+    EXPECT_EQ(format("s = a&c\n"), "s = a & c\n");
+    // `&B` / `&H` / `&O` are literal prefixes, not a suffix followed by a name.
+    EXPECT_EQ(format("n = &B1010\n"), "n = &B1010\n");
+    EXPECT_EQ(format("n = a&HFF\n"), "n = a &HFF\n");
+    EXPECT_EQ(format("Print #1, x\n"), "Print #1, x\n");
+    EXPECT_EQ(format("printf(!\"hi\")\n"), "printf(!\"hi\")\n");
+}
+
+TEST_F(ReFormatterTests, SpacingFixedLengthStringType) {
+    // `Zstring * 32` — the `*` is a length specifier after a type keyword,
+    // not a dereference.
+    EXPECT_EQ(format(
+                  "Type T\n"
+                  "Name As Zstring * 32\n"
+                  "End Type\n"
+              ),
+        "Type T\n"
+        "    Name As Zstring * 32\n"
+        "End Type\n");
+    EXPECT_EQ(format("Dim s As String*10\n"), "Dim s As String * 10\n");
+    EXPECT_EQ(format("Dim w As Wstring * 8\n"), "Dim w As Wstring * 8\n");
+    // Dereference after a non-type keyword still hugs its operand.
+    EXPECT_EQ(format("Print *p\n"), "Print *p\n");
+    EXPECT_EQ(format("Return *p\n"), "Return *p\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -1353,7 +1695,8 @@ TEST_F(ReFormatterTests, BaseIndentStacksOnStructuralIndent) {
                   "If a Then\n"
                   "Print 1\n"
                   "End If\n",
-                  { .tabSize = tabSize, .baseIndent = 1 }),
+                  { .tabSize = tabSize, .baseIndent = 1 }
+              ),
         "    If a Then\n"
         "        Print 1\n"
         "    End If\n");

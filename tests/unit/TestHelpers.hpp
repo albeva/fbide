@@ -5,7 +5,6 @@
 // https://github.com/albeva/fbide
 //
 #pragma once
-#include "analyses/lexer/KeywordTables.hpp"
 #include "analyses/lexer/MemoryDocument.hpp"
 #include "analyses/lexer/StyleLexer.hpp"
 #include "analyses/lexer/StyledSource.hpp"
@@ -15,40 +14,24 @@
 
 namespace fbide::tests {
 
-/// Read a `.lng` file's `[keywords]` section (kw1..kw4) into a configured
-/// FBSciLexer, ready to lex source. Returned ILexer5 must be Released by the
-/// caller. Slot 6 (KeywordPP) is seeded from the canonical ppKeywords() table
-/// so PP block detection (`#ifdef`/`#endif`) works without depending on the
-/// .lng file shipping a KeywordPP group.
-inline auto createFbLexer(const wxString& kwIniPath) -> Scintilla::ILexer5* {
+/// Read the shipped `keywords.ini` `[groups]` section into a configured
+/// FBSciLexer, ready to lex source. Group keys are the ThemeCategory names
+/// (`Keywords`, `KeywordTypes`, ...) — the same file and layout the IDE loads
+/// at runtime, so tests exercise the real keyword lists. Returned ILexer5 must
+/// be Released by the caller.
+inline auto createFbLexer(const wxString& keywordsIniPath) -> Scintilla::ILexer5* {
     auto* lex = FBSciLexer::Create();
-    wxFFileInputStream stream(kwIniPath);
+    wxFFileInputStream stream(keywordsIniPath);
     if (!stream.IsOk()) {
         return lex;
     }
     wxFileConfig ini(stream);
-    ini.SetPath("/keywords");
-    // Build the shared keyword table (group order matches ThemeCategory).
-    // kw1..kw6 map to Keywords / KeywordTypes / KeywordOperators /
-    // KeywordConstants / KeywordLibrary / KeywordCustom; asm groups stay empty.
+    ini.SetPath("/groups");
     std::array<std::string, kThemeKeywordGroupsCount> groups;
-    for (std::size_t i = 0; i < 6; i++) {
-        wxString key;
-        key.Printf("kw%zu", i + 1);
-        groups[i] = std::string(ini.Read(key, "").utf8_str());
+    for (std::size_t i = 0; i < kThemeKeywordCategories.size(); i++) {
+        const auto key = getThemeCategoryName(kThemeKeywordCategories[i]);
+        groups[i] = std::string(ini.Read(wxString(key), "").utf8_str());
     }
-    // KeywordPP slot — prefer kwPP from the .lng, fall back to canonical
-    // ppKeywords() table. Either way #ifdef/#endif/etc. style as KeywordPP.
-    auto pp = ini.Read("kwPP", "");
-    if (pp.IsEmpty()) {
-        for (const auto& [text, _] : lexer::ppKeywords()) {
-            if (!pp.IsEmpty())
-                pp += ' ';
-            pp += wxString::FromUTF8(text);
-        }
-    }
-    constexpr std::size_t ppSlot = indexOfKeywordGroup(ThemeCategory::KeywordPP);
-    groups[ppSlot] = std::string(pp.utf8_str());
     FBSciLexer::setKeywords(groups);
     return lex;
 }

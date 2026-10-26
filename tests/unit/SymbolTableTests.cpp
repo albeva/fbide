@@ -17,7 +17,7 @@ protected:
     static inline const wxString testDataPath = FBIDE_TEST_DATA_DIR;
 
     void SetUp() override {
-        m_lexer = tests::createFbLexer(testDataPath + "fbfull.lng");
+        m_lexer = tests::createFbLexer(testDataPath + "resources/ide/keywords.ini");
     }
 
     void TearDown() override {
@@ -177,6 +177,31 @@ TEST_F(SymbolTableTests, SubFunctionType) {
     ASSERT_EQ(table.getTypes().size(), 1U);
     EXPECT_EQ(table.getTypes()[0].name, "T");
     EXPECT_EQ(table.getTypes()[0].line, 4);
+}
+
+TEST_F(SymbolTableTests, SubsAfterLoopClosedInPpBranches) {
+    // Issue #136: a `Do` closed by `Loop` in both `#if` branches threw the
+    // block structure off, nesting every later procedure in the first one.
+    const auto table = extract(
+        "Sub A\n"
+        "Do\n"
+        "#if X\n"
+        "Loop Until p\n"
+        "#else\n"
+        "Loop Until q\n"
+        "#endif\n"
+        "End Sub\n"
+        "Sub B\n"
+        "End Sub\n"
+        "Function C() As Integer\n"
+        "End Function\n"
+    );
+    ASSERT_EQ(table.getSubs().size(), 2U);
+    EXPECT_EQ(table.getSubs()[0].name, "A");
+    EXPECT_EQ(table.getSubs()[1].name, "B");
+    EXPECT_EQ(table.getSubs()[1].line, 8);
+    ASSERT_EQ(table.getFunctions().size(), 1U);
+    EXPECT_EQ(table.getFunctions()[0].name, "C");
 }
 
 TEST_F(SymbolTableTests, AccessModifiersOnSubFunction) {
@@ -1042,6 +1067,33 @@ TEST_F(SymbolTableTests, InactiveRangesCoverDeadIfBranch) {
     EXPECT_LE(start, static_cast<int>(text.find("WinOnly")));
     EXPECT_GE(end, static_cast<int>(text.find("WinOnly")));
     EXPECT_LT(end, static_cast<int>(text.find("Other"))); // the live #else branch is not dimmed
+}
+
+TEST_F(SymbolTableTests, InactiveRangesWithSpaceAfterHash) {
+    // `#  ifdef` / `#  else` / `#  endif` behave exactly like the unspaced forms:
+    // the dead branch is greyed out and its Sub is dropped.
+    const char* src = "#  ifdef __FB_WIN32__\n"
+                      "    Sub WinOnly\n"
+                      "    End Sub\n"
+                      "#  else\n"
+                      "    Sub Other\n"
+                      "    End Sub\n"
+                      "#  endif\n";
+    const auto table = extractWith(src, { "__fb_unix__" });
+    ASSERT_EQ(table.getInactiveRanges().size(), 1U);
+    const auto [start, end] = table.getInactiveRanges()[0];
+    const std::string_view text(src);
+    EXPECT_LE(start, static_cast<int>(text.find("WinOnly")));
+    EXPECT_GE(end, static_cast<int>(text.find("WinOnly")));
+    EXPECT_LT(end, static_cast<int>(text.find("Other")));
+    ASSERT_EQ(table.getSubs().size(), 1U);
+    EXPECT_EQ(table.getSubs()[0].name, "Other");
+}
+
+TEST_F(SymbolTableTests, DefineWithSpaceAfterHashIsCaptured) {
+    const auto table = extract("#  define FOO 1\n");
+    ASSERT_EQ(table.getMacros().size(), 1U);
+    EXPECT_EQ(table.getMacros()[0].name, "FOO");
 }
 
 TEST_F(SymbolTableTests, InactiveRangesCoverDeadElse) {

@@ -10,6 +10,7 @@
 #include "VerbatimAnnotator.hpp"
 #include "config/ThemeCategory.hpp"
 #include "config/Value.hpp"
+#include "editor/lexilla/CharCategory.hpp"
 #include "editor/lexilla/FBSciLexer.hpp"
 using namespace fbide;
 using namespace fbide::lexer;
@@ -35,6 +36,17 @@ void toLowerInto(std::string& out, const std::string_view sv) {
     for (std::size_t i = 0; i < sv.size(); i++) {
         out[i] = asciiLower(sv[i]);
     }
+}
+
+/// Length of the run of non-ASCII bytes (>= 0x80) starting at `idx`, or 0.
+/// UTF-8 lead and continuation bytes are all non-ASCII, so a run never ends
+/// inside a character.
+auto nonAsciiRunLength(const std::string_view sv, const std::size_t idx) -> std::size_t {
+    std::size_t end = idx;
+    while (end < sv.size() && static_cast<unsigned char>(sv[end]) >= 0x80) {
+        end++;
+    }
+    return end - idx;
 }
 
 /// Longest-match operator dispatch via first-char switch.
@@ -121,6 +133,8 @@ auto matchOperator(const std::string_view slice) -> std::pair<OperatorKind, std:
     case '@':
         return { AddressOf, 1 };
     case '#':
+        if (peek(1) == '#')
+            return { TokenPaste, 2 }; // ## macro-argument concatenation
         return { Hash, 1 };
     default:
         return { Other, 1 };
@@ -188,6 +202,15 @@ auto StyleLexer::nextStyle() -> std::optional<StyleRange> {
         m_pos++;
     }
     return StyleRange { style, start, m_pos };
+}
+
+auto StyleLexer::charAt(const Sci_PositionU pos) const -> char {
+    if (pos >= m_src.length()) {
+        return '\0';
+    }
+    char chr = '\0';
+    m_src.getCharRange(&chr, pos, 1);
+    return chr;
 }
 
 auto StyleLexer::stringFromRange(const Sci_PositionU start, const Sci_PositionU end) const -> std::string {
@@ -339,6 +362,9 @@ void StyleLexer::emitDefault(const StyleRange& r, std::vector<Token>& out) {
             i = end;
         } else {
             // Unexpected non-whitespace under Default style — treat as Invalid.
+            // A run of non-ASCII bytes (multi-byte UTF-8 text) stays one token
+            // so the formatter can never split a character.
+            const auto end = i + std::max<std::size_t>(1, nonAsciiRunLength(text, i));
             out.push_back(Token {
                 TokenKind::Invalid,
                 KeywordKind::None,
@@ -346,11 +372,42 @@ void StyleLexer::emitDefault(const StyleRange& r, std::vector<Token>& out) {
                 ThemeCategory::Default,
                 false,
                 false,
-                std::string(1, c),
+                text.substr(i, end - i),
             });
-            i++;
+            i = end;
         }
     }
+}
+
+auto StyleLexer::isTypeSuffix(
+    const std::string_view sv,
+    const std::size_t idx,
+    const std::size_t len,
+    const Sci_PositionU rangeStart,
+    const std::vector<Token>& out
+) const -> bool {
+    // `%` `&` `!` `#` `$` are FB type suffixes (`x%`, `n&`, `f!`, `d#`, `s$`)
+    // when glued to the end of a name. Each also has an operator reading —
+    // `&` concatenates, `#` introduces a file number, `!` prefixes an escaped
+    // string literal — so the suffix reading needs both sides to agree:
+    // the preceding token must be word-like and immediately adjacent (a space
+    // would have produced a Whitespace token), and the next character must not
+    // start a word, which would make `a&b` a concatenation rather than `a&`
+    // followed by a stray `b`.
+    if (len != 1 || idx != 0) {
+        return false;
+    }
+    const char chr = sv[idx];
+    if (chr != '%' && chr != '&' && chr != '!' && chr != '#' && chr != '$') {
+        return false;
+    }
+    if (out.empty() || !isWordLike(out.back().kind)) {
+        return false;
+    }
+    const char next = idx + 1 < sv.size()
+                        ? sv[idx + 1]
+                        : charAt(rangeStart + static_cast<Sci_PositionU>(idx) + 1);
+    return !isIdentifier(next);
 }
 
 void StyleLexer::emitOperator(const StyleRange& range, std::vector<Token>& out) {
@@ -359,6 +416,10 @@ void StyleLexer::emitOperator(const StyleRange& range, std::vector<Token>& out) 
     std::size_t i = 0;
     while (i < sv.size()) {
         auto [op, len] = matchOperator(sv.substr(i));
+        // Keep multi-byte UTF-8 text in one token (see emitDefault).
+        if (const auto run = nonAsciiRunLength(sv, i); run > 0) {
+            len = run;
+        }
         // Unary form fixups
         if (m_canBeUnary) {
             if (op == OperatorKind::Add) {
@@ -368,6 +429,9 @@ void StyleLexer::emitOperator(const StyleRange& range, std::vector<Token>& out) 
             } else if (op == OperatorKind::Multiply) {
                 op = OperatorKind::Dereference;
             }
+        }
+        if (isTypeSuffix(sv, i, len, range.start, out)) {
+            op = OperatorKind::TypeSuffix;
         }
         out.push_back(Token {
             TokenKind::Operator,
@@ -383,6 +447,7 @@ void StyleLexer::emitOperator(const StyleRange& range, std::vector<Token>& out) 
         case OperatorKind::ParenClose:
         case OperatorKind::BracketClose:
         case OperatorKind::BraceClose:
+        case OperatorKind::TypeSuffix:
             m_canBeUnary = false;
             break;
         default:
@@ -445,7 +510,10 @@ void StyleLexer::emitKeyword(const StyleRange& r, TokenKind kind, std::vector<To
         false,
         std::move(text),
     });
-    m_canBeUnary = true; // after a keyword (And, Not, If, ...) next operator is unary
+    // After a keyword (And, Not, If, ...) the next operator is unary. Type
+    // keywords are the exception: they name a value, so a following `*` is
+    // the fixed-length specifier of `Zstring * 32`, not a dereference.
+    m_canBeUnary = kind != TokenKind::KeywordTypes;
 }
 
 void StyleLexer::emitWhitespaceRun(const std::string& text, const Sci_PositionU rangeStart, std::vector<Token>& out) {
@@ -517,7 +585,27 @@ void StyleLexer::emitPreprocessor(const StyleRange& range, std::vector<Token>& o
             emitWhitespaceRun(text.substr(1), range.start + 1, out);
         }
     } else {
-        emitWhitespaceRun(text, range.start, out);
+        // Normally just the whitespace between body tokens. Anything else
+        // that ends up Preprocessor-styled is real source text: emit it as
+        // operator tokens so the formatter can never drop it (issue #136).
+        const auto isLayoutChar = [](const char c) {
+            return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+        };
+        std::size_t i = 0;
+        while (i < text.size()) {
+            const bool layout = isLayoutChar(text[i]);
+            std::size_t end = i + 1;
+            while (end < text.size() && isLayoutChar(text[end]) == layout) {
+                end++;
+            }
+            const auto start = range.start + static_cast<Sci_PositionU>(i);
+            if (layout) {
+                emitWhitespaceRun(text.substr(i, end - i), start, out);
+            } else {
+                emitOperator({ range.style, start, range.start + static_cast<Sci_PositionU>(end) }, out);
+            }
+            i = end;
+        }
     }
     m_canBeUnary = true;
 }
@@ -532,14 +620,21 @@ void StyleLexer::emitKeywordPP(const StyleRange& range, std::vector<Token>& out)
     }
 
     // Append to the in-progress directive token only when it's still the
-    // bare `#` AND no intervening tokens have been emitted on the same line
-    // — that's the directive-position slot. Otherwise emit as a standalone
-    // Preprocessor token (e.g. `once` after `include`, or PP wordlist
-    // matches in macro bodies that must not reclassify the directive).
+    // bare `#` AND nothing but whitespace has been emitted after it on the
+    // same line — that's the directive-position slot. FreeBASIC allows
+    // `#   if` (and Align PP produces it), so the gap folds into the
+    // directive token. Otherwise emit as a standalone Preprocessor token
+    // (e.g. `once` after `include`, or PP wordlist matches in macro bodies
+    // that must not reclassify the directive).
     const bool atDirectivePos = m_ppDirectiveIdx < out.size()
-                             && m_ppDirectiveIdx == out.size() - 1
-                             && out[m_ppDirectiveIdx].text == "#";
+                             && out[m_ppDirectiveIdx].text == "#"
+                             && std::all_of(out.begin() + static_cast<std::ptrdiff_t>(m_ppDirectiveIdx) + 1, out.end(),
+                                 [](const Token& tok) { return tok.kind == TokenKind::Whitespace; });
     if (atDirectivePos) {
+        for (auto idx = m_ppDirectiveIdx + 1; idx < out.size(); idx++) {
+            out[m_ppDirectiveIdx].text += out[idx].text;
+        }
+        out.resize(m_ppDirectiveIdx + 1);
         out[m_ppDirectiveIdx].text += text;
         out[m_ppDirectiveIdx].keywordKind = kwKind;
         out[m_ppDirectiveIdx].style = ThemeCategory::KeywordPP;

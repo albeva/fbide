@@ -57,7 +57,7 @@ auto TreeParser::parse(const std::vector<Token>& tokens, ProgramTree&& recycle) 
     m_builder.reset();
     m_builder.reclaim(std::move(recycle)); // reuse the prior parse's BlockNodes
     m_segment.clear();
-    m_ppDepths.clear();
+    m_ppFrames.clear();
 
     while (hasMore()) {
         step();
@@ -142,10 +142,18 @@ void TreeParser::processLine() {
         // Colon → dispatch current segment, start new one.
         // Under reFormat=false the colon stays as a regular token in the
         // segment so the original inline layout survives.
-        if (tkn.operatorKind == OperatorKind::Colon && m_options.reFormat) {
+        // A single-line `If c Then a : b` is the exception: both statements
+        // belong to the condition, so the colon stays inside the segment.
+        if (tkn.operatorKind == OperatorKind::Colon && m_options.reFormat && !isSingleLineIf()) {
+            // `Public:` / `Private:` / `Protected:` inside a Type body are
+            // visibility labels, not a statement separator — the colon belongs
+            // to the label and must survive the split.
+            if (isAccessModifierLabel()) {
+                m_segment.push_back(tkn);
+            }
+            advance();
             dispatch();
             m_segment.clear();
-            advance();
             continue;
         }
 
@@ -191,25 +199,39 @@ void TreeParser::dispatch() {
         case KeywordKind::PpIfDef:
         case KeywordKind::PpIfNDef:
         case KeywordKind::PpMacro:
-            m_ppDepths.push_back(m_builder.stackDepth());
+            m_ppFrames.push_back(PpFrame { .depth = m_builder.stackDepth(), .closes = {}, .current = 0, .hasElse = false });
             m_builder.openBlock(true);
             return;
         case KeywordKind::PpEndIf:
-        case KeywordKind::PpEndMacro:
-            // Auto-close any unclosed code blocks inside this PP scope
-            if (!m_ppDepths.empty()) {
-                m_builder.closeToDepth(m_ppDepths.back() + 1);
-                m_ppDepths.pop_back();
+        case KeywordKind::PpEndMacro: {
+            std::size_t outerCloses = 0;
+            if (!m_ppFrames.empty()) {
+                auto& frame = m_ppFrames.back();
+                // Auto-close any unclosed code blocks inside this PP scope
+                m_builder.closeToDepth(frame.depth + 1);
+                frame.closes.push_back(frame.current);
+                // Every branch closed the same enclosing blocks: they end here.
+                if (frame.hasElse
+                    && std::ranges::all_of(frame.closes, [&](const auto n) { return n == frame.closes.front(); })) {
+                    outerCloses = frame.closes.front();
+                }
+                m_ppFrames.pop_back();
             }
             m_builder.closePPBlock();
+            m_builder.closeOuterBlocks(outerCloses);
             return;
+        }
         case KeywordKind::PpElse:
         case KeywordKind::PpElseIf:
         case KeywordKind::PpElseIfDef:
         case KeywordKind::PpElseIfNDef:
-            // Auto-close any unclosed code blocks inside this PP scope
-            if (!m_ppDepths.empty()) {
-                m_builder.closeToDepth(m_ppDepths.back() + 1);
+            if (!m_ppFrames.empty()) {
+                auto& frame = m_ppFrames.back();
+                // Auto-close any unclosed code blocks inside this PP scope
+                m_builder.closeToDepth(frame.depth + 1);
+                frame.closes.push_back(frame.current);
+                frame.current = 0;
+                frame.hasElse = frame.hasElse || m_segment[firstIdx].keywordKind == KeywordKind::PpElse;
             }
             m_builder.openBranch();
             return;
@@ -257,6 +279,17 @@ void TreeParser::dispatch() {
         }
         return;
 
+    // Extern — block only in the `Extern "C" ... End Extern` form, which
+    // names the calling convention as a string. `Extern name As Type` (and
+    // `Extern Import`) declare a symbol and stay a plain statement.
+    case KeywordKind::Extern:
+        if (hasStringAfterFirstKeyword()) {
+            openBlockOrStatement();
+        } else {
+            m_builder.statement();
+        }
+        return;
+
     // Type — block only when NOT followed by As (alias form)
     case KeywordKind::Type: {
         KeywordKind second = KeywordKind::None;
@@ -287,12 +320,15 @@ void TreeParser::dispatch() {
         return;
     }
 
-    // Block closers — TreeBuilder won't close past PP boundaries
+    // Block closers — TreeBuilder won't close past PP boundaries. A refused
+    // closer inside `#if` closes an enclosing block in this branch only.
     case KeywordKind::End:
     case KeywordKind::Loop:
     case KeywordKind::Next:
     case KeywordKind::Wend:
-        m_builder.closeBlock();
+        if (!m_builder.closeBlock() && !m_ppFrames.empty()) {
+            m_ppFrames.back().current++;
+        }
         return;
 
     // Mid-block → branch
@@ -312,6 +348,40 @@ void TreeParser::dispatch() {
         m_builder.statement();
         return;
     }
+}
+
+auto TreeParser::isAccessModifierLabel() const -> bool {
+    // True when the segment collected so far is exactly one access modifier —
+    // the `Public` of a `Public:` visibility label.
+    bool seen = false;
+    for (const auto& tkn : m_segment) {
+        if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
+            continue;
+        }
+        if (seen || !isAccessModifier(tkn.keywordKind)) {
+            return false;
+        }
+        seen = true;
+    }
+    return seen;
+}
+
+auto TreeParser::isSingleLineIf() const -> bool {
+    if (firstKeyword() != KeywordKind::If) {
+        return false;
+    }
+    bool seenThen = false;
+    for (const auto& tkn : m_segment) {
+        if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline
+            || tkn.kind == TokenKind::Comment || tkn.kind == TokenKind::CommentBlock) {
+            continue;
+        }
+        if (seenThen) {
+            return true;
+        }
+        seenThen = tkn.keywordKind == KeywordKind::Then;
+    }
+    return false;
 }
 
 auto TreeParser::firstKeyword() const -> KeywordKind {
@@ -361,6 +431,21 @@ void TreeParser::openBlockOrStatement() {
     } else {
         m_builder.openBlock();
     }
+}
+
+auto TreeParser::hasStringAfterFirstKeyword() const -> bool {
+    bool seenKeyword = false;
+    for (const auto& tkn : m_segment) {
+        if (tkn.kind == TokenKind::Whitespace || tkn.kind == TokenKind::Newline) {
+            continue;
+        }
+        if (!seenKeyword) {
+            seenKeyword = true;
+            continue;
+        }
+        return tkn.kind == TokenKind::String;
+    }
+    return false;
 }
 
 auto TreeParser::hasBlockCloserAfterFirst() const -> bool {

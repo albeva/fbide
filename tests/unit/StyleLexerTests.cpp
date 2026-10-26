@@ -359,6 +359,79 @@ TEST_F(StyleLexerTests, PreprocessorOnePerLine) {
     EXPECT_EQ(ppCount, 2u);
 }
 
+TEST_F(StyleLexerTests, PreprocessorBodyDotIsOperator) {
+    // Issue #136: `.` in a macro body must survive as a Dot operator token.
+    const auto all = lex("#define X (a.b)\n");
+    for (const auto& tok : all) {
+        if (tok.kind == TokenKind::Whitespace) {
+            EXPECT_EQ(tok.text.find_first_not_of(" \t\r"), std::string::npos) << "'" << tok.text << "'";
+        }
+    }
+    auto t = strip(all);
+    ASSERT_EQ(t.size(), 7u);
+    EXPECT_EQ(t[4].kind, TokenKind::Operator);
+    EXPECT_EQ(t[4].operatorKind, OperatorKind::Dot);
+    EXPECT_EQ(t[4].text, ".");
+}
+
+TEST_F(StyleLexerTests, PreprocessorStyledNonWhitespaceIsNotWhitespace) {
+    // Safety net: a non-`#` Preprocessor-styled run is normally only the
+    // whitespace between body tokens. Should any other character end up
+    // styled that way, it must come out as a real token, never Whitespace.
+    const std::string src = "#define X a.b\n";
+    m_doc.Set(src);
+    m_lexer->Lex(0, m_doc.Length(), +ThemeCategory::Default, &m_doc);
+    m_doc.StartStyling(static_cast<Sci_Position>(src.find('.')));
+    m_doc.SetStyleFor(1, static_cast<char>(+ThemeCategory::Preprocessor));
+    MemoryDocStyledSource source(m_doc);
+    StyleLexer adapter(source);
+    auto t = strip(adapter.tokenise());
+    std::string joined;
+    for (const auto& tok : t) {
+        joined += tok.text;
+    }
+    EXPECT_EQ(joined, "#defineXa.b");
+    const auto dot = std::ranges::find(t, std::string { "." }, &Token::text);
+    ASSERT_NE(dot, t.end());
+    EXPECT_EQ(dot->kind, TokenKind::Operator);
+    EXPECT_EQ(dot->operatorKind, OperatorKind::Dot);
+}
+
+TEST_F(StyleLexerTests, NonAsciiRunIsOneToken) {
+    // Forum follow-up to #136: each byte of a multi-byte character became its
+    // own token, so the formatter spaced them apart and broke the UTF-8.
+    const auto texts = [&](const std::string& src) {
+        std::vector<std::string> out;
+        for (const auto& tok : strip(lex(src))) {
+            out.push_back(tok.text);
+        }
+        return out;
+    };
+    EXPECT_EQ(texts("Dim \u53D8\u91CF As Integer"), (std::vector<std::string> { "Dim", "\u53D8\u91CF", "As", "Integer" }));
+    EXPECT_EQ(texts("#define X \u4E2D\n"), (std::vector<std::string> { "#define", "X", "\u4E2D" }));
+    const auto colon = texts("x = 1 \uFF1A y = 2");
+    EXPECT_NE(std::ranges::find(colon, std::string { "\uFF1A" }), colon.end());
+}
+
+TEST_F(StyleLexerTests, PreprocessorDirectiveWithSpaceAfterHash) {
+    // FreeBASIC allows whitespace between `#` and the directive (`#   if`),
+    // which is also what Align PP produces. It must still be one directive
+    // token, classified like `#if`.
+    const auto first = [&](const std::string& src) { return strip(lex(src)).front(); };
+    auto t = first("#   if X\n");
+    EXPECT_EQ(t.kind, TokenKind::Preprocessor);
+    EXPECT_EQ(t.keywordKind, KeywordKind::PpIf);
+    EXPECT_EQ(t.text, "#   if");
+    EXPECT_EQ(first("#\tdefine A 1\n").keywordKind, KeywordKind::PpDefine);
+    EXPECT_EQ(first("#  else\n").keywordKind, KeywordKind::PpElse);
+    EXPECT_EQ(first("# endif\n").keywordKind, KeywordKind::PpEndIf);
+    // Body tokens follow as usual.
+    auto all = strip(lex("#    ifdef FOO\n"));
+    ASSERT_EQ(all.size(), 2u);
+    EXPECT_EQ(all[0].keywordKind, KeywordKind::PpIfDef);
+    EXPECT_EQ(all[1].text, "FOO");
+}
+
 TEST_F(StyleLexerTests, PreprocessorDefineBodyKeywordDoesNotReclassifyDirective) {
     // `If` inside a `#define` body would be styled KeywordPP by FBSciLexer
     // (because `if` is in the wordlist for `#if`). Body KeywordPP runs emit

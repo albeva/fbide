@@ -5,6 +5,7 @@
 // https://github.com/albeva/fbide
 //
 #include "App.hpp"
+#include "Appearance.hpp"
 #include "Context.hpp"
 #include "FileAssociations.hpp"
 #include "FileAssociationsLinux.hpp"
@@ -18,6 +19,7 @@
 #include "document/DocumentManager.hpp"
 #include "document/FileSession.hpp"
 #include "format/FormatCommand.hpp"
+#include "format/FormatIO.hpp"
 #include "format/FormatSettings.hpp"
 #include "ui/UIManager.hpp"
 #include "update/UpdateManager.hpp"
@@ -40,6 +42,13 @@ Commands:
                         --apply-case      normalise keyword case
                         --html            render as HTML instead of code
                         -o, --output <f>  write to <f> instead of stdout
+                        --encoding <name> read <file> in <name> instead of
+                                          detecting it; output keeps the same
+                                          encoding (HTML is always UTF-8).
+                                          Names: UTF-8, UTF-8-BOM, UTF-16-LE,
+                                          UTF-16-BE, Windows-1252, Windows-1250,
+                                          Windows-1251, CP437, CP850,
+                                          ISO-8859-1, System (platform default)
 
 Options:
   --config <path>     Use the specified config file.
@@ -150,24 +159,18 @@ void App::initAppearance() {
     // never repaint. SetAppearance(Dark) returns AppearanceResult; log
     // when it fails so misbehaving installs leave a breadcrumb in the
     // log.
-    const auto appearance = m_context->getConfigManager().config().get_or("appearance", "").Lower();
+    const auto appearance = m_context->getConfigManager().config().get_or("appearance", "");
     if (appearance.IsEmpty()) {
         return;
     }
 
-    auto target = Appearance::System;
-    if (appearance == "dark") {
-        target = Appearance::Dark;
-    } else if (appearance == "light") {
-        target = Appearance::Light;
-    } else if (appearance == "system") {
-        target = Appearance::System;
-    } else {
+    const auto target = parseAppearance(appearance);
+    if (!target.has_value()) {
         wxLogWarning("Unknown 'appearance' value '%s' — expected light/dark/system", appearance);
         return;
     }
 
-    const auto result = SetAppearance(target);
+    const auto result = SetAppearance(*target);
     if (result != AppearanceResult::Ok) {
         const wxString reason = (result == AppearanceResult::CannotChange)
                                   ? "appearance can no longer be changed (already shown windows)"
@@ -199,6 +202,9 @@ auto App::OnInit() -> bool {
     m_logPath = cli.logPath;
     if (cli.verbose) {
         wxLog::SetVerbose(true);
+    }
+    if (cli.ignoredEncoding.has_value()) {
+        wxLogVerbose("--encoding '%s' ignored: it only applies to the format command", *cli.ignoredEncoding);
     }
 
     // If asked, block until the predecessor process has exited. The
@@ -261,6 +267,7 @@ auto App::OnInit() -> bool {
                                                 .applyCase = settings.applyCase,
                                                 .html = cli.formatHtml,
                                                 .outputPath = cli.formatOutput,
+                                                .encoding = cli.formatEncoding,
                                             })
                 .run(cli.formatInput));
     }
@@ -382,6 +389,21 @@ auto App::parseCli() const -> CliOptions {
                     return opts;
                 }
                 opts.formatOutput = args[index];
+            } else if (arg == "--encoding") {
+                index += 1;
+                if (index >= args.GetCount()) {
+                    writeErrLine("fbide: format --encoding requires an encoding name");
+                    opts.parseFailed = true;
+                    return opts;
+                }
+                opts.formatEncoding = parseEncodingName(args[index].ToStdString());
+                if (!opts.formatEncoding.has_value()) {
+                    writeErrLine(wxString::Format(
+                        "fbide: unknown encoding '%s'; expected one of: %s", args[index], wxString(encodingNames())
+                    ));
+                    opts.parseFailed = true;
+                    return opts;
+                }
             } else if (arg.StartsWith("-")) {
                 writeErrLine(wxString::Format("fbide: unknown format option: %s", arg));
                 opts.parseFailed = true;
@@ -423,6 +445,13 @@ auto App::parseCli() const -> CliOptions {
         }
         if (arg == "--verbose") {
             opts.verbose = true;
+            continue;
+        }
+        // `--encoding <name>` only applies to `format`; elsewhere it is
+        // accepted and ignored, value included, so it is never opened as a file.
+        if (arg == "--encoding") {
+            index += 1;
+            opts.ignoredEncoding = index < args.GetCount() ? args[index] : wxString {};
             continue;
         }
         if (arg == "--config") {

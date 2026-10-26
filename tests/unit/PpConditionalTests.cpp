@@ -14,7 +14,7 @@ class PpConditionalTests : public testing::Test {
 protected:
     static inline const wxString testDataPath = FBIDE_TEST_DATA_DIR;
 
-    void SetUp() override { m_lexer = tests::createFbLexer(testDataPath + "fbfull.lng"); }
+    void SetUp() override { m_lexer = tests::createFbLexer(testDataPath + "resources/ide/keywords.ini"); }
     void TearDown() override {
         m_lexer->Release();
         m_lexer = nullptr;

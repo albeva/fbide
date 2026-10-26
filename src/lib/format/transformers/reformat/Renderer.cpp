@@ -105,10 +105,18 @@ void Renderer::renderStatement(const StatementNode& stmt, const std::size_t inde
     }
 
     emitLeadingIndent(stmt, first, indent);
-    emit(stmt.tokens[first]);
+    // Not aligning: Align PP's padding between `#` and the directive word is
+    // layout, so normalise `#   if` back to `#if`.
+    if ((m_options.reIndent || m_options.reFormat) && stmt.tokens[first].kind == TokenKind::Preprocessor) {
+        emit(withoutHashPadding(stmt.tokens[first]));
+    } else {
+        emit(stmt.tokens[first]);
+    }
 
     if (m_options.reFormat) {
+        const auto spacedParen = spacedMacroParen(stmt, first);
         const Token* prev = &stmt.tokens[first];
+        std::size_t prevIdx = first;
         bool justBrokeLine = false;
         for (std::size_t i = first + 1; i < stmt.tokens.size(); i++) {
             // Preserve `_` line continuations: emit the newline and re-indent
@@ -124,11 +132,12 @@ void Renderer::renderStatement(const StatementNode& stmt, const std::size_t inde
             if (isLayout(stmt.tokens[i])) {
                 continue;
             }
-            if (!justBrokeLine && needsSpaceBefore(*prev, stmt.tokens[i])) {
+            if (!justBrokeLine && (i == spacedParen || needsSpaceBefore(*prev, stmt.tokens[i], i > prevIdx + 1))) {
                 emitSpace();
             }
             emit(stmt.tokens[i]);
             prev = &stmt.tokens[i];
+            prevIdx = i;
             justBrokeLine = false;
         }
         emitNewline();
@@ -190,16 +199,19 @@ void Renderer::renderAnchoredPP(const StatementNode& stmt, const std::size_t ind
     // Emit body tokens (identifiers, strings, numbers, operators, modifier
     // keywords) with the same spacing rules as a normal statement so the
     // line preserves `#define LOG(x) Print x`-style content.
+    const auto spacedParen = spacedMacroParen(stmt, first);
     const Token* prev = &stmt.tokens[first];
+    std::size_t prevIdx = first;
     for (std::size_t i = first + 1; i < stmt.tokens.size(); i++) {
         if (isLayout(stmt.tokens[i])) {
             continue;
         }
-        if (needsSpaceBefore(*prev, stmt.tokens[i])) {
+        if (i == spacedParen || needsSpaceBefore(*prev, stmt.tokens[i], i > prevIdx + 1)) {
             emitSpace();
         }
         emit(stmt.tokens[i]);
         prev = &stmt.tokens[i];
+        prevIdx = i;
     }
     emitNewline();
 }
@@ -225,11 +237,75 @@ void Renderer::emit(Token token) {
 
 // region ---------- Classification ----------
 
+auto Renderer::spacedMacroParen(const StatementNode& stmt, const std::size_t first) -> std::size_t {
+    constexpr auto npos = std::numeric_limits<std::size_t>::max();
+    const auto& tokens = stmt.tokens;
+    const auto kind = tokens[first].keywordKind;
+    if (tokens[first].kind != TokenKind::Preprocessor
+        || (kind != KeywordKind::PpDefine && kind != KeywordKind::PpMacro)) {
+        return npos;
+    }
+    // Macro name: the first significant token after the directive.
+    auto i = first + 1;
+    while (i < tokens.size() && isLayout(tokens[i])) {
+        i++;
+    }
+    if (i >= tokens.size() || tokens[i].kind != TokenKind::Identifier) {
+        return npos;
+    }
+    // Only a plain whitespace gap counts — a newline would be a continuation.
+    auto paren = i + 1;
+    bool spaced = false;
+    while (paren < tokens.size() && tokens[paren].kind == TokenKind::Whitespace) {
+        spaced = true;
+        paren++;
+    }
+    if (!spaced || paren >= tokens.size() || tokens[paren].operatorKind != OperatorKind::ParenOpen) {
+        return npos;
+    }
+    return paren;
+}
+
+auto Renderer::withoutHashPadding(Token token) -> Token {
+    auto& text = token.text;
+    if (text.size() > 1 && text.front() == '#') {
+        const auto word = text.find_first_not_of(" \t", 1);
+        if (word != std::string::npos && word > 1) {
+            text.erase(1, word - 1);
+        }
+    }
+    return token;
+}
+
 auto Renderer::isLayout(const Token& token) -> bool {
     return token.kind == TokenKind::Whitespace || token.kind == TokenKind::Newline;
 }
 
-auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
+auto Renderer::isCompoundAssignKeyword(const Token& token) -> bool {
+    if (token.kind != TokenKind::KeywordOperators) {
+        return false;
+    }
+    static constexpr std::array kNames { "and", "or", "xor", "eqv", "imp", "mod", "shl", "shr" };
+    std::string lowered;
+    lowered.reserve(token.text.size());
+    for (const char chr : token.text) {
+        lowered += static_cast<char>(std::tolower(static_cast<unsigned char>(chr)));
+    }
+    return std::ranges::find(kNames, lowered) != kNames.end();
+}
+
+auto Renderer::isUnrecognised(const Token& token) -> bool {
+    return token.kind == TokenKind::Invalid
+        || (token.kind == TokenKind::Operator && !token.text.empty()
+            && static_cast<unsigned char>(token.text.front()) >= 0x80);
+}
+
+auto Renderer::isPlainBinaryOperator(const Token& token) -> bool {
+    return token.kind == TokenKind::Operator
+        && (token.operatorKind == OperatorKind::Other || token.operatorKind == OperatorKind::Assign);
+}
+
+auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr, const bool sourceSpaced) -> bool {
     using enum OperatorKind;
     const auto prevOp = prev.operatorKind;
     const auto currOp = curr.operatorKind;
@@ -241,12 +317,48 @@ auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
         return true;
     }
 
+    // Text the lexer can't classify (non-ASCII runs): keep the source's
+    // spacing — `x变量` stays glued, `x 变量` keeps its space.
+    if (isUnrecognised(prev) || isUnrecognised(curr)) {
+        return sourceSpaced;
+    }
+
+    // Two binary operators glued in the source (`&=` + `>` of `a &=> b`) are
+    // an operator the lexer doesn't know, or invalid code — keep them as
+    // written. Unary, bracket and separator operators have their own kinds
+    // and keep the normal rules (`a = -1`, `f(x) = 1`).
+    if (!sourceSpaced && isPlainBinaryOperator(prev) && isPlainBinaryOperator(curr)) {
+        return false;
+    }
+
+    // `and=` / `or=` / `xor=` / `eqv=` / `imp=` / `mod=` / `shl=` / `shr=` are
+    // single compound-assignment operators spelled as a keyword plus `=`. The
+    // `=` hugs the keyword; the keyword-operator rule below would split them.
+    if (currOp == Assign && isCompoundAssignKeyword(prev)) {
+        return false;
+    }
+
     // Keyword operators (And, Or, Not, Mod, Xor, Shl, Shr) are styled as
     // KeywordOperators by FBSciLexer. They need whitespace on both sides:
     // `x AND (y)` not `x AND(y)`.
     if (prev.kind == TokenKind::KeywordOperators
         || curr.kind == TokenKind::KeywordOperators) {
         return true;
+    }
+
+    // A type suffix is part of the name it follows: `x%`, `n&`, `s$`.
+    if (currOp == TypeSuffix) {
+        return false;
+    }
+
+    // `##` pastes macro arguments and reads as a binary operator — `t ## n`.
+    // An underscore operand is the exception: `A##_##B` builds the identifier
+    // `A_B`, and a detached `_` would read as a line continuation instead.
+    if (prevOp == TokenPaste) {
+        return curr.text != "_";
+    }
+    if (currOp == TokenPaste) {
+        return prev.text != "_";
     }
 
     // After ( or [ → no space
@@ -270,8 +382,9 @@ auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
 
     // Before ( or [ → no space only when preceded by identifier/keyword/closing
     // (function call / indexing). After operators, space is needed for grouping.
+    // A type suffix counts as part of the name, so `arr%(i)` stays a call.
     if (currOp == ParenOpen || currOp == BracketOpen) {
-        return prev.kind == TokenKind::Operator;
+        return prev.kind == TokenKind::Operator && prevOp != TypeSuffix;
     }
 
     // Dot and Arrow: no space on either side
@@ -279,8 +392,16 @@ auto Renderer::needsSpaceBefore(const Token& prev, const Token& curr) -> bool {
         return false;
     }
 
-    // Before , → no space
-    if (currOp == Comma) {
+    // Before , or ; → no space. Both are separators: the space goes after.
+    if (currOp == Comma || currOp == Semicolon) {
+        return false;
+    }
+
+    // `Public:` / `Private:` / `Protected:` — the colon belongs to the
+    // visibility label. Other colons are statement separators: the parser
+    // splits on them, except inside a single-line `If`, where they reach
+    // here and take the default ` : ` spacing.
+    if (currOp == Colon && isAccessModifier(prev.keywordKind)) {
         return false;
     }
 

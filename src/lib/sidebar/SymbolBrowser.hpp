@@ -21,6 +21,15 @@ class Document;
 /// list matches anything.
 [[nodiscard]] auto symbolFilterMatches(const std::vector<wxString>& words, const wxString& haystack) -> bool;
 
+/// Lowercased names of the definitions (not forward `Declare`s) in `bucket`.
+[[nodiscard]] auto definedSymbolNames(const std::vector<Symbol>& bucket) -> std::unordered_set<std::string>;
+
+/// True when `sym` is a forward `Declare` whose definition is in the same
+/// bucket (`defined` from `definedSymbolNames`). The browser lists such a
+/// procedure once, as its definition; a `Declare` with no definition (e.g. a
+/// header prototype) and overloaded definitions are all kept.
+[[nodiscard]] auto isRedundantDeclaration(const Symbol& sym, const std::unordered_set<std::string>& defined) -> bool;
+
 /**
  * Sub/Function tree tab — a `wxTreeCtrl` subclass parented to the
  * sidebar notebook (inside `SymbolBrowserPanel`). Renders a
