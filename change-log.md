@@ -1,5 +1,6 @@
 # Changes since 0.5.1
 
+- Updated wxWidgets to 3.3.4.
 - Fixed various formatter issues (#136)
 - Fixed the formatter dropping `.` and `...` from `#define` bodies, and joining an object-like macro's name to its `(` (#136).
 - Fixed a loop closed separately in each `#if` / `#else` branch breaking the Sub/Function list and the indentation of the code after it (#136).
