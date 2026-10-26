@@ -10,7 +10,9 @@
 .clion/
 
 # AIs
-.claude/
+.claude/*
+!.claude/skills/
+!.claude/commands/
 .agents/
 skills-lock.json
 CLAUDE.md

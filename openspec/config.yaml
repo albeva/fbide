@@ -1,0 +1,50 @@
+schema: spec-driven
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+#   context: |
+#     Designs and tasks must cover Windows, macOS, and Linux
+#     Write all artifacts in Spanish
+context: |
+  FBIde is a clean-room C++23 / wxWidgets 3.3 rewrite of the classic FBIde 0.4
+  (reference: classic_0.4 branch). Behavioural parity with the classic IDE is the
+  baseline; deviations must be called out explicitly in the proposal.
+  Designs and tasks must cover Windows, macOS and Linux; note any platform-only
+  behaviour (e.g. CHM help is Windows-only).
+  Legacy formats (.fbt themes, .fbl languages, .ini settings, .lng keywords,
+  .fbs sessions) must stay importable; changes touching them need a migration note.
+  No god-classes: new features get their own components with clear ownership (RAII).
+  User-visible strings go through named translation keys, never numeric indexes.
+
+rules:
+  proposal:
+    - State what is out of scope
+    - Note whether the change affects classic-FBIde parity or legacy file formats
+  tasks:
+    - Include adding or updating tests under tests/ (unit or ui) for new behaviour
+    - End with a build + test run (./build/claude/debug/tests/tests)
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
