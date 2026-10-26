@@ -1,5 +1,6 @@
 # Changes since 0.5.1
 
+- Fixed the Symbols browser listing a Sub/Function twice when it is both declared (`Declare Sub …`) and defined; it is now one entry that opens the definition.
 - Added a Theme setting (System / Dark / Light) next to Language in General settings, on systems that support switching it (Windows 10 1903+, macOS 10.14+, Linux GTK3); FBIde offers to restart to apply it.
 - Updated wxWidgets to 3.3.4.
 - Fixed various formatter issues (#136)

@@ -40,3 +40,45 @@ TEST(SymbolBrowserFilterTests, WordsMatchAsSubstrings) {
     EXPECT_TRUE(symbolFilterMatches({ "mytype" }, "mytype.draw function"));
     EXPECT_FALSE(symbolFilterMatches({ "missing" }, "mytype.draw function"));
 }
+
+// ---------------------------------------------------------------------------
+// Declare + definition collapse into one browser entry
+// ---------------------------------------------------------------------------
+
+namespace {
+
+auto sub(const char* name, const int line, const bool declaration) -> Symbol {
+    return Symbol { .kind = SymbolKind::Sub, .name = name, .owner = {}, .line = line, .declaration = declaration };
+}
+
+} // namespace
+
+TEST(SymbolBrowserFilterTests, DeclarationWithDefinitionIsRedundant) {
+    // Forum report: `Declare Sub test1()` + `Sub test1 … End Sub` listed twice.
+    const std::vector bucket { sub("test1", 0, true), sub("test", 3, false), sub("test1", 12, false) };
+    const auto defined = definedSymbolNames(bucket);
+    EXPECT_TRUE(isRedundantDeclaration(bucket[0], defined));
+    EXPECT_FALSE(isRedundantDeclaration(bucket[1], defined));
+    EXPECT_FALSE(isRedundantDeclaration(bucket[2], defined)); // the definition stays
+}
+
+TEST(SymbolBrowserFilterTests, DeclarationMatchesDefinitionIgnoringCase) {
+    // FreeBASIC names are case-insensitive.
+    const std::vector bucket { sub("TEST1", 0, true), sub("test1", 5, false) };
+    EXPECT_TRUE(isRedundantDeclaration(bucket[0], definedSymbolNames(bucket)));
+}
+
+TEST(SymbolBrowserFilterTests, DeclarationWithoutDefinitionIsKept) {
+    // A header-style forward declaration is the procedure's only entry.
+    const std::vector bucket { sub("external", 0, true), sub("other", 2, false) };
+    EXPECT_FALSE(isRedundantDeclaration(bucket[0], definedSymbolNames(bucket)));
+}
+
+TEST(SymbolBrowserFilterTests, OverloadedDefinitionsAreAllKept) {
+    // Two definitions of one name are overloads, not duplicates.
+    const std::vector bucket { sub("f", 0, true), sub("f", 3, false), sub("f", 7, false) };
+    const auto defined = definedSymbolNames(bucket);
+    EXPECT_TRUE(isRedundantDeclaration(bucket[0], defined));
+    EXPECT_FALSE(isRedundantDeclaration(bucket[1], defined));
+    EXPECT_FALSE(isRedundantDeclaration(bucket[2], defined));
+}

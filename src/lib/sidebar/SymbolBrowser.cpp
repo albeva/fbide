@@ -49,6 +49,21 @@ auto fbide::symbolFilterMatches(const std::vector<wxString>& words, const wxStri
     return std::ranges::all_of(words, [&](const wxString& word) { return haystack.Contains(word); });
 }
 
+auto fbide::definedSymbolNames(const std::vector<Symbol>& bucket) -> std::unordered_set<std::string> {
+    std::unordered_set<std::string> names;
+    for (const auto& sym : bucket) {
+        if (!sym.declaration) {
+            names.insert(sym.name.Lower().utf8_string());
+        }
+    }
+    return names;
+}
+
+auto fbide::isRedundantDeclaration(const Symbol& sym, const std::unordered_set<std::string>& defined) -> bool {
+    // FreeBASIC names are case-insensitive: `Declare Sub FOO` declares `Sub foo`.
+    return sym.declaration && defined.contains(sym.name.Lower().utf8_string());
+}
+
 wxBEGIN_EVENT_TABLE(SymbolBrowser, wxTreeCtrl)
     EVT_TREE_ITEM_ACTIVATED(wxID_ANY, SymbolBrowser::onItemActivated)
     EVT_TREE_ITEM_EXPANDING(wxID_ANY, SymbolBrowser::onItemExpanding)
@@ -156,9 +171,13 @@ void SymbolBrowser::appendBucket(
     const auto isFreeStanding = [](const Symbol& sym) { return symbolOwner(sym).empty(); };
     const auto& bucket = (m_currentTable.get()->*getter)();
 
+    // A `Declare` and its definition are one procedure: list it once, as the
+    // definition, so activating it navigates to the body.
+    const auto defined = definedSymbolNames(bucket);
     std::vector<std::size_t> kept;
     for (std::size_t idx = 0; idx < bucket.size(); idx++) {
-        if (isFreeStanding(bucket[idx]) && passesFilter(bucket[idx].name, kind)) {
+        if (isFreeStanding(bucket[idx]) && !isRedundantDeclaration(bucket[idx], defined)
+            && passesFilter(bucket[idx].name, kind)) {
             kept.push_back(idx);
         }
     }
@@ -274,8 +293,12 @@ auto SymbolBrowser::collectIncludeApi(const SymbolTable& table, const bool all) 
     std::vector<ApiSym> out;
     for (const auto& bucket : kApiBuckets) {
         const auto& vec = (table.*bucket.getter)();
+        const auto defined = definedSymbolNames(vec);
         for (std::size_t idx = 0; idx < vec.size(); idx++) {
             if (bucket.freeOnly && !symbolOwner(vec[idx]).empty()) {
+                continue;
+            }
+            if (isRedundantDeclaration(vec[idx], defined)) {
                 continue;
             }
             if (!all && !passesFilter(vec[idx].name, bucket.kind)) {
